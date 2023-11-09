@@ -25,7 +25,7 @@ func TestProviderConfigure(t *testing.T) {
 	rp := New(ctx, "dev")()
 	rp.Schema(ctx, tfprovider.SchemaRequest{}, &tfprovider.SchemaResponse{})
 
-	if d := Provider().ValidateImplementation(ctx); d.HasError() {
+	if d := ProviderSchema().ValidateImplementation(ctx); d.HasError() {
 		t.Fatalf("unexpected error in provider schema: %s", d)
 	}
 
@@ -56,7 +56,7 @@ func TestProviderConfigure(t *testing.T) {
 					},
 				),
 			}),
-			Schema: Provider(),
+			Schema: ProviderSchema(),
 		},
 	}
 

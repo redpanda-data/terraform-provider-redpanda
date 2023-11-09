@@ -34,14 +34,14 @@ type CloudV2 struct {
 	cloudv1beta1.OperationServiceClient
 }
 
-func NewCloudV2Client(ctx context.Context, version string, model models.Redpanda) *CloudV2 {
+func NewCloudV2Client(ctx context.Context, version string, model models.Redpanda) CloudV2 {
 	switch {
 	case model.AuthToken.String() != "":
 		conn, err := spawnConn(ctx, version, model.AuthToken.String())
 		if err != nil {
 			log.Fatal(err)
 		}
-		return &CloudV2{
+		return CloudV2{
 			ClusterServiceClient:   cloudv1beta1.NewClusterServiceClient(conn),
 			NamespaceServiceClient: cloudv1beta1.NewNamespaceServiceClient(conn),
 			NetworkServiceClient:   cloudv1beta1.NewNetworkServiceClient(conn),
@@ -56,7 +56,7 @@ func NewCloudV2Client(ctx context.Context, version string, model models.Redpanda
 		if err != nil {
 			log.Fatal(err) // TODO dont
 		}
-		return &CloudV2{ // TODO double check that this is legal and we can share a connection
+		return CloudV2{
 			ClusterServiceClient:   cloudv1beta1.NewClusterServiceClient(conn),
 			NamespaceServiceClient: cloudv1beta1.NewNamespaceServiceClient(conn),
 			NetworkServiceClient:   cloudv1beta1.NewNetworkServiceClient(conn),
@@ -64,7 +64,7 @@ func NewCloudV2Client(ctx context.Context, version string, model models.Redpanda
 		}
 	default:
 		log.Fatal("neither auth_token nor client_id and client_secret are set") // TODO dont
-		return nil
+		return CloudV2{}                                                        // good luck getting here but the compiler needs it
 	}
 }
 

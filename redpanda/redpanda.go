@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/namespace"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
@@ -29,8 +29,8 @@ func New(ctx context.Context, version string) func() tfprovider.Provider {
 	}
 }
 
-func Provider() *schema.Schema {
-	return &schema.Schema{
+func ProviderSchema() schema.Schema {
+	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"auth_token": schema.StringAttribute{
 				Optional:    true,
@@ -77,8 +77,8 @@ func (r *Redpanda) Configure(ctx context.Context, request tfprovider.ConfigureRe
 	cv2c := clients.NewCloudV2Client(ctx, r.version, conf)
 
 	// Clients are passed through to downstream resources through the response struct
-	response.ResourceData = &utils.ResourceData{CloudV2Client: cv2c}
-	response.DataSourceData = &utils.DatasourceData{CloudV2Client: cv2c}
+	response.ResourceData = utils.ResourceData{CloudV2Client: cv2c}
+	response.DataSourceData = utils.DatasourceData{CloudV2Client: cv2c}
 }
 
 func (r *Redpanda) Metadata(ctx context.Context, request tfprovider.MetadataRequest, response *tfprovider.MetadataResponse) {
@@ -87,7 +87,7 @@ func (r *Redpanda) Metadata(ctx context.Context, request tfprovider.MetadataRequ
 }
 
 func (r *Redpanda) Schema(ctx context.Context, request tfprovider.SchemaRequest, response *tfprovider.SchemaResponse) {
-	response.Schema = *Provider()
+	response.Schema = ProviderSchema()
 }
 
 func (r *Redpanda) DataSources(ctx context.Context) []func() datasource.DataSource {
@@ -98,7 +98,7 @@ func (r *Redpanda) DataSources(ctx context.Context) []func() datasource.DataSour
 func (r *Redpanda) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		func() resource.Resource {
-			return resources.Namespace{}
+			return namespace.Namespace{}
 		},
 		// TODO implement remaining resources
 	}
