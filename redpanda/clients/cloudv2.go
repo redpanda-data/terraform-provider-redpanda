@@ -34,37 +34,36 @@ type CloudV2 struct {
 	cloudv1beta1.OperationServiceClient
 }
 
-func NewCloudV2Client(ctx context.Context, version string, model models.Redpanda) CloudV2 {
+func NewCloudV2Client(ctx context.Context, version string, model models.Redpanda) (*CloudV2, error) {
 	switch {
 	case !model.AuthToken.IsNull():
 		conn, err := spawnConn(ctx, version, model.AuthToken.String())
 		if err != nil {
 			log.Fatal(err)
 		}
-		return CloudV2{
+		return &CloudV2{
 			ClusterServiceClient:   cloudv1beta1.NewClusterServiceClient(conn),
 			NamespaceServiceClient: cloudv1beta1.NewNamespaceServiceClient(conn),
 			NetworkServiceClient:   cloudv1beta1.NewNetworkServiceClient(conn),
 			OperationServiceClient: cloudv1beta1.NewOperationServiceClient(conn),
-		}
+		}, nil
 	case !(model.ClientID.IsNull() && model.ClientSecret.IsNull()):
-		token, err := requestToken(version, model.ClientID.String(), model.ClientSecret.String())
+		token, err := requestToken(version, model.ClientID.ValueString(), model.ClientSecret.ValueString())
 		if err != nil {
-			log.Fatal(err) // TODO dont
+			return nil, err
 		}
 		conn, err := spawnConn(ctx, version, token)
 		if err != nil {
-			log.Fatal(err) // TODO dont
+			return nil, err
 		}
-		return CloudV2{
+		return &CloudV2{
 			ClusterServiceClient:   cloudv1beta1.NewClusterServiceClient(conn),
 			NamespaceServiceClient: cloudv1beta1.NewNamespaceServiceClient(conn),
 			NetworkServiceClient:   cloudv1beta1.NewNetworkServiceClient(conn),
 			OperationServiceClient: cloudv1beta1.NewOperationServiceClient(conn),
-		}
+		}, nil
 	default:
-		log.Fatal("neither auth_token nor client_id and client_secret are set") // TODO dont
-		return CloudV2{}                                                        // good luck getting here but the compiler needs it
+		return nil, fmt.Errorf("neither auth_token nor client_id and client_secret are set")
 	}
 }
 
@@ -94,6 +93,9 @@ func requestToken(version, clientId, clientSecret string) (string, error) {
 	tokenContainer := TokenResponse{}
 	if err := json.NewDecoder(resp.Body).Decode(&tokenContainer); err != nil {
 		return "", fmt.Errorf("error decoding token response: %v", err)
+	}
+	if tokenContainer.AccessToken == "" {
+		return "", fmt.Errorf("no access token found in response: %v", tokenContainer)
 	}
 	return tokenContainer.AccessToken, nil
 }

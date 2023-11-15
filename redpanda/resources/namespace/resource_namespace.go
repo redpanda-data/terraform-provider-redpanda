@@ -54,7 +54,7 @@ func (n *Namespace) Create(ctx context.Context, req resource.CreateRequest, resp
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 	ns, err := n.Client.CreateNamespace(ctx, &cloudv1beta1.CreateNamespaceRequest{
 		Namespace: &cloudv1beta1.Namespace{
-			Name: model.Name.String(),
+			Name: model.Name.ValueString(),
 		},
 	})
 	if err != nil {
@@ -73,7 +73,7 @@ func (n *Namespace) Read(ctx context.Context, req resource.ReadRequest, resp *re
 	var model models.Namespace
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 	ns, err := n.Client.GetNamespace(ctx, &cloudv1beta1.GetNamespaceRequest{
-		Id: model.Id.String(),
+		Id: model.Id.ValueString(),
 	})
 
 	if err != nil {
@@ -96,8 +96,8 @@ func (n *Namespace) Update(ctx context.Context, req resource.UpdateRequest, resp
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 	ns, err := n.Client.UpdateNamespace(ctx, &cloudv1beta1.UpdateNamespaceRequest{
 		Namespace: &cloudv1beta1.Namespace{
-			Name: model.Name.String(),
-			Id:   model.Id.String(),
+			Name: model.Name.ValueString(),
+			Id:   model.Id.ValueString(),
 		},
 	})
 	if err != nil {
@@ -115,7 +115,7 @@ func (n *Namespace) Delete(ctx context.Context, req resource.DeleteRequest, resp
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
 	_, err := n.Client.DeleteNamespace(ctx, &cloudv1beta1.DeleteNamespaceRequest{
-		Id: model.Id.String(),
+		Id: model.Id.ValueString(),
 	})
 	if err != nil {
 		if utils.IsNotFound(err) {

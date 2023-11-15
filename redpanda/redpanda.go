@@ -74,11 +74,18 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		return
 	}
 
-	cv2c := clients.NewCloudV2Client(ctx, r.version, conf)
+	cv2c, err := clients.NewCloudV2Client(ctx, r.version, conf)
+	if err != nil {
+		response.Diagnostics.AddError(
+			"failed to create client",
+			err.Error(),
+		)
+		return
+	}
 
 	// Clients are passed through to downstream resources through the response struct
-	response.ResourceData = utils.ResourceData{CloudV2Client: cv2c}
-	response.DataSourceData = utils.DatasourceData{CloudV2Client: cv2c}
+	response.ResourceData = utils.ResourceData{CloudV2Client: *cv2c}
+	response.DataSourceData = utils.DatasourceData{CloudV2Client: *cv2c}
 }
 
 func (r *Redpanda) Metadata(ctx context.Context, request provider.MetadataRequest, response *provider.MetadataResponse) {
