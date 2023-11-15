@@ -3,7 +3,7 @@ package redpanda
 import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
-	tfprovider "github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
@@ -11,25 +11,17 @@ import (
 	"testing"
 )
 
-// Providers map for testing
-var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-	"redpanda": providerserver.NewProtocol6WithError(New(context.Background(), "dev")()),
-}
-
-func testAccPreCheck(t *testing.T) {
-}
-
 func TestProviderConfigure(t *testing.T) {
 	ctx := context.Background()
 
 	rp := New(ctx, "dev")()
-	rp.Schema(ctx, tfprovider.SchemaRequest{}, &tfprovider.SchemaResponse{})
+	rp.Schema(ctx, provider.SchemaRequest{}, &provider.SchemaResponse{})
 
 	if d := ProviderSchema().ValidateImplementation(ctx); d.HasError() {
 		t.Fatalf("unexpected error in provider schema: %s", d)
 	}
 
-	request := tfprovider.ConfigureRequest{
+	request := provider.ConfigureRequest{
 		Config: tfsdk.Config{
 			Raw: tftypes.NewValue(tftypes.Object{
 				AttributeTypes: map[string]tftypes.Type{
@@ -60,7 +52,7 @@ func TestProviderConfigure(t *testing.T) {
 		},
 	}
 
-	resp := &tfprovider.ConfigureResponse{
+	resp := &provider.ConfigureResponse{
 		Diagnostics: make(diag.Diagnostics, 0),
 	}
 	rp.Configure(ctx, request, resp)
@@ -68,4 +60,12 @@ func TestProviderConfigure(t *testing.T) {
 	if resp.Diagnostics.HasError() {
 		t.Fatalf("unexpected error in provider configuration: %s", resp.Diagnostics)
 	}
+}
+
+var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
+	"redpanda": providerserver.NewProtocol6WithError(New(context.Background(), "dev")()),
+}
+
+func testAccPreCheck(t *testing.T) {
+
 }

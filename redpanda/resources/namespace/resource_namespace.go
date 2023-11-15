@@ -22,11 +22,11 @@ type Namespace struct {
 	Client cloudv1beta1.NamespaceServiceClient
 }
 
-func (n Namespace) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+func (n *Namespace) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = "redpanda_namespace"
 }
 
-func (n Namespace) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (n *Namespace) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = ResourceNamespaceSchema()
 }
 
@@ -49,7 +49,7 @@ func ResourceNamespaceSchema() schema.Schema {
 	}
 }
 
-func (n Namespace) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+func (n *Namespace) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var model models.Namespace
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 	ns, err := n.Client.CreateNamespace(ctx, &cloudv1beta1.CreateNamespaceRequest{
@@ -69,7 +69,7 @@ func (n Namespace) Create(ctx context.Context, req resource.CreateRequest, resp 
 	return
 }
 
-func (n Namespace) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+func (n *Namespace) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var model models.Namespace
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 	ns, err := n.Client.GetNamespace(ctx, &cloudv1beta1.GetNamespaceRequest{
@@ -91,7 +91,7 @@ func (n Namespace) Read(ctx context.Context, req resource.ReadRequest, resp *res
 	})...)
 }
 
-func (n Namespace) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (n *Namespace) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var model models.Namespace
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 	ns, err := n.Client.UpdateNamespace(ctx, &cloudv1beta1.UpdateNamespaceRequest{
@@ -110,7 +110,7 @@ func (n Namespace) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	})...)
 }
 
-func (n Namespace) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+func (n *Namespace) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var model models.Namespace
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
@@ -127,7 +127,7 @@ func (n Namespace) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 	}
 }
 
-func (n Namespace) Configure(ctx context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
+func (n *Namespace) Configure(ctx context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
 	if request.ProviderData == nil {
 		return
 	}
@@ -145,7 +145,7 @@ func (n Namespace) Configure(ctx context.Context, request resource.ConfigureRequ
 
 // ImportState refreshes the state with the correct ID for the namespace, allowing TF to use Read to get the correct Namespace name into state
 // see https://developer.hashicorp.com/terraform/plugin/framework/resources/import for more details
-func (n Namespace) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
+func (n *Namespace) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
 	response.Diagnostics.Append(response.State.Set(ctx, models.Namespace{
 		Id: types.StringValue(request.ID), // TODO ask if we can have a method in the client for validating the UUID format locally
 	})...)

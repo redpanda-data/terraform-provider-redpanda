@@ -3,7 +3,7 @@ package redpanda
 import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
-	tfprovider "github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -13,16 +13,16 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
-var _ tfprovider.Provider = &Redpanda{}
+var _ provider.Provider = &Redpanda{}
 
 type Redpanda struct {
 	version string
 }
 
 // New spawns a basic provider struct, no client. Configure must be called for a working client
-func New(ctx context.Context, version string) func() tfprovider.Provider {
+func New(ctx context.Context, version string) func() provider.Provider {
 	// TODO consider whether the below should support a mock flow with a ci switch? since configure is primary TF entrypoint anyway
-	return func() tfprovider.Provider {
+	return func() provider.Provider {
 		return &Redpanda{
 			version: version,
 		}
@@ -67,7 +67,7 @@ func ProviderSchema() schema.Schema {
 }
 
 // Configure is the primary entrypoint for terraform and properly initializes the client
-func (r *Redpanda) Configure(ctx context.Context, request tfprovider.ConfigureRequest, response *tfprovider.ConfigureResponse) {
+func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequest, response *provider.ConfigureResponse) {
 	var conf models.Redpanda
 	response.Diagnostics.Append(request.Config.Get(ctx, &conf)...)
 	if response.Diagnostics.HasError() {
@@ -81,12 +81,12 @@ func (r *Redpanda) Configure(ctx context.Context, request tfprovider.ConfigureRe
 	response.DataSourceData = utils.DatasourceData{CloudV2Client: cv2c}
 }
 
-func (r *Redpanda) Metadata(ctx context.Context, request tfprovider.MetadataRequest, response *tfprovider.MetadataResponse) {
+func (r *Redpanda) Metadata(ctx context.Context, request provider.MetadataRequest, response *provider.MetadataResponse) {
 	response.TypeName = "redpanda"
 	response.Version = r.version
 }
 
-func (r *Redpanda) Schema(ctx context.Context, request tfprovider.SchemaRequest, response *tfprovider.SchemaResponse) {
+func (r *Redpanda) Schema(ctx context.Context, request provider.SchemaRequest, response *provider.SchemaResponse) {
 	response.Schema = ProviderSchema()
 }
 
@@ -98,7 +98,7 @@ func (r *Redpanda) DataSources(ctx context.Context) []func() datasource.DataSour
 func (r *Redpanda) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		func() resource.Resource {
-			return namespace.Namespace{}
+			return &namespace.Namespace{}
 		},
 		// TODO implement remaining resources
 	}

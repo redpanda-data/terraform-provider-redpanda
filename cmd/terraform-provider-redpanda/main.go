@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/provider"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda"
 	"log"
 )
 
@@ -18,12 +18,10 @@ func main() {
 	log.Println("starting")
 	// Setup connection
 
-	opts := providerserver.ServeOpts{
+	if err := providerserver.Serve(context.Background(), redpanda.New(context.Background(), version), providerserver.ServeOpts{
 		Address: "registry.terraform.io/redpanda-data/redpanda",
 		Debug:   debug,
-	}
-	if err := providerserver.Serve(context.Background(), provider.New(context.Background(), version), opts); err != nil {
+	}); err != nil {
 		log.Fatal(err.Error()) // TODO dont
 	}
-
 }
