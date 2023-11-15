@@ -36,7 +36,7 @@ type CloudV2 struct {
 
 func NewCloudV2Client(ctx context.Context, version string, model models.Redpanda) CloudV2 {
 	switch {
-	case model.AuthToken.String() != "":
+	case !model.AuthToken.IsNull():
 		conn, err := spawnConn(ctx, version, model.AuthToken.String())
 		if err != nil {
 			log.Fatal(err)
@@ -47,7 +47,7 @@ func NewCloudV2Client(ctx context.Context, version string, model models.Redpanda
 			NetworkServiceClient:   cloudv1beta1.NewNetworkServiceClient(conn),
 			OperationServiceClient: cloudv1beta1.NewOperationServiceClient(conn),
 		}
-	case model.ClientID.String() != "" && model.ClientSecret.String() != "":
+	case !(model.ClientID.IsNull() && model.ClientSecret.IsNull()):
 		token, err := requestToken(version, model.ClientID.String(), model.ClientSecret.String())
 		if err != nil {
 			log.Fatal(err) // TODO dont
