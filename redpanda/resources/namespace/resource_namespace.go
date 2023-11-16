@@ -26,6 +26,22 @@ func (n *Namespace) Metadata(ctx context.Context, req resource.MetadataRequest, 
 	resp.TypeName = "redpanda_namespace"
 }
 
+func (n *Namespace) Configure(ctx context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
+	if request.ProviderData == nil {
+		return
+	}
+
+	p, ok := request.ProviderData.(utils.ResourceData)
+	if !ok {
+		response.Diagnostics.AddError(
+			"Unexpected Resource Configure Type",
+			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", request.ProviderData),
+		)
+		return
+	}
+	n.Client = p.CloudV2Client
+}
+
 func (n *Namespace) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = ResourceNamespaceSchema()
 }
@@ -125,22 +141,6 @@ func (n *Namespace) Delete(ctx context.Context, req resource.DeleteRequest, resp
 		resp.Diagnostics.AddError("failed to delete namespace", err.Error())
 		return
 	}
-}
-
-func (n *Namespace) Configure(ctx context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
-	if request.ProviderData == nil {
-		return
-	}
-
-	p, ok := request.ProviderData.(utils.ResourceData)
-	if !ok {
-		response.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", request.ProviderData),
-		)
-		return
-	}
-	n.Client = p.CloudV2Client
 }
 
 // ImportState refreshes the state with the correct ID for the namespace, allowing TF to use Read to get the correct Namespace name into state

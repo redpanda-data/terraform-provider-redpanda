@@ -4,9 +4,7 @@ import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
-	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
-	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"testing"
 )
@@ -60,12 +58,4 @@ func TestProviderConfigure(t *testing.T) {
 	if resp.Diagnostics.HasError() {
 		t.Fatalf("unexpected error in provider configuration: %s", resp.Diagnostics)
 	}
-}
-
-var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-	"redpanda": providerserver.NewProtocol6WithError(New(context.Background(), "dev")()),
-}
-
-func testAccPreCheck(t *testing.T) {
-
 }
