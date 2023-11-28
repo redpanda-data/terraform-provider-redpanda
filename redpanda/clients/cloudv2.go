@@ -6,11 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
-	"log"
 	"net/http"
 	"strings"
 )
@@ -26,45 +24,66 @@ var endpoints = map[string]map[string]map[string]string{
 	},
 }
 
-// CloudV2 wrapper for various clients used to access cloudv2 API
-type CloudV2 struct {
-	cloudv1beta1.ClusterServiceClient
-	cloudv1beta1.NamespaceServiceClient
-	cloudv1beta1.NetworkServiceClient
-	cloudv1beta1.OperationServiceClient
+type ClientRequest struct {
+	AuthToken    string
+	ClientID     string
+	ClientSecret string
 }
 
-func NewCloudV2Client(ctx context.Context, version string, model models.Redpanda) (*CloudV2, error) {
+// NewClusterServiceClient creates a new ClusterServiceClient
+func NewClusterServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.ClusterServiceClient, error) {
+	conn, err := createConnection(ctx, version, cr)
+	if err != nil {
+		return nil, err
+	}
+	return cloudv1beta1.NewClusterServiceClient(conn), nil
+}
+
+// NewNamespaceServiceClient creates a new NamespaceServiceClient
+func NewNamespaceServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.NamespaceServiceClient, error) {
+	conn, err := createConnection(ctx, version, cr)
+	if err != nil {
+		return nil, err
+	}
+	return cloudv1beta1.NewNamespaceServiceClient(conn), nil
+}
+
+// NewNetworkServiceClient creates a new NetworkServiceClient
+func NewNetworkServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.NetworkServiceClient, error) {
+	conn, err := createConnection(ctx, version, cr)
+	if err != nil {
+		return nil, err
+	}
+	return cloudv1beta1.NewNetworkServiceClient(conn), nil
+}
+
+// NewOperationServiceClient creates a new OperationServiceClient
+func NewOperationServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.OperationServiceClient, error) {
+	conn, err := createConnection(ctx, version, cr)
+	if err != nil {
+		return nil, err
+	}
+	return cloudv1beta1.NewOperationServiceClient(conn), nil
+}
+
+// createConnection is a helper function to create a connection based on the Redpanda model
+func createConnection(ctx context.Context, version string, cr ClientRequest) (*grpc.ClientConn, error) {
+	var token string
+	var err error
+
 	switch {
-	case !model.AuthToken.IsNull():
-		conn, err := spawnConn(ctx, version, model.AuthToken.String())
-		if err != nil {
-			log.Fatal(err)
-		}
-		return &CloudV2{
-			ClusterServiceClient:   cloudv1beta1.NewClusterServiceClient(conn),
-			NamespaceServiceClient: cloudv1beta1.NewNamespaceServiceClient(conn),
-			NetworkServiceClient:   cloudv1beta1.NewNetworkServiceClient(conn),
-			OperationServiceClient: cloudv1beta1.NewOperationServiceClient(conn),
-		}, nil
-	case !(model.ClientID.IsNull() && model.ClientSecret.IsNull()):
-		token, err := requestToken(version, model.ClientID.ValueString(), model.ClientSecret.ValueString())
+	case cr.AuthToken != "":
+		token = cr.AuthToken
+	case !(cr.ClientID == "" && cr.ClientSecret == ""):
+		token, err = requestToken(version, cr.ClientID, cr.ClientSecret)
 		if err != nil {
 			return nil, err
 		}
-		conn, err := spawnConn(ctx, version, token)
-		if err != nil {
-			return nil, err
-		}
-		return &CloudV2{
-			ClusterServiceClient:   cloudv1beta1.NewClusterServiceClient(conn),
-			NamespaceServiceClient: cloudv1beta1.NewNamespaceServiceClient(conn),
-			NetworkServiceClient:   cloudv1beta1.NewNetworkServiceClient(conn),
-			OperationServiceClient: cloudv1beta1.NewOperationServiceClient(conn),
-		}, nil
 	default:
 		return nil, fmt.Errorf("neither auth_token nor client_id and client_secret are set")
 	}
+
+	return spawnConn(ctx, version, token)
 }
 
 type TokenResponse struct {

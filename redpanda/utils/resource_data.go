@@ -1,8 +1,11 @@
 package utils
 
-import "github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
-
 // ResourceData is used to pass data and dependencies to resource implementations
 type ResourceData struct {
-	CloudV2Client clients.CloudV2
+	ClientID     string
+	ClientSecret string
+	AuthToken    string
+	Version      string
 }
+
+// TODO add cloud provider and region as values to persist

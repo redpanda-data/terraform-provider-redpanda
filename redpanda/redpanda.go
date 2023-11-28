@@ -7,9 +7,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/namespace"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/network"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
@@ -74,18 +74,19 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		return
 	}
 
-	cv2c, err := clients.NewCloudV2Client(ctx, r.version, conf)
-	if err != nil {
-		response.Diagnostics.AddError(
-			"failed to create client",
-			err.Error(),
-		)
-		return
-	}
-
 	// Clients are passed through to downstream resources through the response struct
-	response.ResourceData = utils.ResourceData{CloudV2Client: *cv2c}
-	response.DataSourceData = utils.DatasourceData{CloudV2Client: *cv2c}
+	response.ResourceData = utils.ResourceData{
+		ClientID:     conf.ClientID.ValueString(),
+		ClientSecret: conf.ClientSecret.ValueString(),
+		AuthToken:    conf.AuthToken.ValueString(),
+		Version:      r.version,
+	}
+	response.DataSourceData = utils.DatasourceData{
+		ClientID:     conf.ClientID.ValueString(),
+		ClientSecret: conf.ClientSecret.ValueString(),
+		AuthToken:    conf.AuthToken.ValueString(),
+		Version:      r.version,
+	}
 }
 
 func (r *Redpanda) Metadata(ctx context.Context, request provider.MetadataRequest, response *provider.MetadataResponse) {
@@ -106,6 +107,9 @@ func (r *Redpanda) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		func() resource.Resource {
 			return &namespace.Namespace{}
+		},
+		func() resource.Resource {
+			return &network.Network{}
 		},
 		// TODO implement remaining resources
 	}

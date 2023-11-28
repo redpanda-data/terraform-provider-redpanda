@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
@@ -28,6 +29,10 @@ func (n *Namespace) Metadata(ctx context.Context, req resource.MetadataRequest, 
 
 func (n *Namespace) Configure(ctx context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
 	if request.ProviderData == nil {
+		// we can't add a diagnostic for an unset providerdata here because during the early part of the terraform
+		// lifecycle, the provider data is not set and this is valid
+		// but we also can't do anything until it is set
+		response.Diagnostics.AddWarning("provider data not set", "provider data not set at namespace.Configure")
 		return
 	}
 
@@ -39,7 +44,16 @@ func (n *Namespace) Configure(ctx context.Context, request resource.ConfigureReq
 		)
 		return
 	}
-	n.Client = p.CloudV2Client
+	client, err := clients.NewNamespaceServiceClient(ctx, p.Version, clients.ClientRequest{
+		AuthToken:    p.AuthToken,
+		ClientID:     p.ClientID,
+		ClientSecret: p.ClientSecret,
+	})
+	if err != nil {
+		response.Diagnostics.AddError("failed to create namespace client", err.Error())
+		return
+	}
+	n.Client = client
 }
 
 func (n *Namespace) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {

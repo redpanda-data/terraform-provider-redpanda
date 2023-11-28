@@ -19,9 +19,10 @@ func TestNewCloudV2Client(t *testing.T) {
 		name string
 		args args
 		want CloudV2
+		err  bool
 	}{
 		{
-			name: "test",
+			name: "test_success",
 			args: args{
 				ctx:     context.Background(),
 				version: "dev",
@@ -30,11 +31,18 @@ func TestNewCloudV2Client(t *testing.T) {
 					ClientSecret: types.StringValue(os.Getenv("CLIENT_SECRET")),
 				},
 			},
+			want: CloudV2{},
+			err:  false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewCloudV2Client(tt.args.ctx, tt.args.version, tt.args.model); !reflect.DeepEqual(got, tt.want) {
+			got, err := NewCloudV2Client(tt.args.ctx, tt.args.version, tt.args.model)
+			if (err != nil) != tt.err {
+				t.Errorf("NewCloudV2Client() error = %v, errExpected %v", err, tt.err)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewCloudV2Client() = %v, want %v", got, tt.want)
 			}
 		})
