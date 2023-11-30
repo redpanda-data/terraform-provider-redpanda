@@ -21,6 +21,11 @@ var endpoints = map[string]map[string]map[string]string{
 			"token":    "https://dev-cloudv2.us.auth0.com/oauth/token",
 			"audience": "cloudv2-dev.redpanda.cloud",
 		},
+		"ign": {
+			"api":      "api.ign.cloud.redpanda.com:443",
+			"token":    "https://integration-cloudv2.us.auth0.com/oauth/token",
+			"audience": "cloudv2-ign.redpanda.cloud",
+		},
 	},
 }
 

@@ -21,7 +21,7 @@ var providerCfgAuthVars = config.Variables{
 }
 
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-	"redpanda": providerserver.NewProtocol6WithError(redpanda.New(context.Background(), "dev")()),
+	"redpanda": providerserver.NewProtocol6WithError(redpanda.New(context.Background(), "ign")()),
 }
 
 // testAccPreCheck is used to perform provider validation before running the provider

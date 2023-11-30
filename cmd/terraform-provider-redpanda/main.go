@@ -8,11 +8,12 @@ import (
 	"log"
 )
 
-var version = "dev"
+var version = "ign"
 var debug = false
 
 func main() {
 	flag.BoolVar(&debug, "debug", false, "set to true to run the provider with support for debuggers like delve")
+	flag.StringVar(&version, "version", "ign", "version of the provider")
 	flag.Parse()
 
 	log.Println("starting")
