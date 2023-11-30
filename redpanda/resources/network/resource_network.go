@@ -152,10 +152,15 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		return
 	}
 
-	// TODO add a wait for the operation to complete
+	// TODO accept user configuration for timeout
+	if err := utils.AreWeDoneYet(ctx, op, 15*time.Minute, n.OpsClient); err != nil {
+		response.Diagnostics.AddError("failed waiting for network creation", err.Error())
+		return
+	}
+
 	response.Diagnostics.Append(response.State.Set(ctx, models.Network{
 		Name:          model.Name,
-		Id:            types.StringValue(metadata.NetworkId),
+		Id:            utils.TrimmedStringValue(metadata.GetNetworkId()),
 		CidrBlock:     model.CidrBlock,
 		Region:        model.Region,
 		NamespaceId:   model.NamespaceId,
@@ -175,7 +180,7 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 			response.State.RemoveResource(ctx)
 			return
 		} else {
-			response.Diagnostics.AddError("failed to read network", err.Error())
+			response.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.Id.ValueString()), err.Error())
 			return
 		}
 	}

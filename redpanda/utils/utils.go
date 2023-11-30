@@ -3,6 +3,8 @@ package utils
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	"strings"
 	"time"
@@ -102,4 +104,51 @@ func CheckOpsState(op *cloudv1beta1.Operation) bool {
 	default:
 		return false
 	}
+}
+
+func StringToConnectionType(s string) cloudv1beta1.Cluster_ConnectionType {
+	switch strings.ToLower(s) {
+	case "public":
+		return cloudv1beta1.Cluster_CONNECTION_TYPE_PUBLIC
+	case "private":
+		return cloudv1beta1.Cluster_CONNECTION_TYPE_PRIVATE
+	default:
+		return cloudv1beta1.Cluster_CONNECTION_TYPE_UNSPECIFIED
+	}
+}
+
+func ConnectionTypeToString(t cloudv1beta1.Cluster_ConnectionType) string {
+	switch t {
+	case cloudv1beta1.Cluster_CONNECTION_TYPE_PUBLIC:
+		return "public"
+	case cloudv1beta1.Cluster_CONNECTION_TYPE_PRIVATE:
+		return "private"
+	default:
+		return "unspecified"
+	}
+}
+
+func TypeListToStringSlice(t types.List) []string {
+	var s []string
+	for _, v := range t.Elements() {
+		s = append(s, strings.Trim(v.String(), "\"")) // it's easier to strip the quotes than type coverting until you hit something that doesn't include them
+	}
+	return s
+}
+
+// TestingOnlyStringSliceToTypeList converts a string slice to a types.List. Only use for testing as it swallows the diag
+func TestingOnlyStringSliceToTypeList(s []string) types.List {
+	o, _ := types.ListValueFrom(context.TODO(), types.StringType, s)
+	return o
+}
+
+// TrimmedStringValue returns the string value of a types.String with the quotes removed.
+// This is necessary as terraform has a tendency to slap these bad boys in at random which causes the API to fail
+func TrimmedStringValue(s string) types.String {
+	return basetypes.NewStringValue(strings.Trim(s, "\""))
+}
+
+// TrimmedString returns the string value of a types.String with the quotes removed.
+func TrimmedString(s types.String) string {
+	return strings.Trim(s.String(), "\"")
 }
