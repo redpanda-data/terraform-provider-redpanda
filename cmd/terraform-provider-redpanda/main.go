@@ -8,16 +8,13 @@ import (
 	"log"
 )
 
-var version = "ign"
-var debug = false
+var version string
+var debug bool
 
 func main() {
 	flag.BoolVar(&debug, "debug", false, "set to true to run the provider with support for debuggers like delve")
 	flag.StringVar(&version, "version", "ign", "version of the provider")
 	flag.Parse()
-
-	log.Println("starting")
-	// Setup connection
 
 	if err := providerserver.Serve(context.Background(), redpanda.New(context.Background(), version), providerserver.ServeOpts{
 		Address: "registry.terraform.io/redpanda-data/redpanda",
