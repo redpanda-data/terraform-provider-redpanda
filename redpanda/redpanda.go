@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/cluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/namespace"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/network"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -110,6 +111,9 @@ func (r *Redpanda) Resources(ctx context.Context) []func() resource.Resource {
 		},
 		func() resource.Resource {
 			return &network.Network{}
+		},
+		func() resource.Resource {
+			return &cluster.Cluster{}
 		},
 		// TODO implement remaining resources
 	}

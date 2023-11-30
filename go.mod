@@ -4,6 +4,7 @@ go 1.21.3
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.31.0-20231106192134-1baebb0a1518.2
+	github.com/davecgh/go-spew v1.1.1
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.18.1
 	github.com/hashicorp/terraform-plugin-framework v1.4.1
 	github.com/hashicorp/terraform-plugin-framework-validators v0.12.0

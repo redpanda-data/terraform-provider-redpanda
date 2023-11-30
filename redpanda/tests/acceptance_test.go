@@ -43,7 +43,7 @@ func TestAccResourcesNamespace(t *testing.T) {
 	})
 }
 
-func TestAccResourcesNetwork(t *testing.T) {
+func TestAccResourcesCluster(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
