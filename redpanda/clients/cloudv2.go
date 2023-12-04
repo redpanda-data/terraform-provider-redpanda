@@ -91,7 +91,7 @@ func createConnection(ctx context.Context, version string, cr ClientRequest) (*g
 	return spawnConn(ctx, version, token)
 }
 
-type TokenResponse struct {
+type tokenResponse struct {
 	AccessToken string `json:"access_token"`
 	Scope       string `json:"scope"`
 	ExpiresIn   int    `json:"expires_in"`
