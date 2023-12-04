@@ -84,6 +84,9 @@ func AreWeDoneYet(ctx context.Context, op *cloudv1beta1.Operation, timeout time.
 		}
 		if CheckOpsState(o) {
 			if o.GetError() != nil {
+				if IsNotFound(fmt.Errorf(o.GetError().GetMessage())) {
+					return nil
+				}
 				return fmt.Errorf("operation failed: %s", o.GetError().GetMessage())
 			}
 			return nil
