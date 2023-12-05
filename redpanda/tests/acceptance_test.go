@@ -28,10 +28,94 @@ func TestAccResourcesNamespace(t *testing.T) {
 	ctx := context.Background()
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIdSecretVars)
-	origTestCaseVars["name"] = config.StringVariable(accNamePrepend + "testname")
+	origTestCaseVars["namespace_name"] = config.StringVariable(accNamePrepend + "testname")
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, providerCfgIdSecretVars)
-	updateTestCaseVars["name"] = config.StringVariable(accNamePrepend + "testname2")
+	updateTestCaseVars["namespace_name"] = config.StringVariable(accNamePrepend + "testname2")
+
+	nsClient, err := clients.NewNamespaceServiceClient(ctx, "ign", clients.ClientRequest{
+		ClientID:     clientId,
+		ClientSecret: clientSecret,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var importId string
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				ConfigFile:               config.StaticFile(dedicatedNamespaceFile),
+				ConfigVariables:          origTestCaseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", accNamePrepend+"testname"),
+				),
+			},
+			{
+				ConfigFile:               config.StaticFile(dedicatedNamespaceFile),
+				ConfigVariables:          updateTestCaseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", accNamePrepend+"testname2"),
+					func(s *terraform.State) error {
+						i, err := utils.FindNamespaceByName(ctx, accNamePrepend+"testname2", nsClient)
+						if err != nil {
+							return err
+						}
+						importId = i.GetId()
+						return nil
+					}),
+			},
+			{
+				ResourceName:             "redpanda_namespace.test",
+				ConfigFile:               config.StaticFile(dedicatedNamespaceFile),
+				ConfigVariables:          updateTestCaseVars,
+				ImportState:              true,
+				ImportStateId:            importId,
+				ImportStateVerify:        true,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", accNamePrepend+"testname2"),
+				),
+			},
+			{
+				ConfigFile:               config.StaticFile(dedicatedNamespaceFile),
+				ConfigVariables:          updateTestCaseVars,
+				Destroy:                  true,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+		},
+	})
+
+	resource.AddTestSweepers(accNamePrepend+"testname", &resource.Sweeper{
+		Name: accNamePrepend + "testname",
+		F: sweepNamespace{
+			AccNamePrepend: accNamePrepend,
+			NamespaceName:  "testname",
+			Client:         nsClient,
+			Version:        "ign",
+		}.SweepNamespaces})
+	resource.AddTestSweepers(accNamePrepend+"testname2", &resource.Sweeper{
+		Name: accNamePrepend + "testname2",
+		F: sweepNamespace{
+			AccNamePrepend: accNamePrepend,
+			NamespaceName:  "testname2",
+			Client:         nsClient,
+			Version:        "ign",
+		}.SweepNamespaces})
+
+}
+
+func TestAccResourcesNetwork(t *testing.T) {
+	ctx := context.Background()
+	origTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(origTestCaseVars, providerCfgIdSecretVars)
+	origTestCaseVars["namespace_name"] = config.StringVariable(accNamePrepend + "testnet")
+	origTestCaseVars["network_name"] = config.StringVariable(accNamePrepend + "testnet")
+	updateTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(updateTestCaseVars, providerCfgIdSecretVars)
+	updateTestCaseVars["network_name"] = config.StringVariable(accNamePrepend + "testname2")
 
 	nsClient, err := clients.NewNamespaceServiceClient(ctx, "ign", clients.ClientRequest{
 		ClientID:     clientId,

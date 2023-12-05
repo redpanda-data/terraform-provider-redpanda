@@ -2,9 +2,9 @@
 provider "redpanda" {}
 
 resource "redpanda_namespace" "test" {
-  name = var.name
+  name = var.namespace_name
 }
 
-variable "name" {
+variable "namespace_name" {
   default = "testname"
 }

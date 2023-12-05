@@ -21,5 +21,10 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 
 // testAccPreCheck is used to perform provider validation before running the provider
 func testAccPreCheck(t *testing.T) {
-
+	if v := os.Getenv("CLIENT_ID"); v == "" {
+		t.Fatal("CLIENT_ID must be set for acceptance tests")
+	}
+	if v := os.Getenv("CLIENT_SECRET"); v == "" {
+		t.Fatal("CLIENT_SECRET must be set for acceptance tests")
+	}
 }
