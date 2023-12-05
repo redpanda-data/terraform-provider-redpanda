@@ -48,7 +48,6 @@ func (n *Network) Configure(ctx context.Context, request resource.ConfigureReque
 		return
 	}
 	client, err := clients.NewNetworkServiceClient(ctx, p.Version, clients.ClientRequest{
-		AuthToken:    p.AuthToken,
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})
@@ -58,7 +57,6 @@ func (n *Network) Configure(ctx context.Context, request resource.ConfigureReque
 	}
 
 	opsClient, err := clients.NewOperationServiceClient(ctx, p.Version, clients.ClientRequest{
-		AuthToken:    p.AuthToken,
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})

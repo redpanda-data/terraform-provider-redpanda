@@ -42,7 +42,6 @@ func (c *Cluster) Configure(ctx context.Context, req resource.ConfigureRequest, 
 	}
 
 	client, err := clients.NewClusterServiceClient(ctx, p.Version, clients.ClientRequest{
-		AuthToken:    p.AuthToken,
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})
@@ -53,7 +52,6 @@ func (c *Cluster) Configure(ctx context.Context, req resource.ConfigureRequest, 
 	c.CluClient = client
 
 	ops, err := clients.NewOperationServiceClient(ctx, p.Version, clients.ClientRequest{
-		AuthToken:    p.AuthToken,
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})

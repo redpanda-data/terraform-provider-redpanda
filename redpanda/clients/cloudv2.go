@@ -29,7 +29,6 @@ var endpoints = map[string]map[string]map[string]string{
 }
 
 type ClientRequest struct {
-	AuthToken    string
 	ClientID     string
 	ClientSecret string
 }
