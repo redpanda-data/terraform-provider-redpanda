@@ -6,10 +6,8 @@ import (
 )
 
 type sweepNamespace struct {
-	AccNamePrepend string
-	NamespaceName  string
-	Client         cloudv1beta1.NamespaceServiceClient
-	Version        string
+	NamespaceName string
+	Client        cloudv1beta1.NamespaceServiceClient
 }
 
 func (s sweepNamespace) SweepNamespaces(r string) error {
@@ -18,7 +16,7 @@ func (s sweepNamespace) SweepNamespaces(r string) error {
 	namespaces, err := s.Client.ListNamespaces(ctx, &cloudv1beta1.ListNamespacesRequest{
 		PageSize: 100,
 		Filter: &cloudv1beta1.ListNamespacesRequest_Filter{
-			Name: s.AccNamePrepend + s.NamespaceName,
+			Name: s.NamespaceName,
 		},
 	})
 	if err != nil {
@@ -26,7 +24,7 @@ func (s sweepNamespace) SweepNamespaces(r string) error {
 	}
 
 	for _, v := range namespaces.GetNamespaces() {
-		if v.GetName() == s.AccNamePrepend+s.NamespaceName {
+		if v.GetName() == s.NamespaceName {
 			_, err := s.Client.DeleteNamespace(ctx, &cloudv1beta1.DeleteNamespaceRequest{
 				Id: v.GetId(),
 			})

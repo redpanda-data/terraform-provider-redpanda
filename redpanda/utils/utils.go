@@ -168,5 +168,20 @@ func FindNamespaceByName(ctx context.Context, n string, client cloudv1beta1.Name
 			return v, nil
 		}
 	}
-	return nil, fmt.Errorf("namespace not found")
+	return nil, fmt.Errorf("namespace %s not found", n)
+}
+
+func FindNetworkByName(ctx context.Context, n string, client cloudv1beta1.NetworkServiceClient) (*cloudv1beta1.Network, error) {
+	ns, err := client.ListNetworks(ctx, &cloudv1beta1.ListNetworksRequest{
+		Filter: &cloudv1beta1.ListNetworksRequest_Filter{Name: n},
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range ns.GetNetworks() {
+		if v.GetName() == n {
+			return v, nil
+		}
+	}
+	return nil, fmt.Errorf("network not found")
 }

@@ -17,6 +17,7 @@ const (
 	awsDedicatedClusterFile = "../../examples/dedicated/aws/main.tf"
 	gcpDedicatedClusterFile = "../../examples/dedicated/gcp/main.tf"
 	dedicatedNamespaceFile  = "../../examples/namespace/main.tf"
+	dedicatedNetworkFile    = "../../examples/network/main.tf"
 )
 
 var runClusterTests = os.Getenv("RUN_CLUSTER_TESTS")
@@ -91,18 +92,14 @@ func TestAccResourcesNamespace(t *testing.T) {
 	resource.AddTestSweepers(accNamePrepend+"testname", &resource.Sweeper{
 		Name: accNamePrepend + "testname",
 		F: sweepNamespace{
-			AccNamePrepend: accNamePrepend,
-			NamespaceName:  "testname",
-			Client:         nsClient,
-			Version:        "ign",
+			NamespaceName: accNamePrepend + "testname",
+			Client:        nsClient,
 		}.SweepNamespaces})
 	resource.AddTestSweepers(accNamePrepend+"testname2", &resource.Sweeper{
 		Name: accNamePrepend + "testname2",
 		F: sweepNamespace{
-			AccNamePrepend: accNamePrepend,
-			NamespaceName:  "testname2",
-			Client:         nsClient,
-			Version:        "ign",
+			NamespaceName: accNamePrepend + "testname2",
+			Client:        nsClient,
 		}.SweepNamespaces})
 
 }
@@ -114,10 +111,24 @@ func TestAccResourcesNetwork(t *testing.T) {
 	origTestCaseVars["namespace_name"] = config.StringVariable(accNamePrepend + "testnet")
 	origTestCaseVars["network_name"] = config.StringVariable(accNamePrepend + "testnet")
 	updateTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(updateTestCaseVars, providerCfgIdSecretVars)
-	updateTestCaseVars["network_name"] = config.StringVariable(accNamePrepend + "testname2")
+	maps.Copy(updateTestCaseVars, origTestCaseVars)
+	updateTestCaseVars["network_name"] = config.StringVariable(accNamePrepend + "testnet2")
 
 	nsClient, err := clients.NewNamespaceServiceClient(ctx, "ign", clients.ClientRequest{
+		ClientID:     clientId,
+		ClientSecret: clientSecret,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	netClient, err := clients.NewNetworkServiceClient(ctx, "ign", clients.ClientRequest{
+		ClientID:     clientId,
+		ClientSecret: clientSecret,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	opsClient, err := clients.NewOperationServiceClient(ctx, "ign", clients.ClientRequest{
 		ClientID:     clientId,
 		ClientSecret: clientSecret,
 	})
@@ -129,21 +140,23 @@ func TestAccResourcesNetwork(t *testing.T) {
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			{
-				ConfigFile:               config.StaticFile(dedicatedNamespaceFile),
+				ConfigFile:               config.StaticFile(dedicatedNetworkFile),
 				ConfigVariables:          origTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", accNamePrepend+"testname"),
+					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", accNamePrepend+"testnet"),
+					resource.TestCheckResourceAttr("redpanda_network.test", "name", accNamePrepend+"testnet"),
 				),
 			},
 			{
-				ConfigFile:               config.StaticFile(dedicatedNamespaceFile),
+				ConfigFile:               config.StaticFile(dedicatedNetworkFile),
 				ConfigVariables:          updateTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", accNamePrepend+"testname2"),
+					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", accNamePrepend+"testnet"),
+					resource.TestCheckResourceAttr("redpanda_network.test", "name", accNamePrepend+"testnet2"),
 					func(s *terraform.State) error {
-						i, err := utils.FindNamespaceByName(ctx, accNamePrepend+"testname2", nsClient)
+						i, err := utils.FindNetworkByName(ctx, accNamePrepend+"testnet2", netClient)
 						if err != nil {
 							return err
 						}
@@ -153,18 +166,18 @@ func TestAccResourcesNetwork(t *testing.T) {
 			},
 			{
 				ResourceName:             "redpanda_namespace.test",
-				ConfigFile:               config.StaticFile(dedicatedNamespaceFile),
+				ConfigFile:               config.StaticFile(dedicatedNetworkFile),
 				ConfigVariables:          updateTestCaseVars,
 				ImportState:              true,
 				ImportStateId:            importId,
 				ImportStateVerify:        true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", accNamePrepend+"testname2"),
-				),
+					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", accNamePrepend+"testnet"),
+					resource.TestCheckResourceAttr("redpanda_network.test", "name", accNamePrepend+"testnet2")),
 			},
 			{
-				ConfigFile:               config.StaticFile(dedicatedNamespaceFile),
+				ConfigFile:               config.StaticFile(dedicatedNetworkFile),
 				ConfigVariables:          updateTestCaseVars,
 				Destroy:                  true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -172,23 +185,26 @@ func TestAccResourcesNetwork(t *testing.T) {
 		},
 	})
 
-	resource.AddTestSweepers(accNamePrepend+"testname", &resource.Sweeper{
-		Name: accNamePrepend + "testname",
+	resource.AddTestSweepers(accNamePrepend+"testnet", &resource.Sweeper{
+		Name: accNamePrepend + "testnet",
 		F: sweepNamespace{
-			AccNamePrepend: accNamePrepend,
-			NamespaceName:  "testname",
-			Client:         nsClient,
-			Version:        "ign",
+			NamespaceName: accNamePrepend + "testnet",
+			Client:        nsClient,
 		}.SweepNamespaces})
-	resource.AddTestSweepers(accNamePrepend+"testname2", &resource.Sweeper{
-		Name: accNamePrepend + "testname2",
-		F: sweepNamespace{
-			AccNamePrepend: accNamePrepend,
-			NamespaceName:  "testname2",
-			Client:         nsClient,
-			Version:        "ign",
-		}.SweepNamespaces})
-
+	resource.AddTestSweepers(accNamePrepend+"testnet", &resource.Sweeper{
+		Name: accNamePrepend + "testnet",
+		F: sweepNetwork{
+			NetworkName: accNamePrepend + "testnet",
+			NetClient:   netClient,
+			OpsClient:   opsClient,
+		}.SweepNetworks})
+	resource.AddTestSweepers(accNamePrepend+"testnet2", &resource.Sweeper{
+		Name: accNamePrepend + "testnet2",
+		F: sweepNetwork{
+			NetworkName: accNamePrepend + "testnet2",
+			NetClient:   netClient,
+			OpsClient:   opsClient,
+		}.SweepNetworks})
 }
 
 func TestAccResourcesClusterAWS(t *testing.T) {

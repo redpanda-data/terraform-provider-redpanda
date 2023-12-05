@@ -6,6 +6,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
@@ -77,12 +79,14 @@ func ResourceNetworkSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				Required:    true,
-				Description: "Name of the network",
+				Required:      true,
+				Description:   "Name of the network",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"cidr_block": schema.StringAttribute{
-				Required:    true,
-				Description: "The cidr_block to create the network in",
+				Required:      true,
+				Description:   "The cidr_block to create the network in",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators: []validator.String{
 					stringvalidator.RegexMatches(
 						regexp.MustCompile(`^(\d{1,3}\.){3}\d{1,3}\/(\d{1,2})$`),
@@ -91,19 +95,22 @@ func ResourceNetworkSchema() schema.Schema {
 				},
 			},
 			"region": schema.StringAttribute{
-				Optional:    true,
-				Description: "The region to create the network in. Can also be set at the provider level",
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "The region to create the network in. Can also be set at the provider level",
 			},
 			"cloud_provider": schema.StringAttribute{
-				Optional:    true,
-				Description: "The cloud provider to create the network in. Can also be set at the provider level",
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "The cloud provider to create the network in. Can also be set at the provider level",
 				Validators: []validator.String{
 					stringvalidator.OneOf("gcp", "aws"),
 				},
 			},
 			"namespace_id": schema.StringAttribute{
-				Required:    true,
-				Description: "The id of the namespace in which to create the network",
+				Required:      true,
+				Description:   "The id of the namespace in which to create the network",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"id": schema.StringAttribute{
 				Computed:    true,
@@ -115,6 +122,7 @@ func ResourceNetworkSchema() schema.Schema {
 				Validators: []validator.String{
 					stringvalidator.OneOf("dedicated", "cloud"),
 				},
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 		},
 	}
@@ -192,8 +200,8 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 	})...)
 }
 
+// Update is not supported for network. As a result all configurable schema elements have been marked as RequiresReplace
 func (n *Network) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
-	// TODO implement update
 }
 
 func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
