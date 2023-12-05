@@ -23,7 +23,6 @@ func TestProviderConfigure(t *testing.T) {
 		Config: tfsdk.Config{
 			Raw: tftypes.NewValue(tftypes.Object{
 				AttributeTypes: map[string]tftypes.Type{
-					"auth_token":     tftypes.String,
 					"client_id":      tftypes.String,
 					"client_secret":  tftypes.String,
 					"cloud_provider": tftypes.String,
@@ -31,7 +30,6 @@ func TestProviderConfigure(t *testing.T) {
 					"zones":          tftypes.List{ElementType: tftypes.String},
 				},
 			}, map[string]tftypes.Value{
-				"auth_token":     tftypes.NewValue(tftypes.String, "sampleAuthToken"),
 				"client_id":      tftypes.NewValue(tftypes.String, "sampleClientID"),
 				"client_secret":  tftypes.NewValue(tftypes.String, "sampleClientSecret"),
 				"cloud_provider": tftypes.NewValue(tftypes.String, "sampleCloudProvider"),
