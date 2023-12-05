@@ -19,8 +19,6 @@ var _ resource.Resource = &Namespace{}
 var _ resource.ResourceWithConfigure = &Namespace{}
 var _ resource.ResourceWithImportState = &Namespace{}
 
-// TODO need to add support for more of the interfaces
-
 type Namespace struct {
 	Client cloudv1beta1.NamespaceServiceClient
 }
@@ -163,6 +161,6 @@ func (n *Namespace) Delete(ctx context.Context, req resource.DeleteRequest, resp
 // see https://developer.hashicorp.com/terraform/plugin/framework/resources/import for more details
 func (n *Namespace) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
 	response.Diagnostics.Append(response.State.Set(ctx, models.Namespace{
-		Id: types.StringValue(request.ID), // TODO ask if we can have a method in the client for validating the UUID format locally
+		Id: types.StringValue(request.ID),
 	})...)
 }

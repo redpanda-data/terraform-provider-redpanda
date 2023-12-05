@@ -98,7 +98,6 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 				Destroy:                  true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
-			// TODO confirm i'm passing auth token right because the auth token tests aren't passing
 		},
 	})
 }
@@ -126,7 +125,6 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 				Destroy:                  true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
-			// TODO confirm i'm passing auth token right because the auth token tests aren't passing
 		},
 	})
 }

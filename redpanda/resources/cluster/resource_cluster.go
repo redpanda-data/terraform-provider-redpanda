@@ -146,7 +146,6 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		return
 	}
 
-	// TODO may make sense to add a read call to get version if RP_VER is not set
 	resp.Diagnostics.Append(resp.State.Set(ctx, models.Cluster{
 		Name:            model.Name,
 		ConnectionType:  model.ConnectionType,

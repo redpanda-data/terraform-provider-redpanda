@@ -95,7 +95,6 @@ func ResourceNetworkSchema() schema.Schema {
 			"region": schema.StringAttribute{
 				Optional:    true,
 				Description: "The region to create the network in. Can also be set at the provider level",
-				// TODO add appropriate validators
 			},
 			"cloud_provider": schema.StringAttribute{
 				Optional:    true,
@@ -196,7 +195,7 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 }
 
 func (n *Network) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
-	// TODO no update AFAIK, need to delete then create every time
+	// TODO implement update
 }
 
 func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
