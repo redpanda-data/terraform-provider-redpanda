@@ -155,3 +155,16 @@ func TrimmedStringValue(s string) types.String {
 func TrimmedString(s types.String) string {
 	return strings.Trim(s.String(), "\"")
 }
+
+func FindNamespaceByName(n string, client cloudv1beta1.NamespaceServiceClient) (*cloudv1beta1.Namespace, error) {
+	ns, err := client.ListNamespaces(context.Background(), &cloudv1beta1.ListNamespacesRequest{})
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range ns.GetNamespaces() {
+		if v.GetName() == n {
+			return v, nil
+		}
+	}
+	return nil, fmt.Errorf("namespace not found")
+}
