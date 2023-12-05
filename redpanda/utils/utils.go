@@ -156,8 +156,10 @@ func TrimmedString(s types.String) string {
 	return strings.Trim(s.String(), "\"")
 }
 
-func FindNamespaceByName(n string, client cloudv1beta1.NamespaceServiceClient) (*cloudv1beta1.Namespace, error) {
-	ns, err := client.ListNamespaces(context.Background(), &cloudv1beta1.ListNamespacesRequest{})
+func FindNamespaceByName(ctx context.Context, n string, client cloudv1beta1.NamespaceServiceClient) (*cloudv1beta1.Namespace, error) {
+	ns, err := client.ListNamespaces(ctx, &cloudv1beta1.ListNamespacesRequest{
+		Filter: &cloudv1beta1.ListNamespacesRequest_Filter{Name: n},
+	})
 	if err != nil {
 		return nil, err
 	}

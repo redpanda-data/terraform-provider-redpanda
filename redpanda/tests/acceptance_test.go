@@ -1,8 +1,12 @@
 package tests
 
 import (
+	"context"
 	"github.com/hashicorp/terraform-plugin-testing/config"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"maps"
 	"os"
 	"strings"
@@ -21,12 +25,22 @@ var clientId = os.Getenv("CLIENT_ID")
 var clientSecret = os.Getenv("CLIENT_SECRET")
 
 func TestAccResourcesNamespace(t *testing.T) {
+	ctx := context.Background()
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIdSecretVars)
 	origTestCaseVars["name"] = config.StringVariable(accNamePrepend + "testname")
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, providerCfgIdSecretVars)
 	updateTestCaseVars["name"] = config.StringVariable(accNamePrepend + "testname2")
+
+	nsClient, err := clients.NewNamespaceServiceClient(ctx, "ign", clients.ClientRequest{
+		ClientID:     clientId,
+		ClientSecret: clientSecret,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var importId string
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
@@ -44,7 +58,27 @@ func TestAccResourcesNamespace(t *testing.T) {
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", accNamePrepend+"testname2"),
-				)},
+					func(s *terraform.State) error {
+						i, err := utils.FindNamespaceByName(ctx, accNamePrepend+"testname2", nsClient)
+						if err != nil {
+							return err
+						}
+						importId = i.GetId()
+						return nil
+					}),
+			},
+			{
+				ResourceName:             "redpanda_namespace.test",
+				ConfigFile:               config.StaticFile(dedicatedNamespaceFile),
+				ConfigVariables:          updateTestCaseVars,
+				ImportState:              true,
+				ImportStateId:            importId,
+				ImportStateVerify:        true,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", accNamePrepend+"testname2"),
+				),
+			},
 			{
 				ConfigFile:               config.StaticFile(dedicatedNamespaceFile),
 				ConfigVariables:          updateTestCaseVars,
@@ -59,8 +93,7 @@ func TestAccResourcesNamespace(t *testing.T) {
 		F: sweepNamespace{
 			AccNamePrepend: accNamePrepend,
 			NamespaceName:  "testname",
-			ClientId:       clientId,
-			ClientSecret:   clientSecret,
+			Client:         nsClient,
 			Version:        "ign",
 		}.SweepNamespaces})
 	resource.AddTestSweepers(accNamePrepend+"testname2", &resource.Sweeper{
@@ -68,8 +101,7 @@ func TestAccResourcesNamespace(t *testing.T) {
 		F: sweepNamespace{
 			AccNamePrepend: accNamePrepend,
 			NamespaceName:  "testname2",
-			ClientId:       clientId,
-			ClientSecret:   clientSecret,
+			Client:         nsClient,
 			Version:        "ign",
 		}.SweepNamespaces})
 
