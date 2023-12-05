@@ -22,7 +22,6 @@ type Redpanda struct {
 
 // New spawns a basic provider struct, no client. Configure must be called for a working client
 func New(ctx context.Context, version string) func() provider.Provider {
-	// TODO consider whether the below should support a mock flow with a ci switch? since configure is primary TF entrypoint anyway
 	return func() provider.Provider {
 		return &Redpanda{
 			version: version,
@@ -115,6 +114,5 @@ func (r *Redpanda) Resources(ctx context.Context) []func() resource.Resource {
 		func() resource.Resource {
 			return &cluster.Cluster{}
 		},
-		// TODO implement remaining resources
 	}
 }

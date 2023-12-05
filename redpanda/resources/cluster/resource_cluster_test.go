@@ -21,7 +21,7 @@ func TestGenerateClusterRequest(t *testing.T) {
 		want *cloudv1beta1.Cluster
 	}{
 		{
-			name: "test",
+			name: "validate_schema",
 			args: args{
 				model: models.Cluster{
 					Name:           types.StringValue("testname"),

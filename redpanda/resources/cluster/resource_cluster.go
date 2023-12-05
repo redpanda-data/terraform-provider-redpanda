@@ -173,6 +173,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 	})
 	if err != nil {
 		if utils.IsNotFound(err) {
+			// Treat HTTP 404 Not Found status as a signal to recreate resource and return early
 			resp.State.RemoveResource(ctx)
 			return
 		} else {
