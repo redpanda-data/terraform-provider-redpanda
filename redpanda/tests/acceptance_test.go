@@ -7,12 +7,13 @@ import (
 )
 
 const (
-	dedicatedClusterFile   = "../../examples/dedicated/main.tf"
-	dedicatedNamespaceFile = "../../examples/namespace/main.tf"
+	awsDedicatedClusterFile = "../../examples/dedicated/aws/main.tf"
+	gcpDedicatedClusterFile = "../../examples/dedicated/gcp/main.tf"
+	dedicatedNamespaceFile  = "../../examples/namespace/main.tf"
 )
 
 func TestAccResourcesNamespace(t *testing.T) {
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			{
@@ -43,21 +44,47 @@ func TestAccResourcesNamespace(t *testing.T) {
 	})
 }
 
-func TestAccResourcesCluster(t *testing.T) {
-	resource.Test(t, resource.TestCase{
+func TestAccResourcesClusterAWS(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			{
-				ConfigFile:      config.StaticFile(dedicatedClusterFile),
+				ConfigFile:      config.StaticFile(awsDedicatedClusterFile),
 				ConfigVariables: providerCfgIdSecretVars,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", "testname"),
-					resource.TestCheckResourceAttr("redpanda_network.test", "name", "testname"),
+					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", "testname-aws"),
+					resource.TestCheckResourceAttr("redpanda_network.test", "name", "testname-aws"),
+					resource.TestCheckResourceAttr("redpanda_cluster.test", "name", "testname-aws"),
 				),
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 			{
-				ConfigFile:               config.StaticFile(dedicatedClusterFile),
+				ConfigFile:               config.StaticFile(awsDedicatedClusterFile),
+				ConfigVariables:          providerCfgIdSecretVars,
+				Destroy:                  true,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			// TODO confirm i'm passing auth token right because the auth token tests aren't passing
+		},
+	})
+}
+
+func TestAccResourcesClusterGCP(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				ConfigFile:      config.StaticFile(gcpDedicatedClusterFile),
+				ConfigVariables: providerCfgIdSecretVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", "testname-gcp"),
+					resource.TestCheckResourceAttr("redpanda_network.test", "name", "testname-gcp"),
+					resource.TestCheckResourceAttr("redpanda_cluster.test", "name", "testname-gcp"),
+				),
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			{
+				ConfigFile:               config.StaticFile(gcpDedicatedClusterFile),
 				ConfigVariables:          providerCfgIdSecretVars,
 				Destroy:                  true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

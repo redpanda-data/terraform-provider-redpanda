@@ -114,7 +114,7 @@ func requestToken(version, clientId, clientSecret string) (string, error) {
 
 	defer resp.Body.Close()
 
-	tokenContainer := TokenResponse{}
+	tokenContainer := tokenResponse{}
 	if err := json.NewDecoder(resp.Body).Decode(&tokenContainer); err != nil {
 		return "", fmt.Errorf("error decoding token response: %v", err)
 	}
