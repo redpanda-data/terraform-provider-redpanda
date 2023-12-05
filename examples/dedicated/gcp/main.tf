@@ -1,5 +1,4 @@
-provider "redpanda" {
-}
+provider "redpanda" {}
 
 resource "redpanda_namespace" "test" {
   name = "testname-gcp"
