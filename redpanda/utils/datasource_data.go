@@ -4,7 +4,6 @@ package utils
 type DatasourceData struct {
 	ClientID     string
 	ClientSecret string
-	AuthToken    string
 	Version      string
 }
 

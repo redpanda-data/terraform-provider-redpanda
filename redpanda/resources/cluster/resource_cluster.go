@@ -5,6 +5,11 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
@@ -42,7 +47,6 @@ func (c *Cluster) Configure(ctx context.Context, req resource.ConfigureRequest, 
 	}
 
 	client, err := clients.NewClusterServiceClient(ctx, p.Version, clients.ClientRequest{
-		AuthToken:    p.AuthToken,
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})
@@ -53,7 +57,6 @@ func (c *Cluster) Configure(ctx context.Context, req resource.ConfigureRequest, 
 	c.CluClient = client
 
 	ops, err := clients.NewOperationServiceClient(ctx, p.Version, clients.ClientRequest{
-		AuthToken:    p.AuthToken,
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})
@@ -72,58 +75,71 @@ func ResourceClusterSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				Required:    true,
-				Description: "Name of the cluster",
+				Required:      true,
+				Description:   "Name of the cluster",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"cluster_type": schema.StringAttribute{
-				Required:    true,
-				Description: "Type of the cluster",
+				Required:      true,
+				Description:   "Type of the cluster",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"connection_type": schema.StringAttribute{
-				Required:    true,
-				Description: "Connection type of the cluster",
+				Required:      true,
+				Description:   "Connection type of the cluster",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"cloud_provider": schema.StringAttribute{
-				Optional:    true,
-				Description: "Must be one of aws or gcp",
+				Optional:      true,
+				Description:   "Must be one of aws or gcp",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"redpanda_version": schema.StringAttribute{
-				Optional:    true,
-				Description: "Version of redpanda to deploy",
+				Optional:      true,
+				Description:   "Version of redpanda to deploy",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"throughput_tier": schema.StringAttribute{
-				Required:    true,
-				Description: "Throughput tier of the cluster",
+				Required:      true,
+				Description:   "Throughput tier of the cluster",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"region": schema.StringAttribute{
-				Optional:    true,
-				Description: "Cloud provider specific region of the cluster",
+				Optional:      true,
+				Description:   "Cloud provider specific region of the cluster",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"zones": schema.ListAttribute{
-				Optional:    true,
-				Description: "Cloud provider specific zones of the cluster",
-				ElementType: types.StringType,
+				Optional:      true,
+				Description:   "Cloud provider specific zones of the cluster",
+				ElementType:   types.StringType,
+				PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
 			},
 			"allow_deletion": schema.BoolAttribute{
-				Optional:    true,
-				Description: "allows deletion of the cluster. defaults to true. should probably be set to false for production use",
+				Optional:      true,
+				Description:   "allows deletion of the cluster. defaults to true. should probably be set to false for production use",
+				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
 			},
 			"tags": schema.MapAttribute{
-				Optional:    true,
-				Description: "Tags to apply to the cluster",
-				ElementType: types.StringType,
+				Optional:      true,
+				Description:   "Tags to apply to the cluster",
+				ElementType:   types.StringType,
+				PlanModifiers: []planmodifier.Map{mapplanmodifier.RequiresReplace()},
 			},
 			"namespace_id": schema.StringAttribute{
-				Required:    true,
-				Description: "The id of the namespace in which to create the cluster",
+				Required:      true,
+				Description:   "The id of the namespace in which to create the cluster",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"network_id": schema.StringAttribute{
-				Required:    true,
-				Description: "The id of the network in which to create the cluster",
+				Required:      true,
+				Description:   "The id of the network in which to create the cluster",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "The id of the cluster",
+				Computed:      true,
+				Description:   "The id of the cluster",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 		},
 	}
@@ -146,7 +162,6 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		return
 	}
 
-	// TODO may make sense to add a read call to get version if RP_VER is not set
 	resp.Diagnostics.Append(resp.State.Set(ctx, models.Cluster{
 		Name:            model.Name,
 		ConnectionType:  model.ConnectionType,
@@ -208,8 +223,8 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 	})...)
 }
 
+// Update all cluster updates are currently delete and recreate
 func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// TODO no update here yet
 }
 
 func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

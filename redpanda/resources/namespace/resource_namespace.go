@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
@@ -16,8 +18,6 @@ import (
 var _ resource.Resource = &Namespace{}
 var _ resource.ResourceWithConfigure = &Namespace{}
 var _ resource.ResourceWithImportState = &Namespace{}
-
-// TODO need to add support for more of the interfaces
 
 type Namespace struct {
 	Client cloudv1beta1.NamespaceServiceClient
@@ -45,7 +45,6 @@ func (n *Namespace) Configure(ctx context.Context, request resource.ConfigureReq
 		return
 	}
 	client, err := clients.NewNamespaceServiceClient(ctx, p.Version, clients.ClientRequest{
-		AuthToken:    p.AuthToken,
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})
@@ -65,9 +64,9 @@ func ResourceNamespaceSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				Required:    true,
-				Description: "name of the namespace",
-				//PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Required:      true,
+				Description:   "Name of the namespace. Changing the name of a namespace will result in a new namespace being created and the old one being destroyed",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"id": schema.StringAttribute{
 				Computed:    true,
@@ -161,6 +160,6 @@ func (n *Namespace) Delete(ctx context.Context, req resource.DeleteRequest, resp
 // see https://developer.hashicorp.com/terraform/plugin/framework/resources/import for more details
 func (n *Namespace) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
 	response.Diagnostics.Append(response.State.Set(ctx, models.Namespace{
-		Id: types.StringValue(request.ID), // TODO ask if we can have a method in the client for validating the UUID format locally
+		Id: types.StringValue(request.ID),
 	})...)
 }

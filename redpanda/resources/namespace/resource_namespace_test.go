@@ -9,7 +9,6 @@ import (
 	"testing"
 )
 
-// TODO implement more complete unit tests. May need to break out some elements to make testing easier
 func TestNamespaceSchema(t *testing.T) {
 	n := &Namespace{}
 	req := resource.SchemaRequest{}

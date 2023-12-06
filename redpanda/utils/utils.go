@@ -155,3 +155,48 @@ func TrimmedStringValue(s string) types.String {
 func TrimmedString(s types.String) string {
 	return strings.Trim(s.String(), "\"")
 }
+
+func FindNamespaceByName(ctx context.Context, n string, client cloudv1beta1.NamespaceServiceClient) (*cloudv1beta1.Namespace, error) {
+	ns, err := client.ListNamespaces(ctx, &cloudv1beta1.ListNamespacesRequest{
+		Filter: &cloudv1beta1.ListNamespacesRequest_Filter{Name: n},
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range ns.GetNamespaces() {
+		if v.GetName() == n {
+			return v, nil
+		}
+	}
+	return nil, fmt.Errorf("namespace %s not found", n)
+}
+
+func FindNetworkByName(ctx context.Context, n string, client cloudv1beta1.NetworkServiceClient) (*cloudv1beta1.Network, error) {
+	ns, err := client.ListNetworks(ctx, &cloudv1beta1.ListNetworksRequest{
+		Filter: &cloudv1beta1.ListNetworksRequest_Filter{Name: n},
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range ns.GetNetworks() {
+		if v.GetName() == n {
+			return v, nil
+		}
+	}
+	return nil, fmt.Errorf("network not found")
+}
+
+func FindClusterByName(ctx context.Context, n string, client cloudv1beta1.ClusterServiceClient) (*cloudv1beta1.Cluster, error) {
+	ns, err := client.ListClusters(ctx, &cloudv1beta1.ListClustersRequest{
+		Filter: &cloudv1beta1.ListClustersRequest_Filter{Name: n},
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range ns.GetClusters() {
+		if v.GetName() == n {
+			return v, nil
+		}
+	}
+	return nil, fmt.Errorf("cluster not found")
+}

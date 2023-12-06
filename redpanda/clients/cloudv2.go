@@ -13,7 +13,6 @@ import (
 	"strings"
 )
 
-// TODO not in love with this abomination but it at least tracks all the usage spots and ensures consistency
 var endpoints = map[string]map[string]map[string]string{
 	"cloudv2": {
 		"dev": {
@@ -30,7 +29,6 @@ var endpoints = map[string]map[string]map[string]string{
 }
 
 type ClientRequest struct {
-	AuthToken    string
 	ClientID     string
 	ClientSecret string
 }
@@ -76,18 +74,18 @@ func createConnection(ctx context.Context, version string, cr ClientRequest) (*g
 	var token string
 	var err error
 
-	switch {
-	case cr.AuthToken != "":
-		token = cr.AuthToken
-	case !(cr.ClientID == "" && cr.ClientSecret == ""):
-		token, err = requestToken(version, cr.ClientID, cr.ClientSecret)
-		if err != nil {
-			return nil, err
-		}
-	default:
-		return nil, fmt.Errorf("neither auth_token nor client_id and client_secret are set")
+	if cr.ClientID == "" {
+		return nil, fmt.Errorf("client_id is not set")
 	}
 
+	if cr.ClientSecret == "" {
+		return nil, fmt.Errorf("client_secret is not set")
+	}
+
+	token, err = requestToken(version, cr.ClientID, cr.ClientSecret)
+	if err != nil {
+		return nil, err
+	}
 	return spawnConn(ctx, version, token)
 }
 

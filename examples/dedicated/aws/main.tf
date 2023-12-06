@@ -1,14 +1,11 @@
-provider "redpanda" {
-  client_id     = var.client_id
-  client_secret = var.client_secret
-}
+provider "redpanda" {}
 
 resource "redpanda_namespace" "test" {
-  name = "testname-aws"
+  name = var.namespace_name
 }
 
 resource "redpanda_network" "test" {
-  name           = "testname-aws"
+  name           = var.network_name
   namespace_id   = redpanda_namespace.test.id
   cloud_provider = var.cloud_provider
   region         = var.region
@@ -16,19 +13,9 @@ resource "redpanda_network" "test" {
   cidr_block     = "10.0.0.0/20"
 }
 
-variable "client_id" {
-  type        = string
-  description = "client_id"
-}
-
-variable "client_secret" {
-  type        = string
-  description = "client_secret"
-}
-
 
 resource "redpanda_cluster" "test" {
-  name            = "testname-aws"
+  name            = var.cluster_name
   namespace_id    = redpanda_namespace.test.id
   network_id      = redpanda_network.test.id
   cloud_provider  = var.cloud_provider
@@ -42,6 +29,17 @@ resource "redpanda_cluster" "test" {
     // not actually used as API does not consume it yet but we keep it in state for when it does
     "key" = "value"
   }
+}
+
+variable "namespace_name" {
+  default = "testname"
+}
+variable "network_name" {
+  default = "testname"
+}
+
+variable "cluster_name" {
+  default = "testname"
 }
 
 variable "region" {

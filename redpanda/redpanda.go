@@ -12,6 +12,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/namespace"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/network"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"os"
 )
 
 var _ provider.Provider = &Redpanda{}
@@ -32,21 +33,15 @@ func New(ctx context.Context, version string) func() provider.Provider {
 func ProviderSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"auth_token": schema.StringAttribute{
-				Optional:    true,
-				Sensitive:   true,
-				Description: "Redpanda Auth token. You need either (client_id AND client_secret) OR auth_token to use this provider",
-				Validators:  nil, // TODO consider writing validator for bearer token. while the api can always just handle it, it might be smart to preempt it for the simple stuff
-			},
 			"client_id": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
-				Description: "The id for the client. You need either (client_id AND client_secret) OR auth_token to use this provider",
+				Description: "The id for the client. You need client_id AND client_secret to use this provider",
 			},
 			"client_secret": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
-				Description: "Redpanda client secret. You need either (client_id AND client_secret) OR auth_token to use this provider",
+				Description: "Redpanda client secret. You need client_id AND client_secret to use this provider",
 			},
 			"cloud_provider": schema.StringAttribute{
 				Optional:    true,
@@ -74,17 +69,42 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		return
 	}
 
+	var id string
+	cfgId := conf.ClientID.ValueString()
+	envId := os.Getenv("CLIENT_ID")
+	switch {
+	case cfgId == "" && envId != "":
+		id = envId
+	case cfgId != "" && envId == "":
+		id = cfgId
+	case cfgId != "" && envId != "":
+		id = cfgId
+	default:
+		response.Diagnostics.AddError("no client id", "no client id found")
+	}
+	var sec string
+	cfgSec := conf.ClientSecret.ValueString()
+	envSec := os.Getenv("CLIENT_SECRET")
+	switch {
+	case cfgSec == "" && envSec != "":
+		sec = envSec
+	case cfgSec != "" && envSec == "":
+		sec = cfgSec
+	case cfgSec != "" && envSec != "":
+		sec = cfgSec
+	default:
+		response.Diagnostics.AddError("no client secret", "no client secret found")
+	}
+
 	// Clients are passed through to downstream resources through the response struct
 	response.ResourceData = utils.ResourceData{
-		ClientID:     conf.ClientID.ValueString(),
-		ClientSecret: conf.ClientSecret.ValueString(),
-		AuthToken:    conf.AuthToken.ValueString(),
+		ClientID:     id,
+		ClientSecret: sec,
 		Version:      r.version,
 	}
 	response.DataSourceData = utils.DatasourceData{
 		ClientID:     conf.ClientID.ValueString(),
 		ClientSecret: conf.ClientSecret.ValueString(),
-		AuthToken:    conf.AuthToken.ValueString(),
 		Version:      r.version,
 	}
 }

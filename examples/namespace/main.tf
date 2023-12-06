@@ -1,19 +1,10 @@
-provider "redpanda" {
-  client_id     = var.client_id
-  client_secret = var.client_secret
-}
+// this is only included for acceptance testing purposes, you will almost never want to define just namespace
+provider "redpanda" {}
 
 resource "redpanda_namespace" "test" {
-  name = "testname"
+  name = var.namespace_name
 }
 
-variable "client_id" {
-  type        = string
-  description = "client_id"
+variable "namespace_name" {
+  default = "testname"
 }
-
-variable "client_secret" {
-  type        = string
-  description = "client_secret"
-}
-
