@@ -1,11 +1,11 @@
 provider "redpanda" {}
 
 resource "redpanda_namespace" "test" {
-  name = "testname-gcp"
+  name = var.namespace_name
 }
 
 resource "redpanda_network" "test" {
-  name           = "testname-gcp"
+  name           = var.network_name
   namespace_id   = redpanda_namespace.test.id
   cloud_provider = var.cloud_provider
   region         = var.region
@@ -14,7 +14,7 @@ resource "redpanda_network" "test" {
 }
 
 resource "redpanda_cluster" "test" {
-  name            = "testname-gcp"
+  name            = var.cluster_name
   namespace_id    = redpanda_namespace.test.id
   network_id      = redpanda_network.test.id
   cloud_provider  = var.cloud_provider
@@ -27,6 +27,15 @@ resource "redpanda_cluster" "test" {
   tags            = {
     "key" = "value"
   }
+}
+variable "cluster_name" {
+  default = ""
+}
+variable "namespace_name" {
+  default = ""
+}
+variable "network_name" {
+  default = ""
 }
 
 variable "region" {

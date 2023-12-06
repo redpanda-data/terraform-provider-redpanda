@@ -185,3 +185,18 @@ func FindNetworkByName(ctx context.Context, n string, client cloudv1beta1.Networ
 	}
 	return nil, fmt.Errorf("network not found")
 }
+
+func FindClusterByName(ctx context.Context, n string, client cloudv1beta1.ClusterServiceClient) (*cloudv1beta1.Cluster, error) {
+	ns, err := client.ListClusters(ctx, &cloudv1beta1.ListClustersRequest{
+		Filter: &cloudv1beta1.ListClustersRequest_Filter{Name: n},
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range ns.GetClusters() {
+		if v.GetName() == n {
+			return v, nil
+		}
+	}
+	return nil, fmt.Errorf("cluster not found")
+}
