@@ -1,6 +1,7 @@
 version: v1
 deps:
   - buf.build/redpandadata/cloud
+  - buf.build/redpandadata/dataplane
 breaking:
   use:
     - FILE
