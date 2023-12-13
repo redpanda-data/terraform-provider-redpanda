@@ -23,7 +23,7 @@ type Redpanda struct {
 }
 
 // New spawns a basic provider struct, no client. Configure must be called for a working client
-func New(ctx context.Context, version string) func() provider.Provider {
+func New(_ context.Context, version string) func() provider.Provider {
 	return func() provider.Provider {
 		return &Redpanda{
 			version: version,
@@ -110,21 +110,21 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	}
 }
 
-func (r *Redpanda) Metadata(ctx context.Context, request provider.MetadataRequest, response *provider.MetadataResponse) {
+func (r *Redpanda) Metadata(_ context.Context, _ provider.MetadataRequest, response *provider.MetadataResponse) {
 	response.TypeName = "redpanda"
 	response.Version = r.version
 }
 
-func (r *Redpanda) Schema(ctx context.Context, request provider.SchemaRequest, response *provider.SchemaResponse) {
+func (r *Redpanda) Schema(_ context.Context, _ provider.SchemaRequest, response *provider.SchemaResponse) {
 	response.Schema = ProviderSchema()
 }
 
-func (r *Redpanda) DataSources(ctx context.Context) []func() datasource.DataSource {
+func (r *Redpanda) DataSources(_ context.Context) []func() datasource.DataSource {
 	// TODO implement
 	return []func() datasource.DataSource{}
 }
 
-func (r *Redpanda) Resources(ctx context.Context) []func() resource.Resource {
+func (r *Redpanda) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		func() resource.Resource {
 			return &namespace.Namespace{}

@@ -13,14 +13,14 @@ type DefaultBoolValue struct {
 	MarkDesc string
 }
 
-func (d *DefaultBoolValue) Description(ctx context.Context) string {
+func (d *DefaultBoolValue) Description(_ context.Context) string {
 	return d.Desc
 }
 
-func (d *DefaultBoolValue) MarkdownDescription(ctx context.Context) string {
+func (d *DefaultBoolValue) MarkdownDescription(_ context.Context) string {
 	return d.MarkDesc
 }
 
-func (d *DefaultBoolValue) DefaultBool(ctx context.Context, req defaults.BoolRequest, resp *defaults.BoolResponse) {
+func (d *DefaultBoolValue) DefaultBool(_ context.Context, _ defaults.BoolRequest, resp *defaults.BoolResponse) {
 	resp.PlanValue = types.BoolValue(d.Value)
 }

@@ -26,7 +26,7 @@ type Namespace struct {
 	Client cloudv1beta1.NamespaceServiceClient
 }
 
-func (n *Namespace) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+func (n *Namespace) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = "redpanda_namespace"
 }
 
@@ -58,7 +58,7 @@ func (n *Namespace) Configure(ctx context.Context, request resource.ConfigureReq
 	n.Client = client
 }
 
-func (n *Namespace) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (n *Namespace) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = ResourceNamespaceSchema()
 }
 

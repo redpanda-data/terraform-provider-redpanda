@@ -12,7 +12,7 @@ type sweepNamespace struct {
 	Client        cloudv1beta1.NamespaceServiceClient
 }
 
-func (s sweepNamespace) SweepNamespaces(r string) error {
+func (s sweepNamespace) SweepNamespaces(_ string) error {
 	ctx := context.Background()
 	name, err := utils.FindNamespaceByName(ctx, s.NamespaceName, s.Client)
 	if err != nil {

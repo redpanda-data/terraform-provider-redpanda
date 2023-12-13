@@ -30,7 +30,7 @@ type Cluster struct {
 	OpsClient cloudv1beta1.OperationServiceClient
 }
 
-func (c *Cluster) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+func (c *Cluster) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = "redpanda_cluster"
 }
 
@@ -70,7 +70,7 @@ func (c *Cluster) Configure(ctx context.Context, req resource.ConfigureRequest, 
 	c.OpsClient = ops
 }
 
-func (c *Cluster) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (c *Cluster) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = ResourceClusterSchema()
 }
 
@@ -227,7 +227,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 }
 
 // Update all cluster updates are currently delete and recreate
-func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (c *Cluster) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
 }
 
 func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

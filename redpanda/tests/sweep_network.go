@@ -14,7 +14,7 @@ type sweepNetwork struct {
 	OpsClient   cloudv1beta1.OperationServiceClient
 }
 
-func (s sweepNetwork) SweepNetworks(r string) error {
+func (s sweepNetwork) SweepNetworks(_ string) error {
 	ctx := context.Background()
 	network, err := utils.FindNetworkByName(ctx, s.NetworkName, s.NetClient)
 	if err != nil {

@@ -14,7 +14,7 @@ type sweepCluster struct {
 	OpsClient   cloudv1beta1.OperationServiceClient
 }
 
-func (s sweepCluster) SweepCluster(r string) error {
+func (s sweepCluster) SweepCluster(_ string) error {
 	ctx := context.Background()
 	cluster, err := utils.FindClusterByName(ctx, s.ClusterName, s.CluClient)
 	if err != nil {

@@ -31,7 +31,7 @@ type Network struct {
 	OpsClient cloudv1beta1.OperationServiceClient
 }
 
-func (n *Network) Metadata(ctx context.Context, request resource.MetadataRequest, response *resource.MetadataResponse) {
+func (n *Network) Metadata(_ context.Context, _ resource.MetadataRequest, response *resource.MetadataResponse) {
 	response.TypeName = "redpanda_network"
 }
 
@@ -74,7 +74,7 @@ func (n *Network) Configure(ctx context.Context, request resource.ConfigureReque
 	n.OpsClient = opsClient
 }
 
-func (n *Network) Schema(ctx context.Context, request resource.SchemaRequest, response *resource.SchemaResponse) {
+func (n *Network) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
 	response.Schema = ResourceNetworkSchema()
 }
 
@@ -204,7 +204,7 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 }
 
 // Update is not supported for network. As a result all configurable schema elements have been marked as RequiresReplace
-func (n *Network) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
+func (n *Network) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
 }
 
 func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {

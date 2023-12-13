@@ -13,29 +13,29 @@ type MockNamespaceServiceClient struct {
 	// You can add fields to store mock responses or any other information needed for your tests
 }
 
-func (m MockNamespaceServiceClient) CreateNamespace(ctx context.Context, in *controlplanev1beta1.CreateNamespaceRequest, opts ...grpc.CallOption) (*controlplanev1beta1.Namespace, error) {
+func (m MockNamespaceServiceClient) CreateNamespace(_ context.Context, _ *controlplanev1beta1.CreateNamespaceRequest, _ ...grpc.CallOption) (*controlplanev1beta1.Namespace, error) {
 	// Implement mock logic here
 	// Return a mock Namespace object and nil error for successful scenario
 	// Return nil and a mock error for failure scenario
 	return &controlplanev1beta1.Namespace{}, nil
 }
 
-func (m MockNamespaceServiceClient) UpdateNamespace(ctx context.Context, in *controlplanev1beta1.UpdateNamespaceRequest, opts ...grpc.CallOption) (*controlplanev1beta1.Namespace, error) {
+func (m MockNamespaceServiceClient) UpdateNamespace(_ context.Context, _ *controlplanev1beta1.UpdateNamespaceRequest, _ ...grpc.CallOption) (*controlplanev1beta1.Namespace, error) {
 	// Implement mock logic here
 	return &controlplanev1beta1.Namespace{}, nil
 }
 
-func (m MockNamespaceServiceClient) GetNamespace(ctx context.Context, in *controlplanev1beta1.GetNamespaceRequest, opts ...grpc.CallOption) (*controlplanev1beta1.Namespace, error) {
+func (m MockNamespaceServiceClient) GetNamespace(_ context.Context, _ *controlplanev1beta1.GetNamespaceRequest, _ ...grpc.CallOption) (*controlplanev1beta1.Namespace, error) {
 	// Implement mock logic here
 	return &controlplanev1beta1.Namespace{}, nil
 }
 
-func (m MockNamespaceServiceClient) ListNamespaces(ctx context.Context, in *controlplanev1beta1.ListNamespacesRequest, opts ...grpc.CallOption) (*controlplanev1beta1.ListNamespacesResponse, error) {
+func (m MockNamespaceServiceClient) ListNamespaces(_ context.Context, _ *controlplanev1beta1.ListNamespacesRequest, _ ...grpc.CallOption) (*controlplanev1beta1.ListNamespacesResponse, error) {
 	// Implement mock logic here
 	return &controlplanev1beta1.ListNamespacesResponse{}, nil
 }
 
-func (m MockNamespaceServiceClient) DeleteNamespace(ctx context.Context, in *controlplanev1beta1.DeleteNamespaceRequest, opts ...grpc.CallOption) (*controlplanev1beta1.DeleteNamespaceResponse, error) {
+func (m MockNamespaceServiceClient) DeleteNamespace(_ context.Context, _ *controlplanev1beta1.DeleteNamespaceRequest, _ ...grpc.CallOption) (*controlplanev1beta1.DeleteNamespaceResponse, error) {
 	// Implement mock logic here
 	return &controlplanev1beta1.DeleteNamespaceResponse{}, nil
 }
