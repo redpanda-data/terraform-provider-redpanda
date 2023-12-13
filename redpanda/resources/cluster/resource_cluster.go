@@ -19,9 +19,11 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
-var _ resource.Resource = &Cluster{}
-var _ resource.ResourceWithConfigure = &Cluster{}
-var _ resource.ResourceWithImportState = &Cluster{}
+var (
+	_ resource.Resource                = &Cluster{}
+	_ resource.ResourceWithConfigure   = &Cluster{}
+	_ resource.ResourceWithImportState = &Cluster{}
+)
 
 type Cluster struct {
 	CluClient cloudv1beta1.ClusterServiceClient

@@ -20,10 +20,12 @@ const (
 	dedicatedNetworkFile    = "../../examples/network/main.tf"
 )
 
-var runClusterTests = os.Getenv("RUN_CLUSTER_TESTS")
-var accNamePrepend = "tfrp-acc-"
-var clientID = os.Getenv("CLIENT_ID")
-var clientSecret = os.Getenv("CLIENT_SECRET")
+var (
+	runClusterTests = os.Getenv("RUN_CLUSTER_TESTS")
+	accNamePrepend  = "tfrp-acc-"
+	clientID        = os.Getenv("CLIENT_ID")
+	clientSecret    = os.Getenv("CLIENT_SECRET")
+)
 
 func TestAccResourcesNamespace(t *testing.T) {
 	ctx := context.Background()
@@ -93,14 +95,15 @@ func TestAccResourcesNamespace(t *testing.T) {
 		F: sweepNamespace{
 			NamespaceName: name,
 			Client:        c.NsClient,
-		}.SweepNamespaces})
+		}.SweepNamespaces,
+	})
 	resource.AddTestSweepers(rename, &resource.Sweeper{
 		Name: rename,
 		F: sweepNamespace{
 			NamespaceName: rename,
 			Client:        c.NsClient,
-		}.SweepNamespaces})
-
+		}.SweepNamespaces,
+	})
 }
 
 func TestAccResourcesNetwork(t *testing.T) {
@@ -174,21 +177,24 @@ func TestAccResourcesNetwork(t *testing.T) {
 		F: sweepNamespace{
 			NamespaceName: name,
 			Client:        c.NsClient,
-		}.SweepNamespaces})
+		}.SweepNamespaces,
+	})
 	resource.AddTestSweepers(name, &resource.Sweeper{
 		Name: name,
 		F: sweepNetwork{
 			NetworkName: name,
 			NetClient:   c.NetClient,
 			OpsClient:   c.OpsClient,
-		}.SweepNetworks})
+		}.SweepNetworks,
+	})
 	resource.AddTestSweepers(rename, &resource.Sweeper{
 		Name: rename,
 		F: sweepNetwork{
 			NetworkName: rename,
 			NetClient:   c.NetClient,
 			OpsClient:   c.OpsClient,
-		}.SweepNetworks})
+		}.SweepNetworks,
+	})
 }
 
 func TestAccResourcesClusterAWS(t *testing.T) {
@@ -274,21 +280,24 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 		F: sweepNamespace{
 			NamespaceName: name,
 			Client:        c.NsClient,
-		}.SweepNamespaces})
+		}.SweepNamespaces,
+	})
 	resource.AddTestSweepers(name, &resource.Sweeper{
 		Name: name,
 		F: sweepNetwork{
 			NetworkName: name,
 			NetClient:   c.NetClient,
 			OpsClient:   c.OpsClient,
-		}.SweepNetworks})
+		}.SweepNetworks,
+	})
 	resource.AddTestSweepers(rename, &resource.Sweeper{
 		Name: rename,
 		F: sweepCluster{
 			ClusterName: rename,
 			CluClient:   c.ClusterClient,
 			OpsClient:   c.OpsClient,
-		}.SweepCluster})
+		}.SweepCluster,
+	})
 }
 
 func TestAccResourcesClusterGCP(t *testing.T) {
@@ -375,19 +384,22 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 		F: sweepNamespace{
 			NamespaceName: name,
 			Client:        c.NsClient,
-		}.SweepNamespaces})
+		}.SweepNamespaces,
+	})
 	resource.AddTestSweepers(name, &resource.Sweeper{
 		Name: name,
 		F: sweepNetwork{
 			NetworkName: name,
 			NetClient:   c.NetClient,
 			OpsClient:   c.OpsClient,
-		}.SweepNetworks})
+		}.SweepNetworks,
+	})
 	resource.AddTestSweepers(rename, &resource.Sweeper{
 		Name: rename,
 		F: sweepCluster{
 			ClusterName: rename,
 			CluClient:   c.ClusterClient,
 			OpsClient:   c.OpsClient,
-		}.SweepCluster})
+		}.SweepCluster,
+	})
 }

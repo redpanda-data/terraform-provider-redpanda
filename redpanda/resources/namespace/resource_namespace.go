@@ -16,9 +16,11 @@ import (
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
-var _ resource.Resource = &Namespace{}
-var _ resource.ResourceWithConfigure = &Namespace{}
-var _ resource.ResourceWithImportState = &Namespace{}
+var (
+	_ resource.Resource                = &Namespace{}
+	_ resource.ResourceWithConfigure   = &Namespace{}
+	_ resource.ResourceWithImportState = &Namespace{}
+)
 
 type Namespace struct {
 	Client cloudv1beta1.NamespaceServiceClient
@@ -105,7 +107,6 @@ func (n *Namespace) Read(ctx context.Context, req resource.ReadRequest, resp *re
 	ns, err := n.Client.GetNamespace(ctx, &cloudv1beta1.GetNamespaceRequest{
 		Id: model.ID.ValueString(),
 	})
-
 	if err != nil {
 		if utils.IsNotFound(err) {
 			resp.State.RemoveResource(ctx)

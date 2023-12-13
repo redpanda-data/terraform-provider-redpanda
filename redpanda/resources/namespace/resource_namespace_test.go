@@ -2,11 +2,12 @@ package namespace
 
 import (
 	"context"
+	"testing"
+
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/mocks"
-	"testing"
 )
 
 func TestNamespaceSchema(t *testing.T) {
@@ -37,7 +38,8 @@ func TestNamespaceCreate(t *testing.T) {
 				AttributeTypes: map[string]tftypes.Type{
 					"name": tftypes.String,
 					"id":   tftypes.String,
-				}},
+				},
+			},
 				map[string]tftypes.Value{
 					"name": tftypes.NewValue(tftypes.String, "sample"),
 					"id":   tftypes.NewValue(tftypes.String, ""),
@@ -67,7 +69,8 @@ func TestNamespaceRead(t *testing.T) {
 				AttributeTypes: map[string]tftypes.Type{
 					"name": tftypes.String,
 					"id":   tftypes.String,
-				}},
+				},
+			},
 				map[string]tftypes.Value{
 					"name": tftypes.NewValue(tftypes.String, "sample"),
 					"id":   tftypes.NewValue(tftypes.String, ""),
@@ -97,7 +100,8 @@ func TestNamespace_Delete(t *testing.T) {
 				AttributeTypes: map[string]tftypes.Type{
 					"name": tftypes.String,
 					"id":   tftypes.String,
-				}},
+				},
+			},
 				map[string]tftypes.Value{
 					"name": tftypes.NewValue(tftypes.String, "sample"),
 					"id":   tftypes.NewValue(tftypes.String, ""),
@@ -127,7 +131,8 @@ func TestNamespace_ImportState(t *testing.T) {
 				AttributeTypes: map[string]tftypes.Type{
 					"name": tftypes.String,
 					"id":   tftypes.String,
-				}},
+				},
+			},
 				map[string]tftypes.Value{
 					"name": tftypes.NewValue(tftypes.String, "sample"),
 					"id":   tftypes.NewValue(tftypes.String, ""),
@@ -141,5 +146,4 @@ func TestNamespace_ImportState(t *testing.T) {
 	if resp.Diagnostics.HasError() {
 		t.Errorf("ImportState function failed: %v", resp.Diagnostics)
 	}
-
 }

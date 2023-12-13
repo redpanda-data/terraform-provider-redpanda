@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"context"
+
 	controlplanev1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	"google.golang.org/grpc"
 )

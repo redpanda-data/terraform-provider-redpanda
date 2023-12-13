@@ -2,11 +2,12 @@ package clients
 
 import (
 	"context"
-	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 )
 
 func TestNewCloudV2Client(t *testing.T) {

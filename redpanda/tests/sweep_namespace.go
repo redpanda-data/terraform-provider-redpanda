@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )

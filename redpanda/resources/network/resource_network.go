@@ -20,9 +20,11 @@ import (
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
-var _ resource.Resource = &Network{}
-var _ resource.ResourceWithConfigure = &Network{}
-var _ resource.ResourceWithImportState = &Network{}
+var (
+	_ resource.Resource                = &Network{}
+	_ resource.ResourceWithConfigure   = &Network{}
+	_ resource.ResourceWithImportState = &Network{}
+)
 
 type Network struct {
 	NetClient cloudv1beta1.NetworkServiceClient
@@ -211,7 +213,6 @@ func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, re
 	op, err := n.NetClient.DeleteNetwork(ctx, &cloudv1beta1.DeleteNetworkRequest{
 		Id: model.ID.ValueString(),
 	})
-
 	if err != nil {
 		response.Diagnostics.AddError("failed to delete network", err.Error())
 		return
