@@ -98,7 +98,6 @@ func (n *Namespace) Create(ctx context.Context, req resource.CreateRequest, resp
 		Name: types.StringValue(ns.Name),
 		ID:   types.StringValue(ns.Id),
 	})...)
-	return
 }
 
 func (n *Namespace) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -111,10 +110,9 @@ func (n *Namespace) Read(ctx context.Context, req resource.ReadRequest, resp *re
 		if utils.IsNotFound(err) {
 			resp.State.RemoveResource(ctx)
 			return
-		} else {
-			resp.Diagnostics.AddError("failed to read namespace", err.Error())
-			return
 		}
+		resp.Diagnostics.AddError("failed to read namespace", err.Error())
+		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, models.Namespace{
 		Name: types.StringValue(ns.Name),

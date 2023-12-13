@@ -92,7 +92,7 @@ func ResourceNetworkSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators: []validator.String{
 					stringvalidator.RegexMatches(
-						regexp.MustCompile(`^(\d{1,3}\.){3}\d{1,3}\/(\d{1,2})$`),
+						regexp.MustCompile(`^(\d{1,3}\.){3}\d{1,3}/(\d{1,2})$`),
 						"The value must be a valid CIDR block (e.g., 192.168.0.0/16)",
 					),
 				},
@@ -187,10 +187,9 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 		if utils.IsNotFound(err) {
 			response.State.RemoveResource(ctx)
 			return
-		} else {
-			response.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.ID.ValueString()), err.Error())
-			return
 		}
+		response.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.ID.ValueString()), err.Error())
+		return
 	}
 	response.Diagnostics.Append(response.State.Set(ctx, models.Network{
 		Name:          types.StringValue(nw.Name),

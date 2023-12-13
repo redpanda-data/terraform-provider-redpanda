@@ -83,7 +83,7 @@ func createConnection(ctx context.Context, version string, cr ClientRequest) (*g
 		return nil, fmt.Errorf("client_secret is not set")
 	}
 
-	token, err = requestToken(version, cr.ClientID, cr.ClientSecret)
+	token, err = requestToken(ctx, version, cr.ClientID, cr.ClientSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -98,9 +98,9 @@ type tokenResponse struct {
 }
 
 // requestToken requests a token
-func requestToken(version, clientID, clientSecret string) (string, error) {
+func requestToken(ctx context.Context, version, clientID, clientSecret string) (string, error) {
 	payload := strings.NewReader(fmt.Sprintf("grant_type=client_credentials&client_id=%s&client_secret=%s&audience=%s", clientID, clientSecret, endpoints["cloudv2"][version]["audience"]))
-	req, err := http.NewRequest("POST", endpoints["cloudv2"][version]["token"], payload)
+	req, err := http.NewRequestWithContext(ctx, "POST", endpoints["cloudv2"][version]["token"], payload)
 	if err != nil {
 		return "", err
 	}
@@ -128,7 +128,7 @@ func spawnConn(ctx context.Context, version, authToken string) (*grpc.ClientConn
 		ctx,
 		endpoints["cloudv2"][version]["api"],
 		grpc.WithBlock(),
-		grpc.WithUnaryInterceptor(func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		grpc.WithUnaryInterceptor(func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 			return invoker(metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", authToken)), method, req, reply, cc, opts...)
 		}),
 		grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{

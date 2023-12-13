@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -10,6 +11,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 )
+
+const providerUnspecified = "unspecified"
 
 func IsNotFound(err error) bool {
 	if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "NotFound") || strings.Contains(err.Error(), "404") {
@@ -39,7 +42,7 @@ func CloudProviderToString(provider cloudv1beta1.CloudProvider) string {
 	case cloudv1beta1.CloudProvider_CLOUD_PROVIDER_GCP:
 		return "gcp"
 	default:
-		return "unspecified"
+		return providerUnspecified
 		// TODO should we error here?
 	}
 }
@@ -63,7 +66,7 @@ func ClusterTypeToString(provider cloudv1beta1.Cluster_Type) string {
 	case cloudv1beta1.Cluster_TYPE_BYOC:
 		return "cloud"
 	default:
-		return "unspecified"
+		return providerUnspecified
 		// TODO should we error here?
 	}
 }
@@ -85,7 +88,7 @@ func AreWeDoneYet(ctx context.Context, op *cloudv1beta1.Operation, timeout time.
 		}
 		if CheckOpsState(o) {
 			if o.GetError() != nil {
-				if !IsNotFound(fmt.Errorf(o.GetError().GetMessage())) {
+				if !IsNotFound(errors.New(o.GetError().GetMessage())) {
 					return nil
 				}
 				return fmt.Errorf("operation failed: %s", o.GetError().GetMessage())
@@ -128,7 +131,7 @@ func ConnectionTypeToString(t cloudv1beta1.Cluster_ConnectionType) string {
 	case cloudv1beta1.Cluster_CONNECTION_TYPE_PRIVATE:
 		return "private"
 	default:
-		return "unspecified"
+		return providerUnspecified
 	}
 }
 

@@ -20,8 +20,9 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 	"redpanda": providerserver.NewProtocol6WithError(redpanda.New(context.Background(), "ign")()),
 }
 
-// testAccPreCheck is used to perform provider validation before running the provider
-func testAccPreCheck(t *testing.T) {
+// testAccPreCheck is a test helper function used to perform provider validation
+// before running the provider
+func testAccPreCheck(t testing.TB) {
 	if v := os.Getenv("CLIENT_ID"); v == "" {
 		t.Fatal("CLIENT_ID must be set for acceptance tests")
 	}

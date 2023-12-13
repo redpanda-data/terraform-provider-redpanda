@@ -194,10 +194,9 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 			// Treat HTTP 404 Not Found status as a signal to recreate resource and return early
 			resp.State.RemoveResource(ctx)
 			return
-		} else {
-			resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), err.Error())
-			return
 		}
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), err.Error())
+		return
 	}
 	lv, d := types.ListValueFrom(ctx, types.StringType, cluster.Zones)
 	if d.HasError() {
