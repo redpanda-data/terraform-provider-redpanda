@@ -26,7 +26,7 @@ type Namespace struct {
 	Client cloudv1beta1.NamespaceServiceClient
 }
 
-func (n *Namespace) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+func (*Namespace) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = "redpanda_namespace"
 }
 
@@ -58,7 +58,7 @@ func (n *Namespace) Configure(ctx context.Context, request resource.ConfigureReq
 	n.Client = client
 }
 
-func (n *Namespace) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (*Namespace) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = ResourceNamespaceSchema()
 }
 
@@ -160,7 +160,7 @@ func (n *Namespace) Delete(ctx context.Context, req resource.DeleteRequest, resp
 
 // ImportState refreshes the state with the correct ID for the namespace, allowing TF to use Read to get the correct Namespace name into state
 // see https://developer.hashicorp.com/terraform/plugin/framework/resources/import for more details
-func (n *Namespace) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
+func (*Namespace) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
 	response.Diagnostics.Append(response.State.Set(ctx, models.Namespace{
 		ID: types.StringValue(request.ID),
 	})...)

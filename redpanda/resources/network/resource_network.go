@@ -31,7 +31,7 @@ type Network struct {
 	OpsClient cloudv1beta1.OperationServiceClient
 }
 
-func (n *Network) Metadata(_ context.Context, _ resource.MetadataRequest, response *resource.MetadataResponse) {
+func (*Network) Metadata(_ context.Context, _ resource.MetadataRequest, response *resource.MetadataResponse) {
 	response.TypeName = "redpanda_network"
 }
 
@@ -74,7 +74,7 @@ func (n *Network) Configure(ctx context.Context, request resource.ConfigureReque
 	n.OpsClient = opsClient
 }
 
-func (n *Network) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
+func (*Network) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
 	response.Schema = ResourceNetworkSchema()
 }
 
@@ -204,7 +204,7 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 }
 
 // Update is not supported for network. As a result all configurable schema elements have been marked as RequiresReplace
-func (n *Network) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
+func (*Network) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
 }
 
 func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
@@ -225,7 +225,7 @@ func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, re
 
 // ImportState refreshes the state with the correct ID for the namespace, allowing TF to use Read to get the correct Namespace name into state
 // see https://developer.hashicorp.com/terraform/plugin/framework/resources/import for more details
-func (n *Network) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
+func (*Network) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
 	response.Diagnostics.Append(response.State.Set(ctx, models.Network{
 		ID: types.StringValue(request.ID),
 	})...)

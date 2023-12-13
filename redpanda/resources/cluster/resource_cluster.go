@@ -30,7 +30,7 @@ type Cluster struct {
 	OpsClient cloudv1beta1.OperationServiceClient
 }
 
-func (c *Cluster) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+func (*Cluster) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = "redpanda_cluster"
 }
 
@@ -70,7 +70,7 @@ func (c *Cluster) Configure(ctx context.Context, req resource.ConfigureRequest, 
 	c.OpsClient = ops
 }
 
-func (c *Cluster) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (*Cluster) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = ResourceClusterSchema()
 }
 
@@ -227,7 +227,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 }
 
 // Update all cluster updates are currently delete and recreate
-func (c *Cluster) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
+func (*Cluster) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
 }
 
 func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -252,7 +252,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 	}
 }
 
-func (c *Cluster) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (*Cluster) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resp.Diagnostics.Append(resp.State.Set(ctx, &models.Cluster{
 		ID: types.StringValue(req.ID),
 	})...)

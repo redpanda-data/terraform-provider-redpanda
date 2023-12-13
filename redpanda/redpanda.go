@@ -115,16 +115,16 @@ func (r *Redpanda) Metadata(_ context.Context, _ provider.MetadataRequest, respo
 	response.Version = r.version
 }
 
-func (r *Redpanda) Schema(_ context.Context, _ provider.SchemaRequest, response *provider.SchemaResponse) {
+func (*Redpanda) Schema(_ context.Context, _ provider.SchemaRequest, response *provider.SchemaResponse) {
 	response.Schema = ProviderSchema()
 }
 
-func (r *Redpanda) DataSources(_ context.Context) []func() datasource.DataSource {
+func (*Redpanda) DataSources(_ context.Context) []func() datasource.DataSource {
 	// TODO implement
 	return []func() datasource.DataSource{}
 }
 
-func (r *Redpanda) Resources(_ context.Context) []func() resource.Resource {
+func (*Redpanda) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		func() resource.Resource {
 			return &namespace.Namespace{}
