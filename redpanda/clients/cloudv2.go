@@ -5,12 +5,13 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strings"
+
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
-	"net/http"
-	"strings"
 )
 
 var endpoints = map[string]map[string]map[string]string{
@@ -97,8 +98,8 @@ type tokenResponse struct {
 }
 
 // requestToken requests a token
-func requestToken(version, clientId, clientSecret string) (string, error) {
-	payload := strings.NewReader(fmt.Sprintf("grant_type=client_credentials&client_id=%s&client_secret=%s&audience=%s", clientId, clientSecret, endpoints["cloudv2"][version]["audience"]))
+func requestToken(version, clientID, clientSecret string) (string, error) {
+	payload := strings.NewReader(fmt.Sprintf("grant_type=client_credentials&client_id=%s&client_secret=%s&audience=%s", clientID, clientSecret, endpoints["cloudv2"][version]["audience"]))
 	req, err := http.NewRequest("POST", endpoints["cloudv2"][version]["token"], payload)
 	if err != nil {
 		return "", err

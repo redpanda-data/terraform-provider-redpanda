@@ -3,6 +3,7 @@ package namespace
 import (
 	"context"
 	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -93,7 +94,7 @@ func (n *Namespace) Create(ctx context.Context, req resource.CreateRequest, resp
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, models.Namespace{
 		Name: types.StringValue(ns.Name),
-		Id:   types.StringValue(ns.Id),
+		ID:   types.StringValue(ns.Id),
 	})...)
 	return
 }
@@ -102,7 +103,7 @@ func (n *Namespace) Read(ctx context.Context, req resource.ReadRequest, resp *re
 	var model models.Namespace
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 	ns, err := n.Client.GetNamespace(ctx, &cloudv1beta1.GetNamespaceRequest{
-		Id: model.Id.ValueString(),
+		Id: model.ID.ValueString(),
 	})
 
 	if err != nil {
@@ -116,7 +117,7 @@ func (n *Namespace) Read(ctx context.Context, req resource.ReadRequest, resp *re
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, models.Namespace{
 		Name: types.StringValue(ns.Name),
-		Id:   types.StringValue(ns.Id),
+		ID:   types.StringValue(ns.Id),
 	})...)
 }
 
@@ -126,7 +127,7 @@ func (n *Namespace) Update(ctx context.Context, req resource.UpdateRequest, resp
 	ns, err := n.Client.UpdateNamespace(ctx, &cloudv1beta1.UpdateNamespaceRequest{
 		Namespace: &cloudv1beta1.Namespace{
 			Name: model.Name.ValueString(),
-			Id:   model.Id.ValueString(),
+			Id:   model.ID.ValueString(),
 		},
 	})
 	if err != nil {
@@ -135,7 +136,7 @@ func (n *Namespace) Update(ctx context.Context, req resource.UpdateRequest, resp
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, models.Namespace{
 		Name: types.StringValue(ns.Name),
-		Id:   types.StringValue(ns.Id),
+		ID:   types.StringValue(ns.Id),
 	})...)
 }
 
@@ -144,7 +145,7 @@ func (n *Namespace) Delete(ctx context.Context, req resource.DeleteRequest, resp
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
 	_, err := n.Client.DeleteNamespace(ctx, &cloudv1beta1.DeleteNamespaceRequest{
-		Id: model.Id.ValueString(),
+		Id: model.ID.ValueString(),
 	})
 	if err != nil {
 		if utils.IsNotFound(err) {
@@ -160,6 +161,6 @@ func (n *Namespace) Delete(ctx context.Context, req resource.DeleteRequest, resp
 // see https://developer.hashicorp.com/terraform/plugin/framework/resources/import for more details
 func (n *Namespace) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
 	response.Diagnostics.Append(response.State.Set(ctx, models.Namespace{
-		Id: types.StringValue(request.ID),
+		ID: types.StringValue(request.ID),
 	})...)
 }

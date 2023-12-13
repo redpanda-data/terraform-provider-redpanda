@@ -2,15 +2,16 @@ package tests
 
 import (
 	"context"
+	"os"
+	"testing"
+
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-testing/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda"
-	"os"
-	"testing"
 )
 
-var providerCfgIdSecretVars = config.Variables{
+var providerCfgIDSecretVars = config.Variables{
 	"client_id":     config.StringVariable(os.Getenv("CLIENT_ID")),
 	"client_secret": config.StringVariable(os.Getenv("CLIENT_SECRET")),
 }

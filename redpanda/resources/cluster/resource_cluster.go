@@ -3,6 +3,8 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
@@ -15,7 +17,6 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
-	"time"
 )
 
 var _ resource.Resource = &Cluster{}
@@ -173,9 +174,9 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		Zones:           model.Zones,
 		AllowDeletion:   model.AllowDeletion,
 		Tags:            model.Tags,
-		NamespaceId:     model.NamespaceId,
-		NetworkId:       model.NetworkId,
-		Id:              utils.TrimmedStringValue(metadata.GetClusterId()),
+		NamespaceID:     model.NamespaceID,
+		NetworkID:       model.NetworkID,
+		ID:              utils.TrimmedStringValue(metadata.GetClusterId()),
 	})...)
 }
 
@@ -184,7 +185,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
 	cluster, err := c.CluClient.GetCluster(ctx, &cloudv1beta1.GetClusterRequest{
-		Id: model.Id.ValueString(),
+		Id: model.ID.ValueString(),
 	})
 	if err != nil {
 		if utils.IsNotFound(err) {
@@ -192,7 +193,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 			resp.State.RemoveResource(ctx)
 			return
 		} else {
-			resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.Id), err.Error())
+			resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), err.Error())
 			return
 		}
 	}
@@ -217,9 +218,9 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		Zones:           lv,
 		AllowDeletion:   model.AllowDeletion,
 		Tags:            model.Tags,
-		NamespaceId:     types.StringValue(cluster.NamespaceId),
-		NetworkId:       types.StringValue(cluster.NetworkId),
-		Id:              types.StringValue(cluster.Id),
+		NamespaceID:     types.StringValue(cluster.NamespaceId),
+		NetworkID:       types.StringValue(cluster.NetworkId),
+		ID:              types.StringValue(cluster.Id),
 	})...)
 }
 
@@ -236,7 +237,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		return
 	}
 	op, err := c.CluClient.DeleteCluster(ctx, &cloudv1beta1.DeleteClusterRequest{
-		Id: model.Id.ValueString(),
+		Id: model.ID.ValueString(),
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("failed to delete cluster", err.Error())
@@ -251,7 +252,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 
 func (c *Cluster) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resp.Diagnostics.Append(resp.State.Set(ctx, &models.Cluster{
-		Id: types.StringValue(req.ID),
+		ID: types.StringValue(req.ID),
 	})...)
 }
 
@@ -265,8 +266,8 @@ func GenerateClusterRequest(model models.Cluster) *cloudv1beta1.Cluster {
 		ThroughputTier:  model.ThroughputTier.ValueString(),
 		Region:          model.Region.ValueString(),
 		Zones:           utils.TypeListToStringSlice(model.Zones),
-		NamespaceId:     model.NamespaceId.ValueString(),
-		NetworkId:       model.NetworkId.ValueString(),
+		NamespaceId:     model.NamespaceID.ValueString(),
+		NetworkId:       model.NetworkID.ValueString(),
 		Type:            utils.StringToClusterType(model.ClusterType.ValueString()),
 	}
 }

@@ -3,6 +3,9 @@ package network
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"time"
+
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -14,8 +17,6 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
-	"regexp"
-	"time"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -143,7 +144,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 			CidrBlock:     model.CidrBlock.ValueString(),
 			Region:        model.Region.ValueString(),
 			CloudProvider: cloudProvider,
-			NamespaceId:   model.NamespaceId.ValueString(),
+			NamespaceId:   model.NamespaceID.ValueString(),
 			ClusterType:   utils.StringToClusterType(model.ClusterType.ValueString()),
 		},
 	})
@@ -165,10 +166,10 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 
 	response.Diagnostics.Append(response.State.Set(ctx, models.Network{
 		Name:          model.Name,
-		Id:            utils.TrimmedStringValue(metadata.GetNetworkId()),
+		ID:            utils.TrimmedStringValue(metadata.GetNetworkId()),
 		CidrBlock:     model.CidrBlock,
 		Region:        model.Region,
-		NamespaceId:   model.NamespaceId,
+		NamespaceID:   model.NamespaceID,
 		ClusterType:   model.ClusterType,
 		CloudProvider: model.CloudProvider,
 	})...)
@@ -178,23 +179,23 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 	var model models.Network
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 	nw, err := n.NetClient.GetNetwork(ctx, &cloudv1beta1.GetNetworkRequest{
-		Id: model.Id.ValueString(),
+		Id: model.ID.ValueString(),
 	})
 	if err != nil {
 		if utils.IsNotFound(err) {
 			response.State.RemoveResource(ctx)
 			return
 		} else {
-			response.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.Id.ValueString()), err.Error())
+			response.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.ID.ValueString()), err.Error())
 			return
 		}
 	}
 	response.Diagnostics.Append(response.State.Set(ctx, models.Network{
 		Name:          types.StringValue(nw.Name),
-		Id:            types.StringValue(nw.Id),
+		ID:            types.StringValue(nw.Id),
 		CidrBlock:     types.StringValue(nw.CidrBlock),
 		Region:        types.StringValue(nw.Region),
-		NamespaceId:   types.StringValue(nw.NamespaceId),
+		NamespaceID:   types.StringValue(nw.NamespaceId),
 		CloudProvider: types.StringValue(utils.CloudProviderToString(nw.CloudProvider)),
 		ClusterType:   types.StringValue(utils.ClusterTypeToString(nw.ClusterType)),
 	})...)
@@ -208,7 +209,7 @@ func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, re
 	var model models.Network
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 	op, err := n.NetClient.DeleteNetwork(ctx, &cloudv1beta1.DeleteNetworkRequest{
-		Id: model.Id.ValueString(),
+		Id: model.ID.ValueString(),
 	})
 
 	if err != nil {
@@ -225,6 +226,6 @@ func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, re
 // see https://developer.hashicorp.com/terraform/plugin/framework/resources/import for more details
 func (n *Network) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
 	response.Diagnostics.Append(response.State.Set(ctx, models.Network{
-		Id: types.StringValue(request.ID),
+		ID: types.StringValue(request.ID),
 	})...)
 }

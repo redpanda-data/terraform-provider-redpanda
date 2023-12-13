@@ -6,7 +6,7 @@ import (
 
 type Cluster struct {
 	Name            types.String `tfsdk:"name"`
-	Id              types.String `tfsdk:"id"`
+	ID              types.String `tfsdk:"id"`
 	ConnectionType  types.String `tfsdk:"connection_type"`
 	CloudProvider   types.String `tfsdk:"cloud_provider"`
 	ClusterType     types.String `tfsdk:"cluster_type"`
@@ -16,6 +16,6 @@ type Cluster struct {
 	Zones           types.List   `tfsdk:"zones"`
 	AllowDeletion   types.Bool   `tfsdk:"allow_deletion"`
 	Tags            types.Map    `tfsdk:"tags"`
-	NamespaceId     types.String `tfsdk:"namespace_id"`
-	NetworkId       types.String `tfsdk:"network_id"`
+	NamespaceID     types.String `tfsdk:"namespace_id"`
+	NetworkID       types.String `tfsdk:"network_id"`
 }

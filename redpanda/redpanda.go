@@ -2,6 +2,8 @@ package redpanda
 
 import (
 	"context"
+	"os"
+
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
@@ -12,7 +14,6 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/namespace"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/network"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
-	"os"
 )
 
 var _ provider.Provider = &Redpanda{}
@@ -70,15 +71,15 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	}
 
 	var id string
-	cfgId := conf.ClientID.ValueString()
-	envId := os.Getenv("CLIENT_ID")
+	cfgID := conf.ClientID.ValueString()
+	envID := os.Getenv("CLIENT_ID")
 	switch {
-	case cfgId == "" && envId != "":
-		id = envId
-	case cfgId != "" && envId == "":
-		id = cfgId
-	case cfgId != "" && envId != "":
-		id = cfgId
+	case cfgID == "" && envID != "":
+		id = envID
+	case cfgID != "" && envID == "":
+		id = cfgID
+	case cfgID != "" && envID != "":
+		id = cfgID
 	default:
 		response.Diagnostics.AddError("no client id", "no client id found")
 	}
