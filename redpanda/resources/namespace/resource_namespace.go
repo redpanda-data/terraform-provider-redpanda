@@ -1,3 +1,5 @@
+// Package namespace contains the implementation of the Namespace resource
+// following the Terraform framework interfaces.
 package namespace
 
 import (

@@ -1,3 +1,5 @@
+// Package utils contains multiple utility functions used across the Redpanda's
+// terraform codebase
 package utils
 
 import (

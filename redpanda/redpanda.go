@@ -1,3 +1,5 @@
+// Package redpanda contains the implementation of the Terraform Provider
+// framework interface for Redpanda.
 package redpanda
 
 import (

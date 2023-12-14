@@ -1,3 +1,5 @@
+// Package tests includes the acceptance tests for the Redpanda Terraform
+// Provider.
 package tests
 
 import (

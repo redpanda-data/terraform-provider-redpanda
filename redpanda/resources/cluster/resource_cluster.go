@@ -1,3 +1,5 @@
+// Package cluster contains the implementation of the Cluster resource
+// following the Terraform framework interfaces.
 package cluster
 
 import (

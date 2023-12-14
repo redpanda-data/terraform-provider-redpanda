@@ -1,3 +1,5 @@
+// Package network contains the implementation of the Network resource
+// following the Terraform framework interfaces.
 package network
 
 import (
