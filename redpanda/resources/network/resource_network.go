@@ -1,8 +1,28 @@
+// Copyright 2023 Redpanda Data, Inc.
+//
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
+// Package network contains the implementation of the Network resource
+// following the Terraform framework interfaces.
 package network
 
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"time"
+
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -14,29 +34,33 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
-	"regexp"
-	"time"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
-var _ resource.Resource = &Network{}
-var _ resource.ResourceWithConfigure = &Network{}
-var _ resource.ResourceWithImportState = &Network{}
+var (
+	_ resource.Resource                = &Network{}
+	_ resource.ResourceWithConfigure   = &Network{}
+	_ resource.ResourceWithImportState = &Network{}
+)
 
+// Network represents a network managed resource.
 type Network struct {
 	NetClient cloudv1beta1.NetworkServiceClient
 	OpsClient cloudv1beta1.OperationServiceClient
 }
 
-func (n *Network) Metadata(ctx context.Context, request resource.MetadataRequest, response *resource.MetadataResponse) {
+// Metadata returns the full name of the Network resource.
+func (*Network) Metadata(_ context.Context, _ resource.MetadataRequest, response *resource.MetadataResponse) {
 	response.TypeName = "redpanda_network"
 }
 
+// Configure uses provider level data to configure Network's clients.
 func (n *Network) Configure(ctx context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
 	if request.ProviderData == nil {
-		// we can't add a diagnostic for an unset providerdata here because during the early part of the terraform
-		// lifecycle, the provider data is not set and this is valid
-		// but we also can't do anything until it is set
+		// we can't add a diagnostic for an unset ProviderData here because
+		// during the early part of the terraform lifecycle, the provider data
+		// is not set and this is valid, but we also can't do anything until it
+		// is set
 		response.Diagnostics.AddWarning("provider data not set", "provider data not set at network.Configure")
 		return
 	}
@@ -71,11 +95,12 @@ func (n *Network) Configure(ctx context.Context, request resource.ConfigureReque
 	n.OpsClient = opsClient
 }
 
-func (n *Network) Schema(ctx context.Context, request resource.SchemaRequest, response *resource.SchemaResponse) {
-	response.Schema = ResourceNetworkSchema()
+// Schema returns the schema for the Network resource.
+func (*Network) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
+	response.Schema = resourceNetworkSchema()
 }
 
-func ResourceNetworkSchema() schema.Schema {
+func resourceNetworkSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
@@ -89,7 +114,7 @@ func ResourceNetworkSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators: []validator.String{
 					stringvalidator.RegexMatches(
-						regexp.MustCompile(`^(\d{1,3}\.){3}\d{1,3}\/(\d{1,2})$`),
+						regexp.MustCompile(`^(\d{1,3}\.){3}\d{1,3}/(\d{1,2})$`),
 						"The value must be a valid CIDR block (e.g., 192.168.0.0/16)",
 					),
 				},
@@ -128,6 +153,8 @@ func ResourceNetworkSchema() schema.Schema {
 	}
 }
 
+// Create creates a new Network resource. It updates the state if the resource
+// is successfully created.
 func (n *Network) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
 	var model models.Network
 	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
@@ -143,7 +170,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 			CidrBlock:     model.CidrBlock.ValueString(),
 			Region:        model.Region.ValueString(),
 			CloudProvider: cloudProvider,
-			NamespaceId:   model.NamespaceId.ValueString(),
+			NamespaceId:   model.NamespaceID.ValueString(),
 			ClusterType:   utils.StringToClusterType(model.ClusterType.ValueString()),
 		},
 	})
@@ -165,52 +192,52 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 
 	response.Diagnostics.Append(response.State.Set(ctx, models.Network{
 		Name:          model.Name,
-		Id:            utils.TrimmedStringValue(metadata.GetNetworkId()),
+		ID:            utils.TrimmedStringValue(metadata.GetNetworkId()),
 		CidrBlock:     model.CidrBlock,
 		Region:        model.Region,
-		NamespaceId:   model.NamespaceId,
+		NamespaceID:   model.NamespaceID,
 		ClusterType:   model.ClusterType,
 		CloudProvider: model.CloudProvider,
 	})...)
 }
 
+// Read reads Network resource's values and updates the state.
 func (n *Network) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
 	var model models.Network
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 	nw, err := n.NetClient.GetNetwork(ctx, &cloudv1beta1.GetNetworkRequest{
-		Id: model.Id.ValueString(),
+		Id: model.ID.ValueString(),
 	})
 	if err != nil {
 		if utils.IsNotFound(err) {
 			response.State.RemoveResource(ctx)
 			return
-		} else {
-			response.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.Id.ValueString()), err.Error())
-			return
 		}
+		response.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.ID.ValueString()), err.Error())
+		return
 	}
 	response.Diagnostics.Append(response.State.Set(ctx, models.Network{
 		Name:          types.StringValue(nw.Name),
-		Id:            types.StringValue(nw.Id),
+		ID:            types.StringValue(nw.Id),
 		CidrBlock:     types.StringValue(nw.CidrBlock),
 		Region:        types.StringValue(nw.Region),
-		NamespaceId:   types.StringValue(nw.NamespaceId),
+		NamespaceID:   types.StringValue(nw.NamespaceId),
 		CloudProvider: types.StringValue(utils.CloudProviderToString(nw.CloudProvider)),
 		ClusterType:   types.StringValue(utils.ClusterTypeToString(nw.ClusterType)),
 	})...)
 }
 
 // Update is not supported for network. As a result all configurable schema elements have been marked as RequiresReplace
-func (n *Network) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
+func (*Network) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
 }
 
+// Delete deletes the Network resource.
 func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
 	var model models.Network
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 	op, err := n.NetClient.DeleteNetwork(ctx, &cloudv1beta1.DeleteNetworkRequest{
-		Id: model.Id.ValueString(),
+		Id: model.ID.ValueString(),
 	})
-
 	if err != nil {
 		response.Diagnostics.AddError("failed to delete network", err.Error())
 		return
@@ -223,8 +250,8 @@ func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, re
 
 // ImportState refreshes the state with the correct ID for the namespace, allowing TF to use Read to get the correct Namespace name into state
 // see https://developer.hashicorp.com/terraform/plugin/framework/resources/import for more details
-func (n *Network) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
+func (*Network) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
 	response.Diagnostics.Append(response.State.Set(ctx, models.Network{
-		Id: types.StringValue(request.ID),
+		ID: types.StringValue(request.ID),
 	})...)
 }

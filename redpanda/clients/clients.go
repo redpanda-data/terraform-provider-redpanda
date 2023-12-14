@@ -1,3 +1,20 @@
+// Copyright 2023 Redpanda Data, Inc.
+//
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
+// Package clients provides the CloudV2 clients used by the Redpanda terraform
+// provider and the generated resources.
 package clients
 
 import (
@@ -5,12 +22,13 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strings"
+
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
-	"net/http"
-	"strings"
 )
 
 var endpoints = map[string]map[string]map[string]string{
@@ -28,12 +46,13 @@ var endpoints = map[string]map[string]map[string]string{
 	},
 }
 
+// ClientRequest are the client request credentials used to create a connection.
 type ClientRequest struct {
 	ClientID     string
 	ClientSecret string
 }
 
-// NewClusterServiceClient creates a new ClusterServiceClient
+// NewClusterServiceClient creates a new ClusterServiceClient.
 func NewClusterServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.ClusterServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
@@ -42,7 +61,7 @@ func NewClusterServiceClient(ctx context.Context, version string, cr ClientReque
 	return cloudv1beta1.NewClusterServiceClient(conn), nil
 }
 
-// NewNamespaceServiceClient creates a new NamespaceServiceClient
+// NewNamespaceServiceClient creates a new NamespaceServiceClient.
 func NewNamespaceServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.NamespaceServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
@@ -51,7 +70,7 @@ func NewNamespaceServiceClient(ctx context.Context, version string, cr ClientReq
 	return cloudv1beta1.NewNamespaceServiceClient(conn), nil
 }
 
-// NewNetworkServiceClient creates a new NetworkServiceClient
+// NewNetworkServiceClient creates a new NetworkServiceClient.
 func NewNetworkServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.NetworkServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
@@ -60,7 +79,7 @@ func NewNetworkServiceClient(ctx context.Context, version string, cr ClientReque
 	return cloudv1beta1.NewNetworkServiceClient(conn), nil
 }
 
-// NewOperationServiceClient creates a new OperationServiceClient
+// NewOperationServiceClient creates a new OperationServiceClient.
 func NewOperationServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.OperationServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
@@ -69,7 +88,8 @@ func NewOperationServiceClient(ctx context.Context, version string, cr ClientReq
 	return cloudv1beta1.NewOperationServiceClient(conn), nil
 }
 
-// createConnection is a helper function to create a connection based on the Redpanda model
+// createConnection is a helper function to create a connection based on the
+// Redpanda model.
 func createConnection(ctx context.Context, version string, cr ClientRequest) (*grpc.ClientConn, error) {
 	var token string
 	var err error
@@ -82,7 +102,7 @@ func createConnection(ctx context.Context, version string, cr ClientRequest) (*g
 		return nil, fmt.Errorf("client_secret is not set")
 	}
 
-	token, err = requestToken(version, cr.ClientID, cr.ClientSecret)
+	token, err = requestToken(ctx, version, cr.ClientID, cr.ClientSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -96,10 +116,10 @@ type tokenResponse struct {
 	TokenType   string `json:"token_type"`
 }
 
-// requestToken requests a token
-func requestToken(version, clientId, clientSecret string) (string, error) {
-	payload := strings.NewReader(fmt.Sprintf("grant_type=client_credentials&client_id=%s&client_secret=%s&audience=%s", clientId, clientSecret, endpoints["cloudv2"][version]["audience"]))
-	req, err := http.NewRequest("POST", endpoints["cloudv2"][version]["token"], payload)
+// requestToken requests a token.
+func requestToken(ctx context.Context, version, clientID, clientSecret string) (string, error) {
+	payload := strings.NewReader(fmt.Sprintf("grant_type=client_credentials&client_id=%s&client_secret=%s&audience=%s", clientID, clientSecret, endpoints["cloudv2"][version]["audience"]))
+	req, err := http.NewRequestWithContext(ctx, "POST", endpoints["cloudv2"][version]["token"], payload)
 	if err != nil {
 		return "", err
 	}
@@ -127,7 +147,7 @@ func spawnConn(ctx context.Context, version, authToken string) (*grpc.ClientConn
 		ctx,
 		endpoints["cloudv2"][version]["api"],
 		grpc.WithBlock(),
-		grpc.WithUnaryInterceptor(func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		grpc.WithUnaryInterceptor(func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 			return invoker(metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", authToken)), method, req, reply, cc, opts...)
 		}),
 		grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{

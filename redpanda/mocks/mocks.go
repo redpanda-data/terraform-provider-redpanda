@@ -13,13 +13,5 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-package utils
-
-// ResourceData is used to pass data and dependencies to resource implementations
-type ResourceData struct {
-	ClientID     string
-	ClientSecret string
-	Version      string
-}
-
-// TODO add cloud provider and region as values to persist
+// Package mocks provides the mocked resources and its clients for testing.
+package mocks

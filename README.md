@@ -24,3 +24,22 @@ Schema: ThingSchema(),
 }
 ```
 
+### Running Linters and Formatter
+
+#### Prerequisites
+- [golangci-lint](https://github.com/golangci/golangci-lint)
+- [gofumpt](https://github.com/mvdan/gofumpt)
+
+#### Run the commands
+
+**Linter:**
+```
+$ golangci-lint run --config .golangci.yml 
+```
+
+**Formatter:**
+```
+$ gofumpt -w ./
+
+# -w writes the result to source file.
+```

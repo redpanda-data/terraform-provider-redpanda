@@ -2,14 +2,15 @@ package tests
 
 import (
 	"context"
-	"github.com/hashicorp/terraform-plugin-testing/config"
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-	"github.com/hashicorp/terraform-plugin-testing/terraform"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"maps"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/hashicorp/terraform-plugin-testing/config"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 const (
@@ -19,27 +20,29 @@ const (
 	dedicatedNetworkFile    = "../../examples/network/main.tf"
 )
 
-var runClusterTests = os.Getenv("RUN_CLUSTER_TESTS")
-var accNamePrepend = "tfrp-acc-"
-var clientId = os.Getenv("CLIENT_ID")
-var clientSecret = os.Getenv("CLIENT_SECRET")
+var (
+	runClusterTests = os.Getenv("RUN_CLUSTER_TESTS")
+	accNamePrepend  = "tfrp-acc-"
+	clientID        = os.Getenv("CLIENT_ID")
+	clientSecret    = os.Getenv("CLIENT_SECRET")
+)
 
 func TestAccResourcesNamespace(t *testing.T) {
 	ctx := context.Background()
 	name := accNamePrepend + "testns"
 	rename := accNamePrepend + "testns2"
 	origTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(origTestCaseVars, providerCfgIdSecretVars)
+	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["namespace_name"] = config.StringVariable(name)
 	updateTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(updateTestCaseVars, providerCfgIdSecretVars)
+	maps.Copy(updateTestCaseVars, providerCfgIDSecretVars)
 	updateTestCaseVars["namespace_name"] = config.StringVariable(rename)
 
-	c, err := newClients(ctx, clientId, clientSecret, "ign")
+	c, err := newClients(ctx, clientID, clientSecret, "ign")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var importId string
+	var importID string
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
@@ -62,7 +65,7 @@ func TestAccResourcesNamespace(t *testing.T) {
 						if err != nil {
 							return err
 						}
-						importId = i.GetId()
+						importID = i.GetId()
 						return nil
 					}),
 			},
@@ -71,7 +74,7 @@ func TestAccResourcesNamespace(t *testing.T) {
 				ConfigFile:               config.StaticFile(dedicatedNamespaceFile),
 				ConfigVariables:          updateTestCaseVars,
 				ImportState:              true,
-				ImportStateId:            importId,
+				ImportStateId:            importID,
 				ImportStateVerify:        true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -92,14 +95,15 @@ func TestAccResourcesNamespace(t *testing.T) {
 		F: sweepNamespace{
 			NamespaceName: name,
 			Client:        c.NsClient,
-		}.SweepNamespaces})
+		}.SweepNamespaces,
+	})
 	resource.AddTestSweepers(rename, &resource.Sweeper{
 		Name: rename,
 		F: sweepNamespace{
 			NamespaceName: rename,
 			Client:        c.NsClient,
-		}.SweepNamespaces})
-
+		}.SweepNamespaces,
+	})
 }
 
 func TestAccResourcesNetwork(t *testing.T) {
@@ -107,18 +111,18 @@ func TestAccResourcesNetwork(t *testing.T) {
 	name := accNamePrepend + "testnet"
 	rename := accNamePrepend + "testnet2"
 	origTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(origTestCaseVars, providerCfgIdSecretVars)
+	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["namespace_name"] = config.StringVariable(name)
 	origTestCaseVars["network_name"] = config.StringVariable(name)
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["network_name"] = config.StringVariable(rename)
 
-	c, err := newClients(ctx, clientId, clientSecret, "ign")
+	c, err := newClients(ctx, clientID, clientSecret, "ign")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var importId string
+	var importID string
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
@@ -143,7 +147,7 @@ func TestAccResourcesNetwork(t *testing.T) {
 						if err != nil {
 							return err
 						}
-						importId = i.GetId()
+						importID = i.GetId()
 						return nil
 					}),
 			},
@@ -152,7 +156,7 @@ func TestAccResourcesNetwork(t *testing.T) {
 				ConfigFile:               config.StaticFile(dedicatedNetworkFile),
 				ConfigVariables:          updateTestCaseVars,
 				ImportState:              true,
-				ImportStateId:            importId,
+				ImportStateId:            importID,
 				ImportStateVerify:        true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -173,21 +177,24 @@ func TestAccResourcesNetwork(t *testing.T) {
 		F: sweepNamespace{
 			NamespaceName: name,
 			Client:        c.NsClient,
-		}.SweepNamespaces})
+		}.SweepNamespaces,
+	})
 	resource.AddTestSweepers(name, &resource.Sweeper{
 		Name: name,
 		F: sweepNetwork{
 			NetworkName: name,
 			NetClient:   c.NetClient,
 			OpsClient:   c.OpsClient,
-		}.SweepNetworks})
+		}.SweepNetworks,
+	})
 	resource.AddTestSweepers(rename, &resource.Sweeper{
 		Name: rename,
 		F: sweepNetwork{
 			NetworkName: rename,
 			NetClient:   c.NetClient,
 			OpsClient:   c.OpsClient,
-		}.SweepNetworks})
+		}.SweepNetworks,
+	})
 }
 
 func TestAccResourcesClusterAWS(t *testing.T) {
@@ -197,10 +204,10 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 	ctx := context.Background()
 	name := accNamePrepend + "testaws"
 	rename := accNamePrepend + "testaws2"
-	var importId string
+	var importID string
 
 	origTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(origTestCaseVars, providerCfgIdSecretVars)
+	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["namespace_name"] = config.StringVariable(name)
 	origTestCaseVars["network_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
@@ -208,7 +215,7 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
 
-	c, err := newClients(ctx, clientId, clientSecret, "ign")
+	c, err := newClients(ctx, clientID, clientSecret, "ign")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,7 +248,7 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 							if err != nil {
 								return err
 							}
-							importId = i.GetId()
+							importID = i.GetId()
 							return nil
 						}),
 				},
@@ -250,7 +257,7 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 					ConfigFile:               config.StaticFile(awsDedicatedClusterFile),
 					ConfigVariables:          updateTestCaseVars,
 					ImportState:              true,
-					ImportStateId:            importId,
+					ImportStateId:            importID,
 					ImportStateVerify:        true,
 					ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 					Check: resource.ComposeAggregateTestCheckFunc(
@@ -273,21 +280,24 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 		F: sweepNamespace{
 			NamespaceName: name,
 			Client:        c.NsClient,
-		}.SweepNamespaces})
+		}.SweepNamespaces,
+	})
 	resource.AddTestSweepers(name, &resource.Sweeper{
 		Name: name,
 		F: sweepNetwork{
 			NetworkName: name,
 			NetClient:   c.NetClient,
 			OpsClient:   c.OpsClient,
-		}.SweepNetworks})
+		}.SweepNetworks,
+	})
 	resource.AddTestSweepers(rename, &resource.Sweeper{
 		Name: rename,
 		F: sweepCluster{
 			ClusterName: rename,
 			CluClient:   c.ClusterClient,
 			OpsClient:   c.OpsClient,
-		}.SweepCluster})
+		}.SweepCluster,
+	})
 }
 
 func TestAccResourcesClusterGCP(t *testing.T) {
@@ -298,10 +308,10 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 	ctx := context.Background()
 	name := accNamePrepend + "testgcp"
 	rename := accNamePrepend + "testgcp2"
-	var importId string
+	var importID string
 
 	origTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(origTestCaseVars, providerCfgIdSecretVars)
+	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["namespace_name"] = config.StringVariable(name)
 	origTestCaseVars["network_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
@@ -309,7 +319,7 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
 
-	c, err := newClients(ctx, clientId, clientSecret, "ign")
+	c, err := newClients(ctx, clientID, clientSecret, "ign")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -341,7 +351,7 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 							if err != nil {
 								return err
 							}
-							importId = i.GetId()
+							importID = i.GetId()
 							return nil
 						}),
 				},
@@ -350,7 +360,7 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 					ConfigFile:               config.StaticFile(gcpDedicatedClusterFile),
 					ConfigVariables:          updateTestCaseVars,
 					ImportState:              true,
-					ImportStateId:            importId,
+					ImportStateId:            importID,
 					ImportStateVerify:        true,
 					ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 					Check: resource.ComposeAggregateTestCheckFunc(
@@ -374,19 +384,22 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 		F: sweepNamespace{
 			NamespaceName: name,
 			Client:        c.NsClient,
-		}.SweepNamespaces})
+		}.SweepNamespaces,
+	})
 	resource.AddTestSweepers(name, &resource.Sweeper{
 		Name: name,
 		F: sweepNetwork{
 			NetworkName: name,
 			NetClient:   c.NetClient,
 			OpsClient:   c.OpsClient,
-		}.SweepNetworks})
+		}.SweepNetworks,
+	})
 	resource.AddTestSweepers(rename, &resource.Sweeper{
 		Name: rename,
 		F: sweepCluster{
 			ClusterName: rename,
 			CluClient:   c.ClusterClient,
 			OpsClient:   c.OpsClient,
-		}.SweepCluster})
+		}.SweepCluster,
+	})
 }

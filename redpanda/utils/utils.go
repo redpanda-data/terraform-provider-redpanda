@@ -1,15 +1,38 @@
+// Copyright 2023 Redpanda Data, Inc.
+//
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
+// Package utils contains multiple utility functions used across the Redpanda's
+// terraform codebase
 package utils
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
-	"strings"
-	"time"
 )
 
+const providerUnspecified = "unspecified"
+
+// IsNotFound checks if the passed error is a Not Found error or if it has a
+// 404 code in the error message.
 func IsNotFound(err error) bool {
 	if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "NotFound") || strings.Contains(err.Error(), "404") {
 		return true
@@ -19,6 +42,8 @@ func IsNotFound(err error) bool {
 
 // TODO check more to see if the client handles this
 
+// StringToCloudProvider returns the cloudv1beta1's CloudProvider code based on
+// the input string.
 func StringToCloudProvider(p string) cloudv1beta1.CloudProvider {
 	switch strings.ToLower(p) {
 	case "aws":
@@ -31,6 +56,8 @@ func StringToCloudProvider(p string) cloudv1beta1.CloudProvider {
 	}
 }
 
+// CloudProviderToString returns the cloud provider string based on the
+// cloudv1beta1's CloudProvider code.
 func CloudProviderToString(provider cloudv1beta1.CloudProvider) string {
 	switch provider {
 	case cloudv1beta1.CloudProvider_CLOUD_PROVIDER_AWS:
@@ -38,11 +65,13 @@ func CloudProviderToString(provider cloudv1beta1.CloudProvider) string {
 	case cloudv1beta1.CloudProvider_CLOUD_PROVIDER_GCP:
 		return "gcp"
 	default:
-		return "unspecified"
+		return providerUnspecified
 		// TODO should we error here?
 	}
 }
 
+// StringToClusterType returns the cloudv1beta1's Cluster_Type code based on
+// the input string.
 func StringToClusterType(p string) cloudv1beta1.Cluster_Type {
 	switch strings.ToLower(p) {
 	case "dedicated":
@@ -55,6 +84,8 @@ func StringToClusterType(p string) cloudv1beta1.Cluster_Type {
 	}
 }
 
+// ClusterTypeToString returns the cloud cluster type string based on the
+// cloudv1beta1's Cluster_Type code.
 func ClusterTypeToString(provider cloudv1beta1.Cluster_Type) string {
 	switch provider {
 	case cloudv1beta1.Cluster_TYPE_DEDICATED:
@@ -62,11 +93,13 @@ func ClusterTypeToString(provider cloudv1beta1.Cluster_Type) string {
 	case cloudv1beta1.Cluster_TYPE_BYOC:
 		return "cloud"
 	default:
-		return "unspecified"
+		return providerUnspecified
 		// TODO should we error here?
 	}
 }
 
+// AreWeDoneYet checks the status of a given operation until it either completes
+// successfully, encounters an error, or reaches a timeout.
 func AreWeDoneYet(ctx context.Context, op *cloudv1beta1.Operation, timeout time.Duration, client cloudv1beta1.OperationServiceClient) error {
 	if CheckOpsState(op) {
 		if op.GetError() != nil {
@@ -84,7 +117,7 @@ func AreWeDoneYet(ctx context.Context, op *cloudv1beta1.Operation, timeout time.
 		}
 		if CheckOpsState(o) {
 			if o.GetError() != nil {
-				if !IsNotFound(fmt.Errorf(o.GetError().GetMessage())) {
+				if !IsNotFound(errors.New(o.GetError().GetMessage())) {
 					return nil
 				}
 				return fmt.Errorf("operation failed: %s", o.GetError().GetMessage())
@@ -98,6 +131,8 @@ func AreWeDoneYet(ctx context.Context, op *cloudv1beta1.Operation, timeout time.
 	}
 }
 
+// CheckOpsState checks if the op.State is either complete or failed, otherwise
+// it returns false.
 func CheckOpsState(op *cloudv1beta1.Operation) bool {
 	switch op.GetState() {
 	case cloudv1beta1.Operation_STATE_COMPLETED:
@@ -109,6 +144,8 @@ func CheckOpsState(op *cloudv1beta1.Operation) bool {
 	}
 }
 
+// StringToConnectionType returns the cloudv1beta1's Cluster_ConnectionType code
+// based on the input string.
 func StringToConnectionType(s string) cloudv1beta1.Cluster_ConnectionType {
 	switch strings.ToLower(s) {
 	case "public":
@@ -120,6 +157,8 @@ func StringToConnectionType(s string) cloudv1beta1.Cluster_ConnectionType {
 	}
 }
 
+// ConnectionTypeToString returns the cloud cluster connection type string based
+// on the cloudv1beta1's Cluster_ConnectionType code.
 func ConnectionTypeToString(t cloudv1beta1.Cluster_ConnectionType) string {
 	switch t {
 	case cloudv1beta1.Cluster_CONNECTION_TYPE_PUBLIC:
@@ -127,10 +166,12 @@ func ConnectionTypeToString(t cloudv1beta1.Cluster_ConnectionType) string {
 	case cloudv1beta1.Cluster_CONNECTION_TYPE_PRIVATE:
 		return "private"
 	default:
-		return "unspecified"
+		return providerUnspecified
 	}
 }
 
+// TypeListToStringSlice converts a types.List to a []string, stripping
+// surrounding quotes for each element.
 func TypeListToStringSlice(t types.List) []string {
 	var s []string
 	for _, v := range t.Elements() {
@@ -156,6 +197,9 @@ func TrimmedString(s types.String) string {
 	return strings.Trim(s.String(), "\"")
 }
 
+// FindNamespaceByName searches for a namespace by name using the provided
+// client. It queries the namespaces and returns the first match by name or an
+// error if not found.
 func FindNamespaceByName(ctx context.Context, n string, client cloudv1beta1.NamespaceServiceClient) (*cloudv1beta1.Namespace, error) {
 	ns, err := client.ListNamespaces(ctx, &cloudv1beta1.ListNamespacesRequest{
 		Filter: &cloudv1beta1.ListNamespacesRequest_Filter{Name: n},
@@ -171,6 +215,9 @@ func FindNamespaceByName(ctx context.Context, n string, client cloudv1beta1.Name
 	return nil, fmt.Errorf("namespace %s not found", n)
 }
 
+// FindNetworkByName searches for a network by name using the provided client.
+// It queries the networks and returns the first match by name or an error if
+// not found.
 func FindNetworkByName(ctx context.Context, n string, client cloudv1beta1.NetworkServiceClient) (*cloudv1beta1.Network, error) {
 	ns, err := client.ListNetworks(ctx, &cloudv1beta1.ListNetworksRequest{
 		Filter: &cloudv1beta1.ListNetworksRequest_Filter{Name: n},
@@ -186,6 +233,9 @@ func FindNetworkByName(ctx context.Context, n string, client cloudv1beta1.Networ
 	return nil, fmt.Errorf("network not found")
 }
 
+// FindClusterByName searches for a cluster by name using the provided client.
+// It queries the clusters and returns the first match by name or an error if
+// not found.
 func FindClusterByName(ctx context.Context, n string, client cloudv1beta1.ClusterServiceClient) (*cloudv1beta1.Cluster, error) {
 	ns, err := client.ListClusters(ctx, &cloudv1beta1.ListClustersRequest{
 		Filter: &cloudv1beta1.ListClustersRequest_Filter{Name: n},

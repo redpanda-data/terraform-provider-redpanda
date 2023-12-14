@@ -1,8 +1,27 @@
+// Copyright 2023 Redpanda Data, Inc.
+//
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
+// Package cluster contains the implementation of the Cluster resource
+// following the Terraform framework interfaces.
 package cluster
 
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
@@ -15,22 +34,27 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
-	"time"
 )
 
-var _ resource.Resource = &Cluster{}
-var _ resource.ResourceWithConfigure = &Cluster{}
-var _ resource.ResourceWithImportState = &Cluster{}
+// Ensure provider defined types fully satisfy framework interfaces.
+var (
+	_ resource.Resource                = &Cluster{}
+	_ resource.ResourceWithConfigure   = &Cluster{}
+	_ resource.ResourceWithImportState = &Cluster{}
+)
 
+// Cluster represents a cluster managed resource.
 type Cluster struct {
 	CluClient cloudv1beta1.ClusterServiceClient
 	OpsClient cloudv1beta1.OperationServiceClient
 }
 
-func (c *Cluster) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+// Metadata returns the full name of the Cluster resource.
+func (*Cluster) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = "redpanda_cluster"
 }
 
+// Configure uses provider level data to configure Cluster's clients.
 func (c *Cluster) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		resp.Diagnostics.AddWarning("provider data not set", "provider data not set at cluster.Configure")
@@ -67,11 +91,12 @@ func (c *Cluster) Configure(ctx context.Context, req resource.ConfigureRequest, 
 	c.OpsClient = ops
 }
 
-func (c *Cluster) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = ResourceClusterSchema()
+// Schema returns the schema for the Cluster resource.
+func (*Cluster) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = resourceClusterSchema()
 }
 
-func ResourceClusterSchema() schema.Schema {
+func resourceClusterSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
@@ -145,6 +170,8 @@ func ResourceClusterSchema() schema.Schema {
 	}
 }
 
+// Create creates a new Cluster resource. It updates the state if the resource
+// is successfully created.
 func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var model models.Cluster
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
@@ -173,28 +200,28 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		Zones:           model.Zones,
 		AllowDeletion:   model.AllowDeletion,
 		Tags:            model.Tags,
-		NamespaceId:     model.NamespaceId,
-		NetworkId:       model.NetworkId,
-		Id:              utils.TrimmedStringValue(metadata.GetClusterId()),
+		NamespaceID:     model.NamespaceID,
+		NetworkID:       model.NetworkID,
+		ID:              utils.TrimmedStringValue(metadata.GetClusterId()),
 	})...)
 }
 
+// Read reads Cluster resource's values and updates the state.
 func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var model models.Cluster
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
 	cluster, err := c.CluClient.GetCluster(ctx, &cloudv1beta1.GetClusterRequest{
-		Id: model.Id.ValueString(),
+		Id: model.ID.ValueString(),
 	})
 	if err != nil {
 		if utils.IsNotFound(err) {
 			// Treat HTTP 404 Not Found status as a signal to recreate resource and return early
 			resp.State.RemoveResource(ctx)
 			return
-		} else {
-			resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.Id), err.Error())
-			return
 		}
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), err.Error())
+		return
 	}
 	lv, d := types.ListValueFrom(ctx, types.StringType, cluster.Zones)
 	if d.HasError() {
@@ -217,16 +244,17 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		Zones:           lv,
 		AllowDeletion:   model.AllowDeletion,
 		Tags:            model.Tags,
-		NamespaceId:     types.StringValue(cluster.NamespaceId),
-		NetworkId:       types.StringValue(cluster.NetworkId),
-		Id:              types.StringValue(cluster.Id),
+		NamespaceID:     types.StringValue(cluster.NamespaceId),
+		NetworkID:       types.StringValue(cluster.NetworkId),
+		ID:              types.StringValue(cluster.Id),
 	})...)
 }
 
-// Update all cluster updates are currently delete and recreate
-func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+// Update all cluster updates are currently delete and recreate.
+func (*Cluster) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
 }
 
+// Delete deletes the Cluster resource.
 func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var model models.Cluster
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
@@ -236,7 +264,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		return
 	}
 	op, err := c.CluClient.DeleteCluster(ctx, &cloudv1beta1.DeleteClusterRequest{
-		Id: model.Id.ValueString(),
+		Id: model.ID.ValueString(),
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("failed to delete cluster", err.Error())
@@ -249,9 +277,10 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 	}
 }
 
-func (c *Cluster) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+// ImportState imports and update the state of the cluster resource.
+func (*Cluster) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resp.Diagnostics.Append(resp.State.Set(ctx, &models.Cluster{
-		Id: types.StringValue(req.ID),
+		ID: types.StringValue(req.ID),
 	})...)
 }
 
@@ -265,8 +294,8 @@ func GenerateClusterRequest(model models.Cluster) *cloudv1beta1.Cluster {
 		ThroughputTier:  model.ThroughputTier.ValueString(),
 		Region:          model.Region.ValueString(),
 		Zones:           utils.TypeListToStringSlice(model.Zones),
-		NamespaceId:     model.NamespaceId.ValueString(),
-		NetworkId:       model.NetworkId.ValueString(),
+		NamespaceId:     model.NamespaceID.ValueString(),
+		NetworkId:       model.NetworkID.ValueString(),
 		Type:            utils.StringToClusterType(model.ClusterType.ValueString()),
 	}
 }

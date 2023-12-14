@@ -2,11 +2,12 @@ package redpanda
 
 import (
 	"context"
+	"testing"
+
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
-	"testing"
 )
 
 func TestProviderConfigure(t *testing.T) {
@@ -15,7 +16,7 @@ func TestProviderConfigure(t *testing.T) {
 	rp := New(ctx, "dev")()
 	rp.Schema(ctx, provider.SchemaRequest{}, &provider.SchemaResponse{})
 
-	if d := ProviderSchema().ValidateImplementation(ctx); d.HasError() {
+	if d := providerSchema().ValidateImplementation(ctx); d.HasError() {
 		t.Fatalf("unexpected error in provider schema: %s", d)
 	}
 
@@ -44,7 +45,7 @@ func TestProviderConfigure(t *testing.T) {
 					},
 				),
 			}),
-			Schema: ProviderSchema(),
+			Schema: providerSchema(),
 		},
 	}
 

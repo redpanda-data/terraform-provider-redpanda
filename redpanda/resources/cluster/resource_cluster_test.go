@@ -2,13 +2,14 @@ package cluster
 
 import (
 	"fmt"
+	"reflect"
+	"testing"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
-	"reflect"
-	"testing"
 )
 
 func TestGenerateClusterRequest(t *testing.T) {
@@ -32,8 +33,8 @@ func TestGenerateClusterRequest(t *testing.T) {
 					Region:         types.StringValue("us-west1"),
 					Zones:          utils.TestingOnlyStringSliceToTypeList([]string{"us-west1-a", "us-west1-b"}),
 					AllowDeletion:  types.BoolValue(true),
-					NamespaceId:    types.StringValue("testnamespace"),
-					NetworkId:      types.StringValue("testnetwork"),
+					NamespaceID:    types.StringValue("testnamespace"),
+					NetworkID:      types.StringValue("testnetwork"),
 				},
 			},
 			want: &cloudv1beta1.Cluster{
