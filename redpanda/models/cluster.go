@@ -4,6 +4,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
+// Cluster represents the Terraform schema for the cluster resource.
 type Cluster struct {
 	Name            types.String `tfsdk:"name"`
 	ID              types.String `tfsdk:"id"`

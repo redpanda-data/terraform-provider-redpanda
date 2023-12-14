@@ -22,7 +22,7 @@ func TestNamespaceSchema(t *testing.T) {
 }
 
 func TestValidateSchema(t *testing.T) {
-	if d := ResourceNamespaceSchema().ValidateImplementation(context.Background()); d.HasError() {
+	if d := resourceNamespaceSchema().ValidateImplementation(context.Background()); d.HasError() {
 		t.Errorf("Unexpected error in schema: %s", d)
 	}
 }
@@ -44,12 +44,12 @@ func TestNamespaceCreate(t *testing.T) {
 					"name": tftypes.NewValue(tftypes.String, "sample"),
 					"id":   tftypes.NewValue(tftypes.String, ""),
 				}),
-			Schema: ResourceNamespaceSchema(),
+			Schema: resourceNamespaceSchema(),
 		},
 	}
 	resp := resource.CreateResponse{
 		State: tfsdk.State{
-			Schema: ResourceNamespaceSchema(),
+			Schema: resourceNamespaceSchema(),
 		},
 	}
 	n.Create(context.Background(), req, &resp)
@@ -75,12 +75,12 @@ func TestNamespaceRead(t *testing.T) {
 					"name": tftypes.NewValue(tftypes.String, "sample"),
 					"id":   tftypes.NewValue(tftypes.String, ""),
 				}),
-			Schema: ResourceNamespaceSchema(),
+			Schema: resourceNamespaceSchema(),
 		},
 	}
 	resp := resource.ReadResponse{
 		State: tfsdk.State{
-			Schema: ResourceNamespaceSchema(),
+			Schema: resourceNamespaceSchema(),
 		},
 	}
 	n.Read(context.Background(), req, &resp)
@@ -106,12 +106,12 @@ func TestNamespace_Delete(t *testing.T) {
 					"name": tftypes.NewValue(tftypes.String, "sample"),
 					"id":   tftypes.NewValue(tftypes.String, ""),
 				}),
-			Schema: ResourceNamespaceSchema(),
+			Schema: resourceNamespaceSchema(),
 		},
 	}
 	resp := resource.DeleteResponse{
 		State: tfsdk.State{
-			Schema: ResourceNamespaceSchema(),
+			Schema: resourceNamespaceSchema(),
 		},
 	}
 	n.Delete(context.Background(), req, &resp)
@@ -137,7 +137,7 @@ func TestNamespace_ImportState(t *testing.T) {
 					"name": tftypes.NewValue(tftypes.String, "sample"),
 					"id":   tftypes.NewValue(tftypes.String, ""),
 				}),
-			Schema: ResourceNamespaceSchema(),
+			Schema: resourceNamespaceSchema(),
 		},
 	}
 	n.ImportState(context.Background(), resource.ImportStateRequest{

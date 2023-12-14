@@ -16,13 +16,15 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
+// Ensure provider defined types fully satisfy framework interfaces.
 var _ provider.Provider = &Redpanda{}
 
+// Redpanda represents the Redpanda Terraform provider.
 type Redpanda struct {
 	version string
 }
 
-// New spawns a basic provider struct, no client. Configure must be called for a working client
+// New spawns a basic provider struct, no client. Configure must be called for a working client.
 func New(_ context.Context, version string) func() provider.Provider {
 	return func() provider.Provider {
 		return &Redpanda{
@@ -31,7 +33,7 @@ func New(_ context.Context, version string) func() provider.Provider {
 	}
 }
 
-func ProviderSchema() schema.Schema {
+func providerSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"client_id": schema.StringAttribute{
@@ -62,7 +64,7 @@ func ProviderSchema() schema.Schema {
 	}
 }
 
-// Configure is the primary entrypoint for terraform and properly initializes the client
+// Configure is the primary entrypoint for terraform and properly initializes the client.
 func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequest, response *provider.ConfigureResponse) {
 	var conf models.Redpanda
 	response.Diagnostics.Append(request.Config.Get(ctx, &conf)...)
@@ -97,7 +99,8 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		response.Diagnostics.AddError("no client secret", "no client secret found")
 	}
 
-	// Clients are passed through to downstream resources through the response struct
+	// Clients are passed through to downstream resources through the response
+	// struct.
 	response.ResourceData = utils.ResourceData{
 		ClientID:     id,
 		ClientSecret: sec,
@@ -110,20 +113,25 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	}
 }
 
+// Metadata returns the provider metadata.
 func (r *Redpanda) Metadata(_ context.Context, _ provider.MetadataRequest, response *provider.MetadataResponse) {
 	response.TypeName = "redpanda"
 	response.Version = r.version
 }
 
+// Schema returns the Redpanda provider schema.
 func (*Redpanda) Schema(_ context.Context, _ provider.SchemaRequest, response *provider.SchemaResponse) {
-	response.Schema = ProviderSchema()
+	response.Schema = providerSchema()
 }
 
+// DataSources returns a slice of functions to instantiate each Redpanda
+// DataSource.
 func (*Redpanda) DataSources(_ context.Context) []func() datasource.DataSource {
 	// TODO implement
 	return []func() datasource.DataSource{}
 }
 
+// Resources returns a slice of functions to instantiate each Redpanda resource.
 func (*Redpanda) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		func() resource.Resource {

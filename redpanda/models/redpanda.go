@@ -4,6 +4,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
+// Redpanda represents the Terraform schema for the Redpanda TF provider.
 type Redpanda struct {
 	ClientID      types.String   `tfsdk:"client_id"`
 	ClientSecret  types.String   `tfsdk:"client_secret"`

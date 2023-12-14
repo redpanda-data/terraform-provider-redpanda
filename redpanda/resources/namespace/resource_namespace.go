@@ -22,19 +22,23 @@ var (
 	_ resource.ResourceWithImportState = &Namespace{}
 )
 
+// Namespace represents a cluster managed resource.
 type Namespace struct {
 	Client cloudv1beta1.NamespaceServiceClient
 }
 
+// Metadata returns the full name of the Namespace resource.
 func (*Namespace) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = "redpanda_namespace"
 }
 
+// Configure uses provider level data to configure Namespace client.
 func (n *Namespace) Configure(ctx context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
 	if request.ProviderData == nil {
-		// we can't add a diagnostic for an unset providerdata here because during the early part of the terraform
-		// lifecycle, the provider data is not set and this is valid
-		// but we also can't do anything until it is set
+		// We can't add a diagnostic for an unset ProviderData here because
+		// during the early part of the terraform lifecycle, the provider data
+		// is not set and this is valid, but we also can't do anything until it
+		// is set.
 		response.Diagnostics.AddWarning("provider data not set", "provider data not set at namespace.Configure")
 		return
 	}
@@ -58,12 +62,14 @@ func (n *Namespace) Configure(ctx context.Context, request resource.ConfigureReq
 	n.Client = client
 }
 
+// Schema returns the schema for the Namespace resource.
 func (*Namespace) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = ResourceNamespaceSchema()
+	resp.Schema = resourceNamespaceSchema()
 }
 
-// ResourceNamespaceSchema defines the schema for a namespace. Not used directly by TF but very helpful for tests
-func ResourceNamespaceSchema() schema.Schema {
+// resourceNamespaceSchema defines the schema for a namespace. Not used directly
+// by TF but very helpful for tests.
+func resourceNamespaceSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
@@ -81,6 +87,8 @@ func ResourceNamespaceSchema() schema.Schema {
 	}
 }
 
+// Create creates a new Namespace resource. It updates the state if the resource
+// is successfully created.
 func (n *Namespace) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var model models.Namespace
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
@@ -100,6 +108,7 @@ func (n *Namespace) Create(ctx context.Context, req resource.CreateRequest, resp
 	})...)
 }
 
+// Read reads Namespace resource's values and updates the state.
 func (n *Namespace) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var model models.Namespace
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
@@ -120,6 +129,7 @@ func (n *Namespace) Read(ctx context.Context, req resource.ReadRequest, resp *re
 	})...)
 }
 
+// Update updates the state of the Namespace resource.
 func (n *Namespace) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var model models.Namespace
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
@@ -139,6 +149,7 @@ func (n *Namespace) Update(ctx context.Context, req resource.UpdateRequest, resp
 	})...)
 }
 
+// Delete deletes the Namespace resource.
 func (n *Namespace) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var model models.Namespace
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
@@ -156,8 +167,10 @@ func (n *Namespace) Delete(ctx context.Context, req resource.DeleteRequest, resp
 	}
 }
 
-// ImportState refreshes the state with the correct ID for the namespace, allowing TF to use Read to get the correct Namespace name into state
-// see https://developer.hashicorp.com/terraform/plugin/framework/resources/import for more details
+// ImportState refreshes the state with the correct ID for the namespace,
+// allowing TF to use Read to get the correct Namespace name into state see
+// https://developer.hashicorp.com/terraform/plugin/framework/resources/import
+// for more details.
 func (*Namespace) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
 	response.Diagnostics.Append(response.State.Set(ctx, models.Namespace{
 		ID: types.StringValue(request.ID),

@@ -29,12 +29,13 @@ var endpoints = map[string]map[string]map[string]string{
 	},
 }
 
+// ClientRequest are the client request credentials used to create a connection.
 type ClientRequest struct {
 	ClientID     string
 	ClientSecret string
 }
 
-// NewClusterServiceClient creates a new ClusterServiceClient
+// NewClusterServiceClient creates a new ClusterServiceClient.
 func NewClusterServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.ClusterServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
@@ -43,7 +44,7 @@ func NewClusterServiceClient(ctx context.Context, version string, cr ClientReque
 	return cloudv1beta1.NewClusterServiceClient(conn), nil
 }
 
-// NewNamespaceServiceClient creates a new NamespaceServiceClient
+// NewNamespaceServiceClient creates a new NamespaceServiceClient.
 func NewNamespaceServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.NamespaceServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
@@ -52,7 +53,7 @@ func NewNamespaceServiceClient(ctx context.Context, version string, cr ClientReq
 	return cloudv1beta1.NewNamespaceServiceClient(conn), nil
 }
 
-// NewNetworkServiceClient creates a new NetworkServiceClient
+// NewNetworkServiceClient creates a new NetworkServiceClient.
 func NewNetworkServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.NetworkServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
@@ -61,7 +62,7 @@ func NewNetworkServiceClient(ctx context.Context, version string, cr ClientReque
 	return cloudv1beta1.NewNetworkServiceClient(conn), nil
 }
 
-// NewOperationServiceClient creates a new OperationServiceClient
+// NewOperationServiceClient creates a new OperationServiceClient.
 func NewOperationServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.OperationServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
@@ -70,7 +71,8 @@ func NewOperationServiceClient(ctx context.Context, version string, cr ClientReq
 	return cloudv1beta1.NewOperationServiceClient(conn), nil
 }
 
-// createConnection is a helper function to create a connection based on the Redpanda model
+// createConnection is a helper function to create a connection based on the
+// Redpanda model.
 func createConnection(ctx context.Context, version string, cr ClientRequest) (*grpc.ClientConn, error) {
 	var token string
 	var err error
@@ -97,7 +99,7 @@ type tokenResponse struct {
 	TokenType   string `json:"token_type"`
 }
 
-// requestToken requests a token
+// requestToken requests a token.
 func requestToken(ctx context.Context, version, clientID, clientSecret string) (string, error) {
 	payload := strings.NewReader(fmt.Sprintf("grant_type=client_credentials&client_id=%s&client_secret=%s&audience=%s", clientID, clientSecret, endpoints["cloudv2"][version]["audience"]))
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoints["cloudv2"][version]["token"], payload)

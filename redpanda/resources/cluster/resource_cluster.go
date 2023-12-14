@@ -19,21 +19,25 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
+// Ensure provider defined types fully satisfy framework interfaces.
 var (
 	_ resource.Resource                = &Cluster{}
 	_ resource.ResourceWithConfigure   = &Cluster{}
 	_ resource.ResourceWithImportState = &Cluster{}
 )
 
+// Cluster represents a cluster managed resource.
 type Cluster struct {
 	CluClient cloudv1beta1.ClusterServiceClient
 	OpsClient cloudv1beta1.OperationServiceClient
 }
 
+// Metadata returns the full name of the Cluster resource.
 func (*Cluster) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = "redpanda_cluster"
 }
 
+// Configure uses provider level data to configure Cluster's clients.
 func (c *Cluster) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		resp.Diagnostics.AddWarning("provider data not set", "provider data not set at cluster.Configure")
@@ -70,11 +74,12 @@ func (c *Cluster) Configure(ctx context.Context, req resource.ConfigureRequest, 
 	c.OpsClient = ops
 }
 
+// Schema returns the schema for the Cluster resource.
 func (*Cluster) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = ResourceClusterSchema()
+	resp.Schema = resourceClusterSchema()
 }
 
-func ResourceClusterSchema() schema.Schema {
+func resourceClusterSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
@@ -148,6 +153,8 @@ func ResourceClusterSchema() schema.Schema {
 	}
 }
 
+// Create creates a new Cluster resource. It updates the state if the resource
+// is successfully created.
 func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var model models.Cluster
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
@@ -182,6 +189,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	})...)
 }
 
+// Read reads Cluster resource's values and updates the state.
 func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var model models.Cluster
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
@@ -225,10 +233,11 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 	})...)
 }
 
-// Update all cluster updates are currently delete and recreate
+// Update all cluster updates are currently delete and recreate.
 func (*Cluster) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
 }
 
+// Delete deletes the Cluster resource.
 func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var model models.Cluster
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
@@ -251,6 +260,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 	}
 }
 
+// ImportState imports and update the state of the cluster resource.
 func (*Cluster) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resp.Diagnostics.Append(resp.State.Set(ctx, &models.Cluster{
 		ID: types.StringValue(req.ID),

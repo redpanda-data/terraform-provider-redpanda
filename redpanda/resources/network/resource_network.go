@@ -26,20 +26,24 @@ var (
 	_ resource.ResourceWithImportState = &Network{}
 )
 
+// Network represents a network managed resource.
 type Network struct {
 	NetClient cloudv1beta1.NetworkServiceClient
 	OpsClient cloudv1beta1.OperationServiceClient
 }
 
+// Metadata returns the full name of the Network resource.
 func (*Network) Metadata(_ context.Context, _ resource.MetadataRequest, response *resource.MetadataResponse) {
 	response.TypeName = "redpanda_network"
 }
 
+// Configure uses provider level data to configure Network's clients.
 func (n *Network) Configure(ctx context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
 	if request.ProviderData == nil {
-		// we can't add a diagnostic for an unset providerdata here because during the early part of the terraform
-		// lifecycle, the provider data is not set and this is valid
-		// but we also can't do anything until it is set
+		// we can't add a diagnostic for an unset ProviderData here because
+		// during the early part of the terraform lifecycle, the provider data
+		// is not set and this is valid, but we also can't do anything until it
+		// is set
 		response.Diagnostics.AddWarning("provider data not set", "provider data not set at network.Configure")
 		return
 	}
@@ -74,11 +78,12 @@ func (n *Network) Configure(ctx context.Context, request resource.ConfigureReque
 	n.OpsClient = opsClient
 }
 
+// Schema returns the schema for the Network resource.
 func (*Network) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
-	response.Schema = ResourceNetworkSchema()
+	response.Schema = resourceNetworkSchema()
 }
 
-func ResourceNetworkSchema() schema.Schema {
+func resourceNetworkSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
@@ -131,6 +136,8 @@ func ResourceNetworkSchema() schema.Schema {
 	}
 }
 
+// Create creates a new Network resource. It updates the state if the resource
+// is successfully created.
 func (n *Network) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
 	var model models.Network
 	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
@@ -177,6 +184,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 	})...)
 }
 
+// Read reads Network resource's values and updates the state.
 func (n *Network) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
 	var model models.Network
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
@@ -206,6 +214,7 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 func (*Network) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
 }
 
+// Delete deletes the Network resource.
 func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
 	var model models.Network
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
