@@ -13,6 +13,8 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
+// Package clients provides the CloudV2 clients used by the Redpanda terraform
+// provider and the generated resources.
 package clients
 
 import (
