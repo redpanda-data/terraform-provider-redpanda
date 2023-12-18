@@ -11,11 +11,6 @@ issues:
   max-same-issues: 0 # 0 is unlimited
   exclude:
     - Deferring unsafe method "Close" on type "io\.ReadCloser"
-# We use a lot of linters! For an overview of the set below and why see the
-# following gdoc:
-#
-#     https://docs.google.com/document/d/1eb_4TJIDaz7rt65RbPNrHyrjoKhz1xd-SZEDzTLED2c
-#
 linters:
   disable-all: true
   enable:
