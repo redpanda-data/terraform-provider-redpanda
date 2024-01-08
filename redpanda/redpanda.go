@@ -34,6 +34,8 @@ package redpanda
 
 import (
 	"context"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/acl"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/topic"
 	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -45,6 +47,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/cluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/namespace"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/network"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/user"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
@@ -159,8 +162,17 @@ func (*Redpanda) Schema(_ context.Context, _ provider.SchemaRequest, response *p
 // DataSources returns a slice of functions to instantiate each Redpanda
 // DataSource.
 func (*Redpanda) DataSources(_ context.Context) []func() datasource.DataSource {
-	// TODO implement
-	return []func() datasource.DataSource{}
+	return []func() datasource.DataSource{
+		func() datasource.DataSource {
+			return &cluster.ClusterDataSource{}
+		},
+		func() datasource.DataSource {
+			return &namespace.NamespaceDataSource{}
+		},
+		func() datasource.DataSource {
+			return &network.NetworkDataSource{}
+		},
+	}
 }
 
 // Resources returns a slice of functions to instantiate each Redpanda resource.
@@ -175,5 +187,11 @@ func (*Redpanda) Resources(_ context.Context) []func() resource.Resource {
 		func() resource.Resource {
 			return &cluster.Cluster{}
 		},
+		func() resource.Resource {
+			return &user.User{}
+		},
+		func() resource.Resource { return &acl.Acl{} },
+		func() resource.Resource { return &user.User{} },
+		func() resource.Resource { return &topic.Topic{} },
 	}
 }
