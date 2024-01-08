@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"math/big"
 	"strings"
 	"time"
@@ -30,6 +29,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	dataplanev1alpha1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/dataplane/v1alpha1"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 )
 
 const providerUnspecified = "unspecified"
@@ -195,11 +195,6 @@ func TrimmedStringValue(s string) types.String {
 	return basetypes.NewStringValue(strings.Trim(s, "\""))
 }
 
-// TrimmedString returns the string value of a types.String with the quotes removed.
-func TrimmedString(s types.String) string {
-	return strings.Trim(s.String(), "\"")
-}
-
 // FindNamespaceByName searches for a namespace by name using the provided
 // client. It queries the namespaces and returns the first match by name or an
 // error if not found.
@@ -254,6 +249,7 @@ func FindClusterByName(ctx context.Context, n string, client cloudv1beta1.Cluste
 	return nil, fmt.Errorf("cluster not found")
 }
 
+// FindUserByName searches for a user by name using the provided client
 func FindUserByName(ctx context.Context, name string, client dataplanev1alpha1.UserServiceClient) (*dataplanev1alpha1.ListUsersResponse_User, error) {
 	usrs, err := client.ListUsers(ctx, &dataplanev1alpha1.ListUsersRequest{
 		Name: StringToStringPointer(name),
@@ -270,10 +266,12 @@ func FindUserByName(ctx context.Context, name string, client dataplanev1alpha1.U
 	return nil, fmt.Errorf("user not found")
 }
 
+// StringToStringPointer converts a string to a pointer to a string
 func StringToStringPointer(s string) *string {
 	return &s
 }
 
+// StringToUserMechanism converts a string to a dataplanev1alpha1.SASLMechanism
 func StringToUserMechanism(s string) dataplanev1alpha1.SASLMechanism {
 	switch strings.ToLower(s) {
 	case "scram-sha-256":
@@ -285,6 +283,7 @@ func StringToUserMechanism(s string) dataplanev1alpha1.SASLMechanism {
 	}
 }
 
+// UserMechanismToString converts a dataplanev1alpha1.SASLMechanism to a string
 func UserMechanismToString(m *dataplanev1alpha1.SASLMechanism) string {
 	// TODO validate *m won't panic
 	switch *m {
@@ -297,6 +296,7 @@ func UserMechanismToString(m *dataplanev1alpha1.SASLMechanism) string {
 	}
 }
 
+// StringToACLResourceType converts a string to a dataplanev1alpha1.ACL_ResourceType
 func StringToACLResourceType(s string) (dataplanev1alpha1.ACL_ResourceType, error) {
 	switch strings.ToUpper(s) {
 	case "UNSPECIFIED":
@@ -320,6 +320,7 @@ func StringToACLResourceType(s string) (dataplanev1alpha1.ACL_ResourceType, erro
 	}
 }
 
+// ACLResourceTypeToString converts a dataplanev1alpha1.ACL_ResourceType to a string
 func ACLResourceTypeToString(e dataplanev1alpha1.ACL_ResourceType) string {
 	switch e {
 	case dataplanev1alpha1.ACL_RESOURCE_TYPE_UNSPECIFIED:
@@ -343,6 +344,7 @@ func ACLResourceTypeToString(e dataplanev1alpha1.ACL_ResourceType) string {
 	}
 }
 
+// StringToACLResourcePatternType converts a string to a dataplanev1alpha1.ACL_ResourcePatternType
 func StringToACLResourcePatternType(s string) (dataplanev1alpha1.ACL_ResourcePatternType, error) {
 	switch strings.ToUpper(s) {
 	case "UNSPECIFIED":
@@ -360,6 +362,7 @@ func StringToACLResourcePatternType(s string) (dataplanev1alpha1.ACL_ResourcePat
 	}
 }
 
+// ACLResourcePatternTypeToString converts a dataplanev1alpha1.ACL_ResourcePatternType to a string
 func ACLResourcePatternTypeToString(e dataplanev1alpha1.ACL_ResourcePatternType) string {
 	switch e {
 	case dataplanev1alpha1.ACL_RESOURCE_PATTERN_TYPE_UNSPECIFIED:
@@ -377,6 +380,7 @@ func ACLResourcePatternTypeToString(e dataplanev1alpha1.ACL_ResourcePatternType)
 	}
 }
 
+// StringToACLOperation converts a string to a dataplanev1alpha1.ACL_Operation
 func StringToACLOperation(s string) (dataplanev1alpha1.ACL_Operation, error) {
 	switch strings.ToUpper(s) {
 	case "UNSPECIFIED":
@@ -414,6 +418,7 @@ func StringToACLOperation(s string) (dataplanev1alpha1.ACL_Operation, error) {
 	}
 }
 
+// ACLOperationToString converts a dataplanev1alpha1.ACL_Operation to a string
 func ACLOperationToString(e dataplanev1alpha1.ACL_Operation) string {
 	switch e {
 	case dataplanev1alpha1.ACL_OPERATION_UNSPECIFIED:
@@ -451,6 +456,7 @@ func ACLOperationToString(e dataplanev1alpha1.ACL_Operation) string {
 	}
 }
 
+// StringToACLPermissionType converts a string to a dataplanev1alpha1.ACL_PermissionType
 func StringToACLPermissionType(s string) (dataplanev1alpha1.ACL_PermissionType, error) {
 	switch strings.ToUpper(s) {
 	case "UNSPECIFIED":
@@ -466,6 +472,7 @@ func StringToACLPermissionType(s string) (dataplanev1alpha1.ACL_PermissionType, 
 	}
 }
 
+// ACLPermissionTypeToString converts a dataplanev1alpha1.ACL_PermissionType to a string
 func ACLPermissionTypeToString(e dataplanev1alpha1.ACL_PermissionType) string {
 	switch e {
 	case dataplanev1alpha1.ACL_PERMISSION_TYPE_UNSPECIFIED:
@@ -481,6 +488,7 @@ func ACLPermissionTypeToString(e dataplanev1alpha1.ACL_PermissionType) string {
 	}
 }
 
+// TopicConfigurationToSlice converts a slice of dataplanev1alpha1.Topic_Configuration to a slice of models.TopicConfiguration
 func TopicConfigurationToSlice(cfg []*dataplanev1alpha1.Topic_Configuration) []*models.TopicConfiguration {
 	output := make([]*models.TopicConfiguration, len(cfg))
 	for _, v := range cfg {
@@ -498,6 +506,7 @@ func TopicConfigurationToSlice(cfg []*dataplanev1alpha1.Topic_Configuration) []*
 	return output
 }
 
+// ConfigSynonymsToSlice converts a slice of dataplanev1alpha1.Topic_Configuration_ConfigSynonym to a slice of models.TopicConfigSynonym
 func ConfigSynonymsToSlice(synonyms []*dataplanev1alpha1.Topic_Configuration_ConfigSynonym) []*models.TopicConfigSynonym {
 	output := make([]*models.TopicConfigSynonym, len(synonyms))
 	for _, v := range synonyms {
@@ -510,6 +519,7 @@ func ConfigSynonymsToSlice(synonyms []*dataplanev1alpha1.Topic_Configuration_Con
 	return output
 }
 
+// SliceToTopicConfiguration converts a slice of models.TopicConfiguration to a slice of dataplanev1alpha1.Topic_Configuration
 func SliceToTopicConfiguration(cfg []*models.TopicConfiguration) ([]*dataplanev1alpha1.Topic_Configuration, error) {
 	output := make([]*dataplanev1alpha1.Topic_Configuration, len(cfg))
 	for _, v := range cfg {
@@ -534,6 +544,7 @@ func SliceToTopicConfiguration(cfg []*models.TopicConfiguration) ([]*dataplanev1
 	return output, nil
 }
 
+// SliceToConfigSynonyms converts a slice of models.TopicConfigSynonym to a slice of dataplanev1alpha1.Topic_Configuration_ConfigSynonym
 func SliceToConfigSynonyms(synonyms []*models.TopicConfigSynonym) ([]*dataplanev1alpha1.Topic_Configuration_ConfigSynonym, error) {
 	output := make([]*dataplanev1alpha1.Topic_Configuration_ConfigSynonym, len(synonyms))
 	for _, v := range synonyms {
@@ -550,14 +561,18 @@ func SliceToConfigSynonyms(synonyms []*models.TopicConfigSynonym) ([]*dataplanev
 	return output, nil
 }
 
+// NumberToInt32 converts a types.Number to an int32
 func NumberToInt32(n types.Number) int32 {
 	i, _ := n.ValueBigFloat().Int64()
 	return int32(i)
 }
 
+// Int32ToNumber converts an int32 to a types.Number
 func Int32ToNumber(i int32) types.Number {
 	return types.NumberValue(big.NewFloat(float64(i)))
 }
+
+// StringToTopicConfigurationSource converts a string to a dataplanev1alpha1.Topic_Configuration_Source
 func StringToTopicConfigurationSource(s string) (dataplanev1alpha1.Topic_Configuration_Source, error) {
 	switch strings.ToUpper(s) {
 	case "SOURCE_UNSPECIFIED":
@@ -579,6 +594,7 @@ func StringToTopicConfigurationSource(s string) (dataplanev1alpha1.Topic_Configu
 	}
 }
 
+// TopicConfigurationSourceToString converts a dataplanev1alpha1.Topic_Configuration_Source to a string
 func TopicConfigurationSourceToString(e dataplanev1alpha1.Topic_Configuration_Source) string {
 	switch e {
 	case dataplanev1alpha1.Topic_Configuration_SOURCE_UNSPECIFIED:
@@ -600,6 +616,7 @@ func TopicConfigurationSourceToString(e dataplanev1alpha1.Topic_Configuration_So
 	}
 }
 
+// FindTopicByName searches for a topic by name using the provided client.
 func FindTopicByName(ctx context.Context, topicName string, client dataplanev1alpha1.TopicServiceClient) (*dataplanev1alpha1.Topic, error) {
 	topics, err := client.ListTopics(ctx, &dataplanev1alpha1.ListTopicsRequest{
 		Filter: &dataplanev1alpha1.ListTopicsRequest_Filter{

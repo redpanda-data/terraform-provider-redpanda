@@ -1,8 +1,24 @@
+// Copyright 2023 Redpanda Data, Inc.
+//
+//	Licensed under the Apache License, Version 2.0 (the "License");
+//	you may not use this file except in compliance with the License.
+//	You may obtain a copy of the License at
+//
+//	  http://www.apache.org/licenses/LICENSE-2.0
+//
+//	Unless required by applicable law or agreed to in writing, software
+//	distributed under the License is distributed on an "AS IS" BASIS,
+//	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//	See the License for the specific language governing permissions and
+//	limitations under the License.
+
+// Package topic contains the implementation of the Topic resource following the Terraform framework interfaces.
 package topic
 
 import (
 	"context"
 	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -14,6 +30,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
+// Topic represents the Topic Terraform resource.
 type Topic struct {
 	TopicClient dataplanev1alpha1.TopicServiceClient
 }
@@ -28,7 +45,8 @@ var sourceValidator = stringvalidator.OneOf(
 	"DYNAMIC_BROKER_LOGGER_CONFIG",
 )
 
-func (t Topic) Configure(ctx context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
+// Configure configures the Topic resource.
+func (t *Topic) Configure(ctx context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
 	if request.ProviderData == nil {
 		response.Diagnostics.AddWarning("provider data not set", "provider data not set at topic.Configure")
 		return
@@ -52,11 +70,12 @@ func (t Topic) Configure(ctx context.Context, request resource.ConfigureRequest,
 	t.TopicClient = client
 }
 
-func (t Topic) Metadata(_ context.Context, _ resource.MetadataRequest, response *resource.MetadataResponse) {
+// Metadata returns the metadata for the Topic resource.
+func (*Topic) Metadata(_ context.Context, _ resource.MetadataRequest, response *resource.MetadataResponse) {
 	response.TypeName = "redpanda_topic"
 }
 
-func ResourceTopicSchema() schema.Schema {
+func resourceTopicSchema() schema.Schema {
 	return schema.Schema{
 		Description: "Topic represents a Kafka topic configuration",
 		Attributes: map[string]schema.Attribute{
@@ -140,11 +159,13 @@ func ResourceTopicSchema() schema.Schema {
 	}
 }
 
-func (t Topic) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
-	response.Schema = ResourceTopicSchema()
+// Schema returns the schema for the Topic resource.
+func (*Topic) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
+	response.Schema = resourceTopicSchema()
 }
 
-func (t Topic) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
+// Create creates a Topic resource.
+func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
 	var model models.Topic
 	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
 
@@ -174,20 +195,20 @@ func (t Topic) Create(ctx context.Context, request resource.CreateRequest, respo
 	})...)
 }
 
-func (t Topic) Read(_ context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
+// Read reads the state of the Topic resource.
+func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
 	var model models.Topic
-	response.Diagnostics.Append(request.State.Get(context.Background(), &model)...)
-	tp, err := utils.FindTopicByName(context.Background(), model.Name.ValueString(), t.TopicClient)
+	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
+	tp, err := utils.FindTopicByName(ctx, model.Name.ValueString(), t.TopicClient)
 	if err != nil {
 		if utils.IsNotFound(err) {
-			response.State.RemoveResource(context.Background())
-			return
-		} else {
-			response.Diagnostics.AddError(fmt.Sprintf("failed receive response from topic api for topic %s", model.Name), err.Error())
+			response.State.RemoveResource(ctx)
 			return
 		}
+		response.Diagnostics.AddError(fmt.Sprintf("failed receive response from topic api for topic %s", model.Name), err.Error())
+		return
 	}
-	response.Diagnostics.Append(response.State.Set(context.Background(), models.Topic{
+	response.Diagnostics.Append(response.State.Set(ctx, models.Topic{
 		Name:              types.StringValue(tp.Name),
 		PartitionCount:    utils.Int32ToNumber(tp.PartitionCount),
 		ReplicationFactor: utils.Int32ToNumber(tp.ReplicationFactor),
@@ -196,17 +217,19 @@ func (t Topic) Read(_ context.Context, request resource.ReadRequest, response *r
 	})...)
 }
 
-func (t Topic) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
+// Update updates the state of the Topic resource.
+func (*Topic) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
 }
 
-func (t Topic) Delete(_ context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
+// Delete deletes the Topic resource.
+func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
 	var model models.Topic
-	response.Diagnostics.Append(request.State.Get(context.Background(), &model)...)
+	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 	if !model.AllowDeletion.ValueBool() {
 		response.Diagnostics.AddError(fmt.Sprintf("topic %s does not allow deletion", model.Name), "")
 		return
 	}
-	_, err := t.TopicClient.DeleteTopic(context.Background(), &dataplanev1alpha1.DeleteTopicRequest{
+	_, err := t.TopicClient.DeleteTopic(ctx, &dataplanev1alpha1.DeleteTopicRequest{
 		Name: model.Name.ValueString(),
 	})
 	if err != nil {
@@ -214,8 +237,9 @@ func (t Topic) Delete(_ context.Context, request resource.DeleteRequest, respons
 	}
 }
 
-func (t Topic) ImportState(_ context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
-	response.Diagnostics.Append(response.State.Set(context.Background(), models.Topic{Name: types.StringValue(request.ID)})...)
+// ImportState imports the state of the Topic resource.
+func (*Topic) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
+	response.Diagnostics.Append(response.State.Set(ctx, models.Topic{Name: types.StringValue(request.ID)})...)
 }
 
 // Ensure provider defined types fully satisfy framework interfaces.

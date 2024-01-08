@@ -1,8 +1,25 @@
+// Copyright 2023 Redpanda Data, Inc.
+//
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
+// Package acl contains the implementation of the ACL resource following the Terraform framework interfaces.
 package acl
 
 import (
 	"context"
 	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -12,20 +29,25 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
-type Acl struct {
-	AclClient dataplanev1alpha1.ACLServiceClient
+// ACL represents the ACL Terraform resource.
+type ACL struct {
+	ACLClient dataplanev1alpha1.ACLServiceClient
 }
 
 // Ensure provider defined types fully satisfy framework interfaces.
-var _ resource.Resource = &Acl{}
-var _ resource.ResourceWithConfigure = &Acl{}
-var _ resource.ResourceWithImportState = &Acl{}
+var (
+	_ resource.Resource                = &ACL{}
+	_ resource.ResourceWithConfigure   = &ACL{}
+	_ resource.ResourceWithImportState = &ACL{}
+)
 
-func (a *Acl) Metadata(_ context.Context, _ resource.MetadataRequest, response *resource.MetadataResponse) {
+// Metadata returns the metadata for the resource.
+func (*ACL) Metadata(_ context.Context, _ resource.MetadataRequest, response *resource.MetadataResponse) {
 	response.TypeName = "redpanda_acl"
 }
 
-func (a *Acl) Configure(ctx context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
+// Configure configures the ACL resource clients
+func (a *ACL) Configure(ctx context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
 	if request.ProviderData == nil {
 		response.Diagnostics.AddWarning("provider data not set", "provider data not set at acl.Configure")
 		return
@@ -48,14 +70,15 @@ func (a *Acl) Configure(ctx context.Context, request resource.ConfigureRequest, 
 		response.Diagnostics.AddError("failed to create cluster client", err.Error())
 		return
 	}
-	a.AclClient = client
+	a.ACLClient = client
 }
 
-func (a *Acl) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
-	response.Schema = ResourceAclSchema()
+// Schema returns the schema for the resource.
+func (*ACL) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
+	response.Schema = resourceACLSchema()
 }
 
-func ResourceAclSchema() schema.Schema {
+func resourceACLSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"resource_type": schema.StringAttribute{
@@ -90,8 +113,9 @@ func ResourceAclSchema() schema.Schema {
 	}
 }
 
-func (a *Acl) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
-	var model models.Acl
+// Create creates a new ACL resource.
+func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
+	var model models.ACL
 	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
 
 	resourceType, err := utils.StringToACLResourceType(model.ResourceType.ValueString())
@@ -118,7 +142,8 @@ func (a *Acl) Create(ctx context.Context, request resource.CreateRequest, respon
 		return
 	}
 
-	_, err = a.AclClient.CreateACL(ctx, &dataplanev1alpha1.CreateACLRequest{
+	// TODO doesn't return an acl object in the response, check on this
+	_, err = a.ACLClient.CreateACL(ctx, &dataplanev1alpha1.CreateACLRequest{
 		ResourceType:        resourceType,
 		ResourceName:        model.ResourceName.ValueString(),
 		ResourcePatternType: resourcePatternType,
@@ -133,7 +158,7 @@ func (a *Acl) Create(ctx context.Context, request resource.CreateRequest, respon
 		return
 	}
 
-	response.Diagnostics.Append(response.State.Set(ctx, &models.Acl{
+	response.Diagnostics.Append(response.State.Set(ctx, &models.ACL{
 		ResourceType:        model.ResourceType,
 		ResourceName:        model.ResourceName,
 		ResourcePatternType: model.ResourcePatternType,
@@ -144,8 +169,9 @@ func (a *Acl) Create(ctx context.Context, request resource.CreateRequest, respon
 	})...)
 }
 
-func (a *Acl) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
-	var model models.Acl
+// Read checks for the existence of an ACL resource
+func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
+	var model models.ACL
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 
 	resourceType, err := utils.StringToACLResourceType(model.ResourceType.ValueString())
@@ -182,7 +208,7 @@ func (a *Acl) Read(ctx context.Context, request resource.ReadRequest, response *
 		PermissionType:      permissionType,
 	}
 
-	aclList, err := a.AclClient.ListACLs(ctx, &dataplanev1alpha1.ListACLsRequest{Filter: filter})
+	aclList, err := a.ACLClient.ListACLs(ctx, &dataplanev1alpha1.ListACLsRequest{Filter: filter})
 	if err != nil {
 		response.Diagnostics.AddError("Failed to list ACLs", err.Error())
 		return
@@ -190,7 +216,7 @@ func (a *Acl) Read(ctx context.Context, request resource.ReadRequest, response *
 
 	for _, res := range aclList.Resources {
 		if res.ResourceName == model.ResourceName.ValueString() && res.ResourceType == resourceType && res.ResourcePatternType == resourcePatternType {
-			response.Diagnostics.Append(response.State.Set(ctx, &models.Acl{
+			response.Diagnostics.Append(response.State.Set(ctx, &models.ACL{
 				ResourceType:        types.StringValue(utils.ACLResourceTypeToString(res.ResourceType)),
 				ResourceName:        types.StringValue(res.ResourceName),
 				ResourcePatternType: types.StringValue(utils.ACLResourcePatternTypeToString(res.ResourcePatternType)),
@@ -207,11 +233,13 @@ func (a *Acl) Read(ctx context.Context, request resource.ReadRequest, response *
 	response.State.RemoveResource(ctx)
 }
 
-func (a *Acl) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
+// Update updates an ACL resource
+func (*ACL) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
 }
 
-func (a *Acl) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
-	var model models.Acl
+// Delete deletes an ACL resource
+func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
+	var model models.ACL
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 
 	resourceType, err := utils.StringToACLResourceType(model.ResourceType.ValueString())
@@ -248,16 +276,16 @@ func (a *Acl) Delete(ctx context.Context, request resource.DeleteRequest, respon
 		PermissionType:      permissionType,
 	}
 
-	deleteResponse, err := a.AclClient.DeleteACLs(ctx, &dataplanev1alpha1.DeleteACLsRequest{Filter: filter})
+	deleteResponse, err := a.ACLClient.DeleteACLs(ctx, &dataplanev1alpha1.DeleteACLsRequest{Filter: filter})
 	if err != nil {
 		response.Diagnostics.AddError("Failed to delete ACL", err.Error())
 		return
 	}
 
 	// Check for errors in the response
-	for _, matchingAcl := range deleteResponse.MatchingAcls {
-		if matchingAcl.ErrorCode != 0 {
-			response.Diagnostics.AddError("Error deleting ACL", matchingAcl.ErrorMessage)
+	for _, matchingACL := range deleteResponse.MatchingAcls {
+		if matchingACL.ErrorCode != 0 {
+			response.Diagnostics.AddError("Error deleting ACL", matchingACL.ErrorMessage)
 			return
 		}
 	}
@@ -266,7 +294,8 @@ func (a *Acl) Delete(ctx context.Context, request resource.DeleteRequest, respon
 	response.State.RemoveResource(ctx)
 }
 
-func (a *Acl) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
+// ImportState imports an ACL resource
+func (*ACL) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
 	response.Diagnostics.Append(response.State.Set(ctx, &models.Cluster{
 		ID: types.StringValue(request.ID),
 	})...)

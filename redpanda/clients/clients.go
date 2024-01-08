@@ -89,6 +89,7 @@ func NewOperationServiceClient(ctx context.Context, version string, cr ClientReq
 	return cloudv1beta1.NewOperationServiceClient(conn), nil
 }
 
+// NewTopicServiceClient creates a new TopicServiceClient.
 func NewTopicServiceClient(ctx context.Context, version string, cr ClientRequest) (dataplanev1alpha1.TopicServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
@@ -97,6 +98,7 @@ func NewTopicServiceClient(ctx context.Context, version string, cr ClientRequest
 	return dataplanev1alpha1.NewTopicServiceClient(conn), nil
 }
 
+// NewUserServiceClient creates a new UserServiceClient.
 func NewUserServiceClient(ctx context.Context, version string, cr ClientRequest) (dataplanev1alpha1.UserServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
@@ -105,6 +107,7 @@ func NewUserServiceClient(ctx context.Context, version string, cr ClientRequest)
 	return dataplanev1alpha1.NewUserServiceClient(conn), nil
 }
 
+// NewACLServiceClient creates a new ACLServiceClient.
 func NewACLServiceClient(ctx context.Context, version string, cr ClientRequest) (dataplanev1alpha1.ACLServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
@@ -113,6 +116,7 @@ func NewACLServiceClient(ctx context.Context, version string, cr ClientRequest) 
 	return dataplanev1alpha1.NewACLServiceClient(conn), nil
 }
 
+// NewSecretServiceClient creates a new SecretServiceClient.
 func NewSecretServiceClient(ctx context.Context, version string, cr ClientRequest) (dataplanev1alpha1.SecretServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
@@ -121,6 +125,7 @@ func NewSecretServiceClient(ctx context.Context, version string, cr ClientReques
 	return dataplanev1alpha1.NewSecretServiceClient(conn), nil
 }
 
+// NewKafkaConnectServiceClient creates a new KafkaConnectServiceClient.
 func NewKafkaConnectServiceClient(ctx context.Context, version string, cr ClientRequest) (dataplanev1alpha1.KafkaConnectServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {

@@ -20,32 +20,33 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
 var (
-	_ datasource.DataSource = &ClusterDataSource{}
+	_ datasource.DataSource = &DataSourceCluster{}
 )
 
-// ClusterDataSource represents a cluster data source.
-type ClusterDataSource struct {
+// DataSourceCluster represents a cluster data source.
+type DataSourceCluster struct {
 	CluClient cloudv1beta1.ClusterServiceClient
 }
 
-func (d *ClusterDataSource) Metadata(_ context.Context, _ datasource.MetadataRequest, response *datasource.MetadataResponse) {
+// Metadata returns the metadata for the Cluster data source.
+func (*DataSourceCluster) Metadata(_ context.Context, _ datasource.MetadataRequest, response *datasource.MetadataResponse) {
 	response.TypeName = "redpanda_cluster"
 }
 
-// Configure uses provider level data to configure ClusterDataSource's client.
-func (d *ClusterDataSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+// Configure uses provider level data to configure DataSourceCluster's client.
+func (d *DataSourceCluster) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		resp.Diagnostics.AddWarning("provider data not set", "provider data not set at clusterdatasource.Configure")
 		return
@@ -71,8 +72,8 @@ func (d *ClusterDataSource) Configure(ctx context.Context, req datasource.Config
 	d.CluClient = client
 }
 
-// ReadDataSource reads a Cluster resource's values and updates the state.
-func (d *ClusterDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+// Read reads the Cluster data source's values and updates the state.
+func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var model models.Cluster
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 
@@ -113,7 +114,7 @@ func (d *ClusterDataSource) Read(ctx context.Context, req datasource.ReadRequest
 }
 
 // Schema returns the schema for the Cluster data source.
-func (*ClusterDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+func (*DataSourceCluster) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = datasourceClusterSchema() // Reuse the schema from the resource
 }
 

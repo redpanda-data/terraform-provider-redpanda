@@ -15,20 +15,21 @@ import (
 
 // Ensure provider defined types fully satisfy framework interfaces.
 var (
-	_ datasource.DataSource = &NetworkDataSource{}
+	_ datasource.DataSource = &DataSourceNetwork{}
 )
 
-// NetworkDataSource represents a data source for a Redpanda Cloud network.
-type NetworkDataSource struct {
+// DataSourceNetwork represents a data source for a Redpanda Cloud network.
+type DataSourceNetwork struct {
 	NetClient cloudv1beta1.NetworkServiceClient
 }
 
-func (*NetworkDataSource) Metadata(_ context.Context, _ datasource.MetadataRequest, response *datasource.MetadataResponse) {
+// Metadata returns the metadata for the Network data source.
+func (*DataSourceNetwork) Metadata(_ context.Context, _ datasource.MetadataRequest, response *datasource.MetadataResponse) {
 	response.TypeName = "redpanda_network"
 }
 
 // Schema returns the schema for the Network data source.
-func (*NetworkDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+func (*DataSourceNetwork) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = datasourceNetworkSchema()
 }
 
@@ -51,7 +52,7 @@ func datasourceNetworkSchema() schema.Schema {
 }
 
 // Read reads the Network data source's values and updates the state.
-func (n *NetworkDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+func (n *DataSourceNetwork) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var model models.Network
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 	nw, err := n.NetClient.GetNetwork(ctx, &cloudv1beta1.GetNetworkRequest{
@@ -68,10 +69,10 @@ func (n *NetworkDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	})...)
 }
 
-// Configure uses provider level data to configure NetworkDataSource's client.
-func (n *NetworkDataSource) Configure(ctx context.Context, request datasource.ConfigureRequest, response *datasource.ConfigureResponse) {
+// Configure uses provider level data to configure DataSourceNetwork's client.
+func (n *DataSourceNetwork) Configure(ctx context.Context, request datasource.ConfigureRequest, response *datasource.ConfigureResponse) {
 	if request.ProviderData == nil {
-		response.Diagnostics.AddWarning("provider data not set", "provider data not set at NetworkDataSource.Configure")
+		response.Diagnostics.AddWarning("provider data not set", "provider data not set at DataSourceNetwork.Configure")
 		return
 	}
 

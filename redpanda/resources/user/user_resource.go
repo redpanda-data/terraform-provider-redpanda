@@ -1,8 +1,24 @@
+// Copyright 2023 Redpanda Data, Inc.
+//
+//	Licensed under the Apache License, Version 2.0 (the "License");
+//	you may not use this file except in compliance with the License.
+//	You may obtain a copy of the License at
+//
+//	  http://www.apache.org/licenses/LICENSE-2.0
+//
+//	Unless required by applicable law or agreed to in writing, software
+//	distributed under the License is distributed on an "AS IS" BASIS,
+//	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//	See the License for the specific language governing permissions and
+//	limitations under the License.
+
+// Package user contains the implementation of the User resource following the Terraform framework interfaces.
 package user
 
 import (
 	"context"
 	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -15,18 +31,23 @@ import (
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
-var _ resource.Resource = &User{}
-var _ resource.ResourceWithConfigure = &User{}
-var _ resource.ResourceWithImportState = &User{}
+var (
+	_ resource.Resource                = &User{}
+	_ resource.ResourceWithConfigure   = &User{}
+	_ resource.ResourceWithImportState = &User{}
+)
 
+// User represents the User Terraform resource.
 type User struct {
 	UserClient dataplanev1alpha1.UserServiceClient
 }
 
-func (u *User) Metadata(_ context.Context, _ resource.MetadataRequest, response *resource.MetadataResponse) {
+// Metadata returns the metadata for the User resource.
+func (*User) Metadata(_ context.Context, _ resource.MetadataRequest, response *resource.MetadataResponse) {
 	response.TypeName = "redpanda_user"
 }
 
+// Configure configures the User resource.
 func (u *User) Configure(ctx context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
 	if request.ProviderData == nil {
 		response.Diagnostics.AddWarning("provider data not set", "provider data not set at user.Configure")
@@ -49,11 +70,13 @@ func (u *User) Configure(ctx context.Context, request resource.ConfigureRequest,
 	u.UserClient = client
 }
 
-func (u *User) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
-	response.Schema = ResourceUserSchema()
+// Schema returns the schema for the User resource.
+func (*User) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
+	response.Schema = resourceUserSchema()
 }
 
-func ResourceUserSchema() schema.Schema {
+// ResourceUserSchema returns the schema for the User resource.
+func resourceUserSchema() schema.Schema {
 	return schema.Schema{
 		Description: "User is a user that can be created in Redpanda",
 		Attributes: map[string]schema.Attribute{
@@ -77,6 +100,7 @@ func ResourceUserSchema() schema.Schema {
 	}
 }
 
+// Create creates a User resource.
 func (u *User) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
 	var model models.User
 	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
@@ -100,6 +124,7 @@ func (u *User) Create(ctx context.Context, request resource.CreateRequest, respo
 	})...)
 }
 
+// Read reads the state of the User resource.
 func (u *User) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
 	var model models.User
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
@@ -108,10 +133,9 @@ func (u *User) Read(ctx context.Context, request resource.ReadRequest, response 
 		if utils.IsNotFound(err) {
 			response.State.RemoveResource(ctx)
 			return
-		} else {
-			response.Diagnostics.AddError(fmt.Sprintf("failed receive response from user api for user %s", model.Name), err.Error())
-			return
 		}
+		response.Diagnostics.AddError(fmt.Sprintf("failed receive response from user api for user %s", model.Name), err.Error())
+		return
 	}
 	response.Diagnostics.Append(response.State.Set(ctx, models.User{
 		Name:      types.StringValue(usr.Name),
@@ -120,10 +144,12 @@ func (u *User) Read(ctx context.Context, request resource.ReadRequest, response 
 	})...)
 }
 
-func (u *User) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
+// Update updates the state of the User resource.
+func (*User) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
 	// TODO implement me
 }
 
+// Delete deletes the User resource.
 func (u *User) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
 	var model models.User
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
@@ -134,10 +160,10 @@ func (u *User) Delete(ctx context.Context, request resource.DeleteRequest, respo
 		response.Diagnostics.AddError(fmt.Sprintf("failed to delete user %s", model.Name), err.Error())
 		return
 	}
-
 }
 
-func (u *User) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
+// ImportState imports the state of the User resource.
+func (*User) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
 	response.Diagnostics.Append(response.State.Set(ctx, models.User{
 		Name: types.StringValue(request.ID),
 	})...)
