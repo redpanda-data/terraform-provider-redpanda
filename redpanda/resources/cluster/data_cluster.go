@@ -89,7 +89,7 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		return
 	}
 
-	lv, dg := types.ListValueFrom(ctx, types.StringType, cluster.Zones)
+	z, dg := types.ListValueFrom(ctx, types.StringType, cluster.Zones)
 	if dg.HasError() {
 		resp.Diagnostics.Append(dg...)
 		return
@@ -104,7 +104,7 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		RedpandaVersion: types.StringValue(cluster.RedpandaVersion),
 		ThroughputTier:  types.StringValue(cluster.ThroughputTier),
 		Region:          types.StringValue(cluster.Region),
-		Zones:           lv,
+		Zones:           z,
 		AllowDeletion:   model.AllowDeletion,
 		Tags:            model.Tags,
 		NamespaceID:     types.StringValue(cluster.NamespaceId),
@@ -156,7 +156,7 @@ func datasourceClusterSchema() schema.Schema {
 			},
 			"allow_deletion": schema.BoolAttribute{
 				Optional:    true,
-				Description: "allows deletion of the cluster. defaults to true. should probably be set to false for production use",
+				Description: "allows deletion of the cluster. defaults to true. Not recommended for production use",
 			},
 			"tags": schema.MapAttribute{
 				Optional:    true,

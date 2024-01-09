@@ -108,7 +108,7 @@ func (u *User) Create(ctx context.Context, request resource.CreateRequest, respo
 	user, err := u.UserClient.CreateUser(ctx, &dataplanev1alpha1.CreateUserRequest{
 		User: &dataplanev1alpha1.CreateUserRequest_User{
 			Name:      model.Name.ValueString(),
-			Password:  model.Password.ValueString(), // this seems wrong and bad
+			Password:  model.Password.ValueString(), // This seems wrong and bad. See issue #12.
 			Mechanism: utils.StringToUserMechanism(model.Mechanism.ValueString()),
 		},
 	})

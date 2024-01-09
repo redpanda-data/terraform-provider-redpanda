@@ -285,7 +285,9 @@ func StringToUserMechanism(s string) dataplanev1alpha1.SASLMechanism {
 
 // UserMechanismToString converts a dataplanev1alpha1.SASLMechanism to a string
 func UserMechanismToString(m *dataplanev1alpha1.SASLMechanism) string {
-	// TODO validate *m won't panic
+	if m == nil {
+		return "unspecified"
+	}
 	switch *m {
 	case dataplanev1alpha1.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_256:
 		return "scram-sha-256"

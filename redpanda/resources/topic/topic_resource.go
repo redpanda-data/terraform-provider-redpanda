@@ -30,6 +30,13 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
+// Ensure provider defined types fully satisfy framework interfaces.
+var (
+	_ resource.Resource                = &Topic{}
+	_ resource.ResourceWithConfigure   = &Topic{}
+	_ resource.ResourceWithImportState = &Topic{}
+)
+
 // Topic represents the Topic Terraform resource.
 type Topic struct {
 	TopicClient dataplanev1alpha1.TopicServiceClient
@@ -241,10 +248,3 @@ func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, resp
 func (*Topic) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
 	response.Diagnostics.Append(response.State.Set(ctx, models.Topic{Name: types.StringValue(request.ID)})...)
 }
-
-// Ensure provider defined types fully satisfy framework interfaces.
-var (
-	_ resource.Resource                = &Topic{}
-	_ resource.ResourceWithConfigure   = &Topic{}
-	_ resource.ResourceWithImportState = &Topic{}
-)
