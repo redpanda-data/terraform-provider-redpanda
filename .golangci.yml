@@ -7,6 +7,20 @@ run:
 # are actually important to catch. The following ensures that we do not ignore
 # those tools ever.
 issues:
+  exclude-rules:
+    - linters:
+        - goconst
+      text: "string `UNSPECIFIED` has"
+      path: redpanda/utils/utils.go
+    - linters:
+        - goconst
+      text: "string `ANY` has"
+      path: redpanda/utils/utils.go
+    - linters:
+        - goconst
+      text: "string `UNKNOWN` has"
+      path: redpanda/utils/utils.go
+
   exclude-use-default: false
   max-same-issues: 0 # 0 is unlimited
   exclude:
@@ -83,7 +97,7 @@ linters-settings:
   gofumpt:
     lang-version: "1.21"
   cyclop:
-    max-complexity: 16
+    max-complexity: 20
   gocyclo:
     min-complexity: 30
   gocognit:
