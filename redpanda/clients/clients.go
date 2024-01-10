@@ -57,7 +57,7 @@ type ClientRequest struct {
 func NewClusterServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.ClusterServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create a connection: %v", err)
 	}
 	return cloudv1beta1.NewClusterServiceClient(conn), nil
 }
@@ -66,7 +66,7 @@ func NewClusterServiceClient(ctx context.Context, version string, cr ClientReque
 func NewNamespaceServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.NamespaceServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create a connection: %v", err)
 	}
 	return cloudv1beta1.NewNamespaceServiceClient(conn), nil
 }
@@ -75,7 +75,7 @@ func NewNamespaceServiceClient(ctx context.Context, version string, cr ClientReq
 func NewNetworkServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.NetworkServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create a connection: %v", err)
 	}
 	return cloudv1beta1.NewNetworkServiceClient(conn), nil
 }
@@ -84,7 +84,7 @@ func NewNetworkServiceClient(ctx context.Context, version string, cr ClientReque
 func NewOperationServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.OperationServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create a connection: %v", err)
 	}
 	return cloudv1beta1.NewOperationServiceClient(conn), nil
 }
@@ -93,7 +93,7 @@ func NewOperationServiceClient(ctx context.Context, version string, cr ClientReq
 func NewTopicServiceClient(ctx context.Context, version string, cr ClientRequest) (dataplanev1alpha1.TopicServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create a connection: %v", err)
 	}
 	return dataplanev1alpha1.NewTopicServiceClient(conn), nil
 }
@@ -102,7 +102,7 @@ func NewTopicServiceClient(ctx context.Context, version string, cr ClientRequest
 func NewUserServiceClient(ctx context.Context, version string, cr ClientRequest) (dataplanev1alpha1.UserServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create a connection: %v", err)
 	}
 	return dataplanev1alpha1.NewUserServiceClient(conn), nil
 }
@@ -111,7 +111,7 @@ func NewUserServiceClient(ctx context.Context, version string, cr ClientRequest)
 func NewACLServiceClient(ctx context.Context, version string, cr ClientRequest) (dataplanev1alpha1.ACLServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create a connection: %v", err)
 	}
 	return dataplanev1alpha1.NewACLServiceClient(conn), nil
 }
@@ -120,7 +120,7 @@ func NewACLServiceClient(ctx context.Context, version string, cr ClientRequest) 
 func NewSecretServiceClient(ctx context.Context, version string, cr ClientRequest) (dataplanev1alpha1.SecretServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create a connection: %v", err)
 	}
 	return dataplanev1alpha1.NewSecretServiceClient(conn), nil
 }
@@ -129,7 +129,7 @@ func NewSecretServiceClient(ctx context.Context, version string, cr ClientReques
 func NewKafkaConnectServiceClient(ctx context.Context, version string, cr ClientRequest) (dataplanev1alpha1.KafkaConnectServiceClient, error) {
 	conn, err := createConnection(ctx, version, cr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create a connection: %v", err)
 	}
 	return dataplanev1alpha1.NewKafkaConnectServiceClient(conn), nil
 }
