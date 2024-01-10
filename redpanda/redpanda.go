@@ -59,6 +59,13 @@ type Redpanda struct {
 	version string
 }
 
+const (
+	// ClientIDEnv is the client_id used to authenticate to Redpanda cloud.
+	ClientIDEnv = "CLIENT_ID"
+	// ClientSecretEnv is the client_secret used to authenticate to Redpanda cloud.
+	ClientSecretEnv = "CLIENT_SECRET"
+)
+
 // New spawns a basic provider struct, no client. Configure must be called for a working client.
 func New(_ context.Context, version string) func() provider.Provider {
 	return func() provider.Provider {
@@ -109,7 +116,7 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 
 	var id string
 	cfgID := conf.ClientID.ValueString()
-	envID := os.Getenv("CLIENT_ID")
+	envID := os.Getenv(ClientIDEnv)
 	switch {
 	case cfgID == "" && envID != "":
 		id = envID
@@ -122,7 +129,7 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	}
 	var sec string
 	cfgSec := conf.ClientSecret.ValueString()
-	envSec := os.Getenv("CLIENT_SECRET")
+	envSec := os.Getenv(ClientSecretEnv)
 	switch {
 	case cfgSec == "" && envSec != "":
 		sec = envSec

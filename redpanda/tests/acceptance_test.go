@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/config"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
@@ -27,8 +28,8 @@ const (
 var (
 	runClusterTests = os.Getenv("RUN_CLUSTER_TESTS")
 	accNamePrepend  = "tfrp-acc-"
-	clientID        = os.Getenv("CLIENT_ID")
-	clientSecret    = os.Getenv("CLIENT_SECRET")
+	clientID        = os.Getenv(redpanda.ClientIDEnv)
+	clientSecret    = os.Getenv(redpanda.ClientSecretEnv)
 )
 
 func TestAccResourcesNamespace(t *testing.T) {
