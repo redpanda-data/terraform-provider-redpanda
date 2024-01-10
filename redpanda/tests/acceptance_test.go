@@ -1,11 +1,15 @@
 package tests
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"maps"
+	"math/rand"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/config"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -29,13 +33,14 @@ var (
 
 func TestAccResourcesNamespace(t *testing.T) {
 	ctx := context.Background()
-	name := accNamePrepend + "testns"
-	rename := accNamePrepend + "testns2"
+	name := generateRandomName(accNamePrepend + "testns")
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["namespace_name"] = config.StringVariable(name)
+
+	rename := generateRandomName(accNamePrepend + "testns-rename")
 	updateTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(updateTestCaseVars, providerCfgIDSecretVars)
+	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["namespace_name"] = config.StringVariable(rename)
 
 	c, err := newClients(ctx, clientID, clientSecret, "ign")
@@ -402,4 +407,20 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 			OpsClient:   c.OpsClient,
 		}.SweepCluster,
 	})
+}
+
+// generateRandomName generates a random name with a given prefix. The name will
+// have the form of '<prefix>-<random>' where random is any 4 alphanumeric
+// characters.
+func generateRandomName(prefix string) string {
+	baseChars := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	randomLength := 4 // Should be good, this is 62^4 = 14M combinations.
+
+	var randStr bytes.Buffer
+	random := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := 0; i < randomLength; i++ {
+		randStr.WriteByte(baseChars[random.Intn(len(baseChars))])
+	}
+
+	return fmt.Sprintf("%v-%v", prefix, randStr.String())
 }
