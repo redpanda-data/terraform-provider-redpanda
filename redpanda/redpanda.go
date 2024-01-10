@@ -187,9 +187,6 @@ func (*Redpanda) Resources(_ context.Context) []func() resource.Resource {
 		func() resource.Resource {
 			return &cluster.Cluster{}
 		},
-		func() resource.Resource {
-			return &user.User{}
-		},
 		func() resource.Resource { return &acl.ACL{} },
 		func() resource.Resource { return &user.User{} },
 		func() resource.Resource { return &topic.Topic{} },
