@@ -138,8 +138,9 @@ func resourceNetworkSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "UUID of the namespace",
+				Computed:      true,
+				Description:   "The ID of the network",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"cluster_type": schema.StringAttribute{
 				Required:    true,
@@ -161,8 +162,8 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 
 	cloudProvider := utils.StringToCloudProvider(model.CloudProvider.ValueString())
 	// TODO add a check to the provider data here to see if region and cloud provider are set
-	// prefer the local value, but accept the provider value if local is unavailable
-	// if neither are set, fail
+	// prefer the local value, but accept the provider value if local is
+	// unavailable if neither are set, fail
 
 	op, err := n.NetClient.CreateNetwork(ctx, &cloudv1beta1.CreateNetworkRequest{
 		Network: &cloudv1beta1.Network{
@@ -227,7 +228,8 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 	})...)
 }
 
-// Update is not supported for network. As a result all configurable schema elements have been marked as RequiresReplace
+// Update is not supported for network. As a result all configurable schema
+// elements have been marked as RequiresReplace
 func (*Network) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
 }
 
@@ -248,10 +250,12 @@ func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, re
 	}
 }
 
-// ImportState refreshes the state with the correct ID for the namespace, allowing TF to use Read to get the correct Namespace name into state
-// see https://developer.hashicorp.com/terraform/plugin/framework/resources/import for more details
+// ImportState refreshes the state with the correct ID for the network, allowing
+// TF to use Read to get the correct Network name into state see
+// https://developer.hashicorp.com/terraform/plugin/framework/resources/import
+// for more details
 func (*Network) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
-	response.Diagnostics.Append(response.State.Set(ctx, models.Network{
+	response.Diagnostics.Append(response.State.Set(ctx, &models.Network{
 		ID: types.StringValue(request.ID),
 	})...)
 }

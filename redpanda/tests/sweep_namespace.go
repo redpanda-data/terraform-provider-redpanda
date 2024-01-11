@@ -17,6 +17,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -31,13 +32,13 @@ func (s sweepNamespace) SweepNamespaces(_ string) error {
 	ctx := context.Background()
 	name, err := utils.FindNamespaceByName(ctx, s.NamespaceName, s.Client)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to sweep namespace: unable to find namespace %q: %v", s.NamespaceName, err)
 	}
 
 	if _, err := s.Client.DeleteNamespace(ctx, &cloudv1beta1.DeleteNamespaceRequest{
 		Id: name.GetId(),
 	}); err != nil {
-		return err
+		return fmt.Errorf("unable to sweep namespace: unable to delete namespace %q: %v", s.NamespaceName, err)
 	}
 	return nil
 }

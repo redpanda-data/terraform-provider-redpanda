@@ -116,7 +116,7 @@ func AreWeDoneYet(ctx context.Context, op *cloudv1beta1.Operation, timeout time.
 			Id: op.GetId(),
 		})
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to get operation status: %v", err)
 		}
 		if CheckOpsState(o) {
 			if o.GetError() != nil {
@@ -221,7 +221,7 @@ func FindNetworkByName(ctx context.Context, n string, client cloudv1beta1.Networ
 		Filter: &cloudv1beta1.ListNetworksRequest_Filter{Name: n},
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to list networks: %v", err)
 	}
 	for _, v := range ns.GetNetworks() {
 		if v.GetName() == n {

@@ -23,6 +23,11 @@ const (
 	gcpDedicatedClusterFile = "../../examples/dedicated/gcp/main.tf"
 	dedicatedNamespaceFile  = "../../examples/namespace/main.tf"
 	dedicatedNetworkFile    = "../../examples/network/main.tf"
+
+	// These come from the tf files
+	namespaceResourceName = "redpanda_namespace.test"
+	networkResourceName   = "redpanda_network.test"
+	clusterResourceName   = "redpanda_cluster.test"
 )
 
 var (
@@ -57,7 +62,7 @@ func TestAccResourcesNamespace(t *testing.T) {
 				ConfigVariables:          origTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", name),
+					resource.TestCheckResourceAttr(namespaceResourceName, "name", name),
 				),
 			},
 			{
@@ -65,7 +70,7 @@ func TestAccResourcesNamespace(t *testing.T) {
 				ConfigVariables:          updateTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", rename),
+					resource.TestCheckResourceAttr(namespaceResourceName, "name", rename),
 					func(s *terraform.State) error {
 						i, err := utils.FindNamespaceByName(ctx, rename, c.NsClient)
 						if err != nil {
@@ -76,7 +81,7 @@ func TestAccResourcesNamespace(t *testing.T) {
 					}),
 			},
 			{
-				ResourceName:             "redpanda_namespace.test",
+				ResourceName:             namespaceResourceName,
 				ConfigFile:               config.StaticFile(dedicatedNamespaceFile),
 				ConfigVariables:          updateTestCaseVars,
 				ImportState:              true,
@@ -84,7 +89,7 @@ func TestAccResourcesNamespace(t *testing.T) {
 				ImportStateVerify:        true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", rename),
+					resource.TestCheckResourceAttr(namespaceResourceName, "name", rename),
 				),
 			},
 			{
@@ -96,14 +101,14 @@ func TestAccResourcesNamespace(t *testing.T) {
 		},
 	})
 
-	resource.AddTestSweepers(name, &resource.Sweeper{
+	resource.AddTestSweepers("namespaceSweeper", &resource.Sweeper{
 		Name: name,
 		F: sweepNamespace{
 			NamespaceName: name,
 			Client:        c.NsClient,
 		}.SweepNamespaces,
 	})
-	resource.AddTestSweepers(rename, &resource.Sweeper{
+	resource.AddTestSweepers("namespaceRenameSweeper", &resource.Sweeper{
 		Name: rename,
 		F: sweepNamespace{
 			NamespaceName: rename,
@@ -114,12 +119,14 @@ func TestAccResourcesNamespace(t *testing.T) {
 
 func TestAccResourcesNetwork(t *testing.T) {
 	ctx := context.Background()
-	name := accNamePrepend + "testnet"
-	rename := accNamePrepend + "testnet2"
+
+	name := generateRandomName(accNamePrepend + "testnet")
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["namespace_name"] = config.StringVariable(name)
 	origTestCaseVars["network_name"] = config.StringVariable(name)
+
+	rename := generateRandomName(accNamePrepend + "testnet-rename")
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["network_name"] = config.StringVariable(rename)
@@ -137,8 +144,19 @@ func TestAccResourcesNetwork(t *testing.T) {
 				ConfigVariables:          origTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", name),
-					resource.TestCheckResourceAttr("redpanda_network.test", "name", name),
+					resource.TestCheckResourceAttr(namespaceResourceName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					func(s *terraform.State) error {
+						n, err := utils.FindNetworkByName(ctx, name, c.NetClient)
+						if err != nil {
+							return err
+						}
+						if n == nil {
+							return fmt.Errorf("unable to find network %q after creation", name)
+						}
+						t.Logf("Successfully created network %v", name)
+						return nil
+					},
 				),
 			},
 			{
@@ -146,19 +164,23 @@ func TestAccResourcesNetwork(t *testing.T) {
 				ConfigVariables:          updateTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", name),
-					resource.TestCheckResourceAttr("redpanda_network.test", "name", rename),
+					resource.TestCheckResourceAttr(namespaceResourceName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", rename),
 					func(s *terraform.State) error {
-						i, err := utils.FindNetworkByName(ctx, rename, c.NetClient)
+						n, err := utils.FindNetworkByName(ctx, rename, c.NetClient)
 						if err != nil {
 							return err
 						}
-						importID = i.GetId()
+						if n == nil {
+							return fmt.Errorf("unable to find network %q after updating", rename)
+						}
+						importID = n.GetId()
+						t.Logf("Successfully created network %v, with ID: %v", rename, importID)
 						return nil
 					}),
 			},
 			{
-				ResourceName:             "redpanda_namespace.test",
+				ResourceName:             networkResourceName,
 				ConfigFile:               config.StaticFile(dedicatedNetworkFile),
 				ConfigVariables:          updateTestCaseVars,
 				ImportState:              true,
@@ -166,8 +188,9 @@ func TestAccResourcesNetwork(t *testing.T) {
 				ImportStateVerify:        true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("redpanda_namespace.test", "name", name),
-					resource.TestCheckResourceAttr("redpanda_network.test", "name", rename)),
+					resource.TestCheckResourceAttr(namespaceResourceName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", rename),
+				),
 			},
 			{
 				ConfigFile:               config.StaticFile(dedicatedNetworkFile),
@@ -177,15 +200,14 @@ func TestAccResourcesNetwork(t *testing.T) {
 			},
 		},
 	})
-
-	resource.AddTestSweepers(name, &resource.Sweeper{
+	resource.AddTestSweepers("namespaceSweeper", &resource.Sweeper{
 		Name: name,
 		F: sweepNamespace{
 			NamespaceName: name,
 			Client:        c.NsClient,
 		}.SweepNamespaces,
 	})
-	resource.AddTestSweepers(name, &resource.Sweeper{
+	resource.AddTestSweepers("networkSweeper", &resource.Sweeper{
 		Name: name,
 		F: sweepNetwork{
 			NetworkName: name,
@@ -193,7 +215,7 @@ func TestAccResourcesNetwork(t *testing.T) {
 			OpsClient:   c.OpsClient,
 		}.SweepNetworks,
 	})
-	resource.AddTestSweepers(rename, &resource.Sweeper{
+	resource.AddTestSweepers("renamedNetworkSweeper", &resource.Sweeper{
 		Name: rename,
 		F: sweepNetwork{
 			NetworkName: rename,
@@ -208,15 +230,15 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 		t.Skip("skipping cluster tests")
 	}
 	ctx := context.Background()
-	name := accNamePrepend + "testaws"
-	rename := accNamePrepend + "testaws2"
-	var importID string
 
+	name := accNamePrepend + "testaws"
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["namespace_name"] = config.StringVariable(name)
 	origTestCaseVars["network_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
+
+	rename := accNamePrepend + "testaws2"
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
@@ -225,70 +247,68 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	resource.ParallelTest(
-		t,
-		resource.TestCase{
-			PreCheck: func() { testAccPreCheck(t) },
-			Steps: []resource.TestStep{
-				{
-					ConfigFile:      config.StaticFile(awsDedicatedClusterFile),
-					ConfigVariables: origTestCaseVars,
-					Check: resource.ComposeAggregateTestCheckFunc(
-						resource.TestCheckResourceAttr("redpanda_namespace.test", "name", name),
-						resource.TestCheckResourceAttr("redpanda_network.test", "name", name),
-						resource.TestCheckResourceAttr("redpanda_cluster.test", "name", name),
-					),
-					ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				},
-				{
-					ConfigFile:               config.StaticFile(awsDedicatedClusterFile),
-					ConfigVariables:          updateTestCaseVars,
-					ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-					Check: resource.ComposeAggregateTestCheckFunc(
-						resource.TestCheckResourceAttr("redpanda_namespace.test", "name", name),
-						resource.TestCheckResourceAttr("redpanda_network.test", "name", name),
-						resource.TestCheckResourceAttr("redpanda_cluster.test", "name", rename),
-						func(s *terraform.State) error {
-							i, err := utils.FindClusterByName(ctx, rename, c.ClusterClient)
-							if err != nil {
-								return err
-							}
-							importID = i.GetId()
-							return nil
-						}),
-				},
-				{
-					ResourceName:             "redpanda_cluster.test",
-					ConfigFile:               config.StaticFile(awsDedicatedClusterFile),
-					ConfigVariables:          updateTestCaseVars,
-					ImportState:              true,
-					ImportStateId:            importID,
-					ImportStateVerify:        true,
-					ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-					Check: resource.ComposeAggregateTestCheckFunc(
-						resource.TestCheckResourceAttr("redpanda_namespace.test", "name", name),
-						resource.TestCheckResourceAttr("redpanda_network.test", "name", name),
-						resource.TestCheckResourceAttr("redpanda_cluster.test", "name", rename),
-					),
-				},
-				{
-					ConfigFile:               config.StaticFile(awsDedicatedClusterFile),
-					ConfigVariables:          updateTestCaseVars,
-					Destroy:                  true,
-					ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				},
+	var importID string
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				ConfigFile:      config.StaticFile(awsDedicatedClusterFile),
+				ConfigVariables: origTestCaseVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(namespaceResourceName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
+				),
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			{
+				ConfigFile:               config.StaticFile(awsDedicatedClusterFile),
+				ConfigVariables:          updateTestCaseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(namespaceResourceName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+					func(s *terraform.State) error {
+						i, err := utils.FindClusterByName(ctx, rename, c.ClusterClient)
+						if err != nil {
+							return err
+						}
+						importID = i.GetId()
+						return nil
+					}),
+			},
+			{
+				ResourceName:             clusterResourceName,
+				ConfigFile:               config.StaticFile(awsDedicatedClusterFile),
+				ConfigVariables:          updateTestCaseVars,
+				ImportState:              true,
+				ImportStateId:            importID,
+				ImportStateVerify:        true,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(namespaceResourceName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+				),
+			},
+			{
+				ConfigFile:               config.StaticFile(awsDedicatedClusterFile),
+				ConfigVariables:          updateTestCaseVars,
+				Destroy:                  true,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 		},
+	},
 	)
-	resource.AddTestSweepers(name, &resource.Sweeper{
+	resource.AddTestSweepers("namespaceSweeper", &resource.Sweeper{
 		Name: name,
 		F: sweepNamespace{
 			NamespaceName: name,
 			Client:        c.NsClient,
 		}.SweepNamespaces,
 	})
-	resource.AddTestSweepers(name, &resource.Sweeper{
+	resource.AddTestSweepers("networkSweeper", &resource.Sweeper{
 		Name: name,
 		F: sweepNetwork{
 			NetworkName: name,
@@ -296,7 +316,7 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 			OpsClient:   c.OpsClient,
 		}.SweepNetworks,
 	})
-	resource.AddTestSweepers(rename, &resource.Sweeper{
+	resource.AddTestSweepers("clusterSweeper", &resource.Sweeper{
 		Name: rename,
 		F: sweepCluster{
 			ClusterName: rename,
@@ -310,17 +330,16 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 	if !strings.Contains(runClusterTests, "true") {
 		t.Skip("skipping cluster tests")
 	}
-
 	ctx := context.Background()
-	name := accNamePrepend + "testgcp"
-	rename := accNamePrepend + "testgcp2"
-	var importID string
 
+	name := accNamePrepend + "testgcp"
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["namespace_name"] = config.StringVariable(name)
 	origTestCaseVars["network_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
+
+	rename := accNamePrepend + "testgcp2"
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
@@ -329,6 +348,7 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var importID string
 	resource.ParallelTest(
 		t,
 		resource.TestCase{
@@ -338,9 +358,9 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 					ConfigFile:      config.StaticFile(gcpDedicatedClusterFile),
 					ConfigVariables: origTestCaseVars,
 					Check: resource.ComposeAggregateTestCheckFunc(
-						resource.TestCheckResourceAttr("redpanda_namespace.test", "name", name),
-						resource.TestCheckResourceAttr("redpanda_network.test", "name", name),
-						resource.TestCheckResourceAttr("redpanda_cluster.test", "name", name),
+						resource.TestCheckResourceAttr(namespaceResourceName, "name", name),
+						resource.TestCheckResourceAttr(networkResourceName, "name", name),
+						resource.TestCheckResourceAttr(clusterResourceName, "name", name),
 					),
 					ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				},
@@ -349,9 +369,9 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 					ConfigVariables:          updateTestCaseVars,
 					ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 					Check: resource.ComposeAggregateTestCheckFunc(
-						resource.TestCheckResourceAttr("redpanda_namespace.test", "name", name),
-						resource.TestCheckResourceAttr("redpanda_network.test", "name", name),
-						resource.TestCheckResourceAttr("redpanda_cluster.test", "name", rename),
+						resource.TestCheckResourceAttr(namespaceResourceName, "name", name),
+						resource.TestCheckResourceAttr(networkResourceName, "name", name),
+						resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
 						func(s *terraform.State) error {
 							i, err := utils.FindClusterByName(ctx, rename, c.ClusterClient)
 							if err != nil {
@@ -362,7 +382,7 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 						}),
 				},
 				{
-					ResourceName:             "redpanda_cluster.test",
+					ResourceName:             clusterResourceName,
 					ConfigFile:               config.StaticFile(gcpDedicatedClusterFile),
 					ConfigVariables:          updateTestCaseVars,
 					ImportState:              true,
@@ -370,9 +390,9 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 					ImportStateVerify:        true,
 					ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 					Check: resource.ComposeAggregateTestCheckFunc(
-						resource.TestCheckResourceAttr("redpanda_namespace.test", "name", name),
-						resource.TestCheckResourceAttr("redpanda_network.test", "name", name),
-						resource.TestCheckResourceAttr("redpanda_cluster.test", "name", rename),
+						resource.TestCheckResourceAttr(namespaceResourceName, "name", name),
+						resource.TestCheckResourceAttr(networkResourceName, "name", name),
+						resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
 					),
 				},
 				{
@@ -385,14 +405,14 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 		},
 	)
 
-	resource.AddTestSweepers(name, &resource.Sweeper{
+	resource.AddTestSweepers("namespaceSweeper", &resource.Sweeper{
 		Name: name,
 		F: sweepNamespace{
 			NamespaceName: name,
 			Client:        c.NsClient,
 		}.SweepNamespaces,
 	})
-	resource.AddTestSweepers(name, &resource.Sweeper{
+	resource.AddTestSweepers("networkSweeper", &resource.Sweeper{
 		Name: name,
 		F: sweepNetwork{
 			NetworkName: name,
@@ -400,7 +420,7 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 			OpsClient:   c.OpsClient,
 		}.SweepNetworks,
 	})
-	resource.AddTestSweepers(rename, &resource.Sweeper{
+	resource.AddTestSweepers("clusterSweeper", &resource.Sweeper{
 		Name: rename,
 		F: sweepCluster{
 			ClusterName: rename,
