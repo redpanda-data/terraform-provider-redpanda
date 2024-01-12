@@ -69,7 +69,7 @@ func (n *Namespace) Configure(ctx context.Context, request resource.ConfigureReq
 		)
 		return
 	}
-	client, err := clients.NewNamespaceServiceClient(ctx, p.Version, clients.ClientRequest{
+	client, err := clients.NewNamespaceServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})

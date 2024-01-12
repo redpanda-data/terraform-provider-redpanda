@@ -3,13 +3,13 @@ package tests
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"fmt"
 	"maps"
-	"math/rand"
+	"math/big"
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/config"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -442,9 +442,9 @@ func generateRandomName(prefix string) string {
 	randomLength := 4 // Should be good, this is 62^4 = 14M combinations.
 
 	var randStr bytes.Buffer
-	random := rand.New(rand.NewSource(time.Now().UnixNano()))
+	r, _ := rand.Int(rand.Reader, big.NewInt(int64(len(baseChars))))
 	for i := 0; i < randomLength; i++ {
-		randStr.WriteByte(baseChars[random.Intn(len(baseChars))])
+		randStr.WriteByte(baseChars[r.Int64()])
 	}
 
 	return fmt.Sprintf("%v-%v", prefix, randStr.String())

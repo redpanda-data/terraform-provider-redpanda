@@ -61,7 +61,7 @@ func (d *DataSourceCluster) Configure(ctx context.Context, req datasource.Config
 		return
 	}
 
-	client, err := clients.NewClusterServiceClient(ctx, p.Version, clients.ClientRequest{
+	client, err := clients.NewClusterServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})

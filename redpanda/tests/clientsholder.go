@@ -29,29 +29,29 @@ type clientHolder struct {
 	ClusterClient cloudv1beta1.ClusterServiceClient
 }
 
-func newClients(ctx context.Context, clientID, clientSecret, version string) (*clientHolder, error) {
-	opsClient, err := clients.NewOperationServiceClient(ctx, version, clients.ClientRequest{
+func newClients(ctx context.Context, clientID, clientSecret, cloudEnv string) (*clientHolder, error) {
+	opsClient, err := clients.NewOperationServiceClient(ctx, cloudEnv, clients.ClientRequest{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 	})
 	if err != nil {
 		return nil, err
 	}
-	netClient, err := clients.NewNetworkServiceClient(ctx, version, clients.ClientRequest{
+	netClient, err := clients.NewNetworkServiceClient(ctx, cloudEnv, clients.ClientRequest{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 	})
 	if err != nil {
 		return nil, err
 	}
-	nsClient, err := clients.NewNamespaceServiceClient(ctx, version, clients.ClientRequest{
+	nsClient, err := clients.NewNamespaceServiceClient(ctx, cloudEnv, clients.ClientRequest{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 	})
 	if err != nil {
 		return nil, err
 	}
-	clusterClient, err := clients.NewClusterServiceClient(ctx, version, clients.ClientRequest{
+	clusterClient, err := clients.NewClusterServiceClient(ctx, cloudEnv, clients.ClientRequest{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 	})

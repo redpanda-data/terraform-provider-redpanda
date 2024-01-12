@@ -32,7 +32,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-var endpoints = map[string]map[string]map[string]string{
+var cloudAuthEnvironments = map[string]map[string]map[string]string{
 	"cloudv2": {
 		"dev": {
 			"api":      "api.dev.cloud.redpanda.com:443",
@@ -54,8 +54,8 @@ type ClientRequest struct {
 }
 
 // NewClusterServiceClient creates a new ClusterServiceClient.
-func NewClusterServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.ClusterServiceClient, error) {
-	conn, err := createConnection(ctx, version, cr)
+func NewClusterServiceClient(ctx context.Context, cloudEnv string, cr ClientRequest) (cloudv1beta1.ClusterServiceClient, error) {
+	conn, err := createConnection(ctx, cloudEnv, cr)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create a connection: %v", err)
 	}
@@ -63,8 +63,8 @@ func NewClusterServiceClient(ctx context.Context, version string, cr ClientReque
 }
 
 // NewNamespaceServiceClient creates a new NamespaceServiceClient.
-func NewNamespaceServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.NamespaceServiceClient, error) {
-	conn, err := createConnection(ctx, version, cr)
+func NewNamespaceServiceClient(ctx context.Context, cloudEnv string, cr ClientRequest) (cloudv1beta1.NamespaceServiceClient, error) {
+	conn, err := createConnection(ctx, cloudEnv, cr)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create a connection: %v", err)
 	}
@@ -72,8 +72,8 @@ func NewNamespaceServiceClient(ctx context.Context, version string, cr ClientReq
 }
 
 // NewNetworkServiceClient creates a new NetworkServiceClient.
-func NewNetworkServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.NetworkServiceClient, error) {
-	conn, err := createConnection(ctx, version, cr)
+func NewNetworkServiceClient(ctx context.Context, cloudEnv string, cr ClientRequest) (cloudv1beta1.NetworkServiceClient, error) {
+	conn, err := createConnection(ctx, cloudEnv, cr)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create a connection: %v", err)
 	}
@@ -81,8 +81,8 @@ func NewNetworkServiceClient(ctx context.Context, version string, cr ClientReque
 }
 
 // NewOperationServiceClient creates a new OperationServiceClient.
-func NewOperationServiceClient(ctx context.Context, version string, cr ClientRequest) (cloudv1beta1.OperationServiceClient, error) {
-	conn, err := createConnection(ctx, version, cr)
+func NewOperationServiceClient(ctx context.Context, cloudEnv string, cr ClientRequest) (cloudv1beta1.OperationServiceClient, error) {
+	conn, err := createConnection(ctx, cloudEnv, cr)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create a connection: %v", err)
 	}
@@ -90,8 +90,8 @@ func NewOperationServiceClient(ctx context.Context, version string, cr ClientReq
 }
 
 // NewTopicServiceClient creates a new TopicServiceClient.
-func NewTopicServiceClient(ctx context.Context, version string, cr ClientRequest) (dataplanev1alpha1.TopicServiceClient, error) {
-	conn, err := createConnection(ctx, version, cr)
+func NewTopicServiceClient(ctx context.Context, cloudEnv string, cr ClientRequest) (dataplanev1alpha1.TopicServiceClient, error) {
+	conn, err := createConnection(ctx, cloudEnv, cr)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create a connection: %v", err)
 	}
@@ -99,8 +99,8 @@ func NewTopicServiceClient(ctx context.Context, version string, cr ClientRequest
 }
 
 // NewUserServiceClient creates a new UserServiceClient.
-func NewUserServiceClient(ctx context.Context, version string, cr ClientRequest) (dataplanev1alpha1.UserServiceClient, error) {
-	conn, err := createConnection(ctx, version, cr)
+func NewUserServiceClient(ctx context.Context, cloudEnv string, cr ClientRequest) (dataplanev1alpha1.UserServiceClient, error) {
+	conn, err := createConnection(ctx, cloudEnv, cr)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create a connection: %v", err)
 	}
@@ -108,8 +108,8 @@ func NewUserServiceClient(ctx context.Context, version string, cr ClientRequest)
 }
 
 // NewACLServiceClient creates a new ACLServiceClient.
-func NewACLServiceClient(ctx context.Context, version string, cr ClientRequest) (dataplanev1alpha1.ACLServiceClient, error) {
-	conn, err := createConnection(ctx, version, cr)
+func NewACLServiceClient(ctx context.Context, cloudEnv string, cr ClientRequest) (dataplanev1alpha1.ACLServiceClient, error) {
+	conn, err := createConnection(ctx, cloudEnv, cr)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create a connection: %v", err)
 	}
@@ -117,8 +117,8 @@ func NewACLServiceClient(ctx context.Context, version string, cr ClientRequest) 
 }
 
 // NewSecretServiceClient creates a new SecretServiceClient.
-func NewSecretServiceClient(ctx context.Context, version string, cr ClientRequest) (dataplanev1alpha1.SecretServiceClient, error) {
-	conn, err := createConnection(ctx, version, cr)
+func NewSecretServiceClient(ctx context.Context, cloudEnv string, cr ClientRequest) (dataplanev1alpha1.SecretServiceClient, error) {
+	conn, err := createConnection(ctx, cloudEnv, cr)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create a connection: %v", err)
 	}
@@ -126,8 +126,8 @@ func NewSecretServiceClient(ctx context.Context, version string, cr ClientReques
 }
 
 // NewKafkaConnectServiceClient creates a new KafkaConnectServiceClient.
-func NewKafkaConnectServiceClient(ctx context.Context, version string, cr ClientRequest) (dataplanev1alpha1.KafkaConnectServiceClient, error) {
-	conn, err := createConnection(ctx, version, cr)
+func NewKafkaConnectServiceClient(ctx context.Context, cloudEnv string, cr ClientRequest) (dataplanev1alpha1.KafkaConnectServiceClient, error) {
+	conn, err := createConnection(ctx, cloudEnv, cr)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create a connection: %v", err)
 	}
@@ -135,7 +135,7 @@ func NewKafkaConnectServiceClient(ctx context.Context, version string, cr Client
 }
 
 // createConnection is a helper function to create a connection based on the Redpanda model
-func createConnection(ctx context.Context, version string, cr ClientRequest) (*grpc.ClientConn, error) {
+func createConnection(ctx context.Context, cloudEnv string, cr ClientRequest) (*grpc.ClientConn, error) {
 	var token string
 	var err error
 
@@ -147,11 +147,11 @@ func createConnection(ctx context.Context, version string, cr ClientRequest) (*g
 		return nil, fmt.Errorf("client_secret is not set")
 	}
 
-	token, err = requestToken(ctx, version, cr.ClientID, cr.ClientSecret)
+	token, err = requestToken(ctx, cloudEnv, cr.ClientID, cr.ClientSecret)
 	if err != nil {
 		return nil, err
 	}
-	return spawnConn(ctx, version, token)
+	return spawnConn(ctx, cloudEnv, token)
 }
 
 type tokenResponse struct {
@@ -162,9 +162,9 @@ type tokenResponse struct {
 }
 
 // requestToken requests a token.
-func requestToken(ctx context.Context, version, clientID, clientSecret string) (string, error) {
-	payload := strings.NewReader(fmt.Sprintf("grant_type=client_credentials&client_id=%s&client_secret=%s&audience=%s", clientID, clientSecret, endpoints["cloudv2"][version]["audience"]))
-	req, err := http.NewRequestWithContext(ctx, "POST", endpoints["cloudv2"][version]["token"], payload)
+func requestToken(ctx context.Context, cloudEnv, clientID, clientSecret string) (string, error) {
+	payload := strings.NewReader(fmt.Sprintf("grant_type=client_credentials&client_id=%s&client_secret=%s&audience=%s", clientID, clientSecret, cloudAuthEnvironments["cloudv2"][cloudEnv]["audience"]))
+	req, err := http.NewRequestWithContext(ctx, "POST", cloudAuthEnvironments["cloudv2"][cloudEnv]["token"], payload)
 	if err != nil {
 		return "", err
 	}
@@ -187,10 +187,10 @@ func requestToken(ctx context.Context, version, clientID, clientSecret string) (
 	return tokenContainer.AccessToken, nil
 }
 
-func spawnConn(ctx context.Context, version, authToken string) (*grpc.ClientConn, error) {
+func spawnConn(ctx context.Context, cloudEnv, authToken string) (*grpc.ClientConn, error) {
 	return grpc.DialContext(
 		ctx,
-		endpoints["cloudv2"][version]["api"],
+		cloudAuthEnvironments["cloudv2"][cloudEnv]["api"],
 		grpc.WithBlock(),
 		grpc.WithUnaryInterceptor(func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 			return invoker(metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", authToken)), method, req, reply, cc, opts...)

@@ -59,7 +59,7 @@ func (u *User) Configure(ctx context.Context, request resource.ConfigureRequest,
 			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", request.ProviderData),
 		)
 	}
-	client, err := clients.NewUserServiceClient(ctx, p.Version, clients.ClientRequest{
+	client, err := clients.NewUserServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})

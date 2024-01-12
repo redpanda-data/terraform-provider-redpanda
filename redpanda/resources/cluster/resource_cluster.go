@@ -69,7 +69,7 @@ func (c *Cluster) Configure(ctx context.Context, req resource.ConfigureRequest, 
 		return
 	}
 
-	client, err := clients.NewClusterServiceClient(ctx, p.Version, clients.ClientRequest{
+	client, err := clients.NewClusterServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})
@@ -79,7 +79,7 @@ func (c *Cluster) Configure(ctx context.Context, req resource.ConfigureRequest, 
 	}
 	c.CluClient = client
 
-	ops, err := clients.NewOperationServiceClient(ctx, p.Version, clients.ClientRequest{
+	ops, err := clients.NewOperationServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})

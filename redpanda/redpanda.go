@@ -56,7 +56,9 @@ var _ provider.Provider = &Redpanda{}
 
 // Redpanda represents the Redpanda Terraform provider.
 type Redpanda struct {
-	version string
+	// cloudEnv is the cloud environment which the Terraform provider points to;
+	// one of 'ign' or 'dev'.
+	cloudEnv string
 }
 
 const (
@@ -66,11 +68,12 @@ const (
 	ClientSecretEnv = "CLIENT_SECRET"
 )
 
-// New spawns a basic provider struct, no client. Configure must be called for a working client.
-func New(_ context.Context, version string) func() provider.Provider {
+// New spawns a basic provider struct, no client. Configure must be called for a
+// working client.
+func New(_ context.Context, cloudEnv string) func() provider.Provider {
 	return func() provider.Provider {
 		return &Redpanda{
-			version: version,
+			cloudEnv: cloudEnv,
 		}
 	}
 }
@@ -146,19 +149,19 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	response.ResourceData = utils.ResourceData{
 		ClientID:     id,
 		ClientSecret: sec,
-		Version:      r.version,
+		CloudEnv:     r.cloudEnv,
 	}
 	response.DataSourceData = utils.DatasourceData{
 		ClientID:     conf.ClientID.ValueString(),
 		ClientSecret: conf.ClientSecret.ValueString(),
-		Version:      r.version,
+		CloudEnv:     r.cloudEnv,
 	}
 }
 
 // Metadata returns the provider metadata.
-func (r *Redpanda) Metadata(_ context.Context, _ provider.MetadataRequest, response *provider.MetadataResponse) {
+func (*Redpanda) Metadata(_ context.Context, _ provider.MetadataRequest, response *provider.MetadataResponse) {
 	response.TypeName = "redpanda"
-	response.Version = r.version
+	// TODO, add response.Version, which should be the provider version.
 }
 
 // Schema returns the Redpanda provider schema.

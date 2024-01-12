@@ -74,7 +74,7 @@ func (n *Network) Configure(ctx context.Context, request resource.ConfigureReque
 		)
 		return
 	}
-	client, err := clients.NewNetworkServiceClient(ctx, p.Version, clients.ClientRequest{
+	client, err := clients.NewNetworkServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})
@@ -83,7 +83,7 @@ func (n *Network) Configure(ctx context.Context, request resource.ConfigureReque
 		return
 	}
 
-	opsClient, err := clients.NewOperationServiceClient(ctx, p.Version, clients.ClientRequest{
+	opsClient, err := clients.NewOperationServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})

@@ -66,7 +66,7 @@ func (t *Topic) Configure(ctx context.Context, request resource.ConfigureRequest
 		)
 		return
 	}
-	client, err := clients.NewTopicServiceClient(ctx, p.Version, clients.ClientRequest{
+	client, err := clients.NewTopicServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})

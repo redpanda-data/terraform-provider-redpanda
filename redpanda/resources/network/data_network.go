@@ -84,7 +84,7 @@ func (n *DataSourceNetwork) Configure(ctx context.Context, request datasource.Co
 		)
 		return
 	}
-	client, err := clients.NewNetworkServiceClient(ctx, p.Version, clients.ClientRequest{
+	client, err := clients.NewNetworkServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})
