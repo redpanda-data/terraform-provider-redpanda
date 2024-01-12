@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -188,8 +189,6 @@ func (n *Namespace) Delete(ctx context.Context, req resource.DeleteRequest, resp
 // allowing TF to use Read to get the correct Namespace name into state see
 // https://developer.hashicorp.com/terraform/plugin/framework/resources/import
 // for more details.
-func (*Namespace) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
-	response.Diagnostics.Append(response.State.Set(ctx, models.Namespace{
-		ID: types.StringValue(request.ID),
-	})...)
+func (*Namespace) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -229,7 +230,7 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 }
 
 // Update is not supported for network. As a result all configurable schema
-// elements have been marked as RequiresReplace
+// elements have been marked as RequiresReplace.
 func (*Network) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
 }
 
@@ -253,9 +254,7 @@ func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, re
 // ImportState refreshes the state with the correct ID for the network, allowing
 // TF to use Read to get the correct Network name into state see
 // https://developer.hashicorp.com/terraform/plugin/framework/resources/import
-// for more details
-func (*Network) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
-	response.Diagnostics.Append(response.State.Set(ctx, &models.Network{
-		ID: types.StringValue(request.ID),
-	})...)
+// for more details.
+func (*Network) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }

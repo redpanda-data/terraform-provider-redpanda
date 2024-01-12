@@ -24,7 +24,7 @@ const (
 	dedicatedNamespaceFile  = "../../examples/namespace/main.tf"
 	dedicatedNetworkFile    = "../../examples/network/main.tf"
 
-	// These come from the tf files
+	// These are the resource names as named in the TF files.
 	namespaceResourceName = "redpanda_namespace.test"
 	networkResourceName   = "redpanda_network.test"
 	clusterResourceName   = "redpanda_cluster.test"
@@ -101,14 +101,14 @@ func TestAccResourcesNamespace(t *testing.T) {
 		},
 	})
 
-	resource.AddTestSweepers("namespaceSweeper", &resource.Sweeper{
+	resource.AddTestSweepers(generateRandomName("namespaceSweeper"), &resource.Sweeper{
 		Name: name,
 		F: sweepNamespace{
 			NamespaceName: name,
 			Client:        c.NsClient,
 		}.SweepNamespaces,
 	})
-	resource.AddTestSweepers("namespaceRenameSweeper", &resource.Sweeper{
+	resource.AddTestSweepers(generateRandomName("namespaceRenameSweeper"), &resource.Sweeper{
 		Name: rename,
 		F: sweepNamespace{
 			NamespaceName: rename,
@@ -200,14 +200,14 @@ func TestAccResourcesNetwork(t *testing.T) {
 			},
 		},
 	})
-	resource.AddTestSweepers("namespaceSweeper", &resource.Sweeper{
+	resource.AddTestSweepers(generateRandomName("namespaceSweeper"), &resource.Sweeper{
 		Name: name,
 		F: sweepNamespace{
 			NamespaceName: name,
 			Client:        c.NsClient,
 		}.SweepNamespaces,
 	})
-	resource.AddTestSweepers("networkSweeper", &resource.Sweeper{
+	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
 		Name: name,
 		F: sweepNetwork{
 			NetworkName: name,
@@ -215,7 +215,7 @@ func TestAccResourcesNetwork(t *testing.T) {
 			OpsClient:   c.OpsClient,
 		}.SweepNetworks,
 	})
-	resource.AddTestSweepers("renamedNetworkSweeper", &resource.Sweeper{
+	resource.AddTestSweepers(generateRandomName("renamedNetworkSweeper"), &resource.Sweeper{
 		Name: rename,
 		F: sweepNetwork{
 			NetworkName: rename,
@@ -231,14 +231,14 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	name := accNamePrepend + "testaws"
+	name := generateRandomName(accNamePrepend + "testaws")
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["namespace_name"] = config.StringVariable(name)
 	origTestCaseVars["network_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
 
-	rename := accNamePrepend + "testaws2"
+	rename := generateRandomName(accNamePrepend + "testaws-rename")
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
@@ -279,12 +279,15 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 					}),
 			},
 			{
-				ResourceName:             clusterResourceName,
-				ConfigFile:               config.StaticFile(awsDedicatedClusterFile),
-				ConfigVariables:          updateTestCaseVars,
-				ImportState:              true,
-				ImportStateId:            importID,
-				ImportStateVerify:        true,
+				ResourceName:      clusterResourceName,
+				ConfigFile:        config.StaticFile(awsDedicatedClusterFile),
+				ConfigVariables:   updateTestCaseVars,
+				ImportState:       true,
+				ImportStateId:     importID,
+				ImportStateVerify: true,
+				//  These two only matter on apply; On apply the user will be
+				//  getting Plan, not State, and have correct values for both.
+				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(namespaceResourceName, "name", name),
@@ -301,14 +304,14 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 		},
 	},
 	)
-	resource.AddTestSweepers("namespaceSweeper", &resource.Sweeper{
+	resource.AddTestSweepers(generateRandomName("namespaceSweeper"), &resource.Sweeper{
 		Name: name,
 		F: sweepNamespace{
 			NamespaceName: name,
 			Client:        c.NsClient,
 		}.SweepNamespaces,
 	})
-	resource.AddTestSweepers("networkSweeper", &resource.Sweeper{
+	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
 		Name: name,
 		F: sweepNetwork{
 			NetworkName: name,
@@ -316,7 +319,7 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 			OpsClient:   c.OpsClient,
 		}.SweepNetworks,
 	})
-	resource.AddTestSweepers("clusterSweeper", &resource.Sweeper{
+	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
 		Name: rename,
 		F: sweepCluster{
 			ClusterName: rename,
@@ -332,14 +335,14 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	name := accNamePrepend + "testgcp"
+	name := generateRandomName(accNamePrepend + "testgcp")
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["namespace_name"] = config.StringVariable(name)
 	origTestCaseVars["network_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
 
-	rename := accNamePrepend + "testgcp2"
+	rename := generateRandomName(accNamePrepend + "testgcp-rename")
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
@@ -388,6 +391,7 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 					ImportState:              true,
 					ImportStateId:            importID,
 					ImportStateVerify:        true,
+					ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
 					ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 					Check: resource.ComposeAggregateTestCheckFunc(
 						resource.TestCheckResourceAttr(namespaceResourceName, "name", name),
@@ -405,14 +409,14 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 		},
 	)
 
-	resource.AddTestSweepers("namespaceSweeper", &resource.Sweeper{
+	resource.AddTestSweepers(generateRandomName("namespaceSweeper"), &resource.Sweeper{
 		Name: name,
 		F: sweepNamespace{
 			NamespaceName: name,
 			Client:        c.NsClient,
 		}.SweepNamespaces,
 	})
-	resource.AddTestSweepers("networkSweeper", &resource.Sweeper{
+	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
 		Name: name,
 		F: sweepNetwork{
 			NetworkName: name,
@@ -420,7 +424,7 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 			OpsClient:   c.OpsClient,
 		}.SweepNetworks,
 	})
-	resource.AddTestSweepers("clusterSweeper", &resource.Sweeper{
+	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
 		Name: rename,
 		F: sweepCluster{
 			ClusterName: rename,
