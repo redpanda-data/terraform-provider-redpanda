@@ -34,6 +34,7 @@ package redpanda
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -109,41 +110,34 @@ func providerSchema() schema.Schema {
 	}
 }
 
-// Configure is the primary entrypoint for terraform and properly initializes the client.
+// Configure is the primary entrypoint for terraform and properly initializes
+// the client.
 func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequest, response *provider.ConfigureResponse) {
 	var conf models.Redpanda
 	response.Diagnostics.Append(request.Config.Get(ctx, &conf)...)
 	if response.Diagnostics.HasError() {
 		return
 	}
-
-	var id string
-	cfgID := conf.ClientID.ValueString()
-	envID := os.Getenv(ClientIDEnv)
-	switch {
-	case cfgID == "" && envID != "":
-		id = envID
-	case cfgID != "" && envID == "":
-		id = cfgID
-	case cfgID != "" && envID != "":
-		id = cfgID
-	default:
-		response.Diagnostics.AddError("no client id", "no client id found")
+	// Override client credentials with environment variables.
+	id, sec := conf.ClientID.ValueString(), conf.ClientSecret.ValueString()
+	for _, override := range []struct {
+		name string
+		src  string
+		dst  *string
+	}{
+		{"Client ID", os.Getenv(ClientIDEnv), &id},
+		{"Client Secret", os.Getenv(ClientSecretEnv), &sec},
+	} {
+		if override.src != "" {
+			*override.dst = override.src
+		}
+		if override.src == "" && *override.dst == "" {
+			response.Diagnostics.AddError(
+				fmt.Sprintf("%v missing", override.name),
+				fmt.Sprintf("no %v found, please set the corresponding variable in the configuration file", override.name),
+			)
+		}
 	}
-	var sec string
-	cfgSec := conf.ClientSecret.ValueString()
-	envSec := os.Getenv(ClientSecretEnv)
-	switch {
-	case cfgSec == "" && envSec != "":
-		sec = envSec
-	case cfgSec != "" && envSec == "":
-		sec = cfgSec
-	case cfgSec != "" && envSec != "":
-		sec = cfgSec
-	default:
-		response.Diagnostics.AddError("no client secret", "no client secret found")
-	}
-
 	// Clients are passed through to downstream resources through the response
 	// struct.
 	response.ResourceData = utils.ResourceData{
