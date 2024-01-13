@@ -32,18 +32,24 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-var cloudAuthEnvironments = map[string]map[string]map[string]string{
-	"cloudv2": {
-		"dev": {
-			"api":      "api.dev.cloud.redpanda.com:443",
-			"token":    "https://dev-cloudv2.us.auth0.com/oauth/token",
-			"audience": "cloudv2-dev.redpanda.cloud",
-		},
-		"ign": {
-			"api":      "api.ign.cloud.redpanda.com:443",
-			"token":    "https://integration-cloudv2.us.auth0.com/oauth/token",
-			"audience": "cloudv2-ign.redpanda.cloud",
-		},
+// cloudEndpoint is a representation of a cloud V2 endpoint, containing the URLs
+// for authentication and the API URL.
+type cloudEndpoint struct {
+	apiURL   string // CloudV2 public API URL.
+	authURL  string // CloudV2 URL for authorization token exchange.
+	audience string // CloudV2 audience used for token exchange.
+}
+
+var cloudAuthEnvironments = map[string]cloudEndpoint{
+	"dev": {
+		"api.dev.cloud.redpanda.com:443",
+		"https://dev-cloudv2.us.auth0.com/oauth/token",
+		"cloudv2-dev.redpanda.cloud",
+	},
+	"ign": {
+		"api.ign.cloud.redpanda.com:443",
+		"https://integration-cloudv2.us.auth0.com/oauth/token",
+		"cloudv2-ign.redpanda.cloud",
 	},
 }
 
@@ -147,11 +153,16 @@ func createConnection(ctx context.Context, cloudEnv string, cr ClientRequest) (*
 		return nil, fmt.Errorf("client_secret is not set")
 	}
 
-	token, err = requestToken(ctx, cloudEnv, cr.ClientID, cr.ClientSecret)
+	endpoint, found := cloudAuthEnvironments[cloudEnv]
+	if !found {
+		return nil, fmt.Errorf("unable to find requested environment: %q", cloudEnv)
+	}
+
+	token, err = requestToken(ctx, endpoint, cr.ClientID, cr.ClientSecret)
 	if err != nil {
 		return nil, err
 	}
-	return spawnConn(ctx, cloudEnv, token)
+	return spawnConn(ctx, endpoint, token)
 }
 
 type tokenResponse struct {
@@ -162,9 +173,9 @@ type tokenResponse struct {
 }
 
 // requestToken requests a token.
-func requestToken(ctx context.Context, cloudEnv, clientID, clientSecret string) (string, error) {
-	payload := strings.NewReader(fmt.Sprintf("grant_type=client_credentials&client_id=%s&client_secret=%s&audience=%s", clientID, clientSecret, cloudAuthEnvironments["cloudv2"][cloudEnv]["audience"]))
-	req, err := http.NewRequestWithContext(ctx, "POST", cloudAuthEnvironments["cloudv2"][cloudEnv]["token"], payload)
+func requestToken(ctx context.Context, endpoint cloudEndpoint, clientID, clientSecret string) (string, error) {
+	payload := strings.NewReader(fmt.Sprintf("grant_type=client_credentials&client_id=%s&client_secret=%s&audience=%s", clientID, clientSecret, endpoint.audience))
+	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.authURL, payload)
 	if err != nil {
 		return "", err
 	}
@@ -187,10 +198,10 @@ func requestToken(ctx context.Context, cloudEnv, clientID, clientSecret string) 
 	return tokenContainer.AccessToken, nil
 }
 
-func spawnConn(ctx context.Context, cloudEnv, authToken string) (*grpc.ClientConn, error) {
+func spawnConn(ctx context.Context, endpoint cloudEndpoint, authToken string) (*grpc.ClientConn, error) {
 	return grpc.DialContext(
 		ctx,
-		cloudAuthEnvironments["cloudv2"][cloudEnv]["api"],
+		endpoint.apiURL,
 		grpc.WithBlock(),
 		grpc.WithUnaryInterceptor(func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 			return invoker(metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", authToken)), method, req, reply, cc, opts...)
