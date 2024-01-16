@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	awsDedicatedClusterFile = "../../examples/dedicated/aws/main.tf"
-	gcpDedicatedClusterFile = "../../examples/dedicated/gcp/main.tf"
+	awsDedicatedClusterFile = "../../examples/cluster/aws/main.tf"
+	gcpDedicatedClusterFile = "../../examples/cluster/gcp/main.tf"
 	dedicatedNamespaceFile  = "../../examples/namespace/main.tf"
 	dedicatedNetworkFile    = "../../examples/network/main.tf"
 
