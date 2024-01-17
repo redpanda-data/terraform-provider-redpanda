@@ -17,9 +17,11 @@ package tests
 
 import (
 	"context"
+	"fmt"
 
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
+	"golang.org/x/sync/errgroup"
 )
 
 type clientHolder struct {
@@ -29,33 +31,55 @@ type clientHolder struct {
 	ClusterClient cloudv1beta1.ClusterServiceClient
 }
 
-func newClients(ctx context.Context, clientID, clientSecret, version string) (*clientHolder, error) {
-	opsClient, err := clients.NewOperationServiceClient(ctx, version, clients.ClientRequest{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
+func newClients(ctx context.Context, clientID, clientSecret, cloudEnv string) (*clientHolder, error) {
+	g, egCtx := errgroup.WithContext(ctx)
+	var (
+		opsClient     cloudv1beta1.OperationServiceClient
+		netClient     cloudv1beta1.NetworkServiceClient
+		nsClient      cloudv1beta1.NamespaceServiceClient
+		clusterClient cloudv1beta1.ClusterServiceClient
+	)
+	g.Go(func() (rerr error) {
+		opsClient, rerr = clients.NewOperationServiceClient(egCtx, cloudEnv, clients.ClientRequest{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+		})
+		if rerr != nil {
+			return fmt.Errorf("unable to create operation service client: %v", rerr)
+		}
+		return nil
 	})
-	if err != nil {
-		return nil, err
-	}
-	netClient, err := clients.NewNetworkServiceClient(ctx, version, clients.ClientRequest{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
+	g.Go(func() (rerr error) {
+		nsClient, rerr = clients.NewNamespaceServiceClient(egCtx, cloudEnv, clients.ClientRequest{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+		})
+		if rerr != nil {
+			return fmt.Errorf("unable to create namespace service client: %v", rerr)
+		}
+		return nil
 	})
-	if err != nil {
-		return nil, err
-	}
-	nsClient, err := clients.NewNamespaceServiceClient(ctx, version, clients.ClientRequest{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
+	g.Go(func() (rerr error) {
+		netClient, rerr = clients.NewNetworkServiceClient(egCtx, cloudEnv, clients.ClientRequest{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+		})
+		if rerr != nil {
+			return fmt.Errorf("unable to create network service client: %v", rerr)
+		}
+		return nil
 	})
-	if err != nil {
-		return nil, err
-	}
-	clusterClient, err := clients.NewClusterServiceClient(ctx, version, clients.ClientRequest{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
+	g.Go(func() (rerr error) {
+		clusterClient, rerr = clients.NewClusterServiceClient(egCtx, cloudEnv, clients.ClientRequest{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+		})
+		if rerr != nil {
+			return fmt.Errorf("unable to create cluster service client: %v", rerr)
+		}
+		return nil
 	})
-	if err != nil {
+	if err := g.Wait(); err != nil {
 		return nil, err
 	}
 	return &clientHolder{

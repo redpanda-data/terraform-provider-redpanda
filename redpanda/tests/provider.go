@@ -29,8 +29,8 @@ import (
 )
 
 var providerCfgIDSecretVars = config.Variables{
-	"client_id":     config.StringVariable(os.Getenv("CLIENT_ID")),
-	"client_secret": config.StringVariable(os.Getenv("CLIENT_SECRET")),
+	"client_id":     config.StringVariable(os.Getenv(redpanda.ClientIDEnv)),
+	"client_secret": config.StringVariable(os.Getenv(redpanda.ClientSecretEnv)),
 }
 
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
@@ -40,10 +40,10 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 // testAccPreCheck is a test helper function used to perform provider validation
 // before running the provider
 func testAccPreCheck(t testing.TB) {
-	if v := os.Getenv("CLIENT_ID"); v == "" {
-		t.Fatal("CLIENT_ID must be set for acceptance tests")
+	if v := os.Getenv(redpanda.ClientIDEnv); v == "" {
+		t.Fatalf("environment variable %v must be set for acceptance tests", redpanda.ClientIDEnv)
 	}
-	if v := os.Getenv("CLIENT_SECRET"); v == "" {
-		t.Fatal("CLIENT_SECRET must be set for acceptance tests")
+	if v := os.Getenv(redpanda.ClientSecretEnv); v == "" {
+		t.Fatalf("environment variable %v must be set for acceptance tests", redpanda.ClientSecretEnv)
 	}
 }

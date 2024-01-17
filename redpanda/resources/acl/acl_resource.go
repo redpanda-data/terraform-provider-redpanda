@@ -62,7 +62,7 @@ func (a *ACL) Configure(ctx context.Context, request resource.ConfigureRequest, 
 		return
 	}
 
-	client, err := clients.NewACLServiceClient(ctx, p.Version, clients.ClientRequest{
+	client, err := clients.NewACLServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})

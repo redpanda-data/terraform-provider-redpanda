@@ -59,7 +59,7 @@ func (u *User) Configure(ctx context.Context, request resource.ConfigureRequest,
 			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", request.ProviderData),
 		)
 	}
-	client, err := clients.NewUserServiceClient(ctx, p.Version, clients.ClientRequest{
+	client, err := clients.NewUserServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})
@@ -108,7 +108,7 @@ func (u *User) Create(ctx context.Context, request resource.CreateRequest, respo
 	user, err := u.UserClient.CreateUser(ctx, &dataplanev1alpha1.CreateUserRequest{
 		User: &dataplanev1alpha1.CreateUserRequest_User{
 			Name:      model.Name.ValueString(),
-			Password:  model.Password.ValueString(), // this seems wrong and bad
+			Password:  model.Password.ValueString(), // This seems wrong and bad. See issue #12.
 			Mechanism: utils.StringToUserMechanism(model.Mechanism.ValueString()),
 		},
 	})

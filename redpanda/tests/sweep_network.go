@@ -17,6 +17,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
@@ -33,13 +34,13 @@ func (s sweepNetwork) SweepNetworks(_ string) error {
 	ctx := context.Background()
 	network, err := utils.FindNetworkByName(ctx, s.NetworkName, s.NetClient)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to sweep network: unable to find network %q: %v", s.NetworkName, err)
 	}
 	op, err := s.NetClient.DeleteNetwork(ctx, &cloudv1beta1.DeleteNetworkRequest{
 		Id: network.GetId(),
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to sweep network: unable to delete network %q: %v", s.NetworkName, err)
 	}
 
 	return utils.AreWeDoneYet(ctx, op, 15*time.Minute, s.OpsClient)

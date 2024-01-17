@@ -116,7 +116,7 @@ func AreWeDoneYet(ctx context.Context, op *cloudv1beta1.Operation, timeout time.
 			Id: op.GetId(),
 		})
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to get operation status: %v", err)
 		}
 		if CheckOpsState(o) {
 			if o.GetError() != nil {
@@ -221,7 +221,7 @@ func FindNetworkByName(ctx context.Context, n string, client cloudv1beta1.Networ
 		Filter: &cloudv1beta1.ListNetworksRequest_Filter{Name: n},
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to list networks: %v", err)
 	}
 	for _, v := range ns.GetNetworks() {
 		if v.GetName() == n {
@@ -285,7 +285,9 @@ func StringToUserMechanism(s string) dataplanev1alpha1.SASLMechanism {
 
 // UserMechanismToString converts a dataplanev1alpha1.SASLMechanism to a string
 func UserMechanismToString(m *dataplanev1alpha1.SASLMechanism) string {
-	// TODO validate *m won't panic
+	if m == nil {
+		return "unspecified"
+	}
 	switch *m {
 	case dataplanev1alpha1.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_256:
 		return "scram-sha-256"

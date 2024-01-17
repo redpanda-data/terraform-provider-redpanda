@@ -34,6 +34,7 @@ package redpanda
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -56,14 +57,24 @@ var _ provider.Provider = &Redpanda{}
 
 // Redpanda represents the Redpanda Terraform provider.
 type Redpanda struct {
-	version string
+	// cloudEnv is the cloud environment which the Terraform provider points to;
+	// one of 'ign' or 'dev'.
+	cloudEnv string
 }
 
-// New spawns a basic provider struct, no client. Configure must be called for a working client.
-func New(_ context.Context, version string) func() provider.Provider {
+const (
+	// ClientIDEnv is the client_id used to authenticate to Redpanda cloud.
+	ClientIDEnv = "CLIENT_ID"
+	// ClientSecretEnv is the client_secret used to authenticate to Redpanda cloud.
+	ClientSecretEnv = "CLIENT_SECRET"
+)
+
+// New spawns a basic provider struct, no client. Configure must be called for a
+// working client.
+func New(_ context.Context, cloudEnv string) func() provider.Provider {
 	return func() provider.Provider {
 		return &Redpanda{
-			version: version,
+			cloudEnv: cloudEnv,
 		}
 	}
 }
@@ -99,59 +110,52 @@ func providerSchema() schema.Schema {
 	}
 }
 
-// Configure is the primary entrypoint for terraform and properly initializes the client.
+// Configure is the primary entrypoint for terraform and properly initializes
+// the client.
 func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequest, response *provider.ConfigureResponse) {
 	var conf models.Redpanda
 	response.Diagnostics.Append(request.Config.Get(ctx, &conf)...)
 	if response.Diagnostics.HasError() {
 		return
 	}
-
-	var id string
-	cfgID := conf.ClientID.ValueString()
-	envID := os.Getenv("CLIENT_ID")
-	switch {
-	case cfgID == "" && envID != "":
-		id = envID
-	case cfgID != "" && envID == "":
-		id = cfgID
-	case cfgID != "" && envID != "":
-		id = cfgID
-	default:
-		response.Diagnostics.AddError("no client id", "no client id found")
+	// Override client credentials with environment variables.
+	id, sec := conf.ClientID.ValueString(), conf.ClientSecret.ValueString()
+	for _, override := range []struct {
+		name string
+		src  string
+		dst  *string
+	}{
+		{"Client ID", os.Getenv(ClientIDEnv), &id},
+		{"Client Secret", os.Getenv(ClientSecretEnv), &sec},
+	} {
+		if override.src != "" {
+			*override.dst = override.src
+		}
+		if override.src == "" && *override.dst == "" {
+			response.Diagnostics.AddError(
+				fmt.Sprintf("%v missing", override.name),
+				fmt.Sprintf("no %v found, please set the corresponding variable in the configuration file", override.name),
+			)
+		}
 	}
-	var sec string
-	cfgSec := conf.ClientSecret.ValueString()
-	envSec := os.Getenv("CLIENT_SECRET")
-	switch {
-	case cfgSec == "" && envSec != "":
-		sec = envSec
-	case cfgSec != "" && envSec == "":
-		sec = cfgSec
-	case cfgSec != "" && envSec != "":
-		sec = cfgSec
-	default:
-		response.Diagnostics.AddError("no client secret", "no client secret found")
-	}
-
 	// Clients are passed through to downstream resources through the response
 	// struct.
 	response.ResourceData = utils.ResourceData{
 		ClientID:     id,
 		ClientSecret: sec,
-		Version:      r.version,
+		CloudEnv:     r.cloudEnv,
 	}
 	response.DataSourceData = utils.DatasourceData{
 		ClientID:     conf.ClientID.ValueString(),
 		ClientSecret: conf.ClientSecret.ValueString(),
-		Version:      r.version,
+		CloudEnv:     r.cloudEnv,
 	}
 }
 
 // Metadata returns the provider metadata.
-func (r *Redpanda) Metadata(_ context.Context, _ provider.MetadataRequest, response *provider.MetadataResponse) {
+func (*Redpanda) Metadata(_ context.Context, _ provider.MetadataRequest, response *provider.MetadataResponse) {
 	response.TypeName = "redpanda"
-	response.Version = r.version
+	// TODO, add response.Version, which should be the provider version.
 }
 
 // Schema returns the Redpanda provider schema.
@@ -186,9 +190,6 @@ func (*Redpanda) Resources(_ context.Context) []func() resource.Resource {
 		},
 		func() resource.Resource {
 			return &cluster.Cluster{}
-		},
-		func() resource.Resource {
-			return &user.User{}
 		},
 		func() resource.Resource { return &acl.ACL{} },
 		func() resource.Resource { return &user.User{} },

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -73,7 +74,7 @@ func (n *Network) Configure(ctx context.Context, request resource.ConfigureReque
 		)
 		return
 	}
-	client, err := clients.NewNetworkServiceClient(ctx, p.Version, clients.ClientRequest{
+	client, err := clients.NewNetworkServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})
@@ -82,7 +83,7 @@ func (n *Network) Configure(ctx context.Context, request resource.ConfigureReque
 		return
 	}
 
-	opsClient, err := clients.NewOperationServiceClient(ctx, p.Version, clients.ClientRequest{
+	opsClient, err := clients.NewOperationServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})
@@ -138,8 +139,9 @@ func resourceNetworkSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "UUID of the namespace",
+				Computed:      true,
+				Description:   "The ID of the network",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"cluster_type": schema.StringAttribute{
 				Required:    true,
@@ -161,8 +163,8 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 
 	cloudProvider := utils.StringToCloudProvider(model.CloudProvider.ValueString())
 	// TODO add a check to the provider data here to see if region and cloud provider are set
-	// prefer the local value, but accept the provider value if local is unavailable
-	// if neither are set, fail
+	// prefer the local value, but accept the provider value if local is
+	// unavailable if neither are set, fail
 
 	op, err := n.NetClient.CreateNetwork(ctx, &cloudv1beta1.CreateNetworkRequest{
 		Network: &cloudv1beta1.Network{
@@ -227,7 +229,8 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 	})...)
 }
 
-// Update is not supported for network. As a result all configurable schema elements have been marked as RequiresReplace
+// Update is not supported for network. As a result all configurable schema
+// elements have been marked as RequiresReplace.
 func (*Network) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
 }
 
@@ -248,10 +251,10 @@ func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, re
 	}
 }
 
-// ImportState refreshes the state with the correct ID for the namespace, allowing TF to use Read to get the correct Namespace name into state
-// see https://developer.hashicorp.com/terraform/plugin/framework/resources/import for more details
-func (*Network) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
-	response.Diagnostics.Append(response.State.Set(ctx, models.Network{
-		ID: types.StringValue(request.ID),
-	})...)
+// ImportState refreshes the state with the correct ID for the network, allowing
+// TF to use Read to get the correct Network name into state see
+// https://developer.hashicorp.com/terraform/plugin/framework/resources/import
+// for more details.
+func (*Network) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }

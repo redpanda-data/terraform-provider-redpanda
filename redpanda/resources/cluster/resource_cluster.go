@@ -22,11 +22,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -70,7 +69,7 @@ func (c *Cluster) Configure(ctx context.Context, req resource.ConfigureRequest, 
 		return
 	}
 
-	client, err := clients.NewClusterServiceClient(ctx, p.Version, clients.ClientRequest{
+	client, err := clients.NewClusterServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})
@@ -80,7 +79,7 @@ func (c *Cluster) Configure(ctx context.Context, req resource.ConfigureRequest, 
 	}
 	c.CluClient = client
 
-	ops, err := clients.NewOperationServiceClient(ctx, p.Version, clients.ClientRequest{
+	ops, err := clients.NewOperationServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
 		ClientID:     p.ClientID,
 		ClientSecret: p.ClientSecret,
 	})
@@ -121,7 +120,7 @@ func resourceClusterSchema() schema.Schema {
 			},
 			"redpanda_version": schema.StringAttribute{
 				Optional:      true,
-				Description:   "Version of redpanda to deploy",
+				Description:   "Version of Redpanda to deploy",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"throughput_tier": schema.StringAttribute{
@@ -141,15 +140,13 @@ func resourceClusterSchema() schema.Schema {
 				PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
 			},
 			"allow_deletion": schema.BoolAttribute{
-				Optional:      true,
-				Description:   "allows deletion of the cluster. defaults to true. should probably be set to false for production use",
-				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
+				Optional:    true,
+				Description: "allows deletion of the cluster. defaults to true. should probably be set to false for production use",
 			},
 			"tags": schema.MapAttribute{
-				Optional:      true,
-				Description:   "Tags to apply to the cluster",
-				ElementType:   types.StringType,
-				PlanModifiers: []planmodifier.Map{mapplanmodifier.RequiresReplace()},
+				Optional:    true,
+				Description: "Tags to apply to the cluster",
+				ElementType: types.StringType,
 			},
 			"namespace_id": schema.StringAttribute{
 				Required:      true,
@@ -223,7 +220,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), err.Error())
 		return
 	}
-	lv, d := types.ListValueFrom(ctx, types.StringType, cluster.Zones)
+	clusterZones, d := types.ListValueFrom(ctx, types.StringType, cluster.Zones)
 	if d.HasError() {
 		resp.Diagnostics.Append(d...)
 		return
@@ -241,7 +238,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		RedpandaVersion: model.RedpandaVersion,
 		ThroughputTier:  types.StringValue(cluster.ThroughputTier),
 		Region:          types.StringValue(cluster.Region),
-		Zones:           lv,
+		Zones:           clusterZones,
 		AllowDeletion:   model.AllowDeletion,
 		Tags:            model.Tags,
 		NamespaceID:     types.StringValue(cluster.NamespaceId),
@@ -279,9 +276,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 
 // ImportState imports and update the state of the cluster resource.
 func (*Cluster) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resp.Diagnostics.Append(resp.State.Set(ctx, &models.Cluster{
-		ID: types.StringValue(req.ID),
-	})...)
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 // GenerateClusterRequest was pulled out to enable unit testing
