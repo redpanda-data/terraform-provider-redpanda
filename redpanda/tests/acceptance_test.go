@@ -442,8 +442,8 @@ func generateRandomName(prefix string) string {
 	randomLength := 4 // Should be good, this is 62^4 = 14M combinations.
 
 	var randStr bytes.Buffer
-	r, _ := rand.Int(rand.Reader, big.NewInt(int64(len(baseChars))))
 	for i := 0; i < randomLength; i++ {
+		r, _ := rand.Int(rand.Reader, big.NewInt(int64(len(baseChars))))
 		randStr.WriteByte(baseChars[r.Int64()])
 	}
 
