@@ -185,21 +185,36 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		resp.Diagnostics.AddError("failed to unmarshal cluster metadata", err.Error())
 		return
 	}
-
+	if err := utils.AreWeDoneYet(ctx, op, 45*time.Minute, c.OpsClient); err != nil {
+		resp.Diagnostics.AddError("failed to create cluster", err.Error())
+		return
+	}
+	cluster, err := c.CluClient.GetCluster(ctx, &cloudv1beta1.GetClusterRequest{
+		Id: metadata.GetClusterId(),
+	})
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("successfully created the cluster with ID %q, but failed to read the cluster configuration: %v", model.ID.ValueString(), err), err.Error())
+		return
+	}
+	clusterZones, d := types.ListValueFrom(ctx, types.StringType, cluster.Zones)
+	if d.HasError() {
+		resp.Diagnostics.Append(d...)
+		return
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, models.Cluster{
-		Name:            model.Name,
-		ConnectionType:  model.ConnectionType,
-		CloudProvider:   model.CloudProvider,
-		ClusterType:     model.ClusterType,
+		Name:            types.StringValue(cluster.Name),
+		ConnectionType:  types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
+		CloudProvider:   types.StringValue(utils.CloudProviderToString(cluster.CloudProvider)),
+		ClusterType:     types.StringValue(utils.ClusterTypeToString(cluster.Type)),
 		RedpandaVersion: model.RedpandaVersion,
-		ThroughputTier:  model.ThroughputTier,
-		Region:          model.Region,
-		Zones:           model.Zones,
+		ThroughputTier:  types.StringValue(cluster.ThroughputTier),
+		Region:          types.StringValue(cluster.Region),
+		Zones:           clusterZones,
 		AllowDeletion:   model.AllowDeletion,
 		Tags:            model.Tags,
-		NamespaceID:     model.NamespaceID,
-		NetworkID:       model.NetworkID,
-		ID:              utils.TrimmedStringValue(metadata.GetClusterId()),
+		NamespaceID:     types.StringValue(cluster.NamespaceId),
+		NetworkID:       types.StringValue(cluster.NetworkId),
+		ID:              types.StringValue(cluster.Id),
 	})...)
 }
 
