@@ -17,13 +17,19 @@ package user
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	dataplanev1alpha1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/dataplane/v1alpha1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
@@ -40,39 +46,35 @@ var (
 // User represents the User Terraform resource.
 type User struct {
 	UserClient dataplanev1alpha1.UserServiceClient
+
+	resData utils.ResourceData
 }
 
 // Metadata returns the metadata for the User resource.
-func (*User) Metadata(_ context.Context, _ resource.MetadataRequest, response *resource.MetadataResponse) {
-	response.TypeName = "redpanda_user"
+func (*User) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "redpanda_user"
 }
 
 // Configure configures the User resource.
-func (u *User) Configure(ctx context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
-	if request.ProviderData == nil {
-		response.Diagnostics.AddWarning("provider data not set", "provider data not set at user.Configure")
-	}
-	p, ok := request.ProviderData.(utils.ResourceData)
-	if !ok {
-		response.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", request.ProviderData),
-		)
-	}
-	client, err := clients.NewUserServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
-		ClientID:     p.ClientID,
-		ClientSecret: p.ClientSecret,
-	})
-	if err != nil {
-		response.Diagnostics.AddError("failed to create user client", err.Error())
+func (u *User) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		resp.Diagnostics.AddWarning("provider data not set", "provider data not set at user.Configure")
 		return
 	}
-	u.UserClient = client
+	p, ok := req.ProviderData.(utils.ResourceData)
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected Resource Configure Type",
+			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+		)
+		return
+	}
+	u.resData = p
 }
 
 // Schema returns the schema for the User resource.
-func (*User) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
-	response.Schema = resourceUserSchema()
+func (*User) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = resourceUserSchema()
 }
 
 // ResourceUserSchema returns the schema for the User resource.
@@ -93,18 +95,35 @@ func resourceUserSchema() schema.Schema {
 			},
 			"mechanism": schema.StringAttribute{
 				Description:   "Which authentication method to use, see https://docs.redpanda.com/current/manage/security/authentication/ for more information",
-				Required:      true,
+				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators: []validator.String{
+					stringvalidator.OneOf("", "scram-sha-256", "scram-sha-512"),
+				},
+			},
+			"cluster_api_url": schema.StringAttribute{
+				Required:      true,
+				Description:   "The cluster API URL",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"id": schema.StringAttribute{
+				Description: "ID of the user",
+				Computed:    true,
 			},
 		},
 	}
 }
 
 // Create creates a User resource.
-func (u *User) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
+func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var model models.User
-	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 
+	err := u.createUserClient(ctx, model.ClusterAPIURL.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("failed to create user client", err.Error())
+		return
+	}
 	user, err := u.UserClient.CreateUser(ctx, &dataplanev1alpha1.CreateUserRequest{
 		User: &dataplanev1alpha1.CreateUserRequest_User{
 			Name:      model.Name.ValueString(),
@@ -113,34 +132,47 @@ func (u *User) Create(ctx context.Context, request resource.CreateRequest, respo
 		},
 	})
 	if err != nil {
-		response.Diagnostics.AddError("failed to create user", err.Error())
+		resp.Diagnostics.AddError("failed to create user", err.Error())
 		return
 	}
 
-	response.Diagnostics.Append(response.State.Set(ctx, models.User{
-		Name:      types.StringValue(user.User.Name),
-		Password:  model.Password,
-		Mechanism: types.StringValue(utils.UserMechanismToString(user.User.Mechanism)),
+	resp.Diagnostics.Append(resp.State.Set(ctx, models.User{
+		Name:          types.StringValue(user.User.Name),
+		Password:      model.Password,
+		Mechanism:     model.Mechanism,
+		ClusterAPIURL: model.ClusterAPIURL,
+		ID:            types.StringValue(user.User.Name),
 	})...)
 }
 
 // Read reads the state of the User resource.
-func (u *User) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
+func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var model models.User
-	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
-	usr, err := utils.FindUserByName(ctx, model.Name.ValueString(), u.UserClient)
+	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
+	err := u.createUserClient(ctx, model.ClusterAPIURL.ValueString())
 	if err != nil {
-		if utils.IsNotFound(err) {
-			response.State.RemoveResource(ctx)
-			return
-		}
-		response.Diagnostics.AddError(fmt.Sprintf("failed receive response from user api for user %s", model.Name), err.Error())
+		resp.Diagnostics.AddError("failed to create user client", err.Error())
 		return
 	}
-	response.Diagnostics.Append(response.State.Set(ctx, models.User{
-		Name:      types.StringValue(usr.Name),
-		Password:  model.Password,
-		Mechanism: types.StringValue(utils.UserMechanismToString(usr.Mechanism)),
+	user, err := utils.FindUserByName(ctx, model.Name.ValueString(), u.UserClient)
+	if err != nil {
+		if utils.IsNotFound(err) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to find user %s", model.Name), err.Error())
+		return
+	}
+	mechanism := model.Mechanism
+	if user.Mechanism != nil {
+		mechanism = types.StringValue(utils.UserMechanismToString(user.Mechanism))
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, models.User{
+		Name:          types.StringValue(user.Name),
+		Password:      model.Password,
+		Mechanism:     mechanism,
+		ClusterAPIURL: model.ClusterAPIURL,
+		ID:            types.StringValue(user.Name),
 	})...)
 }
 
@@ -150,21 +182,74 @@ func (*User) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.Upd
 }
 
 // Delete deletes the User resource.
-func (u *User) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
+func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var model models.User
-	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
-	_, err := u.UserClient.DeleteUser(ctx, &dataplanev1alpha1.DeleteUserRequest{
+	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
+
+	err := u.createUserClient(ctx, model.ClusterAPIURL.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("failed to create user client", err.Error())
+		return
+	}
+	_, err = u.UserClient.DeleteUser(ctx, &dataplanev1alpha1.DeleteUserRequest{
 		Name: model.Name.ValueString(),
 	})
 	if err != nil {
-		response.Diagnostics.AddError(fmt.Sprintf("failed to delete user %s", model.Name), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to delete user %s", model.Name), err.Error())
 		return
 	}
 }
 
 // ImportState imports the state of the User resource.
-func (*User) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
-	response.Diagnostics.Append(response.State.Set(ctx, models.User{
-		Name: types.StringValue(request.ID),
-	})...)
+func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	// We need multiple attributes here: Name and the cluster URL. But asking
+	// for the URL is a bad UX, so we get the cluster ID and get the URL from
+	// there.
+	split := strings.SplitN(req.ID, ",", 2)
+	if len(split) != 2 {
+		resp.Diagnostics.AddError(fmt.Sprintf("wrong ADDR ID format: %v", req.ID), "ADDR ID format is <user_name>,<cluster_id>")
+		return
+	}
+	user, clusterID := split[0], split[1]
+	client, err := clients.NewClusterServiceClient(ctx, u.resData.CloudEnv, clients.ClientRequest{
+		ClientID:     u.resData.ClientID,
+		ClientSecret: u.resData.ClientSecret,
+	})
+	if err != nil {
+		resp.Diagnostics.AddError("unable to start a cluster client", "unable to start a cluster client; make sure ADDR ID format is <user_name>:<cluster_id>")
+		return
+	}
+	cluster, err := client.GetCluster(ctx, &cloudv1beta1.GetClusterRequest{
+		Id: clusterID,
+	})
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to find cluster with ID %q", clusterID), err.Error())
+		return
+	}
+	clusterURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
+	if err != nil {
+		resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(user))...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(user))...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_api_url"), clusterURL)...)
+}
+
+func (u *User) createUserClient(ctx context.Context, clusterURL string) error {
+	if u.UserClient != nil { // Client already started, no need to create another one.
+		return nil
+	}
+	if clusterURL == "" {
+		return errors.New("unable to create client with empty target cluster API URL")
+	}
+	client, err := clients.NewUserServiceClient(ctx, u.resData.CloudEnv, clusterURL, clients.ClientRequest{
+		ClientID:     u.resData.ClientID,
+		ClientSecret: u.resData.ClientSecret,
+	})
+	if err != nil {
+		return fmt.Errorf("unable to create user client: %v", err)
+	}
+	u.UserClient = client
+	return nil
 }
