@@ -26,4 +26,5 @@ type ACL struct {
 	Host                types.String `tfsdk:"host"`
 	Operation           types.String `tfsdk:"operation"`
 	PermissionType      types.String `tfsdk:"permission_type"`
+	ClusterAPIURL       types.String `tfsdk:"cluster_api_url"`
 }

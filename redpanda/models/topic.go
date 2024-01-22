@@ -23,6 +23,7 @@ type Topic struct {
 	ReplicationFactor types.Number          `tfsdk:"replication_factor"`
 	Configuration     []*TopicConfiguration `tfsdk:"configuration"`
 	AllowDeletion     types.Bool            `tfsdk:"allow_deletion"`
+	ClusterAPIURL     types.String          `tfsdk:"cluster_api_url"`
 }
 
 // TopicConfiguration defines the structure for configuration settings parsed from HCL.

@@ -159,9 +159,12 @@ func resourceClusterSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"id": schema.StringAttribute{
-				Computed:      true,
-				Description:   "The id of the cluster",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Computed:    true,
+				Description: "The id of the cluster",
+			},
+			"cluster_api_url": schema.StringAttribute{
+				Computed:    true,
+				Description: "The URL of the cluster API",
 			},
 		},
 	}
@@ -201,6 +204,11 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		resp.Diagnostics.Append(d...)
 		return
 	}
+	clusterURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
+	if err != nil {
+		resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
+		return
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, models.Cluster{
 		Name:            types.StringValue(cluster.Name),
 		ConnectionType:  types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
@@ -215,6 +223,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		NamespaceID:     types.StringValue(cluster.NamespaceId),
 		NetworkID:       types.StringValue(cluster.NetworkId),
 		ID:              types.StringValue(cluster.Id),
+		ClusterAPIURL:   types.StringValue(clusterURL),
 	})...)
 }
 
@@ -240,6 +249,11 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		resp.Diagnostics.Append(d...)
 		return
 	}
+	clusterURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
+	if err != nil {
+		resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
+		return
+	}
 
 	// Re: RedpandaVersion, I chose to not set it using the return value from the API because the user leaving the field blank
 	// is a valid choice that causes the API to select the latest value. If we then persist the value provided by the API to state
@@ -259,6 +273,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		NamespaceID:     types.StringValue(cluster.NamespaceId),
 		NetworkID:       types.StringValue(cluster.NetworkId),
 		ID:              types.StringValue(cluster.Id),
+		ClusterAPIURL:   types.StringValue(clusterURL),
 	})...)
 }
 

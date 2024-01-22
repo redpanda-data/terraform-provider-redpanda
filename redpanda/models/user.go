@@ -19,7 +19,9 @@ import "github.com/hashicorp/terraform-plugin-framework/types"
 
 // User defines the structure for configuration settings parsed from HCL.
 type User struct {
-	Name      types.String `tfsdk:"name"`
-	Password  types.String `tfsdk:"password"`
-	Mechanism types.String `tfsdk:"mechanism"`
+	Name          types.String `tfsdk:"name"`
+	Password      types.String `tfsdk:"password"`
+	Mechanism     types.String `tfsdk:"mechanism"`
+	ID            types.String `tfsdk:"id"`
+	ClusterAPIURL types.String `tfsdk:"cluster_api_url"`
 }
