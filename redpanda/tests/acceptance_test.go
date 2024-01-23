@@ -56,7 +56,6 @@ func TestAccResourcesNamespace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var importID string
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
@@ -74,21 +73,13 @@ func TestAccResourcesNamespace(t *testing.T) {
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(namespaceResourceName, "name", rename),
-					func(s *terraform.State) error {
-						i, err := utils.FindNamespaceByName(ctx, rename, c.NsClient)
-						if err != nil {
-							return err
-						}
-						importID = i.GetId()
-						return nil
-					}),
+				),
 			},
 			{
 				ResourceName:             namespaceResourceName,
 				ConfigFile:               config.StaticFile(dedicatedNamespaceFile),
 				ConfigVariables:          updateTestCaseVars,
 				ImportState:              true,
-				ImportStateId:            importID,
 				ImportStateVerify:        true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -138,7 +129,6 @@ func TestAccResourcesNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var importID string
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
@@ -169,25 +159,13 @@ func TestAccResourcesNetwork(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(namespaceResourceName, "name", name),
 					resource.TestCheckResourceAttr(networkResourceName, "name", rename),
-					func(s *terraform.State) error {
-						n, err := utils.FindNetworkByName(ctx, rename, c.NetClient)
-						if err != nil {
-							return err
-						}
-						if n == nil {
-							return fmt.Errorf("unable to find network %q after updating", rename)
-						}
-						importID = n.GetId()
-						t.Logf("Successfully created network %v, with ID: %v", rename, importID)
-						return nil
-					}),
+				),
 			},
 			{
 				ResourceName:             networkResourceName,
 				ConfigFile:               config.StaticFile(dedicatedNetworkFile),
 				ConfigVariables:          updateTestCaseVars,
 				ImportState:              true,
-				ImportStateId:            importID,
 				ImportStateVerify:        true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -250,7 +228,6 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var importID string
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
@@ -272,21 +249,13 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 					resource.TestCheckResourceAttr(namespaceResourceName, "name", name),
 					resource.TestCheckResourceAttr(networkResourceName, "name", name),
 					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
-					func(s *terraform.State) error {
-						i, err := utils.FindClusterByName(ctx, rename, c.ClusterClient)
-						if err != nil {
-							return err
-						}
-						importID = i.GetId()
-						return nil
-					}),
+				),
 			},
 			{
 				ResourceName:      clusterResourceName,
 				ConfigFile:        config.StaticFile(awsDedicatedClusterFile),
 				ConfigVariables:   updateTestCaseVars,
 				ImportState:       true,
-				ImportStateId:     importID,
 				ImportStateVerify: true,
 				//  These two only matter on apply; On apply the user will be
 				//  getting Plan, not State, and have correct values for both.
@@ -354,7 +323,6 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var importID string
 	resource.ParallelTest(
 		t,
 		resource.TestCase{
@@ -378,21 +346,13 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 						resource.TestCheckResourceAttr(namespaceResourceName, "name", name),
 						resource.TestCheckResourceAttr(networkResourceName, "name", name),
 						resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
-						func(s *terraform.State) error {
-							i, err := utils.FindClusterByName(ctx, rename, c.ClusterClient)
-							if err != nil {
-								return err
-							}
-							importID = i.GetId()
-							return nil
-						}),
+					),
 				},
 				{
 					ResourceName:             clusterResourceName,
 					ConfigFile:               config.StaticFile(gcpDedicatedClusterFile),
 					ConfigVariables:          updateTestCaseVars,
 					ImportState:              true,
-					ImportStateId:            importID,
 					ImportStateVerify:        true,
 					ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
 					ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
