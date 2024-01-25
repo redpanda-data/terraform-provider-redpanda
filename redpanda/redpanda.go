@@ -146,8 +146,8 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		CloudEnv:     r.cloudEnv,
 	}
 	response.DataSourceData = utils.DatasourceData{
-		ClientID:     conf.ClientID.ValueString(),
-		ClientSecret: conf.ClientSecret.ValueString(),
+		ClientID:     id,
+		ClientSecret: sec,
 		CloudEnv:     r.cloudEnv,
 	}
 }
