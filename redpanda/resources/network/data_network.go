@@ -3,9 +3,12 @@ package network
 import (
 	"context"
 	"fmt"
+	"regexp"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
@@ -45,7 +48,38 @@ func datasourceNetworkSchema() schema.Schema {
 				Computed:    true,
 				Description: "Name of the network",
 			},
-			// Add other attributes here as needed, marking them as 'Computed'
+			"cidr_block": schema.StringAttribute{
+				Computed:    true,
+				Description: "The cidr_block to create the network in",
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(
+						regexp.MustCompile(`^(\d{1,3}\.){3}\d{1,3}/(\d{1,2})$`),
+						"The value must be a valid CIDR block (e.g., 192.168.0.0/16)",
+					),
+				},
+			},
+			"region": schema.StringAttribute{
+				Computed:    true,
+				Description: "The region to create the network in. Can also be set at the provider level",
+			},
+			"cloud_provider": schema.StringAttribute{
+				Computed:    true,
+				Description: "The cloud provider to create the network in. Can also be set at the provider level",
+				Validators: []validator.String{
+					stringvalidator.OneOf("gcp", "aws"),
+				},
+			},
+			"namespace_id": schema.StringAttribute{
+				Computed:    true,
+				Description: "The id of the namespace in which to create the network",
+			},
+			"cluster_type": schema.StringAttribute{
+				Computed:    true,
+				Description: "The type of cluster this network is associated with, can be one of dedicated or cloud",
+				Validators: []validator.String{
+					stringvalidator.OneOf("dedicated", "cloud"),
+				},
+			},
 		},
 		Description: "Data source for a Redpanda Cloud network",
 	}
@@ -72,11 +106,10 @@ func (n *DataSourceNetwork) Read(ctx context.Context, req datasource.ReadRequest
 // Configure uses provider level data to configure DataSourceNetwork's client.
 func (n *DataSourceNetwork) Configure(ctx context.Context, request datasource.ConfigureRequest, response *datasource.ConfigureResponse) {
 	if request.ProviderData == nil {
-		response.Diagnostics.AddWarning("provider data not set", "provider data not set at DataSourceNetwork.Configure")
 		return
 	}
 
-	p, ok := request.ProviderData.(utils.ResourceData)
+	p, ok := request.ProviderData.(utils.DatasourceData)
 	if !ok {
 		response.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",

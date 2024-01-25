@@ -70,11 +70,10 @@ func (n *DataSourceNamespace) Read(ctx context.Context, req datasource.ReadReque
 // Configure uses provider level data to configure DataSourceNamespace client.
 func (n *DataSourceNamespace) Configure(ctx context.Context, request datasource.ConfigureRequest, response *datasource.ConfigureResponse) {
 	if request.ProviderData == nil {
-		response.Diagnostics.AddWarning("provider data not set", "provider data not set at DataSourceNamespace.Configure")
 		return
 	}
 
-	p, ok := request.ProviderData.(utils.ResourceData)
+	p, ok := request.ProviderData.(utils.DatasourceData)
 	if !ok {
 		response.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
