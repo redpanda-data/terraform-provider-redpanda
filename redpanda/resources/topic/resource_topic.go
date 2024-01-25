@@ -23,6 +23,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/numberplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -84,16 +85,19 @@ func resourceTopicSchema() schema.Schema {
 		Description: "Topic represents a Kafka topic configuration",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				Description: "The name of the topic.",
-				Required:    true,
+				Description:   "The name of the topic.",
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"partition_count": schema.NumberAttribute{
-				Description: "The number of partitions for the topic. This determines how the data is distributed across brokers.",
-				Optional:    true,
+				Description:   "The number of partitions for the topic. This determines how the data is distributed across brokers.",
+				Optional:      true,
+				PlanModifiers: []planmodifier.Number{numberplanmodifier.RequiresReplace()},
 			},
 			"replication_factor": schema.NumberAttribute{
-				Description: "The replication factor for the topic, which defines how many copies of the data are kept across different brokers for fault tolerance.",
-				Optional:    true,
+				Description:   "The replication factor for the topic, which defines how many copies of the data are kept across different brokers for fault tolerance.",
+				Optional:      true,
+				PlanModifiers: []planmodifier.Number{numberplanmodifier.RequiresReplace()},
 			},
 			"allow_deletion": schema.BoolAttribute{
 				Description: "Indicates whether the topic can be deleted.",

@@ -76,33 +76,41 @@ func (*ACL) Schema(_ context.Context, _ resource.SchemaRequest, response *resour
 func resourceACLSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
+			// TODO: needs String validators.
 			"resource_type": schema.StringAttribute{
-				Required:    true,
-				Description: "The type of the resource (Topic, Group, etc...) this ACL shall target",
+				Required:      true,
+				Description:   "The type of the resource (Topic, Group, etc...) this ACL shall target",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"resource_name": schema.StringAttribute{
-				Required:    true,
-				Description: "The name of the resource this ACL entry will be on",
+				Required:      true,
+				Description:   "The name of the resource this ACL entry will be on",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"resource_pattern_type": schema.StringAttribute{
-				Required:    true,
-				Description: "The pattern type of the resource. It determines the strategy how the provided resource name is matched (literal, match, prefixed, etc ...) against the actual resource names",
+				Required:      true,
+				Description:   "The pattern type of the resource. It determines the strategy how the provided resource name is matched (literal, match, prefixed, etc ...) against the actual resource names",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"principal": schema.StringAttribute{
-				Required:    true,
-				Description: "The principal to apply this ACL for",
+				Required:      true,
+				Description:   "The principal to apply this ACL for",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"host": schema.StringAttribute{
-				Required:    true,
-				Description: "The host address to use for this ACL",
+				Required:      true,
+				Description:   "The host address to use for this ACL",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"operation": schema.StringAttribute{
-				Required:    true,
-				Description: "The operation type that shall be allowed or denied (e.g READ)",
+				Required:      true,
+				Description:   "The operation type that shall be allowed or denied (e.g READ)",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"permission_type": schema.StringAttribute{
-				Required:    true,
-				Description: "The permission type. It determines whether the operation should be ALLOWED or DENIED",
+				Required:      true,
+				Description:   "The permission type. It determines whether the operation should be ALLOWED or DENIED",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"cluster_api_url": schema.StringAttribute{
 				Required: true,
@@ -239,6 +247,7 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 				Host:                model.Host,
 				Operation:           model.Operation,
 				PermissionType:      model.PermissionType,
+				ClusterAPIURL:       model.ClusterAPIURL,
 			})...)
 			return
 		}
