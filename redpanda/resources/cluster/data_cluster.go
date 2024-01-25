@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -48,7 +49,6 @@ func (*DataSourceCluster) Metadata(_ context.Context, _ datasource.MetadataReque
 // Configure uses provider level data to configure DataSourceCluster's client.
 func (d *DataSourceCluster) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
 	if req.ProviderData == nil {
-		resp.Diagnostics.AddWarning("provider data not set", "provider data not set at clusterdatasource.Configure")
 		return
 	}
 
@@ -94,7 +94,20 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		resp.Diagnostics.Append(dg...)
 		return
 	}
-
+	clusterURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
+	if err != nil {
+		resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
+		return
+	}
+	tags := make(map[string]attr.Value)
+	for k, v := range cluster.CloudTags {
+		tags[k] = types.StringValue(v)
+	}
+	tagsValue, diags := types.MapValue(types.StringType, tags)
+	if diags.HasError() {
+		resp.Diagnostics.AddError("unable to parse Cloud tags", err.Error())
+		return
+	}
 	// Mapping the fields from the cluster to the Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &models.Cluster{
 		Name:            types.StringValue(cluster.Name),
@@ -105,11 +118,11 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		ThroughputTier:  types.StringValue(cluster.ThroughputTier),
 		Region:          types.StringValue(cluster.Region),
 		Zones:           clusterZones,
-		AllowDeletion:   model.AllowDeletion,
-		Tags:            model.Tags,
+		Tags:            tagsValue,
 		NamespaceID:     types.StringValue(cluster.NamespaceId),
 		NetworkID:       types.StringValue(cluster.NetworkId),
 		ID:              types.StringValue(cluster.Id),
+		ClusterAPIURL:   types.StringValue(clusterURL),
 	})...)
 }
 
@@ -121,59 +134,63 @@ func (*DataSourceCluster) Schema(_ context.Context, _ datasource.SchemaRequest, 
 func datasourceClusterSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"name": schema.StringAttribute{
+			"id": schema.StringAttribute{
 				Required:    true,
+				Description: "The id of the cluster",
+			},
+			"name": schema.StringAttribute{
+				Computed:    true,
 				Description: "Name of the cluster",
 			},
 			"cluster_type": schema.StringAttribute{
-				Required:    true,
+				Computed:    true,
 				Description: "Type of the cluster",
 			},
 			"connection_type": schema.StringAttribute{
-				Required:    true,
+				Computed:    true,
 				Description: "Connection type of the cluster",
 			},
 			"cloud_provider": schema.StringAttribute{
-				Optional:    true,
+				Computed:    true,
 				Description: "Must be one of aws or gcp",
 			},
 			"redpanda_version": schema.StringAttribute{
-				Optional:    true,
+				Computed:    true,
 				Description: "Version of Redpanda to deploy",
 			},
 			"throughput_tier": schema.StringAttribute{
-				Required:    true,
+				Computed:    true,
 				Description: "Throughput tier of the cluster",
 			},
 			"region": schema.StringAttribute{
-				Optional:    true,
+				Computed:    true,
 				Description: "Cloud provider specific region of the cluster",
 			},
 			"zones": schema.ListAttribute{
-				Optional:    true,
+				Computed:    true,
 				Description: "Cloud provider specific zones of the cluster",
 				ElementType: types.StringType,
 			},
 			"allow_deletion": schema.BoolAttribute{
-				Optional:    true,
+				Computed:    true,
 				Description: "allows deletion of the cluster. defaults to true. Not recommended for production use",
 			},
 			"tags": schema.MapAttribute{
-				Optional:    true,
+				Computed:    true,
 				Description: "Tags to apply to the cluster",
 				ElementType: types.StringType,
 			},
 			"namespace_id": schema.StringAttribute{
-				Required:    true,
+				Computed:    true,
 				Description: "The id of the namespace in which to create the cluster",
 			},
 			"network_id": schema.StringAttribute{
-				Required:    true,
+				Computed:    true,
 				Description: "The id of the network in which to create the cluster",
 			},
-			"id": schema.StringAttribute{
+			"cluster_api_url": schema.StringAttribute{
 				Computed:    true,
-				Description: "The id of the cluster",
+				Description: "The URL of the cluster API",
 			},
 		},
 	}

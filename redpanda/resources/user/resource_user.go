@@ -109,8 +109,7 @@ func resourceUserSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"id": schema.StringAttribute{
-				Description: "ID of the user",
-				Computed:    true,
+				Computed: true,
 			},
 		},
 	}

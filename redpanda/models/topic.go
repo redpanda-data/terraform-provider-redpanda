@@ -24,6 +24,7 @@ type Topic struct {
 	Configuration     []*TopicConfiguration `tfsdk:"configuration"`
 	AllowDeletion     types.Bool            `tfsdk:"allow_deletion"`
 	ClusterAPIURL     types.String          `tfsdk:"cluster_api_url"`
+	ID                types.String          `tfsdk:"id"`
 }
 
 // TopicConfiguration defines the structure for configuration settings parsed from HCL.

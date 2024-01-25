@@ -434,7 +434,7 @@ func TestAccResourcesUserACLsTopic(t *testing.T) {
 				ConfigFile:      config.StaticFile(dedicatedUserACLsTopicFile),
 				ConfigVariables: origTestCaseVars,
 				ImportState:     true,
-				ImportStateIdFunc: func(_ *terraform.State) (string, error) { // TODO, if this works, ImportID is not needed in the tests above.
+				ImportStateIdFunc: func(_ *terraform.State) (string, error) {
 					i, err := utils.FindClusterByName(ctx, name, c.ClusterClient)
 					if err != nil {
 						return "", fmt.Errorf("test error: unable to get cluster by name")

@@ -20,8 +20,10 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/numberplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -83,16 +85,19 @@ func resourceTopicSchema() schema.Schema {
 		Description: "Topic represents a Kafka topic configuration",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				Description: "The name of the topic.",
-				Required:    true,
+				Description:   "The name of the topic.",
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"partition_count": schema.NumberAttribute{
-				Description: "The number of partitions for the topic. This determines how the data is distributed across brokers.",
-				Required:    true,
+				Description:   "The number of partitions for the topic. This determines how the data is distributed across brokers.",
+				Optional:      true,
+				PlanModifiers: []planmodifier.Number{numberplanmodifier.RequiresReplace()},
 			},
 			"replication_factor": schema.NumberAttribute{
-				Description: "The replication factor for the topic, which defines how many copies of the data are kept across different brokers for fault tolerance.",
-				Required:    true,
+				Description:   "The replication factor for the topic, which defines how many copies of the data are kept across different brokers for fault tolerance.",
+				Optional:      true,
+				PlanModifiers: []planmodifier.Number{numberplanmodifier.RequiresReplace()},
 			},
 			"allow_deletion": schema.BoolAttribute{
 				Description: "Indicates whether the topic can be deleted.",
@@ -105,58 +110,58 @@ func resourceTopicSchema() schema.Schema {
 							Description: "The name of the configuration parameter.",
 							Required:    true,
 						},
-						"type": schema.StringAttribute{
-							Description: "The type of the configuration parameter.",
-							Required:    true,
-						},
 						"value": schema.StringAttribute{
 							Description: "The value of the configuration parameter.",
 							Required:    true,
 						},
+						"type": schema.StringAttribute{
+							Description: "The type of the configuration parameter.",
+							Computed:    true,
+						},
 						"source": schema.StringAttribute{
 							Description: "The source of the configuration parameter, indicating how the configuration was set.",
-							Required:    true,
+							Computed:    true,
 							Validators: []validator.String{
 								sourceValidator,
 							},
 						},
 						"is_read_only": schema.BoolAttribute{
 							Description: "Indicates whether the configuration parameter is read-only.",
-							Required:    true,
+							Computed:    true,
 						},
 						"is_sensitive": schema.BoolAttribute{
 							Description: "Indicates whether the configuration parameter is sensitive and should be handled securely.",
-							Required:    true,
+							Computed:    true,
 						},
 						"config_synonyms": schema.SetNestedAttribute{
 							NestedObject: schema.NestedAttributeObject{
 								Attributes: map[string]schema.Attribute{
 									"name": schema.StringAttribute{
 										Description: "The synonym name for the configuration parameter.",
-										Required:    true,
+										Computed:    true,
 									},
 									"value": schema.StringAttribute{
 										Description: "The synonym value for the configuration parameter.",
-										Required:    true,
+										Computed:    true,
 									},
 									"source": schema.StringAttribute{
 										Description: "The source of the synonym, indicating how the synonym was set.",
-										Required:    true,
+										Computed:    true,
 										Validators: []validator.String{
 											sourceValidator,
 										},
 									},
 								},
 							},
-							Required: true,
+							Computed: true,
 						},
 						"documentation": schema.StringAttribute{
 							Description: "Documentation for the configuration parameter, providing additional context or information.",
-							Required:    true,
+							Computed:    true,
 						},
 					},
 				},
-				Required: true,
+				Optional: true,
 			},
 			"cluster_api_url": schema.StringAttribute{
 				Required: true,
@@ -164,6 +169,9 @@ func resourceTopicSchema() schema.Schema {
 					"cluster. It is generally a better idea to delete an existing resource and create a new one than to " +
 					"change this value unless you are planning to do state imports",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"id": schema.StringAttribute{
+				Computed: true,
 			},
 		},
 	}
@@ -189,24 +197,26 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		response.Diagnostics.AddError("failed to create topic client", err.Error())
 		return
 	}
-	tp, err := t.TopicClient.CreateTopic(ctx, &dataplanev1alpha1.CreateTopicRequest{
-		Topic: &dataplanev1alpha1.Topic{
+	_, err = t.TopicClient.CreateTopic(ctx, &dataplanev1alpha1.CreateTopicRequest{
+		Topic: &dataplanev1alpha1.CreateTopicRequest_Topic{
 			Name:              model.Name.ValueString(),
 			PartitionCount:    utils.NumberToInt32(model.PartitionCount),
 			ReplicationFactor: utils.NumberToInt32(model.ReplicationFactor),
-			Configuration:     cfg,
+			Configs:           cfg,
 		},
 	})
 	if err != nil {
 		response.Diagnostics.AddError(fmt.Sprintf("failed to create topic %s", model.Name.ValueString()), err.Error())
+		return
 	}
-
+	// TODO: Once ListTopic is implemented, we should set the state according to the ListTopic response and not the model.
 	response.Diagnostics.Append(response.State.Set(ctx, models.Topic{
-		Name:              types.StringValue(tp.Topic.Name),
-		PartitionCount:    utils.Int32ToNumber(tp.Topic.PartitionCount),
-		ReplicationFactor: utils.Int32ToNumber(tp.Topic.ReplicationFactor),
-		Configuration:     utils.TopicConfigurationToSlice(tp.Topic.Configuration),
+		Name:              model.Name,
+		PartitionCount:    model.PartitionCount,
+		ReplicationFactor: model.ReplicationFactor,
+		Configuration:     model.Configuration,
 		AllowDeletion:     model.AllowDeletion,
+		ClusterAPIURL:     model.ClusterAPIURL,
 	})...)
 }
 
@@ -228,11 +238,16 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 		response.Diagnostics.AddError(fmt.Sprintf("failed receive response from topic api for topic %s", model.Name), err.Error())
 		return
 	}
+	topicCfg, err := utils.TopicConfigurationToSlice(tp.Configuration)
+	if err != nil {
+		response.Diagnostics.AddError("unable to parse the topic configuration", err.Error())
+		return
+	}
 	response.Diagnostics.Append(response.State.Set(ctx, models.Topic{
 		Name:              types.StringValue(tp.Name),
 		PartitionCount:    utils.Int32ToNumber(tp.PartitionCount),
 		ReplicationFactor: utils.Int32ToNumber(tp.ReplicationFactor),
-		Configuration:     utils.TopicConfigurationToSlice(tp.Configuration),
+		Configuration:     topicCfg,
 		AllowDeletion:     model.AllowDeletion,
 	})...)
 }
@@ -263,8 +278,8 @@ func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, resp
 }
 
 // ImportState imports the state of the Topic resource.
-func (*Topic) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
-	response.Diagnostics.Append(response.State.Set(ctx, models.Topic{Name: types.StringValue(request.ID)})...)
+func (*Topic) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(req.ID))...)
 }
 
 func (t *Topic) createTopicClient(ctx context.Context, clusterURL string) error {
