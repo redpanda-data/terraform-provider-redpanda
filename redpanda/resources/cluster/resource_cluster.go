@@ -159,9 +159,12 @@ func resourceClusterSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"id": schema.StringAttribute{
-				Computed:      true,
-				Description:   "The id of the cluster",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Computed:    true,
+				Description: "The id of the cluster",
+			},
+			"cluster_api_url": schema.StringAttribute{
+				Computed:    true,
+				Description: "The URL of the cluster API",
 			},
 		},
 	}
@@ -185,21 +188,42 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		resp.Diagnostics.AddError("failed to unmarshal cluster metadata", err.Error())
 		return
 	}
-
+	if err := utils.AreWeDoneYet(ctx, op, 45*time.Minute, c.OpsClient); err != nil {
+		resp.Diagnostics.AddError("failed to create cluster", err.Error())
+		return
+	}
+	cluster, err := c.CluClient.GetCluster(ctx, &cloudv1beta1.GetClusterRequest{
+		Id: metadata.GetClusterId(),
+	})
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("successfully created the cluster with ID %q, but failed to read the cluster configuration: %v", model.ID.ValueString(), err), err.Error())
+		return
+	}
+	clusterZones, d := types.ListValueFrom(ctx, types.StringType, cluster.Zones)
+	if d.HasError() {
+		resp.Diagnostics.Append(d...)
+		return
+	}
+	clusterURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
+	if err != nil {
+		resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
+		return
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, models.Cluster{
-		Name:            model.Name,
-		ConnectionType:  model.ConnectionType,
-		CloudProvider:   model.CloudProvider,
-		ClusterType:     model.ClusterType,
+		Name:            types.StringValue(cluster.Name),
+		ConnectionType:  types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
+		CloudProvider:   types.StringValue(utils.CloudProviderToString(cluster.CloudProvider)),
+		ClusterType:     types.StringValue(utils.ClusterTypeToString(cluster.Type)),
 		RedpandaVersion: model.RedpandaVersion,
-		ThroughputTier:  model.ThroughputTier,
-		Region:          model.Region,
-		Zones:           model.Zones,
+		ThroughputTier:  types.StringValue(cluster.ThroughputTier),
+		Region:          types.StringValue(cluster.Region),
+		Zones:           clusterZones,
 		AllowDeletion:   model.AllowDeletion,
 		Tags:            model.Tags,
-		NamespaceID:     model.NamespaceID,
-		NetworkID:       model.NetworkID,
-		ID:              utils.TrimmedStringValue(metadata.GetClusterId()),
+		NamespaceID:     types.StringValue(cluster.NamespaceId),
+		NetworkID:       types.StringValue(cluster.NetworkId),
+		ID:              types.StringValue(cluster.Id),
+		ClusterAPIURL:   types.StringValue(clusterURL),
 	})...)
 }
 
@@ -225,6 +249,11 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		resp.Diagnostics.Append(d...)
 		return
 	}
+	clusterURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
+	if err != nil {
+		resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
+		return
+	}
 
 	// Re: RedpandaVersion, I chose to not set it using the return value from the API because the user leaving the field blank
 	// is a valid choice that causes the API to select the latest value. If we then persist the value provided by the API to state
@@ -244,6 +273,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		NamespaceID:     types.StringValue(cluster.NamespaceId),
 		NetworkID:       types.StringValue(cluster.NetworkId),
 		ID:              types.StringValue(cluster.Id),
+		ClusterAPIURL:   types.StringValue(clusterURL),
 	})...)
 }
 

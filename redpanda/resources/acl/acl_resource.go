@@ -22,6 +22,8 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	dataplanev1alpha1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/dataplane/v1alpha1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
@@ -32,6 +34,8 @@ import (
 // ACL represents the ACL Terraform resource.
 type ACL struct {
 	ACLClient dataplanev1alpha1.ACLServiceClient
+
+	resData utils.ResourceData
 }
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -47,7 +51,7 @@ func (*ACL) Metadata(_ context.Context, _ resource.MetadataRequest, response *re
 }
 
 // Configure configures the ACL resource clients
-func (a *ACL) Configure(ctx context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
+func (a *ACL) Configure(_ context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
 	if request.ProviderData == nil {
 		response.Diagnostics.AddWarning("provider data not set", "provider data not set at acl.Configure")
 		return
@@ -61,16 +65,7 @@ func (a *ACL) Configure(ctx context.Context, request resource.ConfigureRequest, 
 			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", request.ProviderData))
 		return
 	}
-
-	client, err := clients.NewACLServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
-		ClientID:     p.ClientID,
-		ClientSecret: p.ClientSecret,
-	})
-	if err != nil {
-		response.Diagnostics.AddError("failed to create cluster client", err.Error())
-		return
-	}
-	a.ACLClient = client
+	a.resData = p
 }
 
 // Schema returns the schema for the resource.
@@ -109,6 +104,13 @@ func resourceACLSchema() schema.Schema {
 				Required:    true,
 				Description: "The permission type",
 			},
+			"cluster_api_url": schema.StringAttribute{
+				Required: true,
+				Description: "The cluster API URL. Changing this will prevent deletion of the resource on the existing " +
+					"cluster. It is generally a better idea to delete an existing resource and create a new one than to " +
+					"change this value unless you are planning to do state imports",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
 		},
 	}
 }
@@ -142,6 +144,10 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		return
 	}
 
+	if err := a.createACLClient(ctx, model.ClusterAPIURL.ValueString()); err != nil {
+		response.Diagnostics.AddError("failed to create ACL client", err.Error())
+		return
+	}
 	// TODO doesn't return an acl object in the response, check on this
 	_, err = a.ACLClient.CreateACL(ctx, &dataplanev1alpha1.CreateACLRequest{
 		ResourceType:        resourceType,
@@ -208,6 +214,11 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 		PermissionType:      permissionType,
 	}
 
+	err = a.createACLClient(ctx, model.ClusterAPIURL.ValueString())
+	if err != nil {
+		response.Diagnostics.AddError("failed to create ACL client", err.Error())
+		return
+	}
 	aclList, err := a.ACLClient.ListACLs(ctx, &dataplanev1alpha1.ListACLsRequest{Filter: filter})
 	if err != nil {
 		response.Diagnostics.AddError("Failed to list ACLs", err.Error())
@@ -275,7 +286,11 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 		Operation:           operation,
 		PermissionType:      permissionType,
 	}
-
+	err = a.createACLClient(ctx, model.ClusterAPIURL.ValueString())
+	if err != nil {
+		response.Diagnostics.AddError("failed to create ACL client", err.Error())
+		return
+	}
 	deleteResponse, err := a.ACLClient.DeleteACLs(ctx, &dataplanev1alpha1.DeleteACLsRequest{Filter: filter})
 	if err != nil {
 		response.Diagnostics.AddError("Failed to delete ACL", err.Error())
@@ -299,4 +314,19 @@ func (*ACL) ImportState(ctx context.Context, request resource.ImportStateRequest
 	response.Diagnostics.Append(response.State.Set(ctx, &models.Cluster{
 		ID: types.StringValue(request.ID),
 	})...)
+}
+
+func (a *ACL) createACLClient(ctx context.Context, clusterURL string) error {
+	if a.ACLClient != nil { // Client already started, no need to create another one.
+		return nil
+	}
+	client, err := clients.NewACLServiceClient(ctx, a.resData.CloudEnv, clusterURL, clients.ClientRequest{
+		ClientID:     a.resData.ClientID,
+		ClientSecret: a.resData.ClientSecret,
+	})
+	if err != nil {
+		return fmt.Errorf("unable to create ACL client: %v", err)
+	}
+	a.ACLClient = client
+	return nil
 }

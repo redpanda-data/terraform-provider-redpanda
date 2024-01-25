@@ -34,4 +34,5 @@ type Cluster struct {
 	Tags            types.Map    `tfsdk:"tags"`
 	NamespaceID     types.String `tfsdk:"namespace_id"`
 	NetworkID       types.String `tfsdk:"network_id"`
+	ClusterAPIURL   types.String `tfsdk:"cluster_api_url"`
 }

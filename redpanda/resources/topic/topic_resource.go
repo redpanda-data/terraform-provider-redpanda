@@ -22,6 +22,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	dataplanev1alpha1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/dataplane/v1alpha1"
@@ -40,6 +42,8 @@ var (
 // Topic represents the Topic Terraform resource.
 type Topic struct {
 	TopicClient dataplanev1alpha1.TopicServiceClient
+
+	resData utils.ResourceData
 }
 
 var sourceValidator = stringvalidator.OneOf(
@@ -53,7 +57,7 @@ var sourceValidator = stringvalidator.OneOf(
 )
 
 // Configure configures the Topic resource.
-func (t *Topic) Configure(ctx context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
+func (t *Topic) Configure(_ context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
 	if request.ProviderData == nil {
 		response.Diagnostics.AddWarning("provider data not set", "provider data not set at topic.Configure")
 		return
@@ -66,15 +70,7 @@ func (t *Topic) Configure(ctx context.Context, request resource.ConfigureRequest
 		)
 		return
 	}
-	client, err := clients.NewTopicServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
-		ClientID:     p.ClientID,
-		ClientSecret: p.ClientSecret,
-	})
-	if err != nil {
-		response.Diagnostics.AddError("failed to create topic client", err.Error())
-		return
-	}
-	t.TopicClient = client
+	t.resData = p
 }
 
 // Metadata returns the metadata for the Topic resource.
@@ -162,6 +158,13 @@ func resourceTopicSchema() schema.Schema {
 				},
 				Required: true,
 			},
+			"cluster_api_url": schema.StringAttribute{
+				Required: true,
+				Description: "The cluster API URL. Changing this will prevent deletion of the resource on the existing " +
+					"cluster. It is generally a better idea to delete an existing resource and create a new one than to " +
+					"change this value unless you are planning to do state imports",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
 		},
 	}
 }
@@ -179,6 +182,11 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 	cfg, err := utils.SliceToTopicConfiguration(model.Configuration)
 	if err != nil {
 		response.Diagnostics.AddError(fmt.Sprintf("failed to convert topic configuration for %s", model.Name), err.Error())
+		return
+	}
+	err = t.createTopicClient(ctx, model.ClusterAPIURL.ValueString())
+	if err != nil {
+		response.Diagnostics.AddError("failed to create topic client", err.Error())
 		return
 	}
 	tp, err := t.TopicClient.CreateTopic(ctx, &dataplanev1alpha1.CreateTopicRequest{
@@ -206,6 +214,11 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
 	var model models.Topic
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
+	err := t.createTopicClient(ctx, model.ClusterAPIURL.ValueString())
+	if err != nil {
+		response.Diagnostics.AddError("failed to create topic client", err.Error())
+		return
+	}
 	tp, err := utils.FindTopicByName(ctx, model.Name.ValueString(), t.TopicClient)
 	if err != nil {
 		if utils.IsNotFound(err) {
@@ -236,7 +249,12 @@ func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, resp
 		response.Diagnostics.AddError(fmt.Sprintf("topic %s does not allow deletion", model.Name), "")
 		return
 	}
-	_, err := t.TopicClient.DeleteTopic(ctx, &dataplanev1alpha1.DeleteTopicRequest{
+	err := t.createTopicClient(ctx, model.ClusterAPIURL.ValueString())
+	if err != nil {
+		response.Diagnostics.AddError("failed to create topic client", err.Error())
+		return
+	}
+	_, err = t.TopicClient.DeleteTopic(ctx, &dataplanev1alpha1.DeleteTopicRequest{
 		Name: model.Name.ValueString(),
 	})
 	if err != nil {
@@ -247,4 +265,19 @@ func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, resp
 // ImportState imports the state of the Topic resource.
 func (*Topic) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
 	response.Diagnostics.Append(response.State.Set(ctx, models.Topic{Name: types.StringValue(request.ID)})...)
+}
+
+func (t *Topic) createTopicClient(ctx context.Context, clusterURL string) error {
+	if t.TopicClient != nil { // Client already started, no need to create another one.
+		return nil
+	}
+	client, err := clients.NewTopicServiceClient(ctx, t.resData.CloudEnv, clusterURL, clients.ClientRequest{
+		ClientID:     t.resData.ClientID,
+		ClientSecret: t.resData.ClientSecret,
+	})
+	if err != nil {
+		return fmt.Errorf("unable to create Topic client: %v", err)
+	}
+	t.TopicClient = client
+	return nil
 }

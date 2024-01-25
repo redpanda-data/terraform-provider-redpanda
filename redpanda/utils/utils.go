@@ -27,6 +27,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	rpknet "github.com/redpanda-data/redpanda/src/go/rpk/pkg/net"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	dataplanev1alpha1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/dataplane/v1alpha1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
@@ -634,4 +635,17 @@ func FindTopicByName(ctx context.Context, topicName string, client dataplanev1al
 		}
 	}
 	return nil, fmt.Errorf("topic %s not found", topicName)
+}
+
+// SplitSchemeDefPort splits the schema from the url and return url+port. If
+// there is no port, we use the provided default.
+func SplitSchemeDefPort(url, def string) (string, error) {
+	_, host, port, err := rpknet.SplitSchemeHostPort(url)
+	if err != nil {
+		return "", err
+	}
+	if port == "" {
+		port = def
+	}
+	return host + ":" + port, nil
 }

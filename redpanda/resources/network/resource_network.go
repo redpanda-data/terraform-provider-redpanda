@@ -186,7 +186,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		return
 	}
 
-	// TODO accept user configuration for timeout
+	// TODO: accept user configuration for timeout
 	if err := utils.AreWeDoneYet(ctx, op, 15*time.Minute, n.OpsClient); err != nil {
 		response.Diagnostics.AddError("failed waiting for network creation", err.Error())
 		return
