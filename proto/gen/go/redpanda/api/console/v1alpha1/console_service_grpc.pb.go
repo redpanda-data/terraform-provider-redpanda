@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             (unknown)
-// source: redpanda/api/console/v1alpha/list_messages.proto
+// source: redpanda/api/console/v1alpha1/console_service.proto
 
-package consolev1alpha
+package consolev1alpha1
 
 import (
 	context "context"
@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	ConsoleService_ListMessages_FullMethodName = "/redpanda.api.console.v1alpha.ConsoleService/ListMessages"
+	ConsoleService_ListMessages_FullMethodName   = "/redpanda.api.console.v1alpha1.ConsoleService/ListMessages"
+	ConsoleService_PublishMessage_FullMethodName = "/redpanda.api.console.v1alpha1.ConsoleService/PublishMessage"
 )
 
 // ConsoleServiceClient is the client API for ConsoleService service.
@@ -28,6 +29,8 @@ const (
 type ConsoleServiceClient interface {
 	// ListMessages lists the messages according to the requested query.
 	ListMessages(ctx context.Context, in *ListMessagesRequest, opts ...grpc.CallOption) (ConsoleService_ListMessagesClient, error)
+	// PublishMessage publishes message.
+	PublishMessage(ctx context.Context, in *PublishMessageRequest, opts ...grpc.CallOption) (*PublishMessageResponse, error)
 }
 
 type consoleServiceClient struct {
@@ -70,12 +73,23 @@ func (x *consoleServiceListMessagesClient) Recv() (*ListMessagesResponse, error)
 	return m, nil
 }
 
+func (c *consoleServiceClient) PublishMessage(ctx context.Context, in *PublishMessageRequest, opts ...grpc.CallOption) (*PublishMessageResponse, error) {
+	out := new(PublishMessageResponse)
+	err := c.cc.Invoke(ctx, ConsoleService_PublishMessage_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ConsoleServiceServer is the server API for ConsoleService service.
 // All implementations should embed UnimplementedConsoleServiceServer
 // for forward compatibility
 type ConsoleServiceServer interface {
 	// ListMessages lists the messages according to the requested query.
 	ListMessages(*ListMessagesRequest, ConsoleService_ListMessagesServer) error
+	// PublishMessage publishes message.
+	PublishMessage(context.Context, *PublishMessageRequest) (*PublishMessageResponse, error)
 }
 
 // UnimplementedConsoleServiceServer should be embedded to have forward compatible implementations.
@@ -84,6 +98,9 @@ type UnimplementedConsoleServiceServer struct {
 
 func (UnimplementedConsoleServiceServer) ListMessages(*ListMessagesRequest, ConsoleService_ListMessagesServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListMessages not implemented")
+}
+func (UnimplementedConsoleServiceServer) PublishMessage(context.Context, *PublishMessageRequest) (*PublishMessageResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PublishMessage not implemented")
 }
 
 // UnsafeConsoleServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -118,13 +135,36 @@ func (x *consoleServiceListMessagesServer) Send(m *ListMessagesResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _ConsoleService_PublishMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PublishMessageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConsoleServiceServer).PublishMessage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ConsoleService_PublishMessage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConsoleServiceServer).PublishMessage(ctx, req.(*PublishMessageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ConsoleService_ServiceDesc is the grpc.ServiceDesc for ConsoleService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ConsoleService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "redpanda.api.console.v1alpha.ConsoleService",
+	ServiceName: "redpanda.api.console.v1alpha1.ConsoleService",
 	HandlerType: (*ConsoleServiceServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "PublishMessage",
+			Handler:    _ConsoleService_PublishMessage_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "ListMessages",
@@ -132,5 +172,5 @@ var ConsoleService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "redpanda/api/console/v1alpha/list_messages.proto",
+	Metadata: "redpanda/api/console/v1alpha1/console_service.proto",
 }

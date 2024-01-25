@@ -20,23 +20,31 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	KafkaConnectService_ListConnectClusters_FullMethodName = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/ListConnectClusters"
-	KafkaConnectService_GetConnectCluster_FullMethodName   = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/GetConnectCluster"
-	KafkaConnectService_ListConnectors_FullMethodName      = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/ListConnectors"
-	KafkaConnectService_CreateConnector_FullMethodName     = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/CreateConnector"
-	KafkaConnectService_RestartConnector_FullMethodName    = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/RestartConnector"
-	KafkaConnectService_GetConnector_FullMethodName        = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/GetConnector"
-	KafkaConnectService_PauseConnector_FullMethodName      = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/PauseConnector"
-	KafkaConnectService_ResumeConnector_FullMethodName     = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/ResumeConnector"
-	KafkaConnectService_DeleteConnector_FullMethodName     = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/DeleteConnector"
+	KafkaConnectService_ListConnectClusters_FullMethodName  = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/ListConnectClusters"
+	KafkaConnectService_GetConnectCluster_FullMethodName    = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/GetConnectCluster"
+	KafkaConnectService_ListConnectors_FullMethodName       = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/ListConnectors"
+	KafkaConnectService_CreateConnector_FullMethodName      = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/CreateConnector"
+	KafkaConnectService_RestartConnector_FullMethodName     = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/RestartConnector"
+	KafkaConnectService_GetConnector_FullMethodName         = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/GetConnector"
+	KafkaConnectService_GetConnectorStatus_FullMethodName   = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/GetConnectorStatus"
+	KafkaConnectService_PauseConnector_FullMethodName       = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/PauseConnector"
+	KafkaConnectService_ResumeConnector_FullMethodName      = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/ResumeConnector"
+	KafkaConnectService_StopConnector_FullMethodName        = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/StopConnector"
+	KafkaConnectService_DeleteConnector_FullMethodName      = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/DeleteConnector"
+	KafkaConnectService_UpsertConnector_FullMethodName      = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/UpsertConnector"
+	KafkaConnectService_GetConnectorConfig_FullMethodName   = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/GetConnectorConfig"
+	KafkaConnectService_ListConnectorTopics_FullMethodName  = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/ListConnectorTopics"
+	KafkaConnectService_ResetConnectorTopics_FullMethodName = "/redpanda.api.dataplane.v1alpha1.KafkaConnectService/ResetConnectorTopics"
 )
 
 // KafkaConnectServiceClient is the client API for KafkaConnectService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type KafkaConnectServiceClient interface {
+	// ListConnectClusters implements the list clusters method, list connect
+	// clusters available in the console configuration
 	ListConnectClusters(ctx context.Context, in *ListConnectClustersRequest, opts ...grpc.CallOption) (*ListConnectClustersResponse, error)
-	// GetConnectClusterInfo implements the get cluster info method, exposes a Kafka
+	// GetConnectCluster implements the get cluster info method, exposes a Kafka
 	// Connect equivalent REST endpoint
 	GetConnectCluster(ctx context.Context, in *GetConnectClusterRequest, opts ...grpc.CallOption) (*GetConnectClusterResponse, error)
 	// ListConnectors implements the list connectors method, exposes a Kafka
@@ -51,15 +59,35 @@ type KafkaConnectServiceClient interface {
 	// GetConnector implements the get connector method, exposes a Kafka
 	// Connect equivalent REST endpoint
 	GetConnector(ctx context.Context, in *GetConnectorRequest, opts ...grpc.CallOption) (*GetConnectorResponse, error)
+	// GetConnectorStatus implement the get status method, Gets the current status of the connector, including:
+	// Whether it is running or restarting, or if it has failed or paused
+	// Which worker it is assigned to
+	// Error information if it has failed
+	// The state of all its tasks
+	GetConnectorStatus(ctx context.Context, in *GetConnectorStatusRequest, opts ...grpc.CallOption) (*GetConnectorStatusResponse, error)
 	// PauseConnector implements the pause connector method, exposes a Kafka
 	// connect equivalent REST endpoint
 	PauseConnector(ctx context.Context, in *PauseConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// ResumeConnector implements the resume connector method, exposes a Kafka
 	// connect equivalent REST endpoint
 	ResumeConnector(ctx context.Context, in *ResumeConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// StopConnector implements the stop connector method, exposes a Kafka
+	// connect equivalent REST endpoint it stops the connector but does not
+	// delete the connector. All tasks for the connector are shut down completely
+	StopConnector(ctx context.Context, in *StopConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// DeleteConnector implements the delete connector method, exposes a Kafka
 	// connect equivalent REST endpoint
 	DeleteConnector(ctx context.Context, in *DeleteConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// UpsertConector implements the update or create connector method, it
+	// exposes a kafka connect equivalent REST endpoint
+	UpsertConnector(ctx context.Context, in *UpsertConnectorRequest, opts ...grpc.CallOption) (*UpsertConnectorResponse, error)
+	// GetConnectorConfig implements the get connector configuration method, expose a kafka connect equivalent REST endpoint
+	GetConnectorConfig(ctx context.Context, in *GetConnectorConfigRequest, opts ...grpc.CallOption) (*GetConnectorConfigResponse, error)
+	// ListConnectorTopics implements the list connector topics method, expose a kafka connect equivalent REST endpoint
+	ListConnectorTopics(ctx context.Context, in *ListConnectorTopicsRequest, opts ...grpc.CallOption) (*ListConnectorTopicsResponse, error)
+	// ResetConnectorTopics implements the reset connector topics method, expose a kafka connect equivalent REST endpoint
+	// the request body is empty.
+	ResetConnectorTopics(ctx context.Context, in *ResetConnectorTopicsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type kafkaConnectServiceClient struct {
@@ -124,6 +152,15 @@ func (c *kafkaConnectServiceClient) GetConnector(ctx context.Context, in *GetCon
 	return out, nil
 }
 
+func (c *kafkaConnectServiceClient) GetConnectorStatus(ctx context.Context, in *GetConnectorStatusRequest, opts ...grpc.CallOption) (*GetConnectorStatusResponse, error) {
+	out := new(GetConnectorStatusResponse)
+	err := c.cc.Invoke(ctx, KafkaConnectService_GetConnectorStatus_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *kafkaConnectServiceClient) PauseConnector(ctx context.Context, in *PauseConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, KafkaConnectService_PauseConnector_FullMethodName, in, out, opts...)
@@ -142,9 +179,54 @@ func (c *kafkaConnectServiceClient) ResumeConnector(ctx context.Context, in *Res
 	return out, nil
 }
 
+func (c *kafkaConnectServiceClient) StopConnector(ctx context.Context, in *StopConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, KafkaConnectService_StopConnector_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *kafkaConnectServiceClient) DeleteConnector(ctx context.Context, in *DeleteConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, KafkaConnectService_DeleteConnector_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kafkaConnectServiceClient) UpsertConnector(ctx context.Context, in *UpsertConnectorRequest, opts ...grpc.CallOption) (*UpsertConnectorResponse, error) {
+	out := new(UpsertConnectorResponse)
+	err := c.cc.Invoke(ctx, KafkaConnectService_UpsertConnector_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kafkaConnectServiceClient) GetConnectorConfig(ctx context.Context, in *GetConnectorConfigRequest, opts ...grpc.CallOption) (*GetConnectorConfigResponse, error) {
+	out := new(GetConnectorConfigResponse)
+	err := c.cc.Invoke(ctx, KafkaConnectService_GetConnectorConfig_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kafkaConnectServiceClient) ListConnectorTopics(ctx context.Context, in *ListConnectorTopicsRequest, opts ...grpc.CallOption) (*ListConnectorTopicsResponse, error) {
+	out := new(ListConnectorTopicsResponse)
+	err := c.cc.Invoke(ctx, KafkaConnectService_ListConnectorTopics_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kafkaConnectServiceClient) ResetConnectorTopics(ctx context.Context, in *ResetConnectorTopicsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, KafkaConnectService_ResetConnectorTopics_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -155,8 +237,10 @@ func (c *kafkaConnectServiceClient) DeleteConnector(ctx context.Context, in *Del
 // All implementations should embed UnimplementedKafkaConnectServiceServer
 // for forward compatibility
 type KafkaConnectServiceServer interface {
+	// ListConnectClusters implements the list clusters method, list connect
+	// clusters available in the console configuration
 	ListConnectClusters(context.Context, *ListConnectClustersRequest) (*ListConnectClustersResponse, error)
-	// GetConnectClusterInfo implements the get cluster info method, exposes a Kafka
+	// GetConnectCluster implements the get cluster info method, exposes a Kafka
 	// Connect equivalent REST endpoint
 	GetConnectCluster(context.Context, *GetConnectClusterRequest) (*GetConnectClusterResponse, error)
 	// ListConnectors implements the list connectors method, exposes a Kafka
@@ -171,15 +255,35 @@ type KafkaConnectServiceServer interface {
 	// GetConnector implements the get connector method, exposes a Kafka
 	// Connect equivalent REST endpoint
 	GetConnector(context.Context, *GetConnectorRequest) (*GetConnectorResponse, error)
+	// GetConnectorStatus implement the get status method, Gets the current status of the connector, including:
+	// Whether it is running or restarting, or if it has failed or paused
+	// Which worker it is assigned to
+	// Error information if it has failed
+	// The state of all its tasks
+	GetConnectorStatus(context.Context, *GetConnectorStatusRequest) (*GetConnectorStatusResponse, error)
 	// PauseConnector implements the pause connector method, exposes a Kafka
 	// connect equivalent REST endpoint
 	PauseConnector(context.Context, *PauseConnectorRequest) (*emptypb.Empty, error)
 	// ResumeConnector implements the resume connector method, exposes a Kafka
 	// connect equivalent REST endpoint
 	ResumeConnector(context.Context, *ResumeConnectorRequest) (*emptypb.Empty, error)
+	// StopConnector implements the stop connector method, exposes a Kafka
+	// connect equivalent REST endpoint it stops the connector but does not
+	// delete the connector. All tasks for the connector are shut down completely
+	StopConnector(context.Context, *StopConnectorRequest) (*emptypb.Empty, error)
 	// DeleteConnector implements the delete connector method, exposes a Kafka
 	// connect equivalent REST endpoint
 	DeleteConnector(context.Context, *DeleteConnectorRequest) (*emptypb.Empty, error)
+	// UpsertConector implements the update or create connector method, it
+	// exposes a kafka connect equivalent REST endpoint
+	UpsertConnector(context.Context, *UpsertConnectorRequest) (*UpsertConnectorResponse, error)
+	// GetConnectorConfig implements the get connector configuration method, expose a kafka connect equivalent REST endpoint
+	GetConnectorConfig(context.Context, *GetConnectorConfigRequest) (*GetConnectorConfigResponse, error)
+	// ListConnectorTopics implements the list connector topics method, expose a kafka connect equivalent REST endpoint
+	ListConnectorTopics(context.Context, *ListConnectorTopicsRequest) (*ListConnectorTopicsResponse, error)
+	// ResetConnectorTopics implements the reset connector topics method, expose a kafka connect equivalent REST endpoint
+	// the request body is empty.
+	ResetConnectorTopics(context.Context, *ResetConnectorTopicsRequest) (*emptypb.Empty, error)
 }
 
 // UnimplementedKafkaConnectServiceServer should be embedded to have forward compatible implementations.
@@ -204,14 +308,32 @@ func (UnimplementedKafkaConnectServiceServer) RestartConnector(context.Context, 
 func (UnimplementedKafkaConnectServiceServer) GetConnector(context.Context, *GetConnectorRequest) (*GetConnectorResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetConnector not implemented")
 }
+func (UnimplementedKafkaConnectServiceServer) GetConnectorStatus(context.Context, *GetConnectorStatusRequest) (*GetConnectorStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetConnectorStatus not implemented")
+}
 func (UnimplementedKafkaConnectServiceServer) PauseConnector(context.Context, *PauseConnectorRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PauseConnector not implemented")
 }
 func (UnimplementedKafkaConnectServiceServer) ResumeConnector(context.Context, *ResumeConnectorRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResumeConnector not implemented")
 }
+func (UnimplementedKafkaConnectServiceServer) StopConnector(context.Context, *StopConnectorRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StopConnector not implemented")
+}
 func (UnimplementedKafkaConnectServiceServer) DeleteConnector(context.Context, *DeleteConnectorRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteConnector not implemented")
+}
+func (UnimplementedKafkaConnectServiceServer) UpsertConnector(context.Context, *UpsertConnectorRequest) (*UpsertConnectorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpsertConnector not implemented")
+}
+func (UnimplementedKafkaConnectServiceServer) GetConnectorConfig(context.Context, *GetConnectorConfigRequest) (*GetConnectorConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetConnectorConfig not implemented")
+}
+func (UnimplementedKafkaConnectServiceServer) ListConnectorTopics(context.Context, *ListConnectorTopicsRequest) (*ListConnectorTopicsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListConnectorTopics not implemented")
+}
+func (UnimplementedKafkaConnectServiceServer) ResetConnectorTopics(context.Context, *ResetConnectorTopicsRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetConnectorTopics not implemented")
 }
 
 // UnsafeKafkaConnectServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -333,6 +455,24 @@ func _KafkaConnectService_GetConnector_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KafkaConnectService_GetConnectorStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetConnectorStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KafkaConnectServiceServer).GetConnectorStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KafkaConnectService_GetConnectorStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KafkaConnectServiceServer).GetConnectorStatus(ctx, req.(*GetConnectorStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _KafkaConnectService_PauseConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PauseConnectorRequest)
 	if err := dec(in); err != nil {
@@ -369,6 +509,24 @@ func _KafkaConnectService_ResumeConnector_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KafkaConnectService_StopConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopConnectorRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KafkaConnectServiceServer).StopConnector(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KafkaConnectService_StopConnector_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KafkaConnectServiceServer).StopConnector(ctx, req.(*StopConnectorRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _KafkaConnectService_DeleteConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteConnectorRequest)
 	if err := dec(in); err != nil {
@@ -383,6 +541,78 @@ func _KafkaConnectService_DeleteConnector_Handler(srv interface{}, ctx context.C
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(KafkaConnectServiceServer).DeleteConnector(ctx, req.(*DeleteConnectorRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KafkaConnectService_UpsertConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertConnectorRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KafkaConnectServiceServer).UpsertConnector(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KafkaConnectService_UpsertConnector_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KafkaConnectServiceServer).UpsertConnector(ctx, req.(*UpsertConnectorRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KafkaConnectService_GetConnectorConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetConnectorConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KafkaConnectServiceServer).GetConnectorConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KafkaConnectService_GetConnectorConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KafkaConnectServiceServer).GetConnectorConfig(ctx, req.(*GetConnectorConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KafkaConnectService_ListConnectorTopics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListConnectorTopicsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KafkaConnectServiceServer).ListConnectorTopics(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KafkaConnectService_ListConnectorTopics_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KafkaConnectServiceServer).ListConnectorTopics(ctx, req.(*ListConnectorTopicsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KafkaConnectService_ResetConnectorTopics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResetConnectorTopicsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KafkaConnectServiceServer).ResetConnectorTopics(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KafkaConnectService_ResetConnectorTopics_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KafkaConnectServiceServer).ResetConnectorTopics(ctx, req.(*ResetConnectorTopicsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -419,6 +649,10 @@ var KafkaConnectService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _KafkaConnectService_GetConnector_Handler,
 		},
 		{
+			MethodName: "GetConnectorStatus",
+			Handler:    _KafkaConnectService_GetConnectorStatus_Handler,
+		},
+		{
 			MethodName: "PauseConnector",
 			Handler:    _KafkaConnectService_PauseConnector_Handler,
 		},
@@ -427,8 +661,28 @@ var KafkaConnectService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _KafkaConnectService_ResumeConnector_Handler,
 		},
 		{
+			MethodName: "StopConnector",
+			Handler:    _KafkaConnectService_StopConnector_Handler,
+		},
+		{
 			MethodName: "DeleteConnector",
 			Handler:    _KafkaConnectService_DeleteConnector_Handler,
+		},
+		{
+			MethodName: "UpsertConnector",
+			Handler:    _KafkaConnectService_UpsertConnector_Handler,
+		},
+		{
+			MethodName: "GetConnectorConfig",
+			Handler:    _KafkaConnectService_GetConnectorConfig_Handler,
+		},
+		{
+			MethodName: "ListConnectorTopics",
+			Handler:    _KafkaConnectService_ListConnectorTopics_Handler,
+		},
+		{
+			MethodName: "ResetConnectorTopics",
+			Handler:    _KafkaConnectService_ResetConnectorTopics_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
