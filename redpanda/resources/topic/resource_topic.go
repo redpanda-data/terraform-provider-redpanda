@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -165,6 +166,9 @@ func resourceTopicSchema() schema.Schema {
 					"change this value unless you are planning to do state imports",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
+			"id": schema.StringAttribute{
+				Computed: true,
+			},
 		},
 	}
 }
@@ -189,7 +193,7 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		response.Diagnostics.AddError("failed to create topic client", err.Error())
 		return
 	}
-	tp, err := t.TopicClient.CreateTopic(ctx, &dataplanev1alpha1.CreateTopicRequest{
+	_, err = t.TopicClient.CreateTopic(ctx, &dataplanev1alpha1.CreateTopicRequest{
 		Topic: &dataplanev1alpha1.CreateTopicRequest_Topic{
 			Name:              model.Name.ValueString(),
 			PartitionCount:    utils.NumberToInt32(model.PartitionCount),
@@ -199,26 +203,16 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 	})
 	if err != nil {
 		response.Diagnostics.AddError(fmt.Sprintf("failed to create topic %s", model.Name.ValueString()), err.Error())
-	}
-	// We need to retrieve the Topic once it's created because the configuration,
-	// partition count and replication factor can be empty in the configuration
-	// file but Redpanda will use the cluster's default to create the topic.
-	topic, err := utils.FindTopicByName(ctx, tp.GetName(), t.TopicClient)
-	if err != nil {
-		response.Diagnostics.AddError("unable to get the topic configuration from the cluster", err.Error())
 		return
 	}
-	topicCfg, err := utils.TopicConfigurationToSlice(topic.Configuration)
-	if err != nil {
-		response.Diagnostics.AddError("unable to parse the topic configuration", err.Error())
-		return
-	}
+	// TODO: Once ListTopic is implemented, we should set the state according to the ListTopic response and not the model.
 	response.Diagnostics.Append(response.State.Set(ctx, models.Topic{
-		Name:              types.StringValue(topic.Name),
-		PartitionCount:    utils.Int32ToNumber(topic.PartitionCount),
-		ReplicationFactor: utils.Int32ToNumber(topic.ReplicationFactor),
-		Configuration:     topicCfg,
+		Name:              model.Name,
+		PartitionCount:    model.PartitionCount,
+		ReplicationFactor: model.ReplicationFactor,
+		Configuration:     model.Configuration,
 		AllowDeletion:     model.AllowDeletion,
+		ClusterAPIURL:     model.ClusterAPIURL,
 	})...)
 }
 
@@ -280,8 +274,8 @@ func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, resp
 }
 
 // ImportState imports the state of the Topic resource.
-func (*Topic) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
-	response.Diagnostics.Append(response.State.Set(ctx, models.Topic{Name: types.StringValue(request.ID)})...)
+func (*Topic) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(req.ID))...)
 }
 
 func (t *Topic) createTopicClient(ctx context.Context, clusterURL string) error {

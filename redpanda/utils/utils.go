@@ -573,6 +573,7 @@ func TopicConfigurationSourceToString(e dataplanev1alpha1.ConfigSource) string {
 	}
 }
 
+// TopicConfigurationTypeToString converts a dataplanev1alpha1.ConfigType to a string
 func TopicConfigurationTypeToString(t dataplanev1alpha1.ConfigType) (string, error) {
 	v, ok := dataplanev1alpha1.ConfigType_name[int32(t)]
 	if !ok {

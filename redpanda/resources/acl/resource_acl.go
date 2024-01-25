@@ -78,31 +78,31 @@ func resourceACLSchema() schema.Schema {
 		Attributes: map[string]schema.Attribute{
 			"resource_type": schema.StringAttribute{
 				Required:    true,
-				Description: "The type of the resource",
+				Description: "The type of the resource (Topic, Group, etc...) this ACL shall target",
 			},
 			"resource_name": schema.StringAttribute{
 				Required:    true,
-				Description: "The name of the resource",
+				Description: "The name of the resource this ACL entry will be on",
 			},
 			"resource_pattern_type": schema.StringAttribute{
 				Required:    true,
-				Description: "The pattern type of the resource",
+				Description: "The pattern type of the resource. It determines the strategy how the provided resource name is matched (literal, match, prefixed, etc ...) against the actual resource names",
 			},
 			"principal": schema.StringAttribute{
 				Required:    true,
-				Description: "The principal",
+				Description: "The principal to apply this ACL for",
 			},
 			"host": schema.StringAttribute{
 				Required:    true,
-				Description: "The host",
+				Description: "The host address to use for this ACL",
 			},
 			"operation": schema.StringAttribute{
 				Required:    true,
-				Description: "The operation type",
+				Description: "The operation type that shall be allowed or denied (e.g READ)",
 			},
 			"permission_type": schema.StringAttribute{
 				Required:    true,
-				Description: "The permission type",
+				Description: "The permission type. It determines whether the operation should be ALLOWED or DENIED",
 			},
 			"cluster_api_url": schema.StringAttribute{
 				Required: true,
@@ -110,6 +110,9 @@ func resourceACLSchema() schema.Schema {
 					"cluster. It is generally a better idea to delete an existing resource and create a new one than to " +
 					"change this value unless you are planning to do state imports",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"id": schema.StringAttribute{
+				Computed: true,
 			},
 		},
 	}
@@ -172,6 +175,7 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		Host:                model.Host,
 		Operation:           model.Operation,
 		PermissionType:      model.PermissionType,
+		ClusterAPIURL:       model.ClusterAPIURL,
 	})...)
 }
 
@@ -299,7 +303,7 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 
 	// Check for errors in the response
 	for _, matchingACL := range deleteResponse.MatchingAcls {
-		if matchingACL.Error.Code != 0 {
+		if matchingACL.Error != nil && matchingACL.Error.Code != 0 {
 			response.Diagnostics.AddError("Error deleting ACL", matchingACL.Error.Message)
 			return
 		}
@@ -310,10 +314,8 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 }
 
 // ImportState imports an ACL resource
-func (*ACL) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
-	response.Diagnostics.Append(response.State.Set(ctx, &models.Cluster{
-		ID: types.StringValue(request.ID),
-	})...)
+func (*ACL) ImportState(_ context.Context, _ resource.ImportStateRequest, _ *resource.ImportStateResponse) {
+	// TODO implement me.
 }
 
 func (a *ACL) createACLClient(ctx context.Context, clusterURL string) error {
