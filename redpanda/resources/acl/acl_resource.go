@@ -105,8 +105,10 @@ func resourceACLSchema() schema.Schema {
 				Description: "The permission type",
 			},
 			"cluster_api_url": schema.StringAttribute{
-				Required:      true,
-				Description:   "The cluster API URL",
+				Required: true,
+				Description: "The cluster API URL. Changing this will prevent deletion of the resource on the existing " +
+					"cluster. It is generally a better idea to delete an existing resource and create a new one than to " +
+					"change this value unless you are planning to do state imports",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 		},
@@ -142,8 +144,7 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		return
 	}
 
-	err = a.createACLClient(ctx, model.ClusterAPIURL.ValueString())
-	if err != nil {
+	if err := a.createACLClient(ctx, model.ClusterAPIURL.ValueString()); err != nil {
 		response.Diagnostics.AddError("failed to create ACL client", err.Error())
 		return
 	}

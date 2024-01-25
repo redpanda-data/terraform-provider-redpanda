@@ -637,10 +637,10 @@ func FindTopicByName(ctx context.Context, topicName string, client dataplanev1al
 	return nil, fmt.Errorf("topic %s not found", topicName)
 }
 
-// SplitSchemeDefPort splits the schema from 'h' and return h+port, if there is
-// no port, we use the provided default.
-func SplitSchemeDefPort(h, def string) (string, error) {
-	_, host, port, err := rpknet.SplitSchemeHostPort(h)
+// SplitSchemeDefPort splits the schema from the url and return url+port. If
+// there is no port, we use the provided default.
+func SplitSchemeDefPort(url, def string) (string, error) {
+	_, host, port, err := rpknet.SplitSchemeHostPort(url)
 	if err != nil {
 		return "", err
 	}

@@ -25,8 +25,6 @@ import (
 	"net/http"
 	"strings"
 
-	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
-	dataplanev1alpha1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/dataplane/v1alpha1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -58,131 +56,6 @@ type ClientRequest struct {
 	ClientID     string
 	ClientSecret string
 	// TODO: we can use this as the only source of truth for Client Credentials and Envs.
-}
-
-//////////////////////////
-// Control Plane Clients//
-//////////////////////////
-
-// NewClusterServiceClient creates a new ClusterServiceClient.
-func NewClusterServiceClient(ctx context.Context, cloudEnv string, cr ClientRequest) (cloudv1beta1.ClusterServiceClient, error) {
-	token, endpoint, err := requestTokenAndEnv(ctx, cloudEnv, cr)
-	if err != nil {
-		return nil, fmt.Errorf("unable to request the Cloud authentication token: %v", err)
-	}
-	conn, err := spawnConn(ctx, endpoint.apiURL, token)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create a connection: %v", err)
-	}
-	return cloudv1beta1.NewClusterServiceClient(conn), nil
-}
-
-// NewNamespaceServiceClient creates a new NamespaceServiceClient.
-func NewNamespaceServiceClient(ctx context.Context, cloudEnv string, cr ClientRequest) (cloudv1beta1.NamespaceServiceClient, error) {
-	token, endpoint, err := requestTokenAndEnv(ctx, cloudEnv, cr)
-	if err != nil {
-		return nil, fmt.Errorf("unable to request the Cloud authentication token: %v", err)
-	}
-	conn, err := spawnConn(ctx, endpoint.apiURL, token)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create a connection: %v", err)
-	}
-	return cloudv1beta1.NewNamespaceServiceClient(conn), nil
-}
-
-// NewNetworkServiceClient creates a new NetworkServiceClient.
-func NewNetworkServiceClient(ctx context.Context, cloudEnv string, cr ClientRequest) (cloudv1beta1.NetworkServiceClient, error) {
-	token, endpoint, err := requestTokenAndEnv(ctx, cloudEnv, cr)
-	if err != nil {
-		return nil, fmt.Errorf("unable to request the Cloud authentication token: %v", err)
-	}
-	conn, err := spawnConn(ctx, endpoint.apiURL, token)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create a connection: %v", err)
-	}
-	return cloudv1beta1.NewNetworkServiceClient(conn), nil
-}
-
-// NewOperationServiceClient creates a new OperationServiceClient.
-func NewOperationServiceClient(ctx context.Context, cloudEnv string, cr ClientRequest) (cloudv1beta1.OperationServiceClient, error) {
-	token, endpoint, err := requestTokenAndEnv(ctx, cloudEnv, cr)
-	if err != nil {
-		return nil, fmt.Errorf("unable to request the Cloud authentication token: %v", err)
-	}
-	conn, err := spawnConn(ctx, endpoint.apiURL, token)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create a connection: %v", err)
-	}
-	return cloudv1beta1.NewOperationServiceClient(conn), nil
-}
-
-///////////////////////
-// Data Plane Clients//
-///////////////////////
-
-// NewTopicServiceClient creates a new TopicServiceClient.
-func NewTopicServiceClient(ctx context.Context, cloudEnv, cloudURL string, cr ClientRequest) (dataplanev1alpha1.TopicServiceClient, error) {
-	token, _, err := requestTokenAndEnv(ctx, cloudEnv, cr)
-	if err != nil {
-		return nil, fmt.Errorf("unable to request the Cloud authentication token: %v", err)
-	}
-	conn, err := spawnConn(ctx, cloudURL, token)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create a connection: %v", err)
-	}
-	return dataplanev1alpha1.NewTopicServiceClient(conn), nil
-}
-
-// NewUserServiceClient creates a new UserServiceClient.
-func NewUserServiceClient(ctx context.Context, cloudEnv, cloudURL string, cr ClientRequest) (dataplanev1alpha1.UserServiceClient, error) {
-	token, _, err := requestTokenAndEnv(ctx, cloudEnv, cr)
-	if err != nil {
-		return nil, fmt.Errorf("unable to request the Cloud authentication token: %v", err)
-	}
-	conn, err := spawnConn(ctx, cloudURL, token)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create a connection: %v", err)
-	}
-	return dataplanev1alpha1.NewUserServiceClient(conn), nil
-}
-
-// NewACLServiceClient creates a new ACLServiceClient.
-func NewACLServiceClient(ctx context.Context, cloudEnv, cloudURL string, cr ClientRequest) (dataplanev1alpha1.ACLServiceClient, error) {
-	token, _, err := requestTokenAndEnv(ctx, cloudEnv, cr)
-	if err != nil {
-		return nil, fmt.Errorf("unable to request the Cloud authentication token: %v", err)
-	}
-	conn, err := spawnConn(ctx, cloudURL, token)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create a connection: %v", err)
-	}
-	return dataplanev1alpha1.NewACLServiceClient(conn), nil
-}
-
-// NewSecretServiceClient creates a new SecretServiceClient.
-func NewSecretServiceClient(ctx context.Context, cloudEnv, cloudURL string, cr ClientRequest) (dataplanev1alpha1.SecretServiceClient, error) {
-	token, _, err := requestTokenAndEnv(ctx, cloudEnv, cr)
-	if err != nil {
-		return nil, fmt.Errorf("unable to request the Cloud authentication token: %v", err)
-	}
-	conn, err := spawnConn(ctx, cloudURL, token)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create a connection: %v", err)
-	}
-	return dataplanev1alpha1.NewSecretServiceClient(conn), nil
-}
-
-// NewKafkaConnectServiceClient creates a new KafkaConnectServiceClient.
-func NewKafkaConnectServiceClient(ctx context.Context, cloudEnv, cloudURL string, cr ClientRequest) (dataplanev1alpha1.KafkaConnectServiceClient, error) {
-	token, _, err := requestTokenAndEnv(ctx, cloudEnv, cr)
-	if err != nil {
-		return nil, fmt.Errorf("unable to request the Cloud authentication token: %v", err)
-	}
-	conn, err := spawnConn(ctx, cloudURL, token)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create a connection: %v", err)
-	}
-	return dataplanev1alpha1.NewKafkaConnectServiceClient(conn), nil
 }
 
 type tokenResponse struct {
@@ -231,11 +104,13 @@ func spawnConn(ctx context.Context, url string, authToken string) (*grpc.ClientC
 	return grpc.DialContext(
 		ctx,
 		url,
+		// Intercept to add the Bearer token.
 		grpc.WithUnaryInterceptor(
 			func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 				return invoker(metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", authToken)), method, req, reply, cc, opts...)
 			},
 		),
+		// And provide TLS config.
 		grpc.WithTransportCredentials(
 			credentials.NewTLS(
 				&tls.Config{
@@ -243,5 +118,9 @@ func spawnConn(ctx context.Context, url string, authToken string) (*grpc.ClientC
 				},
 			),
 		),
+		// We do not block (grpc.WithBlock) on purpose to avoid waiting
+		// indefinitely if the cluster is not responding and to provide an
+		// useful error on these cases. See:
+		// https://github.com/grpc/grpc-go/blob/master/Documentation/anti-patterns.md#using-failonnontempdialerror-withblock-and-withreturnconnectionerror
 	)
 }

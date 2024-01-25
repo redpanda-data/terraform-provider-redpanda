@@ -102,8 +102,10 @@ func resourceUserSchema() schema.Schema {
 				},
 			},
 			"cluster_api_url": schema.StringAttribute{
-				Required:      true,
-				Description:   "The cluster API URL",
+				Required: true,
+				Description: "The cluster API URL. Changing this will prevent deletion of the resource on the existing " +
+					"cluster. It is generally a better idea to delete an existing resource and create a new one than to " +
+					"change this value unless you are planning to do state imports",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"id": schema.StringAttribute{
