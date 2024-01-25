@@ -88,11 +88,11 @@ func resourceTopicSchema() schema.Schema {
 			},
 			"partition_count": schema.NumberAttribute{
 				Description: "The number of partitions for the topic. This determines how the data is distributed across brokers.",
-				Required:    true,
+				Optional:    true,
 			},
 			"replication_factor": schema.NumberAttribute{
 				Description: "The replication factor for the topic, which defines how many copies of the data are kept across different brokers for fault tolerance.",
-				Required:    true,
+				Optional:    true,
 			},
 			"allow_deletion": schema.BoolAttribute{
 				Description: "Indicates whether the topic can be deleted.",
@@ -105,58 +105,58 @@ func resourceTopicSchema() schema.Schema {
 							Description: "The name of the configuration parameter.",
 							Required:    true,
 						},
-						"type": schema.StringAttribute{
-							Description: "The type of the configuration parameter.",
-							Required:    true,
-						},
 						"value": schema.StringAttribute{
 							Description: "The value of the configuration parameter.",
 							Required:    true,
 						},
+						"type": schema.StringAttribute{
+							Description: "The type of the configuration parameter.",
+							Computed:    true,
+						},
 						"source": schema.StringAttribute{
 							Description: "The source of the configuration parameter, indicating how the configuration was set.",
-							Required:    true,
+							Computed:    true,
 							Validators: []validator.String{
 								sourceValidator,
 							},
 						},
 						"is_read_only": schema.BoolAttribute{
 							Description: "Indicates whether the configuration parameter is read-only.",
-							Required:    true,
+							Computed:    true,
 						},
 						"is_sensitive": schema.BoolAttribute{
 							Description: "Indicates whether the configuration parameter is sensitive and should be handled securely.",
-							Required:    true,
+							Computed:    true,
 						},
 						"config_synonyms": schema.SetNestedAttribute{
 							NestedObject: schema.NestedAttributeObject{
 								Attributes: map[string]schema.Attribute{
 									"name": schema.StringAttribute{
 										Description: "The synonym name for the configuration parameter.",
-										Required:    true,
+										Computed:    true,
 									},
 									"value": schema.StringAttribute{
 										Description: "The synonym value for the configuration parameter.",
-										Required:    true,
+										Computed:    true,
 									},
 									"source": schema.StringAttribute{
 										Description: "The source of the synonym, indicating how the synonym was set.",
-										Required:    true,
+										Computed:    true,
 										Validators: []validator.String{
 											sourceValidator,
 										},
 									},
 								},
 							},
-							Required: true,
+							Computed: true,
 						},
 						"documentation": schema.StringAttribute{
 							Description: "Documentation for the configuration parameter, providing additional context or information.",
-							Required:    true,
+							Computed:    true,
 						},
 					},
 				},
-				Required: true,
+				Optional: true,
 			},
 			"cluster_api_url": schema.StringAttribute{
 				Required: true,
@@ -190,22 +190,34 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		return
 	}
 	tp, err := t.TopicClient.CreateTopic(ctx, &dataplanev1alpha1.CreateTopicRequest{
-		Topic: &dataplanev1alpha1.Topic{
+		Topic: &dataplanev1alpha1.CreateTopicRequest_Topic{
 			Name:              model.Name.ValueString(),
 			PartitionCount:    utils.NumberToInt32(model.PartitionCount),
 			ReplicationFactor: utils.NumberToInt32(model.ReplicationFactor),
-			Configuration:     cfg,
+			Configs:           cfg,
 		},
 	})
 	if err != nil {
 		response.Diagnostics.AddError(fmt.Sprintf("failed to create topic %s", model.Name.ValueString()), err.Error())
 	}
-
+	// We need to retrieve the Topic once it's created because the configuration,
+	// partition count and replication factor can be empty in the configuration
+	// file but Redpanda will use the cluster's default to create the topic.
+	topic, err := utils.FindTopicByName(ctx, tp.GetName(), t.TopicClient)
+	if err != nil {
+		response.Diagnostics.AddError("unable to get the topic configuration from the cluster", err.Error())
+		return
+	}
+	topicCfg, err := utils.TopicConfigurationToSlice(topic.Configuration)
+	if err != nil {
+		response.Diagnostics.AddError("unable to parse the topic configuration", err.Error())
+		return
+	}
 	response.Diagnostics.Append(response.State.Set(ctx, models.Topic{
-		Name:              types.StringValue(tp.Topic.Name),
-		PartitionCount:    utils.Int32ToNumber(tp.Topic.PartitionCount),
-		ReplicationFactor: utils.Int32ToNumber(tp.Topic.ReplicationFactor),
-		Configuration:     utils.TopicConfigurationToSlice(tp.Topic.Configuration),
+		Name:              types.StringValue(topic.Name),
+		PartitionCount:    utils.Int32ToNumber(topic.PartitionCount),
+		ReplicationFactor: utils.Int32ToNumber(topic.ReplicationFactor),
+		Configuration:     topicCfg,
 		AllowDeletion:     model.AllowDeletion,
 	})...)
 }
@@ -228,11 +240,16 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 		response.Diagnostics.AddError(fmt.Sprintf("failed receive response from topic api for topic %s", model.Name), err.Error())
 		return
 	}
+	topicCfg, err := utils.TopicConfigurationToSlice(tp.Configuration)
+	if err != nil {
+		response.Diagnostics.AddError("unable to parse the topic configuration", err.Error())
+		return
+	}
 	response.Diagnostics.Append(response.State.Set(ctx, models.Topic{
 		Name:              types.StringValue(tp.Name),
 		PartitionCount:    utils.Int32ToNumber(tp.PartitionCount),
 		ReplicationFactor: utils.Int32ToNumber(tp.ReplicationFactor),
-		Configuration:     utils.TopicConfigurationToSlice(tp.Configuration),
+		Configuration:     topicCfg,
 		AllowDeletion:     model.AllowDeletion,
 	})...)
 }

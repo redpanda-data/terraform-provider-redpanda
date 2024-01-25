@@ -204,7 +204,7 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 		return
 	}
 
-	filter := &dataplanev1alpha1.ACL_Filter{
+	filter := &dataplanev1alpha1.ListACLsRequest_Filter{
 		ResourceType:        resourceType,
 		ResourceName:        utils.StringToStringPointer(model.ResourceName.ValueString()),
 		ResourcePatternType: resourcePatternType,
@@ -277,7 +277,7 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 		return
 	}
 
-	filter := &dataplanev1alpha1.ACL_Filter{
+	filter := &dataplanev1alpha1.DeleteACLsRequest_Filter{
 		ResourceType:        resourceType,
 		ResourceName:        utils.StringToStringPointer(model.ResourceName.ValueString()),
 		ResourcePatternType: resourcePatternType,
@@ -299,8 +299,8 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 
 	// Check for errors in the response
 	for _, matchingACL := range deleteResponse.MatchingAcls {
-		if matchingACL.ErrorCode != 0 {
-			response.Diagnostics.AddError("Error deleting ACL", matchingACL.ErrorMessage)
+		if matchingACL.Error.Code != 0 {
+			response.Diagnostics.AddError("Error deleting ACL", matchingACL.Error.Message)
 			return
 		}
 	}

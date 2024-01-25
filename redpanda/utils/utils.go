@@ -492,30 +492,34 @@ func ACLPermissionTypeToString(e dataplanev1alpha1.ACL_PermissionType) string {
 }
 
 // TopicConfigurationToSlice converts a slice of dataplanev1alpha1.Topic_Configuration to a slice of models.TopicConfiguration
-func TopicConfigurationToSlice(cfg []*dataplanev1alpha1.Topic_Configuration) []*models.TopicConfiguration {
+func TopicConfigurationToSlice(cfg []*dataplanev1alpha1.Topic_Configuration) ([]*models.TopicConfiguration, error) {
 	output := make([]*models.TopicConfiguration, len(cfg))
 	for _, v := range cfg {
+		cfgType, err := TopicConfigurationTypeToString(v.Type)
+		if err != nil {
+			return nil, err
+		}
 		output = append(output, &models.TopicConfiguration{
 			Name:           types.StringValue(v.Name),
-			Type:           types.StringValue(v.Type),
-			Value:          types.StringValue(v.Value),
+			Type:           types.StringValue(cfgType),
+			Value:          types.StringValue(*v.Value),
 			Source:         types.StringValue(TopicConfigurationSourceToString(v.Source)),
 			IsReadOnly:     types.BoolValue(v.IsReadOnly),
 			IsSensitive:    types.BoolValue(v.IsSensitive),
 			ConfigSynonyms: ConfigSynonymsToSlice(v.ConfigSynonyms),
-			Documentation:  types.StringValue(v.Documentation),
+			Documentation:  types.StringValue(*v.Documentation),
 		})
 	}
-	return output
+	return output, nil
 }
 
 // ConfigSynonymsToSlice converts a slice of dataplanev1alpha1.Topic_Configuration_ConfigSynonym to a slice of models.TopicConfigSynonym
-func ConfigSynonymsToSlice(synonyms []*dataplanev1alpha1.Topic_Configuration_ConfigSynonym) []*models.TopicConfigSynonym {
+func ConfigSynonymsToSlice(synonyms []*dataplanev1alpha1.ConfigSynonym) []*models.TopicConfigSynonym {
 	output := make([]*models.TopicConfigSynonym, len(synonyms))
 	for _, v := range synonyms {
 		output = append(output, &models.TopicConfigSynonym{
 			Name:   types.StringValue(v.Name),
-			Value:  types.StringValue(v.Value),
+			Value:  types.StringValue(*v.Value),
 			Source: types.StringValue(TopicConfigurationSourceToString(v.Source)),
 		})
 	}
@@ -523,51 +527,23 @@ func ConfigSynonymsToSlice(synonyms []*dataplanev1alpha1.Topic_Configuration_Con
 }
 
 // SliceToTopicConfiguration converts a slice of models.TopicConfiguration to a slice of dataplanev1alpha1.Topic_Configuration
-func SliceToTopicConfiguration(cfg []*models.TopicConfiguration) ([]*dataplanev1alpha1.Topic_Configuration, error) {
-	output := make([]*dataplanev1alpha1.Topic_Configuration, len(cfg))
+func SliceToTopicConfiguration(cfg []*models.TopicConfiguration) ([]*dataplanev1alpha1.CreateTopicRequest_Topic_Config, error) {
+	output := make([]*dataplanev1alpha1.CreateTopicRequest_Topic_Config, len(cfg))
 	for _, v := range cfg {
-		src, err := StringToTopicConfigurationSource(v.Source.ValueString())
-		if err != nil {
-			return nil, err
-		}
-		syn, err := SliceToConfigSynonyms(v.ConfigSynonyms)
-		if err != nil {
-			return nil, err
-		}
-		output = append(output, &dataplanev1alpha1.Topic_Configuration{
-			Name:           v.Name.ValueString(),
-			Type:           v.Type.ValueString(),
-			Value:          v.Value.ValueString(),
-			Source:         src,
-			IsReadOnly:     v.IsReadOnly.ValueBool(),
-			IsSensitive:    v.IsSensitive.ValueBool(),
-			ConfigSynonyms: syn,
+		value := v.Value.ValueString()
+		output = append(output, &dataplanev1alpha1.CreateTopicRequest_Topic_Config{
+			Name:  v.Name.ValueString(),
+			Value: &value,
 		})
 	}
 	return output, nil
 }
 
-// SliceToConfigSynonyms converts a slice of models.TopicConfigSynonym to a slice of dataplanev1alpha1.Topic_Configuration_ConfigSynonym
-func SliceToConfigSynonyms(synonyms []*models.TopicConfigSynonym) ([]*dataplanev1alpha1.Topic_Configuration_ConfigSynonym, error) {
-	output := make([]*dataplanev1alpha1.Topic_Configuration_ConfigSynonym, len(synonyms))
-	for _, v := range synonyms {
-		src, err := StringToTopicConfigurationSource(v.Source.ValueString())
-		if err != nil {
-			return nil, err
-		}
-		output = append(output, &dataplanev1alpha1.Topic_Configuration_ConfigSynonym{
-			Name:   v.Name.ValueString(),
-			Value:  v.Value.ValueString(),
-			Source: src,
-		})
-	}
-	return output, nil
-}
-
-// NumberToInt32 converts a types.Number to an int32
-func NumberToInt32(n types.Number) int32 {
+// NumberToInt32 converts a types.Number to an *int32
+func NumberToInt32(n types.Number) *int32 {
 	i, _ := n.ValueBigFloat().Int64()
-	return int32(i)
+	i32 := int32(i)
+	return &i32
 }
 
 // Int32ToNumber converts an int32 to a types.Number
@@ -575,48 +551,34 @@ func Int32ToNumber(i int32) types.Number {
 	return types.NumberValue(big.NewFloat(float64(i)))
 }
 
-// StringToTopicConfigurationSource converts a string to a dataplanev1alpha1.Topic_Configuration_Source
-func StringToTopicConfigurationSource(s string) (dataplanev1alpha1.Topic_Configuration_Source, error) {
-	switch strings.ToUpper(s) {
-	case "SOURCE_UNSPECIFIED":
-		return dataplanev1alpha1.Topic_Configuration_SOURCE_UNSPECIFIED, nil
-	case "DYNAMIC_TOPIC_CONFIG":
-		return dataplanev1alpha1.Topic_Configuration_SOURCE_DYNAMIC_TOPIC_CONFIG, nil
-	case "DYNAMIC_BROKER_CONFIG":
-		return dataplanev1alpha1.Topic_Configuration_SOURCE_DYNAMIC_BROKER_CONFIG, nil
-	case "DYNAMIC_DEFAULT_BROKER_CONFIG":
-		return dataplanev1alpha1.Topic_Configuration_SOURCE_DYNAMIC_DEFAULT_BROKER_CONFIG, nil
-	case "STATIC_BROKER_CONFIG":
-		return dataplanev1alpha1.Topic_Configuration_SOURCE_STATIC_BROKER_CONFIG, nil
-	case "DEFAULT_CONFIG":
-		return dataplanev1alpha1.Topic_Configuration_SOURCE_DEFAULT_CONFIG, nil
-	case "DYNAMIC_BROKER_LOGGER_CONFIG":
-		return dataplanev1alpha1.Topic_Configuration_SOURCE_DYNAMIC_BROKER_LOGGER_CONFIG, nil
-	default:
-		return -1, fmt.Errorf("unknown Topic_Configuration_Source: %s", s)
-	}
-}
-
 // TopicConfigurationSourceToString converts a dataplanev1alpha1.Topic_Configuration_Source to a string
-func TopicConfigurationSourceToString(e dataplanev1alpha1.Topic_Configuration_Source) string {
+func TopicConfigurationSourceToString(e dataplanev1alpha1.ConfigSource) string {
 	switch e {
-	case dataplanev1alpha1.Topic_Configuration_SOURCE_UNSPECIFIED:
+	case dataplanev1alpha1.ConfigSource_CONFIG_SOURCE_UNSPECIFIED:
 		return "SOURCE_UNSPECIFIED"
-	case dataplanev1alpha1.Topic_Configuration_SOURCE_DYNAMIC_TOPIC_CONFIG:
+	case dataplanev1alpha1.ConfigSource_CONFIG_SOURCE_DYNAMIC_TOPIC_CONFIG:
 		return "DYNAMIC_TOPIC_CONFIG"
-	case dataplanev1alpha1.Topic_Configuration_SOURCE_DYNAMIC_BROKER_CONFIG:
+	case dataplanev1alpha1.ConfigSource_CONFIG_SOURCE_DYNAMIC_BROKER_CONFIG:
 		return "DYNAMIC_BROKER_CONFIG"
-	case dataplanev1alpha1.Topic_Configuration_SOURCE_DYNAMIC_DEFAULT_BROKER_CONFIG:
+	case dataplanev1alpha1.ConfigSource_CONFIG_SOURCE_DYNAMIC_DEFAULT_BROKER_CONFIG:
 		return "DYNAMIC_DEFAULT_BROKER_CONFIG"
-	case dataplanev1alpha1.Topic_Configuration_SOURCE_STATIC_BROKER_CONFIG:
+	case dataplanev1alpha1.ConfigSource_CONFIG_SOURCE_STATIC_BROKER_CONFIG:
 		return "STATIC_BROKER_CONFIG"
-	case dataplanev1alpha1.Topic_Configuration_SOURCE_DEFAULT_CONFIG:
+	case dataplanev1alpha1.ConfigSource_CONFIG_SOURCE_DEFAULT_CONFIG:
 		return "DEFAULT_CONFIG"
-	case dataplanev1alpha1.Topic_Configuration_SOURCE_DYNAMIC_BROKER_LOGGER_CONFIG:
+	case dataplanev1alpha1.ConfigSource_CONFIG_SOURCE_DYNAMIC_BROKER_LOGGER_CONFIG:
 		return "DYNAMIC_BROKER_LOGGER_CONFIG"
 	default:
 		return "UNKNOWN"
 	}
+}
+
+func TopicConfigurationTypeToString(t dataplanev1alpha1.ConfigType) (string, error) {
+	v, ok := dataplanev1alpha1.ConfigType_name[int32(t)]
+	if !ok {
+		return "", fmt.Errorf("unknown configuration type: %v", t)
+	}
+	return v, nil
 }
 
 // FindTopicByName searches for a topic by name using the provided client.
