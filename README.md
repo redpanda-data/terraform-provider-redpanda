@@ -1,45 +1,70 @@
-### Developer Tips
+# Redpanda Terraform Provider
 
-#### Getting Acceptance Tests to Run
+The Redpanda terraform provider is a [Terraform](https://www.terraform.io/) plugin that allows you to create 
+and manage resources on [Redpanda Cloud.](https://redpanda.com/redpanda-cloud)
 
-If you aren't able to get the acceptance tests to run you need to set TF_ACC=true in your environment. This is a
-requirement of the framework.
+## Getting started
 
-Odds are you'll only read this after you've figured it out but hey, maybe I'll save someone somewhere a google.
-
-#### NullPointerException in new Unit Tests
-
-If you are getting a NPE in an otherwise correct test for a resource/data object odds are you've forgotten to set the
-schema somewhere in the request or response.
-
-```go
-resp := &resource.CreateResponse{}
+To add the Redpanda provider:
+```terraform
+terraform {
+  required_providers {
+    redpanda = {
+      source = "redpanda-data/redpanda"
+    }
+  }
+}
 ```
+### Authentication
 
-needs to be
+Client credentials for authentication can be provided as:
 
-```go
-resp := &resource.CreateResponse{
-Schema: ThingSchema(),
+**Static credentials:**
+```terraform
+provider "redpanda" {
+    client_id = "<CLIENT_ID>"
+    client_secret = "<CLIENT_SECRET>"
 }
 ```
 
-### Running Linters and Formatter
+or
 
-#### Prerequisites
-- [golangci-lint](https://github.com/golangci/golangci-lint)
-- [gofumpt](https://github.com/mvdan/gofumpt)
-
-#### Run the commands
-
-**Linter:**
+**Environment variables:**
 ```
-$ golangci-lint run --config .golangci.yml 
+REDPANDA_CLIENT_ID=<CLIENT_ID>
+REDPANDA_CLIENT_SECRET=<CLIENT_SECRET>
 ```
 
-**Formatter:**
-```
-$ gofumpt -w ./
+## Developing the provider
 
-# -w writes the result to source file.
+### Requirements
+- [Go](https://go.dev/) 
+- [Terraform](https://www.terraform.io/)
+
+### Building the provider
+
+After building the provider (`go build`), you may override the plugin with your
+locally built provider.
+
+Follow [Terraform documentation](https://developer.hashicorp.com/terraform/cli/config/config-file#development-overrides-for-provider-developers)
+on dev overrides for provider developers.
+### Running Acceptance Test
+
+The following environment variables are required to run the acceptance tests:
+
+```yaml
+# For acceptance test
+TF_ACC=true
+
+# For long-running cluster tests
+RUN_CLUSTER_TESTS=true
+
+# For datasource tests, against existing cluster
+TEST_AGAINST_EXISTING_CLUSTER=true
+CLUSTER_ID=<CLUSTER_ID>
 ```
+
+## Support
+To raise issues, questions, or interact with the community:
+- [Github Issues ](https://github.com/redpanda-data/terraform-provider-redpanda/issues)
+- [Slack](https://redpanda.com/slack) 

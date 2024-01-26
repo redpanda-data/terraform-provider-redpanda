@@ -64,9 +64,9 @@ type Redpanda struct {
 
 const (
 	// ClientIDEnv is the client_id used to authenticate to Redpanda cloud.
-	ClientIDEnv = "CLIENT_ID"
+	ClientIDEnv = "REDPANDA_CLIENT_ID"
 	// ClientSecretEnv is the client_secret used to authenticate to Redpanda cloud.
-	ClientSecretEnv = "CLIENT_SECRET"
+	ClientSecretEnv = "REDPANDA_CLIENT_SECRET"
 )
 
 // New spawns a basic provider struct, no client. Configure must be called for a
