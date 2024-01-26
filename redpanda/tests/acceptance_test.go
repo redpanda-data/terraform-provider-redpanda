@@ -1,13 +1,10 @@
 package tests
 
 import (
-	"bytes"
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"maps"
-	"math/big"
 	"os"
 	"strings"
 	"testing"
@@ -25,19 +22,21 @@ const (
 	dedicatedNamespaceFile     = "../../examples/namespace/main.tf"
 	dedicatedNetworkFile       = "../../examples/network/main.tf"
 	dedicatedUserACLsTopicFile = "../../examples/user-acl-topic/main.tf"
-
+	dataSourcesTest            = "../../examples/datasource/main.tf"
 	// These are the resource names as named in the TF files.
 	namespaceResourceName = "redpanda_namespace.test"
 	networkResourceName   = "redpanda_network.test"
 	clusterResourceName   = "redpanda_cluster.test"
 	userResourceName      = "redpanda_user.test"
+	aclResourceName       = "redpanda_acl.test"
 )
 
 var (
-	runClusterTests = os.Getenv("RUN_CLUSTER_TESTS")
-	accNamePrepend  = "tfrp-acc-"
-	clientID        = os.Getenv(redpanda.ClientIDEnv)
-	clientSecret    = os.Getenv(redpanda.ClientSecretEnv)
+	runClusterTests            = os.Getenv("RUN_CLUSTER_TESTS")
+	accNamePrepend             = "tfrp-acc-"
+	clientID                   = os.Getenv(redpanda.ClientIDEnv)
+	clientSecret               = os.Getenv(redpanda.ClientSecretEnv)
+	testAgainstExistingCluster = os.Getenv("TEST_AGAINST_EXISTING_CLUSTER")
 )
 
 func TestAccResourcesNamespace(t *testing.T) {
@@ -502,18 +501,63 @@ func TestAccResourcesUserACLsTopic(t *testing.T) {
 	})
 }
 
-// generateRandomName generates a random name with a given prefix. The name will
-// have the form of '<prefix>-<random>' where random is any 4 alphanumeric
-// characters.
-func generateRandomName(prefix string) string {
-	baseChars := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-	randomLength := 4 // Should be good, this is 62^4 = 14M combinations.
-
-	var randStr bytes.Buffer
-	for i := 0; i < randomLength; i++ {
-		r, _ := rand.Int(rand.Reader, big.NewInt(int64(len(baseChars))))
-		randStr.WriteByte(baseChars[r.Int64()])
+func TestAccResourcesWithDataSources(t *testing.T) {
+	if !strings.Contains(testAgainstExistingCluster, "true") {
+		t.Skip("skipping cluster user-acl-topic tests")
 	}
+	ctx := context.Background()
+	name := generateRandomName(accNamePrepend + "test-with-data-sources")
+	origTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
+	origTestCaseVars["cluster_id"] = config.StringVariable(os.Getenv("CLUSTER_ID"))
+	origTestCaseVars["user_name"] = config.StringVariable(name)
 
-	return fmt.Sprintf("%v-%v", prefix, randStr.String())
+	c, err := newClients(ctx, clientID, clientSecret, "ign")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				ConfigFile:               config.StaticFile(dataSourcesTest),
+				ConfigVariables:          origTestCaseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(userResourceName, "name", name),
+				),
+			},
+			{
+				ConfigFile:               config.StaticFile(dataSourcesTest),
+				ConfigVariables:          origTestCaseVars,
+				Destroy:                  true,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+		},
+	},
+	)
+
+	resource.AddTestSweepers(generateRandomName("namespaceSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepNamespace{
+			NamespaceName: name,
+			Client:        c.NsClient,
+		}.SweepNamespaces,
+	})
+	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepNetwork{
+			NetworkName: name,
+			NetClient:   c.NetClient,
+			OpsClient:   c.OpsClient,
+		}.SweepNetworks,
+	})
+	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepCluster{
+			ClusterName: name,
+			CluClient:   c.ClusterClient,
+			OpsClient:   c.OpsClient,
+		}.SweepCluster,
+	})
 }
