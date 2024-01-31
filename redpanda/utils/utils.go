@@ -44,19 +44,16 @@ func IsNotFound(err error) bool {
 	return false
 }
 
-// TODO check more to see if the client handles this
-
 // StringToCloudProvider returns the cloudv1beta1's CloudProvider code based on
 // the input string.
-func StringToCloudProvider(p string) cloudv1beta1.CloudProvider {
+func StringToCloudProvider(p string) (cloudv1beta1.CloudProvider, error) {
 	switch strings.ToLower(p) {
 	case "aws":
-		return cloudv1beta1.CloudProvider_CLOUD_PROVIDER_AWS
+		return cloudv1beta1.CloudProvider_CLOUD_PROVIDER_AWS, nil
 	case "gcp":
-		return cloudv1beta1.CloudProvider_CLOUD_PROVIDER_GCP
+		return cloudv1beta1.CloudProvider_CLOUD_PROVIDER_GCP, nil
 	default:
-		return cloudv1beta1.CloudProvider_CLOUD_PROVIDER_UNSPECIFIED
-		// TODO should we error here?
+		return cloudv1beta1.CloudProvider_CLOUD_PROVIDER_UNSPECIFIED, fmt.Errorf("provider %q not supported", p)
 	}
 }
 
@@ -70,21 +67,19 @@ func CloudProviderToString(provider cloudv1beta1.CloudProvider) string {
 		return "gcp"
 	default:
 		return providerUnspecified
-		// TODO should we error here?
 	}
 }
 
 // StringToClusterType returns the cloudv1beta1's Cluster_Type code based on
 // the input string.
-func StringToClusterType(p string) cloudv1beta1.Cluster_Type {
+func StringToClusterType(p string) (cloudv1beta1.Cluster_Type, error) {
 	switch strings.ToLower(p) {
 	case "dedicated":
-		return cloudv1beta1.Cluster_TYPE_DEDICATED
+		return cloudv1beta1.Cluster_TYPE_DEDICATED, nil
 	case "cloud":
-		return cloudv1beta1.Cluster_TYPE_BYOC
+		return cloudv1beta1.Cluster_TYPE_BYOC, nil
 	default:
-		return cloudv1beta1.Cluster_TYPE_UNSPECIFIED
-		// TODO should we error here?
+		return cloudv1beta1.Cluster_TYPE_UNSPECIFIED, fmt.Errorf("cluster type %q not supported", p)
 	}
 }
 
@@ -98,7 +93,6 @@ func ClusterTypeToString(provider cloudv1beta1.Cluster_Type) string {
 		return "cloud"
 	default:
 		return providerUnspecified
-		// TODO should we error here?
 	}
 }
 

@@ -161,7 +161,16 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 	var model models.Network
 	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
 
-	cloudProvider := utils.StringToCloudProvider(model.CloudProvider.ValueString())
+	cloudProvider, err := utils.StringToCloudProvider(model.CloudProvider.ValueString())
+	if err != nil {
+		response.Diagnostics.AddError("unsupported cloud provider", err.Error())
+		return
+	}
+	clusterType, err := utils.StringToClusterType(model.ClusterType.ValueString())
+	if err != nil {
+		response.Diagnostics.AddError("unsupported cluster type", err.Error())
+		return
+	}
 	// TODO add a check to the provider data here to see if region and cloud provider are set
 	// prefer the local value, but accept the provider value if local is
 	// unavailable if neither are set, fail
@@ -173,7 +182,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 			Region:        model.Region.ValueString(),
 			CloudProvider: cloudProvider,
 			NamespaceId:   model.NamespaceID.ValueString(),
-			ClusterType:   utils.StringToClusterType(model.ClusterType.ValueString()),
+			ClusterType:   clusterType,
 		},
 	})
 	if err != nil {
@@ -186,7 +195,6 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		return
 	}
 
-	// TODO: accept user configuration for timeout
 	if err := utils.AreWeDoneYet(ctx, op, 15*time.Minute, n.OpsClient); err != nil {
 		response.Diagnostics.AddError("failed waiting for network creation", err.Error())
 		return
@@ -245,7 +253,6 @@ func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, re
 		response.Diagnostics.AddError("failed to delete network", err.Error())
 		return
 	}
-	// TODO allow configurable timeout
 	if err := utils.AreWeDoneYet(ctx, op, 15*time.Minute, n.OpsClient); err != nil {
 		response.Diagnostics.AddError("failed waiting for network deletion", err.Error())
 	}

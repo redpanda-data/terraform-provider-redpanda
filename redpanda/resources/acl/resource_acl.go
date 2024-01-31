@@ -76,7 +76,6 @@ func (*ACL) Schema(_ context.Context, _ resource.SchemaRequest, response *resour
 func resourceACLSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			// TODO: needs String validators.
 			"resource_type": schema.StringAttribute{
 				Required:      true,
 				Description:   "The type of the resource (Topic, Group, etc...) this ACL shall target",

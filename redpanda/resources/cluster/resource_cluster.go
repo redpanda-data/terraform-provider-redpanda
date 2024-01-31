@@ -176,8 +176,13 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	var model models.Cluster
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 
+	clusterReq, err := GenerateClusterRequest(model)
+	if err != nil {
+		resp.Diagnostics.AddError("unable to parse CreateCluster request", err.Error())
+		return
+	}
 	op, err := c.CluClient.CreateCluster(ctx, &cloudv1beta1.CreateClusterRequest{
-		Cluster: GenerateClusterRequest(model),
+		Cluster: clusterReq,
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create cluster", err.Error())
@@ -310,17 +315,25 @@ func (*Cluster) ImportState(ctx context.Context, req resource.ImportStateRequest
 }
 
 // GenerateClusterRequest was pulled out to enable unit testing
-func GenerateClusterRequest(model models.Cluster) *cloudv1beta1.Cluster {
+func GenerateClusterRequest(model models.Cluster) (*cloudv1beta1.Cluster, error) {
+	provider, err := utils.StringToCloudProvider(model.CloudProvider.ValueString())
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse cloud provider: %v", err)
+	}
+	clusterType, err := utils.StringToClusterType(model.ClusterType.ValueString())
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse cluster type: %v", err)
+	}
 	return &cloudv1beta1.Cluster{
 		Name:            model.Name.ValueString(),
 		ConnectionType:  utils.StringToConnectionType(model.ConnectionType.ValueString()),
-		CloudProvider:   utils.StringToCloudProvider(model.CloudProvider.ValueString()),
+		CloudProvider:   provider,
 		RedpandaVersion: model.RedpandaVersion.ValueString(),
 		ThroughputTier:  model.ThroughputTier.ValueString(),
 		Region:          model.Region.ValueString(),
 		Zones:           utils.TypeListToStringSlice(model.Zones),
 		NamespaceId:     model.NamespaceID.ValueString(),
 		NetworkId:       model.NetworkID.ValueString(),
-		Type:            utils.StringToClusterType(model.ClusterType.ValueString()),
-	}
+		Type:            clusterType,
+	}, nil
 }
