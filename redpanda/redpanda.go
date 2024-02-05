@@ -60,6 +60,8 @@ type Redpanda struct {
 	// cloudEnv is the cloud environment which the Terraform provider points to;
 	// one of 'ign' or 'dev'.
 	cloudEnv string
+	// version is the Redpanda terraform provider.
+	version string
 }
 
 const (
@@ -67,14 +69,17 @@ const (
 	ClientIDEnv = "REDPANDA_CLIENT_ID"
 	// ClientSecretEnv is the client_secret used to authenticate to Redpanda cloud.
 	ClientSecretEnv = "REDPANDA_CLIENT_SECRET"
+	// CloudEnvironmentEnv is the Redpanda cloud environment.
+	CloudEnvironmentEnv = "REDPANDA_CLOUD_ENVIRONMENT"
 )
 
 // New spawns a basic provider struct, no client. Configure must be called for a
 // working client.
-func New(_ context.Context, cloudEnv string) func() provider.Provider {
+func New(_ context.Context, cloudEnv, version string) func() provider.Provider {
 	return func() provider.Provider {
 		return &Redpanda{
 			cloudEnv: cloudEnv,
+			version:  version,
 		}
 	}
 }
@@ -118,7 +123,7 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	if response.Diagnostics.HasError() {
 		return
 	}
-	// Override client credentials with environment variables.
+	// Environment variables overrides.
 	id, sec := conf.ClientID.ValueString(), conf.ClientSecret.ValueString()
 	for _, override := range []struct {
 		name string
@@ -127,6 +132,7 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	}{
 		{"Client ID", os.Getenv(ClientIDEnv), &id},
 		{"Client Secret", os.Getenv(ClientSecretEnv), &sec},
+		{"Cloud Environment", os.Getenv(CloudEnvironmentEnv), &r.cloudEnv},
 	} {
 		if override.src != "" {
 			*override.dst = override.src
@@ -153,9 +159,9 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 }
 
 // Metadata returns the provider metadata.
-func (*Redpanda) Metadata(_ context.Context, _ provider.MetadataRequest, response *provider.MetadataResponse) {
+func (r *Redpanda) Metadata(_ context.Context, _ provider.MetadataRequest, response *provider.MetadataResponse) {
 	response.TypeName = "redpanda"
-	// TODO, add response.Version, which should be the provider version.
+	response.Version = r.version
 }
 
 // Schema returns the Redpanda provider schema.

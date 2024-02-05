@@ -49,6 +49,11 @@ var cloudAuthEnvironments = map[string]cloudEndpoint{
 		"https://integration-cloudv2.us.auth0.com/oauth/token",
 		"cloudv2-ign.redpanda.cloud",
 	},
+	"prod": {
+		"api.redpanda.com:443",
+		"https://auth.prd.cloud.redpanda.com/oauth/token",
+		"cloudv2-production.redpanda.cloud",
+	},
 }
 
 // ClientRequest are the client request credentials used to create a connection.
