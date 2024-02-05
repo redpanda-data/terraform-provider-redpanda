@@ -238,7 +238,12 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 		response.Diagnostics.AddError(fmt.Sprintf("failed receive response from topic api for topic %s", model.Name), err.Error())
 		return
 	}
-	topicCfg, err := utils.TopicConfigurationToSlice(tp.Configuration)
+	tpCfg, err := t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1alpha1.GetTopicConfigurationsRequest{TopicName: tp.Name})
+	if err != nil {
+		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration", tp.Name), err.Error())
+		return
+	}
+	topicCfg, err := utils.TopicConfigurationToSlice(tpCfg.Configurations)
 	if err != nil {
 		response.Diagnostics.AddError("unable to parse the topic configuration", err.Error())
 		return

@@ -247,7 +247,9 @@ func FindClusterByName(ctx context.Context, n string, client cloudv1beta1.Cluste
 // FindUserByName searches for a user by name using the provided client
 func FindUserByName(ctx context.Context, name string, client dataplanev1alpha1.UserServiceClient) (*dataplanev1alpha1.ListUsersResponse_User, error) {
 	usrs, err := client.ListUsers(ctx, &dataplanev1alpha1.ListUsersRequest{
-		Name: StringToStringPointer(name),
+		Filter: &dataplanev1alpha1.ListUsersRequest_Filter{
+			Name: name,
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -577,10 +579,10 @@ func TopicConfigurationTypeToString(t dataplanev1alpha1.ConfigType) (string, err
 }
 
 // FindTopicByName searches for a topic by name using the provided client.
-func FindTopicByName(ctx context.Context, topicName string, client dataplanev1alpha1.TopicServiceClient) (*dataplanev1alpha1.Topic, error) {
+func FindTopicByName(ctx context.Context, topicName string, client dataplanev1alpha1.TopicServiceClient) (*dataplanev1alpha1.ListTopicsResponse_Topic, error) {
 	topics, err := client.ListTopics(ctx, &dataplanev1alpha1.ListTopicsRequest{
 		Filter: &dataplanev1alpha1.ListTopicsRequest_Filter{
-			Name: topicName,
+			NameContains: topicName,
 		},
 	})
 	if err != nil {
