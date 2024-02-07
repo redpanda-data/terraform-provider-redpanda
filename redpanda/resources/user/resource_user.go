@@ -216,7 +216,7 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 		ClientSecret: u.resData.ClientSecret,
 	})
 	if err != nil {
-		resp.Diagnostics.AddError("unable to start a cluster client", "unable to start a cluster client; make sure ADDR ID format is <user_name>:<cluster_id>")
+		resp.Diagnostics.AddError("unable to start a cluster client", "unable to start a cluster client; make sure ADDR ID format is <user_name>,<cluster_id>")
 		return
 	}
 	cluster, err := client.GetCluster(ctx, &cloudv1beta1.GetClusterRequest{
