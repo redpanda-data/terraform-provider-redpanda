@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -91,6 +92,13 @@ func requestTokenAndEnv(ctx context.Context, cloudEnv string, cr ClientRequest) 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", nil, fmt.Errorf("request to %v failed: %v", endpoint.authURL, err)
+	}
+	if resp.StatusCode/100 != 2 {
+		resBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return "", nil, fmt.Errorf("request to %v failed: unable to read body", endpoint.authURL)
+		}
+		return "", nil, fmt.Errorf("request to %v failed: %v %v: %s", endpoint.authURL, resp.StatusCode, http.StatusText(resp.StatusCode), resBody)
 	}
 
 	defer resp.Body.Close()
