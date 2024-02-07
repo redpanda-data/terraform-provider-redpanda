@@ -53,7 +53,6 @@ func (*ACL) Metadata(_ context.Context, _ resource.MetadataRequest, response *re
 // Configure configures the ACL resource clients
 func (a *ACL) Configure(_ context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
 	if request.ProviderData == nil {
-		response.Diagnostics.AddWarning("provider data not set", "provider data not set at acl.Configure")
 		return
 	}
 

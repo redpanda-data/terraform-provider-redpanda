@@ -61,7 +61,6 @@ var sourceValidator = stringvalidator.OneOf(
 // Configure configures the Topic resource.
 func (t *Topic) Configure(_ context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
 	if request.ProviderData == nil {
-		response.Diagnostics.AddWarning("provider data not set", "provider data not set at topic.Configure")
 		return
 	}
 	p, ok := request.ProviderData.(utils.ResourceData)

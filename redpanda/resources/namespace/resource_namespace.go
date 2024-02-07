@@ -57,7 +57,6 @@ func (n *Namespace) Configure(ctx context.Context, request resource.ConfigureReq
 		// during the early part of the terraform lifecycle, the provider data
 		// is not set and this is valid, but we also can't do anything until it
 		// is set.
-		response.Diagnostics.AddWarning("provider data not set", "provider data not set at namespace.Configure")
 		return
 	}
 
