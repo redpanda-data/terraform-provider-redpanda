@@ -25,12 +25,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	rpknet "github.com/redpanda-data/redpanda/src/go/rpk/pkg/net"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	dataplanev1alpha1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/dataplane/v1alpha1"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 )
 
 const providerUnspecified = "unspecified"
@@ -487,49 +487,49 @@ func ACLPermissionTypeToString(e dataplanev1alpha1.ACL_PermissionType) string {
 	}
 }
 
-// TopicConfigurationToSlice converts a slice of dataplanev1alpha1.Topic_Configuration to a slice of models.TopicConfiguration
-func TopicConfigurationToSlice(cfg []*dataplanev1alpha1.Topic_Configuration) ([]*models.TopicConfiguration, error) {
-	output := make([]*models.TopicConfiguration, len(cfg))
+// TopicConfigurationToMap converts a slice of dataplanev1alpha1.Topic_Configuration to a slice of models.TopicConfiguration
+func TopicConfigurationToMap(cfg []*dataplanev1alpha1.Topic_Configuration) (types.Map, error) {
+	configs := make(map[string]attr.Value, len(cfg))
 	for _, v := range cfg {
-		cfgType, err := TopicConfigurationTypeToString(v.Type)
-		if err != nil {
-			return nil, err
+		configs[v.Name] = types.StringValue(*v.Value)
+	}
+	cfgMap, diag := types.MapValue(types.StringType, configs)
+	if diag.HasError() {
+		return types.Map{}, errors.New("unable to parse the configuration map")
+	}
+	return cfgMap, nil
+}
+
+// MapToCreateTopicConfiguration converts a cfg map to a slice of dataplanev1alpha1.CreateTopicRequest_Topic_Config
+func MapToCreateTopicConfiguration(cfg types.Map) ([]*dataplanev1alpha1.CreateTopicRequest_Topic_Config, error) {
+	var output []*dataplanev1alpha1.CreateTopicRequest_Topic_Config
+
+	for k, v := range cfg.Elements() {
+		if v.IsNull() || v.IsUnknown() {
+			return nil, fmt.Errorf("topic configuration %q must have a value", k)
 		}
-		output = append(output, &models.TopicConfiguration{
-			Name:           types.StringValue(v.Name),
-			Type:           types.StringValue(cfgType),
-			Value:          types.StringValue(*v.Value),
-			Source:         types.StringValue(TopicConfigurationSourceToString(v.Source)),
-			IsReadOnly:     types.BoolValue(v.IsReadOnly),
-			IsSensitive:    types.BoolValue(v.IsSensitive),
-			ConfigSynonyms: ConfigSynonymsToSlice(v.ConfigSynonyms),
-			Documentation:  types.StringValue(*v.Documentation),
+		value := strings.Trim(v.String(), `"`)
+		output = append(output, &dataplanev1alpha1.CreateTopicRequest_Topic_Config{
+			Name:  k,
+			Value: &value,
 		})
 	}
 	return output, nil
 }
 
-// ConfigSynonymsToSlice converts a slice of dataplanev1alpha1.Topic_Configuration_ConfigSynonym to a slice of models.TopicConfigSynonym
-func ConfigSynonymsToSlice(synonyms []*dataplanev1alpha1.ConfigSynonym) []*models.TopicConfigSynonym {
-	output := make([]*models.TopicConfigSynonym, len(synonyms))
-	for _, v := range synonyms {
-		output = append(output, &models.TopicConfigSynonym{
-			Name:   types.StringValue(v.Name),
-			Value:  types.StringValue(*v.Value),
-			Source: types.StringValue(TopicConfigurationSourceToString(v.Source)),
-		})
-	}
-	return output
-}
+// MapToUpdateTopicConfiguration converts a cfg map to a slice of dataplanev1alpha1.UpdateTopicConfigurationsRequest_UpdateConfiguration
+func MapToUpdateTopicConfiguration(cfg types.Map) ([]*dataplanev1alpha1.UpdateTopicConfigurationsRequest_UpdateConfiguration, error) {
+	var output []*dataplanev1alpha1.UpdateTopicConfigurationsRequest_UpdateConfiguration
 
-// SliceToTopicConfiguration converts a slice of models.TopicConfiguration to a slice of dataplanev1alpha1.Topic_Configuration
-func SliceToTopicConfiguration(cfg []*models.TopicConfiguration) ([]*dataplanev1alpha1.CreateTopicRequest_Topic_Config, error) {
-	output := make([]*dataplanev1alpha1.CreateTopicRequest_Topic_Config, len(cfg))
-	for _, v := range cfg {
-		value := v.Value.ValueString()
-		output = append(output, &dataplanev1alpha1.CreateTopicRequest_Topic_Config{
-			Name:  v.Name.ValueString(),
-			Value: &value,
+	for k, v := range cfg.Elements() {
+		if v.IsNull() || v.IsUnknown() {
+			return nil, fmt.Errorf("topic configuration %q must have a value", k)
+		}
+		value := strings.Trim(v.String(), `"`)
+		output = append(output, &dataplanev1alpha1.UpdateTopicConfigurationsRequest_UpdateConfiguration{
+			Key:       k,
+			Value:     &value,
+			Operation: dataplanev1alpha1.ConfigAlterOperation_CONFIG_ALTER_OPERATION_SET,
 		})
 	}
 	return output, nil
@@ -567,15 +567,6 @@ func TopicConfigurationSourceToString(e dataplanev1alpha1.ConfigSource) string {
 	default:
 		return "UNKNOWN"
 	}
-}
-
-// TopicConfigurationTypeToString converts a dataplanev1alpha1.ConfigType to a string
-func TopicConfigurationTypeToString(t dataplanev1alpha1.ConfigType) (string, error) {
-	v, ok := dataplanev1alpha1.ConfigType_name[int32(t)]
-	if !ok {
-		return "", fmt.Errorf("unknown configuration type: %v", t)
-	}
-	return v, nil
 }
 
 // FindTopicByName searches for a topic by name using the provided client.
