@@ -1,6 +1,6 @@
 name: Lint golang
 
-on: [push, pull_request]
+on: [ push, pull_request ]
 
 jobs:
   go:
@@ -18,7 +18,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
-          version: latest
+          version: v1.55.2
           args: --timeout 5m
 
       - name: Install gofumpt
