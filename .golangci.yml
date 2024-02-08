@@ -8,6 +8,19 @@ run:
 # those tools ever.
 issues:
   exclude-use-default: false
+  exclude-rules:
+    - linters:
+        - goconst
+      text: "string `UNSPECIFIED` has"
+      path: redpanda/utils/utils.go
+    - linters:
+        - goconst
+      text: "string `ANY` has"
+      path: redpanda/utils/utils.go
+    - linters:
+        - goconst
+      text: "string `UNKNOWN` has"
+      path: redpanda/utils/utils.go
 
 # We opt out of all suggested linters and manually pick what we want.
 # Please do not use enable-all.
