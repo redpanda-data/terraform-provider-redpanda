@@ -26,6 +26,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -143,9 +144,10 @@ func resourceClusterSchema() schema.Schema {
 				Description: "allows deletion of the cluster. defaults to true. should probably be set to false for production use",
 			},
 			"tags": schema.MapAttribute{
-				Optional:    true,
-				Description: "Tags to apply to the cluster",
-				ElementType: types.StringType,
+				Optional:      true,
+				Description:   "Tags to apply to the cluster",
+				ElementType:   types.StringType,
+				PlanModifiers: []planmodifier.Map{mapplanmodifier.RequiresReplace()},
 			},
 			"namespace_id": schema.StringAttribute{
 				Required:      true,
@@ -158,12 +160,14 @@ func resourceClusterSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "The id of the cluster",
+				Computed:      true,
+				Description:   "The id of the cluster",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"cluster_api_url": schema.StringAttribute{
-				Computed:    true,
-				Description: "The URL of the cluster API",
+				Computed:      true,
+				Description:   "The URL of the cluster API",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 		},
 	}
@@ -282,7 +286,12 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 }
 
 // Update all cluster updates are currently delete and recreate.
-func (*Cluster) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
+func (*Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan models.Cluster
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	// We pass through the plan to state. Currently, every cluster change needs
+	// a resource replacement except for allow_deletion.
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 // Delete deletes the Cluster resource.

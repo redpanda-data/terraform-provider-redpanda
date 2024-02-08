@@ -95,8 +95,9 @@ func resourceNamespaceSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "UUID of the namespace",
+				Computed:      true,
+				Description:   "UUID of the namespace",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 		},
 		Description: "A Redpanda Cloud namespace",

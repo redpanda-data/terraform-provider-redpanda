@@ -108,7 +108,8 @@ func resourceUserSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"id": schema.StringAttribute{
-				Computed: true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 		},
 	}
