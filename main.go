@@ -10,7 +10,9 @@ import (
 )
 
 // TODO: We should update this on build. Part of the release process
-var version = "ign"
+var version = "0.0.0-alpha"
+
+const defaultCloudEnv = "prod"
 
 func main() {
 	var debug bool
@@ -20,7 +22,7 @@ func main() {
 
 	err := providerserver.Serve(
 		context.Background(),
-		redpanda.New(context.Background(), version),
+		redpanda.New(context.Background(), defaultCloudEnv, version),
 		providerserver.ServeOpts{
 			Address: "registry.terraform.io/redpanda-data/redpanda",
 			Debug:   debug,
