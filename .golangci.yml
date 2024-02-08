@@ -1,5 +1,7 @@
 run:
   allow-parallel-runners: true
+  skip-dirs:
+    - proto
 
 # golangci-lint by default ignores some staticcheck and vet raised issues that
 # are actually important to catch. The following ensures that we do not ignore
@@ -28,7 +30,6 @@ linters:
     - errname
     - errorlint
     - exportloopref
-    - godot
     - gofmt
     - gofumpt
     - goimports
