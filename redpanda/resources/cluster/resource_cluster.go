@@ -56,7 +56,6 @@ func (*Cluster) Metadata(_ context.Context, _ resource.MetadataRequest, resp *re
 // Configure uses provider level data to configure Cluster's clients.
 func (c *Cluster) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
-		resp.Diagnostics.AddWarning("provider data not set", "provider data not set at cluster.Configure")
 		return
 	}
 

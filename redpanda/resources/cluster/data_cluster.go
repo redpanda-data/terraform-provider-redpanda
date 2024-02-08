@@ -82,7 +82,7 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 	})
 	if err != nil {
 		if utils.IsNotFound(err) {
-			resp.State.RemoveResource(ctx)
+			resp.Diagnostics.AddError(fmt.Sprintf("unable to find cluster %s", model.ID), err.Error())
 			return
 		}
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), err.Error())

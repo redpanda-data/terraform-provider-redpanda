@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -48,6 +49,11 @@ var cloudAuthEnvironments = map[string]cloudEndpoint{
 		"api.ign.cloud.redpanda.com:443",
 		"https://integration-cloudv2.us.auth0.com/oauth/token",
 		"cloudv2-ign.redpanda.cloud",
+	},
+	"prod": {
+		"api.redpanda.com:443",
+		"https://auth.prd.cloud.redpanda.com/oauth/token",
+		"cloudv2-production.redpanda.cloud",
 	},
 }
 
@@ -86,6 +92,13 @@ func requestTokenAndEnv(ctx context.Context, cloudEnv string, cr ClientRequest) 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", nil, fmt.Errorf("request to %v failed: %v", endpoint.authURL, err)
+	}
+	if resp.StatusCode/100 != 2 {
+		resBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return "", nil, fmt.Errorf("request to %v failed: unable to read body", endpoint.authURL)
+		}
+		return "", nil, fmt.Errorf("request to %v failed: %v %v: %s", endpoint.authURL, resp.StatusCode, http.StatusText(resp.StatusCode), resBody)
 	}
 
 	defer resp.Body.Close()

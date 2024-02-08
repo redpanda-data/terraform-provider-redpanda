@@ -58,7 +58,6 @@ func (*User) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resou
 // Configure configures the User resource.
 func (u *User) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
-		resp.Diagnostics.AddWarning("provider data not set", "provider data not set at user.Configure")
 		return
 	}
 	p, ok := req.ProviderData.(utils.ResourceData)
@@ -217,7 +216,7 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 		ClientSecret: u.resData.ClientSecret,
 	})
 	if err != nil {
-		resp.Diagnostics.AddError("unable to start a cluster client", "unable to start a cluster client; make sure ADDR ID format is <user_name>:<cluster_id>")
+		resp.Diagnostics.AddError("unable to start a cluster client", "unable to start a cluster client; make sure ADDR ID format is <user_name>,<cluster_id>")
 		return
 	}
 	cluster, err := client.GetCluster(ctx, &cloudv1beta1.GetClusterRequest{

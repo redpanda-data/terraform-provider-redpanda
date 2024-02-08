@@ -19,12 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	TopicService_CreateTopic_FullMethodName              = "/redpanda.api.dataplane.v1alpha1.TopicService/CreateTopic"
-	TopicService_ListTopics_FullMethodName               = "/redpanda.api.dataplane.v1alpha1.TopicService/ListTopics"
-	TopicService_DeleteTopic_FullMethodName              = "/redpanda.api.dataplane.v1alpha1.TopicService/DeleteTopic"
-	TopicService_GetTopicConfigurations_FullMethodName   = "/redpanda.api.dataplane.v1alpha1.TopicService/GetTopicConfigurations"
-	TopicService_UpdateTopicConfiguration_FullMethodName = "/redpanda.api.dataplane.v1alpha1.TopicService/UpdateTopicConfiguration"
-	TopicService_SetTopicConfiguration_FullMethodName    = "/redpanda.api.dataplane.v1alpha1.TopicService/SetTopicConfiguration"
+	TopicService_CreateTopic_FullMethodName               = "/redpanda.api.dataplane.v1alpha1.TopicService/CreateTopic"
+	TopicService_ListTopics_FullMethodName                = "/redpanda.api.dataplane.v1alpha1.TopicService/ListTopics"
+	TopicService_DeleteTopic_FullMethodName               = "/redpanda.api.dataplane.v1alpha1.TopicService/DeleteTopic"
+	TopicService_GetTopicConfigurations_FullMethodName    = "/redpanda.api.dataplane.v1alpha1.TopicService/GetTopicConfigurations"
+	TopicService_UpdateTopicConfigurations_FullMethodName = "/redpanda.api.dataplane.v1alpha1.TopicService/UpdateTopicConfigurations"
+	TopicService_SetTopicConfigurations_FullMethodName    = "/redpanda.api.dataplane.v1alpha1.TopicService/SetTopicConfigurations"
 )
 
 // TopicServiceClient is the client API for TopicService service.
@@ -35,8 +35,8 @@ type TopicServiceClient interface {
 	ListTopics(ctx context.Context, in *ListTopicsRequest, opts ...grpc.CallOption) (*ListTopicsResponse, error)
 	DeleteTopic(ctx context.Context, in *DeleteTopicRequest, opts ...grpc.CallOption) (*DeleteTopicResponse, error)
 	GetTopicConfigurations(ctx context.Context, in *GetTopicConfigurationsRequest, opts ...grpc.CallOption) (*GetTopicConfigurationsResponse, error)
-	UpdateTopicConfiguration(ctx context.Context, in *UpdateTopicConfigurationRequest, opts ...grpc.CallOption) (*UpdateTopicConfigurationResponse, error)
-	SetTopicConfiguration(ctx context.Context, in *SetTopicConfigurationRequest, opts ...grpc.CallOption) (*SetTopicConfigurationResponse, error)
+	UpdateTopicConfigurations(ctx context.Context, in *UpdateTopicConfigurationsRequest, opts ...grpc.CallOption) (*UpdateTopicConfigurationsResponse, error)
+	SetTopicConfigurations(ctx context.Context, in *SetTopicConfigurationsRequest, opts ...grpc.CallOption) (*SetTopicConfigurationsResponse, error)
 }
 
 type topicServiceClient struct {
@@ -83,18 +83,18 @@ func (c *topicServiceClient) GetTopicConfigurations(ctx context.Context, in *Get
 	return out, nil
 }
 
-func (c *topicServiceClient) UpdateTopicConfiguration(ctx context.Context, in *UpdateTopicConfigurationRequest, opts ...grpc.CallOption) (*UpdateTopicConfigurationResponse, error) {
-	out := new(UpdateTopicConfigurationResponse)
-	err := c.cc.Invoke(ctx, TopicService_UpdateTopicConfiguration_FullMethodName, in, out, opts...)
+func (c *topicServiceClient) UpdateTopicConfigurations(ctx context.Context, in *UpdateTopicConfigurationsRequest, opts ...grpc.CallOption) (*UpdateTopicConfigurationsResponse, error) {
+	out := new(UpdateTopicConfigurationsResponse)
+	err := c.cc.Invoke(ctx, TopicService_UpdateTopicConfigurations_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *topicServiceClient) SetTopicConfiguration(ctx context.Context, in *SetTopicConfigurationRequest, opts ...grpc.CallOption) (*SetTopicConfigurationResponse, error) {
-	out := new(SetTopicConfigurationResponse)
-	err := c.cc.Invoke(ctx, TopicService_SetTopicConfiguration_FullMethodName, in, out, opts...)
+func (c *topicServiceClient) SetTopicConfigurations(ctx context.Context, in *SetTopicConfigurationsRequest, opts ...grpc.CallOption) (*SetTopicConfigurationsResponse, error) {
+	out := new(SetTopicConfigurationsResponse)
+	err := c.cc.Invoke(ctx, TopicService_SetTopicConfigurations_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -109,8 +109,8 @@ type TopicServiceServer interface {
 	ListTopics(context.Context, *ListTopicsRequest) (*ListTopicsResponse, error)
 	DeleteTopic(context.Context, *DeleteTopicRequest) (*DeleteTopicResponse, error)
 	GetTopicConfigurations(context.Context, *GetTopicConfigurationsRequest) (*GetTopicConfigurationsResponse, error)
-	UpdateTopicConfiguration(context.Context, *UpdateTopicConfigurationRequest) (*UpdateTopicConfigurationResponse, error)
-	SetTopicConfiguration(context.Context, *SetTopicConfigurationRequest) (*SetTopicConfigurationResponse, error)
+	UpdateTopicConfigurations(context.Context, *UpdateTopicConfigurationsRequest) (*UpdateTopicConfigurationsResponse, error)
+	SetTopicConfigurations(context.Context, *SetTopicConfigurationsRequest) (*SetTopicConfigurationsResponse, error)
 }
 
 // UnimplementedTopicServiceServer should be embedded to have forward compatible implementations.
@@ -129,11 +129,11 @@ func (UnimplementedTopicServiceServer) DeleteTopic(context.Context, *DeleteTopic
 func (UnimplementedTopicServiceServer) GetTopicConfigurations(context.Context, *GetTopicConfigurationsRequest) (*GetTopicConfigurationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTopicConfigurations not implemented")
 }
-func (UnimplementedTopicServiceServer) UpdateTopicConfiguration(context.Context, *UpdateTopicConfigurationRequest) (*UpdateTopicConfigurationResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateTopicConfiguration not implemented")
+func (UnimplementedTopicServiceServer) UpdateTopicConfigurations(context.Context, *UpdateTopicConfigurationsRequest) (*UpdateTopicConfigurationsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateTopicConfigurations not implemented")
 }
-func (UnimplementedTopicServiceServer) SetTopicConfiguration(context.Context, *SetTopicConfigurationRequest) (*SetTopicConfigurationResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetTopicConfiguration not implemented")
+func (UnimplementedTopicServiceServer) SetTopicConfigurations(context.Context, *SetTopicConfigurationsRequest) (*SetTopicConfigurationsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetTopicConfigurations not implemented")
 }
 
 // UnsafeTopicServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -219,38 +219,38 @@ func _TopicService_GetTopicConfigurations_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
-func _TopicService_UpdateTopicConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateTopicConfigurationRequest)
+func _TopicService_UpdateTopicConfigurations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTopicConfigurationsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(TopicServiceServer).UpdateTopicConfiguration(ctx, in)
+		return srv.(TopicServiceServer).UpdateTopicConfigurations(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: TopicService_UpdateTopicConfiguration_FullMethodName,
+		FullMethod: TopicService_UpdateTopicConfigurations_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TopicServiceServer).UpdateTopicConfiguration(ctx, req.(*UpdateTopicConfigurationRequest))
+		return srv.(TopicServiceServer).UpdateTopicConfigurations(ctx, req.(*UpdateTopicConfigurationsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _TopicService_SetTopicConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SetTopicConfigurationRequest)
+func _TopicService_SetTopicConfigurations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetTopicConfigurationsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(TopicServiceServer).SetTopicConfiguration(ctx, in)
+		return srv.(TopicServiceServer).SetTopicConfigurations(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: TopicService_SetTopicConfiguration_FullMethodName,
+		FullMethod: TopicService_SetTopicConfigurations_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TopicServiceServer).SetTopicConfiguration(ctx, req.(*SetTopicConfigurationRequest))
+		return srv.(TopicServiceServer).SetTopicConfigurations(ctx, req.(*SetTopicConfigurationsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -279,12 +279,12 @@ var TopicService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _TopicService_GetTopicConfigurations_Handler,
 		},
 		{
-			MethodName: "UpdateTopicConfiguration",
-			Handler:    _TopicService_UpdateTopicConfiguration_Handler,
+			MethodName: "UpdateTopicConfigurations",
+			Handler:    _TopicService_UpdateTopicConfigurations_Handler,
 		},
 		{
-			MethodName: "SetTopicConfiguration",
-			Handler:    _TopicService_SetTopicConfiguration_Handler,
+			MethodName: "SetTopicConfigurations",
+			Handler:    _TopicService_SetTopicConfigurations_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
