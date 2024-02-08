@@ -12,10 +12,10 @@ require (
 	github.com/hashicorp/terraform-plugin-go v0.20.0
 	github.com/hashicorp/terraform-plugin-testing v1.5.1
 	github.com/redpanda-data/redpanda/src/go/rpk v0.0.0-20240122210157-821bd6d1fd31
-	golang.org/x/sync v0.4.0
+	golang.org/x/sync v0.6.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20231106174013-bbf56f31fb17
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231106174013-bbf56f31fb17
-	google.golang.org/grpc v1.59.0
+	google.golang.org/grpc v1.60.0
 	google.golang.org/protobuf v1.32.0
 )
 
