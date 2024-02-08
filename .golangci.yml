@@ -22,29 +22,50 @@ linters:
     - typecheck
     - unused
     # Disabled by default
+    - asasalint
     - asciicheck
     - bidichk
     - bodyclose
+    - containedctx
     - contextcheck
+    - cyclop
+    - decorder
+    - dupword
     - durationcheck
     - errname
     - errorlint
+    - exhaustive
     - exportloopref
+    - gci
+    - gocheckcompilerdirectives
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
     - gofmt
     - gofumpt
     - goimports
     - goprintffuncname
+    - gosec
+    - mirror
     - misspell
+    - nakedret
     - nilerr
     - noctx
     - nolintlint
     - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - stylecheck
     - tenv
+    - typecheck
     - unconvert
     - wastedassign
     - whitespace
 
 linters-settings:
+  exhaustive:
+    default-signifies-exhaustive: true
   # We do not want to enforce every usage of fmt.Errorf to use %w.
   errorlint:
     errorf: false
@@ -62,53 +83,82 @@ linters-settings:
   # https://github.com/mvdan/gofumpt/issues/137
   gofumpt:
     lang-version: "1.21"
-
+  cyclop:
+    max-complexity: 20
+  gocyclo:
+    min-complexity: 30
+  gocognit:
+    min-complexity: 30
+  gci:
+    no-prefix-comments: true # no leading comment; we allow inline for nolint
+    sections:
+      - standard # stdlib
+      - default # everything not std, not within cloudv2
+      - prefix(go.panda.dev/cloudv2) # non-apps (proto, pkg)
+      - prefix(go.panda.dev/cloudv2/apps)
+  # Gocritic is a meta linter that has very good lints, and most of the
+  # experimental ones are very good too. There are only a few we want to opt
+  # out of specifically.
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - evalOrder
+      - importShadow
+      # disabled due to 1.18 failures
+      - hugeParam
+      - rangeValCopy
+      - typeDefFirst
+      - paramTypeCombine
   # Revive is yet another metalinter with a lot of useful lints.
   # The below opts in to all the ones we would like to use.
   revive:
     ignore-generated-header: true
+    enable-all-rules: true
     severity: warning
-    confidence: 0.8
-    error-code: 0
-    warning-code: 0
+    confidence: 0.7
+    error-code: 1
+    warning-code: 1
     rules:
-      - name: atomic
-      - name: blank-imports
-      - name: bool-literal-in-expr
-      - name: call-to-gc
-      - name: confusing-results
-      - name: constant-logical-expr
-      - name: context-as-argument
-      - name: context-keys-type
-      - name: defer
-      - name: dot-imports
-      - name: duplicated-imports
-      - name: early-return
-      - name: error-naming
-      - name: error-return
-      - name: error-strings
-      - name: errorf
-      - name: get-return
-      - name: identical-branches
-      - name: if-return
-      - name: modifies-value-receiver
-      - name: optimize-operands-order
-      - name: package-comments
-        disabled: true # disabling this in favor of https://github.com/redpanda-data/redpanda/issues/6340
-      - name: range
-      - name: range-val-in-closure
-      - name: receiver-naming
-      - name: string-of-int
-      - name: struct-tag
-      - name: superfluous-else
-      - name: time-equal
-      - name: time-naming
-      - name: unconditional-recursion
-      - name: unnecessary-stmt
-      - name: unreachable-code
-      - name: unused-parameter
-      - name: unused-receiver
-      - name: useless-break
-      - name: var-declaration
+      - name: add-constant
+        disabled: true
+      - name: argument-limit
+        disabled: true
+      - name: banned-characters
+        disabled: true
+      - name: cognitive-complexity
+        disabled: true
+      - name: confusing-naming
+        disabled: true
+      - name: cyclomatic
+        disabled: true
+      - name: file-header
+        disabled: true
+      - name: flag-parameter
+        disabled: true
+      - name: function-result-limit
+        disabled: true
+      - name: function-length
+        disabled: true
+      - name: import-shadowing
+        disabled: true
+      - name: line-length-limit
+        disabled: true
+      - name: max-public-structs
+        disabled: true
+      - name: modifies-parameter
+        disabled: true
+      - name: nested-structs
+        disabled: true
+      - name: package-comments # https://github.com/mgechev/revive/issues/740; stylecheck's ST1000 is better
+        disabled: true
+      - name: redefines-builtin-id
+        disabled: true
+      - name: unhandled-error
+        disabled: true
       - name: var-naming
       - name: waitgroup-by-value
