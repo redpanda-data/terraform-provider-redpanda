@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/terraform-plugin-docs v0.18.0
 	github.com/hashicorp/terraform-plugin-framework v1.5.0
 	github.com/hashicorp/terraform-plugin-framework-validators v0.12.0
-	github.com/hashicorp/terraform-plugin-go v0.20.0
+	github.com/hashicorp/terraform-plugin-go v0.21.0
 	github.com/hashicorp/terraform-plugin-testing v1.6.0
 	github.com/redpanda-data/redpanda/src/go/rpk v0.0.0-20240122210157-821bd6d1fd31
 	golang.org/x/sync v0.6.0
