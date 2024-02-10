@@ -70,6 +70,10 @@ TEST_AGAINST_EXISTING_CLUSTER=true
 CLUSTER_ID=<CLUSTER_ID>
 ```
 
+### Releasing a Version
+
+Do not change the Terraform Registry Manifest version! This is the version of the protocol, not the provider
+
 ## Generating Docs
 
 To generate docs run the following commands
@@ -85,4 +89,3 @@ To raise issues, questions, or interact with the community:
 
 - [Github Issues ](https://github.com/redpanda-data/terraform-provider-redpanda/issues)
 - [Slack](https://redpanda.com/slack) 
-
