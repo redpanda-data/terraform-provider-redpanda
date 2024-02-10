@@ -13,7 +13,6 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-// Package acl contains the implementation of the ACL resource following the Terraform framework interfaces.
 package acl
 
 import (
@@ -77,8 +76,9 @@ func resourceACLSchema() schema.Schema {
 		Attributes: map[string]schema.Attribute{
 			"resource_type": schema.StringAttribute{
 				Required:      true,
-				Description:   "The type of the resource (Topic, Group, etc...) this ACL shall target",
+				Description:   "The type of the resource (TOPIC, GROUP, etc...) this ACL shall target",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    aclResourceTypeValidator(),
 			},
 			"resource_name": schema.StringAttribute{
 				Required:      true,
@@ -87,8 +87,9 @@ func resourceACLSchema() schema.Schema {
 			},
 			"resource_pattern_type": schema.StringAttribute{
 				Required:      true,
-				Description:   "The pattern type of the resource. It determines the strategy how the provided resource name is matched (literal, match, prefixed, etc ...) against the actual resource names",
+				Description:   "The pattern type of the resource. It determines the strategy how the provided resource name is matched (LITERAL, MATCH, PREFIXED, etc ...) against the actual resource names",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    aclResourcePatternTypeValidator(),
 			},
 			"principal": schema.StringAttribute{
 				Required:      true,
@@ -104,11 +105,13 @@ func resourceACLSchema() schema.Schema {
 				Required:      true,
 				Description:   "The operation type that shall be allowed or denied (e.g READ)",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    aclOperationValidator(),
 			},
 			"permission_type": schema.StringAttribute{
 				Required:      true,
 				Description:   "The permission type. It determines whether the operation should be ALLOWED or DENIED",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    aclPermissionTypeValidator(),
 			},
 			"cluster_api_url": schema.StringAttribute{
 				Required: true,
@@ -130,25 +133,25 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 	var model models.ACL
 	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
 
-	resourceType, err := utils.StringToACLResourceType(model.ResourceType.ValueString())
+	resourceType, err := stringToACLResourceType(model.ResourceType.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Error converting resource type", err.Error())
 		return
 	}
 
-	resourcePatternType, err := utils.StringToACLResourcePatternType(model.ResourcePatternType.ValueString())
+	resourcePatternType, err := stringToACLResourcePatternType(model.ResourcePatternType.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Error converting resource pattern type", err.Error())
 		return
 	}
 
-	operation, err := utils.StringToACLOperation(model.Operation.ValueString())
+	operation, err := stringToACLOperation(model.Operation.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Error converting operation", err.Error())
 		return
 	}
 
-	permissionType, err := utils.StringToACLPermissionType(model.PermissionType.ValueString())
+	permissionType, err := stringToACLPermissionType(model.PermissionType.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Error converting permission type", err.Error())
 		return
@@ -191,25 +194,25 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 	var model models.ACL
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 
-	resourceType, err := utils.StringToACLResourceType(model.ResourceType.ValueString())
+	resourceType, err := stringToACLResourceType(model.ResourceType.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Error converting resource type", err.Error())
 		return
 	}
 
-	resourcePatternType, err := utils.StringToACLResourcePatternType(model.ResourcePatternType.ValueString())
+	resourcePatternType, err := stringToACLResourcePatternType(model.ResourcePatternType.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Error converting resource pattern type", err.Error())
 		return
 	}
 
-	operation, err := utils.StringToACLOperation(model.Operation.ValueString())
+	operation, err := stringToACLOperation(model.Operation.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Error converting operation", err.Error())
 		return
 	}
 
-	permissionType, err := utils.StringToACLPermissionType(model.PermissionType.ValueString())
+	permissionType, err := stringToACLPermissionType(model.PermissionType.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Error converting permission type", err.Error())
 		return
@@ -239,9 +242,9 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 	for _, res := range aclList.Resources {
 		if res.ResourceName == model.ResourceName.ValueString() && res.ResourceType == resourceType && res.ResourcePatternType == resourcePatternType {
 			response.Diagnostics.Append(response.State.Set(ctx, &models.ACL{
-				ResourceType:        types.StringValue(utils.ACLResourceTypeToString(res.ResourceType)),
+				ResourceType:        types.StringValue(aclResourceTypeToString(res.ResourceType)),
 				ResourceName:        types.StringValue(res.ResourceName),
-				ResourcePatternType: types.StringValue(utils.ACLResourcePatternTypeToString(res.ResourcePatternType)),
+				ResourcePatternType: types.StringValue(aclResourcePatternTypeToString(res.ResourcePatternType)),
 				Principal:           model.Principal,
 				Host:                model.Host,
 				Operation:           model.Operation,
@@ -265,25 +268,25 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 	var model models.ACL
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 
-	resourceType, err := utils.StringToACLResourceType(model.ResourceType.ValueString())
+	resourceType, err := stringToACLResourceType(model.ResourceType.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Error converting resource type", err.Error())
 		return
 	}
 
-	resourcePatternType, err := utils.StringToACLResourcePatternType(model.ResourcePatternType.ValueString())
+	resourcePatternType, err := stringToACLResourcePatternType(model.ResourcePatternType.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Error converting resource pattern type", err.Error())
 		return
 	}
 
-	operation, err := utils.StringToACLOperation(model.Operation.ValueString())
+	operation, err := stringToACLOperation(model.Operation.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Error converting operation", err.Error())
 		return
 	}
 
-	permissionType, err := utils.StringToACLPermissionType(model.PermissionType.ValueString())
+	permissionType, err := stringToACLPermissionType(model.PermissionType.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Error converting permission type", err.Error())
 		return
