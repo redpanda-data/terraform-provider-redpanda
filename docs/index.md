@@ -1,12 +1,12 @@
 ---
-page_title: "Provider: Redpanda Data"
+page_title: "Provider: Redpanda"
 description: |-
   The Redpanda Data Terraform provider is used to manage Redpanda Dedicated and Cloud clusters and Kafka resources within them. To connect to a Redpanda Cloud cluster, a client_id and client_secret are required.
 ---
 
-# REDPANDA DATA Provider
+# Redpanda Provider
 
-The Redpanda Data provider is designed for managing Redpanda clusters and Kafka resources in Redpanda Dedicated and Cloud environments. It supports the provisioning, management, and configuration of clusters and Kafka resources, facilitating seamless integration into Terraform workflows.
+The Redpanda provider is designed for managing Redpanda clusters and Kafka resources in Redpanda Dedicated and Cloud environments. It supports the provisioning, management, and configuration of clusters and Kafka resources, facilitating seamless integration into Terraform workflows.
 
 It is also able to provide management of Kafka resources (topics, ACLs, and more) within Redpanda clusters deployed outside of Redpanda Cloud.
 
@@ -24,3 +24,4 @@ provider "redpanda" {
   region         = "us-west-2"
   zones          = ["us-west-2a", "us-west-2b"]
 }
+```
