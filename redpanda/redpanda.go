@@ -96,30 +96,8 @@ func providerSchema() schema.Schema {
 				Description: "Cloud provider zones for the clusters you wish to build. Can also be specified per resource",
 			},
 		},
-		Description: "Redpanda Data terraform provider",
-		MarkdownDescription: "The Redpanda Data Terraform provider is used to manage Redpanda Dedicated and Cloud clusters and Kafka resources within them. To use the provider to connect to a Redpanda Cloud cluster, you need to provide a `client_id` and `client_secret`.\n\n" +
-			"### Example Usage\n\n" +
-			"This example demonstrates how to use the Redpanda Terraform provider with various fields populated with dummy values. Ensure you replace these values with your actual data.\n\n" +
-			"```hcl\n" +
-			"provider \"redpanda\" {\n" +
-			"  client_id      = \"your_client_id\"\n" +
-			"  client_secret  = \"your_client_secret\"\n" +
-			"  cloud_provider = \"AWS\" # Supported values: GCP, AWS\n" +
-			"  region         = \"us-west-2\"\n" +
-			"  zones          = [\"us-west-2a\", \"us-west-2b\", \"us-west-2c\"]\n" +
-			"}\n\n" +
-			"# Define a Redpanda cluster resource\n" +
-			"resource \"redpanda_cluster\" \"example_cluster\" {\n" +
-			"  name           = \"example-cluster\"\n" +
-			"  cloud_provider = \"AWS\"\n" +
-			"  region         = \"us-west-2\"\n" +
-			"  node_count     = 3\n" +
-			"  zones          = [\"us-west-2a\", \"us-west-2b\"]\n" +
-			"  # Other necessary configuration here...\n" +
-			"}\n" +
-			"```\n\n" +
-			"This configuration sets up the provider to manage resources in the AWS cloud, specifying the `client_id` and `client_secret` for authentication. The `cloud_provider`, `region`, and `zones` fields define where the resources will be located. The `redpanda_cluster` resource example shows how you could define a cluster with these settings.\n\n" +
-			"Remember to replace `your_client_id` and `your_client_secret` with your actual credentials and adjust the `cloud_provider`, `region`, and `zones` according to your deployment needs.\n\n",
+		Description:         "Redpanda Data terraform provider",
+		MarkdownDescription: "Provider configuration",
 	}
 }
 
