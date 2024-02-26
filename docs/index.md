@@ -3,12 +3,62 @@
 page_title: "redpanda Provider"
 subcategory: ""
 description: |-
-  Redpanda Data terraform provider
+  The Redpanda Data Terraform provider is used to manage Redpanda Dedicated and Cloud clusters and Kafka resources within them. To use the provider to connect to a Redpanda Cloud cluster, you need to provide a client_id and client_secret.
+  Example Usage
+  This example demonstrates how to use the Redpanda Terraform provider with various fields populated with dummy values. Ensure you replace these values with your actual data.
+  ```hcl
+  provider "redpanda" {
+    clientid      = "yourclientid"
+    clientsecret  = "yourclientsecret"
+    cloud_provider = "AWS" # Supported values: GCP, AWS
+    region         = "us-west-2"
+    zones          = ["us-west-2a", "us-west-2b", "us-west-2c"]
+  }
+  Define a Redpanda cluster resource
+  resource "redpandacluster" "examplecluster" {
+    name           = "example-cluster"
+    cloudprovider = "AWS"
+    region         = "us-west-2"
+    nodecount     = 3
+    zones          = ["us-west-2a", "us-west-2b"]
+    # Other necessary configuration here...
+  }
+  ```
+  This configuration sets up the provider to manage resources in the AWS cloud, specifying the client_id and client_secret for authentication. The cloud_provider, region, and zones fields define where the resources will be located. The redpanda_cluster resource example shows how you could define a cluster with these settings.
+  Remember to replace your_client_id and your_client_secret with your actual credentials and adjust the cloud_provider, region, and zones according to your deployment needs.
 ---
 
 # redpanda Provider
 
-Redpanda Data terraform provider
+The Redpanda Data Terraform provider is used to manage Redpanda Dedicated and Cloud clusters and Kafka resources within them. To use the provider to connect to a Redpanda Cloud cluster, you need to provide a `client_id` and `client_secret`.
+
+### Example Usage
+
+This example demonstrates how to use the Redpanda Terraform provider with various fields populated with dummy values. Ensure you replace these values with your actual data.
+
+```hcl
+provider "redpanda" {
+  client_id      = "your_client_id"
+  client_secret  = "your_client_secret"
+  cloud_provider = "AWS" # Supported values: GCP, AWS
+  region         = "us-west-2"
+  zones          = ["us-west-2a", "us-west-2b", "us-west-2c"]
+}
+
+# Define a Redpanda cluster resource
+resource "redpanda_cluster" "example_cluster" {
+  name           = "example-cluster"
+  cloud_provider = "AWS"
+  region         = "us-west-2"
+  node_count     = 3
+  zones          = ["us-west-2a", "us-west-2b"]
+  # Other necessary configuration here...
+}
+```
+
+This configuration sets up the provider to manage resources in the AWS cloud, specifying the `client_id` and `client_secret` for authentication. The `cloud_provider`, `region`, and `zones` fields define where the resources will be located. The `redpanda_cluster` resource example shows how you could define a cluster with these settings.
+
+Remember to replace `your_client_id` and `your_client_secret` with your actual credentials and adjust the `cloud_provider`, `region`, and `zones` according to your deployment needs.
 
 
 
