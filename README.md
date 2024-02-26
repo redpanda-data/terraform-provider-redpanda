@@ -1,5 +1,9 @@
 # Redpanda Terraform Provider
 
+!!! THIS IS AN ALPHA RELEASE !!!
+
+Please be aware that all features are subject to change and may not be fully supported at this time.
+
 The Redpanda terraform provider is a [Terraform](https://www.terraform.io/) plugin that allows you to create
 and manage resources on [Redpanda Cloud.](https://redpanda.com/redpanda-cloud)
 
