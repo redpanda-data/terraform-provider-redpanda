@@ -38,28 +38,25 @@ resource "redpanda_user" "test" {
   cluster_api_url = redpanda_cluster.test.cluster_api_url
 }
 
-# These are commented but will be enabled once we support read operations in
-# topic
-
-#resource "redpanda_topic" "test" {
-#  name = var.topic_name
-#  partition_count = var.partition_count
-#  replication_factor = var.replication_factor
-#  cluster_api_url = redpanda_cluster.test.cluster_api_url
-#  allow_deletion  = true
-#}
+resource "redpanda_topic" "test" {
+  name               = var.topic_name
+  partition_count    = var.partition_count
+  replication_factor = var.replication_factor
+  cluster_api_url    = redpanda_cluster.test.cluster_api_url
+  allow_deletion     = true
+}
 
 
-#resource "redpanda_acl" "test" {
-#  resource_type = "topic"
-#  resource_name = redpanda_topic.test.name
-#  resource_pattern_type = "literal"
-#  principal = "User:${redpanda_user.test.name}"
-#  host = "*"
-#  operation = "READ"
-#  permission_type = "ALLOW"
-#  cluster_api_url = redpanda_cluster.test.cluster_api_url
-#}
+resource "redpanda_acl" "test" {
+  resource_type         = "topic"
+  resource_name         = redpanda_topic.test.name
+  resource_pattern_type = "literal"
+  principal             = "User:${redpanda_user.test.name}"
+  host                  = "*"
+  operation             = "READ"
+  permission_type       = "ALLOW"
+  cluster_api_url       = redpanda_cluster.test.cluster_api_url
+}
 
 variable "namespace_name" {
   default = "testname"

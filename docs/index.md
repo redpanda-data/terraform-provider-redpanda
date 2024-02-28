@@ -10,13 +10,24 @@ The Redpanda provider is designed for managing Redpanda clusters and Kafka resou
 
 It is also able to provide management of Kafka resources (topics, ACLs, and more) within Redpanda clusters deployed outside of Redpanda Cloud.
 
+## Authentication with Redpanda Cloud
+
 This provider requires a `client_id` and `client_secret` for authentication with Redpanda Cloud services, enabling users to securely manage their Redpanda resources. You can get these by creating an account in [Redpanda Cloud](https://cloudv2.redpanda.com/home) and then [creating a client in the ](https://cloudv2.redpanda.com/clients).
 
-## Example Usage
+## Example Provider Configuration
 
-Here's a basic example of how to use the provider:
+Terraform 1.0 or later:
 
-```hcl
+```terraform
+terraform {
+  required_providers {
+    redpanda = {
+      source  = "redpanda-data/redpanda"
+      version = "~> 0.2.4"
+    }
+  }
+}
+
 provider "redpanda" {
   client_id      = "your_client_id"
   client_secret  = "your_client_secret"
@@ -25,3 +36,129 @@ provider "redpanda" {
   zones          = ["us-west-2a", "us-west-2b"]
 }
 ```
+
+### Example Usage for an AWS Dedicated Cluster
+
+```terraform
+provider "redpanda" {}
+
+resource "redpanda_namespace" "test" {
+  name = var.namespace_name
+}
+
+resource "redpanda_network" "test" {
+  name           = var.network_name
+  namespace_id   = redpanda_namespace.test.id
+  cloud_provider = var.cloud_provider
+  region         = var.region
+  cluster_type   = "dedicated"
+  cidr_block     = "10.0.0.0/20"
+}
+
+
+resource "redpanda_cluster" "test" {
+  name            = var.cluster_name
+  namespace_id    = redpanda_namespace.test.id
+  network_id      = redpanda_network.test.id
+  cloud_provider  = var.cloud_provider
+  region          = var.region
+  cluster_type    = "dedicated"
+  connection_type = "public"
+  throughput_tier = var.throughput_tier
+  zones           = var.zones
+  allow_deletion  = true
+  tags            = {
+    // not actually used as API does not consume it yet but we keep it in state for when it does
+    "key" = "value"
+  }
+}
+
+variable "namespace_name" {
+  default = "testname"
+}
+variable "network_name" {
+  default = "testname"
+}
+
+variable "cluster_name" {
+  default = "testname"
+}
+
+variable "region" {
+  default = "us-east-1"
+}
+
+variable "zones" {
+  default = ["use1-az2", "use1-az4", "use1-az6"]
+}
+
+variable "cloud_provider" {
+  default = "aws"
+}
+
+variable "throughput_tier" {
+  default = "tier-1-aws-v2-arm"
+}
+```
+
+### Example Usage for a GCP Dedicated Cluster
+
+```terraform
+provider "redpanda" {}
+
+resource "redpanda_namespace" "test" {
+  name = var.namespace_name
+}
+
+resource "redpanda_network" "test" {
+  name           = var.network_name
+  namespace_id   = redpanda_namespace.test.id
+  cloud_provider = var.cloud_provider
+  region         = var.region
+  cluster_type   = "dedicated"
+  cidr_block     = "10.0.0.0/20"
+}
+
+resource "redpanda_cluster" "test" {
+  name            = var.cluster_name
+  namespace_id    = redpanda_namespace.test.id
+  network_id      = redpanda_network.test.id
+  cloud_provider  = var.cloud_provider
+  region          = var.region
+  cluster_type    = "dedicated"
+  connection_type = "public"
+  throughput_tier = var.throughput_tier
+  zones           = var.zones
+  allow_deletion  = true
+  tags            = {
+    "key" = "value"
+  }
+}
+variable "cluster_name" {
+  default = ""
+}
+variable "namespace_name" {
+  default = ""
+}
+variable "network_name" {
+  default = ""
+}
+
+variable "region" {
+  default = "us-central1"
+}
+
+variable "zones" {
+  default = ["us-central1-a", "us-central1-b", "us-central1-c"]
+}
+
+variable "cloud_provider" {
+  default = "gcp"
+}
+
+variable "throughput_tier" {
+  default = "tier-1-gcp-um4g"
+}
+```
+
+

@@ -11,7 +11,7 @@ and manage resources on [Redpanda Cloud.](https://redpanda.com/redpanda-cloud)
 
 To add the Redpanda provider:
 
-```terraform
+```hcl
 terraform {
   required_providers {
     redpanda = {

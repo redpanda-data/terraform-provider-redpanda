@@ -1,0 +1,20 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+Creates a topic in a Redpanda Cluster
+
+## Usage
+
+{{ tffile "examples/user-acl-topic/main.tf" }}
+
+## Limitations
+
+We are not currently able to support topic creation in self hosted clusters. This is an area of active development so expect that to change soon.
