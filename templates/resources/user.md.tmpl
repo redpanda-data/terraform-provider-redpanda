@@ -1,0 +1,28 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+Creates a topic in a Redpanda Cluster
+
+## Usage
+
+{{ tffile "examples/user-acl-topic/main.tf" }}
+
+## Security Considerations
+
+We recommend storing user passwords in a secret store and only passing them in at runtime. They are marked sensitive and will not be shown in plan or apply output.
+
+However it is worth remembering that [marking a field sensitive](https://developer.hashicorp.com/terraform/plugin/best-practices/sensitive-state) does not obscure it or encrypt it in state and that terraform offers limited support on this matter.
+
+Be cognizant of the security implications of storing sensitive data in state and consider using a secure state backend for your state files.
+
+## Limitations
+
+We are not currently able to support user creation in self hosted clusters. This is an area of active development so expect that to change soon.
