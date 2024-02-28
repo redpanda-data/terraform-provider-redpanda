@@ -17,9 +17,6 @@ It is also able to provide management of Kafka resources (topics, ACLs, and more
 
 - `client_id` (String, Sensitive) The id for the client. You need client_id AND client_secret to use this provider
 - `client_secret` (String, Sensitive) Redpanda client secret. You need client_id AND client_secret to use this provider
-- `cloud_provider` (String) Which supported cloud provider you are using (GCP, AWS). Can also be specified per resource
-- `region` (String) Cloud provider regions for the clusters you wish to build. Can also be specified per resource
-- `zones` (List of String) Cloud provider zones for the clusters you wish to build. Can also be specified per resource
 
 ## Authentication with Redpanda Cloud
 
