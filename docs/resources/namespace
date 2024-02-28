@@ -38,3 +38,6 @@ variable "namespace_name" {
 
 ## Import
 
+```shell
+terraform import resource.redpanda_namespace.example namespaceId
+```

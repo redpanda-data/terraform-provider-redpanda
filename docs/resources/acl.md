@@ -150,3 +150,5 @@ variable "replication_factor" {
 We are not currently able to support ACL creation in self hosted clusters. This is an area of active development so expect that to change soon.
 
 ## Import
+
+We do not support the import of ACLs into the Redpanda provider at this time.

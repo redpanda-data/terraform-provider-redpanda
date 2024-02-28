@@ -227,3 +227,7 @@ variable "replication_factor" {
 
 ## Import
 
+```shell
+terraform import resource.redpanda_cluster.example clusterId
+```
+

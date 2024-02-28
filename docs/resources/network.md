@@ -67,3 +67,6 @@ variable "cloud_provider" {
 
 ## Import
 
+```shell
+terraform import resource.redpanda_network.example networkId
+```
