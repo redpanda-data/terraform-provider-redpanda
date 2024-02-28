@@ -193,5 +193,6 @@ func datasourceClusterSchema() schema.Schema {
 				Description: "The URL of the cluster API",
 			},
 		},
+		Description: "Data source for a Redpanda Cloud cluster",
 	}
 }

@@ -1,0 +1,24 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Usage
+
+```hcl
+data "redpanda_cluster" "example" {
+    id = "cluster_id"
+}
+```
+
+## Limitations
+
+Can only be used with Redpanda Cloud Dedicated and BYOC clusters.
