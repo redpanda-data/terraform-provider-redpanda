@@ -11,6 +11,8 @@ description: |-
 
 Enables the provisioning and management of Redpanda clusters on AWS and GCP. A cluster must always have a network and namespace and there is not much point to creating either a network or a namespace separately from a cluster.
 
+{{ .SchemaMarkdown | trimspace }}
+
 ## Usage
 
 ### On AWS
@@ -31,3 +33,6 @@ We are not currently able to support the provisioning of "BYOC" clusters using t
 ### Example Usage of a data source BYOC to manage users and ACLs
 
 {{ tffile "examples/datasource/main.tf" }}
+
+## Import
+
