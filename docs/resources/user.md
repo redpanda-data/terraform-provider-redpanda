@@ -157,3 +157,9 @@ Be cognizant of the security implications of storing sensitive data in state and
 We are not currently able to support user creation in self hosted clusters. This is an area of active development so expect that to change soon.
 
 ## Import
+
+```shell
+terraform import resource.redpanda_user.example userName,clusterId
+```
+
+Where clusterId is the ID of the cluster in Redpanda Cloud

@@ -151,3 +151,9 @@ variable "replication_factor" {
 We are not currently able to support topic creation in self hosted clusters. This is an area of active development so expect that to change soon.
 
 ## Import
+
+```shell
+terraform import resource.redpanda_topic.example topicName,clusterId
+```
+
+Where clusterId is the ID of the cluster in Redpanda Cloud
