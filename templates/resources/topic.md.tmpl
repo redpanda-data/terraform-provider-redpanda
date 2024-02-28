@@ -11,6 +11,8 @@ description: |-
 
 Creates a topic in a Redpanda Cluster
 
+{{ .SchemaMarkdown | trimspace }}
+
 ## Usage
 
 {{ tffile "examples/user-acl-topic/main.tf" }}
@@ -18,3 +20,5 @@ Creates a topic in a Redpanda Cluster
 ## Limitations
 
 We are not currently able to support topic creation in self hosted clusters. This is an area of active development so expect that to change soon.
+
+## Import

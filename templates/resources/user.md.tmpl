@@ -11,6 +11,8 @@ description: |-
 
 Creates a topic in a Redpanda Cluster
 
+{{ .SchemaMarkdown | trimspace }}
+
 ## Usage
 
 {{ tffile "examples/user-acl-topic/main.tf" }}
@@ -26,3 +28,5 @@ Be cognizant of the security implications of storing sensitive data in state and
 ## Limitations
 
 We are not currently able to support user creation in self hosted clusters. This is an area of active development so expect that to change soon.
+
+## Import
