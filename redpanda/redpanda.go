@@ -26,7 +26,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/acl"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/cluster"
@@ -81,19 +80,6 @@ func providerSchema() schema.Schema {
 				Optional:    true,
 				Sensitive:   true,
 				Description: "Redpanda client secret. You need client_id AND client_secret to use this provider",
-			},
-			"cloud_provider": schema.StringAttribute{
-				Optional:    true,
-				Description: "Which supported cloud provider you are using (GCP, AWS). Can also be specified per resource",
-			},
-			"region": schema.StringAttribute{
-				Optional:    true,
-				Description: "Cloud provider regions for the clusters you wish to build. Can also be specified per resource",
-			},
-			"zones": schema.ListAttribute{
-				ElementType: types.StringType,
-				Optional:    true,
-				Description: "Cloud provider zones for the clusters you wish to build. Can also be specified per resource",
 			},
 		},
 		Description:         "Redpanda Data terraform provider",
