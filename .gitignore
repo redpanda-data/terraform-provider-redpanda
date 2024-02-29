@@ -24,3 +24,5 @@ examples/demo1/**
 examples/demo2/**
 terraform-provider-redpanda
 tools/tfplugindocs
+
+.idea/**

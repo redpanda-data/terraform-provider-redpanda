@@ -125,7 +125,7 @@ func AreWeDoneYet(ctx context.Context, op *cloudv1beta1.Operation, timeout time.
 		if time.Since(startTime) > timeout {
 			return fmt.Errorf("timeout reached")
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(60 * time.Second)
 	}
 }
 
