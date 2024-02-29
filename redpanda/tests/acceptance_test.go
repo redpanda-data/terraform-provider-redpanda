@@ -138,7 +138,7 @@ func TestAccResourcesNetwork(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(namespaceResourceName, "name", name),
 					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					func(s *terraform.State) error {
+					func(_ *terraform.State) error {
 						n, err := utils.FindNetworkByName(ctx, name, c.NetClient)
 						if err != nil {
 							return err

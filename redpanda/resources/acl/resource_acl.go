@@ -171,7 +171,6 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		Operation:           operation,
 		PermissionType:      permissionType,
 	})
-
 	if err != nil {
 		response.Diagnostics.AddError("Failed to create ACL", err.Error())
 		return
