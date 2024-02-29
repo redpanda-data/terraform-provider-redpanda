@@ -311,7 +311,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		return
 	}
 
-	if err := utils.AreWeDoneYet(ctx, op, 60*time.Minute, c.OpsClient); err != nil {
+	if err := utils.AreWeDoneYet(ctx, op, 90*time.Minute, c.OpsClient); err != nil {
 		resp.Diagnostics.AddError("failed to delete cluster", err.Error())
 		return
 	}
