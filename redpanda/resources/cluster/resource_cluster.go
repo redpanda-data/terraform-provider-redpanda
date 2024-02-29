@@ -196,7 +196,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		resp.Diagnostics.AddError("failed to unmarshal cluster metadata", err.Error())
 		return
 	}
-	if err := utils.AreWeDoneYet(ctx, op, 45*time.Minute, c.OpsClient); err != nil {
+	if err := utils.AreWeDoneYet(ctx, op, 90*time.Minute, c.OpsClient); err != nil {
 		resp.Diagnostics.AddError("failed to create cluster", err.Error())
 		return
 	}
