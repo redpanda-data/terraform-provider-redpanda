@@ -335,7 +335,7 @@ func MapToUpdateTopicConfiguration(cfg types.Map) ([]*dataplanev1alpha1.UpdateTo
 		}
 		value := strings.Trim(v.String(), `"`)
 		output = append(output, &dataplanev1alpha1.UpdateTopicConfigurationsRequest_UpdateConfiguration{
-			Key:       k,
+			Name:      k,
 			Value:     &value,
 			Operation: dataplanev1alpha1.ConfigAlterOperation_CONFIG_ALTER_OPERATION_SET,
 		})
