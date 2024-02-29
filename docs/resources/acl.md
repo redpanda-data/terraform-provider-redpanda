@@ -82,9 +82,9 @@ resource "redpanda_topic" "test" {
 
 
 resource "redpanda_acl" "test" {
-  resource_type         = "topic"
+  resource_type         = "TOPIC"
   resource_name         = redpanda_topic.test.name
-  resource_pattern_type = "literal"
+  resource_pattern_type = "LITERAL"
   principal             = "User:${redpanda_user.test.name}"
   host                  = "*"
   operation             = "READ"
