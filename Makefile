@@ -1,4 +1,4 @@
-.PHONY: all proto doc int unit test lint buf_deps proto_clean generate_proto tfplugindocs_install generate_docs integration_tests unit_tests install_gofumpt install_lint
+.PHONY: all proto doc int unit test lint linter buf_deps proto_clean generate_proto tfplugindocs_install generate_docs integration_tests unit_tests install_gofumpt install_lint
 
 GOBIN := $(PWD)/tools
 TFPLUGINDOCSCMD := $(GOBIN)/tfplugindocs
@@ -19,7 +19,7 @@ unit: unit_tests
 
 test: unit_tests integration_tests
 
-lint: install_gofumpt install_lint lint
+lint: install_gofumpt install_lint linter
 
 buf_deps:
 	@echo "installing dependencies..."
@@ -64,13 +64,13 @@ unit_tests:
 
 install_gofumpt:
 	@echo "installing gofumpt..."
-	@$(GOCMD) install mvdan.cc/gofumpt@latest
+	@$(GOCMD) install mvdan.cc/gofumpt@v0.5.0
 
 install_lint:
 	@echo "installing linter..."
-	@$(GOCMD) install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@$(GOCMD) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
 
-lint:
+linter:
 	@echo "running gofumpt..."
 	@$(GOFUMPTCMD) -w -d .
 	@echo "running linter..."
