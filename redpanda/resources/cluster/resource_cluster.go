@@ -191,13 +191,19 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		resp.Diagnostics.AddError("failed to create cluster", err.Error())
 		return
 	}
+
+	if _, err := utils.GetClusterUntilRunningState(ctx, 0, 50, clusterReq.Name, c.CluClient); err != nil {
+		resp.Diagnostics.AddError("failed at getting ready state while creating cluster", err.Error())
+		return
+	}
+
 	var metadata cloudv1beta1.CreateClusterMetadata
 	if err := op.Metadata.UnmarshalTo(&metadata); err != nil {
 		resp.Diagnostics.AddError("failed to unmarshal cluster metadata", err.Error())
 		return
 	}
-	if err := utils.AreWeDoneYet(ctx, op, 90*time.Minute, c.OpsClient); err != nil {
-		resp.Diagnostics.AddError("failed to create cluster", err.Error())
+	if err := utils.AreWeDoneYet(ctx, op, 60*time.Minute, c.OpsClient); err != nil {
+		resp.Diagnostics.AddError("operation error while creating cluster", err.Error())
 		return
 	}
 	cluster, err := c.CluClient.GetCluster(ctx, &cloudv1beta1.GetClusterRequest{
@@ -303,6 +309,13 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		resp.Diagnostics.AddError("cluster deletion not allowed", "allow_deletion is set to false")
 		return
 	}
+
+	// We need to wait for the cluster to be in a running state before we can delete it
+	_, err := utils.GetClusterUntilRunningState(ctx, 0, 30, model.Name.ValueString(), c.CluClient)
+	if err != nil {
+		return
+	}
+
 	op, err := c.CluClient.DeleteCluster(ctx, &cloudv1beta1.DeleteClusterRequest{
 		Id: model.ID.ValueString(),
 	})
