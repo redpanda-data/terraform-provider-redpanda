@@ -105,28 +105,30 @@ func AreWeDoneYet(ctx context.Context, op *cloudv1beta1.Operation, timeout time.
 		}
 		return nil
 	}
-	startTime := time.Now()
-	for {
-		o, err := client.GetOperation(ctx, &cloudv1beta1.GetOperationRequest{
-			Id: op.GetId(),
-		})
-		if err != nil {
-			return fmt.Errorf("unable to get operation status: %v", err)
-		}
-		if CheckOpsState(o) {
-			if o.GetError() != nil {
-				if !IsNotFound(errors.New(o.GetError().GetMessage())) {
-					return nil
-				}
-				return fmt.Errorf("operation failed: %s", o.GetError().GetMessage())
-			}
-			return nil
-		}
-		if time.Since(startTime) > timeout {
-			return fmt.Errorf("timeout reached")
-		}
-		time.Sleep(60 * time.Second)
+	return areWeDoneYet(ctx, op, time.Now().Add(timeout), client)
+}
+
+func areWeDoneYet(ctx context.Context, op *cloudv1beta1.Operation, startTime time.Time, client cloudv1beta1.OperationServiceClient) error {
+	o, err := client.GetOperation(ctx, &cloudv1beta1.GetOperationRequest{
+		Id: op.GetId(),
+	})
+	if err != nil {
+		return fmt.Errorf("unable to get operation status: %v", err)
 	}
+	if CheckOpsState(o) {
+		if o.GetError() != nil {
+			if !IsNotFound(errors.New(o.GetError().GetMessage())) {
+				return nil
+			}
+			return fmt.Errorf("operation failed: %s", o.GetError().GetMessage())
+		}
+		return nil
+	}
+	if time.Now().After(startTime) {
+		return fmt.Errorf("timeout reached")
+	}
+	time.Sleep(60 * time.Second)
+	return areWeDoneYet(ctx, op, startTime, client)
 }
 
 // CheckOpsState checks if the op.State is either complete or failed, otherwise
@@ -406,4 +408,20 @@ func SplitSchemeDefPort(url, def string) (string, error) {
 		port = def
 	}
 	return host + ":" + port, nil
+}
+
+// GetClusterUntilRunningState returns a cluster in the running state or an error
+func GetClusterUntilRunningState(ctx context.Context, count, limit int, clusterName string, client cloudv1beta1.ClusterServiceClient) (*cloudv1beta1.Cluster, error) {
+	count++
+	if count >= limit {
+		return nil, fmt.Errorf("cluster %q did not reach the running state after %d attempts", clusterName, count)
+	}
+	cluster, _ := FindClusterByName(ctx, clusterName, client)
+
+	if cluster.GetState() == cloudv1beta1.Cluster_STATE_READY {
+		return cluster, nil
+	}
+
+	time.Sleep(1 * time.Minute)
+	return GetClusterUntilRunningState(ctx, count, limit, clusterName, client)
 }

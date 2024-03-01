@@ -22,13 +22,13 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"io"
 	"net/http"
 	"strings"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/metadata"
 )
 
 // cloudEndpoint is a representation of a cloud V2 endpoint, containing the URLs
@@ -131,6 +131,9 @@ func spawnConn(ctx context.Context, url string, authToken string) (*grpc.ClientC
 				},
 			),
 		),
+		grpc.WithConnectParams(grpc.ConnectParams{
+			Backoff: backoff.DefaultConfig,
+		}),
 		// We do not block (grpc.WithBlock) on purpose to avoid waiting
 		// indefinitely if the cluster is not responding and to provide an
 		// useful error on these cases. See:

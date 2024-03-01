@@ -31,7 +31,7 @@ type sweepCluster struct {
 
 func (s sweepCluster) SweepCluster(_ string) error {
 	ctx := context.Background()
-	cluster, err := utils.FindClusterByName(ctx, s.ClusterName, s.CluClient)
+	cluster, err := utils.GetClusterUntilRunningState(ctx, 0, 50, s.ClusterName, s.CluClient)
 	if err != nil {
 		return err
 	}
