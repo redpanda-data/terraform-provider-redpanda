@@ -22,13 +22,14 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
-	"io"
-	"net/http"
-	"strings"
 )
 
 // cloudEndpoint is a representation of a cloud V2 endpoint, containing the URLs
