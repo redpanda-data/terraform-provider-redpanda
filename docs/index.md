@@ -20,7 +20,7 @@ It is also able to provide management of Kafka resources (topics, ACLs, and more
 
 ## Authentication with Redpanda Cloud
 
-This provider requires a `client_id` and `client_secret` for authentication with Redpanda Cloud services, enabling users to securely manage their Redpanda resources. You can get these by creating an account in [Redpanda Cloud](https://cloudv2.redpanda.com/home) and then [creating a client in the ](https://cloudv2.redpanda.com/clients).
+This provider requires a `client_id` and `client_secret` for authentication with Redpanda Cloud services, enabling users to securely manage their Redpanda resources. You can get these by creating an account in [Redpanda Cloud](https://cloudv2.redpanda.com/home) and then [creating a client in the Redpanda Cloud UI](https://cloudv2.redpanda.com/clients).
 
 ## Example Provider Configuration
 
@@ -169,4 +169,57 @@ variable "throughput_tier" {
 }
 ```
 
+### Example Usage of a data source BYOC to manage users and ACLs
 
+```terraform
+provider "redpanda" {}
+
+variable "cluster_id" {
+  default = ""
+}
+data "redpanda_cluster" "test" {
+  id = var.cluster_id
+}
+
+resource "redpanda_user" "test" {
+  name            = var.user_name
+  password        = var.user_pw
+  mechanism       = var.mechanism
+  cluster_api_url = data.redpanda_cluster.test.cluster_api_url
+}
+
+resource "redpanda_acl" "test" {
+  resource_type         = "CLUSTER"
+  resource_name         = "kafka-cluster"
+  resource_pattern_type = "LITERAL"
+  principal             = "User:${redpanda_user.test.name}"
+  host                  = "*"
+  operation             = "ALTER"
+  permission_type       = "ALLOW"
+  cluster_api_url       = data.redpanda_cluster.test.cluster_api_url
+}
+
+variable "user_name" {
+  default = "test-username"
+}
+
+variable "user_pw" {
+  default = "password"
+}
+
+variable "mechanism" {
+  default = "scram-sha-256"
+}
+
+variable "topic_name" {
+  default = "test-topic"
+}
+
+variable "partition_count" {
+  default = 3
+}
+
+variable "replication_factor" {
+  default = 3
+}
+```
