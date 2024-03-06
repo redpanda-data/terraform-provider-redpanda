@@ -42,4 +42,4 @@ data "redpanda_cluster" "example" {
 
 ## Limitations
 
-This can only be used with Redpanda Cloud Dedicated and BYOC clusters.
+Cluster data sources can only be used with Redpanda Cloud Dedicated and BYOC clusters.
