@@ -19,6 +19,10 @@ data "redpanda_cluster" "example" {
 }
 ```
 
+### Example Usage of a data source BYOC to manage users and ACLs
+
+{{ tffile "examples/datasource/main.tf" }}
+
 ## Limitations
 
 Can only be used with Redpanda Cloud Dedicated and BYOC clusters.
