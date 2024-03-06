@@ -9,7 +9,7 @@ description: |-
 
 {{ .Description | trimspace }}
 
-Enables the provisioning and management of Redpanda clusters on AWS and GCP. A cluster must always have a network and namespace.
+Enables the provisioning and management of Redpanda clusters on AWS and GCP. A cluster requires a network and a namespace.
 
 {{ .SchemaMarkdown | trimspace }}
 
@@ -25,12 +25,12 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 
 ## Limitations
 
-We are not currently able to support the provisioning of "BYOC" clusters using this provider. A workaround is available
+Redpanda does not currently support provisioning BYOC clusters using this provider. Workaround:
 
- * First use [RPK](https://docs.redpanda.com/current/deploy/deployment-option/cloud/create-byoc-cluster-aws/) to provision the cluster
- * Then use the provider's redpanda_cluster data source to reference the cluster for use in other resources.
+ . Use [`rpk`](https://docs.redpanda.com/current/deploy/deployment-option/cloud/create-byoc-cluster-aws/) to provision the cluster.
+ . Use the provider's `redpanda_cluster` data source to reference the cluster for use in other resources.
 
-### Example Usage of a data source BYOC to manage users and ACLs
+### Example: Usage of a data source BYOC to manage users and ACLs
 
 {{ tffile "examples/datasource/main.tf" }}
 

@@ -9,7 +9,7 @@ description: |-
 
 {{ .Description | trimspace }}
 
-Creates a topic in a Redpanda Cluster
+Creates a topic in a Redpanda cluster.
 
 {{ .SchemaMarkdown | trimspace }}
 
@@ -19,15 +19,15 @@ Creates a topic in a Redpanda Cluster
 
 ## Security Considerations
 
-We recommend storing user passwords in a secret store and only passing them in at runtime. They are marked sensitive and will not be shown in plan or apply output.
+Redpanda recommends storing user passwords in a secret store and only passing them in at runtime. They are marked sensitive and are not shown in plan or apply output.
 
-However it is worth remembering that [marking a field sensitive](https://developer.hashicorp.com/terraform/plugin/best-practices/sensitive-state) does not obscure it or encrypt it in state and that terraform offers limited support on this matter.
+However, remember that [marking a field sensitive](https://developer.hashicorp.com/terraform/plugin/best-practices/sensitive-state) does not obscure it or encrypt it in state and that Terraform offers limited support on this.
 
-Be cognizant of the security implications of storing sensitive data in state and consider using a secure state backend for your state files.
+Be cognizant of the security implications of storing sensitive data in state. Consider using a secure state backend for your state files.
 
 ## Limitations
 
-We are not currently able to support user creation in self hosted clusters. This is an area of active development so expect that to change soon.
+Redpanda currently does not support creating users in self-hosted clusters. 
 
 ## Import
 
@@ -35,4 +35,4 @@ We are not currently able to support user creation in self hosted clusters. This
 terraform import resource.{{.Name}}.example userName,clusterId
 ```
 
-Where clusterId is the ID of the cluster in Redpanda Cloud
+Where `clusterId` is the ID of the cluster in Redpanda Cloud.

@@ -9,7 +9,7 @@ description: |-
 
 {{ .Description | trimspace }}
 
-Creates a topic in a Redpanda Cluster
+Creates a topic in a Redpanda cluster.
 
 {{ .SchemaMarkdown | trimspace }}
 
@@ -19,7 +19,7 @@ Creates a topic in a Redpanda Cluster
 
 ## Limitations
 
-We are not currently able to support topic creation in self hosted clusters. This is an area of active development so expect that to change soon.
+Redpanda currently does not support creating topics in self-hosted clusters.
 
 ## Import
 
@@ -27,4 +27,4 @@ We are not currently able to support topic creation in self hosted clusters. Thi
 terraform import resource.{{.Name}}.example topicName,clusterId
 ```
 
-Where clusterId is the ID of the cluster in Redpanda Cloud
+Where `clusterId` is the ID of the cluster in Redpanda Cloud.

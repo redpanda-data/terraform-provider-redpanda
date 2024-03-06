@@ -8,7 +8,7 @@ description: |-
 
 # redpanda_namespace (Resource)
 
-A Redpanda Cloud namespace
+A Redpanda Cloud namespace.
 
 
 
@@ -17,8 +17,8 @@ A Redpanda Cloud namespace
 
 ### Required
 
-- `name` (String) Name of the namespace. Changing the name of a namespace will result in a new namespace being created and the old one being destroyed
+- `name` (String) Name of the namespace. Changing the name of a namespace destroys the old namespace and creates a new one. 
 
 ### Read-Only
 
-- `id` (String) UUID of the namespace
+- `id` (String) UUID of the namespace.

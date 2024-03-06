@@ -1,32 +1,37 @@
 ---
 page_title: "Provider: Redpanda"
 description: |-
-  The Redpanda Data Terraform provider is used to manage Redpanda Dedicated and Cloud clusters and Kafka resources within them. To connect to a Redpanda Cloud cluster, a client_id and client_secret are required.
+  The Redpanda Terraform provider is used to manage Redpanda Dedicated and Cloud clusters and Kafka resources within them. To connect to a Redpanda Cloud cluster, a client_id and client_secret are required.
 ---
 
 # Redpanda Provider
 
-The Redpanda provider is designed for managing Redpanda clusters and Kafka resources in Redpanda Dedicated and Cloud environments. It supports the provisioning, management, and configuration of clusters and Kafka resources, facilitating seamless integration into Terraform workflows.
+The Redpanda provider manages Redpanda clusters and Kafka resources in Redpanda Dedicated Cloud environments. It supports the provisioning, management, and configuration of clusters and Kafka resources, facilitating seamless integration into Terraform workflows.
 
-It is also able to provide management of Kafka resources (topics, ACLs, and more) within Redpanda clusters deployed outside of Redpanda Cloud.
+It can also manage Kafka resources (topics, ACLs, and more) within Redpanda clusters deployed outside of Redpanda Cloud.
 
 {{ .SchemaMarkdown | trimspace }}
 
 ## Authentication with Redpanda Cloud
 
-This provider requires a `client_id` and `client_secret` for authentication with Redpanda Cloud services, enabling users to securely manage their Redpanda resources. You can get these by creating an account in [Redpanda Cloud](https://cloudv2.redpanda.com/home) and then [creating a client in the Redpanda Cloud UI](https://cloudv2.redpanda.com/clients).
+The provider requires a `client_id` and `client_secret` for authentication with Redpanda Cloud. This enables users to securely manage their Redpanda resources. To get a `client_id` and `client_secret`: 
 
-## Example Provider Configuration
+. Create an account in [Redpanda Cloud](https://cloudv2.redpanda.com/home).
+. Navigate to the **Clients** tab and click **Add client**. 
+. Enter a name and description, and click **Create**.
+. Click the copy icon to get the ID and secret.
+
+## Example: Provider Configuration
 
 Terraform 1.0 or later:
 
 {{ tffile "examples/provider.tf" }}
 
-### Example Usage for an AWS Dedicated Cluster
+### Example: AWS Dedicated Cluster
 
 {{ tffile "examples/cluster/aws/main.tf" }}
 
-### Example Usage for a GCP Dedicated Cluster
+### Example: GCP Dedicated Cluster
 
 {{ tffile "examples/cluster/gcp/main.tf" }}
 
