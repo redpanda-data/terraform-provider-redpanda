@@ -22,14 +22,17 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"io"
 	"net/http"
 	"strings"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/backoff"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/metadata"
+	"time"
 )
 
 // cloudEndpoint is a representation of a cloud V2 endpoint, containing the URLs
@@ -118,12 +121,19 @@ func spawnConn(ctx context.Context, url string, authToken string) (*grpc.ClientC
 	return grpc.DialContext(
 		ctx,
 		url,
-		// Intercept to add the Bearer token.
-		grpc.WithUnaryInterceptor(
+		// Chain the interceptors using grpc_middleware.ChainUnaryClient
+		grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(
+			// Interceptor to add the Bearer token
 			func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 				return invoker(metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", authToken)), method, req, reply, cc, opts...)
 			},
-		),
+			// Retry interceptor
+			grpc_retry.UnaryClientInterceptor(
+				grpc_retry.WithCodes(codes.Unavailable, codes.Unknown, codes.Internal),
+				grpc_retry.WithMax(5),
+				grpc_retry.WithBackoff(grpc_retry.BackoffExponential(time.Millisecond*100)),
+			),
+		)),
 		// And provide TLS config.
 		grpc.WithTransportCredentials(
 			credentials.NewTLS(
