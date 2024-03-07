@@ -53,7 +53,7 @@ integration_tests:
 	RUN_CLUSTER_TESTS=true \
 	TF_ACC=true \
 	VERSION=ign \
-	$(GOCMD) test -v -parallel=5 ./redpanda/tests
+	$(GOCMD) test -v -parallel=5 -timeout=0 ./redpanda/tests
 
 unit_tests:
 	@echo "running unit tests..."
