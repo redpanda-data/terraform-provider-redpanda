@@ -96,39 +96,49 @@ func ClusterTypeToString(provider cloudv1beta1.Cluster_Type) string {
 	}
 }
 
-// AreWeDoneYet checks the status of a given operation until it either completes
-// successfully, encounters an error, or reaches a timeout.
 func AreWeDoneYet(ctx context.Context, op *cloudv1beta1.Operation, timeout time.Duration, client cloudv1beta1.OperationServiceClient) error {
-	if CheckOpsState(op) {
-		if op.GetError() != nil {
+	startTime := time.Now()
+	endTime := startTime.Add(timeout)
+	errChan := make(chan error, 1)
+
+	for {
+		// Get the latest operation status
+		latestOp, err := client.GetOperation(ctx, &cloudv1beta1.GetOperationRequest{
+			Id: op.GetId(),
+		})
+		if err != nil {
+			// Send the error to the error channel (non-blocking)
+			select {
+			case errChan <- fmt.Errorf("error getting operation status: %v", err):
+			default:
+			}
+		} else {
+			op = latestOp
+		}
+
+		// Check the operation state
+		switch op.GetState() {
+		case cloudv1beta1.Operation_STATE_COMPLETED:
+			// Operation completed successfully
+			return nil
+		case cloudv1beta1.Operation_STATE_FAILED:
+			// Operation failed
 			return fmt.Errorf("operation failed: %s", op.GetError().GetMessage())
 		}
-		return nil
-	}
-	return areWeDoneYet(ctx, op, time.Now().Add(timeout), client)
-}
 
-func areWeDoneYet(ctx context.Context, op *cloudv1beta1.Operation, startTime time.Time, client cloudv1beta1.OperationServiceClient) error {
-	o, err := client.GetOperation(ctx, &cloudv1beta1.GetOperationRequest{
-		Id: op.GetId(),
-	})
-	if err != nil {
-		return fmt.Errorf("unable to get operation status: %v", err)
-	}
-	if CheckOpsState(o) {
-		if o.GetError() != nil {
-			if !IsNotFound(errors.New(o.GetError().GetMessage())) {
-				return nil
+		// Check if the timeout has been reached
+		if time.Now().After(endTime) {
+			select {
+			case err := <-errChan:
+				return fmt.Errorf("timeout reached with error: %v", err)
+			default:
+				return fmt.Errorf("timeout reached")
 			}
-			return fmt.Errorf("operation failed: %s", o.GetError().GetMessage())
 		}
-		return nil
+
+		// Wait for a certain duration before checking again
+		time.Sleep(60 * time.Second)
 	}
-	if time.Now().After(startTime) {
-		return fmt.Errorf("timeout reached")
-	}
-	time.Sleep(60 * time.Second)
-	return areWeDoneYet(ctx, op, startTime, client)
 }
 
 // CheckOpsState checks if the op.State is either complete or failed, otherwise
