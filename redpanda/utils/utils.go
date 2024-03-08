@@ -96,6 +96,7 @@ func ClusterTypeToString(provider cloudv1beta1.Cluster_Type) string {
 	}
 }
 
+// AreWeDoneYet checks an operation's state until one of completion, failure or timeout is reached.
 func AreWeDoneYet(ctx context.Context, op *cloudv1beta1.Operation, timeout time.Duration, waitUnit time.Duration, client cloudv1beta1.OperationServiceClient) error {
 	startTime := time.Now()
 	endTime := startTime.Add(timeout)
@@ -116,12 +117,10 @@ func AreWeDoneYet(ctx context.Context, op *cloudv1beta1.Operation, timeout time.
 		}
 
 		// Check the operation state
-		switch op.GetState() {
-		case cloudv1beta1.Operation_STATE_COMPLETED:
-			// Operation completed successfully
+		if op.GetState() == cloudv1beta1.Operation_STATE_COMPLETED {
 			return nil
-		case cloudv1beta1.Operation_STATE_FAILED:
-			// Operation failed
+		}
+		if op.GetState() == cloudv1beta1.Operation_STATE_FAILED {
 			return fmt.Errorf("operation failed: %s", op.GetError().GetMessage())
 		}
 
@@ -136,7 +135,7 @@ func AreWeDoneYet(ctx context.Context, op *cloudv1beta1.Operation, timeout time.
 		}
 
 		// Wait for a certain duration before checking again
-		time.Sleep(60 * time.Second)
+		time.Sleep(waitUnit)
 	}
 }
 

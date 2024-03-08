@@ -2,12 +2,13 @@ package utils
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/golang/mock/gomock"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/mocks"
 	"google.golang.org/genproto/googleapis/rpc/status"
-	"testing"
-	"time"
 )
 
 func TestAreWeDoneYet(t *testing.T) {
