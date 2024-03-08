@@ -21,6 +21,12 @@ test: unit_tests integration_tests
 
 lint: install_gofumpt install_lint linter
 
+ready: proto doc lint tidy
+
+tidy:
+	@echo "running go mod tidy..."
+	@$(GOCMD) mod tidy
+
 buf_deps:
 	@echo "installing dependencies..."
 	@$(GOCMD) install github.com/bufbuild/buf/cmd/buf@latest
