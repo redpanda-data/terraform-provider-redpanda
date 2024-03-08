@@ -202,7 +202,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		resp.Diagnostics.AddError("failed to unmarshal cluster metadata", err.Error())
 		return
 	}
-	if err := utils.AreWeDoneYet(ctx, op, 60*time.Minute, c.OpsClient); err != nil {
+	if err := utils.AreWeDoneYet(ctx, op, 60*time.Minute, time.Minute, c.OpsClient); err != nil {
 		resp.Diagnostics.AddError("operation error while creating cluster", err.Error())
 		return
 	}
@@ -324,7 +324,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		return
 	}
 
-	if err := utils.AreWeDoneYet(ctx, op, 90*time.Minute, c.OpsClient); err != nil {
+	if err := utils.AreWeDoneYet(ctx, op, 90*time.Minute, time.Minute, c.OpsClient); err != nil {
 		resp.Diagnostics.AddError("failed to delete cluster", err.Error())
 		return
 	}

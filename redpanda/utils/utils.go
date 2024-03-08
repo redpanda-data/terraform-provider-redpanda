@@ -96,11 +96,10 @@ func ClusterTypeToString(provider cloudv1beta1.Cluster_Type) string {
 	}
 }
 
-func AreWeDoneYet(ctx context.Context, op *cloudv1beta1.Operation, timeout time.Duration, client cloudv1beta1.OperationServiceClient) error {
+func AreWeDoneYet(ctx context.Context, op *cloudv1beta1.Operation, timeout time.Duration, waitUnit time.Duration, client cloudv1beta1.OperationServiceClient) error {
 	startTime := time.Now()
 	endTime := startTime.Add(timeout)
 	errChan := make(chan error, 1)
-
 	for {
 		// Get the latest operation status
 		latestOp, err := client.GetOperation(ctx, &cloudv1beta1.GetOperationRequest{
