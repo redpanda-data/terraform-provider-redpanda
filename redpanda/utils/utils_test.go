@@ -94,7 +94,7 @@ func TestAreWeDoneYet(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			err := AreWeDoneYet(ctx, tc.op, tc.timeout, mockClient)
+			err := AreWeDoneYet(ctx, tc.op, tc.timeout, time.Second, mockClient)
 			if tc.wantErr == "" {
 				if err != nil {
 					t.Errorf("Expected no error, got: %v", err)

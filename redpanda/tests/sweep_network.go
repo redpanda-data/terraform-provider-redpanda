@@ -43,5 +43,5 @@ func (s sweepNetwork) SweepNetworks(_ string) error {
 		return fmt.Errorf("unable to sweep network: unable to delete network %q: %v", s.NetworkName, err)
 	}
 
-	return utils.AreWeDoneYet(ctx, op, 15*time.Minute, s.OpsClient)
+	return utils.AreWeDoneYet(ctx, op, 15*time.Minute, time.Minute, s.OpsClient)
 }

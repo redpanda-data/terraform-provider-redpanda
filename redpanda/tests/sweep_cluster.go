@@ -43,5 +43,5 @@ func (s sweepCluster) SweepCluster(_ string) error {
 		return err
 	}
 
-	return utils.AreWeDoneYet(ctx, op, 45*time.Minute, s.OpsClient)
+	return utils.AreWeDoneYet(ctx, op, 45*time.Minute, time.Minute, s.OpsClient)
 }
