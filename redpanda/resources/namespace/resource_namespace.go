@@ -28,7 +28,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
@@ -51,7 +51,7 @@ func (*Namespace) Metadata(_ context.Context, _ resource.MetadataRequest, resp *
 }
 
 // Configure uses provider level data to configure Namespace client.
-func (n *Namespace) Configure(ctx context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
+func (n *Namespace) Configure(_ context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
 	if request.ProviderData == nil {
 		// We can't add a diagnostic for an unset ProviderData here because
 		// during the early part of the terraform lifecycle, the provider data
@@ -60,7 +60,7 @@ func (n *Namespace) Configure(ctx context.Context, request resource.ConfigureReq
 		return
 	}
 
-	p, ok := request.ProviderData.(utils.ResourceData)
+	p, ok := request.ProviderData.(config.Resource)
 	if !ok {
 		response.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
@@ -68,15 +68,7 @@ func (n *Namespace) Configure(ctx context.Context, request resource.ConfigureReq
 		)
 		return
 	}
-	client, err := clients.NewNamespaceServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
-		ClientID:     p.ClientID,
-		ClientSecret: p.ClientSecret,
-	})
-	if err != nil {
-		response.Diagnostics.AddError("failed to create namespace client", err.Error())
-		return
-	}
-	n.Client = client
+	n.Client = cloudv1beta1.NewNamespaceServiceClient(p.ControlPlaneConnection)
 }
 
 // Schema returns the schema for the Namespace resource.
@@ -141,6 +133,7 @@ func (n *Namespace) Read(ctx context.Context, req resource.ReadRequest, resp *re
 		resp.Diagnostics.AddError("failed to read namespace", err.Error())
 		return
 	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, models.Namespace{
 		Name: types.StringValue(ns.Name),
 		ID:   types.StringValue(ns.Id),

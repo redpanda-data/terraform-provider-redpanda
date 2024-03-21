@@ -13,9 +13,9 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-// Package clients provides the CloudV2 clients used by the Redpanda terraform
-// provider and the generated resources.
-package clients
+// Package cloud provides the methods to connect and talk to the Redpanda Cloud
+// public API.
+package cloud
 
 import (
 	"context"
@@ -36,15 +36,15 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-// cloudEndpoint is a representation of a cloud V2 endpoint, containing the URLs
-// for authentication and the API URL.
-type cloudEndpoint struct {
-	apiURL   string // CloudV2 public API URL.
+// Endpoint is a representation of a cloud endpoint for a single environment. It
+// contains the URLs, audience for authentication and the API URL.
+type Endpoint struct {
+	APIURL   string // CloudV2 public API URL.
 	authURL  string // CloudV2 URL for authorization token exchange.
 	audience string // CloudV2 audience used for token exchange.
 }
 
-var cloudAuthEnvironments = map[string]cloudEndpoint{
+var endpoints = map[string]Endpoint{
 	"dev": {
 		"api.dev.cloud.redpanda.com:443",
 		"https://dev-cloudv2.us.auth0.com/oauth/token",
@@ -62,13 +62,6 @@ var cloudAuthEnvironments = map[string]cloudEndpoint{
 	},
 }
 
-// ClientRequest are the client request credentials used to create a connection.
-type ClientRequest struct {
-	ClientID     string
-	ClientSecret string
-	// TODO: we can use this as the only source of truth for Client Credentials and Envs.
-}
-
 type tokenResponse struct {
 	AccessToken string `json:"access_token"`
 	Scope       string `json:"scope"`
@@ -76,19 +69,20 @@ type tokenResponse struct {
 	TokenType   string `json:"token_type"`
 }
 
-// requestTokenAndEnv requests a token.
-func requestTokenAndEnv(ctx context.Context, cloudEnv string, cr ClientRequest) (string, *cloudEndpoint, error) {
-	if cr.ClientID == "" {
+// RequestTokenAndEnv requests an authentication token and return the Endpoint
+// for a given environment.
+func RequestTokenAndEnv(ctx context.Context, cloudEnv, clientID, clientSecret string) (string, *Endpoint, error) {
+	if clientID == "" {
 		return "", nil, fmt.Errorf("client_id is not set")
 	}
-	if cr.ClientSecret == "" {
+	if clientSecret == "" {
 		return "", nil, fmt.Errorf("client_secret is not set")
 	}
-	endpoint, found := cloudAuthEnvironments[cloudEnv]
+	endpoint, found := endpoints[cloudEnv]
 	if !found {
 		return "", nil, fmt.Errorf("unable to find requested environment: %q", cloudEnv)
 	}
-	payload := fmt.Sprintf("grant_type=client_credentials&client_id=%s&client_secret=%s&audience=%s", cr.ClientID, cr.ClientSecret, endpoint.audience)
+	payload := fmt.Sprintf("grant_type=client_credentials&client_id=%s&client_secret=%s&audience=%s", clientID, clientSecret, endpoint.audience)
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.authURL, strings.NewReader(payload))
 	if err != nil {
 		return "", nil, fmt.Errorf("unable to issue request to %v: %v", endpoint.authURL, err)
@@ -118,7 +112,9 @@ func requestTokenAndEnv(ctx context.Context, cloudEnv string, cr ClientRequest) 
 	return tokenContainer.AccessToken, &endpoint, nil
 }
 
-func spawnConn(ctx context.Context, url string, authToken string) (*grpc.ClientConn, error) {
+// SpawnConn returns a grpc connection to the given URL, it adds a bearer token
+// to each request with the given 'authToken'.
+func SpawnConn(ctx context.Context, url string, authToken string) (*grpc.ClientConn, error) {
 	return grpc.DialContext(
 		ctx,
 		url,

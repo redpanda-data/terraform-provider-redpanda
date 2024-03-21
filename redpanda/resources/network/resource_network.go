@@ -32,7 +32,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
@@ -56,7 +56,7 @@ func (*Network) Metadata(_ context.Context, _ resource.MetadataRequest, response
 }
 
 // Configure uses provider level data to configure Network's clients.
-func (n *Network) Configure(ctx context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
+func (n *Network) Configure(_ context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
 	if request.ProviderData == nil {
 		// we can't add a diagnostic for an unset ProviderData here because
 		// during the early part of the terraform lifecycle, the provider data
@@ -65,7 +65,7 @@ func (n *Network) Configure(ctx context.Context, request resource.ConfigureReque
 		return
 	}
 
-	p, ok := request.ProviderData.(utils.ResourceData)
+	p, ok := request.ProviderData.(config.Resource)
 	if !ok {
 		response.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
@@ -73,26 +73,8 @@ func (n *Network) Configure(ctx context.Context, request resource.ConfigureReque
 		)
 		return
 	}
-	client, err := clients.NewNetworkServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
-		ClientID:     p.ClientID,
-		ClientSecret: p.ClientSecret,
-	})
-	if err != nil {
-		response.Diagnostics.AddError("failed to create network client", err.Error())
-		return
-	}
-
-	opsClient, err := clients.NewOperationServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
-		ClientID:     p.ClientID,
-		ClientSecret: p.ClientSecret,
-	})
-	if err != nil {
-		response.Diagnostics.AddError("failed to create ops client", err.Error())
-		return
-	}
-
-	n.NetClient = client
-	n.OpsClient = opsClient
+	n.NetClient = cloudv1beta1.NewNetworkServiceClient(p.ControlPlaneConnection)
+	n.OpsClient = cloudv1beta1.NewOperationServiceClient(p.ControlPlaneConnection)
 }
 
 // Schema returns the schema for the Network resource.
@@ -193,7 +175,6 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		response.Diagnostics.AddError("failed to unmarshal network metadata", err.Error())
 		return
 	}
-
 	if err := utils.AreWeDoneYet(ctx, op, 15*time.Minute, time.Minute, n.OpsClient); err != nil {
 		response.Diagnostics.AddError("failed waiting for network creation", err.Error())
 		return

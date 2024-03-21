@@ -31,9 +31,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	dataplanev1alpha1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/dataplane/v1alpha1"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"google.golang.org/grpc"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -47,7 +49,8 @@ var (
 type User struct {
 	UserClient dataplanev1alpha1.UserServiceClient
 
-	resData utils.ResourceData
+	resData       config.Resource
+	dataplaneConn *grpc.ClientConn
 }
 
 // Metadata returns the metadata for the User resource.
@@ -60,7 +63,7 @@ func (u *User) Configure(_ context.Context, req resource.ConfigureRequest, resp 
 	if req.ProviderData == nil {
 		return
 	}
-	p, ok := req.ProviderData.(utils.ResourceData)
+	p, ok := req.ProviderData.(config.Resource)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
@@ -125,6 +128,7 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 		resp.Diagnostics.AddError("failed to create user client", err.Error())
 		return
 	}
+	defer u.dataplaneConn.Close()
 	user, err := u.UserClient.CreateUser(ctx, &dataplanev1alpha1.CreateUserRequest{
 		User: &dataplanev1alpha1.CreateUserRequest_User{
 			Name:      model.Name.ValueString(),
@@ -155,6 +159,7 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 		resp.Diagnostics.AddError("failed to create user client", err.Error())
 		return
 	}
+	defer u.dataplaneConn.Close()
 	user, err := utils.FindUserByName(ctx, model.Name.ValueString(), u.UserClient)
 	if err != nil {
 		if utils.IsNotFound(err) {
@@ -192,6 +197,7 @@ func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 		resp.Diagnostics.AddError("failed to create user client", err.Error())
 		return
 	}
+	defer u.dataplaneConn.Close()
 	_, err = u.UserClient.DeleteUser(ctx, &dataplanev1alpha1.DeleteUserRequest{
 		Name: model.Name.ValueString(),
 	})
@@ -212,19 +218,13 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 		return
 	}
 	user, clusterID := split[0], split[1]
-	client, err := clients.NewClusterServiceClient(ctx, u.resData.CloudEnv, clients.ClientRequest{
-		ClientID:     u.resData.ClientID,
-		ClientSecret: u.resData.ClientSecret,
-	})
-	if err != nil {
-		resp.Diagnostics.AddError("unable to start a cluster client", "unable to start a cluster client; make sure ADDR ID format is <user_name>,<cluster_id>")
-		return
-	}
+
+	client := cloudv1beta1.NewClusterServiceClient(u.resData.ControlPlaneConnection)
 	cluster, err := client.GetCluster(ctx, &cloudv1beta1.GetClusterRequest{
 		Id: clusterID,
 	})
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to find cluster with ID %q", clusterID), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to find cluster with ID %q; make sure ADDR ID format is <user_name>,<cluster_id>", clusterID), err.Error())
 		return
 	}
 	clusterURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
@@ -244,13 +244,13 @@ func (u *User) createUserClient(ctx context.Context, clusterURL string) error {
 	if clusterURL == "" {
 		return errors.New("unable to create client with empty target cluster API URL")
 	}
-	client, err := clients.NewUserServiceClient(ctx, u.resData.CloudEnv, clusterURL, clients.ClientRequest{
-		ClientID:     u.resData.ClientID,
-		ClientSecret: u.resData.ClientSecret,
-	})
-	if err != nil {
-		return fmt.Errorf("unable to create user client: %v", err)
+	if u.dataplaneConn == nil {
+		conn, err := cloud.SpawnConn(ctx, clusterURL, u.resData.AuthToken)
+		if err != nil {
+			return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
+		}
+		u.dataplaneConn = conn
 	}
-	u.UserClient = client
+	u.UserClient = dataplanev1alpha1.NewUserServiceClient(u.dataplaneConn)
 	return nil
 }
