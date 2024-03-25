@@ -26,6 +26,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/acl"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/cluster"
@@ -33,7 +35,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/network"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/topic"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/user"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"google.golang.org/grpc"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -46,6 +48,8 @@ type Redpanda struct {
 	cloudEnv string
 	// version is the Redpanda terraform provider.
 	version string
+	// conn is the connection to the control plane API.
+	conn *grpc.ClientConn
 }
 
 const (
@@ -118,15 +122,33 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	}
 	// Clients are passed through to downstream resources through the response
 	// struct.
-	response.ResourceData = utils.ResourceData{
-		ClientID:     id,
-		ClientSecret: sec,
-		CloudEnv:     r.cloudEnv,
+	token, endpoint, err := cloud.RequestTokenAndEnv(ctx, r.cloudEnv, id, sec)
+	if err != nil {
+		response.Diagnostics.AddError("failed to authenticate with Redpanda API", err.Error())
+		return
 	}
-	response.DataSourceData = utils.DatasourceData{
-		ClientID:     id,
-		ClientSecret: sec,
-		CloudEnv:     r.cloudEnv,
+	if r.conn == nil {
+		conn, err := cloud.SpawnConn(ctx, endpoint.APIURL, token)
+		if err != nil {
+			response.Diagnostics.AddError("failed to open a connection with the Redpanda Cloud API", err.Error())
+			return
+		}
+		r.conn = conn
+	}
+
+	response.ResourceData = config.Resource{
+		AuthToken:              token,
+		ClientID:               id,
+		ClientSecret:           sec,
+		CloudEnv:               r.cloudEnv,
+		ControlPlaneConnection: r.conn,
+	}
+	response.DataSourceData = config.Datasource{
+		AuthToken:              token,
+		ClientID:               id,
+		ClientSecret:           sec,
+		CloudEnv:               r.cloudEnv,
+		ControlPlaneConnection: r.conn,
 	}
 }
 

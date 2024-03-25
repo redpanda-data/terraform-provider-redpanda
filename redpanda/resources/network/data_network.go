@@ -1,3 +1,18 @@
+// Copyright 2023 Redpanda Data, Inc.
+//
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
 package network
 
 import (
@@ -11,9 +26,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -104,12 +118,12 @@ func (n *DataSourceNetwork) Read(ctx context.Context, req datasource.ReadRequest
 }
 
 // Configure uses provider level data to configure DataSourceNetwork's client.
-func (n *DataSourceNetwork) Configure(ctx context.Context, request datasource.ConfigureRequest, response *datasource.ConfigureResponse) {
+func (n *DataSourceNetwork) Configure(_ context.Context, request datasource.ConfigureRequest, response *datasource.ConfigureResponse) {
 	if request.ProviderData == nil {
 		return
 	}
 
-	p, ok := request.ProviderData.(utils.DatasourceData)
+	p, ok := request.ProviderData.(config.Datasource)
 	if !ok {
 		response.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
@@ -117,13 +131,5 @@ func (n *DataSourceNetwork) Configure(ctx context.Context, request datasource.Co
 		)
 		return
 	}
-	client, err := clients.NewNetworkServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
-		ClientID:     p.ClientID,
-		ClientSecret: p.ClientSecret,
-	})
-	if err != nil {
-		response.Diagnostics.AddError("failed to create network client", err.Error())
-		return
-	}
-	n.NetClient = client
+	n.NetClient = cloudv1beta1.NewNetworkServiceClient(p.ControlPlaneConnection)
 }

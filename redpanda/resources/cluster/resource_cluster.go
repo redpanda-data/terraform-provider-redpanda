@@ -31,7 +31,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
@@ -55,12 +55,12 @@ func (*Cluster) Metadata(_ context.Context, _ resource.MetadataRequest, resp *re
 }
 
 // Configure uses provider level data to configure Cluster's clients.
-func (c *Cluster) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (c *Cluster) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
 	}
 
-	p, ok := req.ProviderData.(utils.ResourceData)
+	p, ok := req.ProviderData.(config.Resource)
 
 	if !ok {
 		resp.Diagnostics.AddError(
@@ -69,25 +69,8 @@ func (c *Cluster) Configure(ctx context.Context, req resource.ConfigureRequest, 
 		return
 	}
 
-	client, err := clients.NewClusterServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
-		ClientID:     p.ClientID,
-		ClientSecret: p.ClientSecret,
-	})
-	if err != nil {
-		resp.Diagnostics.AddError("failed to create cluster client", err.Error())
-		return
-	}
-	c.CluClient = client
-
-	ops, err := clients.NewOperationServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
-		ClientID:     p.ClientID,
-		ClientSecret: p.ClientSecret,
-	})
-	if err != nil {
-		resp.Diagnostics.AddError("failed to create ops client", err.Error())
-		return
-	}
-	c.OpsClient = ops
+	c.CluClient = cloudv1beta1.NewClusterServiceClient(p.ControlPlaneConnection)
+	c.OpsClient = cloudv1beta1.NewOperationServiceClient(p.ControlPlaneConnection)
 }
 
 // Schema returns the schema for the Cluster resource.
@@ -191,7 +174,6 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		resp.Diagnostics.AddError("failed to create cluster", err.Error())
 		return
 	}
-
 	if _, err := utils.GetClusterUntilRunningState(ctx, 0, 50, clusterReq.Name, c.CluClient); err != nil {
 		resp.Diagnostics.AddError("failed at getting ready state while creating cluster", err.Error())
 		return

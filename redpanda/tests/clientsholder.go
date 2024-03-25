@@ -20,8 +20,7 @@ import (
 	"fmt"
 
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
-	"golang.org/x/sync/errgroup"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 )
 
 type clientHolder struct {
@@ -32,60 +31,18 @@ type clientHolder struct {
 }
 
 func newClients(ctx context.Context, clientID, clientSecret, cloudEnv string) (*clientHolder, error) {
-	g, egCtx := errgroup.WithContext(ctx)
-	var (
-		opsClient     cloudv1beta1.OperationServiceClient
-		netClient     cloudv1beta1.NetworkServiceClient
-		nsClient      cloudv1beta1.NamespaceServiceClient
-		clusterClient cloudv1beta1.ClusterServiceClient
-	)
-	g.Go(func() (rerr error) {
-		opsClient, rerr = clients.NewOperationServiceClient(egCtx, cloudEnv, clients.ClientRequest{
-			ClientID:     clientID,
-			ClientSecret: clientSecret,
-		})
-		if rerr != nil {
-			return fmt.Errorf("unable to create operation service client: %v", rerr)
-		}
-		return nil
-	})
-	g.Go(func() (rerr error) {
-		nsClient, rerr = clients.NewNamespaceServiceClient(egCtx, cloudEnv, clients.ClientRequest{
-			ClientID:     clientID,
-			ClientSecret: clientSecret,
-		})
-		if rerr != nil {
-			return fmt.Errorf("unable to create namespace service client: %v", rerr)
-		}
-		return nil
-	})
-	g.Go(func() (rerr error) {
-		netClient, rerr = clients.NewNetworkServiceClient(egCtx, cloudEnv, clients.ClientRequest{
-			ClientID:     clientID,
-			ClientSecret: clientSecret,
-		})
-		if rerr != nil {
-			return fmt.Errorf("unable to create network service client: %v", rerr)
-		}
-		return nil
-	})
-	g.Go(func() (rerr error) {
-		clusterClient, rerr = clients.NewClusterServiceClient(egCtx, cloudEnv, clients.ClientRequest{
-			ClientID:     clientID,
-			ClientSecret: clientSecret,
-		})
-		if rerr != nil {
-			return fmt.Errorf("unable to create cluster service client: %v", rerr)
-		}
-		return nil
-	})
-	if err := g.Wait(); err != nil {
-		return nil, err
+	token, endpoint, err := cloud.RequestTokenAndEnv(ctx, cloudEnv, clientID, clientSecret)
+	if err != nil {
+		return nil, fmt.Errorf("unable to request auth token: %v", err)
+	}
+	conn, err := cloud.SpawnConn(ctx, endpoint.APIURL, token)
+	if err != nil {
+		return nil, fmt.Errorf("unable to spawn connection with control plane API: %v", err)
 	}
 	return &clientHolder{
-		OpsClient:     opsClient,
-		NetClient:     netClient,
-		NsClient:      nsClient,
-		ClusterClient: clusterClient,
+		OpsClient:     cloudv1beta1.NewOperationServiceClient(conn),
+		NetClient:     cloudv1beta1.NewNetworkServiceClient(conn),
+		NsClient:      cloudv1beta1.NewNamespaceServiceClient(conn),
+		ClusterClient: cloudv1beta1.NewClusterServiceClient(conn),
 	}, nil
 }

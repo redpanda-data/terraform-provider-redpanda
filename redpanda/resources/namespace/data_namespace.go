@@ -1,3 +1,18 @@
+// Copyright 2023 Redpanda Data, Inc.
+//
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
 package namespace
 
 import (
@@ -8,9 +23,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -68,12 +82,12 @@ func (n *DataSourceNamespace) Read(ctx context.Context, req datasource.ReadReque
 }
 
 // Configure uses provider level data to configure DataSourceNamespace client.
-func (n *DataSourceNamespace) Configure(ctx context.Context, request datasource.ConfigureRequest, response *datasource.ConfigureResponse) {
+func (n *DataSourceNamespace) Configure(_ context.Context, request datasource.ConfigureRequest, response *datasource.ConfigureResponse) {
 	if request.ProviderData == nil {
 		return
 	}
 
-	p, ok := request.ProviderData.(utils.DatasourceData)
+	p, ok := request.ProviderData.(config.Datasource)
 	if !ok {
 		response.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
@@ -81,13 +95,5 @@ func (n *DataSourceNamespace) Configure(ctx context.Context, request datasource.
 		)
 		return
 	}
-	client, err := clients.NewNamespaceServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
-		ClientID:     p.ClientID,
-		ClientSecret: p.ClientSecret,
-	})
-	if err != nil {
-		response.Diagnostics.AddError("failed to create namespace client", err.Error())
-		return
-	}
-	n.Client = client
+	n.Client = cloudv1beta1.NewNamespaceServiceClient(p.ControlPlaneConnection)
 }

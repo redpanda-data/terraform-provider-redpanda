@@ -25,16 +25,19 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	dataplanev1alpha1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/dataplane/v1alpha1"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"google.golang.org/grpc"
 )
 
 // ACL represents the ACL Terraform resource.
 type ACL struct {
 	ACLClient dataplanev1alpha1.ACLServiceClient
 
-	resData utils.ResourceData
+	resData       config.Resource
+	dataplaneConn *grpc.ClientConn
 }
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -55,7 +58,7 @@ func (a *ACL) Configure(_ context.Context, request resource.ConfigureRequest, re
 		return
 	}
 
-	p, ok := request.ProviderData.(utils.ResourceData)
+	p, ok := request.ProviderData.(config.Resource)
 
 	if !ok {
 		response.Diagnostics.AddError(
@@ -161,6 +164,7 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		response.Diagnostics.AddError("failed to create ACL client", err.Error())
 		return
 	}
+	defer a.dataplaneConn.Close()
 	// TODO doesn't return an acl object in the response, check on this
 	_, err = a.ACLClient.CreateACL(ctx, &dataplanev1alpha1.CreateACLRequest{
 		ResourceType:        resourceType,
@@ -232,6 +236,7 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 		response.Diagnostics.AddError("failed to create ACL client", err.Error())
 		return
 	}
+	defer a.dataplaneConn.Close()
 	aclList, err := a.ACLClient.ListACLs(ctx, &dataplanev1alpha1.ListACLsRequest{Filter: filter})
 	if err != nil {
 		response.Diagnostics.AddError("Failed to list ACLs", err.Error())
@@ -305,6 +310,7 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 		response.Diagnostics.AddError("failed to create ACL client", err.Error())
 		return
 	}
+	defer a.dataplaneConn.Close()
 	deleteResponse, err := a.ACLClient.DeleteACLs(ctx, &dataplanev1alpha1.DeleteACLsRequest{Filter: filter})
 	if err != nil {
 		response.Diagnostics.AddError("Failed to delete ACL", err.Error())
@@ -332,13 +338,13 @@ func (a *ACL) createACLClient(ctx context.Context, clusterURL string) error {
 	if a.ACLClient != nil { // Client already started, no need to create another one.
 		return nil
 	}
-	client, err := clients.NewACLServiceClient(ctx, a.resData.CloudEnv, clusterURL, clients.ClientRequest{
-		ClientID:     a.resData.ClientID,
-		ClientSecret: a.resData.ClientSecret,
-	})
-	if err != nil {
-		return fmt.Errorf("unable to create ACL client: %v", err)
+	if a.dataplaneConn == nil {
+		conn, err := cloud.SpawnConn(ctx, clusterURL, a.resData.AuthToken)
+		if err != nil {
+			return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
+		}
+		a.dataplaneConn = conn
 	}
-	a.ACLClient = client
+	a.ACLClient = dataplanev1alpha1.NewACLServiceClient(a.dataplaneConn)
 	return nil
 }

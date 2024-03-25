@@ -26,7 +26,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/clients"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
@@ -47,12 +47,12 @@ func (*DataSourceCluster) Metadata(_ context.Context, _ datasource.MetadataReque
 }
 
 // Configure uses provider level data to configure DataSourceCluster's client.
-func (d *DataSourceCluster) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+func (d *DataSourceCluster) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
 	}
 
-	p, ok := req.ProviderData.(utils.DatasourceData)
+	p, ok := req.ProviderData.(config.Datasource)
 
 	if !ok {
 		resp.Diagnostics.AddError(
@@ -60,16 +60,7 @@ func (d *DataSourceCluster) Configure(ctx context.Context, req datasource.Config
 			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", req.ProviderData))
 		return
 	}
-
-	client, err := clients.NewClusterServiceClient(ctx, p.CloudEnv, clients.ClientRequest{
-		ClientID:     p.ClientID,
-		ClientSecret: p.ClientSecret,
-	})
-	if err != nil {
-		resp.Diagnostics.AddError("failed to create cluster client", err.Error())
-		return
-	}
-	d.CluClient = client
+	d.CluClient = cloudv1beta1.NewClusterServiceClient(p.ControlPlaneConnection)
 }
 
 // Read reads the Cluster data source's values and updates the state.
@@ -88,7 +79,6 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), err.Error())
 		return
 	}
-
 	clusterZones, dg := types.ListValueFrom(ctx, types.StringType, cluster.Zones)
 	if dg.HasError() {
 		resp.Diagnostics.Append(dg...)
