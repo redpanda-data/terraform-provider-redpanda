@@ -26,3 +26,8 @@ terraform-provider-redpanda
 tools/tfplugindocs
 
 .idea/**
+
+**/.terraform/**
+
+terraform.tfstate**
+.terraform.lock**
