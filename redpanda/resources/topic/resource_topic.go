@@ -163,6 +163,13 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		},
 	})
 	if err != nil {
+		if isAlreadyExistsError(err) {
+			response.Diagnostics.AddError(
+				fmt.Sprintf("Failed to create topic; topic %q already exists", model.Name.ValueString()),
+				"Topic resource can be imported using 'terraform import redpanda_topic.<resource_name> <topic_name>,<cluster_id>'",
+			)
+			return
+		}
 		response.Diagnostics.AddError(fmt.Sprintf("failed to create topic %q", model.Name.ValueString()), err.Error())
 		return
 	}
@@ -352,4 +359,8 @@ func filterDynamicConfig(configs []*dataplanev1alpha1.Topic_Configuration) []*da
 		}
 	}
 	return filtered
+}
+
+func isAlreadyExistsError(err error) bool {
+	return strings.Contains(err.Error(), "TOPIC_ALREADY_EXISTS") || strings.Contains(err.Error(), "The topic has already been created")
 }
