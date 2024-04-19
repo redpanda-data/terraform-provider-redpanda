@@ -350,10 +350,7 @@ func filterDynamicConfig(configs []*dataplanev1alpha1.Topic_Configuration) []*da
 	var filtered []*dataplanev1alpha1.Topic_Configuration
 	for _, cfg := range configs {
 		if cfg != nil {
-			// cleanup.policy always report the source as Dynamic even if we are
-			// using the default. We can't manage this property for now.
-			// See https://github.com/redpanda-data/redpanda/issues/2225
-			if cfg.Source == dataplanev1alpha1.ConfigSource_CONFIG_SOURCE_DYNAMIC_TOPIC_CONFIG && cfg.Name != "cleanup.policy" {
+			if cfg.Source == dataplanev1alpha1.ConfigSource_CONFIG_SOURCE_DYNAMIC_TOPIC_CONFIG {
 				filtered = append(filtered, cfg)
 			}
 		}
