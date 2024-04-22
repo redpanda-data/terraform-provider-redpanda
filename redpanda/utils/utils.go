@@ -335,24 +335,6 @@ func MapToCreateTopicConfiguration(cfg types.Map) ([]*dataplanev1alpha1.CreateTo
 	return output, nil
 }
 
-// MapToUpdateTopicConfiguration converts a cfg map to a slice of dataplanev1alpha1.UpdateTopicConfigurationsRequest_UpdateConfiguration
-func MapToUpdateTopicConfiguration(cfg types.Map) ([]*dataplanev1alpha1.UpdateTopicConfigurationsRequest_UpdateConfiguration, error) {
-	var output []*dataplanev1alpha1.UpdateTopicConfigurationsRequest_UpdateConfiguration
-
-	for k, v := range cfg.Elements() {
-		if v.IsNull() || v.IsUnknown() {
-			return nil, fmt.Errorf("topic configuration %q must have a value", k)
-		}
-		value := strings.Trim(v.String(), `"`)
-		output = append(output, &dataplanev1alpha1.UpdateTopicConfigurationsRequest_UpdateConfiguration{
-			Name:      k,
-			Value:     &value,
-			Operation: dataplanev1alpha1.ConfigAlterOperation_CONFIG_ALTER_OPERATION_SET,
-		})
-	}
-	return output, nil
-}
-
 // NumberToInt32 converts a types.Number to an *int32
 func NumberToInt32(n types.Number) *int32 {
 	i, _ := n.ValueBigFloat().Int64()
