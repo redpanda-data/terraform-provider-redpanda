@@ -28,6 +28,7 @@ const (
 	networkResourceName   = "redpanda_network.test"
 	clusterResourceName   = "redpanda_cluster.test"
 	userResourceName      = "redpanda_user.test"
+	topicResourceName     = "redpanda_topic.test"
 	aclResourceName       = "redpanda_acl.test"
 )
 
@@ -604,6 +605,14 @@ func TestAccResourcesWithDataSources(t *testing.T) {
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["cluster_id"] = config.StringVariable(os.Getenv("CLUSTER_ID"))
 	origTestCaseVars["user_name"] = config.StringVariable(name)
+	origTestCaseVars["topic_name"] = config.StringVariable(name)
+
+	updateTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(updateTestCaseVars, origTestCaseVars)
+	// Change 1, remove other
+	updateTestCaseVars["topic_config"] = config.MapVariable(map[string]config.Variable{
+		"compression.type": config.StringVariable("gzip"),
+	})
 
 	c, err := newClients(ctx, clientID, clientSecret, "ign")
 	if err != nil {
@@ -618,6 +627,15 @@ func TestAccResourcesWithDataSources(t *testing.T) {
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(userResourceName, "name", name),
+					resource.TestCheckResourceAttr(topicResourceName, "name", name),
+				),
+			},
+			{
+				ConfigFile:               config.StaticFile(dataSourcesTest),
+				ConfigVariables:          updateTestCaseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(topicResourceName, "configuration.compression.type", "gzip"),
 				),
 			},
 			{
