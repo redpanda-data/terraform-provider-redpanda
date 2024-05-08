@@ -19,13 +19,14 @@ import (
 	"context"
 	"fmt"
 
-	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
+	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
+	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 type sweepNamespace struct {
 	NamespaceName string
-	Client        cloudv1beta1.NamespaceServiceClient
+	Client        controlplanev1beta1grpc.NamespaceServiceClient
 }
 
 func (s sweepNamespace) SweepNamespaces(_ string) error {
@@ -35,7 +36,7 @@ func (s sweepNamespace) SweepNamespaces(_ string) error {
 		return fmt.Errorf("unable to sweep namespace: unable to find namespace %q: %v", s.NamespaceName, err)
 	}
 
-	if _, err := s.Client.DeleteNamespace(ctx, &cloudv1beta1.DeleteNamespaceRequest{
+	if _, err := s.Client.DeleteNamespace(ctx, &controlplanev1beta1.DeleteNamespaceRequest{
 		Id: name.GetId(),
 	}); err != nil {
 		return fmt.Errorf("unable to sweep namespace: unable to delete namespace %q: %v", s.NamespaceName, err)

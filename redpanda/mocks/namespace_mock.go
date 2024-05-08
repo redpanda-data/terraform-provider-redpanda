@@ -18,11 +18,12 @@ package mocks
 import (
 	"context"
 
-	controlplanev1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
+	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
+	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
 	"google.golang.org/grpc"
 )
 
-var _ controlplanev1beta1.NamespaceServiceClient = MockNamespaceServiceClient{}
+var _ controlplanev1beta1grpc.NamespaceServiceClient = MockNamespaceServiceClient{}
 
 // MockNamespaceServiceClient is a mocked client that follows the
 // controlplanev1beta1.NamespaceServiceClient interface.

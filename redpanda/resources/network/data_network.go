@@ -20,12 +20,13 @@ import (
 	"fmt"
 	"regexp"
 
+	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
+	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 )
@@ -37,7 +38,7 @@ var (
 
 // DataSourceNetwork represents a data source for a Redpanda Cloud network.
 type DataSourceNetwork struct {
-	NetClient cloudv1beta1.NetworkServiceClient
+	NetClient controlplanev1beta1grpc.NetworkServiceClient
 }
 
 // Metadata returns the metadata for the Network data source.
@@ -103,7 +104,7 @@ func datasourceNetworkSchema() schema.Schema {
 func (n *DataSourceNetwork) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var model models.Network
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
-	nw, err := n.NetClient.GetNetwork(ctx, &cloudv1beta1.GetNetworkRequest{
+	nw, err := n.NetClient.GetNetwork(ctx, &controlplanev1beta1.GetNetworkRequest{
 		Id: model.ID.ValueString(),
 	})
 	if err != nil {
@@ -131,5 +132,5 @@ func (n *DataSourceNetwork) Configure(_ context.Context, request datasource.Conf
 		)
 		return
 	}
-	n.NetClient = cloudv1beta1.NewNetworkServiceClient(p.ControlPlaneConnection)
+	n.NetClient = controlplanev1beta1grpc.NewNetworkServiceClient(p.ControlPlaneConnection)
 }

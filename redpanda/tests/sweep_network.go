@@ -20,14 +20,15 @@ import (
 	"fmt"
 	"time"
 
-	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
+	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
+	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 type sweepNetwork struct {
 	NetworkName string
-	NetClient   cloudv1beta1.NetworkServiceClient
-	OpsClient   cloudv1beta1.OperationServiceClient
+	NetClient   controlplanev1beta1grpc.NetworkServiceClient
+	OpsClient   controlplanev1beta1grpc.OperationServiceClient
 }
 
 func (s sweepNetwork) SweepNetworks(_ string) error {
@@ -36,7 +37,7 @@ func (s sweepNetwork) SweepNetworks(_ string) error {
 	if err != nil {
 		return fmt.Errorf("unable to sweep network: unable to find network %q: %v", s.NetworkName, err)
 	}
-	op, err := s.NetClient.DeleteNetwork(ctx, &cloudv1beta1.DeleteNetworkRequest{
+	op, err := s.NetClient.DeleteNetwork(ctx, &controlplanev1beta1.DeleteNetworkRequest{
 		Id: network.GetId(),
 	})
 	if err != nil {

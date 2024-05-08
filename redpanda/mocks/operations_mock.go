@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"reflect"
 
+	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
 	"github.com/golang/mock/gomock"
-	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	"google.golang.org/grpc"
 )
 
@@ -34,14 +34,33 @@ func (m *MockOperationServiceClient) EXPECT() *MockOperationServiceClientMockRec
 }
 
 // GetOperation mocks base method.
-func (m *MockOperationServiceClient) GetOperation(ctx context.Context, in *cloudv1beta1.GetOperationRequest, opts ...grpc.CallOption) (*cloudv1beta1.Operation, error) {
+func (m *MockOperationServiceClient) GetOperation(ctx context.Context, in *controlplanev1beta1.GetOperationRequest, opts ...grpc.CallOption) (*controlplanev1beta1.Operation, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetOperation", varargs...)
-	ret0, ok := ret[0].(*cloudv1beta1.Operation)
+	ret0, ok := ret[0].(*controlplanev1beta1.Operation)
+	if !ok {
+		fmt.Println("unexpected type")
+	}
+	ret1, ok := ret[1].(error)
+	if !ok {
+		fmt.Print("unexpected type")
+	}
+	return ret0, ret1
+}
+
+// ListOperations mocks base method.
+func (m *MockOperationServiceClient) ListOperations(ctx context.Context, in *controlplanev1beta1.ListOperationsRequest, opts ...grpc.CallOption) (*controlplanev1beta1.ListOperationsResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListOperations", varargs...)
+	ret0, ok := ret[0].(*controlplanev1beta1.ListOperationsResponse)
 	if !ok {
 		fmt.Println("unexpected type")
 	}
@@ -57,4 +76,11 @@ func (mr *MockOperationServiceClientMockRecorder) GetOperation(ctx, in any, opts
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOperation", reflect.TypeOf((*MockOperationServiceClient)(nil).GetOperation), varargs...)
+}
+
+// ListOperations indicates an expected call of ListOperations.
+func (mr *MockOperationServiceClientMockRecorder) ListOperations(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListOperation", reflect.TypeOf((*MockOperationServiceClient)(nil).ListOperations), varargs...)
 }

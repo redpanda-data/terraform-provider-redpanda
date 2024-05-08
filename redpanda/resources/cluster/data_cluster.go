@@ -21,11 +21,12 @@ import (
 	"context"
 	"fmt"
 
+	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
+	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -38,7 +39,7 @@ var (
 
 // DataSourceCluster represents a cluster data source.
 type DataSourceCluster struct {
-	CluClient cloudv1beta1.ClusterServiceClient
+	CluClient controlplanev1beta1grpc.ClusterServiceClient
 }
 
 // Metadata returns the metadata for the Cluster data source.
@@ -60,7 +61,7 @@ func (d *DataSourceCluster) Configure(_ context.Context, req datasource.Configur
 			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", req.ProviderData))
 		return
 	}
-	d.CluClient = cloudv1beta1.NewClusterServiceClient(p.ControlPlaneConnection)
+	d.CluClient = controlplanev1beta1grpc.NewClusterServiceClient(p.ControlPlaneConnection)
 }
 
 // Read reads the Cluster data source's values and updates the state.
@@ -68,7 +69,7 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 	var model models.Cluster
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 
-	cluster, err := d.CluClient.GetCluster(ctx, &cloudv1beta1.GetClusterRequest{
+	cluster, err := d.CluClient.GetCluster(ctx, &controlplanev1beta1.GetClusterRequest{
 		Id: model.ID.ValueString(),
 	})
 	if err != nil {

@@ -1,4 +1,4 @@
-.PHONY: all proto doc int unit test lint linter buf_deps proto_clean generate_proto tfplugindocs_install generate_docs integration_tests unit_tests install_gofumpt install_lint
+.PHONY: all doc int unit test lint linter tfplugindocs_install generate_docs integration_tests unit_tests install_gofumpt install_lint
 
 GOBIN := $(PWD)/tools
 TFPLUGINDOCSCMD := $(GOBIN)/tfplugindocs
@@ -7,9 +7,7 @@ BUFCMD=buf
 GOFUMPTCMD=gofumpt
 GOLANGCILINTCMD=golangci-lint
 
-all: proto doc lint test
-
-proto: proto_clean buf_deps generate_proto
+all: doc lint test
 
 doc: tfplugindocs_install generate_docs
 
@@ -21,27 +19,11 @@ test: unit_tests integration_tests
 
 lint: install_gofumpt install_lint linter
 
-ready: proto doc lint tidy
+ready: doc lint tidy
 
 tidy:
 	@echo "running go mod tidy..."
 	@$(GOCMD) mod tidy
-
-buf_deps:
-	@echo "installing dependencies..."
-	@$(GOCMD) install github.com/bufbuild/buf/cmd/buf@latest
-	@$(GOCMD) install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-	@$(GOCMD) install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-
-proto_clean:
-	@echo "cleaning proto/gen directory..."
-	@rm -rf proto/gen
-
-generate_proto: proto_clean buf_deps
-	@echo "generating protobuf files..."
-	@$(BUFCMD) generate buf.build/redpandadata/cloud
-	@$(BUFCMD) generate buf.build/redpandadata/dataplane
-	@$(BUFCMD) generate buf.build/redpandadata/common
 
 tfplugindocs_install:
 	@echo "installing tfplugindocs..."
@@ -68,11 +50,11 @@ unit_tests:
 	REDPANDA_CLIENT_SECRET="dummy_secret" \
 	TF_ACC=false \
 	RUN_CLUSTER_TESTS=false \
-	$(GOCMD) test -v -short ./...
+	$(GOCMD) test -short ./...
 
 install_gofumpt:
 	@echo "installing gofumpt..."
-	@$(GOCMD) install mvdan.cc/gofumpt@v0.5.0
+	@$(GOCMD) install mvdan.cc/gofumpt@v0.6.0
 
 install_lint:
 	@echo "installing linter..."

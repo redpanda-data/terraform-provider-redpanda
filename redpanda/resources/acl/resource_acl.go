@@ -19,12 +19,13 @@ import (
 	"context"
 	"fmt"
 
+	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1alpha1/dataplanev1alpha1grpc"
+	dataplanev1alpha1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha1"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	dataplanev1alpha1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/dataplane/v1alpha1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
@@ -34,7 +35,7 @@ import (
 
 // ACL represents the ACL Terraform resource.
 type ACL struct {
-	ACLClient dataplanev1alpha1.ACLServiceClient
+	ACLClient dataplanev1alpha1grpc.ACLServiceClient
 
 	resData       config.Resource
 	dataplaneConn *grpc.ClientConn
@@ -345,6 +346,6 @@ func (a *ACL) createACLClient(ctx context.Context, clusterURL string) error {
 		}
 		a.dataplaneConn = conn
 	}
-	a.ACLClient = dataplanev1alpha1.NewACLServiceClient(a.dataplaneConn)
+	a.ACLClient = dataplanev1alpha1grpc.NewACLServiceClient(a.dataplaneConn)
 	return nil
 }

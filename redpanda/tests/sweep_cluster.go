@@ -19,14 +19,15 @@ import (
 	"context"
 	"time"
 
-	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
+	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
+	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 type sweepCluster struct {
 	ClusterName string
-	CluClient   cloudv1beta1.ClusterServiceClient
-	OpsClient   cloudv1beta1.OperationServiceClient
+	CluClient   controlplanev1beta1grpc.ClusterServiceClient
+	OpsClient   controlplanev1beta1grpc.OperationServiceClient
 }
 
 func (s sweepCluster) SweepCluster(_ string) error {
@@ -36,7 +37,7 @@ func (s sweepCluster) SweepCluster(_ string) error {
 		return err
 	}
 
-	op, err := s.CluClient.DeleteCluster(ctx, &cloudv1beta1.DeleteClusterRequest{
+	op, err := s.CluClient.DeleteCluster(ctx, &controlplanev1beta1.DeleteClusterRequest{
 		Id: cluster.GetId(),
 	})
 	if err != nil {

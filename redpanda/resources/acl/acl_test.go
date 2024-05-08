@@ -3,7 +3,7 @@ package acl
 import (
 	"testing"
 
-	dataplanev1alpha1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/dataplane/v1alpha1"
+	dataplanev1alpha1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha1"
 )
 
 // These are golden tests, to ensure we parse properly and the string types
