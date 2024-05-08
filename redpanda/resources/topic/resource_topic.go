@@ -256,12 +256,12 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 	}
 	defer t.dataplaneConn.Close()
 	if !plan.Configuration.Equal(state.Configuration) {
-		cfgToSet, err := parseUpdateConfiguration(state, plan)
+		cfgToSet, err := utils.MapToSetTopicConfiguration(plan.Configuration)
 		if err != nil {
-			response.Diagnostics.AddError("failed to parse the configuration map", err.Error())
+			response.Diagnostics.AddError("unable to parse the plan topic configuration", err.Error())
 			return
 		}
-		cfgs, err := t.TopicClient.SetTopicConfigurations(ctx, &dataplanev1alpha1.SetTopicConfigurationsRequest{
+		_, err = t.TopicClient.SetTopicConfigurations(ctx, &dataplanev1alpha1.SetTopicConfigurationsRequest{
 			TopicName:      plan.Name.ValueString(),
 			Configurations: cfgToSet,
 		})
@@ -269,13 +269,6 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 			response.Diagnostics.AddError("failed to update topic configuration", err.Error())
 			return
 		}
-		tpCfg := filterDynamicConfig(cfgs.Configurations)
-		topicCfg, err := utils.TopicConfigurationToMap(tpCfg)
-		if err != nil {
-			response.Diagnostics.AddError("unable to parse the topic received topicCfg", err.Error())
-			return
-		}
-		plan.Configuration = topicCfg
 	}
 	response.Diagnostics.Append(response.State.Set(ctx, &plan)...)
 }
@@ -360,42 +353,4 @@ func filterDynamicConfig(configs []*dataplanev1alpha1.Topic_Configuration) []*da
 
 func isAlreadyExistsError(err error) bool {
 	return strings.Contains(err.Error(), "TOPIC_ALREADY_EXISTS") || strings.Contains(err.Error(), "The topic has already been created")
-}
-
-// parseUpdateConfiguration parses both the state and the plan configuration,
-// and generates a new SetConfiguration map with:
-//   - Configurations that are both in the state, and the plan.
-//   - Configurations that are in the plan and not in the state.
-//   - Updated configurations that are in the plan.
-func parseUpdateConfiguration(state, plan models.Topic) ([]*dataplanev1alpha1.SetTopicConfigurationsRequest_SetConfiguration, error) {
-	var output []*dataplanev1alpha1.SetTopicConfigurationsRequest_SetConfiguration
-	// Loop through state configuration.
-	for k, v := range state.Configuration.Elements() {
-		if v.IsNull() || v.IsUnknown() {
-			return nil, fmt.Errorf("topic configuration %q must have a value", k)
-		}
-		// If configuration also exists in plan.
-		if pv, ok := plan.Configuration.Elements()[k]; ok {
-			// Add whatever is in the plan to the output.
-			value := strings.Trim(pv.String(), `"`)
-			output = append(output, &dataplanev1alpha1.SetTopicConfigurationsRequest_SetConfiguration{
-				Name:  k,
-				Value: &value,
-			})
-		}
-		// If it's in the state, but not in the plan, then the
-		// config was removed. We do not add that.
-	}
-	// Now we check for what's in the plan and not in the state.
-	for k, v := range plan.Configuration.Elements() {
-		// Add to output if it's not in the state.
-		if _, ok := state.Configuration.Elements()[k]; !ok {
-			value := strings.Trim(v.String(), `"`)
-			output = append(output, &dataplanev1alpha1.SetTopicConfigurationsRequest_SetConfiguration{
-				Name:  k,
-				Value: &value,
-			})
-		}
-	}
-	return output, nil
 }

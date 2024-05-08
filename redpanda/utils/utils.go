@@ -335,6 +335,22 @@ func MapToCreateTopicConfiguration(cfg types.Map) ([]*dataplanev1alpha1.CreateTo
 	return output, nil
 }
 
+func MapToSetTopicConfiguration(cfg types.Map) ([]*dataplanev1alpha1.SetTopicConfigurationsRequest_SetConfiguration, error) {
+	var output []*dataplanev1alpha1.SetTopicConfigurationsRequest_SetConfiguration
+
+	for k, v := range cfg.Elements() {
+		if v.IsNull() || v.IsUnknown() {
+			return nil, fmt.Errorf("topic configuration %q must have a value", k)
+		}
+		value := strings.Trim(v.String(), `"`)
+		output = append(output, &dataplanev1alpha1.SetTopicConfigurationsRequest_SetConfiguration{
+			Name:  k,
+			Value: &value,
+		})
+	}
+	return output, nil
+}
+
 // NumberToInt32 converts a types.Number to an *int32
 func NumberToInt32(n types.Number) *int32 {
 	i, _ := n.ValueBigFloat().Int64()

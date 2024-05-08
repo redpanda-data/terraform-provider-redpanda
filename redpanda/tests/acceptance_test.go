@@ -612,6 +612,7 @@ func TestAccResourcesWithDataSources(t *testing.T) {
 	// Change 1, remove other
 	updateTestCaseVars["topic_config"] = config.MapVariable(map[string]config.Variable{
 		"compression.type": config.StringVariable("gzip"),
+		"flush.ms":         config.StringVariable("100"),
 	})
 
 	c, err := newClients(ctx, clientID, clientSecret, "ign")
