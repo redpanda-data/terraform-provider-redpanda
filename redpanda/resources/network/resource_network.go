@@ -23,6 +23,8 @@ import (
 	"regexp"
 	"time"
 
+	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
+	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -31,7 +33,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -46,8 +47,8 @@ var (
 
 // Network represents a network managed resource.
 type Network struct {
-	NetClient cloudv1beta1.NetworkServiceClient
-	OpsClient cloudv1beta1.OperationServiceClient
+	NetClient controlplanev1beta1grpc.NetworkServiceClient
+	OpsClient controlplanev1beta1grpc.OperationServiceClient
 }
 
 // Metadata returns the full name of the Network resource.
@@ -73,8 +74,8 @@ func (n *Network) Configure(_ context.Context, request resource.ConfigureRequest
 		)
 		return
 	}
-	n.NetClient = cloudv1beta1.NewNetworkServiceClient(p.ControlPlaneConnection)
-	n.OpsClient = cloudv1beta1.NewOperationServiceClient(p.ControlPlaneConnection)
+	n.NetClient = controlplanev1beta1grpc.NewNetworkServiceClient(p.ControlPlaneConnection)
+	n.OpsClient = controlplanev1beta1grpc.NewOperationServiceClient(p.ControlPlaneConnection)
 }
 
 // Schema returns the schema for the Network resource.
@@ -156,8 +157,8 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 	// prefer the local value, but accept the provider value if local is
 	// unavailable if neither are set, fail
 
-	op, err := n.NetClient.CreateNetwork(ctx, &cloudv1beta1.CreateNetworkRequest{
-		Network: &cloudv1beta1.Network{
+	op, err := n.NetClient.CreateNetwork(ctx, &controlplanev1beta1.CreateNetworkRequest{
+		Network: &controlplanev1beta1.Network{
 			Name:          model.Name.ValueString(),
 			CidrBlock:     model.CidrBlock.ValueString(),
 			Region:        model.Region.ValueString(),
@@ -170,7 +171,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		response.Diagnostics.AddError("failed to create network", err.Error())
 		return
 	}
-	var metadata cloudv1beta1.CreateNetworkMetadata
+	var metadata controlplanev1beta1.CreateNetworkMetadata
 	if err := op.Metadata.UnmarshalTo(&metadata); err != nil {
 		response.Diagnostics.AddError("failed to unmarshal network metadata", err.Error())
 		return
@@ -195,7 +196,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 func (n *Network) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
 	var model models.Network
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
-	nw, err := n.NetClient.GetNetwork(ctx, &cloudv1beta1.GetNetworkRequest{
+	nw, err := n.NetClient.GetNetwork(ctx, &controlplanev1beta1.GetNetworkRequest{
 		Id: model.ID.ValueString(),
 	})
 	if err != nil {
@@ -226,7 +227,7 @@ func (*Network) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.
 func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
 	var model models.Network
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
-	op, err := n.NetClient.DeleteNetwork(ctx, &cloudv1beta1.DeleteNetworkRequest{
+	op, err := n.NetClient.DeleteNetwork(ctx, &controlplanev1beta1.DeleteNetworkRequest{
 		Id: model.ID.ValueString(),
 	})
 	if err != nil {

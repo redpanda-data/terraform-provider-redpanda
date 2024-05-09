@@ -21,13 +21,14 @@ import (
 	"context"
 	"fmt"
 
+	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
+	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -42,7 +43,7 @@ var (
 
 // Namespace represents a cluster managed resource.
 type Namespace struct {
-	Client cloudv1beta1.NamespaceServiceClient
+	Client controlplanev1beta1grpc.NamespaceServiceClient
 }
 
 // Metadata returns the full name of the Namespace resource.
@@ -68,7 +69,7 @@ func (n *Namespace) Configure(_ context.Context, request resource.ConfigureReque
 		)
 		return
 	}
-	n.Client = cloudv1beta1.NewNamespaceServiceClient(p.ControlPlaneConnection)
+	n.Client = controlplanev1beta1grpc.NewNamespaceServiceClient(p.ControlPlaneConnection)
 }
 
 // Schema returns the schema for the Namespace resource.
@@ -102,8 +103,8 @@ func resourceNamespaceSchema() schema.Schema {
 func (n *Namespace) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var model models.Namespace
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
-	ns, err := n.Client.CreateNamespace(ctx, &cloudv1beta1.CreateNamespaceRequest{
-		Namespace: &cloudv1beta1.Namespace{
+	ns, err := n.Client.CreateNamespace(ctx, &controlplanev1beta1.CreateNamespaceRequest{
+		Namespace: &controlplanev1beta1.Namespace{
 			Name: model.Name.ValueString(),
 		},
 	})
@@ -122,7 +123,7 @@ func (n *Namespace) Create(ctx context.Context, req resource.CreateRequest, resp
 func (n *Namespace) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var model models.Namespace
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
-	ns, err := n.Client.GetNamespace(ctx, &cloudv1beta1.GetNamespaceRequest{
+	ns, err := n.Client.GetNamespace(ctx, &controlplanev1beta1.GetNamespaceRequest{
 		Id: model.ID.ValueString(),
 	})
 	if err != nil {
@@ -144,8 +145,8 @@ func (n *Namespace) Read(ctx context.Context, req resource.ReadRequest, resp *re
 func (n *Namespace) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var model models.Namespace
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
-	ns, err := n.Client.UpdateNamespace(ctx, &cloudv1beta1.UpdateNamespaceRequest{
-		Namespace: &cloudv1beta1.Namespace{
+	ns, err := n.Client.UpdateNamespace(ctx, &controlplanev1beta1.UpdateNamespaceRequest{
+		Namespace: &controlplanev1beta1.Namespace{
 			Name: model.Name.ValueString(),
 			Id:   model.ID.ValueString(),
 		},
@@ -165,7 +166,7 @@ func (n *Namespace) Delete(ctx context.Context, req resource.DeleteRequest, resp
 	var model models.Namespace
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
-	_, err := n.Client.DeleteNamespace(ctx, &cloudv1beta1.DeleteNamespaceRequest{
+	_, err := n.Client.DeleteNamespace(ctx, &controlplanev1beta1.DeleteNamespaceRequest{
 		Id: model.ID.ValueString(),
 	})
 	if err != nil {

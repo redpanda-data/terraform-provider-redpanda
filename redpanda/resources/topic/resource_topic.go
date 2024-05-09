@@ -20,6 +20,10 @@ import (
 	"fmt"
 	"strings"
 
+	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
+	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
+	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1alpha1/dataplanev1alpha1grpc"
+	dataplanev1alpha1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha1"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -28,8 +32,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
-	dataplanev1alpha1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/dataplane/v1alpha1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
@@ -46,7 +48,7 @@ var (
 
 // Topic represents the Topic Terraform resource.
 type Topic struct {
-	TopicClient dataplanev1alpha1.TopicServiceClient
+	TopicClient dataplanev1alpha1grpc.TopicServiceClient
 
 	resData       config.Resource
 	dataplaneConn *grpc.ClientConn
@@ -256,12 +258,12 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 	}
 	defer t.dataplaneConn.Close()
 	if !plan.Configuration.Equal(state.Configuration) {
-		cfgToSet, err := parseUpdateConfiguration(state, plan)
+		cfgToSet, err := utils.MapToSetTopicConfiguration(plan.Configuration)
 		if err != nil {
-			response.Diagnostics.AddError("failed to parse the configuration map", err.Error())
+			response.Diagnostics.AddError("unable to parse the plan topic configuration", err.Error())
 			return
 		}
-		cfgs, err := t.TopicClient.SetTopicConfigurations(ctx, &dataplanev1alpha1.SetTopicConfigurationsRequest{
+		_, err = t.TopicClient.SetTopicConfigurations(ctx, &dataplanev1alpha1.SetTopicConfigurationsRequest{
 			TopicName:      plan.Name.ValueString(),
 			Configurations: cfgToSet,
 		})
@@ -269,13 +271,6 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 			response.Diagnostics.AddError("failed to update topic configuration", err.Error())
 			return
 		}
-		tpCfg := filterDynamicConfig(cfgs.Configurations)
-		topicCfg, err := utils.TopicConfigurationToMap(tpCfg)
-		if err != nil {
-			response.Diagnostics.AddError("unable to parse the topic received topicCfg", err.Error())
-			return
-		}
-		plan.Configuration = topicCfg
 	}
 	response.Diagnostics.Append(response.State.Set(ctx, &plan)...)
 }
@@ -311,8 +306,8 @@ func (t *Topic) ImportState(ctx context.Context, req resource.ImportStateRequest
 	}
 	topicName, clusterID := split[0], split[1]
 
-	client := cloudv1beta1.NewClusterServiceClient(t.resData.ControlPlaneConnection)
-	cluster, err := client.GetCluster(ctx, &cloudv1beta1.GetClusterRequest{
+	client := controlplanev1beta1grpc.NewClusterServiceClient(t.resData.ControlPlaneConnection)
+	cluster, err := client.GetCluster(ctx, &controlplanev1beta1.GetClusterRequest{
 		Id: clusterID,
 	})
 	if err != nil {
@@ -340,7 +335,7 @@ func (t *Topic) createTopicClient(ctx context.Context, clusterURL string) error 
 		}
 		t.dataplaneConn = conn
 	}
-	t.TopicClient = dataplanev1alpha1.NewTopicServiceClient(t.dataplaneConn)
+	t.TopicClient = dataplanev1alpha1grpc.NewTopicServiceClient(t.dataplaneConn)
 	return nil
 }
 
@@ -360,42 +355,4 @@ func filterDynamicConfig(configs []*dataplanev1alpha1.Topic_Configuration) []*da
 
 func isAlreadyExistsError(err error) bool {
 	return strings.Contains(err.Error(), "TOPIC_ALREADY_EXISTS") || strings.Contains(err.Error(), "The topic has already been created")
-}
-
-// parseUpdateConfiguration parses both the state and the plan configuration,
-// and generates a new SetConfiguration map with:
-//   - Configurations that are both in the state, and the plan.
-//   - Configurations that are in the plan and not in the state.
-//   - Updated configurations that are in the plan.
-func parseUpdateConfiguration(state, plan models.Topic) ([]*dataplanev1alpha1.SetTopicConfigurationsRequest_SetConfiguration, error) {
-	var output []*dataplanev1alpha1.SetTopicConfigurationsRequest_SetConfiguration
-	// Loop through state configuration.
-	for k, v := range state.Configuration.Elements() {
-		if v.IsNull() || v.IsUnknown() {
-			return nil, fmt.Errorf("topic configuration %q must have a value", k)
-		}
-		// If configuration also exists in plan.
-		if pv, ok := plan.Configuration.Elements()[k]; ok {
-			// Add whatever is in the plan to the output.
-			value := strings.Trim(pv.String(), `"`)
-			output = append(output, &dataplanev1alpha1.SetTopicConfigurationsRequest_SetConfiguration{
-				Name:  k,
-				Value: &value,
-			})
-		}
-		// If it's in the state, but not in the plan, then the
-		// config was removed. We do not add that.
-	}
-	// Now we check for what's in the plan and not in the state.
-	for k, v := range plan.Configuration.Elements() {
-		// Add to output if it's not in the state.
-		if _, ok := state.Configuration.Elements()[k]; !ok {
-			value := strings.Trim(v.String(), `"`)
-			output = append(output, &dataplanev1alpha1.SetTopicConfigurationsRequest_SetConfiguration{
-				Name:  k,
-				Value: &value,
-			})
-		}
-	}
-	return output, nil
 }

@@ -19,10 +19,11 @@ import (
 	"context"
 	"fmt"
 
+	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
+	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 )
@@ -34,7 +35,7 @@ var (
 
 // DataSourceNamespace represents a data source for a Redpanda Cloud namespace.
 type DataSourceNamespace struct {
-	Client cloudv1beta1.NamespaceServiceClient
+	Client controlplanev1beta1grpc.NamespaceServiceClient
 }
 
 // Metadata returns the metadata for the Namespace data source.
@@ -68,7 +69,7 @@ func datasourceNamespaceSchema() schema.Schema {
 func (n *DataSourceNamespace) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var model models.Namespace
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
-	ns, err := n.Client.GetNamespace(ctx, &cloudv1beta1.GetNamespaceRequest{
+	ns, err := n.Client.GetNamespace(ctx, &controlplanev1beta1.GetNamespaceRequest{
 		Id: model.ID.ValueString(),
 	})
 	if err != nil {
@@ -95,5 +96,5 @@ func (n *DataSourceNamespace) Configure(_ context.Context, request datasource.Co
 		)
 		return
 	}
-	n.Client = cloudv1beta1.NewNamespaceServiceClient(p.ControlPlaneConnection)
+	n.Client = controlplanev1beta1grpc.NewNamespaceServiceClient(p.ControlPlaneConnection)
 }

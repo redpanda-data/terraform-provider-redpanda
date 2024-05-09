@@ -21,6 +21,10 @@ import (
 	"fmt"
 	"strings"
 
+	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
+	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
+	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1alpha1/dataplanev1alpha1grpc"
+	dataplanev1alpha1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha1"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -29,8 +33,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	cloudv1beta1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/controlplane/v1beta1"
-	dataplanev1alpha1 "github.com/redpanda-data/terraform-provider-redpanda/proto/gen/go/redpanda/api/dataplane/v1alpha1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
@@ -47,7 +49,7 @@ var (
 
 // User represents the User Terraform resource.
 type User struct {
-	UserClient dataplanev1alpha1.UserServiceClient
+	UserClient dataplanev1alpha1grpc.UserServiceClient
 
 	resData       config.Resource
 	dataplaneConn *grpc.ClientConn
@@ -219,8 +221,8 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 	}
 	user, clusterID := split[0], split[1]
 
-	client := cloudv1beta1.NewClusterServiceClient(u.resData.ControlPlaneConnection)
-	cluster, err := client.GetCluster(ctx, &cloudv1beta1.GetClusterRequest{
+	client := controlplanev1beta1grpc.NewClusterServiceClient(u.resData.ControlPlaneConnection)
+	cluster, err := client.GetCluster(ctx, &controlplanev1beta1.GetClusterRequest{
 		Id: clusterID,
 	})
 	if err != nil {
@@ -251,6 +253,6 @@ func (u *User) createUserClient(ctx context.Context, clusterURL string) error {
 		}
 		u.dataplaneConn = conn
 	}
-	u.UserClient = dataplanev1alpha1.NewUserServiceClient(u.dataplaneConn)
+	u.UserClient = dataplanev1alpha1grpc.NewUserServiceClient(u.dataplaneConn)
 	return nil
 }
