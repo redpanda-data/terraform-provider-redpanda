@@ -19,7 +19,7 @@ require (
 	github.com/hashicorp/terraform-plugin-testing v1.7.0
 	github.com/redpanda-data/redpanda/src/go/rpk v0.0.0-20240509171150-b0816de77b1c
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240506185236-b8a5c65736ae
-	google.golang.org/grpc v1.63.2
+	google.golang.org/grpc v1.64.0
 )
 
 require (
