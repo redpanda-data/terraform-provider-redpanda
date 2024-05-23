@@ -15,7 +15,7 @@ It is also able to provide management of Kafka resources (topics, ACLs, and more
 
 ### Optional
 
-- `client_id` (String, Sensitive) The id for the client. You need client_id AND client_secret to use this provider
+- `client_id` (String, Sensitive) The ID for the client. You need client_id AND client_secret to use this provider
 - `client_secret` (String, Sensitive) Redpanda client secret. You need client_id AND client_secret to use this provider
 
 ## Authentication with Redpanda Cloud
@@ -50,38 +50,38 @@ provider "redpanda" {
 ```terraform
 provider "redpanda" {}
 
-resource "redpanda_namespace" "test" {
-  name = var.namespace_name
+resource "redpanda_resource_group" "test" {
+  name = var.resource_group_name
 }
 
 resource "redpanda_network" "test" {
-  name           = var.network_name
-  namespace_id   = redpanda_namespace.test.id
-  cloud_provider = var.cloud_provider
-  region         = var.region
-  cluster_type   = "dedicated"
-  cidr_block     = "10.0.0.0/20"
+  name              = var.network_name
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = var.cloud_provider
+  region            = var.region
+  cluster_type      = "dedicated"
+  cidr_block        = "10.0.0.0/20"
 }
 
 
 resource "redpanda_cluster" "test" {
-  name            = var.cluster_name
-  namespace_id    = redpanda_namespace.test.id
-  network_id      = redpanda_network.test.id
-  cloud_provider  = var.cloud_provider
-  region          = var.region
-  cluster_type    = "dedicated"
-  connection_type = "public"
-  throughput_tier = var.throughput_tier
-  zones           = var.zones
-  allow_deletion  = true
-  tags            = {
+  name              = var.cluster_name
+  resource_group_id = redpanda_resource_group.test.id
+  network_id        = redpanda_network.test.id
+  cloud_provider    = var.cloud_provider
+  region            = var.region
+  cluster_type      = "dedicated"
+  connection_type   = "public"
+  throughput_tier   = var.throughput_tier
+  zones             = var.zones
+  allow_deletion    = true
+  tags = {
     // not actually used as API does not consume it yet but we keep it in state for when it does
     "key" = "value"
   }
 }
 
-variable "namespace_name" {
+variable "resource_group_name" {
   default = "testname"
 }
 variable "network_name" {
@@ -114,38 +114,38 @@ variable "throughput_tier" {
 ```terraform
 provider "redpanda" {}
 
-resource "redpanda_namespace" "test" {
-  name = var.namespace_name
+resource "redpanda_resource_group" "test" {
+  name = var.resource_group_name
 }
 
 resource "redpanda_network" "test" {
-  name           = var.network_name
-  namespace_id   = redpanda_namespace.test.id
-  cloud_provider = var.cloud_provider
-  region         = var.region
-  cluster_type   = "dedicated"
-  cidr_block     = "10.0.0.0/20"
+  name              = var.network_name
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = var.cloud_provider
+  region            = var.region
+  cluster_type      = "dedicated"
+  cidr_block        = "10.0.0.0/20"
 }
 
 resource "redpanda_cluster" "test" {
-  name            = var.cluster_name
-  namespace_id    = redpanda_namespace.test.id
-  network_id      = redpanda_network.test.id
-  cloud_provider  = var.cloud_provider
-  region          = var.region
-  cluster_type    = "dedicated"
-  connection_type = "public"
-  throughput_tier = var.throughput_tier
-  zones           = var.zones
-  allow_deletion  = true
-  tags            = {
+  name              = var.cluster_name
+  resource_group_id = redpanda_resource_group.test.id
+  network_id        = redpanda_network.test.id
+  cloud_provider    = var.cloud_provider
+  region            = var.region
+  cluster_type      = "dedicated"
+  connection_type   = "public"
+  throughput_tier   = var.throughput_tier
+  zones             = var.zones
+  allow_deletion    = true
+  tags = {
     "key" = "value"
   }
 }
 variable "cluster_name" {
   default = ""
 }
-variable "namespace_name" {
+variable "resource_group_name" {
   default = ""
 }
 variable "network_name" {
@@ -181,6 +181,15 @@ data "redpanda_cluster" "test" {
   id = var.cluster_id
 }
 
+resource "redpanda_topic" "test" {
+  name               = var.topic_name
+  partition_count    = var.partition_count
+  replication_factor = var.replication_factor
+  cluster_api_url    = data.redpanda_cluster.test.cluster_api_url
+  allow_deletion     = true
+  configuration      = var.topic_config
+}
+
 resource "redpanda_user" "test" {
   name            = var.user_name
   password        = var.user_pw
@@ -199,6 +208,13 @@ resource "redpanda_acl" "test" {
   cluster_api_url       = data.redpanda_cluster.test.cluster_api_url
 }
 
+variable "topic_config" {
+  default = {
+    "cleanup.policy"   = "compact"
+    "flush.ms"         = 100
+    "compression.type" = "snappy"
+  }
+}
 variable "user_name" {
   default = "test-username"
 }

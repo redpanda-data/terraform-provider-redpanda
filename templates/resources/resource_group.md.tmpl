@@ -9,12 +9,16 @@ description: |-
 
 {{ .Description | trimspace }}
 
+Creates a Resource Group in the Redpanda Cloud.
+
 {{ .SchemaMarkdown | trimspace }}
 
 ## Usage
 
-```hcl
-data "redpanda_namespace" "example" {
-    id = "namespace_id"
-}
+{{ tffile "examples/resourcegroup/main.tf" }}
+
+## Import
+
+```shell
+terraform import resource.{{.Name}}.example resourcegroupId
 ```
