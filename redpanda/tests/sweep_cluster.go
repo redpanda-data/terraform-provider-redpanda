@@ -19,30 +19,29 @@ import (
 	"context"
 	"time"
 
-	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
-	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
+	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 type sweepCluster struct {
 	ClusterName string
-	CluClient   controlplanev1beta1grpc.ClusterServiceClient
-	OpsClient   controlplanev1beta1grpc.OperationServiceClient
+	Client      *cloud.ControlPlaneClientSet
 }
 
 func (s sweepCluster) SweepCluster(_ string) error {
 	ctx := context.Background()
-	cluster, err := utils.GetClusterUntilRunningState(ctx, 0, 50, s.ClusterName, s.CluClient)
+	cluster, err := utils.GetClusterUntilRunningState(ctx, 0, 50, s.ClusterName, s.Client)
 	if err != nil {
 		return err
 	}
 
-	op, err := s.CluClient.DeleteCluster(ctx, &controlplanev1beta1.DeleteClusterRequest{
+	op, err := s.Client.Cluster.DeleteCluster(ctx, &controlplanev1beta2.DeleteClusterRequest{
 		Id: cluster.GetId(),
 	})
 	if err != nil {
 		return err
 	}
 
-	return utils.AreWeDoneYet(ctx, op, 45*time.Minute, time.Minute, s.OpsClient)
+	return utils.AreWeDoneYet(ctx, op.Operation, 45*time.Minute, time.Minute, s.Client.Operation)
 }

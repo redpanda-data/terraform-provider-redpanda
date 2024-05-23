@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"strings"
 
-	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
-	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1alpha1/dataplanev1alpha1grpc"
 	dataplanev1alpha1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha1"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -143,7 +141,7 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		response.Diagnostics.AddError(fmt.Sprintf("failed to parse topic configuration for %s", model.Name), err.Error())
 		return
 	}
-	err = t.createTopicClient(ctx, model.ClusterAPIURL.ValueString())
+	err = t.createTopicClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("failed to create topic client", err.Error())
 		return
@@ -209,7 +207,7 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
 	var model models.Topic
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
-	err := t.createTopicClient(ctx, model.ClusterAPIURL.ValueString())
+	err := t.createTopicClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("failed to create topic client", err.Error())
 		return
@@ -251,7 +249,7 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 	var plan, state models.Topic
 	response.Diagnostics.Append(request.Plan.Get(ctx, &plan)...)
 	response.Diagnostics.Append(request.State.Get(ctx, &state)...)
-	err := t.createTopicClient(ctx, plan.ClusterAPIURL.ValueString())
+	err := t.createTopicClient(plan.ClusterAPIURL.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("failed to create topic client", err.Error())
 		return
@@ -283,7 +281,7 @@ func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, resp
 		response.Diagnostics.AddError(fmt.Sprintf("topic %s does not allow deletion", model.Name), "")
 		return
 	}
-	err := t.createTopicClient(ctx, model.ClusterAPIURL.ValueString())
+	err := t.createTopicClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("failed to create topic client", err.Error())
 		return
@@ -306,10 +304,8 @@ func (t *Topic) ImportState(ctx context.Context, req resource.ImportStateRequest
 	}
 	topicName, clusterID := split[0], split[1]
 
-	client := controlplanev1beta1grpc.NewClusterServiceClient(t.resData.ControlPlaneConnection)
-	cluster, err := client.GetCluster(ctx, &controlplanev1beta1.GetClusterRequest{
-		Id: clusterID,
-	})
+	client := cloud.NewControlPlaneClientSet(t.resData.ControlPlaneConnection)
+	cluster, err := client.ClusterForID(ctx, clusterID)
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to find cluster with ID %q; make sure ADDR ID format is <topic_name>,<cluster_id>", clusterID), err.Error())
 		return
@@ -324,12 +320,12 @@ func (t *Topic) ImportState(ctx context.Context, req resource.ImportStateRequest
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_api_url"), types.StringValue(clusterURL))...)
 }
 
-func (t *Topic) createTopicClient(ctx context.Context, clusterURL string) error {
+func (t *Topic) createTopicClient(clusterURL string) error {
 	if t.TopicClient != nil { // Client already started, no need to create another one.
 		return nil
 	}
 	if t.dataplaneConn == nil {
-		conn, err := cloud.SpawnConn(ctx, clusterURL, t.resData.AuthToken)
+		conn, err := cloud.SpawnConn(clusterURL, t.resData.AuthToken)
 		if err != nil {
 			return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
 		}

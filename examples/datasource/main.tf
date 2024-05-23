@@ -35,11 +35,11 @@ resource "redpanda_acl" "test" {
 }
 
 variable "topic_config" {
-    default = {
-      "cleanup.policy"   = "compact"
-      "flush.ms"         = 100
-      "compression.type" = "snappy"
-    }
+  default = {
+    "cleanup.policy"   = "compact"
+    "flush.ms"         = 100
+    "compression.type" = "snappy"
+  }
 }
 variable "user_name" {
   default = "test-username"

@@ -31,8 +31,8 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/acl"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/cluster"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/namespace"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/network"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/resourcegroup"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/topic"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/user"
 	"google.golang.org/grpc"
@@ -78,7 +78,7 @@ func providerSchema() schema.Schema {
 			"client_id": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
-				Description: "The id for the client. You need client_id AND client_secret to use this provider",
+				Description: "The ID for the client. You need client_id AND client_secret to use this provider",
 			},
 			"client_secret": schema.StringAttribute{
 				Optional:    true,
@@ -128,7 +128,7 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		return
 	}
 	if r.conn == nil {
-		conn, err := cloud.SpawnConn(ctx, endpoint.APIURL, token)
+		conn, err := cloud.SpawnConn(endpoint.APIURL, token)
 		if err != nil {
 			response.Diagnostics.AddError("failed to open a connection with the Redpanda Cloud API", err.Error())
 			return
@@ -171,7 +171,7 @@ func (*Redpanda) DataSources(_ context.Context) []func() datasource.DataSource {
 			return &cluster.DataSourceCluster{}
 		},
 		func() datasource.DataSource {
-			return &namespace.DataSourceNamespace{}
+			return &resourcegroup.DataSourceResourceGroup{}
 		},
 		func() datasource.DataSource {
 			return &network.DataSourceNetwork{}
@@ -183,7 +183,7 @@ func (*Redpanda) DataSources(_ context.Context) []func() datasource.DataSource {
 func (*Redpanda) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		func() resource.Resource {
-			return &namespace.Namespace{}
+			return &resourcegroup.ResourceGroup{}
 		},
 		func() resource.Resource {
 			return &network.Network{}

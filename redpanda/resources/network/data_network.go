@@ -20,13 +20,12 @@ import (
 	"fmt"
 	"regexp"
 
-	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
-	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 )
@@ -38,7 +37,7 @@ var (
 
 // DataSourceNetwork represents a data source for a Redpanda Cloud network.
 type DataSourceNetwork struct {
-	NetClient controlplanev1beta1grpc.NetworkServiceClient
+	CpCl *cloud.ControlPlaneClientSet
 }
 
 // Metadata returns the metadata for the Network data source.
@@ -84,9 +83,9 @@ func datasourceNetworkSchema() schema.Schema {
 					stringvalidator.OneOf("gcp", "aws"),
 				},
 			},
-			"namespace_id": schema.StringAttribute{
+			"resource_group_id": schema.StringAttribute{
 				Computed:    true,
-				Description: "The id of the namespace in which to create the network",
+				Description: "The ID of the resource group in which to create the network",
 			},
 			"cluster_type": schema.StringAttribute{
 				Computed:    true,
@@ -104,9 +103,7 @@ func datasourceNetworkSchema() schema.Schema {
 func (n *DataSourceNetwork) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var model models.Network
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
-	nw, err := n.NetClient.GetNetwork(ctx, &controlplanev1beta1.GetNetworkRequest{
-		Id: model.ID.ValueString(),
-	})
+	nw, err := n.CpCl.NetworkForID(ctx, model.ID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("failed to read network", err.Error())
 		return
@@ -132,5 +129,5 @@ func (n *DataSourceNetwork) Configure(_ context.Context, request datasource.Conf
 		)
 		return
 	}
-	n.NetClient = controlplanev1beta1grpc.NewNetworkServiceClient(p.ControlPlaneConnection)
+	n.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
 }

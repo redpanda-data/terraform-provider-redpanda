@@ -23,8 +23,7 @@ import (
 	"regexp"
 	"time"
 
-	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
-	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
+	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -33,6 +32,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -47,8 +47,7 @@ var (
 
 // Network represents a network managed resource.
 type Network struct {
-	NetClient controlplanev1beta1grpc.NetworkServiceClient
-	OpsClient controlplanev1beta1grpc.OperationServiceClient
+	CpCl *cloud.ControlPlaneClientSet
 }
 
 // Metadata returns the full name of the Network resource.
@@ -74,8 +73,7 @@ func (n *Network) Configure(_ context.Context, request resource.ConfigureRequest
 		)
 		return
 	}
-	n.NetClient = controlplanev1beta1grpc.NewNetworkServiceClient(p.ControlPlaneConnection)
-	n.OpsClient = controlplanev1beta1grpc.NewOperationServiceClient(p.ControlPlaneConnection)
+	n.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
 }
 
 // Schema returns the schema for the Network resource.
@@ -115,9 +113,9 @@ func resourceNetworkSchema() schema.Schema {
 					stringvalidator.OneOf("gcp", "aws"),
 				},
 			},
-			"namespace_id": schema.StringAttribute{
+			"resource_group_id": schema.StringAttribute{
 				Required:      true,
-				Description:   "The id of the namespace in which to create the network",
+				Description:   "The ID of the resource group in which to create the network",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"id": schema.StringAttribute{
@@ -153,42 +151,40 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		response.Diagnostics.AddError("unsupported cluster type", err.Error())
 		return
 	}
-	// TODO add a check to the provider data here to see if region and cloud provider are set
-	// prefer the local value, but accept the provider value if local is
-	// unavailable if neither are set, fail
 
-	op, err := n.NetClient.CreateNetwork(ctx, &controlplanev1beta1.CreateNetworkRequest{
-		Network: &controlplanev1beta1.Network{
-			Name:          model.Name.ValueString(),
-			CidrBlock:     model.CidrBlock.ValueString(),
-			Region:        model.Region.ValueString(),
-			CloudProvider: cloudProvider,
-			NamespaceId:   model.NamespaceID.ValueString(),
-			ClusterType:   clusterType,
+	netResp, err := n.CpCl.Network.CreateNetwork(ctx, &controlplanev1beta2.CreateNetworkRequest{
+		Network: &controlplanev1beta2.NetworkCreate{
+			Name:            model.Name.ValueString(),
+			CidrBlock:       model.CidrBlock.ValueString(),
+			Region:          model.Region.ValueString(),
+			CloudProvider:   cloudProvider,
+			ResourceGroupId: model.ResourceGroupID.ValueString(),
+			ClusterType:     clusterType,
 		},
 	})
 	if err != nil {
 		response.Diagnostics.AddError("failed to create network", err.Error())
 		return
 	}
-	var metadata controlplanev1beta1.CreateNetworkMetadata
+	op := netResp.Operation
+	var metadata controlplanev1beta2.CreateNetworkMetadata
 	if err := op.Metadata.UnmarshalTo(&metadata); err != nil {
 		response.Diagnostics.AddError("failed to unmarshal network metadata", err.Error())
 		return
 	}
-	if err := utils.AreWeDoneYet(ctx, op, 15*time.Minute, time.Minute, n.OpsClient); err != nil {
+	if err := utils.AreWeDoneYet(ctx, op, 15*time.Minute, time.Minute, n.CpCl.Operation); err != nil {
 		response.Diagnostics.AddError("failed waiting for network creation", err.Error())
 		return
 	}
 
 	response.Diagnostics.Append(response.State.Set(ctx, models.Network{
-		Name:          model.Name,
-		ID:            utils.TrimmedStringValue(metadata.GetNetworkId()),
-		CidrBlock:     model.CidrBlock,
-		Region:        model.Region,
-		NamespaceID:   model.NamespaceID,
-		ClusterType:   model.ClusterType,
-		CloudProvider: model.CloudProvider,
+		Name:            model.Name,
+		ID:              utils.TrimmedStringValue(metadata.GetNetworkId()),
+		CidrBlock:       model.CidrBlock,
+		Region:          model.Region,
+		ResourceGroupID: model.ResourceGroupID,
+		ClusterType:     model.ClusterType,
+		CloudProvider:   model.CloudProvider,
 	})...)
 }
 
@@ -196,9 +192,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 func (n *Network) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
 	var model models.Network
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
-	nw, err := n.NetClient.GetNetwork(ctx, &controlplanev1beta1.GetNetworkRequest{
-		Id: model.ID.ValueString(),
-	})
+	nw, err := n.CpCl.NetworkForID(ctx, model.ID.ValueString())
 	if err != nil {
 		if utils.IsNotFound(err) {
 			response.State.RemoveResource(ctx)
@@ -208,13 +202,13 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 		return
 	}
 	response.Diagnostics.Append(response.State.Set(ctx, models.Network{
-		Name:          types.StringValue(nw.Name),
-		ID:            types.StringValue(nw.Id),
-		CidrBlock:     types.StringValue(nw.CidrBlock),
-		Region:        types.StringValue(nw.Region),
-		NamespaceID:   types.StringValue(nw.NamespaceId),
-		CloudProvider: types.StringValue(utils.CloudProviderToString(nw.CloudProvider)),
-		ClusterType:   types.StringValue(utils.ClusterTypeToString(nw.ClusterType)),
+		Name:            types.StringValue(nw.Name),
+		ID:              types.StringValue(nw.Id),
+		CidrBlock:       types.StringValue(nw.CidrBlock),
+		Region:          types.StringValue(nw.Region),
+		ResourceGroupID: types.StringValue(nw.ResourceGroupId),
+		CloudProvider:   types.StringValue(utils.CloudProviderToString(nw.CloudProvider)),
+		ClusterType:     types.StringValue(utils.ClusterTypeToString(nw.ClusterType)),
 	})...)
 }
 
@@ -227,14 +221,14 @@ func (*Network) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.
 func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
 	var model models.Network
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
-	op, err := n.NetClient.DeleteNetwork(ctx, &controlplanev1beta1.DeleteNetworkRequest{
+	netResp, err := n.CpCl.Network.DeleteNetwork(ctx, &controlplanev1beta2.DeleteNetworkRequest{
 		Id: model.ID.ValueString(),
 	})
 	if err != nil {
 		response.Diagnostics.AddError("failed to delete network", err.Error())
 		return
 	}
-	if err := utils.AreWeDoneYet(ctx, op, 15*time.Minute, time.Minute, n.OpsClient); err != nil {
+	if err := utils.AreWeDoneYet(ctx, netResp.Operation, 15*time.Minute, time.Minute, n.CpCl.Operation); err != nil {
 		response.Diagnostics.AddError("failed waiting for network deletion", err.Error())
 	}
 }
