@@ -25,7 +25,7 @@ resource "redpanda_cluster" "test" {
   throughput_tier = var.throughput_tier
   zones           = var.zones
   allow_deletion  = true
-  tags            = {
+  tags = {
     // not actually used as API does not consume it yet but we keep it in state for when it does
     "key" = "value"
   }
@@ -34,6 +34,7 @@ resource "redpanda_cluster" "test" {
 variable "namespace_name" {
   default = "testname"
 }
+
 variable "network_name" {
   default = "testname"
 }

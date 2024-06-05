@@ -24,16 +24,19 @@ resource "redpanda_cluster" "test" {
   throughput_tier = var.throughput_tier
   zones           = var.zones
   allow_deletion  = true
-  tags            = {
+  tags = {
     "key" = "value"
   }
 }
+
 variable "cluster_name" {
   default = ""
 }
+
 variable "namespace_name" {
   default = ""
 }
+
 variable "network_name" {
   default = ""
 }

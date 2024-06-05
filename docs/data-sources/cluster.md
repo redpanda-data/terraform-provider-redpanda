@@ -48,8 +48,18 @@ provider "redpanda" {}
 variable "cluster_id" {
   default = ""
 }
+
 data "redpanda_cluster" "test" {
   id = var.cluster_id
+}
+
+resource "redpanda_topic" "test" {
+  name               = var.topic_name
+  partition_count    = var.partition_count
+  replication_factor = var.replication_factor
+  cluster_api_url    = data.redpanda_cluster.test.cluster_api_url
+  allow_deletion     = true
+  configuration      = var.topic_config
 }
 
 resource "redpanda_user" "test" {
@@ -68,6 +78,14 @@ resource "redpanda_acl" "test" {
   operation             = "ALTER"
   permission_type       = "ALLOW"
   cluster_api_url       = data.redpanda_cluster.test.cluster_api_url
+}
+
+variable "topic_config" {
+  default = {
+    "cleanup.policy"   = "compact"
+    "flush.ms"         = 100
+    "compression.type" = "snappy"
+  }
 }
 
 variable "user_name" {
