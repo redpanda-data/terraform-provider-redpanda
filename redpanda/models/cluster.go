@@ -32,7 +32,7 @@ type Cluster struct {
 	Zones           types.List   `tfsdk:"zones"`
 	AllowDeletion   types.Bool   `tfsdk:"allow_deletion"`
 	Tags            types.Map    `tfsdk:"tags"`
-	NamespaceID     types.String `tfsdk:"namespace_id"`
+	ResourceGroupID types.String `tfsdk:"resource_group_id"`
 	NetworkID       types.String `tfsdk:"network_id"`
 	ClusterAPIURL   types.String `tfsdk:"cluster_api_url"`
 }

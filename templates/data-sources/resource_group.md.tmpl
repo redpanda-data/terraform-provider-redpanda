@@ -9,16 +9,12 @@ description: |-
 
 {{ .Description | trimspace }}
 
-Creates a namespace in the Redpanda Cloud. Namespaces are currently in review and may be deprecated in the future.
-
 {{ .SchemaMarkdown | trimspace }}
 
 ## Usage
 
-{{ tffile "examples/namespace/main.tf" }}
-
-## Import
-
-```shell
-terraform import resource.{{.Name}}.example namespaceId
+```hcl
+data "redpanda_resource_group" "example" {
+    id = "resource_group_id"
+}
 ```

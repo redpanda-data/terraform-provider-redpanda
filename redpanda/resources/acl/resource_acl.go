@@ -161,7 +161,7 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		return
 	}
 
-	if err := a.createACLClient(ctx, model.ClusterAPIURL.ValueString()); err != nil {
+	if err := a.createACLClient(model.ClusterAPIURL.ValueString()); err != nil {
 		response.Diagnostics.AddError("failed to create ACL client", err.Error())
 		return
 	}
@@ -232,7 +232,7 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 		PermissionType:      permissionType,
 	}
 
-	err = a.createACLClient(ctx, model.ClusterAPIURL.ValueString())
+	err = a.createACLClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("failed to create ACL client", err.Error())
 		return
@@ -306,7 +306,7 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 		Operation:           operation,
 		PermissionType:      permissionType,
 	}
-	err = a.createACLClient(ctx, model.ClusterAPIURL.ValueString())
+	err = a.createACLClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("failed to create ACL client", err.Error())
 		return
@@ -335,12 +335,12 @@ func (*ACL) ImportState(_ context.Context, _ resource.ImportStateRequest, _ *res
 	// TODO implement me.
 }
 
-func (a *ACL) createACLClient(ctx context.Context, clusterURL string) error {
+func (a *ACL) createACLClient(clusterURL string) error {
 	if a.ACLClient != nil { // Client already started, no need to create another one.
 		return nil
 	}
 	if a.dataplaneConn == nil {
-		conn, err := cloud.SpawnConn(ctx, clusterURL, a.resData.AuthToken)
+		conn, err := cloud.SpawnConn(clusterURL, a.resData.AuthToken)
 		if err != nil {
 			return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
 		}

@@ -22,8 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
-	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
+	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -32,6 +31,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -46,8 +46,7 @@ var (
 
 // Cluster represents a cluster managed resource.
 type Cluster struct {
-	CluClient controlplanev1beta1grpc.ClusterServiceClient
-	OpsClient controlplanev1beta1grpc.OperationServiceClient
+	CpCl *cloud.ControlPlaneClientSet
 }
 
 // Metadata returns the full name of the Cluster resource.
@@ -70,8 +69,7 @@ func (c *Cluster) Configure(_ context.Context, req resource.ConfigureRequest, re
 		return
 	}
 
-	c.CluClient = controlplanev1beta1grpc.NewClusterServiceClient(p.ControlPlaneConnection)
-	c.OpsClient = controlplanev1beta1grpc.NewOperationServiceClient(p.ControlPlaneConnection)
+	c.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
 }
 
 // Schema returns the schema for the Cluster resource.
@@ -133,19 +131,19 @@ func resourceClusterSchema() schema.Schema {
 				ElementType:   types.StringType,
 				PlanModifiers: []planmodifier.Map{mapplanmodifier.RequiresReplace()},
 			},
-			"namespace_id": schema.StringAttribute{
+			"resource_group_id": schema.StringAttribute{
 				Required:      true,
-				Description:   "The id of the namespace in which to create the cluster",
+				Description:   "The ID of the resource group in which to create the cluster",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"network_id": schema.StringAttribute{
 				Required:      true,
-				Description:   "The id of the network in which to create the cluster",
+				Description:   "The ID of the network in which to create the cluster",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"id": schema.StringAttribute{
 				Computed:      true,
-				Description:   "The id of the cluster",
+				Description:   "The ID of the cluster",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"cluster_api_url": schema.StringAttribute{
@@ -168,30 +166,26 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		resp.Diagnostics.AddError("unable to parse CreateCluster request", err.Error())
 		return
 	}
-	op, err := c.CluClient.CreateCluster(ctx, &controlplanev1beta1.CreateClusterRequest{
-		Cluster: clusterReq,
-	})
+	clResp, err := c.CpCl.Cluster.CreateCluster(ctx, &controlplanev1beta2.CreateClusterRequest{Cluster: clusterReq})
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create cluster", err.Error())
 		return
 	}
-	if _, err := utils.GetClusterUntilRunningState(ctx, 0, 50, clusterReq.Name, c.CluClient); err != nil {
+	if _, err := utils.GetClusterUntilRunningState(ctx, 0, 80, clusterReq.Name, c.CpCl); err != nil {
 		resp.Diagnostics.AddError("failed at getting ready state while creating cluster", err.Error())
 		return
 	}
-
-	var metadata controlplanev1beta1.CreateClusterMetadata
+	op := clResp.Operation
+	var metadata controlplanev1beta2.CreateClusterMetadata
 	if err := op.Metadata.UnmarshalTo(&metadata); err != nil {
 		resp.Diagnostics.AddError("failed to unmarshal cluster metadata", err.Error())
 		return
 	}
-	if err := utils.AreWeDoneYet(ctx, op, 60*time.Minute, time.Minute, c.OpsClient); err != nil {
+	if err := utils.AreWeDoneYet(ctx, op, 60*time.Minute, time.Minute, c.CpCl.Operation); err != nil {
 		resp.Diagnostics.AddError("operation error while creating cluster", err.Error())
 		return
 	}
-	cluster, err := c.CluClient.GetCluster(ctx, &controlplanev1beta1.GetClusterRequest{
-		Id: metadata.GetClusterId(),
-	})
+	cluster, err := c.CpCl.ClusterForID(ctx, metadata.GetClusterId())
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("successfully created the cluster with ID %q, but failed to read the cluster configuration: %v", model.ID.ValueString(), err), err.Error())
 		return
@@ -217,7 +211,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		Zones:           clusterZones,
 		AllowDeletion:   model.AllowDeletion,
 		Tags:            model.Tags,
-		NamespaceID:     types.StringValue(cluster.NamespaceId),
+		ResourceGroupID: types.StringValue(cluster.ResourceGroupId),
 		NetworkID:       types.StringValue(cluster.NetworkId),
 		ID:              types.StringValue(cluster.Id),
 		ClusterAPIURL:   types.StringValue(clusterURL),
@@ -229,9 +223,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 	var model models.Cluster
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
-	cluster, err := c.CluClient.GetCluster(ctx, &controlplanev1beta1.GetClusterRequest{
-		Id: model.ID.ValueString(),
-	})
+	cluster, err := c.CpCl.ClusterForID(ctx, model.ID.ValueString())
 	if err != nil {
 		if utils.IsNotFound(err) {
 			// Treat HTTP 404 Not Found status as a signal to recreate resource and return early
@@ -267,7 +259,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		Zones:           clusterZones,
 		AllowDeletion:   model.AllowDeletion,
 		Tags:            model.Tags,
-		NamespaceID:     types.StringValue(cluster.NamespaceId),
+		ResourceGroupID: types.StringValue(cluster.ResourceGroupId),
 		NetworkID:       types.StringValue(cluster.NetworkId),
 		ID:              types.StringValue(cluster.Id),
 		ClusterAPIURL:   types.StringValue(clusterURL),
@@ -294,12 +286,12 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 	}
 
 	// We need to wait for the cluster to be in a running state before we can delete it
-	_, err := utils.GetClusterUntilRunningState(ctx, 0, 30, model.Name.ValueString(), c.CluClient)
+	_, err := utils.GetClusterUntilRunningState(ctx, 0, 30, model.Name.ValueString(), c.CpCl)
 	if err != nil {
 		return
 	}
 
-	op, err := c.CluClient.DeleteCluster(ctx, &controlplanev1beta1.DeleteClusterRequest{
+	clResp, err := c.CpCl.Cluster.DeleteCluster(ctx, &controlplanev1beta2.DeleteClusterRequest{
 		Id: model.ID.ValueString(),
 	})
 	if err != nil {
@@ -307,7 +299,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		return
 	}
 
-	if err := utils.AreWeDoneYet(ctx, op, 90*time.Minute, time.Minute, c.OpsClient); err != nil {
+	if err := utils.AreWeDoneYet(ctx, clResp.Operation, 90*time.Minute, time.Minute, c.CpCl.Operation); err != nil {
 		resp.Diagnostics.AddError("failed to delete cluster", err.Error())
 		return
 	}
@@ -319,7 +311,7 @@ func (*Cluster) ImportState(ctx context.Context, req resource.ImportStateRequest
 }
 
 // GenerateClusterRequest was pulled out to enable unit testing
-func GenerateClusterRequest(model models.Cluster) (*controlplanev1beta1.Cluster, error) {
+func GenerateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterCreate, error) {
 	provider, err := utils.StringToCloudProvider(model.CloudProvider.ValueString())
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse cloud provider: %v", err)
@@ -328,15 +320,16 @@ func GenerateClusterRequest(model models.Cluster) (*controlplanev1beta1.Cluster,
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse cluster type: %v", err)
 	}
-	return &controlplanev1beta1.Cluster{
+	rpVersion := model.RedpandaVersion.ValueString()
+	return &controlplanev1beta2.ClusterCreate{
 		Name:            model.Name.ValueString(),
 		ConnectionType:  utils.StringToConnectionType(model.ConnectionType.ValueString()),
 		CloudProvider:   provider,
-		RedpandaVersion: model.RedpandaVersion.ValueString(),
+		RedpandaVersion: &rpVersion,
 		ThroughputTier:  model.ThroughputTier.ValueString(),
 		Region:          model.Region.ValueString(),
 		Zones:           utils.TypeListToStringSlice(model.Zones),
-		NamespaceId:     model.NamespaceID.ValueString(),
+		ResourceGroupId: model.ResourceGroupID.ValueString(),
 		NetworkId:       model.NetworkID.ValueString(),
 		Type:            clusterType,
 	}, nil

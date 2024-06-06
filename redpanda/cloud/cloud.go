@@ -114,9 +114,8 @@ func RequestTokenAndEnv(ctx context.Context, cloudEnv, clientID, clientSecret st
 
 // SpawnConn returns a grpc connection to the given URL, it adds a bearer token
 // to each request with the given 'authToken'.
-func SpawnConn(ctx context.Context, url string, authToken string) (*grpc.ClientConn, error) {
-	return grpc.DialContext(
-		ctx,
+func SpawnConn(url string, authToken string) (*grpc.ClientConn, error) {
+	return grpc.NewClient(
 		url,
 		// Chain the interceptors using grpc_middleware.ChainUnaryClient
 		grpc.WithUnaryInterceptor(grpcmiddleware.ChainUnaryClient(

@@ -14,7 +14,7 @@ Data source for a Redpanda Cloud cluster
 
 ### Required
 
-- `id` (String) The id of the cluster
+- `id` (String) The ID of the cluster
 
 ### Read-Only
 
@@ -24,10 +24,10 @@ Data source for a Redpanda Cloud cluster
 - `cluster_type` (String) Type of the cluster
 - `connection_type` (String) Connection type of the cluster
 - `name` (String) Name of the cluster
-- `namespace_id` (String) The id of the namespace in which to create the cluster
-- `network_id` (String) The id of the network in which to create the cluster
+- `network_id` (String) The ID of the network in which to create the cluster
 - `redpanda_version` (String) Version of Redpanda to deploy
 - `region` (String) Cloud provider specific region of the cluster
+- `resource_group_id` (String) The ID of the resource group in which to create the cluster
 - `tags` (Map of String) Tags to apply to the cluster
 - `throughput_tier` (String) Throughput tier of the cluster
 - `zones` (List of String) Cloud provider specific zones of the cluster
@@ -52,6 +52,15 @@ data "redpanda_cluster" "test" {
   id = var.cluster_id
 }
 
+resource "redpanda_topic" "test" {
+  name               = var.topic_name
+  partition_count    = var.partition_count
+  replication_factor = var.replication_factor
+  cluster_api_url    = data.redpanda_cluster.test.cluster_api_url
+  allow_deletion     = true
+  configuration      = var.topic_config
+}
+
 resource "redpanda_user" "test" {
   name            = var.user_name
   password        = var.user_pw
@@ -70,6 +79,13 @@ resource "redpanda_acl" "test" {
   cluster_api_url       = data.redpanda_cluster.test.cluster_api_url
 }
 
+variable "topic_config" {
+  default = {
+    "cleanup.policy"   = "compact"
+    "flush.ms"         = 100
+    "compression.type" = "snappy"
+  }
+}
 variable "user_name" {
   default = "test-username"
 }

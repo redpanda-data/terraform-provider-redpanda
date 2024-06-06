@@ -19,27 +19,25 @@ import (
 	"context"
 	"fmt"
 
-	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
-	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 )
 
-type sweepNamespace struct {
-	NamespaceName string
-	Client        controlplanev1beta1grpc.NamespaceServiceClient
+type sweepResourceGroup struct {
+	ResourceGroupName string
+	Client            *cloud.ControlPlaneClientSet
 }
 
-func (s sweepNamespace) SweepNamespaces(_ string) error {
+func (s sweepResourceGroup) SweepResourceGroup(_ string) error {
 	ctx := context.Background()
-	name, err := utils.FindNamespaceByName(ctx, s.NamespaceName, s.Client)
+	rg, err := s.Client.ResourceGroupForName(ctx, s.ResourceGroupName)
 	if err != nil {
-		return fmt.Errorf("unable to sweep namespace: unable to find namespace %q: %v", s.NamespaceName, err)
+		return fmt.Errorf("unable to sweep resource group: unable to find resource group %q: %v", s.ResourceGroupName, err)
 	}
-
-	if _, err := s.Client.DeleteNamespace(ctx, &controlplanev1beta1.DeleteNamespaceRequest{
-		Id: name.GetId(),
+	if _, err := s.Client.ResourceGroup.DeleteResourceGroup(ctx, &controlplanev1beta2.DeleteResourceGroupRequest{
+		Id: rg.Name,
 	}); err != nil {
-		return fmt.Errorf("unable to sweep namespace: unable to delete namespace %q: %v", s.NamespaceName, err)
+		return fmt.Errorf("unable to sweep resource group: unable to delete resourceGroup %q: %v", s.ResourceGroupName, err)
 	}
 	return nil
 }

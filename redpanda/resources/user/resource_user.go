@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"strings"
 
-	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
-	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1alpha1/dataplanev1alpha1grpc"
 	dataplanev1alpha1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha1"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -125,7 +123,7 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 	var model models.User
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 
-	err := u.createUserClient(ctx, model.ClusterAPIURL.ValueString())
+	err := u.createUserClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create user client", err.Error())
 		return
@@ -156,7 +154,7 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var model models.User
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
-	err := u.createUserClient(ctx, model.ClusterAPIURL.ValueString())
+	err := u.createUserClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create user client", err.Error())
 		return
@@ -194,7 +192,7 @@ func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 	var model models.User
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
-	err := u.createUserClient(ctx, model.ClusterAPIURL.ValueString())
+	err := u.createUserClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create user client", err.Error())
 		return
@@ -221,10 +219,8 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 	}
 	user, clusterID := split[0], split[1]
 
-	client := controlplanev1beta1grpc.NewClusterServiceClient(u.resData.ControlPlaneConnection)
-	cluster, err := client.GetCluster(ctx, &controlplanev1beta1.GetClusterRequest{
-		Id: clusterID,
-	})
+	client := cloud.NewControlPlaneClientSet(u.resData.ControlPlaneConnection)
+	cluster, err := client.ClusterForID(ctx, clusterID)
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to find cluster with ID %q; make sure ADDR ID format is <user_name>,<cluster_id>", clusterID), err.Error())
 		return
@@ -239,7 +235,7 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_api_url"), clusterURL)...)
 }
 
-func (u *User) createUserClient(ctx context.Context, clusterURL string) error {
+func (u *User) createUserClient(clusterURL string) error {
 	if u.UserClient != nil { // Client already started, no need to create another one.
 		return nil
 	}
@@ -247,7 +243,7 @@ func (u *User) createUserClient(ctx context.Context, clusterURL string) error {
 		return errors.New("unable to create client with empty target cluster API URL")
 	}
 	if u.dataplaneConn == nil {
-		conn, err := cloud.SpawnConn(ctx, clusterURL, u.resData.AuthToken)
+		conn, err := cloud.SpawnConn(clusterURL, u.resData.AuthToken)
 		if err != nil {
 			return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
 		}

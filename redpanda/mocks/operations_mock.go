@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
-	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
+	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
 	"github.com/golang/mock/gomock"
 	"google.golang.org/grpc"
 )
@@ -34,14 +34,14 @@ func (m *MockOperationServiceClient) EXPECT() *MockOperationServiceClientMockRec
 }
 
 // GetOperation mocks base method.
-func (m *MockOperationServiceClient) GetOperation(ctx context.Context, in *controlplanev1beta1.GetOperationRequest, opts ...grpc.CallOption) (*controlplanev1beta1.Operation, error) {
+func (m *MockOperationServiceClient) GetOperation(ctx context.Context, in *controlplanev1beta2.GetOperationRequest, opts ...grpc.CallOption) (*controlplanev1beta2.GetOperationResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetOperation", varargs...)
-	ret0, ok := ret[0].(*controlplanev1beta1.Operation)
+	ret0, ok := ret[0].(*controlplanev1beta2.GetOperationResponse)
 	if !ok {
 		fmt.Println("unexpected type")
 	}
@@ -53,14 +53,14 @@ func (m *MockOperationServiceClient) GetOperation(ctx context.Context, in *contr
 }
 
 // ListOperations mocks base method.
-func (m *MockOperationServiceClient) ListOperations(ctx context.Context, in *controlplanev1beta1.ListOperationsRequest, opts ...grpc.CallOption) (*controlplanev1beta1.ListOperationsResponse, error) {
+func (m *MockOperationServiceClient) ListOperations(ctx context.Context, in *controlplanev1beta2.ListOperationsRequest, opts ...grpc.CallOption) (*controlplanev1beta2.ListOperationsResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "ListOperations", varargs...)
-	ret0, ok := ret[0].(*controlplanev1beta1.ListOperationsResponse)
+	ret0, ok := ret[0].(*controlplanev1beta2.ListOperationsResponse)
 	if !ok {
 		fmt.Println("unexpected type")
 	}

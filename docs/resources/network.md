@@ -19,7 +19,7 @@ Creates a network in the Redpanda Cloud.
 - `cidr_block` (String) The cidr_block to create the network in
 - `cluster_type` (String) The type of cluster this network is associated with, can be one of dedicated or cloud
 - `name` (String) Name of the network
-- `namespace_id` (String) The id of the namespace in which to create the network
+- `resource_group_id` (String) The ID of the resource group in which to create the network
 
 ### Optional
 
@@ -35,20 +35,20 @@ Creates a network in the Redpanda Cloud.
 ```terraform
 provider "redpanda" {}
 
-resource "redpanda_namespace" "test" {
-  name = var.namespace_name
+resource "redpanda_resource_group" "test" {
+  name = var.resource_group_name
 }
 
 resource "redpanda_network" "test" {
-  name           = var.network_name
-  namespace_id   = redpanda_namespace.test.id
-  cloud_provider = var.cloud_provider
-  region         = var.region
-  cluster_type   = "dedicated"
-  cidr_block     = "10.0.0.0/20"
+  name              = var.network_name
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = var.cloud_provider
+  region            = var.region
+  cluster_type      = "dedicated"
+  cidr_block        = "10.0.0.0/20"
 }
 
-variable "namespace_name" {
+variable "resource_group_name" {
   default = "testname"
 }
 

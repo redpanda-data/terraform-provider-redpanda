@@ -21,12 +21,11 @@ import (
 	"context"
 	"fmt"
 
-	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta1/controlplanev1beta1grpc"
-	controlplanev1beta1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta1"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -39,7 +38,7 @@ var (
 
 // DataSourceCluster represents a cluster data source.
 type DataSourceCluster struct {
-	CluClient controlplanev1beta1grpc.ClusterServiceClient
+	CpCl *cloud.ControlPlaneClientSet
 }
 
 // Metadata returns the metadata for the Cluster data source.
@@ -61,7 +60,7 @@ func (d *DataSourceCluster) Configure(_ context.Context, req datasource.Configur
 			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", req.ProviderData))
 		return
 	}
-	d.CluClient = controlplanev1beta1grpc.NewClusterServiceClient(p.ControlPlaneConnection)
+	d.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
 }
 
 // Read reads the Cluster data source's values and updates the state.
@@ -69,9 +68,7 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 	var model models.Cluster
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 
-	cluster, err := d.CluClient.GetCluster(ctx, &controlplanev1beta1.GetClusterRequest{
-		Id: model.ID.ValueString(),
-	})
+	cluster, err := d.CpCl.ClusterForID(ctx, model.ID.ValueString())
 	if err != nil {
 		if utils.IsNotFound(err) {
 			resp.Diagnostics.AddError(fmt.Sprintf("unable to find cluster %s", model.ID), err.Error())
@@ -91,7 +88,7 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		return
 	}
 	tags := make(map[string]attr.Value)
-	for k, v := range cluster.CloudTags {
+	for k, v := range cluster.CloudProviderTags {
 		tags[k] = types.StringValue(v)
 	}
 	tagsValue, diags := types.MapValue(types.StringType, tags)
@@ -110,7 +107,7 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		Region:          types.StringValue(cluster.Region),
 		Zones:           clusterZones,
 		Tags:            tagsValue,
-		NamespaceID:     types.StringValue(cluster.NamespaceId),
+		ResourceGroupID: types.StringValue(cluster.ResourceGroupId),
 		NetworkID:       types.StringValue(cluster.NetworkId),
 		ID:              types.StringValue(cluster.Id),
 		ClusterAPIURL:   types.StringValue(clusterURL),
@@ -127,7 +124,7 @@ func datasourceClusterSchema() schema.Schema {
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Required:    true,
-				Description: "The id of the cluster",
+				Description: "The ID of the cluster",
 			},
 			"name": schema.StringAttribute{
 				Computed:    true,
@@ -171,13 +168,13 @@ func datasourceClusterSchema() schema.Schema {
 				Description: "Tags to apply to the cluster",
 				ElementType: types.StringType,
 			},
-			"namespace_id": schema.StringAttribute{
+			"resource_group_id": schema.StringAttribute{
 				Computed:    true,
-				Description: "The id of the namespace in which to create the cluster",
+				Description: "The ID of the resource group in which to create the cluster",
 			},
 			"network_id": schema.StringAttribute{
 				Computed:    true,
-				Description: "The id of the network in which to create the cluster",
+				Description: "The ID of the network in which to create the cluster",
 			},
 			"cluster_api_url": schema.StringAttribute{
 				Computed:    true,

@@ -22,8 +22,8 @@ Data source for a Redpanda Cloud network
 - `cloud_provider` (String) The cloud provider to create the network in. Can also be set at the provider level
 - `cluster_type` (String) The type of cluster this network is associated with, can be one of dedicated or cloud
 - `name` (String) Name of the network
-- `namespace_id` (String) The id of the namespace in which to create the network
 - `region` (String) The region to create the network in. Can also be set at the provider level
+- `resource_group_id` (String) The ID of the resource group in which to create the network
 
 ## Usage
 
