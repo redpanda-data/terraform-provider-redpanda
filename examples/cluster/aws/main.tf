@@ -13,7 +13,6 @@ resource "redpanda_network" "test" {
   cidr_block        = "10.0.0.0/20"
 }
 
-
 resource "redpanda_cluster" "test" {
   name              = var.cluster_name
   resource_group_id = redpanda_resource_group.test.id
@@ -34,6 +33,7 @@ resource "redpanda_cluster" "test" {
 variable "resource_group_name" {
   default = "testname"
 }
+
 variable "network_name" {
   default = "testname"
 }
