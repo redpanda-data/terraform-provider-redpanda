@@ -28,12 +28,15 @@ resource "redpanda_cluster" "test" {
     "key" = "value"
   }
 }
+
 variable "cluster_name" {
   default = ""
 }
+
 variable "resource_group_name" {
   default = ""
 }
+
 variable "network_name" {
   default = ""
 }

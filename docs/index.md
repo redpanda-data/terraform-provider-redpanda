@@ -39,9 +39,6 @@ terraform {
 provider "redpanda" {
   client_id      = "your_client_id"
   client_secret  = "your_client_secret"
-  cloud_provider = "aws"
-  region         = "us-west-2"
-  zones          = ["us-west-2a", "us-west-2b"]
 }
 ```
 
@@ -63,7 +60,6 @@ resource "redpanda_network" "test" {
   cidr_block        = "10.0.0.0/20"
 }
 
-
 resource "redpanda_cluster" "test" {
   name              = var.cluster_name
   resource_group_id = redpanda_resource_group.test.id
@@ -84,6 +80,7 @@ resource "redpanda_cluster" "test" {
 variable "resource_group_name" {
   default = "testname"
 }
+
 variable "network_name" {
   default = "testname"
 }
@@ -142,12 +139,15 @@ resource "redpanda_cluster" "test" {
     "key" = "value"
   }
 }
+
 variable "cluster_name" {
   default = ""
 }
+
 variable "resource_group_name" {
   default = ""
 }
+
 variable "network_name" {
   default = ""
 }
@@ -177,6 +177,7 @@ provider "redpanda" {}
 variable "cluster_id" {
   default = ""
 }
+
 data "redpanda_cluster" "test" {
   id = var.cluster_id
 }
@@ -215,6 +216,7 @@ variable "topic_config" {
     "compression.type" = "snappy"
   }
 }
+
 variable "user_name" {
   default = "test-username"
 }

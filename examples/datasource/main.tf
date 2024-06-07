@@ -3,6 +3,7 @@ provider "redpanda" {}
 variable "cluster_id" {
   default = ""
 }
+
 data "redpanda_cluster" "test" {
   id = var.cluster_id
 }
@@ -41,6 +42,7 @@ variable "topic_config" {
     "compression.type" = "snappy"
   }
 }
+
 variable "user_name" {
   default = "test-username"
 }
