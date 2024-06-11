@@ -6,6 +6,8 @@ description: |-
 
 # Redpanda Provider
 
+## This is an Alpha Release with limited access. If you are interested in being part of the testing please contact us.
+
 The Redpanda provider is designed for managing Redpanda clusters and Kafka resources in Redpanda Dedicated and Cloud environments. It supports the provisioning, management, and configuration of clusters and Kafka resources, facilitating seamless integration into Terraform workflows.
 
 It is also able to provide management of Kafka resources (topics, ACLs, and more) within Redpanda clusters deployed outside of Redpanda Cloud.

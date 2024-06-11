@@ -1,6 +1,6 @@
 # Redpanda Terraform Provider
 
-!!! THIS IS AN ALPHA RELEASE !!!
+## This is an Alpha Release with limited access. If you are interested in being part of the testing please contact us.
 
 Please be aware that all features are subject to change and may not be fully supported at this time.
 
