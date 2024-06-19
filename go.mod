@@ -5,8 +5,8 @@ go 1.22.2
 toolchain go1.22.3
 
 require (
-	buf.build/gen/go/redpandadata/cloud/grpc/go v1.3.0-20240515114728-57bc92921a46.3
-	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.34.1-20240515114728-57bc92921a46.1
+	buf.build/gen/go/redpandadata/cloud/grpc/go v1.4.0-20240618082024-ec0d26346763.1
+	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.34.1-20240618082024-ec0d26346763.1
 	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.3.0-20240529193153-4aa073b41f61.3
 	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.34.1-20240529193153-4aa073b41f61.1
 	github.com/davecgh/go-spew v1.1.1
@@ -95,6 +95,7 @@ require (
 	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/tools v0.21.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
+	google.golang.org/genproto v0.0.0-20231106174013-bbf56f31fb17 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240528184218-531527333157 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
