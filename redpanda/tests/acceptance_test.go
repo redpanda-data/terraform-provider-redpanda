@@ -23,21 +23,26 @@ const (
 	dedicatedNetworkFile       = "../../examples/network/main.tf"
 	dedicatedUserACLsTopicFile = "../../examples/user-acl-topic/main.tf"
 	dataSourcesTest            = "../../examples/datasource/main.tf"
+	serverlessClusterFile      = "../../examples/serverless-cluster/main.tf"
 	// These are the resource names as named in the TF files.
-	resourceGroupName   = "redpanda_resource_group.test"
-	networkResourceName = "redpanda_network.test"
-	clusterResourceName = "redpanda_cluster.test"
-	userResourceName    = "redpanda_user.test"
-	topicResourceName   = "redpanda_topic.test"
-	aclResourceName     = "redpanda_acl.test"
+	resourceGroupName      = "redpanda_resource_group.test"
+	networkResourceName    = "redpanda_network.test"
+	clusterResourceName    = "redpanda_cluster.test"
+	userResourceName       = "redpanda_user.test"
+	topicResourceName      = "redpanda_topic.test"
+	aclResourceName        = "redpanda_acl.test"
+	serverlessResourceName = "redpanda_serverless_cluster.test"
 )
 
 var (
 	accNamePrepend             = "tfrp-acc-"
 	runClusterTests            = os.Getenv("RUN_CLUSTER_TESTS")
+	runServerlessTests         = os.Getenv("RUN_SERVERLESS_TESTS")
 	clientID                   = os.Getenv(redpanda.ClientIDEnv)
 	clientSecret               = os.Getenv(redpanda.ClientSecretEnv)
 	testAgainstExistingCluster = os.Getenv("TEST_AGAINST_EXISTING_CLUSTER")
+	testaws                    = "testaws"
+	testawsRename              = "testaws-rename"
 )
 
 func TestAccResourceGroup(t *testing.T) {
@@ -122,14 +127,14 @@ func TestAccResourcesStrippedDownClusterAWS(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	name := generateRandomName(accNamePrepend + "testaws")
+	name := generateRandomName(accNamePrepend + testaws)
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
 	origTestCaseVars["network_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
 
-	rename := generateRandomName(accNamePrepend + "testaws-rename")
+	rename := generateRandomName(accNamePrepend + testawsRename)
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
@@ -295,14 +300,14 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	name := generateRandomName(accNamePrepend + "testaws")
+	name := generateRandomName(accNamePrepend + testaws)
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
 	origTestCaseVars["network_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
 
-	rename := generateRandomName(accNamePrepend + "testaws-rename")
+	rename := generateRandomName(accNamePrepend + testawsRename)
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
@@ -667,5 +672,73 @@ func TestAccResourcesWithDataSources(t *testing.T) {
 			ClusterName: name,
 			Client:      c,
 		}.SweepCluster,
+	})
+}
+
+func TestAccResourcesStrippedDownServerlessCluster(t *testing.T) {
+	if !strings.Contains(runServerlessTests, "true") {
+		t.Skip("skipping serverless tests")
+	}
+	ctx := context.Background()
+
+	name := generateRandomName(accNamePrepend + testaws)
+	region := "int-eu-west-1"
+	origTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
+	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
+	origTestCaseVars["cluster_name"] = config.StringVariable(name)
+	origTestCaseVars["region"] = config.StringVariable(region)
+
+	rename := generateRandomName(accNamePrepend + testawsRename)
+	updateTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(updateTestCaseVars, origTestCaseVars)
+	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
+	updateTestCaseVars["region"] = config.StringVariable(region)
+
+	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				ConfigFile:      config.StaticFile(serverlessClusterFile),
+				ConfigVariables: origTestCaseVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+					resource.TestCheckResourceAttr(serverlessResourceName, "name", name),
+				),
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			{
+				ConfigFile:               config.StaticFile(serverlessClusterFile),
+				ConfigVariables:          updateTestCaseVars,
+				Destroy:                  true,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+		},
+	},
+	)
+	resource.AddTestSweepers(generateRandomName("renameClusterSweeper"), &resource.Sweeper{
+		Name: rename,
+		F: sweepCluster{
+			ClusterName: rename,
+			Client:      c,
+		}.SweepServerlessCluster,
+	})
+	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepCluster{
+			ClusterName: name,
+			Client:      c,
+		}.SweepServerlessCluster,
+	})
+	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepResourceGroup{
+			ResourceGroupName: name,
+			Client:            c,
+		}.SweepResourceGroup,
 	})
 }
