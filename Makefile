@@ -1,4 +1,4 @@
-.PHONY: all doc int unit test lint linter tfplugindocs_install generate_docs integration_tests unit_tests install_gofumpt install_lint
+.PHONY: all doc int unit test lint linter tfplugindocs_install generate_docs integration_tests unit_tests install_gofumpt install_lint build
 
 GOBIN := $(PWD)/tools
 TFPLUGINDOCSCMD := $(GOBIN)/tfplugindocs
@@ -43,6 +43,27 @@ integration_tests:
 	VERSION=ign \
 	$(GOCMD) test -v -parallel=5 -timeout=0 ./redpanda/tests
 
+bulk_tests_data:
+	@echo "running bulk tests..."
+	@DEBUG=true \
+	REDPANDA_CLIENT_ID=$${REDPANDA_CLIENT_ID} \
+	REDPANDA_CLIENT_SECRET=$${REDPANDA_CLIENT_SECRET} \
+	BULK_CLUSTER_ID=$${BULK_CLUSTER_ID} \
+	RUN_BULK_TESTS=true \
+	TF_ACC=true \
+	VERSION=ign \
+	$(GOCMD) test -v -parallel=5 -timeout=0 -run TestAccResourcesBulkData ./redpanda/tests
+
+bulk_tests_res:
+	@echo "running bulk tests..."
+	@DEBUG=true \
+	REDPANDA_CLIENT_ID=$${REDPANDA_CLIENT_ID} \
+	REDPANDA_CLIENT_SECRET=$${REDPANDA_CLIENT_SECRET} \
+	RUN_BULK_TESTS=true \
+	TF_ACC=true \
+	VERSION=ign \
+	$(GOCMD) test -v -parallel=5 -timeout=0 -run TestAccResourcesBulkRes ./redpanda/tests
+
 unit_tests:
 	@echo "running unit tests..."
 	@DEBUG=true \
@@ -64,5 +85,44 @@ linter:
 	@echo "running gofumpt..."
 	@$(GOFUMPTCMD) -w -d .
 	@echo "running linter..."
-	@$(GOLANGCILINTCMD) run
+	@$(GOLANGCILINTCMD) run --config=.golangci.yml
 
+
+# Allow overriding these variables from the environment
+OS ?= $(shell go env GOOS)
+ARCH ?= $(shell go env GOARCH)
+PROVIDER_VERSION ?= 0.5.2
+PROVIDER_NAME ?= redpanda
+PROVIDER_NAMESPACE ?= redpanda-data
+TF_CONFIG_DIR ?= examples/bulk-res
+
+# Path to the built provider binary
+PROVIDER_BINARY := $(PWD)/terraform-provider-$(PROVIDER_NAME)
+
+build:
+	@echo "building terraform provider..."
+	@$(GOCMD) build -o $(PROVIDER_BINARY)
+
+.PHONY: test-actual
+test-actual: build test-create test-destroy
+
+.PHONY: test-create
+test-create:
+	@echo "Applying Terraform configuration..."
+	@cd $(TF_CONFIG_DIR) && \
+	REDPANDA_CLIENT_ID="$${REDPANDA_CLIENT_ID}" \
+	REDPANDA_CLIENT_SECRET="$${REDPANDA_CLIENT_SECRET}" \
+	REDPANDA_CLOUD_ENVIRONMENT="$${REDPANDA_CLOUD_ENVIRONMENT}" \
+	export TF_LOG=DEBUG \
+	TF_INSECURE_SKIP_PROVIDER_VERIFICATION=true
+	terraform init && \
+	terraform apply -parallelism 10 -auto-approve
+
+.PHONY: test-destroy
+test-destroy:
+	@echo "Destroying Terraform configuration..."
+	@cd $(TF_CONFIG_DIR) && \
+	REDPANDA_CLIENT_ID="$${REDPANDA_CLIENT_ID}" && \
+    TF_LOG=DEBUG && \
+	terraform init && \
+	terraform destroy -auto-approve
