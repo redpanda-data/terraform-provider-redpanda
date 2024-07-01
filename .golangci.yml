@@ -21,6 +21,9 @@ issues:
         - goconst
       text: "string `UNKNOWN` has"
       path: redpanda/utils/utils.go
+    - path: _test\.go
+      linters:
+        - gocognit
 
 # We opt out of all suggested linters and manually pick what we want.
 # Please do not use enable-all.
