@@ -28,20 +28,22 @@ import (
 // ControlPlaneClientSet holds the respective service clients to interact with
 // the control plane endpoints of the Public API.
 type ControlPlaneClientSet struct {
-	ResourceGroup controlplanev1beta2grpc.ResourceGroupServiceClient
-	Network       controlplanev1beta2grpc.NetworkServiceClient
-	Cluster       controlplanev1beta2grpc.ClusterServiceClient
-	Operation     controlplanev1beta2grpc.OperationServiceClient
+	ResourceGroup     controlplanev1beta2grpc.ResourceGroupServiceClient
+	Network           controlplanev1beta2grpc.NetworkServiceClient
+	Cluster           controlplanev1beta2grpc.ClusterServiceClient
+	ServerlessCluster controlplanev1beta2grpc.ServerlessClusterServiceClient
+	Operation         controlplanev1beta2grpc.OperationServiceClient
 }
 
 // NewControlPlaneClientSet uses the passed grpc connection to create a control
 // plane client set.
 func NewControlPlaneClientSet(conn *grpc.ClientConn) *ControlPlaneClientSet {
 	return &ControlPlaneClientSet{
-		ResourceGroup: controlplanev1beta2grpc.NewResourceGroupServiceClient(conn),
-		Network:       controlplanev1beta2grpc.NewNetworkServiceClient(conn),
-		Cluster:       controlplanev1beta2grpc.NewClusterServiceClient(conn),
-		Operation:     controlplanev1beta2grpc.NewOperationServiceClient(conn),
+		ResourceGroup:     controlplanev1beta2grpc.NewResourceGroupServiceClient(conn),
+		Network:           controlplanev1beta2grpc.NewNetworkServiceClient(conn),
+		Cluster:           controlplanev1beta2grpc.NewClusterServiceClient(conn),
+		ServerlessCluster: controlplanev1beta2grpc.NewServerlessClusterServiceClient(conn),
+		Operation:         controlplanev1beta2grpc.NewOperationServiceClient(conn),
 	}
 }
 
@@ -162,4 +164,36 @@ func (cpCl *ControlPlaneClientSet) ClusterForName(ctx context.Context, name stri
 		}
 	}
 	return nil, fmt.Errorf("cluster not found")
+}
+
+// ServerlessClusterForID gets the ServerlessCluster for a given ID and handles the error if the
+// returned serverless cluster is nil.
+func (cpCl *ControlPlaneClientSet) ServerlessClusterForID(ctx context.Context, id string) (*controlplanev1beta2.ServerlessCluster, error) {
+	c, err := cpCl.ServerlessCluster.GetServerlessCluster(ctx, &controlplanev1beta2.GetServerlessClusterRequest{
+		Id: id,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to request serverless cluster %q information: %w", id, err)
+	}
+	if c.ServerlessCluster == nil {
+		return nil, fmt.Errorf("unable to find serverless cluster %q; please report this bug to Redpanda Support", id)
+	}
+	return c.ServerlessCluster, nil
+}
+
+// ServerlessClusterForName lists all serverless clusters with a name filter, returns the serverless cluster for
+// the given name.
+func (cpCl *ControlPlaneClientSet) ServerlessClusterForName(ctx context.Context, name string) (*controlplanev1beta2.ServerlessCluster, error) {
+	serverlessClusters, err := cpCl.ServerlessCluster.ListServerlessClusters(ctx, &controlplanev1beta2.ListServerlessClustersRequest{
+		Filter: &controlplanev1beta2.ListServerlessClustersRequest_Filter{NameContains: name},
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range serverlessClusters.GetServerlessClusters() {
+		if c.GetName() == name {
+			return c, nil
+		}
+	}
+	return nil, fmt.Errorf("serverless cluster not found")
 }
