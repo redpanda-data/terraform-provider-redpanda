@@ -29,6 +29,7 @@ import (
 
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpcretry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/codes"
@@ -112,6 +113,8 @@ func RequestTokenAndEnv(ctx context.Context, cloudEnv, clientID, clientSecret st
 	return tokenContainer.AccessToken, &endpoint, nil
 }
 
+var rl = newRateLimiter(500)
+
 // SpawnConn returns a grpc connection to the given URL, it adds a bearer token
 // to each request with the given 'authToken'.
 func SpawnConn(url string, authToken string) (*grpc.ClientConn, error) {
@@ -123,6 +126,17 @@ func SpawnConn(url string, authToken string) (*grpc.ClientConn, error) {
 			func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 				return invoker(metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", authToken)), method, req, reply, cc, opts...)
 			},
+			func(ctx context.Context, method string, req any, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+				start := time.Now()
+				err := invoker(ctx, method, req, reply, cc, opts...)
+				tflog.Debug(ctx, "method: %s, duration: %v, error: %v\n", map[string]any{
+					"method":   method,
+					"duration": time.Since(start),
+					"error":    err,
+				})
+				return err
+			},
+			rl.Limiter,
 			// Retry interceptor
 			grpcretry.UnaryClientInterceptor(
 				grpcretry.WithCodes(codes.Unavailable, codes.Unknown, codes.Internal),
