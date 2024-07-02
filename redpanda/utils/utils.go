@@ -354,3 +354,12 @@ func GetClusterUntilRunningState(ctx context.Context, count, limit int, clusterN
 	time.Sleep(1 * time.Minute)
 	return GetClusterUntilRunningState(ctx, count, limit, clusterName, client)
 }
+
+// TypeMapToStringMap converts a types.Map to a map[string]string
+func TypeMapToStringMap(tags types.Map) map[string]string {
+	tagsMap := make(map[string]string)
+	for k, v := range tags.Elements() {
+		tagsMap[k] = v.String()
+	}
+	return tagsMap
+}
