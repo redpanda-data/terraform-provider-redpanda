@@ -23,6 +23,8 @@ import (
 	"time"
 
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -151,6 +153,23 @@ func resourceClusterSchema() schema.Schema {
 				Description:   "The URL of the cluster API",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
+			"aws_private_link": schema.ObjectAttribute{
+				Optional:    true,
+				Description: "AWS Private Link configuration. See https://docs.redpanda.com/current/deploy/deployment-option/cloud/configure-privatelink-in-cloud-ui/ for more details.",
+				AttributeTypes: map[string]attr.Type{
+					"enabled":            types.BoolType,
+					"allowed_principals": types.DynamicType,
+				},
+			},
+			"gcp_private_service_connect": schema.ObjectAttribute{
+				Optional:    true,
+				Description: "GCP Private Service Connect configuration. See https://docs.redpanda.com/current/deploy/deployment-option/cloud/configure-private-service-connect-in-cloud-ui/ for more details.",
+				AttributeTypes: map[string]attr.Type{
+					"enabled":               types.BoolType,
+					"global_access_enabled": types.BoolType,
+					"consumer_accept_list":  types.DynamicType,
+				},
+			},
 		},
 	}
 }
@@ -196,7 +215,8 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, models.Cluster{
+
+	persist := models.Cluster{
 		Name:            types.StringValue(cluster.Name),
 		ConnectionType:  types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
 		CloudProvider:   types.StringValue(utils.CloudProviderToString(cluster.CloudProvider)),
@@ -211,7 +231,27 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		NetworkID:       types.StringValue(cluster.NetworkId),
 		ID:              types.StringValue(cluster.Id),
 		ClusterAPIURL:   types.StringValue(clusterURL),
-	})...)
+	}
+
+	if cluster.GetAwsPrivateLink() != nil {
+		if cluster.GetAwsPrivateLink().GetEnabled() {
+			pl, dg := awsPrivateLinkStructToModel(ctx, cluster.GetAwsPrivateLink())
+			if dg.HasError() {
+				resp.Diagnostics.Append(dg...)
+			}
+			persist.AwsPrivateLink = pl
+		}
+	}
+	if cluster.GetGcpPrivateServiceConnect() != nil {
+		if cluster.GcpPrivateServiceConnect.GetEnabled() {
+			persist.GcpPrivateServiceConnect = &models.GcpPrivateServiceConnect{
+				Enabled:             types.BoolValue(cluster.GcpPrivateServiceConnect.Enabled),
+				GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
+				ConsumerAcceptList:  gcpConnectConsumerStructToModel(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
+			}
+		}
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
 // Read reads Cluster resource's values and updates the state.
@@ -244,7 +284,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 	// is a valid choice that causes the API to select the latest value. If we then persist the value provided by the API to state
 	// we end up in a situation where on refresh TF will attempt to remove the RP_VER from state. This will cause a diff and a run
 	// even though that is neither user intent nor a change in the cluster.
-	resp.Diagnostics.Append(resp.State.Set(ctx, models.Cluster{
+	persist := models.Cluster{
 		Name:            types.StringValue(cluster.Name),
 		ConnectionType:  types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
 		CloudProvider:   types.StringValue(utils.CloudProviderToString(cluster.CloudProvider)),
@@ -259,7 +299,26 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		NetworkID:       types.StringValue(cluster.NetworkId),
 		ID:              types.StringValue(cluster.Id),
 		ClusterAPIURL:   types.StringValue(clusterURL),
-	})...)
+	}
+	if cluster.GetAwsPrivateLink() != nil {
+		if cluster.GetAwsPrivateLink().GetEnabled() {
+			pl, dg := awsPrivateLinkStructToModel(ctx, cluster.GetAwsPrivateLink())
+			if dg.HasError() {
+				resp.Diagnostics.Append(dg...)
+			}
+			persist.AwsPrivateLink = pl
+		}
+	}
+	if cluster.GetGcpPrivateServiceConnect() != nil {
+		if cluster.GcpPrivateServiceConnect.GetEnabled() {
+			persist.GcpPrivateServiceConnect = &models.GcpPrivateServiceConnect{
+				Enabled:             types.BoolValue(cluster.GcpPrivateServiceConnect.Enabled),
+				GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
+				ConsumerAcceptList:  gcpConnectConsumerStructToModel(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
+			}
+		}
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
 // Update all cluster updates are currently delete and recreate.
@@ -317,16 +376,64 @@ func GenerateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterC
 		return nil, fmt.Errorf("unable to parse cluster type: %v", err)
 	}
 	rpVersion := model.RedpandaVersion.ValueString()
-	return &controlplanev1beta2.ClusterCreate{
-		Name:            model.Name.ValueString(),
-		ConnectionType:  utils.StringToConnectionType(model.ConnectionType.ValueString()),
-		CloudProvider:   provider,
-		RedpandaVersion: &rpVersion,
-		ThroughputTier:  model.ThroughputTier.ValueString(),
-		Region:          model.Region.ValueString(),
-		Zones:           utils.TypeListToStringSlice(model.Zones),
-		ResourceGroupId: model.ResourceGroupID.ValueString(),
-		NetworkId:       model.NetworkID.ValueString(),
-		Type:            clusterType,
-	}, nil
+
+	output := &controlplanev1beta2.ClusterCreate{
+		Name:              model.Name.ValueString(),
+		ConnectionType:    utils.StringToConnectionType(model.ConnectionType.ValueString()),
+		CloudProvider:     provider,
+		RedpandaVersion:   &rpVersion,
+		ThroughputTier:    model.ThroughputTier.ValueString(),
+		Region:            model.Region.ValueString(),
+		Zones:             utils.TypeListToStringSlice(model.Zones),
+		ResourceGroupId:   model.ResourceGroupID.ValueString(),
+		NetworkId:         model.NetworkID.ValueString(),
+		Type:              clusterType,
+		CloudProviderTags: utils.TypeMapToStringMap(model.Tags),
+	}
+	if model.AwsPrivateLink != nil {
+		if model.AwsPrivateLink.Enabled.ValueBool() {
+			output.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
+				Enabled:           model.AwsPrivateLink.Enabled.ValueBool(),
+				AllowedPrincipals: utils.TypeListToStringSlice(model.AwsPrivateLink.AllowedPrincipals),
+			}
+		}
+	}
+	if model.GcpPrivateServiceConnect != nil {
+		if model.GcpPrivateServiceConnect.Enabled.ValueBool() {
+			output.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
+				Enabled:             model.GcpPrivateServiceConnect.Enabled.ValueBool(),
+				GlobalAccessEnabled: model.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
+				ConsumerAcceptList:  gcpConnectConsumerModelToStruct(model.GcpPrivateServiceConnect.ConsumerAcceptList),
+			}
+		}
+	}
+	return output, nil
+}
+
+func awsPrivateLinkStructToModel(ctx context.Context, accept *controlplanev1beta2.AWSPrivateLinkStatus) (*models.AwsPrivateLink, diag.Diagnostics) {
+	ap, d := types.ListValueFrom(ctx, types.StringType, accept.AllowedPrincipals)
+	return &models.AwsPrivateLink{
+		Enabled:           types.BoolValue(accept.Enabled),
+		AllowedPrincipals: ap,
+	}, d
+}
+
+func gcpConnectConsumerModelToStruct(accept []*models.GcpPrivateServiceConnectConsumer) []*controlplanev1beta2.GCPPrivateServiceConnectConsumer {
+	var output []*controlplanev1beta2.GCPPrivateServiceConnectConsumer
+	for _, a := range accept {
+		output = append(output, &controlplanev1beta2.GCPPrivateServiceConnectConsumer{
+			Source: a.Source,
+		})
+	}
+	return output
+}
+
+func gcpConnectConsumerStructToModel(accept []*controlplanev1beta2.GCPPrivateServiceConnectConsumer) []*models.GcpPrivateServiceConnectConsumer {
+	var output []*models.GcpPrivateServiceConnectConsumer
+	for _, a := range accept {
+		output = append(output, &models.GcpPrivateServiceConnectConsumer{
+			Source: a.Source,
+		})
+	}
+	return output
 }
