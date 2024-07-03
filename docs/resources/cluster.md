@@ -29,8 +29,12 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `aws_private_link` (Object) AWS Private Link configuration. See https://docs.redpanda.com/current/deploy/deployment-option/cloud/configure-privatelink-in-cloud-ui/ for more details. (see [below for nested schema](#nestedatt--aws_private_link))
 - `cloud_provider` (String) Must be one of aws or gcp
 - `gcp_private_service_connect` (Object) GCP Private Service Connect configuration. See https://docs.redpanda.com/current/deploy/deployment-option/cloud/configure-private-service-connect-in-cloud-ui/ for more details. (see [below for nested schema](#nestedatt--gcp_private_service_connect))
+- `http_proxy` (Object) Http Proxy MTLS configuration (see [below for nested schema](#nestedatt--http_proxy))
+- `kafka_api` (Object) Kafka API MTLS configuration (see [below for nested schema](#nestedatt--kafka_api))
+- `read_replica_cluster_ids` (List of String) List of read replica cluster IDs
 - `redpanda_version` (String) Version of Redpanda to deploy
 - `region` (String) Cloud provider specific region of the cluster
+- `schema_registry` (Object) Schema Registry MTLS configuration (see [below for nested schema](#nestedatt--schema_registry))
 - `tags` (Map of String) Tags to apply to the cluster
 - `zones` (List of String) Cloud provider specific zones of the cluster
 
@@ -56,6 +60,36 @@ Optional:
 - `consumer_accept_list` (Dynamic)
 - `enabled` (Boolean)
 - `global_access_enabled` (Boolean)
+
+
+<a id="nestedatt--http_proxy"></a>
+### Nested Schema for `http_proxy`
+
+Optional:
+
+- `ca_certificates_pem` (Dynamic)
+- `consumer_accept_list` (Dynamic)
+- `enabled` (Boolean)
+
+
+<a id="nestedatt--kafka_api"></a>
+### Nested Schema for `kafka_api`
+
+Optional:
+
+- `ca_certificates_pem` (Dynamic)
+- `consumer_accept_list` (Dynamic)
+- `enabled` (Boolean)
+
+
+<a id="nestedatt--schema_registry"></a>
+### Nested Schema for `schema_registry`
+
+Optional:
+
+- `ca_certificates_pem` (Dynamic)
+- `consumer_accept_list` (Dynamic)
+- `enabled` (Boolean)
 
 ## Usage
 
