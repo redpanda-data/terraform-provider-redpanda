@@ -96,8 +96,9 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		resp.Diagnostics.AddError("unable to parse Cloud tags", err.Error())
 		return
 	}
+
 	// Mapping the fields from the cluster to the Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, &models.Cluster{
+	persist := &models.Cluster{
 		Name:            types.StringValue(cluster.Name),
 		ConnectionType:  types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
 		CloudProvider:   types.StringValue(utils.CloudProviderToString(cluster.CloudProvider)),
@@ -111,7 +112,55 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		NetworkID:       types.StringValue(cluster.NetworkId),
 		ID:              types.StringValue(cluster.Id),
 		ClusterAPIURL:   types.StringValue(clusterURL),
-	})...)
+	}
+
+	if cluster.GetAwsPrivateLink() != nil {
+		if cluster.GetAwsPrivateLink().GetEnabled() {
+			pl, dg := awsPrivateLinkStructToModel(ctx, cluster.GetAwsPrivateLink())
+			if dg.HasError() {
+				resp.Diagnostics.Append(dg...)
+			}
+			persist.AwsPrivateLink = pl
+		}
+	}
+	if cluster.GetGcpPrivateServiceConnect() != nil {
+		if cluster.GcpPrivateServiceConnect.GetEnabled() {
+			persist.GcpPrivateServiceConnect = &models.GcpPrivateServiceConnect{
+				Enabled:             types.BoolValue(cluster.GcpPrivateServiceConnect.Enabled),
+				GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
+				ConsumerAcceptList:  gcpConnectConsumerStructToModel(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
+			}
+		}
+	}
+	if cluster.GetKafkaApi() != nil {
+		o, oerr := toMtlsModel(ctx, cluster.GetKafkaApi().GetMtls())
+		if oerr != nil {
+			resp.Diagnostics.Append(oerr...)
+		}
+		persist.KafkaApi = &models.KafkaApi{
+			Mtls: o,
+		}
+
+	}
+	if cluster.GetHttpProxy() != nil {
+		o, oerr := toMtlsModel(ctx, cluster.GetHttpProxy().GetMtls())
+		if oerr != nil {
+			resp.Diagnostics.Append(oerr...)
+		}
+		persist.HttpProxy = &models.HttpProxy{
+			Mtls: o,
+		}
+	}
+	if cluster.GetSchemaRegistry() != nil {
+		o, oerr := toMtlsModel(ctx, cluster.GetSchemaRegistry().GetMtls())
+		if oerr != nil {
+			resp.Diagnostics.Append(oerr...)
+		}
+		persist.SchemaRegistry = &models.SchemaRegistry{
+			Mtls: o,
+		}
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
 // Schema returns the schema for the Cluster data source.
@@ -179,6 +228,55 @@ func datasourceClusterSchema() schema.Schema {
 			"cluster_api_url": schema.StringAttribute{
 				Computed:    true,
 				Description: "The URL of the cluster API",
+			},
+			"aws_private_link": schema.ObjectAttribute{
+				Computed:    true,
+				Description: "AWS Private Link configuration. See https://docs.redpanda.com/current/deploy/deployment-option/cloud/configure-privatelink-in-cloud-ui/ for more details.",
+				AttributeTypes: map[string]attr.Type{
+					"enabled":            types.BoolType,
+					"allowed_principals": types.DynamicType,
+				},
+			},
+			"gcp_private_service_connect": schema.ObjectAttribute{
+				Computed:    true,
+				Description: "GCP Private Service Connect configuration. See https://docs.redpanda.com/current/deploy/deployment-option/cloud/configure-private-service-connect-in-cloud-ui/ for more details.",
+				AttributeTypes: map[string]attr.Type{
+					"enabled":               types.BoolType,
+					"global_access_enabled": types.BoolType,
+					"consumer_accept_list":  types.DynamicType,
+				},
+			},
+			"kafka_api": schema.ObjectAttribute{
+				Computed:    true,
+				Description: "Kafka API MTLS configuration",
+				AttributeTypes: map[string]attr.Type{
+					"enabled":              types.BoolType,
+					"ca_certificates_pem":  types.DynamicType,
+					"consumer_accept_list": types.DynamicType,
+				},
+			},
+			"HttpProxy": schema.ObjectAttribute{
+				Computed:    true,
+				Description: "Http Proxy MTLS configuration",
+				AttributeTypes: map[string]attr.Type{
+					"enabled":              types.BoolType,
+					"ca_certificates_pem":  types.DynamicType,
+					"consumer_accept_list": types.DynamicType,
+				},
+			},
+			"SchemaRegistry": schema.ObjectAttribute{
+				Computed:    true,
+				Description: "Schema Registry MTLS configuration",
+				AttributeTypes: map[string]attr.Type{
+					"enabled":              types.BoolType,
+					"ca_certificates_pem":  types.DynamicType,
+					"consumer_accept_list": types.DynamicType,
+				},
+			},
+			"read_replica_cluster_ids": schema.ListAttribute{
+				Computed:    true,
+				Description: "List of read replica cluster IDs",
+				ElementType: types.StringType,
 			},
 		},
 		Description: "Data source for a Redpanda Cloud cluster",
