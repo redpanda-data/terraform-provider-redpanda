@@ -170,6 +170,38 @@ func resourceClusterSchema() schema.Schema {
 					"consumer_accept_list":  types.DynamicType,
 				},
 			},
+			"kafka_api": schema.ObjectAttribute{
+				Optional:    true,
+				Description: "Kafka API MTLS configuration",
+				AttributeTypes: map[string]attr.Type{
+					"enabled":              types.BoolType,
+					"ca_certificates_pem":  types.DynamicType,
+					"consumer_accept_list": types.DynamicType,
+				},
+			},
+			"HttpProxy": schema.ObjectAttribute{
+				Optional:    true,
+				Description: "Http Proxy MTLS configuration",
+				AttributeTypes: map[string]attr.Type{
+					"enabled":              types.BoolType,
+					"ca_certificates_pem":  types.DynamicType,
+					"consumer_accept_list": types.DynamicType,
+				},
+			},
+			"SchemaRegistry": schema.ObjectAttribute{
+				Optional:    true,
+				Description: "Schema Registry MTLS configuration",
+				AttributeTypes: map[string]attr.Type{
+					"enabled":              types.BoolType,
+					"ca_certificates_pem":  types.DynamicType,
+					"consumer_accept_list": types.DynamicType,
+				},
+			},
+			"read_replica_cluster_ids": schema.ListAttribute{
+				Optional:    true,
+				Description: "List of read replica cluster IDs",
+				ElementType: types.StringType,
+			},
 		},
 	}
 }
@@ -180,7 +212,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	var model models.Cluster
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 
-	clusterReq, err := GenerateClusterRequest(model)
+	clusterReq, err := GenerateClusterRequest(ctx, model)
 	if err != nil {
 		resp.Diagnostics.AddError("unable to parse CreateCluster request", err.Error())
 		return
@@ -220,21 +252,34 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		return
 	}
 
+	rr, drr := types.ListValueFrom(ctx, types.StringType, cluster.ReadReplicaClusterIds)
+	if drr != nil {
+		resp.Diagnostics.Append(drr...)
+		return
+	}
+
+	tags, terr := types.MapValueFrom(ctx, types.StringType, cluster.CloudProviderTags)
+	if terr != nil {
+		resp.Diagnostics.Append(terr...)
+		return
+	}
+
 	persist := models.Cluster{
-		Name:            types.StringValue(cluster.Name),
-		ConnectionType:  types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
-		CloudProvider:   types.StringValue(utils.CloudProviderToString(cluster.CloudProvider)),
-		ClusterType:     types.StringValue(utils.ClusterTypeToString(cluster.Type)),
-		RedpandaVersion: model.RedpandaVersion,
-		ThroughputTier:  types.StringValue(cluster.ThroughputTier),
-		Region:          types.StringValue(cluster.Region),
-		Zones:           clusterZones,
-		AllowDeletion:   model.AllowDeletion,
-		Tags:            model.Tags,
-		ResourceGroupID: types.StringValue(cluster.ResourceGroupId),
-		NetworkID:       types.StringValue(cluster.NetworkId),
-		ID:              types.StringValue(cluster.Id),
-		ClusterAPIURL:   types.StringValue(clusterURL),
+		Name:                  types.StringValue(cluster.Name),
+		ConnectionType:        types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
+		CloudProvider:         types.StringValue(utils.CloudProviderToString(cluster.CloudProvider)),
+		ClusterType:           types.StringValue(utils.ClusterTypeToString(cluster.Type)),
+		RedpandaVersion:       model.RedpandaVersion,
+		ThroughputTier:        types.StringValue(cluster.ThroughputTier),
+		Region:                types.StringValue(cluster.Region),
+		Zones:                 clusterZones,
+		AllowDeletion:         model.AllowDeletion,
+		ResourceGroupID:       types.StringValue(cluster.ResourceGroupId),
+		NetworkID:             types.StringValue(cluster.NetworkId),
+		ID:                    types.StringValue(cluster.Id),
+		ClusterAPIURL:         types.StringValue(clusterURL),
+		ReadReplicaClusterIds: rr,
+		Tags:                  tags,
 	}
 
 	if cluster.GetAwsPrivateLink() != nil {
@@ -255,6 +300,35 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 			}
 		}
 	}
+	if cluster.GetKafkaApi() != nil {
+		o, oerr := toMtlsModel(ctx, cluster.GetKafkaApi().GetMtls())
+		if oerr != nil {
+			resp.Diagnostics.Append(oerr...)
+		}
+		persist.KafkaApi = &models.KafkaApi{
+			Mtls: o,
+		}
+
+	}
+	if cluster.GetHttpProxy() != nil {
+		o, oerr := toMtlsModel(ctx, cluster.GetHttpProxy().GetMtls())
+		if oerr != nil {
+			resp.Diagnostics.Append(oerr...)
+		}
+		persist.HttpProxy = &models.HttpProxy{
+			Mtls: o,
+		}
+	}
+	if cluster.GetSchemaRegistry() != nil {
+		o, oerr := toMtlsModel(ctx, cluster.GetSchemaRegistry().GetMtls())
+		if oerr != nil {
+			resp.Diagnostics.Append(oerr...)
+		}
+		persist.SchemaRegistry = &models.SchemaRegistry{
+			Mtls: o,
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
@@ -284,25 +358,38 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		return
 	}
 
+	rr, derr := types.ListValueFrom(ctx, types.StringType, cluster.ReadReplicaClusterIds)
+	if derr.HasError() {
+		resp.Diagnostics.Append(derr...)
+		return
+	}
+
+	tags, derr := types.MapValueFrom(ctx, types.StringType, cluster.CloudProviderTags)
+	if derr.HasError() {
+		resp.Diagnostics.Append(derr...)
+		return
+	}
+
 	// Re: RedpandaVersion, I chose to not set it using the return value from the API because the user leaving the field blank
 	// is a valid choice that causes the API to select the latest value. If we then persist the value provided by the API to state
 	// we end up in a situation where on refresh TF will attempt to remove the RP_VER from state. This will cause a diff and a run
 	// even though that is neither user intent nor a change in the cluster.
 	persist := models.Cluster{
-		Name:            types.StringValue(cluster.Name),
-		ConnectionType:  types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
-		CloudProvider:   types.StringValue(utils.CloudProviderToString(cluster.CloudProvider)),
-		ClusterType:     types.StringValue(utils.ClusterTypeToString(cluster.Type)),
-		RedpandaVersion: model.RedpandaVersion,
-		ThroughputTier:  types.StringValue(cluster.ThroughputTier),
-		Region:          types.StringValue(cluster.Region),
-		Zones:           clusterZones,
-		AllowDeletion:   model.AllowDeletion,
-		Tags:            model.Tags,
-		ResourceGroupID: types.StringValue(cluster.ResourceGroupId),
-		NetworkID:       types.StringValue(cluster.NetworkId),
-		ID:              types.StringValue(cluster.Id),
-		ClusterAPIURL:   types.StringValue(clusterURL),
+		Name:                  types.StringValue(cluster.Name),
+		ConnectionType:        types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
+		CloudProvider:         types.StringValue(utils.CloudProviderToString(cluster.CloudProvider)),
+		ClusterType:           types.StringValue(utils.ClusterTypeToString(cluster.Type)),
+		RedpandaVersion:       model.RedpandaVersion,
+		ThroughputTier:        types.StringValue(cluster.ThroughputTier),
+		Region:                types.StringValue(cluster.Region),
+		Zones:                 clusterZones,
+		AllowDeletion:         model.AllowDeletion,
+		Tags:                  tags,
+		ResourceGroupID:       types.StringValue(cluster.ResourceGroupId),
+		NetworkID:             types.StringValue(cluster.NetworkId),
+		ID:                    types.StringValue(cluster.Id),
+		ClusterAPIURL:         types.StringValue(clusterURL),
+		ReadReplicaClusterIds: rr,
 	}
 	if cluster.GetAwsPrivateLink() != nil {
 		if cluster.GetAwsPrivateLink().GetEnabled() {
@@ -320,6 +407,34 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 				GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
 				ConsumerAcceptList:  gcpConnectConsumerStructToModel(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
 			}
+		}
+	}
+	if cluster.GetKafkaApi() != nil {
+		o, oerr := toMtlsModel(ctx, cluster.GetKafkaApi().GetMtls())
+		if oerr != nil {
+			resp.Diagnostics.Append(oerr...)
+		}
+		persist.KafkaApi = &models.KafkaApi{
+			Mtls: o,
+		}
+
+	}
+	if cluster.GetHttpProxy() != nil {
+		o, oerr := toMtlsModel(ctx, cluster.GetHttpProxy().GetMtls())
+		if oerr != nil {
+			resp.Diagnostics.Append(oerr...)
+		}
+		persist.HttpProxy = &models.HttpProxy{
+			Mtls: o,
+		}
+	}
+	if cluster.GetSchemaRegistry() != nil {
+		o, oerr := toMtlsModel(ctx, cluster.GetSchemaRegistry().GetMtls())
+		if oerr != nil {
+			resp.Diagnostics.Append(oerr...)
+		}
+		persist.SchemaRegistry = &models.SchemaRegistry{
+			Mtls: o,
 		}
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
@@ -370,7 +485,7 @@ func (*Cluster) ImportState(ctx context.Context, req resource.ImportStateRequest
 }
 
 // GenerateClusterRequest was pulled out to enable unit testing
-func GenerateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterCreate, error) {
+func GenerateClusterRequest(ctx context.Context, model models.Cluster) (*controlplanev1beta2.ClusterCreate, error) {
 	provider, err := utils.StringToCloudProvider(model.CloudProvider.ValueString())
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse cloud provider: %v", err)
@@ -382,17 +497,18 @@ func GenerateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterC
 	rpVersion := model.RedpandaVersion.ValueString()
 
 	output := &controlplanev1beta2.ClusterCreate{
-		Name:              model.Name.ValueString(),
-		ConnectionType:    utils.StringToConnectionType(model.ConnectionType.ValueString()),
-		CloudProvider:     provider,
-		RedpandaVersion:   &rpVersion,
-		ThroughputTier:    model.ThroughputTier.ValueString(),
-		Region:            model.Region.ValueString(),
-		Zones:             utils.TypeListToStringSlice(model.Zones),
-		ResourceGroupId:   model.ResourceGroupID.ValueString(),
-		NetworkId:         model.NetworkID.ValueString(),
-		Type:              clusterType,
-		CloudProviderTags: utils.TypeMapToStringMap(model.Tags),
+		Name:                  model.Name.ValueString(),
+		ConnectionType:        utils.StringToConnectionType(model.ConnectionType.ValueString()),
+		CloudProvider:         provider,
+		RedpandaVersion:       &rpVersion,
+		ThroughputTier:        model.ThroughputTier.ValueString(),
+		Region:                model.Region.ValueString(),
+		Zones:                 utils.TypeListToStringSlice(model.Zones),
+		ResourceGroupId:       model.ResourceGroupID.ValueString(),
+		NetworkId:             model.NetworkID.ValueString(),
+		Type:                  clusterType,
+		CloudProviderTags:     utils.TypeMapToStringMap(model.Tags),
+		ReadReplicaClusterIds: utils.TypeListToStringSlice(model.ReadReplicaClusterIds),
 	}
 	if model.AwsPrivateLink != nil {
 		if model.AwsPrivateLink.Enabled.ValueBool() {
@@ -409,6 +525,21 @@ func GenerateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterC
 				GlobalAccessEnabled: model.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
 				ConsumerAcceptList:  gcpConnectConsumerModelToStruct(model.GcpPrivateServiceConnect.ConsumerAcceptList),
 			}
+		}
+	}
+	if model.KafkaApi != nil {
+		output.KafkaApi = &controlplanev1beta2.KafkaAPISpec{
+			Mtls: toMtlsSpec(model.KafkaApi.Mtls),
+		}
+	}
+	if model.HttpProxy != nil {
+		output.HttpProxy = &controlplanev1beta2.HTTPProxySpec{
+			Mtls: toMtlsSpec(model.HttpProxy.Mtls),
+		}
+	}
+	if model.SchemaRegistry != nil {
+		output.SchemaRegistry = &controlplanev1beta2.SchemaRegistrySpec{
+			Mtls: toMtlsSpec(model.SchemaRegistry.Mtls),
 		}
 	}
 	return output, nil
@@ -440,4 +571,28 @@ func gcpConnectConsumerStructToModel(accept []*controlplanev1beta2.GCPPrivateSer
 		})
 	}
 	return output
+}
+
+func toMtlsModel(ctx context.Context, mtls *controlplanev1beta2.MTLSSpec) (*models.Mtls, diag.Diagnostics) {
+	capem, err := types.ListValueFrom(ctx, types.StringType, mtls.GetCaCertificatesPem())
+	if err != nil {
+		return nil, err
+	}
+	maprules, err := types.ListValueFrom(ctx, types.StringType, mtls.GetPrincipalMappingRules())
+	if err != nil {
+		return nil, err
+	}
+	return &models.Mtls{
+		Enabled:               types.BoolValue(mtls.GetEnabled()),
+		CaCertificatesPem:     capem,
+		PrincipalMappingRules: maprules,
+	}, nil
+}
+
+func toMtlsSpec(mtls *models.Mtls) *controlplanev1beta2.MTLSSpec {
+	return &controlplanev1beta2.MTLSSpec{
+		Enabled:               mtls.Enabled.ValueBool(),
+		CaCertificatesPem:     utils.TypeListToStringSlice(mtls.CaCertificatesPem),
+		PrincipalMappingRules: utils.TypeListToStringSlice(mtls.PrincipalMappingRules),
+	}
 }
