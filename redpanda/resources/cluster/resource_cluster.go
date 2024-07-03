@@ -179,7 +179,7 @@ func resourceClusterSchema() schema.Schema {
 					"consumer_accept_list": types.DynamicType,
 				},
 			},
-			"HttpProxy": schema.ObjectAttribute{
+			"http_proxy": schema.ObjectAttribute{
 				Optional:    true,
 				Description: "Http Proxy MTLS configuration",
 				AttributeTypes: map[string]attr.Type{
@@ -188,7 +188,7 @@ func resourceClusterSchema() schema.Schema {
 					"consumer_accept_list": types.DynamicType,
 				},
 			},
-			"SchemaRegistry": schema.ObjectAttribute{
+			"schema_registry": schema.ObjectAttribute{
 				Optional:    true,
 				Description: "Schema Registry MTLS configuration",
 				AttributeTypes: map[string]attr.Type{
@@ -212,7 +212,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	var model models.Cluster
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 
-	clusterReq, err := GenerateClusterRequest(ctx, model)
+	clusterReq, err := GenerateClusterRequest(model)
 	if err != nil {
 		resp.Diagnostics.AddError("unable to parse CreateCluster request", err.Error())
 		return
@@ -305,17 +305,16 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		if oerr != nil {
 			resp.Diagnostics.Append(oerr...)
 		}
-		persist.KafkaApi = &models.KafkaApi{
+		persist.KafkaAPI = &models.KafkaAPI{
 			Mtls: o,
 		}
-
 	}
 	if cluster.GetHttpProxy() != nil {
 		o, oerr := toMtlsModel(ctx, cluster.GetHttpProxy().GetMtls())
 		if oerr != nil {
 			resp.Diagnostics.Append(oerr...)
 		}
-		persist.HttpProxy = &models.HttpProxy{
+		persist.HTTPProxy = &models.HTTPProxy{
 			Mtls: o,
 		}
 	}
@@ -414,17 +413,16 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		if oerr != nil {
 			resp.Diagnostics.Append(oerr...)
 		}
-		persist.KafkaApi = &models.KafkaApi{
+		persist.KafkaAPI = &models.KafkaAPI{
 			Mtls: o,
 		}
-
 	}
 	if cluster.GetHttpProxy() != nil {
 		o, oerr := toMtlsModel(ctx, cluster.GetHttpProxy().GetMtls())
 		if oerr != nil {
 			resp.Diagnostics.Append(oerr...)
 		}
-		persist.HttpProxy = &models.HttpProxy{
+		persist.HTTPProxy = &models.HTTPProxy{
 			Mtls: o,
 		}
 	}
@@ -485,7 +483,7 @@ func (*Cluster) ImportState(ctx context.Context, req resource.ImportStateRequest
 }
 
 // GenerateClusterRequest was pulled out to enable unit testing
-func GenerateClusterRequest(ctx context.Context, model models.Cluster) (*controlplanev1beta2.ClusterCreate, error) {
+func GenerateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterCreate, error) {
 	provider, err := utils.StringToCloudProvider(model.CloudProvider.ValueString())
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse cloud provider: %v", err)
@@ -527,14 +525,14 @@ func GenerateClusterRequest(ctx context.Context, model models.Cluster) (*control
 			}
 		}
 	}
-	if model.KafkaApi != nil {
+	if model.KafkaAPI != nil {
 		output.KafkaApi = &controlplanev1beta2.KafkaAPISpec{
-			Mtls: toMtlsSpec(model.KafkaApi.Mtls),
+			Mtls: toMtlsSpec(model.KafkaAPI.Mtls),
 		}
 	}
-	if model.HttpProxy != nil {
+	if model.HTTPProxy != nil {
 		output.HttpProxy = &controlplanev1beta2.HTTPProxySpec{
-			Mtls: toMtlsSpec(model.HttpProxy.Mtls),
+			Mtls: toMtlsSpec(model.HTTPProxy.Mtls),
 		}
 	}
 	if model.SchemaRegistry != nil {

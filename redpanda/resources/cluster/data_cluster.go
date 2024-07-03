@@ -137,17 +137,16 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		if oerr != nil {
 			resp.Diagnostics.Append(oerr...)
 		}
-		persist.KafkaApi = &models.KafkaApi{
+		persist.KafkaAPI = &models.KafkaAPI{
 			Mtls: o,
 		}
-
 	}
 	if cluster.GetHttpProxy() != nil {
 		o, oerr := toMtlsModel(ctx, cluster.GetHttpProxy().GetMtls())
 		if oerr != nil {
 			resp.Diagnostics.Append(oerr...)
 		}
-		persist.HttpProxy = &models.HttpProxy{
+		persist.HTTPProxy = &models.HTTPProxy{
 			Mtls: o,
 		}
 	}
@@ -255,7 +254,7 @@ func datasourceClusterSchema() schema.Schema {
 					"consumer_accept_list": types.DynamicType,
 				},
 			},
-			"HttpProxy": schema.ObjectAttribute{
+			"http_proxy": schema.ObjectAttribute{
 				Computed:    true,
 				Description: "Http Proxy MTLS configuration",
 				AttributeTypes: map[string]attr.Type{
@@ -264,7 +263,7 @@ func datasourceClusterSchema() schema.Schema {
 					"consumer_accept_list": types.DynamicType,
 				},
 			},
-			"SchemaRegistry": schema.ObjectAttribute{
+			"schema_registry": schema.ObjectAttribute{
 				Computed:    true,
 				Description: "Schema Registry MTLS configuration",
 				AttributeTypes: map[string]attr.Type{

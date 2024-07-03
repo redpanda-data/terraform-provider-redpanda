@@ -37,8 +37,8 @@ type Cluster struct {
 	ClusterAPIURL            types.String              `tfsdk:"cluster_api_url"`
 	AwsPrivateLink           *AwsPrivateLink           `tfsdk:"aws_private_link"`
 	GcpPrivateServiceConnect *GcpPrivateServiceConnect `tfsdk:"gcp_private_service_connect"`
-	KafkaApi                 *KafkaApi                 `tfsdk:"kafka_api"`
-	HttpProxy                *HttpProxy                `tfsdk:"http_proxy"`
+	KafkaAPI                 *KafkaAPI                 `tfsdk:"kafka_api"`
+	HTTPProxy                *HTTPProxy                `tfsdk:"http_proxy"`
 	SchemaRegistry           *SchemaRegistry           `tfsdk:"schema_registry"`
 	ReadReplicaClusterIds    types.List                `tfsdk:"read_replica_cluster_ids"`
 }
@@ -61,18 +61,22 @@ type GcpPrivateServiceConnectConsumer struct {
 	Source string `tfsdk:"source"`
 }
 
-type KafkaApi struct {
+// KafkaAPI represents the Terraform schema for the Kafka API configuration.
+type KafkaAPI struct {
 	Mtls *Mtls `tfsdk:"mtls"`
 }
 
-type HttpProxy struct {
+// HTTPProxy represents the Terraform schema for the HTTP Proxy configuration.
+type HTTPProxy struct {
 	Mtls *Mtls `tfsdk:"mtls"`
 }
 
+// SchemaRegistry represents the Terraform schema for the Schema Registry configuration.
 type SchemaRegistry struct {
 	Mtls *Mtls `tfsdk:"mtls"`
 }
 
+// Mtls represents the Terraform schema for the mutual TLS configuration.
 type Mtls struct {
 	Enabled               types.Bool `tfsdk:"enabled"`
 	CaCertificatesPem     types.List `tfsdk:"ca_certificates_pem"`

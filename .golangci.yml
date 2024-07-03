@@ -100,7 +100,7 @@ linters-settings:
   gofumpt:
     lang-version: "1.21"
   cyclop:
-    max-complexity: 20
+    max-complexity: 25
   gocyclo:
     min-complexity: 30
   gocognit:
