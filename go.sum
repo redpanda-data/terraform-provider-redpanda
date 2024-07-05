@@ -1,13 +1,9 @@
-buf.build/gen/go/bufbuild/protovalidate/grpc/go v1.3.0-20230914171853-63dfe56cc2c4.3/go.mod h1:JypnX49PYQh28CqNjPyHA6oQ2ckf/lGAF5ET/iasG30=
 buf.build/gen/go/bufbuild/protovalidate/grpc/go v1.3.0-20231115204500-e097f827e652.3/go.mod h1:RPvcngUb+92NDwi1t8v5rVtIa3cjt0JDPfR8Rq9tV1Y=
-buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.34.0-20230914171853-63dfe56cc2c4.1/go.mod h1:bA3yUO1NvxekGLbOgvUaCBCATnJHy4UDBAygCPD7z/w=
 buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.34.0-20231115204500-e097f827e652.1/go.mod h1:bA3yUO1NvxekGLbOgvUaCBCATnJHy4UDBAygCPD7z/w=
-buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.34.1-20230914171853-63dfe56cc2c4.1/go.mod h1:XF+P8+RmfdufmIYpGUC+6bF7S+IlmHDEnCrO3OXaUAQ=
 buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.34.2-20231115204500-e097f827e652.2 h1:ilkjxsfdhrdeLL582R4XH+IQLrV2Y31lHB8jb3AQSJA=
 buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.34.2-20231115204500-e097f827e652.2/go.mod h1:ylS4c28ACSI59oJrOdW4pHS4n0Hw4TgSPHn8rpHl4Yw=
 buf.build/gen/go/grpc-ecosystem/grpc-gateway/grpc/go v1.3.0-20221127060915-a1ecdc58eccd.3/go.mod h1:iIZGWfBD4pEFzlUZ7II+VqN7j4QddfhHQhg7Zd/BdbI=
 buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.34.0-20221127060915-a1ecdc58eccd.1/go.mod h1:3yewBse5hcwxPZIq4cng0NlCYYXVQmGC64aJdAd2+S8=
-buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.34.1-20221127060915-a1ecdc58eccd.1/go.mod h1:gUfBTdJmhwTJHoIaOQjy7xczHhqjkQfXSKs5TY4IsUY=
 buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.34.2-20221127060915-a1ecdc58eccd.2 h1:tROxXbCwrF6XVFusRC7LQW4rOLmPwWUn5jA0so/rTlQ=
 buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.34.2-20221127060915-a1ecdc58eccd.2/go.mod h1:WZzeH4Sx52g5HpdqDE4B6I0cn5MPzKmp7lSG6oB6ais=
 buf.build/gen/go/redpandadata/cloud/grpc/go v1.3.0-20240515114728-57bc92921a46.3 h1:t+JBb3QBYrh1UZ7qTXwLNiDCFhyGZaP+h9MbZY0LDrQ=
@@ -19,11 +15,10 @@ buf.build/gen/go/redpandadata/common/grpc/go v1.3.0-20240321121335-26480f50072a.
 buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.34.0-20240321121335-26480f50072a.1/go.mod h1:Sgw9ZOtpuFrPi8qyzalxYVvpu9q9eSkAy5fylmfMjDc=
 buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.34.2-20240321121335-26480f50072a.2 h1:15H2prTlCGpqoRjkLquHjQdj8SNYWIbFJ7WaQ2UtsyU=
 buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.34.2-20240321121335-26480f50072a.2/go.mod h1:wThyg02xJx4K/DA5fg0QlKts8XVPyTT86JC8hPfEzno=
-buf.build/gen/go/redpandadata/dataplane/grpc/go v1.3.0-20240529193153-4aa073b41f61.3 h1:Bq21on3X0SfMkGKVtCNUgBRXdvt/xMiR92cMc7gNV0s=
-buf.build/gen/go/redpandadata/dataplane/grpc/go v1.3.0-20240529193153-4aa073b41f61.3/go.mod h1:7sYIrf4OfyRAsYYm9OQ8S7fv/qsqrAttPnzeuwdDQcc=
-buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.34.0-20240529193153-4aa073b41f61.1/go.mod h1:Rac2ANAiLSGeLVjDeTKn7mQECmv61MQ4QHniVioQT6w=
-buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.34.1-20240529193153-4aa073b41f61.1 h1:prfQp44xRCkzxHx+detHfVfeIxD0MfqLfJEQqpJS8fg=
-buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.34.1-20240529193153-4aa073b41f61.1/go.mod h1:Wnb4OxQ+wmvBC5iN/VJaw/uZK3uP0szHH0c1rHbWKPI=
+buf.build/gen/go/redpandadata/dataplane/grpc/go v1.4.0-20240620104934-3415ce922cfb.2 h1:i3O66JNfIk+0t+NYiFdMSfEmms7G23x56/n/RuljoHE=
+buf.build/gen/go/redpandadata/dataplane/grpc/go v1.4.0-20240620104934-3415ce922cfb.2/go.mod h1:PB9dfr839mRnbD7/O+h0v3qOm4STH8zGJIqAAHH2YNE=
+buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.34.2-20240620104934-3415ce922cfb.2 h1:Zztd29tww+/5N9Ff1HIVYXw+NDsdziaZ11Zg7MQjebc=
+buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.34.2-20240620104934-3415ce922cfb.2/go.mod h1:AcLjVYZHtwlZvBrjuqyjtZtHv9BbDaHD6C92lO/gJFI=
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 cloud.google.com/go v0.34.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 cloud.google.com/go v0.38.0/go.mod h1:990N+gfupTy94rShfmMCWGDn0LpTmnzTp2qbd1dvSRU=
@@ -2434,7 +2429,6 @@ google.golang.org/protobuf v1.29.1/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqw
 google.golang.org/protobuf v1.30.0/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqwMG9pJV4I=
 google.golang.org/protobuf v1.31.0/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqwMG9pJV4I=
 google.golang.org/protobuf v1.34.0/go.mod h1:c6P6GXX6sHbq/GpV6MGZEdwhWPcYBgnhAHhKbcUYpos=
-google.golang.org/protobuf v1.34.1/go.mod h1:c6P6GXX6sHbq/GpV6MGZEdwhWPcYBgnhAHhKbcUYpos=
 google.golang.org/protobuf v1.34.2 h1:6xV6lTsCfpGD21XK49h7MhtcApnLqkfYgPcdHftf6hg=
 google.golang.org/protobuf v1.34.2/go.mod h1:qYOHts0dSfpeUzUFpOMr/WGzszTmLH+DiWniOlNbLDw=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
