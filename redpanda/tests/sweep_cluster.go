@@ -45,3 +45,19 @@ func (s sweepCluster) SweepCluster(_ string) error {
 
 	return utils.AreWeDoneYet(ctx, op.Operation, 45*time.Minute, time.Minute, s.Client.Operation)
 }
+
+func (s sweepCluster) SweepServerlessCluster(_ string) error {
+	ctx := context.Background()
+	serverless, err := utils.GetServerlessClusterUntilRunningState(ctx, 0, 50, s.ClusterName, s.Client)
+	if err != nil {
+		return err
+	}
+
+	op, err := s.Client.ServerlessCluster.DeleteServerlessCluster(ctx, &controlplanev1beta2.DeleteServerlessClusterRequest{
+		Id: serverless.GetId(),
+	})
+	if err != nil {
+		return err
+	}
+	return utils.AreWeDoneYet(ctx, op.Operation, 1*time.Minute, 3*time.Second, s.Client.Operation)
+}

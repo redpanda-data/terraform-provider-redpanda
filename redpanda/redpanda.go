@@ -33,6 +33,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/cluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/network"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/resourcegroup"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlesscluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/topic"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/user"
 	"google.golang.org/grpc"
@@ -167,6 +168,7 @@ func (*Redpanda) Schema(_ context.Context, _ provider.SchemaRequest, response *p
 // DataSource.
 func (*Redpanda) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
+		func() datasource.DataSource { return &serverlesscluster.DataSourceServerlessCluster{} },
 		func() datasource.DataSource {
 			return &cluster.DataSourceCluster{}
 		},
@@ -188,6 +190,7 @@ func (*Redpanda) Resources(_ context.Context) []func() resource.Resource {
 		func() resource.Resource {
 			return &network.Network{}
 		},
+		func() resource.Resource { return &serverlesscluster.ServerlessCluster{} },
 		func() resource.Resource {
 			return &cluster.Cluster{}
 		},

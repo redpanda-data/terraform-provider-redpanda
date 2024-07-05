@@ -1,0 +1,28 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Usage
+
+```hcl
+data "redpanda_serverless_cluster" "example" {
+    id = "serverless_cluster_id"
+}
+```
+
+### Example Usage to create a serverless cluster
+
+{{ tffile "examples/serverless-cluster/main.tf" }}
+
+## Limitations
+
+Can only be used with Redpanda Cloud serverless clusters.
