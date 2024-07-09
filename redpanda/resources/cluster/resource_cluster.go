@@ -247,7 +247,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		}
 	}
 	if cluster.GetGcpPrivateServiceConnect() != nil {
-		if cluster.GcpPrivateServiceConnect.GetEnabled() {
+		if cluster.GetGcpPrivateServiceConnect().GetEnabled() {
 			persist.GcpPrivateServiceConnect = &models.GcpPrivateServiceConnect{
 				Enabled:             types.BoolValue(cluster.GcpPrivateServiceConnect.Enabled),
 				GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
@@ -314,7 +314,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		}
 	}
 	if cluster.GetGcpPrivateServiceConnect() != nil {
-		if cluster.GcpPrivateServiceConnect.GetEnabled() {
+		if cluster.GetGcpPrivateServiceConnect().GetEnabled() {
 			persist.GcpPrivateServiceConnect = &models.GcpPrivateServiceConnect{
 				Enabled:             types.BoolValue(cluster.GcpPrivateServiceConnect.Enabled),
 				GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
