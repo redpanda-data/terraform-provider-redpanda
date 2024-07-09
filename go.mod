@@ -21,7 +21,7 @@ require (
 	github.com/redpanda-data/redpanda/src/go/rpk v0.0.0-20240531145821-658cd7bccfeb
 	golang.org/x/time v0.5.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157
-	google.golang.org/grpc v1.64.0
+	google.golang.org/grpc v1.65.0
 )
 
 require (
