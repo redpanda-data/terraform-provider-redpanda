@@ -157,8 +157,10 @@ func resourceClusterSchema() schema.Schema {
 				Optional:    true,
 				Description: "AWS Private Link configuration. See https://docs.redpanda.com/current/deploy/deployment-option/cloud/configure-privatelink-in-cloud-ui/ for more details.",
 				AttributeTypes: map[string]attr.Type{
-					"enabled":            types.BoolType,
-					"allowed_principals": types.DynamicType,
+					"enabled": types.BoolType,
+					"allowed_principals": types.ListType{
+						ElemType: types.StringType,
+					},
 				},
 			},
 			"gcp_private_service_connect": schema.ObjectAttribute{
@@ -167,7 +169,9 @@ func resourceClusterSchema() schema.Schema {
 				AttributeTypes: map[string]attr.Type{
 					"enabled":               types.BoolType,
 					"global_access_enabled": types.BoolType,
-					"consumer_accept_list":  types.DynamicType,
+					"consumer_accept_list": types.ListType{
+						ElemType: types.StringType,
+					},
 				},
 			},
 		},
