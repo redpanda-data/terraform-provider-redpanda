@@ -129,7 +129,7 @@ func SpawnConn(url string, authToken string) (*grpc.ClientConn, error) {
 			func(ctx context.Context, method string, req any, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 				start := time.Now()
 				err := invoker(ctx, method, req, reply, cc, opts...)
-				tflog.Debug(ctx, "method: %s, duration: %v, error: %v\n", map[string]any{
+				tflog.Debug(ctx, "Redpanda API call", map[string]any{
 					"method":   method,
 					"duration": time.Since(start),
 					"error":    err,
