@@ -40,6 +40,7 @@ integration_tests:
 	REDPANDA_CLIENT_SECRET=$${REDPANDA_CLIENT_SECRET} \
 	RUN_CLUSTER_TESTS=true \
 	TF_ACC=true \
+	TF_LOG=DEBUG \
 	VERSION=ign \
 	$(GOCMD) test -v -parallel=5 -timeout=0 ./redpanda/tests
 
@@ -112,7 +113,7 @@ test-create:
 	REDPANDA_CLIENT_ID="$${REDPANDA_CLIENT_ID}" \
 	REDPANDA_CLIENT_SECRET="$${REDPANDA_CLIENT_SECRET}" \
 	REDPANDA_CLOUD_ENVIRONMENT="$${REDPANDA_CLOUD_ENVIRONMENT}" \
-	export TF_LOG=DEBUG \
+	TF_LOG=DEBUG \
 	TF_INSECURE_SKIP_PROVIDER_VERIFICATION=true
 	terraform init && \
 	terraform apply -parallelism 10 -auto-approve
