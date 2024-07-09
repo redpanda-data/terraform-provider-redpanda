@@ -69,7 +69,6 @@ unit_tests:
 	@DEBUG=true \
 	REDPANDA_CLIENT_ID="dummy_id" \
 	REDPANDA_CLIENT_SECRET="dummy_secret" \
-	TF_ACC=false \
 	RUN_CLUSTER_TESTS=false \
 	$(GOCMD) test -short ./...
 
