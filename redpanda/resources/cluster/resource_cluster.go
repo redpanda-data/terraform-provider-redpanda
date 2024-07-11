@@ -241,22 +241,18 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		ClusterAPIURL:   types.StringValue(clusterURL),
 	}
 
-	if cluster.GetAwsPrivateLink() != nil {
-		if cluster.GetAwsPrivateLink().GetEnabled() {
-			pl, dg := awsPrivateLinkStructToModel(ctx, cluster.GetAwsPrivateLink())
-			if dg.HasError() {
-				resp.Diagnostics.Append(dg...)
-			}
-			persist.AwsPrivateLink = pl
+	if model.AwsPrivateLink != nil {
+		pl, dg := awsPrivateLinkStructToModel(ctx, cluster.GetAwsPrivateLink())
+		if dg.HasError() {
+			resp.Diagnostics.Append(dg...)
 		}
+		persist.AwsPrivateLink = pl
 	}
-	if cluster.GetGcpPrivateServiceConnect() != nil {
-		if cluster.GetGcpPrivateServiceConnect().GetEnabled() {
-			persist.GcpPrivateServiceConnect = &models.GcpPrivateServiceConnect{
-				Enabled:             types.BoolValue(cluster.GcpPrivateServiceConnect.Enabled),
-				GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
-				ConsumerAcceptList:  gcpConnectConsumerStructToModel(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
-			}
+	if model.GcpPrivateServiceConnect != nil {
+		persist.GcpPrivateServiceConnect = &models.GcpPrivateServiceConnect{
+			Enabled:             types.BoolValue(cluster.GcpPrivateServiceConnect.Enabled),
+			GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
+			ConsumerAcceptList:  gcpConnectConsumerStructToModel(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
 		}
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
@@ -308,22 +304,18 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		ID:              types.StringValue(cluster.Id),
 		ClusterAPIURL:   types.StringValue(clusterURL),
 	}
-	if cluster.GetAwsPrivateLink() != nil {
-		if cluster.GetAwsPrivateLink().GetEnabled() {
-			pl, dg := awsPrivateLinkStructToModel(ctx, cluster.GetAwsPrivateLink())
-			if dg.HasError() {
-				resp.Diagnostics.Append(dg...)
-			}
-			persist.AwsPrivateLink = pl
+	if model.AwsPrivateLink != nil {
+		pl, dg := awsPrivateLinkStructToModel(ctx, cluster.GetAwsPrivateLink())
+		if dg.HasError() {
+			resp.Diagnostics.Append(dg...)
 		}
+		persist.AwsPrivateLink = pl
 	}
-	if cluster.GetGcpPrivateServiceConnect() != nil {
-		if cluster.GetGcpPrivateServiceConnect().GetEnabled() {
-			persist.GcpPrivateServiceConnect = &models.GcpPrivateServiceConnect{
-				Enabled:             types.BoolValue(cluster.GcpPrivateServiceConnect.Enabled),
-				GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
-				ConsumerAcceptList:  gcpConnectConsumerStructToModel(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
-			}
+	if model.GcpPrivateServiceConnect != nil {
+		persist.GcpPrivateServiceConnect = &models.GcpPrivateServiceConnect{
+			Enabled:             types.BoolValue(cluster.GcpPrivateServiceConnect.Enabled),
+			GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
+			ConsumerAcceptList:  gcpConnectConsumerStructToModel(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
 		}
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
@@ -399,20 +391,16 @@ func GenerateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterC
 		CloudProviderTags: utils.TypeMapToStringMap(model.Tags),
 	}
 	if model.AwsPrivateLink != nil {
-		if model.AwsPrivateLink.Enabled.ValueBool() {
-			output.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
-				Enabled:           model.AwsPrivateLink.Enabled.ValueBool(),
-				AllowedPrincipals: utils.TypeListToStringSlice(model.AwsPrivateLink.AllowedPrincipals),
-			}
+		output.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
+			Enabled:           model.AwsPrivateLink.Enabled.ValueBool(),
+			AllowedPrincipals: utils.TypeListToStringSlice(model.AwsPrivateLink.AllowedPrincipals),
 		}
 	}
 	if model.GcpPrivateServiceConnect != nil {
-		if model.GcpPrivateServiceConnect.Enabled.ValueBool() {
-			output.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
-				Enabled:             model.GcpPrivateServiceConnect.Enabled.ValueBool(),
-				GlobalAccessEnabled: model.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
-				ConsumerAcceptList:  gcpConnectConsumerModelToStruct(model.GcpPrivateServiceConnect.ConsumerAcceptList),
-			}
+		output.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
+			Enabled:             model.GcpPrivateServiceConnect.Enabled.ValueBool(),
+			GlobalAccessEnabled: model.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
+			ConsumerAcceptList:  gcpConnectConsumerModelToStruct(model.GcpPrivateServiceConnect.ConsumerAcceptList),
 		}
 	}
 	return output, nil
