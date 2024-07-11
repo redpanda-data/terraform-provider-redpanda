@@ -300,14 +300,14 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		ID:              types.StringValue(cluster.Id),
 		ClusterAPIURL:   types.StringValue(clusterURL),
 	}
-	if model.AwsPrivateLink != nil {
+	if cluster.AwsPrivateLink != nil {
 		pl, dg := awsPrivateLinkStructToModel(ctx, cluster.GetAwsPrivateLink())
 		if dg.HasError() {
 			resp.Diagnostics.Append(dg...)
 		}
 		persist.AwsPrivateLink = pl
 	}
-	if model.GcpPrivateServiceConnect != nil {
+	if cluster.GcpPrivateServiceConnect != nil {
 		persist.GcpPrivateServiceConnect = &models.GcpPrivateServiceConnect{
 			Enabled:             types.BoolValue(cluster.GcpPrivateServiceConnect.Enabled),
 			GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
