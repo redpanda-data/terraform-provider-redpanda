@@ -44,7 +44,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 
 Optional:
 
-- `allowed_principals` (Dynamic)
+- `allowed_principals` (List of String)
 - `enabled` (Boolean)
 
 
@@ -53,7 +53,7 @@ Optional:
 
 Optional:
 
-- `consumer_accept_list` (Dynamic)
+- `consumer_accept_list` (List of String)
 - `enabled` (Boolean)
 - `global_access_enabled` (Boolean)
 
