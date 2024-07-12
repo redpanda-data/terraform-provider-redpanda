@@ -17,15 +17,16 @@ import (
 )
 
 const (
-	awsDedicatedClusterFile    = "../../examples/cluster/aws/main.tf"
-	gcpDedicatedClusterFile    = "../../examples/cluster/gcp/main.tf"
-	dedicatedResourceGroupFile = "../../examples/resourcegroup/main.tf"
-	dedicatedNetworkFile       = "../../examples/network/main.tf"
-	dedicatedUserACLsTopicFile = "../../examples/user-acl-topic/main.tf"
-	dataSourcesTest            = "../../examples/datasource/main.tf"
-	serverlessClusterFile      = "../../examples/serverless-cluster/main.tf"
-	bulkDataCreateFile         = "../../examples/bulk-data/main.tf"
-	bulkResCreateFile          = "../../examples/bulk-res/main.tf"
+	awsDedicatedClusterFile            = "../../examples/cluster/aws/main.tf"
+	awsDedicatedPrivateLinkClusterFile = "../../examples/cluster/private-link/main.tf"
+	gcpDedicatedClusterFile            = "../../examples/cluster/gcp/main.tf"
+	dedicatedResourceGroupFile         = "../../examples/resourcegroup/main.tf"
+	dedicatedNetworkFile               = "../../examples/network/main.tf"
+	dedicatedUserACLsTopicFile         = "../../examples/user-acl-topic/main.tf"
+	dataSourcesTest                    = "../../examples/datasource/main.tf"
+	serverlessClusterFile              = "../../examples/serverless-cluster/main.tf"
+	bulkDataCreateFile                 = "../../examples/bulk-data/main.tf"
+	bulkResCreateFile                  = "../../examples/bulk-res/main.tf"
 	// These are the resource names as named in the TF files.
 	resourceGroupName      = "redpanda_resource_group.test"
 	networkResourceName    = "redpanda_network.test"
@@ -277,6 +278,80 @@ func TestAccResourcesStrippedDownClusterAWS(t *testing.T) {
 			},
 			{
 				ConfigFile:               config.StaticFile(awsDedicatedClusterFile),
+				ConfigVariables:          updateTestCaseVars,
+				Destroy:                  true,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+		},
+	},
+	)
+	resource.AddTestSweepers(generateRandomName("renameClusterSweeper"), &resource.Sweeper{
+		Name: rename,
+		F: sweepCluster{
+			ClusterName: rename,
+			Client:      c,
+		}.SweepCluster,
+	})
+	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepCluster{
+			ClusterName: name,
+			Client:      c,
+		}.SweepCluster,
+	})
+	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepNetwork{
+			NetworkName: name,
+			Client:      c,
+		}.SweepNetworks,
+	})
+	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepResourceGroup{
+			ResourceGroupName: name,
+			Client:            c,
+		}.SweepResourceGroup,
+	})
+}
+
+func TestAccResourcesPrivateLinkStrippedDownClusterAWS(t *testing.T) {
+	if !strings.Contains(runClusterTests, "true") {
+		t.Skip("skipping cluster tests")
+	}
+	ctx := context.Background()
+
+	name := generateRandomName(accNamePrepend + testaws)
+	origTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
+	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
+	origTestCaseVars["network_name"] = config.StringVariable(name)
+	origTestCaseVars["cluster_name"] = config.StringVariable(name)
+
+	rename := generateRandomName(accNamePrepend + testawsRename)
+	updateTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(updateTestCaseVars, origTestCaseVars)
+	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
+
+	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				ConfigFile:      config.StaticFile(awsDedicatedPrivateLinkClusterFile),
+				ConfigVariables: origTestCaseVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
+				),
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			{
+				ConfigFile:               config.StaticFile(awsDedicatedPrivateLinkClusterFile),
 				ConfigVariables:          updateTestCaseVars,
 				Destroy:                  true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
