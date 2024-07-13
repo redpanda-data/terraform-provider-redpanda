@@ -41,6 +41,7 @@ var (
 	accNamePrepend             = "tfrp-acc-"
 	runClusterTests            = os.Getenv("RUN_CLUSTER_TESTS")
 	runServerlessTests         = os.Getenv("RUN_SERVERLESS_TESTS")
+	runGcpTests                = os.Getenv("RUN_GCP_TESTS")
 	runBulkTests               = os.Getenv("RUN_BULK_TESTS")
 	clientID                   = os.Getenv(redpanda.ClientIDEnv)
 	clientSecret               = os.Getenv(redpanda.ClientSecretEnv)
@@ -588,9 +589,113 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 	})
 }
 
+func TestAccUpdatePrivateLinkClusterAWS(t *testing.T) {
+	if !strings.Contains(runClusterTests, "true") {
+		t.Skip("skipping cluster tests")
+	}
+	ctx := context.Background()
+
+	name := generateRandomName(accNamePrepend + testaws)
+	origTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
+	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
+	origTestCaseVars["network_name"] = config.StringVariable(name)
+	origTestCaseVars["cluster_name"] = config.StringVariable(name)
+
+	rename := generateRandomName(accNamePrepend + testawsRename)
+	updateTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(updateTestCaseVars, origTestCaseVars)
+	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
+
+	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				ConfigFile:      config.StaticFile(awsDedicatedClusterFile),
+				ConfigVariables: origTestCaseVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
+				),
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			{
+				ConfigFile:               config.StaticFile(awsDedicatedPrivateLinkClusterFile),
+				ConfigVariables:          updateTestCaseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+				),
+			},
+			{
+				ResourceName:      clusterResourceName,
+				ConfigFile:        config.StaticFile(awsDedicatedClusterFile),
+				ConfigVariables:   updateTestCaseVars,
+				ImportState:       true,
+				ImportStateVerify: true,
+				//  These two only matter on apply; On apply the user will be
+				//  getting Plan, not State, and have correct values for both.
+				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+					resource.TestCheckResourceAttr(clusterResourceName, "aws_private_link.0.enabled", "true"),
+				),
+			},
+			{
+				ConfigFile:               config.StaticFile(awsDedicatedClusterFile),
+				ConfigVariables:          updateTestCaseVars,
+				Destroy:                  true,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+		},
+	},
+	)
+	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepResourceGroup{
+			ResourceGroupName: name,
+			Client:            c,
+		}.SweepResourceGroup,
+	})
+	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepNetwork{
+			NetworkName: name,
+			Client:      c,
+		}.SweepNetworks,
+	})
+	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepCluster{
+			ClusterName: name,
+			Client:      c,
+		}.SweepCluster,
+	})
+	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
+		Name: rename,
+		F: sweepCluster{
+			ClusterName: rename,
+			Client:      c,
+		}.SweepCluster,
+	})
+}
+
 func TestAccResourcesClusterGCP(t *testing.T) {
 	if !strings.Contains(runClusterTests, "true") {
 		t.Skip("skipping cluster tests")
+	}
+	if !strings.Contains(runGcpTests, "true") {
+		t.Skip("skipping GCP tests")
 	}
 	ctx := context.Background()
 

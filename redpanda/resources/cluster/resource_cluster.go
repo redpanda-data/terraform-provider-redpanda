@@ -37,6 +37,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -322,12 +323,104 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 }
 
 // Update all cluster updates are currently delete and recreate.
-func (*Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var plan models.Cluster
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	// We pass through the plan to state. Currently, every cluster change needs
-	// a resource replacement except for allow_deletion.
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+
+	updateReq := &controlplanev1beta2.UpdateClusterRequest{
+		Cluster: &controlplanev1beta2.ClusterUpdate{
+			Id:   plan.ID.ValueString(),
+			Name: plan.Name.ValueString(),
+		},
+		UpdateMask: &fieldmaskpb.FieldMask{
+			Paths: []string{""},
+		},
+	}
+
+	if plan.AwsPrivateLink != nil {
+		updateReq.Cluster.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
+			Enabled:           plan.AwsPrivateLink.Enabled.ValueBool(),
+			AllowedPrincipals: utils.TypeListToStringSlice(plan.AwsPrivateLink.AllowedPrincipals),
+		}
+		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "cluster.aws_private_link")
+	}
+
+	if plan.GcpPrivateServiceConnect != nil {
+		updateReq.Cluster.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
+			Enabled:             plan.GcpPrivateServiceConnect.Enabled.ValueBool(),
+			GlobalAccessEnabled: plan.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
+			ConsumerAcceptList:  gcpConnectConsumerModelToStruct(plan.GcpPrivateServiceConnect.ConsumerAcceptList),
+		}
+		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "cluster.gcp_private_service_connect")
+	}
+
+	op, err := c.CpCl.Cluster.UpdateCluster(ctx, updateReq)
+	if err != nil {
+		resp.Diagnostics.AddError("failed to send cluster update request", err.Error())
+		return
+	}
+
+	if err := utils.AreWeDoneYet(ctx, op.GetOperation(), 90*time.Minute, time.Minute, c.CpCl.Operation); err != nil {
+		resp.Diagnostics.AddError("failed while waiting to update cluster", err.Error())
+		return
+	}
+
+	// want to be sure we have the right cluster so we're searching with name rather than the ID from plan
+	cluster, err := c.CpCl.ClusterForName(ctx, plan.Name.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", plan.ID), err.Error())
+		return
+	}
+
+	// convert the returned cluster into the contents of output and set the state to the value of output
+	output := models.Cluster{
+		Name:            types.StringValue(cluster.Name),
+		ConnectionType:  types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
+		CloudProvider:   types.StringValue(utils.CloudProviderToString(cluster.CloudProvider)),
+		ClusterType:     types.StringValue(utils.ClusterTypeToString(cluster.Type)),
+		RedpandaVersion: types.StringValue(cluster.RedpandaVersion),
+		ThroughputTier:  types.StringValue(cluster.ThroughputTier),
+		Region:          types.StringValue(cluster.Region),
+		AllowDeletion:   plan.AllowDeletion,
+		ResourceGroupID: types.StringValue(cluster.ResourceGroupId),
+		NetworkID:       types.StringValue(cluster.NetworkId),
+		ID:              types.StringValue(cluster.Id),
+	}
+
+	zones, d := types.ListValueFrom(ctx, types.StringType, cluster.Zones)
+	if d.HasError() {
+		resp.Diagnostics.Append(d...)
+		return
+	}
+	output.Zones = zones
+	tags, d := types.MapValueFrom(ctx, types.StringType, cluster.CloudProviderTags)
+	if d.HasError() {
+		resp.Diagnostics.Append(d...)
+		return
+	}
+	output.Tags = tags
+
+	if cluster.AwsPrivateLink != nil {
+		if len(cluster.AwsPrivateLink.AllowedPrincipals) > 0 {
+			pl, dg := awsPrivateLinkStructToModel(ctx, cluster.GetAwsPrivateLink())
+			if dg.HasError() {
+				resp.Diagnostics.Append(dg...)
+			}
+			output.AwsPrivateLink = pl
+		}
+	}
+
+	if cluster.GcpPrivateServiceConnect != nil {
+		if len(cluster.GcpPrivateServiceConnect.ConsumerAcceptList) > 0 {
+			output.GcpPrivateServiceConnect = &models.GcpPrivateServiceConnect{
+				Enabled:             types.BoolValue(cluster.GcpPrivateServiceConnect.Enabled),
+				GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
+				ConsumerAcceptList:  gcpConnectConsumerStructToModel(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
+			}
+		}
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, output)...)
 }
 
 // Delete deletes the Cluster resource.
