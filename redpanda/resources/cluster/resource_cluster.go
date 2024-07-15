@@ -333,7 +333,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 			Name: plan.Name.ValueString(),
 		},
 		UpdateMask: &fieldmaskpb.FieldMask{
-			Paths: []string{""},
+			Paths: make([]string, 0),
 		},
 	}
 
