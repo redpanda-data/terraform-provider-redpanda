@@ -602,11 +602,6 @@ func TestAccUpdatePrivateLinkClusterAWS(t *testing.T) {
 	origTestCaseVars["network_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
 
-	rename := generateRandomName(accNamePrepend + testawsRename)
-	updateTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(updateTestCaseVars, origTestCaseVars)
-	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
-
 	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
 	if err != nil {
 		t.Fatal(err)
@@ -626,18 +621,19 @@ func TestAccUpdatePrivateLinkClusterAWS(t *testing.T) {
 			},
 			{
 				ConfigFile:               config.StaticFile(awsDedicatedPrivateLinkClusterFile),
-				ConfigVariables:          updateTestCaseVars,
+				ConfigVariables:          origTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
 					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "aws_private_link.0.enabled", "true"),
 				),
 			},
 			{
 				ResourceName:      clusterResourceName,
-				ConfigFile:        config.StaticFile(awsDedicatedClusterFile),
-				ConfigVariables:   updateTestCaseVars,
+				ConfigFile:        config.StaticFile(awsDedicatedPrivateLinkClusterFile),
+				ConfigVariables:   origTestCaseVars,
 				ImportState:       true,
 				ImportStateVerify: true,
 				//  These two only matter on apply; On apply the user will be
@@ -647,13 +643,13 @@ func TestAccUpdatePrivateLinkClusterAWS(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
 					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
 					resource.TestCheckResourceAttr(clusterResourceName, "aws_private_link.0.enabled", "true"),
 				),
 			},
 			{
-				ConfigFile:               config.StaticFile(awsDedicatedClusterFile),
-				ConfigVariables:          updateTestCaseVars,
+				ConfigFile:               config.StaticFile(awsDedicatedPrivateLinkClusterFile),
+				ConfigVariables:          origTestCaseVars,
 				Destroy:                  true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
@@ -678,13 +674,6 @@ func TestAccUpdatePrivateLinkClusterAWS(t *testing.T) {
 		Name: name,
 		F: sweepCluster{
 			ClusterName: name,
-			Client:      c,
-		}.SweepCluster,
-	})
-	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
-		Name: rename,
-		F: sweepCluster{
-			ClusterName: rename,
 			Client:      c,
 		}.SweepCluster,
 	})
