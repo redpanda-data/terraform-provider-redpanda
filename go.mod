@@ -5,8 +5,8 @@ go 1.22.2
 toolchain go1.22.3
 
 require (
-	buf.build/gen/go/redpandadata/cloud/grpc/go v1.3.0-20240515114728-57bc92921a46.3
-	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.34.2-20240618082024-ec0d26346763.2
+	buf.build/gen/go/redpandadata/cloud/grpc/go v1.4.0-20240715174738-f694d610cde4.2
+	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.34.2-20240715174738-f694d610cde4.2
 	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.3.0-20240529193153-4aa073b41f61.3
 	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.34.1-20240529193153-4aa073b41f61.1
 	github.com/davecgh/go-spew v1.1.1
@@ -25,9 +25,9 @@ require (
 )
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.34.2-20231115204500-e097f827e652.2 // indirect
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.34.2-20240508200655-46a4cf4ba109.2 // indirect
 	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.34.2-20221127060915-a1ecdc58eccd.2 // indirect
-	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.34.2-20240321121335-26480f50072a.2 // indirect
+	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.34.2-20240508150812-e0d0fbd58f25.2 // indirect
 	github.com/Kunde21/markdownfmt/v3 v3.1.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.2.0 // indirect
