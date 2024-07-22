@@ -2,11 +2,14 @@ package utils
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
 	"github.com/golang/mock/gomock"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/mocks"
 	"google.golang.org/genproto/googleapis/rpc/status"
 )
@@ -113,5 +116,47 @@ func createOpResponse(state controlplanev1beta2.Operation_State) *controlplanev1
 		Operation: &controlplanev1beta2.Operation{
 			State: state,
 		},
+	}
+}
+
+func mustMap(t *testing.T, m map[string]string) basetypes.MapValue {
+	o, err := types.MapValueFrom(context.TODO(), types.StringType, m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return o
+}
+
+func TestTypeMapToStringMap(t *testing.T) {
+	type args struct {
+		tags types.Map
+	}
+	tests := []struct {
+		name string
+		args args
+		want map[string]string
+	}{
+		{
+			name: "Empty map",
+			args: args{tags: mustMap(t, map[string]string{})},
+			want: map[string]string{},
+		},
+		{
+			name: "Single key",
+			args: args{tags: mustMap(t, map[string]string{"key": "value"})},
+			want: map[string]string{"key": "value"},
+		},
+		{
+			name: "Multiple keys",
+			args: args{tags: mustMap(t, map[string]string{"key1": "value1", "key2": "value2"})},
+			want: map[string]string{"key1": "value1", "key2": "value2"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := TypeMapToStringMap(tt.args.tags); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("TypeMapToStringMap() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
