@@ -397,6 +397,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 
 	var cfg models.Cluster
 	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
+
 	// convert the returned cluster into the contents of output and set the state to the value of output
 	output := models.Cluster{
 		Name:            types.StringValue(cluster.Name),
@@ -405,7 +406,6 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		ClusterType:     types.StringValue(utils.ClusterTypeToString(cluster.Type)),
 		ThroughputTier:  types.StringValue(cluster.ThroughputTier),
 		Region:          types.StringValue(cluster.Region),
-		RedpandaVersion: types.StringValue(cfg.RedpandaVersion.ValueString()),
 		AllowDeletion:   plan.AllowDeletion,
 		ResourceGroupID: types.StringValue(cluster.ResourceGroupId),
 		NetworkID:       types.StringValue(cluster.NetworkId),
@@ -425,6 +425,10 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		return
 	}
 	output.Tags = tags
+
+	if !cfg.RedpandaVersion.IsNull() {
+		output.RedpandaVersion = types.StringValue(cfg.RedpandaVersion.ValueString())
+	}
 
 	if cluster.AwsPrivateLink != nil {
 		if len(cluster.AwsPrivateLink.AllowedPrincipals) > 0 {
