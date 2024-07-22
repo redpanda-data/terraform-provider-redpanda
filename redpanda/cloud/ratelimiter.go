@@ -82,9 +82,6 @@ func (r *rateLimiter) Limiter(ctx context.Context, method string, req, reply any
 		return nil // no rate limit headers
 	}
 
-	tflog.Debug(ctx, "parsing rate limit headers", map[string]any{
-		"header": rateLimitHeader[0],
-	})
 	limit, remaining, reset, err := parseRateLimit(rateLimitHeader[0])
 	if err != nil {
 		// if the parser returns an error we log it but otherwise treat it the same as not having a ratelimit header

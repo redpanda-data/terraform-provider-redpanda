@@ -94,7 +94,8 @@ ARCH ?= $(shell go env GOARCH)
 PROVIDER_VERSION ?= 0.5.2
 PROVIDER_NAME ?= redpanda
 PROVIDER_NAMESPACE ?= redpanda-data
-TF_CONFIG_DIR ?= examples/bulk-res
+CONTENT_ROOT ?= $(PWD)
+PROVIDER_DIR := $(CONTENT_ROOT)/.terraform.d/plugins/registry.terraform.io/$(PROVIDER_NAMESPACE)/$(PROVIDER_NAME)/$(PROVIDER_VERSION)/$(OS)_$(ARCH)
 
 # Path to the built provider binary
 PROVIDER_BINARY := $(PWD)/terraform-provider-$(PROVIDER_NAME)
@@ -103,9 +104,16 @@ build:
 	@echo "building terraform provider..."
 	@$(GOCMD) build -o $(PROVIDER_BINARY)
 
+.PHONY: move-provider
+move-provider: build
+	@echo "moving provider binary to content root..."
+	@mkdir -p $(PROVIDER_DIR)
+	@cp $(PROVIDER_BINARY) $(PROVIDER_DIR)/terraform-provider-$(PROVIDER_NAME)_v$(PROVIDER_VERSION)
+
 .PHONY: test-actual
 test-actual: build test-create test-destroy
 
+TF_CONFIG_DIR ?= examples/bulk-res
 .PHONY: test-create
 test-create:
 	@echo "Applying Terraform configuration..."
@@ -114,7 +122,8 @@ test-create:
 	REDPANDA_CLIENT_SECRET="$${REDPANDA_CLIENT_SECRET}" \
 	REDPANDA_CLOUD_ENVIRONMENT="$${REDPANDA_CLOUD_ENVIRONMENT}" \
 	TF_LOG=DEBUG \
-	TF_INSECURE_SKIP_PROVIDER_VERIFICATION=true
+	TF_INSECURE_SKIP_PROVIDER_VERIFICATION=true \
+	TF_PLUGIN_DIR=$(PROVIDER_DIR)
 	terraform init && \
 	terraform apply -parallelism 10 -auto-approve
 

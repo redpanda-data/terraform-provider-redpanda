@@ -627,7 +627,7 @@ func TestAccUpdatePrivateLinkClusterAWS(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
 					resource.TestCheckResourceAttr(networkResourceName, "name", name),
 					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "aws_private_link.0.enabled", "true"),
+					resource.TestCheckResourceAttr(clusterResourceName, "aws_private_link.enabled", "true"),
 				),
 			},
 			{
@@ -644,7 +644,7 @@ func TestAccUpdatePrivateLinkClusterAWS(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
 					resource.TestCheckResourceAttr(networkResourceName, "name", name),
 					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "aws_private_link.0.enabled", "true"),
+					resource.TestCheckResourceAttr(clusterResourceName, "aws_private_link.enabled", "true"),
 				),
 			},
 			{

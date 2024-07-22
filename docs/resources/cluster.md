@@ -26,9 +26,9 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 ### Optional
 
 - `allow_deletion` (Boolean) allows deletion of the cluster. defaults to true. should probably be set to false for production use
-- `aws_private_link` (Object) AWS Private Link configuration. See https://docs.redpanda.com/current/deploy/deployment-option/cloud/configure-privatelink-in-cloud-ui/ for more details. (see [below for nested schema](#nestedatt--aws_private_link))
+- `aws_private_link` (Attributes) (see [below for nested schema](#nestedatt--aws_private_link))
 - `cloud_provider` (String) Must be one of aws or gcp
-- `gcp_private_service_connect` (Object) GCP Private Service Connect configuration. See https://docs.redpanda.com/current/deploy/deployment-option/cloud/configure-private-service-connect-in-cloud-ui/ for more details. (see [below for nested schema](#nestedatt--gcp_private_service_connect))
+- `gcp_private_service_connect` (Attributes) (see [below for nested schema](#nestedatt--gcp_private_service_connect))
 - `redpanda_version` (String) Version of Redpanda to deploy
 - `region` (String) Cloud provider specific region of the cluster
 - `tags` (Map of String) Tags to apply to the cluster
@@ -42,7 +42,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 <a id="nestedatt--aws_private_link"></a>
 ### Nested Schema for `aws_private_link`
 
-Optional:
+Required:
 
 - `allowed_principals` (List of String)
 - `enabled` (Boolean)
@@ -51,11 +51,18 @@ Optional:
 <a id="nestedatt--gcp_private_service_connect"></a>
 ### Nested Schema for `gcp_private_service_connect`
 
-Optional:
+Required:
 
-- `consumer_accept_list` (List of String)
+- `consumer_accept_list` (Attributes List) (see [below for nested schema](#nestedatt--gcp_private_service_connect--consumer_accept_list))
 - `enabled` (Boolean)
 - `global_access_enabled` (Boolean)
+
+<a id="nestedatt--gcp_private_service_connect--consumer_accept_list"></a>
+### Nested Schema for `gcp_private_service_connect.consumer_accept_list`
+
+Required:
+
+- `source` (String)
 
 ## Usage
 

@@ -23,7 +23,6 @@ import (
 	"time"
 
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -154,24 +153,36 @@ func resourceClusterSchema() schema.Schema {
 				Description:   "The URL of the cluster API",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
-			"aws_private_link": schema.ObjectAttribute{
-				Optional:    true,
-				Description: "AWS Private Link configuration. See https://docs.redpanda.com/current/deploy/deployment-option/cloud/configure-privatelink-in-cloud-ui/ for more details.",
-				AttributeTypes: map[string]attr.Type{
-					"enabled": types.BoolType,
-					"allowed_principals": types.ListType{
-						ElemType: types.StringType,
+			"aws_private_link": schema.SingleNestedAttribute{
+				Optional: true,
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						Required: true,
+					},
+					"allowed_principals": schema.ListAttribute{
+						ElementType: types.StringType,
+						Required:    true,
 					},
 				},
 			},
-			"gcp_private_service_connect": schema.ObjectAttribute{
-				Optional:    true,
-				Description: "GCP Private Service Connect configuration. See https://docs.redpanda.com/current/deploy/deployment-option/cloud/configure-private-service-connect-in-cloud-ui/ for more details.",
-				AttributeTypes: map[string]attr.Type{
-					"enabled":               types.BoolType,
-					"global_access_enabled": types.BoolType,
-					"consumer_accept_list": types.ListType{
-						ElemType: types.StringType,
+			"gcp_private_service_connect": schema.SingleNestedAttribute{
+				Optional: true,
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						Required: true,
+					},
+					"global_access_enabled": schema.BoolAttribute{
+						Required: true,
+					},
+					"consumer_accept_list": schema.ListNestedAttribute{
+						Required: true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"source": schema.StringAttribute{
+									Required: true,
+								},
+							},
+						},
 					},
 				},
 			},
@@ -342,7 +353,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 			Enabled:           plan.AwsPrivateLink.Enabled.ValueBool(),
 			AllowedPrincipals: utils.TypeListToStringSlice(plan.AwsPrivateLink.AllowedPrincipals),
 		}
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "cluster.aws_private_link")
+		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "aws_private_link")
 	}
 
 	if plan.GcpPrivateServiceConnect != nil {
@@ -351,7 +362,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 			GlobalAccessEnabled: plan.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
 			ConsumerAcceptList:  gcpConnectConsumerModelToStruct(plan.GcpPrivateServiceConnect.ConsumerAcceptList),
 		}
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "cluster.gcp_private_service_connect")
+		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "gcp_private_service_connect")
 	}
 
 	op, err := c.CpCl.Cluster.UpdateCluster(ctx, updateReq)
@@ -372,19 +383,34 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		return
 	}
 
+	var clusterURL string
+	if cluster.GetDataplaneApi() != nil {
+		if cluster.GetDataplaneApi().GetUrl() != "" {
+			cURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
+			if err != nil {
+				resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
+				return
+			}
+			clusterURL = cURL
+		}
+	}
+
+	var cfg models.Cluster
+	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
 	// convert the returned cluster into the contents of output and set the state to the value of output
 	output := models.Cluster{
 		Name:            types.StringValue(cluster.Name),
 		ConnectionType:  types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
 		CloudProvider:   types.StringValue(utils.CloudProviderToString(cluster.CloudProvider)),
 		ClusterType:     types.StringValue(utils.ClusterTypeToString(cluster.Type)),
-		RedpandaVersion: types.StringValue(cluster.RedpandaVersion),
 		ThroughputTier:  types.StringValue(cluster.ThroughputTier),
 		Region:          types.StringValue(cluster.Region),
+		RedpandaVersion: types.StringValue(cfg.RedpandaVersion.ValueString()),
 		AllowDeletion:   plan.AllowDeletion,
 		ResourceGroupID: types.StringValue(cluster.ResourceGroupId),
 		NetworkID:       types.StringValue(cluster.NetworkId),
 		ID:              types.StringValue(cluster.Id),
+		ClusterAPIURL:   types.StringValue(clusterURL),
 	}
 
 	zones, d := types.ListValueFrom(ctx, types.StringType, cluster.Zones)
