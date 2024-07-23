@@ -226,10 +226,13 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		resp.Diagnostics.Append(d...)
 		return
 	}
-	clusterURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
-	if err != nil {
-		resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
-		return
+	var clusterURL string
+	if cluster.GetDataplaneApi() != nil {
+		clusterURL, err = utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
+		if err != nil {
+			resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
+			return
+		}
 	}
 
 	persist := models.Cluster{
@@ -376,23 +379,20 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		return
 	}
 
-	// want to be sure we have the right cluster so we're searching with name rather than the ID from plan
-	cluster, err := c.CpCl.ClusterForName(ctx, plan.Name.ValueString())
+	cluster, err := c.CpCl.ClusterForID(ctx, plan.ID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", plan.ID), err.Error())
 		return
 	}
 
 	var clusterURL string
-	if cluster.GetDataplaneApi() != nil {
-		if cluster.GetDataplaneApi().GetUrl() != "" {
-			cURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
-			if err != nil {
-				resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
-				return
-			}
-			clusterURL = cURL
+	if cluster.GetDataplaneApi().GetUrl() != "" {
+		cURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
+		if err != nil {
+			resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
+			return
 		}
+		clusterURL = cURL
 	}
 
 	var cfg models.Cluster
@@ -419,12 +419,10 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		return
 	}
 	output.Zones = zones
-	tags, d := types.MapValueFrom(ctx, types.StringType, cluster.CloudProviderTags)
-	if d.HasError() {
-		resp.Diagnostics.Append(d...)
-		return
+
+	if !cfg.Tags.IsNull() {
+		output.Tags = cfg.Tags
 	}
-	output.Tags = tags
 
 	if !cfg.RedpandaVersion.IsNull() {
 		output.RedpandaVersion = types.StringValue(cfg.RedpandaVersion.ValueString())
