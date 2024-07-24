@@ -41,7 +41,6 @@ var (
 	accNamePrepend             = "tfrp-acc-"
 	runClusterTests            = os.Getenv("RUN_CLUSTER_TESTS")
 	runServerlessTests         = os.Getenv("RUN_SERVERLESS_TESTS")
-	runGcpTests                = os.Getenv("RUN_GCP_TESTS")
 	runBulkTests               = os.Getenv("RUN_BULK_TESTS")
 	clientID                   = os.Getenv(redpanda.ClientIDEnv)
 	clientSecret               = os.Getenv(redpanda.ClientSecretEnv)
@@ -682,9 +681,6 @@ func TestAccUpdatePrivateLinkClusterAWS(t *testing.T) {
 func TestAccResourcesClusterGCP(t *testing.T) {
 	if !strings.Contains(runClusterTests, "true") {
 		t.Skip("skipping cluster tests")
-	}
-	if !strings.Contains(runGcpTests, "true") {
-		t.Skip("skipping GCP tests")
 	}
 	ctx := context.Background()
 
