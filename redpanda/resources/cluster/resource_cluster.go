@@ -171,10 +171,6 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		resp.Diagnostics.AddError("failed to create cluster", err.Error())
 		return
 	}
-	if _, err := utils.GetClusterUntilRunningState(ctx, 0, 80, clusterReq.Name, c.CpCl); err != nil {
-		resp.Diagnostics.AddError("failed at getting ready state while creating cluster", err.Error())
-		return
-	}
 	op := clResp.Operation
 	var metadata controlplanev1beta2.CreateClusterMetadata
 	if err := op.Metadata.UnmarshalTo(&metadata); err != nil {

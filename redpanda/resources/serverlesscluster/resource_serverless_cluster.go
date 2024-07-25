@@ -123,10 +123,6 @@ func (c *ServerlessCluster) Create(ctx context.Context, req resource.CreateReque
 		resp.Diagnostics.AddError("failed to create serverless cluster", err.Error())
 		return
 	}
-	if _, err := utils.GetServerlessClusterUntilRunningState(ctx, 0, 80, clusterReq.Name, c.CpCl); err != nil {
-		resp.Diagnostics.AddError("failed at getting ready state while creating serverless cluster", err.Error())
-		return
-	}
 	operation, err := c.CpCl.Operation.GetOperation(ctx, &controlplanev1beta2.GetOperationRequest{Id: clResp.Operation.Id})
 	if err != nil {
 		resp.Diagnostics.AddError("failed to retrieve create serverless cluster operation", err.Error())
