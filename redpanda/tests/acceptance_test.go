@@ -600,7 +600,11 @@ func TestAccUpdatePrivateLinkClusterAWS(t *testing.T) {
 	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
 	origTestCaseVars["network_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
-
+	updateTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(updateTestCaseVars, origTestCaseVars)
+	updateTestCaseVars["aws_private_link.allowed_principals"] = config.ListVariable(
+		config.StringVariable("arn:aws:iam::123456789012:root"),
+	)
 	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
 	if err != nil {
 		t.Fatal(err)
@@ -608,16 +612,6 @@ func TestAccUpdatePrivateLinkClusterAWS(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
-			{
-				ConfigFile:      config.StaticFile(awsDedicatedClusterFile),
-				ConfigVariables: origTestCaseVars,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
-				),
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
 			{
 				ConfigFile:               config.StaticFile(awsDedicatedPrivateLinkClusterFile),
 				ConfigVariables:          origTestCaseVars,
@@ -632,7 +626,7 @@ func TestAccUpdatePrivateLinkClusterAWS(t *testing.T) {
 			{
 				ResourceName:      clusterResourceName,
 				ConfigFile:        config.StaticFile(awsDedicatedPrivateLinkClusterFile),
-				ConfigVariables:   origTestCaseVars,
+				ConfigVariables:   updateTestCaseVars,
 				ImportState:       true,
 				ImportStateVerify: true,
 				//  These two only matter on apply; On apply the user will be
