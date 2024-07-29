@@ -96,22 +96,74 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		resp.Diagnostics.AddError("unable to parse Cloud tags", err.Error())
 		return
 	}
+	rr, derr := types.ListValueFrom(ctx, types.StringType, cluster.ReadReplicaClusterIds)
+	if derr.HasError() {
+		resp.Diagnostics.Append(derr...)
+		return
+	}
+
 	// Mapping the fields from the cluster to the Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, &models.Cluster{
-		Name:            types.StringValue(cluster.Name),
-		ConnectionType:  types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
-		CloudProvider:   types.StringValue(utils.CloudProviderToString(cluster.CloudProvider)),
-		ClusterType:     types.StringValue(utils.ClusterTypeToString(cluster.Type)),
-		RedpandaVersion: types.StringValue(cluster.RedpandaVersion),
-		ThroughputTier:  types.StringValue(cluster.ThroughputTier),
-		Region:          types.StringValue(cluster.Region),
-		Zones:           clusterZones,
-		Tags:            tagsValue,
-		ResourceGroupID: types.StringValue(cluster.ResourceGroupId),
-		NetworkID:       types.StringValue(cluster.NetworkId),
-		ID:              types.StringValue(cluster.Id),
-		ClusterAPIURL:   types.StringValue(clusterURL),
-	})...)
+	persist := &models.Cluster{
+		Name:                  types.StringValue(cluster.Name),
+		ConnectionType:        types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
+		CloudProvider:         types.StringValue(utils.CloudProviderToString(cluster.CloudProvider)),
+		ClusterType:           types.StringValue(utils.ClusterTypeToString(cluster.Type)),
+		RedpandaVersion:       types.StringValue(cluster.RedpandaVersion),
+		ThroughputTier:        types.StringValue(cluster.ThroughputTier),
+		Region:                types.StringValue(cluster.Region),
+		Zones:                 clusterZones,
+		Tags:                  tagsValue,
+		ResourceGroupID:       types.StringValue(cluster.ResourceGroupId),
+		NetworkID:             types.StringValue(cluster.NetworkId),
+		ID:                    types.StringValue(cluster.Id),
+		ClusterAPIURL:         types.StringValue(clusterURL),
+		ReadReplicaClusterIds: rr,
+	}
+
+	if cluster.AwsPrivateLink != nil {
+		if len(cluster.AwsPrivateLink.AllowedPrincipals) > 0 {
+			pl, dg := awsPrivateLinkStructToModel(ctx, cluster.GetAwsPrivateLink())
+			if dg.HasError() {
+				resp.Diagnostics.Append(dg...)
+			}
+			persist.AwsPrivateLink = pl
+		}
+	}
+	if cluster.GcpPrivateServiceConnect != nil {
+		if len(cluster.GcpPrivateServiceConnect.ConsumerAcceptList) > 0 {
+			persist.GcpPrivateServiceConnect = &models.GcpPrivateServiceConnect{
+				Enabled:             types.BoolValue(cluster.GcpPrivateServiceConnect.Enabled),
+				GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
+				ConsumerAcceptList:  gcpConnectConsumerStructToModel(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
+			}
+		}
+	}
+
+	kApi, dg := toMtlsModel(ctx, cluster.GetKafkaApi().GetMtls())
+	if dg != nil {
+		resp.Diagnostics.Append(dg...)
+		return
+	}
+	persist.KafkaAPI = &models.KafkaAPI{
+		Mtls: kApi,
+	}
+	hp, dg := toMtlsModel(ctx, cluster.GetHttpProxy().GetMtls())
+	if dg != nil {
+		resp.Diagnostics.Append(dg...)
+		return
+	}
+	persist.HTTPProxy = &models.HTTPProxy{
+		Mtls: hp,
+	}
+	sr, dg := toMtlsModel(ctx, cluster.GetSchemaRegistry().GetMtls())
+	if dg != nil {
+		resp.Diagnostics.Append(dg...)
+		return
+	}
+	persist.SchemaRegistry = &models.SchemaRegistry{
+		Mtls: sr,
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
 // Schema returns the schema for the Cluster data source.
@@ -179,6 +231,106 @@ func datasourceClusterSchema() schema.Schema {
 			"cluster_api_url": schema.StringAttribute{
 				Computed:    true,
 				Description: "The URL of the cluster API",
+			},
+			"aws_private_link": schema.SingleNestedAttribute{
+				Optional: true,
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						Required: true,
+					},
+					"allowed_principals": schema.ListAttribute{
+						ElementType: types.StringType,
+						Required:    true,
+					},
+				},
+			},
+			"gcp_private_service_connect": schema.SingleNestedAttribute{
+				Optional: true,
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						Required: true,
+					},
+					"global_access_enabled": schema.BoolAttribute{
+						Required: true,
+					},
+					"consumer_accept_list": schema.ListNestedAttribute{
+						Required: true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"source": schema.StringAttribute{
+									Required: true,
+								},
+							},
+						},
+					},
+				},
+			},
+			"kafka_api": schema.SingleNestedAttribute{
+				Computed: true,
+				Attributes: map[string]schema.Attribute{
+					"mtls": schema.SingleNestedAttribute{
+						Computed: true,
+						Attributes: map[string]schema.Attribute{
+							"enabled": schema.BoolAttribute{
+								Computed: true,
+							},
+							"ca_certificates_pem": schema.ListAttribute{
+								ElementType: types.StringType,
+								Computed:    true,
+							},
+							"principal_mapping_rules": schema.ListAttribute{
+								ElementType: types.StringType,
+								Computed:    true,
+							},
+						},
+					},
+				},
+			},
+			"http_proxy": schema.SingleNestedAttribute{
+				Computed: true,
+				Attributes: map[string]schema.Attribute{
+					"mtls": schema.SingleNestedAttribute{
+						Computed: true,
+						Attributes: map[string]schema.Attribute{
+							"enabled": schema.BoolAttribute{
+								Computed: true,
+							},
+							"ca_certificates_pem": schema.ListAttribute{
+								ElementType: types.StringType,
+								Computed:    true,
+							},
+							"principal_mapping_rules": schema.ListAttribute{
+								ElementType: types.StringType,
+								Computed:    true,
+							},
+						},
+					},
+				},
+			},
+			"schema_registry": schema.SingleNestedAttribute{
+				Computed: true,
+				Attributes: map[string]schema.Attribute{
+					"mtls": schema.SingleNestedAttribute{
+						Computed: true,
+						Attributes: map[string]schema.Attribute{
+							"enabled": schema.BoolAttribute{
+								Computed: true,
+							},
+							"ca_certificates_pem": schema.ListAttribute{
+								ElementType: types.StringType,
+								Computed:    true,
+							},
+							"principal_mapping_rules": schema.ListAttribute{
+								ElementType: types.StringType,
+								Computed:    true,
+							},
+						},
+					},
+				},
+			},
+			"read_replica_cluster_ids": schema.ListAttribute{
+				ElementType: types.StringType,
+				Computed:    true,
 			},
 		},
 		Description: "Data source for a Redpanda Cloud cluster",
