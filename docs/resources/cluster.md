@@ -27,6 +27,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 
 - `allow_deletion` (Boolean) allows deletion of the cluster. defaults to true. should probably be set to false for production use
 - `aws_private_link` (Attributes) The AWS Private Link configuration (see [below for nested schema](#nestedatt--aws_private_link))
+- `azure_private_link` (Attributes) The Azure Private Link configuration (see [below for nested schema](#nestedatt--azure_private_link))
 - `cloud_provider` (String) Must be one of aws or gcp
 - `gcp_private_service_connect` (Attributes) The GCP Private Service Connect configuration (see [below for nested schema](#nestedatt--gcp_private_service_connect))
 - `http_proxy` (Attributes) (see [below for nested schema](#nestedatt--http_proxy))
@@ -49,6 +50,17 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 Required:
 
 - `allowed_principals` (List of String) The ARNs of the allowed principals
+- `connect_console` (Boolean)
+- `enabled` (Boolean)
+
+
+<a id="nestedatt--azure_private_link"></a>
+### Nested Schema for `azure_private_link`
+
+Required:
+
+- `allowed_subscriptions` (List of String)
+- `connect_console` (Boolean)
 - `enabled` (Boolean)
 
 

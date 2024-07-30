@@ -63,6 +63,7 @@ type GcpPrivateServiceConnectConsumer struct {
 	Source string `tfsdk:"source"`
 }
 
+// AzurePrivateLink represents the Terraform schema for the Azure Private Link configuration.
 type AzurePrivateLink struct {
 	AllowedSubscriptions types.List `tfsdk:"allowed_subscriptions"`
 	ConnectConsole       types.Bool `tfsdk:"connect_console"`
