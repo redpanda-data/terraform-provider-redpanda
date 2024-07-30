@@ -121,12 +121,15 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 	}
 
 	if !isAwsPrivateLinkSpecNil(cluster.AwsPrivateLink) {
-		if len(cluster.AwsPrivateLink.AllowedPrincipals) > 0 {
-			pl, dg := awsPrivateLinkStructToModel(ctx, cluster.GetAwsPrivateLink())
-			if dg.HasError() {
-				resp.Diagnostics.Append(dg...)
-			}
-			persist.AwsPrivateLink = pl
+		ap, dig := types.ListValueFrom(ctx, types.StringType, cluster.AwsPrivateLink.AllowedPrincipals)
+		if dig.HasError() {
+			resp.Diagnostics.Append(dig...)
+			return
+		}
+		persist.AwsPrivateLink = &models.AwsPrivateLink{
+			Enabled:           types.BoolValue(cluster.AwsPrivateLink.Enabled),
+			ConnectConsole:    types.BoolValue(cluster.AwsPrivateLink.ConnectConsole),
+			AllowedPrincipals: ap,
 		}
 	}
 	if !isGcpPrivateServiceConnectSpecNil(cluster.GcpPrivateServiceConnect) {
@@ -136,6 +139,19 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 				GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
 				ConsumerAcceptList:  gcpConnectConsumerStructToModel(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
 			}
+		}
+	}
+
+	if !isAzurePrivateLinkSpecNil(cluster.AzurePrivateLink) {
+		as, dig := types.ListValueFrom(ctx, types.StringType, cluster.AzurePrivateLink.AllowedSubscriptions)
+		if dig.HasError() {
+			resp.Diagnostics.Append(dig...)
+			return
+		}
+		persist.AzurePrivateLink = &models.AzurePrivateLink{
+			Enabled:              types.BoolValue(cluster.AzurePrivateLink.Enabled),
+			ConnectConsole:       types.BoolValue(cluster.AzurePrivateLink.ConnectConsole),
+			AllowedSubscriptions: as,
 		}
 	}
 
