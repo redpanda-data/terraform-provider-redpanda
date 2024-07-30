@@ -120,7 +120,7 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		ReadReplicaClusterIds: rr,
 	}
 
-	if cluster.AwsPrivateLink != nil {
+	if !isAwsPrivateLinkSpecNil(cluster.AwsPrivateLink) {
 		if len(cluster.AwsPrivateLink.AllowedPrincipals) > 0 {
 			pl, dg := awsPrivateLinkStructToModel(ctx, cluster.GetAwsPrivateLink())
 			if dg.HasError() {
@@ -129,7 +129,7 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 			persist.AwsPrivateLink = pl
 		}
 	}
-	if cluster.GcpPrivateServiceConnect != nil {
+	if !isGcpPrivateServiceConnectSpecNil(cluster.GcpPrivateServiceConnect) {
 		if len(cluster.GcpPrivateServiceConnect.ConsumerAcceptList) > 0 {
 			persist.GcpPrivateServiceConnect = &models.GcpPrivateServiceConnect{
 				Enabled:             types.BoolValue(cluster.GcpPrivateServiceConnect.Enabled),
