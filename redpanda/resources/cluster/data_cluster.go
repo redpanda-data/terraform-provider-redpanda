@@ -139,13 +139,13 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		}
 	}
 
-	kApi, dg := toMtlsModel(ctx, cluster.GetKafkaApi().GetMtls())
+	kAPI, dg := toMtlsModel(ctx, cluster.GetKafkaApi().GetMtls())
 	if dg != nil {
 		resp.Diagnostics.Append(dg...)
 		return
 	}
 	persist.KafkaAPI = &models.KafkaAPI{
-		Mtls: kApi,
+		Mtls: kAPI,
 	}
 	hp, dg := toMtlsModel(ctx, cluster.GetHttpProxy().GetMtls())
 	if dg != nil {

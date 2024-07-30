@@ -16,6 +16,11 @@ Data source for a Redpanda Cloud cluster
 
 - `id` (String) The ID of the cluster
 
+### Optional
+
+- `aws_private_link` (Attributes) (see [below for nested schema](#nestedatt--aws_private_link))
+- `gcp_private_service_connect` (Attributes) (see [below for nested schema](#nestedatt--gcp_private_service_connect))
+
 ### Read-Only
 
 - `allow_deletion` (Boolean) allows deletion of the cluster. defaults to true. Not recommended for production use
@@ -23,14 +28,97 @@ Data source for a Redpanda Cloud cluster
 - `cluster_api_url` (String) The URL of the cluster API
 - `cluster_type` (String) Type of the cluster
 - `connection_type` (String) Connection type of the cluster
+- `http_proxy` (Attributes) (see [below for nested schema](#nestedatt--http_proxy))
+- `kafka_api` (Attributes) (see [below for nested schema](#nestedatt--kafka_api))
 - `name` (String) Name of the cluster
 - `network_id` (String) The ID of the network in which to create the cluster
+- `read_replica_cluster_ids` (List of String)
 - `redpanda_version` (String) Version of Redpanda to deploy
 - `region` (String) Cloud provider specific region of the cluster
 - `resource_group_id` (String) The ID of the resource group in which to create the cluster
+- `schema_registry` (Attributes) (see [below for nested schema](#nestedatt--schema_registry))
 - `tags` (Map of String) Tags to apply to the cluster
 - `throughput_tier` (String) Throughput tier of the cluster
 - `zones` (List of String) Cloud provider specific zones of the cluster
+
+<a id="nestedatt--aws_private_link"></a>
+### Nested Schema for `aws_private_link`
+
+Required:
+
+- `allowed_principals` (List of String)
+- `enabled` (Boolean)
+
+
+<a id="nestedatt--gcp_private_service_connect"></a>
+### Nested Schema for `gcp_private_service_connect`
+
+Required:
+
+- `consumer_accept_list` (Attributes List) (see [below for nested schema](#nestedatt--gcp_private_service_connect--consumer_accept_list))
+- `enabled` (Boolean)
+- `global_access_enabled` (Boolean)
+
+<a id="nestedatt--gcp_private_service_connect--consumer_accept_list"></a>
+### Nested Schema for `gcp_private_service_connect.consumer_accept_list`
+
+Required:
+
+- `source` (String)
+
+
+
+<a id="nestedatt--http_proxy"></a>
+### Nested Schema for `http_proxy`
+
+Read-Only:
+
+- `mtls` (Attributes) (see [below for nested schema](#nestedatt--http_proxy--mtls))
+
+<a id="nestedatt--http_proxy--mtls"></a>
+### Nested Schema for `http_proxy.mtls`
+
+Read-Only:
+
+- `ca_certificates_pem` (List of String)
+- `enabled` (Boolean)
+- `principal_mapping_rules` (List of String)
+
+
+
+<a id="nestedatt--kafka_api"></a>
+### Nested Schema for `kafka_api`
+
+Read-Only:
+
+- `mtls` (Attributes) (see [below for nested schema](#nestedatt--kafka_api--mtls))
+
+<a id="nestedatt--kafka_api--mtls"></a>
+### Nested Schema for `kafka_api.mtls`
+
+Read-Only:
+
+- `ca_certificates_pem` (List of String)
+- `enabled` (Boolean)
+- `principal_mapping_rules` (List of String)
+
+
+
+<a id="nestedatt--schema_registry"></a>
+### Nested Schema for `schema_registry`
+
+Read-Only:
+
+- `mtls` (Attributes) (see [below for nested schema](#nestedatt--schema_registry--mtls))
+
+<a id="nestedatt--schema_registry--mtls"></a>
+### Nested Schema for `schema_registry.mtls`
+
+Read-Only:
+
+- `ca_certificates_pem` (List of String)
+- `enabled` (Boolean)
+- `principal_mapping_rules` (List of String)
 
 ## Usage
 

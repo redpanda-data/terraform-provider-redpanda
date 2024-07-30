@@ -26,11 +26,15 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 ### Optional
 
 - `allow_deletion` (Boolean) allows deletion of the cluster. defaults to true. should probably be set to false for production use
-- `aws_private_link` (Attributes) (see [below for nested schema](#nestedatt--aws_private_link))
+- `aws_private_link` (Attributes) The AWS Private Link configuration (see [below for nested schema](#nestedatt--aws_private_link))
 - `cloud_provider` (String) Must be one of aws or gcp
-- `gcp_private_service_connect` (Attributes) (see [below for nested schema](#nestedatt--gcp_private_service_connect))
+- `gcp_private_service_connect` (Attributes) The GCP Private Service Connect configuration (see [below for nested schema](#nestedatt--gcp_private_service_connect))
+- `http_proxy` (Attributes) (see [below for nested schema](#nestedatt--http_proxy))
+- `kafka_api` (Attributes) The mutual TLS configuration for the Kafka API (see [below for nested schema](#nestedatt--kafka_api))
+- `read_replica_cluster_ids` (List of String) The IDs of the read replica clusters
 - `redpanda_version` (String) Version of Redpanda to deploy
 - `region` (String) Cloud provider specific region of the cluster
+- `schema_registry` (Attributes) (see [below for nested schema](#nestedatt--schema_registry))
 - `tags` (Map of String) Tags to apply to the cluster
 - `zones` (List of String) Cloud provider specific zones of the cluster
 
@@ -44,7 +48,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 
 Required:
 
-- `allowed_principals` (List of String)
+- `allowed_principals` (List of String) The ARNs of the allowed principals
 - `enabled` (Boolean)
 
 
@@ -53,16 +57,70 @@ Required:
 
 Required:
 
-- `consumer_accept_list` (Attributes List) (see [below for nested schema](#nestedatt--gcp_private_service_connect--consumer_accept_list))
-- `enabled` (Boolean)
-- `global_access_enabled` (Boolean)
+- `consumer_accept_list` (Attributes List) The list of consumers to accept (see [below for nested schema](#nestedatt--gcp_private_service_connect--consumer_accept_list))
+- `enabled` (Boolean) Whether to enable GCP Private Service Connect
+- `global_access_enabled` (Boolean) Whether to enable global access for GCP Private Service Connect
 
 <a id="nestedatt--gcp_private_service_connect--consumer_accept_list"></a>
 ### Nested Schema for `gcp_private_service_connect.consumer_accept_list`
 
 Required:
 
-- `source` (String)
+- `source` (String) The source of the consumer
+
+
+
+<a id="nestedatt--http_proxy"></a>
+### Nested Schema for `http_proxy`
+
+Required:
+
+- `mtls` (Attributes) The mutual TLS configuration for the HTTP Proxy (see [below for nested schema](#nestedatt--http_proxy--mtls))
+
+<a id="nestedatt--http_proxy--mtls"></a>
+### Nested Schema for `http_proxy.mtls`
+
+Required:
+
+- `ca_certificates_pem` (List of String) The CA certificates in PEM format
+- `enabled` (Boolean) Whether to enable mutual TLS for the HTTP Proxy
+- `principal_mapping_rules` (List of String) The principal mapping rules
+
+
+
+<a id="nestedatt--kafka_api"></a>
+### Nested Schema for `kafka_api`
+
+Required:
+
+- `mtls` (Attributes) The mutual TLS configuration for the Kafka API (see [below for nested schema](#nestedatt--kafka_api--mtls))
+
+<a id="nestedatt--kafka_api--mtls"></a>
+### Nested Schema for `kafka_api.mtls`
+
+Required:
+
+- `ca_certificates_pem` (List of String) The CA certificates in PEM format
+- `enabled` (Boolean) Whether to enable mutual TLS for the Kafka API
+- `principal_mapping_rules` (List of String) The principal mapping rules
+
+
+
+<a id="nestedatt--schema_registry"></a>
+### Nested Schema for `schema_registry`
+
+Required:
+
+- `mtls` (Attributes) The mutual TLS configuration for the Schema Registry (see [below for nested schema](#nestedatt--schema_registry--mtls))
+
+<a id="nestedatt--schema_registry--mtls"></a>
+### Nested Schema for `schema_registry.mtls`
+
+Required:
+
+- `ca_certificates_pem` (List of String) The CA certificates in PEM format
+- `enabled` (Boolean) Whether to enable mutual TLS for the Schema Registry
+- `principal_mapping_rules` (List of String) The principal mapping rules
 
 ## Usage
 
