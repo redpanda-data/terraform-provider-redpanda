@@ -526,6 +526,7 @@ func GenerateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterC
 	return output, nil
 }
 
+// GenerateModel populates the Cluster model to be persisted to state for Create, Read and Update operations. It is also indirectly used by Import
 func GenerateModel(ctx context.Context, cfg models.Cluster, cluster *controlplanev1beta2.Cluster) (*models.Cluster, error) {
 	output := &models.Cluster{
 		Name:            types.StringValue(cluster.Name),
@@ -576,13 +577,13 @@ func GenerateModel(ctx context.Context, cfg models.Cluster, cluster *controlplan
 			ConsumerAcceptList:  gcpConnectConsumerStructToModel(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
 		}
 	}
-	kApi, err := toMtlsModel(ctx, cluster.GetKafkaApi().GetMtls())
+	kAPI, err := toMtlsModel(ctx, cluster.GetKafkaApi().GetMtls())
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse Kafka API MTLS: %v", err)
 	}
-	if kApi != nil {
+	if kAPI != nil {
 		output.KafkaAPI = &models.KafkaAPI{
-			Mtls: kApi,
+			Mtls: kAPI,
 		}
 	}
 	ht, err := toMtlsModel(ctx, cluster.GetHttpProxy().GetMtls())
@@ -688,7 +689,7 @@ func isMtlsStructNil(m *models.Mtls) bool {
 }
 
 func isMtlsSpecNil(m *controlplanev1beta2.MTLSSpec) bool {
-	return m == nil || (m.GetEnabled() == false && len(m.GetCaCertificatesPem()) == 0 && len(m.GetPrincipalMappingRules()) == 0)
+	return m == nil || (!m.GetEnabled() && len(m.GetCaCertificatesPem()) == 0 && len(m.GetPrincipalMappingRules()) == 0)
 }
 
 func emptyMtlsSpec() *controlplanev1beta2.MTLSSpec {
@@ -704,7 +705,7 @@ func isAwsPrivateLinkStructNil(m *models.AwsPrivateLink) bool {
 }
 
 func isAwsPrivateLinkSpecNil(m *controlplanev1beta2.AWSPrivateLinkStatus) bool {
-	return m == nil || (m.Enabled == false && len(m.AllowedPrincipals) == 0)
+	return m == nil || (!m.Enabled && len(m.AllowedPrincipals) == 0)
 }
 
 func isGcpPrivateServiceConnectStructNil(m *models.GcpPrivateServiceConnect) bool {
@@ -712,5 +713,5 @@ func isGcpPrivateServiceConnectStructNil(m *models.GcpPrivateServiceConnect) boo
 }
 
 func isGcpPrivateServiceConnectSpecNil(m *controlplanev1beta2.GCPPrivateServiceConnectStatus) bool {
-	return m == nil || (m.Enabled == false && m.GlobalAccessEnabled == false && len(m.ConsumerAcceptList) == 0)
+	return m == nil || (!m.Enabled && !m.GlobalAccessEnabled && len(m.ConsumerAcceptList) == 0)
 }
