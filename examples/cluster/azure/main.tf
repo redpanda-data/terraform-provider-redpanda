@@ -27,21 +27,6 @@ resource "redpanda_cluster" "test" {
   tags = {
     "key" = "value"
   }
-  aws_private_link = {
-    enabled         = true
-    connect_console = true
-    allowed_principals = ["arn:aws:iam::123456789024:root"]
-  }
-  azure_private_link = {
-    enabled         = true
-    connect_console = true
-    allowed_principals = ["12345678-1234-1234-1234-123456789012"]
-  }
-  gcp_private_link = {
-    enabled         = true
-    connect_console = true
-    allowed_principals = ["projects/123456789012"]
-  }
 }
 
 variable "resource_group_name" {
@@ -56,18 +41,18 @@ variable "cluster_name" {
   default = "testname"
 }
 
+variable "cloud_provider" {
+  default = "azure"
+}
+
 variable "region" {
-  default = "us-east-1"
+  default = "pro-us-east-1"
 }
 
 variable "zones" {
-  default = ["use1-az2", "use1-az4", "use1-az6"]
-}
-
-variable "cloud_provider" {
-  default = "aws"
+  default = ["pro-us-east-1-1", "pro-us-east-1-2", "pro-us-east-1-3"]
 }
 
 variable "throughput_tier" {
-  default = "tier-1-aws-v2-arm"
+  default = "tier-1-azure-um4g"
 }
