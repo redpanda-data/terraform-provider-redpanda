@@ -71,6 +71,8 @@ func CloudProviderToString(provider controlplanev1beta2.CloudProvider) string {
 		return "aws"
 	case controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_GCP:
 		return "gcp"
+	case controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_AZURE:
+		return "azure"
 	default:
 		return providerUnspecified
 	}
