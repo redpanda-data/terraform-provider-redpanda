@@ -358,7 +358,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		},
 	}
 
-	if plan.AwsPrivateLink != nil {
+	if !isAwsPrivateLinkStructNil(plan.AwsPrivateLink) {
 		updateReq.Cluster.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
 			Enabled:           plan.AwsPrivateLink.Enabled.ValueBool(),
 			AllowedPrincipals: utils.TypeListToStringSlice(plan.AwsPrivateLink.AllowedPrincipals),
@@ -366,7 +366,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "aws_private_link")
 	}
 
-	if plan.GcpPrivateServiceConnect != nil {
+	if !isGcpPrivateServiceConnectStructNil(plan.GcpPrivateServiceConnect) {
 		updateReq.Cluster.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
 			Enabled:             plan.GcpPrivateServiceConnect.Enabled.ValueBool(),
 			GlobalAccessEnabled: plan.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
@@ -487,7 +487,7 @@ func GenerateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterC
 		Type:              clusterType,
 		CloudProviderTags: utils.TypeMapToStringMap(model.Tags),
 	}
-	if model.AwsPrivateLink != nil {
+	if !isAwsPrivateLinkStructNil(model.AwsPrivateLink) {
 		if !model.AwsPrivateLink.AllowedPrincipals.IsNull() {
 			output.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
 				Enabled:           model.AwsPrivateLink.Enabled.ValueBool(),
@@ -495,7 +495,7 @@ func GenerateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterC
 			}
 		}
 	}
-	if model.GcpPrivateServiceConnect != nil {
+	if !isGcpPrivateServiceConnectStructNil(model.GcpPrivateServiceConnect) {
 		if len(model.GcpPrivateServiceConnect.ConsumerAcceptList) > 0 {
 			output.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
 				Enabled:             model.GcpPrivateServiceConnect.Enabled.ValueBool(),
@@ -562,14 +562,14 @@ func GenerateModel(ctx context.Context, cfg models.Cluster, cluster *controlplan
 	}
 	output.ReadReplicaClusterIds = rr
 
-	if cluster.AwsPrivateLink != nil {
+	if !isAwsPrivateLinkSpecNil(cluster.AwsPrivateLink) {
 		pl, err := awsPrivateLinkStructToModel(ctx, cluster.GetAwsPrivateLink())
 		if err.HasError() {
 			return nil, fmt.Errorf("failed to parse AWS Private Link: %v", err)
 		}
 		output.AwsPrivateLink = pl
 	}
-	if cluster.GcpPrivateServiceConnect != nil {
+	if !isGcpPrivateServiceConnectSpecNil(cluster.GcpPrivateServiceConnect) {
 		output.GcpPrivateServiceConnect = &models.GcpPrivateServiceConnect{
 			Enabled:             types.BoolValue(cluster.GcpPrivateServiceConnect.Enabled),
 			GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
@@ -697,4 +697,20 @@ func emptyMtlsSpec() *controlplanev1beta2.MTLSSpec {
 		CaCertificatesPem:     make([]string, 0),
 		PrincipalMappingRules: make([]string, 0),
 	}
+}
+
+func isAwsPrivateLinkStructNil(m *models.AwsPrivateLink) bool {
+	return m == nil || (m.Enabled.IsNull() && m.AllowedPrincipals.IsNull())
+}
+
+func isAwsPrivateLinkSpecNil(m *controlplanev1beta2.AWSPrivateLinkStatus) bool {
+	return m == nil || (m.Enabled == false && len(m.AllowedPrincipals) == 0)
+}
+
+func isGcpPrivateServiceConnectStructNil(m *models.GcpPrivateServiceConnect) bool {
+	return m == nil || (m.Enabled.IsNull() && m.GlobalAccessEnabled.IsNull() && len(m.ConsumerAcceptList) == 0)
+}
+
+func isGcpPrivateServiceConnectSpecNil(m *controlplanev1beta2.GCPPrivateServiceConnectStatus) bool {
+	return m == nil || (m.Enabled == false && m.GlobalAccessEnabled == false && len(m.ConsumerAcceptList) == 0)
 }
