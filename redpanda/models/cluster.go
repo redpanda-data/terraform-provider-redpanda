@@ -37,6 +37,7 @@ type Cluster struct {
 	ClusterAPIURL            types.String              `tfsdk:"cluster_api_url"`
 	AwsPrivateLink           *AwsPrivateLink           `tfsdk:"aws_private_link"`
 	GcpPrivateServiceConnect *GcpPrivateServiceConnect `tfsdk:"gcp_private_service_connect"`
+	AzurePrivateLink         *AzurePrivateLink         `tfsdk:"azure_private_link"`
 	KafkaAPI                 *KafkaAPI                 `tfsdk:"kafka_api"`
 	HTTPProxy                *HTTPProxy                `tfsdk:"http_proxy"`
 	SchemaRegistry           *SchemaRegistry           `tfsdk:"schema_registry"`
@@ -46,6 +47,7 @@ type Cluster struct {
 // AwsPrivateLink represents the Terraform schema for the AWS Private Link configuration.
 type AwsPrivateLink struct {
 	Enabled           types.Bool `tfsdk:"enabled"`
+	ConnectConsole    types.Bool `tfsdk:"connect_console"`
 	AllowedPrincipals types.List `tfsdk:"allowed_principals"`
 }
 
@@ -59,6 +61,12 @@ type GcpPrivateServiceConnect struct {
 // GcpPrivateServiceConnectConsumer represents the Terraform schema for the GCP Private Service Connect consumer configuration.
 type GcpPrivateServiceConnectConsumer struct {
 	Source string `tfsdk:"source"`
+}
+
+type AzurePrivateLink struct {
+	AllowedSubscriptions types.List `tfsdk:"allowed_subscriptions"`
+	ConnectConsole       types.Bool `tfsdk:"connect_console"`
+	Enabled              types.Bool `tfsdk:"enabled"`
 }
 
 // KafkaAPI represents the Terraform schema for the Kafka API configuration.

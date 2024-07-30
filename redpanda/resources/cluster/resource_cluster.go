@@ -162,10 +162,29 @@ func resourceClusterSchema() schema.Schema {
 					"enabled": schema.BoolAttribute{
 						Required: true,
 					},
+					"connect_console": schema.BoolAttribute{
+						Required: true,
+					},
 					"allowed_principals": schema.ListAttribute{
 						ElementType: types.StringType,
 						Required:    true,
 						Description: "The ARNs of the allowed principals",
+					},
+				},
+			},
+			"azure_private_link": schema.SingleNestedAttribute{
+				Optional:    true,
+				Description: "The Azure Private Link configuration",
+				Attributes: map[string]schema.Attribute{
+					"allowed_subscriptions": schema.ListAttribute{
+						ElementType: types.StringType,
+						Required:    true,
+					},
+					"connect_console": schema.BoolAttribute{
+						Required: true,
+					},
+					"enabled": schema.BoolAttribute{
+						Required: true,
 					},
 				},
 			},
@@ -492,6 +511,7 @@ func GenerateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterC
 			output.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
 				Enabled:           model.AwsPrivateLink.Enabled.ValueBool(),
 				AllowedPrincipals: utils.TypeListToStringSlice(model.AwsPrivateLink.AllowedPrincipals),
+				ConnectConsole:    model.AwsPrivateLink.ConnectConsole.ValueBool(),
 			}
 		}
 	}
@@ -504,6 +524,17 @@ func GenerateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterC
 			}
 		}
 	}
+
+	if !isAzurePrivateLinkStructNil(model.AzurePrivateLink) {
+		if !model.AzurePrivateLink.AllowedSubscriptions.IsNull() {
+			output.AzurePrivateLink = &controlplanev1beta2.AzurePrivateLinkSpec{
+				Enabled:              model.AzurePrivateLink.Enabled.ValueBool(),
+				AllowedSubscriptions: utils.TypeListToStringSlice(model.AzurePrivateLink.AllowedSubscriptions),
+				ConnectConsole:       model.AzurePrivateLink.ConnectConsole.ValueBool(),
+			}
+		}
+	}
+
 	if model.KafkaAPI != nil {
 		output.KafkaApi = &controlplanev1beta2.KafkaAPISpec{
 			Mtls: toMtlsSpec(model.KafkaAPI.Mtls),
@@ -564,17 +595,33 @@ func GenerateModel(ctx context.Context, cfg models.Cluster, cluster *controlplan
 	output.ReadReplicaClusterIds = rr
 
 	if !isAwsPrivateLinkSpecNil(cluster.AwsPrivateLink) {
-		pl, err := awsPrivateLinkStructToModel(ctx, cluster.GetAwsPrivateLink())
-		if err.HasError() {
-			return nil, fmt.Errorf("failed to parse AWS Private Link: %v", err)
+		ap, dg := types.ListValueFrom(ctx, types.StringType, cluster.AwsPrivateLink.AllowedPrincipals)
+		if dg.HasError() {
+			return nil, fmt.Errorf("failed to parse AWS Private Link: %v", dg)
 		}
-		output.AwsPrivateLink = pl
+		output.AwsPrivateLink = &models.AwsPrivateLink{
+			Enabled:           types.BoolValue(cluster.AwsPrivateLink.Enabled),
+			ConnectConsole:    types.BoolValue(cluster.AwsPrivateLink.ConnectConsole),
+			AllowedPrincipals: ap,
+		}
 	}
 	if !isGcpPrivateServiceConnectSpecNil(cluster.GcpPrivateServiceConnect) {
 		output.GcpPrivateServiceConnect = &models.GcpPrivateServiceConnect{
 			Enabled:             types.BoolValue(cluster.GcpPrivateServiceConnect.Enabled),
 			GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
 			ConsumerAcceptList:  gcpConnectConsumerStructToModel(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
+		}
+	}
+
+	if !isAzurePrivateLinkSpecNil(cluster.AzurePrivateLink) {
+		as, dg := types.ListValueFrom(ctx, types.StringType, cluster.AzurePrivateLink.AllowedSubscriptions)
+		if dg.HasError() {
+			return nil, fmt.Errorf("failed to parse Azure Private Link: %v", dg)
+		}
+		output.AzurePrivateLink = &models.AzurePrivateLink{
+			Enabled:              types.BoolValue(cluster.AzurePrivateLink.Enabled),
+			ConnectConsole:       types.BoolValue(cluster.AzurePrivateLink.ConnectConsole),
+			AllowedSubscriptions: as,
 		}
 	}
 	kAPI, err := toMtlsModel(ctx, cluster.GetKafkaApi().GetMtls())
@@ -605,14 +652,6 @@ func GenerateModel(ctx context.Context, cfg models.Cluster, cluster *controlplan
 		}
 	}
 	return output, nil
-}
-
-func awsPrivateLinkStructToModel(ctx context.Context, accept *controlplanev1beta2.AWSPrivateLinkStatus) (*models.AwsPrivateLink, diag.Diagnostics) {
-	ap, d := types.ListValueFrom(ctx, types.StringType, accept.AllowedPrincipals)
-	return &models.AwsPrivateLink{
-		Enabled:           types.BoolValue(accept.Enabled),
-		AllowedPrincipals: ap,
-	}, d
 }
 
 func gcpConnectConsumerModelToStruct(accept []*models.GcpPrivateServiceConnectConsumer) []*controlplanev1beta2.GCPPrivateServiceConnectConsumer {
@@ -701,11 +740,19 @@ func emptyMtlsSpec() *controlplanev1beta2.MTLSSpec {
 }
 
 func isAwsPrivateLinkStructNil(m *models.AwsPrivateLink) bool {
-	return m == nil || (m.Enabled.IsNull() && m.AllowedPrincipals.IsNull())
+	return m == nil || (m.Enabled.IsNull() && m.ConnectConsole.IsNull() && m.AllowedPrincipals.IsNull())
 }
 
 func isAwsPrivateLinkSpecNil(m *controlplanev1beta2.AWSPrivateLinkStatus) bool {
-	return m == nil || (!m.Enabled && len(m.AllowedPrincipals) == 0)
+	return m == nil || (!m.Enabled && !m.ConnectConsole && len(m.AllowedPrincipals) == 0)
+}
+
+func isAzurePrivateLinkStructNil(m *models.AzurePrivateLink) bool {
+	return m == nil || (m.Enabled.IsNull() && m.AllowedSubscriptions.IsNull() && m.ConnectConsole.IsNull())
+}
+
+func isAzurePrivateLinkSpecNil(m *controlplanev1beta2.AzurePrivateLinkStatus) bool {
+	return m == nil || (!m.Enabled && len(m.AllowedSubscriptions) == 0 && !m.ConnectConsole)
 }
 
 func isGcpPrivateServiceConnectStructNil(m *models.GcpPrivateServiceConnect) bool {
