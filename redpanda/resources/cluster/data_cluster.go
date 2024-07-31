@@ -208,7 +208,7 @@ func datasourceClusterSchema() schema.Schema {
 			},
 			"cloud_provider": schema.StringAttribute{
 				Computed:    true,
-				Description: "Must be one of aws or gcp",
+				Description: "Must be one of aws, azure or gcp",
 			},
 			"redpanda_version": schema.StringAttribute{
 				Computed:    true,
