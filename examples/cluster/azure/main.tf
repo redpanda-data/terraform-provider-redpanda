@@ -54,5 +54,5 @@ variable "zones" {
 }
 
 variable "throughput_tier" {
-  default = "tier-1-azure-um4g"
+  default = "tier-1-azure-v2-x86"
 }
