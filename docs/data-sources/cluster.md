@@ -24,7 +24,7 @@ Data source for a Redpanda Cloud cluster
 ### Read-Only
 
 - `allow_deletion` (Boolean) allows deletion of the cluster. defaults to true. Not recommended for production use
-- `cloud_provider` (String) Must be one of aws or gcp
+- `cloud_provider` (String) Must be one of aws, azure or gcp
 - `cluster_api_url` (String) The URL of the cluster API
 - `cluster_type` (String) Type of the cluster
 - `connection_type` (String) Connection type of the cluster
