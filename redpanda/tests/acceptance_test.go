@@ -18,6 +18,7 @@ import (
 
 const (
 	awsDedicatedClusterFile            = "../../examples/cluster/aws/main.tf"
+	azureDedicatedClusterFile          = "../../examples/cluster/azure/main.tf"
 	awsDedicatedPrivateLinkClusterFile = "../../examples/cluster/private-link/main.tf"
 	gcpDedicatedClusterFile            = "../../examples/cluster/gcp/main.tf"
 	dedicatedResourceGroupFile         = "../../examples/resourcegroup/main.tf"
@@ -47,6 +48,7 @@ var (
 	testAgainstExistingCluster = os.Getenv("TEST_AGAINST_EXISTING_CLUSTER")
 	testaws                    = "testaws"
 	testawsRename              = "testaws-rename"
+	testazure                  = "testazure"
 )
 
 func TestAccResourceGroup(t *testing.T) {
@@ -551,6 +553,106 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 			},
 			{
 				ConfigFile:               config.StaticFile(awsDedicatedClusterFile),
+				ConfigVariables:          updateTestCaseVars,
+				Destroy:                  true,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+		},
+	},
+	)
+	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepResourceGroup{
+			ResourceGroupName: name,
+			Client:            c,
+		}.SweepResourceGroup,
+	})
+	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepNetwork{
+			NetworkName: name,
+			Client:      c,
+		}.SweepNetworks,
+	})
+	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepCluster{
+			ClusterName: name,
+			Client:      c,
+		}.SweepCluster,
+	})
+	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
+		Name: rename,
+		F: sweepCluster{
+			ClusterName: rename,
+			Client:      c,
+		}.SweepCluster,
+	})
+}
+
+func TestAccResourcesClusterAzure(t *testing.T) {
+	if !strings.Contains(runClusterTests, "true") {
+		t.Skip("skipping cluster tests")
+	}
+	ctx := context.Background()
+
+	name := generateRandomName(accNamePrepend + testazure)
+	origTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
+	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
+	origTestCaseVars["network_name"] = config.StringVariable(name)
+	origTestCaseVars["cluster_name"] = config.StringVariable(name)
+
+	rename := generateRandomName(accNamePrepend + testawsRename)
+	updateTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(updateTestCaseVars, origTestCaseVars)
+	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
+
+	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				ConfigFile:      config.StaticFile(azureDedicatedClusterFile),
+				ConfigVariables: origTestCaseVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
+				),
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			{
+				ConfigFile:               config.StaticFile(azureDedicatedClusterFile),
+				ConfigVariables:          updateTestCaseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+				),
+			},
+			{
+				ResourceName:      clusterResourceName,
+				ConfigFile:        config.StaticFile(azureDedicatedClusterFile),
+				ConfigVariables:   updateTestCaseVars,
+				ImportState:       true,
+				ImportStateVerify: true,
+				//  These two only matter on apply; On apply the user will be
+				//  getting Plan, not State, and have correct values for both.
+				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+				),
+			},
+			{
+				ConfigFile:               config.StaticFile(azureDedicatedClusterFile),
 				ConfigVariables:          updateTestCaseVars,
 				Destroy:                  true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

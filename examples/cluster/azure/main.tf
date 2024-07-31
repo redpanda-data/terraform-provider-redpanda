@@ -46,11 +46,11 @@ variable "cloud_provider" {
 }
 
 variable "region" {
-  default = "pro-us-east-1"
+  default = "uksouth"
 }
 
 variable "zones" {
-  default = ["pro-us-east-1-1", "pro-us-east-1-2", "pro-us-east-1-3"]
+  default = ["uksouth-az1", "uksouth-az2", "uksouth-az3"]
 }
 
 variable "throughput_tier" {

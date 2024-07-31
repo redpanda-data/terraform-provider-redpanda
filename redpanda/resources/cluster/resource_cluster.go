@@ -38,6 +38,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
@@ -92,17 +93,20 @@ func resourceClusterSchema() schema.Schema {
 			"cluster_type": schema.StringAttribute{
 				Required:      true,
 				Description:   "Type of the cluster",
+				Validators:    validators.ClusterTypes(),
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"connection_type": schema.StringAttribute{
 				Required:      true,
 				Description:   "Connection type of the cluster",
+				Validators:    validators.ConnectionTypes(),
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"cloud_provider": schema.StringAttribute{
 				Optional:      true,
-				Description:   "Must be one of aws or gcp",
+				Description:   "Must be one of aws, gcp or azure",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    validators.CloudProviders(),
 			},
 			"redpanda_version": schema.StringAttribute{
 				Optional:      true,

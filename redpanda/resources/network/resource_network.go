@@ -36,6 +36,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -109,9 +110,7 @@ func resourceNetworkSchema() schema.Schema {
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Description:   "The cloud provider to create the network in. Can also be set at the provider level",
-				Validators: []validator.String{
-					stringvalidator.OneOf("gcp", "aws"),
-				},
+				Validators:    validators.CloudProviders(),
 			},
 			"resource_group_id": schema.StringAttribute{
 				Required:      true,
@@ -124,11 +123,9 @@ func resourceNetworkSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"cluster_type": schema.StringAttribute{
-				Required:    true,
-				Description: "The type of cluster this network is associated with, can be one of dedicated or cloud",
-				Validators: []validator.String{
-					stringvalidator.OneOf("dedicated", "cloud"),
-				},
+				Required:      true,
+				Description:   "The type of cluster this network is associated with, can be one of dedicated or cloud",
+				Validators:    validators.ClusterTypes(),
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 		},
