@@ -28,7 +28,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `allow_deletion` (Boolean) allows deletion of the cluster. defaults to true. should probably be set to false for production use
 - `aws_private_link` (Attributes) The AWS Private Link configuration (see [below for nested schema](#nestedatt--aws_private_link))
 - `azure_private_link` (Attributes) The Azure Private Link configuration (see [below for nested schema](#nestedatt--azure_private_link))
-- `cloud_provider` (String) Must be one of aws or gcp
+- `cloud_provider` (String) Must be one of aws, gcp or azure
 - `gcp_private_service_connect` (Attributes) The GCP Private Service Connect configuration (see [below for nested schema](#nestedatt--gcp_private_service_connect))
 - `http_proxy` (Attributes) (see [below for nested schema](#nestedatt--http_proxy))
 - `kafka_api` (Attributes) The mutual TLS configuration for the Kafka API (see [below for nested schema](#nestedatt--kafka_api))
