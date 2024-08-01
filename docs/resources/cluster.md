@@ -16,42 +16,42 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 
 ### Required
 
-- `cluster_type` (String) Type of the cluster
-- `connection_type` (String) Connection type of the cluster
-- `name` (String) Name of the cluster
-- `network_id` (String) The ID of the network in which to create the cluster
-- `resource_group_id` (String) The ID of the resource group in which to create the cluster
-- `throughput_tier` (String) Throughput tier of the cluster
+- `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation.
+- `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, Private is best-practice.
+- `name` (String) Unique name of the cluster.
+- `network_id` (String) Network ID where cluster is placed.
+- `resource_group_id` (String) Resource group ID of the cluster.
+- `throughput_tier` (String) Throughput tier of the cluster.
 
 ### Optional
 
-- `allow_deletion` (Boolean) allows deletion of the cluster. defaults to true. should probably be set to false for production use
-- `aws_private_link` (Attributes) The AWS Private Link configuration (see [below for nested schema](#nestedatt--aws_private_link))
-- `azure_private_link` (Attributes) The Azure Private Link configuration (see [below for nested schema](#nestedatt--azure_private_link))
-- `cloud_provider` (String) Must be one of aws, gcp or azure
-- `gcp_private_service_connect` (Attributes) The GCP Private Service Connect configuration (see [below for nested schema](#nestedatt--gcp_private_service_connect))
-- `http_proxy` (Attributes) (see [below for nested schema](#nestedatt--http_proxy))
-- `kafka_api` (Attributes) The mutual TLS configuration for the Kafka API (see [below for nested schema](#nestedatt--kafka_api))
-- `read_replica_cluster_ids` (List of String) The IDs of the read replica clusters
-- `redpanda_version` (String) Version of Redpanda to deploy
-- `region` (String) Cloud provider specific region of the cluster
-- `schema_registry` (Attributes) (see [below for nested schema](#nestedatt--schema_registry))
-- `tags` (Map of String) Tags to apply to the cluster
-- `zones` (List of String) Cloud provider specific zones of the cluster
+- `allow_deletion` (Boolean) Allows deletion of the cluster. Defaults to true. Should probably be set to false for production use.
+- `aws_private_link` (Attributes) The AWS Private Link configuration. (see [below for nested schema](#nestedatt--aws_private_link))
+- `azure_private_link` (Attributes) The Azure Private Link configuration. (see [below for nested schema](#nestedatt--azure_private_link))
+- `cloud_provider` (String) Cloud provider where resources are created.
+- `gcp_private_service_connect` (Attributes) The GCP Private Service Connect configuration. (see [below for nested schema](#nestedatt--gcp_private_service_connect))
+- `http_proxy` (Attributes) HTTP Proxy properties. (see [below for nested schema](#nestedatt--http_proxy))
+- `kafka_api` (Attributes) Cluster's Kafka API properties. (see [below for nested schema](#nestedatt--kafka_api))
+- `read_replica_cluster_ids` (List of String) IDs of clusters which may create read-only topics from this cluster.
+- `redpanda_version` (String) Current Redpanda version of the cluster.
+- `region` (String) Cloud provider region. Region represents the name of the region where the cluster will be provisioned.
+- `schema_registry` (Attributes) Cluster's Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
+- `tags` (Map of String) Tags placed on cloud resources. If the cloud provider is GCP and the name of a tag has the prefix "gcp.network-tag.", the tag is a network tag that will be added to the Redpanda cluster GKE nodes. Otherwise, the tag is a normal tag. For example, if the name of a tag is "gcp.network-tag.network-tag-foo", the network tag named "network-tag-foo" will be added to the Redpanda cluster GKE nodes. Note: The value of a network tag will be ignored. See the details on network tags at https://cloud.google.com/vpc/docs/add-remove-network-tags.
+- `zones` (List of String) Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster.
 
 ### Read-Only
 
-- `cluster_api_url` (String) The URL of the cluster API
-- `id` (String) The ID of the cluster
+- `cluster_api_url` (String) The URL of the cluster API.
+- `id` (String) ID of the cluster. ID is an output from the Create Cluster endpoint and cannot be set by the caller.
 
 <a id="nestedatt--aws_private_link"></a>
 ### Nested Schema for `aws_private_link`
 
 Required:
 
-- `allowed_principals` (List of String) The ARNs of the allowed principals
-- `connect_console` (Boolean)
-- `enabled` (Boolean)
+- `allowed_principals` (List of String) The ARN of the principals that can access the Redpanda AWS PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).
+- `connect_console` (Boolean) Whether Console is connected in Redpanda AWS Private Link Service.
+- `enabled` (Boolean) Whether Redpanda AWS Private Link Endpoint Service is enabled.
 
 
 <a id="nestedatt--azure_private_link"></a>
@@ -59,9 +59,9 @@ Required:
 
 Required:
 
-- `allowed_subscriptions` (List of String)
-- `connect_console` (Boolean)
-- `enabled` (Boolean)
+- `allowed_subscriptions` (List of String) The subscriptions that can access the Redpanda Azure PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).
+- `connect_console` (Boolean) Whether Console is connected in Redpanda Azure Private Link Service.
+- `enabled` (Boolean) Whether Redpanda Azure Private Link Endpoint Service is enabled.
 
 
 <a id="nestedatt--gcp_private_service_connect"></a>
@@ -69,16 +69,16 @@ Required:
 
 Required:
 
-- `consumer_accept_list` (Attributes List) The list of consumers to accept (see [below for nested schema](#nestedatt--gcp_private_service_connect--consumer_accept_list))
-- `enabled` (Boolean) Whether to enable GCP Private Service Connect
-- `global_access_enabled` (Boolean) Whether to enable global access for GCP Private Service Connect
+- `consumer_accept_list` (Attributes List) List of consumers that are allowed to connect to Redpanda GCP PSC (Private Service Connect) service attachment. (see [below for nested schema](#nestedatt--gcp_private_service_connect--consumer_accept_list))
+- `enabled` (Boolean) Whether Redpanda GCP Private Service Connect is enabled.
+- `global_access_enabled` (Boolean) Whether global access is enabled.
 
 <a id="nestedatt--gcp_private_service_connect--consumer_accept_list"></a>
 ### Nested Schema for `gcp_private_service_connect.consumer_accept_list`
 
 Required:
 
-- `source` (String) The source of the consumer
+- `source` (String) Either the GCP project number or its alphanumeric ID.
 
 
 
@@ -87,16 +87,16 @@ Required:
 
 Required:
 
-- `mtls` (Attributes) The mutual TLS configuration for the HTTP Proxy (see [below for nested schema](#nestedatt--http_proxy--mtls))
+- `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--http_proxy--mtls))
 
 <a id="nestedatt--http_proxy--mtls"></a>
 ### Nested Schema for `http_proxy.mtls`
 
 Required:
 
-- `ca_certificates_pem` (List of String) The CA certificates in PEM format
-- `enabled` (Boolean) Whether to enable mutual TLS for the HTTP Proxy
-- `principal_mapping_rules` (List of String) The principal mapping rules
+- `ca_certificates_pem` (List of String) CA certificate in PEM format.
+- `enabled` (Boolean) Whether mTLS is enabled.
+- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on configuring authentication.
 
 
 
@@ -105,16 +105,16 @@ Required:
 
 Required:
 
-- `mtls` (Attributes) The mutual TLS configuration for the Kafka API (see [below for nested schema](#nestedatt--kafka_api--mtls))
+- `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--kafka_api--mtls))
 
 <a id="nestedatt--kafka_api--mtls"></a>
 ### Nested Schema for `kafka_api.mtls`
 
 Required:
 
-- `ca_certificates_pem` (List of String) The CA certificates in PEM format
-- `enabled` (Boolean) Whether to enable mutual TLS for the Kafka API
-- `principal_mapping_rules` (List of String) The principal mapping rules
+- `ca_certificates_pem` (List of String) CA certificate in PEM format.
+- `enabled` (Boolean) Whether mTLS is enabled.
+- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on configuring authentication.
 
 
 
@@ -123,16 +123,16 @@ Required:
 
 Required:
 
-- `mtls` (Attributes) The mutual TLS configuration for the Schema Registry (see [below for nested schema](#nestedatt--schema_registry--mtls))
+- `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--schema_registry--mtls))
 
 <a id="nestedatt--schema_registry--mtls"></a>
 ### Nested Schema for `schema_registry.mtls`
 
 Required:
 
-- `ca_certificates_pem` (List of String) The CA certificates in PEM format
-- `enabled` (Boolean) Whether to enable mutual TLS for the Schema Registry
-- `principal_mapping_rules` (List of String) The principal mapping rules
+- `ca_certificates_pem` (List of String) CA certificate in PEM format.
+- `enabled` (Boolean) Whether mTLS is enabled.
+- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on configuring authentication.
 
 ## Usage
 

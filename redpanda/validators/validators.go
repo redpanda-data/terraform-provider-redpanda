@@ -1,4 +1,4 @@
-// Copyright 2023 Redpanda Data, Inc.
+// Copyright 2024 Redpanda Data, Inc.
 //
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
