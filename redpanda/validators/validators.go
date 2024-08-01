@@ -13,7 +13,7 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-// Package validators contains generally useful validation functions for the Redpanda provider.
+// Package validators contains general purpose validation functions for the Redpanda provider.
 package validators
 
 import (
