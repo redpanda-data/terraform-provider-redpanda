@@ -1,0 +1,20 @@
+agents:
+  queue: k8s-builders
+
+steps:
+  - label: make lint
+    key: lint
+    command: make lint
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - json-key: .
+              secret-id: devex/prod/buildkite/integration_provider_secret
+  - label: make unit
+    key: unit
+    command: make unit
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - json-key: .
+              secret-id: devex/prod/buildkite/integration_provider_secret
