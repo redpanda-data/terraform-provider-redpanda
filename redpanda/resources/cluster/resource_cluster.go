@@ -32,6 +32,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
@@ -177,6 +178,12 @@ func resourceClusterSchema() schema.Schema {
 						Description: "The ARN of the principals that can access the Redpanda AWS PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).",
 					},
 				},
+				Validators: []validator.Object{
+					validators.CloudProviderDependentValidator{
+						AttributeName: "aws_private_link",
+						CloudProvider: "aws",
+					},
+				},
 			},
 			"azure_private_link": schema.SingleNestedAttribute{
 				Optional:    true,
@@ -194,6 +201,12 @@ func resourceClusterSchema() schema.Schema {
 					"enabled": schema.BoolAttribute{
 						Required:    true,
 						Description: "Whether Redpanda Azure Private Link Endpoint Service is enabled.",
+					},
+				},
+				Validators: []validator.Object{
+					validators.CloudProviderDependentValidator{
+						AttributeName: "azure_private_link",
+						CloudProvider: "azure",
 					},
 				},
 			},
@@ -220,6 +233,12 @@ func resourceClusterSchema() schema.Schema {
 								},
 							},
 						},
+					},
+				},
+				Validators: []validator.Object{
+					validators.CloudProviderDependentValidator{
+						AttributeName: "gcp_private_service_connect",
+						CloudProvider: "gcp",
 					},
 				},
 			},
