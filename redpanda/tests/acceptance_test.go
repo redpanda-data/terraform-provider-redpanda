@@ -17,17 +17,13 @@ import (
 )
 
 const (
-	awsDedicatedClusterFile            = "../../examples/cluster/aws/main.tf"
-	azureDedicatedClusterFile          = "../../examples/cluster/azure/main.tf"
-	awsDedicatedPrivateLinkClusterFile = "../../examples/cluster/private-link/main.tf"
-	gcpDedicatedClusterFile            = "../../examples/cluster/gcp/main.tf"
-	dedicatedResourceGroupFile         = "../../examples/resourcegroup/main.tf"
-	dedicatedNetworkFile               = "../../examples/network/main.tf"
-	dedicatedUserACLsTopicFile         = "../../examples/user-acl-topic/main.tf"
-	dataSourcesTest                    = "../../examples/datasource/main.tf"
-	serverlessClusterFile              = "../../examples/serverless-cluster/main.tf"
-	bulkDataCreateFile                 = "../../examples/bulk-data/main.tf"
-	bulkResCreateFile                  = "../../examples/bulk-res/main.tf"
+	awsDedicatedClusterFile   = "../../examples/cluster/aws/main.tf"
+	azureDedicatedClusterFile = "../../examples/cluster/azure/main.tf"
+	gcpDedicatedClusterFile   = "../../examples/cluster/gcp/main.tf"
+	serverlessClusterFile     = "../../examples/cluster/serverless/main.tf"
+	dedicatedNetworkFile      = "../../examples/network/main.tf"
+	dataSourcesTest           = "../../examples/datasource/standard/main.tf"
+	bulkDataCreateFile        = "../../examples/datasource/bulk/main.tf"
 	// These are the resource names as named in the TF files.
 	resourceGroupName      = "redpanda_resource_group.test"
 	networkResourceName    = "redpanda_network.test"
@@ -50,346 +46,6 @@ var (
 	testawsRename              = "testaws-rename"
 	testazure                  = "testazure"
 )
-
-func TestAccResourceGroup(t *testing.T) {
-	ctx := context.Background()
-	name := generateRandomName(accNamePrepend + "testrg")
-	origTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
-	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
-
-	rename := generateRandomName(accNamePrepend + "testrg-rename")
-	updateTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(updateTestCaseVars, origTestCaseVars)
-	updateTestCaseVars["resource_group_name"] = config.StringVariable(rename)
-
-	var c *cloud.ControlPlaneClientSet
-	var err error
-	resource.ParallelTest(t, resource.TestCase{
-		PreCheck: func() {
-			testAccPreCheck(t)
-			if c == nil {
-				c, err = newTestClients(ctx, clientID, clientSecret, "ign")
-				if err != nil {
-					t.Fatal(err)
-				}
-			}
-		},
-		Steps: []resource.TestStep{
-			{
-				ConfigFile:               config.StaticFile(dedicatedResourceGroupFile),
-				ConfigVariables:          origTestCaseVars,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-				),
-			},
-			{
-				ConfigFile:               config.StaticFile(dedicatedResourceGroupFile),
-				ConfigVariables:          updateTestCaseVars,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", rename),
-				),
-			},
-			{
-				ResourceName:             resourceGroupName,
-				ConfigFile:               config.StaticFile(dedicatedResourceGroupFile),
-				ConfigVariables:          updateTestCaseVars,
-				ImportState:              true,
-				ImportStateVerify:        true,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", rename),
-				),
-			},
-			{
-				ConfigFile:               config.StaticFile(dedicatedResourceGroupFile),
-				ConfigVariables:          updateTestCaseVars,
-				Destroy:                  true,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-		},
-	})
-	resource.AddTestSweepers(generateRandomName("resourcegroupRenameSweeper"), &resource.Sweeper{
-		Name: rename,
-		F: sweepResourceGroup{
-			ResourceGroupName: rename,
-			Client:            c,
-		}.SweepResourceGroup,
-	})
-	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepResourceGroup{
-			ResourceGroupName: name,
-			Client:            c,
-		}.SweepResourceGroup,
-	})
-}
-
-func TestAccResourcesBulkData(t *testing.T) {
-	if !strings.Contains(runBulkTests, "true") {
-		t.Skip("skipping cluster tests")
-	}
-	ctx := context.Background()
-
-	name := generateRandomName(accNamePrepend + "testbulk")
-	origTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
-	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
-	origTestCaseVars["network_name"] = config.StringVariable(name)
-	origTestCaseVars["cluster_name"] = config.StringVariable(name)
-	origTestCaseVars["cluster_id"] = config.StringVariable(os.Getenv("BULK_CLUSTER_ID"))
-
-	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
-	if err != nil {
-		t.Fatal(err)
-	}
-	resource.ParallelTest(t, resource.TestCase{
-		PreCheck: func() { testAccPreCheck(t) },
-		Steps: []resource.TestStep{
-			{
-				ConfigFile:               config.StaticFile(bulkDataCreateFile),
-				ConfigVariables:          origTestCaseVars,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-			{
-				ConfigFile:               config.StaticFile(bulkDataCreateFile),
-				ConfigVariables:          origTestCaseVars,
-				Destroy:                  true,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-		},
-	},
-	)
-	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepCluster{
-			ClusterName: name,
-			Client:      c,
-		}.SweepCluster,
-	})
-	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepNetwork{
-			NetworkName: name,
-			Client:      c,
-		}.SweepNetworks,
-	})
-	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepResourceGroup{
-			ResourceGroupName: name,
-			Client:            c,
-		}.SweepResourceGroup,
-	})
-}
-
-func TestAccResourcesBulkRes(t *testing.T) {
-	if !strings.Contains(runBulkTests, "true") {
-		t.Skip("skipping cluster tests")
-	}
-	ctx := context.Background()
-
-	name := generateRandomName(accNamePrepend + "testbulk")
-	origTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
-	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
-	origTestCaseVars["network_name"] = config.StringVariable(name)
-	origTestCaseVars["cluster_name"] = config.StringVariable(name)
-	origTestCaseVars["cluster_id"] = config.StringVariable(os.Getenv("BULK_CLUSTER_ID"))
-
-	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
-	if err != nil {
-		t.Fatal(err)
-	}
-	resource.ParallelTest(t, resource.TestCase{
-		PreCheck: func() { testAccPreCheck(t) },
-		Steps: []resource.TestStep{
-			{
-				ConfigFile:               config.StaticFile(bulkResCreateFile),
-				ConfigVariables:          origTestCaseVars,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-			{
-				ConfigFile:               config.StaticFile(bulkResCreateFile),
-				ConfigVariables:          origTestCaseVars,
-				Destroy:                  true,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-		},
-	},
-	)
-	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepCluster{
-			ClusterName: name,
-			Client:      c,
-		}.SweepCluster,
-	})
-	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepNetwork{
-			NetworkName: name,
-			Client:      c,
-		}.SweepNetworks,
-	})
-	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepResourceGroup{
-			ResourceGroupName: name,
-			Client:            c,
-		}.SweepResourceGroup,
-	})
-}
-
-func TestAccResourcesStrippedDownClusterAWS(t *testing.T) {
-	if !strings.Contains(runClusterTests, "true") {
-		t.Skip("skipping cluster tests")
-	}
-	ctx := context.Background()
-
-	name := generateRandomName(accNamePrepend + testaws)
-	origTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
-	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
-	origTestCaseVars["network_name"] = config.StringVariable(name)
-	origTestCaseVars["cluster_name"] = config.StringVariable(name)
-
-	rename := generateRandomName(accNamePrepend + testawsRename)
-	updateTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(updateTestCaseVars, origTestCaseVars)
-	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
-
-	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
-	if err != nil {
-		t.Fatal(err)
-	}
-	resource.ParallelTest(t, resource.TestCase{
-		PreCheck: func() { testAccPreCheck(t) },
-		Steps: []resource.TestStep{
-			{
-				ConfigFile:      config.StaticFile(awsDedicatedClusterFile),
-				ConfigVariables: origTestCaseVars,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
-				),
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-			{
-				ConfigFile:               config.StaticFile(awsDedicatedClusterFile),
-				ConfigVariables:          updateTestCaseVars,
-				Destroy:                  true,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-		},
-	},
-	)
-	resource.AddTestSweepers(generateRandomName("renameClusterSweeper"), &resource.Sweeper{
-		Name: rename,
-		F: sweepCluster{
-			ClusterName: rename,
-			Client:      c,
-		}.SweepCluster,
-	})
-	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepCluster{
-			ClusterName: name,
-			Client:      c,
-		}.SweepCluster,
-	})
-	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepNetwork{
-			NetworkName: name,
-			Client:      c,
-		}.SweepNetworks,
-	})
-	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepResourceGroup{
-			ResourceGroupName: name,
-			Client:            c,
-		}.SweepResourceGroup,
-	})
-}
-
-func TestAccResourcesPrivateLinkStrippedDownClusterAWS(t *testing.T) {
-	if !strings.Contains(runClusterTests, "true") {
-		t.Skip("skipping cluster tests")
-	}
-	ctx := context.Background()
-
-	name := generateRandomName(accNamePrepend + testaws)
-	origTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
-	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
-	origTestCaseVars["network_name"] = config.StringVariable(name)
-	origTestCaseVars["cluster_name"] = config.StringVariable(name)
-
-	rename := generateRandomName(accNamePrepend + testawsRename)
-	updateTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(updateTestCaseVars, origTestCaseVars)
-	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
-
-	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
-	if err != nil {
-		t.Fatal(err)
-	}
-	resource.ParallelTest(t, resource.TestCase{
-		PreCheck: func() { testAccPreCheck(t) },
-		Steps: []resource.TestStep{
-			{
-				ConfigFile:      config.StaticFile(awsDedicatedPrivateLinkClusterFile),
-				ConfigVariables: origTestCaseVars,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
-				),
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-			{
-				ConfigFile:               config.StaticFile(awsDedicatedPrivateLinkClusterFile),
-				ConfigVariables:          updateTestCaseVars,
-				Destroy:                  true,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-		},
-	},
-	)
-	resource.AddTestSweepers(generateRandomName("renameClusterSweeper"), &resource.Sweeper{
-		Name: rename,
-		F: sweepCluster{
-			ClusterName: rename,
-			Client:      c,
-		}.SweepCluster,
-	})
-	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepCluster{
-			ClusterName: name,
-			Client:      c,
-		}.SweepCluster,
-	})
-	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepNetwork{
-			NetworkName: name,
-			Client:      c,
-		}.SweepNetworks,
-	})
-	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepResourceGroup{
-			ResourceGroupName: name,
-			Client:            c,
-		}.SweepResourceGroup,
-	})
-}
 
 func TestAccResourcesNetwork(t *testing.T) {
 	ctx := context.Background()
@@ -490,23 +146,19 @@ func TestAccResourcesNetwork(t *testing.T) {
 	})
 }
 
-func TestAccResourcesClusterAWS(t *testing.T) {
-	if !strings.Contains(runClusterTests, "true") {
+func TestAccResourcesBulk(t *testing.T) {
+	if !strings.Contains(runBulkTests, "true") {
 		t.Skip("skipping cluster tests")
 	}
 	ctx := context.Background()
 
-	name := generateRandomName(accNamePrepend + testaws)
+	name := generateRandomName(accNamePrepend + "testbulk")
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
 	origTestCaseVars["network_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
-
-	rename := generateRandomName(accNamePrepend + testawsRename)
-	updateTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(updateTestCaseVars, origTestCaseVars)
-	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
+	origTestCaseVars["cluster_id"] = config.StringVariable(os.Getenv("BULK_CLUSTER_ID"))
 
 	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
 	if err != nil {
@@ -516,56 +168,25 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			{
-				ConfigFile:      config.StaticFile(awsDedicatedClusterFile),
-				ConfigVariables: origTestCaseVars,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
-				),
+				ConfigFile:               config.StaticFile(bulkDataCreateFile),
+				ConfigVariables:          origTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 			{
-				ConfigFile:               config.StaticFile(awsDedicatedClusterFile),
-				ConfigVariables:          updateTestCaseVars,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
-				),
-			},
-			{
-				ResourceName:      clusterResourceName,
-				ConfigFile:        config.StaticFile(awsDedicatedClusterFile),
-				ConfigVariables:   updateTestCaseVars,
-				ImportState:       true,
-				ImportStateVerify: true,
-				//  These two only matter on apply; On apply the user will be
-				//  getting Plan, not State, and have correct values for both.
-				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
-				),
-			},
-			{
-				ConfigFile:               config.StaticFile(awsDedicatedClusterFile),
-				ConfigVariables:          updateTestCaseVars,
+				ConfigFile:               config.StaticFile(bulkDataCreateFile),
+				ConfigVariables:          origTestCaseVars,
 				Destroy:                  true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 		},
 	},
 	)
-	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
+	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
 		Name: name,
-		F: sweepResourceGroup{
-			ResourceGroupName: name,
-			Client:            c,
-		}.SweepResourceGroup,
+		F: sweepCluster{
+			ClusterName: name,
+			Client:      c,
+		}.SweepCluster,
 	})
 	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
 		Name: name,
@@ -574,20 +195,23 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 			Client:      c,
 		}.SweepNetworks,
 	})
-	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
+	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
 		Name: name,
-		F: sweepCluster{
-			ClusterName: name,
-			Client:      c,
-		}.SweepCluster,
+		F: sweepResourceGroup{
+			ResourceGroupName: name,
+			Client:            c,
+		}.SweepResourceGroup,
 	})
-	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
-		Name: rename,
-		F: sweepCluster{
-			ClusterName: rename,
-			Client:      c,
-		}.SweepCluster,
-	})
+}
+
+func TestAccResourcesClusterAWS(t *testing.T) {
+	if !strings.Contains(runClusterTests, "true") {
+		t.Skip("skipping cluster tests")
+	}
+	ctx := context.Background()
+	name := generateRandomName(accNamePrepend + testaws)
+	rename := generateRandomName(accNamePrepend + testawsRename)
+	testRunner(ctx, name, rename, awsDedicatedClusterFile, t)
 }
 
 func TestAccResourcesClusterAzure(t *testing.T) {
@@ -595,183 +219,9 @@ func TestAccResourcesClusterAzure(t *testing.T) {
 		t.Skip("skipping cluster tests")
 	}
 	ctx := context.Background()
-
 	name := generateRandomName(accNamePrepend + testazure)
-	origTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
-	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
-	origTestCaseVars["network_name"] = config.StringVariable(name)
-	origTestCaseVars["cluster_name"] = config.StringVariable(name)
-
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	updateTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(updateTestCaseVars, origTestCaseVars)
-	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
-
-	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
-	if err != nil {
-		t.Fatal(err)
-	}
-	resource.ParallelTest(t, resource.TestCase{
-		PreCheck: func() { testAccPreCheck(t) },
-		Steps: []resource.TestStep{
-			{
-				ConfigFile:      config.StaticFile(azureDedicatedClusterFile),
-				ConfigVariables: origTestCaseVars,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
-				),
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-			{
-				ConfigFile:               config.StaticFile(azureDedicatedClusterFile),
-				ConfigVariables:          updateTestCaseVars,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
-				),
-			},
-			{
-				ResourceName:      clusterResourceName,
-				ConfigFile:        config.StaticFile(azureDedicatedClusterFile),
-				ConfigVariables:   updateTestCaseVars,
-				ImportState:       true,
-				ImportStateVerify: true,
-				//  These two only matter on apply; On apply the user will be
-				//  getting Plan, not State, and have correct values for both.
-				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
-				),
-			},
-			{
-				ConfigFile:               config.StaticFile(azureDedicatedClusterFile),
-				ConfigVariables:          updateTestCaseVars,
-				Destroy:                  true,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-		},
-	},
-	)
-	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepResourceGroup{
-			ResourceGroupName: name,
-			Client:            c,
-		}.SweepResourceGroup,
-	})
-	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepNetwork{
-			NetworkName: name,
-			Client:      c,
-		}.SweepNetworks,
-	})
-	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepCluster{
-			ClusterName: name,
-			Client:      c,
-		}.SweepCluster,
-	})
-	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
-		Name: rename,
-		F: sweepCluster{
-			ClusterName: rename,
-			Client:      c,
-		}.SweepCluster,
-	})
-}
-
-func TestAccUpdatePrivateLinkClusterAWS(t *testing.T) {
-	if !strings.Contains(runClusterTests, "true") {
-		t.Skip("skipping cluster tests")
-	}
-	ctx := context.Background()
-
-	name := generateRandomName(accNamePrepend + testaws)
-	origTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
-	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
-	origTestCaseVars["network_name"] = config.StringVariable(name)
-	origTestCaseVars["cluster_name"] = config.StringVariable(name)
-	updateTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(updateTestCaseVars, origTestCaseVars)
-	updateTestCaseVars["aws_private_link.allowed_principals"] = config.ListVariable(
-		config.StringVariable("arn:aws:iam::123456789012:root"),
-	)
-	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
-	if err != nil {
-		t.Fatal(err)
-	}
-	resource.ParallelTest(t, resource.TestCase{
-		PreCheck: func() { testAccPreCheck(t) },
-		Steps: []resource.TestStep{
-			{
-				ConfigFile:               config.StaticFile(awsDedicatedPrivateLinkClusterFile),
-				ConfigVariables:          origTestCaseVars,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "aws_private_link.enabled", "true"),
-				),
-			},
-			{
-				ResourceName:      clusterResourceName,
-				ConfigFile:        config.StaticFile(awsDedicatedPrivateLinkClusterFile),
-				ConfigVariables:   updateTestCaseVars,
-				ImportState:       true,
-				ImportStateVerify: true,
-				//  These two only matter on apply; On apply the user will be
-				//  getting Plan, not State, and have correct values for both.
-				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "aws_private_link.enabled", "true"),
-				),
-			},
-			{
-				ConfigFile:               config.StaticFile(awsDedicatedPrivateLinkClusterFile),
-				ConfigVariables:          origTestCaseVars,
-				Destroy:                  true,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-		},
-	},
-	)
-	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepResourceGroup{
-			ResourceGroupName: name,
-			Client:            c,
-		}.SweepResourceGroup,
-	})
-	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepNetwork{
-			NetworkName: name,
-			Client:      c,
-		}.SweepNetworks,
-	})
-	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepCluster{
-			ClusterName: name,
-			Client:      c,
-		}.SweepCluster,
-	})
+	testRunner(ctx, name, rename, azureDedicatedClusterFile, t)
 }
 
 func TestAccResourcesClusterGCP(t *testing.T) {
@@ -779,115 +229,24 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 		t.Skip("skipping cluster tests")
 	}
 	ctx := context.Background()
-
 	name := generateRandomName(accNamePrepend + "testgcp")
-	origTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
-	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
-	origTestCaseVars["network_name"] = config.StringVariable(name)
-	origTestCaseVars["cluster_name"] = config.StringVariable(name)
-
 	rename := generateRandomName(accNamePrepend + "testgcp-rename")
-	updateTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(updateTestCaseVars, origTestCaseVars)
-	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
-
-	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
-	if err != nil {
-		t.Fatal(err)
-	}
-	resource.ParallelTest(
-		t,
-		resource.TestCase{
-			PreCheck: func() { testAccPreCheck(t) },
-			Steps: []resource.TestStep{
-				{
-					ConfigFile:      config.StaticFile(gcpDedicatedClusterFile),
-					ConfigVariables: origTestCaseVars,
-					Check: resource.ComposeAggregateTestCheckFunc(
-						resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-						resource.TestCheckResourceAttr(networkResourceName, "name", name),
-						resource.TestCheckResourceAttr(clusterResourceName, "name", name),
-					),
-					ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				},
-				{
-					ConfigFile:               config.StaticFile(gcpDedicatedClusterFile),
-					ConfigVariables:          updateTestCaseVars,
-					ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-					Check: resource.ComposeAggregateTestCheckFunc(
-						resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-						resource.TestCheckResourceAttr(networkResourceName, "name", name),
-						resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
-					),
-				},
-				{
-					ResourceName:             clusterResourceName,
-					ConfigFile:               config.StaticFile(gcpDedicatedClusterFile),
-					ConfigVariables:          updateTestCaseVars,
-					ImportState:              true,
-					ImportStateVerify:        true,
-					ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
-					ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-					Check: resource.ComposeAggregateTestCheckFunc(
-						resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-						resource.TestCheckResourceAttr(networkResourceName, "name", name),
-						resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
-					),
-				},
-				{
-					ConfigFile:               config.StaticFile(gcpDedicatedClusterFile),
-					ConfigVariables:          updateTestCaseVars,
-					Destroy:                  true,
-					ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				},
-			},
-		},
-	)
-
-	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepResourceGroup{
-			ResourceGroupName: name,
-			Client:            c,
-		}.SweepResourceGroup,
-	})
-	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepNetwork{
-			NetworkName: name,
-			Client:      c,
-		}.SweepNetworks,
-	})
-	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepCluster{
-			ClusterName: name,
-			Client:      c,
-		}.SweepCluster,
-	})
-	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
-		Name: rename,
-		F: sweepCluster{
-			ClusterName: rename,
-			Client:      c,
-		}.SweepCluster,
-	})
+	testRunner(ctx, name, rename, gcpDedicatedClusterFile, t)
 }
 
-func TestAccResourcesUserACLsTopic(t *testing.T) {
-	if !strings.Contains(runClusterTests, "true") {
-		t.Skip("skipping cluster user-acl-topic tests")
-	}
-	ctx := context.Background()
-
-	name := generateRandomName(accNamePrepend + "test-user-acl-topic")
+// testRunner is a helper function that runs a series of tests on a given cluster in a given cloud provider.
+func testRunner(ctx context.Context, name, rename, testFile string, t *testing.T) {
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
 	origTestCaseVars["network_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
 	origTestCaseVars["user_name"] = config.StringVariable(name)
+	origTestCaseVars["topic_name"] = config.StringVariable(name)
+
+	updateTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(updateTestCaseVars, origTestCaseVars)
+	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
 
 	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
 	if err != nil {
@@ -897,19 +256,20 @@ func TestAccResourcesUserACLsTopic(t *testing.T) {
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			{
-				ConfigFile:               config.StaticFile(dedicatedUserACLsTopicFile),
-				ConfigVariables:          origTestCaseVars,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				ConfigFile:      config.StaticFile(testFile),
+				ConfigVariables: origTestCaseVars,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
 					resource.TestCheckResourceAttr(networkResourceName, "name", name),
 					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
 					resource.TestCheckResourceAttr(userResourceName, "name", name),
+					resource.TestCheckResourceAttr(topicResourceName, "name", name),
 				),
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 			{
 				ResourceName:    userResourceName,
-				ConfigFile:      config.StaticFile(dedicatedUserACLsTopicFile),
+				ConfigFile:      config.StaticFile(testFile),
 				ConfigVariables: origTestCaseVars,
 				ImportState:     true,
 				ImportStateIdFunc: func(_ *terraform.State) (string, error) {
@@ -937,6 +297,7 @@ func TestAccResourcesUserACLsTopic(t *testing.T) {
 					}
 					return nil
 				},
+				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
@@ -946,15 +307,40 @@ func TestAccResourcesUserACLsTopic(t *testing.T) {
 				),
 			},
 			{
-				ConfigFile:               config.StaticFile(dedicatedUserACLsTopicFile),
-				ConfigVariables:          origTestCaseVars,
+				ConfigFile:               config.StaticFile(testFile),
+				ConfigVariables:          updateTestCaseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+				),
+			},
+			{
+				ResourceName:      clusterResourceName,
+				ConfigFile:        config.StaticFile(testFile),
+				ConfigVariables:   updateTestCaseVars,
+				ImportState:       true,
+				ImportStateVerify: true,
+				//  These two only matter on apply; On apply the user will be
+				//  getting Plan, not State, and have correct values for both.
+				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+				),
+			},
+			{
+				ConfigFile:               config.StaticFile(testFile),
+				ConfigVariables:          updateTestCaseVars,
 				Destroy:                  true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 		},
 	},
 	)
-
 	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
 		Name: name,
 		F: sweepResourceGroup{
@@ -973,6 +359,13 @@ func TestAccResourcesUserACLsTopic(t *testing.T) {
 		Name: name,
 		F: sweepCluster{
 			ClusterName: name,
+			Client:      c,
+		}.SweepCluster,
+	})
+	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
+		Name: rename,
+		F: sweepCluster{
+			ClusterName: rename,
 			Client:      c,
 		}.SweepCluster,
 	})
