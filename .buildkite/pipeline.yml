@@ -8,8 +8,7 @@ steps:
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
-            - json-key: .
-              secret-id: devex/prod/buildkite/integration_provider_secret
+            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
   - label: make unit
     key: unit
     command: make unit
