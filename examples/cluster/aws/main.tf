@@ -47,11 +47,11 @@ variable "cluster_name" {
 }
 
 variable "region" {
-  default = "us-east-1"
+  default = "us-east-2"
 }
 
 variable "zones" {
-  default = ["use1-az2", "use1-az4", "use1-az6"]
+  default = ["use2-az1", "use2-az2", "use2-az3"]
 }
 
 variable "cloud_provider" {
