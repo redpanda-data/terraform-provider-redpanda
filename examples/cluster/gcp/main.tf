@@ -27,15 +27,15 @@ resource "redpanda_cluster" "test" {
   tags = {
     "key" = "value"
   }
-  gcp_private_service_connect = {
-    enabled               = true
-    global_access_enabled = true
-    consumer_accept_list = [
-      {
-        source = "projects/123456789012"
-      }
-    ]
-  }
+  #   gcp_private_service_connect = {
+  #     enabled               = true
+  #     global_access_enabled = true
+  #     consumer_accept_list = [
+  #       {
+  #         source = "projects/123456789012"
+  #       }
+  #     ]
+  #   }
 }
 
 variable "cluster_name" {
