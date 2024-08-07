@@ -118,6 +118,9 @@ func resourceClusterSchema() schema.Schema {
 				Required:      true,
 				Description:   "Throughput tier of the cluster.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators: []validator.String{
+					validators.ThroughputTierValidator{},
+				},
 			},
 			"region": schema.StringAttribute{
 				Optional:      true,

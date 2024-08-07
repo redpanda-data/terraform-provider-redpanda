@@ -32,6 +32,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	rpknet "github.com/redpanda-data/redpanda/src/go/rpk/pkg/net"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
@@ -187,6 +188,14 @@ func TypeListToStringSlice(t types.List) []string {
 func TestingOnlyStringSliceToTypeList(s []string) types.List {
 	o, _ := types.ListValueFrom(context.TODO(), types.StringType, s)
 	return o
+}
+
+func StringSliceToSliceValues(s []string) []tftypes.Value {
+	var values []tftypes.Value
+	for _, v := range s {
+		values = append(values, tftypes.NewValue(tftypes.String, v))
+	}
+	return values
 }
 
 // TrimmedStringValue returns the string value of a types.String with the quotes removed.
