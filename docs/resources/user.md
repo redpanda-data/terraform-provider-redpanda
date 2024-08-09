@@ -46,7 +46,6 @@ resource "redpanda_network" "test" {
   cidr_block        = "10.0.0.0/20"
 }
 
-
 resource "redpanda_cluster" "test" {
   name              = var.cluster_name
   resource_group_id = redpanda_resource_group.test.id
@@ -59,9 +58,41 @@ resource "redpanda_cluster" "test" {
   zones             = var.zones
   allow_deletion    = true
   tags = {
-    // not actually used as API does not consume it yet but we keep it in state for when it does
     "key" = "value"
   }
+  aws_private_link = {
+    enabled         = true
+    connect_console = true
+    allowed_principals = ["arn:aws:iam::123456789024:root"]
+  }
+}
+
+variable "resource_group_name" {
+  default = "testname"
+}
+
+variable "network_name" {
+  default = "testname"
+}
+
+variable "cluster_name" {
+  default = "testname"
+}
+
+variable "region" {
+  default = "us-east-2"
+}
+
+variable "zones" {
+  default = ["use2-az1", "use2-az2", "use2-az3"]
+}
+
+variable "cloud_provider" {
+  default = "aws"
+}
+
+variable "throughput_tier" {
+  default = "tier-1-aws-v2-arm"
 }
 
 resource "redpanda_user" "test" {
@@ -91,33 +122,6 @@ resource "redpanda_acl" "test" {
   cluster_api_url       = redpanda_cluster.test.cluster_api_url
 }
 
-variable "resource_group_name" {
-  default = "testname"
-}
-
-variable "network_name" {
-  default = "testname"
-}
-
-variable "cluster_name" {
-  default = "testname"
-}
-
-variable "region" {
-  default = "us-east-1"
-}
-
-variable "zones" {
-  default = ["use1-az2", "use1-az4", "use1-az6"]
-}
-
-variable "cloud_provider" {
-  default = "aws"
-}
-
-variable "throughput_tier" {
-  default = "tier-1-aws-v2-arm"
-}
 
 variable "user_name" {
   default = "test-username"

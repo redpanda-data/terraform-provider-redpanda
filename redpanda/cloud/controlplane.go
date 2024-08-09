@@ -25,6 +25,19 @@ import (
 	"google.golang.org/grpc"
 )
 
+// CpClientSet defines the interface for ControlPlaneClientSet
+type CpClientSet interface {
+	CreateResourceGroup(ctx context.Context, name string) (*controlplanev1beta2.ResourceGroup, error)
+	ResourceGroupForID(ctx context.Context, id string) (*controlplanev1beta2.ResourceGroup, error)
+	ResourceGroupForName(ctx context.Context, name string) (*controlplanev1beta2.ResourceGroup, error)
+	NetworkForID(ctx context.Context, id string) (*controlplanev1beta2.Network, error)
+	NetworkForName(ctx context.Context, name string) (*controlplanev1beta2.Network, error)
+	ClusterForID(ctx context.Context, id string) (*controlplanev1beta2.Cluster, error)
+	ClusterForName(ctx context.Context, name string) (*controlplanev1beta2.Cluster, error)
+	ServerlessClusterForID(ctx context.Context, id string) (*controlplanev1beta2.ServerlessCluster, error)
+	ServerlessClusterForName(ctx context.Context, name string) (*controlplanev1beta2.ServerlessCluster, error)
+}
+
 // ControlPlaneClientSet holds the respective service clients to interact with
 // the control plane endpoints of the Public API.
 type ControlPlaneClientSet struct {

@@ -32,6 +32,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	rpknet "github.com/redpanda-data/redpanda/src/go/rpk/pkg/net"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
@@ -178,7 +179,7 @@ func ConnectionTypeToString(t controlplanev1beta2.Cluster_ConnectionType) string
 func TypeListToStringSlice(t types.List) []string {
 	var s []string
 	for _, v := range t.Elements() {
-		s = append(s, strings.Trim(v.String(), "\"")) // it's easier to strip the quotes than type coverting until you hit something that doesn't include them
+		s = append(s, strings.Trim(v.String(), "\"")) // it's easier to strip the quotes than type converting until you hit something that doesn't include them
 	}
 	return s
 }
@@ -187,6 +188,15 @@ func TypeListToStringSlice(t types.List) []string {
 func TestingOnlyStringSliceToTypeList(s []string) types.List {
 	o, _ := types.ListValueFrom(context.TODO(), types.StringType, s)
 	return o
+}
+
+// StringSliceToSliceValues converts a string slice to a slice of tftypes.Value
+func StringSliceToSliceValues(s []string) []tftypes.Value {
+	var values []tftypes.Value
+	for _, v := range s {
+		values = append(values, tftypes.NewValue(tftypes.String, v))
+	}
+	return values
 }
 
 // TrimmedStringValue returns the string value of a types.String with the quotes removed.
@@ -251,6 +261,10 @@ func UserMechanismToString(m *dataplanev1alpha1.SASLMechanism) string {
 func TopicConfigurationToMap(cfg []*dataplanev1alpha1.Topic_Configuration) (types.Map, error) {
 	configs := make(map[string]attr.Value, len(cfg))
 	for _, v := range cfg {
+		if v.Value == nil {
+			// TODO should we skip, error, or set to empty string? skipping for now
+			continue
+		}
 		configs[v.Name] = types.StringValue(*v.Value)
 	}
 	cfgMap, diag := types.MapValue(types.StringType, configs)
@@ -339,7 +353,7 @@ func SplitSchemeDefPort(url, def string) (string, error) {
 }
 
 // GetClusterUntilRunningState returns a cluster in the running state or an error
-func GetClusterUntilRunningState(ctx context.Context, count, limit int, clusterName string, client *cloud.ControlPlaneClientSet) (*controlplanev1beta2.Cluster, error) {
+func GetClusterUntilRunningState(ctx context.Context, count, limit int, clusterName string, wait time.Duration, client cloud.CpClientSet) (*controlplanev1beta2.Cluster, error) {
 	count++
 	if count >= limit {
 		return nil, fmt.Errorf("cluster %q did not reach the running state after %d attempts", clusterName, count)
@@ -353,12 +367,12 @@ func GetClusterUntilRunningState(ctx context.Context, count, limit int, clusterN
 		return cluster, nil
 	}
 
-	time.Sleep(1 * time.Minute)
-	return GetClusterUntilRunningState(ctx, count, limit, clusterName, client)
+	time.Sleep(wait)
+	return GetClusterUntilRunningState(ctx, count, limit, clusterName, wait, client)
 }
 
 // GetServerlessClusterUntilRunningState returns a serverless cluster in the running state or an error
-func GetServerlessClusterUntilRunningState(ctx context.Context, count, limit int, clusterName string, client *cloud.ControlPlaneClientSet) (*controlplanev1beta2.ServerlessCluster, error) {
+func GetServerlessClusterUntilRunningState(ctx context.Context, count, limit int, clusterName string, client cloud.CpClientSet) (*controlplanev1beta2.ServerlessCluster, error) {
 	count++
 	if count >= limit {
 		return nil, fmt.Errorf("serverless cluster %q did not reach the running state after %d attempts", clusterName, count)
