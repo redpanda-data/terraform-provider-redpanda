@@ -30,7 +30,6 @@ const (
 	clusterResourceName    = "redpanda_cluster.test"
 	userResourceName       = "redpanda_user.test"
 	topicResourceName      = "redpanda_topic.test"
-	aclResourceName        = "redpanda_acl.test"
 	serverlessResourceName = "redpanda_serverless_cluster.test"
 )
 

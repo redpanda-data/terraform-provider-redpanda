@@ -2,12 +2,15 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	dataplanev1alpha1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha1"
 	"github.com/golang/mock/gomock"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/mocks"
@@ -156,6 +159,651 @@ func TestTypeMapToStringMap(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := TypeMapToStringMap(tt.args.tags); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("TypeMapToStringMap() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTypeListToStringSlice(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    types.List
+		expected []string
+	}{
+		{
+			name:     "test conversion",
+			input:    TestingOnlyStringSliceToTypeList([]string{"a", "b", "c"}),
+			expected: []string{"a", "b", "c"},
+		},
+		{
+			name:     "test empty conversion",
+			input:    TestingOnlyStringSliceToTypeList([]string{}),
+			expected: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := TypeListToStringSlice(tc.input)
+			if !reflect.DeepEqual(result, tc.expected) {
+				t.Errorf("Expected %v, but got %v", tc.expected, result)
+			}
+		})
+	}
+}
+
+func TestFindUserByName(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockClient := mocks.NewMockUserServiceClient(ctrl)
+
+	testCases := []struct {
+		name         string
+		setupMock    func()
+		inputName    string
+		expectedUser *dataplanev1alpha1.ListUsersResponse_User
+		expectedErr  string
+	}{
+		{
+			name: "User found",
+			setupMock: func() {
+				mockClient.EXPECT().ListUsers(gomock.Any(), &dataplanev1alpha1.ListUsersRequest{
+					Filter: &dataplanev1alpha1.ListUsersRequest_Filter{
+						Name: "alice",
+					},
+				}).Return(&dataplanev1alpha1.ListUsersResponse{
+					Users: []*dataplanev1alpha1.ListUsersResponse_User{
+						{Name: "alice"},
+						{Name: "bob"},
+					},
+				}, nil)
+			},
+			inputName:    "alice",
+			expectedUser: &dataplanev1alpha1.ListUsersResponse_User{Name: "alice"},
+			expectedErr:  "",
+		},
+		{
+			name: "User not found",
+			setupMock: func() {
+				mockClient.EXPECT().ListUsers(gomock.Any(), &dataplanev1alpha1.ListUsersRequest{
+					Filter: &dataplanev1alpha1.ListUsersRequest_Filter{
+						Name: "charlie",
+					},
+				}).Return(&dataplanev1alpha1.ListUsersResponse{
+					Users: []*dataplanev1alpha1.ListUsersResponse_User{
+						{Name: "alice"},
+						{Name: "bob"},
+					},
+				}, nil)
+			},
+			inputName:    "charlie",
+			expectedUser: nil,
+			expectedErr:  "user not found",
+		},
+		{
+			name: "ListUsers error",
+			setupMock: func() {
+				mockClient.EXPECT().ListUsers(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("connection error"))
+			},
+			inputName:    "alice",
+			expectedUser: nil,
+			expectedErr:  "connection error",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.setupMock()
+
+			user, err := FindUserByName(context.Background(), tc.inputName, mockClient)
+
+			if tc.expectedErr != "" {
+				if err == nil {
+					t.Errorf("Expected error %q, but got nil", tc.expectedErr)
+				} else if err.Error() != tc.expectedErr {
+					t.Errorf("Expected error %q, but got %q", tc.expectedErr, err.Error())
+				}
+			} else if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			if !reflect.DeepEqual(user, tc.expectedUser) {
+				t.Errorf("Expected user %+v, but got %+v", tc.expectedUser, user)
+			}
+		})
+	}
+}
+
+func TestSplitSchemeDefPort(t *testing.T) {
+	testCases := []struct {
+		name        string
+		url         string
+		defaultPort string
+		expected    string
+		expectError bool
+	}{
+		{
+			name:        "URL with scheme and port",
+			url:         "http://example.com:8080",
+			defaultPort: "80",
+			expected:    "example.com:8080",
+			expectError: false,
+		},
+		{
+			name:        "URL with scheme, no port",
+			url:         "https://example.com",
+			defaultPort: "443",
+			expected:    "example.com:443",
+			expectError: false,
+		},
+		{
+			name:        "URL without scheme, with port",
+			url:         "example.com:9090",
+			defaultPort: "80",
+			expected:    "example.com:9090",
+			expectError: false,
+		},
+		{
+			name:        "URL without scheme, no port",
+			url:         "example.com",
+			defaultPort: "80",
+			expected:    "example.com:80",
+			expectError: false,
+		},
+		{
+			name:        "IP address with port",
+			url:         "192.168.1.1:8080",
+			defaultPort: "80",
+			expected:    "192.168.1.1:8080",
+			expectError: false,
+		},
+		{
+			name:        "IP address without port",
+			url:         "192.168.1.1",
+			defaultPort: "80",
+			expected:    "192.168.1.1:80",
+			expectError: false,
+		},
+		{
+			name:        "Invalid URL",
+			url:         "http://[invalid",
+			defaultPort: "80",
+			expected:    "",
+			expectError: true,
+		},
+		{
+			name:        "Empty URL",
+			url:         "",
+			defaultPort: "80",
+			expected:    "",
+			expectError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := SplitSchemeDefPort(tc.url, tc.defaultPort)
+
+			if tc.expectError {
+				if err == nil {
+					t.Errorf("Expected an error, but got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+				if result != tc.expected {
+					t.Errorf("Expected %q, but got %q", tc.expected, result)
+				}
+			}
+		})
+	}
+}
+
+func TestTopicConfigurationToMap(t *testing.T) {
+	testCases := []struct {
+		name        string
+		input       []*dataplanev1alpha1.Topic_Configuration
+		expected    types.Map
+		expectedErr string
+	}{
+		{
+			name:  "Empty configuration",
+			input: []*dataplanev1alpha1.Topic_Configuration{},
+			expected: func() types.Map {
+				m, _ := types.MapValue(types.StringType, map[string]attr.Value{})
+				return m
+			}(),
+			expectedErr: "",
+		},
+		{
+			name: "Single configuration",
+			input: []*dataplanev1alpha1.Topic_Configuration{
+				{Name: "retention.ms", Value: StringToStringPointer("86400000")},
+			},
+			expected: func() types.Map {
+				m, _ := types.MapValue(types.StringType, map[string]attr.Value{
+					"retention.ms": types.StringValue("86400000"),
+				})
+				return m
+			}(),
+			expectedErr: "",
+		},
+		{
+			name: "Multiple configurations",
+			input: []*dataplanev1alpha1.Topic_Configuration{
+				{Name: "retention.ms", Value: StringToStringPointer("86400000")},
+				{Name: "cleanup.policy", Value: StringToStringPointer("delete")},
+				{Name: "max.message.bytes", Value: StringToStringPointer("1000000")},
+			},
+			expected: func() types.Map {
+				m, _ := types.MapValue(types.StringType, map[string]attr.Value{
+					"retention.ms":      types.StringValue("86400000"),
+					"cleanup.policy":    types.StringValue("delete"),
+					"max.message.bytes": types.StringValue("1000000"),
+				})
+				return m
+			}(),
+			expectedErr: "",
+		},
+		{
+			name: "Configuration with nil value",
+			input: []*dataplanev1alpha1.Topic_Configuration{
+				{Name: "retention.ms", Value: StringToStringPointer("86400000")},
+				{Name: "cleanup.policy", Value: nil},
+			},
+			expected: func() types.Map {
+				m, _ := types.MapValue(types.StringType, map[string]attr.Value{
+					"retention.ms": types.StringValue("86400000"),
+				})
+				return m
+			}(),
+			expectedErr: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := TopicConfigurationToMap(tc.input)
+
+			if tc.expectedErr != "" {
+				if err == nil {
+					t.Errorf("Expected error %q, but got nil", tc.expectedErr)
+				} else if err.Error() != tc.expectedErr {
+					t.Errorf("Expected error %q, but got %q", tc.expectedErr, err.Error())
+				}
+			} else if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			if !reflect.DeepEqual(result, tc.expected) {
+				t.Errorf("Expected %+v, but got %+v", tc.expected, result)
+			}
+		})
+	}
+}
+
+func TestMapToCreateTopicConfiguration(t *testing.T) {
+	testCases := []struct {
+		name        string
+		input       types.Map
+		expected    []*dataplanev1alpha1.CreateTopicRequest_Topic_Config
+		expectedErr string
+	}{
+		{
+			name: "Empty configuration",
+			input: func() types.Map {
+				m, _ := types.MapValue(types.StringType, map[string]attr.Value{})
+				return m
+			}(),
+			expected:    nil,
+			expectedErr: "",
+		},
+		{
+			name: "Single configuration",
+			input: func() types.Map {
+				m, _ := types.MapValue(types.StringType, map[string]attr.Value{
+					"retention.ms": types.StringValue("86400000"),
+				})
+				return m
+			}(),
+			expected: []*dataplanev1alpha1.CreateTopicRequest_Topic_Config{
+				{Name: "retention.ms", Value: StringToStringPointer("86400000")},
+			},
+			expectedErr: "",
+		},
+		{
+			name: "Multiple configurations",
+			input: func() types.Map {
+				m, _ := types.MapValue(types.StringType, map[string]attr.Value{
+					"retention.ms":      types.StringValue("86400000"),
+					"cleanup.policy":    types.StringValue("delete"),
+					"max.message.bytes": types.StringValue("1000000"),
+				})
+				return m
+			}(),
+			expected: []*dataplanev1alpha1.CreateTopicRequest_Topic_Config{
+				{Name: "retention.ms", Value: StringToStringPointer("86400000")},
+				{Name: "cleanup.policy", Value: StringToStringPointer("delete")},
+				{Name: "max.message.bytes", Value: StringToStringPointer("1000000")},
+			},
+			expectedErr: "",
+		},
+		{
+			name: "Configuration with null value",
+			input: func() types.Map {
+				m, _ := types.MapValue(types.StringType, map[string]attr.Value{
+					"retention.ms":   types.StringValue("86400000"),
+					"cleanup.policy": types.StringNull(),
+				})
+				return m
+			}(),
+			expected:    nil,
+			expectedErr: "topic configuration \"cleanup.policy\" must have a value",
+		},
+		{
+			name: "Configuration with unknown value",
+			input: func() types.Map {
+				m, _ := types.MapValue(types.StringType, map[string]attr.Value{
+					"retention.ms":   types.StringValue("86400000"),
+					"cleanup.policy": types.StringUnknown(),
+				})
+				return m
+			}(),
+			expected:    nil,
+			expectedErr: "topic configuration \"cleanup.policy\" must have a value",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := MapToCreateTopicConfiguration(tc.input)
+
+			if tc.expectedErr != "" {
+				if err == nil {
+					t.Errorf("Expected error %q, but got nil", tc.expectedErr)
+				} else if err.Error() != tc.expectedErr {
+					t.Errorf("Expected error %q, but got %q", tc.expectedErr, err.Error())
+				}
+			} else if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			if !reflect.DeepEqual(result, tc.expected) {
+				t.Errorf("Expected %+v, but got %+v", tc.expected, result)
+			}
+		})
+	}
+}
+
+func TestFindTopicByName(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockClient := mocks.NewMockTopicServiceClient(ctrl)
+
+	testCases := []struct {
+		name          string
+		setupMock     func()
+		inputName     string
+		expectedTopic *dataplanev1alpha1.ListTopicsResponse_Topic
+		expectedErr   string
+	}{
+		{
+			name: "Topic found",
+			setupMock: func() {
+				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1alpha1.ListTopicsRequest{
+					Filter: &dataplanev1alpha1.ListTopicsRequest_Filter{
+						NameContains: "test-topic",
+					},
+				}).Return(&dataplanev1alpha1.ListTopicsResponse{
+					Topics: []*dataplanev1alpha1.ListTopicsResponse_Topic{
+						{Name: "test-topic"},
+						{Name: "another-topic"},
+					},
+				}, nil)
+			},
+			inputName:     "test-topic",
+			expectedTopic: &dataplanev1alpha1.ListTopicsResponse_Topic{Name: "test-topic"},
+			expectedErr:   "",
+		},
+		{
+			name: "Topic not found",
+			setupMock: func() {
+				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1alpha1.ListTopicsRequest{
+					Filter: &dataplanev1alpha1.ListTopicsRequest_Filter{
+						NameContains: "non-existent-topic",
+					},
+				}).Return(&dataplanev1alpha1.ListTopicsResponse{
+					Topics: []*dataplanev1alpha1.ListTopicsResponse_Topic{
+						{Name: "test-topic"},
+						{Name: "another-topic"},
+					},
+				}, nil)
+			},
+			inputName:     "non-existent-topic",
+			expectedTopic: nil,
+			expectedErr:   "topic non-existent-topic not found",
+		},
+		{
+			name: "ListTopics error",
+			setupMock: func() {
+				mockClient.EXPECT().ListTopics(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("connection error"))
+			},
+			inputName:     "test-topic",
+			expectedTopic: nil,
+			expectedErr:   "connection error",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.setupMock()
+
+			topic, err := FindTopicByName(context.Background(), tc.inputName, mockClient)
+
+			if tc.expectedErr != "" {
+				if err == nil {
+					t.Errorf("Expected error %q, but got nil", tc.expectedErr)
+				} else if err.Error() != tc.expectedErr {
+					t.Errorf("Expected error %q, but got %q", tc.expectedErr, err.Error())
+				}
+			} else if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			if !reflect.DeepEqual(topic, tc.expectedTopic) {
+				t.Errorf("Expected topic %+v, but got %+v", tc.expectedTopic, topic)
+			}
+		})
+	}
+}
+
+func TestGetClusterUntilRunningState(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockClient := mocks.NewMockCpClientSet(ctrl)
+	ctx := context.Background()
+
+	testCases := []struct {
+		name            string
+		clusterName     string
+		limit           int
+		setupMock       func()
+		wait            time.Duration
+		expectedCluster *controlplanev1beta2.Cluster
+		expectedErr     string
+	}{
+		{
+			name:        "Cluster becomes ready immediately",
+			clusterName: "test-cluster",
+			limit:       5,
+			wait:        1 * time.Second,
+			setupMock: func() {
+				mockClient.EXPECT().ClusterForName(gomock.Any(), "test-cluster").Return(
+					&controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_READY}, nil,
+				)
+			},
+			expectedCluster: &controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_READY},
+			expectedErr:     "",
+		},
+		{
+			name:        "Cluster becomes ready after multiple attempts",
+			clusterName: "test-cluster",
+			limit:       5,
+			wait:        1 * time.Second,
+			setupMock: func() {
+				gomock.InOrder(
+					mockClient.EXPECT().ClusterForName(gomock.Any(), "test-cluster").Return(
+						&controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_CREATING}, nil,
+					),
+					mockClient.EXPECT().ClusterForName(gomock.Any(), "test-cluster").Return(
+						&controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_READY}, nil,
+					),
+				)
+			},
+			expectedCluster: &controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_READY},
+			expectedErr:     "",
+		},
+		{
+			name:        "Cluster not found",
+			clusterName: "non-existent-cluster",
+			wait:        1 * time.Second,
+			limit:       5,
+			setupMock: func() {
+				mockClient.EXPECT().ClusterForName(gomock.Any(), "non-existent-cluster").Return(
+					nil, fmt.Errorf("cluster not found"),
+				).AnyTimes()
+			},
+			expectedCluster: nil,
+			expectedErr:     "cluster \"non-existent-cluster\" did not reach the running state after 5 attempts",
+		},
+		{
+			name:        "Timeout reached",
+			clusterName: "slow-cluster",
+			limit:       3,
+			wait:        1 * time.Second,
+			setupMock: func() {
+				mockClient.EXPECT().ClusterForName(gomock.Any(), "slow-cluster").Return(
+					&controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_CREATING}, nil,
+				).AnyTimes()
+			},
+			expectedCluster: nil,
+			expectedErr:     "cluster \"slow-cluster\" did not reach the running state after 3 attempts",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.setupMock()
+			cluster, err := GetClusterUntilRunningState(ctx, 0, tc.limit, tc.clusterName, tc.wait, mockClient)
+
+			if tc.expectedErr != "" {
+				if err == nil {
+					t.Errorf("Expected error %q, but got nil", tc.expectedErr)
+				} else if err.Error() != tc.expectedErr {
+					t.Errorf("Expected error %q, but got %q", tc.expectedErr, err.Error())
+				}
+			} else if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			if !reflect.DeepEqual(cluster, tc.expectedCluster) {
+				t.Errorf("Expected cluster %+v, but got %+v", tc.expectedCluster, cluster)
+			}
+		})
+	}
+}
+
+func TestGetServerlessClusterUntilRunningState(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockClient := mocks.NewMockCpClientSet(ctrl)
+	ctx := context.Background()
+
+	testCases := []struct {
+		name            string
+		clusterName     string
+		limit           int
+		setupMock       func()
+		expectedCluster *controlplanev1beta2.ServerlessCluster
+		expectedErr     string
+	}{
+		{
+			name:        "Cluster becomes ready immediately",
+			clusterName: "test-cluster",
+			limit:       5,
+			setupMock: func() {
+				mockClient.EXPECT().ServerlessClusterForName(gomock.Any(), "test-cluster").Return(
+					&controlplanev1beta2.ServerlessCluster{State: controlplanev1beta2.ServerlessCluster_STATE_READY}, nil,
+				)
+			},
+			expectedCluster: &controlplanev1beta2.ServerlessCluster{State: controlplanev1beta2.ServerlessCluster_STATE_READY},
+			expectedErr:     "",
+		},
+		{
+			name:        "Cluster becomes ready after multiple attempts",
+			clusterName: "test-cluster",
+			limit:       5,
+			setupMock: func() {
+				gomock.InOrder(
+					mockClient.EXPECT().ServerlessClusterForName(gomock.Any(), "test-cluster").Return(
+						&controlplanev1beta2.ServerlessCluster{State: controlplanev1beta2.ServerlessCluster_STATE_CREATING}, nil,
+					),
+					mockClient.EXPECT().ServerlessClusterForName(gomock.Any(), "test-cluster").Return(
+						&controlplanev1beta2.ServerlessCluster{State: controlplanev1beta2.ServerlessCluster_STATE_READY}, nil,
+					),
+				)
+			},
+			expectedCluster: &controlplanev1beta2.ServerlessCluster{State: controlplanev1beta2.ServerlessCluster_STATE_READY},
+			expectedErr:     "",
+		},
+		{
+			name:        "Cluster not found",
+			clusterName: "non-existent-cluster",
+			limit:       5,
+			setupMock: func() {
+				mockClient.EXPECT().ServerlessClusterForName(gomock.Any(), "non-existent-cluster").Return(
+					nil, fmt.Errorf("cluster not found"),
+				).AnyTimes()
+			},
+			expectedCluster: nil,
+			expectedErr:     "serverless cluster \"non-existent-cluster\" did not reach the running state after 5 attempts",
+		},
+		{
+			name:        "Timeout reached",
+			clusterName: "slow-cluster",
+			limit:       3,
+			setupMock: func() {
+				mockClient.EXPECT().ServerlessClusterForName(gomock.Any(), "slow-cluster").Return(
+					&controlplanev1beta2.ServerlessCluster{State: controlplanev1beta2.ServerlessCluster_STATE_CREATING}, nil,
+				).AnyTimes()
+			},
+			expectedCluster: nil,
+			expectedErr:     "serverless cluster \"slow-cluster\" did not reach the running state after 3 attempts",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.setupMock()
+
+			cluster, err := GetServerlessClusterUntilRunningState(ctx, 0, tc.limit, tc.clusterName, mockClient)
+
+			if tc.expectedErr != "" {
+				if err == nil {
+					t.Errorf("Expected error %q, but got nil", tc.expectedErr)
+				} else if err.Error() != tc.expectedErr {
+					t.Errorf("Expected error %q, but got %q", tc.expectedErr, err.Error())
+				}
+			} else if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			if !reflect.DeepEqual(cluster, tc.expectedCluster) {
+				t.Errorf("Expected cluster %+v, but got %+v", tc.expectedCluster, cluster)
 			}
 		})
 	}
