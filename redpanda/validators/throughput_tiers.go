@@ -9,17 +9,21 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
+// ThroughputTierValidator is a custom validator that ensures that the throughput tier is valid for the given cloud provider, region, and zones
 type ThroughputTierValidator struct{}
 
-func (v ThroughputTierValidator) Description(ctx context.Context) string {
+// Description provides a description of the validator
+func (ThroughputTierValidator) Description(_ context.Context) string {
 	return "ensures that the throughput tier is valid for the given cloud provider, region, and zones"
 }
 
-func (v ThroughputTierValidator) MarkdownDescription(ctx context.Context) string {
+// MarkdownDescription provides a description of the validator in markdown format
+func (ThroughputTierValidator) MarkdownDescription(_ context.Context) string {
 	return "Ensures that the throughput tier is valid for the given cloud provider, region, and zones"
 }
 
-func (v ThroughputTierValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+// ValidateString validates a string
+func (ThroughputTierValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
 	if req.ConfigValue.IsUnknown() || req.ConfigValue.IsNull() {
 		return
 	}

@@ -135,3 +135,25 @@ test-destroy:
     TF_LOG=DEBUG && \
 	terraform init && \
 	terraform destroy -auto-approve
+
+
+# Define the directory where the mocks are located
+MOCKS_DIR := redpanda/mocks
+
+# Task to generate all mocks
+.PHONY: generate-mocks
+generate-mocks:
+	@echo "Generating mocks..."
+	@cd $(MOCKS_DIR) && go generate
+	@echo "Mocks generated successfully."
+
+# Task to clean generated mocks
+.PHONY: clean-mocks
+clean-mocks:
+	@echo "Cleaning generated mocks..."
+	@rm -f $(MOCKS_DIR)/mock_*.go
+	@echo "Mocks cleaned successfully."
+
+# Task to both clean and regenerate mocks
+.PHONY: refresh-mocks
+refresh-mocks: clean-mocks generate-mocks

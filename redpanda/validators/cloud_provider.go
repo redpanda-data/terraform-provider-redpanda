@@ -18,15 +18,16 @@ type CloudProviderDependentValidator struct {
 }
 
 // Description provides a description of the validator
-func (v CloudProviderDependentValidator) Description(ctx context.Context) string {
+func (v CloudProviderDependentValidator) Description(_ context.Context) string {
 	return fmt.Sprintf("ensures that %s is only set when cloud_provider is %s", v.AttributeName, v.CloudProvider)
 }
 
 // MarkdownDescription provides a description of the validator in markdown format
-func (v CloudProviderDependentValidator) MarkdownDescription(ctx context.Context) string {
+func (v CloudProviderDependentValidator) MarkdownDescription(_ context.Context) string {
 	return fmt.Sprintf("Ensures that `%s` is only set when `cloud_provider` is `%s`", v.AttributeName, v.CloudProvider)
 }
 
+// ValidateObject validates an object
 func (v CloudProviderDependentValidator) ValidateObject(ctx context.Context, req validator.ObjectRequest, resp *validator.ObjectResponse) {
 	var cloudProvider types.String
 	if diags := req.Config.GetAttribute(ctx, req.Path.ParentPath().AtName("cloud_provider"), &cloudProvider); diags.HasError() {
