@@ -58,12 +58,12 @@ func TestGenerateClusterRequest(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got, _ := GenerateClusterRequest(tt.args.model); !reflect.DeepEqual(got, tt.want) {
+			if got, _ := generateClusterRequest(tt.args.model); !reflect.DeepEqual(got, tt.want) {
 				fmt.Println("got")
 				spew.Dump(got)
 				fmt.Println("want")
 				spew.Dump(tt.want)
-				t.Errorf("GenerateClusterRequest() = %v, want %v", got, tt.want)
+				t.Errorf("generateClusterRequest() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -361,7 +361,7 @@ func TestGenerateModel(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := GenerateModel(ctx, tc.cfg, tc.cluster)
+			result, err := generateModel(ctx, tc.cfg, tc.cluster)
 
 			if tc.wantErr {
 				assert.Error(t, err)
