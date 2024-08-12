@@ -729,7 +729,11 @@ func toMtlsModel(ctx context.Context, mtls *controlplanev1beta2.MTLSSpec) (*mode
 
 func toMtlsSpec(mtls *models.Mtls) *controlplanev1beta2.MTLSSpec {
 	if isMtlsStructNil(mtls) {
-		return emptyMtlsSpec()
+		return &controlplanev1beta2.MTLSSpec{
+			Enabled:               false,
+			CaCertificatesPem:     make([]string, 0),
+			PrincipalMappingRules: make([]string, 0),
+		}
 	}
 	return &controlplanev1beta2.MTLSSpec{
 		Enabled:               mtls.Enabled.ValueBool(),
@@ -762,14 +766,6 @@ func isMtlsStructNil(m *models.Mtls) bool {
 
 func isMtlsSpecNil(m *controlplanev1beta2.MTLSSpec) bool {
 	return m == nil || (!m.GetEnabled() && len(m.GetCaCertificatesPem()) == 0 && len(m.GetPrincipalMappingRules()) == 0)
-}
-
-func emptyMtlsSpec() *controlplanev1beta2.MTLSSpec {
-	return &controlplanev1beta2.MTLSSpec{
-		Enabled:               false,
-		CaCertificatesPem:     make([]string, 0),
-		PrincipalMappingRules: make([]string, 0),
-	}
 }
 
 func isAwsPrivateLinkStructNil(m *models.AwsPrivateLink) bool {
