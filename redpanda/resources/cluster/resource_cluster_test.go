@@ -293,6 +293,7 @@ func TestGenerateModel(t *testing.T) {
 				AwsPrivateLink: &models.AwsPrivateLink{
 					Enabled:           types.BoolValue(true),
 					AllowedPrincipals: utils.TestingOnlyStringSliceToTypeList([]string{"arn:aws:iam::123456789012:root"}),
+					ConnectConsole:    types.BoolValue(false),
 				},
 			},
 			wantErr: false,
