@@ -372,3 +372,66 @@ func TestGenerateModel(t *testing.T) {
 		})
 	}
 }
+
+func TestIsMtlsNil(t *testing.T) {
+	tests := []struct {
+		name      string
+		container interface{}
+		want      bool
+	}{
+		{
+			name:      "KafkaAPI with nil Mtls",
+			container: &models.KafkaAPI{Mtls: nil},
+			want:      true,
+		},
+		{
+			name: "KafkaAPI with non-nil Mtls",
+			container: &models.KafkaAPI{Mtls: &models.Mtls{
+				Enabled: types.BoolValue(true),
+			}},
+			want: false,
+		},
+		{
+			name:      "HTTPProxy with nil Mtls",
+			container: &models.HTTPProxy{Mtls: nil},
+			want:      true,
+		},
+		{
+			name: "HTTPProxy with non-nil Mtls",
+			container: &models.HTTPProxy{Mtls: &models.Mtls{
+				Enabled: types.BoolValue(true),
+			}},
+			want: false,
+		},
+		{
+			name:      "SchemaRegistry with nil Mtls",
+			container: &models.SchemaRegistry{Mtls: nil},
+			want:      true,
+		},
+		{
+			name: "SchemaRegistry with non-nil Mtls",
+			container: &models.SchemaRegistry{Mtls: &models.Mtls{
+				Enabled: types.BoolValue(true),
+			}},
+			want: false,
+		},
+		{
+			name:      "Nil container",
+			container: nil,
+			want:      true,
+		},
+		{
+			name:      "Non-struct container",
+			container: "not a struct",
+			want:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isMtlsNil(tt.container); got != tt.want {
+				t.Errorf("isMtlsNil() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
