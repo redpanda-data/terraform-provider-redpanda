@@ -394,7 +394,7 @@ func GetServerlessClusterUntilRunningState(ctx context.Context, count, limit int
 func TypeMapToStringMap(tags types.Map) map[string]string {
 	tagsMap := make(map[string]string)
 	for k, v := range tags.Elements() {
-		tagsMap[k] = strings.ReplaceAll(v.String(), "\"", "")
+		tagsMap[k] = strings.ReplaceAll(strings.ReplaceAll(v.String(), "\\", ""), "\"", "")
 	}
 	return tagsMap
 }
