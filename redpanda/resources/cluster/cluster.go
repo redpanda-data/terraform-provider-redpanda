@@ -67,6 +67,7 @@ func toMtlsSpec(mtls *models.Mtls) *controlplanev1beta2.MTLSSpec {
 		PrincipalMappingRules: utils.TypeListToStringSlice(mtls.PrincipalMappingRules),
 	}
 }
+
 func isMtlsNil(container any) bool {
 	v := reflect.ValueOf(container)
 	if v.Kind() != reflect.Struct && v.Kind() != reflect.Ptr {

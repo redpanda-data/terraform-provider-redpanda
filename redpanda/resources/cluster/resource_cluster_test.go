@@ -376,7 +376,7 @@ func TestGenerateModel(t *testing.T) {
 func TestIsMtlsNil(t *testing.T) {
 	tests := []struct {
 		name      string
-		container interface{}
+		container any
 		want      bool
 	}{
 		{
