@@ -26,3 +26,10 @@ terraform-provider-redpanda
 tools/tfplugindocs
 
 .idea/**
+
+**.terraform.d**
+**.terraform**
+**terraform.tfstate**
+**terraform.tfstate.backup**
+terraform-provider-hashicorp
+**/.tmp_*

@@ -30,7 +30,7 @@ resource "redpanda_cluster" "test" {
   azure_private_link = {
     enabled         = true
     connect_console = true
-    allowed_principals = ["12345678-1234-1234-1234-123456789012"]
+    allowed_subscriptions = ["12345678-1234-1234-1234-123456789012"]
   }
 }
 
