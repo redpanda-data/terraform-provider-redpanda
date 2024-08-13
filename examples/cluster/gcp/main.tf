@@ -24,9 +24,9 @@ resource "redpanda_cluster" "test" {
   throughput_tier   = var.throughput_tier
   zones             = var.zones
   allow_deletion    = true
-  tags = {
-    "key" = "value"
-  }
+  #   tags = {
+  #     "key" = "value"
+  #   }
   #   gcp_private_service_connect = {
   #     enabled               = true
   #     global_access_enabled = true
@@ -63,7 +63,7 @@ variable "cloud_provider" {
 }
 
 variable "throughput_tier" {
-  default = "tier-1-gcp-um4g"
+  default = "tier-1-gcp-v2-x86"
 }
 
 

@@ -91,50 +91,77 @@ linter:
 # Allow overriding these variables from the environment
 OS ?= $(shell go env GOOS)
 ARCH ?= $(shell go env GOARCH)
-PROVIDER_VERSION ?= 0.5.2
+PROVIDER_VERSION ?= 0.7.1
+PROVIDER_NAMESPACE ?= redpanda_data
 PROVIDER_NAME ?= redpanda
-PROVIDER_NAMESPACE ?= redpanda-data
 CONTENT_ROOT ?= $(PWD)
-PROVIDER_DIR := $(CONTENT_ROOT)/.terraform.d/plugins/registry.terraform.io/$(PROVIDER_NAMESPACE)/$(PROVIDER_NAME)/$(PROVIDER_VERSION)/$(OS)_$(ARCH)
+CLOUD_PROVIDER ?= aws
+TEST_TYPE ?= cluster
+TF_CONFIG_DIR ?= examples/$(TEST_TYPE)/$(CLOUD_PROVIDER)
+PROVIDER_DIR := .terraform.d/plugins/registry.terraform.io/$(PROVIDER_NAMESPACE)/$(PROVIDER_NAME)/$(PROVIDER_VERSION)/$(OS)_$(ARCH)
 
 # Path to the built provider binary
 PROVIDER_BINARY := $(PWD)/terraform-provider-$(PROVIDER_NAME)
 
-build:
+.PHONY: build-provider
+build-provider:
 	@echo "building terraform provider..."
 	@$(GOCMD) build -o $(PROVIDER_BINARY)
 
+BINARY_LOC :=  $(TF_CONFIG_DIR)/$(PROVIDER_DIR)/terraform-provider-$(PROVIDER_NAME)_v$(PROVIDER_VERSION)
 .PHONY: move-provider
-move-provider: build
+move-provider:
 	@echo "moving provider binary to content root..."
-	@mkdir -p $(PROVIDER_DIR)
-	@cp $(PROVIDER_BINARY) $(PROVIDER_DIR)/terraform-provider-$(PROVIDER_NAME)_v$(PROVIDER_VERSION)
+	@echo "PROVIDER_DIR: $(PROVIDER_DIR)"
+	@echo "BINARY_LOC: $(BINARY_LOC)"
+	@mkdir -p $(TF_CONFIG_DIR)/$(PROVIDER_DIR)
+	@cp $(PROVIDER_BINARY) $(BINARY_LOC)
 
-.PHONY: test-actual
-test-actual: build test-create test-destroy
+.PHONY: standup
+standup: build-provider move-provider test-create
 
-TF_CONFIG_DIR ?= examples/bulk-res
+.PHONY: teardown
+teardown: test-destroy
+
+PREFIX ?= tfrp-local
+TEMP_FILE := .tmp_$(CLOUD_PROVIDER)
+RANDOM_STRING := $(shell LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 4)
+define GET_OR_CREATE_RESOURCE_NAME
+$(shell \
+    if [ -f $(TEMP_FILE) ]; then \
+        cat $(TEMP_FILE); \
+    else \
+        echo "$(PREFIX)-$(RANDOM_STRING)" | tee $(TEMP_FILE); \
+    fi \
+)
+endef
+
 .PHONY: test-create
 test-create:
 	@echo "Applying Terraform configuration..."
+	@echo "TF_CONFIG_DIR: $(TF_CONFIG_DIR)"
 	@cd $(TF_CONFIG_DIR) && \
 	REDPANDA_CLIENT_ID="$${REDPANDA_CLIENT_ID}" \
 	REDPANDA_CLIENT_SECRET="$${REDPANDA_CLIENT_SECRET}" \
 	REDPANDA_CLOUD_ENVIRONMENT="$${REDPANDA_CLOUD_ENVIRONMENT}" \
 	TF_LOG=DEBUG \
 	TF_INSECURE_SKIP_PROVIDER_VERIFICATION=true \
-	TF_PLUGIN_DIR=$(PROVIDER_DIR)
-	terraform init && \
-	terraform apply -parallelism 10 -auto-approve
+	TF_PLUGIN_CACHE_DIR=.terraform.d/plugins_cache \
+    terraform init -plugin-dir=.terraform.d/plugins && \
+	terraform apply -auto-approve -var="resource_group_name=$(call GET_OR_CREATE_RESOURCE_NAME)" -var="network_name=$(call GET_OR_CREATE_RESOURCE_NAME)" -var="cluster_name=$(call GET_OR_CREATE_RESOURCE_NAME)"
 
 .PHONY: test-destroy
 test-destroy:
 	@echo "Destroying Terraform configuration..."
 	@cd $(TF_CONFIG_DIR) && \
-	REDPANDA_CLIENT_ID="$${REDPANDA_CLIENT_ID}" && \
-    TF_LOG=DEBUG && \
-	terraform init && \
-	terraform destroy -auto-approve
+	REDPANDA_CLIENT_ID="$${REDPANDA_CLIENT_ID}" \
+	REDPANDA_CLIENT_SECRET="$${REDPANDA_CLIENT_SECRET}" \
+	REDPANDA_CLOUD_ENVIRONMENT="$${REDPANDA_CLOUD_ENVIRONMENT}" \
+    TF_LOG=DEBUG \
+	TF_INSECURE_SKIP_PROVIDER_VERIFICATION=true \
+	TF_PLUGIN_CACHE_DIR=.terraform.d/plugins_cache \
+    terraform init -plugin-dir=.terraform.d/plugins && \
+	terraform destroy -auto-approve -var="resource_group_name=$(call GET_OR_CREATE_RESOURCE_NAME)" -var="network_name=$(call GET_OR_CREATE_RESOURCE_NAME)" -var="cluster_name=$(call GET_OR_CREATE_RESOURCE_NAME)"
 
 
 # Define the directory where the mocks are located
