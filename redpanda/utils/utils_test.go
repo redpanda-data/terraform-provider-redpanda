@@ -150,6 +150,11 @@ func TestTypeMapToStringMap(t *testing.T) {
 			want: map[string]string{"key": "value"},
 		},
 		{
+			name: "Single key with quotes",
+			args: args{tags: mustMap(t, map[string]string{"key": `"value"`})},
+			want: map[string]string{"key": "value"},
+		},
+		{
 			name: "Multiple keys",
 			args: args{tags: mustMap(t, map[string]string{"key1": "value1", "key2": "value2"})},
 			want: map[string]string{"key1": "value1", "key2": "value2"},
