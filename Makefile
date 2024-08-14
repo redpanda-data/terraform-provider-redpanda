@@ -78,10 +78,15 @@ install_lint:
 .PHONY: linter
 linter:
 	@if [ "$$BUILDKITE" = "true" ]; then \
-		GOFLAGS="-buildvcs=false" golangci-lint run; \
+		GOFLAGS="-buildvcs=false" $(GOLANGCILINTCMD) run; \
 	else \
-		golangci-lint run; \
+		$(GOLANGCILINTCMD) run; \
 	fi
+
+.PHONY: fix-lint
+fix-lint:
+	@echo "running gofumpt..."
+	@$(GOLANGCILINTCMD) run --fix
 
 OS ?= $(shell go env GOOS)
 ARCH ?= $(shell go env GOARCH)
