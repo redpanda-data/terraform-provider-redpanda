@@ -396,5 +396,8 @@ func TypeMapToStringMap(tags types.Map) map[string]string {
 	for k, v := range tags.Elements() {
 		tagsMap[k] = strings.ReplaceAll(strings.ReplaceAll(v.String(), "\\", ""), "\"", "")
 	}
+	if len(tagsMap) == 0 {
+		return nil
+	}
 	return tagsMap
 }
