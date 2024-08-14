@@ -1,5 +1,3 @@
-.PHONY: all doc int unit test lint linter tfplugindocs_install generate_docs integration_tests unit_tests install_gofumpt install_lint build
-
 GOBIN := $(PWD)/tools
 TFPLUGINDOCSCMD := $(GOBIN)/tfplugindocs
 GOCMD=go
@@ -7,64 +5,58 @@ BUFCMD=buf
 GOFUMPTCMD=gofumpt
 GOLANGCILINTCMD=golangci-lint
 
+.PHONY: all
 all: doc lint test
 
+.PHONY: doc
 doc: tfplugindocs_install generate_docs
 
-int: integration_tests
+.PHONY: int
+int: all_integration_tests
 
+.PHONY: unit
 unit: unit_tests
 
-test: unit_tests integration_tests
+.PHONY: test
+test: unit_tests all_integration_tests
 
+.PHONY: lint
 lint: install_gofumpt install_lint linter
 
+.PHONY: ready
 ready: doc lint tidy
 
+.PHONY: tidy
 tidy:
 	@echo "running go mod tidy..."
 	@$(GOCMD) mod tidy
 
+.PHONY: tfplugindocs_install
 tfplugindocs_install:
 	@echo "installing tfplugindocs..."
 	@GOBIN=$(GOBIN) $(GOCMD) install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@latest
 
+.PHONY: generate_docs
 generate_docs: tfplugindocs_install
 	@echo "generating provider_documentation..."
 	@$(TFPLUGINDOCSCMD)
 
-integration_tests:
+REDPANDA_CLIENT_ID ?= $(or $(INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID),$(REDPANDA_CLIENT_ID))
+REDPANDA_CLIENT_SECRET ?= $(or $(INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET),$(REDPANDA_CLIENT_SECRET))
+
+.PHONY: all_integration_tests
+all_integration_tests:
 	@echo "running integration tests..."
 	@DEBUG=true \
-	REDPANDA_CLIENT_ID=$${REDPANDA_CLIENT_ID} \
-	REDPANDA_CLIENT_SECRET=$${REDPANDA_CLIENT_SECRET} \
+	REDPANDA_CLIENT_ID=$(REDPANDA_CLIENT_ID) \
+	REDPANDA_CLIENT_SECRET=$(REDPANDA_CLIENT_SECRET) \
 	RUN_CLUSTER_TESTS=true \
 	TF_ACC=true \
 	TF_LOG=DEBUG \
 	VERSION=ign \
 	$(GOCMD) test -v -parallel=5 -timeout=0 ./redpanda/tests
 
-bulk_tests_data:
-	@echo "running bulk tests..."
-	@DEBUG=true \
-	REDPANDA_CLIENT_ID=$${REDPANDA_CLIENT_ID} \
-	REDPANDA_CLIENT_SECRET=$${REDPANDA_CLIENT_SECRET} \
-	BULK_CLUSTER_ID=$${BULK_CLUSTER_ID} \
-	RUN_BULK_TESTS=true \
-	TF_ACC=true \
-	VERSION=ign \
-	$(GOCMD) test -v -parallel=5 -timeout=0 -run TestAccResourcesBulkData ./redpanda/tests
-
-bulk_tests_res:
-	@echo "running bulk tests..."
-	@DEBUG=true \
-	REDPANDA_CLIENT_ID=$${REDPANDA_CLIENT_ID} \
-	REDPANDA_CLIENT_SECRET=$${REDPANDA_CLIENT_SECRET} \
-	RUN_BULK_TESTS=true \
-	TF_ACC=true \
-	VERSION=ign \
-	$(GOCMD) test -v -parallel=5 -timeout=0 -run TestAccResourcesBulkRes ./redpanda/tests
-
+.PHONY: unit_tests
 unit_tests:
 	@echo "running unit tests..."
 	@DEBUG=true \
@@ -73,22 +65,24 @@ unit_tests:
 	RUN_CLUSTER_TESTS=false \
 	$(GOCMD) test -short ./...
 
+.PHONY: install_gofumpt
 install_gofumpt:
 	@echo "installing gofumpt..."
 	@$(GOCMD) install mvdan.cc/gofumpt@v0.6.0
 
+.PHONY: install_lint
 install_lint:
 	@echo "installing linter..."
 	@$(GOCMD) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
 
+.PHONY: linter
 linter:
-	@echo "running gofumpt..."
-	@$(GOFUMPTCMD) -w -d .
-	@echo "running linter..."
-	@$(GOLANGCILINTCMD) run --config=.golangci.yml
+	@if [ "$$BUILDKITE" = "true" ]; then \
+		GOFLAGS="-buildvcs=false" golangci-lint run; \
+	else \
+		golangci-lint run; \
+	fi
 
-
-# Allow overriding these variables from the environment
 OS ?= $(shell go env GOOS)
 ARCH ?= $(shell go env GOARCH)
 PROVIDER_VERSION ?= 0.7.1
@@ -100,7 +94,7 @@ TEST_TYPE ?= cluster
 TF_CONFIG_DIR ?= examples/$(TEST_TYPE)/$(CLOUD_PROVIDER)
 PROVIDER_DIR := .terraform.d/plugins/registry.terraform.io/$(PROVIDER_NAMESPACE)/$(PROVIDER_NAME)/$(PROVIDER_VERSION)/$(OS)_$(ARCH)
 
-# Path to the built provider binary
+# path to the built binary
 PROVIDER_BINARY := $(PWD)/terraform-provider-$(PROVIDER_NAME)
 
 .PHONY: build-provider
@@ -141,8 +135,8 @@ test-create:
 	@echo "Applying Terraform configuration..."
 	@echo "TF_CONFIG_DIR: $(TF_CONFIG_DIR)"
 	@cd $(TF_CONFIG_DIR) && \
-	REDPANDA_CLIENT_ID="$${REDPANDA_CLIENT_ID}" \
-	REDPANDA_CLIENT_SECRET="$${REDPANDA_CLIENT_SECRET}" \
+	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
+	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
 	REDPANDA_CLOUD_ENVIRONMENT="$${REDPANDA_CLOUD_ENVIRONMENT}" \
 	TF_LOG=DEBUG \
 	TF_INSECURE_SKIP_PROVIDER_VERIFICATION=true \
@@ -184,3 +178,62 @@ clean-mocks:
 # Task to both clean and regenerate mocks
 .PHONY: refresh-mocks
 refresh-mocks: clean-mocks generate-mocks
+
+.PHONY: test_network
+test_network:
+	@echo "Running TestAccResourcesNetwork..."
+	@DEBUG=true \
+	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
+	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
+	TF_ACC=true \
+	TF_LOG=DEBUG \
+	VERSION=ign \
+	$(GOCMD) test -v -timeout=4h ./redpanda/tests -run TestAccResourcesNetwork
+
+.PHONY: test_cluster_aws
+test_cluster_aws:
+	@echo "Running TestAccResourcesClusterAWS..."
+	@DEBUG=true \
+	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
+	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
+	RUN_CLUSTER_TESTS=true \
+	TF_ACC=true \
+	TF_LOG=DEBUG \
+	VERSION=ign \
+	$(GOCMD) test -v -timeout=4h ./redpanda/tests -run TestAccResourcesClusterAWS
+
+.PHONY: test_cluster_azure
+test_cluster_azure:
+	@echo "Running TestAccResourcesClusterAzure..."
+	@DEBUG=true \
+	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
+	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
+	RUN_CLUSTER_TESTS=true \
+	TF_ACC=true \
+	TF_LOG=DEBUG \
+	VERSION=ign \
+	$(GOCMD) test -v -timeout=4h ./redpanda/tests -run TestAccResourcesClusterAzure
+
+.PHONY: test_cluster_gcp
+test_cluster_gcp:
+	@echo "Running TestAccResourcesClusterGCP..."
+	@DEBUG=true \
+	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
+	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
+	RUN_CLUSTER_TESTS=true \
+	TF_ACC=true \
+	TF_LOG=DEBUG \
+	VERSION=ign \
+	$(GOCMD) test -v -timeout=4h ./redpanda/tests -run TestAccResourcesClusterGCP
+
+.PHONY: test_serverless_cluster
+test_serverless_cluster:
+	@echo "Running TestAccResourcesStrippedDownServerlessCluster..."
+	@DEBUG=true \
+	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
+	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
+	RUN_SERVERLESS_TESTS=true \
+	TF_ACC=true \
+	TF_LOG=DEBUG \
+	VERSION=ign \
+	$(GOCMD) test -v -timeout=4h ./redpanda/tests -run TestAccResourcesStrippedDownServerlessCluster
