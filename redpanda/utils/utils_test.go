@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sort"
 	"testing"
 	"time"
 
@@ -482,15 +483,15 @@ func TestMapToCreateTopicConfiguration(t *testing.T) {
 			name: "Multiple configurations",
 			input: func() types.Map {
 				m, _ := types.MapValue(types.StringType, map[string]attr.Value{
-					"retention.ms":      types.StringValue("86400000"),
 					"cleanup.policy":    types.StringValue("delete"),
+					"retention.ms":      types.StringValue("86400000"),
 					"max.message.bytes": types.StringValue("1000000"),
 				})
 				return m
 			}(),
 			expected: []*dataplanev1alpha1.CreateTopicRequest_Topic_Config{
-				{Name: "retention.ms", Value: StringToStringPointer("86400000")},
 				{Name: "cleanup.policy", Value: StringToStringPointer("delete")},
+				{Name: "retention.ms", Value: StringToStringPointer("86400000")},
 				{Name: "max.message.bytes", Value: StringToStringPointer("1000000")},
 			},
 			expectedErr: "",
@@ -524,7 +525,6 @@ func TestMapToCreateTopicConfiguration(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result, err := MapToCreateTopicConfiguration(tc.input)
-
 			if tc.expectedErr != "" {
 				if err == nil {
 					t.Errorf("Expected error %q, but got nil", tc.expectedErr)
@@ -534,6 +534,14 @@ func TestMapToCreateTopicConfiguration(t *testing.T) {
 			} else if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
+			
+			sort.Slice(tc.expected, func(i, j int) bool {
+				return tc.expected[i].Name < tc.expected[j].Name
+			})
+
+			sort.Slice(result, func(i, j int) bool {
+				return result[i].Name < result[j].Name
+			})
 
 			if !reflect.DeepEqual(result, tc.expected) {
 				t.Errorf("Expected %+v, but got %+v", tc.expected, result)

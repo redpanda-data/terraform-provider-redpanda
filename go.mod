@@ -1,8 +1,6 @@
 module github.com/redpanda-data/terraform-provider-redpanda
 
-go 1.22.2
-
-toolchain go1.22.3
+go 1.22.4
 
 require (
 	buf.build/gen/go/redpandadata/cloud/grpc/go v1.4.0-20240715174738-f694d610cde4.2
