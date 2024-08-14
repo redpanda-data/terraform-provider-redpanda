@@ -142,7 +142,7 @@ func TestTypeMapToStringMap(t *testing.T) {
 		{
 			name: "Empty map",
 			args: args{tags: mustMap(t, map[string]string{})},
-			want: map[string]string{},
+			want: nil,
 		},
 		{
 			name: "Single key",
