@@ -534,7 +534,7 @@ func TestMapToCreateTopicConfiguration(t *testing.T) {
 			} else if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
-			
+
 			sort.Slice(tc.expected, func(i, j int) bool {
 				return tc.expected[i].Name < tc.expected[j].Name
 			})
