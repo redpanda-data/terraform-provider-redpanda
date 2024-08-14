@@ -2,17 +2,99 @@ agents:
   queue: k8s-builders
 
 steps:
-  - label: make lint
+  - label: lint
     key: lint
     command: make lint
     plugins:
-      - seek-oss/aws-sm#v2.3.2:
-          json-to-env:
-            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
-  - label: make unit
+      - docker#v5.11.0:
+          image: "golang:1.22"
+          environment:
+            - BUILDKITE=true
+  - label: unit
     key: unit
     command: make unit
+    plugins:
+      - docker#v5.11.0:
+          image: "golang:1.22"
+    depends_on:
+      - lint
+
+  - label: test_network
+    key: test_network
+    command: make test_network
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
+      - docker#v5.11.0:
+          image: "golang:1.22"
+          environment:
+            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
+            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+    depends_on:
+      - lint
+      - unit
+  - label: test_cluster_aws
+    key: test_cluster_aws
+    command: make test_cluster_aws
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
+      - docker#v5.11.0:
+          image: "golang:1.22"
+          environment:
+            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
+            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+    depends_on:
+      - lint
+      - unit
+      - test_network
+  - label: test_cluster_azure
+    key: test_cluster_azure
+    command: make test_cluster_azure
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
+      - docker#v5.11.0:
+          image: "golang:1.22"
+          environment:
+            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
+            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+    depends_on:
+      - lint
+      - unit
+      - test_network
+  - label: test_cluster_gcp
+    key: test_cluster_gcp
+    command: make test_cluster_gcp
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
+      - docker#v5.11.0:
+          image: "golang:1.22"
+          environment:
+            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
+            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+    depends_on:
+      - lint
+      - unit
+      - test_network
+  - label: test_serverless_cluster
+    key: test_serverless_cluster
+    command: make test_serverless_cluster
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
+      - docker#v5.11.0:
+          image: "golang:1.22"
+          environment:
+            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
+            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+    depends_on:
+      - lint
+      - unit
+      - test_network
