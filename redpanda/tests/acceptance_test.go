@@ -41,6 +41,7 @@ var (
 	clientID                   = os.Getenv(redpanda.ClientIDEnv)
 	clientSecret               = os.Getenv(redpanda.ClientSecretEnv)
 	testAgainstExistingCluster = os.Getenv("TEST_AGAINST_EXISTING_CLUSTER")
+	redpandaVersion            = os.Getenv("REDPANDA_VERSION")
 	testaws                    = "testaws"
 	testawsRename              = "testaws-rename"
 	testazure                  = "testazure"
@@ -210,17 +211,20 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testaws)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, awsDedicatedClusterFile, t)
+	testRunner(ctx, name, rename, "", awsDedicatedClusterFile, t)
 }
 
 func TestAccResourcesClusterAzure(t *testing.T) {
 	if !strings.Contains(runClusterTests, "true") {
 		t.Skip("skipping cluster tests")
 	}
+	if !strings.Contains(os.Getenv("RUN_AZURE_TESTS"), "true") {
+		t.Skip("skipping azure tests")
+	}
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testazure)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, azureDedicatedClusterFile, t)
+	testRunner(ctx, name, rename, "", azureDedicatedClusterFile, t)
 }
 
 func TestAccResourcesClusterGCP(t *testing.T) {
@@ -230,11 +234,11 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + "testgcp")
 	rename := generateRandomName(accNamePrepend + "testgcp-rename")
-	testRunner(ctx, name, rename, gcpDedicatedClusterFile, t)
+	testRunner(ctx, name, rename, redpandaVersion, gcpDedicatedClusterFile, t)
 }
 
 // testRunner is a helper function that runs a series of tests on a given cluster in a given cloud provider.
-func testRunner(ctx context.Context, name, rename, testFile string, t *testing.T) {
+func testRunner(ctx context.Context, name, rename, version string, testFile string, t *testing.T) {
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
@@ -242,6 +246,10 @@ func testRunner(ctx context.Context, name, rename, testFile string, t *testing.T
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
 	origTestCaseVars["user_name"] = config.StringVariable(name)
 	origTestCaseVars["topic_name"] = config.StringVariable(name)
+	if version != "" {
+		// version is only necessary to resolve a GCP install pack issue. we should generally use latest (nil)
+		origTestCaseVars["version"] = config.StringVariable(version)
+	}
 
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
