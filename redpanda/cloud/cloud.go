@@ -117,7 +117,7 @@ var rl = newRateLimiter(500)
 
 // SpawnConn returns a grpc connection to the given URL, it adds a bearer token
 // to each request with the given 'authToken'.
-func SpawnConn(url string, authToken string) (*grpc.ClientConn, error) {
+func SpawnConn(url, authToken string) (*grpc.ClientConn, error) {
 	return grpc.NewClient(
 		url,
 		// Chain the interceptors using grpc_middleware.ChainUnaryClient

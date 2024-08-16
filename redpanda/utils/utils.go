@@ -106,7 +106,7 @@ func ClusterTypeToString(provider controlplanev1beta2.Cluster_Type) string {
 }
 
 // AreWeDoneYet checks an operation's state until one of completion, failure or timeout is reached.
-func AreWeDoneYet(ctx context.Context, op *controlplanev1beta2.Operation, timeout time.Duration, waitUnit time.Duration, client controlplanev1beta2grpc.OperationServiceClient) error {
+func AreWeDoneYet(ctx context.Context, op *controlplanev1beta2.Operation, timeout, waitUnit time.Duration, client controlplanev1beta2grpc.OperationServiceClient) error {
 	startTime := time.Now()
 	endTime := startTime.Add(timeout)
 	errChan := make(chan error, 1)

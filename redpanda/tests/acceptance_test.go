@@ -238,7 +238,7 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 }
 
 // testRunner is a helper function that runs a series of tests on a given cluster in a given cloud provider.
-func testRunner(ctx context.Context, name, rename, version string, testFile string, t *testing.T) {
+func testRunner(ctx context.Context, name, rename, version, testFile string, t *testing.T) {
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["resource_group_name"] = config.StringVariable(name)

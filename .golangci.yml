@@ -1,7 +1,5 @@
 run:
   allow-parallel-runners: true
-  skip-dirs:
-    - proto
 
 # golangci-lint by default ignores some staticcheck and vet raised issues that
 # are actually important to catch. The following ensures that we do not ignore
@@ -9,18 +7,6 @@ run:
 issues:
   exclude-use-default: false
   exclude-rules:
-    - linters:
-        - goconst
-      text: "string `UNSPECIFIED` has"
-      path: redpanda/utils/utils.go
-    - linters:
-        - goconst
-      text: "string `ANY` has"
-      path: redpanda/utils/utils.go
-    - linters:
-        - goconst
-      text: "string `UNKNOWN` has"
-      path: redpanda/utils/utils.go
     - path: _test\.go
       linters:
         - gocognit
@@ -93,12 +79,6 @@ linters-settings:
     require-explanation: true
     require-specific: true
 
-  # If gofumpt is run outside a module, it assumes Go 1.0 rather than the
-  # latest Go. We always want the latest formatting.
-  #
-  # https://github.com/mvdan/gofumpt/issues/137
-  gofumpt:
-    lang-version: "1.21"
   cyclop:
     max-complexity: 20
   gocyclo:
@@ -106,7 +86,6 @@ linters-settings:
   gocognit:
     min-complexity: 30
   gci:
-    no-prefix-comments: true # no leading comment; we allow inline for nolint
     sections:
       - standard # stdlib
       - default # everything not std, not within cloudv2
@@ -127,9 +106,6 @@ linters-settings:
       - importShadow
       # disabled due to 1.18 failures
       - hugeParam
-      - rangeValCopy
-      - typeDefFirst
-      - paramTypeCombine
   # Revive is yet another metalinter with a lot of useful lints.
   # The below opts in to all the ones we would like to use.
   revive:
@@ -137,8 +113,6 @@ linters-settings:
     enable-all-rules: true
     severity: warning
     confidence: 0.7
-    error-code: 1
-    warning-code: 1
     rules:
       - name: add-constant
         disabled: true
