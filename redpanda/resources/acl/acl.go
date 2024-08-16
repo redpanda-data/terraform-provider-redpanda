@@ -28,7 +28,7 @@ import (
 
 // stringToEnum converts a string to an enum given a certain map. It prepends
 // 's' with 'prepend'.
-func stringToEnum(s string, prepend string, m map[string]int32) (int32, error) {
+func stringToEnum(s, prepend string, m map[string]int32) (int32, error) {
 	if e, ok := m[prepend+s]; ok {
 		return e, nil
 	}
