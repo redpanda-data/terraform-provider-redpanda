@@ -44,7 +44,7 @@ variable "topic_config" {
 }
 
 variable "user_name" {
-  default = "test-username"
+  default = "data-test-username"
 }
 
 variable "user_pw" {
@@ -56,7 +56,7 @@ variable "mechanism" {
 }
 
 variable "topic_name" {
-  default = "test-topic"
+  default = "data-test-topic"
 }
 
 variable "partition_count" {
