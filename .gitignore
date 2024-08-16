@@ -33,3 +33,4 @@ tools/tfplugindocs
 **terraform.tfstate.backup**
 terraform-provider-hashicorp
 **/.tmp_*
+.cluster_info*
