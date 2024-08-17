@@ -1,95 +1,141 @@
 # Redpanda Terraform Provider
 
-!!! THIS IS AN ALPHA RELEASE !!!
+![Alpha Release](https://img.shields.io/badge/release-alpha-red.svg)
 
-Please be aware that all features are subject to change and may not be fully supported at this time.
+> **Warning**: This is an alpha release. All features are subject to change and may not be fully supported at this time.
 
-The Redpanda terraform provider is a [Terraform](https://www.terraform.io/) plugin that allows you to create
-and manage resources on [Redpanda Cloud.](https://redpanda.com/redpanda-cloud)
+The Redpanda Terraform Provider is a [Terraform](https://www.terraform.io/) plugin that allows you to create and manage
+resources on [Redpanda Cloud](https://redpanda.com/redpanda-cloud).
 
-## Getting started
+## Table of Contents
 
-To add the Redpanda provider:
+- [Getting Started](#getting-started)
+- [Makefile Commands - Developer Guide](#makefile-commands---developer-guide)
+    - [Prerequisites](#prerequisites)
+    - [Cluster Management Commands](#cluster-management-commands)
+    - [Development Commands](#development-commands)
+    - [Best Practices](#best-practices)
+- [Contributing](#contributing)
+- [Releasing a Version](#releasing-a-version)
+- [Support](#support)
 
-```hcl
-terraform {
-  required_providers {
-    redpanda = {
-      source = "redpanda-data/redpanda"
-    }
-  }
-}
-```
+## Getting Started
 
-### Authentication
+User documentation on the Terraform provider is available at
+the [Terraform Registry](https://registry.terraform.io/providers/redpanda-data/redpanda/latest/docs).
 
-Client credentials for authentication can be provided as:
+## Makefile Commands - Developer Guide
 
-**Static credentials:**
+This guide provides an overview of the key Makefile commands used in the development and testing of the Redpanda
+Terraform Provider. These commands help streamline the development process, manage Redpanda clusters for testing, and
+ensure code quality.
 
-```terraform
-provider "redpanda" {
-  client_id     = "<CLIENT_ID>"
-  client_secret = "<CLIENT_SECRET>"
-}
-```
+### Prerequisites
 
-or
+Before using these commands, ensure you have the following:
 
-**Environment variables:**
+- Go installed on your system
+- Terraform CLI installed
+- Access to a Redpanda Cloud account with appropriate permissions
+- Required environment variables set (REDPANDA_CLIENT_ID, REDPANDA_CLIENT_SECRET)
 
-```
-REDPANDA_CLIENT_ID=<CLIENT_ID>
-REDPANDA_CLIENT_SECRET=<CLIENT_SECRET>
-```
+### Cluster Management Commands
 
-## Developing the provider
+These commands are used to create and manage Redpanda clusters for testing purposes.
 
-### Requirements
+#### standup
 
-- [Go](https://go.dev/)
-- [Terraform](https://www.terraform.io/)
+Creates and sets up a Redpanda cluster using Terraform.
 
-### Building the provider
+Command: `make standup`
 
-After building the provider (`go build`), you may override the plugin with your
-locally built provider.
+**Key Variables:**
 
-Follow [Terraform documentation](https://developer.hashicorp.com/terraform/cli/config/config-file#development-overrides-for-provider-developers)
-on dev overrides for provider developers.
+- `REDPANDA_CLIENT_ID`: Redpanda Cloud client ID
+- `REDPANDA_CLIENT_SECRET`: Redpanda Cloud client secret
+- `REDPANDA_CLOUD_ENVIRONMENT`: Redpanda Cloud environment (ign or prod)
+- `TF_CONFIG_DIR`: Terraform configuration directory (auto-generated)
+- `CLOUD_PROVIDER`: Cloud provider (e.g., aws, azure, gcp)
+- `TEST_TYPE`: Type of test (e.g., cluster, datasource)
 
-### Running Acceptance Test
+The `TF_CONFIG_DIR` is dynamically constructed based on the `TEST_TYPE` and `CLOUD_PROVIDER`:
 
-The following environment variables are required to run the acceptance tests:
+For cluster tests: `TF_CONFIG_DIR := examples/$(TEST_TYPE)/$(CLOUD_PROVIDER)`
+For datasource tests: `TF_CONFIG_DIR := examples/$(TEST_TYPE)/$(DATASOURCE_TEST_DIR)`
 
-```yaml
-# For acceptance test
-TF_ACC=true
+This is done to enable persisting the name and id of a cluster created by standup while still allowing for name
+randomization. Names and IDs are persisted by cloud provider, so you can switch between providers without losing them.
+You can also switch from the cluster test to the datasource test and the correct cluster will be reused depending on the
+cloud provider you have set.
 
-  # For long-running cluster tests
-RUN_CLUSTER_TESTS=true
+#### teardown
 
-  # For datasource tests, against existing cluster
-TEST_AGAINST_EXISTING_CLUSTER=true
-CLUSTER_ID=<CLUSTER_ID>
-```
+Destroys the current Redpanda cluster and associated infrastructure managed by Terraform.
 
-### Releasing a Version
+Command: `make teardown`
 
-Do not change the Terraform Registry Manifest version! This is the version of the protocol, not the provider
+This command uses the same `TF_CONFIG_DIR` as the `standup` command to ensure it targets the correct resources.
 
-## Generating Docs
+### Development Commands
 
-To generate docs run the following commands
+These commands assist in code development, testing, and maintenance.
 
-```shell
-go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@latest
-tfplugindocs
-```
+#### ready
+
+Prepares the project by generating documentation, running linters, and tidying dependencies.
+
+Command: `make ready`
+
+This command is useful to run before committing changes to ensure code quality and up-to-date documentation.
+
+#### unit
+
+Runs unit tests for the project.
+
+Command: `make unit`
+
+**Note:** This command uses dummy credentials and does not run cluster tests.
+
+#### int
+
+Runs integration tests for the project.
+
+Command: `make int`
+
+**Important:** This command requires valid Redpanda credentials and will create actual resources in your Redpanda Cloud
+account.
+
+#### mock
+
+Cleans and regenerates mock files used in testing.
+
+Command: `make mock`
+
+Mocks are generated using mockgen from specific interfaces as defined in redpanda/mocks/mocks.go. Once you have tagged
+them with go generate, you can run this command to generate the mocks.
+
+### Best Practices
+
+1. Always run `make ready` before committing changes to ensure code quality and documentation accuracy.
+2. Use `make unit` for quick, local testing that doesn't require Redpanda credentials.
+3. Use `standup` and `teardown` for more complex testing during development
+4. Run the integration tests by tagging your PR with `ci-ready` to ensure all tests pass before merging.
+
+## Contributing
+
+When contributing to this project, please ensure you've run `make ready` and all tests pass before submitting a pull
+request. If you've added new functionality, consider adding appropriate unit and integration tests.
+
+For more detailed information on contributing, please see our [CONTRIBUTING.md](../CONTRIBUTING.md) file.
+
+## Releasing a Version
+
+Do not change the Terraform Registry Manifest version! This is the version of the protocol, not the provider. To release
+a version cut a release in GitHub. Goreleaser will handle things from there.
 
 ## Support
 
 To raise issues, questions, or interact with the community:
 
-- [Github Issues ](https://github.com/redpanda-data/terraform-provider-redpanda/issues)
-- [Slack](https://redpanda.com/slack) 
+- [Github Issues](https://github.com/redpanda-data/terraform-provider-redpanda/issues)
+- [Slack](https://redpanda.com/slack)
