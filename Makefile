@@ -5,9 +5,6 @@ BUFCMD=buf
 GOFUMPTCMD=gofumpt
 GOLANGCILINTCMD=golangci-lint
 
-.PHONY: all
-all: doc lint test
-
 .PHONY: doc
 doc: tfplugindocs_install generate_docs
 
@@ -25,6 +22,10 @@ lint: install_gofumpt install_lint linter
 
 .PHONY: ready
 ready: doc lint tidy
+
+# Task to both clean and generate mocks
+.PHONY: mock
+mock: clean-mocks generate-mocks
 
 .PHONY: tidy
 tidy:
@@ -173,7 +174,6 @@ $(shell \
 endef
 
 .PHONY: test-create
-.PHONY: test-create
 test-create: tf-init tf-apply update-cluster-info
 
 .PHONY: tf-init
@@ -277,10 +277,6 @@ clean-mocks:
 	@echo "Cleaning generated mocks..."
 	@rm -f $(MOCKS_DIR)/mock_*.go
 	@echo "Mocks cleaned successfully."
-
-# Task to both clean and regenerate mocks
-.PHONY: refresh-mocks
-refresh-mocks: clean-mocks generate-mocks
 
 .PHONY: test_network
 test_network:
