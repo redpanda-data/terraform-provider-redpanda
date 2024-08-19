@@ -1,23 +1,17 @@
+---
 name: Build and Commit Documentation
-
 on:
   pull_request:
-    types: [ labeled ]
-
+    types: [labeled]
 jobs:
   build_and_commit:
     if: contains(github.event.pull_request.labels.*.name, 'docs')
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref }}
-
-      - name: Run make command
-        run: make doc
-
+      - run: make doc
       - name: Commit changes
         run: |
           git config --local user.email "action@github.com"
