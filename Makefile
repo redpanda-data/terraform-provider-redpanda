@@ -92,7 +92,7 @@ fix-lint:
 OS ?= $(shell go env GOOS)
 ARCH ?= $(shell go env GOARCH)
 PROVIDER_VERSION ?= 0.7.1
-PROVIDER_NAMESPACE ?= redpandadata
+PROVIDER_NAMESPACE ?= hashicorp
 PROVIDER_NAME ?= redpanda
 CONTENT_ROOT ?= $(PWD)
 CLOUD_PROVIDER ?= aws
