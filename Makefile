@@ -44,7 +44,7 @@ generate_docs: tfplugindocs_install
 
 REDPANDA_CLIENT_ID ?= $(or $(INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID),$(REDPANDA_CLIENT_ID))
 REDPANDA_CLIENT_SECRET ?= $(or $(INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET),$(REDPANDA_CLIENT_SECRET))
-
+REDPANDA_CLOUD_ENVIRONMENT ?= "ign"
 .PHONY: all_integration_tests
 all_integration_tests:
 	@echo "running integration tests..."
