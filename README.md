@@ -45,7 +45,37 @@ These commands are used to create and manage Redpanda clusters for testing purpo
 
 #### standup
 
-Creates and sets up a Redpanda cluster using Terraform.
+Creates and sets up a Redpanda cluster using Terraform. This is intended for use in manual testing and development. It
+should not be active when running the integration tests or you will lose the cluster ID and name.
+
+Here's an example usage
+
+```shell
+# Test type defaults to cluster
+# Cloud provider defaults to aws
+make standup 
+# make changes to examples/cluster/aws/main.tf
+# rerun standup to review
+make standup
+
+# switch to datasource to test accessing the cluster with datasource and creating resources
+# this is convenient for manual testing of changes to dataplane resources
+# make changes in examples/datasource/standard/main.tf
+export TEST_TYPE=datasource
+make standup
+
+# switch to GCP to validate cluster against GCP. 
+# Note that you won't lose your AWS state or cluster when doing this
+export TEST_TYPE=cluster
+export CLOUD_PROVIDER=gcp
+
+# clean up by tearing down the GCP cluster
+make teardown
+
+# switch back to AWS and cleanup
+export CLOUD_PROVIDER=aws
+make teardown
+```
 
 Command: `make standup`
 
@@ -118,7 +148,7 @@ them with go generate, you can run this command to generate the mocks.
 
 1. Always run `make ready` before committing changes to ensure code quality and documentation accuracy.
 2. Use `make unit` for quick, local testing that doesn't require Redpanda credentials.
-3. Use `standup` and `teardown` for more complex testing during development
+3. Use `standup` and `teardown` for more complex manual testing during development
 4. Run the integration tests by tagging your PR with `ci-ready` to ensure all tests pass before merging.
 
 ## Contributing
