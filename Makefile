@@ -14,9 +14,6 @@ int: all_integration_tests
 .PHONY: unit
 unit: unit_tests
 
-.PHONY: test
-test: unit_tests all_integration_tests
-
 .PHONY: lint
 lint: install_gofumpt install_lint linter
 

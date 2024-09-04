@@ -332,7 +332,7 @@ func datasourceClusterSchema() schema.Schema {
 							"principal_mapping_rules": schema.ListAttribute{
 								ElementType: types.StringType,
 								Computed:    true,
-								Description: "Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on configuring authentication.",
+								Description: "Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.",
 							},
 						},
 					},
@@ -358,7 +358,7 @@ func datasourceClusterSchema() schema.Schema {
 							"principal_mapping_rules": schema.ListAttribute{
 								ElementType: types.StringType,
 								Computed:    true,
-								Description: "Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on configuring authentication.",
+								Description: "Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.",
 							},
 						},
 					},
@@ -384,7 +384,7 @@ func datasourceClusterSchema() schema.Schema {
 							"principal_mapping_rules": schema.ListAttribute{
 								ElementType: types.StringType,
 								Computed:    true,
-								Description: "Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on configuring authentication.",
+								Description: "Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.",
 							},
 						},
 					},

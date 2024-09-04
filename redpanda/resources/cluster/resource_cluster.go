@@ -262,7 +262,7 @@ func resourceClusterSchema() schema.Schema {
 							"principal_mapping_rules": schema.ListAttribute{
 								ElementType: types.StringType,
 								Required:    true,
-								Description: "Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on configuring authentication.",
+								Description: "Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.",
 							},
 						},
 					},
@@ -288,7 +288,7 @@ func resourceClusterSchema() schema.Schema {
 							"principal_mapping_rules": schema.ListAttribute{
 								ElementType: types.StringType,
 								Required:    true,
-								Description: "Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on configuring authentication.",
+								Description: "Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.",
 							},
 						},
 					},
@@ -314,7 +314,7 @@ func resourceClusterSchema() schema.Schema {
 							"principal_mapping_rules": schema.ListAttribute{
 								ElementType: types.StringType,
 								Required:    true,
-								Description: "Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on configuring authentication.",
+								Description: "Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.",
 							},
 						},
 					},
