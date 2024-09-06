@@ -54,11 +54,13 @@ func datasourceResourceGroupSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Required:    true,
+				Computed:    true,
+				Optional:    true,
 				Description: "UUID of the resource group",
 			},
 			"name": schema.StringAttribute{
 				Computed:    true,
+				Optional:    true,
 				Description: "Name of the resource group",
 			},
 		},
@@ -70,7 +72,8 @@ func datasourceResourceGroupSchema() schema.Schema {
 func (n *DataSourceResourceGroup) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var model models.ResourceGroup
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
-	rg, err := n.CpCl.ResourceGroupForID(ctx, model.ID.ValueString())
+
+	rg, err := n.CpCl.ResourceGroupForIDOrName(ctx, model.ID.ValueString(), model.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("failed to read resource group", err.Error())
 		return
