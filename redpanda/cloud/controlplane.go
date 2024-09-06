@@ -117,6 +117,40 @@ func (cpCl *ControlPlaneClientSet) ResourceGroupForName(ctx context.Context, nam
 	return nil, fmt.Errorf("resource group %s not found", name)
 }
 
+// ResourceGroupForIDOrName gets the resource group for a given ID and/or name, or neither,
+// and handles the error if the returned resource group is nil.
+func (cpCl *ControlPlaneClientSet) ResourceGroupForIDOrName(ctx context.Context, id, name string) (*controlplanev1beta2.ResourceGroup, error) {
+	if id != "" {
+		rg, err := cpCl.ResourceGroupForID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if name != "" && rg.Name != name {
+			return nil, fmt.Errorf("unable to find resource group with id %q and name %q", id, name)
+		}
+		return rg, nil
+	}
+
+	if name != "" {
+		return cpCl.ResourceGroupForName(ctx, name)
+	}
+
+	request := &controlplanev1beta2.ListResourceGroupsRequest{}
+	listResp, err := cpCl.ResourceGroup.ListResourceGroups(ctx, request)
+	if listResp.ResourceGroups == nil {
+		err = fmt.Errorf("provider response was empty. Please report this issue to the provider developers")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("unable to find resource groups: %w", err)
+	}
+	if len(listResp.ResourceGroups) > 1 {
+		return nil, fmt.Errorf("found more than one resource group matching filters")
+	} else if len(listResp.ResourceGroups) == 0 {
+		return nil, fmt.Errorf("unable to find any resource group matching filters")
+	}
+	return listResp.ResourceGroups[0], nil
+}
+
 // NetworkForID gets the Network for a given ID and handles the error if the
 // returned network is nil.
 func (cpCl *ControlPlaneClientSet) NetworkForID(ctx context.Context, id string) (*controlplanev1beta2.Network, error) {
