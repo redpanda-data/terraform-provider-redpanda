@@ -9,7 +9,7 @@ import (
 	"time"
 
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
-	dataplanev1alpha1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha1"
+	dataplanev1alpha2 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha2"
 	"github.com/golang/mock/gomock"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -208,36 +208,36 @@ func TestFindUserByName(t *testing.T) {
 		name         string
 		setupMock    func()
 		inputName    string
-		expectedUser *dataplanev1alpha1.ListUsersResponse_User
+		expectedUser *dataplanev1alpha2.ListUsersResponse_User
 		expectedErr  string
 	}{
 		{
 			name: "User found",
 			setupMock: func() {
-				mockClient.EXPECT().ListUsers(gomock.Any(), &dataplanev1alpha1.ListUsersRequest{
-					Filter: &dataplanev1alpha1.ListUsersRequest_Filter{
+				mockClient.EXPECT().ListUsers(gomock.Any(), &dataplanev1alpha2.ListUsersRequest{
+					Filter: &dataplanev1alpha2.ListUsersRequest_Filter{
 						Name: "alice",
 					},
-				}).Return(&dataplanev1alpha1.ListUsersResponse{
-					Users: []*dataplanev1alpha1.ListUsersResponse_User{
+				}).Return(&dataplanev1alpha2.ListUsersResponse{
+					Users: []*dataplanev1alpha2.ListUsersResponse_User{
 						{Name: "alice"},
 						{Name: "bob"},
 					},
 				}, nil)
 			},
 			inputName:    "alice",
-			expectedUser: &dataplanev1alpha1.ListUsersResponse_User{Name: "alice"},
+			expectedUser: &dataplanev1alpha2.ListUsersResponse_User{Name: "alice"},
 			expectedErr:  "",
 		},
 		{
 			name: "User not found",
 			setupMock: func() {
-				mockClient.EXPECT().ListUsers(gomock.Any(), &dataplanev1alpha1.ListUsersRequest{
-					Filter: &dataplanev1alpha1.ListUsersRequest_Filter{
+				mockClient.EXPECT().ListUsers(gomock.Any(), &dataplanev1alpha2.ListUsersRequest{
+					Filter: &dataplanev1alpha2.ListUsersRequest_Filter{
 						Name: "charlie",
 					},
-				}).Return(&dataplanev1alpha1.ListUsersResponse{
-					Users: []*dataplanev1alpha1.ListUsersResponse_User{
+				}).Return(&dataplanev1alpha2.ListUsersResponse{
+					Users: []*dataplanev1alpha2.ListUsersResponse_User{
 						{Name: "alice"},
 						{Name: "bob"},
 					},
@@ -370,13 +370,13 @@ func TestSplitSchemeDefPort(t *testing.T) {
 func TestTopicConfigurationToMap(t *testing.T) {
 	testCases := []struct {
 		name        string
-		input       []*dataplanev1alpha1.Topic_Configuration
+		input       []*dataplanev1alpha2.Topic_Configuration
 		expected    types.Map
 		expectedErr string
 	}{
 		{
 			name:  "Empty configuration",
-			input: []*dataplanev1alpha1.Topic_Configuration{},
+			input: []*dataplanev1alpha2.Topic_Configuration{},
 			expected: func() types.Map {
 				m, _ := types.MapValue(types.StringType, map[string]attr.Value{})
 				return m
@@ -385,7 +385,7 @@ func TestTopicConfigurationToMap(t *testing.T) {
 		},
 		{
 			name: "Single configuration",
-			input: []*dataplanev1alpha1.Topic_Configuration{
+			input: []*dataplanev1alpha2.Topic_Configuration{
 				{Name: "retention.ms", Value: StringToStringPointer("86400000")},
 			},
 			expected: func() types.Map {
@@ -398,7 +398,7 @@ func TestTopicConfigurationToMap(t *testing.T) {
 		},
 		{
 			name: "Multiple configurations",
-			input: []*dataplanev1alpha1.Topic_Configuration{
+			input: []*dataplanev1alpha2.Topic_Configuration{
 				{Name: "retention.ms", Value: StringToStringPointer("86400000")},
 				{Name: "cleanup.policy", Value: StringToStringPointer("delete")},
 				{Name: "max.message.bytes", Value: StringToStringPointer("1000000")},
@@ -415,7 +415,7 @@ func TestTopicConfigurationToMap(t *testing.T) {
 		},
 		{
 			name: "Configuration with nil value",
-			input: []*dataplanev1alpha1.Topic_Configuration{
+			input: []*dataplanev1alpha2.Topic_Configuration{
 				{Name: "retention.ms", Value: StringToStringPointer("86400000")},
 				{Name: "cleanup.policy", Value: nil},
 			},
@@ -451,7 +451,7 @@ func TestMapToCreateTopicConfiguration(t *testing.T) {
 	testCases := []struct {
 		name        string
 		input       types.Map
-		expected    []*dataplanev1alpha1.CreateTopicRequest_Topic_Config
+		expected    []*dataplanev1alpha2.CreateTopicRequest_Topic_Config
 		expectedErr string
 	}{
 		{
@@ -471,7 +471,7 @@ func TestMapToCreateTopicConfiguration(t *testing.T) {
 				})
 				return m
 			}(),
-			expected: []*dataplanev1alpha1.CreateTopicRequest_Topic_Config{
+			expected: []*dataplanev1alpha2.CreateTopicRequest_Topic_Config{
 				{Name: "retention.ms", Value: StringToStringPointer("86400000")},
 			},
 			expectedErr: "",
@@ -486,7 +486,7 @@ func TestMapToCreateTopicConfiguration(t *testing.T) {
 				})
 				return m
 			}(),
-			expected: []*dataplanev1alpha1.CreateTopicRequest_Topic_Config{
+			expected: []*dataplanev1alpha2.CreateTopicRequest_Topic_Config{
 				{Name: "cleanup.policy", Value: StringToStringPointer("delete")},
 				{Name: "retention.ms", Value: StringToStringPointer("86400000")},
 				{Name: "max.message.bytes", Value: StringToStringPointer("1000000")},
@@ -557,36 +557,36 @@ func TestFindTopicByName(t *testing.T) {
 		name          string
 		setupMock     func()
 		inputName     string
-		expectedTopic *dataplanev1alpha1.ListTopicsResponse_Topic
+		expectedTopic *dataplanev1alpha2.ListTopicsResponse_Topic
 		expectedErr   string
 	}{
 		{
 			name: "Topic found",
 			setupMock: func() {
-				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1alpha1.ListTopicsRequest{
-					Filter: &dataplanev1alpha1.ListTopicsRequest_Filter{
+				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1alpha2.ListTopicsRequest{
+					Filter: &dataplanev1alpha2.ListTopicsRequest_Filter{
 						NameContains: "test-topic",
 					},
-				}).Return(&dataplanev1alpha1.ListTopicsResponse{
-					Topics: []*dataplanev1alpha1.ListTopicsResponse_Topic{
+				}).Return(&dataplanev1alpha2.ListTopicsResponse{
+					Topics: []*dataplanev1alpha2.ListTopicsResponse_Topic{
 						{Name: "test-topic"},
 						{Name: "another-topic"},
 					},
 				}, nil)
 			},
 			inputName:     "test-topic",
-			expectedTopic: &dataplanev1alpha1.ListTopicsResponse_Topic{Name: "test-topic"},
+			expectedTopic: &dataplanev1alpha2.ListTopicsResponse_Topic{Name: "test-topic"},
 			expectedErr:   "",
 		},
 		{
 			name: "Topic not found",
 			setupMock: func() {
-				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1alpha1.ListTopicsRequest{
-					Filter: &dataplanev1alpha1.ListTopicsRequest_Filter{
+				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1alpha2.ListTopicsRequest{
+					Filter: &dataplanev1alpha2.ListTopicsRequest_Filter{
 						NameContains: "non-existent-topic",
 					},
-				}).Return(&dataplanev1alpha1.ListTopicsResponse{
-					Topics: []*dataplanev1alpha1.ListTopicsResponse_Topic{
+				}).Return(&dataplanev1alpha2.ListTopicsResponse{
+					Topics: []*dataplanev1alpha2.ListTopicsResponse_Topic{
 						{Name: "test-topic"},
 						{Name: "another-topic"},
 					},
