@@ -27,8 +27,8 @@ import (
 
 	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta2/controlplanev1beta2grpc"
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
-	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1alpha1/dataplanev1alpha1grpc"
-	dataplanev1alpha1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha1"
+	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1alpha2/dataplanev1alpha2grpc"
+	dataplanev1alpha2 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha2"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -206,9 +206,9 @@ func TrimmedStringValue(s string) types.String {
 }
 
 // FindUserByName searches for a user by name using the provided client
-func FindUserByName(ctx context.Context, name string, client dataplanev1alpha1grpc.UserServiceClient) (*dataplanev1alpha1.ListUsersResponse_User, error) {
-	usrs, err := client.ListUsers(ctx, &dataplanev1alpha1.ListUsersRequest{
-		Filter: &dataplanev1alpha1.ListUsersRequest_Filter{
+func FindUserByName(ctx context.Context, name string, client dataplanev1alpha2grpc.UserServiceClient) (*dataplanev1alpha2.ListUsersResponse_User, error) {
+	usrs, err := client.ListUsers(ctx, &dataplanev1alpha2.ListUsersRequest{
+		Filter: &dataplanev1alpha2.ListUsersRequest_Filter{
 			Name: name,
 		},
 	})
@@ -229,36 +229,36 @@ func StringToStringPointer(s string) *string {
 	return &s
 }
 
-// StringToUserMechanism converts a string to a dataplanev1alpha1.SASLMechanism
-func StringToUserMechanism(s string) dataplanev1alpha1.SASLMechanism {
+// StringToUserMechanism converts a string to a dataplanev1alpha2.SASLMechanism
+func StringToUserMechanism(s string) dataplanev1alpha2.SASLMechanism {
 	switch strings.ToLower(s) {
 	case "scram-sha-256":
-		return dataplanev1alpha1.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_256
+		return dataplanev1alpha2.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_256
 	case "scram-sha-512":
-		return dataplanev1alpha1.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_512
+		return dataplanev1alpha2.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_512
 	default:
-		return dataplanev1alpha1.SASLMechanism_SASL_MECHANISM_UNSPECIFIED
+		return dataplanev1alpha2.SASLMechanism_SASL_MECHANISM_UNSPECIFIED
 	}
 }
 
-// UserMechanismToString converts a dataplanev1alpha1.SASLMechanism to a string
-func UserMechanismToString(m *dataplanev1alpha1.SASLMechanism) string {
+// UserMechanismToString converts a dataplanev1alpha2.SASLMechanism to a string
+func UserMechanismToString(m *dataplanev1alpha2.SASLMechanism) string {
 	if m == nil {
 		return "unspecified"
 	}
 	switch *m {
-	case dataplanev1alpha1.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_256:
+	case dataplanev1alpha2.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_256:
 		return "scram-sha-256"
-	case dataplanev1alpha1.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_512:
+	case dataplanev1alpha2.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_512:
 		return "scram-sha-512"
 	default:
 		return "unspecified"
 	}
 }
 
-// TopicConfigurationToMap converts a slice of dataplanev1alpha1.Topic_Configuration to a slice of
+// TopicConfigurationToMap converts a slice of dataplanev1alpha2.Topic_Configuration to a slice of
 // models.TopicConfiguration
-func TopicConfigurationToMap(cfg []*dataplanev1alpha1.Topic_Configuration) (types.Map, error) {
+func TopicConfigurationToMap(cfg []*dataplanev1alpha2.Topic_Configuration) (types.Map, error) {
 	configs := make(map[string]attr.Value, len(cfg))
 	for _, v := range cfg {
 		if v.Value == nil {
@@ -273,16 +273,16 @@ func TopicConfigurationToMap(cfg []*dataplanev1alpha1.Topic_Configuration) (type
 	return cfgMap, nil
 }
 
-// MapToCreateTopicConfiguration converts a cfg map to a slice of dataplanev1alpha1.CreateTopicRequest_Topic_Config
-func MapToCreateTopicConfiguration(cfg types.Map) ([]*dataplanev1alpha1.CreateTopicRequest_Topic_Config, error) {
-	var output []*dataplanev1alpha1.CreateTopicRequest_Topic_Config
+// MapToCreateTopicConfiguration converts a cfg map to a slice of dataplanev1alpha2.CreateTopicRequest_Topic_Config
+func MapToCreateTopicConfiguration(cfg types.Map) ([]*dataplanev1alpha2.CreateTopicRequest_Topic_Config, error) {
+	var output []*dataplanev1alpha2.CreateTopicRequest_Topic_Config
 
 	for k, v := range cfg.Elements() {
 		if v.IsNull() || v.IsUnknown() {
 			return nil, fmt.Errorf("topic configuration %q must have a value", k)
 		}
 		value := strings.Trim(v.String(), `"`)
-		output = append(output, &dataplanev1alpha1.CreateTopicRequest_Topic_Config{
+		output = append(output, &dataplanev1alpha2.CreateTopicRequest_Topic_Config{
 			Name:  k,
 			Value: &value,
 		})
@@ -291,16 +291,16 @@ func MapToCreateTopicConfiguration(cfg types.Map) ([]*dataplanev1alpha1.CreateTo
 }
 
 // MapToSetTopicConfiguration converts a cfg map to a slice of
-// dataplanev1alpha1.SetTopicConfigurationsRequest_SetConfiguration
-func MapToSetTopicConfiguration(cfg types.Map) ([]*dataplanev1alpha1.SetTopicConfigurationsRequest_SetConfiguration, error) {
-	var output []*dataplanev1alpha1.SetTopicConfigurationsRequest_SetConfiguration
+// dataplanev1alpha2.SetTopicConfigurationsRequest_SetConfiguration
+func MapToSetTopicConfiguration(cfg types.Map) ([]*dataplanev1alpha2.SetTopicConfigurationsRequest_SetConfiguration, error) {
+	var output []*dataplanev1alpha2.SetTopicConfigurationsRequest_SetConfiguration
 
 	for k, v := range cfg.Elements() {
 		if v.IsNull() || v.IsUnknown() {
 			return nil, fmt.Errorf("topic configuration %q must have a value", k)
 		}
 		value := strings.Trim(v.String(), `"`)
-		output = append(output, &dataplanev1alpha1.SetTopicConfigurationsRequest_SetConfiguration{
+		output = append(output, &dataplanev1alpha2.SetTopicConfigurationsRequest_SetConfiguration{
 			Name:  k,
 			Value: &value,
 		})
@@ -321,9 +321,9 @@ func Int32ToNumber(i int32) types.Number {
 }
 
 // FindTopicByName searches for a topic by name using the provided client.
-func FindTopicByName(ctx context.Context, topicName string, client dataplanev1alpha1grpc.TopicServiceClient) (*dataplanev1alpha1.ListTopicsResponse_Topic, error) {
-	topics, err := client.ListTopics(ctx, &dataplanev1alpha1.ListTopicsRequest{
-		Filter: &dataplanev1alpha1.ListTopicsRequest_Filter{
+func FindTopicByName(ctx context.Context, topicName string, client dataplanev1alpha2grpc.TopicServiceClient) (*dataplanev1alpha2.ListTopicsResponse_Topic, error) {
+	topics, err := client.ListTopics(ctx, &dataplanev1alpha2.ListTopicsRequest{
+		Filter: &dataplanev1alpha2.ListTopicsRequest_Filter{
 			NameContains: topicName,
 		},
 	})

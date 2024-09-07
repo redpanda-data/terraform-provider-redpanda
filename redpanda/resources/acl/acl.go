@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	dataplanev1alpha1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha1"
+	dataplanev1alpha2 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha2"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 )
@@ -60,70 +60,70 @@ func mapValueToValidator(cutset string, m map[int32]string) []validator.String {
 
 const aclResourceTypePrefix = "RESOURCE_TYPE_"
 
-func stringToACLResourceType(s string) (dataplanev1alpha1.ACL_ResourceType, error) {
-	enum, err := stringToEnum(s, aclResourceTypePrefix, dataplanev1alpha1.ACL_ResourceType_value)
+func stringToACLResourceType(s string) (dataplanev1alpha2.ACL_ResourceType, error) {
+	enum, err := stringToEnum(s, aclResourceTypePrefix, dataplanev1alpha2.ACL_ResourceType_value)
 	if err != nil {
 		return -1, fmt.Errorf("failed to parse ACL resource type: %v", err)
 	}
-	return dataplanev1alpha1.ACL_ResourceType(enum), nil
+	return dataplanev1alpha2.ACL_ResourceType(enum), nil
 }
 
-func aclResourceTypeToString(e dataplanev1alpha1.ACL_ResourceType) string {
-	return enumToString(int32(e), aclResourceTypePrefix, dataplanev1alpha1.ACL_ResourceType_name)
+func aclResourceTypeToString(e dataplanev1alpha2.ACL_ResourceType) string {
+	return enumToString(int32(e), aclResourceTypePrefix, dataplanev1alpha2.ACL_ResourceType_name)
 }
 
 func aclResourceTypeValidator() []validator.String {
-	return mapValueToValidator(aclResourceTypePrefix, dataplanev1alpha1.ACL_ResourceType_name)
+	return mapValueToValidator(aclResourceTypePrefix, dataplanev1alpha2.ACL_ResourceType_name)
 }
 
 // ACL_RESOURCE_PATTERN_TYPE
 
 const aclResourcePatternTypePrefix = "RESOURCE_PATTERN_TYPE_"
 
-func stringToACLResourcePatternType(s string) (dataplanev1alpha1.ACL_ResourcePatternType, error) {
-	enum, err := stringToEnum(s, aclResourcePatternTypePrefix, dataplanev1alpha1.ACL_ResourcePatternType_value)
+func stringToACLResourcePatternType(s string) (dataplanev1alpha2.ACL_ResourcePatternType, error) {
+	enum, err := stringToEnum(s, aclResourcePatternTypePrefix, dataplanev1alpha2.ACL_ResourcePatternType_value)
 	if err != nil {
 		return -1, fmt.Errorf("failed to parse ACL resource pattern type: %v", err)
 	}
-	return dataplanev1alpha1.ACL_ResourcePatternType(enum), nil
+	return dataplanev1alpha2.ACL_ResourcePatternType(enum), nil
 }
 
-func aclResourcePatternTypeToString(e dataplanev1alpha1.ACL_ResourcePatternType) string {
-	return enumToString(int32(e), aclResourcePatternTypePrefix, dataplanev1alpha1.ACL_ResourcePatternType_name)
+func aclResourcePatternTypeToString(e dataplanev1alpha2.ACL_ResourcePatternType) string {
+	return enumToString(int32(e), aclResourcePatternTypePrefix, dataplanev1alpha2.ACL_ResourcePatternType_name)
 }
 
 func aclResourcePatternTypeValidator() []validator.String {
-	return mapValueToValidator(aclResourcePatternTypePrefix, dataplanev1alpha1.ACL_ResourcePatternType_name)
+	return mapValueToValidator(aclResourcePatternTypePrefix, dataplanev1alpha2.ACL_ResourcePatternType_name)
 }
 
 // ACL_OPERATION
 
 const aclOperationPrefix = "OPERATION_"
 
-func stringToACLOperation(s string) (dataplanev1alpha1.ACL_Operation, error) {
-	enum, err := stringToEnum(s, aclOperationPrefix, dataplanev1alpha1.ACL_Operation_value)
+func stringToACLOperation(s string) (dataplanev1alpha2.ACL_Operation, error) {
+	enum, err := stringToEnum(s, aclOperationPrefix, dataplanev1alpha2.ACL_Operation_value)
 	if err != nil {
 		return -1, fmt.Errorf("failed to parse operation: %v", err)
 	}
-	return dataplanev1alpha1.ACL_Operation(enum), nil
+	return dataplanev1alpha2.ACL_Operation(enum), nil
 }
 
 func aclOperationValidator() []validator.String {
-	return mapValueToValidator(aclOperationPrefix, dataplanev1alpha1.ACL_Operation_name)
+	return mapValueToValidator(aclOperationPrefix, dataplanev1alpha2.ACL_Operation_name)
 }
 
 // ACL_PERMISSION_TYPE
 
 const aclPermissionTypePrefix = "PERMISSION_TYPE_"
 
-func stringToACLPermissionType(s string) (dataplanev1alpha1.ACL_PermissionType, error) {
-	enum, err := stringToEnum(s, aclPermissionTypePrefix, dataplanev1alpha1.ACL_PermissionType_value)
+func stringToACLPermissionType(s string) (dataplanev1alpha2.ACL_PermissionType, error) {
+	enum, err := stringToEnum(s, aclPermissionTypePrefix, dataplanev1alpha2.ACL_PermissionType_value)
 	if err != nil {
 		return -1, fmt.Errorf("failed to parse operation: %v", err)
 	}
-	return dataplanev1alpha1.ACL_PermissionType(enum), nil
+	return dataplanev1alpha2.ACL_PermissionType(enum), nil
 }
 
 func aclPermissionTypeValidator() []validator.String {
-	return mapValueToValidator(aclPermissionTypePrefix, dataplanev1alpha1.ACL_PermissionType_name)
+	return mapValueToValidator(aclPermissionTypePrefix, dataplanev1alpha2.ACL_PermissionType_name)
 }
