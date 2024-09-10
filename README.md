@@ -10,6 +10,8 @@ resources on [Redpanda Cloud](https://redpanda.com/redpanda-cloud).
 ## Table of Contents
 
 - [Getting Started](#getting-started)
+- [Contributing](#contributing)
+    - [Pull Request Process](#pull-request-process)
 - [Makefile Commands - Developer Guide](#makefile-commands---developer-guide)
     - [Prerequisites](#prerequisites)
     - [Cluster Management Commands](#cluster-management-commands)
@@ -23,6 +25,16 @@ resources on [Redpanda Cloud](https://redpanda.com/redpanda-cloud).
 
 User documentation on the Terraform provider is available at
 the [Terraform Registry](https://registry.terraform.io/providers/redpanda-data/redpanda/latest/docs).
+
+## Contributing
+
+When contributing to this project, please ensure you've run `make ready` and all tests pass before submitting a pull
+request. If you've added new functionality, consider adding appropriate unit and integration tests.
+
+### Pull Request Process
+
+* (optional) Use the label docs to generate documentation
+* Use the label ci-ready to run integration tests
 
 ## Makefile Commands - Developer Guide
 
@@ -68,6 +80,8 @@ make apply
 # Note that you won't lose your AWS state or cluster when doing this
 export TEST_TYPE=cluster
 export CLOUD_PROVIDER=gcp
+
+make apply
 
 # clean up by tearing down the GCP cluster
 make teardown
@@ -150,13 +164,6 @@ them with go generate, you can run this command to generate the mocks.
 2. Use `make unit` for quick, local testing that doesn't require Redpanda credentials.
 3. Use `apply` and `teardown` for more complex manual testing during development
 4. Run the integration tests by tagging your PR with `ci-ready` to ensure all tests pass before merging.
-
-## Contributing
-
-When contributing to this project, please ensure you've run `make ready` and all tests pass before submitting a pull
-request. If you've added new functionality, consider adding appropriate unit and integration tests.
-
-For more detailed information on contributing, please see our [CONTRIBUTING.md](../CONTRIBUTING.md) file.
 
 ## Releasing a Version
 
