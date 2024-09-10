@@ -21,6 +21,7 @@ steps:
 
   - label: test_network
     key: test_network
+    if: build.pull_request.labels includes 'ci-ready'
     command: make test_network
     plugins:
       - seek-oss/aws-sm#v2.3.2:
@@ -36,6 +37,7 @@ steps:
       - unit
   - label: test_cluster_aws
     key: test_cluster_aws
+    if: build.pull_request.labels includes 'ci-ready'
     command: make test_cluster_aws
     plugins:
       - seek-oss/aws-sm#v2.3.2:
@@ -52,6 +54,7 @@ steps:
       - test_network
   - label: test_cluster_azure
     key: test_cluster_azure
+    if: build.pull_request.labels includes 'ci-ready'
     command: make test_cluster_azure
     plugins:
       - seek-oss/aws-sm#v2.3.2:
@@ -68,6 +71,7 @@ steps:
       - test_network
   - label: test_cluster_gcp
     key: test_cluster_gcp
+    if: build.pull_request.labels includes 'ci-ready'
     command: make test_cluster_gcp
     plugins:
       - seek-oss/aws-sm#v2.3.2:
@@ -84,6 +88,7 @@ steps:
       - test_network
   - label: test_serverless_cluster
     key: test_serverless_cluster
+    if: build.pull_request.labels includes 'ci-ready'
     command: make test_serverless_cluster
     plugins:
       - seek-oss/aws-sm#v2.3.2:

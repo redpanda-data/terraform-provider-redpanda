@@ -24,9 +24,11 @@ resource "redpanda_cluster" "test" {
   throughput_tier   = var.throughput_tier
   zones             = var.zones
   allow_deletion    = true
+  ## This is a reference for GCP tags
   #   tags = {
   #     "key" = "value"
   #   }
+  ## This is a reference for GCP Private Service Connect
   #   gcp_private_service_connect = {
   #     enabled               = true
   #     global_access_enabled = true
