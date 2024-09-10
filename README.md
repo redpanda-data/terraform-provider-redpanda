@@ -43,7 +43,7 @@ Before using these commands, ensure you have the following:
 
 These commands are used to create and manage Redpanda clusters for testing purposes.
 
-#### standup
+#### apply
 
 Creates and sets up a Redpanda cluster using Terraform. This is intended for use in manual testing and development. It
 should not be active when running the integration tests or you will lose the cluster ID and name.
@@ -53,16 +53,16 @@ Here's an example usage
 ```shell
 # Test type defaults to cluster
 # Cloud provider defaults to aws
-make standup 
+make apply 
 # make changes to examples/cluster/aws/main.tf
-# rerun standup to review
-make standup
+# rerun apply to review
+make apply
 
 # switch to datasource to test accessing the cluster with datasource and creating resources
 # this is convenient for manual testing of changes to dataplane resources
 # make changes in examples/datasource/standard/main.tf
 export TEST_TYPE=datasource
-make standup
+make apply
 
 # switch to GCP to validate cluster against GCP. 
 # Note that you won't lose your AWS state or cluster when doing this
@@ -77,7 +77,7 @@ export CLOUD_PROVIDER=aws
 make teardown
 ```
 
-Command: `make standup`
+Command: `make apply`
 
 **Key Variables:**
 
@@ -93,7 +93,7 @@ The `TF_CONFIG_DIR` is dynamically constructed based on the `TEST_TYPE` and `CLO
 For cluster tests: `TF_CONFIG_DIR := examples/$(TEST_TYPE)/$(CLOUD_PROVIDER)`
 For datasource tests: `TF_CONFIG_DIR := examples/$(TEST_TYPE)/$(DATASOURCE_TEST_DIR)`
 
-This is done to enable persisting the name and id of a cluster created by standup while still allowing for name
+This is done to enable persisting the name and id of a cluster created by apply while still allowing for name
 randomization. Names and IDs are persisted by cloud provider, so you can switch between providers without losing them.
 You can also switch from the cluster test to the datasource test and the correct cluster will be reused depending on the
 cloud provider you have set.
@@ -104,7 +104,7 @@ Destroys the current Redpanda cluster and associated infrastructure managed by T
 
 Command: `make teardown`
 
-This command uses the same `TF_CONFIG_DIR` as the `standup` command to ensure it targets the correct resources.
+This command uses the same `TF_CONFIG_DIR` as the `apply` command to ensure it targets the correct resources.
 
 ### Development Commands
 
@@ -148,7 +148,7 @@ them with go generate, you can run this command to generate the mocks.
 
 1. Always run `make ready` before committing changes to ensure code quality and documentation accuracy.
 2. Use `make unit` for quick, local testing that doesn't require Redpanda credentials.
-3. Use `standup` and `teardown` for more complex manual testing during development
+3. Use `apply` and `teardown` for more complex manual testing during development
 4. Run the integration tests by tagging your PR with `ci-ready` to ensure all tests pass before merging.
 
 ## Contributing

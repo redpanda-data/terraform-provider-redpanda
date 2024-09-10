@@ -97,7 +97,7 @@ TEST_TYPE ?= cluster
 DATASOURCE_TEST_DIR ?= standard
 TF_CONFIG_DIR ?= examples/$(TEST_TYPE)/$(CLOUD_PROVIDER)
 PROVIDER_DIR := .terraform.d/plugins/registry.terraform.io/$(PROVIDER_NAMESPACE)/$(PROVIDER_NAME)/$(PROVIDER_VERSION)/$(OS)_$(ARCH)
-
+TF_LOG ?= WARN
 # path to the built binary
 PROVIDER_BINARY := $(PWD)/terraform-provider-$(PROVIDER_NAME)
 
@@ -115,8 +115,8 @@ move-provider:
 
 REDPANDA_CLOUD_ENVIRONMENT ?= "ign"
 
-.PHONY: standup
-standup: build-provider move-provider test-create
+.PHONY: apply
+apply: build-provider move-provider test-create
 
 .PHONY: teardown
 teardown: test-destroy
@@ -183,7 +183,7 @@ tf-init:
 	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
 	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
 	REDPANDA_CLOUD_ENVIRONMENT="$(REDPANDA_CLOUD_ENVIRONMENT)" \
-	TF_LOG=DEBUG \
+	TF_LOG=$(TF_LOG) \
 	TF_INSECURE_SKIP_PROVIDER_VERIFICATION=true \
 	TF_PLUGIN_CACHE_DIR=.terraform.d/plugins_cache \
 	terraform init -plugin-dir=.terraform.d/plugins
@@ -197,7 +197,7 @@ tf-apply:
 	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
 	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
 	REDPANDA_CLOUD_ENVIRONMENT="$(REDPANDA_CLOUD_ENVIRONMENT)" \
-	TF_LOG=DEBUG \
+	TF_LOG=$(TF_LOG) \
 	TF_INSECURE_SKIP_PROVIDER_VERIFICATION=true \
 	TF_PLUGIN_CACHE_DIR=.terraform.d/plugins_cache \
 	bash -c 'if grep -q "resource \"redpanda_cluster\"" *.tf; then \
@@ -241,7 +241,7 @@ test-destroy:
 	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
 	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
 	REDPANDA_CLOUD_ENVIRONMENT=""$(REDPANDA_CLOUD_ENVIRONMENT)"" \
-	TF_LOG=DEBUG \
+	TF_LOG=$(TF_LOG) \
 	TF_INSECURE_SKIP_PROVIDER_VERIFICATION=true \
 	TF_PLUGIN_CACHE_DIR=.terraform.d/plugins_cache \
 	bash -c 'terraform init -plugin-dir=.terraform.d/plugins && \
@@ -285,7 +285,7 @@ test_network:
 	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
 	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
 	TF_ACC=true \
-	TF_LOG=DEBUG \
+	TF_LOG=$(TF_LOG) \
 	VERSION=ign \
 	$(GOCMD) test -v -timeout=1h ./redpanda/tests -run TestAccResourcesNetwork
 
@@ -298,7 +298,7 @@ test_cluster_aws:
 	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
 	RUN_CLUSTER_TESTS=true \
 	TF_ACC=true \
-	TF_LOG=DEBUG \
+	TF_LOG=$(TF_LOG) \
 	VERSION=ign \
 	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesClusterAWS
 
@@ -310,7 +310,7 @@ test_cluster_azure:
 	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
 	RUN_CLUSTER_TESTS=true \
 	TF_ACC=true \
-	TF_LOG=DEBUG \
+	TF_LOG=$(TF_LOG) \
 	VERSION=ign \
 	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesClusterAzure
 
@@ -323,7 +323,7 @@ test_cluster_gcp:
 	REDPANDA_VERSION="24.2.20240809182625" \
 	RUN_CLUSTER_TESTS=true \
 	TF_ACC=true \
-	TF_LOG=DEBUG \
+	TF_LOG=$(TF_LOG) \
 	VERSION=ign \
 	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesClusterGCP
 
@@ -335,6 +335,6 @@ test_serverless_cluster:
 	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
 	RUN_SERVERLESS_TESTS=true \
 	TF_ACC=true \
-	TF_LOG=DEBUG \
+	TF_LOG=$(TF_LOG) \
 	VERSION=ign \
 	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesStrippedDownServerlessCluster
