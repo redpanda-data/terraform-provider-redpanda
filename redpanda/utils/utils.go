@@ -262,8 +262,7 @@ func TopicConfigurationToMap(cfg []*dataplanev1alpha1.Topic_Configuration) (type
 	configs := make(map[string]attr.Value, len(cfg))
 	for _, v := range cfg {
 		if v.Value == nil {
-			// TODO should we skip, error, or set to empty string? skipping for now
-			continue
+			return types.Map{}, fmt.Errorf("nil value for topic configuration %q", v.Name)
 		}
 		configs[v.Name] = types.StringValue(*v.Value)
 	}

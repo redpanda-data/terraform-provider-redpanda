@@ -420,12 +420,9 @@ func TestTopicConfigurationToMap(t *testing.T) {
 				{Name: "cleanup.policy", Value: nil},
 			},
 			expected: func() types.Map {
-				m, _ := types.MapValue(types.StringType, map[string]attr.Value{
-					"retention.ms": types.StringValue("86400000"),
-				})
-				return m
+				return types.Map{}
 			}(),
-			expectedErr: "",
+			expectedErr: "nil value for topic configuration \"cleanup.policy\"",
 		},
 	}
 
