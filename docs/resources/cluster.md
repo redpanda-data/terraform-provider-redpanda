@@ -96,7 +96,7 @@ Required:
 
 - `ca_certificates_pem` (List of String) CA certificate in PEM format.
 - `enabled` (Boolean) Whether mTLS is enabled.
-- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on configuring authentication.
+- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.
 
 
 
@@ -114,7 +114,7 @@ Required:
 
 - `ca_certificates_pem` (List of String) CA certificate in PEM format.
 - `enabled` (Boolean) Whether mTLS is enabled.
-- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on configuring authentication.
+- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.
 
 
 
@@ -132,7 +132,7 @@ Required:
 
 - `ca_certificates_pem` (List of String) CA certificate in PEM format.
 - `enabled` (Boolean) Whether mTLS is enabled.
-- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on configuring authentication.
+- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.
 
 ## Usage
 
@@ -285,9 +285,11 @@ resource "redpanda_cluster" "test" {
   throughput_tier   = var.throughput_tier
   zones             = var.zones
   allow_deletion    = true
+  ## This is a reference for GCP tags
   #   tags = {
   #     "key" = "value"
   #   }
+  ## This is a reference for GCP Private Service Connect
   #   gcp_private_service_connect = {
   #     enabled               = true
   #     global_access_enabled = true
@@ -437,7 +439,7 @@ variable "topic_config" {
 }
 
 variable "user_name" {
-  default = "test-username"
+  default = "data-test-username"
 }
 
 variable "user_pw" {
@@ -449,7 +451,7 @@ variable "mechanism" {
 }
 
 variable "topic_name" {
-  default = "test-topic"
+  default = "data-test-topic"
 }
 
 variable "partition_count" {
