@@ -416,16 +416,16 @@ type ThroughputTierClient interface {
 	ListThroughputTiers(ctx context.Context, in *controlplanev1beta2.ListThroughputTiersRequest, opts ...grpc.CallOption) (*controlplanev1beta2.ListThroughputTiersResponse, error)
 }
 
-// GetThroughputTiers returns the throughput tiers for the given cloud provider, cluster type, and region
-func GetThroughputTiers(ctx context.Context, tt ThroughputTierClient, cloudProvider, clusterType, region string) ([]*controlplanev1beta2.ThroughputTier, error) {
+// ValidateThroughputTier returns the throughput tiers for the given cloud provider, cluster type, and region
+func ValidateThroughputTier(ctx context.Context, tt ThroughputTierClient, throughputTier, cloudProvider, clusterType, region string) error {
 	cp, err := StringToCloudProvider(cloudProvider)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	ct, err := StringToClusterType(clusterType)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	resp, err := tt.ListThroughputTiers(ctx,
@@ -438,7 +438,12 @@ func GetThroughputTiers(ctx context.Context, tt ThroughputTierClient, cloudProvi
 		},
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return resp.GetThroughputTiers(), nil
+	for _, v := range resp.GetThroughputTiers() {
+		if v.GetName() == throughputTier {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid throughput tier %s, please select a valid throughput tier", throughputTier)
 }

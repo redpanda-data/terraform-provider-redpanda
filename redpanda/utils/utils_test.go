@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/mocks"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/genproto/googleapis/rpc/status"
 )
 
@@ -814,6 +815,99 @@ func TestGetServerlessClusterUntilRunningState(t *testing.T) {
 
 			if !reflect.DeepEqual(cluster, tc.expectedCluster) {
 				t.Errorf("Expected cluster %+v, but got %+v", tc.expectedCluster, cluster)
+			}
+		})
+	}
+}
+
+func TestValidateThroughputTier(t *testing.T) {
+	tests := []struct {
+		name           string
+		throughputTier string
+		cloudProvider  string
+		clusterType    string
+		region         string
+		mockSetup      func(*mocks.MockThroughputTierClient)
+		expectedError  string
+	}{
+		{
+			name:           "Valid throughput tier",
+			throughputTier: "tier-1",
+			cloudProvider:  "aws",
+			clusterType:    "dedicated",
+			region:         "us-east-1",
+			mockSetup: func(m *mocks.MockThroughputTierClient) {
+				m.EXPECT().ListThroughputTiers(gomock.Any(), gomock.Any()).Return(&controlplanev1beta2.ListThroughputTiersResponse{
+					ThroughputTiers: []*controlplanev1beta2.ThroughputTier{
+						{Name: "tier-1"},
+						{Name: "tier-2"},
+					},
+				}, nil)
+			},
+			expectedError: "",
+		},
+		{
+			name:           "Invalid throughput tier",
+			throughputTier: "tier-3",
+			cloudProvider:  "aws",
+			clusterType:    "dedicated",
+			region:         "us-east-1",
+			mockSetup: func(m *mocks.MockThroughputTierClient) {
+				m.EXPECT().ListThroughputTiers(gomock.Any(), gomock.Any()).Return(&controlplanev1beta2.ListThroughputTiersResponse{
+					ThroughputTiers: []*controlplanev1beta2.ThroughputTier{
+						{Name: "tier-1"},
+						{Name: "tier-2"},
+					},
+				}, nil)
+			},
+			expectedError: "invalid throughput tier tier-3, please select a valid throughput tier",
+		},
+		{
+			name:           "API error",
+			throughputTier: "tier-1",
+			cloudProvider:  "aws",
+			clusterType:    "dedicated",
+			region:         "us-east-1",
+			mockSetup: func(m *mocks.MockThroughputTierClient) {
+				m.EXPECT().ListThroughputTiers(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("API error"))
+			},
+			expectedError: "API error",
+		},
+		{
+			name:           "Invalid cloud provider",
+			throughputTier: "tier-1",
+			cloudProvider:  "invalid",
+			clusterType:    "dedicated",
+			region:         "us-east-1",
+			mockSetup:      func(_ *mocks.MockThroughputTierClient) {},
+			expectedError:  "provider \"invalid\" not supported",
+		},
+		{
+			name:           "Invalid cluster type",
+			throughputTier: "tier-1",
+			cloudProvider:  "aws",
+			clusterType:    "invalid",
+			region:         "us-east-1",
+			mockSetup:      func(_ *mocks.MockThroughputTierClient) {},
+			expectedError:  "cluster type \"invalid\" not supported",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockClient := mocks.NewMockThroughputTierClient(ctrl)
+			tt.mockSetup(mockClient)
+
+			err := ValidateThroughputTier(context.Background(), mockClient, tt.throughputTier, tt.cloudProvider, tt.clusterType, tt.region)
+
+			if tt.expectedError != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}

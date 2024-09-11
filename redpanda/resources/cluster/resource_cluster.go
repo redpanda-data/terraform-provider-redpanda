@@ -115,9 +115,6 @@ func resourceClusterSchema() schema.Schema {
 				Required:      true,
 				Description:   "Throughput tier of the cluster.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Validators: []validator.String{
-					validators.ThroughputTierValidator{},
-				},
 			},
 			"region": schema.StringAttribute{
 				Optional:      true,
@@ -340,6 +337,11 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		resp.Diagnostics.AddError("unable to parse CreateCluster request", err.Error())
 		return
 	}
+
+	if err := utils.ValidateThroughputTier(ctx, c.CpCl.ThroughputTier, clusterReq.GetThroughputTier(), model.CloudProvider.ValueString(), "dedicated", clusterReq.GetRegion()); err != nil {
+		return
+	}
+
 	clResp, err := c.CpCl.Cluster.CreateCluster(ctx, &controlplanev1beta2.CreateClusterRequest{Cluster: clusterReq})
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create cluster", err.Error())
@@ -448,6 +450,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		updateReq.Cluster.ReadReplicaClusterIds = utils.TypeListToStringSlice(plan.ReadReplicaClusterIDs)
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "read_replica_cluster_ids")
 	}
+
 	op, err := c.CpCl.Cluster.UpdateCluster(ctx, updateReq)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to send cluster update request", err.Error())
