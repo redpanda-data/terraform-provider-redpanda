@@ -66,12 +66,12 @@ unit_tests:
 .PHONY: install_gofumpt
 install_gofumpt:
 	@echo "installing gofumpt..."
-	@$(GOCMD) install mvdan.cc/gofumpt@v0.6.0
+	@$(GOCMD) install mvdan.cc/gofumpt@v0.7.0
 
 .PHONY: install_lint
 install_lint:
 	@echo "installing linter..."
-	@$(GOCMD) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
+	@$(GOCMD) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61
 
 .PHONY: linter
 linter:
