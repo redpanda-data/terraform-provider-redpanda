@@ -117,7 +117,7 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		NetworkID:             types.StringValue(cluster.NetworkId),
 		ID:                    types.StringValue(cluster.Id),
 		ClusterAPIURL:         types.StringValue(clusterURL),
-		ReadReplicaClusterIds: rr,
+		ReadReplicaClusterIDs: rr,
 	}
 
 	if !isAwsPrivateLinkSpecNil(cluster.AwsPrivateLink) {
