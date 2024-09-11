@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 	"time"
@@ -36,6 +37,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	rpknet "github.com/redpanda-data/redpanda/src/go/rpk/pkg/net"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
+	"google.golang.org/grpc"
 )
 
 const providerUnspecified = "unspecified"
@@ -311,7 +313,15 @@ func MapToSetTopicConfiguration(cfg types.Map) ([]*dataplanev1alpha2.SetTopicCon
 // NumberToInt32 converts a types.Number to an *int32
 func NumberToInt32(n types.Number) *int32 {
 	i, _ := n.ValueBigFloat().Int64()
-	i32 := int32(i)
+	var i32 int32
+	switch {
+	case i > math.MaxInt32:
+		i32 = math.MaxInt32
+	case i < math.MinInt32:
+		i32 = math.MinInt32
+	default:
+		i32 = int32(i)
+	}
 	return &i32
 }
 
@@ -399,4 +409,36 @@ func TypeMapToStringMap(tags types.Map) map[string]string {
 		return nil
 	}
 	return tagsMap
+}
+
+// ThroughputTierClient is an interface for the ListThroughputTiers method from the controlplanev1beta2 API ThroughputTierServiceClient
+type ThroughputTierClient interface {
+	ListThroughputTiers(ctx context.Context, in *controlplanev1beta2.ListThroughputTiersRequest, opts ...grpc.CallOption) (*controlplanev1beta2.ListThroughputTiersResponse, error)
+}
+
+// GetThroughputTiers returns the throughput tiers for the given cloud provider, cluster type, and region
+func GetThroughputTiers(ctx context.Context, tt ThroughputTierClient, cloudProvider, clusterType, region string) ([]*controlplanev1beta2.ThroughputTier, error) {
+	cp, err := StringToCloudProvider(cloudProvider)
+	if err != nil {
+		return nil, err
+	}
+
+	ct, err := StringToClusterType(clusterType)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := tt.ListThroughputTiers(ctx,
+		&controlplanev1beta2.ListThroughputTiersRequest{
+			Filter: &controlplanev1beta2.ListThroughputTiersRequest_Filter{
+				CloudProvider: cp,
+				ClusterType:   ct,
+				Region:        region,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return resp.GetThroughputTiers(), nil
 }

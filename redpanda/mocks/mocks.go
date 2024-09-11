@@ -23,4 +23,6 @@ package mocks
 //go:generate mockgen -destination=./mock_user_service_client.go -package=mocks buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1alpha2/dataplanev1alpha2grpc UserServiceClient
 //go:generate mockgen -destination=./mock_operations_service_client.go -package=mocks buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta2/controlplanev1beta2grpc OperationServiceClient
 //go:generate mockgen -destination=./mock_serverless_cluster_service_client.go -package=mocks buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta2/controlplanev1beta2grpc ServerlessClusterServiceClient
+//go:generate mockgen -destination=./mock_throughput_service_client.go -package=mocks buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta2/controlplanev1beta2grpc ThroughputTierServiceClient
 //go:generate mockgen -destination=./mock_cp_client_set.go -package=mocks github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud CpClientSet
+//go:generate mockgen -destination=./mock_throughput_tier_client.go -package=mocks github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils ThroughputTierClient

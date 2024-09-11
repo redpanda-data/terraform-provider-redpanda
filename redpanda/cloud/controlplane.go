@@ -46,6 +46,7 @@ type ControlPlaneClientSet struct {
 	Cluster           controlplanev1beta2grpc.ClusterServiceClient
 	ServerlessCluster controlplanev1beta2grpc.ServerlessClusterServiceClient
 	Operation         controlplanev1beta2grpc.OperationServiceClient
+	ThroughputTier    controlplanev1beta2grpc.ThroughputTierServiceClient
 }
 
 // NewControlPlaneClientSet uses the passed grpc connection to create a control
@@ -57,6 +58,7 @@ func NewControlPlaneClientSet(conn *grpc.ClientConn) *ControlPlaneClientSet {
 		Cluster:           controlplanev1beta2grpc.NewClusterServiceClient(conn),
 		ServerlessCluster: controlplanev1beta2grpc.NewServerlessClusterServiceClient(conn),
 		Operation:         controlplanev1beta2grpc.NewOperationServiceClient(conn),
+		ThroughputTier:    controlplanev1beta2grpc.NewThroughputTierServiceClient(conn),
 	}
 }
 
