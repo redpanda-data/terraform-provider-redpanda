@@ -444,8 +444,8 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "schema_registry")
 	}
 
-	if !plan.ReadReplicaClusterIds.IsNull() {
-		updateReq.Cluster.ReadReplicaClusterIds = utils.TypeListToStringSlice(plan.ReadReplicaClusterIds)
+	if !plan.ReadReplicaClusterIDs.IsNull() {
+		updateReq.Cluster.ReadReplicaClusterIds = utils.TypeListToStringSlice(plan.ReadReplicaClusterIDs)
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "read_replica_cluster_ids")
 	}
 	op, err := c.CpCl.Cluster.UpdateCluster(ctx, updateReq)

@@ -207,8 +207,8 @@ func generateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterC
 			Mtls: toMtlsSpec(model.SchemaRegistry.Mtls),
 		}
 	}
-	if !model.ReadReplicaClusterIds.IsNull() {
-		output.ReadReplicaClusterIds = utils.TypeListToStringSlice(model.ReadReplicaClusterIds)
+	if !model.ReadReplicaClusterIDs.IsNull() {
+		output.ReadReplicaClusterIds = utils.TypeListToStringSlice(model.ReadReplicaClusterIDs)
 	}
 
 	return output, nil
@@ -249,7 +249,7 @@ func generateModel(ctx context.Context, cfg models.Cluster, cluster *controlplan
 	if d.HasError() {
 		return nil, fmt.Errorf("failed to parse read replica cluster IDs: %v", d)
 	}
-	output.ReadReplicaClusterIds = rr
+	output.ReadReplicaClusterIDs = rr
 
 	if !isAwsPrivateLinkSpecNil(cluster.AwsPrivateLink) {
 		ap, dg := types.ListValueFrom(ctx, types.StringType, cluster.AwsPrivateLink.AllowedPrincipals)

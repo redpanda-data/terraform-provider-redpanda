@@ -119,7 +119,7 @@ func TestRateLimiter_Limiter(t *testing.T) {
 				if tt.headerLimit != "" {
 					headerLimit = fmt.Sprintf(tt.headerLimit, remaining)
 				}
-				mockInvoker := func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
+				mockInvoker := func(_ context.Context, _ string, _, _ any, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
 					if tt.headerLimit != "" {
 						header := metadata.MD{
 							"ratelimit": []string{headerLimit},

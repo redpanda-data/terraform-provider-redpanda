@@ -41,7 +41,7 @@ type Cluster struct {
 	KafkaAPI                 *KafkaAPI                 `tfsdk:"kafka_api"`
 	HTTPProxy                *HTTPProxy                `tfsdk:"http_proxy"`
 	SchemaRegistry           *SchemaRegistry           `tfsdk:"schema_registry"`
-	ReadReplicaClusterIds    types.List                `tfsdk:"read_replica_cluster_ids"`
+	ReadReplicaClusterIDs    types.List                `tfsdk:"read_replica_cluster_ids"`
 }
 
 // AwsPrivateLink represents the Terraform schema for the AWS Private Link configuration.
