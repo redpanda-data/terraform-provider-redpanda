@@ -169,7 +169,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		response.Diagnostics.AddError("failed to unmarshal network metadata", err.Error())
 		return
 	}
-	if err := utils.AreWeDoneYet(ctx, op, 15*time.Minute, time.Minute, n.CpCl.Operation); err != nil {
+	if err := utils.AreWeDoneYet(ctx, op, 15*time.Minute, time.Second, n.CpCl.Operation); err != nil {
 		response.Diagnostics.AddError("failed waiting for network creation", err.Error())
 		return
 	}
@@ -225,7 +225,7 @@ func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, re
 		response.Diagnostics.AddError("failed to delete network", err.Error())
 		return
 	}
-	if err := utils.AreWeDoneYet(ctx, netResp.Operation, 15*time.Minute, time.Minute, n.CpCl.Operation); err != nil {
+	if err := utils.AreWeDoneYet(ctx, netResp.Operation, 15*time.Minute, time.Second, n.CpCl.Operation); err != nil {
 		response.Diagnostics.AddError("failed waiting for network deletion", err.Error())
 	}
 }
