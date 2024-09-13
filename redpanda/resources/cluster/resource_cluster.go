@@ -451,15 +451,17 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "read_replica_cluster_ids")
 	}
 
-	op, err := c.CpCl.Cluster.UpdateCluster(ctx, updateReq)
-	if err != nil {
-		resp.Diagnostics.AddError("failed to send cluster update request", err.Error())
-		return
-	}
+	if len(updateReq.UpdateMask.Paths) != 0 {
+		op, err := c.CpCl.Cluster.UpdateCluster(ctx, updateReq)
+		if err != nil {
+			resp.Diagnostics.AddError("failed to send cluster update request", err.Error())
+			return
+		}
 
-	if err := utils.AreWeDoneYet(ctx, op.GetOperation(), 90*time.Minute, time.Minute, c.CpCl.Operation); err != nil {
-		resp.Diagnostics.AddError("failed while waiting to update cluster", err.Error())
-		return
+		if err := utils.AreWeDoneYet(ctx, op.GetOperation(), 90*time.Minute, time.Minute, c.CpCl.Operation); err != nil {
+			resp.Diagnostics.AddError("failed while waiting to update cluster", err.Error())
+			return
+		}
 	}
 
 	cluster, err := c.CpCl.ClusterForID(ctx, plan.ID.ValueString())
