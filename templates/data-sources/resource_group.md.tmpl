@@ -9,12 +9,22 @@ description: |-
 
 {{ .Description | trimspace }}
 
-{{ .SchemaMarkdown | trimspace }}
-
 ## Usage
+
+### Search by ID
 
 ```hcl
 data "redpanda_resource_group" "example" {
     id = "resource_group_id"
 }
 ```
+
+### Search by name
+
+```hcl
+data "redpanda_resource_group" "example" {
+    name = "default"
+}
+```
+
+{{ .SchemaMarkdown | trimspace }}
