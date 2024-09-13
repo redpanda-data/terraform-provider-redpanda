@@ -18,9 +18,6 @@ Enables the provisioning and management of Redpanda serverless clusters on AWS. 
 
 - `name` (String) Name of the serverless cluster
 - `resource_group_id` (String) The ID of the Resource Group in which to create the serverless cluster
-
-### Optional
-
 - `serverless_region` (String) Redpanda specific region of the serverless cluster
 
 ### Read-Only

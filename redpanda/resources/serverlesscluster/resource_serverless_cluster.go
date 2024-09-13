@@ -84,7 +84,8 @@ func resourceServerlessClusterSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"serverless_region": schema.StringAttribute{
-				Optional:      true,
+				// TODO: validate against ListServerlessRegions
+				Required:      true,
 				Description:   "Redpanda specific region of the serverless cluster",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
