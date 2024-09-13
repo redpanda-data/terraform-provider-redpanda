@@ -23,7 +23,7 @@ import (
 
 // CloudProviders returns a list of cloud providers that the Redpanda provider supports.
 func CloudProviders() []validator.String {
-	return []validator.String{stringvalidator.OneOf("gcp", "aws")} // azure is not fully supported yet in the API
+	return []validator.String{stringvalidator.OneOf("gcp", "aws", "azure")}
 }
 
 // ClusterTypes returns a list of cluster types that the Redpanda provider supports.
