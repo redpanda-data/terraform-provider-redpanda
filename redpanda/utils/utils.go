@@ -109,45 +109,28 @@ func ClusterTypeToString(provider controlplanev1beta2.Cluster_Type) string {
 
 // AreWeDoneYet checks an operation's state until one of completion, failure or timeout is reached.
 func AreWeDoneYet(ctx context.Context, op *controlplanev1beta2.Operation, timeout, waitUnit time.Duration, client controlplanev1beta2grpc.OperationServiceClient) error {
-	startTime := time.Now()
-	endTime := startTime.Add(timeout)
-	errChan := make(chan error, 1)
-	for {
+	return Retry(ctx, timeout, waitUnit, func() *RetryError {
 		// Get the latest operation status
+		tflog.Info(ctx, "getting operation")
 		latestOp, err := client.GetOperation(ctx, &controlplanev1beta2.GetOperationRequest{
 			Id: op.GetId(),
 		})
+		tflog.Info(ctx, "got result of operation")
 		if err != nil {
-			// Send the error to the error channel (non-blocking)
-			select {
-			case errChan <- fmt.Errorf("error getting operation status: %v", err):
-			default:
-			}
-		} else {
-			op = latestOp.Operation
+			return NonRetryableError(err)
 		}
+		op = latestOp.Operation
+		tflog.Info(ctx, fmt.Sprintf("op %v %s", op, op.GetState()))
 
 		// Check the operation state
-		if op.GetState() == controlplanev1beta2.Operation_STATE_COMPLETED {
-			return nil
-		}
 		if op.GetState() == controlplanev1beta2.Operation_STATE_FAILED {
-			return fmt.Errorf("operation failed: %s", op.GetError().GetMessage())
+			return NonRetryableError(fmt.Errorf("operation failed: %s", op.GetError().GetMessage()))
 		}
-
-		// Check if the timeout has been reached
-		if time.Now().After(endTime) {
-			select {
-			case err := <-errChan:
-				return fmt.Errorf("timeout reached with error: %v", err)
-			default:
-				return fmt.Errorf("timeout reached")
-			}
+		if op.GetState() != controlplanev1beta2.Operation_STATE_COMPLETED {
+			return RetryableError(fmt.Errorf("expected operation to be completed but was in state %s", op.GetState()))
 		}
-
-		// Wait for a certain duration before checking again
-		time.Sleep(waitUnit)
-	}
+		return nil
+	})
 }
 
 // StringToConnectionType returns the controlplanev1beta2's Cluster_ConnectionType code
@@ -362,41 +345,45 @@ func SplitSchemeDefPort(url, def string) (string, error) {
 }
 
 // GetClusterUntilRunningState returns a cluster in the running state or an error
-func GetClusterUntilRunningState(ctx context.Context, count, limit int, clusterName string, wait time.Duration, client cloud.CpClientSet) (*controlplanev1beta2.Cluster, error) {
-	count++
-	if count >= limit {
-		return nil, fmt.Errorf("cluster %q did not reach the running state after %d attempts", clusterName, count)
-	}
-	cluster, err := client.ClusterForName(ctx, clusterName)
+func GetClusterUntilRunningState(ctx context.Context, timeout, wait time.Duration, clusterName string, client cloud.CpClientSet) (*controlplanev1beta2.Cluster, error) {
+	var cluster *controlplanev1beta2.Cluster
+	err := Retry(ctx, timeout, wait, func() *RetryError {
+		var err error
+		cluster, err = client.ClusterForName(ctx, clusterName)
+		if err != nil {
+			tflog.Info(ctx, fmt.Sprintf("cluster %q not found", clusterName))
+		}
+		tflog.Info(ctx, fmt.Sprintf("cluster : %v", cluster.GetState()))
+		if cluster.GetState() != controlplanev1beta2.Cluster_STATE_READY {
+			return RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
+		}
+		return nil
+	})
 	if err != nil {
-		tflog.Info(ctx, fmt.Sprintf("cluster %q not found", clusterName))
+		return nil, fmt.Errorf("cluster %q did not reach the running state: %v", clusterName, err)
 	}
-	tflog.Info(ctx, fmt.Sprintf("cluster : %v", cluster.GetState()))
-	if cluster.GetState() == controlplanev1beta2.Cluster_STATE_READY {
-		return cluster, nil
-	}
-
-	time.Sleep(wait)
-	return GetClusterUntilRunningState(ctx, count, limit, clusterName, wait, client)
+	return cluster, nil
 }
 
 // GetServerlessClusterUntilRunningState returns a serverless cluster in the running state or an error
-func GetServerlessClusterUntilRunningState(ctx context.Context, count, limit int, clusterName string, client cloud.CpClientSet) (*controlplanev1beta2.ServerlessCluster, error) {
-	count++
-	if count >= limit {
-		return nil, fmt.Errorf("serverless cluster %q did not reach the running state after %d attempts", clusterName, count)
-	}
-	cluster, err := client.ServerlessClusterForName(ctx, clusterName)
+func GetServerlessClusterUntilRunningState(ctx context.Context, timeout time.Duration, clusterName string, client cloud.CpClientSet) (*controlplanev1beta2.ServerlessCluster, error) {
+	var cluster *controlplanev1beta2.ServerlessCluster
+	err := Retry(ctx, timeout, 1*time.Second, func() *RetryError {
+		var err error
+		cluster, err = client.ServerlessClusterForName(ctx, clusterName)
+		if err != nil {
+			tflog.Info(ctx, fmt.Sprintf("serverless cluster %q not found", clusterName))
+		}
+		tflog.Info(ctx, fmt.Sprintf("serverless cluster : %v", cluster.GetState()))
+		if cluster.GetState() != controlplanev1beta2.ServerlessCluster_STATE_READY {
+			return RetryableError(fmt.Errorf("expected serverless cluster to be ready but was in state %v", cluster.GetState()))
+		}
+		return nil
+	})
 	if err != nil {
-		tflog.Info(ctx, fmt.Sprintf("serverless cluster %q not found", clusterName))
+		return nil, fmt.Errorf("serverless cluster %q did not reach the running state: %v", clusterName, err)
 	}
-	tflog.Info(ctx, fmt.Sprintf("serverless cluster : %v", cluster.GetState()))
-	if cluster.GetState() == controlplanev1beta2.ServerlessCluster_STATE_READY {
-		return cluster, nil
-	}
-
-	time.Sleep(3 * time.Second)
-	return GetServerlessClusterUntilRunningState(ctx, count, limit, clusterName, client)
+	return cluster, nil
 }
 
 // TypeMapToStringMap converts a types.Map to a map[string]string

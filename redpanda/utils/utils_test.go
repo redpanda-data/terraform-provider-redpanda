@@ -78,7 +78,7 @@ func TestAreWeDoneYet(t *testing.T) {
 			mockSetup: func(m *mocks.MockOperationServiceClient) {
 				m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1beta2.Operation_STATE_IN_PROGRESS), nil).AnyTimes()
 			},
-			wantErr: "timeout reached",
+			wantErr: "timed out after 100ms: Expected operation to be completed but was in state STATE_IN_PROGRESS",
 		},
 		{
 			name:    "Operation times out with unspecified",
@@ -87,7 +87,7 @@ func TestAreWeDoneYet(t *testing.T) {
 			mockSetup: func(m *mocks.MockOperationServiceClient) {
 				m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1beta2.Operation_STATE_UNSPECIFIED), nil).AnyTimes()
 			},
-			wantErr: "timeout reached",
+			wantErr: "timed out after 100ms: Expected operation to be completed but was in state STATE_UNSPECIFIED",
 		},
 	}
 
@@ -641,7 +641,7 @@ func TestGetClusterUntilRunningState(t *testing.T) {
 	testCases := []struct {
 		name            string
 		clusterName     string
-		limit           int
+		timeout         time.Duration
 		setupMock       func()
 		wait            time.Duration
 		expectedCluster *controlplanev1beta2.Cluster
@@ -650,7 +650,7 @@ func TestGetClusterUntilRunningState(t *testing.T) {
 		{
 			name:        "Cluster becomes ready immediately",
 			clusterName: "test-cluster",
-			limit:       5,
+			timeout:     5 * time.Second,
 			wait:        1 * time.Second,
 			setupMock: func() {
 				mockClient.EXPECT().ClusterForName(gomock.Any(), "test-cluster").Return(
@@ -663,7 +663,7 @@ func TestGetClusterUntilRunningState(t *testing.T) {
 		{
 			name:        "Cluster becomes ready after multiple attempts",
 			clusterName: "test-cluster",
-			limit:       5,
+			timeout:     5 * time.Second,
 			wait:        1 * time.Second,
 			setupMock: func() {
 				gomock.InOrder(
@@ -681,20 +681,20 @@ func TestGetClusterUntilRunningState(t *testing.T) {
 		{
 			name:        "Cluster not found",
 			clusterName: "non-existent-cluster",
+			timeout:     5 * time.Second,
 			wait:        1 * time.Second,
-			limit:       5,
 			setupMock: func() {
 				mockClient.EXPECT().ClusterForName(gomock.Any(), "non-existent-cluster").Return(
 					nil, fmt.Errorf("cluster not found"),
 				).AnyTimes()
 			},
 			expectedCluster: nil,
-			expectedErr:     "cluster \"non-existent-cluster\" did not reach the running state after 5 attempts",
+			expectedErr:     "cluster \"non-existent-cluster\" did not reach the running state: timed out after 5s: expected cluster to be ready but was in state STATE_UNSPECIFIED",
 		},
 		{
 			name:        "Timeout reached",
 			clusterName: "slow-cluster",
-			limit:       3,
+			timeout:     3 * time.Second,
 			wait:        1 * time.Second,
 			setupMock: func() {
 				mockClient.EXPECT().ClusterForName(gomock.Any(), "slow-cluster").Return(
@@ -702,14 +702,14 @@ func TestGetClusterUntilRunningState(t *testing.T) {
 				).AnyTimes()
 			},
 			expectedCluster: nil,
-			expectedErr:     "cluster \"slow-cluster\" did not reach the running state after 3 attempts",
+			expectedErr:     "cluster \"slow-cluster\" did not reach the running state: timed out after 3s: expected cluster to be ready but was in state STATE_CREATING",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.setupMock()
-			cluster, err := GetClusterUntilRunningState(ctx, 0, tc.limit, tc.clusterName, tc.wait, mockClient)
+			cluster, err := GetClusterUntilRunningState(ctx, tc.timeout, tc.wait, tc.clusterName, mockClient)
 
 			if tc.expectedErr != "" {
 				if err == nil {
@@ -737,7 +737,7 @@ func TestGetServerlessClusterUntilRunningState(t *testing.T) {
 	testCases := []struct {
 		name            string
 		clusterName     string
-		limit           int
+		timeout         time.Duration
 		setupMock       func()
 		expectedCluster *controlplanev1beta2.ServerlessCluster
 		expectedErr     string
@@ -745,7 +745,7 @@ func TestGetServerlessClusterUntilRunningState(t *testing.T) {
 		{
 			name:        "Cluster becomes ready immediately",
 			clusterName: "test-cluster",
-			limit:       5,
+			timeout:     5 * time.Second,
 			setupMock: func() {
 				mockClient.EXPECT().ServerlessClusterForName(gomock.Any(), "test-cluster").Return(
 					&controlplanev1beta2.ServerlessCluster{State: controlplanev1beta2.ServerlessCluster_STATE_READY}, nil,
@@ -757,7 +757,7 @@ func TestGetServerlessClusterUntilRunningState(t *testing.T) {
 		{
 			name:        "Cluster becomes ready after multiple attempts",
 			clusterName: "test-cluster",
-			limit:       5,
+			timeout:     5 * time.Second,
 			setupMock: func() {
 				gomock.InOrder(
 					mockClient.EXPECT().ServerlessClusterForName(gomock.Any(), "test-cluster").Return(
@@ -774,26 +774,26 @@ func TestGetServerlessClusterUntilRunningState(t *testing.T) {
 		{
 			name:        "Cluster not found",
 			clusterName: "non-existent-cluster",
-			limit:       5,
+			timeout:     5 * time.Second,
 			setupMock: func() {
 				mockClient.EXPECT().ServerlessClusterForName(gomock.Any(), "non-existent-cluster").Return(
 					nil, fmt.Errorf("cluster not found"),
 				).AnyTimes()
 			},
 			expectedCluster: nil,
-			expectedErr:     "serverless cluster \"non-existent-cluster\" did not reach the running state after 5 attempts",
+			expectedErr:     "serverless cluster \"non-existent-cluster\" did not reach the running state: timed out after 5s: expected serverless cluster to be ready but was in state STATE_UNSPECIFIED",
 		},
 		{
 			name:        "Timeout reached",
 			clusterName: "slow-cluster",
-			limit:       3,
+			timeout:     3 * time.Second,
 			setupMock: func() {
 				mockClient.EXPECT().ServerlessClusterForName(gomock.Any(), "slow-cluster").Return(
 					&controlplanev1beta2.ServerlessCluster{State: controlplanev1beta2.ServerlessCluster_STATE_CREATING}, nil,
 				).AnyTimes()
 			},
 			expectedCluster: nil,
-			expectedErr:     "serverless cluster \"slow-cluster\" did not reach the running state after 3 attempts",
+			expectedErr:     "serverless cluster \"slow-cluster\" did not reach the running state: timed out after 3s: expected serverless cluster to be ready but was in state STATE_CREATING",
 		},
 	}
 
@@ -801,7 +801,7 @@ func TestGetServerlessClusterUntilRunningState(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.setupMock()
 
-			cluster, err := GetServerlessClusterUntilRunningState(ctx, 0, tc.limit, tc.clusterName, mockClient)
+			cluster, err := GetServerlessClusterUntilRunningState(ctx, tc.timeout, tc.clusterName, mockClient)
 
 			if tc.expectedErr != "" {
 				if err == nil {

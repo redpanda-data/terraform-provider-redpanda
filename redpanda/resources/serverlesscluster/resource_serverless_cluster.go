@@ -202,7 +202,7 @@ func (c *ServerlessCluster) Delete(ctx context.Context, req resource.DeleteReque
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
 	// We need to wait for the serverless cluster to be in a running state before we can delete it
-	_, err := utils.GetServerlessClusterUntilRunningState(ctx, 0, 30, model.Name.ValueString(), c.CpCl)
+	_, err := utils.GetServerlessClusterUntilRunningState(ctx, 30*time.Minute, model.Name.ValueString(), c.CpCl)
 	if err != nil {
 		return
 	}
