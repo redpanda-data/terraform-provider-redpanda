@@ -180,6 +180,7 @@ tf-init:
 	@echo "Initializing Terraform..."
 	@cd $(call GET_TF_CONFIG_DIR) && \
 	ls -ltrah && \
+	rm -f .terraform.lock.hcl && \
 	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
 	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
 	REDPANDA_CLOUD_ENVIRONMENT="$(REDPANDA_CLOUD_ENVIRONMENT)" \
