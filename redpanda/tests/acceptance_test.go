@@ -218,9 +218,6 @@ func TestAccResourcesClusterAzure(t *testing.T) {
 	if !strings.Contains(runClusterTests, "true") {
 		t.Skip("skipping cluster tests")
 	}
-	if !strings.Contains(os.Getenv("RUN_AZURE_TESTS"), "true") {
-		t.Skip("skipping azure tests")
-	}
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testazure)
 	rename := generateRandomName(accNamePrepend + testawsRename)
