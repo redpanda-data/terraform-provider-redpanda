@@ -99,7 +99,7 @@ func StringToClusterType(p string) (controlplanev1beta2.Cluster_Type, error) {
 	switch strings.ToLower(p) {
 	case "dedicated":
 		return controlplanev1beta2.Cluster_TYPE_DEDICATED, nil
-	case "cloud":
+	case "byoc":
 		return controlplanev1beta2.Cluster_TYPE_BYOC, nil
 	default:
 		return controlplanev1beta2.Cluster_TYPE_UNSPECIFIED, fmt.Errorf("cluster type %q not supported", p)
@@ -113,7 +113,7 @@ func ClusterTypeToString(provider controlplanev1beta2.Cluster_Type) string {
 	case controlplanev1beta2.Cluster_TYPE_DEDICATED:
 		return "dedicated"
 	case controlplanev1beta2.Cluster_TYPE_BYOC:
-		return "cloud"
+		return "byoc"
 	default:
 		return providerUnspecified
 	}
