@@ -45,8 +45,10 @@ type ControlPlaneClientSet struct {
 	Network           controlplanev1beta2grpc.NetworkServiceClient
 	Cluster           controlplanev1beta2grpc.ClusterServiceClient
 	ServerlessCluster controlplanev1beta2grpc.ServerlessClusterServiceClient
+	ServerlessRegion  controlplanev1beta2grpc.ServerlessRegionServiceClient
 	Operation         controlplanev1beta2grpc.OperationServiceClient
 	ThroughputTier    controlplanev1beta2grpc.ThroughputTierServiceClient
+	Region            controlplanev1beta2grpc.RegionServiceClient
 }
 
 // NewControlPlaneClientSet uses the passed grpc connection to create a control
@@ -57,8 +59,10 @@ func NewControlPlaneClientSet(conn *grpc.ClientConn) *ControlPlaneClientSet {
 		Network:           controlplanev1beta2grpc.NewNetworkServiceClient(conn),
 		Cluster:           controlplanev1beta2grpc.NewClusterServiceClient(conn),
 		ServerlessCluster: controlplanev1beta2grpc.NewServerlessClusterServiceClient(conn),
+		ServerlessRegion:  controlplanev1beta2grpc.NewServerlessRegionServiceClient(conn),
 		Operation:         controlplanev1beta2grpc.NewOperationServiceClient(conn),
 		ThroughputTier:    controlplanev1beta2grpc.NewThroughputTierServiceClient(conn),
+		Region:            controlplanev1beta2grpc.NewRegionServiceClient(conn),
 	}
 }
 
