@@ -49,6 +49,7 @@ all_integration_tests:
 	REDPANDA_CLIENT_ID=$(REDPANDA_CLIENT_ID) \
 	REDPANDA_CLIENT_SECRET=$(REDPANDA_CLIENT_SECRET) \
 	RUN_CLUSTER_TESTS=true \
+	RUN_BYOC_TESTS=false \
 	TF_ACC=true \
 	TF_LOG=DEBUG \
 	VERSION=ign \
@@ -61,6 +62,7 @@ unit_tests:
 	REDPANDA_CLIENT_ID="dummy_id" \
 	REDPANDA_CLIENT_SECRET="dummy_secret" \
 	RUN_CLUSTER_TESTS=false \
+	RUN_BYOC_TESTS=false \
 	$(GOCMD) test -short ./...
 
 .PHONY: install_gofumpt
@@ -136,7 +138,7 @@ endef
 # Function to determine TF_CONFIG_DIR
 define GET_TF_CONFIG_DIR
 $(shell \
-    if [ "$(TEST_TYPE)" = "cluster" ]; then \
+    if [ "$(TEST_TYPE)" = "cluster" ] || [ "$(TEST_TYPE)" = "byoc"]; then \
         echo "examples/$(TEST_TYPE)/$(CLOUD_PROVIDER)"; \
     elif [ "$(TEST_TYPE)" = "datasource" ]; then \
         echo "examples/$(TEST_TYPE)/$(DATASOURCE_TEST_DIR)"; \
@@ -324,6 +326,43 @@ test_cluster_gcp:
 	TF_LOG=$(TF_LOG) \
 	VERSION=ign \
 	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesClusterGCP
+
+.PHONY: test_byoc_aws
+test_byoc_aws:
+	@echo "Running TestAccResourcesByocAWS..."
+	@DEBUG=true \
+	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
+	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
+	RUN_BYOC_TESTS=true \
+	TF_ACC=true \
+	TF_LOG=$(TF_LOG) \
+	VERSION=ign \
+	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesByocAWS
+
+.PHONY: test_byoc_azure
+test_byoc_azure:
+	@echo "Running TestAccResourcesByocAzure..."
+	@DEBUG=true \
+	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
+	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
+	RUN_BYOC_TESTS=true \
+	TF_ACC=true \
+	TF_LOG=$(TF_LOG) \
+	VERSION=ign \
+	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesByocAzure
+
+.PHONY: test_byoc_gcp
+test_byoc_gcp:
+	@echo "Running TestAccResourcesByocGCP..."
+	@DEBUG=true \
+	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
+	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
+	REDPANDA_VERSION="24.2.20240809182625" \
+	RUN_BYOC_TESTS=true \
+	TF_ACC=true \
+	TF_LOG=$(TF_LOG) \
+	VERSION=ign \
+	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesByocGCP
 
 RUN_SERVERLESS_TESTS ?= false
 .PHONY: test_serverless_cluster
