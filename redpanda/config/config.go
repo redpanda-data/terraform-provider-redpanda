@@ -17,12 +17,16 @@
 // and provider.
 package config
 
-import "google.golang.org/grpc"
+import (
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"google.golang.org/grpc"
+)
 
 // Resource is the config used to pass data and dependencies to resource
 // implementations.
 type Resource struct {
 	AuthToken              string
+	ByocClient             *utils.ByocClient
 	ControlPlaneConnection *grpc.ClientConn
 }
 

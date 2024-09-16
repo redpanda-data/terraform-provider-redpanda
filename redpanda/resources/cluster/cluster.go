@@ -265,6 +265,7 @@ func generateModel(cfg models.Cluster, cluster *controlplanev1beta2.Cluster) (*m
 			Mtls: sr,
 		}
 	}
+
 	return output, nil
 }
 

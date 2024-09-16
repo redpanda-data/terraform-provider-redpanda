@@ -50,6 +50,7 @@ var (
 // Cluster represents a cluster managed resource.
 type Cluster struct {
 	CpCl *cloud.ControlPlaneClientSet
+	Byoc *utils.ByocClient
 }
 
 // Metadata returns the full name of the Cluster resource.
@@ -72,6 +73,7 @@ func (c *Cluster) Configure(_ context.Context, req resource.ConfigureRequest, re
 		return
 	}
 
+	c.Byoc = p.ByocClient
 	c.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
 }
 
@@ -350,13 +352,33 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if err := utils.AreWeDoneYet(ctx, op, 60*time.Minute, c.CpCl.Operation); err != nil {
-		resp.Diagnostics.AddError("operation error while creating cluster", err.Error())
-		return
-	}
-	cluster, err := c.CpCl.ClusterForID(ctx, clusterID)
+
+	// wait for creation to complete, running "byoc apply" if we see STATE_CREATING_AGENT
+	ranByoc := false
+	cluster, err := utils.RetryGetCluster(ctx, 90*time.Minute, clusterID, c.CpCl, func(cluster *controlplanev1beta2.Cluster) *utils.RetryError {
+		if cluster.GetState() == controlplanev1beta2.Cluster_STATE_CREATING {
+			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
+		}
+		if cluster.GetState() == controlplanev1beta2.Cluster_STATE_CREATING_AGENT {
+			if cluster.Type == controlplanev1beta2.Cluster_TYPE_BYOC && !ranByoc {
+				err = c.Byoc.RunByoc(ctx, clusterID, "apply")
+				if err != nil {
+					return utils.NonRetryableError(err)
+				}
+				ranByoc = true
+			}
+			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
+		}
+		if cluster.GetState() == controlplanev1beta2.Cluster_STATE_READY {
+			return nil
+		}
+		if cluster.GetState() == controlplanev1beta2.Cluster_STATE_FAILED {
+			return utils.NonRetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
+		}
+		return utils.NonRetryableError(fmt.Errorf("unhandled state %v. please report this issue to the provider developers", cluster.GetState()))
+	})
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("successfully created the cluster with ID %q, but failed to read the cluster configuration: %v", clusterID, err), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to create cluster with ID %q", clusterID), err.Error())
 		return
 	}
 	persist, err := generateModel(model, cluster)
@@ -504,16 +526,53 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		return
 	}
 
-	clResp, err := c.CpCl.Cluster.DeleteCluster(ctx, &controlplanev1beta2.DeleteClusterRequest{
-		Id: model.ID.ValueString(),
-	})
+	clusterID := model.ID.ValueString()
+	cluster, err := c.CpCl.ClusterForID(ctx, clusterID)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to delete cluster", err.Error())
+		if utils.IsNotFound(err) {
+			return
+		}
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), err.Error())
 		return
 	}
 
-	if err := utils.AreWeDoneYet(ctx, clResp.Operation, 90*time.Minute, c.CpCl.Operation); err != nil {
-		resp.Diagnostics.AddError("failed to delete cluster", err.Error())
+	// call Delete on the cluser, if it's not already in progress. calling Delete on a cluster in
+	// STATE_DELETING_AGENT seems to destroy it immediately and we don't want to do that if we haven't
+	// cleaned up yet
+	if !(cluster.GetState() == controlplanev1beta2.Cluster_STATE_DELETING || cluster.GetState() == controlplanev1beta2.Cluster_STATE_DELETING_AGENT) {
+		_, err = c.CpCl.Cluster.DeleteCluster(ctx, &controlplanev1beta2.DeleteClusterRequest{
+			Id: clusterID,
+		})
+		if err != nil {
+			resp.Diagnostics.AddError("failed to delete cluster", err.Error())
+			return
+		}
+	}
+
+	// wait for creation to complete, running "byoc apply" if we see STATE_DELETING_AGENT
+	ranByoc := false
+	_, err = utils.RetryGetCluster(ctx, 90*time.Minute, clusterID, c.CpCl, func(cluster *controlplanev1beta2.Cluster) *utils.RetryError {
+		if cluster.GetState() == controlplanev1beta2.Cluster_STATE_DELETING {
+			return utils.RetryableError(fmt.Errorf("expected cluster to be deleted but was in state %v", cluster.GetState()))
+		}
+		if cluster.GetState() == controlplanev1beta2.Cluster_STATE_DELETING_AGENT {
+			if cluster.Type == controlplanev1beta2.Cluster_TYPE_BYOC && !ranByoc {
+				err = c.Byoc.RunByoc(ctx, clusterID, "destroy")
+				if err != nil {
+					return utils.NonRetryableError(err)
+				}
+				ranByoc = true
+			}
+			return utils.RetryableError(fmt.Errorf("expected cluster to be deleted but was in state %v", cluster.GetState()))
+		}
+
+		return utils.NonRetryableError(fmt.Errorf("unhandled state %v. please report this issue to the provider developers", cluster.GetState()))
+	})
+	if err != nil {
+		if utils.IsNotFound(err) {
+			return
+		}
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to delete cluster %s", model.ID), err.Error())
 		return
 	}
 }

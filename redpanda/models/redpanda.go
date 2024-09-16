@@ -21,7 +21,9 @@ import (
 
 // Redpanda represents the Terraform schema for the Redpanda TF provider.
 type Redpanda struct {
-	AccessToken  types.String `tfsdk:"access_token"`
-	ClientID     types.String `tfsdk:"client_id"`
-	ClientSecret types.String `tfsdk:"client_secret"`
+	AccessToken         types.String `tfsdk:"access_token"`
+	ClientID            types.String `tfsdk:"client_id"`
+	ClientSecret        types.String `tfsdk:"client_secret"`
+	AzureSubscriptionID types.String `tfsdk:"azure_subscription_id"`
+	GcpProjectID        types.String `tfsdk:"gcp_project_id"`
 }
