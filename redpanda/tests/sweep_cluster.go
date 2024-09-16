@@ -43,7 +43,7 @@ func (s sweepCluster) SweepCluster(_ string) error {
 		return err
 	}
 
-	return utils.AreWeDoneYet(ctx, op.Operation, 45*time.Minute, time.Minute, s.Client.Operation)
+	return utils.AreWeDoneYet(ctx, op.Operation, 45*time.Minute, s.Client.Operation)
 }
 
 func (s sweepCluster) SweepServerlessCluster(_ string) error {
@@ -59,5 +59,5 @@ func (s sweepCluster) SweepServerlessCluster(_ string) error {
 	if err != nil {
 		return err
 	}
-	return utils.AreWeDoneYet(ctx, op.Operation, 1*time.Minute, 3*time.Second, s.Client.Operation)
+	return utils.AreWeDoneYet(ctx, op.Operation, 1*time.Minute, s.Client.Operation)
 }

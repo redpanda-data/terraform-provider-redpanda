@@ -350,7 +350,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if err := utils.AreWeDoneYet(ctx, op, 60*time.Minute, time.Minute, c.CpCl.Operation); err != nil {
+	if err := utils.AreWeDoneYet(ctx, op, 60*time.Minute, c.CpCl.Operation); err != nil {
 		resp.Diagnostics.AddError("operation error while creating cluster", err.Error())
 		return
 	}
@@ -471,7 +471,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 			return
 		}
 
-		if err := utils.AreWeDoneYet(ctx, op.GetOperation(), 90*time.Minute, time.Minute, c.CpCl.Operation); err != nil {
+		if err := utils.AreWeDoneYet(ctx, op.GetOperation(), 90*time.Minute, c.CpCl.Operation); err != nil {
 			resp.Diagnostics.AddError("failed while waiting to update cluster", err.Error())
 			return
 		}
@@ -512,7 +512,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		return
 	}
 
-	if err := utils.AreWeDoneYet(ctx, clResp.Operation, 90*time.Minute, time.Minute, c.CpCl.Operation); err != nil {
+	if err := utils.AreWeDoneYet(ctx, clResp.Operation, 90*time.Minute, c.CpCl.Operation); err != nil {
 		resp.Diagnostics.AddError("failed to delete cluster", err.Error())
 		return
 	}
