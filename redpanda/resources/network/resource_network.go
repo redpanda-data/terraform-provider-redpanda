@@ -164,19 +164,16 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		return
 	}
 	op := netResp.Operation
-	var metadata controlplanev1beta2.CreateNetworkMetadata
-	if err := op.Metadata.UnmarshalTo(&metadata); err != nil {
-		response.Diagnostics.AddError("failed to unmarshal network metadata", err.Error())
-		return
-	}
+	// write initial state so that if network creation fails, we can still track and delete it
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("id"), utils.TrimmedStringValue(op.GetResourceId()))...)
+
 	if err := utils.AreWeDoneYet(ctx, op, 15*time.Minute, time.Second, n.CpCl.Operation); err != nil {
 		response.Diagnostics.AddError("failed waiting for network creation", err.Error())
 		return
 	}
-
 	response.Diagnostics.Append(response.State.Set(ctx, models.Network{
 		Name:            model.Name,
-		ID:              utils.TrimmedStringValue(metadata.GetNetworkId()),
+		ID:              utils.TrimmedStringValue(op.GetResourceId()),
 		CidrBlock:       model.CidrBlock,
 		Region:          model.Region,
 		ResourceGroupID: model.ResourceGroupID,
@@ -196,6 +193,13 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 			return
 		}
 		response.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.ID.ValueString()), err.Error())
+		return
+	}
+	if nw.GetState() == controlplanev1beta2.Network_STATE_DELETING {
+		// null out the state, force it to be destroyed and recreated
+		response.State.RemoveResource(ctx)
+		response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("id"), nw.Id)...)
+		response.Diagnostics.AddWarning(fmt.Sprintf("network %s is in state %s", nw.Id, nw.GetState()), "")
 		return
 	}
 	response.Diagnostics.Append(response.State.Set(ctx, models.Network{

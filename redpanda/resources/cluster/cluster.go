@@ -310,3 +310,19 @@ func generateModel(ctx context.Context, cfg models.Cluster, cluster *controlplan
 	}
 	return output, nil
 }
+
+// generateMinimalModel populates a Cluster model with only enough state for Terraform to
+// track an existing cluster and to delete it, if necessary. Used in creation to track
+// partially created clusters, and on reading to null out cluster that are found in the
+// deleting state and force them to be recreated.
+func generateMinimalModel(clusterID string) models.Cluster {
+	// Terraform requires us to explicitly pass types to the collection values, even
+	// when null :/
+	return models.Cluster{
+		AllowDeletion:         types.BoolValue(true),
+		ID:                    types.StringValue(clusterID),
+		ReadReplicaClusterIDs: types.ListNull(types.StringType),
+		Tags:                  types.MapNull(types.StringType),
+		Zones:                 types.ListNull(types.StringType),
+	}
+}
