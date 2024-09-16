@@ -33,6 +33,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 const providerUnspecified = "unspecified"
@@ -103,46 +104,29 @@ func ClusterTypeToString(provider controlplanev1beta2.Cluster_Type) string {
 }
 
 // AreWeDoneYet checks an operation's state until one of completion, failure or timeout is reached.
-func AreWeDoneYet(ctx context.Context, op *controlplanev1beta2.Operation, timeout, waitUnit time.Duration, client controlplanev1beta2grpc.OperationServiceClient) error {
-	startTime := time.Now()
-	endTime := startTime.Add(timeout)
-	errChan := make(chan error, 1)
-	for {
+func AreWeDoneYet(ctx context.Context, op *controlplanev1beta2.Operation, timeout time.Duration, client controlplanev1beta2grpc.OperationServiceClient) error {
+	return Retry(ctx, timeout, func() *RetryError {
 		// Get the latest operation status
+		tflog.Info(ctx, "getting operation")
 		latestOp, err := client.GetOperation(ctx, &controlplanev1beta2.GetOperationRequest{
 			Id: op.GetId(),
 		})
+		tflog.Info(ctx, "got result of operation")
 		if err != nil {
-			// Send the error to the error channel (non-blocking)
-			select {
-			case errChan <- fmt.Errorf("error getting operation status: %v", err):
-			default:
-			}
-		} else {
-			op = latestOp.Operation
+			return NonRetryableError(err)
 		}
+		op = latestOp.Operation
+		tflog.Info(ctx, fmt.Sprintf("op %v %s", op, op.GetState()))
 
 		// Check the operation state
-		if op.GetState() == controlplanev1beta2.Operation_STATE_COMPLETED {
-			return nil
-		}
 		if op.GetState() == controlplanev1beta2.Operation_STATE_FAILED {
-			return fmt.Errorf("operation failed: %s", op.GetError().GetMessage())
+			return NonRetryableError(fmt.Errorf("operation failed: %s", op.GetError().GetMessage()))
 		}
-
-		// Check if the timeout has been reached
-		if time.Now().After(endTime) {
-			select {
-			case err := <-errChan:
-				return fmt.Errorf("timeout reached with error: %v", err)
-			default:
-				return fmt.Errorf("timeout reached")
-			}
+		if op.GetState() != controlplanev1beta2.Operation_STATE_COMPLETED {
+			return RetryableError(fmt.Errorf("expected operation to be completed but was in state %s", op.GetState()))
 		}
-
-		// Wait for a certain duration before checking again
-		time.Sleep(waitUnit)
-	}
+		return nil
+	})
 }
 
 // StringToConnectionType returns the controlplanev1beta2's Cluster_ConnectionType code
