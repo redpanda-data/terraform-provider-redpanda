@@ -308,6 +308,7 @@ func generateModel(ctx context.Context, cfg models.Cluster, cluster *controlplan
 			Mtls: sr,
 		}
 	}
+
 	return output, nil
 }
 

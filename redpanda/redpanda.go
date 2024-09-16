@@ -45,6 +45,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/throughputtiers"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/topic"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/user"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 	"google.golang.org/grpc"
 )
@@ -61,6 +62,8 @@ type Redpanda struct {
 	version string
 	// conn is the connection to the control plane API.
 	conn *grpc.ClientConn
+	// byoc is the client for managing byoc executions.
+	byoc *utils.ByocClient
 }
 
 const (
@@ -118,6 +121,19 @@ func providerSchema() schema.Schema {
 					validators.NotUnknown(),
 				},
 			},
+			"azure_subscription_id": schema.StringAttribute{
+				Optional: true,
+				Description: ("The default Azure Subscription ID which should be used for Redpanda BYOC clusters." +
+					" If another subscription is specified on a resource, it will take precedence. This can also be" +
+					" sourced from the `ARM_SUBSCRIPTION_ID` environment variable."),
+			},
+			"gcp_project_id": schema.StringAttribute{
+				Optional: true,
+				Description: ("The default Google Cloud Project ID to use for Redpanda BYOC clusters. If another" +
+					" project is specified on a resource, it will take precedence. This can also be sourced from" +
+					" the `GOOGLE_PROJECT` environment variable, or any of the following ordered by precedence:" +
+					" `GOOGLE_PROJECT`, `GOOGLE_CLOUD_PROJECT`, `GCLOUD_PROJECT`, or `CLOUDSDK_CORE_PROJECT`."),
+			},
 		},
 		Description:         "Redpanda Data terraform provider",
 		MarkdownDescription: "Provider configuration",
@@ -128,6 +144,7 @@ type credentials struct {
 	ClientID       string
 	ClientSecret   string
 	EndpointAPIURL string
+	InternalAPIURL string
 	Token          string
 }
 
@@ -160,6 +177,7 @@ func getCredentials(ctx context.Context, cloudEnv string, conf models.Redpanda) 
 		return creds, diags
 	}
 	creds.EndpointAPIURL = endpoint.APIURL
+	creds.InternalAPIURL = endpoint.InternalAPIURL
 
 	// Check provider configuration
 	if !conf.ClientID.IsNull() || !conf.ClientSecret.IsNull() || !conf.AccessToken.IsNull() {
@@ -214,6 +232,15 @@ func getCredentials(ctx context.Context, cloudEnv string, conf models.Redpanda) 
 	return creds, diags
 }
 
+func firstNonEmptyString(args ...string) string {
+	for _, arg := range args {
+		if arg != "" {
+			return arg
+		}
+	}
+	return ""
+}
+
 // Configure is the primary entrypoint for terraform and properly initializes
 // the client.
 func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequest, response *provider.ConfigureResponse) {
@@ -222,6 +249,7 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	if response.Diagnostics.HasError() {
 		return
 	}
+
 	// Clients are passed through to downstream resources through the response
 	// struct.
 	creds, diags := getCredentials(ctx, r.cloudEnv, conf)
@@ -238,8 +266,31 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		r.conn = conn
 	}
 
+	// Azure and GCP environment variables are the ones used by their respective
+	// Terraform providers, with the same precedence. This is so if someone is
+	// passing variables to Azure or GCP providers in the same Terraform run
+	// then Redpanda will correctly pick up the variables as well.
+	azureSubscriptionID := firstNonEmptyString(
+		conf.AzureSubscriptionID.ValueString(),
+		os.Getenv("ARM_SUBSCRIPTION_ID"))
+	gcpProjectID := firstNonEmptyString(
+		conf.GcpProjectID.ValueString(),
+		os.Getenv("GOOGLE_PROJECT"),
+		os.Getenv("GOOGLE_CLOUD_PROJECT"),
+		os.Getenv("GCLOUD_PROJECT"),
+		os.Getenv("CLOUDSDK_CORE_PROJECT"))
+	if r.byoc == nil {
+		r.byoc = utils.NewByocClient(utils.ByocClientConfig{
+			AuthToken:           creds.Token,
+			AzureSubscriptionID: azureSubscriptionID,
+			GcpProject:          gcpProjectID,
+			InternalAPIURL:      creds.InternalAPIURL,
+		})
+	}
+
 	response.ResourceData = config.Resource{
 		AuthToken:              creds.Token,
+		ByocClient:             r.byoc,
 		ControlPlaneConnection: r.conn,
 	}
 	response.DataSourceData = config.Datasource{

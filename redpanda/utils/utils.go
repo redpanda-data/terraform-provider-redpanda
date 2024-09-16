@@ -36,6 +36,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	rpknet "github.com/redpanda-data/redpanda/src/go/rpk/pkg/net"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	grpccodes "google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 )
@@ -63,15 +64,24 @@ func IsNotFound(err error) bool {
 	return false
 }
 
+// CloudProviderStringAws is the string representation of the CLOUD_PROVIDER_AWS enum
+const CloudProviderStringAws = "aws"
+
+// CloudProviderStringAzure is the string representation of the CLOUD_PROVIDER_AZURE enum
+const CloudProviderStringAzure = "azure"
+
+// CloudProviderStringGcp is the string representation of the CLOUD_PROVIDER_GCP enum
+const CloudProviderStringGcp = "gcp"
+
 // StringToCloudProvider returns the controlplanev1beta2's CloudProvider code based on
 // the input string.
 func StringToCloudProvider(p string) (controlplanev1beta2.CloudProvider, error) {
 	switch strings.ToLower(p) {
-	case "aws":
+	case CloudProviderStringAws:
 		return controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_AWS, nil
-	case "gcp":
+	case CloudProviderStringGcp:
 		return controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_GCP, nil
-	case "azure":
+	case CloudProviderStringAzure:
 		return controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_AZURE, nil
 	default:
 		return controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_UNSPECIFIED, fmt.Errorf("provider %q not supported", p)
@@ -83,11 +93,11 @@ func StringToCloudProvider(p string) (controlplanev1beta2.CloudProvider, error) 
 func CloudProviderToString(provider controlplanev1beta2.CloudProvider) string {
 	switch provider {
 	case controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_AWS:
-		return "aws"
+		return CloudProviderStringAws
 	case controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_GCP:
-		return "gcp"
+		return CloudProviderStringGcp
 	case controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_AZURE:
-		return "azure"
+		return CloudProviderStringAzure
 	default:
 		return providerUnspecified
 	}
@@ -354,6 +364,27 @@ func SplitSchemeDefPort(url, def string) (string, error) {
 		port = def
 	}
 	return host + ":" + port, nil
+}
+
+// RetryGetCluster will retry a function, passing in the latest state of the given cluster id, until
+// it either no longer returns an error or times out
+func RetryGetCluster(ctx context.Context, timeout time.Duration, clusterID string, client *cloud.ControlPlaneClientSet, f func(*controlplanev1beta2.Cluster) *RetryError) (*controlplanev1beta2.Cluster, error) {
+	var cluster *controlplanev1beta2.Cluster
+	err := Retry(ctx, timeout, func() *RetryError {
+		var err error
+		cluster, err = client.ClusterForID(ctx, clusterID)
+		if err != nil {
+			if IsNotFound(err) {
+				tflog.Info(ctx, fmt.Sprintf("cluster %q not found", clusterID))
+				cluster = nil
+				return nil
+			}
+			return NonRetryableError(err)
+		}
+		tflog.Info(ctx, fmt.Sprintf("cluster %v : %v", clusterID, cluster.GetState()))
+		return f(cluster)
+	})
+	return cluster, err
 }
 
 // TypeMapToStringMap converts a types.Map to a map[string]string
