@@ -166,7 +166,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 	// write initial state so that if network creation fails, we can still track and delete it
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("id"), utils.TrimmedStringValue(op.GetResourceId()))...)
 
-	if err := utils.AreWeDoneYet(ctx, op, 15*time.Minute, time.Second, n.CpCl.Operation); err != nil {
+	if err := utils.AreWeDoneYet(ctx, op, 15*time.Minute, n.CpCl.Operation); err != nil {
 		response.Diagnostics.AddError("failed waiting for network creation", err.Error())
 		return
 	}
@@ -218,7 +218,7 @@ func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, re
 		response.Diagnostics.AddError("failed to delete network", err.Error())
 		return
 	}
-	if err := utils.AreWeDoneYet(ctx, netResp.Operation, 15*time.Minute, time.Second, n.CpCl.Operation); err != nil {
+	if err := utils.AreWeDoneYet(ctx, netResp.Operation, 15*time.Minute, n.CpCl.Operation); err != nil {
 		response.Diagnostics.AddError("failed waiting for network deletion", err.Error())
 	}
 }
