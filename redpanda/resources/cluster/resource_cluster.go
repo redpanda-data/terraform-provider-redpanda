@@ -502,12 +502,6 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		return
 	}
 
-	// We need to wait for the cluster to be in a running state before we can delete it
-	_, err := utils.GetClusterUntilRunningState(ctx, 0, 30, model.Name.ValueString(), 1*time.Minute, c.CpCl)
-	if err != nil {
-		return
-	}
-
 	clResp, err := c.CpCl.Cluster.DeleteCluster(ctx, &controlplanev1beta2.DeleteClusterRequest{
 		Id: model.ID.ValueString(),
 	})

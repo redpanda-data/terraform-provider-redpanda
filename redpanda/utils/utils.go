@@ -34,9 +34,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 	rpknet "github.com/redpanda-data/redpanda/src/go/rpk/pkg/net"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"google.golang.org/grpc"
 )
 
@@ -359,44 +357,6 @@ func SplitSchemeDefPort(url, def string) (string, error) {
 		port = def
 	}
 	return host + ":" + port, nil
-}
-
-// GetClusterUntilRunningState returns a cluster in the running state or an error
-func GetClusterUntilRunningState(ctx context.Context, count, limit int, clusterName string, wait time.Duration, client cloud.CpClientSet) (*controlplanev1beta2.Cluster, error) {
-	count++
-	if count >= limit {
-		return nil, fmt.Errorf("cluster %q did not reach the running state after %d attempts", clusterName, count)
-	}
-	cluster, err := client.ClusterForName(ctx, clusterName)
-	if err != nil {
-		tflog.Info(ctx, fmt.Sprintf("cluster %q not found", clusterName))
-	}
-	tflog.Info(ctx, fmt.Sprintf("cluster : %v", cluster.GetState()))
-	if cluster.GetState() == controlplanev1beta2.Cluster_STATE_READY {
-		return cluster, nil
-	}
-
-	time.Sleep(wait)
-	return GetClusterUntilRunningState(ctx, count, limit, clusterName, wait, client)
-}
-
-// GetServerlessClusterUntilRunningState returns a serverless cluster in the running state or an error
-func GetServerlessClusterUntilRunningState(ctx context.Context, count, limit int, clusterName string, client cloud.CpClientSet) (*controlplanev1beta2.ServerlessCluster, error) {
-	count++
-	if count >= limit {
-		return nil, fmt.Errorf("serverless cluster %q did not reach the running state after %d attempts", clusterName, count)
-	}
-	cluster, err := client.ServerlessClusterForName(ctx, clusterName)
-	if err != nil {
-		tflog.Info(ctx, fmt.Sprintf("serverless cluster %q not found", clusterName))
-	}
-	tflog.Info(ctx, fmt.Sprintf("serverless cluster : %v", cluster.GetState()))
-	if cluster.GetState() == controlplanev1beta2.ServerlessCluster_STATE_READY {
-		return cluster, nil
-	}
-
-	time.Sleep(3 * time.Second)
-	return GetServerlessClusterUntilRunningState(ctx, count, limit, clusterName, client)
 }
 
 // TypeMapToStringMap converts a types.Map to a map[string]string
