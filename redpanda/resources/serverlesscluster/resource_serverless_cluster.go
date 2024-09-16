@@ -124,24 +124,19 @@ func (c *ServerlessCluster) Create(ctx context.Context, req resource.CreateReque
 		resp.Diagnostics.AddError("failed to create serverless cluster", err.Error())
 		return
 	}
-	operation, err := c.CpCl.Operation.GetOperation(ctx, &controlplanev1beta2.GetOperationRequest{Id: clResp.Operation.Id})
-	if err != nil {
-		resp.Diagnostics.AddError("failed to retrieve create serverless cluster operation", err.Error())
-		return
-	}
-	op := operation.Operation
-	var metadata controlplanev1beta2.CreateServerlessClusterMetadata
-	if err := op.Metadata.UnmarshalTo(&metadata); err != nil {
-		resp.Diagnostics.AddError("failed to unmarshal serverless cluster metadata", err.Error())
+	op := clResp.Operation
+	// write initial state so that if cluster creation fails, we can still track and delete it
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), op.GetResourceId())...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 	if err := utils.AreWeDoneYet(ctx, op, time.Minute, 3*time.Second, c.CpCl.Operation); err != nil {
 		resp.Diagnostics.AddError("operation error while creating serverless cluster", err.Error())
 		return
 	}
-	cluster, err := c.CpCl.ServerlessClusterForID(ctx, metadata.GetServerlessClusterId())
+	cluster, err := c.CpCl.ServerlessClusterForID(ctx, op.GetResourceId())
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("successfully created the serverless cluster with ID %q, but failed to read the serverless cluster configuration: %v", model.ID.ValueString(), err), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("successfully created the serverless cluster with ID %q, but failed to read the serverless cluster configuration: %v", op.GetResourceId(), err), err.Error())
 		return
 	}
 	clusterURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
@@ -171,6 +166,13 @@ func (c *ServerlessCluster) Read(ctx context.Context, req resource.ReadRequest, 
 			return
 		}
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read serverless cluster %s", model.ID), err.Error())
+		return
+	}
+	if cluster.GetState() == controlplanev1beta2.ServerlessCluster_STATE_DELETING {
+		// null out the state, force it to be destroyed and recreated
+		resp.State.RemoveResource(ctx)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), cluster.Id)...)
+		resp.Diagnostics.AddWarning(fmt.Sprintf("serverless cluster %s is in state %s", cluster.Id, cluster.GetState()), "")
 		return
 	}
 	clusterURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")

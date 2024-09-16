@@ -348,18 +348,20 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		return
 	}
 	op := clResp.Operation
-	var metadata controlplanev1beta2.CreateClusterMetadata
-	if err := op.Metadata.UnmarshalTo(&metadata); err != nil {
-		resp.Diagnostics.AddError("failed to unmarshal cluster metadata", err.Error())
+	clusterID := op.GetResourceId()
+
+	// write initial state so that if cluster creation fails, we can still track and delete it
+	resp.Diagnostics.Append(resp.State.Set(ctx, generateMinimalModel(clusterID))...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 	if err := utils.AreWeDoneYet(ctx, op, 60*time.Minute, time.Minute, c.CpCl.Operation); err != nil {
 		resp.Diagnostics.AddError("operation error while creating cluster", err.Error())
 		return
 	}
-	cluster, err := c.CpCl.ClusterForID(ctx, metadata.GetClusterId())
+	cluster, err := c.CpCl.ClusterForID(ctx, clusterID)
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("successfully created the cluster with ID %q, but failed to read the cluster configuration: %v", model.ID.ValueString(), err), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("successfully created the cluster with ID %q, but failed to read the cluster configuration: %v", clusterID, err), err.Error())
 		return
 	}
 	persist, err := generateModel(ctx, model, cluster)
@@ -386,6 +388,14 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), err.Error())
 		return
 	}
+
+	if cluster.GetState() == controlplanev1beta2.Cluster_STATE_DELETING || cluster.GetState() == controlplanev1beta2.Cluster_STATE_DELETING_AGENT {
+		// null out the state, force it to be destroyed and recreated
+		resp.Diagnostics.Append(resp.State.Set(ctx, generateMinimalModel(cluster.Id))...)
+		resp.Diagnostics.AddWarning(fmt.Sprintf("cluster %s is in state %s", model.ID.ValueString(), cluster.GetState()), "")
+		return
+	}
+
 	persist, err := generateModel(ctx, model, cluster)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to generate model for state during cluster.Read", err.Error())
