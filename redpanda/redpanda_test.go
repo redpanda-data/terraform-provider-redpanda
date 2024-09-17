@@ -25,7 +25,7 @@ import (
 func TestProviderConfigure(t *testing.T) {
 	ctx := context.Background()
 
-	rp := New(ctx, "ign", "test")()
+	rp := New(ctx, "pre", "test")()
 	rp.Schema(ctx, provider.SchemaRequest{}, &provider.SchemaResponse{})
 
 	if d := providerSchema().ValidateImplementation(ctx); d.HasError() {

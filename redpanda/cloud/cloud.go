@@ -56,6 +56,11 @@ var endpoints = map[string]Endpoint{
 		"https://integration-cloudv2.us.auth0.com/oauth/token",
 		"cloudv2-ign.redpanda.cloud",
 	},
+	"pre": {
+		APIURL:   "api.ppd.cloud.redpanda.com:443",
+		authURL:  "https://preprod-cloudv2.us.auth0.com/oauth/token",
+		audience: "cloudv2-preprod.redpanda.cloud",
+	},
 	"prod": {
 		"api.redpanda.com:443",
 		"https://auth.prd.cloud.redpanda.com/oauth/token",

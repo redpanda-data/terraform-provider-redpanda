@@ -41,7 +41,7 @@ generate_docs: tfplugindocs_install
 
 REDPANDA_CLIENT_ID ?= $(or $(INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID),$(REDPANDA_CLIENT_ID))
 REDPANDA_CLIENT_SECRET ?= $(or $(INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET),$(REDPANDA_CLIENT_SECRET))
-REDPANDA_CLOUD_ENVIRONMENT ?= "ign"
+REDPANDA_CLOUD_ENVIRONMENT ?= "pre"
 .PHONY: all_integration_tests
 all_integration_tests:
 	@echo "running integration tests..."
@@ -112,8 +112,6 @@ move-provider:
 	@echo "PROVIDER_DIR: $(PROVIDER_DIR)"
 	@mkdir -p $(call GET_TF_CONFIG_DIR)/$(PROVIDER_DIR)
 	@cp $(PROVIDER_BINARY) $(call GET_TF_CONFIG_DIR)/$(PROVIDER_DIR)/terraform-provider-$(PROVIDER_NAME)_v$(PROVIDER_VERSION)
-
-REDPANDA_CLOUD_ENVIRONMENT ?= "ign"
 
 .PHONY: apply
 apply: build-provider move-provider test-create

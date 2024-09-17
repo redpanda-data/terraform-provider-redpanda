@@ -34,7 +34,7 @@ var providerCfgIDSecretVars = config.Variables{
 }
 
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-	"redpanda": providerserver.NewProtocol6WithError(redpanda.New(context.Background(), "ign", "test")()),
+	"redpanda": providerserver.NewProtocol6WithError(redpanda.New(context.Background(), "pre", "test")()),
 }
 
 // testAccPreCheck is a test helper function used to perform provider validation
