@@ -67,7 +67,7 @@ func TestAccResourcesNetwork(t *testing.T) {
 		PreCheck: func() {
 			testAccPreCheck(t)
 			if c == nil {
-				c, err = newTestClients(ctx, clientID, clientSecret, "ign")
+				c, err = newTestClients(ctx, clientID, clientSecret, "pre")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -160,7 +160,7 @@ func TestAccResourcesBulk(t *testing.T) {
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_id"] = config.StringVariable(os.Getenv("BULK_CLUSTER_ID"))
 
-	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
+	c, err := newTestClients(ctx, clientID, clientSecret, "pre")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +252,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, t *
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
 
-	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
+	c, err := newTestClients(ctx, clientID, clientSecret, "pre")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -395,7 +395,7 @@ func TestAccResourcesWithDataSources(t *testing.T) {
 		"flush.ms":         config.StringVariable("100"),
 	})
 
-	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
+	c, err := newTestClients(ctx, clientID, clientSecret, "pre")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -472,7 +472,7 @@ func TestAccResourcesStrippedDownServerlessCluster(t *testing.T) {
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
 	updateTestCaseVars["region"] = config.StringVariable(region)
 
-	c, err := newTestClients(ctx, clientID, clientSecret, "ign")
+	c, err := newTestClients(ctx, clientID, clientSecret, "pre")
 	if err != nil {
 		t.Fatal(err)
 	}
