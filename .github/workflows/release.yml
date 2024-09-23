@@ -1,13 +1,10 @@
-# Terraform Provider release workflow.
+---
 name: Release
 on:
   push:
-    tags:
-      - 'v*'
-
+    tags: ['v*']
 permissions:
   contents: write
-
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
@@ -32,14 +29,12 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
-      - name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg@v6
+      - uses: crazy-max/ghaction-import-gpg@v6
         id: import_gpg
         with:
           gpg_private_key: ${{ env.TF_PROVIDER_RP_GPG_PRIVATE_KEY }}
           passphrase: ${{ env.TF_PROVIDER_RP_PASSPHRASE }}
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+      - uses: goreleaser/goreleaser-action@v6
         with:
           args: release --clean
         env:
