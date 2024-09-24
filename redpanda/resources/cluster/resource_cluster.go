@@ -413,6 +413,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		updateReq.Cluster.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
 			Enabled:           plan.AwsPrivateLink.Enabled.ValueBool(),
 			AllowedPrincipals: utils.TypeListToStringSlice(plan.AwsPrivateLink.AllowedPrincipals),
+			ConnectConsole:    plan.AwsPrivateLink.ConnectConsole.ValueBool(),
 		}
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "aws_private_link")
 	}
