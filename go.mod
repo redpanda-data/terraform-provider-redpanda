@@ -3,8 +3,8 @@ module github.com/redpanda-data/terraform-provider-redpanda
 go 1.22.4
 
 require (
-	buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20240820164511-1d38ab631312.1
-	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.34.2-20240820164511-1d38ab631312.2
+	buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20240924171437-ad8a8abce865.1
+	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.34.2-20240924171437-ad8a8abce865.2
 	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.5.1-20240823133854-b83c57715214.1
 	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.34.2-20240823133854-b83c57715214.2
 	github.com/davecgh/go-spew v1.1.1
