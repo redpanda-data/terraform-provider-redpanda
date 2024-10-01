@@ -75,47 +75,51 @@ type tokenResponse struct {
 	TokenType   string `json:"token_type"`
 }
 
-// RequestTokenAndEnv requests an authentication token and return the Endpoint
-// for a given environment.
-func RequestTokenAndEnv(ctx context.Context, cloudEnv, clientID, clientSecret string) (string, *Endpoint, error) {
-	if clientID == "" {
-		return "", nil, fmt.Errorf("client_id is not set")
-	}
-	if clientSecret == "" {
-		return "", nil, fmt.Errorf("client_secret is not set")
-	}
+// EndpointForEnv returns the Endpoint for a given environment.
+func EndpointForEnv(cloudEnv string) (*Endpoint, error) {
 	endpoint, found := endpoints[cloudEnv]
 	if !found {
-		return "", nil, fmt.Errorf("unable to find requested environment: %q", cloudEnv)
+		return nil, fmt.Errorf("unable to find requested environment: %q", cloudEnv)
+	}
+	return &endpoint, nil
+}
+
+// RequestToken requests an authentication token for a given Endpoint.
+func RequestToken(ctx context.Context, endpoint *Endpoint, clientID, clientSecret string) (string, error) {
+	if clientID == "" {
+		return "", fmt.Errorf("client_id is not set")
+	}
+	if clientSecret == "" {
+		return "", fmt.Errorf("client_secret is not set")
 	}
 	payload := fmt.Sprintf("grant_type=client_credentials&client_id=%s&client_secret=%s&audience=%s", clientID, clientSecret, endpoint.audience)
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.authURL, strings.NewReader(payload))
 	if err != nil {
-		return "", nil, fmt.Errorf("unable to issue request to %v: %v", endpoint.authURL, err)
+		return "", fmt.Errorf("unable to issue request to %v: %v", endpoint.authURL, err)
 	}
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", nil, fmt.Errorf("request to %v failed: %v", endpoint.authURL, err)
+		return "", fmt.Errorf("request to %v failed: %v", endpoint.authURL, err)
 	}
 	if resp.StatusCode/100 != 2 {
 		resBody, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return "", nil, fmt.Errorf("request to %v failed: unable to read body", endpoint.authURL)
+			return "", fmt.Errorf("request to %v failed: unable to read body", endpoint.authURL)
 		}
-		return "", nil, fmt.Errorf("request to %v failed: %v %v: %s", endpoint.authURL, resp.StatusCode, http.StatusText(resp.StatusCode), resBody)
+		return "", fmt.Errorf("request to %v failed: %v %v: %s", endpoint.authURL, resp.StatusCode, http.StatusText(resp.StatusCode), resBody)
 	}
 
 	defer resp.Body.Close()
 
 	tokenContainer := tokenResponse{}
 	if err := json.NewDecoder(resp.Body).Decode(&tokenContainer); err != nil {
-		return "", nil, fmt.Errorf("error decoding token response: %v", err)
+		return "", fmt.Errorf("error decoding token response: %v", err)
 	}
 	if tokenContainer.AccessToken == "" {
-		return "", nil, fmt.Errorf("no access token found in response: %v", tokenContainer)
+		return "", fmt.Errorf("no access token found in response: %v", tokenContainer)
 	}
-	return tokenContainer.AccessToken, &endpoint, nil
+	return tokenContainer.AccessToken, nil
 }
 
 var rl = newRateLimiter(500)

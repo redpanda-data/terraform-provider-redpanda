@@ -134,7 +134,12 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	}
 	// Clients are passed through to downstream resources through the response
 	// struct.
-	token, endpoint, err := cloud.RequestTokenAndEnv(ctx, r.cloudEnv, id, sec)
+	endpoint, err := cloud.EndpointForEnv(r.cloudEnv)
+	if err != nil {
+		response.Diagnostics.AddError("error retrieving correct endpoint", err.Error())
+		return
+	}
+	token, err := cloud.RequestToken(ctx, endpoint, id, sec)
 	if err != nil {
 		response.Diagnostics.AddError("failed to authenticate with Redpanda API", err.Error())
 		return
