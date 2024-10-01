@@ -24,11 +24,13 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
@@ -104,6 +106,78 @@ func providerSchema() schema.Schema {
 	}
 }
 
+type credentials struct {
+	ClientID       string
+	ClientSecret   string
+	EndpointAPIURL string
+	Token          string
+}
+
+// getCredentials reads authentication configuration from multiple sources and returns an access token for Redpanda Cloud
+func getCredentials(ctx context.Context, cloudEnv string, conf models.Redpanda) (credentials, diag.Diagnostics) {
+	// Similar to other Terraform providers, this provider (1) can pick up authentication configuration
+	// from multiple sources, and (2) gives precedence to direct configuration over environment variables.
+	// The first source which provides a client_id or client_secret will be chosen to validate and
+	// try to use. The sources are checked in the following order:
+	// 1. Parameters in the provider configuration
+	// 2. Environment variables
+
+	creds := credentials{}
+	diags := diag.Diagnostics{}
+
+	endpoint, err := cloud.EndpointForEnv(cloudEnv)
+	if err != nil {
+		diags.AddError("error retrieving correct endpoint", err.Error())
+		return creds, diags
+	}
+	creds.EndpointAPIURL = endpoint.APIURL
+
+	// Check provider configuration
+	if !conf.ClientID.IsNull() || !conf.ClientSecret.IsNull() {
+		tflog.Info(ctx, "using authentication configuration found in provider configuration")
+		// client_id and client_secret are validated in the schema to make sure they always appear
+		// together. the validators have better error messages than checking here would, as they
+		// can point directly to the attribute in the user's HCL code.
+		creds.ClientID = conf.ClientID.ValueString()
+		creds.ClientSecret = conf.ClientSecret.ValueString()
+		creds.Token, err = cloud.RequestToken(ctx, endpoint, creds.ClientID, creds.ClientSecret)
+		if err != nil {
+			diags.AddError("failed to authenticate with Redpanda API", err.Error())
+		}
+		return creds, diags
+	}
+
+	// Check environment variable configuration
+	id, sec := os.Getenv(ClientIDEnv), os.Getenv(ClientSecretEnv)
+	if id != "" || sec != "" {
+		tflog.Info(ctx, "using authentication configuration found in environment variables")
+		if sec == "" {
+			diags.AddError("Client Secret missing",
+				fmt.Sprintf("Environment variable %v must be set when %v is also set", ClientSecretEnv, ClientIDEnv))
+			return creds, diags
+		}
+		if id == "" {
+			diags.AddError("Client ID missing",
+				fmt.Sprintf("Environment variable %v must be set when %v is also set", ClientIDEnv, ClientSecretEnv))
+			return creds, diags
+		}
+		creds.ClientID = id
+		creds.ClientSecret = sec
+		creds.Token, err = cloud.RequestToken(ctx, endpoint, id, sec)
+		if err != nil {
+			diags.AddError("failed to authenticate with Redpanda API", err.Error())
+		}
+		return creds, diags
+	}
+
+	// No authentication configuration found
+	diags.AddError("Authentication configuration missing",
+		"no Client ID or Client Secret found, please set the corresponding variables in the "+
+			"configuration file or as environment variables",
+	)
+	return creds, diags
+}
+
 // Configure is the primary entrypoint for terraform and properly initializes
 // the client.
 func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequest, response *provider.ConfigureResponse) {
@@ -112,40 +186,15 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	if response.Diagnostics.HasError() {
 		return
 	}
-	// Environment variables overrides.
-	id, sec := conf.ClientID.ValueString(), conf.ClientSecret.ValueString()
-	for _, override := range []struct {
-		name string
-		src  string
-		dst  *string
-	}{
-		{"Client ID", os.Getenv(ClientIDEnv), &id},
-		{"Client Secret", os.Getenv(ClientSecretEnv), &sec},
-	} {
-		if *override.dst == "" {
-			*override.dst = override.src
-		}
-		if override.src == "" && *override.dst == "" {
-			response.Diagnostics.AddError(
-				fmt.Sprintf("%v missing", override.name),
-				fmt.Sprintf("no %v found, please set the corresponding variable in the configuration file", override.name),
-			)
-		}
-	}
 	// Clients are passed through to downstream resources through the response
 	// struct.
-	endpoint, err := cloud.EndpointForEnv(r.cloudEnv)
-	if err != nil {
-		response.Diagnostics.AddError("error retrieving correct endpoint", err.Error())
-		return
-	}
-	token, err := cloud.RequestToken(ctx, endpoint, id, sec)
-	if err != nil {
-		response.Diagnostics.AddError("failed to authenticate with Redpanda API", err.Error())
+	creds, diags := getCredentials(ctx, r.cloudEnv, conf)
+	response.Diagnostics.Append(diags...)
+	if response.Diagnostics.HasError() {
 		return
 	}
 	if r.conn == nil {
-		conn, err := cloud.SpawnConn(endpoint.APIURL, token)
+		conn, err := cloud.SpawnConn(creds.EndpointAPIURL, creds.Token)
 		if err != nil {
 			response.Diagnostics.AddError("failed to open a connection with the Redpanda Cloud API", err.Error())
 			return
@@ -154,16 +203,16 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	}
 
 	response.ResourceData = config.Resource{
-		AuthToken:              token,
-		ClientID:               id,
-		ClientSecret:           sec,
+		AuthToken:              creds.Token,
+		ClientID:               creds.ClientID,
+		ClientSecret:           creds.ClientSecret,
 		CloudEnv:               r.cloudEnv,
 		ControlPlaneConnection: r.conn,
 	}
 	response.DataSourceData = config.Datasource{
-		AuthToken:              token,
-		ClientID:               id,
-		ClientSecret:           sec,
+		AuthToken:              creds.Token,
+		ClientID:               creds.ClientID,
+		ClientSecret:           creds.ClientSecret,
 		CloudEnv:               r.cloudEnv,
 		ControlPlaneConnection: r.conn,
 	}
