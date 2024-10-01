@@ -23,7 +23,12 @@ import (
 )
 
 func newTestClients(ctx context.Context, clientID, clientSecret, cloudEnv string) (*cloud.ControlPlaneClientSet, error) {
-	token, endpoint, err := cloud.RequestTokenAndEnv(ctx, cloudEnv, clientID, clientSecret)
+	endpoint, err := cloud.EndpointForEnv(cloudEnv)
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := cloud.RequestToken(ctx, endpoint, clientID, clientSecret)
 	if err != nil {
 		return nil, fmt.Errorf("unable to request auth token: %v", err)
 	}
