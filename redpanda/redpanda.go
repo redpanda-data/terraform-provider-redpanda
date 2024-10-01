@@ -39,6 +39,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlesscluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/topic"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/user"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 	"google.golang.org/grpc"
 )
 
@@ -84,6 +85,7 @@ func providerSchema() schema.Schema {
 					"to use this provider. Can also be set with the `%v` environment variable.", ClientIDEnv),
 				Validators: []validator.String{
 					stringvalidator.AlsoRequires(path.MatchRoot("client_secret")),
+					validators.NotUnknown(),
 				},
 			},
 			"client_secret": schema.StringAttribute{
@@ -93,6 +95,7 @@ func providerSchema() schema.Schema {
 					"to use this provider. Can also be set with the `%v` environment variable.", ClientSecretEnv),
 				Validators: []validator.String{
 					stringvalidator.AlsoRequires(path.MatchRoot("client_id")),
+					validators.NotUnknown(),
 				},
 			},
 		},
