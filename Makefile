@@ -324,13 +324,14 @@ test_cluster_gcp:
 	VERSION=ign \
 	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesClusterGCP
 
+RUN_SERVERLESS_TESTS ?= false
 .PHONY: test_serverless_cluster
 test_serverless_cluster:
 	@echo "Running TestAccResourcesStrippedDownServerlessCluster..."
 	@DEBUG=true \
 	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
 	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
-	RUN_SERVERLESS_TESTS=true \
+	RUN_SERVERLESS_TESTS="$(RUN_SERVERLESS_TESTS)" \
 	TF_ACC=true \
 	TF_LOG=$(TF_LOG) \
 	VERSION=ign \
