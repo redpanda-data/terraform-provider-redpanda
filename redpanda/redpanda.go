@@ -22,10 +22,13 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
@@ -79,12 +82,18 @@ func providerSchema() schema.Schema {
 				Sensitive: true,
 				MarkdownDescription: fmt.Sprintf("The ID for the client. You need `client_id` AND `client_secret`, "+
 					"to use this provider. Can also be set with the `%v` environment variable.", ClientIDEnv),
+				Validators: []validator.String{
+					stringvalidator.AlsoRequires(path.MatchRoot("client_secret")),
+				},
 			},
 			"client_secret": schema.StringAttribute{
 				Optional:  true,
 				Sensitive: true,
 				MarkdownDescription: fmt.Sprintf("Redpanda client secret. You need `client_id` AND `client_secret`, "+
 					"to use this provider. Can also be set with the `%v` environment variable.", ClientSecretEnv),
+				Validators: []validator.String{
+					stringvalidator.AlsoRequires(path.MatchRoot("client_id")),
+				},
 			},
 		},
 		Description:         "Redpanda Data terraform provider",
