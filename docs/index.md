@@ -17,8 +17,8 @@ The Redpanda provider is designed for managing Redpanda clusters and Kafka resou
 
 ### Optional
 
-- `client_id` (String, Sensitive) The ID for the client. You need client_id AND client_secret to use this provider
-- `client_secret` (String, Sensitive) Redpanda client secret. You need client_id AND client_secret to use this provider
+- `client_id` (String, Sensitive) The ID for the client. You need `client_id` AND `client_secret`, to use this provider. Can also be set with the `REDPANDA_CLIENT_ID` environment variable.
+- `client_secret` (String, Sensitive) Redpanda client secret. You need `client_id` AND `client_secret`, to use this provider. Can also be set with the `REDPANDA_CLIENT_SECRET` environment variable.
 
 ## Authentication with Redpanda Cloud
 

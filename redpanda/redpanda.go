@@ -75,14 +75,16 @@ func providerSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"client_id": schema.StringAttribute{
-				Optional:    true,
-				Sensitive:   true,
-				Description: "The ID for the client. You need client_id AND client_secret to use this provider",
+				Optional:  true,
+				Sensitive: true,
+				MarkdownDescription: fmt.Sprintf("The ID for the client. You need `client_id` AND `client_secret`, "+
+					"to use this provider. Can also be set with the `%v` environment variable.", ClientIDEnv),
 			},
 			"client_secret": schema.StringAttribute{
-				Optional:    true,
-				Sensitive:   true,
-				Description: "Redpanda client secret. You need client_id AND client_secret to use this provider",
+				Optional:  true,
+				Sensitive: true,
+				MarkdownDescription: fmt.Sprintf("Redpanda client secret. You need `client_id` AND `client_secret`, "+
+					"to use this provider. Can also be set with the `%v` environment variable.", ClientSecretEnv),
 			},
 		},
 		Description:         "Redpanda Data terraform provider",
@@ -108,7 +110,7 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		{"Client ID", os.Getenv(ClientIDEnv), &id},
 		{"Client Secret", os.Getenv(ClientSecretEnv), &sec},
 	} {
-		if override.src != "" {
+		if *override.dst == "" {
 			*override.dst = override.src
 		}
 		if override.src == "" && *override.dst == "" {
