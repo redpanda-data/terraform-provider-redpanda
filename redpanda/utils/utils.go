@@ -35,7 +35,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	rpknet "github.com/redpanda-data/redpanda/src/go/rpk/pkg/net"
-	"google.golang.org/grpc"
 )
 
 const providerUnspecified = "unspecified"
@@ -369,41 +368,4 @@ func TypeMapToStringMap(tags types.Map) map[string]string {
 		return nil
 	}
 	return tagsMap
-}
-
-// ThroughputTierClient is an interface for the ListThroughputTiers method from the controlplanev1beta2 API ThroughputTierServiceClient
-type ThroughputTierClient interface {
-	ListThroughputTiers(ctx context.Context, in *controlplanev1beta2.ListThroughputTiersRequest, opts ...grpc.CallOption) (*controlplanev1beta2.ListThroughputTiersResponse, error)
-}
-
-// ValidateThroughputTier returns the throughput tiers for the given cloud provider, cluster type, and region
-func ValidateThroughputTier(ctx context.Context, tt ThroughputTierClient, throughputTier, cloudProvider, clusterType, region string) error {
-	cp, err := StringToCloudProvider(cloudProvider)
-	if err != nil {
-		return err
-	}
-
-	ct, err := StringToClusterType(clusterType)
-	if err != nil {
-		return err
-	}
-
-	resp, err := tt.ListThroughputTiers(ctx,
-		&controlplanev1beta2.ListThroughputTiersRequest{
-			Filter: &controlplanev1beta2.ListThroughputTiersRequest_Filter{
-				CloudProvider: cp,
-				ClusterType:   ct,
-				Region:        region,
-			},
-		},
-	)
-	if err != nil {
-		return err
-	}
-	for _, v := range resp.GetThroughputTiers() {
-		if v.GetName() == throughputTier {
-			return nil
-		}
-	}
-	return fmt.Errorf("invalid throughput tier %s, please select a valid throughput tier", throughputTier)
 }

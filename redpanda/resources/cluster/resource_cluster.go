@@ -338,10 +338,6 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		return
 	}
 
-	if err := utils.ValidateThroughputTier(ctx, c.CpCl.ThroughputTier, clusterReq.GetThroughputTier(), model.CloudProvider.ValueString(), "dedicated", clusterReq.GetRegion()); err != nil {
-		return
-	}
-
 	clResp, err := c.CpCl.Cluster.CreateCluster(ctx, &controlplanev1beta2.CreateClusterRequest{Cluster: clusterReq})
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create cluster", err.Error())
