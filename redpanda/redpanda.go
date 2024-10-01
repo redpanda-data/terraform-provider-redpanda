@@ -58,8 +58,6 @@ const (
 	ClientIDEnv = "REDPANDA_CLIENT_ID"
 	// ClientSecretEnv is the client_secret used to authenticate to Redpanda cloud.
 	ClientSecretEnv = "REDPANDA_CLIENT_SECRET"
-	// CloudEnvironmentEnv is the Redpanda cloud environment.
-	CloudEnvironmentEnv = "REDPANDA_CLOUD_ENVIRONMENT"
 )
 
 // New spawns a basic provider struct, no client. Configure must be called for a
@@ -109,7 +107,6 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	}{
 		{"Client ID", os.Getenv(ClientIDEnv), &id},
 		{"Client Secret", os.Getenv(ClientSecretEnv), &sec},
-		{"Cloud Environment", os.Getenv(CloudEnvironmentEnv), &r.cloudEnv},
 	} {
 		if override.src != "" {
 			*override.dst = override.src
