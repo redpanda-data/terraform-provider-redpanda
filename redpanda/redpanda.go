@@ -60,6 +60,8 @@ type Redpanda struct {
 }
 
 const (
+	// AccessTokenEnv is the access token used to authenticate to Redpanda cloud.
+	AccessTokenEnv = "REDPANDA_ACCESS_TOKEN"
 	// ClientIDEnv is the client_id used to authenticate to Redpanda cloud.
 	ClientIDEnv = "REDPANDA_CLIENT_ID"
 	// ClientSecretEnv is the client_secret used to authenticate to Redpanda cloud.
@@ -80,21 +82,33 @@ func New(_ context.Context, cloudEnv, version string) func() provider.Provider {
 func providerSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
+			"access_token": schema.StringAttribute{
+				Optional:  true,
+				Sensitive: true,
+				MarkdownDescription: fmt.Sprintf("Redpanda client token. You need either `access_token`, or both `client_id` "+
+					"and `client_secret` to use this provider. Can also be set with the `%v` environment variable.", AccessTokenEnv),
+				Validators: []validator.String{
+					validators.NotUnknown(),
+				},
+			},
 			"client_id": schema.StringAttribute{
 				Optional:  true,
 				Sensitive: true,
-				MarkdownDescription: fmt.Sprintf("The ID for the client. You need `client_id` AND `client_secret`, "+
-					"to use this provider. Can also be set with the `%v` environment variable.", ClientIDEnv),
+				MarkdownDescription: fmt.Sprintf("The ID for the client. You need either `client_id` AND `client_secret`, "+
+					"or `access_token`, to use this provider. Can also be set with the `%v` environment variable.", ClientIDEnv),
 				Validators: []validator.String{
-					stringvalidator.AlsoRequires(path.MatchRoot("client_secret")),
+					validators.AlsoRequiresOneOf(
+						path.MatchRoot("client_secret"),
+						path.MatchRoot("access_token"),
+					),
 					validators.NotUnknown(),
 				},
 			},
 			"client_secret": schema.StringAttribute{
 				Optional:  true,
 				Sensitive: true,
-				MarkdownDescription: fmt.Sprintf("Redpanda client secret. You need `client_id` AND `client_secret`, "+
-					"to use this provider. Can also be set with the `%v` environment variable.", ClientSecretEnv),
+				MarkdownDescription: fmt.Sprintf("Redpanda client secret. You need either `client_id` AND `client_secret`, "+
+					"or `access_token`, to use this provider. Can also be set with the `%v` environment variable.", ClientSecretEnv),
 				Validators: []validator.String{
 					stringvalidator.AlsoRequires(path.MatchRoot("client_id")),
 					validators.NotUnknown(),
@@ -117,10 +131,21 @@ type credentials struct {
 func getCredentials(ctx context.Context, cloudEnv string, conf models.Redpanda) (credentials, diag.Diagnostics) {
 	// Similar to other Terraform providers, this provider (1) can pick up authentication configuration
 	// from multiple sources, and (2) gives precedence to direct configuration over environment variables.
-	// The first source which provides a client_id or client_secret will be chosen to validate and
+	// The first source which provides a client_id, client_secret, or token will be chosen to validate and
 	// try to use. The sources are checked in the following order:
 	// 1. Parameters in the provider configuration
 	// 2. Environment variables
+
+	// TODO: There are some scenarios here that could be handled more smoothly.
+	// - If a source has both a token and a client id/secret pair, should we validate the token 'sub'/'azp'
+	//   claim against the client id?
+	// - If the token is expired, should we try to renew it using a client id/secret pair? Or bail?
+	// - If the provider configuration has a client id/secret pair, but a token is provided in an environment
+	//   variable, should we use the token if it validates against the client id?
+	// - Should we keep the client id/secret around as well in case we need to re-auth with the API?
+	// - If the user passes in a token, should we validate its audience field against the configured
+	//   Redpanda cloud environment/endpoint? or, should we pull the endpoint from the audience field? or
+	//   do nothing like we do now?
 
 	creds := credentials{}
 	diags := diag.Diagnostics{}
@@ -133,46 +158,53 @@ func getCredentials(ctx context.Context, cloudEnv string, conf models.Redpanda) 
 	creds.EndpointAPIURL = endpoint.APIURL
 
 	// Check provider configuration
-	if !conf.ClientID.IsNull() || !conf.ClientSecret.IsNull() {
+	if !conf.ClientID.IsNull() || !conf.ClientSecret.IsNull() || !conf.AccessToken.IsNull() {
 		tflog.Info(ctx, "using authentication configuration found in provider configuration")
-		// client_id and client_secret are validated in the schema to make sure they always appear
-		// together. the validators have better error messages than checking here would, as they
-		// can point directly to the attribute in the user's HCL code.
+		// client_id, client_secret, and token are validated in the schema to make sure a valid
+		// combination is always provided. the validators have better error messages than checking
+		// here would, as they can point directly to the attribute in the user's HCL code.
 		creds.ClientID = conf.ClientID.ValueString()
 		creds.ClientSecret = conf.ClientSecret.ValueString()
-		creds.Token, err = cloud.RequestToken(ctx, endpoint, creds.ClientID, creds.ClientSecret)
-		if err != nil {
-			diags.AddError("failed to authenticate with Redpanda API", err.Error())
+		creds.Token = conf.AccessToken.ValueString()
+
+		if creds.Token == "" {
+			creds.Token, err = cloud.RequestToken(ctx, endpoint, creds.ClientID, creds.ClientSecret)
+			if err != nil {
+				diags.AddError("failed to authenticate with Redpanda API", err.Error())
+			}
 		}
 		return creds, diags
 	}
 
 	// Check environment variable configuration
-	id, sec := os.Getenv(ClientIDEnv), os.Getenv(ClientSecretEnv)
-	if id != "" || sec != "" {
+	id, sec, token := os.Getenv(ClientIDEnv), os.Getenv(ClientSecretEnv), os.Getenv(AccessTokenEnv)
+	if id != "" || sec != "" || token != "" {
 		tflog.Info(ctx, "using authentication configuration found in environment variables")
-		if sec == "" {
-			diags.AddError("Client Secret missing",
-				fmt.Sprintf("Environment variable %v must be set when %v is also set", ClientSecretEnv, ClientIDEnv))
+		if id != "" && sec == "" && token == "" {
+			diags.AddError("Client Secret or Token missing",
+				fmt.Sprintf("One of the environment variables %v or %v must be set when %v is also set", ClientSecretEnv, AccessTokenEnv, ClientIDEnv))
 			return creds, diags
 		}
-		if id == "" {
+		if sec != "" && id == "" {
 			diags.AddError("Client ID missing",
 				fmt.Sprintf("Environment variable %v must be set when %v is also set", ClientIDEnv, ClientSecretEnv))
 			return creds, diags
 		}
+
 		creds.ClientID = id
 		creds.ClientSecret = sec
-		creds.Token, err = cloud.RequestToken(ctx, endpoint, id, sec)
-		if err != nil {
-			diags.AddError("failed to authenticate with Redpanda API", err.Error())
+		if creds.Token == "" {
+			creds.Token, err = cloud.RequestToken(ctx, endpoint, creds.ClientID, creds.ClientSecret)
+			if err != nil {
+				diags.AddError("failed to authenticate with Redpanda API", err.Error())
+			}
 		}
 		return creds, diags
 	}
 
 	// No authentication configuration found
-	diags.AddError("Authentication configuration missing",
-		"no Client ID or Client Secret found, please set the corresponding variables in the "+
+	diags.AddError("Client configuration missing",
+		"no Client ID, Client Secret, or Token found, please set the corresponding variables in the "+
 			"configuration file or as environment variables",
 	)
 	return creds, diags
