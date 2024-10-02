@@ -36,14 +36,28 @@ import (
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	rpknet "github.com/redpanda-data/redpanda/src/go/rpk/pkg/net"
+	grpccodes "google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 const providerUnspecified = "unspecified"
 
-// IsNotFound checks if the passed error is a Not Found error or if it has a
-// 404 code in the error message.
+// NotFoundError represents a resource that couldn't be found
+type NotFoundError struct {
+	Message string
+}
+
+// Error returns the error message
+func (e NotFoundError) Error() string {
+	return e.Message
+}
+
+// IsNotFound checks if the passed error is a NotFoundError or a GRPC NotFound error
 func IsNotFound(err error) bool {
-	if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "NotFound") || strings.Contains(err.Error(), "404") {
+	if errors.As(err, &NotFoundError{}) {
+		return true
+	}
+	if e, ok := grpcstatus.FromError(err); ok && e.Code() == grpccodes.NotFound {
 		return true
 	}
 	return false
@@ -204,7 +218,7 @@ func FindUserByName(ctx context.Context, name string, client dataplanev1alpha2gr
 			return v, nil
 		}
 	}
-	return nil, fmt.Errorf("user not found")
+	return nil, NotFoundError{fmt.Sprintf("user %q not found", name)}
 }
 
 // StringToStringPointer converts a string to a pointer to a string
@@ -326,7 +340,7 @@ func FindTopicByName(ctx context.Context, topicName string, client dataplanev1al
 			return v, nil
 		}
 	}
-	return nil, fmt.Errorf("topic %s not found", topicName)
+	return nil, NotFoundError{fmt.Sprintf("topic %s not found", topicName)}
 }
 
 // SplitSchemeDefPort splits the schema from the url and return url+port. If
