@@ -245,7 +245,7 @@ func TestFindUserByName(t *testing.T) {
 			},
 			inputName:    "charlie",
 			expectedUser: nil,
-			expectedErr:  "user not found",
+			expectedErr:  `user "charlie" not found`,
 		},
 		{
 			name: "ListUsers error",
