@@ -23,9 +23,6 @@ import "google.golang.org/grpc"
 // implementations.
 type Resource struct {
 	AuthToken              string
-	ClientID               string
-	ClientSecret           string
-	CloudEnv               string
 	ControlPlaneConnection *grpc.ClientConn
 }
 
@@ -33,9 +30,6 @@ type Resource struct {
 // implementations.
 type Datasource struct {
 	AuthToken              string
-	ClientID               string
-	ClientSecret           string
-	CloudEnv               string
 	ControlPlaneConnection *grpc.ClientConn
 }
 

@@ -240,16 +240,10 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 
 	response.ResourceData = config.Resource{
 		AuthToken:              creds.Token,
-		ClientID:               creds.ClientID,
-		ClientSecret:           creds.ClientSecret,
-		CloudEnv:               r.cloudEnv,
 		ControlPlaneConnection: r.conn,
 	}
 	response.DataSourceData = config.Datasource{
 		AuthToken:              creds.Token,
-		ClientID:               creds.ClientID,
-		ClientSecret:           creds.ClientSecret,
-		CloudEnv:               r.cloudEnv,
 		ControlPlaneConnection: r.conn,
 	}
 }
