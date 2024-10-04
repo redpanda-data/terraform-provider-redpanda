@@ -303,14 +303,9 @@ func (t *Topic) ImportState(ctx context.Context, req resource.ImportStateRequest
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to find cluster with ID %q; make sure ADDR ID format is <topic_name>,<cluster_id>", clusterID), err.Error())
 		return
 	}
-	clusterURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
-	if err != nil {
-		resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
-		return
-	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(topicName))...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(topicName))...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_api_url"), types.StringValue(clusterURL))...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_api_url"), types.StringValue(cluster.DataplaneApi.Url))...)
 }
 
 func (t *Topic) createTopicClient(clusterURL string) error {

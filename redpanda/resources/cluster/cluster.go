@@ -23,7 +23,6 @@ import (
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
@@ -238,11 +237,7 @@ func generateModel(ctx context.Context, cfg models.Cluster, cluster *controlplan
 	output.Zones = clusterZones
 
 	if cluster.GetDataplaneApi() != nil {
-		clusterURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
-		if err != nil {
-			return nil, fmt.Errorf("unable to parse Cluster API URL: %v", err)
-		}
-		output.ClusterAPIURL = basetypes.NewStringValue(clusterURL)
+		output.ClusterAPIURL = types.StringValue(cluster.DataplaneApi.Url)
 	}
 
 	rr, d := types.ListValueFrom(ctx, types.StringType, cluster.ReadReplicaClusterIds)
