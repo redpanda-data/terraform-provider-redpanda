@@ -77,11 +77,7 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), err.Error())
 		return
 	}
-	clusterZones, dg := types.ListValueFrom(ctx, types.StringType, cluster.Zones)
-	if dg.HasError() {
-		resp.Diagnostics.Append(dg...)
-		return
-	}
+
 	tags := make(map[string]attr.Value)
 	for k, v := range cluster.CloudProviderTags {
 		tags[k] = types.StringValue(v)
@@ -89,11 +85,6 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 	tagsValue, diags := types.MapValue(types.StringType, tags)
 	if diags.HasError() {
 		resp.Diagnostics.AddError("unable to parse Cloud tags", err.Error())
-		return
-	}
-	rr, derr := types.ListValueFrom(ctx, types.StringType, cluster.ReadReplicaClusterIds)
-	if derr.HasError() {
-		resp.Diagnostics.Append(derr...)
 		return
 	}
 
@@ -106,25 +97,29 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		RedpandaVersion:       types.StringValue(cluster.RedpandaVersion),
 		ThroughputTier:        types.StringValue(cluster.ThroughputTier),
 		Region:                types.StringValue(cluster.Region),
-		Zones:                 clusterZones,
+		Zones:                 utils.StringSliceToTypeList(cluster.Zones),
 		Tags:                  tagsValue,
 		ResourceGroupID:       types.StringValue(cluster.ResourceGroupId),
 		NetworkID:             types.StringValue(cluster.NetworkId),
 		ID:                    types.StringValue(cluster.Id),
 		ClusterAPIURL:         types.StringValue(cluster.DataplaneApi.Url),
-		ReadReplicaClusterIDs: rr,
+		ReadReplicaClusterIDs: utils.StringSliceToTypeList(cluster.ReadReplicaClusterIds),
+		KafkaAPI: &models.KafkaAPI{
+			Mtls: toMtlsModel(cluster.GetKafkaApi().GetMtls()),
+		},
+		HTTPProxy: &models.HTTPProxy{
+			Mtls: toMtlsModel(cluster.GetHttpProxy().GetMtls()),
+		},
+		SchemaRegistry: &models.SchemaRegistry{
+			Mtls: toMtlsModel(cluster.GetSchemaRegistry().GetMtls()),
+		},
 	}
 
 	if !isAwsPrivateLinkSpecNil(cluster.AwsPrivateLink) {
-		ap, dig := types.ListValueFrom(ctx, types.StringType, cluster.AwsPrivateLink.AllowedPrincipals)
-		if dig.HasError() {
-			resp.Diagnostics.Append(dig...)
-			return
-		}
 		persist.AwsPrivateLink = &models.AwsPrivateLink{
 			Enabled:           types.BoolValue(cluster.AwsPrivateLink.Enabled),
 			ConnectConsole:    types.BoolValue(cluster.AwsPrivateLink.ConnectConsole),
-			AllowedPrincipals: ap,
+			AllowedPrincipals: utils.StringSliceToTypeList(cluster.AwsPrivateLink.AllowedPrincipals),
 		}
 	}
 	if !isGcpPrivateServiceConnectSpecNil(cluster.GcpPrivateServiceConnect) {
@@ -138,42 +133,13 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 	}
 
 	if !isAzurePrivateLinkSpecNil(cluster.AzurePrivateLink) {
-		as, dig := types.ListValueFrom(ctx, types.StringType, cluster.AzurePrivateLink.AllowedSubscriptions)
-		if dig.HasError() {
-			resp.Diagnostics.Append(dig...)
-			return
-		}
 		persist.AzurePrivateLink = &models.AzurePrivateLink{
 			Enabled:              types.BoolValue(cluster.AzurePrivateLink.Enabled),
 			ConnectConsole:       types.BoolValue(cluster.AzurePrivateLink.ConnectConsole),
-			AllowedSubscriptions: as,
+			AllowedSubscriptions: utils.StringSliceToTypeList(cluster.AzurePrivateLink.AllowedSubscriptions),
 		}
 	}
 
-	kAPI, dg := toMtlsModel(ctx, cluster.GetKafkaApi().GetMtls())
-	if dg != nil {
-		resp.Diagnostics.Append(dg...)
-		return
-	}
-	persist.KafkaAPI = &models.KafkaAPI{
-		Mtls: kAPI,
-	}
-	hp, dg := toMtlsModel(ctx, cluster.GetHttpProxy().GetMtls())
-	if dg != nil {
-		resp.Diagnostics.Append(dg...)
-		return
-	}
-	persist.HTTPProxy = &models.HTTPProxy{
-		Mtls: hp,
-	}
-	sr, dg := toMtlsModel(ctx, cluster.GetSchemaRegistry().GetMtls())
-	if dg != nil {
-		resp.Diagnostics.Append(dg...)
-		return
-	}
-	persist.SchemaRegistry = &models.SchemaRegistry{
-		Mtls: sr,
-	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 

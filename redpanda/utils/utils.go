@@ -33,7 +33,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
-	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
 const providerUnspecified = "unspecified"
@@ -182,19 +181,19 @@ func TypeListToStringSlice(t types.List) []string {
 	return s
 }
 
-// TestingOnlyStringSliceToTypeList converts a string slice to a types.List. Only use for testing as it swallows the diag
-func TestingOnlyStringSliceToTypeList(s []string) types.List {
-	o, _ := types.ListValueFrom(context.TODO(), types.StringType, s)
-	return o
-}
-
-// StringSliceToSliceValues converts a string slice to a slice of tftypes.Value
-func StringSliceToSliceValues(s []string) []tftypes.Value {
-	var values []tftypes.Value
-	for _, v := range s {
-		values = append(values, tftypes.NewValue(tftypes.String, v))
+// StringSliceToTypeList safely converts a string slice into a Terraform types.List
+func StringSliceToTypeList(elements []string) types.List {
+	if elements == nil {
+		return types.ListNull(types.StringType)
 	}
-	return values
+
+	values := []attr.Value{}
+	for _, e := range elements {
+		values = append(values, types.StringValue(e))
+	}
+	// this is safe because ListValueMust only panics if the values don't match the list
+	// type, and we're making sure that all values that go in are strings.
+	return types.ListValueMust(types.StringType, values)
 }
 
 // TrimmedStringValue returns the string value of a types.String with the quotes removed.

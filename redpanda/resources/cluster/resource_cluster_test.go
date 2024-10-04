@@ -1,7 +1,6 @@
 package cluster
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -36,7 +35,7 @@ func TestGenerateClusterRequest(t *testing.T) {
 					ClusterType:     types.StringValue("dedicated"),
 					ThroughputTier:  types.StringValue("tier-2-gcp-um50"),
 					Region:          types.StringValue("us-west1"),
-					Zones:           utils.TestingOnlyStringSliceToTypeList([]string{"us-west1-a", "us-west1-b"}),
+					Zones:           utils.StringSliceToTypeList([]string{"us-west1-a", "us-west1-b"}),
 					AllowDeletion:   types.BoolValue(true),
 					ResourceGroupID: types.StringValue("testrg"),
 					NetworkID:       types.StringValue("testnetwork"),
@@ -70,8 +69,6 @@ func TestGenerateClusterRequest(t *testing.T) {
 }
 
 func TestGenerateModel(t *testing.T) {
-	ctx := context.Background()
-
 	testCases := []struct {
 		name     string
 		cfg      models.Cluster
@@ -91,7 +88,7 @@ func TestGenerateModel(t *testing.T) {
 				Region:          types.StringValue("us-west-2"),
 				ResourceGroupID: types.StringValue("rg-123"),
 				NetworkID:       types.StringValue("net-456"),
-				Zones:           utils.TestingOnlyStringSliceToTypeList([]string{"us-west-2a", "us-west-2b"}),
+				Zones:           utils.StringSliceToTypeList([]string{"us-west-2a", "us-west-2b"}),
 				AllowDeletion:   types.BoolValue(false),
 			},
 			cluster: &controlplanev1beta2.Cluster{
@@ -142,7 +139,7 @@ func TestGenerateModel(t *testing.T) {
 				ID:                    types.StringValue("cl-789"),
 				ClusterAPIURL:         types.StringValue("https://test-cluster.rptest.io:443"),
 				ReadReplicaClusterIDs: basetypes.NewListNull(types.StringType),
-				Zones:                 utils.TestingOnlyStringSliceToTypeList([]string{"us-west-2a", "us-west-2b"}),
+				Zones:                 utils.StringSliceToTypeList([]string{"us-west-2a", "us-west-2b"}),
 				AllowDeletion:         types.BoolValue(false),
 			},
 			wantErr: false,
@@ -159,7 +156,7 @@ func TestGenerateModel(t *testing.T) {
 				Region:          types.StringValue("us-central1"),
 				ResourceGroupID: types.StringValue("rg-456"),
 				NetworkID:       types.StringValue("net-789"),
-				Zones:           utils.TestingOnlyStringSliceToTypeList([]string{"us-central1-a", "us-central1-b", "us-central1-c"}),
+				Zones:           utils.StringSliceToTypeList([]string{"us-central1-a", "us-central1-b", "us-central1-c"}),
 				AllowDeletion:   types.BoolValue(true),
 			},
 			cluster: &controlplanev1beta2.Cluster{
@@ -188,7 +185,7 @@ func TestGenerateModel(t *testing.T) {
 				NetworkID:             types.StringValue("net-789"),
 				ID:                    types.StringValue("cl-101"),
 				ClusterAPIURL:         types.StringValue("https://gcp-private-cluster.rptest.io:443"),
-				Zones:                 utils.TestingOnlyStringSliceToTypeList([]string{"us-central1-a", "us-central1-b", "us-central1-c"}),
+				Zones:                 utils.StringSliceToTypeList([]string{"us-central1-a", "us-central1-b", "us-central1-c"}),
 				AllowDeletion:         types.BoolValue(true),
 				ReadReplicaClusterIDs: basetypes.NewListNull(types.StringType),
 			},
@@ -235,13 +232,13 @@ func TestGenerateModel(t *testing.T) {
 				ResourceGroupID:       types.StringValue("rg-789"),
 				NetworkID:             types.StringValue("net-101"),
 				ClusterAPIURL:         types.StringValue("https://aws-mtls-cluster.rptest.io:443"),
-				ReadReplicaClusterIDs: utils.TestingOnlyStringSliceToTypeList([]string{""}),
-				Zones:                 utils.TestingOnlyStringSliceToTypeList([]string{"eu-west-1a"}),
+				ReadReplicaClusterIDs: utils.StringSliceToTypeList([]string{""}),
+				Zones:                 utils.StringSliceToTypeList([]string{"eu-west-1a"}),
 				KafkaAPI: &models.KafkaAPI{
 					Mtls: &models.Mtls{
 						Enabled:               types.BoolValue(true),
-						CaCertificatesPem:     utils.TestingOnlyStringSliceToTypeList([]string{"cert1", "cert2"}),
-						PrincipalMappingRules: utils.TestingOnlyStringSliceToTypeList([]string{"rule1", "rule2"}),
+						CaCertificatesPem:     utils.StringSliceToTypeList([]string{"cert1", "cert2"}),
+						PrincipalMappingRules: utils.StringSliceToTypeList([]string{"rule1", "rule2"}),
 					},
 				},
 			},
@@ -256,7 +253,7 @@ func TestGenerateModel(t *testing.T) {
 				ClusterType:    types.StringValue("dedicated"),
 				AwsPrivateLink: &models.AwsPrivateLink{
 					Enabled:           types.BoolValue(true),
-					AllowedPrincipals: utils.TestingOnlyStringSliceToTypeList([]string{"arn:aws:iam::123456789012:root"}),
+					AllowedPrincipals: utils.StringSliceToTypeList([]string{"arn:aws:iam::123456789012:root"}),
 				},
 			},
 			cluster: &controlplanev1beta2.Cluster{
@@ -287,12 +284,12 @@ func TestGenerateModel(t *testing.T) {
 				ThroughputTier:        types.StringValue("t3"),
 				NetworkID:             types.StringValue("net-303"),
 				ResourceGroupID:       types.StringValue("123"),
-				Zones:                 utils.TestingOnlyStringSliceToTypeList([]string{"eu-west-1a"}),
-				ReadReplicaClusterIDs: utils.TestingOnlyStringSliceToTypeList([]string{""}),
+				Zones:                 utils.StringSliceToTypeList([]string{"eu-west-1a"}),
+				ReadReplicaClusterIDs: utils.StringSliceToTypeList([]string{""}),
 				Region:                types.StringValue("eu-west-1"),
 				AwsPrivateLink: &models.AwsPrivateLink{
 					Enabled:           types.BoolValue(true),
-					AllowedPrincipals: utils.TestingOnlyStringSliceToTypeList([]string{"arn:aws:iam::123456789012:root"}),
+					AllowedPrincipals: utils.StringSliceToTypeList([]string{"arn:aws:iam::123456789012:root"}),
 					ConnectConsole:    types.BoolValue(false),
 				},
 			},
@@ -344,8 +341,8 @@ func TestGenerateModel(t *testing.T) {
 				Region:                types.StringValue("us-central1"),
 				ResourceGroupID:       types.StringValue("rg-404"),
 				NetworkID:             types.StringValue("net-404"),
-				ReadReplicaClusterIDs: utils.TestingOnlyStringSliceToTypeList([]string{""}),
-				Zones:                 utils.TestingOnlyStringSliceToTypeList([]string{"us-central1-a"}),
+				ReadReplicaClusterIDs: utils.StringSliceToTypeList([]string{""}),
+				Zones:                 utils.StringSliceToTypeList([]string{"us-central1-a"}),
 				ClusterAPIURL:         types.StringValue("https://aws-gcp-psc-cluster.rptest.io:443"),
 				GcpPrivateServiceConnect: &models.GcpPrivateServiceConnect{
 					Enabled:             types.BoolValue(true),
@@ -361,7 +358,7 @@ func TestGenerateModel(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := generateModel(ctx, tc.cfg, tc.cluster)
+			result, err := generateModel(tc.cfg, tc.cluster)
 
 			if tc.wantErr {
 				assert.Error(t, err)

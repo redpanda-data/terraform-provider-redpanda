@@ -16,12 +16,10 @@
 package cluster
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -47,24 +45,15 @@ func gcpConnectConsumerStructToModel(accept []*controlplanev1beta2.GCPPrivateSer
 	return output
 }
 
-func toMtlsModel(ctx context.Context, mtls *controlplanev1beta2.MTLSSpec) (*models.Mtls, diag.Diagnostics) {
+func toMtlsModel(mtls *controlplanev1beta2.MTLSSpec) *models.Mtls {
 	if isMtlsSpecNil(mtls) {
-		return nil, nil
-	}
-
-	capem, err := types.ListValueFrom(ctx, types.StringType, mtls.GetCaCertificatesPem())
-	if err != nil {
-		return nil, err
-	}
-	maprules, err := types.ListValueFrom(ctx, types.StringType, mtls.GetPrincipalMappingRules())
-	if err != nil {
-		return nil, err
+		return nil
 	}
 	return &models.Mtls{
 		Enabled:               types.BoolValue(mtls.GetEnabled()),
-		CaCertificatesPem:     capem,
-		PrincipalMappingRules: maprules,
-	}, nil
+		CaCertificatesPem:     utils.StringSliceToTypeList(mtls.GetCaCertificatesPem()),
+		PrincipalMappingRules: utils.StringSliceToTypeList(mtls.GetPrincipalMappingRules()),
+	}
 }
 
 func toMtlsSpec(mtls *models.Mtls) *controlplanev1beta2.MTLSSpec {
@@ -214,47 +203,33 @@ func generateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterC
 }
 
 // generateModel populates the Cluster model to be persisted to state for Create, Read and Update operations. It is also indirectly used by Import
-func generateModel(ctx context.Context, cfg models.Cluster, cluster *controlplanev1beta2.Cluster) (*models.Cluster, error) {
+func generateModel(cfg models.Cluster, cluster *controlplanev1beta2.Cluster) (*models.Cluster, error) {
 	output := &models.Cluster{
-		Name:            types.StringValue(cluster.Name),
-		ConnectionType:  types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
-		CloudProvider:   types.StringValue(utils.CloudProviderToString(cluster.CloudProvider)),
-		ClusterType:     types.StringValue(utils.ClusterTypeToString(cluster.Type)),
-		RedpandaVersion: cfg.RedpandaVersion,
-		ThroughputTier:  types.StringValue(cluster.ThroughputTier),
-		Region:          types.StringValue(cluster.Region),
-		AllowDeletion:   cfg.AllowDeletion,
-		Tags:            cfg.Tags,
-		ResourceGroupID: types.StringValue(cluster.ResourceGroupId),
-		NetworkID:       types.StringValue(cluster.NetworkId),
-		ID:              types.StringValue(cluster.Id),
+		Name:                  types.StringValue(cluster.Name),
+		ConnectionType:        types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
+		CloudProvider:         types.StringValue(utils.CloudProviderToString(cluster.CloudProvider)),
+		ClusterType:           types.StringValue(utils.ClusterTypeToString(cluster.Type)),
+		RedpandaVersion:       cfg.RedpandaVersion,
+		ThroughputTier:        types.StringValue(cluster.ThroughputTier),
+		Region:                types.StringValue(cluster.Region),
+		AllowDeletion:         cfg.AllowDeletion,
+		Tags:                  cfg.Tags,
+		ResourceGroupID:       types.StringValue(cluster.ResourceGroupId),
+		NetworkID:             types.StringValue(cluster.NetworkId),
+		ID:                    types.StringValue(cluster.Id),
+		ReadReplicaClusterIDs: utils.StringSliceToTypeList(cluster.ReadReplicaClusterIds),
+		Zones:                 utils.StringSliceToTypeList(cluster.Zones),
 	}
-
-	clusterZones, d := types.ListValueFrom(ctx, types.StringType, cluster.Zones)
-	if d.HasError() {
-		return nil, fmt.Errorf("failed to parse cluster zones: %v", d)
-	}
-	output.Zones = clusterZones
 
 	if cluster.GetDataplaneApi() != nil {
 		output.ClusterAPIURL = types.StringValue(cluster.DataplaneApi.Url)
 	}
 
-	rr, d := types.ListValueFrom(ctx, types.StringType, cluster.ReadReplicaClusterIds)
-	if d.HasError() {
-		return nil, fmt.Errorf("failed to parse read replica cluster IDs: %v", d)
-	}
-	output.ReadReplicaClusterIDs = rr
-
 	if !isAwsPrivateLinkSpecNil(cluster.AwsPrivateLink) {
-		ap, dg := types.ListValueFrom(ctx, types.StringType, cluster.AwsPrivateLink.AllowedPrincipals)
-		if dg.HasError() {
-			return nil, fmt.Errorf("failed to parse AWS Private Link: %v", dg)
-		}
 		output.AwsPrivateLink = &models.AwsPrivateLink{
 			Enabled:           types.BoolValue(cluster.AwsPrivateLink.Enabled),
 			ConnectConsole:    types.BoolValue(cluster.AwsPrivateLink.ConnectConsole),
-			AllowedPrincipals: ap,
+			AllowedPrincipals: utils.StringSliceToTypeList(cluster.AwsPrivateLink.AllowedPrincipals),
 		}
 	}
 	if !isGcpPrivateServiceConnectSpecNil(cluster.GcpPrivateServiceConnect) {
@@ -266,38 +241,25 @@ func generateModel(ctx context.Context, cfg models.Cluster, cluster *controlplan
 	}
 
 	if !isAzurePrivateLinkSpecNil(cluster.AzurePrivateLink) {
-		as, dg := types.ListValueFrom(ctx, types.StringType, cluster.AzurePrivateLink.AllowedSubscriptions)
-		if dg.HasError() {
-			return nil, fmt.Errorf("failed to parse Azure Private Link: %v", dg)
-		}
 		output.AzurePrivateLink = &models.AzurePrivateLink{
 			Enabled:              types.BoolValue(cluster.AzurePrivateLink.Enabled),
 			ConnectConsole:       types.BoolValue(cluster.AzurePrivateLink.ConnectConsole),
-			AllowedSubscriptions: as,
+			AllowedSubscriptions: utils.StringSliceToTypeList(cluster.AzurePrivateLink.AllowedSubscriptions),
 		}
 	}
-	kAPI, err := toMtlsModel(ctx, cluster.GetKafkaApi().GetMtls())
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse Kafka API MTLS: %v", err)
-	}
+	kAPI := toMtlsModel(cluster.GetKafkaApi().GetMtls())
 	if kAPI != nil {
 		output.KafkaAPI = &models.KafkaAPI{
 			Mtls: kAPI,
 		}
 	}
-	ht, err := toMtlsModel(ctx, cluster.GetHttpProxy().GetMtls())
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse HTTP Proxy MTLS: %v", err)
-	}
+	ht := toMtlsModel(cluster.GetHttpProxy().GetMtls())
 	if ht != nil {
 		output.HTTPProxy = &models.HTTPProxy{
 			Mtls: ht,
 		}
 	}
-	sr, err := toMtlsModel(ctx, cluster.GetSchemaRegistry().GetMtls())
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse Schema Registry MTLS: %v", err)
-	}
+	sr := toMtlsModel(cluster.GetSchemaRegistry().GetMtls())
 	if sr != nil {
 		output.SchemaRegistry = &models.SchemaRegistry{
 			Mtls: sr,
