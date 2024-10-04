@@ -41,29 +41,34 @@ import (
 // Endpoint is a representation of a cloud endpoint for a single environment. It
 // contains the URLs, audience for authentication and the API URL.
 type Endpoint struct {
-	APIURL   string // CloudV2 public API URL.
-	authURL  string // CloudV2 URL for authorization token exchange.
-	audience string // CloudV2 audience used for token exchange.
+	APIURL         string // CloudV2 public API URL.
+	InternalAPIURL string // CloudV2 internal API URL.
+	authURL        string // CloudV2 URL for authorization token exchange.
+	audience       string // CloudV2 audience used for token exchange.
 }
 
 var endpoints = map[string]Endpoint{
 	"dev": {
-		"https://api.dev.cloud.redpanda.com",
+		"api.dev.cloud.redpanda.com:443",
+		"https://cloud-api.dev.cloud.redpanda.com",
 		"https://dev-cloudv2.us.auth0.com/oauth/token",
 		"cloudv2-dev.redpanda.cloud",
 	},
 	"ign": {
-		"https://api.ign.cloud.redpanda.com",
+		"api.ign.cloud.redpanda.com:443",
+		"https://cloud-api.ign.cloud.redpanda.com",
 		"https://integration-cloudv2.us.auth0.com/oauth/token",
 		"cloudv2-ign.redpanda.cloud",
 	},
 	"pre": {
-		APIURL:   "https://api.ppd.cloud.redpanda.com",
-		authURL:  "https://preprod-cloudv2.us.auth0.com/oauth/token",
-		audience: "cloudv2-preprod.redpanda.cloud",
+		APIURL:         "api.ppd.cloud.redpanda.com:443",
+		InternalAPIURL: "https://cloud-api.ppd.cloud.redpanda.com",
+		authURL:        "https://preprod-cloudv2.us.auth0.com/oauth/token",
+		audience:       "cloudv2-preprod.redpanda.cloud",
 	},
 	"prod": {
-		"https://api.redpanda.com",
+		"api.redpanda.com:443",
+		"https://cloud-api.prd.cloud.redpanda.com",
 		"https://auth.prd.cloud.redpanda.com/oauth/token",
 		"cloudv2-production.redpanda.cloud",
 	},
