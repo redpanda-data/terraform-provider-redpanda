@@ -178,12 +178,12 @@ func TestTypeListToStringSlice(t *testing.T) {
 	}{
 		{
 			name:     "test conversion",
-			input:    TestingOnlyStringSliceToTypeList([]string{"a", "b", "c"}),
+			input:    StringSliceToTypeList([]string{"a", "b", "c"}),
 			expected: []string{"a", "b", "c"},
 		},
 		{
 			name:     "test empty conversion",
-			input:    TestingOnlyStringSliceToTypeList([]string{}),
+			input:    StringSliceToTypeList([]string{}),
 			expected: nil,
 		},
 	}
