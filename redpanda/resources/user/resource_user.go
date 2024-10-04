@@ -225,14 +225,9 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to find cluster with ID %q; make sure ADDR ID format is <user_name>,<cluster_id>", clusterID), err.Error())
 		return
 	}
-	clusterURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
-	if err != nil {
-		resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
-		return
-	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(user))...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(user))...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_api_url"), clusterURL)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_api_url"), cluster.DataplaneApi.Url)...)
 }
 
 func (u *User) createUserClient(clusterURL string) error {
