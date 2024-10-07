@@ -76,7 +76,7 @@ install_lint:
 .PHONY: linter
 linter:
 	@if [ "$$BUILDKITE" = "true" ]; then \
-		GOFLAGS="-buildvcs=false" $(GOLANGCILINTCMD) run; \
+		GOFLAGS="-buildvcs=false" $(GOLANGCILINTCMD) run --timeout=5m; \
 	else \
 		$(GOLANGCILINTCMD) run; \
 	fi
