@@ -77,13 +77,16 @@ func (d *DataSourceServerlessCluster) Read(ctx context.Context, req datasource.R
 		return
 	}
 	// Mapping the fields from the serverless cluster to the Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, &models.ServerlessCluster{
+	persist := &models.ServerlessCluster{
 		Name:             types.StringValue(serverlessCluster.Name),
 		ServerlessRegion: types.StringValue(serverlessCluster.ServerlessRegion),
 		ResourceGroupID:  types.StringValue(serverlessCluster.ResourceGroupId),
 		ID:               types.StringValue(serverlessCluster.Id),
-		ClusterAPIURL:    types.StringValue(serverlessCluster.DataplaneApi.Url),
-	})...)
+	}
+	if serverlessCluster.DataplaneApi != nil {
+		persist.ClusterAPIURL = types.StringValue(serverlessCluster.DataplaneApi.Url)
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
 // Schema returns the schema for the ServerlessCluster data source.

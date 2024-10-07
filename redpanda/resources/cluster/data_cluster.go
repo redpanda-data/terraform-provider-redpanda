@@ -102,7 +102,6 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		ResourceGroupID:       types.StringValue(cluster.ResourceGroupId),
 		NetworkID:             types.StringValue(cluster.NetworkId),
 		ID:                    types.StringValue(cluster.Id),
-		ClusterAPIURL:         types.StringValue(cluster.DataplaneApi.Url),
 		ReadReplicaClusterIDs: utils.StringSliceToTypeList(cluster.ReadReplicaClusterIds),
 		KafkaAPI: &models.KafkaAPI{
 			Mtls: toMtlsModel(cluster.GetKafkaApi().GetMtls()),
@@ -113,6 +112,10 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		SchemaRegistry: &models.SchemaRegistry{
 			Mtls: toMtlsModel(cluster.GetSchemaRegistry().GetMtls()),
 		},
+	}
+
+	if cluster.DataplaneApi != nil {
+		persist.ClusterAPIURL = types.StringValue(cluster.DataplaneApi.Url)
 	}
 
 	if !isAwsPrivateLinkSpecNil(cluster.AwsPrivateLink) {
