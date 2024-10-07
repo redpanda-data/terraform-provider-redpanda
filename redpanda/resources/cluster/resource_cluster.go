@@ -84,9 +84,8 @@ func resourceClusterSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				Required:      true,
-				Description:   "Unique name of the cluster.",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Required:    true,
+				Description: "Unique name of the cluster.",
 			},
 			"cluster_type": schema.StringAttribute{
 				Required:      true,
@@ -405,14 +404,21 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 	var plan models.Cluster
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 
+	var state models.Cluster
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+
 	updateReq := &controlplanev1beta2.UpdateClusterRequest{
 		Cluster: &controlplanev1beta2.ClusterUpdate{
-			Id:   plan.ID.ValueString(),
-			Name: plan.Name.ValueString(),
+			Id: plan.ID.ValueString(),
 		},
 		UpdateMask: &fieldmaskpb.FieldMask{
 			Paths: make([]string, 0),
 		},
+	}
+
+	if !plan.Name.Equal(state.Name) {
+		updateReq.Cluster.Name = plan.Name.ValueString()
+		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "name")
 	}
 
 	if !isAwsPrivateLinkStructNil(plan.AwsPrivateLink) {
