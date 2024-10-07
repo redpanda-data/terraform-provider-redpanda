@@ -32,6 +32,7 @@ steps:
           environment:
             - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
             - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+            - TF_LOG=DEBUG
     depends_on:
       - lint
       - unit
@@ -66,6 +67,7 @@ steps:
           environment:
             - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
             - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+            - TF_LOG=DEBUG
     depends_on:
       - lint
       - unit
