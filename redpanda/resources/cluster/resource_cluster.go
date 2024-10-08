@@ -359,7 +359,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		resp.Diagnostics.AddError(fmt.Sprintf("successfully created the cluster with ID %q, but failed to read the cluster configuration: %v", clusterID, err), err.Error())
 		return
 	}
-	persist, err := generateModel(ctx, model, cluster)
+	persist, err := generateModel(model, cluster)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to generate model for state during cluster.Create", err.Error())
 		return
@@ -391,7 +391,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		return
 	}
 
-	persist, err := generateModel(ctx, model, cluster)
+	persist, err := generateModel(model, cluster)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to generate model for state during cluster.Read", err.Error())
 		return
@@ -486,7 +486,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 	var cfg models.Cluster
 	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
 
-	persist, err := generateModel(ctx, cfg, cluster)
+	persist, err := generateModel(cfg, cluster)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to generate model for state during cluster.Update", err.Error())
 		return
