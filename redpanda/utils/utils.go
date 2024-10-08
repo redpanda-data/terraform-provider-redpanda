@@ -34,7 +34,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
-	rpknet "github.com/redpanda-data/redpanda/src/go/rpk/pkg/net"
 )
 
 const providerUnspecified = "unspecified"
@@ -343,19 +342,6 @@ func FindTopicByName(ctx context.Context, topicName string, client dataplanev1al
 		}
 	}
 	return nil, fmt.Errorf("topic %s not found", topicName)
-}
-
-// SplitSchemeDefPort splits the schema from the url and return url+port. If
-// there is no port, we use the provided default.
-func SplitSchemeDefPort(url, def string) (string, error) {
-	_, host, port, err := rpknet.SplitSchemeHostPort(url)
-	if err != nil {
-		return "", err
-	}
-	if port == "" {
-		port = def
-	}
-	return host + ":" + port, nil
 }
 
 // TypeMapToStringMap converts a types.Map to a map[string]string

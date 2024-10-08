@@ -76,18 +76,13 @@ func (d *DataSourceServerlessCluster) Read(ctx context.Context, req datasource.R
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read serverless cluster %s", model.ID), err.Error())
 		return
 	}
-	clusterURL, err := utils.SplitSchemeDefPort(serverlessCluster.DataplaneApi.Url, "443")
-	if err != nil {
-		resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
-		return
-	}
 	// Mapping the fields from the serverless cluster to the Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &models.ServerlessCluster{
 		Name:             types.StringValue(serverlessCluster.Name),
 		ServerlessRegion: types.StringValue(serverlessCluster.ServerlessRegion),
 		ResourceGroupID:  types.StringValue(serverlessCluster.ResourceGroupId),
 		ID:               types.StringValue(serverlessCluster.Id),
-		ClusterAPIURL:    types.StringValue(clusterURL),
+		ClusterAPIURL:    types.StringValue(serverlessCluster.DataplaneApi.Url),
 	})...)
 }
 

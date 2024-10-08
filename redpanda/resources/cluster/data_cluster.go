@@ -82,11 +82,6 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		resp.Diagnostics.Append(dg...)
 		return
 	}
-	clusterURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
-	if err != nil {
-		resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
-		return
-	}
 	tags := make(map[string]attr.Value)
 	for k, v := range cluster.CloudProviderTags {
 		tags[k] = types.StringValue(v)
@@ -116,7 +111,7 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		ResourceGroupID:       types.StringValue(cluster.ResourceGroupId),
 		NetworkID:             types.StringValue(cluster.NetworkId),
 		ID:                    types.StringValue(cluster.Id),
-		ClusterAPIURL:         types.StringValue(clusterURL),
+		ClusterAPIURL:         types.StringValue(cluster.DataplaneApi.Url),
 		ReadReplicaClusterIDs: rr,
 	}
 

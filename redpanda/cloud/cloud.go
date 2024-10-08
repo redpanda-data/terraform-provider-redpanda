@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -47,22 +48,22 @@ type Endpoint struct {
 
 var endpoints = map[string]Endpoint{
 	"dev": {
-		"api.dev.cloud.redpanda.com:443",
+		"https://api.dev.cloud.redpanda.com",
 		"https://dev-cloudv2.us.auth0.com/oauth/token",
 		"cloudv2-dev.redpanda.cloud",
 	},
 	"ign": {
-		"api.ign.cloud.redpanda.com:443",
+		"https://api.ign.cloud.redpanda.com",
 		"https://integration-cloudv2.us.auth0.com/oauth/token",
 		"cloudv2-ign.redpanda.cloud",
 	},
 	"pre": {
-		APIURL:   "api.ppd.cloud.redpanda.com:443",
+		APIURL:   "https://api.ppd.cloud.redpanda.com",
 		authURL:  "https://preprod-cloudv2.us.auth0.com/oauth/token",
 		audience: "cloudv2-preprod.redpanda.cloud",
 	},
 	"prod": {
-		"api.redpanda.com:443",
+		"https://api.redpanda.com",
 		"https://auth.prd.cloud.redpanda.com/oauth/token",
 		"cloudv2-production.redpanda.cloud",
 	},
@@ -124,11 +125,28 @@ func RequestToken(ctx context.Context, endpoint *Endpoint, clientID, clientSecre
 
 var rl = newRateLimiter(500)
 
+var urlRegex = regexp.MustCompile(`^(?:https://)?([^/]+?(?::\d+)?)/?$`)
+
+// parseHTTPSURLAsGrpc parse an HTTPS URL into a valid GRPC URL
+func parseHTTPSURLAsGrpc(url string) (string, error) {
+	match := urlRegex.FindStringSubmatch(url)
+	if match == nil {
+		return "", fmt.Errorf("error converting url into grpc url: %v", url)
+	}
+	return match[1], nil
+}
+
 // SpawnConn returns a grpc connection to the given URL, it adds a bearer token
 // to each request with the given 'authToken'.
 func SpawnConn(url, authToken string) (*grpc.ClientConn, error) {
+	// we need a GRPC URL, but it's likely that we'll be given an HTTPS URL instead
+	grpcURL, err := parseHTTPSURLAsGrpc(url)
+	if err != nil {
+		return nil, err
+	}
+
 	return grpc.NewClient(
-		url,
+		grpcURL,
 		// Chain the interceptors using grpc_middleware.ChainUnaryClient
 		grpc.WithUnaryInterceptor(grpcmiddleware.ChainUnaryClient(
 			// Interceptor to add the Bearer token
