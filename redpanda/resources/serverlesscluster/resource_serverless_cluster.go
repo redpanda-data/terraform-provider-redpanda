@@ -139,19 +139,10 @@ func (c *ServerlessCluster) Create(ctx context.Context, req resource.CreateReque
 		resp.Diagnostics.AddError(fmt.Sprintf("successfully created the serverless cluster with ID %q, but failed to read the serverless cluster configuration: %v", op.GetResourceId(), err), err.Error())
 		return
 	}
-	persist := &models.ServerlessCluster{
-		Name:             types.StringValue(cluster.Name),
-		ServerlessRegion: types.StringValue(cluster.ServerlessRegion),
-		ResourceGroupID:  types.StringValue(cluster.ResourceGroupId),
-		ID:               types.StringValue(cluster.Id),
-	}
-	if cluster.DataplaneApi != nil {
-		clusterURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
-		if err != nil {
-			resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
-			return
-		}
-		persist.ClusterAPIURL = types.StringValue(clusterURL)
+	persist, err := generateModel(cluster)
+	if err != nil {
+		resp.Diagnostics.AddError("unable to generate cluster model", err.Error())
+		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }

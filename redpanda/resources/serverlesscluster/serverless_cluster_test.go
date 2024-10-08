@@ -38,12 +38,12 @@ func TestGenerateServerlessClusterRequest(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got, _ := GenerateServerlessClusterRequest(tt.args.model); !reflect.DeepEqual(got, tt.want) {
+			if got, _ := generateServerlessClusterRequest(tt.args.model); !reflect.DeepEqual(got, tt.want) {
 				fmt.Println("got")
 				spew.Dump(got)
 				fmt.Println("want")
 				spew.Dump(tt.want)
-				t.Errorf("GenerateServerlessClusterRequest() = %v, want %v", got, tt.want)
+				t.Errorf("generateServerlessClusterRequest() = %v, want %v", got, tt.want)
 			}
 		})
 	}
