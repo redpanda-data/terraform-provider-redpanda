@@ -23,7 +23,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
@@ -77,15 +76,7 @@ func (d *DataSourceServerlessCluster) Read(ctx context.Context, req datasource.R
 		return
 	}
 	// Mapping the fields from the serverless cluster to the Terraform state
-	persist := &models.ServerlessCluster{
-		Name:             types.StringValue(serverlessCluster.Name),
-		ServerlessRegion: types.StringValue(serverlessCluster.ServerlessRegion),
-		ResourceGroupID:  types.StringValue(serverlessCluster.ResourceGroupId),
-		ID:               types.StringValue(serverlessCluster.Id),
-	}
-	if serverlessCluster.DataplaneApi != nil {
-		persist.ClusterAPIURL = types.StringValue(serverlessCluster.DataplaneApi.Url)
-	}
+	persist := generateModel(serverlessCluster)
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
