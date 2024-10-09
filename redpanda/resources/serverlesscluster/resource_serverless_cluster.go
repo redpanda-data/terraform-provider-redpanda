@@ -139,18 +139,12 @@ func (c *ServerlessCluster) Create(ctx context.Context, req resource.CreateReque
 		resp.Diagnostics.AddError(fmt.Sprintf("successfully created the serverless cluster with ID %q, but failed to read the serverless cluster configuration: %v", op.GetResourceId(), err), err.Error())
 		return
 	}
-	clusterURL, err := utils.SplitSchemeDefPort(cluster.DataplaneApi.Url, "443")
+	persist, err := generateModel(cluster)
 	if err != nil {
-		resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
+		resp.Diagnostics.AddError("unable to generate cluster model", err.Error())
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, models.ServerlessCluster{
-		Name:             types.StringValue(cluster.Name),
-		ServerlessRegion: types.StringValue(cluster.ServerlessRegion),
-		ResourceGroupID:  types.StringValue(cluster.ResourceGroupId),
-		ID:               types.StringValue(cluster.Id),
-		ClusterAPIURL:    types.StringValue(clusterURL),
-	})...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
 // Read reads ServerlessCluster resource's values and updates the state.
