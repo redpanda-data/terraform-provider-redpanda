@@ -514,10 +514,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		return
 	}
 
-	var cfg models.Cluster
-	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
-
-	persist, err := generateModel(cfg, cluster)
+	persist, err := generateModel(plan, cluster)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to generate model for state during cluster.Update", err.Error())
 		return
