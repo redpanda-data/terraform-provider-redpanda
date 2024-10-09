@@ -20,6 +20,7 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
@@ -406,9 +407,10 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 	var state models.Cluster
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
-	updateReq := generateUpdateRequest(plan, state)
+	updateReq := generateUpdateRequest(plan)
+	oldUpdateReq := generateUpdateRequest(state)
 
-	if len(updateReq.UpdateMask.Paths) != 0 {
+	if !reflect.DeepEqual(updateReq, oldUpdateReq) {
 		op, err := c.CpCl.Cluster.UpdateCluster(ctx, updateReq)
 		if err != nil {
 			resp.Diagnostics.AddError("failed to send cluster update request", err.Error())

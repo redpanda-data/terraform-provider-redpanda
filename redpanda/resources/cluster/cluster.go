@@ -215,8 +215,10 @@ func generateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterC
 	return output, nil
 }
 
-// generateUpdateRequest
-func generateUpdateRequest(plan models.Cluster, state models.Cluster) *controlplanev1beta2.UpdateClusterRequest {
+// generateUpdateRequest generates an UpdateClusterRequest given a cluster model. Can be
+// used directly to update a cluster, or compared against the result from running against
+// an older model to see if anything has actually changed and needs updating.
+func generateUpdateRequest(plan models.Cluster) *controlplanev1beta2.UpdateClusterRequest {
 	updateReq := &controlplanev1beta2.UpdateClusterRequest{
 		Cluster: &controlplanev1beta2.ClusterUpdate{
 			Id: plan.ID.ValueString(),
@@ -226,10 +228,8 @@ func generateUpdateRequest(plan models.Cluster, state models.Cluster) *controlpl
 		},
 	}
 
-	if !plan.Name.Equal(state.Name) {
-		updateReq.Cluster.Name = plan.Name.ValueString()
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "name")
-	}
+	updateReq.Cluster.Name = plan.Name.ValueString()
+	updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "name")
 
 	if !isAwsPrivateLinkStructNil(plan.AwsPrivateLink) {
 		updateReq.Cluster.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
@@ -237,8 +237,8 @@ func generateUpdateRequest(plan models.Cluster, state models.Cluster) *controlpl
 			AllowedPrincipals: utils.TypeListToStringSlice(plan.AwsPrivateLink.AllowedPrincipals),
 			ConnectConsole:    plan.AwsPrivateLink.ConnectConsole.ValueBool(),
 		}
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "aws_private_link")
 	}
+	updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "aws_private_link")
 
 	if !isAzurePrivateLinkStructNil(plan.AzurePrivateLink) {
 		updateReq.Cluster.AzurePrivateLink = &controlplanev1beta2.AzurePrivateLinkSpec{
@@ -246,8 +246,8 @@ func generateUpdateRequest(plan models.Cluster, state models.Cluster) *controlpl
 			AllowedSubscriptions: utils.TypeListToStringSlice(plan.AzurePrivateLink.AllowedSubscriptions),
 			ConnectConsole:       plan.AzurePrivateLink.ConnectConsole.ValueBool(),
 		}
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "azure_private_link")
 	}
+	updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "azure_private_link")
 
 	if !isGcpPrivateServiceConnectStructNil(plan.GcpPrivateServiceConnect) {
 		updateReq.Cluster.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
@@ -255,34 +255,34 @@ func generateUpdateRequest(plan models.Cluster, state models.Cluster) *controlpl
 			GlobalAccessEnabled: plan.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
 			ConsumerAcceptList:  gcpConnectConsumerModelToStruct(plan.GcpPrivateServiceConnect.ConsumerAcceptList),
 		}
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "gcp_private_service_connect")
 	}
+	updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "gcp_private_service_connect")
 
 	if !isMtlsNil(plan.KafkaAPI) {
 		updateReq.Cluster.KafkaApi = &controlplanev1beta2.KafkaAPISpec{
 			Mtls: toMtlsSpec(plan.KafkaAPI.Mtls),
 		}
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "kafka_api")
 	}
+	updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "kafka_api")
 
 	if !isMtlsNil(plan.HTTPProxy) {
 		updateReq.Cluster.HttpProxy = &controlplanev1beta2.HTTPProxySpec{
 			Mtls: toMtlsSpec(plan.HTTPProxy.Mtls),
 		}
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "http_proxy")
 	}
+	updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "http_proxy")
 
 	if !isMtlsNil(plan.SchemaRegistry) {
 		updateReq.Cluster.SchemaRegistry = &controlplanev1beta2.SchemaRegistrySpec{
 			Mtls: toMtlsSpec(plan.SchemaRegistry.Mtls),
 		}
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "schema_registry")
 	}
+	updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "schema_registry")
 
 	if !plan.ReadReplicaClusterIDs.IsNull() {
 		updateReq.Cluster.ReadReplicaClusterIds = utils.TypeListToStringSlice(plan.ReadReplicaClusterIDs)
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "read_replica_cluster_ids")
 	}
+	updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "read_replica_cluster_ids")
 
 	return updateReq
 }
