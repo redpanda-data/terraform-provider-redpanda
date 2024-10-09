@@ -430,6 +430,15 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "aws_private_link")
 	}
 
+	if !isAzurePrivateLinkStructNil(plan.AzurePrivateLink) {
+		updateReq.Cluster.AzurePrivateLink = &controlplanev1beta2.AzurePrivateLinkSpec{
+			Enabled:              plan.AzurePrivateLink.Enabled.ValueBool(),
+			AllowedSubscriptions: utils.TypeListToStringSlice(plan.AzurePrivateLink.AllowedSubscriptions),
+			ConnectConsole:       plan.AzurePrivateLink.ConnectConsole.ValueBool(),
+		}
+		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "azure_private_link")
+	}
+
 	if !isGcpPrivateServiceConnectStructNil(plan.GcpPrivateServiceConnect) {
 		updateReq.Cluster.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
 			Enabled:             plan.GcpPrivateServiceConnect.Enabled.ValueBool(),
