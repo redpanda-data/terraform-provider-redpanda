@@ -4,7 +4,7 @@ go 1.22.4
 
 require (
 	buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20240820164511-1d38ab631312.1
-	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.34.2-20240820164511-1d38ab631312.2
+	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.35.1-20240924171437-ad8a8abce865.1
 	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.5.1-20240823133854-b83c57715214.1
 	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.34.2-20240823133854-b83c57715214.2
 	github.com/davecgh/go-spew v1.1.1
@@ -21,13 +21,13 @@ require (
 	golang.org/x/time v0.6.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240711142825-46eb208f015d
 	google.golang.org/grpc v1.65.0
-	google.golang.org/protobuf v1.34.2
+	google.golang.org/protobuf v1.35.1
 )
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.34.2-20240508200655-46a4cf4ba109.2 // indirect
-	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.34.2-20240617172850-a48fcebcf8f1.2 // indirect
-	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.34.2-20240715174743-9c0afe867874.2 // indirect
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.35.1-20240508200655-46a4cf4ba109.1 // indirect
+	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.35.1-20221127060915-a1ecdc58eccd.1 // indirect
+	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.35.1-20240508150812-e0d0fbd58f25.1 // indirect
 	github.com/BurntSushi/toml v1.3.2 // indirect
 	github.com/Kunde21/markdownfmt/v3 v3.1.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
