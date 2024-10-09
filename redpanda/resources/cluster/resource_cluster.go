@@ -37,7 +37,6 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
-	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -429,71 +428,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 	var state models.Cluster
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
-	updateReq := &controlplanev1beta2.UpdateClusterRequest{
-		Cluster: &controlplanev1beta2.ClusterUpdate{
-			Id: plan.ID.ValueString(),
-		},
-		UpdateMask: &fieldmaskpb.FieldMask{
-			Paths: make([]string, 0),
-		},
-	}
-
-	if !plan.Name.Equal(state.Name) {
-		updateReq.Cluster.Name = plan.Name.ValueString()
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "name")
-	}
-
-	if !isAwsPrivateLinkStructNil(plan.AwsPrivateLink) {
-		updateReq.Cluster.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
-			Enabled:           plan.AwsPrivateLink.Enabled.ValueBool(),
-			AllowedPrincipals: utils.TypeListToStringSlice(plan.AwsPrivateLink.AllowedPrincipals),
-			ConnectConsole:    plan.AwsPrivateLink.ConnectConsole.ValueBool(),
-		}
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "aws_private_link")
-	}
-
-	if !isAzurePrivateLinkStructNil(plan.AzurePrivateLink) {
-		updateReq.Cluster.AzurePrivateLink = &controlplanev1beta2.AzurePrivateLinkSpec{
-			Enabled:              plan.AzurePrivateLink.Enabled.ValueBool(),
-			AllowedSubscriptions: utils.TypeListToStringSlice(plan.AzurePrivateLink.AllowedSubscriptions),
-			ConnectConsole:       plan.AzurePrivateLink.ConnectConsole.ValueBool(),
-		}
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "azure_private_link")
-	}
-
-	if !isGcpPrivateServiceConnectStructNil(plan.GcpPrivateServiceConnect) {
-		updateReq.Cluster.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
-			Enabled:             plan.GcpPrivateServiceConnect.Enabled.ValueBool(),
-			GlobalAccessEnabled: plan.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
-			ConsumerAcceptList:  gcpConnectConsumerModelToStruct(plan.GcpPrivateServiceConnect.ConsumerAcceptList),
-		}
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "gcp_private_service_connect")
-	}
-
-	if !isMtlsNil(plan.KafkaAPI) {
-		updateReq.Cluster.KafkaApi = &controlplanev1beta2.KafkaAPISpec{
-			Mtls: toMtlsSpec(plan.KafkaAPI.Mtls),
-		}
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "kafka_api")
-	}
-
-	if !isMtlsNil(plan.HTTPProxy) {
-		updateReq.Cluster.HttpProxy = &controlplanev1beta2.HTTPProxySpec{
-			Mtls: toMtlsSpec(plan.HTTPProxy.Mtls),
-		}
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "http_proxy")
-	}
-	if !isMtlsNil(plan.SchemaRegistry) {
-		updateReq.Cluster.SchemaRegistry = &controlplanev1beta2.SchemaRegistrySpec{
-			Mtls: toMtlsSpec(plan.SchemaRegistry.Mtls),
-		}
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "schema_registry")
-	}
-
-	if !plan.ReadReplicaClusterIDs.IsNull() {
-		updateReq.Cluster.ReadReplicaClusterIds = utils.TypeListToStringSlice(plan.ReadReplicaClusterIDs)
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "read_replica_cluster_ids")
-	}
+	updateReq := generateUpdateRequest(plan, state)
 
 	if len(updateReq.UpdateMask.Paths) != 0 {
 		op, err := c.CpCl.Cluster.UpdateCluster(ctx, updateReq)
