@@ -10,8 +10,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda"
 )
 
-// TODO: We should update this on build. Part of the release process
-var version = "0.0.0-alpha"
+var version = "dev"
 
 const (
 	defaultCloudEnv = "prod"
