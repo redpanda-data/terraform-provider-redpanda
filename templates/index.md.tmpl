@@ -6,9 +6,7 @@ description: |-
 
 # Redpanda Provider
 
-!!! THIS IS AN ALPHA RELEASE !!!
-
-Please be aware that all features are subject to change and may not be fully supported at this time.
+[Beta Release](https://img.shields.io/badge/release-beta-red.svg)
 
 The Redpanda provider is designed for managing Redpanda clusters and Kafka resources in Redpanda Dedicated and Cloud environments. It supports the provisioning, management, and configuration of clusters and Kafka resources, facilitating seamless integration into Terraform workflows.
 

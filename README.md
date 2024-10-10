@@ -1,8 +1,8 @@
 # Redpanda Terraform Provider
 
-![Alpha Release](https://img.shields.io/badge/release-alpha-red.svg)
+![Beta Release](https://img.shields.io/badge/release-beta-red.svg)
 
-> **Warning**: This is an alpha release. All features are subject to change and may not be fully supported at this time.
+> **Warning**: This is an beta release. The API is subject to change.
 
 The Redpanda Terraform Provider is a [Terraform](https://www.terraform.io/) plugin that allows you to create and manage
 resources on [Redpanda Cloud](https://redpanda.com/redpanda-cloud).
