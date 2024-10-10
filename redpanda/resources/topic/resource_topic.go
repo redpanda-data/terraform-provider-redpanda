@@ -154,7 +154,7 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 	if !model.ReplicationFactor.IsUnknown() {
 		rf = utils.NumberToInt32(model.ReplicationFactor)
 	}
-	_, err = t.TopicClient.CreateTopic(ctx, &dataplanev1alpha2.CreateTopicRequest{
+	topic, err := t.TopicClient.CreateTopic(ctx, &dataplanev1alpha2.CreateTopicRequest{
 		Topic: &dataplanev1alpha2.CreateTopicRequest_Topic{
 			Name:              model.Name.ValueString(),
 			PartitionCount:    p,
@@ -174,17 +174,9 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		return
 	}
 
-	// This should be gone after a fix in Redpanda core (#15722) lands in the
-	// next patch release. Once it's released, all the information below should
-	// come in the CreateTopicResponse.
-	tp, err := utils.FindTopicByName(ctx, model.Name.ValueString(), t.TopicClient)
+	tpCfgRes, err := t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1alpha2.GetTopicConfigurationsRequest{TopicName: topic.Name})
 	if err != nil {
-		response.Diagnostics.AddError(fmt.Sprintf("failed to get topic %q information after creation", model.Name), err.Error())
-		return
-	}
-	tpCfgRes, err := t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1alpha2.GetTopicConfigurationsRequest{TopicName: tp.Name})
-	if err != nil {
-		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration", tp.Name), err.Error())
+		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration", topic.Name), err.Error())
 		return
 	}
 	tpCfg := filterDynamicConfig(tpCfgRes.Configurations)
@@ -194,13 +186,13 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		return
 	}
 	response.Diagnostics.Append(response.State.Set(ctx, models.Topic{
-		Name:              types.StringValue(tp.Name),
-		PartitionCount:    utils.Int32ToNumber(tp.PartitionCount),
-		ReplicationFactor: utils.Int32ToNumber(tp.ReplicationFactor),
+		Name:              types.StringValue(topic.Name),
+		PartitionCount:    utils.Int32ToNumber(topic.PartitionCount),
+		ReplicationFactor: utils.Int32ToNumber(topic.ReplicationFactor),
 		Configuration:     tpCfgMap,
 		AllowDeletion:     model.AllowDeletion,
 		ClusterAPIURL:     model.ClusterAPIURL,
-		ID:                types.StringValue(tp.Name),
+		ID:                types.StringValue(topic.Name),
 	})...)
 }
 
