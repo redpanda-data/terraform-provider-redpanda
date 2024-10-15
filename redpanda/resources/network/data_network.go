@@ -28,6 +28,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -105,13 +106,17 @@ func (n *DataSourceNetwork) Read(ctx context.Context, req datasource.ReadRequest
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 	nw, err := n.CpCl.NetworkForID(ctx, model.ID.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("failed to read network", err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.ID.ValueString()), err.Error())
 		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, models.Network{
-		Name: types.StringValue(nw.Name),
-		ID:   types.StringValue(nw.Id),
-		// Map other network attributes here as needed
+		Name:            types.StringValue(nw.Name),
+		ID:              types.StringValue(nw.Id),
+		CidrBlock:       types.StringValue(nw.CidrBlock),
+		Region:          types.StringValue(nw.Region),
+		ResourceGroupID: types.StringValue(nw.ResourceGroupId),
+		CloudProvider:   types.StringValue(utils.CloudProviderToString(nw.CloudProvider)),
+		ClusterType:     types.StringValue(utils.ClusterTypeToString(nw.ClusterType)),
 	})...)
 }
 
