@@ -23,7 +23,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
@@ -76,19 +75,13 @@ func (d *DataSourceServerlessCluster) Read(ctx context.Context, req datasource.R
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read serverless cluster %s", model.ID), err.Error())
 		return
 	}
-	clusterURL, err := utils.SplitSchemeDefPort(serverlessCluster.DataplaneApi.Url, "443")
+	// Mapping the fields from the serverless cluster to the Terraform state
+	persist, err := generateModel(serverlessCluster)
 	if err != nil {
-		resp.Diagnostics.AddError("unable to parse Cluster API URL", err.Error())
+		resp.Diagnostics.AddError("unable to generate cluster model", err.Error())
 		return
 	}
-	// Mapping the fields from the serverless cluster to the Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, &models.ServerlessCluster{
-		Name:             types.StringValue(serverlessCluster.Name),
-		ServerlessRegion: types.StringValue(serverlessCluster.ServerlessRegion),
-		ResourceGroupID:  types.StringValue(serverlessCluster.ResourceGroupId),
-		ID:               types.StringValue(serverlessCluster.Id),
-		ClusterAPIURL:    types.StringValue(clusterURL),
-	})...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
 // Schema returns the schema for the ServerlessCluster data source.
