@@ -102,14 +102,14 @@ func resourceNetworkSchema() schema.Schema {
 				},
 			},
 			"region": schema.StringAttribute{
-				Optional:      true,
+				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "The region to create the network in. Can also be set at the provider level",
+				Description:   "The region to create the network in.",
 			},
 			"cloud_provider": schema.StringAttribute{
-				Optional:      true,
+				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "The cloud provider to create the network in. Can also be set at the provider level",
+				Description:   "The cloud provider to create the network in.",
 				Validators:    validators.CloudProviders(),
 			},
 			"resource_group_id": schema.StringAttribute{

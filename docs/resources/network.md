@@ -17,14 +17,11 @@ Creates a network in the Redpanda Cloud.
 ### Required
 
 - `cidr_block` (String) The cidr_block to create the network in
+- `cloud_provider` (String) The cloud provider to create the network in.
 - `cluster_type` (String) The type of cluster this network is associated with, can be one of dedicated or cloud
 - `name` (String) Name of the network
+- `region` (String) The region to create the network in.
 - `resource_group_id` (String) The ID of the resource group in which to create the network
-
-### Optional
-
-- `cloud_provider` (String) The cloud provider to create the network in. Can also be set at the provider level
-- `region` (String) The region to create the network in. Can also be set at the provider level
 
 ### Read-Only
 
