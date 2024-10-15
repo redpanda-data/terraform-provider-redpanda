@@ -31,7 +31,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
@@ -177,15 +176,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		response.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", op.GetResourceId()), err.Error())
 		return
 	}
-	response.Diagnostics.Append(response.State.Set(ctx, models.Network{
-		Name:            types.StringValue(nw.Name),
-		ID:              types.StringValue(nw.Id),
-		CidrBlock:       types.StringValue(nw.CidrBlock),
-		Region:          types.StringValue(nw.Region),
-		ResourceGroupID: types.StringValue(nw.ResourceGroupId),
-		CloudProvider:   types.StringValue(utils.CloudProviderToString(nw.CloudProvider)),
-		ClusterType:     types.StringValue(utils.ClusterTypeToString(nw.ClusterType)),
-	})...)
+	response.Diagnostics.Append(response.State.Set(ctx, generateModel(nw))...)
 }
 
 // Read reads Network resource's values and updates the state.
@@ -208,15 +199,7 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 		response.Diagnostics.AddWarning(fmt.Sprintf("network %s is in state %s", nw.Id, nw.GetState()), "")
 		return
 	}
-	response.Diagnostics.Append(response.State.Set(ctx, models.Network{
-		Name:            types.StringValue(nw.Name),
-		ID:              types.StringValue(nw.Id),
-		CidrBlock:       types.StringValue(nw.CidrBlock),
-		Region:          types.StringValue(nw.Region),
-		ResourceGroupID: types.StringValue(nw.ResourceGroupId),
-		CloudProvider:   types.StringValue(utils.CloudProviderToString(nw.CloudProvider)),
-		ClusterType:     types.StringValue(utils.ClusterTypeToString(nw.ClusterType)),
-	})...)
+	response.Diagnostics.Append(response.State.Set(ctx, generateModel(nw))...)
 }
 
 // Update is not supported for network. As a result all configurable schema
