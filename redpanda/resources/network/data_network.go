@@ -24,7 +24,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
@@ -105,14 +104,10 @@ func (n *DataSourceNetwork) Read(ctx context.Context, req datasource.ReadRequest
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 	nw, err := n.CpCl.NetworkForID(ctx, model.ID.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("failed to read network", err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.ID.ValueString()), err.Error())
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, models.Network{
-		Name: types.StringValue(nw.Name),
-		ID:   types.StringValue(nw.Id),
-		// Map other network attributes here as needed
-	})...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, generateModel(nw))...)
 }
 
 // Configure uses provider level data to configure DataSourceNetwork's client.
