@@ -171,14 +171,20 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		response.Diagnostics.AddError("failed waiting for network creation", err.Error())
 		return
 	}
+
+	nw, err := n.CpCl.NetworkForID(ctx, op.GetResourceId())
+	if err != nil {
+		response.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", op.GetResourceId()), err.Error())
+		return
+	}
 	response.Diagnostics.Append(response.State.Set(ctx, models.Network{
-		Name:            model.Name,
-		ID:              utils.TrimmedStringValue(op.GetResourceId()),
-		CidrBlock:       model.CidrBlock,
-		Region:          model.Region,
-		ResourceGroupID: model.ResourceGroupID,
-		ClusterType:     model.ClusterType,
-		CloudProvider:   model.CloudProvider,
+		Name:            types.StringValue(nw.Name),
+		ID:              types.StringValue(nw.Id),
+		CidrBlock:       types.StringValue(nw.CidrBlock),
+		Region:          types.StringValue(nw.Region),
+		ResourceGroupID: types.StringValue(nw.ResourceGroupId),
+		CloudProvider:   types.StringValue(utils.CloudProviderToString(nw.CloudProvider)),
+		ClusterType:     types.StringValue(utils.ClusterTypeToString(nw.ClusterType)),
 	})...)
 }
 
