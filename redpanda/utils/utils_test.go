@@ -182,9 +182,19 @@ func TestTypeListToStringSlice(t *testing.T) {
 			expected: []string{"a", "b", "c"},
 		},
 		{
+			name:     "test special character conversion",
+			input:    StringSliceToTypeList([]string{"---BEGIN CERTIFICATE---\nhello world\n---END CERTIFICATE---\n"}),
+			expected: []string{"---BEGIN CERTIFICATE---\nhello world\n---END CERTIFICATE---\n"},
+		},
+		{
+			name:     "test nil conversion",
+			input:    StringSliceToTypeList(nil),
+			expected: nil,
+		},
+		{
 			name:     "test empty conversion",
 			input:    StringSliceToTypeList([]string{}),
-			expected: nil,
+			expected: []string{},
 		},
 	}
 
