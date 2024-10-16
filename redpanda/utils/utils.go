@@ -34,29 +34,54 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	rpknet "github.com/redpanda-data/redpanda/src/go/rpk/pkg/net"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
+	grpccodes "google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 const providerUnspecified = "unspecified"
 
-// IsNotFound checks if the passed error is a Not Found error or if it has a
-// 404 code in the error message.
+// NotFoundError represents a resource that couldn't be found
+type NotFoundError struct {
+	Message string
+}
+
+// Error returns the error message
+func (e NotFoundError) Error() string {
+	return e.Message
+}
+
+// IsNotFound checks if the passed error is a NotFoundError or a GRPC NotFound error
 func IsNotFound(err error) bool {
-	if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "NotFound") || strings.Contains(err.Error(), "404") {
+	if errors.As(err, &NotFoundError{}) {
+		return true
+	}
+	if e, ok := grpcstatus.FromError(err); ok && e.Code() == grpccodes.NotFound {
 		return true
 	}
 	return false
 }
 
+// CloudProviderStringAws is the string representation of the CLOUD_PROVIDER_AWS enum
+const CloudProviderStringAws = "aws"
+
+// CloudProviderStringAzure is the string representation of the CLOUD_PROVIDER_AZURE enum
+const CloudProviderStringAzure = "azure"
+
+// CloudProviderStringGcp is the string representation of the CLOUD_PROVIDER_GCP enum
+const CloudProviderStringGcp = "gcp"
+
 // StringToCloudProvider returns the controlplanev1beta2's CloudProvider code based on
 // the input string.
 func StringToCloudProvider(p string) (controlplanev1beta2.CloudProvider, error) {
 	switch strings.ToLower(p) {
-	case "aws":
+	case CloudProviderStringAws:
 		return controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_AWS, nil
-	case "gcp":
+	case CloudProviderStringGcp:
 		return controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_GCP, nil
-	case "azure":
+	case CloudProviderStringAzure:
 		return controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_AZURE, nil
 	default:
 		return controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_UNSPECIFIED, fmt.Errorf("provider %q not supported", p)
@@ -68,11 +93,11 @@ func StringToCloudProvider(p string) (controlplanev1beta2.CloudProvider, error) 
 func CloudProviderToString(provider controlplanev1beta2.CloudProvider) string {
 	switch provider {
 	case controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_AWS:
-		return "aws"
+		return CloudProviderStringAws
 	case controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_GCP:
-		return "gcp"
+		return CloudProviderStringGcp
 	case controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_AZURE:
-		return "azure"
+		return CloudProviderStringAzure
 	default:
 		return providerUnspecified
 	}
@@ -84,7 +109,7 @@ func StringToClusterType(p string) (controlplanev1beta2.Cluster_Type, error) {
 	switch strings.ToLower(p) {
 	case "dedicated":
 		return controlplanev1beta2.Cluster_TYPE_DEDICATED, nil
-	case "cloud":
+	case "byoc":
 		return controlplanev1beta2.Cluster_TYPE_BYOC, nil
 	default:
 		return controlplanev1beta2.Cluster_TYPE_UNSPECIFIED, fmt.Errorf("cluster type %q not supported", p)
@@ -98,53 +123,36 @@ func ClusterTypeToString(provider controlplanev1beta2.Cluster_Type) string {
 	case controlplanev1beta2.Cluster_TYPE_DEDICATED:
 		return "dedicated"
 	case controlplanev1beta2.Cluster_TYPE_BYOC:
-		return "cloud"
+		return "byoc"
 	default:
 		return providerUnspecified
 	}
 }
 
 // AreWeDoneYet checks an operation's state until one of completion, failure or timeout is reached.
-func AreWeDoneYet(ctx context.Context, op *controlplanev1beta2.Operation, timeout, waitUnit time.Duration, client controlplanev1beta2grpc.OperationServiceClient) error {
-	startTime := time.Now()
-	endTime := startTime.Add(timeout)
-	errChan := make(chan error, 1)
-	for {
+func AreWeDoneYet(ctx context.Context, op *controlplanev1beta2.Operation, timeout time.Duration, client controlplanev1beta2grpc.OperationServiceClient) error {
+	return Retry(ctx, timeout, func() *RetryError {
 		// Get the latest operation status
+		tflog.Info(ctx, "getting operation")
 		latestOp, err := client.GetOperation(ctx, &controlplanev1beta2.GetOperationRequest{
 			Id: op.GetId(),
 		})
+		tflog.Info(ctx, "got result of operation")
 		if err != nil {
-			// Send the error to the error channel (non-blocking)
-			select {
-			case errChan <- fmt.Errorf("error getting operation status: %v", err):
-			default:
-			}
-		} else {
-			op = latestOp.Operation
+			return NonRetryableError(err)
 		}
+		op = latestOp.Operation
+		tflog.Info(ctx, fmt.Sprintf("op %v %s", op, op.GetState()))
 
 		// Check the operation state
-		if op.GetState() == controlplanev1beta2.Operation_STATE_COMPLETED {
-			return nil
-		}
 		if op.GetState() == controlplanev1beta2.Operation_STATE_FAILED {
-			return fmt.Errorf("operation failed: %s", op.GetError().GetMessage())
+			return NonRetryableError(fmt.Errorf("operation failed: %s", op.GetError().GetMessage()))
 		}
-
-		// Check if the timeout has been reached
-		if time.Now().After(endTime) {
-			select {
-			case err := <-errChan:
-				return fmt.Errorf("timeout reached with error: %v", err)
-			default:
-				return fmt.Errorf("timeout reached")
-			}
+		if op.GetState() != controlplanev1beta2.Operation_STATE_COMPLETED {
+			return RetryableError(fmt.Errorf("expected operation to be completed but was in state %s", op.GetState()))
 		}
-
-		// Wait for a certain duration before checking again
-		time.Sleep(waitUnit)
-	}
+		return nil
+	})
 }
 
 // StringToConnectionType returns the controlplanev1beta2's Cluster_ConnectionType code
@@ -220,7 +228,7 @@ func FindUserByName(ctx context.Context, name string, client dataplanev1alpha2gr
 			return v, nil
 		}
 	}
-	return nil, fmt.Errorf("user not found")
+	return nil, NotFoundError{fmt.Sprintf("user %q not found", name)}
 }
 
 // StringToStringPointer converts a string to a pointer to a string
@@ -342,7 +350,7 @@ func FindTopicByName(ctx context.Context, topicName string, client dataplanev1al
 			return v, nil
 		}
 	}
-	return nil, fmt.Errorf("topic %s not found", topicName)
+	return nil, NotFoundError{fmt.Sprintf("topic %s not found", topicName)}
 }
 
 // SplitSchemeDefPort splits the schema from the url and return url+port. If
@@ -356,6 +364,27 @@ func SplitSchemeDefPort(url, def string) (string, error) {
 		port = def
 	}
 	return host + ":" + port, nil
+}
+
+// RetryGetCluster will retry a function, passing in the latest state of the given cluster id, until
+// it either no longer returns an error or times out
+func RetryGetCluster(ctx context.Context, timeout time.Duration, clusterID string, client *cloud.ControlPlaneClientSet, f func(*controlplanev1beta2.Cluster) *RetryError) (*controlplanev1beta2.Cluster, error) {
+	var cluster *controlplanev1beta2.Cluster
+	err := Retry(ctx, timeout, func() *RetryError {
+		var err error
+		cluster, err = client.ClusterForID(ctx, clusterID)
+		if err != nil {
+			if IsNotFound(err) {
+				tflog.Info(ctx, fmt.Sprintf("cluster %q not found", clusterID))
+				cluster = nil
+				return nil
+			}
+			return NonRetryableError(err)
+		}
+		tflog.Info(ctx, fmt.Sprintf("cluster %v : %v", clusterID, cluster.GetState()))
+		return f(cluster)
+	})
+	return cluster, err
 }
 
 // TypeMapToStringMap converts a types.Map to a map[string]string

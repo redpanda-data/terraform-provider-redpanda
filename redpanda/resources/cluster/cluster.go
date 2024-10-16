@@ -21,6 +21,7 @@ import (
 	"reflect"
 
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -39,7 +40,8 @@ func gcpConnectConsumerModelToStruct(accept []*models.GcpPrivateServiceConnectCo
 }
 
 func gcpConnectConsumerStructToModel(accept []*controlplanev1beta2.GCPPrivateServiceConnectConsumer) []*models.GcpPrivateServiceConnectConsumer {
-	var output []*models.GcpPrivateServiceConnectConsumer
+	// must be non-null to match the user's plan, which is currently required to be non-null
+	output := []*models.GcpPrivateServiceConnectConsumer{}
 	for _, a := range accept {
 		output = append(output, &models.GcpPrivateServiceConnectConsumer{
 			Source: a.Source,
@@ -164,31 +166,25 @@ func generateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterC
 		CloudProviderTags: utils.TypeMapToStringMap(model.Tags),
 	}
 	if !isAwsPrivateLinkStructNil(model.AwsPrivateLink) {
-		if !model.AwsPrivateLink.AllowedPrincipals.IsNull() {
-			output.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
-				Enabled:           model.AwsPrivateLink.Enabled.ValueBool(),
-				AllowedPrincipals: utils.TypeListToStringSlice(model.AwsPrivateLink.AllowedPrincipals),
-				ConnectConsole:    model.AwsPrivateLink.ConnectConsole.ValueBool(),
-			}
+		output.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
+			Enabled:           model.AwsPrivateLink.Enabled.ValueBool(),
+			AllowedPrincipals: utils.TypeListToStringSlice(model.AwsPrivateLink.AllowedPrincipals),
+			ConnectConsole:    model.AwsPrivateLink.ConnectConsole.ValueBool(),
 		}
 	}
 	if !isGcpPrivateServiceConnectStructNil(model.GcpPrivateServiceConnect) {
-		if len(model.GcpPrivateServiceConnect.ConsumerAcceptList) > 0 {
-			output.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
-				Enabled:             model.GcpPrivateServiceConnect.Enabled.ValueBool(),
-				GlobalAccessEnabled: model.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
-				ConsumerAcceptList:  gcpConnectConsumerModelToStruct(model.GcpPrivateServiceConnect.ConsumerAcceptList),
-			}
+		output.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
+			Enabled:             model.GcpPrivateServiceConnect.Enabled.ValueBool(),
+			GlobalAccessEnabled: model.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
+			ConsumerAcceptList:  gcpConnectConsumerModelToStruct(model.GcpPrivateServiceConnect.ConsumerAcceptList),
 		}
 	}
 
 	if !isAzurePrivateLinkStructNil(model.AzurePrivateLink) {
-		if !model.AzurePrivateLink.AllowedSubscriptions.IsNull() {
-			output.AzurePrivateLink = &controlplanev1beta2.AzurePrivateLinkSpec{
-				Enabled:              model.AzurePrivateLink.Enabled.ValueBool(),
-				AllowedSubscriptions: utils.TypeListToStringSlice(model.AzurePrivateLink.AllowedSubscriptions),
-				ConnectConsole:       model.AzurePrivateLink.ConnectConsole.ValueBool(),
-			}
+		output.AzurePrivateLink = &controlplanev1beta2.AzurePrivateLinkSpec{
+			Enabled:              model.AzurePrivateLink.Enabled.ValueBool(),
+			AllowedSubscriptions: utils.TypeListToStringSlice(model.AzurePrivateLink.AllowedSubscriptions),
+			ConnectConsole:       model.AzurePrivateLink.ConnectConsole.ValueBool(),
 		}
 	}
 
@@ -256,6 +252,10 @@ func generateModel(ctx context.Context, cfg models.Cluster, cluster *controlplan
 		if dg.HasError() {
 			return nil, fmt.Errorf("failed to parse AWS Private Link: %v", dg)
 		}
+		if ap.IsNull() {
+			// this must match the user's plan, which is currently required to be non-null
+			ap = types.ListValueMust(types.StringType, []attr.Value{})
+		}
 		output.AwsPrivateLink = &models.AwsPrivateLink{
 			Enabled:           types.BoolValue(cluster.AwsPrivateLink.Enabled),
 			ConnectConsole:    types.BoolValue(cluster.AwsPrivateLink.ConnectConsole),
@@ -274,6 +274,10 @@ func generateModel(ctx context.Context, cfg models.Cluster, cluster *controlplan
 		as, dg := types.ListValueFrom(ctx, types.StringType, cluster.AzurePrivateLink.AllowedSubscriptions)
 		if dg.HasError() {
 			return nil, fmt.Errorf("failed to parse Azure Private Link: %v", dg)
+		}
+		if as.IsNull() {
+			// this must match the user's plan, which is currently required to be non-null
+			as = types.ListValueMust(types.StringType, []attr.Value{})
 		}
 		output.AzurePrivateLink = &models.AzurePrivateLink{
 			Enabled:              types.BoolValue(cluster.AzurePrivateLink.Enabled),
@@ -308,6 +312,7 @@ func generateModel(ctx context.Context, cfg models.Cluster, cluster *controlplan
 			Mtls: sr,
 		}
 	}
+
 	return output, nil
 }
 

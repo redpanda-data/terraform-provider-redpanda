@@ -100,11 +100,11 @@ Command: `make apply`
 - `REDPANDA_CLOUD_ENVIRONMENT`: Redpanda Cloud environment (ign or prod)
 - `TF_CONFIG_DIR`: Terraform configuration directory (auto-generated)
 - `CLOUD_PROVIDER`: Cloud provider (e.g., aws, azure, gcp)
-- `TEST_TYPE`: Type of test (e.g., cluster, datasource)
+- `TEST_TYPE`: Type of test (e.g., byoc, cluster, datasource)
 
 The `TF_CONFIG_DIR` is dynamically constructed based on the `TEST_TYPE` and `CLOUD_PROVIDER`:
 
-For cluster tests: `TF_CONFIG_DIR := examples/$(TEST_TYPE)/$(CLOUD_PROVIDER)`
+For byoc and cluster tests: `TF_CONFIG_DIR := examples/$(TEST_TYPE)/$(CLOUD_PROVIDER)`
 For datasource tests: `TF_CONFIG_DIR := examples/$(TEST_TYPE)/$(DATASOURCE_TEST_DIR)`
 
 This is done to enable persisting the name and id of a cluster created by apply while still allowing for name
