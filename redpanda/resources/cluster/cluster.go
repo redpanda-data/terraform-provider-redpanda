@@ -216,55 +216,67 @@ func generateUpdateRequest(plan, state models.Cluster) *controlplanev1beta2.Upda
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "name")
 	}
 
-	if !isAwsPrivateLinkStructNil(plan.AwsPrivateLink) {
-		updateReq.Cluster.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
-			Enabled:           plan.AwsPrivateLink.Enabled.ValueBool(),
-			AllowedPrincipals: utils.TypeListToStringSlice(plan.AwsPrivateLink.AllowedPrincipals),
-			ConnectConsole:    plan.AwsPrivateLink.ConnectConsole.ValueBool(),
+	if !reflect.DeepEqual(plan.AwsPrivateLink, state.AwsPrivateLink) {
+		if !isAwsPrivateLinkStructNil(plan.AwsPrivateLink) {
+			updateReq.Cluster.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
+				Enabled:           plan.AwsPrivateLink.Enabled.ValueBool(),
+				AllowedPrincipals: utils.TypeListToStringSlice(plan.AwsPrivateLink.AllowedPrincipals),
+				ConnectConsole:    plan.AwsPrivateLink.ConnectConsole.ValueBool(),
+			}
 		}
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "aws_private_link")
 	}
 
-	if !isAzurePrivateLinkStructNil(plan.AzurePrivateLink) {
-		updateReq.Cluster.AzurePrivateLink = &controlplanev1beta2.AzurePrivateLinkSpec{
-			Enabled:              plan.AzurePrivateLink.Enabled.ValueBool(),
-			AllowedSubscriptions: utils.TypeListToStringSlice(plan.AzurePrivateLink.AllowedSubscriptions),
-			ConnectConsole:       plan.AzurePrivateLink.ConnectConsole.ValueBool(),
+	if !reflect.DeepEqual(plan.AzurePrivateLink, state.AzurePrivateLink) {
+		if !isAzurePrivateLinkStructNil(plan.AzurePrivateLink) {
+			updateReq.Cluster.AzurePrivateLink = &controlplanev1beta2.AzurePrivateLinkSpec{
+				Enabled:              plan.AzurePrivateLink.Enabled.ValueBool(),
+				AllowedSubscriptions: utils.TypeListToStringSlice(plan.AzurePrivateLink.AllowedSubscriptions),
+				ConnectConsole:       plan.AzurePrivateLink.ConnectConsole.ValueBool(),
+			}
 		}
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "azure_private_link")
 	}
 
-	if !isGcpPrivateServiceConnectStructNil(plan.GcpPrivateServiceConnect) {
-		updateReq.Cluster.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
-			Enabled:             plan.GcpPrivateServiceConnect.Enabled.ValueBool(),
-			GlobalAccessEnabled: plan.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
-			ConsumerAcceptList:  gcpConnectConsumerModelToStruct(plan.GcpPrivateServiceConnect.ConsumerAcceptList),
+	if !reflect.DeepEqual(plan.GcpPrivateServiceConnect, state.GcpPrivateServiceConnect) {
+		if !isGcpPrivateServiceConnectStructNil(plan.GcpPrivateServiceConnect) {
+			updateReq.Cluster.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
+				Enabled:             plan.GcpPrivateServiceConnect.Enabled.ValueBool(),
+				GlobalAccessEnabled: plan.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
+				ConsumerAcceptList:  gcpConnectConsumerModelToStruct(plan.GcpPrivateServiceConnect.ConsumerAcceptList),
+			}
 		}
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "gcp_private_service_connect")
 	}
 
-	if !isMtlsNil(plan.KafkaAPI) {
-		updateReq.Cluster.KafkaApi = &controlplanev1beta2.KafkaAPISpec{
-			Mtls: toMtlsSpec(plan.KafkaAPI.Mtls),
+	if !reflect.DeepEqual(plan.KafkaAPI, state.KafkaAPI) {
+		if !isMtlsNil(plan.KafkaAPI) {
+			updateReq.Cluster.KafkaApi = &controlplanev1beta2.KafkaAPISpec{
+				Mtls: toMtlsSpec(plan.KafkaAPI.Mtls),
+			}
 		}
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "kafka_api")
 	}
 
-	if !isMtlsNil(plan.HTTPProxy) {
-		updateReq.Cluster.HttpProxy = &controlplanev1beta2.HTTPProxySpec{
-			Mtls: toMtlsSpec(plan.HTTPProxy.Mtls),
+	if !reflect.DeepEqual(plan.HTTPProxy, state.HTTPProxy) {
+		if !isMtlsNil(plan.HTTPProxy) {
+			updateReq.Cluster.HttpProxy = &controlplanev1beta2.HTTPProxySpec{
+				Mtls: toMtlsSpec(plan.HTTPProxy.Mtls),
+			}
 		}
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "http_proxy")
 	}
 
-	if !isMtlsNil(plan.SchemaRegistry) {
-		updateReq.Cluster.SchemaRegistry = &controlplanev1beta2.SchemaRegistrySpec{
-			Mtls: toMtlsSpec(plan.SchemaRegistry.Mtls),
+	if !reflect.DeepEqual(plan.SchemaRegistry, state.SchemaRegistry) {
+		if !isMtlsNil(plan.SchemaRegistry) {
+			updateReq.Cluster.SchemaRegistry = &controlplanev1beta2.SchemaRegistrySpec{
+				Mtls: toMtlsSpec(plan.SchemaRegistry.Mtls),
+			}
 		}
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "schema_registry")
 	}
 
-	if !plan.ReadReplicaClusterIDs.IsNull() {
+	if !reflect.DeepEqual(plan.ReadReplicaClusterIDs, state.ReadReplicaClusterIDs) {
 		updateReq.Cluster.ReadReplicaClusterIds = utils.TypeListToStringSlice(plan.ReadReplicaClusterIDs)
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "read_replica_cluster_ids")
 	}
