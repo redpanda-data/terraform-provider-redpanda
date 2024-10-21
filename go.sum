@@ -2,10 +2,10 @@ buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.34.2-2024050820065
 buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.34.2-20240508200655-46a4cf4ba109.2/go.mod h1:ylS4c28ACSI59oJrOdW4pHS4n0Hw4TgSPHn8rpHl4Yw=
 buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.34.2-20240617172850-a48fcebcf8f1.2 h1:60531IScGBBw17MoVfvCasfBedurjQ4qkr0cNhrDTR0=
 buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.34.2-20240617172850-a48fcebcf8f1.2/go.mod h1:WZzeH4Sx52g5HpdqDE4B6I0cn5MPzKmp7lSG6oB6ais=
-buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20240820164511-1d38ab631312.1 h1:EaObGs198lfRFqiJYXv6ZdOSCeYGLYEUe1rPA8pWOLs=
-buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20240820164511-1d38ab631312.1/go.mod h1:QGa6AeVmYRmX2VB5Uz5sqNtNoYprweFTuJeTx6n1Ajw=
-buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.34.2-20240820164511-1d38ab631312.2 h1:/7EPKwIkk/2tGcD8WnGFTIppsMKE+tMRiw8/SbsPWUA=
-buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.34.2-20240820164511-1d38ab631312.2/go.mod h1:FYKJ74J6GISLCL3PrEGYtqFhl86Sav4N07klNQSkdX8=
+buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20240924171437-ad8a8abce865.1 h1:t4GJgxA7d00Yp34mdp9IDvcL02Uxg33ftCvTm1wip7k=
+buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20240924171437-ad8a8abce865.1/go.mod h1:JHEgqo2vyj0MY+DMwRLJ97hazVGZBeghJxm1miyF8xo=
+buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.34.2-20240924171437-ad8a8abce865.2 h1:cUuWbBt9HryrFKJWHXLmPPNGpAHtyQGWeAIs5ammn9k=
+buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.34.2-20240924171437-ad8a8abce865.2/go.mod h1:FYKJ74J6GISLCL3PrEGYtqFhl86Sav4N07klNQSkdX8=
 buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.34.2-20240715174743-9c0afe867874.2 h1:mwz77izDe41jrNZqQx2iEzOt4k7pfWthVFuK2SMwCCw=
 buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.34.2-20240715174743-9c0afe867874.2/go.mod h1:wThyg02xJx4K/DA5fg0QlKts8XVPyTT86JC8hPfEzno=
 buf.build/gen/go/redpandadata/dataplane/grpc/go v1.5.1-20240823133854-b83c57715214.1 h1:hYKhjbTC9nkqss9dDYBsnxvBt3Dor8r6oLAFEGX6t9k=
