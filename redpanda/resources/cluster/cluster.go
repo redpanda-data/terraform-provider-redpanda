@@ -202,6 +202,74 @@ func generateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterC
 	return output, nil
 }
 
+// generateClusterUpdate generates a *controlplanev1beta2.ClusterUpdate for a given cluster
+// model, which is then used by generateUpdateRequest to compare ClusterUpdates for plan
+// and state and generate an efficient diff and updatemask.
+func generateClusterUpdate(cluster models.Cluster) *controlplanev1beta2.ClusterUpdate {
+	update := &controlplanev1beta2.ClusterUpdate{
+		Id:                    cluster.ID.ValueString(),
+		Name:                  cluster.Name.ValueString(),
+		ReadReplicaClusterIds: utils.TypeListToStringSlice(cluster.ReadReplicaClusterIDs),
+	}
+
+	if !isAwsPrivateLinkStructNil(cluster.AwsPrivateLink) {
+		update.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
+			Enabled:           cluster.AwsPrivateLink.Enabled.ValueBool(),
+			AllowedPrincipals: utils.TypeListToStringSlice(cluster.AwsPrivateLink.AllowedPrincipals),
+			ConnectConsole:    cluster.AwsPrivateLink.ConnectConsole.ValueBool(),
+		}
+	}
+
+	if !isAzurePrivateLinkStructNil(cluster.AzurePrivateLink) {
+		update.AzurePrivateLink = &controlplanev1beta2.AzurePrivateLinkSpec{
+			Enabled:              cluster.AzurePrivateLink.Enabled.ValueBool(),
+			AllowedSubscriptions: utils.TypeListToStringSlice(cluster.AzurePrivateLink.AllowedSubscriptions),
+			ConnectConsole:       cluster.AzurePrivateLink.ConnectConsole.ValueBool(),
+		}
+	}
+
+	if !isGcpPrivateServiceConnectStructNil(cluster.GcpPrivateServiceConnect) {
+		update.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
+			Enabled:             cluster.GcpPrivateServiceConnect.Enabled.ValueBool(),
+			GlobalAccessEnabled: cluster.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
+			ConsumerAcceptList:  gcpConnectConsumerModelToStruct(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
+		}
+	}
+
+	if !isMtlsNil(cluster.KafkaAPI) {
+		update.KafkaApi = &controlplanev1beta2.KafkaAPISpec{
+			Mtls: toMtlsSpec(cluster.KafkaAPI.Mtls),
+		}
+	}
+
+	if !isMtlsNil(cluster.HTTPProxy) {
+		update.HttpProxy = &controlplanev1beta2.HTTPProxySpec{
+			Mtls: toMtlsSpec(cluster.HTTPProxy.Mtls),
+		}
+	}
+
+	if !isMtlsNil(cluster.SchemaRegistry) {
+		update.SchemaRegistry = &controlplanev1beta2.SchemaRegistrySpec{
+			Mtls: toMtlsSpec(cluster.SchemaRegistry.Mtls),
+		}
+	}
+	return update
+}
+
+// generateUpdateRequest populates an UpdateClusterRequest that will update a cluster from the
+// current state to a new state matching the plan.
+func generateUpdateRequest(plan, state models.Cluster) *controlplanev1beta2.UpdateClusterRequest {
+	planUpdate := generateClusterUpdate(plan)
+	stateUpdate := generateClusterUpdate(state)
+
+	update, fieldmask := utils.GenerateProtobufDiffAndUpdateMask(planUpdate, stateUpdate)
+	update.Id = planUpdate.Id
+	return &controlplanev1beta2.UpdateClusterRequest{
+		Cluster:    update,
+		UpdateMask: fieldmask,
+	}
+}
+
 // generateModel populates the Cluster model to be persisted to state for Create, Read and Update operations. It is also indirectly used by Import
 func generateModel(cfg models.Cluster, cluster *controlplanev1beta2.Cluster) (*models.Cluster, error) {
 	output := &models.Cluster{
