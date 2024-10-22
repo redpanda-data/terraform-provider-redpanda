@@ -407,7 +407,6 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
 	updateReq := generateUpdateRequest(plan, state)
-
 	if len(updateReq.UpdateMask.Paths) != 0 {
 		op, err := c.CpCl.Cluster.UpdateCluster(ctx, updateReq)
 		if err != nil {
