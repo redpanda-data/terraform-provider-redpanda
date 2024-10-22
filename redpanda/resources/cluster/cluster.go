@@ -199,85 +199,112 @@ func generateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterC
 	return output, nil
 }
 
+// generateClusterUpdate generates a *controlplanev1beta2.ClusterUpdate for a given cluster
+// model, which is then used by generateUpdateRequest to compare ClusterUpdates for plan
+// and state and generate an efficient diff and updatemask.
+func generateClusterUpdate(cluster models.Cluster) *controlplanev1beta2.ClusterUpdate {
+	update := &controlplanev1beta2.ClusterUpdate{
+		Id:                    cluster.ID.ValueString(),
+		Name:                  cluster.Name.ValueString(),
+		ReadReplicaClusterIds: utils.TypeListToStringSlice(cluster.ReadReplicaClusterIDs),
+	}
+
+	if !isAwsPrivateLinkStructNil(cluster.AwsPrivateLink) {
+		update.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
+			Enabled:           cluster.AwsPrivateLink.Enabled.ValueBool(),
+			AllowedPrincipals: utils.TypeListToStringSlice(cluster.AwsPrivateLink.AllowedPrincipals),
+			ConnectConsole:    cluster.AwsPrivateLink.ConnectConsole.ValueBool(),
+		}
+	}
+
+	if !isAzurePrivateLinkStructNil(cluster.AzurePrivateLink) {
+		update.AzurePrivateLink = &controlplanev1beta2.AzurePrivateLinkSpec{
+			Enabled:              cluster.AzurePrivateLink.Enabled.ValueBool(),
+			AllowedSubscriptions: utils.TypeListToStringSlice(cluster.AzurePrivateLink.AllowedSubscriptions),
+			ConnectConsole:       cluster.AzurePrivateLink.ConnectConsole.ValueBool(),
+		}
+	}
+
+	if !isGcpPrivateServiceConnectStructNil(cluster.GcpPrivateServiceConnect) {
+		update.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
+			Enabled:             cluster.GcpPrivateServiceConnect.Enabled.ValueBool(),
+			GlobalAccessEnabled: cluster.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
+			ConsumerAcceptList:  gcpConnectConsumerModelToStruct(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
+		}
+	}
+
+	if !isMtlsNil(cluster.KafkaAPI) {
+		update.KafkaApi = &controlplanev1beta2.KafkaAPISpec{
+			Mtls: toMtlsSpec(cluster.KafkaAPI.Mtls),
+		}
+	}
+
+	if !isMtlsNil(cluster.HTTPProxy) {
+		update.HttpProxy = &controlplanev1beta2.HTTPProxySpec{
+			Mtls: toMtlsSpec(cluster.HTTPProxy.Mtls),
+		}
+	}
+
+	if !isMtlsNil(cluster.SchemaRegistry) {
+		update.SchemaRegistry = &controlplanev1beta2.SchemaRegistrySpec{
+			Mtls: toMtlsSpec(cluster.SchemaRegistry.Mtls),
+		}
+	}
+	return update
+}
+
 // generateUpdateRequest populates an UpdateClusterRequest that will update a cluster from the
 // current state to a new state matching the plan.
 func generateUpdateRequest(plan, state models.Cluster) *controlplanev1beta2.UpdateClusterRequest {
+	planUpdate := generateClusterUpdate(plan)
+	stateUpdate := generateClusterUpdate(state)
+
 	updateReq := &controlplanev1beta2.UpdateClusterRequest{
 		Cluster: &controlplanev1beta2.ClusterUpdate{
-			Id: plan.ID.ValueString(),
+			Id: planUpdate.Id,
 		},
 		UpdateMask: &fieldmaskpb.FieldMask{
 			Paths: make([]string, 0),
 		},
 	}
 
-	if !plan.Name.Equal(state.Name) {
-		updateReq.Cluster.Name = plan.Name.ValueString()
+	if !reflect.DeepEqual(planUpdate.Name, stateUpdate.Name) {
+		updateReq.Cluster.Name = planUpdate.Name
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "name")
 	}
 
-	if !reflect.DeepEqual(plan.AwsPrivateLink, state.AwsPrivateLink) {
-		if !isAwsPrivateLinkStructNil(plan.AwsPrivateLink) {
-			updateReq.Cluster.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
-				Enabled:           plan.AwsPrivateLink.Enabled.ValueBool(),
-				AllowedPrincipals: utils.TypeListToStringSlice(plan.AwsPrivateLink.AllowedPrincipals),
-				ConnectConsole:    plan.AwsPrivateLink.ConnectConsole.ValueBool(),
-			}
-		}
+	if !reflect.DeepEqual(planUpdate.AwsPrivateLink, stateUpdate.AwsPrivateLink) {
+		updateReq.Cluster.AwsPrivateLink = planUpdate.AwsPrivateLink
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "aws_private_link")
 	}
 
-	if !reflect.DeepEqual(plan.AzurePrivateLink, state.AzurePrivateLink) {
-		if !isAzurePrivateLinkStructNil(plan.AzurePrivateLink) {
-			updateReq.Cluster.AzurePrivateLink = &controlplanev1beta2.AzurePrivateLinkSpec{
-				Enabled:              plan.AzurePrivateLink.Enabled.ValueBool(),
-				AllowedSubscriptions: utils.TypeListToStringSlice(plan.AzurePrivateLink.AllowedSubscriptions),
-				ConnectConsole:       plan.AzurePrivateLink.ConnectConsole.ValueBool(),
-			}
-		}
+	if !reflect.DeepEqual(planUpdate.AzurePrivateLink, stateUpdate.AzurePrivateLink) {
+		updateReq.Cluster.AzurePrivateLink = planUpdate.AzurePrivateLink
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "azure_private_link")
 	}
 
-	if !reflect.DeepEqual(plan.GcpPrivateServiceConnect, state.GcpPrivateServiceConnect) {
-		if !isGcpPrivateServiceConnectStructNil(plan.GcpPrivateServiceConnect) {
-			updateReq.Cluster.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
-				Enabled:             plan.GcpPrivateServiceConnect.Enabled.ValueBool(),
-				GlobalAccessEnabled: plan.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
-				ConsumerAcceptList:  gcpConnectConsumerModelToStruct(plan.GcpPrivateServiceConnect.ConsumerAcceptList),
-			}
-		}
+	if !reflect.DeepEqual(planUpdate.GcpPrivateServiceConnect, stateUpdate.GcpPrivateServiceConnect) {
+		updateReq.Cluster.GcpPrivateServiceConnect = planUpdate.GcpPrivateServiceConnect
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "gcp_private_service_connect")
 	}
 
-	if !reflect.DeepEqual(plan.KafkaAPI, state.KafkaAPI) {
-		if !isMtlsNil(plan.KafkaAPI) {
-			updateReq.Cluster.KafkaApi = &controlplanev1beta2.KafkaAPISpec{
-				Mtls: toMtlsSpec(plan.KafkaAPI.Mtls),
-			}
-		}
+	if !reflect.DeepEqual(planUpdate.KafkaApi, stateUpdate.KafkaApi) {
+		updateReq.Cluster.KafkaApi = planUpdate.KafkaApi
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "kafka_api")
 	}
 
-	if !reflect.DeepEqual(plan.HTTPProxy, state.HTTPProxy) {
-		if !isMtlsNil(plan.HTTPProxy) {
-			updateReq.Cluster.HttpProxy = &controlplanev1beta2.HTTPProxySpec{
-				Mtls: toMtlsSpec(plan.HTTPProxy.Mtls),
-			}
-		}
+	if !reflect.DeepEqual(planUpdate.HttpProxy, stateUpdate.HttpProxy) {
+		updateReq.Cluster.HttpProxy = planUpdate.HttpProxy
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "http_proxy")
 	}
 
 	if !reflect.DeepEqual(plan.SchemaRegistry, state.SchemaRegistry) {
-		if !isMtlsNil(plan.SchemaRegistry) {
-			updateReq.Cluster.SchemaRegistry = &controlplanev1beta2.SchemaRegistrySpec{
-				Mtls: toMtlsSpec(plan.SchemaRegistry.Mtls),
-			}
-		}
+		updateReq.Cluster.SchemaRegistry = planUpdate.SchemaRegistry
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "schema_registry")
 	}
 
-	if !reflect.DeepEqual(plan.ReadReplicaClusterIDs, state.ReadReplicaClusterIDs) {
-		updateReq.Cluster.ReadReplicaClusterIds = utils.TypeListToStringSlice(plan.ReadReplicaClusterIDs)
+	if !reflect.DeepEqual(planUpdate.ReadReplicaClusterIds, stateUpdate.ReadReplicaClusterIds) {
+		updateReq.Cluster.ReadReplicaClusterIds = planUpdate.ReadReplicaClusterIds
 		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "read_replica_cluster_ids")
 	}
 
