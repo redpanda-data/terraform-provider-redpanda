@@ -24,7 +24,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
-	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 func gcpConnectConsumerModelToStruct(accept []*models.GcpPrivateServiceConnectConsumer) []*controlplanev1beta2.GCPPrivateServiceConnectConsumer {
@@ -259,56 +258,12 @@ func generateUpdateRequest(plan, state models.Cluster) *controlplanev1beta2.Upda
 	planUpdate := generateClusterUpdate(plan)
 	stateUpdate := generateClusterUpdate(state)
 
-	updateReq := &controlplanev1beta2.UpdateClusterRequest{
-		Cluster: &controlplanev1beta2.ClusterUpdate{
-			Id: planUpdate.Id,
-		},
-		UpdateMask: &fieldmaskpb.FieldMask{
-			Paths: make([]string, 0),
-		},
+	update, fieldmask := utils.GenerateProtobufDiffAndUpdateMask(planUpdate, stateUpdate)
+	update.Id = planUpdate.Id
+	return &controlplanev1beta2.UpdateClusterRequest{
+		Cluster:    update,
+		UpdateMask: fieldmask,
 	}
-
-	if !reflect.DeepEqual(planUpdate.Name, stateUpdate.Name) {
-		updateReq.Cluster.Name = planUpdate.Name
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "name")
-	}
-
-	if !reflect.DeepEqual(planUpdate.AwsPrivateLink, stateUpdate.AwsPrivateLink) {
-		updateReq.Cluster.AwsPrivateLink = planUpdate.AwsPrivateLink
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "aws_private_link")
-	}
-
-	if !reflect.DeepEqual(planUpdate.AzurePrivateLink, stateUpdate.AzurePrivateLink) {
-		updateReq.Cluster.AzurePrivateLink = planUpdate.AzurePrivateLink
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "azure_private_link")
-	}
-
-	if !reflect.DeepEqual(planUpdate.GcpPrivateServiceConnect, stateUpdate.GcpPrivateServiceConnect) {
-		updateReq.Cluster.GcpPrivateServiceConnect = planUpdate.GcpPrivateServiceConnect
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "gcp_private_service_connect")
-	}
-
-	if !reflect.DeepEqual(planUpdate.KafkaApi, stateUpdate.KafkaApi) {
-		updateReq.Cluster.KafkaApi = planUpdate.KafkaApi
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "kafka_api")
-	}
-
-	if !reflect.DeepEqual(planUpdate.HttpProxy, stateUpdate.HttpProxy) {
-		updateReq.Cluster.HttpProxy = planUpdate.HttpProxy
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "http_proxy")
-	}
-
-	if !reflect.DeepEqual(plan.SchemaRegistry, state.SchemaRegistry) {
-		updateReq.Cluster.SchemaRegistry = planUpdate.SchemaRegistry
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "schema_registry")
-	}
-
-	if !reflect.DeepEqual(planUpdate.ReadReplicaClusterIds, stateUpdate.ReadReplicaClusterIds) {
-		updateReq.Cluster.ReadReplicaClusterIds = planUpdate.ReadReplicaClusterIds
-		updateReq.UpdateMask.Paths = append(updateReq.UpdateMask.Paths, "read_replica_cluster_ids")
-	}
-
-	return updateReq
 }
 
 // generateModel populates the Cluster model to be persisted to state for Create, Read and Update operations. It is also indirectly used by Import
