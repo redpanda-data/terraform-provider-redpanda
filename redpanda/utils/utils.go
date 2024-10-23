@@ -174,9 +174,18 @@ func ConnectionTypeToString(t controlplanev1beta2.Cluster_ConnectionType) string
 // TypeListToStringSlice converts a types.List to a []string, stripping
 // surrounding quotes for each element.
 func TypeListToStringSlice(t types.List) []string {
-	var s []string
+	if t.IsNull() {
+		return nil
+	}
+	s := []string{}
 	for _, v := range t.Elements() {
-		s = append(s, strings.Trim(v.String(), "\"")) // it's easier to strip the quotes than type converting until you hit something that doesn't include them
+		stringval, ok := v.(types.String)
+		if ok {
+			s = append(s, stringval.ValueString())
+		} else {
+			// TODO: issue #173 - ensure this is only called on types.List that actually hold strings
+			s = append(s, strings.Trim(v.String(), "\"")) // it's easier to strip the quotes than type converting until you hit something that doesn't include them
+		}
 	}
 	return s
 }
