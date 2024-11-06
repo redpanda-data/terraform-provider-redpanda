@@ -108,3 +108,25 @@ steps:
       - lint
       - unit
       - test_network
+  - label: test_byoc_aws
+    key: test_byoc_aws
+    if: build.pull_request.labels includes 'byoc-ready'
+    command: make test_byoc_aws
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/devex_ci_creds_aws
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
+      - docker#v5.11.0:
+          image: "golang:1.22"
+          environment:
+            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
+            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+            - TF_LOG=DEBUG
+            - DEVEX_CI_CREDS_AWS_ACCESS_KEY_ID
+            - DEVEX_CI_CREDS_AWS_SECRET_ACCESS_KEY
+    depends_on:
+      - lint
+      - unit

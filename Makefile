@@ -336,7 +336,7 @@ test_byoc_aws:
 	RUN_BYOC_TESTS=true \
 	TF_ACC=true \
 	TF_LOG=$(TF_LOG) \
-	VERSION=ign \
+	VERSION=pre \
 	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesByocAWS
 
 .PHONY: test_byoc_azure
@@ -348,7 +348,7 @@ test_byoc_azure:
 	RUN_BYOC_TESTS=true \
 	TF_ACC=true \
 	TF_LOG=$(TF_LOG) \
-	VERSION=ign \
+	VERSION=pre \
 	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesByocAzure
 
 .PHONY: test_byoc_gcp
@@ -361,7 +361,7 @@ test_byoc_gcp:
 	RUN_BYOC_TESTS=true \
 	TF_ACC=true \
 	TF_LOG=$(TF_LOG) \
-	VERSION=ign \
+	VERSION=pre \
 	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesByocGCP
 
 RUN_SERVERLESS_TESTS ?= false
