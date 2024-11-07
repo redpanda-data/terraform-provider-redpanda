@@ -290,10 +290,7 @@ func generateModel(cfg models.Cluster, cluster *controlplanev1beta2.Cluster) (*m
 	}
 
 	if !isAwsPrivateLinkSpecNil(cluster.AwsPrivateLink) {
-		ap, dg := types.ListValueFrom(ctx, types.StringType, cluster.AwsPrivateLink.AllowedPrincipals)
-		if dg.HasError() {
-			return nil, fmt.Errorf("failed to parse AWS Private Link: %v", dg)
-		}
+		ap := utils.StringSliceToTypeList(cluster.AwsPrivateLink.AllowedPrincipals)
 		if ap.IsNull() {
 			// this must match the user's plan, which is currently required to be non-null
 			ap = types.ListValueMust(types.StringType, []attr.Value{})
@@ -301,7 +298,7 @@ func generateModel(cfg models.Cluster, cluster *controlplanev1beta2.Cluster) (*m
 		output.AwsPrivateLink = &models.AwsPrivateLink{
 			Enabled:           types.BoolValue(cluster.AwsPrivateLink.Enabled),
 			ConnectConsole:    types.BoolValue(cluster.AwsPrivateLink.ConnectConsole),
-			AllowedPrincipals: utils.StringSliceToTypeList(cluster.AwsPrivateLink.AllowedPrincipals),
+			AllowedPrincipals: ap,
 		}
 	}
 	if !isGcpPrivateServiceConnectSpecNil(cluster.GcpPrivateServiceConnect) {
@@ -313,10 +310,7 @@ func generateModel(cfg models.Cluster, cluster *controlplanev1beta2.Cluster) (*m
 	}
 
 	if !isAzurePrivateLinkSpecNil(cluster.AzurePrivateLink) {
-		as, dg := types.ListValueFrom(ctx, types.StringType, cluster.AzurePrivateLink.AllowedSubscriptions)
-		if dg.HasError() {
-			return nil, fmt.Errorf("failed to parse Azure Private Link: %v", dg)
-		}
+		as := utils.StringSliceToTypeList(cluster.AzurePrivateLink.AllowedSubscriptions)
 		if as.IsNull() {
 			// this must match the user's plan, which is currently required to be non-null
 			as = types.ListValueMust(types.StringType, []attr.Value{})
@@ -324,7 +318,7 @@ func generateModel(cfg models.Cluster, cluster *controlplanev1beta2.Cluster) (*m
 		output.AzurePrivateLink = &models.AzurePrivateLink{
 			Enabled:              types.BoolValue(cluster.AzurePrivateLink.Enabled),
 			ConnectConsole:       types.BoolValue(cluster.AzurePrivateLink.ConnectConsole),
-			AllowedSubscriptions: utils.StringSliceToTypeList(cluster.AzurePrivateLink.AllowedSubscriptions),
+			AllowedSubscriptions: as,
 		}
 	}
 	kAPI := toMtlsModel(cluster.GetKafkaApi().GetMtls())
