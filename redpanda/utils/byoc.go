@@ -82,7 +82,7 @@ func (cl *ByocClient) RunByoc(ctx context.Context, clusterID, verb string) error
 		return err
 	}
 
-	return runSubprocess(ctx, byocPath, byocArgs...)
+	return runSubprocess(ctx, cl.internalAPIURL, byocPath, byocArgs...)
 }
 
 func (cl *ByocClient) generateByocArgs(cluster cloudapi.Cluster, verb string) ([]string, error) {
@@ -152,7 +152,7 @@ func (cl *ByocClient) getByocExecutable(ctx context.Context, cluster cloudapi.Cl
 	return byocPath, nil
 }
 
-func runSubprocess(ctx context.Context, executable string, args ...string) error {
+func runSubprocess(ctx context.Context, cloudUrl, executable string, args ...string) error {
 	// TODO: cache the downloaded Terraform?
 	// TODO: pass TF_LOG=JSON and parse message out?
 
@@ -176,7 +176,7 @@ func runSubprocess(ctx context.Context, executable string, args ...string) error
 			cmd.Env = append(cmd.Env, s)
 		}
 	}
-	// TODO: set cloud url override
+	cmd.Env = append(cmd.Env, fmt.Sprintf("CLOUD_URL=%s/api/v1", cloudUrl))
 	// TODO: any other env variables to set or get rid of?
 
 	lastLogs := &lastLogs{}
