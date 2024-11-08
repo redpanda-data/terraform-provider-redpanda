@@ -4,10 +4,10 @@ buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.34.2-20240617
 buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.34.2-20240617172850-a48fcebcf8f1.2/go.mod h1:WZzeH4Sx52g5HpdqDE4B6I0cn5MPzKmp7lSG6oB6ais=
 buf.build/gen/go/redpandadata/cloud/connectrpc/go v1.16.1-20240429184619-354e1dfbafca.1 h1:YIV1fvp9UGp5O8pET1hrUA0tJ0Zux98VIQqaYF2pCcY=
 buf.build/gen/go/redpandadata/cloud/connectrpc/go v1.16.1-20240429184619-354e1dfbafca.1/go.mod h1:RzFQt0HgpBUKM3NvqsG0cqRow1Cz9bWVYVOsSmFBKTc=
-buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20240820164511-1d38ab631312.1 h1:EaObGs198lfRFqiJYXv6ZdOSCeYGLYEUe1rPA8pWOLs=
-buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20240820164511-1d38ab631312.1/go.mod h1:QGa6AeVmYRmX2VB5Uz5sqNtNoYprweFTuJeTx6n1Ajw=
-buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.34.2-20240820164511-1d38ab631312.2 h1:/7EPKwIkk/2tGcD8WnGFTIppsMKE+tMRiw8/SbsPWUA=
-buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.34.2-20240820164511-1d38ab631312.2/go.mod h1:FYKJ74J6GISLCL3PrEGYtqFhl86Sav4N07klNQSkdX8=
+buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20241024195046-353ea4645e3d.1 h1:vgjFQo9rA4Bj3YtyyYrdBugzZrTrHKM4sye41bXa3Kk=
+buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20241024195046-353ea4645e3d.1/go.mod h1:UncE1tOpvU98r7BK8Q76U07Zgtt8YMahH4A1jmKwV0E=
+buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.34.2-20241024195046-353ea4645e3d.2 h1:SYffqzjgzND7UeHBysqGJBo6dxfJXUxAyTiNuKr3EW4=
+buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.34.2-20241024195046-353ea4645e3d.2/go.mod h1:FYKJ74J6GISLCL3PrEGYtqFhl86Sav4N07klNQSkdX8=
 buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.34.2-20240715174743-9c0afe867874.2 h1:mwz77izDe41jrNZqQx2iEzOt4k7pfWthVFuK2SMwCCw=
 buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.34.2-20240715174743-9c0afe867874.2/go.mod h1:wThyg02xJx4K/DA5fg0QlKts8XVPyTT86JC8hPfEzno=
 buf.build/gen/go/redpandadata/dataplane/connectrpc/go v1.16.1-20240425184920-eafa37a581c1.1 h1:ZaTlcZZ1hNqp0GKKbrPLFxQCliYM8FUml60/a6Hdbxg=
@@ -312,6 +312,8 @@ go.abhg.dev/goldmark/frontmatter v0.2.0 h1:P8kPG0YkL12+aYk2yU3xHv4tcXzeVnN+gU0tJ
 go.abhg.dev/goldmark/frontmatter v0.2.0/go.mod h1:XqrEkZuM57djk7zrlRUB02x8I5J0px76YjkOzhB4YlU=
 go.uber.org/atomic v1.7.0/go.mod h1:fEN4uk6kAWBTFdckzkM89CLk9XfWZrxpCo0nPH17wJc=
 go.uber.org/goleak v1.1.10/go.mod h1:8a7PlsEVH3e/a/GLqe5IIrQx6GzcnRmZEufDUTk4A7A=
+go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
+go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
 go.uber.org/multierr v1.6.0/go.mod h1:cdWPpRnG4AhwMwsgIHip0KRBQjJy5kYEpYjJxpXp9iU=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=
 go.uber.org/multierr v1.11.0/go.mod h1:20+QtiLqy0Nd6FdQB9TLXag12DsQkrbs3htMFfDN80Y=
