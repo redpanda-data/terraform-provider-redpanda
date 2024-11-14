@@ -34,3 +34,4 @@ tools/tfplugindocs
 terraform-provider-hashicorp
 **/.tmp_*
 .cluster_info*
+creds.json

@@ -20,6 +20,7 @@ package utils
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
@@ -174,6 +175,24 @@ func runSubprocess(ctx context.Context, cloudUrl, executable string, args ...str
 	for _, s := range os.Environ() {
 		if !strings.HasPrefix(s, "TF_") {
 			cmd.Env = append(cmd.Env, s)
+		}
+		split := strings.SplitN(s, "=", 2)
+		key, value := split[0], split[1]
+		switch {
+		case key == "GOOGLE_CREDENTIALS":
+			if err := os.WriteFile(path.Join(tempDir, "creds.json"), []byte(value), 0644); err != nil {
+				return err
+			}
+			cmd.Env = append(cmd.Env, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", path.Join(tempDir, "creds.json")))
+		case key == "GOOGLE_CREDENTIALS_BASE64":
+			decodedBytes, err := base64.StdEncoding.DecodeString(value)
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(path.Join(tempDir, "creds.json"), decodedBytes, 0644); err != nil {
+				return err
+			}
+			cmd.Env = append(cmd.Env, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", path.Join(tempDir, "creds.json")))
 		}
 	}
 	cmd.Env = append(cmd.Env, fmt.Sprintf("CLOUD_URL=%s/api/v1", cloudUrl))
