@@ -101,6 +101,8 @@ func (cl *ByocClient) generateByocArgs(cluster cloudapi.Cluster, verb string) ([
 			return nil, fmt.Errorf("value must be set for Azure Subscription ID")
 		}
 		byocArgs = append(byocArgs, "--subscription-id", cl.azureSubscriptionID)
+		byocArgs = append(byocArgs, "--credential-source", "env")
+		byocArgs = append(byocArgs, "--identity", "oidc")
 	case CloudProviderStringGcp:
 		if cl.gcpProject == "" {
 			return nil, fmt.Errorf("value must be set for GCP Project")

@@ -27,11 +27,11 @@ resource "redpanda_cluster" "test" {
   tags = {
     "key" = "value"
   }
-  azure_private_link = {
-    enabled         = true
-    connect_console = true
-    allowed_subscriptions = ["12345678-1234-1234-1234-123456789012"]
-  }
+  # azure_private_link = {
+  #   enabled         = true
+  #   connect_console = true
+  #   allowed_subscriptions = ["12345678-1234-1234-1234-123456789012"]
+  # }
 }
 
 variable "resource_group_name" {
@@ -51,11 +51,11 @@ variable "cloud_provider" {
 }
 
 variable "region" {
-  default = "uksouth"
+  default = "eastus"
 }
 
 variable "zones" {
-  default = ["uksouth-az1", "uksouth-az2", "uksouth-az3"]
+  default = ["eastus-az1", "eastus-az2", "eastus-az3"]
 }
 
 variable "throughput_tier" {
