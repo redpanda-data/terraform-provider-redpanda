@@ -100,9 +100,9 @@ func (cl *ByocClient) generateByocArgs(cluster cloudapi.Cluster, verb string) ([
 		if cl.azureSubscriptionID == "" {
 			return nil, fmt.Errorf("value must be set for Azure Subscription ID")
 		}
-		byocArgs = append(byocArgs, "--subscription-id", cl.azureSubscriptionID)
-		byocArgs = append(byocArgs, "--credential-source", "env")
-		byocArgs = append(byocArgs, "--identity", "oidc")
+		byocArgs = append(byocArgs, "--subscription-id", cl.azureSubscriptionID,
+			"--credential-source", "env",
+			"--identity", "oidc")
 	case CloudProviderStringGcp:
 		if cl.gcpProject == "" {
 			return nil, fmt.Errorf("value must be set for GCP Project")
@@ -155,7 +155,7 @@ func (cl *ByocClient) getByocExecutable(ctx context.Context, cluster cloudapi.Cl
 	return byocPath, nil
 }
 
-func runSubprocess(ctx context.Context, cloudUrl, executable string, args ...string) error {
+func runSubprocess(ctx context.Context, cloudURL, executable string, args ...string) error {
 	// TODO: cache the downloaded Terraform?
 	// TODO: pass TF_LOG=JSON and parse message out?
 
@@ -182,7 +182,7 @@ func runSubprocess(ctx context.Context, cloudUrl, executable string, args ...str
 		key, value := split[0], split[1]
 		switch {
 		case key == "GOOGLE_CREDENTIALS":
-			if err := os.WriteFile(path.Join(tempDir, "creds.json"), []byte(value), 0644); err != nil {
+			if err := os.WriteFile(path.Join(tempDir, "creds.json"), []byte(value), 0o600); err != nil {
 				return err
 			}
 			cmd.Env = append(cmd.Env, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", path.Join(tempDir, "creds.json")))
@@ -191,13 +191,13 @@ func runSubprocess(ctx context.Context, cloudUrl, executable string, args ...str
 			if err != nil {
 				return err
 			}
-			if err := os.WriteFile(path.Join(tempDir, "creds.json"), decodedBytes, 0644); err != nil {
+			if err := os.WriteFile(path.Join(tempDir, "creds.json"), decodedBytes, 0o600); err != nil {
 				return err
 			}
 			cmd.Env = append(cmd.Env, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", path.Join(tempDir, "creds.json")))
 		}
 	}
-	cmd.Env = append(cmd.Env, fmt.Sprintf("CLOUD_URL=%s/api/v1", cloudUrl))
+	cmd.Env = append(cmd.Env, fmt.Sprintf("CLOUD_URL=%s/api/v1", cloudURL))
 	// TODO: any other env variables to set or get rid of?
 
 	lastLogs := &lastLogs{}
