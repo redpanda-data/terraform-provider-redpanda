@@ -116,8 +116,6 @@ steps:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/devex_ci_creds_aws
-      - seek-oss/aws-sm#v2.3.2:
-          json-to-env:
             - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
       - docker#v5.11.0:
           image: "golang:1.22"
