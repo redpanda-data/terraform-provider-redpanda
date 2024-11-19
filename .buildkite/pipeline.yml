@@ -117,7 +117,7 @@ steps:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/devex_ci_creds_aws
             - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.22"
           environment:
             - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
