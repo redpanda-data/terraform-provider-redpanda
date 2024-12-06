@@ -129,7 +129,7 @@ steps:
       - unit
   - label: test_byoc_gcp
     key: test_byoc_gcp
-    if: build.pull_request.labels includes 'ci-ready'
+    if: build.pull_request.labels includes 'byoc-ready'
     command: make test_byoc_gcp
     plugins:
       - seek-oss/aws-sm#v2.3.2:
