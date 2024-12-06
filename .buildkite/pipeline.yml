@@ -26,12 +26,12 @@ steps:
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
-            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
           image: "golang:1.22"
           environment:
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
             - TF_LOG=DEBUG
     depends_on:
       - lint
@@ -43,12 +43,12 @@ steps:
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
-            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
           image: "golang:1.22"
           environment:
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
             - TF_LOG=DEBUG
     depends_on:
       - lint
@@ -61,12 +61,12 @@ steps:
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
-            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
           image: "golang:1.22"
           environment:
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
             - TF_LOG=DEBUG
     depends_on:
       - lint
@@ -79,12 +79,12 @@ steps:
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
-            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
           image: "golang:1.22"
           environment:
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
             - TF_LOG=DEBUG
     depends_on:
       - lint
@@ -97,12 +97,12 @@ steps:
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
-            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
           image: "golang:1.22"
           environment:
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
             - TF_LOG=DEBUG
     depends_on:
       - lint
@@ -115,16 +115,15 @@ steps:
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
-            - secret-id: sdlc/prod/buildkite/devex_ci_creds_aws
-            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.12.0:
           image: "golang:1.22"
           environment:
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
             - TF_LOG=DEBUG
-            - "AWS_ACCESS_KEY_ID=$$DEVEX_CI_CREDS_AWS_ACCESS_KEY_ID"
-            - "AWS_SECRET_ACCESS_KEY=$$DEVEX_CI_CREDS_AWS_SECRET_ACCESS_KEY"
+            - AWS_ACCESS_KEY_ID
+            - AWS_SECRET_ACCESS_KEY
     depends_on:
       - lint
       - unit
@@ -135,14 +134,11 @@ steps:
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
-            - secret-id: sdlc/prod/buildkite/devex_ci_creds_aws
-      - seek-oss/aws-sm#v2.3.2:
-          json-to-env:
-            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
           image: "golang:1.22"
           environment:
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
             - TF_LOG=DEBUG
-            - DEVEX_CI_GCP_CREDENTIALS
+            - GCP_CREDS
