@@ -42,6 +42,8 @@ type ByocClientConfig struct {
 	AzureSubscriptionID string
 	GcpProject          string
 	InternalAPIURL      string
+	AzureClientId       string
+	AzureClientSecret   string
 }
 
 // ByocClient holds the information and clients needed to download and interact
@@ -52,6 +54,8 @@ type ByocClient struct {
 	azureSubscriptionID string
 	gcpProject          string
 	internalAPIURL      string
+	azureClientId       string
+	azureClientSecret   string
 }
 
 // NewByocClient creates a new ByocClient.
@@ -62,6 +66,8 @@ func NewByocClient(conf ByocClientConfig) *ByocClient {
 		azureSubscriptionID: conf.AzureSubscriptionID,
 		gcpProject:          conf.GcpProject,
 		internalAPIURL:      conf.InternalAPIURL,
+		azureClientId:       conf.AzureClientId,
+		azureClientSecret:   conf.AzureClientSecret,
 	}
 }
 
@@ -100,9 +106,12 @@ func (cl *ByocClient) generateByocArgs(cluster cloudapi.Cluster, verb string) ([
 		if cl.azureSubscriptionID == "" {
 			return nil, fmt.Errorf("value must be set for Azure Subscription ID")
 		}
-		byocArgs = append(byocArgs, "--subscription-id", cl.azureSubscriptionID,
+		byocArgs = append(byocArgs,
+			"--subscription-id", cl.azureSubscriptionID,
 			"--credential-source", "env",
-			"--identity", "oidc")
+			"--identity", "oidc",
+			"--client-id", cl.azureClientId,
+			"--client-secret", cl.azureClientSecret)
 	case CloudProviderStringGcp:
 		if cl.gcpProject == "" {
 			return nil, fmt.Errorf("value must be set for GCP Project")
@@ -156,7 +165,6 @@ func (cl *ByocClient) getByocExecutable(ctx context.Context, cluster cloudapi.Cl
 }
 
 func runSubprocess(ctx context.Context, cloudURL, executable string, args ...string) error {
-	// TODO: cache the downloaded Terraform?
 	// TODO: pass TF_LOG=JSON and parse message out?
 
 	tempDir, err := os.MkdirTemp("", "terraform-provider-redpanda-byoc")

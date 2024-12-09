@@ -279,12 +279,21 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		os.Getenv("GOOGLE_CLOUD_PROJECT"),
 		os.Getenv("GCLOUD_PROJECT"),
 		os.Getenv("CLOUDSDK_CORE_PROJECT"))
+	azureClientId := firstNonEmptyString(
+		os.Getenv("AZURE_CLIENT_ID"),
+		os.Getenv("ARM_CLIENT_ID"))
+	azureClientSecret := firstNonEmptyString(
+		os.Getenv("AZURE_CLIENT_SECRET"),
+		os.Getenv("ARM_CLIENT_SECRET"))
+
 	if r.byoc == nil {
 		r.byoc = utils.NewByocClient(utils.ByocClientConfig{
 			AuthToken:           creds.Token,
 			AzureSubscriptionID: azureSubscriptionID,
 			GcpProject:          gcpProjectID,
 			InternalAPIURL:      creds.InternalAPIURL,
+			AzureClientId:       azureClientId,
+			AzureClientSecret:   azureClientSecret,
 		})
 	}
 
