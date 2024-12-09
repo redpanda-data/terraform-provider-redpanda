@@ -272,7 +272,8 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	// then Redpanda will correctly pick up the variables as well.
 	azureSubscriptionID := firstNonEmptyString(
 		conf.AzureSubscriptionID.ValueString(),
-		os.Getenv("ARM_SUBSCRIPTION_ID"))
+		os.Getenv("ARM_SUBSCRIPTION_ID"),
+		os.Getenv("AZURE_SUBSCRIPTION_ID"))
 	gcpProjectID := firstNonEmptyString(
 		conf.GcpProjectID.ValueString(),
 		os.Getenv("GOOGLE_PROJECT"),
@@ -285,15 +286,18 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	azureClientSecret := firstNonEmptyString(
 		os.Getenv("AZURE_CLIENT_SECRET"),
 		os.Getenv("ARM_CLIENT_SECRET"))
-
+	azureTenantId := firstNonEmptyString(
+		os.Getenv("AZURE_TENANT_ID"),
+		os.Getenv("ARM_TENANT_ID"))
 	if r.byoc == nil {
 		r.byoc = utils.NewByocClient(utils.ByocClientConfig{
 			AuthToken:           creds.Token,
-			AzureSubscriptionID: azureSubscriptionID,
-			GcpProject:          gcpProjectID,
 			InternalAPIURL:      creds.InternalAPIURL,
+			GcpProject:          gcpProjectID,
+			AzureSubscriptionID: azureSubscriptionID,
 			AzureClientId:       azureClientId,
 			AzureClientSecret:   azureClientSecret,
+			AzureTenantId:       azureTenantId,
 		})
 	}
 

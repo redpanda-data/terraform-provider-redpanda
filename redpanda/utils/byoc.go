@@ -44,6 +44,7 @@ type ByocClientConfig struct {
 	InternalAPIURL      string
 	AzureClientId       string
 	AzureClientSecret   string
+	AzureTenantId       string
 }
 
 // ByocClient holds the information and clients needed to download and interact
@@ -51,11 +52,12 @@ type ByocClientConfig struct {
 type ByocClient struct {
 	api                 *cloudapi.Client
 	authToken           string
-	azureSubscriptionID string
-	gcpProject          string
 	internalAPIURL      string
+	gcpProject          string
+	azureSubscriptionID string
 	azureClientId       string
 	azureClientSecret   string
+	azureTenantId       string
 }
 
 // NewByocClient creates a new ByocClient.
@@ -63,11 +65,12 @@ func NewByocClient(conf ByocClientConfig) *ByocClient {
 	return &ByocClient{
 		api:                 cloudapi.NewClient(conf.InternalAPIURL, conf.AuthToken),
 		authToken:           conf.AuthToken,
-		azureSubscriptionID: conf.AzureSubscriptionID,
-		gcpProject:          conf.GcpProject,
 		internalAPIURL:      conf.InternalAPIURL,
+		gcpProject:          conf.GcpProject,
+		azureSubscriptionID: conf.AzureSubscriptionID,
 		azureClientId:       conf.AzureClientId,
 		azureClientSecret:   conf.AzureClientSecret,
+		azureTenantId:       conf.AzureTenantId,
 	}
 }
 
