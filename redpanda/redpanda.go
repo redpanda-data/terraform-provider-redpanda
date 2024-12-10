@@ -280,13 +280,13 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		os.Getenv("GOOGLE_CLOUD_PROJECT"),
 		os.Getenv("GCLOUD_PROJECT"),
 		os.Getenv("CLOUDSDK_CORE_PROJECT"))
-	azureClientId := firstNonEmptyString(
+	azureClientID := firstNonEmptyString(
 		os.Getenv("AZURE_CLIENT_ID"),
 		os.Getenv("ARM_CLIENT_ID"))
 	azureClientSecret := firstNonEmptyString(
 		os.Getenv("AZURE_CLIENT_SECRET"),
 		os.Getenv("ARM_CLIENT_SECRET"))
-	azureTenantId := firstNonEmptyString(
+	azureTenantID := firstNonEmptyString(
 		os.Getenv("AZURE_TENANT_ID"),
 		os.Getenv("ARM_TENANT_ID"))
 	if r.byoc == nil {
@@ -295,9 +295,9 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 			InternalAPIURL:      creds.InternalAPIURL,
 			GcpProject:          gcpProjectID,
 			AzureSubscriptionID: azureSubscriptionID,
-			AzureClientId:       azureClientId,
+			AzureClientID:       azureClientID,
 			AzureClientSecret:   azureClientSecret,
-			AzureTenantId:       azureTenantId,
+			AzureTenantID:       azureTenantID,
 		})
 	}
 

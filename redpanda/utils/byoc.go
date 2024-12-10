@@ -42,9 +42,9 @@ type ByocClientConfig struct {
 	AzureSubscriptionID string
 	GcpProject          string
 	InternalAPIURL      string
-	AzureClientId       string
+	AzureClientID       string
 	AzureClientSecret   string
-	AzureTenantId       string
+	AzureTenantID       string
 }
 
 // ByocClient holds the information and clients needed to download and interact
@@ -55,9 +55,9 @@ type ByocClient struct {
 	internalAPIURL      string
 	gcpProject          string
 	azureSubscriptionID string
-	azureClientId       string
+	azureClientID       string
 	azureClientSecret   string
-	azureTenantId       string
+	azureTenantID       string
 }
 
 // NewByocClient creates a new ByocClient.
@@ -68,9 +68,9 @@ func NewByocClient(conf ByocClientConfig) *ByocClient {
 		internalAPIURL:      conf.InternalAPIURL,
 		gcpProject:          conf.GcpProject,
 		azureSubscriptionID: conf.AzureSubscriptionID,
-		azureClientId:       conf.AzureClientId,
+		azureClientID:       conf.AzureClientID,
 		azureClientSecret:   conf.AzureClientSecret,
-		azureTenantId:       conf.AzureTenantId,
+		azureTenantID:       conf.AzureTenantID,
 	}
 }
 
@@ -113,7 +113,7 @@ func (cl *ByocClient) generateByocArgs(cluster cloudapi.Cluster, verb string) ([
 			"--subscription-id", cl.azureSubscriptionID,
 			"--credential-source", "env",
 			"--identity", "oidc",
-			"--client-id", cl.azureClientId,
+			"--client-id", cl.azureClientID,
 			"--client-secret", cl.azureClientSecret)
 	case CloudProviderStringGcp:
 		if cl.gcpProject == "" {
