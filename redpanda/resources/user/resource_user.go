@@ -238,7 +238,7 @@ func (u *User) createUserClient(clusterURL string) error {
 		return errors.New("unable to create client with empty target cluster API URL")
 	}
 	if u.dataplaneConn == nil {
-		conn, err := cloud.SpawnConn(clusterURL, u.resData.AuthToken)
+		conn, err := cloud.SpawnConn(clusterURL, u.resData.AuthToken, u.resData.ProviderVersion, u.resData.TerraformVersion)
 		if err != nil {
 			return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
 		}

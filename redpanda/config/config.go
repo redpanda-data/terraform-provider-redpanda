@@ -28,6 +28,8 @@ type Resource struct {
 	AuthToken              string
 	ByocClient             *utils.ByocClient
 	ControlPlaneConnection *grpc.ClientConn
+	TerraformVersion       string
+	ProviderVersion        string
 }
 
 // Datasource is the config used to pass data and dependencies to data source
@@ -35,6 +37,8 @@ type Resource struct {
 type Datasource struct {
 	AuthToken              string
 	ControlPlaneConnection *grpc.ClientConn
+	TerraformVersion       string
+	ProviderVersion        string
 }
 
 // TODO add cloud provider and region as values to persist

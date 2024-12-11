@@ -258,7 +258,7 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		return
 	}
 	if r.conn == nil {
-		conn, err := cloud.SpawnConn(creds.EndpointAPIURL, creds.Token)
+		conn, err := cloud.SpawnConn(creds.EndpointAPIURL, creds.Token, r.version, request.TerraformVersion)
 		if err != nil {
 			response.Diagnostics.AddError("failed to open a connection with the Redpanda Cloud API", err.Error())
 			return
@@ -305,10 +305,14 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		AuthToken:              creds.Token,
 		ByocClient:             r.byoc,
 		ControlPlaneConnection: r.conn,
+		TerraformVersion:       request.TerraformVersion,
+		ProviderVersion:        r.version,
 	}
 	response.DataSourceData = config.Datasource{
 		AuthToken:              creds.Token,
 		ControlPlaneConnection: r.conn,
+		TerraformVersion:       request.TerraformVersion,
+		ProviderVersion:        r.version,
 	}
 }
 

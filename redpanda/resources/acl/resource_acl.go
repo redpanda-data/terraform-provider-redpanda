@@ -340,7 +340,7 @@ func (a *ACL) createACLClient(clusterURL string) error {
 		return nil
 	}
 	if a.dataplaneConn == nil {
-		conn, err := cloud.SpawnConn(clusterURL, a.resData.AuthToken)
+		conn, err := cloud.SpawnConn(clusterURL, a.resData.AuthToken, a.resData.ProviderVersion, a.resData.TerraformVersion)
 		if err != nil {
 			return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
 		}

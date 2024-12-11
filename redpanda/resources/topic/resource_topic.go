@@ -313,7 +313,7 @@ func (t *Topic) createTopicClient(clusterURL string) error {
 		return nil
 	}
 	if t.dataplaneConn == nil {
-		conn, err := cloud.SpawnConn(clusterURL, t.resData.AuthToken)
+		conn, err := cloud.SpawnConn(clusterURL, t.resData.AuthToken, t.resData.ProviderVersion, t.resData.TerraformVersion)
 		if err != nil {
 			return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
 		}
