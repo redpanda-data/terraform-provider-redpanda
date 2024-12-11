@@ -149,7 +149,7 @@ steps:
   - label: test_byoc_azure
     key: test_byoc_azure
     if: build.pull_request.labels includes 'byoc-ready'
-    command: make test_byoc_gcp
+    command: make test_byoc_azure
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
