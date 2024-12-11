@@ -160,8 +160,10 @@ steps:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
             - TF_LOG=DEBUG
-            - GOOGLE_CREDENTIALS_BASE64
-            - GOOGLE_PROJECT
+            - AZURE_SUBSCRIPTION_ID
+            - AZURE_CLIENT_ID
+            - AZURE_CLIENT_SECRET
+            - AZURE_TENANT_ID
     depends_on:
       - lint
       - unit
