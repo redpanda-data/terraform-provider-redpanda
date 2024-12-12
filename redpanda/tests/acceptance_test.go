@@ -245,7 +245,7 @@ func TestAccResourcesByocAWS(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testaws)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, "", awsByocClusterFile, t)
+	testRunner(ctx, name, rename, redpandaVersion, awsByocClusterFile, t)
 }
 
 func TestAccResourcesByocAzure(t *testing.T) {
@@ -255,7 +255,7 @@ func TestAccResourcesByocAzure(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testazure)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, "", azureByocClusterFile, t)
+	testRunner(ctx, name, rename, redpandaVersion, azureByocClusterFile, t)
 }
 
 func TestAccResourcesByocGCP(t *testing.T) {

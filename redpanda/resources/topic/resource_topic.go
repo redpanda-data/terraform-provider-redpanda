@@ -138,12 +138,12 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 
 	cfg, err := utils.MapToCreateTopicConfiguration(model.Configuration)
 	if err != nil {
-		response.Diagnostics.AddError(fmt.Sprintf("failed to parse topic configuration for %s", model.Name), err.Error())
+		response.Diagnostics.AddError(fmt.Sprintf("failed to parse topic configuration for %s", model.Name), utils.DeserializeGrpcError(err))
 		return
 	}
 	err = t.createTopicClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("failed to create topic client", err.Error())
+		response.Diagnostics.AddError("failed to create topic client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer t.dataplaneConn.Close()
@@ -170,19 +170,19 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 			)
 			return
 		}
-		response.Diagnostics.AddError(fmt.Sprintf("failed to create topic %q", model.Name.ValueString()), err.Error())
+		response.Diagnostics.AddError(fmt.Sprintf("failed to create topic %q", model.Name.ValueString()), utils.DeserializeGrpcError(err))
 		return
 	}
 
 	tpCfgRes, err := t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1alpha2.GetTopicConfigurationsRequest{TopicName: topic.Name})
 	if err != nil {
-		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration", topic.Name), err.Error())
+		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration", topic.Name), utils.DeserializeGrpcError(err))
 		return
 	}
 	tpCfg := filterDynamicConfig(tpCfgRes.Configurations)
 	tpCfgMap, err := utils.TopicConfigurationToMap(tpCfg)
 	if err != nil {
-		response.Diagnostics.AddError("unable to parse the topic configuration", err.Error())
+		response.Diagnostics.AddError("unable to parse the topic configuration", utils.DeserializeGrpcError(err))
 		return
 	}
 	response.Diagnostics.Append(response.State.Set(ctx, models.Topic{
@@ -202,7 +202,7 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 	err := t.createTopicClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("failed to create topic client", err.Error())
+		response.Diagnostics.AddError("failed to create topic client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer t.dataplaneConn.Close()
@@ -212,18 +212,18 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 			response.State.RemoveResource(ctx)
 			return
 		}
-		response.Diagnostics.AddError(fmt.Sprintf("failed receive response from topic api for topic %s", model.Name), err.Error())
+		response.Diagnostics.AddError(fmt.Sprintf("failed receive response from topic api for topic %s", model.Name), utils.DeserializeGrpcError(err))
 		return
 	}
 	tpCfgRes, err := t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1alpha2.GetTopicConfigurationsRequest{TopicName: tp.Name})
 	if err != nil {
-		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration", tp.Name), err.Error())
+		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration", tp.Name), utils.DeserializeGrpcError(err))
 		return
 	}
 	tpCfg := filterDynamicConfig(tpCfgRes.Configurations)
 	topicCfg, err := utils.TopicConfigurationToMap(tpCfg)
 	if err != nil {
-		response.Diagnostics.AddError("unable to parse the topic configuration", err.Error())
+		response.Diagnostics.AddError("unable to parse the topic configuration", utils.DeserializeGrpcError(err))
 		return
 	}
 	response.Diagnostics.Append(response.State.Set(ctx, models.Topic{
@@ -244,14 +244,14 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 	response.Diagnostics.Append(request.State.Get(ctx, &state)...)
 	err := t.createTopicClient(plan.ClusterAPIURL.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("failed to create topic client", err.Error())
+		response.Diagnostics.AddError("failed to create topic client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer t.dataplaneConn.Close()
 	if !plan.Configuration.Equal(state.Configuration) {
 		cfgToSet, err := utils.MapToSetTopicConfiguration(plan.Configuration)
 		if err != nil {
-			response.Diagnostics.AddError("unable to parse the plan topic configuration", err.Error())
+			response.Diagnostics.AddError("unable to parse the plan topic configuration", utils.DeserializeGrpcError(err))
 			return
 		}
 		_, err = t.TopicClient.SetTopicConfigurations(ctx, &dataplanev1alpha2.SetTopicConfigurationsRequest{
@@ -259,7 +259,7 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 			Configurations: cfgToSet,
 		})
 		if err != nil {
-			response.Diagnostics.AddError("failed to update topic configuration", err.Error())
+			response.Diagnostics.AddError("failed to update topic configuration", utils.DeserializeGrpcError(err))
 			return
 		}
 	}
@@ -276,7 +276,7 @@ func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, resp
 	}
 	err := t.createTopicClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("failed to create topic client", err.Error())
+		response.Diagnostics.AddError("failed to create topic client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer t.dataplaneConn.Close()
@@ -284,7 +284,7 @@ func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, resp
 		Name: model.Name.ValueString(),
 	})
 	if err != nil {
-		response.Diagnostics.AddError(fmt.Sprintf("failed to delete topic %s", model.Name), err.Error())
+		response.Diagnostics.AddError(fmt.Sprintf("failed to delete topic %s", model.Name), utils.DeserializeGrpcError(err))
 	}
 }
 
@@ -300,7 +300,7 @@ func (t *Topic) ImportState(ctx context.Context, req resource.ImportStateRequest
 	client := cloud.NewControlPlaneClientSet(t.resData.ControlPlaneConnection)
 	cluster, err := client.ClusterForID(ctx, clusterID)
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to find cluster with ID %q; make sure ADDR ID format is <topic_name>,<cluster_id>", clusterID), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to find cluster with ID %q; make sure ADDR ID format is <topic_name>,<cluster_id>", clusterID), utils.DeserializeGrpcError(err))
 		return
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(topicName))...)
@@ -313,9 +313,9 @@ func (t *Topic) createTopicClient(clusterURL string) error {
 		return nil
 	}
 	if t.dataplaneConn == nil {
-		conn, err := cloud.SpawnConn(clusterURL, t.resData.AuthToken)
+		conn, err := cloud.SpawnConn(clusterURL, t.resData.AuthToken, t.resData.ProviderVersion, t.resData.TerraformVersion)
 		if err != nil {
-			return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
+			return fmt.Errorf("unable to open a connection with the cluster API: %v", utils.DeserializeGrpcError(err))
 		}
 		t.dataplaneConn = conn
 	}
@@ -338,5 +338,5 @@ func filterDynamicConfig(configs []*dataplanev1alpha2.Topic_Configuration) []*da
 }
 
 func isAlreadyExistsError(err error) bool {
-	return strings.Contains(err.Error(), "TOPIC_ALREADY_EXISTS") || strings.Contains(err.Error(), "The topic has already been created")
+	return strings.Contains(utils.DeserializeGrpcError(err), "TOPIC_ALREADY_EXISTS") || strings.Contains(utils.DeserializeGrpcError(err), "The topic has already been created")
 }
