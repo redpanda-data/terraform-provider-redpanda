@@ -175,7 +175,7 @@ steps:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
-          image: "golang:1.22"
+          image: "goreleaser/goreleaser:latest"
           environment:
             - GITHUB_TOKEN
             - GPG_PRIVATE_KEY
@@ -184,6 +184,5 @@ steps:
             - bash
             - -c
             - |
-              echo "GPG_PRIVATE_KEY" | gpg --batch --import
-              git fetch --tags
-              curl -sL https://git.io/goreleaser | bash -s -- release --clean
+              echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+              goreleaser release --clean
