@@ -173,7 +173,7 @@ func getCredentials(ctx context.Context, cloudEnv string, conf models.Redpanda) 
 
 	endpoint, err := cloud.EndpointForEnv(cloudEnv)
 	if err != nil {
-		diags.AddError("error retrieving correct endpoint", err.Error())
+		diags.AddError("error retrieving correct endpoint", utils.DeserializeGrpcError(err))
 		return creds, diags
 	}
 	creds.EndpointAPIURL = endpoint.APIURL
@@ -192,7 +192,7 @@ func getCredentials(ctx context.Context, cloudEnv string, conf models.Redpanda) 
 		if creds.Token == "" {
 			creds.Token, err = cloud.RequestToken(ctx, endpoint, creds.ClientID, creds.ClientSecret)
 			if err != nil {
-				diags.AddError("failed to authenticate with Redpanda API", err.Error())
+				diags.AddError("failed to authenticate with Redpanda API", utils.DeserializeGrpcError(err))
 			}
 		}
 		return creds, diags
@@ -218,7 +218,7 @@ func getCredentials(ctx context.Context, cloudEnv string, conf models.Redpanda) 
 		if creds.Token == "" {
 			creds.Token, err = cloud.RequestToken(ctx, endpoint, creds.ClientID, creds.ClientSecret)
 			if err != nil {
-				diags.AddError("failed to authenticate with Redpanda API", err.Error())
+				diags.AddError("failed to authenticate with Redpanda API", utils.DeserializeGrpcError(err))
 			}
 		}
 		return creds, diags
@@ -258,9 +258,9 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		return
 	}
 	if r.conn == nil {
-		conn, err := cloud.SpawnConn(creds.EndpointAPIURL, creds.Token)
+		conn, err := cloud.SpawnConn(creds.EndpointAPIURL, creds.Token, r.version, request.TerraformVersion)
 		if err != nil {
-			response.Diagnostics.AddError("failed to open a connection with the Redpanda Cloud API", err.Error())
+			response.Diagnostics.AddError("failed to open a connection with the Redpanda Cloud API", utils.DeserializeGrpcError(err))
 			return
 		}
 		r.conn = conn
@@ -272,19 +272,36 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	// then Redpanda will correctly pick up the variables as well.
 	azureSubscriptionID := firstNonEmptyString(
 		conf.AzureSubscriptionID.ValueString(),
-		os.Getenv("ARM_SUBSCRIPTION_ID"))
+		os.Getenv("ARM_SUBSCRIPTION_ID"),
+		os.Getenv("AZURE_SUBSCRIPTION_ID"))
 	gcpProjectID := firstNonEmptyString(
 		conf.GcpProjectID.ValueString(),
 		os.Getenv("GOOGLE_PROJECT"),
 		os.Getenv("GOOGLE_CLOUD_PROJECT"),
 		os.Getenv("GCLOUD_PROJECT"),
 		os.Getenv("CLOUDSDK_CORE_PROJECT"))
+	azureClientID := firstNonEmptyString(
+		os.Getenv("AZURE_CLIENT_ID"),
+		os.Getenv("ARM_CLIENT_ID"))
+	azureClientSecret := firstNonEmptyString(
+		os.Getenv("AZURE_CLIENT_SECRET"),
+		os.Getenv("ARM_CLIENT_SECRET"))
+	azureTenantID := firstNonEmptyString(
+		os.Getenv("AZURE_TENANT_ID"),
+		os.Getenv("ARM_TENANT_ID"))
+	googleCredentials := os.Getenv("GOOGLE_CREDENTIALS")
+	googleCredentialsBase64 := os.Getenv("GOOGLE_CREDENTIALS_BASE64")
 	if r.byoc == nil {
 		r.byoc = utils.NewByocClient(utils.ByocClientConfig{
-			AuthToken:           creds.Token,
-			AzureSubscriptionID: azureSubscriptionID,
-			GcpProject:          gcpProjectID,
-			InternalAPIURL:      creds.InternalAPIURL,
+			AuthToken:               creds.Token,
+			InternalAPIURL:          creds.InternalAPIURL,
+			GcpProject:              gcpProjectID,
+			AzureSubscriptionID:     azureSubscriptionID,
+			AzureClientID:           azureClientID,
+			AzureClientSecret:       azureClientSecret,
+			AzureTenantID:           azureTenantID,
+			GoogleCredentials:       googleCredentials,
+			GoogleCredentialsBase64: googleCredentialsBase64,
 		})
 	}
 
@@ -292,10 +309,14 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		AuthToken:              creds.Token,
 		ByocClient:             r.byoc,
 		ControlPlaneConnection: r.conn,
+		TerraformVersion:       request.TerraformVersion,
+		ProviderVersion:        r.version,
 	}
 	response.DataSourceData = config.Datasource{
 		AuthToken:              creds.Token,
 		ControlPlaneConnection: r.conn,
+		TerraformVersion:       request.TerraformVersion,
+		ProviderVersion:        r.version,
 	}
 }
 

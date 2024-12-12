@@ -26,12 +26,12 @@ steps:
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
-            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
           image: "golang:1.22"
           environment:
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
             - TF_LOG=DEBUG
     depends_on:
       - lint
@@ -43,12 +43,12 @@ steps:
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
-            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
           image: "golang:1.22"
           environment:
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
             - TF_LOG=DEBUG
     depends_on:
       - lint
@@ -61,12 +61,12 @@ steps:
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
-            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
           image: "golang:1.22"
           environment:
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
             - TF_LOG=DEBUG
     depends_on:
       - lint
@@ -79,12 +79,12 @@ steps:
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
-            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
           image: "golang:1.22"
           environment:
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
             - TF_LOG=DEBUG
     depends_on:
       - lint
@@ -97,14 +97,73 @@ steps:
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
-            - secret-id: sdlc/prod/buildkite/integration_provider_secret_redpanda_client
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
           image: "golang:1.22"
           environment:
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_ID
-            - INTEGRATION_PROVIDER_SECRET_REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
             - TF_LOG=DEBUG
     depends_on:
       - lint
       - unit
       - test_network
+  - label: test_byoc_aws
+    key: test_byoc_aws
+    if: build.pull_request.labels includes 'byoc-ready'
+    command: make test_byoc_aws
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.12.0:
+          image: "golang:1.22"
+          environment:
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
+            - TF_LOG=DEBUG
+            - AWS_ACCESS_KEY_ID
+            - AWS_SECRET_ACCESS_KEY
+    depends_on:
+      - lint
+      - unit
+  - label: test_byoc_gcp
+    key: test_byoc_gcp
+    if: build.pull_request.labels includes 'byoc-ready'
+    command: make test_byoc_gcp
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.11.0:
+          image: "golang:1.22"
+          environment:
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
+            - TF_LOG=DEBUG
+            - GOOGLE_CREDENTIALS_BASE64
+            - GOOGLE_PROJECT
+    depends_on:
+      - lint
+      - unit
+  - label: test_byoc_azure
+    key: test_byoc_azure
+    if: build.pull_request.labels includes 'byoc-ready'
+    command: make test_byoc_azure
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.11.0:
+          image: "golang:1.22"
+          environment:
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
+            - TF_LOG=DEBUG
+            - AZURE_SUBSCRIPTION_ID
+            - AZURE_CLIENT_ID
+            - AZURE_CLIENT_SECRET
+            - AZURE_TENANT_ID
+    depends_on:
+      - lint
+      - unit

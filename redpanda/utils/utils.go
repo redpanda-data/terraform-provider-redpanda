@@ -406,3 +406,20 @@ func TypeMapToStringMap(tags types.Map) map[string]string {
 	}
 	return tagsMap
 }
+
+// DeserializeGrpcError err.Error() if it is a standard error. If it is a GRPC error, it returns status and codes
+// for sure and details if they're set. Mild formatting to put details on a separate line for readability
+func DeserializeGrpcError(err error) string {
+	if err == nil {
+		return ""
+	}
+	st, ok := grpcstatus.FromError(err)
+	if !ok {
+		return err.Error()
+	}
+
+	if len(st.Details()) > 0 {
+		return fmt.Sprintf("%s : %s\n%s", st.Code(), st.Message(), st.Details())
+	}
+	return fmt.Sprintf("%s : %s", st.Code(), st.Message())
+}
