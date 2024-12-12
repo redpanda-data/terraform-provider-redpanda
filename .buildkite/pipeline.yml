@@ -167,3 +167,23 @@ steps:
     depends_on:
       - lint
       - unit
+  - label: Release
+    key: release
+    if: build.tag =~ /^v/
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.11.0:
+          image: "golang:1.22"
+          environment:
+            - GITHUB_TOKEN
+            - GPG_PRIVATE_KEY
+            - PASSPHRASE
+          command:
+            - bash
+            - -c
+            - |
+              echo "GPG_PRIVATE_KEY" | gpg --batch --import
+              git fetch --tags
+              curl -sL https://git.io/goreleaser | bash -s -- release --clean
