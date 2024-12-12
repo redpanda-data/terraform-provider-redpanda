@@ -69,10 +69,10 @@ func (d *DataSourceServerlessCluster) Read(ctx context.Context, req datasource.R
 	serverlessCluster, err := d.CpCl.ServerlessClusterForID(ctx, model.ID.ValueString())
 	if err != nil {
 		if utils.IsNotFound(err) {
-			resp.Diagnostics.AddError(fmt.Sprintf("unable to find serverless cluster %s", model.ID), err.Error())
+			resp.Diagnostics.AddError(fmt.Sprintf("unable to find serverless cluster %s", model.ID), utils.DeserializeGrpcError(err))
 			return
 		}
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to read serverless cluster %s", model.ID), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to read serverless cluster %s", model.ID), utils.DeserializeGrpcError(err))
 		return
 	}
 	// Mapping the fields from the serverless cluster to the Terraform state

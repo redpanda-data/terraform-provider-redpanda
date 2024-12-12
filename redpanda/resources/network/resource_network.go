@@ -139,12 +139,12 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 
 	cloudProvider, err := utils.StringToCloudProvider(model.CloudProvider.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("unsupported cloud provider", err.Error())
+		response.Diagnostics.AddError("unsupported cloud provider", utils.DeserializeGrpcError(err))
 		return
 	}
 	clusterType, err := utils.StringToClusterType(model.ClusterType.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("unsupported cluster type", err.Error())
+		response.Diagnostics.AddError("unsupported cluster type", utils.DeserializeGrpcError(err))
 		return
 	}
 
@@ -159,7 +159,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		},
 	})
 	if err != nil {
-		response.Diagnostics.AddError("failed to create network", err.Error())
+		response.Diagnostics.AddError("failed to create network", utils.DeserializeGrpcError(err))
 		return
 	}
 	op := netResp.Operation
@@ -167,13 +167,13 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("id"), utils.TrimmedStringValue(op.GetResourceId()))...)
 
 	if err := utils.AreWeDoneYet(ctx, op, 15*time.Minute, n.CpCl.Operation); err != nil {
-		response.Diagnostics.AddError("failed waiting for network creation", err.Error())
+		response.Diagnostics.AddError("failed waiting for network creation", utils.DeserializeGrpcError(err))
 		return
 	}
 
 	nw, err := n.CpCl.NetworkForID(ctx, op.GetResourceId())
 	if err != nil {
-		response.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", op.GetResourceId()), err.Error())
+		response.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", op.GetResourceId()), utils.DeserializeGrpcError(err))
 		return
 	}
 	response.Diagnostics.Append(response.State.Set(ctx, generateModel(nw))...)
@@ -189,7 +189,7 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 			response.State.RemoveResource(ctx)
 			return
 		}
-		response.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.ID.ValueString()), err.Error())
+		response.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.ID.ValueString()), utils.DeserializeGrpcError(err))
 		return
 	}
 	if nw.GetState() == controlplanev1beta2.Network_STATE_DELETING {
@@ -215,11 +215,11 @@ func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, re
 		Id: model.ID.ValueString(),
 	})
 	if err != nil {
-		response.Diagnostics.AddError("failed to delete network", err.Error())
+		response.Diagnostics.AddError("failed to delete network", utils.DeserializeGrpcError(err))
 		return
 	}
 	if err := utils.AreWeDoneYet(ctx, netResp.Operation, 15*time.Minute, n.CpCl.Operation); err != nil {
-		response.Diagnostics.AddError("failed waiting for network deletion", err.Error())
+		response.Diagnostics.AddError("failed waiting for network deletion", utils.DeserializeGrpcError(err))
 	}
 }
 

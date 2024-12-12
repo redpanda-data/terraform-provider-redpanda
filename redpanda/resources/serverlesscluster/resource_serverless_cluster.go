@@ -116,12 +116,12 @@ func (c *ServerlessCluster) Create(ctx context.Context, req resource.CreateReque
 
 	clusterReq, err := GenerateServerlessClusterRequest(model)
 	if err != nil {
-		resp.Diagnostics.AddError("unable to parse CreateServerlessCluster request", err.Error())
+		resp.Diagnostics.AddError("unable to parse CreateServerlessCluster request", utils.DeserializeGrpcError(err))
 		return
 	}
 	clResp, err := c.CpCl.ServerlessCluster.CreateServerlessCluster(ctx, &controlplanev1beta2.CreateServerlessClusterRequest{ServerlessCluster: clusterReq})
 	if err != nil {
-		resp.Diagnostics.AddError("failed to create serverless cluster", err.Error())
+		resp.Diagnostics.AddError("failed to create serverless cluster", utils.DeserializeGrpcError(err))
 		return
 	}
 	op := clResp.Operation
@@ -131,12 +131,12 @@ func (c *ServerlessCluster) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 	if err := utils.AreWeDoneYet(ctx, op, time.Minute, c.CpCl.Operation); err != nil {
-		resp.Diagnostics.AddError("operation error while creating serverless cluster", err.Error())
+		resp.Diagnostics.AddError("operation error while creating serverless cluster", utils.DeserializeGrpcError(err))
 		return
 	}
 	cluster, err := c.CpCl.ServerlessClusterForID(ctx, op.GetResourceId())
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("successfully created the serverless cluster with ID %q, but failed to read the serverless cluster configuration: %v", op.GetResourceId(), err), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("successfully created the serverless cluster with ID %q, but failed to read the serverless cluster configuration: %v", op.GetResourceId(), err), utils.DeserializeGrpcError(err))
 		return
 	}
 	persist := generateModel(cluster)
@@ -155,7 +155,7 @@ func (c *ServerlessCluster) Read(ctx context.Context, req resource.ReadRequest, 
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to read serverless cluster %s", model.ID), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to read serverless cluster %s", model.ID), utils.DeserializeGrpcError(err))
 		return
 	}
 	if cluster.GetState() == controlplanev1beta2.ServerlessCluster_STATE_DELETING {
@@ -193,12 +193,12 @@ func (c *ServerlessCluster) Delete(ctx context.Context, req resource.DeleteReque
 		Id: model.ID.ValueString(),
 	})
 	if err != nil {
-		resp.Diagnostics.AddError("failed to delete serverless cluster", err.Error())
+		resp.Diagnostics.AddError("failed to delete serverless cluster", utils.DeserializeGrpcError(err))
 		return
 	}
 
 	if err := utils.AreWeDoneYet(ctx, clResp.Operation, time.Minute, c.CpCl.Operation); err != nil {
-		resp.Diagnostics.AddError("failed to delete serverless cluster", err.Error())
+		resp.Diagnostics.AddError("failed to delete serverless cluster", utils.DeserializeGrpcError(err))
 		return
 	}
 }

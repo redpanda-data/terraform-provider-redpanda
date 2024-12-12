@@ -97,7 +97,7 @@ func (r *DataSourceThroughputTiers) Read(ctx context.Context, req datasource.Rea
 	if !model.CloudProvider.IsNull() {
 		cloudProvider, err := utils.StringToCloudProvider(model.CloudProvider.ValueString())
 		if err != nil {
-			resp.Diagnostics.AddError("unsupported cloud provider", err.Error())
+			resp.Diagnostics.AddError("unsupported cloud provider", utils.DeserializeGrpcError(err))
 			return
 		}
 
@@ -108,7 +108,7 @@ func (r *DataSourceThroughputTiers) Read(ctx context.Context, req datasource.Rea
 
 	tiers, err := r.CpCl.ThroughputTier.ListThroughputTiers(ctx, listReq)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to read throughput tiers", err.Error())
+		resp.Diagnostics.AddError("failed to read throughput tiers", utils.DeserializeGrpcError(err))
 		return
 	}
 	if tiers.ThroughputTiers == nil {

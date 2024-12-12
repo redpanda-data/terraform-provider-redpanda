@@ -139,30 +139,30 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 
 	resourceType, err := stringToACLResourceType(model.ResourceType.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("Error converting resource type", err.Error())
+		response.Diagnostics.AddError("Error converting resource type", utils.DeserializeGrpcError(err))
 		return
 	}
 
 	resourcePatternType, err := stringToACLResourcePatternType(model.ResourcePatternType.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("Error converting resource pattern type", err.Error())
+		response.Diagnostics.AddError("Error converting resource pattern type", utils.DeserializeGrpcError(err))
 		return
 	}
 
 	operation, err := stringToACLOperation(model.Operation.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("Error converting operation", err.Error())
+		response.Diagnostics.AddError("Error converting operation", utils.DeserializeGrpcError(err))
 		return
 	}
 
 	permissionType, err := stringToACLPermissionType(model.PermissionType.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("Error converting permission type", err.Error())
+		response.Diagnostics.AddError("Error converting permission type", utils.DeserializeGrpcError(err))
 		return
 	}
 
 	if err := a.createACLClient(model.ClusterAPIURL.ValueString()); err != nil {
-		response.Diagnostics.AddError("failed to create ACL client", err.Error())
+		response.Diagnostics.AddError("failed to create ACL client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer a.dataplaneConn.Close()
@@ -177,7 +177,7 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		PermissionType:      permissionType,
 	})
 	if err != nil {
-		response.Diagnostics.AddError("Failed to create ACL", err.Error())
+		response.Diagnostics.AddError("Failed to create ACL", utils.DeserializeGrpcError(err))
 		return
 	}
 
@@ -200,25 +200,25 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 
 	resourceType, err := stringToACLResourceType(model.ResourceType.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("Error converting resource type", err.Error())
+		response.Diagnostics.AddError("Error converting resource type", utils.DeserializeGrpcError(err))
 		return
 	}
 
 	resourcePatternType, err := stringToACLResourcePatternType(model.ResourcePatternType.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("Error converting resource pattern type", err.Error())
+		response.Diagnostics.AddError("Error converting resource pattern type", utils.DeserializeGrpcError(err))
 		return
 	}
 
 	operation, err := stringToACLOperation(model.Operation.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("Error converting operation", err.Error())
+		response.Diagnostics.AddError("Error converting operation", utils.DeserializeGrpcError(err))
 		return
 	}
 
 	permissionType, err := stringToACLPermissionType(model.PermissionType.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("Error converting permission type", err.Error())
+		response.Diagnostics.AddError("Error converting permission type", utils.DeserializeGrpcError(err))
 		return
 	}
 
@@ -234,13 +234,13 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 
 	err = a.createACLClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("failed to create ACL client", err.Error())
+		response.Diagnostics.AddError("failed to create ACL client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer a.dataplaneConn.Close()
 	aclList, err := a.ACLClient.ListACLs(ctx, &dataplanev1alpha2.ListACLsRequest{Filter: filter})
 	if err != nil {
-		response.Diagnostics.AddError("Failed to list ACLs", err.Error())
+		response.Diagnostics.AddError("Failed to list ACLs", utils.DeserializeGrpcError(err))
 		return
 	}
 
@@ -275,25 +275,25 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 
 	resourceType, err := stringToACLResourceType(model.ResourceType.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("Error converting resource type", err.Error())
+		response.Diagnostics.AddError("Error converting resource type", utils.DeserializeGrpcError(err))
 		return
 	}
 
 	resourcePatternType, err := stringToACLResourcePatternType(model.ResourcePatternType.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("Error converting resource pattern type", err.Error())
+		response.Diagnostics.AddError("Error converting resource pattern type", utils.DeserializeGrpcError(err))
 		return
 	}
 
 	operation, err := stringToACLOperation(model.Operation.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("Error converting operation", err.Error())
+		response.Diagnostics.AddError("Error converting operation", utils.DeserializeGrpcError(err))
 		return
 	}
 
 	permissionType, err := stringToACLPermissionType(model.PermissionType.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("Error converting permission type", err.Error())
+		response.Diagnostics.AddError("Error converting permission type", utils.DeserializeGrpcError(err))
 		return
 	}
 
@@ -308,13 +308,13 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 	}
 	err = a.createACLClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("failed to create ACL client", err.Error())
+		response.Diagnostics.AddError("failed to create ACL client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer a.dataplaneConn.Close()
 	deleteResponse, err := a.ACLClient.DeleteACLs(ctx, &dataplanev1alpha2.DeleteACLsRequest{Filter: filter})
 	if err != nil {
-		response.Diagnostics.AddError("Failed to delete ACL", err.Error())
+		response.Diagnostics.AddError("Failed to delete ACL", utils.DeserializeGrpcError(err))
 		return
 	}
 
@@ -340,7 +340,7 @@ func (a *ACL) createACLClient(clusterURL string) error {
 		return nil
 	}
 	if a.dataplaneConn == nil {
-		conn, err := cloud.SpawnConn(clusterURL, a.resData.AuthToken)
+		conn, err := cloud.SpawnConn(clusterURL, a.resData.AuthToken, a.resData.ProviderVersion, a.resData.TerraformVersion)
 		if err != nil {
 			return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
 		}

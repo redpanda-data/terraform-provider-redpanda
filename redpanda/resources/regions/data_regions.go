@@ -95,7 +95,7 @@ func (r *DataSourceRegions) Read(ctx context.Context, req datasource.ReadRequest
 
 	cloudProvider, err := utils.StringToCloudProvider(model.CloudProvider.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("unsupported cloud provider", err.Error())
+		resp.Diagnostics.AddError("unsupported cloud provider", utils.DeserializeGrpcError(err))
 		return
 	}
 
@@ -103,7 +103,7 @@ func (r *DataSourceRegions) Read(ctx context.Context, req datasource.ReadRequest
 		CloudProvider: cloudProvider,
 	})
 	if err != nil {
-		resp.Diagnostics.AddError("failed to read regions", err.Error())
+		resp.Diagnostics.AddError("failed to read regions", utils.DeserializeGrpcError(err))
 		return
 	}
 	if regions.Regions == nil {
