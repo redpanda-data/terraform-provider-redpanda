@@ -21,7 +21,7 @@ steps:
 
   - label: test_network
     key: test_network
-    if: build.pull_request.labels includes 'ci-ready'
+    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: make test_network
     plugins:
       - seek-oss/aws-sm#v2.3.2:
@@ -38,7 +38,7 @@ steps:
       - unit
   - label: test_cluster_aws
     key: test_cluster_aws
-    if: build.pull_request.labels includes 'ci-ready'
+    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: make test_cluster_aws
     plugins:
       - seek-oss/aws-sm#v2.3.2:
@@ -56,7 +56,7 @@ steps:
       - test_network
   - label: test_cluster_azure
     key: test_cluster_azure
-    if: build.pull_request.labels includes 'ci-ready'
+    if: build.tag == null &&  build.pull_request.labels includes 'ci-ready'
     command: make test_cluster_azure
     plugins:
       - seek-oss/aws-sm#v2.3.2:
@@ -74,7 +74,7 @@ steps:
       - test_network
   - label: test_cluster_gcp
     key: test_cluster_gcp
-    if: build.pull_request.labels includes 'ci-ready'
+    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: make test_cluster_gcp
     plugins:
       - seek-oss/aws-sm#v2.3.2:
@@ -92,7 +92,7 @@ steps:
       - test_network
   - label: test_serverless_cluster
     key: test_serverless_cluster
-    if: build.pull_request.labels includes 'ci-ready'
+    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: make test_serverless_cluster
     plugins:
       - seek-oss/aws-sm#v2.3.2:
@@ -110,7 +110,7 @@ steps:
       - test_network
   - label: test_byoc_aws
     key: test_byoc_aws
-    if: build.pull_request.labels includes 'byoc-ready'
+    if: build.tag == null && build.pull_request.labels includes 'byoc-ready'
     command: make test_byoc_aws
     plugins:
       - seek-oss/aws-sm#v2.3.2:
@@ -129,7 +129,7 @@ steps:
       - unit
   - label: test_byoc_gcp
     key: test_byoc_gcp
-    if: build.pull_request.labels includes 'byoc-ready'
+    if: build.tag == null && build.pull_request.labels includes 'byoc-ready'
     command: make test_byoc_gcp
     plugins:
       - seek-oss/aws-sm#v2.3.2:
@@ -148,7 +148,7 @@ steps:
       - unit
   - label: test_byoc_azure
     key: test_byoc_azure
-    if: build.pull_request.labels includes 'byoc-ready'
+    if: build.tag == null && build.pull_request.labels includes 'byoc-ready'
     command: make test_byoc_azure
     plugins:
       - seek-oss/aws-sm#v2.3.2:
@@ -169,7 +169,7 @@ steps:
       - unit
   - label: Release
     key: release
-    if: build.tag =~ /^v/
+    if: build.tag != null && build.tag =~ /^v/
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
