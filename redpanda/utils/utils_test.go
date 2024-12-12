@@ -2,9 +2,11 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,7 +17,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/mocks"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 func TestAreWeDoneYet(t *testing.T) {
@@ -549,6 +554,62 @@ func TestFindTopicByName(t *testing.T) {
 
 			if !reflect.DeepEqual(topic, tc.expectedTopic) {
 				t.Errorf("Expected topic %+v, but got %+v", tc.expectedTopic, topic)
+			}
+		})
+	}
+}
+
+func normalizeString(s string) string {
+	// Replace all whitespace with single spaces
+	s = strings.Join(strings.Fields(s), " ")
+	// Normalize line endings
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	return s
+}
+
+func TestDeserializeGrpcError(t *testing.T) {
+	detailedStatus, _ := grpcstatus.New(codes.InvalidArgument, "invalid parameter").WithDetails(
+		&errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{
+				{
+					Field:       "user_id",
+					Description: "must be positive integer",
+				},
+			},
+		},
+	)
+	tests := []struct {
+		name     string
+		err      error
+		expected string
+	}{
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: "",
+		},
+		{
+			name:     "regular error",
+			err:      errors.New("standard error"),
+			expected: "standard error",
+		},
+		{
+			name:     "basic grpc error",
+			err:      grpcstatus.Error(codes.NotFound, "resource not found"),
+			expected: "NotFound : resource not found",
+		},
+		{
+			name:     "grpc error",
+			err:      detailedStatus.Err(),
+			expected: "InvalidArgument : invalid parameter\n[field_violations:{field:\"user_id\" description:\"must be positive integer\"}]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := DeserializeGrpcError(tt.err)
+			if normalizeString(got) != normalizeString(tt.expected) {
+				t.Errorf("DeserializeGrpcError() got:\n%q\nwant:\n%q", got, tt.expected)
 			}
 		})
 	}
