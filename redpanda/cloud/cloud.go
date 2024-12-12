@@ -25,6 +25,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -143,7 +144,7 @@ func parseHTTPSURLAsGrpc(url string) (string, error) {
 
 // SpawnConn returns a grpc connection to the given URL, it adds a bearer token
 // to each request with the given 'authToken'.
-func SpawnConn(url, authToken string) (*grpc.ClientConn, error) {
+func SpawnConn(url, authToken, providerVersion, terraformVersion string) (*grpc.ClientConn, error) {
 	// we need a GRPC URL, but it's likely that we'll be given an HTTPS URL instead
 	grpcURL, err := parseHTTPSURLAsGrpc(url)
 	if err != nil {
@@ -158,6 +159,9 @@ func SpawnConn(url, authToken string) (*grpc.ClientConn, error) {
 			func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 				return invoker(metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", authToken)), method, req, reply, cc, opts...)
 			},
+			func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+				return invoker(metadata.AppendToOutgoingContext(ctx, "user-agent", fmt.Sprintf("Terraform/%s %s_%s terraform-provider-redpanda/%s", terraformVersion, runtime.GOOS, runtime.GOARCH, providerVersion)), method, req, reply, cc, opts...)
+			},
 			func(ctx context.Context, method string, req any, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 				start := time.Now()
 				err := invoker(ctx, method, req, reply, cc, opts...)
@@ -171,7 +175,7 @@ func SpawnConn(url, authToken string) (*grpc.ClientConn, error) {
 			rl.Limiter,
 			// Retry interceptor
 			grpcretry.UnaryClientInterceptor(
-				grpcretry.WithCodes(codes.Unavailable, codes.Unknown, codes.Internal),
+				grpcretry.WithCodes(codes.Unavailable, codes.Unknown, codes.Internal, codes.Unauthenticated),
 				grpcretry.WithMax(5),
 				grpcretry.WithBackoff(grpcretry.BackoffExponential(time.Millisecond*100)),
 			),

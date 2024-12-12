@@ -18,6 +18,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 )
@@ -32,7 +33,7 @@ func newTestClients(ctx context.Context, clientID, clientSecret, cloudEnv string
 	if err != nil {
 		return nil, fmt.Errorf("unable to request auth token: %v", err)
 	}
-	conn, err := cloud.SpawnConn(endpoint.APIURL, token)
+	conn, err := cloud.SpawnConn(endpoint.APIURL, token, "dev", os.Getenv("TF_ACC_TERRAFORM_VERSION"))
 	if err != nil {
 		return nil, fmt.Errorf("unable to spawn connection with control plane API: %v", err)
 	}

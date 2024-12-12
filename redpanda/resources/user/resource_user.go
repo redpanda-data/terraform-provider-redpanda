@@ -125,7 +125,7 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 
 	err := u.createUserClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("failed to create user client", err.Error())
+		resp.Diagnostics.AddError("failed to create user client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer u.dataplaneConn.Close()
@@ -137,7 +137,7 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 		},
 	})
 	if err != nil {
-		resp.Diagnostics.AddError("failed to create user", err.Error())
+		resp.Diagnostics.AddError("failed to create user", utils.DeserializeGrpcError(err))
 		return
 	}
 
@@ -156,7 +156,7 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 	err := u.createUserClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("failed to create user client", err.Error())
+		resp.Diagnostics.AddError("failed to create user client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer u.dataplaneConn.Close()
@@ -166,7 +166,7 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to find user %s", model.Name), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to find user %s", model.Name), utils.DeserializeGrpcError(err))
 		return
 	}
 	mechanism := model.Mechanism
@@ -194,7 +194,7 @@ func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 
 	err := u.createUserClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("failed to create user client", err.Error())
+		resp.Diagnostics.AddError("failed to create user client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer u.dataplaneConn.Close()
@@ -202,7 +202,7 @@ func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 		Name: model.Name.ValueString(),
 	})
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to delete user %s", model.Name), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to delete user %s", model.Name), utils.DeserializeGrpcError(err))
 		return
 	}
 }
@@ -222,7 +222,7 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 	client := cloud.NewControlPlaneClientSet(u.resData.ControlPlaneConnection)
 	cluster, err := client.ClusterForID(ctx, clusterID)
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to find cluster with ID %q; make sure ADDR ID format is <user_name>,<cluster_id>", clusterID), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to find cluster with ID %q; make sure ADDR ID format is <user_name>,<cluster_id>", clusterID), utils.DeserializeGrpcError(err))
 		return
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(user))...)
@@ -238,7 +238,7 @@ func (u *User) createUserClient(clusterURL string) error {
 		return errors.New("unable to create client with empty target cluster API URL")
 	}
 	if u.dataplaneConn == nil {
-		conn, err := cloud.SpawnConn(clusterURL, u.resData.AuthToken)
+		conn, err := cloud.SpawnConn(clusterURL, u.resData.AuthToken, u.resData.ProviderVersion, u.resData.TerraformVersion)
 		if err != nil {
 			return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
 		}
