@@ -71,10 +71,10 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 	cluster, err := d.CpCl.ClusterForID(ctx, model.ID.ValueString())
 	if err != nil {
 		if utils.IsNotFound(err) {
-			resp.Diagnostics.AddError(fmt.Sprintf("unable to find cluster %s", model.ID), err.Error())
+			resp.Diagnostics.AddError(fmt.Sprintf("unable to find cluster %s", model.ID), utils.DeserializeGrpcError(err))
 			return
 		}
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), utils.DeserializeGrpcError(err))
 		return
 	}
 
@@ -84,7 +84,7 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 	}
 	tagsValue, diags := types.MapValue(types.StringType, tags)
 	if diags.HasError() {
-		resp.Diagnostics.AddError("unable to parse Cloud tags", err.Error())
+		resp.Diagnostics.AddError("unable to parse Cloud tags", utils.DeserializeGrpcError(err))
 		return
 	}
 

@@ -25,6 +25,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -75,7 +76,7 @@ func (n *DataSourceResourceGroup) Read(ctx context.Context, req datasource.ReadR
 
 	rg, err := n.CpCl.ResourceGroupForIDOrName(ctx, model.ID.ValueString(), model.Name.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("failed to read resource group", err.Error())
+		resp.Diagnostics.AddError("failed to read resource group", utils.DeserializeGrpcError(err))
 		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, models.ResourceGroup{

@@ -95,14 +95,14 @@ func (r *DataSourceServerlessRegions) Read(ctx context.Context, req datasource.R
 
 	cloudProvider, err := utils.StringToCloudProvider(model.CloudProvider.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("unsupported cloud provider", err.Error())
+		resp.Diagnostics.AddError("unsupported cloud provider", utils.DeserializeGrpcError(err))
 		return
 	}
 	regions, err := r.CpCl.ServerlessRegion.ListServerlessRegions(ctx, &controlplanev1beta2.ListServerlessRegionsRequest{
 		CloudProvider: cloudProvider,
 	})
 	if err != nil {
-		resp.Diagnostics.AddError("failed to read regions", err.Error())
+		resp.Diagnostics.AddError("failed to read regions", utils.DeserializeGrpcError(err))
 		return
 	}
 	if regions.ServerlessRegions == nil {

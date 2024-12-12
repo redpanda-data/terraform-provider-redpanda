@@ -105,7 +105,7 @@ func (n *ResourceGroup) Create(ctx context.Context, req resource.CreateRequest, 
 
 	rg, err := n.CpCl.CreateResourceGroup(ctx, model.Name.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("failed to create resource group", err.Error())
+		resp.Diagnostics.AddError("failed to create resource group", utils.DeserializeGrpcError(err))
 		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, models.ResourceGroup{
@@ -124,7 +124,7 @@ func (n *ResourceGroup) Read(ctx context.Context, req resource.ReadRequest, resp
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("failed to read resource group", err.Error())
+		resp.Diagnostics.AddError("failed to read resource group", utils.DeserializeGrpcError(err))
 		return
 	}
 
@@ -146,7 +146,7 @@ func (n *ResourceGroup) Update(ctx context.Context, req resource.UpdateRequest, 
 		},
 	})
 	if err != nil {
-		resp.Diagnostics.AddError("failed to update resource group", err.Error())
+		resp.Diagnostics.AddError("failed to update resource group", utils.DeserializeGrpcError(err))
 		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, models.ResourceGroup{
@@ -168,7 +168,7 @@ func (n *ResourceGroup) Delete(ctx context.Context, req resource.DeleteRequest, 
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("failed to delete resource group", err.Error())
+		resp.Diagnostics.AddError("failed to delete resource group", utils.DeserializeGrpcError(err))
 		return
 	}
 }
