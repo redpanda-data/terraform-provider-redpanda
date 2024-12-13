@@ -184,4 +184,6 @@ steps:
             - GPG_PRIVATE_KEY
             - GPG_FINGERPRINT
             - PASSPHRASE
-          command: "goreleaser release --clean"
+          command:
+            - release
+            - --clean
