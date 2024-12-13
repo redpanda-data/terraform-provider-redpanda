@@ -185,5 +185,5 @@ steps:
             - GPG_FINGERPRINT
             - PASSPHRASE
           command:
+            - make
             - release
-            - --clean

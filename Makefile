@@ -376,3 +376,10 @@ test_serverless_cluster:
 	TF_LOG=$(TF_LOG) \
 	VERSION=ign \
 	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesStrippedDownServerlessCluster
+
+import-gpg:
+	echo "$$GPG_PRIVATE_KEY" | gpg --batch --pinentry-mode loopback --passphrase "$$PASSPHRASE" --import
+
+.PHONY: release
+release: import-gpg
+	goreleaser release --clean
