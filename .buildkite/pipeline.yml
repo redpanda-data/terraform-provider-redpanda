@@ -178,12 +178,10 @@ steps:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
-          image: "goreleaser/goreleaser:latest"
+          image: "glrp/make-goreleaser:latest"
           environment:
             - GITHUB_TOKEN
             - GPG_PRIVATE_KEY
             - GPG_FINGERPRINT
             - PASSPHRASE
-          command:
-            - make
-            - release
+          command: make release
