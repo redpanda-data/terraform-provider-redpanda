@@ -170,6 +170,9 @@ steps:
   - label: Release
     key: release
     if: build.tag != null && build.tag =~ /^v/
+    depends_on:
+      - lint
+      - unit
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -179,10 +182,6 @@ steps:
           environment:
             - GITHUB_TOKEN
             - GPG_PRIVATE_KEY
+            - GPG_FINGERPRINT
             - PASSPHRASE
-          command:
-            - bash
-            - -c
-            - |
-              echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-              goreleaser release --clean
+          command: "goreleaser release --clean"
