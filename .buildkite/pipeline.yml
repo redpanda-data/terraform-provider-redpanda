@@ -170,6 +170,7 @@ steps:
   - label: Release
     key: release
     if: build.tag != null && build.tag =~ /^v/
+    command: make release
     depends_on:
       - lint
       - unit
@@ -184,4 +185,4 @@ steps:
             - GPG_PRIVATE_KEY
             - GPG_FINGERPRINT
             - PASSPHRASE
-          command: make release
+          
