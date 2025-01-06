@@ -382,4 +382,4 @@ import-gpg:
 
 .PHONY: release
 release: import-gpg
-	goreleaser release --clean
+	goreleaser release --clean --verbose
