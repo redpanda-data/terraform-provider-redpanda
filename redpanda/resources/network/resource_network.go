@@ -31,6 +31,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
@@ -127,6 +128,64 @@ func resourceNetworkSchema() schema.Schema {
 				Validators:    validators.ClusterTypes(),
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
+			"customer_managed_resources": schema.SingleNestedAttribute{
+				Optional:   true,
+				CustomType: models.CustomerManagedResourcesType{},
+				Attributes: map[string]schema.Attribute{
+					"aws": schema.SingleNestedAttribute{
+						Optional: true,
+						Attributes: map[string]schema.Attribute{
+							"management_bucket": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "AWS storage bucket identifier",
+									},
+								},
+							},
+							"dynamodb_table": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "AWS DynamoDB table identifier",
+									},
+								},
+							},
+							"vpc": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "AWS VPC identifier",
+									},
+								},
+							},
+							"private_subnets": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arns": schema.ListAttribute{
+										Required:    true,
+										ElementType: types.StringType,
+										Description: "AWS private subnet identifiers",
+									},
+								},
+							},
+							"public_subnets": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arns": schema.ListAttribute{
+										Required:    true,
+										ElementType: types.StringType,
+										Description: "AWS public subnet identifiers",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -148,14 +207,22 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		return
 	}
 
+	cmr := &controlplanev1beta2.Network_CustomerManagedResources{
+		CloudProvider: &controlplanev1beta2.Network_CustomerManagedResources_Aws{},
+	}
+	if model.CloudProvider.ValueString() == "gcp" {
+		cmr.CloudProvider = &controlplanev1beta2.Network_CustomerManagedResources_Gcp{}
+	}
+
 	netResp, err := n.CpCl.Network.CreateNetwork(ctx, &controlplanev1beta2.CreateNetworkRequest{
 		Network: &controlplanev1beta2.NetworkCreate{
-			Name:            model.Name.ValueString(),
-			CidrBlock:       model.CidrBlock.ValueString(),
-			Region:          model.Region.ValueString(),
-			CloudProvider:   cloudProvider,
-			ResourceGroupId: model.ResourceGroupID.ValueString(),
-			ClusterType:     clusterType,
+			Name:                     model.Name.ValueString(),
+			CidrBlock:                model.CidrBlock.ValueString(),
+			Region:                   model.Region.ValueString(),
+			CloudProvider:            cloudProvider,
+			ResourceGroupId:          model.ResourceGroupID.ValueString(),
+			ClusterType:              clusterType,
+			CustomerManagedResources: cmr,
 		},
 	})
 	if err != nil {
