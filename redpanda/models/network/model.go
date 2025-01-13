@@ -13,15 +13,11 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-package models
+// Package network contains the model for the network resource.
+package network
 
 import (
-	"context"
-	"reflect"
-
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
 // Network represents the Terraform schema for the network resource.
@@ -47,20 +43,20 @@ type AWSResources struct {
 
 // AWSBucket contains the ARN of an S3 bucket
 type AWSBucket struct {
-	ARN string
+	ARN types.String
 }
 
 // AWSDynamoDBTable contains the ARN of a DynamoDB table
 type AWSDynamoDBTable struct {
-	ARN string
+	ARN types.String
 }
 
 // AWSVPC contains the ARN of a VPC
 type AWSVPC struct {
-	ARN string
+	ARN types.String
 }
 
 // AWSSubnets contains the ARNs of subnets
 type AWSSubnets struct {
-	ARNs []string
+	ARNs types.List
 }

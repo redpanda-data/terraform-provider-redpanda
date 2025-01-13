@@ -1,4 +1,4 @@
-package models
+package network
 
 import (
 	"context"
@@ -14,6 +14,9 @@ import (
 // CustomerManagedResourcesType represents the Type definition
 type CustomerManagedResourcesType struct{}
 
+var _ basetypes.ObjectTypable = CustomerManagedResourcesType{}
+
+// ValueFromObject returns the custom struct populated with available data
 func (t CustomerManagedResourcesType) ValueFromObject(ctx context.Context, obj basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
@@ -38,7 +41,22 @@ func (t CustomerManagedResourcesType) ValueFromObject(ctx context.Context, obj b
 		return CustomerManagedResourcesValue{}, diags
 	}
 
-	awsAttrs := awsObj.(types.Object).Attributes()
+	awsValue, ok := awsObj.(types.Object)
+	if !ok {
+		diags.AddError(
+			"Invalid AWS Value Type",
+			fmt.Sprintf("Expected types.Object for AWS configuration, got %T", awsObj),
+		)
+		return CustomerManagedResourcesValue{}, diags
+	}
+
+	if awsValue.IsNull() || awsValue.IsUnknown() {
+		return CustomerManagedResourcesValue{
+			AWS: &AWSResources{},
+		}, diags
+	}
+
+	awsAttrs := awsValue.Attributes()
 	awsResources := &AWSResources{}
 
 	// Extract Management Bucket
@@ -46,7 +64,7 @@ func (t CustomerManagedResourcesType) ValueFromObject(ctx context.Context, obj b
 		mbAttrs := mb.Attributes()
 		if arn, ok := mbAttrs["arn"].(types.String); ok {
 			awsResources.ManagementBucket = &AWSBucket{
-				ARN: arn.ValueString(),
+				ARN: arn,
 			}
 		}
 	}
@@ -56,7 +74,7 @@ func (t CustomerManagedResourcesType) ValueFromObject(ctx context.Context, obj b
 		dtAttrs := dt.Attributes()
 		if arn, ok := dtAttrs["arn"].(types.String); ok {
 			awsResources.DynamoDBTable = &AWSDynamoDBTable{
-				ARN: arn.ValueString(),
+				ARN: arn,
 			}
 		}
 	}
@@ -66,7 +84,7 @@ func (t CustomerManagedResourcesType) ValueFromObject(ctx context.Context, obj b
 		vpcAttrs := vpc.Attributes()
 		if arn, ok := vpcAttrs["arn"].(types.String); ok {
 			awsResources.VPC = &AWSVPC{
-				ARN: arn.ValueString(),
+				ARN: arn,
 			}
 		}
 	}
@@ -75,14 +93,8 @@ func (t CustomerManagedResourcesType) ValueFromObject(ctx context.Context, obj b
 	if ps, ok := awsAttrs["private_subnets"].(types.Object); ok && !ps.IsNull() {
 		psAttrs := ps.Attributes()
 		if arns, ok := psAttrs["arns"].(types.List); ok {
-			var arnsList []string
-			for _, elem := range arns.Elements() {
-				if arnStr, ok := elem.(types.String); ok {
-					arnsList = append(arnsList, arnStr.ValueString())
-				}
-			}
 			awsResources.PrivateSubnets = &AWSSubnets{
-				ARNs: arnsList,
+				ARNs: arns,
 			}
 		}
 	}
@@ -91,14 +103,8 @@ func (t CustomerManagedResourcesType) ValueFromObject(ctx context.Context, obj b
 	if ps, ok := awsAttrs["public_subnets"].(types.Object); ok && !ps.IsNull() {
 		psAttrs := ps.Attributes()
 		if arns, ok := psAttrs["arns"].(types.List); ok {
-			var arnsList []string
-			for _, elem := range arns.Elements() {
-				if arnStr, ok := elem.(types.String); ok {
-					arnsList = append(arnsList, arnStr.ValueString())
-				}
-			}
 			awsResources.PublicSubnets = &AWSSubnets{
-				ARNs: arnsList,
+				ARNs: arns,
 			}
 		}
 	}
@@ -108,7 +114,8 @@ func (t CustomerManagedResourcesType) ValueFromObject(ctx context.Context, obj b
 	}, diags
 }
 
-func (t CustomerManagedResourcesType) TerraformType(ctx context.Context) tftypes.Type {
+// TerraformType returns the Terraform type equivalent to that in the schema
+func (CustomerManagedResourcesType) TerraformType(_ context.Context) tftypes.Type {
 	return tftypes.Object{
 		AttributeTypes: map[string]tftypes.Type{
 			"aws": tftypes.Object{
@@ -149,129 +156,39 @@ func (t CustomerManagedResourcesType) TerraformType(ctx context.Context) tftypes
 }
 
 // ValueType returns a new empty value of this type
-func (t CustomerManagedResourcesType) ValueType(ctx context.Context) attr.Value {
+func (CustomerManagedResourcesType) ValueType(_ context.Context) attr.Value {
 	return CustomerManagedResourcesValue{}
 }
 
-// Equal returns true if the other Type is also a CustomerManagedResourcesType
-func (t CustomerManagedResourcesType) Equal(other attr.Type) bool {
+// Equal returns true if the candidate is also a CustomerManagedResourcesType
+func (CustomerManagedResourcesType) Equal(other attr.Type) bool {
 	_, ok := other.(CustomerManagedResourcesType)
 	return ok
 }
 
 // String returns a human-friendly version of the type
-func (t CustomerManagedResourcesType) String() string {
+func (CustomerManagedResourcesType) String() string {
 	return "CustomerManagedResourcesType"
 }
 
-// ApplyTerraform5AttributePathStep applies path step navigation to the type
+// ApplyTerraform5AttributePathStep implements the walk through nested attributes functionality
+// for customer managed resources. This enables proper type traversal of our nested type structure.
 func (t CustomerManagedResourcesType) ApplyTerraform5AttributePathStep(step tftypes.AttributePathStep) (interface{}, error) {
 	attrName, ok := step.(tftypes.AttributeName)
 	if !ok {
 		return nil, fmt.Errorf("cannot apply step %T to CustomerManagedResourcesType", step)
 	}
 
-	// TODO support gcp and azure
-	if attrName == "aws" {
-		return &AWSResources{}, nil
+	switch attrName {
+	case "aws":
+		return CustomerManagedResourcesType{}.AttrTypes()["aws"], nil
+	default:
+		return nil, fmt.Errorf("attribute %s not found in CustomerManagedResourcesType", attrName)
 	}
-
-	return nil, fmt.Errorf("attribute %s not found in CustomerManagedResourcesType", attrName)
-}
-
-func (t CustomerManagedResourcesType) ValueFromTerraform(ctx context.Context, in tftypes.Value) (attr.Value, error) {
-	if !in.IsKnown() {
-		return CustomerManagedResourcesValue{
-			isUnknown: true,
-		}, nil
-	}
-	if in.IsNull() {
-		return CustomerManagedResourcesValue{
-			isNull: true,
-		}, nil
-	}
-	var attributes map[string]tftypes.Value
-	err := in.As(&attributes)
-	if err != nil {
-		return nil, err
-	}
-
-	awsData, ok := attributes["aws"]
-	if !ok {
-		return CustomerManagedResourcesValue{}, nil
-	}
-
-	var awsMap map[string]tftypes.Value
-	err = awsData.As(&awsMap)
-	if err != nil {
-		return nil, err
-	}
-
-	aws := &AWSResources{}
-
-	// Parse each AWS component
-	if mbVal, ok := awsMap["management_bucket"]; ok {
-		var mbMap map[string]tftypes.Value
-		if err := mbVal.As(&mbMap); err == nil {
-			var arn string
-			if arnVal := mbMap["arn"]; !arnVal.IsNull() {
-				arnVal.As(&arn)
-				aws.ManagementBucket = &AWSBucket{ARN: arn}
-			}
-		}
-	}
-
-	if dtVal, ok := awsMap["dynamodb_table"]; ok {
-		var dtMap map[string]tftypes.Value
-		if err := dtVal.As(&dtMap); err == nil {
-			var arn string
-			if arnVal := dtMap["arn"]; !arnVal.IsNull() {
-				arnVal.As(&arn)
-				aws.DynamoDBTable = &AWSDynamoDBTable{ARN: arn}
-			}
-		}
-	}
-
-	if vpcVal, ok := awsMap["vpc"]; ok {
-		var vpcMap map[string]tftypes.Value
-		if err := vpcVal.As(&vpcMap); err == nil {
-			var arn string
-			if arnVal := vpcMap["arn"]; !arnVal.IsNull() {
-				arnVal.As(&arn)
-				aws.VPC = &AWSVPC{ARN: arn}
-			}
-		}
-	}
-
-	if psVal, ok := awsMap["private_subnets"]; ok {
-		var psMap map[string]tftypes.Value
-		if err := psVal.As(&psMap); err == nil {
-			var arns []string
-			if arnsVal := psMap["arns"]; !arnsVal.IsNull() {
-				arnsVal.As(&arns)
-				aws.PrivateSubnets = &AWSSubnets{ARNs: arns}
-			}
-		}
-	}
-
-	if psVal, ok := awsMap["public_subnets"]; ok {
-		var psMap map[string]tftypes.Value
-		if err := psVal.As(&psMap); err == nil {
-			var arns []string
-			if arnsVal := psMap["arns"]; !arnsVal.IsNull() {
-				arnsVal.As(&arns)
-				aws.PublicSubnets = &AWSSubnets{ARNs: arns}
-			}
-		}
-	}
-
-	return CustomerManagedResourcesValue{
-		AWS: aws,
-	}, nil
 }
 
 // AttrTypes returns the attribute types for CustomerManagedResources
-func (t CustomerManagedResourcesType) AttrTypes() map[string]attr.Type {
+func (CustomerManagedResourcesType) AttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"aws": basetypes.ObjectType{
 			AttrTypes: map[string]attr.Type{
@@ -307,4 +224,131 @@ func (t CustomerManagedResourcesType) AttrTypes() map[string]attr.Type {
 			},
 		},
 	}
+}
+
+// ValueFromTerraform handles conversion from Terraform values
+func (t CustomerManagedResourcesType) ValueFromTerraform(ctx context.Context, in tftypes.Value) (attr.Value, error) {
+	if !in.IsKnown() {
+		return CustomerManagedResourcesValue{
+			isUnknown: true,
+		}, nil
+	}
+	if in.IsNull() {
+		return CustomerManagedResourcesValue{
+			isNull: true,
+		}, nil
+	}
+
+	var attributes map[string]tftypes.Value
+	err := in.As(&attributes)
+	if err != nil {
+		return nil, err
+	}
+
+	awsData, ok := attributes["aws"]
+	if !ok {
+		return CustomerManagedResourcesValue{}, nil
+	}
+
+	var awsMap map[string]tftypes.Value
+	err = awsData.As(&awsMap)
+	if err != nil {
+		return nil, err
+	}
+
+	aws := &AWSResources{}
+
+	// Parse Management Bucket
+	if mbVal, ok := awsMap["management_bucket"]; ok && !mbVal.IsNull() {
+		var mbMap map[string]tftypes.Value
+		if err := mbVal.As(&mbMap); err == nil {
+			var arnString string
+			if arnVal := mbMap["arn"]; !arnVal.IsNull() {
+				if err := arnVal.As(&arnString); err == nil {
+					aws.ManagementBucket = &AWSBucket{
+						ARN: types.StringValue(arnString),
+					}
+				}
+			}
+		}
+	}
+
+	// Parse DynamoDB Table
+	if dtVal, ok := awsMap["dynamodb_table"]; ok && !dtVal.IsNull() {
+		var dtMap map[string]tftypes.Value
+		if err := dtVal.As(&dtMap); err == nil {
+			var arnString string
+			if arnVal := dtMap["arn"]; !arnVal.IsNull() {
+				if err := arnVal.As(&arnString); err == nil {
+					aws.DynamoDBTable = &AWSDynamoDBTable{
+						ARN: types.StringValue(arnString),
+					}
+				}
+			}
+		}
+	}
+
+	// Parse VPC
+	if vpcVal, ok := awsMap["vpc"]; ok && !vpcVal.IsNull() {
+		var vpcMap map[string]tftypes.Value
+		if err := vpcVal.As(&vpcMap); err == nil {
+			var arnString string
+			if arnVal := vpcMap["arn"]; !arnVal.IsNull() {
+				if err := arnVal.As(&arnString); err == nil {
+					aws.VPC = &AWSVPC{
+						ARN: types.StringValue(arnString),
+					}
+				}
+			}
+		}
+	}
+
+	// Parse Private Subnets
+	if psVal, ok := awsMap["private_subnets"]; ok && !psVal.IsNull() {
+		var psMap map[string]tftypes.Value
+		if err := psVal.As(&psMap); err == nil {
+			if arnsVal := psMap["arns"]; !arnsVal.IsNull() {
+				var arnStrings []string
+				if err := arnsVal.As(&arnStrings); err == nil {
+					aws.PrivateSubnets = &AWSSubnets{
+						ARNs: types.ListValueMust(
+							types.StringType,
+							convertStringsToValues(arnStrings),
+						),
+					}
+				}
+			}
+		}
+	}
+
+	// Parse Public Subnets
+	if psVal, ok := awsMap["public_subnets"]; ok && !psVal.IsNull() {
+		var psMap map[string]tftypes.Value
+		if err := psVal.As(&psMap); err == nil {
+			if arnsVal := psMap["arns"]; !arnsVal.IsNull() {
+				var arnStrings []string
+				if err := arnsVal.As(&arnStrings); err == nil {
+					aws.PublicSubnets = &AWSSubnets{
+						ARNs: types.ListValueMust(
+							types.StringType,
+							convertStringsToValues(arnStrings),
+						),
+					}
+				}
+			}
+		}
+	}
+
+	return CustomerManagedResourcesValue{
+		AWS: aws,
+	}, nil
+}
+
+// Helper function to convert string slice to attr.Value slice
+func convertStringsToValues(strings []string) []attr.Value {
+	values := make([]attr.Value, len(strings))
+	for i, s := range strings {
+		values[i] = types.StringValue(s)
+	}
+	return values
 }

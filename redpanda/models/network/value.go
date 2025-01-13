@@ -1,4 +1,4 @@
-package models
+package network
 
 import (
 	"context"
@@ -19,7 +19,8 @@ type CustomerManagedResourcesValue struct {
 	isUnknown bool
 }
 
-func (v CustomerManagedResourcesValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue, diag.Diagnostics) {
+// ToObjectValue converts our custom resource value to an objectvalue
+func (v CustomerManagedResourcesValue) ToObjectValue(_ context.Context) (basetypes.ObjectValue, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
 	if v.IsNull() {
@@ -40,7 +41,7 @@ func (v CustomerManagedResourcesValue) ToObjectValue(ctx context.Context) (baset
 	// Management Bucket
 	if v.AWS.ManagementBucket != nil {
 		mbAttrs := map[string]attr.Value{
-			"arn": basetypes.NewStringValue(v.AWS.ManagementBucket.ARN),
+			"arn": v.AWS.ManagementBucket.ARN,
 		}
 		mbObj, d := types.ObjectValue(map[string]attr.Type{
 			"arn": basetypes.StringType{},
@@ -52,7 +53,7 @@ func (v CustomerManagedResourcesValue) ToObjectValue(ctx context.Context) (baset
 	// DynamoDB Table
 	if v.AWS.DynamoDBTable != nil {
 		dtAttrs := map[string]attr.Value{
-			"arn": basetypes.NewStringValue(v.AWS.DynamoDBTable.ARN),
+			"arn": v.AWS.DynamoDBTable.ARN,
 		}
 		dtObj, d := types.ObjectValue(map[string]attr.Type{
 			"arn": basetypes.StringType{},
@@ -64,7 +65,7 @@ func (v CustomerManagedResourcesValue) ToObjectValue(ctx context.Context) (baset
 	// VPC
 	if v.AWS.VPC != nil {
 		vpcAttrs := map[string]attr.Value{
-			"arn": basetypes.NewStringValue(v.AWS.VPC.ARN),
+			"arn": v.AWS.VPC.ARN,
 		}
 		vpcObj, d := types.ObjectValue(map[string]attr.Type{
 			"arn": basetypes.StringType{},
@@ -75,15 +76,8 @@ func (v CustomerManagedResourcesValue) ToObjectValue(ctx context.Context) (baset
 
 	// Private Subnets
 	if v.AWS.PrivateSubnets != nil {
-		arnValues := make([]attr.Value, 0, len(v.AWS.PrivateSubnets.ARNs))
-		for _, arn := range v.AWS.PrivateSubnets.ARNs {
-			arnValues = append(arnValues, basetypes.NewStringValue(arn))
-		}
-		arnsList, d := types.ListValue(basetypes.StringType{}, arnValues)
-		diags.Append(d...)
-
 		psAttrs := map[string]attr.Value{
-			"arns": arnsList,
+			"arns": v.AWS.PrivateSubnets.ARNs,
 		}
 		psObj, d := types.ObjectValue(map[string]attr.Type{
 			"arns": types.ListType{
@@ -96,15 +90,8 @@ func (v CustomerManagedResourcesValue) ToObjectValue(ctx context.Context) (baset
 
 	// Public Subnets
 	if v.AWS.PublicSubnets != nil {
-		arnValues := make([]attr.Value, 0, len(v.AWS.PublicSubnets.ARNs))
-		for _, arn := range v.AWS.PublicSubnets.ARNs {
-			arnValues = append(arnValues, basetypes.NewStringValue(arn))
-		}
-		arnsList, d := types.ListValue(basetypes.StringType{}, arnValues)
-		diags.Append(d...)
-
 		psAttrs := map[string]attr.Value{
-			"arns": arnsList,
+			"arns": v.AWS.PublicSubnets.ARNs,
 		}
 		psObj, d := types.ObjectValue(map[string]attr.Type{
 			"arns": types.ListType{
@@ -153,10 +140,12 @@ func (v CustomerManagedResourcesValue) String() string {
 	return fmt.Sprintf("CustomerManagedResources{AWS: %+v}", v.AWS)
 }
 
-func (v CustomerManagedResourcesValue) Type(ctx context.Context) attr.Type {
+// Type returns the underlying type value
+func (CustomerManagedResourcesValue) Type(_ context.Context) attr.Type {
 	return CustomerManagedResourcesType{}
 }
 
+// ToTerraformValue converts our custom value to a terraform value
 func (v CustomerManagedResourcesValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error) {
 	if v.AWS == nil {
 		return tftypes.NewValue(CustomerManagedResourcesType{}.TerraformType(ctx), nil), nil
@@ -205,10 +194,6 @@ func (v CustomerManagedResourcesValue) ToTerraformValue(ctx context.Context) (tf
 	}
 
 	if v.AWS.PrivateSubnets != nil {
-		arns := make([]tftypes.Value, 0, len(v.AWS.PrivateSubnets.ARNs))
-		for _, arn := range v.AWS.PrivateSubnets.ARNs {
-			arns = append(arns, tftypes.NewValue(tftypes.String, arn))
-		}
 		awsMap["private_subnets"] = tftypes.NewValue(
 			tftypes.Object{
 				AttributeTypes: map[string]tftypes.Type{
@@ -218,16 +203,12 @@ func (v CustomerManagedResourcesValue) ToTerraformValue(ctx context.Context) (tf
 				},
 			},
 			map[string]tftypes.Value{
-				"arns": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, arns),
+				"arns": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, v.AWS.PrivateSubnets.ARNs),
 			},
 		)
 	}
 
 	if v.AWS.PublicSubnets != nil {
-		arns := make([]tftypes.Value, 0, len(v.AWS.PublicSubnets.ARNs))
-		for _, arn := range v.AWS.PublicSubnets.ARNs {
-			arns = append(arns, tftypes.NewValue(tftypes.String, arn))
-		}
 		awsMap["public_subnets"] = tftypes.NewValue(
 			tftypes.Object{
 				AttributeTypes: map[string]tftypes.Type{
@@ -237,7 +218,7 @@ func (v CustomerManagedResourcesValue) ToTerraformValue(ctx context.Context) (tf
 				},
 			},
 			map[string]tftypes.Value{
-				"arns": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, arns),
+				"arns": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, v.AWS.PublicSubnets),
 			},
 		)
 	}
@@ -245,6 +226,7 @@ func (v CustomerManagedResourcesValue) ToTerraformValue(ctx context.Context) (tf
 	return tftypes.NewValue(CustomerManagedResourcesType{}.TerraformType(ctx), awsMap), nil
 }
 
+// Equal returns true if the two values are equal
 func (v CustomerManagedResourcesValue) Equal(other attr.Value) bool {
 	o, ok := other.(CustomerManagedResourcesValue)
 	if !ok {
@@ -259,6 +241,7 @@ func (v CustomerManagedResourcesValue) Equal(other attr.Value) bool {
 	}
 
 	// Compare all AWS components
+	// TODO might need to be more explicit with this comparison, this is a lazy first draft
 	return v.AWS.ManagementBucket.ARN == o.AWS.ManagementBucket.ARN &&
 		v.AWS.DynamoDBTable.ARN == o.AWS.DynamoDBTable.ARN &&
 		v.AWS.VPC.ARN == o.AWS.VPC.ARN &&

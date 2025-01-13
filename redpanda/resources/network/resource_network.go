@@ -28,13 +28,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/network"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
@@ -130,10 +131,11 @@ func resourceNetworkSchema() schema.Schema {
 			},
 			"customer_managed_resources": schema.SingleNestedAttribute{
 				Optional:   true,
-				CustomType: models.CustomerManagedResourcesType{},
+				CustomType: network.CustomerManagedResourcesType{},
 				Attributes: map[string]schema.Attribute{
 					"aws": schema.SingleNestedAttribute{
-						Optional: true,
+						Optional:      true,
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
 						Attributes: map[string]schema.Attribute{
 							"management_bucket": schema.SingleNestedAttribute{
 								Required: true,
@@ -193,7 +195,7 @@ func resourceNetworkSchema() schema.Schema {
 // Create creates a new Network resource. It updates the state if the resource
 // is successfully created.
 func (n *Network) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
-	var model models.Network
+	var model network.Network
 	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
 
 	cloudProvider, err := utils.StringToCloudProvider(model.CloudProvider.ValueString())
@@ -207,13 +209,6 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		return
 	}
 
-	cmr := &controlplanev1beta2.Network_CustomerManagedResources{
-		CloudProvider: &controlplanev1beta2.Network_CustomerManagedResources_Aws{},
-	}
-	if model.CloudProvider.ValueString() == "gcp" {
-		cmr.CloudProvider = &controlplanev1beta2.Network_CustomerManagedResources_Gcp{}
-	}
-
 	netResp, err := n.CpCl.Network.CreateNetwork(ctx, &controlplanev1beta2.CreateNetworkRequest{
 		Network: &controlplanev1beta2.NetworkCreate{
 			Name:                     model.Name.ValueString(),
@@ -222,7 +217,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 			CloudProvider:            cloudProvider,
 			ResourceGroupId:          model.ResourceGroupID.ValueString(),
 			ClusterType:              clusterType,
-			CustomerManagedResources: cmr,
+			CustomerManagedResources: generateNetworkCMR(model.CloudProvider.ValueString(), model),
 		},
 	})
 	if err != nil {
@@ -243,12 +238,12 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		response.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", op.GetResourceId()), utils.DeserializeGrpcError(err))
 		return
 	}
-	response.Diagnostics.Append(response.State.Set(ctx, generateModel(nw))...)
+	response.Diagnostics.Append(response.State.Set(ctx, generateModel(model.CloudProvider.ValueString(), nw))...)
 }
 
 // Read reads Network resource's values and updates the state.
 func (n *Network) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
-	var model models.Network
+	var model network.Network
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 	nw, err := n.CpCl.NetworkForID(ctx, model.ID.ValueString())
 	if err != nil {
@@ -266,7 +261,7 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 		response.Diagnostics.AddWarning(fmt.Sprintf("network %s is in state %s", nw.Id, nw.GetState()), "")
 		return
 	}
-	response.Diagnostics.Append(response.State.Set(ctx, generateModel(nw))...)
+	response.Diagnostics.Append(response.State.Set(ctx, generateModel(model.CloudProvider.ValueString(), nw))...)
 }
 
 // Update is not supported for network. As a result all configurable schema
@@ -276,7 +271,7 @@ func (*Network) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.
 
 // Delete deletes the Network resource.
 func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
-	var model models.Network
+	var model network.Network
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 	netResp, err := n.CpCl.Network.DeleteNetwork(ctx, &controlplanev1beta2.DeleteNetworkRequest{
 		Id: model.ID.ValueString(),

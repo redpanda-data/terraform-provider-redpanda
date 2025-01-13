@@ -26,7 +26,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/network"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
@@ -101,7 +101,7 @@ func datasourceNetworkSchema() schema.Schema {
 
 // Read reads the Network data source's values and updates the state.
 func (n *DataSourceNetwork) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var model models.Network
+	var model network.Network
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 	nw, err := n.CpCl.NetworkForID(ctx, model.ID.ValueString())
 	if err != nil {
