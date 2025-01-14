@@ -9,16 +9,20 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 // CustomerManagedResourcesType represents the Type definition
 type CustomerManagedResourcesType struct{}
 
-var _ basetypes.ObjectTypable = CustomerManagedResourcesType{}
+var (
+	_ basetypes.ObjectValuable = CustomerManagedResourcesValue{}
+	_ basetypes.ObjectTypable  = CustomerManagedResourcesType{}
+)
 
 // ValueFromObject returns the custom struct populated with available data
-func (t CustomerManagedResourcesType) ValueFromObject(ctx context.Context, obj basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
-	var diags diag.Diagnostics
+func (CustomerManagedResourcesType) ValueFromObject(_ context.Context, obj basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
+	diags := diag.Diagnostics{}
 
 	// Handle null/unknown cases
 	if obj.IsNull() {
@@ -173,7 +177,7 @@ func (CustomerManagedResourcesType) String() string {
 
 // ApplyTerraform5AttributePathStep implements the walk through nested attributes functionality
 // for customer managed resources. This enables proper type traversal of our nested type structure.
-func (t CustomerManagedResourcesType) ApplyTerraform5AttributePathStep(step tftypes.AttributePathStep) (interface{}, error) {
+func (CustomerManagedResourcesType) ApplyTerraform5AttributePathStep(step tftypes.AttributePathStep) (any, error) {
 	attrName, ok := step.(tftypes.AttributeName)
 	if !ok {
 		return nil, fmt.Errorf("cannot apply step %T to CustomerManagedResourcesType", step)
@@ -227,7 +231,7 @@ func (CustomerManagedResourcesType) AttrTypes() map[string]attr.Type {
 }
 
 // ValueFromTerraform handles conversion from Terraform values
-func (t CustomerManagedResourcesType) ValueFromTerraform(ctx context.Context, in tftypes.Value) (attr.Value, error) {
+func (CustomerManagedResourcesType) ValueFromTerraform(_ context.Context, in tftypes.Value) (attr.Value, error) {
 	if !in.IsKnown() {
 		return CustomerManagedResourcesValue{
 			isUnknown: true,
@@ -240,8 +244,7 @@ func (t CustomerManagedResourcesType) ValueFromTerraform(ctx context.Context, in
 	}
 
 	var attributes map[string]tftypes.Value
-	err := in.As(&attributes)
-	if err != nil {
+	if err := in.As(&attributes); err != nil {
 		return nil, err
 	}
 
@@ -251,8 +254,7 @@ func (t CustomerManagedResourcesType) ValueFromTerraform(ctx context.Context, in
 	}
 
 	var awsMap map[string]tftypes.Value
-	err = awsData.As(&awsMap)
-	if err != nil {
+	if err := awsData.As(&awsMap); err != nil {
 		return nil, err
 	}
 
@@ -311,10 +313,7 @@ func (t CustomerManagedResourcesType) ValueFromTerraform(ctx context.Context, in
 				var arnStrings []string
 				if err := arnsVal.As(&arnStrings); err == nil {
 					aws.PrivateSubnets = &AWSSubnets{
-						ARNs: types.ListValueMust(
-							types.StringType,
-							convertStringsToValues(arnStrings),
-						),
+						ARNs: utils.StringSliceToTypeList(arnStrings),
 					}
 				}
 			}
@@ -329,10 +328,7 @@ func (t CustomerManagedResourcesType) ValueFromTerraform(ctx context.Context, in
 				var arnStrings []string
 				if err := arnsVal.As(&arnStrings); err == nil {
 					aws.PublicSubnets = &AWSSubnets{
-						ARNs: types.ListValueMust(
-							types.StringType,
-							convertStringsToValues(arnStrings),
-						),
+						ARNs: utils.StringSliceToTypeList(arnStrings),
 					}
 				}
 			}
@@ -342,13 +338,4 @@ func (t CustomerManagedResourcesType) ValueFromTerraform(ctx context.Context, in
 	return CustomerManagedResourcesValue{
 		AWS: aws,
 	}, nil
-}
-
-// Helper function to convert string slice to attr.Value slice
-func convertStringsToValues(strings []string) []attr.Value {
-	values := make([]attr.Value, len(strings))
-	for i, s := range strings {
-		values[i] = types.StringValue(s)
-	}
-	return values
 }

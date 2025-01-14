@@ -108,7 +108,7 @@ func (n *DataSourceNetwork) Read(ctx context.Context, req datasource.ReadRequest
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.ID.ValueString()), utils.DeserializeGrpcError(err))
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, generateModel(nw))...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, generateModel(model.CloudProvider.ValueString(), nw))...)
 }
 
 // Configure uses provider level data to configure DataSourceNetwork's client.

@@ -22,14 +22,14 @@ import (
 
 // Network represents the Terraform schema for the network resource.
 type Network struct {
-	Name                     types.String                 `tfsdk:"name"`
-	ResourceGroupID          types.String                 `tfsdk:"resource_group_id"`
-	CloudProvider            types.String                 `tfsdk:"cloud_provider"`
-	Region                   types.String                 `tfsdk:"region"`
-	CidrBlock                types.String                 `tfsdk:"cidr_block"`
-	ID                       types.String                 `tfsdk:"id"`
-	ClusterType              types.String                 `tfsdk:"cluster_type"`
-	CustomerManagedResources CustomerManagedResourcesType `tfsdk:"customer_managed_resources"`
+	Name                     types.String                  `tfsdk:"name"`
+	ResourceGroupID          types.String                  `tfsdk:"resource_group_id"`
+	CloudProvider            types.String                  `tfsdk:"cloud_provider"`
+	Region                   types.String                  `tfsdk:"region"`
+	CidrBlock                types.String                  `tfsdk:"cidr_block"`
+	ID                       types.String                  `tfsdk:"id"`
+	ClusterType              types.String                  `tfsdk:"cluster_type"`
+	CustomerManagedResources CustomerManagedResourcesValue `tfsdk:"customer_managed_resources"`
 }
 
 // AWSResources represents the AWS resources that are managed by the customer

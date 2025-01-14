@@ -16,8 +16,6 @@
 package network
 
 import (
-	"context"
-
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/network"
@@ -35,46 +33,66 @@ func generateModel(cloudProvider string, nw *controlplanev1beta2.Network) *netwo
 		ResourceGroupID: types.StringValue(nw.ResourceGroupId),
 	}
 
-	awsValue := network.CustomerManagedResourcesValue{AWS: &network.AWSResources{}}
-	if nw.CustomerManagedResources != nil {
+	if nw.CustomerManagedResources == nil || nw.CustomerManagedResources.CloudProvider == nil {
+		return output
+	}
+	var cloudVal network.CustomerManagedResourcesValue
+	switch cloudProvider {
+	case "aws":
 		if nw.CustomerManagedResources.CloudProvider != nil {
-			switch cloudProvider {
-			case "aws":
-				if nw.CustomerManagedResources.CloudProvider != nil {
-					awsCMR := nw.CustomerManagedResources.CloudProvider.(*controlplanev1beta2.Network_CustomerManagedResources_Aws).Aws
-					if awsCMR.ManagementBucket != nil {
-						awsValue.AWS.ManagementBucket = &network.AWSBucket{
-							ARN: types.StringValue(awsCMR.ManagementBucket.Arn),
-						}
-					}
+			cloudVal.AWS = &network.AWSResources{}
+			awsCMR := nw.CustomerManagedResources.CloudProvider.(*controlplanev1beta2.Network_CustomerManagedResources_Aws).Aws
+			if awsCMR.ManagementBucket != nil {
+				cloudVal.AWS.ManagementBucket = &network.AWSBucket{
+					ARN: types.StringValue(awsCMR.ManagementBucket.Arn),
+				}
+			}
+			if awsCMR.DynamodbTable != nil {
+				cloudVal.AWS.DynamoDBTable = &network.AWSDynamoDBTable{
+					ARN: types.StringValue(awsCMR.DynamodbTable.Arn),
+				}
+			}
+			if awsCMR.Vpc != nil {
+				cloudVal.AWS.VPC = &network.AWSVPC{
+					ARN: types.StringValue(awsCMR.Vpc.Arn),
+				}
+			}
+			if awsCMR.PrivateSubnets != nil {
+				cloudVal.AWS.PrivateSubnets = &network.AWSSubnets{
+					ARNs: utils.StringSliceToTypeList(awsCMR.PrivateSubnets.Arns),
+				}
+			}
+			if awsCMR.PublicSubnets != nil {
+				cloudVal.AWS.PublicSubnets = &network.AWSSubnets{
+					ARNs: utils.StringSliceToTypeList(awsCMR.PublicSubnets.Arns),
 				}
 			}
 		}
 	case "gcp":
 		// TODO placeholder so that the linter will stop complaining
 	}
-	output.CustomerManagedResources = awsValue.Type(context.Background())
+	output.CustomerManagedResources = cloudVal
 	return output
 }
 
 func generateNetworkCMR(cloudProvider string, model network.Network) *controlplanev1beta2.Network_CustomerManagedResources {
 	switch cloudProvider {
 	case "aws":
-		crmFromModel := model.CustomerManagedResources.ValueType(context.Background()).(network.CustomerManagedResourcesValue).AWS
+		crmFromModel := model.CustomerManagedResources.AWS
 		output := &controlplanev1beta2.Network_CustomerManagedResources_Aws{}
 		if crmFromModel.ManagementBucket != nil {
 			output.Aws.ManagementBucket = &controlplanev1beta2.CustomerManagedAWSCloudStorageBucket{
-				Arn: crmFromModel.ManagementBucket.ARN,
+				Arn: crmFromModel.ManagementBucket.ARN.ValueString(),
 			}
 		}
 		if crmFromModel.DynamoDBTable != nil {
 			output.Aws.DynamodbTable = &controlplanev1beta2.CustomerManagedDynamoDBTable{
-				Arn: crmFromModel.DynamoDBTable.ARN,
+				Arn: crmFromModel.DynamoDBTable.ARN.ValueString(),
 			}
 		}
 		if crmFromModel.VPC != nil {
 			output.Aws.Vpc = &controlplanev1beta2.CustomerManagedAWSVPC{
-				Arn: crmFromModel.VPC.ARN,
+				Arn: crmFromModel.VPC.ARN.ValueString(),
 			}
 		}
 		if crmFromModel.PrivateSubnets != nil {
@@ -85,7 +103,7 @@ func generateNetworkCMR(cloudProvider string, model network.Network) *controlpla
 
 		if crmFromModel.PublicSubnets != nil {
 			output.Aws.PublicSubnets = &controlplanev1beta2.CustomerManagedAWSSubnets{
-				Arns: crmFromModel.PublicSubnets.ARNs,
+				Arns: utils.TypeListToStringSlice(crmFromModel.PublicSubnets.ARNs),
 			}
 		}
 		return &controlplanev1beta2.Network_CustomerManagedResources{
