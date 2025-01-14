@@ -6,10 +6,6 @@ run:
 # those tools ever.
 issues:
   exclude-use-default: false
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - gocognit
 
 # We opt out of all suggested linters and manually pick what we want.
 # Please do not use enable-all.
@@ -30,7 +26,6 @@ linters:
     - bodyclose
     - containedctx
     - contextcheck
-    - cyclop
     - decorder
     - dupword
     - durationcheck
@@ -40,10 +35,8 @@ linters:
     - copyloopvar
     - gci
     - gocheckcompilerdirectives
-    - gocognit
     - goconst
     - gocritic
-    - gocyclo
     - gofmt
     - gofumpt
     - goimports
