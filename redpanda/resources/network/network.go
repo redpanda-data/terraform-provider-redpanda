@@ -50,6 +50,8 @@ func generateModel(cloudProvider string, nw *controlplanev1beta2.Network) *netwo
 				}
 			}
 		}
+	case "gcp":
+		// TODO placeholder so that the linter will stop complaining
 	}
 	output.CustomerManagedResources = awsValue.Type(context.Background())
 	return output
