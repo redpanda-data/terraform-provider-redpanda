@@ -3,7 +3,6 @@ package network
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -218,7 +217,7 @@ func (v CustomerManagedResourcesValue) ToTerraformValue(ctx context.Context) (tf
 				},
 			},
 			map[string]tftypes.Value{
-				"arns": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, v.AWS.PublicSubnets),
+				"arns": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, v.AWS.PublicSubnets.ARNs),
 			},
 		)
 	}
@@ -240,11 +239,39 @@ func (v CustomerManagedResourcesValue) Equal(other attr.Value) bool {
 		return false
 	}
 
-	// Compare all AWS components
-	// TODO might need to be more explicit with this comparison, this is a lazy first draft
-	return v.AWS.ManagementBucket.ARN == o.AWS.ManagementBucket.ARN &&
-		v.AWS.DynamoDBTable.ARN == o.AWS.DynamoDBTable.ARN &&
-		v.AWS.VPC.ARN == o.AWS.VPC.ARN &&
-		reflect.DeepEqual(v.AWS.PrivateSubnets.ARNs, o.AWS.PrivateSubnets.ARNs) &&
-		reflect.DeepEqual(v.AWS.PublicSubnets.ARNs, o.AWS.PublicSubnets.ARNs)
+	// Add nil checks for each field
+	if (v.AWS.ManagementBucket == nil) != (o.AWS.ManagementBucket == nil) {
+		return false
+	}
+	if (v.AWS.DynamoDBTable == nil) != (o.AWS.DynamoDBTable == nil) {
+		return false
+	}
+	if (v.AWS.VPC == nil) != (o.AWS.VPC == nil) {
+		return false
+	}
+	if (v.AWS.PrivateSubnets == nil) != (o.AWS.PrivateSubnets == nil) {
+		return false
+	}
+	if (v.AWS.PublicSubnets == nil) != (o.AWS.PublicSubnets == nil) {
+		return false
+	}
+
+	// Only compare non-nil fields
+	if v.AWS.ManagementBucket != nil && !v.AWS.ManagementBucket.ARN.Equal(o.AWS.ManagementBucket.ARN) {
+		return false
+	}
+	if v.AWS.DynamoDBTable != nil && !v.AWS.DynamoDBTable.ARN.Equal(o.AWS.DynamoDBTable.ARN) {
+		return false
+	}
+	if v.AWS.VPC != nil && !v.AWS.VPC.ARN.Equal(o.AWS.VPC.ARN) {
+		return false
+	}
+	if v.AWS.PrivateSubnets != nil && !v.AWS.PrivateSubnets.ARNs.Equal(o.AWS.PrivateSubnets.ARNs) {
+		return false
+	}
+	if v.AWS.PublicSubnets != nil && !v.AWS.PublicSubnets.ARNs.Equal(o.AWS.PublicSubnets.ARNs) {
+		return false
+	}
+
+	return true
 }

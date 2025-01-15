@@ -17,6 +17,7 @@ resource "redpanda_network" "test" {
   region            = var.region
   cluster_type      = "byoc"
   cidr_block        = "10.0.0.0/20"
+
   customer_managed_resources = {
     aws = {
       management_bucket = {
@@ -25,19 +26,18 @@ resource "redpanda_network" "test" {
       dynamodb_table = {
         arn = module.redpanda-byoc.dynamodb_table_arn
       }
-        vpc = {
-            arn = module.redpanda-byoc.vpc_arn
-        }
-        private_subnet_ids = {
-            arns = module.redpanda-byoc.private_subnet_ids
-        }
-      public_subnet_ids = {
-        arns = module.redpanda-byoc.public_subnet_ids
+      vpc = {
+        arn = module.redpanda-byoc.vpc_arn
+      }
+      private_subnets = {
+        arns = module.redpanda-byoc.private_subnet_arns
+      }
+      public_subnets = {
+        arns = module.redpanda-byoc.public_subnet_arns
       }
     }
   }
 }
-
 resource "redpanda_cluster" "test" {
   name              = var.cluster_name
   resource_group_id = redpanda_resource_group.test.id

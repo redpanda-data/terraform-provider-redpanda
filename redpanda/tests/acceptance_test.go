@@ -270,7 +270,7 @@ func TestAccResourcesByocGCP(t *testing.T) {
 	testRunner(ctx, name, rename, redpandaVersion, gcpByocClusterFile, t)
 }
 
-func TestAccResourcesByocVpcAWS(t *testing.T) {
+func TestAccResourcesByoVpcAWS(t *testing.T) {
 	if !strings.Contains(runByocVpcTests, "true") {
 		t.Skip("skipping byoc vpc tests")
 	}
