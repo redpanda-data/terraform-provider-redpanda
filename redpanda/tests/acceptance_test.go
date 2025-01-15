@@ -22,6 +22,7 @@ const (
 	gcpDedicatedClusterFile   = "../../examples/cluster/gcp/main.tf"
 	serverlessClusterFile     = "../../examples/cluster/serverless/main.tf"
 	awsByocClusterFile        = "../../examples/byoc/aws/main.tf"
+	awsByocVpcClusterFile     = "../../examples/byovpc/aws/main.tf"
 	azureByocClusterFile      = "../../examples/byoc/azure/main.tf"
 	gcpByocClusterFile        = "../../examples/byoc/gcp/main.tf"
 	dedicatedNetworkFile      = "../../examples/network/main.tf"
@@ -40,6 +41,7 @@ var (
 	accNamePrepend             = "tfrp-acc-"
 	runClusterTests            = os.Getenv("RUN_CLUSTER_TESTS")
 	runByocTests               = os.Getenv("RUN_BYOC_TESTS")
+	runByocVpcTests            = os.Getenv("RUN_BYOVPC_TESTS")
 	runServerlessTests         = os.Getenv("RUN_SERVERLESS_TESTS")
 	runBulkTests               = os.Getenv("RUN_BULK_TESTS")
 	clientID                   = os.Getenv(redpanda.ClientIDEnv)
@@ -266,6 +268,16 @@ func TestAccResourcesByocGCP(t *testing.T) {
 	name := generateRandomName(accNamePrepend + "testgcp")
 	rename := generateRandomName(accNamePrepend + "testgcp-rename")
 	testRunner(ctx, name, rename, redpandaVersion, gcpByocClusterFile, t)
+}
+
+func TestAccResourcesByocVpcAWS(t *testing.T) {
+	if !strings.Contains(runByocVpcTests, "true") {
+		t.Skip("skipping byoc vpc tests")
+	}
+	ctx := context.Background()
+	name := generateRandomName(accNamePrepend + testaws)
+	rename := generateRandomName(accNamePrepend + testawsRename)
+	testRunner(ctx, name, rename, redpandaVersion, awsByocVpcClusterFile, t)
 }
 
 // testRunner is a helper function that runs a series of tests on a given cluster in a given cloud provider.
