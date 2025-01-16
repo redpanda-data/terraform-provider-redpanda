@@ -16,14 +16,20 @@
 package network
 
 import (
+	"context"
+	"fmt"
+
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/network"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
-func generateModel(cloudProvider string, nw *controlplanev1beta2.Network) *network.Network {
-	output := &network.Network{
+func generateModel(cloudProvider string, nw *controlplanev1beta2.Network) *models.Network {
+	output := &models.Network{
 		CidrBlock:       types.StringValue(nw.CidrBlock),
 		CloudProvider:   types.StringValue(utils.CloudProviderToString(nw.CloudProvider)),
 		ClusterType:     types.StringValue(utils.ClusterTypeToString(nw.ClusterType)),
@@ -36,87 +42,160 @@ func generateModel(cloudProvider string, nw *controlplanev1beta2.Network) *netwo
 	if nw.CustomerManagedResources == nil || nw.CustomerManagedResources.CloudProvider == nil {
 		return output
 	}
-	var cloudVal network.CustomerManagedResourcesValue
 	switch cloudProvider {
 	case "aws":
-		if nw.CustomerManagedResources.CloudProvider != nil {
-			cloudVal.AWS = network.AWSResources{}
-			awsCMR := nw.CustomerManagedResources.CloudProvider.(*controlplanev1beta2.Network_CustomerManagedResources_Aws).Aws
-			if awsCMR.ManagementBucket != nil {
-				cloudVal.AWS.ManagementBucket = network.AWSBucket{
-					ARN: types.StringValue(awsCMR.ManagementBucket.Arn),
-				}
-			}
-			if awsCMR.DynamodbTable != nil {
-				cloudVal.AWS.DynamoDBTable = network.AWSDynamoDBTable{
-					ARN: types.StringValue(awsCMR.DynamodbTable.Arn),
-				}
-			}
-			if awsCMR.Vpc != nil {
-				cloudVal.AWS.VPC = network.AWSVPC{
-					ARN: types.StringValue(awsCMR.Vpc.Arn),
-				}
-			}
-			if awsCMR.PrivateSubnets != nil {
-				cloudVal.AWS.PrivateSubnets = network.AWSSubnets{
-					ARNs: utils.StringSliceToTypeList(awsCMR.PrivateSubnets.Arns),
-				}
-			}
-			if awsCMR.PublicSubnets != nil {
-				cloudVal.AWS.PublicSubnets = network.AWSSubnets{
-					ARNs: utils.StringSliceToTypeList(awsCMR.PublicSubnets.Arns),
-				}
-			}
+		awsContainer, ok := nw.CustomerManagedResources.CloudProvider.(*controlplanev1beta2.Network_CustomerManagedResources_Aws)
+		if !ok {
+			break
 		}
+		awsData := awsContainer.Aws
+		retVal := awsValue
+		if awsData.ManagementBucket != nil {
+			retVal["management_bucket"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.ManagementBucket.Arn),
+			})
+		}
+		if awsData.DynamodbTable != nil {
+			retVal["dynamodb_table"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.DynamodbTable.Arn),
+			})
+		}
+		if awsData.Vpc != nil {
+			retVal["vpc"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.Vpc.Arn),
+			})
+		}
+		if awsData.PrivateSubnets != nil {
+			retVal["private_subnets"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arns": utils.StringSliceToTypeList(awsData.PrivateSubnets.Arns),
+			})
+		}
+		if awsData.PublicSubnets != nil {
+			retVal["public_subnets"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arns": utils.StringSliceToTypeList(awsData.PublicSubnets.Arns),
+			})
+		}
+		crmVal := crmValue
+		crmVal["aws"] = basetypes.NewObjectValueMust(awsType, retVal)
+		output.CustomerManagedResources = types.ObjectValueMust(cmrType, crmVal)
+
 	case "gcp":
 		// TODO placeholder so that the linter will stop complaining
 	}
-	output.CustomerManagedResources = cloudVal
 	return output
 }
 
-func generateNetworkCMR(cloudProvider string, model network.Network) *controlplanev1beta2.Network_CustomerManagedResources {
-	switch cloudProvider {
-	case "aws":
-		crmFromModel := model.CustomerManagedResources.AWS
-		output := &controlplanev1beta2.Network_CustomerManagedResources_Aws{
-			Aws: &controlplanev1beta2.Network_CustomerManagedResources_AWS{},
-		}
+func generateNetworkCMR(ctx context.Context, model models.Network, diags diag.Diagnostics) (*controlplanev1beta2.Network_CustomerManagedResources, diag.Diagnostics) {
+	cmr := &controlplanev1beta2.Network_CustomerManagedResources{}
 
-		if !utils.IsStructEmpty(crmFromModel.ManagementBucket) {
-			output.Aws.ManagementBucket = &controlplanev1beta2.CustomerManagedAWSCloudStorageBucket{
-				Arn: crmFromModel.ManagementBucket.ARN.ValueString(),
-			}
-		}
-
-		if !utils.IsStructEmpty(crmFromModel.DynamoDBTable) {
-			output.Aws.DynamodbTable = &controlplanev1beta2.CustomerManagedDynamoDBTable{
-				Arn: crmFromModel.DynamoDBTable.ARN.ValueString(),
-			}
-		}
-
-		if !utils.IsStructEmpty(crmFromModel.VPC) {
-			output.Aws.Vpc = &controlplanev1beta2.CustomerManagedAWSVPC{
-				Arn: crmFromModel.VPC.ARN.ValueString(),
-			}
-		}
-
-		if !utils.IsStructEmpty(crmFromModel.PrivateSubnets) {
-			output.Aws.PrivateSubnets = &controlplanev1beta2.CustomerManagedAWSSubnets{
-				Arns: utils.TypeListToStringSlice(crmFromModel.PrivateSubnets.ARNs),
-			}
-		}
-
-		if !utils.IsStructEmpty(crmFromModel.PublicSubnets) {
-			output.Aws.PublicSubnets = &controlplanev1beta2.CustomerManagedAWSSubnets{
-				Arns: utils.TypeListToStringSlice(crmFromModel.PublicSubnets.ARNs),
-			}
-		}
-
-		return &controlplanev1beta2.Network_CustomerManagedResources{
-			CloudProvider: output,
-		}
-	default:
-		return nil
+	if model.CustomerManagedResources.IsNull() {
+		return nil, nil
 	}
+
+	// If CustomerManagedResources is not null, process it
+	switch model.CloudProvider.ValueString() {
+	case "aws":
+		awsRet := &controlplanev1beta2.Network_CustomerManagedResources_AWS{
+			ManagementBucket: &controlplanev1beta2.CustomerManagedAWSCloudStorageBucket{},
+			DynamodbTable:    &controlplanev1beta2.CustomerManagedDynamoDBTable{},
+			Vpc:              &controlplanev1beta2.CustomerManagedAWSVPC{},
+			PrivateSubnets:   &controlplanev1beta2.CustomerManagedAWSSubnets{},
+			PublicSubnets:    &controlplanev1beta2.CustomerManagedAWSSubnets{},
+		}
+		// Get the AWS object from CustomerManagedResources
+		var cmrObj types.Object
+		if d := model.CustomerManagedResources.As(context.Background(), &cmrObj, basetypes.ObjectAsOptions{
+			UnhandledNullAsEmpty:    true,
+			UnhandledUnknownAsEmpty: true,
+		}); d.HasError() {
+			return nil, d
+		}
+
+		aws, d := getObjectFromAttributes(ctx, "aws", cmrObj.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		// bucket
+		mgmtBktArn, d := getStringFromAttributes("management_bucket", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.ManagementBucket.Arn = mgmtBktArn
+
+		// dynamo
+		dynamoArn, d := getStringFromAttributes("dynamodb_table", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.DynamodbTable.Arn = dynamoArn
+
+		// vpc
+		vpcArn, d := getStringFromAttributes("vpc", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.Vpc.Arn = vpcArn
+
+		// private subnets
+		privateSubnetsArns, d := getListFromAttributes("private_subnets", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.PrivateSubnets.Arns = privateSubnetsArns
+
+		// public subnets
+		publicSubnetsArns, d := getListFromAttributes("public_subnets", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.PublicSubnets.Arns = publicSubnetsArns
+
+		cmr.CloudProvider = &controlplanev1beta2.Network_CustomerManagedResources_Aws{
+			Aws: awsRet,
+		}
+		return cmr, nil
+	case "gcp":
+		// TODO placeholder so that the linter will stop complaining
+		return nil, nil
+	default:
+		return nil, nil
+	}
+}
+
+func getObjectFromAttributes(ctx context.Context, key string, att map[string]attr.Value, diags diag.Diagnostics) (types.Object, diag.Diagnostics) {
+	attVal, ok := att[key].(basetypes.ObjectValue)
+	if !ok {
+		return types.ObjectNull(map[string]attr.Type{}), append(diags, diag.NewErrorDiagnostic(fmt.Sprintf("%s not found", key), "object is missing or malformed for network resource"))
+	}
+	var keyVal types.Object
+	if err := attVal.As(ctx, &keyVal, basetypes.ObjectAsOptions{
+		UnhandledNullAsEmpty:    true,
+		UnhandledUnknownAsEmpty: true,
+	}); err != nil {
+		return types.ObjectNull(map[string]attr.Type{}), append(diags, diag.NewErrorDiagnostic(fmt.Sprintf("%s not found", key), "value is missing or malformed for network resource"))
+	}
+	return keyVal, nil
+}
+
+func getStringFromAttributes(key string, att map[string]attr.Value, diags diag.Diagnostics) (string, diag.Diagnostics) {
+	attVal, ok := att[key].(basetypes.ObjectValue)
+	if !ok {
+		return "", append(diags, diag.NewErrorDiagnostic(fmt.Sprintf("%s not found", key), "object is missing or malformed for network resource"))
+	}
+	rt, ok := attVal.Attributes()["arn"].(types.String)
+	if !ok {
+		return "", append(diags, diag.NewErrorDiagnostic(fmt.Sprintf("%s not found", key), "string is missing or malformed for network resource"))
+	}
+	return rt.ValueString(), nil
+}
+func getListFromAttributes(key string, att map[string]attr.Value, diags diag.Diagnostics) ([]string, diag.Diagnostics) {
+	attVal, ok := att[key].(basetypes.ObjectValue)
+	if !ok {
+		return nil, append(diags, diag.NewErrorDiagnostic(fmt.Sprintf("%s not found", key), "object is missing or malformed for network resource"))
+	}
+	rt, ok := attVal.Attributes()["arns"].(types.List)
+	if !ok {
+		return nil, append(diags, diag.NewErrorDiagnostic(fmt.Sprintf("%s not found", key), "list is missing or malformed for network resource"))
+	}
+	return utils.TypeListToStringSlice(rt), nil
 }

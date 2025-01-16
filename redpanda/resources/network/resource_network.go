@@ -20,11 +20,9 @@ package network
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"time"
 
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -35,7 +33,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/network"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
@@ -92,14 +90,11 @@ func resourceNetworkSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"cidr_block": schema.StringAttribute{
-				Required:      true,
+				Optional:      true,
 				Description:   "The cidr_block to create the network in",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators: []validator.String{
-					stringvalidator.RegexMatches(
-						regexp.MustCompile(`^(\d{1,3}\.){3}\d{1,3}/(\d{1,2})$`),
-						"The value must be a valid CIDR block (e.g., 192.168.0.0/16)",
-					),
+					validators.CIDRBlockValidator{},
 				},
 			},
 			"region": schema.StringAttribute{
@@ -130,8 +125,7 @@ func resourceNetworkSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"customer_managed_resources": schema.SingleNestedAttribute{
-				Optional:   true,
-				CustomType: network.CustomerManagedResourcesType{},
+				Optional: true,
 				Attributes: map[string]schema.Attribute{
 					"aws": schema.SingleNestedAttribute{
 						Optional:      true,
@@ -195,7 +189,7 @@ func resourceNetworkSchema() schema.Schema {
 // Create creates a new Network resource. It updates the state if the resource
 // is successfully created.
 func (n *Network) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
-	var model network.Network
+	var model models.Network
 	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
 
 	cloudProvider, err := utils.StringToCloudProvider(model.CloudProvider.ValueString())
@@ -209,6 +203,11 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		return
 	}
 
+	cmr, dgs := generateNetworkCMR(ctx, model, response.Diagnostics)
+	if dgs.HasError() {
+		response.Diagnostics = dgs
+		return
+	}
 	netResp, err := n.CpCl.Network.CreateNetwork(ctx, &controlplanev1beta2.CreateNetworkRequest{
 		Network: &controlplanev1beta2.NetworkCreate{
 			Name:                     model.Name.ValueString(),
@@ -217,7 +216,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 			CloudProvider:            cloudProvider,
 			ResourceGroupId:          model.ResourceGroupID.ValueString(),
 			ClusterType:              clusterType,
-			CustomerManagedResources: generateNetworkCMR(model.CloudProvider.ValueString(), model),
+			CustomerManagedResources: cmr,
 		},
 	})
 	if err != nil {
@@ -243,7 +242,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 
 // Read reads Network resource's values and updates the state.
 func (n *Network) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
-	var model network.Network
+	var model models.Network
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 	nw, err := n.CpCl.NetworkForID(ctx, model.ID.ValueString())
 	if err != nil {
@@ -271,7 +270,7 @@ func (*Network) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.
 
 // Delete deletes the Network resource.
 func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
-	var model network.Network
+	var model models.Network
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 	netResp, err := n.CpCl.Network.DeleteNetwork(ctx, &controlplanev1beta2.DeleteNetworkRequest{
 		Id: model.ID.ValueString(),

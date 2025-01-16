@@ -20,8 +20,6 @@ resource "redpanda_network" "test" {
   cloud_provider    = var.cloud_provider
   region            = var.region
   cluster_type      = "byoc"
-  cidr_block        = "10.0.0.0/20"
-
   customer_managed_resources = {
     aws = {
       management_bucket = {
