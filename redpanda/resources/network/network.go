@@ -40,30 +40,30 @@ func generateModel(cloudProvider string, nw *controlplanev1beta2.Network) *netwo
 	switch cloudProvider {
 	case "aws":
 		if nw.CustomerManagedResources.CloudProvider != nil {
-			cloudVal.AWS = &network.AWSResources{}
+			cloudVal.AWS = network.AWSResources{}
 			awsCMR := nw.CustomerManagedResources.CloudProvider.(*controlplanev1beta2.Network_CustomerManagedResources_Aws).Aws
 			if awsCMR.ManagementBucket != nil {
-				cloudVal.AWS.ManagementBucket = &network.AWSBucket{
+				cloudVal.AWS.ManagementBucket = network.AWSBucket{
 					ARN: types.StringValue(awsCMR.ManagementBucket.Arn),
 				}
 			}
 			if awsCMR.DynamodbTable != nil {
-				cloudVal.AWS.DynamoDBTable = &network.AWSDynamoDBTable{
+				cloudVal.AWS.DynamoDBTable = network.AWSDynamoDBTable{
 					ARN: types.StringValue(awsCMR.DynamodbTable.Arn),
 				}
 			}
 			if awsCMR.Vpc != nil {
-				cloudVal.AWS.VPC = &network.AWSVPC{
+				cloudVal.AWS.VPC = network.AWSVPC{
 					ARN: types.StringValue(awsCMR.Vpc.Arn),
 				}
 			}
 			if awsCMR.PrivateSubnets != nil {
-				cloudVal.AWS.PrivateSubnets = &network.AWSSubnets{
+				cloudVal.AWS.PrivateSubnets = network.AWSSubnets{
 					ARNs: utils.StringSliceToTypeList(awsCMR.PrivateSubnets.Arns),
 				}
 			}
 			if awsCMR.PublicSubnets != nil {
-				cloudVal.AWS.PublicSubnets = &network.AWSSubnets{
+				cloudVal.AWS.PublicSubnets = network.AWSSubnets{
 					ARNs: utils.StringSliceToTypeList(awsCMR.PublicSubnets.Arns),
 				}
 			}
@@ -80,28 +80,28 @@ func generateNetworkCMR(cloudProvider string, model network.Network) *controlpla
 	case "aws":
 		crmFromModel := model.CustomerManagedResources.AWS
 		output := &controlplanev1beta2.Network_CustomerManagedResources_Aws{}
-		if crmFromModel.ManagementBucket != nil {
+		if !utils.IsStructEmpty(crmFromModel.ManagementBucket) {
 			output.Aws.ManagementBucket = &controlplanev1beta2.CustomerManagedAWSCloudStorageBucket{
 				Arn: crmFromModel.ManagementBucket.ARN.ValueString(),
 			}
 		}
-		if crmFromModel.DynamoDBTable != nil {
+		if !utils.IsStructEmpty(crmFromModel.DynamoDBTable) {
 			output.Aws.DynamodbTable = &controlplanev1beta2.CustomerManagedDynamoDBTable{
 				Arn: crmFromModel.DynamoDBTable.ARN.ValueString(),
 			}
 		}
-		if crmFromModel.VPC != nil {
+		if utils.IsStructEmpty(crmFromModel.VPC) {
 			output.Aws.Vpc = &controlplanev1beta2.CustomerManagedAWSVPC{
 				Arn: crmFromModel.VPC.ARN.ValueString(),
 			}
 		}
-		if crmFromModel.PrivateSubnets != nil {
+		if utils.IsStructEmpty(crmFromModel.PrivateSubnets) {
 			output.Aws.PrivateSubnets = &controlplanev1beta2.CustomerManagedAWSSubnets{
 				Arns: utils.TypeListToStringSlice(crmFromModel.PrivateSubnets.ARNs),
 			}
 		}
 
-		if crmFromModel.PublicSubnets != nil {
+		if utils.IsStructEmpty(crmFromModel.PublicSubnets) {
 			output.Aws.PublicSubnets = &controlplanev1beta2.CustomerManagedAWSSubnets{
 				Arns: utils.TypeListToStringSlice(crmFromModel.PublicSubnets.ARNs),
 			}

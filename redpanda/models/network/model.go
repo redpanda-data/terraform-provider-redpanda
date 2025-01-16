@@ -34,11 +34,11 @@ type Network struct {
 
 // AWSResources represents the AWS resources that are managed by the customer
 type AWSResources struct {
-	ManagementBucket *AWSBucket
-	DynamoDBTable    *AWSDynamoDBTable
-	VPC              *AWSVPC
-	PrivateSubnets   *AWSSubnets
-	PublicSubnets    *AWSSubnets
+	ManagementBucket AWSBucket
+	DynamoDBTable    AWSDynamoDBTable
+	VPC              AWSVPC
+	PrivateSubnets   AWSSubnets
+	PublicSubnets    AWSSubnets
 }
 
 // AWSBucket contains the ARN of an S3 bucket

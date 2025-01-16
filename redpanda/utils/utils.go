@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"reflect"
 	"strings"
 	"time"
 
@@ -422,4 +423,26 @@ func DeserializeGrpcError(err error) string {
 		return fmt.Sprintf("%s : %s\n%s", st.Code(), st.Message(), st.Details())
 	}
 	return fmt.Sprintf("%s : %s", st.Code(), st.Message())
+}
+
+// IsStructEmpty checks if a struct is empty. Won't work with pointers/structs within structs
+func IsStructEmpty[T any](v T) bool {
+	val := reflect.ValueOf(v)
+
+	// Handle non-struct types
+	if val.Kind() != reflect.Struct {
+		return val.IsZero()
+	}
+
+	// Check each field in the struct
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Field(i)
+
+		// If any field is non-zero, the struct is not empty
+		if !field.IsZero() {
+			return false
+		}
+	}
+
+	return true
 }

@@ -1,9 +1,13 @@
 provider "redpanda" {}
 
-module "redpanda-byoc" {
+module "redpanda-byovpc" {
   source = "git::https://github.com/redpanda-data/terraform-aws-redpanda-byovpc.git?ref=add-code-from-cloudexamples"
 
   region = var.region
+  aws_account_id = "879326078624"
+
+  aws_access_key = var.aws_access_key
+    aws_secret_key = var.aws_secret_key
 }
 
 resource "redpanda_resource_group" "test" {
@@ -21,19 +25,19 @@ resource "redpanda_network" "test" {
   customer_managed_resources = {
     aws = {
       management_bucket = {
-        arn = module.redpanda-byoc.management_bucket_arn
+        arn = module.redpanda-byovpc.management_bucket_arn
       }
       dynamodb_table = {
-        arn = module.redpanda-byoc.dynamodb_table_arn
+        arn = module.redpanda-byovpc.dynamodb_table_arn
       }
       vpc = {
-        arn = module.redpanda-byoc.vpc_arn
+        arn = module.redpanda-byovpc.vpc_arn
       }
       private_subnets = {
-        arns = module.redpanda-byoc.private_subnet_arns
+        arns = module.redpanda-byovpc.private_subnet_arns
       }
       public_subnets = {
-        arns = module.redpanda-byoc.public_subnet_arns
+        arns = module.redpanda-byovpc.public_subnet_arns
       }
     }
   }
@@ -132,4 +136,12 @@ variable "partition_count" {
 
 variable "replication_factor" {
   default = 3
+}
+
+variable "aws_access_key" {
+  type = string
+}
+
+variable "aws_secret_key" {
+  type = string
 }

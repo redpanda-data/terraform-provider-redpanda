@@ -56,18 +56,30 @@ func (CustomerManagedResourcesType) ValueFromObject(_ context.Context, obj baset
 
 	if awsValue.IsNull() || awsValue.IsUnknown() {
 		return CustomerManagedResourcesValue{
-			AWS: &AWSResources{},
+			AWS: AWSResources{
+				ManagementBucket: AWSBucket{},
+				DynamoDBTable:    AWSDynamoDBTable{},
+				VPC:              AWSVPC{},
+				PrivateSubnets:   AWSSubnets{},
+				PublicSubnets:    AWSSubnets{},
+			},
 		}, diags
 	}
 
 	awsAttrs := awsValue.Attributes()
-	awsResources := &AWSResources{}
+	awsResources := AWSResources{
+		ManagementBucket: AWSBucket{},
+		DynamoDBTable:    AWSDynamoDBTable{},
+		VPC:              AWSVPC{},
+		PrivateSubnets:   AWSSubnets{},
+		PublicSubnets:    AWSSubnets{},
+	}
 
 	// Extract Management Bucket
 	if mb, ok := awsAttrs["management_bucket"].(types.Object); ok && !mb.IsNull() {
 		mbAttrs := mb.Attributes()
 		if arn, ok := mbAttrs["arn"].(types.String); ok {
-			awsResources.ManagementBucket = &AWSBucket{
+			awsResources.ManagementBucket = AWSBucket{
 				ARN: arn,
 			}
 		}
@@ -77,7 +89,7 @@ func (CustomerManagedResourcesType) ValueFromObject(_ context.Context, obj baset
 	if dt, ok := awsAttrs["dynamodb_table"].(types.Object); ok && !dt.IsNull() {
 		dtAttrs := dt.Attributes()
 		if arn, ok := dtAttrs["arn"].(types.String); ok {
-			awsResources.DynamoDBTable = &AWSDynamoDBTable{
+			awsResources.DynamoDBTable = AWSDynamoDBTable{
 				ARN: arn,
 			}
 		}
@@ -87,7 +99,7 @@ func (CustomerManagedResourcesType) ValueFromObject(_ context.Context, obj baset
 	if vpc, ok := awsAttrs["vpc"].(types.Object); ok && !vpc.IsNull() {
 		vpcAttrs := vpc.Attributes()
 		if arn, ok := vpcAttrs["arn"].(types.String); ok {
-			awsResources.VPC = &AWSVPC{
+			awsResources.VPC = AWSVPC{
 				ARN: arn,
 			}
 		}
@@ -97,7 +109,7 @@ func (CustomerManagedResourcesType) ValueFromObject(_ context.Context, obj baset
 	if ps, ok := awsAttrs["private_subnets"].(types.Object); ok && !ps.IsNull() {
 		psAttrs := ps.Attributes()
 		if arns, ok := psAttrs["arns"].(types.List); ok {
-			awsResources.PrivateSubnets = &AWSSubnets{
+			awsResources.PrivateSubnets = AWSSubnets{
 				ARNs: arns,
 			}
 		}
@@ -107,7 +119,7 @@ func (CustomerManagedResourcesType) ValueFromObject(_ context.Context, obj baset
 	if ps, ok := awsAttrs["public_subnets"].(types.Object); ok && !ps.IsNull() {
 		psAttrs := ps.Attributes()
 		if arns, ok := psAttrs["arns"].(types.List); ok {
-			awsResources.PublicSubnets = &AWSSubnets{
+			awsResources.PublicSubnets = AWSSubnets{
 				ARNs: arns,
 			}
 		}
@@ -191,37 +203,36 @@ func (CustomerManagedResourcesType) ApplyTerraform5AttributePathStep(step tftype
 	}
 }
 
-// AttrTypes returns the attribute types for CustomerManagedResources
 func (CustomerManagedResourcesType) AttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"aws": basetypes.ObjectType{
+		"aws": types.ObjectType{
 			AttrTypes: map[string]attr.Type{
-				"management_bucket": basetypes.ObjectType{
+				"management_bucket": types.ObjectType{
 					AttrTypes: map[string]attr.Type{
-						"arn": basetypes.StringType{},
+						"arn": types.StringType,
 					},
 				},
-				"dynamodb_table": basetypes.ObjectType{
+				"dynamodb_table": types.ObjectType{
 					AttrTypes: map[string]attr.Type{
-						"arn": basetypes.StringType{},
+						"arn": types.StringType,
 					},
 				},
-				"vpc": basetypes.ObjectType{
+				"vpc": types.ObjectType{
 					AttrTypes: map[string]attr.Type{
-						"arn": basetypes.StringType{},
+						"arn": types.StringType,
 					},
 				},
-				"private_subnets": basetypes.ObjectType{
+				"private_subnets": types.ObjectType{
 					AttrTypes: map[string]attr.Type{
-						"arns": basetypes.ListType{
-							ElemType: basetypes.StringType{},
+						"arns": types.ListType{
+							ElemType: types.StringType,
 						},
 					},
 				},
-				"public_subnets": basetypes.ObjectType{
+				"public_subnets": types.ObjectType{
 					AttrTypes: map[string]attr.Type{
-						"arns": basetypes.ListType{
-							ElemType: basetypes.StringType{},
+						"arns": types.ListType{
+							ElemType: types.StringType,
 						},
 					},
 				},
@@ -258,7 +269,13 @@ func (CustomerManagedResourcesType) ValueFromTerraform(_ context.Context, in tft
 		return nil, err
 	}
 
-	aws := &AWSResources{}
+	aws := AWSResources{
+		ManagementBucket: AWSBucket{},
+		DynamoDBTable:    AWSDynamoDBTable{},
+		VPC:              AWSVPC{},
+		PrivateSubnets:   AWSSubnets{},
+		PublicSubnets:    AWSSubnets{},
+	}
 
 	// Parse Management Bucket
 	if mbVal, ok := awsMap["management_bucket"]; ok && !mbVal.IsNull() {
@@ -267,7 +284,7 @@ func (CustomerManagedResourcesType) ValueFromTerraform(_ context.Context, in tft
 			var arnString string
 			if arnVal := mbMap["arn"]; !arnVal.IsNull() {
 				if err := arnVal.As(&arnString); err == nil {
-					aws.ManagementBucket = &AWSBucket{
+					aws.ManagementBucket = AWSBucket{
 						ARN: types.StringValue(arnString),
 					}
 				}
@@ -282,7 +299,7 @@ func (CustomerManagedResourcesType) ValueFromTerraform(_ context.Context, in tft
 			var arnString string
 			if arnVal := dtMap["arn"]; !arnVal.IsNull() {
 				if err := arnVal.As(&arnString); err == nil {
-					aws.DynamoDBTable = &AWSDynamoDBTable{
+					aws.DynamoDBTable = AWSDynamoDBTable{
 						ARN: types.StringValue(arnString),
 					}
 				}
@@ -297,7 +314,7 @@ func (CustomerManagedResourcesType) ValueFromTerraform(_ context.Context, in tft
 			var arnString string
 			if arnVal := vpcMap["arn"]; !arnVal.IsNull() {
 				if err := arnVal.As(&arnString); err == nil {
-					aws.VPC = &AWSVPC{
+					aws.VPC = AWSVPC{
 						ARN: types.StringValue(arnString),
 					}
 				}
@@ -312,7 +329,7 @@ func (CustomerManagedResourcesType) ValueFromTerraform(_ context.Context, in tft
 			if arnsVal := psMap["arns"]; !arnsVal.IsNull() {
 				var arnStrings []string
 				if err := arnsVal.As(&arnStrings); err == nil {
-					aws.PrivateSubnets = &AWSSubnets{
+					aws.PrivateSubnets = AWSSubnets{
 						ARNs: utils.StringSliceToTypeList(arnStrings),
 					}
 				}
@@ -327,7 +344,7 @@ func (CustomerManagedResourcesType) ValueFromTerraform(_ context.Context, in tft
 			if arnsVal := psMap["arns"]; !arnsVal.IsNull() {
 				var arnStrings []string
 				if err := arnsVal.As(&arnStrings); err == nil {
-					aws.PublicSubnets = &AWSSubnets{
+					aws.PublicSubnets = AWSSubnets{
 						ARNs: utils.StringSliceToTypeList(arnStrings),
 					}
 				}

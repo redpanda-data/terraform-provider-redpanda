@@ -9,16 +9,16 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 // CustomerManagedResourcesValue represents the concrete value with data
 type CustomerManagedResourcesValue struct {
-	AWS       *AWSResources
+	AWS       AWSResources
 	isNull    bool
 	isUnknown bool
 }
 
-// ToObjectValue converts our custom resource value to an objectvalue
 func (v CustomerManagedResourcesValue) ToObjectValue(_ context.Context) (basetypes.ObjectValue, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
@@ -30,71 +30,83 @@ func (v CustomerManagedResourcesValue) ToObjectValue(_ context.Context) (basetyp
 		return basetypes.NewObjectUnknown(CustomerManagedResourcesType{}.AttrTypes()), diags
 	}
 
-	if v.AWS == nil {
-		return basetypes.NewObjectNull(CustomerManagedResourcesType{}.AttrTypes()), diags
+	// Build AWS attributes - initialize with empty map instead of nil
+	awsAttrs := map[string]attr.Value{
+		"management_bucket": types.ObjectNull(map[string]attr.Type{
+			"arn": types.StringType,
+		}),
+		"dynamodb_table": types.ObjectNull(map[string]attr.Type{
+			"arn": types.StringType,
+		}),
+		"vpc": types.ObjectNull(map[string]attr.Type{
+			"arn": types.StringType,
+		}),
+		"private_subnets": types.ObjectNull(map[string]attr.Type{
+			"arns": types.ListType{
+				ElemType: types.StringType,
+			},
+		}),
+		"public_subnets": types.ObjectNull(map[string]attr.Type{
+			"arns": types.ListType{
+				ElemType: types.StringType,
+			},
+		}),
 	}
 
-	// Build AWS attributes
-	awsAttrs := make(map[string]attr.Value)
-
-	// Management Bucket
-	if v.AWS.ManagementBucket != nil {
+	// Only override with non-empty values
+	if !utils.IsStructEmpty(v.AWS.ManagementBucket) {
 		mbAttrs := map[string]attr.Value{
 			"arn": v.AWS.ManagementBucket.ARN,
 		}
 		mbObj, d := types.ObjectValue(map[string]attr.Type{
-			"arn": basetypes.StringType{},
+			"arn": types.StringType,
 		}, mbAttrs)
 		diags.Append(d...)
 		awsAttrs["management_bucket"] = mbObj
 	}
 
-	// DynamoDB Table
-	if v.AWS.DynamoDBTable != nil {
+	if !utils.IsStructEmpty(v.AWS.DynamoDBTable) {
 		dtAttrs := map[string]attr.Value{
 			"arn": v.AWS.DynamoDBTable.ARN,
 		}
 		dtObj, d := types.ObjectValue(map[string]attr.Type{
-			"arn": basetypes.StringType{},
+			"arn": types.StringType,
 		}, dtAttrs)
 		diags.Append(d...)
 		awsAttrs["dynamodb_table"] = dtObj
 	}
 
-	// VPC
-	if v.AWS.VPC != nil {
+	if !utils.IsStructEmpty(v.AWS.VPC) {
 		vpcAttrs := map[string]attr.Value{
 			"arn": v.AWS.VPC.ARN,
 		}
 		vpcObj, d := types.ObjectValue(map[string]attr.Type{
-			"arn": basetypes.StringType{},
+			"arn": types.StringType,
 		}, vpcAttrs)
 		diags.Append(d...)
 		awsAttrs["vpc"] = vpcObj
 	}
 
-	// Private Subnets
-	if v.AWS.PrivateSubnets != nil {
+	if !utils.IsStructEmpty(v.AWS.PrivateSubnets) {
 		psAttrs := map[string]attr.Value{
 			"arns": v.AWS.PrivateSubnets.ARNs,
 		}
 		psObj, d := types.ObjectValue(map[string]attr.Type{
 			"arns": types.ListType{
-				ElemType: basetypes.StringType{},
+				ElemType: types.StringType,
 			},
 		}, psAttrs)
 		diags.Append(d...)
 		awsAttrs["private_subnets"] = psObj
 	}
 
-	// Public Subnets
-	if v.AWS.PublicSubnets != nil {
+	if !utils.IsStructEmpty(v.AWS.PublicSubnets) {
 		psAttrs := map[string]attr.Value{
 			"arns": v.AWS.PublicSubnets.ARNs,
 		}
 		psObj, d := types.ObjectValue(map[string]attr.Type{
 			"arns": types.ListType{
-				ElemType: basetypes.StringType{},
+				ElemType: types.StringType,
 			},
 		}, psAttrs)
 		diags.Append(d...)
@@ -132,7 +144,7 @@ func (v CustomerManagedResourcesValue) String() string {
 	if v.IsNull() {
 		return "<null>"
 	}
-	if v.AWS == nil {
+	if utils.IsStructEmpty(v.AWS) {
 		return "CustomerManagedResources{}"
 	}
 
@@ -144,16 +156,66 @@ func (CustomerManagedResourcesValue) Type(_ context.Context) attr.Type {
 	return CustomerManagedResourcesType{}
 }
 
-// ToTerraformValue converts our custom value to a terraform value
 func (v CustomerManagedResourcesValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error) {
-	if v.AWS == nil {
-		return tftypes.NewValue(CustomerManagedResourcesType{}.TerraformType(ctx), nil), nil
+	awsMap := map[string]tftypes.Value{
+		"management_bucket": tftypes.NewValue(
+			tftypes.Object{
+				AttributeTypes: map[string]tftypes.Type{
+					"arn": tftypes.String,
+				},
+			},
+			map[string]tftypes.Value{
+				"arn": tftypes.NewValue(tftypes.String, nil),
+			},
+		),
+		"dynamodb_table": tftypes.NewValue(
+			tftypes.Object{
+				AttributeTypes: map[string]tftypes.Type{
+					"arn": tftypes.String,
+				},
+			},
+			map[string]tftypes.Value{
+				"arn": tftypes.NewValue(tftypes.String, nil),
+			},
+		),
+		"vpc": tftypes.NewValue(
+			tftypes.Object{
+				AttributeTypes: map[string]tftypes.Type{
+					"arn": tftypes.String,
+				},
+			},
+			map[string]tftypes.Value{
+				"arn": tftypes.NewValue(tftypes.String, nil),
+			},
+		),
+		"private_subnets": tftypes.NewValue(
+			tftypes.Object{
+				AttributeTypes: map[string]tftypes.Type{
+					"arns": tftypes.List{
+						ElementType: tftypes.String,
+					},
+				},
+			},
+			map[string]tftypes.Value{
+				"arns": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+			},
+		),
+		"public_subnets": tftypes.NewValue(
+			tftypes.Object{
+				AttributeTypes: map[string]tftypes.Type{
+					"arns": tftypes.List{
+						ElementType: tftypes.String,
+					},
+				},
+			},
+			map[string]tftypes.Value{
+				"arns": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+			},
+		),
 	}
 
-	awsMap := make(map[string]tftypes.Value)
-
-	// Convert each component back to Terraform values
-	if v.AWS.ManagementBucket != nil {
+	// Convert each component back to Terraform values if not empty
+	if !utils.IsStructEmpty(v.AWS.ManagementBucket) {
 		awsMap["management_bucket"] = tftypes.NewValue(
 			tftypes.Object{
 				AttributeTypes: map[string]tftypes.Type{
@@ -166,7 +228,7 @@ func (v CustomerManagedResourcesValue) ToTerraformValue(ctx context.Context) (tf
 		)
 	}
 
-	if v.AWS.DynamoDBTable != nil {
+	if !utils.IsStructEmpty(v.AWS.DynamoDBTable) {
 		awsMap["dynamodb_table"] = tftypes.NewValue(
 			tftypes.Object{
 				AttributeTypes: map[string]tftypes.Type{
@@ -179,7 +241,7 @@ func (v CustomerManagedResourcesValue) ToTerraformValue(ctx context.Context) (tf
 		)
 	}
 
-	if v.AWS.VPC != nil {
+	if !utils.IsStructEmpty(v.AWS.VPC) {
 		awsMap["vpc"] = tftypes.NewValue(
 			tftypes.Object{
 				AttributeTypes: map[string]tftypes.Type{
@@ -192,7 +254,7 @@ func (v CustomerManagedResourcesValue) ToTerraformValue(ctx context.Context) (tf
 		)
 	}
 
-	if v.AWS.PrivateSubnets != nil {
+	if !utils.IsStructEmpty(v.AWS.PrivateSubnets) {
 		awsMap["private_subnets"] = tftypes.NewValue(
 			tftypes.Object{
 				AttributeTypes: map[string]tftypes.Type{
@@ -207,7 +269,7 @@ func (v CustomerManagedResourcesValue) ToTerraformValue(ctx context.Context) (tf
 		)
 	}
 
-	if v.AWS.PublicSubnets != nil {
+	if !utils.IsStructEmpty(v.AWS.PublicSubnets) {
 		awsMap["public_subnets"] = tftypes.NewValue(
 			tftypes.Object{
 				AttributeTypes: map[string]tftypes.Type{
@@ -222,55 +284,105 @@ func (v CustomerManagedResourcesValue) ToTerraformValue(ctx context.Context) (tf
 		)
 	}
 
-	return tftypes.NewValue(CustomerManagedResourcesType{}.TerraformType(ctx), awsMap), nil
+	return tftypes.NewValue(
+		CustomerManagedResourcesType{}.TerraformType(ctx),
+		map[string]tftypes.Value{
+			"aws": tftypes.NewValue(
+				tftypes.Object{
+					AttributeTypes: map[string]tftypes.Type{
+						"management_bucket": tftypes.Object{
+							AttributeTypes: map[string]tftypes.Type{
+								"arn": tftypes.String,
+							},
+						},
+						"dynamodb_table": tftypes.Object{
+							AttributeTypes: map[string]tftypes.Type{
+								"arn": tftypes.String,
+							},
+						},
+						"vpc": tftypes.Object{
+							AttributeTypes: map[string]tftypes.Type{
+								"arn": tftypes.String,
+							},
+						},
+						"private_subnets": tftypes.Object{
+							AttributeTypes: map[string]tftypes.Type{
+								"arns": tftypes.List{
+									ElementType: tftypes.String,
+								},
+							},
+						},
+						"public_subnets": tftypes.Object{
+							AttributeTypes: map[string]tftypes.Type{
+								"arns": tftypes.List{
+									ElementType: tftypes.String,
+								},
+							},
+						},
+					},
+				},
+				awsMap,
+			),
+		},
+	), nil
 }
-
-// Equal returns true if the two values are equal
 func (v CustomerManagedResourcesValue) Equal(other attr.Value) bool {
 	o, ok := other.(CustomerManagedResourcesValue)
 	if !ok {
 		return false
 	}
 
-	if v.AWS == nil && o.AWS == nil {
+	if utils.IsStructEmpty(v.AWS) && utils.IsStructEmpty(o.AWS) {
 		return true
 	}
-	if v.AWS == nil || o.AWS == nil {
+	if utils.IsStructEmpty(v.AWS) || utils.IsStructEmpty(o.AWS) {
 		return false
 	}
 
-	// Add nil checks for each field
-	if (v.AWS.ManagementBucket == nil) != (o.AWS.ManagementBucket == nil) {
-		return false
-	}
-	if (v.AWS.DynamoDBTable == nil) != (o.AWS.DynamoDBTable == nil) {
-		return false
-	}
-	if (v.AWS.VPC == nil) != (o.AWS.VPC == nil) {
-		return false
-	}
-	if (v.AWS.PrivateSubnets == nil) != (o.AWS.PrivateSubnets == nil) {
-		return false
-	}
-	if (v.AWS.PublicSubnets == nil) != (o.AWS.PublicSubnets == nil) {
-		return false
+	// Compare each field - no need for nil checks since utils.IsStructEmpty will handle those
+	if !utils.IsStructEmpty(v.AWS.ManagementBucket) || !utils.IsStructEmpty(o.AWS.ManagementBucket) {
+		if utils.IsStructEmpty(v.AWS.ManagementBucket) || utils.IsStructEmpty(o.AWS.ManagementBucket) {
+			return false
+		}
+		if !v.AWS.ManagementBucket.ARN.Equal(o.AWS.ManagementBucket.ARN) {
+			return false
+		}
 	}
 
-	// Only compare non-nil fields
-	if v.AWS.ManagementBucket != nil && !v.AWS.ManagementBucket.ARN.Equal(o.AWS.ManagementBucket.ARN) {
-		return false
+	if !utils.IsStructEmpty(v.AWS.DynamoDBTable) || !utils.IsStructEmpty(o.AWS.DynamoDBTable) {
+		if utils.IsStructEmpty(v.AWS.DynamoDBTable) || utils.IsStructEmpty(o.AWS.DynamoDBTable) {
+			return false
+		}
+		if !v.AWS.DynamoDBTable.ARN.Equal(o.AWS.DynamoDBTable.ARN) {
+			return false
+		}
 	}
-	if v.AWS.DynamoDBTable != nil && !v.AWS.DynamoDBTable.ARN.Equal(o.AWS.DynamoDBTable.ARN) {
-		return false
+
+	if !utils.IsStructEmpty(v.AWS.VPC) || !utils.IsStructEmpty(o.AWS.VPC) {
+		if utils.IsStructEmpty(v.AWS.VPC) || utils.IsStructEmpty(o.AWS.VPC) {
+			return false
+		}
+		if !v.AWS.VPC.ARN.Equal(o.AWS.VPC.ARN) {
+			return false
+		}
 	}
-	if v.AWS.VPC != nil && !v.AWS.VPC.ARN.Equal(o.AWS.VPC.ARN) {
-		return false
+
+	if !utils.IsStructEmpty(v.AWS.PrivateSubnets) || !utils.IsStructEmpty(o.AWS.PrivateSubnets) {
+		if utils.IsStructEmpty(v.AWS.PrivateSubnets) || utils.IsStructEmpty(o.AWS.PrivateSubnets) {
+			return false
+		}
+		if !v.AWS.PrivateSubnets.ARNs.Equal(o.AWS.PrivateSubnets.ARNs) {
+			return false
+		}
 	}
-	if v.AWS.PrivateSubnets != nil && !v.AWS.PrivateSubnets.ARNs.Equal(o.AWS.PrivateSubnets.ARNs) {
-		return false
-	}
-	if v.AWS.PublicSubnets != nil && !v.AWS.PublicSubnets.ARNs.Equal(o.AWS.PublicSubnets.ARNs) {
-		return false
+
+	if !utils.IsStructEmpty(v.AWS.PublicSubnets) || !utils.IsStructEmpty(o.AWS.PublicSubnets) {
+		if utils.IsStructEmpty(v.AWS.PublicSubnets) || utils.IsStructEmpty(o.AWS.PublicSubnets) {
+			return false
+		}
+		if !v.AWS.PublicSubnets.ARNs.Equal(o.AWS.PublicSubnets.ARNs) {
+			return false
+		}
 	}
 
 	return true

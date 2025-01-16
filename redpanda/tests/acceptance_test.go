@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/terraform-plugin-testing/config"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -217,7 +218,7 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testaws)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, "", awsDedicatedClusterFile, t)
+	testRunner(ctx, name, rename, "", awsDedicatedClusterFile, nil, t)
 }
 
 func TestAccResourcesClusterAzure(t *testing.T) {
@@ -227,7 +228,7 @@ func TestAccResourcesClusterAzure(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testazure)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, "", azureDedicatedClusterFile, t)
+	testRunner(ctx, name, rename, "", azureDedicatedClusterFile, nil, t)
 }
 
 func TestAccResourcesClusterGCP(t *testing.T) {
@@ -237,7 +238,7 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + "testgcp")
 	rename := generateRandomName(accNamePrepend + "testgcp-rename")
-	testRunner(ctx, name, rename, redpandaVersion, gcpDedicatedClusterFile, t)
+	testRunner(ctx, name, rename, redpandaVersion, gcpDedicatedClusterFile, nil, t)
 }
 
 func TestAccResourcesByocAWS(t *testing.T) {
@@ -247,7 +248,7 @@ func TestAccResourcesByocAWS(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testaws)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, redpandaVersion, awsByocClusterFile, t)
+	testRunner(ctx, name, rename, redpandaVersion, awsByocClusterFile, nil, t)
 }
 
 func TestAccResourcesByocAzure(t *testing.T) {
@@ -257,7 +258,7 @@ func TestAccResourcesByocAzure(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testazure)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, redpandaVersion, azureByocClusterFile, t)
+	testRunner(ctx, name, rename, redpandaVersion, azureByocClusterFile, nil, t)
 }
 
 func TestAccResourcesByocGCP(t *testing.T) {
@@ -267,7 +268,7 @@ func TestAccResourcesByocGCP(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + "testgcp")
 	rename := generateRandomName(accNamePrepend + "testgcp-rename")
-	testRunner(ctx, name, rename, redpandaVersion, gcpByocClusterFile, t)
+	testRunner(ctx, name, rename, redpandaVersion, gcpByocClusterFile, nil, t)
 }
 
 func TestAccResourcesByoVpcAWS(t *testing.T) {
@@ -277,11 +278,14 @@ func TestAccResourcesByoVpcAWS(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testaws)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, redpandaVersion, awsByocVpcClusterFile, t)
+	testRunner(ctx, name, rename, redpandaVersion, awsByocVpcClusterFile, map[string]string{
+		"aws_secret_key": os.Getenv("AWS_SECRET_ACCESS_KEY"),
+		"aws_access_key": os.Getenv("AWS_ACCESS_KEY_ID"),
+	}, t)
 }
 
 // testRunner is a helper function that runs a series of tests on a given cluster in a given cloud provider.
-func testRunner(ctx context.Context, name, rename, version, testFile string, t *testing.T) {
+func testRunner(ctx context.Context, name, rename, version, testFile string, customVars map[string]string, t *testing.T) {
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
@@ -289,6 +293,12 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, t *
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
 	origTestCaseVars["user_name"] = config.StringVariable(name)
 	origTestCaseVars["topic_name"] = config.StringVariable(name)
+
+	if customVars != nil && len(customVars) > 0 {
+		for k, v := range customVars {
+			origTestCaseVars[k] = config.StringVariable(v)
+		}
+	}
 	if version != "" {
 		// version is only necessary to resolve a GCP install pack issue. we should generally use latest (nil)
 		origTestCaseVars["version"] = config.StringVariable(version)
@@ -302,6 +312,8 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, t *
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	spew.Dump(origTestCaseVars)
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
