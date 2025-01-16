@@ -20,7 +20,6 @@ var (
 	_ basetypes.ObjectTypable  = CustomerManagedResourcesType{}
 )
 
-// ValueFromObject returns the custom struct populated with available data
 func (CustomerManagedResourcesType) ValueFromObject(_ context.Context, obj basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	diags := diag.Diagnostics{}
 
@@ -57,23 +56,29 @@ func (CustomerManagedResourcesType) ValueFromObject(_ context.Context, obj baset
 	if awsValue.IsNull() || awsValue.IsUnknown() {
 		return CustomerManagedResourcesValue{
 			AWS: AWSResources{
-				ManagementBucket: AWSBucket{},
-				DynamoDBTable:    AWSDynamoDBTable{},
-				VPC:              AWSVPC{},
-				PrivateSubnets:   AWSSubnets{},
-				PublicSubnets:    AWSSubnets{},
+				ManagementBucket: AWSBucket{
+					ARN: types.StringUnknown(),
+				},
+				DynamoDBTable: AWSDynamoDBTable{
+					ARN: types.StringUnknown(),
+				},
+				VPC: AWSVPC{
+					ARN: types.StringUnknown(),
+				},
+				PrivateSubnets: AWSSubnets{
+					ARNs: types.ListUnknown(types.StringType),
+				},
+				PublicSubnets: AWSSubnets{
+					ARNs: types.ListUnknown(types.StringType),
+				},
 			},
+			isUnknown: awsValue.IsUnknown(),
+			isNull:    awsValue.IsNull(),
 		}, diags
 	}
 
 	awsAttrs := awsValue.Attributes()
-	awsResources := AWSResources{
-		ManagementBucket: AWSBucket{},
-		DynamoDBTable:    AWSDynamoDBTable{},
-		VPC:              AWSVPC{},
-		PrivateSubnets:   AWSSubnets{},
-		PublicSubnets:    AWSSubnets{},
-	}
+	awsResources := AWSResources{}
 
 	// Extract Management Bucket
 	if mb, ok := awsAttrs["management_bucket"].(types.Object); ok && !mb.IsNull() {
@@ -241,7 +246,6 @@ func (CustomerManagedResourcesType) AttrTypes() map[string]attr.Type {
 	}
 }
 
-// ValueFromTerraform handles conversion from Terraform values
 func (CustomerManagedResourcesType) ValueFromTerraform(_ context.Context, in tftypes.Value) (attr.Value, error) {
 	if !in.IsKnown() {
 		return CustomerManagedResourcesValue{
@@ -254,38 +258,50 @@ func (CustomerManagedResourcesType) ValueFromTerraform(_ context.Context, in tft
 		}, nil
 	}
 
-	var attributes map[string]tftypes.Value
-	if err := in.As(&attributes); err != nil {
-		return nil, err
-	}
-
-	awsData, ok := attributes["aws"]
-	if !ok {
-		return CustomerManagedResourcesValue{}, nil
-	}
-
 	var awsMap map[string]tftypes.Value
-	if err := awsData.As(&awsMap); err != nil {
+	if err := in.As(&awsMap); err != nil {
 		return nil, err
 	}
 
 	aws := AWSResources{
-		ManagementBucket: AWSBucket{},
-		DynamoDBTable:    AWSDynamoDBTable{},
-		VPC:              AWSVPC{},
-		PrivateSubnets:   AWSSubnets{},
-		PublicSubnets:    AWSSubnets{},
+		ManagementBucket: AWSBucket{
+			ARN: types.StringUnknown(),
+		},
+		DynamoDBTable: AWSDynamoDBTable{
+			ARN: types.StringUnknown(),
+		},
+		VPC: AWSVPC{
+			ARN: types.StringUnknown(),
+		},
+		PrivateSubnets: AWSSubnets{
+			ARNs: types.ListUnknown(types.StringType),
+		},
+		PublicSubnets: AWSSubnets{
+			ARNs: types.ListUnknown(types.StringType),
+		},
 	}
 
 	// Parse Management Bucket
-	if mbVal, ok := awsMap["management_bucket"]; ok && !mbVal.IsNull() {
-		var mbMap map[string]tftypes.Value
-		if err := mbVal.As(&mbMap); err == nil {
-			var arnString string
-			if arnVal := mbMap["arn"]; !arnVal.IsNull() {
-				if err := arnVal.As(&arnString); err == nil {
-					aws.ManagementBucket = AWSBucket{
-						ARN: types.StringValue(arnString),
+	if mbVal, ok := awsMap["management_bucket"]; ok {
+		if !mbVal.IsKnown() {
+			aws.ManagementBucket = AWSBucket{
+				ARN: types.StringUnknown(),
+			}
+		} else if !mbVal.IsNull() {
+			var mbMap map[string]tftypes.Value
+			if err := mbVal.As(&mbMap); err == nil {
+				if arnVal, ok := mbMap["arn"]; ok {
+					if !arnVal.IsKnown() {
+						aws.ManagementBucket = AWSBucket{
+							ARN: types.StringUnknown(),
+						}
+					} else if !arnVal.IsNull() {
+						var arnString string
+						if err := arnVal.As(&arnString); err == nil {
+							aws.ManagementBucket = AWSBucket{
+								ARN: types.StringValue(arnString),
+							}
+						}
 					}
 				}
 			}
@@ -293,14 +309,26 @@ func (CustomerManagedResourcesType) ValueFromTerraform(_ context.Context, in tft
 	}
 
 	// Parse DynamoDB Table
-	if dtVal, ok := awsMap["dynamodb_table"]; ok && !dtVal.IsNull() {
-		var dtMap map[string]tftypes.Value
-		if err := dtVal.As(&dtMap); err == nil {
-			var arnString string
-			if arnVal := dtMap["arn"]; !arnVal.IsNull() {
-				if err := arnVal.As(&arnString); err == nil {
-					aws.DynamoDBTable = AWSDynamoDBTable{
-						ARN: types.StringValue(arnString),
+	if dtVal, ok := awsMap["dynamodb_table"]; ok {
+		if !dtVal.IsKnown() {
+			aws.DynamoDBTable = AWSDynamoDBTable{
+				ARN: types.StringUnknown(),
+			}
+		} else if !dtVal.IsNull() {
+			var dtMap map[string]tftypes.Value
+			if err := dtVal.As(&dtMap); err == nil {
+				if arnVal, ok := dtMap["arn"]; ok {
+					if !arnVal.IsKnown() {
+						aws.DynamoDBTable = AWSDynamoDBTable{
+							ARN: types.StringUnknown(),
+						}
+					} else if !arnVal.IsNull() {
+						var arnString string
+						if err := arnVal.As(&arnString); err == nil {
+							aws.DynamoDBTable = AWSDynamoDBTable{
+								ARN: types.StringValue(arnString),
+							}
+						}
 					}
 				}
 			}
@@ -308,14 +336,26 @@ func (CustomerManagedResourcesType) ValueFromTerraform(_ context.Context, in tft
 	}
 
 	// Parse VPC
-	if vpcVal, ok := awsMap["vpc"]; ok && !vpcVal.IsNull() {
-		var vpcMap map[string]tftypes.Value
-		if err := vpcVal.As(&vpcMap); err == nil {
-			var arnString string
-			if arnVal := vpcMap["arn"]; !arnVal.IsNull() {
-				if err := arnVal.As(&arnString); err == nil {
-					aws.VPC = AWSVPC{
-						ARN: types.StringValue(arnString),
+	if vpcVal, ok := awsMap["vpc"]; ok {
+		if !vpcVal.IsKnown() {
+			aws.VPC = AWSVPC{
+				ARN: types.StringUnknown(),
+			}
+		} else if !vpcVal.IsNull() {
+			var vpcMap map[string]tftypes.Value
+			if err := vpcVal.As(&vpcMap); err == nil {
+				if arnVal, ok := vpcMap["arn"]; ok {
+					if !arnVal.IsKnown() {
+						aws.VPC = AWSVPC{
+							ARN: types.StringUnknown(),
+						}
+					} else if !arnVal.IsNull() {
+						var arnString string
+						if err := arnVal.As(&arnString); err == nil {
+							aws.VPC = AWSVPC{
+								ARN: types.StringValue(arnString),
+							}
+						}
 					}
 				}
 			}
@@ -323,14 +363,26 @@ func (CustomerManagedResourcesType) ValueFromTerraform(_ context.Context, in tft
 	}
 
 	// Parse Private Subnets
-	if psVal, ok := awsMap["private_subnets"]; ok && !psVal.IsNull() {
+	if psVal, ok := awsMap["private_subnets"]; ok {
 		var psMap map[string]tftypes.Value
-		if err := psVal.As(&psMap); err == nil {
-			if arnsVal := psMap["arns"]; !arnsVal.IsNull() {
-				var arnStrings []string
-				if err := arnsVal.As(&arnStrings); err == nil {
-					aws.PrivateSubnets = AWSSubnets{
-						ARNs: utils.StringSliceToTypeList(arnStrings),
+		if !psVal.IsKnown() {
+			aws.PrivateSubnets = AWSSubnets{
+				ARNs: types.ListUnknown(types.StringType),
+			}
+		} else if !psVal.IsNull() {
+			if err := psVal.As(&psMap); err == nil {
+				if arnsVal, ok := psMap["arns"]; ok {
+					if !arnsVal.IsKnown() || utils.IsStructEmpty(psMap) {
+						aws.PrivateSubnets = AWSSubnets{
+							ARNs: types.ListUnknown(types.StringType),
+						}
+					} else if !arnsVal.IsNull() {
+						var arnStrings []string
+						if err := arnsVal.As(&arnStrings); err == nil {
+							aws.PrivateSubnets = AWSSubnets{
+								ARNs: utils.StringSliceToTypeList(arnStrings),
+							}
+						}
 					}
 				}
 			}
@@ -338,14 +390,26 @@ func (CustomerManagedResourcesType) ValueFromTerraform(_ context.Context, in tft
 	}
 
 	// Parse Public Subnets
-	if psVal, ok := awsMap["public_subnets"]; ok && !psVal.IsNull() {
+	if psVal, ok := awsMap["public_subnets"]; ok {
 		var psMap map[string]tftypes.Value
-		if err := psVal.As(&psMap); err == nil {
-			if arnsVal := psMap["arns"]; !arnsVal.IsNull() {
-				var arnStrings []string
-				if err := arnsVal.As(&arnStrings); err == nil {
-					aws.PublicSubnets = AWSSubnets{
-						ARNs: utils.StringSliceToTypeList(arnStrings),
+		if !psVal.IsKnown() {
+			aws.PublicSubnets = AWSSubnets{
+				ARNs: types.ListUnknown(types.StringType),
+			}
+		} else if !psVal.IsNull() {
+			if err := psVal.As(&psMap); err == nil {
+				if arnsVal, ok := psMap["arns"]; ok {
+					if !arnsVal.IsKnown() || utils.IsStructEmpty(psMap) {
+						aws.PublicSubnets = AWSSubnets{
+							ARNs: types.ListUnknown(types.StringType),
+						}
+					} else if !arnsVal.IsNull() {
+						var arnStrings []string
+						if err := arnsVal.As(&arnStrings); err == nil {
+							aws.PublicSubnets = AWSSubnets{
+								ARNs: utils.StringSliceToTypeList(arnStrings),
+							}
+						}
 					}
 				}
 			}

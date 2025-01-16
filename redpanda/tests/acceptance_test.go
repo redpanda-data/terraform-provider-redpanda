@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/terraform-plugin-testing/config"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -313,7 +312,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 		t.Fatal(err)
 	}
 
-	spew.Dump(origTestCaseVars)
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
