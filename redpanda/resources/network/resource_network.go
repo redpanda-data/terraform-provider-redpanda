@@ -208,6 +208,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		response.Diagnostics = dgs
 		return
 	}
+
 	netResp, err := n.CpCl.Network.CreateNetwork(ctx, &controlplanev1beta2.CreateNetworkRequest{
 		Network: &controlplanev1beta2.NetworkCreate{
 			Name:                     model.Name.ValueString(),

@@ -30,7 +30,6 @@ import (
 
 func generateModel(cloudProvider string, nw *controlplanev1beta2.Network) *models.Network {
 	output := &models.Network{
-		CidrBlock:       types.StringValue(nw.CidrBlock),
 		CloudProvider:   types.StringValue(utils.CloudProviderToString(nw.CloudProvider)),
 		ClusterType:     types.StringValue(utils.ClusterTypeToString(nw.ClusterType)),
 		ID:              types.StringValue(nw.Id),
@@ -39,6 +38,9 @@ func generateModel(cloudProvider string, nw *controlplanev1beta2.Network) *model
 		ResourceGroupID: types.StringValue(nw.ResourceGroupId),
 	}
 
+	if nw.CidrBlock != "" {
+		output.CidrBlock = types.StringValue(nw.CidrBlock)
+	}
 	if nw.CustomerManagedResources == nil || nw.CustomerManagedResources.CloudProvider == nil {
 		return output
 	}
@@ -54,25 +56,45 @@ func generateModel(cloudProvider string, nw *controlplanev1beta2.Network) *model
 			retVal["management_bucket"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
 				"arn": types.StringValue(awsData.ManagementBucket.Arn),
 			})
+		} else {
+			retVal["management_bucket"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(""),
+			})
 		}
 		if awsData.DynamodbTable != nil {
 			retVal["dynamodb_table"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
 				"arn": types.StringValue(awsData.DynamodbTable.Arn),
+			})
+		} else {
+			retVal["dynamodb_table"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(""),
 			})
 		}
 		if awsData.Vpc != nil {
 			retVal["vpc"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
 				"arn": types.StringValue(awsData.Vpc.Arn),
 			})
+		} else {
+			retVal["vpc"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(""),
+			})
 		}
 		if awsData.PrivateSubnets != nil {
 			retVal["private_subnets"] = types.ObjectValueMust(multiElementContainer, map[string]attr.Value{
 				"arns": utils.StringSliceToTypeList(awsData.PrivateSubnets.Arns),
 			})
+		} else {
+			retVal["private_subnets"] = types.ObjectValueMust(multiElementContainer, map[string]attr.Value{
+				"arns": utils.StringSliceToTypeList([]string{}),
+			})
 		}
 		if awsData.PublicSubnets != nil {
 			retVal["public_subnets"] = types.ObjectValueMust(multiElementContainer, map[string]attr.Value{
 				"arns": utils.StringSliceToTypeList(awsData.PublicSubnets.Arns),
+			})
+		} else {
+			retVal["public_subnets"] = types.ObjectValueMust(multiElementContainer, map[string]attr.Value{
+				"arns": utils.StringSliceToTypeList([]string{}),
 			})
 		}
 		crmVal := crmVal
