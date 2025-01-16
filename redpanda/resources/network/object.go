@@ -41,7 +41,7 @@ var cmrType = map[string]attr.Type{
 	},
 }
 
-var crmValue = map[string]attr.Value{
+var crmVal = map[string]attr.Value{
 	"aws": types.ObjectNull(awsType),
 }
 

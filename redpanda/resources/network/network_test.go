@@ -258,3 +258,159 @@ func TestGenerateNetworkCMR(t *testing.T) {
 		})
 	}
 }
+
+func TestGenerateModel(t *testing.T) {
+	tests := []struct {
+		name          string
+		cloudProvider string
+		network       *controlplanev1beta2.Network
+		want          *models.Network
+	}{
+		{
+			name:          "successful aws config",
+			cloudProvider: "aws",
+			network: &controlplanev1beta2.Network{
+				Name:            "test-network",
+				ResourceGroupId: "rg-123",
+				CidrBlock:       "10.0.0.0/16",
+				Region:          "us-east-2",
+				Id:              "net-123",
+				CloudProvider:   controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_AWS,
+				ClusterType:     controlplanev1beta2.Cluster_TYPE_BYOC,
+				CustomerManagedResources: &controlplanev1beta2.Network_CustomerManagedResources{
+					CloudProvider: &controlplanev1beta2.Network_CustomerManagedResources_Aws{
+						Aws: &controlplanev1beta2.Network_CustomerManagedResources_AWS{
+							ManagementBucket: &controlplanev1beta2.CustomerManagedAWSCloudStorageBucket{
+								Arn: "arn:aws:s3:::rp-879326078624-us-east-2-mgmt-20250116215415273800000009",
+							},
+							DynamodbTable: &controlplanev1beta2.CustomerManagedDynamoDBTable{
+								Arn: "arn:aws:dynamodb:us-east-2:879326078624:table/rp-879326078624-us-east-2-mgmt-tflock-mgkr8cfwlj",
+							},
+							Vpc: &controlplanev1beta2.CustomerManagedAWSVPC{
+								Arn: "arn:aws:ec2:us-east-2:879326078624:vpc/vpc-00398e37a5081c45d",
+							},
+							PrivateSubnets: &controlplanev1beta2.CustomerManagedAWSSubnets{
+								Arns: []string{
+									"arn:aws:ec2:us-east-2:879326078624:subnet/subnet-00e09f8421e896955",
+									"arn:aws:ec2:us-east-2:879326078624:subnet/subnet-07cae67987779c5ea",
+									"arn:aws:ec2:us-east-2:879326078624:subnet/subnet-0abe52a23ef66841b",
+									"arn:aws:ec2:us-east-2:879326078624:subnet/subnet-01e11c77fd3fbe32c",
+									"arn:aws:ec2:us-east-2:879326078624:subnet/subnet-0605966e91c95a2da",
+									"arn:aws:ec2:us-east-2:879326078624:subnet/subnet-02cf3488fc8ecf66c",
+								},
+							},
+							PublicSubnets: &controlplanev1beta2.CustomerManagedAWSSubnets{
+								Arns: []string{
+									"arn:aws:ec2:us-east-2:879326078624:subnet/subnet-00e09f8421e896955",
+									"arn:aws:ec2:us-east-2:879326078624:subnet/subnet-07cae67987779c5ea",
+									"arn:aws:ec2:us-east-2:879326078624:subnet/subnet-0abe52a23ef66841b",
+									"arn:aws:ec2:us-east-2:879326078624:subnet/subnet-01e11c77fd3fbe32c",
+									"arn:aws:ec2:us-east-2:879326078624:subnet/subnet-0605966e91c95a2da",
+									"arn:aws:ec2:us-east-2:879326078624:subnet/subnet-02cf3488fc8ecf66c",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &models.Network{
+				Name:            types.StringValue("test-network"),
+				ResourceGroupID: types.StringValue("rg-123"),
+				CidrBlock:       types.StringValue("10.0.0.0/16"),
+				Region:          types.StringValue("us-east-2"),
+				ID:              types.StringValue("net-123"),
+				CloudProvider:   types.StringValue("aws"),
+				ClusterType:     types.StringValue("byoc"),
+				CustomerManagedResources: types.ObjectValueMust(
+					cmrType,
+					map[string]attr.Value{
+						"aws": types.ObjectValueMust(
+							awsType,
+							map[string]attr.Value{
+								"management_bucket": types.ObjectValueMust(
+									singleElementContainer,
+									map[string]attr.Value{
+										"arn": types.StringValue("arn:aws:s3:::rp-879326078624-us-east-2-mgmt-20250116215415273800000009"),
+									},
+								),
+								"dynamodb_table": types.ObjectValueMust(
+									singleElementContainer,
+									map[string]attr.Value{
+										"arn": types.StringValue("arn:aws:dynamodb:us-east-2:879326078624:table/rp-879326078624-us-east-2-mgmt-tflock-mgkr8cfwlj"),
+									},
+								),
+								"vpc": types.ObjectValueMust(
+									singleElementContainer,
+									map[string]attr.Value{
+										"arn": types.StringValue("arn:aws:ec2:us-east-2:879326078624:vpc/vpc-00398e37a5081c45d"),
+									},
+								),
+								"private_subnets": types.ObjectValueMust(
+									multiElementContainer,
+									map[string]attr.Value{
+										"arns": types.ListValueMust(
+											types.StringType,
+											[]attr.Value{
+												types.StringValue("arn:aws:ec2:us-east-2:879326078624:subnet/subnet-00e09f8421e896955"),
+												types.StringValue("arn:aws:ec2:us-east-2:879326078624:subnet/subnet-07cae67987779c5ea"),
+												types.StringValue("arn:aws:ec2:us-east-2:879326078624:subnet/subnet-0abe52a23ef66841b"),
+												types.StringValue("arn:aws:ec2:us-east-2:879326078624:subnet/subnet-01e11c77fd3fbe32c"),
+												types.StringValue("arn:aws:ec2:us-east-2:879326078624:subnet/subnet-0605966e91c95a2da"),
+												types.StringValue("arn:aws:ec2:us-east-2:879326078624:subnet/subnet-02cf3488fc8ecf66c"),
+											},
+										),
+									},
+								),
+								"public_subnets": types.ObjectValueMust(
+									multiElementContainer,
+									map[string]attr.Value{
+										"arns": types.ListValueMust(
+											types.StringType,
+											[]attr.Value{
+												types.StringValue("arn:aws:ec2:us-east-2:879326078624:subnet/subnet-00e09f8421e896955"),
+												types.StringValue("arn:aws:ec2:us-east-2:879326078624:subnet/subnet-07cae67987779c5ea"),
+												types.StringValue("arn:aws:ec2:us-east-2:879326078624:subnet/subnet-0abe52a23ef66841b"),
+												types.StringValue("arn:aws:ec2:us-east-2:879326078624:subnet/subnet-01e11c77fd3fbe32c"),
+												types.StringValue("arn:aws:ec2:us-east-2:879326078624:subnet/subnet-0605966e91c95a2da"),
+												types.StringValue("arn:aws:ec2:us-east-2:879326078624:subnet/subnet-02cf3488fc8ecf66c"),
+											},
+										),
+									},
+								),
+							},
+						),
+					},
+				),
+			},
+		},
+		{
+			name:          "no customer managed resources",
+			cloudProvider: "aws",
+			network: &controlplanev1beta2.Network{
+				Name:            "test-network",
+				ResourceGroupId: "rg-123",
+				CidrBlock:       "10.0.0.0/16",
+				Region:          "us-east-2",
+				Id:              "net-123",
+				CloudProvider:   controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_AWS,
+				ClusterType:     controlplanev1beta2.Cluster_TYPE_DEDICATED,
+			},
+			want: &models.Network{
+				Name:            types.StringValue("test-network"),
+				ResourceGroupID: types.StringValue("rg-123"),
+				CidrBlock:       types.StringValue("10.0.0.0/16"),
+				Region:          types.StringValue("us-east-2"),
+				ID:              types.StringValue("net-123"),
+				CloudProvider:   types.StringValue("aws"),
+				ClusterType:     types.StringValue("dedicated"),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := generateModel(tt.cloudProvider, tt.network)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

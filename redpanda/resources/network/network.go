@@ -66,16 +66,16 @@ func generateModel(cloudProvider string, nw *controlplanev1beta2.Network) *model
 			})
 		}
 		if awsData.PrivateSubnets != nil {
-			retVal["private_subnets"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+			retVal["private_subnets"] = types.ObjectValueMust(multiElementContainer, map[string]attr.Value{
 				"arns": utils.StringSliceToTypeList(awsData.PrivateSubnets.Arns),
 			})
 		}
 		if awsData.PublicSubnets != nil {
-			retVal["public_subnets"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+			retVal["public_subnets"] = types.ObjectValueMust(multiElementContainer, map[string]attr.Value{
 				"arns": utils.StringSliceToTypeList(awsData.PublicSubnets.Arns),
 			})
 		}
-		crmVal := crmValue
+		crmVal := crmVal
 		crmVal["aws"] = basetypes.NewObjectValueMust(awsType, retVal)
 		output.CustomerManagedResources = types.ObjectValueMust(cmrType, crmVal)
 
