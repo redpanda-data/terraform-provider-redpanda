@@ -44,6 +44,11 @@ func generateModel(cloudProvider string, nw *controlplanev1beta2.Network) *model
 	if nw.CustomerManagedResources == nil || nw.CustomerManagedResources.CloudProvider == nil {
 		return output
 	}
+
+	return generateModelCMR(cloudProvider, nw, output)
+}
+
+func generateModelCMR(cloudProvider string, nw *controlplanev1beta2.Network, output *models.Network) *models.Network {
 	switch cloudProvider {
 	case "aws":
 		awsContainer, ok := nw.CustomerManagedResources.CloudProvider.(*controlplanev1beta2.Network_CustomerManagedResources_Aws)
@@ -100,11 +105,12 @@ func generateModel(cloudProvider string, nw *controlplanev1beta2.Network) *model
 		crmVal := crmVal
 		crmVal["aws"] = basetypes.NewObjectValueMust(awsType, retVal)
 		output.CustomerManagedResources = types.ObjectValueMust(cmrType, crmVal)
-
+		return output
 	case "gcp":
 		// TODO placeholder so that the linter will stop complaining
+		return nil
 	}
-	return output
+	return nil
 }
 
 func generateNetworkCMR(ctx context.Context, model models.Network, diags diag.Diagnostics) (*controlplanev1beta2.Network_CustomerManagedResources, diag.Diagnostics) {
