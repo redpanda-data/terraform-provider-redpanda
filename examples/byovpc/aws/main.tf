@@ -71,15 +71,6 @@ resource "redpanda_cluster" "test" {
       k8s_cluster_role = {
         arn = module.redpanda-byovpc.k8s_cluster_role_arn
       }
-      console_secrets_manager_role = {
-        arn = module.redpanda-byovpc.console_secrets_manager_role_arn
-      }
-      redpanda_cloud_storage_manager_role = {
-        arn = module.redpanda-byovpc.cloud_storage_manager_role_arn
-      }
-      connectors_secrets_manager_role = {
-        arn = module.redpanda-byovpc.connectors_secrets_manager_role_arn
-      }
       redpanda_agent_security_group = {
         arn = module.redpanda-byovpc.redpanda_agent_security_group_arn
       }
@@ -100,6 +91,9 @@ resource "redpanda_cluster" "test" {
       }
       cloud_storage_bucket = {
         arn = module.redpanda-byovpc.cloud_storage_bucket_arn
+      }
+      permissions_boundary_policy = {
+        arn = module.redpanda-byovpc.permissions_boundary_policy_arn
       }
     }
   }

@@ -198,7 +198,7 @@ func generateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterC
 		output.ReadReplicaClusterIds = utils.TypeListToStringSlice(model.ReadReplicaClusterIDs)
 	}
 
-	if !model.CustomerManagedResources.IsNull() || !model.CustomerManagedResources.IsUnknown() {
+	if !model.CustomerManagedResources.IsNull() {
 		cmr, d := generateClusterCMR(context.Background(), model, diag.Diagnostics{})
 		if d.HasError() {
 			return nil, fmt.Errorf("failed to generate CustomerManagedResources: %v", d)
@@ -366,11 +366,12 @@ func generateMinimalModel(clusterID string) models.Cluster {
 	// Terraform requires us to explicitly pass types to the collection values, even
 	// when null :/
 	return models.Cluster{
-		AllowDeletion:         types.BoolValue(true),
-		ID:                    types.StringValue(clusterID),
-		ReadReplicaClusterIDs: types.ListNull(types.StringType),
-		Tags:                  types.MapNull(types.StringType),
-		Zones:                 types.ListNull(types.StringType),
+		AllowDeletion:            types.BoolValue(true),
+		ID:                       types.StringValue(clusterID),
+		ReadReplicaClusterIDs:    types.ListNull(types.StringType),
+		Tags:                     types.MapNull(types.StringType),
+		Zones:                    types.ListNull(types.StringType),
+		CustomerManagedResources: types.ObjectNull(cmrType),
 	}
 }
 
@@ -397,6 +398,7 @@ func generateClusterCMR(ctx context.Context, model models.Cluster, diags diag.Di
 			ClusterSecurityGroup:               &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
 			NodeSecurityGroup:                  &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
 			CloudStorageBucket:                 &controlplanev1beta2.CustomerManagedAWSCloudStorageBucket{},
+			PermissionsBoundaryPolicy:          &controlplanev1beta2.CustomerManagedResources_AWS_Policy{},
 		}
 
 		// Get the AWS object from CustomerManagedResources

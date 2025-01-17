@@ -283,7 +283,7 @@ func (l *lastLogs) Append(line string) {
 	// to print the usage help
 	// TODO: capture stderr lines like "Error: " or "failed " and then surface them when
 	// the command fails instead of the whole log?
-	const n = 30
+	const n = 400
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 	if len(l.Lines) == n {

@@ -168,16 +168,6 @@ func resourceNetworkSchema() schema.Schema {
 									},
 								},
 							},
-							"public_subnets": schema.SingleNestedAttribute{
-								Required: true,
-								Attributes: map[string]schema.Attribute{
-									"arns": schema.ListAttribute{
-										Required:    true,
-										ElementType: types.StringType,
-										Description: "AWS public subnet identifiers",
-									},
-								},
-							},
 						},
 					},
 				},
