@@ -93,15 +93,6 @@ func generateModelCMR(cloudProvider string, nw *controlplanev1beta2.Network, out
 				"arns": utils.StringSliceToTypeList([]string{}),
 			})
 		}
-		if awsData.PublicSubnets != nil {
-			retVal["public_subnets"] = types.ObjectValueMust(multiElementContainer, map[string]attr.Value{
-				"arns": utils.StringSliceToTypeList(awsData.PublicSubnets.Arns),
-			})
-		} else {
-			retVal["public_subnets"] = types.ObjectValueMust(multiElementContainer, map[string]attr.Value{
-				"arns": utils.StringSliceToTypeList([]string{}),
-			})
-		}
 		crmVal := crmVal
 		crmVal["aws"] = basetypes.NewObjectValueMust(awsType, retVal)
 		output.CustomerManagedResources = types.ObjectValueMust(cmrType, crmVal)
@@ -128,7 +119,6 @@ func generateNetworkCMR(ctx context.Context, model models.Network, diags diag.Di
 			DynamodbTable:    &controlplanev1beta2.CustomerManagedDynamoDBTable{},
 			Vpc:              &controlplanev1beta2.CustomerManagedAWSVPC{},
 			PrivateSubnets:   &controlplanev1beta2.CustomerManagedAWSSubnets{},
-			PublicSubnets:    &controlplanev1beta2.CustomerManagedAWSSubnets{},
 		}
 		// Get the AWS object from CustomerManagedResources
 		var cmrObj types.Object
@@ -170,13 +160,6 @@ func generateNetworkCMR(ctx context.Context, model models.Network, diags diag.Di
 			return nil, d
 		}
 		awsRet.PrivateSubnets.Arns = privateSubnetsArns
-
-		// public subnets
-		publicSubnetsArns, d := getListFromAttributes("public_subnets", aws.Attributes(), diags)
-		if d.HasError() {
-			return nil, d
-		}
-		awsRet.PublicSubnets.Arns = publicSubnetsArns
 
 		cmr.CloudProvider = &controlplanev1beta2.Network_CustomerManagedResources_Aws{
 			Aws: awsRet,

@@ -33,21 +33,6 @@ var cmrType = map[string]attr.Type{
 					"arn": types.StringType,
 				},
 			},
-			"console_secrets_manager_role": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"arn": types.StringType,
-				},
-			},
-			"redpanda_cloud_storage_manager_role": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"arn": types.StringType,
-				},
-			},
-			"connectors_secrets_manager_role": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"arn": types.StringType,
-				},
-			},
 			"redpanda_agent_security_group": types.ObjectType{
 				AttrTypes: map[string]attr.Type{
 					"arn": types.StringType,
@@ -83,6 +68,11 @@ var cmrType = map[string]attr.Type{
 					"arn": types.StringType,
 				},
 			},
+			"permissions_boundary_policy": types.ObjectType{
+				AttrTypes: map[string]attr.Type{
+					"arn": types.StringType,
+				},
+			},
 		},
 	},
 }
@@ -113,21 +103,6 @@ var awsType = map[string]attr.Type{
 		},
 	},
 	"k8s_cluster_role": types.ObjectType{
-		AttrTypes: map[string]attr.Type{
-			"arn": types.StringType,
-		},
-	},
-	"console_secrets_manager_role": types.ObjectType{
-		AttrTypes: map[string]attr.Type{
-			"arn": types.StringType,
-		},
-	},
-	"redpanda_cloud_storage_manager_role": types.ObjectType{
-		AttrTypes: map[string]attr.Type{
-			"arn": types.StringType,
-		},
-	},
-	"connectors_secrets_manager_role": types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"arn": types.StringType,
 		},
@@ -167,6 +142,11 @@ var awsType = map[string]attr.Type{
 			"arn": types.StringType,
 		},
 	},
+	"permissions_boundary_policy": types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"arn": types.StringType,
+		},
+	},
 }
 
 var singleElementContainer = map[string]attr.Type{
@@ -179,9 +159,6 @@ var awsValue = map[string]attr.Value{
 	"utility_node_group_instance_profile":    types.ObjectNull(singleElementContainer),
 	"redpanda_node_group_instance_profile":   types.ObjectNull(singleElementContainer),
 	"k8s_cluster_role":                       types.ObjectNull(singleElementContainer),
-	"console_secrets_manager_role":           types.ObjectNull(singleElementContainer),
-	"redpanda_cloud_storage_manager_role":    types.ObjectNull(singleElementContainer),
-	"connectors_secrets_manager_role":        types.ObjectNull(singleElementContainer),
 	"redpanda_agent_security_group":          types.ObjectNull(singleElementContainer),
 	"connectors_security_group":              types.ObjectNull(singleElementContainer),
 	"redpanda_node_group_security_group":     types.ObjectNull(singleElementContainer),
@@ -189,4 +166,5 @@ var awsValue = map[string]attr.Value{
 	"cluster_security_group":                 types.ObjectNull(singleElementContainer),
 	"node_security_group":                    types.ObjectNull(singleElementContainer),
 	"cloud_storage_bucket":                   types.ObjectNull(singleElementContainer),
+	"permissions_boundary_policy":            types.ObjectNull(singleElementContainer),
 }

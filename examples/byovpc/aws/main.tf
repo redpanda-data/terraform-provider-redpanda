@@ -34,9 +34,6 @@ resource "redpanda_network" "test" {
       private_subnets = {
         arns = module.redpanda-byovpc.private_subnet_arns
       }
-      public_subnets = {
-        arns = module.redpanda-byovpc.public_subnet_arns
-      }
     }
   }
 }
@@ -53,6 +50,58 @@ resource "redpanda_cluster" "test" {
   allow_deletion    = true
   tags = {
     "key" = "value"
+  }
+  customer_managed_resources = {
+    aws = {
+      aws_permissions_boundary_policy_arn = {
+        arn = module.redpanda-byovpc.permissions_boundary_policy_arn
+      }
+      agent_instance_profile = {
+        arn = module.redpanda-byovpc.agent_instance_profile_arn
+      }
+      connectors_node_group_instance_profile = {
+        arn = module.redpanda-byovpc.connectors_node_group_instance_profile_arn
+      }
+      utility_node_group_instance_profile = {
+        arn = module.redpanda-byovpc.utility_node_group_instance_profile_arn
+      }
+      redpanda_node_group_instance_profile = {
+        arn = module.redpanda-byovpc.redpanda_node_group_instance_profile_arn
+      }
+      k8s_cluster_role = {
+        arn = module.redpanda-byovpc.k8s_cluster_role_arn
+      }
+      console_secrets_manager_role = {
+        arn = module.redpanda-byovpc.console_secrets_manager_role_arn
+      }
+      redpanda_cloud_storage_manager_role = {
+        arn = module.redpanda-byovpc.cloud_storage_manager_role_arn
+      }
+      connectors_secrets_manager_role = {
+        arn = module.redpanda-byovpc.connectors_secrets_manager_role_arn
+      }
+      redpanda_agent_security_group = {
+        arn = module.redpanda-byovpc.redpanda_agent_security_group_arn
+      }
+      connectors_security_group = {
+        arn = module.redpanda-byovpc.connectors_security_group_arn
+      }
+      redpanda_node_group_security_group = {
+        arn = module.redpanda-byovpc.redpanda_node_group_security_group_arn
+      }
+      utility_security_group = {
+        arn = module.redpanda-byovpc.utility_security_group_arn
+      }
+      cluster_security_group = {
+        arn = module.redpanda-byovpc.cluster_security_group_arn
+      }
+      node_security_group = {
+        arn = module.redpanda-byovpc.node_security_group_arn
+      }
+      cloud_storage_bucket = {
+        arn = module.redpanda-byovpc.cloud_storage_bucket_arn
+      }
+    }
   }
 }
 

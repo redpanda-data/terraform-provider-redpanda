@@ -4,6 +4,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -251,6 +252,135 @@ func resourceClusterSchema() schema.Schema {
 				ElementType: types.StringType,
 				Optional:    true,
 				Description: "IDs of clusters which may create read-only topics from this cluster.",
+			},
+			"customer_managed_resources": schema.SingleNestedAttribute{
+				Optional:    true,
+				Description: "Customer managed resources configuration for the cluster.",
+				Attributes: map[string]schema.Attribute{
+					"aws": schema.SingleNestedAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
+						Attributes: map[string]schema.Attribute{
+							"agent_instance_profile": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the agent instance profile",
+									},
+								},
+							},
+							"connectors_node_group_instance_profile": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the connectors node group instance profile",
+									},
+								},
+							},
+							"utility_node_group_instance_profile": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the utility node group instance profile",
+									},
+								},
+							},
+							"redpanda_node_group_instance_profile": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the Redpanda node group instance profile",
+									},
+								},
+							},
+							"k8s_cluster_role": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the Kubernetes cluster role",
+									},
+								},
+							},
+							"redpanda_agent_security_group": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the Redpanda agent security group",
+									},
+								},
+							},
+							"connectors_security_group": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the connectors security group",
+									},
+								},
+							},
+							"redpanda_node_group_security_group": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the Redpanda node group security group",
+									},
+								},
+							},
+							"utility_security_group": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the utility security group",
+									},
+								},
+							},
+							"cluster_security_group": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the cluster security group",
+									},
+								},
+							},
+							"node_security_group": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the node security group",
+									},
+								},
+							},
+							"cloud_storage_bucket": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the cloud storage bucket",
+									},
+								},
+							},
+							"permissions_boundary_policy": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the permissions boundary policy",
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}

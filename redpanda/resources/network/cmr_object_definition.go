@@ -30,13 +30,6 @@ var cmrType = map[string]attr.Type{
 					},
 				},
 			},
-			"public_subnets": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"arns": types.ListType{
-						ElemType: types.StringType,
-					},
-				},
-			},
 		},
 	},
 }
@@ -68,13 +61,6 @@ var awsType = map[string]attr.Type{
 			},
 		},
 	},
-	"public_subnets": types.ObjectType{
-		AttrTypes: map[string]attr.Type{
-			"arns": types.ListType{
-				ElemType: types.StringType,
-			},
-		},
-	},
 }
 
 var singleElementContainer = map[string]attr.Type{
@@ -92,5 +78,4 @@ var awsValue = map[string]attr.Value{
 	"dynamodb_table":    types.ObjectNull(singleElementContainer),
 	"vpc":               types.ObjectNull(singleElementContainer),
 	"private_subnets":   types.ObjectNull(multiElementContainer),
-	"public_subnets":    types.ObjectNull(multiElementContainer),
 }

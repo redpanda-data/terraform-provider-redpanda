@@ -390,9 +390,6 @@ func generateClusterCMR(ctx context.Context, model models.Cluster, diags diag.Di
 			UtilityNodeGroupInstanceProfile:    &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{},
 			RedpandaNodeGroupInstanceProfile:   &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{},
 			K8SClusterRole:                     &controlplanev1beta2.CustomerManagedResources_AWS_Role{},
-			ConsoleSecretsManagerRole:          &controlplanev1beta2.CustomerManagedResources_AWS_Role{},
-			RedpandaCloudStorageManagerRole:    &controlplanev1beta2.CustomerManagedResources_AWS_Role{},
-			ConnectorsSecretsManagerRole:       &controlplanev1beta2.CustomerManagedResources_AWS_Role{},
 			RedpandaAgentSecurityGroup:         &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
 			ConnectorsSecurityGroup:            &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
 			RedpandaNodeGroupSecurityGroup:     &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
@@ -451,26 +448,11 @@ func generateClusterCMR(ctx context.Context, model models.Cluster, diags diag.Di
 		}
 		awsRet.K8SClusterRole.Arn = k8sRoleArn
 
-		// Console secrets manager role
-		consoleRoleArn, d := getStringFromAttributes("console_secrets_manager_role", aws.Attributes(), diags)
+		policyArn, d := getStringFromAttributes("permissions_boundary_policy", aws.Attributes(), diags)
 		if d.HasError() {
 			return nil, d
 		}
-		awsRet.ConsoleSecretsManagerRole.Arn = consoleRoleArn
-
-		// Redpanda cloud storage manager role
-		storageRoleArn, d := getStringFromAttributes("redpanda_cloud_storage_manager_role", aws.Attributes(), diags)
-		if d.HasError() {
-			return nil, d
-		}
-		awsRet.RedpandaCloudStorageManagerRole.Arn = storageRoleArn
-
-		// Connectors secrets manager role
-		connectorsRoleArn, d := getStringFromAttributes("connectors_secrets_manager_role", aws.Attributes(), diags)
-		if d.HasError() {
-			return nil, d
-		}
-		awsRet.ConnectorsSecretsManagerRole.Arn = connectorsRoleArn
+		awsRet.PermissionsBoundaryPolicy.Arn = policyArn
 
 		// Security groups
 		agentSecurityGroupArn, d := getStringFromAttributes("redpanda_agent_security_group", aws.Attributes(), diags)
@@ -574,21 +556,9 @@ func generateModelCMR(cloudProvider string, cmr *controlplanev1beta2.CustomerMan
 			})
 		}
 
-		if awsData.ConsoleSecretsManagerRole != nil {
-			retVal["console_secrets_manager_role"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
-				"arn": types.StringValue(awsData.ConsoleSecretsManagerRole.Arn),
-			})
-		}
-
-		if awsData.RedpandaCloudStorageManagerRole != nil {
-			retVal["redpanda_cloud_storage_manager_role"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
-				"arn": types.StringValue(awsData.RedpandaCloudStorageManagerRole.Arn),
-			})
-		}
-
-		if awsData.ConnectorsSecretsManagerRole != nil {
-			retVal["connectors_secrets_manager_role"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
-				"arn": types.StringValue(awsData.ConnectorsSecretsManagerRole.Arn),
+		if awsData.PermissionsBoundaryPolicy != nil {
+			retVal["permissions_boundary_policy"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.PermissionsBoundaryPolicy.Arn),
 			})
 		}
 
