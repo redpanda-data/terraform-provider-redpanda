@@ -42,6 +42,7 @@ type Cluster struct {
 	HTTPProxy                *HTTPProxy                `tfsdk:"http_proxy"`
 	SchemaRegistry           *SchemaRegistry           `tfsdk:"schema_registry"`
 	ReadReplicaClusterIDs    types.List                `tfsdk:"read_replica_cluster_ids"`
+	CustomerManagedResources types.Object              `tfsdk:"customer_managed_resources"`
 }
 
 // AwsPrivateLink represents the Terraform schema for the AWS Private Link configuration.

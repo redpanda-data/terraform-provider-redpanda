@@ -16,12 +16,15 @@
 package cluster
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
@@ -195,6 +198,14 @@ func generateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterC
 		output.ReadReplicaClusterIds = utils.TypeListToStringSlice(model.ReadReplicaClusterIDs)
 	}
 
+	if !model.CustomerManagedResources.IsNull() || !model.CustomerManagedResources.IsUnknown() {
+		cmr, d := generateClusterCMR(context.Background(), model, diag.Diagnostics{})
+		if d.HasError() {
+			return nil, fmt.Errorf("failed to generate CustomerManagedResources: %v", d)
+		}
+		output.CustomerManagedResources = cmr
+	}
+
 	return output, nil
 }
 
@@ -340,6 +351,10 @@ func generateModel(cfg models.Cluster, cluster *controlplanev1beta2.Cluster) (*m
 		}
 	}
 
+	if cluster.CustomerManagedResources != nil {
+		return generateModelCMR(cluster.CloudProvider.String(), cluster.CustomerManagedResources, output), nil
+	}
+
 	return output, nil
 }
 
@@ -357,4 +372,304 @@ func generateMinimalModel(clusterID string) models.Cluster {
 		Tags:                  types.MapNull(types.StringType),
 		Zones:                 types.ListNull(types.StringType),
 	}
+}
+
+func generateClusterCMR(ctx context.Context, model models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.CustomerManagedResources, diag.Diagnostics) {
+	cmr := &controlplanev1beta2.CustomerManagedResources{}
+
+	if model.CustomerManagedResources.IsNull() {
+		return nil, nil
+	}
+
+	// If CustomerManagedResources is not null, process it
+	switch model.CloudProvider.ValueString() {
+	case "aws":
+		awsRet := &controlplanev1beta2.CustomerManagedResources_AWS{
+			AgentInstanceProfile:               &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{},
+			ConnectorsNodeGroupInstanceProfile: &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{},
+			UtilityNodeGroupInstanceProfile:    &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{},
+			RedpandaNodeGroupInstanceProfile:   &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{},
+			K8SClusterRole:                     &controlplanev1beta2.CustomerManagedResources_AWS_Role{},
+			ConsoleSecretsManagerRole:          &controlplanev1beta2.CustomerManagedResources_AWS_Role{},
+			RedpandaCloudStorageManagerRole:    &controlplanev1beta2.CustomerManagedResources_AWS_Role{},
+			ConnectorsSecretsManagerRole:       &controlplanev1beta2.CustomerManagedResources_AWS_Role{},
+			RedpandaAgentSecurityGroup:         &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
+			ConnectorsSecurityGroup:            &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
+			RedpandaNodeGroupSecurityGroup:     &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
+			UtilitySecurityGroup:               &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
+			ClusterSecurityGroup:               &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
+			NodeSecurityGroup:                  &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
+			CloudStorageBucket:                 &controlplanev1beta2.CustomerManagedAWSCloudStorageBucket{},
+		}
+
+		// Get the AWS object from CustomerManagedResources
+		var cmrObj types.Object
+		if d := model.CustomerManagedResources.As(context.Background(), &cmrObj, basetypes.ObjectAsOptions{
+			UnhandledNullAsEmpty:    true,
+			UnhandledUnknownAsEmpty: true,
+		}); d.HasError() {
+			return nil, d
+		}
+
+		aws, d := getObjectFromAttributes(ctx, "aws", cmrObj.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+
+		// Agent instance profile
+		agentProfileArn, d := getStringFromAttributes("agent_instance_profile", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.AgentInstanceProfile.Arn = agentProfileArn
+
+		// Connectors node group instance profile
+		connectorsProfileArn, d := getStringFromAttributes("connectors_node_group_instance_profile", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.ConnectorsNodeGroupInstanceProfile.Arn = connectorsProfileArn
+
+		// Utility node group instance profile
+		utilityProfileArn, d := getStringFromAttributes("utility_node_group_instance_profile", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.UtilityNodeGroupInstanceProfile.Arn = utilityProfileArn
+
+		// Redpanda node group instance profile
+		redpandaProfileArn, d := getStringFromAttributes("redpanda_node_group_instance_profile", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.RedpandaNodeGroupInstanceProfile.Arn = redpandaProfileArn
+
+		// K8s cluster role
+		k8sRoleArn, d := getStringFromAttributes("k8s_cluster_role", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.K8SClusterRole.Arn = k8sRoleArn
+
+		// Console secrets manager role
+		consoleRoleArn, d := getStringFromAttributes("console_secrets_manager_role", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.ConsoleSecretsManagerRole.Arn = consoleRoleArn
+
+		// Redpanda cloud storage manager role
+		storageRoleArn, d := getStringFromAttributes("redpanda_cloud_storage_manager_role", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.RedpandaCloudStorageManagerRole.Arn = storageRoleArn
+
+		// Connectors secrets manager role
+		connectorsRoleArn, d := getStringFromAttributes("connectors_secrets_manager_role", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.ConnectorsSecretsManagerRole.Arn = connectorsRoleArn
+
+		// Security groups
+		agentSecurityGroupArn, d := getStringFromAttributes("redpanda_agent_security_group", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.RedpandaAgentSecurityGroup.Arn = agentSecurityGroupArn
+
+		connectorsSecurityGroupArn, d := getStringFromAttributes("connectors_security_group", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.ConnectorsSecurityGroup.Arn = connectorsSecurityGroupArn
+
+		redpandaNodeGroupSecurityGroupArn, d := getStringFromAttributes("redpanda_node_group_security_group", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.RedpandaNodeGroupSecurityGroup.Arn = redpandaNodeGroupSecurityGroupArn
+
+		utilitySecurityGroupArn, d := getStringFromAttributes("utility_security_group", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.UtilitySecurityGroup.Arn = utilitySecurityGroupArn
+
+		clusterSecurityGroupArn, d := getStringFromAttributes("cluster_security_group", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.ClusterSecurityGroup.Arn = clusterSecurityGroupArn
+
+		nodeSecurityGroupArn, d := getStringFromAttributes("node_security_group", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.NodeSecurityGroup.Arn = nodeSecurityGroupArn
+
+		// Cloud storage bucket
+		bucketArn, d := getStringFromAttributes("cloud_storage_bucket", aws.Attributes(), diags)
+		if d.HasError() {
+			return nil, d
+		}
+		awsRet.CloudStorageBucket.Arn = bucketArn
+
+		cmr.CloudProvider = &controlplanev1beta2.CustomerManagedResources_Aws{
+			Aws: awsRet,
+		}
+		return cmr, nil
+	case "gcp":
+		// TODO: Implement GCP support
+		return nil, nil
+	default:
+		return nil, nil
+	}
+}
+
+func generateModelCMR(cloudProvider string, cmr *controlplanev1beta2.CustomerManagedResources, output *models.Cluster) *models.Cluster {
+	if cmr == nil || cmr.CloudProvider == nil {
+		return output
+	}
+
+	switch cloudProvider {
+	case "aws":
+		awsContainer, ok := cmr.CloudProvider.(*controlplanev1beta2.CustomerManagedResources_Aws)
+		if !ok {
+			break
+		}
+		awsData := awsContainer.Aws
+		retVal := awsValue
+
+		// Instance Profiles
+		if awsData.AgentInstanceProfile != nil {
+			retVal["agent_instance_profile"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.AgentInstanceProfile.Arn),
+			})
+		}
+
+		if awsData.ConnectorsNodeGroupInstanceProfile != nil {
+			retVal["connectors_node_group_instance_profile"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.ConnectorsNodeGroupInstanceProfile.Arn),
+			})
+		}
+
+		if awsData.UtilityNodeGroupInstanceProfile != nil {
+			retVal["utility_node_group_instance_profile"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.UtilityNodeGroupInstanceProfile.Arn),
+			})
+		}
+
+		if awsData.RedpandaNodeGroupInstanceProfile != nil {
+			retVal["redpanda_node_group_instance_profile"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.RedpandaNodeGroupInstanceProfile.Arn),
+			})
+		}
+
+		// Roles
+		if awsData.K8SClusterRole != nil {
+			retVal["k8s_cluster_role"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.K8SClusterRole.Arn),
+			})
+		}
+
+		if awsData.ConsoleSecretsManagerRole != nil {
+			retVal["console_secrets_manager_role"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.ConsoleSecretsManagerRole.Arn),
+			})
+		}
+
+		if awsData.RedpandaCloudStorageManagerRole != nil {
+			retVal["redpanda_cloud_storage_manager_role"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.RedpandaCloudStorageManagerRole.Arn),
+			})
+		}
+
+		if awsData.ConnectorsSecretsManagerRole != nil {
+			retVal["connectors_secrets_manager_role"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.ConnectorsSecretsManagerRole.Arn),
+			})
+		}
+
+		// Security Groups
+		if awsData.RedpandaAgentSecurityGroup != nil {
+			retVal["redpanda_agent_security_group"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.RedpandaAgentSecurityGroup.Arn),
+			})
+		}
+
+		if awsData.ConnectorsSecurityGroup != nil {
+			retVal["connectors_security_group"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.ConnectorsSecurityGroup.Arn),
+			})
+		}
+
+		if awsData.RedpandaNodeGroupSecurityGroup != nil {
+			retVal["redpanda_node_group_security_group"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.RedpandaNodeGroupSecurityGroup.Arn),
+			})
+		}
+
+		if awsData.UtilitySecurityGroup != nil {
+			retVal["utility_security_group"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.UtilitySecurityGroup.Arn),
+			})
+		}
+
+		if awsData.ClusterSecurityGroup != nil {
+			retVal["cluster_security_group"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.ClusterSecurityGroup.Arn),
+			})
+		}
+
+		if awsData.NodeSecurityGroup != nil {
+			retVal["node_security_group"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.NodeSecurityGroup.Arn),
+			})
+		}
+
+		// Cloud Storage Bucket
+		if awsData.CloudStorageBucket != nil {
+			retVal["cloud_storage_bucket"] = types.ObjectValueMust(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.CloudStorageBucket.Arn),
+			})
+		}
+
+		crmV := crmVal
+		crmV["aws"] = basetypes.NewObjectValueMust(awsType, retVal)
+		output.CustomerManagedResources = types.ObjectValueMust(cmrType, crmVal)
+		return output
+	case "gcp":
+		// TODO: Implement GCP support
+		return nil
+	}
+	return nil
+}
+
+func getObjectFromAttributes(ctx context.Context, key string, att map[string]attr.Value, diags diag.Diagnostics) (types.Object, diag.Diagnostics) {
+	attVal, ok := att[key].(basetypes.ObjectValue)
+	if !ok {
+		return types.ObjectNull(map[string]attr.Type{}), append(diags, diag.NewErrorDiagnostic(fmt.Sprintf("%s not found", key), "object is missing or malformed for network resource"))
+	}
+	var keyVal types.Object
+	if err := attVal.As(ctx, &keyVal, basetypes.ObjectAsOptions{
+		UnhandledNullAsEmpty:    true,
+		UnhandledUnknownAsEmpty: true,
+	}); err != nil {
+		return types.ObjectNull(map[string]attr.Type{}), append(diags, diag.NewErrorDiagnostic(fmt.Sprintf("%s not found", key), "value is missing or malformed for network resource"))
+	}
+	return keyVal, nil
+}
+
+func getStringFromAttributes(key string, att map[string]attr.Value, diags diag.Diagnostics) (string, diag.Diagnostics) {
+	attVal, ok := att[key].(basetypes.ObjectValue)
+	if !ok {
+		return "", append(diags, diag.NewErrorDiagnostic(fmt.Sprintf("%s not found", key), "object is missing or malformed for network resource"))
+	}
+	rt, ok := attVal.Attributes()["arn"].(types.String)
+	if !ok {
+		return "", append(diags, diag.NewErrorDiagnostic(fmt.Sprintf("%s not found", key), "string is missing or malformed for network resource"))
+	}
+	return rt.ValueString(), nil
 }
