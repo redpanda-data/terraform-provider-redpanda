@@ -98,6 +98,7 @@ func providerSchema() schema.Schema {
 					validators.NotUnknown(),
 				},
 			},
+			// does not include NotUnknown to prevent incorrect failure for inputs from datasources that pull from secret managers
 			"client_id": schema.StringAttribute{
 				Optional:  true,
 				Sensitive: true,
@@ -108,9 +109,9 @@ func providerSchema() schema.Schema {
 						path.MatchRoot("client_secret"),
 						path.MatchRoot("access_token"),
 					),
-					validators.NotUnknown(),
 				},
 			},
+			// does not include NotUnknown to prevent incorrect failure for inputs from datasources that pull from secret managers
 			"client_secret": schema.StringAttribute{
 				Optional:  true,
 				Sensitive: true,
@@ -118,7 +119,6 @@ func providerSchema() schema.Schema {
 					"or `access_token`, to use this provider. Can also be set with the `%v` environment variable.", ClientSecretEnv),
 				Validators: []validator.String{
 					stringvalidator.AlsoRequires(path.MatchRoot("client_id")),
-					validators.NotUnknown(),
 				},
 			},
 			"azure_subscription_id": schema.StringAttribute{
