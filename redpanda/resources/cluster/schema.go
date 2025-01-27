@@ -26,10 +26,15 @@ func resourceClusterSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"connection_type": schema.StringAttribute{
-				Required:      true,
-				Description:   "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, Private is best-practice.",
-				Validators:    validators.ConnectionTypes(),
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Required:    true,
+				Description: "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, Private is best-practice.",
+				Validators: []validator.String{
+					validators.ConnectionTypes(),
+					validators.RequirePrivateConnectionValidator{},
+				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"cloud_provider": schema.StringAttribute{
 				Optional:      true,

@@ -108,9 +108,11 @@ func (cl *ByocClient) generateByocArgs(cluster cloudapi.Cluster, verb string) ([
 		"--cloud-api-token", cl.authToken,
 		"--redpanda-id", cluster.ID, "--debug",
 	}
+
 	switch cloudProvider {
 	case CloudProviderStringAws:
-		// pass
+		// TODO: clean this up after patch from cloud, not a good lasting solution
+		byocArgs = append(byocArgs, "--no-validate")
 	case CloudProviderStringAzure:
 		if cl.azureSubscriptionID == "" {
 			return nil, fmt.Errorf("value must be set for Azure Subscription ID")

@@ -32,6 +32,6 @@ func ClusterTypes() []validator.String {
 }
 
 // ConnectionTypes returns a list of connection types that the Redpanda provider supports.
-func ConnectionTypes() []validator.String {
-	return []validator.String{stringvalidator.OneOf("public", "private")}
+func ConnectionTypes() validator.String {
+	return stringvalidator.OneOf("public", "private")
 }
