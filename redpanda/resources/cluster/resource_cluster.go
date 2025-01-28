@@ -100,12 +100,12 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	}
 
 	// wait for creation to complete, running "byoc apply" if we see STATE_CREATING_AGENT
-	ranByoc := false
+	var ranByoc bool
 	cluster, err := utils.RetryGetCluster(ctx, 90*time.Minute, clusterID, c.CpCl, func(cluster *controlplanev1beta2.Cluster) *utils.RetryError {
-		if cluster.GetState() == controlplanev1beta2.Cluster_STATE_CREATING {
+		switch cluster.GetState() {
+		case controlplanev1beta2.Cluster_STATE_CREATING:
 			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
-		}
-		if cluster.GetState() == controlplanev1beta2.Cluster_STATE_CREATING_AGENT {
+		case controlplanev1beta2.Cluster_STATE_CREATING_AGENT:
 			if cluster.Type == controlplanev1beta2.Cluster_TYPE_BYOC && !ranByoc {
 				err = c.Byoc.RunByoc(ctx, clusterID, "apply")
 				if err != nil {
@@ -114,14 +114,13 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 				ranByoc = true
 			}
 			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
-		}
-		if cluster.GetState() == controlplanev1beta2.Cluster_STATE_READY {
+		case controlplanev1beta2.Cluster_STATE_READY:
 			return nil
-		}
-		if cluster.GetState() == controlplanev1beta2.Cluster_STATE_FAILED {
+		case controlplanev1beta2.Cluster_STATE_FAILED:
 			return utils.NonRetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
+		default:
+			return utils.NonRetryableError(fmt.Errorf("unhandled state %v. please report this issue to the provider developers", cluster.GetState()))
 		}
-		return utils.NonRetryableError(fmt.Errorf("unhandled state %v. please report this issue to the provider developers", cluster.GetState()))
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to create cluster with ID %q", clusterID), utils.DeserializeGrpcError(err))
