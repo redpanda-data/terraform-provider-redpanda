@@ -142,13 +142,18 @@ func AreWeDoneYet(ctx context.Context, op *controlplanev1beta2.Operation, timeou
 			return NonRetryableError(err)
 		}
 		op = latestOp.Operation
-		tflog.Info(ctx, fmt.Sprintf("op %v %s", op, op.GetState()))
+
+		if op != nil {
+			tflog.Info(ctx, fmt.Sprintf("op %v %s", op, op.GetState()))
+		} else {
+			tflog.Info(ctx, "op is nil")
+		}
 
 		// Check the operation state
-		if op.GetState() == controlplanev1beta2.Operation_STATE_FAILED {
+		if op != nil && op.GetState() == controlplanev1beta2.Operation_STATE_FAILED {
 			return NonRetryableError(fmt.Errorf("operation failed: %s", op.GetError().GetMessage()))
 		}
-		if op.GetState() != controlplanev1beta2.Operation_STATE_COMPLETED {
+		if op != nil && op.GetState() != controlplanev1beta2.Operation_STATE_COMPLETED {
 			return RetryableError(fmt.Errorf("expected operation to be completed but was in state %s", op.GetState()))
 		}
 		return nil
@@ -377,7 +382,7 @@ func SplitSchemeDefPort(url, def string) (string, error) {
 
 // RetryGetCluster will retry a function, passing in the latest state of the given cluster id, until
 // it either no longer returns an error or times out
-func RetryGetCluster(ctx context.Context, timeout time.Duration, clusterID string, client *cloud.ControlPlaneClientSet, f func(*controlplanev1beta2.Cluster) *RetryError) (*controlplanev1beta2.Cluster, error) {
+func RetryGetCluster(ctx context.Context, timeout time.Duration, clusterID string, client cloud.CpClientSet, f func(*controlplanev1beta2.Cluster) *RetryError) (*controlplanev1beta2.Cluster, error) {
 	var cluster *controlplanev1beta2.Cluster
 	err := Retry(ctx, timeout, func() *RetryError {
 		var err error
