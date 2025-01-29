@@ -126,13 +126,16 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to create cluster with ID %q", clusterID), utils.DeserializeGrpcError(err))
 		return
 	}
-	persist, err := generateModel(model, cluster)
-	if err != nil {
-		resp.Diagnostics.AddError("failed to generate model for state during cluster.Create", utils.DeserializeGrpcError(err))
-		return
-	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
+	// there are various states where cluster can be nil in which case we should default to the minimal model already persisted
+	if cluster != nil {
+		p, err := generateModel(model, cluster)
+		if err != nil {
+			resp.Diagnostics.AddError("failed to generate model for state during cluster.Create", utils.DeserializeGrpcError(err))
+			return
+		}
+		resp.Diagnostics.Append(resp.State.Set(ctx, p)...)
+	}
 }
 
 // Read reads Cluster resource's values and updates the state.
