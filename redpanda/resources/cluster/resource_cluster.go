@@ -129,9 +129,10 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 
 	// there are various states where cluster can be nil in which case we should default to the minimal model already persisted
 	if cluster != nil {
-		p, err := generateModel(model, cluster)
-		if err != nil {
-			resp.Diagnostics.AddError("failed to generate model for state during cluster.Create", utils.DeserializeGrpcError(err))
+		p, d := generateModel(model, cluster, resp.Diagnostics)
+		if d.HasError() {
+			resp.Diagnostics.AddError("failed to generate model for state during cluster.Create", "")
+			resp.Diagnostics.Append(d...)
 			return
 		}
 		resp.Diagnostics.Append(resp.State.Set(ctx, p)...)
@@ -161,9 +162,10 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		return
 	}
 
-	persist, err := generateModel(model, cluster)
-	if err != nil {
-		resp.Diagnostics.AddError("failed to generate model for state during cluster.Read", utils.DeserializeGrpcError(err))
+	persist, d := generateModel(model, cluster, resp.Diagnostics)
+	if d.HasError() {
+		resp.Diagnostics.AddError("failed to generate model for state during cluster.Read", "")
+		resp.Diagnostics.Append(d...)
 		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
@@ -197,9 +199,10 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		return
 	}
 
-	persist, err := generateModel(plan, cluster)
-	if err != nil {
-		resp.Diagnostics.AddError("failed to generate model for state during cluster.Update", utils.DeserializeGrpcError(err))
+	persist, d := generateModel(plan, cluster, resp.Diagnostics)
+	if d.HasError() {
+		resp.Diagnostics.AddError("failed to generate model for state during cluster.Update", "")
+		resp.Diagnostics.Append(d...)
 		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
