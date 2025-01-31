@@ -42,6 +42,7 @@ func generateModel(cloudProvider string, nw *controlplanev1beta2.Network) *model
 		output.CidrBlock = types.StringValue(nw.CidrBlock)
 	}
 	if nw.CustomerManagedResources == nil || nw.CustomerManagedResources.CloudProvider == nil {
+		output.CustomerManagedResources = types.ObjectNull(cmrType)
 		return output
 	}
 

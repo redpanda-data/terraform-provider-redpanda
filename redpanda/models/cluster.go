@@ -31,6 +31,10 @@ type Cluster struct {
 	Region                   types.String `tfsdk:"region"`
 	Zones                    types.List   `tfsdk:"zones"`
 	AllowDeletion            types.Bool   `tfsdk:"allow_deletion"`
+	UpdatedAt                types.String `tfsdk:"updated_at"`
+	CreatedAt                types.String `tfsdk:"created_at"`
+	State                    types.String `tfsdk:"state"`
+	StateDescription         types.Object `tfsdk:"state_description"`
 	Tags                     types.Map    `tfsdk:"tags"`
 	ResourceGroupID          types.String `tfsdk:"resource_group_id"`
 	NetworkID                types.String `tfsdk:"network_id"`
@@ -46,7 +50,6 @@ type Cluster struct {
 	CustomerManagedResources types.Object `tfsdk:"customer_managed_resources"`
 	Prometheus               types.Object `tfsdk:"prometheus"`
 	RedpandaConsole          types.Object `tfsdk:"redpanda_console"`
-	DataplaneApi             types.Object `tfsdk:"dataplane_api"`
 	MaintenanceWindowConfig  types.Object `tfsdk:"maintenance_window_config"`
 	Connectivity             types.Object `tfsdk:"connectivity"`
 }

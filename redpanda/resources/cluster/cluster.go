@@ -36,6 +36,7 @@ func generateMinimalModel(clusterID string) models.Cluster {
 		ConnectionType:           types.StringNull(),
 		CloudProvider:            types.StringNull(),
 		ClusterType:              types.StringNull(),
+		Prometheus:               types.ObjectNull(prometheusType),
 		RedpandaVersion:          types.StringNull(),
 		ThroughputTier:           types.StringNull(),
 		Region:                   types.StringNull(),
@@ -54,6 +55,14 @@ func generateMinimalModel(clusterID string) models.Cluster {
 		AwsPrivateLink:           types.ObjectNull(awsPrivateLinkType),
 		GcpPrivateServiceConnect: types.ObjectNull(gcpPrivateServiceConnectType),
 		AzurePrivateLink:         types.ObjectNull(azurePrivateLinkType),
+		State:                    types.StringNull(),
+		CreatedAt:                types.StringNull(),
+		UpdatedAt:                types.StringNull(),
+		RedpandaConsole:          types.ObjectNull(redpandaConsoleType),
+		StateDescription:         types.ObjectNull(stateDescriptionType),
+		MaintenanceWindowConfig:  types.ObjectNull(maintenanceWindowConfigType),
+		Connectivity:             types.ObjectNull(connectivityType),
+		KafkaConnect:             types.ObjectNull(kafkaConnectType),
 	}
 }
 

@@ -653,13 +653,13 @@ func TestGetMaintenanceWindowConfig(t *testing.T) {
 	}{
 		{
 			name:  "null object returns nil",
-			input: types.ObjectNull(maintenanceWindowType),
+			input: types.ObjectNull(maintenanceWindowConfigType),
 			want:  nil,
 		},
 		{
 			name: "valid day hour configuration",
 			input: types.ObjectValueMust(
-				maintenanceWindowType,
+				maintenanceWindowConfigType,
 				map[string]attr.Value{
 					"day_hour": types.ObjectValueMust(
 						dayHourType,
@@ -684,7 +684,7 @@ func TestGetMaintenanceWindowConfig(t *testing.T) {
 		{
 			name: "anytime configuration",
 			input: types.ObjectValueMust(
-				maintenanceWindowType,
+				maintenanceWindowConfigType,
 				map[string]attr.Value{
 					"day_hour":    types.ObjectNull(dayHourType),
 					"anytime":     types.BoolValue(true),
@@ -700,7 +700,7 @@ func TestGetMaintenanceWindowConfig(t *testing.T) {
 		{
 			name: "unspecified configuration",
 			input: types.ObjectValueMust(
-				maintenanceWindowType,
+				maintenanceWindowConfigType,
 				map[string]attr.Value{
 					"day_hour":    types.ObjectNull(dayHourType),
 					"anytime":     types.BoolNull(),

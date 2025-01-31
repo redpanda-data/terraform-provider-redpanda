@@ -185,7 +185,7 @@ var httpProxyType = map[string]attr.Type{
 	"url":  types.StringType,
 }
 
-var redpandaConsole = map[string]attr.Type{
+var redpandaConsoleType = map[string]attr.Type{
 	"url": types.StringType,
 }
 
@@ -227,12 +227,12 @@ var statusObjectType = map[string]attr.Type{
 	"created_at":                    types.StringType, // Timestamp converted to string
 	"deleted_at":                    types.StringType, // Timestamp converted to string
 	"vpc_endpoint_connections":      types.ListType{ElemType: types.ObjectType{AttrTypes: vpcEndpointConnType}},
-	"kafka_api_seed_port":           types.Int64Type,
-	"schema_registry_seed_port":     types.Int64Type,
-	"redpanda_proxy_seed_port":      types.Int64Type,
-	"kafka_api_node_base_port":      types.Int64Type,
-	"redpanda_proxy_node_base_port": types.Int64Type,
-	"console_port":                  types.Int64Type,
+	"kafka_api_seed_port":           types.Int32Type,
+	"schema_registry_seed_port":     types.Int32Type,
+	"redpanda_proxy_seed_port":      types.Int32Type,
+	"kafka_api_node_base_port":      types.Int32Type,
+	"redpanda_proxy_node_base_port": types.Int32Type,
+	"console_port":                  types.Int32Type,
 }
 
 // Updated AWS Private Link type to include status
@@ -256,11 +256,11 @@ var gcpPrivateServiceConnectStatusType = map[string]attr.Type{
 	"service_attachment":            types.StringType,
 	"created_at":                    types.StringType, // Timestamp as RFC3339 string
 	"deleted_at":                    types.StringType, // Timestamp as RFC3339 string
-	"kafka_api_seed_port":           types.Int64Type,
-	"schema_registry_seed_port":     types.Int64Type,
-	"redpanda_proxy_seed_port":      types.Int64Type,
-	"kafka_api_node_base_port":      types.Int64Type,
-	"redpanda_proxy_node_base_port": types.Int64Type,
+	"kafka_api_seed_port":           types.Int32Type,
+	"schema_registry_seed_port":     types.Int32Type,
+	"redpanda_proxy_seed_port":      types.Int32Type,
+	"kafka_api_node_base_port":      types.Int32Type,
+	"redpanda_proxy_node_base_port": types.Int32Type,
 	"connected_endpoints":           types.ListType{ElemType: types.ObjectType{AttrTypes: connectedEndpointType}},
 	"dns_a_records":                 types.ListType{ElemType: types.StringType},
 	"seed_hostname":                 types.StringType,
@@ -297,12 +297,12 @@ var azurePrivateLinkStatusType = map[string]attr.Type{
 	"private_endpoint_connections":  types.ListType{ElemType: types.ObjectType{AttrTypes: azureEndpointConnType}},
 	"dns_a_record":                  types.StringType,
 	"approved_subscriptions":        types.ListType{ElemType: types.StringType},
-	"kafka_api_seed_port":           types.Int64Type,
-	"schema_registry_seed_port":     types.Int64Type,
-	"redpanda_proxy_seed_port":      types.Int64Type,
-	"kafka_api_node_base_port":      types.Int64Type,
-	"redpanda_proxy_node_base_port": types.Int64Type,
-	"console_port":                  types.Int64Type,
+	"kafka_api_seed_port":           types.Int32Type,
+	"schema_registry_seed_port":     types.Int32Type,
+	"redpanda_proxy_seed_port":      types.Int32Type,
+	"kafka_api_node_base_port":      types.Int32Type,
+	"redpanda_proxy_node_base_port": types.Int32Type,
+	"console_port":                  types.Int32Type,
 }
 
 // Base Azure Private Link type
@@ -314,11 +314,11 @@ var azurePrivateLinkType = map[string]attr.Type{
 }
 
 var dayHourType = map[string]attr.Type{
-	"hour_of_day": types.Int64Type,
+	"hour_of_day": types.Int32Type,
 	"day_of_week": types.StringType,
 }
 
-var maintenanceWindowType = map[string]attr.Type{
+var maintenanceWindowConfigType = map[string]attr.Type{
 	"day_hour":    types.ObjectType{AttrTypes: dayHourType},
 	"anytime":     types.BoolType,
 	"unspecified": types.BoolType,
@@ -330,4 +330,9 @@ var connectivityGCPType = map[string]attr.Type{
 
 var connectivityType = map[string]attr.Type{
 	"gcp": types.ObjectType{AttrTypes: connectivityGCPType},
+}
+
+var stateDescriptionType = map[string]attr.Type{
+	"message": types.StringType,
+	"code":    types.Int32Type,
 }

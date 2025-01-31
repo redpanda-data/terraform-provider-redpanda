@@ -474,7 +474,7 @@ func getMaintenanceWindowConfig(ctx context.Context, maintenance types.Object, d
 	if dayHourAttr, ok := attrs["day_hour"].(types.Object); ok && !dayHourAttr.IsNull() {
 		dayHourAttrs := dayHourAttr.Attributes()
 
-		hourAttr, ok := dayHourAttrs["hour_of_day"].(types.Int64)
+		hourAttr, ok := dayHourAttrs["hour_of_day"].(types.Int32)
 		if !ok {
 			diags.AddError("hour_of_day not found", "hour_of_day is missing or malformed")
 			return config, diags
@@ -486,7 +486,7 @@ func getMaintenanceWindowConfig(ctx context.Context, maintenance types.Object, d
 		}
 
 		wdw := &controlplanev1beta2.MaintenanceWindowConfig_DayHour{}
-		wdw.SetHourOfDay(int32(hourAttr.ValueInt64()))
+		wdw.SetHourOfDay(hourAttr.ValueInt32())
 		wdw.SetDayOfWeek(dayofweek.DayOfWeek(dayofweek.DayOfWeek_value[dayAttr.ValueString()]))
 		config.Window = &controlplanev1beta2.MaintenanceWindowConfig_DayHour_{
 			DayHour: wdw,

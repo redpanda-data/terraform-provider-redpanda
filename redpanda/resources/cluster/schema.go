@@ -223,21 +223,11 @@ func resourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-			"dataplane_api": schema.SingleNestedAttribute{
-				Computed:    true,
-				Description: "Data Plane API properties.",
-				Attributes: map[string]schema.Attribute{
-					"url": schema.StringAttribute{
-						Computed:    true,
-						Description: "The Data Plane API URL.",
-					},
-				},
-			},
 			"state_description": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "Detailed state description when cluster is in a non-ready state.",
 				Attributes: map[string]schema.Attribute{
-					"code": schema.Int64Attribute{
+					"code": schema.Int32Attribute{
 						Computed:    true,
 						Description: "Error code if cluster is in error state.",
 					},
@@ -261,7 +251,7 @@ func resourceClusterSchema() schema.Schema {
 					"day_hour": schema.SingleNestedAttribute{
 						Optional: true,
 						Attributes: map[string]schema.Attribute{
-							"hour_of_day": schema.Int64Attribute{
+							"hour_of_day": schema.Int32Attribute{
 								Required:    true,
 								Description: "Hour of day in UTC (0-23).",
 							},
@@ -400,27 +390,27 @@ func resourceClusterSchema() schema.Schema {
 									},
 								},
 							},
-							"kafka_api_seed_port": schema.Int64Attribute{
+							"kafka_api_seed_port": schema.Int32Attribute{
 								Computed:    true,
 								Description: "Port for Kafka API seed brokers.",
 							},
-							"schema_registry_seed_port": schema.Int64Attribute{
+							"schema_registry_seed_port": schema.Int32Attribute{
 								Computed:    true,
 								Description: "Port for Schema Registry.",
 							},
-							"redpanda_proxy_seed_port": schema.Int64Attribute{
+							"redpanda_proxy_seed_port": schema.Int32Attribute{
 								Computed:    true,
 								Description: "Port for HTTP proxy.",
 							},
-							"kafka_api_node_base_port": schema.Int64Attribute{
+							"kafka_api_node_base_port": schema.Int32Attribute{
 								Computed:    true,
 								Description: "Base port for Kafka API nodes.",
 							},
-							"redpanda_proxy_node_base_port": schema.Int64Attribute{
+							"redpanda_proxy_node_base_port": schema.Int32Attribute{
 								Computed:    true,
 								Description: "Base port for HTTP proxy nodes.",
 							},
-							"console_port": schema.Int64Attribute{
+							"console_port": schema.Int32Attribute{
 								Computed:    true,
 								Description: "Port for Redpanda Console.",
 							},
@@ -474,23 +464,23 @@ func resourceClusterSchema() schema.Schema {
 								Computed:    true,
 								Description: "When the Private Service Connect service was deleted.",
 							},
-							"kafka_api_seed_port": schema.Int64Attribute{
+							"kafka_api_seed_port": schema.Int32Attribute{
 								Computed:    true,
 								Description: "Port for Kafka API seed brokers.",
 							},
-							"schema_registry_seed_port": schema.Int64Attribute{
+							"schema_registry_seed_port": schema.Int32Attribute{
 								Computed:    true,
 								Description: "Port for Schema Registry.",
 							},
-							"redpanda_proxy_seed_port": schema.Int64Attribute{
+							"redpanda_proxy_seed_port": schema.Int32Attribute{
 								Computed:    true,
 								Description: "Port for HTTP proxy.",
 							},
-							"kafka_api_node_base_port": schema.Int64Attribute{
+							"kafka_api_node_base_port": schema.Int32Attribute{
 								Computed:    true,
 								Description: "Base port for Kafka API nodes.",
 							},
-							"redpanda_proxy_node_base_port": schema.Int64Attribute{
+							"redpanda_proxy_node_base_port": schema.Int32Attribute{
 								Computed:    true,
 								Description: "Base port for HTTP proxy nodes.",
 							},
@@ -615,27 +605,27 @@ func resourceClusterSchema() schema.Schema {
 								ElementType: types.StringType,
 								Description: "List of approved Azure subscription IDs.",
 							},
-							"kafka_api_seed_port": schema.Int64Attribute{
+							"kafka_api_seed_port": schema.Int32Attribute{
 								Computed:    true,
 								Description: "Port for Kafka API seed brokers.",
 							},
-							"schema_registry_seed_port": schema.Int64Attribute{
+							"schema_registry_seed_port": schema.Int32Attribute{
 								Computed:    true,
 								Description: "Port for Schema Registry.",
 							},
-							"redpanda_proxy_seed_port": schema.Int64Attribute{
+							"redpanda_proxy_seed_port": schema.Int32Attribute{
 								Computed:    true,
 								Description: "Port for HTTP proxy.",
 							},
-							"kafka_api_node_base_port": schema.Int64Attribute{
+							"kafka_api_node_base_port": schema.Int32Attribute{
 								Computed:    true,
 								Description: "Base port for Kafka API nodes.",
 							},
-							"redpanda_proxy_node_base_port": schema.Int64Attribute{
+							"redpanda_proxy_node_base_port": schema.Int32Attribute{
 								Computed:    true,
 								Description: "Base port for HTTP proxy nodes.",
 							},
-							"console_port": schema.Int64Attribute{
+							"console_port": schema.Int32Attribute{
 								Computed:    true,
 								Description: "Port for Redpanda Console.",
 							},

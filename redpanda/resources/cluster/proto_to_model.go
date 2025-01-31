@@ -4,11 +4,9 @@ import (
 	"time"
 
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
@@ -30,6 +28,22 @@ func generateModel(cfg models.Cluster, cluster *controlplanev1beta2.Cluster, dia
 		NetworkID:             types.StringValue(cluster.NetworkId),
 		ReadReplicaClusterIDs: utils.StringSliceToTypeList(cluster.ReadReplicaClusterIds),
 		Zones:                 utils.StringSliceToTypeList(cluster.Zones),
+		State:                 types.StringValue(cluster.State.String()),
+	}
+	if cluster.HasCreatedAt() {
+		output.CreatedAt = types.StringValue(cluster.CreatedAt.AsTime().Format(time.RFC3339))
+	}
+
+	if cluster.HasUpdatedAt() {
+		output.UpdatedAt = types.StringValue(cluster.UpdatedAt.AsTime().Format(time.RFC3339))
+	}
+	if cluster.HasStateDescription() {
+		stateDescription, d := generateModelStateDescription(cluster, diagnostics)
+		if d.HasError() {
+			diagnostics.Append(d...)
+			return nil, diagnostics
+		}
+		output.StateDescription = stateDescription
 	}
 
 	if cluster.HasDataplaneApi() {
@@ -121,6 +135,23 @@ func generateModel(cfg models.Cluster, cluster *controlplanev1beta2.Cluster, dia
 	output.CustomerManagedResources = cmr
 
 	return output, nil
+}
+
+func generateModelStateDescription(cluster *controlplanev1beta2.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
+	if !cluster.HasStateDescription() {
+		return types.ObjectNull(stateDescriptionType), diagnostics
+	}
+	sd := cluster.GetStateDescription()
+	obj, d := types.ObjectValue(stateDescriptionType, map[string]attr.Value{
+		"message": types.StringValue(sd.GetMessage()),
+		"code":    types.Int32Value(sd.GetCode()),
+	})
+	if d.HasError() {
+		diagnostics.Append(d...)
+		diagnostics.AddError("failed to generate state description object", "could not create state description object")
+		return types.ObjectNull(stateDescriptionType), diagnostics
+	}
+	return obj, diagnostics
 }
 
 func generateModelConnectivity(cluster *controlplanev1beta2.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
@@ -228,19 +259,19 @@ func generateModelSchemaRegistry(cluster *controlplanev1beta2.Cluster, diagnosti
 
 func generateModelRedpandaConsole(cluster *controlplanev1beta2.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	if !cluster.HasRedpandaConsole() {
-		return types.ObjectNull(redpandaConsole), diagnostics
+		return types.ObjectNull(redpandaConsoleType), diagnostics
 	}
 
 	console := cluster.GetRedpandaConsole()
 
 	// Create the Redpanda Console object
-	obj, d := types.ObjectValue(redpandaConsole, map[string]attr.Value{
+	obj, d := types.ObjectValue(redpandaConsoleType, map[string]attr.Value{
 		"url": types.StringValue(console.GetUrl()),
 	})
 	if d.HasError() {
 		diagnostics.Append(d...)
 		diagnostics.AddError("failed to generate Redpanda Console object", "could not create Redpanda Console object")
-		return types.ObjectNull(redpandaConsole), diagnostics
+		return types.ObjectNull(redpandaConsoleType), diagnostics
 	}
 
 	return obj, diagnostics
@@ -372,12 +403,12 @@ func generateModelAWSPrivateLink(cluster *controlplanev1beta2.Cluster, diagnosti
 			"service_id":                    types.StringValue(status.GetServiceId()),
 			"service_name":                  types.StringValue(status.GetServiceName()),
 			"service_state":                 types.StringValue(status.GetServiceState()),
-			"kafka_api_seed_port":           types.Int64Value(int64(status.GetKafkaApiSeedPort())),
-			"schema_registry_seed_port":     types.Int64Value(int64(status.GetSchemaRegistrySeedPort())),
-			"redpanda_proxy_seed_port":      types.Int64Value(int64(status.GetRedpandaProxySeedPort())),
-			"kafka_api_node_base_port":      types.Int64Value(int64(status.GetKafkaApiNodeBasePort())),
-			"redpanda_proxy_node_base_port": types.Int64Value(int64(status.GetRedpandaProxyNodeBasePort())),
-			"console_port":                  types.Int64Value(int64(status.GetConsolePort())),
+			"kafka_api_seed_port":           types.Int32Value(status.GetKafkaApiSeedPort()),
+			"schema_registry_seed_port":     types.Int32Value(status.GetSchemaRegistrySeedPort()),
+			"redpanda_proxy_seed_port":      types.Int32Value(status.GetRedpandaProxySeedPort()),
+			"kafka_api_node_base_port":      types.Int32Value(status.GetKafkaApiNodeBasePort()),
+			"redpanda_proxy_node_base_port": types.Int32Value(status.GetRedpandaProxyNodeBasePort()),
+			"console_port":                  types.Int32Value(status.GetConsolePort()),
 			"vpc_endpoint_connections":      vpcEndpointConnsList,
 			"created_at": func() types.String {
 				if status.CreatedAt != nil {
@@ -495,11 +526,11 @@ func generateModelGCPPrivateServiceConnect(cluster *controlplanev1beta2.Cluster,
 		// Build status object - all fields optional
 		statusValues := map[string]attr.Value{
 			"service_attachment":            types.StringValue(status.GetServiceAttachment()),
-			"kafka_api_seed_port":           types.Int64Value(int64(status.GetKafkaApiSeedPort())),
-			"schema_registry_seed_port":     types.Int64Value(int64(status.GetSchemaRegistrySeedPort())),
-			"redpanda_proxy_seed_port":      types.Int64Value(int64(status.GetRedpandaProxySeedPort())),
-			"kafka_api_node_base_port":      types.Int64Value(int64(status.GetKafkaApiNodeBasePort())),
-			"redpanda_proxy_node_base_port": types.Int64Value(int64(status.GetRedpandaProxyNodeBasePort())),
+			"kafka_api_seed_port":           types.Int32Value(status.GetKafkaApiSeedPort()),
+			"schema_registry_seed_port":     types.Int32Value(status.GetSchemaRegistrySeedPort()),
+			"redpanda_proxy_seed_port":      types.Int32Value(status.GetRedpandaProxySeedPort()),
+			"kafka_api_node_base_port":      types.Int32Value(status.GetKafkaApiNodeBasePort()),
+			"redpanda_proxy_node_base_port": types.Int32Value(status.GetRedpandaProxyNodeBasePort()),
 			"connected_endpoints":           endpointList,
 			"dns_a_records":                 utils.StringSliceToTypeList(status.GetDnsARecords()),
 			"seed_hostname":                 types.StringValue(status.GetSeedHostname()),
@@ -578,7 +609,7 @@ func generateUpdateRequest(plan, state models.Cluster, diags diag.Diagnostics) (
 
 func generateModelMaintenanceWindow(cluster *controlplanev1beta2.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	if !cluster.HasMaintenanceWindowConfig() {
-		return types.ObjectNull(maintenanceWindowType), diagnostics
+		return types.ObjectNull(maintenanceWindowConfigType), diagnostics
 	}
 
 	maintenance := cluster.GetMaintenanceWindowConfig()
@@ -590,19 +621,19 @@ func generateModelMaintenanceWindow(cluster *controlplanev1beta2.Cluster, diagno
 	var d diag.Diagnostics
 
 	if !maintenance.HasWindow() {
-		return types.ObjectNull(maintenanceWindowType), diagnostics
+		return types.ObjectNull(maintenanceWindowConfigType), diagnostics
 	}
 
 	if maintenance.HasDayHour() {
 		w := maintenance.GetDayHour()
 		windowObj, d = types.ObjectValue(dayHourType, map[string]attr.Value{
-			"hour_of_day": types.Int64Value(int64(w.GetHourOfDay())),
+			"hour_of_day": types.Int32Value(w.GetHourOfDay()),
 			"day_of_week": types.StringValue(w.GetDayOfWeek().String()),
 		})
 		if d.HasError() {
 			diagnostics.Append(d...)
 			diagnostics.AddError("failed to generate maintenance window detail", "could not create window object")
-			return types.ObjectNull(maintenanceWindowType), diagnostics
+			return types.ObjectNull(maintenanceWindowConfigType), diagnostics
 		}
 	} else if maintenance.HasAnytime() {
 		unspec = types.BoolValue(true)
@@ -611,7 +642,7 @@ func generateModelMaintenanceWindow(cluster *controlplanev1beta2.Cluster, diagno
 	}
 
 	// Create the maintenance window object
-	obj, d := types.ObjectValue(maintenanceWindowType, map[string]attr.Value{
+	obj, d := types.ObjectValue(maintenanceWindowConfigType, map[string]attr.Value{
 		"day_hour":    windowObj,
 		"anytime":     anytime,
 		"unspecified": unspec,
@@ -619,7 +650,7 @@ func generateModelMaintenanceWindow(cluster *controlplanev1beta2.Cluster, diagno
 	if d.HasError() {
 		diagnostics.Append(d...)
 		diagnostics.AddError("failed to generate maintenance window object", "could not create maintenance window object")
-		return types.ObjectNull(maintenanceWindowType), diagnostics
+		return types.ObjectNull(maintenanceWindowConfigType), diagnostics
 	}
 
 	return obj, diagnostics
@@ -707,12 +738,12 @@ func generateModelAzurePrivateLink(cluster *controlplanev1beta2.Cluster, diagnos
 		statusValues := map[string]attr.Value{
 			"service_id":                    types.StringValue(status.GetServiceId()),
 			"service_name":                  types.StringValue(status.GetServiceName()),
-			"kafka_api_seed_port":           types.Int64Value(int64(status.GetKafkaApiSeedPort())),
-			"schema_registry_seed_port":     types.Int64Value(int64(status.GetSchemaRegistrySeedPort())),
-			"redpanda_proxy_seed_port":      types.Int64Value(int64(status.GetRedpandaProxySeedPort())),
-			"kafka_api_node_base_port":      types.Int64Value(int64(status.GetKafkaApiNodeBasePort())),
-			"redpanda_proxy_node_base_port": types.Int64Value(int64(status.GetRedpandaProxyNodeBasePort())),
-			"console_port":                  types.Int64Value(int64(status.GetConsolePort())),
+			"kafka_api_seed_port":           types.Int32Value(status.GetKafkaApiSeedPort()),
+			"schema_registry_seed_port":     types.Int32Value(status.GetSchemaRegistrySeedPort()),
+			"redpanda_proxy_seed_port":      types.Int32Value(status.GetRedpandaProxySeedPort()),
+			"kafka_api_node_base_port":      types.Int32Value(status.GetKafkaApiNodeBasePort()),
+			"redpanda_proxy_node_base_port": types.Int32Value(status.GetRedpandaProxyNodeBasePort()),
+			"console_port":                  types.Int32Value(status.GetConsolePort()),
 			"private_endpoint_connections":  endpointConnsList,
 			"created_at": func() types.String {
 				if status.CreatedAt != nil {
@@ -768,7 +799,8 @@ func generateModelAzurePrivateLink(cluster *controlplanev1beta2.Cluster, diagnos
 }
 
 func generateModelCMR(cloudProvider string, cluster *controlplanev1beta2.Cluster, diags diag.Diagnostics) (types.Object, diag.Diagnostics) {
-	if !cluster.HasCustomerManagedResources() {
+	// Early return conditions
+	if cluster == nil || !cluster.HasCustomerManagedResources() {
 		return types.ObjectNull(cmrType), diags
 	}
 
@@ -784,169 +816,208 @@ func generateModelCMR(cloudProvider string, cluster *controlplanev1beta2.Cluster
 			return types.ObjectNull(cmrType), diags
 		}
 
+		// Get AWS data
 		awsData := cluster.GetCustomerManagedResources().GetAws()
-		retVal := make(map[string]attr.Value, len(awsValue))
-		for k, v := range awsValue {
-			retVal[k] = v
+
+		// Initialize AWS attributes with null values
+		awsVal := make(map[string]attr.Value)
+
+		// Create null objects for all AWS fields
+		instanceProfileFields := []string{
+			"agent_instance_profile",
+			"connectors_node_group_instance_profile",
+			"utility_node_group_instance_profile",
+			"redpanda_node_group_instance_profile",
 		}
 
+		securityGroupFields := []string{
+			"redpanda_agent_security_group",
+			"connectors_security_group",
+			"redpanda_node_group_security_group",
+			"utility_security_group",
+			"cluster_security_group",
+			"node_security_group",
+		}
+
+		// Initialize all fields with null objects
+		for _, field := range instanceProfileFields {
+			awsVal[field] = types.ObjectNull(singleElementContainer)
+		}
+		for _, field := range securityGroupFields {
+			awsVal[field] = types.ObjectNull(singleElementContainer)
+		}
+
+		// Initialize remaining fields
+		awsVal["k8s_cluster_role"] = types.ObjectNull(singleElementContainer)
+		awsVal["cloud_storage_bucket"] = types.ObjectNull(singleElementContainer)
+		awsVal["permissions_boundary_policy"] = types.ObjectNull(singleElementContainer)
+
+		// Now set values for fields that exist in the input
 		if awsData.HasAgentInstanceProfile() {
-			ov, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
 				"arn": types.StringValue(awsData.AgentInstanceProfile.Arn),
 			})
 			if d.HasError() {
 				diags.Append(d...)
 				return types.ObjectNull(cmrType), diags
 			}
-			retVal["agent_instance_profile"] = ov
+			awsVal["agent_instance_profile"] = obj
 		}
 
 		if awsData.ConnectorsNodeGroupInstanceProfile != nil {
-			ov, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
 				"arn": types.StringValue(awsData.ConnectorsNodeGroupInstanceProfile.Arn),
 			})
 			if d.HasError() {
 				diags.Append(d...)
 				return types.ObjectNull(cmrType), diags
 			}
-			retVal["connectors_node_group_instance_profile"] = ov
+			awsVal["connectors_node_group_instance_profile"] = obj
 		}
 
 		if awsData.UtilityNodeGroupInstanceProfile != nil {
-			ov, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
 				"arn": types.StringValue(awsData.UtilityNodeGroupInstanceProfile.Arn),
 			})
 			if d.HasError() {
 				diags.Append(d...)
 				return types.ObjectNull(cmrType), diags
 			}
-			retVal["utility_node_group_instance_profile"] = ov
+			awsVal["utility_node_group_instance_profile"] = obj
 		}
 
 		if awsData.RedpandaNodeGroupInstanceProfile != nil {
-			ov, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
 				"arn": types.StringValue(awsData.RedpandaNodeGroupInstanceProfile.Arn),
 			})
 			if d.HasError() {
 				diags.Append(d...)
 				return types.ObjectNull(cmrType), diags
 			}
-			retVal["redpanda_node_group_instance_profile"] = ov
+			awsVal["redpanda_node_group_instance_profile"] = obj
 		}
 
-		// Roles
 		if awsData.K8SClusterRole != nil {
-			ov, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
 				"arn": types.StringValue(awsData.K8SClusterRole.Arn),
 			})
 			if d.HasError() {
 				diags.Append(d...)
 				return types.ObjectNull(cmrType), diags
 			}
-			retVal["k8s_cluster_role"] = ov
+			awsVal["k8s_cluster_role"] = obj
 		}
 
-		if awsData.PermissionsBoundaryPolicy != nil {
-			ov, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
-				"arn": types.StringValue(awsData.PermissionsBoundaryPolicy.Arn),
-			})
-			if d.HasError() {
-				diags.Append(d...)
-				return types.ObjectNull(cmrType), diags
-			}
-			retVal["permissions_boundary_policy"] = ov
-		}
-
-		// Security Groups
 		if awsData.RedpandaAgentSecurityGroup != nil {
-			ov, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
 				"arn": types.StringValue(awsData.RedpandaAgentSecurityGroup.Arn),
 			})
 			if d.HasError() {
 				diags.Append(d...)
 				return types.ObjectNull(cmrType), diags
 			}
-			retVal["redpanda_agent_security_group"] = ov
+			awsVal["redpanda_agent_security_group"] = obj
 		}
 
 		if awsData.ConnectorsSecurityGroup != nil {
-			ov, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
 				"arn": types.StringValue(awsData.ConnectorsSecurityGroup.Arn),
 			})
 			if d.HasError() {
 				diags.Append(d...)
 				return types.ObjectNull(cmrType), diags
 			}
-			retVal["connectors_security_group"] = ov
+			awsVal["connectors_security_group"] = obj
 		}
 
 		if awsData.RedpandaNodeGroupSecurityGroup != nil {
-			ov, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
 				"arn": types.StringValue(awsData.RedpandaNodeGroupSecurityGroup.Arn),
 			})
 			if d.HasError() {
 				diags.Append(d...)
 				return types.ObjectNull(cmrType), diags
 			}
-			retVal["redpanda_node_group_security_group"] = ov
+			awsVal["redpanda_node_group_security_group"] = obj
 		}
 
 		if awsData.UtilitySecurityGroup != nil {
-			ov, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
 				"arn": types.StringValue(awsData.UtilitySecurityGroup.Arn),
 			})
 			if d.HasError() {
 				diags.Append(d...)
 				return types.ObjectNull(cmrType), diags
 			}
-			retVal["utility_security_group"] = ov
+			awsVal["utility_security_group"] = obj
 		}
 
 		if awsData.ClusterSecurityGroup != nil {
-			ov, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
 				"arn": types.StringValue(awsData.ClusterSecurityGroup.Arn),
 			})
 			if d.HasError() {
 				diags.Append(d...)
 				return types.ObjectNull(cmrType), diags
 			}
-			retVal["cluster_security_group"] = ov
+			awsVal["cluster_security_group"] = obj
 		}
 
 		if awsData.NodeSecurityGroup != nil {
-			ov, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
 				"arn": types.StringValue(awsData.NodeSecurityGroup.Arn),
 			})
 			if d.HasError() {
 				diags.Append(d...)
 				return types.ObjectNull(cmrType), diags
 			}
-			retVal["node_security_group"] = ov
+			awsVal["node_security_group"] = obj
 		}
 
-		// Cloud Storage Bucket
 		if awsData.CloudStorageBucket != nil {
-			ov, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
 				"arn": types.StringValue(awsData.CloudStorageBucket.Arn),
 			})
 			if d.HasError() {
 				diags.Append(d...)
 				return types.ObjectNull(cmrType), diags
 			}
-			retVal["cloud_storage_bucket"] = ov
+			awsVal["cloud_storage_bucket"] = obj
 		}
 
-		crmV := make(map[string]attr.Value, len(crmVal))
-		for k, v := range awsValue {
-			retVal[k] = v
+		if awsData.PermissionsBoundaryPolicy != nil {
+			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+				"arn": types.StringValue(awsData.PermissionsBoundaryPolicy.Arn),
+			})
+			if d.HasError() {
+				diags.Append(d...)
+				return types.ObjectNull(cmrType), diags
+			}
+			awsVal["permissions_boundary_policy"] = obj
 		}
-		crmV["aws"] = basetypes.NewObjectValueMust(awsType, retVal)
-		f, dg := types.ObjectValue(cmrType, crmV)
-		spew.Dump(f)
-		return f, dg
+
+		// Create AWS object
+		awsObj, d := types.ObjectValue(awsType, awsVal)
+		if d.HasError() {
+			diags.Append(d...)
+			return types.ObjectNull(cmrType), diags
+		}
+
+		// Create final CMR object
+		cmrObj, d := types.ObjectValue(cmrType, map[string]attr.Value{
+			"aws": awsObj,
+		})
+		if d.HasError() {
+			diags.Append(d...)
+			return types.ObjectNull(cmrType), diags
+		}
+
+		return cmrObj, diags
+
 	case "gcp":
 		// TODO: Implement GCP support
 		return types.ObjectNull(cmrType), diags
 	}
+
 	return types.ObjectNull(cmrType), diags
 }
