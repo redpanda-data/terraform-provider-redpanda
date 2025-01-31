@@ -41,9 +41,12 @@ type Cluster struct {
 	KafkaAPI                 types.Object `tfsdk:"kafka_api"`
 	HTTPProxy                types.Object `tfsdk:"http_proxy"`
 	SchemaRegistry           types.Object `tfsdk:"schema_registry"`
+	KafkaConnect             types.Object `tfsdk:"kafka_connect"`
 	ReadReplicaClusterIDs    types.List   `tfsdk:"read_replica_cluster_ids"`
 	CustomerManagedResources types.Object `tfsdk:"customer_managed_resources"`
 	Prometheus               types.Object `tfsdk:"prometheus"`
 	RedpandaConsole          types.Object `tfsdk:"redpanda_console"`
 	DataplaneApi             types.Object `tfsdk:"dataplane_api"`
+	MaintenanceWindowConfig  types.Object `tfsdk:"maintenance_window_config"`
+	Connectivity             types.Object `tfsdk:"connectivity"`
 }

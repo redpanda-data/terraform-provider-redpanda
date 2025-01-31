@@ -103,45 +103,45 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		NetworkID:             types.StringValue(cluster.NetworkId),
 		ID:                    types.StringValue(cluster.Id),
 		ReadReplicaClusterIDs: utils.StringSliceToTypeList(cluster.ReadReplicaClusterIds),
-		KafkaAPI: &models.KafkaAPI{
-			Mtls: toMtlsModel(cluster.GetKafkaApi().GetMtls()),
-		},
-		HTTPProxy: &models.HTTPProxy{
-			Mtls: toMtlsModel(cluster.GetHttpProxy().GetMtls()),
-		},
-		SchemaRegistry: &models.SchemaRegistry{
-			Mtls: toMtlsModel(cluster.GetSchemaRegistry().GetMtls()),
-		},
+		//KafkaAPI: &models.KafkaAPI{
+		//	Mtls: toMtlsModel(cluster.GetKafkaApi().GetMtls()),
+		//},
+		//HTTPProxy: &models.HTTPProxy{
+		//	Mtls: toMtlsModel(cluster.GetHttpProxy().GetMtls()),
+		//},
+		//SchemaRegistry: &models.SchemaRegistry{
+		//	Mtls: toMtlsModel(cluster.GetSchemaRegistry().GetMtls()),
+		//},
 	}
 
-	if cluster.DataplaneApi != nil {
-		persist.ClusterAPIURL = types.StringValue(cluster.DataplaneApi.Url)
-	}
-
-	if !isAwsPrivateLinkSpecNil(cluster.AwsPrivateLink) {
-		persist.AwsPrivateLink = &models.AwsPrivateLink{
-			Enabled:           types.BoolValue(cluster.AwsPrivateLink.Enabled),
-			ConnectConsole:    types.BoolValue(cluster.AwsPrivateLink.ConnectConsole),
-			AllowedPrincipals: utils.StringSliceToTypeList(cluster.AwsPrivateLink.AllowedPrincipals),
-		}
-	}
-	if !isGcpPrivateServiceConnectSpecNil(cluster.GcpPrivateServiceConnect) {
-		if len(cluster.GcpPrivateServiceConnect.ConsumerAcceptList) > 0 {
-			persist.GcpPrivateServiceConnect = &models.GcpPrivateServiceConnect{
-				Enabled:             types.BoolValue(cluster.GcpPrivateServiceConnect.Enabled),
-				GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
-				ConsumerAcceptList:  gcpConnectConsumerStructToModel(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
-			}
-		}
-	}
-
-	if !isAzurePrivateLinkSpecNil(cluster.AzurePrivateLink) {
-		persist.AzurePrivateLink = &models.AzurePrivateLink{
-			Enabled:              types.BoolValue(cluster.AzurePrivateLink.Enabled),
-			ConnectConsole:       types.BoolValue(cluster.AzurePrivateLink.ConnectConsole),
-			AllowedSubscriptions: utils.StringSliceToTypeList(cluster.AzurePrivateLink.AllowedSubscriptions),
-		}
-	}
+	//if cluster.DataplaneApi != nil {
+	//	persist.ClusterAPIURL = types.StringValue(cluster.DataplaneApi.Url)
+	//}
+	//
+	//if !isAwsPrivateLinkSpecNil(cluster.AwsPrivateLink) {
+	//	persist.AwsPrivateLink = &models.AwsPrivateLink{
+	//		Enabled:           types.BoolValue(cluster.AwsPrivateLink.Enabled),
+	//		ConnectConsole:    types.BoolValue(cluster.AwsPrivateLink.ConnectConsole),
+	//		AllowedPrincipals: utils.StringSliceToTypeList(cluster.AwsPrivateLink.AllowedPrincipals),
+	//	}
+	//}
+	//if !isGcpPrivateServiceConnectSpecNil(cluster.GcpPrivateServiceConnect) {
+	//	if len(cluster.GcpPrivateServiceConnect.ConsumerAcceptList) > 0 {
+	//		persist.GcpPrivateServiceConnect = &models.GcpPrivateServiceConnect{
+	//			Enabled:             types.BoolValue(cluster.GcpPrivateServiceConnect.Enabled),
+	//			GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
+	//			ConsumerAcceptList:  gcpConnectConsumerStructToModel(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
+	//		}
+	//	}
+	//}
+	//
+	//if !isAzurePrivateLinkSpecNil(cluster.AzurePrivateLink) {
+	//	persist.AzurePrivateLink = &models.AzurePrivateLink{
+	//		Enabled:              types.BoolValue(cluster.AzurePrivateLink.Enabled),
+	//		ConnectConsole:       types.BoolValue(cluster.AzurePrivateLink.ConnectConsole),
+	//		AllowedSubscriptions: utils.StringSliceToTypeList(cluster.AzurePrivateLink.AllowedSubscriptions),
+	//	}
+	//}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }

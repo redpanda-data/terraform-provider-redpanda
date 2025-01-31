@@ -198,24 +198,136 @@ var prometheusType = map[string]attr.Type{
 	"url": types.StringType,
 }
 
+var dataplaneApi = map[string]attr.Type{
+	"url": types.StringType,
+}
+
+// DNS Entry type for VPC Endpoint Connections
+var dnsEntryType = map[string]attr.Type{
+	"dns_name":       types.StringType,
+	"hosted_zone_id": types.StringType,
+}
+
+// VPC Endpoint Connection type definition
+var vpcEndpointConnType = map[string]attr.Type{
+	"id":                 types.StringType,
+	"owner":              types.StringType,
+	"state":              types.StringType,
+	"created_at":         types.StringType, // Timestamp converted to string
+	"connection_id":      types.StringType,
+	"load_balancer_arns": types.ListType{ElemType: types.StringType},
+	"dns_entries":        types.ListType{ElemType: types.ObjectType{AttrTypes: dnsEntryType}},
+}
+
+// Status object type definition
+var statusObjectType = map[string]attr.Type{
+	"service_id":                    types.StringType,
+	"service_name":                  types.StringType,
+	"service_state":                 types.StringType,
+	"created_at":                    types.StringType, // Timestamp converted to string
+	"deleted_at":                    types.StringType, // Timestamp converted to string
+	"vpc_endpoint_connections":      types.ListType{ElemType: types.ObjectType{AttrTypes: vpcEndpointConnType}},
+	"kafka_api_seed_port":           types.Int64Type,
+	"schema_registry_seed_port":     types.Int64Type,
+	"redpanda_proxy_seed_port":      types.Int64Type,
+	"kafka_api_node_base_port":      types.Int64Type,
+	"redpanda_proxy_node_base_port": types.Int64Type,
+	"console_port":                  types.Int64Type,
+}
+
+// Updated AWS Private Link type to include status
 var awsPrivateLinkType = map[string]attr.Type{
 	"enabled":            types.BoolType,
 	"connect_console":    types.BoolType,
 	"allowed_principals": types.ListType{ElemType: types.StringType},
+	"status":             types.ObjectType{AttrTypes: statusObjectType},
 }
 
+// Connected Endpoint type for GCP PSC Status
+var connectedEndpointType = map[string]attr.Type{
+	"connection_id":    types.StringType,
+	"consumer_network": types.StringType,
+	"endpoint":         types.StringType,
+	"status":           types.StringType,
+}
+
+// Status object type definition for GCP PSC
+var gcpPrivateServiceConnectStatusType = map[string]attr.Type{
+	"service_attachment":            types.StringType,
+	"created_at":                    types.StringType, // Timestamp as RFC3339 string
+	"deleted_at":                    types.StringType, // Timestamp as RFC3339 string
+	"kafka_api_seed_port":           types.Int64Type,
+	"schema_registry_seed_port":     types.Int64Type,
+	"redpanda_proxy_seed_port":      types.Int64Type,
+	"kafka_api_node_base_port":      types.Int64Type,
+	"redpanda_proxy_node_base_port": types.Int64Type,
+	"connected_endpoints":           types.ListType{ElemType: types.ObjectType{AttrTypes: connectedEndpointType}},
+	"dns_a_records":                 types.ListType{ElemType: types.StringType},
+	"seed_hostname":                 types.StringType,
+}
+
+// Update the base type to include status
 var gcpPrivateServiceConnectType = map[string]attr.Type{
 	"enabled":               types.BoolType,
 	"global_access_enabled": types.BoolType,
 	"consumer_accept_list":  types.ListType{ElemType: types.ObjectType{AttrTypes: map[string]attr.Type{"source": types.StringType}}},
+	"status":                types.ObjectType{AttrTypes: gcpPrivateServiceConnectStatusType},
 }
 
+// Azure Private Endpoint Connection type
+var azureEndpointConnType = map[string]attr.Type{
+	"private_endpoint_name": types.StringType,
+	"private_endpoint_id":   types.StringType,
+	"connection_name":       types.StringType,
+	"connection_id":         types.StringType,
+	"status":                types.StringType,
+	"created_at":            types.StringType, // Timestamp as RFC3339 string
+}
+
+var kafkaConnectType = map[string]attr.Type{
+	"enabled": types.BoolType,
+}
+
+// Status object type for Azure Private Link
+var azurePrivateLinkStatusType = map[string]attr.Type{
+	"service_id":                    types.StringType,
+	"service_name":                  types.StringType,
+	"created_at":                    types.StringType, // Timestamp as RFC3339 string
+	"deleted_at":                    types.StringType, // Timestamp as RFC3339 string
+	"private_endpoint_connections":  types.ListType{ElemType: types.ObjectType{AttrTypes: azureEndpointConnType}},
+	"dns_a_record":                  types.StringType,
+	"approved_subscriptions":        types.ListType{ElemType: types.StringType},
+	"kafka_api_seed_port":           types.Int64Type,
+	"schema_registry_seed_port":     types.Int64Type,
+	"redpanda_proxy_seed_port":      types.Int64Type,
+	"kafka_api_node_base_port":      types.Int64Type,
+	"redpanda_proxy_node_base_port": types.Int64Type,
+	"console_port":                  types.Int64Type,
+}
+
+// Base Azure Private Link type
 var azurePrivateLinkType = map[string]attr.Type{
 	"enabled":               types.BoolType,
 	"connect_console":       types.BoolType,
 	"allowed_subscriptions": types.ListType{ElemType: types.StringType},
+	"status":                types.ObjectType{AttrTypes: azurePrivateLinkStatusType},
 }
 
-var dataplaneApi = map[string]attr.Type{
-	"url": types.StringType,
+var dayHourType = map[string]attr.Type{
+	"hour_of_day": types.Int64Type,
+	"day_of_week": types.StringType,
+}
+
+var maintenanceWindowType = map[string]attr.Type{
+	"day_hour":    types.ObjectType{AttrTypes: dayHourType},
+	"anytime":     types.BoolType,
+	"unspecified": types.BoolType,
+}
+
+var connectivityGCPType = map[string]attr.Type{
+	"enable_global_access": types.BoolType,
+}
+
+var connectivityType = map[string]attr.Type{
+	"gcp": types.ObjectType{AttrTypes: connectivityGCPType},
 }

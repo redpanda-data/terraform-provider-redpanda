@@ -79,9 +79,10 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	var model models.Cluster
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 
-	clusterReq, err := generateClusterRequest(model)
-	if err != nil {
-		resp.Diagnostics.AddError("unable to parse CreateCluster request", utils.DeserializeGrpcError(err))
+	clusterReq, d := generateClusterRequest(ctx, model, resp.Diagnostics)
+	if d.HasError() {
+		resp.Diagnostics.Append(d...)
+		resp.Diagnostics.AddError("unable to parse CreateCluster request", "")
 		return
 	}
 

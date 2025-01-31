@@ -175,6 +175,59 @@ func resourceClusterSchema() schema.Schema {
 					},
 				},
 			},
+			"maintenance_window_config": schema.SingleNestedAttribute{
+				Optional:    true,
+				Description: "Maintenance window configuration for the cluster.",
+				Attributes: map[string]schema.Attribute{
+					"day_hour": schema.SingleNestedAttribute{
+						Optional: true,
+						Attributes: map[string]schema.Attribute{
+							"hour_of_day": schema.Int64Attribute{
+								Required:    true,
+								Description: "Hour of day in UTC (0-23)",
+							},
+							"day_of_week": schema.StringAttribute{
+								Required:    true,
+								Description: "Day of week (SUNDAY through SATURDAY)",
+							},
+						},
+					},
+					"anytime": schema.BoolAttribute{
+						Optional:    true,
+						Description: "If true, maintenance can occur at any time",
+					},
+					"unspecified": schema.BoolAttribute{
+						Optional:    true,
+						Description: "If true, maintenance window is unspecified",
+					},
+				},
+			},
+			"kafka_connect": schema.SingleNestedAttribute{
+				Optional:    true,
+				Description: "Kafka Connect configuration.",
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						Required:    true,
+						Description: "Whether Kafka Connect is enabled.",
+					},
+				},
+			},
+			"connectivity": schema.SingleNestedAttribute{
+				Optional:    true,
+				Description: "Cloud provider-specific connectivity configuration.",
+				Attributes: map[string]schema.Attribute{
+					"gcp": schema.SingleNestedAttribute{
+						Optional:    true,
+						Description: "GCP-specific connectivity settings.",
+						Attributes: map[string]schema.Attribute{
+							"enable_global_access": schema.BoolAttribute{
+								Required:    true,
+								Description: "Whether global access is enabled.",
+							},
+						},
+					},
+				},
+			},
 			"kafka_api": schema.SingleNestedAttribute{
 				Optional:    true,
 				Description: "Cluster's Kafka API properties.",

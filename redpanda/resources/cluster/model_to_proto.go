@@ -2,7 +2,6 @@ package cluster
 
 import (
 	"context"
-	"fmt"
 
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -13,86 +12,195 @@ import (
 )
 
 // generateClusterRequest was pulled out to enable unit testing
-func generateClusterRequest(model models.Cluster) (*controlplanev1beta2.ClusterCreate, error) {
+func generateClusterRequest(ctx context.Context, model models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.ClusterCreate, diag.Diagnostics) {
 	provider, err := utils.StringToCloudProvider(model.CloudProvider.ValueString())
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse cloud provider: %v", err)
+		diags.AddError("unable to parse cloud provider", err.Error())
+		return nil, diags
 	}
 	clusterType, err := utils.StringToClusterType(model.ClusterType.ValueString())
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse cluster type: %v", err)
+		diags.AddError("unable to parse cluster type", err.Error())
+		return nil, diags
 	}
 	rpVersion := model.RedpandaVersion.ValueString()
-
 	output := &controlplanev1beta2.ClusterCreate{
 		Name:              model.Name.ValueString(),
-		ConnectionType:    utils.StringToConnectionType(model.ConnectionType.ValueString()),
-		CloudProvider:     provider,
+		ResourceGroupId:   model.ResourceGroupID.ValueString(),
 		RedpandaVersion:   &rpVersion,
 		ThroughputTier:    model.ThroughputTier.ValueString(),
+		Type:              clusterType,
+		ConnectionType:    utils.StringToConnectionType(model.ConnectionType.ValueString()),
+		NetworkId:         model.NetworkID.ValueString(),
+		CloudProvider:     provider,
 		Region:            model.Region.ValueString(),
 		Zones:             utils.TypeListToStringSlice(model.Zones),
-		ResourceGroupId:   model.ResourceGroupID.ValueString(),
-		NetworkId:         model.NetworkID.ValueString(),
-		Type:              clusterType,
 		CloudProviderTags: utils.TypeMapToStringMap(model.Tags),
 	}
 
 	if !model.KafkaAPI.IsNull() {
-		output.KafkaApi.
-	}
-
-	if !isAwsPrivateLinkStructNil(model.AwsPrivateLink) {
-		output.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
-			Enabled:           model.AwsPrivateLink.Enabled.ValueBool(),
-			AllowedPrincipals: utils.TypeListToStringSlice(model.AwsPrivateLink.AllowedPrincipals),
-			ConnectConsole:    model.AwsPrivateLink.ConnectConsole.ValueBool(),
+		m, d := getMtlsSpec(ctx, model.KafkaAPI, diags)
+		if d.HasError() {
+			d.AddError("failed to generate KafkaAPI", "")
+			return nil, d
 		}
-	}
-	if !isGcpPrivateServiceConnectStructNil(model.GcpPrivateServiceConnect) {
-		output.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
-			Enabled:             model.GcpPrivateServiceConnect.Enabled.ValueBool(),
-			GlobalAccessEnabled: model.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
-			ConsumerAcceptList:  gcpConnectConsumerModelToStruct(model.GcpPrivateServiceConnect.ConsumerAcceptList),
-		}
-	}
-
-	if !isAzurePrivateLinkStructNil(model.AzurePrivateLink) {
-		output.AzurePrivateLink = &controlplanev1beta2.AzurePrivateLinkSpec{
-			Enabled:              model.AzurePrivateLink.Enabled.ValueBool(),
-			AllowedSubscriptions: utils.TypeListToStringSlice(model.AzurePrivateLink.AllowedSubscriptions),
-			ConnectConsole:       model.AzurePrivateLink.ConnectConsole.ValueBool(),
-		}
-	}
-
-	if model.KafkaAPI != nil {
 		output.KafkaApi = &controlplanev1beta2.KafkaAPISpec{
-			Mtls: toMtlsSpec(model.KafkaAPI.Mtls),
+			Mtls: m,
 		}
 	}
-	if model.HTTPProxy != nil {
+
+	if !model.HTTPProxy.IsNull() {
+		m, d := getMtlsSpec(ctx, model.HTTPProxy, diags)
+		if d.HasError() {
+			d.AddError("failed to generate HTTPProxy", "")
+			return nil, d
+		}
 		output.HttpProxy = &controlplanev1beta2.HTTPProxySpec{
-			Mtls: toMtlsSpec(model.HTTPProxy.Mtls),
+			Mtls: m,
 		}
 	}
-	if model.SchemaRegistry != nil {
+
+	if !model.SchemaRegistry.IsNull() {
+		m, d := getMtlsSpec(ctx, model.SchemaRegistry, diags)
+		if d.HasError() {
+			d.AddError("failed to generate SchemaRegistry", "")
+			return nil, d
+		}
 		output.SchemaRegistry = &controlplanev1beta2.SchemaRegistrySpec{
-			Mtls: toMtlsSpec(model.SchemaRegistry.Mtls),
+			Mtls: m,
 		}
-	}
-	if !model.ReadReplicaClusterIDs.IsNull() {
-		output.ReadReplicaClusterIds = utils.TypeListToStringSlice(model.ReadReplicaClusterIDs)
 	}
 
 	if !model.CustomerManagedResources.IsNull() {
-		cmr, d := generateClusterCMR(context.Background(), model, diag.Diagnostics{})
+		cmr, d := generateClusterCMR(context.Background(), model, diags)
 		if d.HasError() {
-			return nil, fmt.Errorf("failed to generate CustomerManagedResources: %v", d)
+			d.AddError("failed to generate CustomerManagedResources", "")
+			return nil, d
 		}
 		output.CustomerManagedResources = cmr
 	}
 
+	if !model.AwsPrivateLink.IsNull() {
+		m, d := getAwsPrivateLinkSpec(ctx, model.AwsPrivateLink, diags)
+		if d.HasError() {
+			d.AddError("failed to generate AWSPrivateLink", "")
+			return nil, d
+		}
+		output.AwsPrivateLink = m
+	}
+
+	if !model.GcpPrivateServiceConnect.IsNull() {
+		m, d := getGcpPrivateServiceConnect(ctx, model.GcpPrivateServiceConnect, diags)
+		if d.HasError() {
+			d.AddError("failed to generate GCPPrivateServiceConnect", "")
+			return nil, d
+		}
+		output.GcpPrivateServiceConnect = m
+	}
+
+	//if !isGcpPrivateServiceConnectStructNil(model.GcpPrivateServiceConnect) {
+	//	output.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
+	//		Enabled:             model.GcpPrivateServiceConnect.Enabled.ValueBool(),
+	//		GlobalAccessEnabled: model.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
+	//		ConsumerAcceptList:  gcpConnectConsumerModelToStruct(model.GcpPrivateServiceConnect.ConsumerAcceptList),
+	//	}
+	//}
+	//
+	//if !isAzurePrivateLinkStructNil(model.AzurePrivateLink) {
+	//	output.AzurePrivateLink = &controlplanev1beta2.AzurePrivateLinkSpec{
+	//		Enabled:              model.AzurePrivateLink.Enabled.ValueBool(),
+	//		AllowedSubscriptions: utils.TypeListToStringSlice(model.AzurePrivateLink.AllowedSubscriptions),
+	//		ConnectConsole:       model.AzurePrivateLink.ConnectConsole.ValueBool(),
+	//	}
+	//}
+	//
+	//}
+	//if !model.ReadReplicaClusterIDs.IsNull() {
+	//	output.ReadReplicaClusterIds = utils.TypeListToStringSlice(model.ReadReplicaClusterIDs)
+	//}
+
 	return output, nil
+}
+
+func getGcpPrivateServiceConnect(ctx context.Context, connect types.Object, diags diag.Diagnostics) (*controlplanev1beta2.GCPPrivateServiceConnectSpec, diag.Diagnostics) {
+	if connect.IsNull() {
+		return nil, diags
+	}
+
+	enabled, d := getBoolFromAttributes("enabled", connect.Attributes(), diags)
+	if d.HasError() {
+		diags.Append(d...)
+		return nil, diags
+	}
+
+	globalAccessEnabled, d := getBoolFromAttributes("global_access_enabled", connect.Attributes(), diags)
+	if d.HasError() {
+		diags.Append(d...)
+		return nil, diags
+	}
+
+	// Get consumer accept list
+	consumerList, d := getListFromAttributes("consumer_accept_list", connect.Attributes(), diags)
+	if d.HasError() {
+		diags.Append(d...)
+		return nil, diags
+	}
+
+	var consumers []*controlplanev1beta2.GCPPrivateServiceConnectConsumer
+	for _, elem := range consumerList.Elements() {
+		// Each element should be an object with a "source" field
+		consumerObj, ok := elem.(types.Object)
+		if !ok {
+			diags.AddError(
+				"Invalid consumer accept list element",
+				"Expected object type for consumer accept list element",
+			)
+			return nil, diags
+		}
+
+		sourceAttr := consumerObj.Attributes()["source"]
+		sourceVal, ok := sourceAttr.(types.String)
+		if !ok {
+			diags.AddError(
+				"Invalid source field",
+				"Expected string type for source field in consumer accept list",
+			)
+			return nil, diags
+		}
+
+		consumers = append(consumers, &controlplanev1beta2.GCPPrivateServiceConnectConsumer{
+			Source: sourceVal.ValueString(),
+		})
+	}
+
+	return &controlplanev1beta2.GCPPrivateServiceConnectSpec{
+		Enabled:             enabled,
+		GlobalAccessEnabled: globalAccessEnabled,
+		ConsumerAcceptList:  consumers,
+	}, diags
+}
+
+func getAwsPrivateLinkSpec(ctx context.Context, aws types.Object, diags diag.Diagnostics) (*controlplanev1beta2.AWSPrivateLinkSpec, diag.Diagnostics) {
+	enabled, d := getBoolFromAttributes("enabled", aws.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+
+	allowedPrincipals, d := getListFromAttributes("allowed_principals", aws.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+
+	connectConsole, d := getBoolFromAttributes("connect_console", aws.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+
+	return &controlplanev1beta2.AWSPrivateLinkSpec{
+		Enabled:           enabled,
+		AllowedPrincipals: utils.TypeListToStringSlice(allowedPrincipals),
+		ConnectConsole:    connectConsole,
+	}, diags
 }
 
 // generateClusterUpdate generates a *controlplanev1beta2.ClusterUpdate for a given cluster
@@ -105,50 +213,49 @@ func generateClusterUpdate(cluster models.Cluster) *controlplanev1beta2.ClusterU
 		ReadReplicaClusterIds: utils.TypeListToStringSlice(cluster.ReadReplicaClusterIDs),
 	}
 
-	if !isAwsPrivateLinkStructNil(cluster.AwsPrivateLink) {
-		update.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
-			Enabled:           cluster.AwsPrivateLink.Enabled.ValueBool(),
-			AllowedPrincipals: utils.TypeListToStringSlice(cluster.AwsPrivateLink.AllowedPrincipals),
-			ConnectConsole:    cluster.AwsPrivateLink.ConnectConsole.ValueBool(),
-		}
-	}
-
-	if !isAzurePrivateLinkStructNil(cluster.AzurePrivateLink) {
-		update.AzurePrivateLink = &controlplanev1beta2.AzurePrivateLinkSpec{
-			Enabled:              cluster.AzurePrivateLink.Enabled.ValueBool(),
-			AllowedSubscriptions: utils.TypeListToStringSlice(cluster.AzurePrivateLink.AllowedSubscriptions),
-			ConnectConsole:       cluster.AzurePrivateLink.ConnectConsole.ValueBool(),
-		}
-	}
-
-	if !isGcpPrivateServiceConnectStructNil(cluster.GcpPrivateServiceConnect) {
-		update.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
-			Enabled:             cluster.GcpPrivateServiceConnect.Enabled.ValueBool(),
-			GlobalAccessEnabled: cluster.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
-			ConsumerAcceptList:  gcpConnectConsumerModelToStruct(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
-		}
-	}
-
-	if !isMtlsNil(cluster.KafkaAPI) {
-		update.KafkaApi = &controlplanev1beta2.KafkaAPISpec{
-			Mtls: toMtlsSpec(cluster.KafkaAPI.Mtls),
-		}
-	}
-
-	if !isMtlsNil(cluster.HTTPProxy) {
-		update.HttpProxy = &controlplanev1beta2.HTTPProxySpec{
-			Mtls: toMtlsSpec(cluster.HTTPProxy.Mtls),
-		}
-	}
-
-	if !isMtlsNil(cluster.SchemaRegistry) {
-		update.SchemaRegistry = &controlplanev1beta2.SchemaRegistrySpec{
-			Mtls: toMtlsSpec(cluster.SchemaRegistry.Mtls),
-		}
-	}
+	//if !isAwsPrivateLinkStructNil(cluster.AwsPrivateLink) {
+	//	update.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
+	//		Enabled:           cluster.AwsPrivateLink.Enabled.ValueBool(),
+	//		AllowedPrincipals: utils.TypeListToStringSlice(cluster.AwsPrivateLink.AllowedPrincipals),
+	//		ConnectConsole:    cluster.AwsPrivateLink.ConnectConsole.ValueBool(),
+	//	}
+	//}
+	//
+	//if !isAzurePrivateLinkStructNil(cluster.AzurePrivateLink) {
+	//	update.AzurePrivateLink = &controlplanev1beta2.AzurePrivateLinkSpec{
+	//		Enabled:              cluster.AzurePrivateLink.Enabled.ValueBool(),
+	//		AllowedSubscriptions: utils.TypeListToStringSlice(cluster.AzurePrivateLink.AllowedSubscriptions),
+	//		ConnectConsole:       cluster.AzurePrivateLink.ConnectConsole.ValueBool(),
+	//	}
+	//}
+	//
+	//if !isGcpPrivateServiceConnectStructNil(cluster.GcpPrivateServiceConnect) {
+	//	update.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
+	//		Enabled:             cluster.GcpPrivateServiceConnect.Enabled.ValueBool(),
+	//		GlobalAccessEnabled: cluster.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
+	//		ConsumerAcceptList:  gcpConnectConsumerModelToStruct(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
+	//	}
+	//}
+	//
+	//if !isMtlsNil(cluster.KafkaAPI) {
+	//	update.KafkaApi = &controlplanev1beta2.KafkaAPISpec{
+	//		Mtls: toMtlsSpec(cluster.KafkaAPI.Mtls),
+	//	}
+	//}
+	//
+	//if !isMtlsNil(cluster.HTTPProxy) {
+	//	update.HttpProxy = &controlplanev1beta2.HTTPProxySpec{
+	//		Mtls: toMtlsSpec(cluster.HTTPProxy.Mtls),
+	//	}
+	//}
+	//
+	//if !isMtlsNil(cluster.SchemaRegistry) {
+	//	update.SchemaRegistry = &controlplanev1beta2.SchemaRegistrySpec{
+	//		Mtls: toMtlsSpec(cluster.SchemaRegistry.Mtls),
+	//	}
+	//}
 	return update
 }
-
 
 func getMtlsSpec(ctx context.Context, mtls types.Object, diags diag.Diagnostics) (*controlplanev1beta2.MTLSSpec, diag.Diagnostics) {
 	if mtls.IsNull() {
