@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/genproto/googleapis/type/dayofweek"
 )
 
 //func TestGenerateClusterRequest(t *testing.T) {
@@ -629,6 +630,94 @@ func TestGetGcpPrivateServiceConnect(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, diags := getGcpPrivateServiceConnect(context.Background(), tt.input, diag.Diagnostics{})
+
+			if tt.expectError {
+				assert.True(t, diags.HasError())
+				assert.Contains(t, diags.Errors()[0].Summary(), tt.errorMsg)
+				return
+			}
+
+			assert.False(t, diags.HasError())
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestGetMaintenanceWindowConfig(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       types.Object
+		want        *controlplanev1beta2.MaintenanceWindowConfig
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:  "null object returns nil",
+			input: types.ObjectNull(maintenanceWindowType),
+			want:  nil,
+		},
+		{
+			name: "valid day hour configuration",
+			input: types.ObjectValueMust(
+				maintenanceWindowType,
+				map[string]attr.Value{
+					"day_hour": types.ObjectValueMust(
+						dayHourType,
+						map[string]attr.Value{
+							"hour_of_day": types.Int64Value(14),
+							"day_of_week": types.StringValue("MONDAY"),
+						},
+					),
+					"anytime":     types.BoolNull(),
+					"unspecified": types.BoolNull(),
+				},
+			),
+			want: &controlplanev1beta2.MaintenanceWindowConfig{
+				Window: &controlplanev1beta2.MaintenanceWindowConfig_DayHour_{
+					DayHour: &controlplanev1beta2.MaintenanceWindowConfig_DayHour{
+						HourOfDay: 14,
+						DayOfWeek: dayofweek.DayOfWeek_MONDAY,
+					},
+				},
+			},
+		},
+		{
+			name: "anytime configuration",
+			input: types.ObjectValueMust(
+				maintenanceWindowType,
+				map[string]attr.Value{
+					"day_hour":    types.ObjectNull(dayHourType),
+					"anytime":     types.BoolValue(true),
+					"unspecified": types.BoolNull(),
+				},
+			),
+			want: &controlplanev1beta2.MaintenanceWindowConfig{
+				Window: &controlplanev1beta2.MaintenanceWindowConfig_Anytime_{
+					Anytime: &controlplanev1beta2.MaintenanceWindowConfig_Anytime{},
+				},
+			},
+		},
+		{
+			name: "unspecified configuration",
+			input: types.ObjectValueMust(
+				maintenanceWindowType,
+				map[string]attr.Value{
+					"day_hour":    types.ObjectNull(dayHourType),
+					"anytime":     types.BoolNull(),
+					"unspecified": types.BoolValue(true),
+				},
+			),
+			want: &controlplanev1beta2.MaintenanceWindowConfig{
+				Window: &controlplanev1beta2.MaintenanceWindowConfig_Unspecified_{
+					Unspecified: &controlplanev1beta2.MaintenanceWindowConfig_Unspecified{},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, diags := getMaintenanceWindowConfig(context.Background(), tt.input, diag.Diagnostics{})
 
 			if tt.expectError {
 				assert.True(t, diags.HasError())

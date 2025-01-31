@@ -4,6 +4,7 @@ import (
 	"time"
 
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -555,16 +556,24 @@ func generateModelGCPPrivateServiceConnect(cluster *controlplanev1beta2.Cluster,
 
 // generateUpdateRequest populates an UpdateClusterRequest that will update a cluster from the
 // // current state to a new state matching the plan.
-func generateUpdateRequest(plan, state models.Cluster) *controlplanev1beta2.UpdateClusterRequest {
-	planUpdate := generateClusterUpdate(plan)
-	stateUpdate := generateClusterUpdate(state)
+func generateUpdateRequest(plan, state models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.UpdateClusterRequest, diag.Diagnostics) {
+	planUpdate, ds := generateClusterUpdate(plan, diags)
+	if ds.HasError() {
+		diags.Append(ds...)
+		return nil, diags
+	}
+	stateUpdate, dg := generateClusterUpdate(state, diags)
+	if dg.HasError() {
+		diags.Append(dg...)
+		return nil, diags
+	}
 
 	update, fieldmask := utils.GenerateProtobufDiffAndUpdateMask(planUpdate, stateUpdate)
 	update.Id = planUpdate.Id
 	return &controlplanev1beta2.UpdateClusterRequest{
 		Cluster:    update,
 		UpdateMask: fieldmask,
-	}
+	}, nil
 }
 
 func generateModelMaintenanceWindow(cluster *controlplanev1beta2.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
@@ -932,7 +941,9 @@ func generateModelCMR(cloudProvider string, cluster *controlplanev1beta2.Cluster
 			retVal[k] = v
 		}
 		crmV["aws"] = basetypes.NewObjectValueMust(awsType, retVal)
-		return types.ObjectValue(cmrType, crmV)
+		f, dg := types.ObjectValue(cmrType, crmV)
+		spew.Dump(f)
+		return f, dg
 	case "gcp":
 		// TODO: Implement GCP support
 		return types.ObjectNull(cmrType), diags

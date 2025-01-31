@@ -9,25 +9,27 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"google.golang.org/genproto/googleapis/type/dayofweek"
 )
 
-// generateClusterRequest was pulled out to enable unit testing
 func generateClusterRequest(ctx context.Context, model models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.ClusterCreate, diag.Diagnostics) {
+	// Handle required fields first
 	provider, err := utils.StringToCloudProvider(model.CloudProvider.ValueString())
 	if err != nil {
 		diags.AddError("unable to parse cloud provider", err.Error())
 		return nil, diags
 	}
+
 	clusterType, err := utils.StringToClusterType(model.ClusterType.ValueString())
 	if err != nil {
 		diags.AddError("unable to parse cluster type", err.Error())
 		return nil, diags
 	}
-	rpVersion := model.RedpandaVersion.ValueString()
+
+	// Create base request with required fields
 	output := &controlplanev1beta2.ClusterCreate{
 		Name:              model.Name.ValueString(),
 		ResourceGroupId:   model.ResourceGroupID.ValueString(),
-		RedpandaVersion:   &rpVersion,
 		ThroughputTier:    model.ThroughputTier.ValueString(),
 		Type:              clusterType,
 		ConnectionType:    utils.StringToConnectionType(model.ConnectionType.ValueString()),
@@ -38,88 +40,123 @@ func generateClusterRequest(ctx context.Context, model models.Cluster, diags dia
 		CloudProviderTags: utils.TypeMapToStringMap(model.Tags),
 	}
 
+	// Handle optional fields
+	if !model.RedpandaVersion.IsNull() {
+		rpVersion := model.RedpandaVersion.ValueString()
+		output.RedpandaVersion = &rpVersion
+	}
+
+	// Handle KafkaAPI configuration
 	if !model.KafkaAPI.IsNull() {
 		m, d := getMtlsSpec(ctx, model.KafkaAPI, diags)
 		if d.HasError() {
-			d.AddError("failed to generate KafkaAPI", "")
-			return nil, d
+			diags.Append(d...)
+			return nil, diags
 		}
 		output.KafkaApi = &controlplanev1beta2.KafkaAPISpec{
 			Mtls: m,
 		}
 	}
 
+	// Handle HTTPProxy configuration
 	if !model.HTTPProxy.IsNull() {
 		m, d := getMtlsSpec(ctx, model.HTTPProxy, diags)
 		if d.HasError() {
-			d.AddError("failed to generate HTTPProxy", "")
-			return nil, d
+			diags.Append(d...)
+			return nil, diags
 		}
 		output.HttpProxy = &controlplanev1beta2.HTTPProxySpec{
 			Mtls: m,
 		}
 	}
 
+	// Handle SchemaRegistry configuration
 	if !model.SchemaRegistry.IsNull() {
 		m, d := getMtlsSpec(ctx, model.SchemaRegistry, diags)
 		if d.HasError() {
-			d.AddError("failed to generate SchemaRegistry", "")
-			return nil, d
+			diags.Append(d...)
+			return nil, diags
 		}
 		output.SchemaRegistry = &controlplanev1beta2.SchemaRegistrySpec{
 			Mtls: m,
 		}
 	}
 
+	// Handle CustomerManagedResources
 	if !model.CustomerManagedResources.IsNull() {
-		cmr, d := generateClusterCMR(context.Background(), model, diags)
+		cmr, d := generateClusterCMR(ctx, model, diags)
 		if d.HasError() {
-			d.AddError("failed to generate CustomerManagedResources", "")
-			return nil, d
+			diags.Append(d...)
+			return nil, diags
 		}
 		output.CustomerManagedResources = cmr
 	}
 
+	// Handle AWS PrivateLink
 	if !model.AwsPrivateLink.IsNull() {
 		m, d := getAwsPrivateLinkSpec(ctx, model.AwsPrivateLink, diags)
 		if d.HasError() {
-			d.AddError("failed to generate AWSPrivateLink", "")
-			return nil, d
+			diags.Append(d...)
+			return nil, diags
 		}
 		output.AwsPrivateLink = m
 	}
 
+	// Handle GCP Private Service Connect
 	if !model.GcpPrivateServiceConnect.IsNull() {
 		m, d := getGcpPrivateServiceConnect(ctx, model.GcpPrivateServiceConnect, diags)
 		if d.HasError() {
-			d.AddError("failed to generate GCPPrivateServiceConnect", "")
-			return nil, d
+			diags.Append(d...)
+			return nil, diags
 		}
 		output.GcpPrivateServiceConnect = m
 	}
 
-	//if !isGcpPrivateServiceConnectStructNil(model.GcpPrivateServiceConnect) {
-	//	output.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
-	//		Enabled:             model.GcpPrivateServiceConnect.Enabled.ValueBool(),
-	//		GlobalAccessEnabled: model.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
-	//		ConsumerAcceptList:  gcpConnectConsumerModelToStruct(model.GcpPrivateServiceConnect.ConsumerAcceptList),
-	//	}
-	//}
-	//
-	//if !isAzurePrivateLinkStructNil(model.AzurePrivateLink) {
-	//	output.AzurePrivateLink = &controlplanev1beta2.AzurePrivateLinkSpec{
-	//		Enabled:              model.AzurePrivateLink.Enabled.ValueBool(),
-	//		AllowedSubscriptions: utils.TypeListToStringSlice(model.AzurePrivateLink.AllowedSubscriptions),
-	//		ConnectConsole:       model.AzurePrivateLink.ConnectConsole.ValueBool(),
-	//	}
-	//}
-	//
-	//}
-	//if !model.ReadReplicaClusterIDs.IsNull() {
-	//	output.ReadReplicaClusterIds = utils.TypeListToStringSlice(model.ReadReplicaClusterIDs)
-	//}
+	// Handle Azure Private Link
+	if !model.AzurePrivateLink.IsNull() {
+		m, d := getAzurePrivateLinkSpec(ctx, model.AzurePrivateLink, diags)
+		if d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+		output.AzurePrivateLink = m
+	}
 
-	return output, nil
+	// Handle Maintenance Window
+	if !model.MaintenanceWindowConfig.IsNull() {
+		m, d := getMaintenanceWindowConfig(ctx, model.MaintenanceWindowConfig, diags)
+		if d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+		output.MaintenanceWindowConfig = m
+	}
+
+	// Handle Kafka Connect
+	if !model.KafkaConnect.IsNull() {
+		m, d := getKafkaConnectConfig(ctx, model.KafkaConnect, diags)
+		if d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+		output.KafkaConnect = m
+	}
+
+	// Handle Connectivity
+	if !model.Connectivity.IsNull() {
+		m, d := getConnectivitySpec(ctx, model.Connectivity, diags)
+		if d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+		output.Connectivity = m
+	}
+	// Handle Read Replica Cluster IDs
+	if !model.ReadReplicaClusterIDs.IsNull() {
+		output.ReadReplicaClusterIds = utils.TypeListToStringSlice(model.ReadReplicaClusterIDs)
+	}
+
+	return output, diags
 }
 
 func getGcpPrivateServiceConnect(ctx context.Context, connect types.Object, diags diag.Diagnostics) (*controlplanev1beta2.GCPPrivateServiceConnectSpec, diag.Diagnostics) {
@@ -206,55 +243,110 @@ func getAwsPrivateLinkSpec(ctx context.Context, aws types.Object, diags diag.Dia
 // generateClusterUpdate generates a *controlplanev1beta2.ClusterUpdate for a given cluster
 // model, which is then used by generateUpdateRequest to compare ClusterUpdates for plan
 // and state and generate an efficient diff and updatemask.
-func generateClusterUpdate(cluster models.Cluster) *controlplanev1beta2.ClusterUpdate {
+func generateClusterUpdate(cluster models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.ClusterUpdate, diag.Diagnostics) {
 	update := &controlplanev1beta2.ClusterUpdate{
 		Id:                    cluster.ID.ValueString(),
 		Name:                  cluster.Name.ValueString(),
 		ReadReplicaClusterIds: utils.TypeListToStringSlice(cluster.ReadReplicaClusterIDs),
 	}
 
-	//if !isAwsPrivateLinkStructNil(cluster.AwsPrivateLink) {
-	//	update.AwsPrivateLink = &controlplanev1beta2.AWSPrivateLinkSpec{
-	//		Enabled:           cluster.AwsPrivateLink.Enabled.ValueBool(),
-	//		AllowedPrincipals: utils.TypeListToStringSlice(cluster.AwsPrivateLink.AllowedPrincipals),
-	//		ConnectConsole:    cluster.AwsPrivateLink.ConnectConsole.ValueBool(),
-	//	}
-	//}
-	//
-	//if !isAzurePrivateLinkStructNil(cluster.AzurePrivateLink) {
-	//	update.AzurePrivateLink = &controlplanev1beta2.AzurePrivateLinkSpec{
-	//		Enabled:              cluster.AzurePrivateLink.Enabled.ValueBool(),
-	//		AllowedSubscriptions: utils.TypeListToStringSlice(cluster.AzurePrivateLink.AllowedSubscriptions),
-	//		ConnectConsole:       cluster.AzurePrivateLink.ConnectConsole.ValueBool(),
-	//	}
-	//}
-	//
-	//if !isGcpPrivateServiceConnectStructNil(cluster.GcpPrivateServiceConnect) {
-	//	update.GcpPrivateServiceConnect = &controlplanev1beta2.GCPPrivateServiceConnectSpec{
-	//		Enabled:             cluster.GcpPrivateServiceConnect.Enabled.ValueBool(),
-	//		GlobalAccessEnabled: cluster.GcpPrivateServiceConnect.GlobalAccessEnabled.ValueBool(),
-	//		ConsumerAcceptList:  gcpConnectConsumerModelToStruct(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
-	//	}
-	//}
-	//
-	//if !isMtlsNil(cluster.KafkaAPI) {
-	//	update.KafkaApi = &controlplanev1beta2.KafkaAPISpec{
-	//		Mtls: toMtlsSpec(cluster.KafkaAPI.Mtls),
-	//	}
-	//}
-	//
-	//if !isMtlsNil(cluster.HTTPProxy) {
-	//	update.HttpProxy = &controlplanev1beta2.HTTPProxySpec{
-	//		Mtls: toMtlsSpec(cluster.HTTPProxy.Mtls),
-	//	}
-	//}
-	//
-	//if !isMtlsNil(cluster.SchemaRegistry) {
-	//	update.SchemaRegistry = &controlplanev1beta2.SchemaRegistrySpec{
-	//		Mtls: toMtlsSpec(cluster.SchemaRegistry.Mtls),
-	//	}
-	//}
-	return update
+	// Handle KafkaAPI configuration
+	if !cluster.KafkaAPI.IsNull() {
+		m, d := getMtlsSpec(context.Background(), cluster.KafkaAPI, diags)
+		if d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+		update.KafkaApi = &controlplanev1beta2.KafkaAPISpec{
+			Mtls: m,
+		}
+	}
+
+	// Handle HTTPProxy configuration
+	if !cluster.HTTPProxy.IsNull() {
+		m, d := getMtlsSpec(context.Background(), cluster.HTTPProxy, diags)
+		if d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+		update.HttpProxy = &controlplanev1beta2.HTTPProxySpec{
+			Mtls: m,
+		}
+	}
+
+	// Handle SchemaRegistry configuration
+	if !cluster.SchemaRegistry.IsNull() {
+		m, d := getMtlsSpec(context.Background(), cluster.SchemaRegistry, diags)
+		if d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+		update.SchemaRegistry = &controlplanev1beta2.SchemaRegistrySpec{
+			Mtls: m,
+		}
+	}
+
+	// Handle AWS Private Link configuration
+	if !cluster.AwsPrivateLink.IsNull() {
+		m, d := getAwsPrivateLinkSpec(context.Background(), cluster.AwsPrivateLink, diags)
+		if d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+		update.AwsPrivateLink = m
+	}
+
+	// Handle GCP Private Service Connect configuration
+	if !cluster.GcpPrivateServiceConnect.IsNull() {
+		m, d := getGcpPrivateServiceConnect(context.Background(), cluster.GcpPrivateServiceConnect, diags)
+		if d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+		update.GcpPrivateServiceConnect = m
+	}
+
+	// Handle Azure Private Link configuration
+	if !cluster.AzurePrivateLink.IsNull() {
+		m, d := getAzurePrivateLinkSpec(context.Background(), cluster.AzurePrivateLink, diags)
+		if d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+		update.AzurePrivateLink = m
+	}
+
+	// Handle CustomerManagedResources updates
+	if !cluster.CustomerManagedResources.IsNull() {
+		cmr, d := generateClusterCMRUpdate(context.Background(), cluster, diags)
+		if d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+		update.CustomerManagedResources = cmr
+	}
+
+	// Handle Kafka Connect configuration
+	if !cluster.KafkaConnect.IsNull() {
+		m, d := getKafkaConnectConfig(context.Background(), cluster.KafkaConnect, diags)
+		if d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+		update.KafkaConnect = m
+	}
+
+	// Handle Maintenance Window configuration
+	if !cluster.MaintenanceWindowConfig.IsNull() {
+		m, d := getMaintenanceWindowConfig(context.Background(), cluster.MaintenanceWindowConfig, diags)
+		if d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+		update.MaintenanceWindowConfig = m
+	}
+
+	return update, diags
 }
 
 func getMtlsSpec(ctx context.Context, mtls types.Object, diags diag.Diagnostics) (*controlplanev1beta2.MTLSSpec, diag.Diagnostics) {
@@ -290,6 +382,173 @@ func getMtlsSpec(ctx context.Context, mtls types.Object, diags diag.Diagnostics)
 		CaCertificatesPem:     utils.TypeListToStringSlice(caCerts),
 		PrincipalMappingRules: utils.TypeListToStringSlice(pr),
 	}, diags
+}
+
+func generateClusterCMRUpdate(ctx context.Context, cluster models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.CustomerManagedResourcesUpdate, diag.Diagnostics) {
+	// TODO: bring this back when we have valid support for GCP BYOC. Figured I'd put it together since it is small but it does nothing yet.
+
+	return nil, diags
+	//if cluster.CustomerManagedResources.IsNull() {
+	//	return nil, diags
+	//}
+
+	//// The update version only supports GCP and only updates psc_nat_subnet_name
+	//if cluster.CloudProvider.ValueString() != "gcp" {
+	//	return nil, diags
+	//}
+	//
+	//// Get the CMR object and extract the GCP specific data
+	//var cmrObj types.Object
+	//if d := cluster.CustomerManagedResources.As(ctx, &cmrObj, basetypes.ObjectAsOptions{
+	//	UnhandledNullAsEmpty:    true,
+	//	UnhandledUnknownAsEmpty: true,
+	//}); d.HasError() {
+	//	diags.Append(d...)
+	//	return nil, diags
+	//}
+	//
+	//gcpObj, d := getObjectFromAttributes(ctx, "gcp", cmrObj.Attributes(), diags)
+	//if d.HasError() {
+	//	diags.Append(d...)
+	//	return nil, diags
+	//}
+	//
+	//if gcpObj.IsNull() {
+	//	return nil, diags
+	//}
+	//
+	//// Extract the PSC NAT subnet name
+	//pscSubnet, ok := gcpObj.Attributes()["psc_nat_subnet_name"].(types.String)
+	//if !ok || pscSubnet.IsNull() {
+	//	return nil, diags
+	//}
+	//
+	//return &controlplanev1beta2.CustomerManagedResourcesUpdate{
+	//	CloudProvider: &controlplanev1beta2.CustomerManagedResourcesUpdate_Gcp{
+	//		Gcp: &controlplanev1beta2.CustomerManagedResourcesUpdate_GCP{
+	//			PscNatSubnetName: pscSubnet.ValueString(),
+	//		},
+	//	},
+	//}, diags
+}
+
+func getAzurePrivateLinkSpec(ctx context.Context, azure types.Object, diags diag.Diagnostics) (*controlplanev1beta2.AzurePrivateLinkSpec, diag.Diagnostics) {
+	if azure.IsNull() {
+		return nil, diags
+	}
+
+	enabled, d := getBoolFromAttributes("enabled", azure.Attributes(), diags)
+	if d.HasError() {
+		diags.Append(d...)
+		return nil, diags
+	}
+
+	connectConsole, d := getBoolFromAttributes("connect_console", azure.Attributes(), diags)
+	if d.HasError() {
+		diags.Append(d...)
+		return nil, diags
+	}
+
+	allowedSubs, d := getListFromAttributes("allowed_subscriptions", azure.Attributes(), diags)
+	if d.HasError() {
+		diags.Append(d...)
+		return nil, diags
+	}
+
+	return &controlplanev1beta2.AzurePrivateLinkSpec{
+		Enabled:              enabled,
+		ConnectConsole:       connectConsole,
+		AllowedSubscriptions: utils.TypeListToStringSlice(allowedSubs),
+	}, diags
+}
+
+func getMaintenanceWindowConfig(ctx context.Context, maintenance types.Object, diags diag.Diagnostics) (*controlplanev1beta2.MaintenanceWindowConfig, diag.Diagnostics) {
+	if maintenance.IsNull() {
+		return nil, diags
+	}
+
+	config := &controlplanev1beta2.MaintenanceWindowConfig{}
+
+	attrs := maintenance.Attributes()
+	// Check each potential window type
+	if dayHourAttr, ok := attrs["day_hour"].(types.Object); ok && !dayHourAttr.IsNull() {
+		dayHourAttrs := dayHourAttr.Attributes()
+
+		hourAttr, ok := dayHourAttrs["hour_of_day"].(types.Int64)
+		if !ok {
+			diags.AddError("hour_of_day not found", "hour_of_day is missing or malformed")
+			return config, diags
+		}
+		dayAttr, ok := dayHourAttrs["day_of_week"].(types.String)
+		if !ok {
+			diags.AddError("day_of_week not found", "day_of_week is missing or malformed")
+			return config, diags
+		}
+
+		wdw := &controlplanev1beta2.MaintenanceWindowConfig_DayHour{}
+		wdw.SetHourOfDay(int32(hourAttr.ValueInt64()))
+		wdw.SetDayOfWeek(dayofweek.DayOfWeek(dayofweek.DayOfWeek_value[dayAttr.ValueString()]))
+		config.Window = &controlplanev1beta2.MaintenanceWindowConfig_DayHour_{
+			DayHour: wdw,
+		}
+		return config, diags
+	}
+
+	if anytimeAttr, ok := attrs["anytime"].(types.Bool); ok && anytimeAttr.ValueBool() {
+		config.Window = &controlplanev1beta2.MaintenanceWindowConfig_Anytime_{
+			Anytime: &controlplanev1beta2.MaintenanceWindowConfig_Anytime{},
+		}
+		return config, diags
+	}
+
+	if unspecAttr, ok := attrs["unspecified"].(types.Bool); ok && unspecAttr.ValueBool() {
+		config.Window = &controlplanev1beta2.MaintenanceWindowConfig_Unspecified_{
+			Unspecified: &controlplanev1beta2.MaintenanceWindowConfig_Unspecified{},
+		}
+		return config, diags
+	}
+
+	return nil, diags
+}
+
+func getKafkaConnectConfig(ctx context.Context, connect types.Object, diags diag.Diagnostics) (*controlplanev1beta2.KafkaConnect, diag.Diagnostics) {
+	if connect.IsNull() {
+		return nil, diags
+	}
+
+	enabled, d := getBoolFromAttributes("enabled", connect.Attributes(), diags)
+	if d.HasError() {
+		diags.Append(d...)
+		return nil, diags
+	}
+
+	return &controlplanev1beta2.KafkaConnect{
+		Enabled: enabled,
+	}, diags
+}
+
+func getConnectivitySpec(ctx context.Context, connectivity types.Object, diags diag.Diagnostics) (*controlplanev1beta2.ConnectivitySpec, diag.Diagnostics) {
+	if connectivity.IsNull() {
+		return nil, diags
+	}
+
+	spec := &controlplanev1beta2.ConnectivitySpec{}
+	gcpAttr, ok := connectivity.Attributes()["gcp"].(types.Object)
+	if ok && !gcpAttr.IsNull() {
+		enabled, d := getBoolFromAttributes("enable_global_access", gcpAttr.Attributes(), diags)
+		if d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+
+		spec.CloudProvider = &controlplanev1beta2.ConnectivitySpec_Gcp{
+			Gcp: &controlplanev1beta2.ConnectivitySpec_GCP{
+				EnableGlobalAccess: enabled,
+			},
+		}
+	}
+
+	return spec, diags
 }
 
 func generateClusterCMR(ctx context.Context, model models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.CustomerManagedResources, diag.Diagnostics) {

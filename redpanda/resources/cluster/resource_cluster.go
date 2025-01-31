@@ -180,7 +180,12 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 	var state models.Cluster
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
-	updateReq := generateUpdateRequest(plan, state)
+	updateReq, ds := generateUpdateRequest(plan, state, resp.Diagnostics)
+	if ds.HasError() {
+		resp.Diagnostics.Append(ds...)
+		resp.Diagnostics.AddError("unable to parse UpdateCluster request", "")
+		return
+	}
 	if len(updateReq.UpdateMask.Paths) != 0 {
 		op, err := c.CpCl.Cluster.UpdateCluster(ctx, updateReq)
 		if err != nil {
