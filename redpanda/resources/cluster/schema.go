@@ -112,24 +112,27 @@ func resourceClusterSchema() schema.Schema {
 			// Configurable API endpoints
 			"kafka_api": schema.SingleNestedAttribute{
 				Optional:    true,
+				Computed:    true,
 				Description: "Cluster's Kafka API properties.",
 				Attributes: map[string]schema.Attribute{
 					"mtls": schema.SingleNestedAttribute{
-						Required:    true,
+						Optional:    true,
+						Computed:    true,
 						Description: "mTLS configuration.",
 						Attributes: map[string]schema.Attribute{
 							"enabled": schema.BoolAttribute{
-								Required:    true,
+								Optional:    true,
+								Computed:    true,
 								Description: "Whether mTLS is enabled.",
 							},
 							"ca_certificates_pem": schema.ListAttribute{
 								ElementType: types.StringType,
-								Required:    true,
+								Optional:    true,
 								Description: "CA certificate in PEM format.",
 							},
 							"principal_mapping_rules": schema.ListAttribute{
 								ElementType: types.StringType,
-								Required:    true,
+								Optional:    true,
 								Description: "Principal mapping rules for mTLS authentication.",
 							},
 						},
@@ -143,24 +146,27 @@ func resourceClusterSchema() schema.Schema {
 			},
 			"http_proxy": schema.SingleNestedAttribute{
 				Optional:    true,
+				Computed:    true,
 				Description: "HTTP Proxy properties.",
 				Attributes: map[string]schema.Attribute{
 					"mtls": schema.SingleNestedAttribute{
-						Required:    true,
+						Optional:    true,
+						Computed:    true,
 						Description: "mTLS configuration.",
 						Attributes: map[string]schema.Attribute{
 							"enabled": schema.BoolAttribute{
-								Required:    true,
+								Optional:    true,
+								Computed:    true,
 								Description: "Whether mTLS is enabled.",
 							},
 							"ca_certificates_pem": schema.ListAttribute{
 								ElementType: types.StringType,
-								Required:    true,
+								Optional:    true,
 								Description: "CA certificate in PEM format.",
 							},
 							"principal_mapping_rules": schema.ListAttribute{
 								ElementType: types.StringType,
-								Required:    true,
+								Optional:    true,
 								Description: "Principal mapping rules for mTLS authentication.",
 							},
 						},
@@ -173,24 +179,27 @@ func resourceClusterSchema() schema.Schema {
 			},
 			"schema_registry": schema.SingleNestedAttribute{
 				Optional:    true,
+				Computed:    true,
 				Description: "Schema Registry properties.",
 				Attributes: map[string]schema.Attribute{
 					"mtls": schema.SingleNestedAttribute{
-						Required:    true,
+						Optional:    true,
+						Computed:    true,
 						Description: "mTLS configuration.",
 						Attributes: map[string]schema.Attribute{
 							"enabled": schema.BoolAttribute{
-								Required:    true,
+								Optional:    true,
+								Computed:    true,
 								Description: "Whether mTLS is enabled.",
 							},
 							"ca_certificates_pem": schema.ListAttribute{
 								ElementType: types.StringType,
-								Required:    true,
+								Optional:    true,
 								Description: "CA certificate in PEM format.",
 							},
 							"principal_mapping_rules": schema.ListAttribute{
 								ElementType: types.StringType,
-								Required:    true,
+								Optional:    true,
 								Description: "Principal mapping rules for mTLS authentication.",
 							},
 						},
@@ -246,18 +255,19 @@ func resourceClusterSchema() schema.Schema {
 
 			"maintenance_window_config": schema.SingleNestedAttribute{
 				Optional:    true,
+				Computed:    true,
 				Description: "Maintenance window configuration for the cluster.",
 				Attributes: map[string]schema.Attribute{
 					"day_hour": schema.SingleNestedAttribute{
 						Optional: true,
 						Attributes: map[string]schema.Attribute{
 							"hour_of_day": schema.Int32Attribute{
-								Required:    true,
-								Description: "Hour of day in UTC (0-23).",
+								Optional:    true,
+								Description: "Hour of day.",
 							},
 							"day_of_week": schema.StringAttribute{
-								Required:    true,
-								Description: "Day of week (SUNDAY through SATURDAY).",
+								Optional:    true,
+								Description: "Day of week.",
 							},
 						},
 					},
@@ -266,7 +276,7 @@ func resourceClusterSchema() schema.Schema {
 						Description: "If true, maintenance can occur at any time.",
 					},
 					"unspecified": schema.BoolAttribute{
-						Optional:    true,
+						Computed:    true,
 						Description: "If true, maintenance window is unspecified.",
 					},
 				},
@@ -288,13 +298,14 @@ func resourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-
 			"kafka_connect": schema.SingleNestedAttribute{
 				Optional:    true,
+				Computed:    true,
 				Description: "Kafka Connect configuration.",
 				Attributes: map[string]schema.Attribute{
 					"enabled": schema.BoolAttribute{
-						Required:    true,
+						Optional:    true,
+						Computed:    true,
 						Description: "Whether Kafka Connect is enabled.",
 					},
 				},
