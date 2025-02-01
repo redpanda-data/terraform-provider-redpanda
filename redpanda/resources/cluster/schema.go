@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
@@ -123,6 +124,7 @@ func resourceClusterSchema() schema.Schema {
 							"enabled": schema.BoolAttribute{
 								Optional:    true,
 								Computed:    true,
+								Default:     booldefault.StaticBool(false),
 								Description: "Whether mTLS is enabled.",
 							},
 							"ca_certificates_pem": schema.ListAttribute{
@@ -157,6 +159,7 @@ func resourceClusterSchema() schema.Schema {
 							"enabled": schema.BoolAttribute{
 								Optional:    true,
 								Computed:    true,
+								Default:     booldefault.StaticBool(false),
 								Description: "Whether mTLS is enabled.",
 							},
 							"ca_certificates_pem": schema.ListAttribute{
@@ -190,6 +193,7 @@ func resourceClusterSchema() schema.Schema {
 							"enabled": schema.BoolAttribute{
 								Optional:    true,
 								Computed:    true,
+								Default:     booldefault.StaticBool(false),
 								Description: "Whether mTLS is enabled.",
 							},
 							"ca_certificates_pem": schema.ListAttribute{
@@ -306,6 +310,7 @@ func resourceClusterSchema() schema.Schema {
 					"enabled": schema.BoolAttribute{
 						Optional:    true,
 						Computed:    true,
+						Default:     booldefault.StaticBool(false),
 						Description: "Whether Kafka Connect is enabled.",
 					},
 				},
