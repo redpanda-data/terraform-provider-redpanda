@@ -177,7 +177,7 @@ func getGcpPrivateServiceConnect(ctx context.Context, connect types.Object, diag
 	}
 
 	// Get consumer accept list
-	consumerList, d := getListFromAttributes("consumer_accept_list", connect.Attributes(), diags)
+	consumerList, d := getListFromAttributes("consumer_accept_list", types.StringType, connect.Attributes(), diags)
 	if d.HasError() {
 		diags.Append(d...)
 		return nil, diags
@@ -223,7 +223,7 @@ func getAwsPrivateLinkSpec(ctx context.Context, aws types.Object, diags diag.Dia
 		return nil, d
 	}
 
-	allowedPrincipals, d := getListFromAttributes("allowed_principals", aws.Attributes(), diags)
+	allowedPrincipals, d := getListFromAttributes("allowed_principals", types.StringType, aws.Attributes(), diags)
 	if d.HasError() {
 		return nil, d
 	}
@@ -353,8 +353,11 @@ func getMtlsSpec(ctx context.Context, mtls types.Object, diags diag.Diagnostics)
 	if mtls.IsNull() {
 		return nil, diags
 	}
-	m, d := getObjectFromAttributes(ctx, "mtls", mtls.Attributes(), diags)
+	m, d := getObjectFromAttributes(ctx, "mtls", mtlsType, mtls.Attributes(), diags)
 	if d.HasError() {
+		if utils.IsNotFoundSpec(d) {
+			return nil, diags
+		}
 		diags.Append(d...)
 		return nil, diags
 	}
@@ -365,13 +368,13 @@ func getMtlsSpec(ctx context.Context, mtls types.Object, diags diag.Diagnostics)
 		return nil, diags
 	}
 
-	caCerts, d := getListFromAttributes("ca_certificates_pem", m.Attributes(), diags)
+	caCerts, d := getListFromAttributes("ca_certificates_pem", types.StringType, m.Attributes(), diags)
 	if d.HasError() {
 		diags.Append(d...)
 		return nil, diags
 	}
 
-	pr, d := getListFromAttributes("principal_mapping_rules", m.Attributes(), diags)
+	pr, d := getListFromAttributes("principal_mapping_rules", types.StringType, m.Attributes(), diags)
 	if d.HasError() {
 		diags.Append(d...)
 		return nil, diags
@@ -449,7 +452,7 @@ func getAzurePrivateLinkSpec(ctx context.Context, azure types.Object, diags diag
 		return nil, diags
 	}
 
-	allowedSubs, d := getListFromAttributes("allowed_subscriptions", azure.Attributes(), diags)
+	allowedSubs, d := getListFromAttributes("allowed_subscriptions", types.StringType, azure.Attributes(), diags)
 	if d.HasError() {
 		diags.Append(d...)
 		return nil, diags
@@ -586,9 +589,11 @@ func generateClusterCMR(ctx context.Context, model models.Cluster, diags diag.Di
 			return nil, d
 		}
 
-		aws, d := getObjectFromAttributes(ctx, "aws", cmrObj.Attributes(), diags)
+		aws, d := getObjectFromAttributes(ctx, "aws", awsType, cmrObj.Attributes(), diags)
 		if d.HasError() {
-			return nil, d
+			if !utils.IsNotFoundSpec(d) {
+				return nil, d
+			}
 		}
 
 		// Agent instance profile

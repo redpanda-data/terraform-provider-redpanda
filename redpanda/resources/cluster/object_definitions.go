@@ -7,78 +7,8 @@ import (
 
 var cmrType = map[string]attr.Type{
 	"aws": types.ObjectType{
-		AttrTypes: map[string]attr.Type{
-			"agent_instance_profile": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"arn": types.StringType,
-				},
-			},
-			"connectors_node_group_instance_profile": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"arn": types.StringType,
-				},
-			},
-			"utility_node_group_instance_profile": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"arn": types.StringType,
-				},
-			},
-			"redpanda_node_group_instance_profile": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"arn": types.StringType,
-				},
-			},
-			"k8s_cluster_role": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"arn": types.StringType,
-				},
-			},
-			"redpanda_agent_security_group": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"arn": types.StringType,
-				},
-			},
-			"connectors_security_group": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"arn": types.StringType,
-				},
-			},
-			"redpanda_node_group_security_group": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"arn": types.StringType,
-				},
-			},
-			"utility_security_group": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"arn": types.StringType,
-				},
-			},
-			"cluster_security_group": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"arn": types.StringType,
-				},
-			},
-			"node_security_group": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"arn": types.StringType,
-				},
-			},
-			"cloud_storage_bucket": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"arn": types.StringType,
-				},
-			},
-			"permissions_boundary_policy": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"arn": types.StringType,
-				},
-			},
-		},
+		AttrTypes: awsType,
 	},
-}
-
-var crmVal = map[string]attr.Value{
-	"aws": types.ObjectNull(awsType),
 }
 
 var awsType = map[string]attr.Type{
@@ -149,11 +79,8 @@ var awsType = map[string]attr.Type{
 	},
 }
 
-var singleElementContainer = map[string]attr.Type{
-	"arn": types.StringType,
-}
-
-var awsValue = map[string]attr.Value{
+// Define null values for AWS fields
+var awsValueDefaults = map[string]attr.Value{
 	"agent_instance_profile":                 types.ObjectNull(singleElementContainer),
 	"connectors_node_group_instance_profile": types.ObjectNull(singleElementContainer),
 	"utility_node_group_instance_profile":    types.ObjectNull(singleElementContainer),
@@ -167,6 +94,15 @@ var awsValue = map[string]attr.Value{
 	"node_security_group":                    types.ObjectNull(singleElementContainer),
 	"cloud_storage_bucket":                   types.ObjectNull(singleElementContainer),
 	"permissions_boundary_policy":            types.ObjectNull(singleElementContainer),
+}
+
+// Define CMR value defaults
+var cmrValueDefaults = map[string]attr.Value{
+	"aws": types.ObjectNull(awsType),
+}
+
+var singleElementContainer = map[string]attr.Type{
+	"arn": types.StringType,
 }
 
 var mtlsType = map[string]attr.Type{

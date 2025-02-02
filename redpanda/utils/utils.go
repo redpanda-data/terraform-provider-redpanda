@@ -32,6 +32,7 @@ import (
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1alpha2/dataplanev1alpha2grpc"
 	dataplanev1alpha2 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha2"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -60,6 +61,15 @@ func IsNotFound(err error) bool {
 	}
 	if e, ok := grpcstatus.FromError(err); ok && e.Code() == grpccodes.NotFound {
 		return true
+	}
+	return false
+}
+
+func IsNotFoundSpec(diags diag.Diagnostics) bool {
+	for _, d := range diags {
+		if strings.Contains(d.Summary(), "missing") || strings.Contains(d.Summary(), "malformed") {
+			return true
+		}
 	}
 	return false
 }

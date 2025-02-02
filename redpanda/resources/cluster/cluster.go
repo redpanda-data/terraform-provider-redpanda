@@ -50,26 +50,27 @@ func generateMinimalModel(clusterID string) models.Cluster {
 		AllowDeletion:            types.BoolValue(true),
 		ReadReplicaClusterIDs:    types.ListNull(types.StringType),
 		Zones:                    types.ListNull(types.StringType),
-		Prometheus:               types.ObjectUnknown(prometheusType),
-		CustomerManagedResources: types.ObjectUnknown(cmrType),
-		KafkaAPI:                 types.ObjectUnknown(kafkaAPIType),
-		HTTPProxy:                types.ObjectUnknown(httpProxyType),
-		SchemaRegistry:           types.ObjectUnknown(schemaRegistryType),
-		AwsPrivateLink:           types.ObjectUnknown(awsPrivateLinkType),
-		GcpPrivateServiceConnect: types.ObjectUnknown(gcpPrivateServiceConnectType),
-		AzurePrivateLink:         types.ObjectUnknown(azurePrivateLinkType),
-		RedpandaConsole:          types.ObjectUnknown(redpandaConsoleType),
-		StateDescription:         types.ObjectUnknown(stateDescriptionType),
-		MaintenanceWindowConfig:  types.ObjectUnknown(maintenanceWindowConfigType),
-		Connectivity:             types.ObjectUnknown(connectivityType),
-		KafkaConnect:             types.ObjectUnknown(kafkaConnectType),
+		Prometheus:               types.ObjectNull(prometheusType),
+		CustomerManagedResources: types.ObjectNull(cmrType),
+		KafkaAPI:                 types.ObjectNull(kafkaAPIType),
+		HTTPProxy:                types.ObjectNull(httpProxyType),
+		SchemaRegistry:           types.ObjectNull(schemaRegistryType),
+		AwsPrivateLink:           types.ObjectNull(awsPrivateLinkType),
+		GcpPrivateServiceConnect: types.ObjectNull(gcpPrivateServiceConnectType),
+		AzurePrivateLink:         types.ObjectNull(azurePrivateLinkType),
+		RedpandaConsole:          types.ObjectNull(redpandaConsoleType),
+		StateDescription:         types.ObjectNull(stateDescriptionType),
+		MaintenanceWindowConfig:  types.ObjectNull(maintenanceWindowConfigType),
+		Connectivity:             types.ObjectNull(connectivityType),
+		KafkaConnect:             types.ObjectNull(kafkaConnectType),
 	}
 }
 
-func getObjectFromAttributes(ctx context.Context, key string, att map[string]attr.Value, diags diag.Diagnostics) (types.Object, diag.Diagnostics) {
+func getObjectFromAttributes(ctx context.Context, key string, typ map[string]attr.Type, att map[string]attr.Value, diags diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	attVal, ok := att[key].(basetypes.ObjectValue)
 	if !ok {
-		return types.ObjectNull(map[string]attr.Type{}), append(diags, diag.NewErrorDiagnostic(fmt.Sprintf("%s not found", key), "object is missing or malformed"))
+		// it's nil, call it good
+		return types.ObjectNull(typ), diags
 	}
 	var keyVal types.Object
 	if err := attVal.As(ctx, &keyVal, basetypes.ObjectAsOptions{
@@ -84,7 +85,7 @@ func getObjectFromAttributes(ctx context.Context, key string, att map[string]att
 func getStringFromAttributes(key string, att map[string]attr.Value, diags diag.Diagnostics) (string, diag.Diagnostics) {
 	attVal, ok := att[key].(basetypes.ObjectValue)
 	if !ok {
-		diags.AddError(fmt.Sprintf("%s not found", key), "object is missing or malformed")
+		// it's nil, call it good
 		return "", diags
 	}
 	rt, ok := attVal.Attributes()["arn"].(types.String)
@@ -98,15 +99,17 @@ func getStringFromAttributes(key string, att map[string]attr.Value, diags diag.D
 func getBoolFromAttributes(key string, att map[string]attr.Value, diags diag.Diagnostics) (bool, diag.Diagnostics) {
 	attVal, ok := att[key].(types.Bool)
 	if !ok {
-		return false, append(diags, diag.NewErrorDiagnostic(fmt.Sprintf("%s not found", key), "bool is missing or malformed"))
+		// it's nil, call it good
+		return false, diags
 	}
 	return attVal.ValueBool(), diags
 }
 
-func getListFromAttributes(key string, att map[string]attr.Value, diags diag.Diagnostics) (types.List, diag.Diagnostics) {
+func getListFromAttributes(key string, atyp attr.Type, att map[string]attr.Value, diags diag.Diagnostics) (types.List, diag.Diagnostics) {
 	attVal, ok := att[key].(types.List)
 	if !ok {
-		return types.ListNull(types.StringType), append(diags, diag.NewErrorDiagnostic(fmt.Sprintf("%s not found", key), "list is missing or malformed"))
+		// it's nil, call it good
+		return types.ListNull(atyp), diags
 	}
 	return attVal, diags
 }

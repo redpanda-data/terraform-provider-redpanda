@@ -290,6 +290,10 @@ func getMtlsModel(mtls *controlplanev1beta2.MTLSSpec, diagnostics diag.Diagnosti
 	}
 	out, d := types.ObjectValue(mtlsType, mtlsValue)
 	if d.HasError() {
+		if utils.IsNotFoundSpec(d) {
+			// mtls not being found is valid, null it and move on
+			return types.ObjectNull(mtlsType), diagnostics
+		}
 		diagnostics.Append(d...)
 		diagnostics.AddError("failed to generate mtls object", "failed to generate mtls object")
 		return types.ObjectNull(mtlsType), diagnostics
@@ -819,38 +823,11 @@ func generateModelCMR(cloudProvider string, cluster *controlplanev1beta2.Cluster
 		// Get AWS data
 		awsData := cluster.GetCustomerManagedResources().GetAws()
 
-		// Initialize AWS attributes with null values
+		// Initialize AWS values map with default null values
 		awsVal := make(map[string]attr.Value)
-
-		// Create null objects for all AWS fields
-		instanceProfileFields := []string{
-			"agent_instance_profile",
-			"connectors_node_group_instance_profile",
-			"utility_node_group_instance_profile",
-			"redpanda_node_group_instance_profile",
+		for k, v := range awsValueDefaults {
+			awsVal[k] = v
 		}
-
-		securityGroupFields := []string{
-			"redpanda_agent_security_group",
-			"connectors_security_group",
-			"redpanda_node_group_security_group",
-			"utility_security_group",
-			"cluster_security_group",
-			"node_security_group",
-		}
-
-		// Initialize all fields with null objects
-		for _, field := range instanceProfileFields {
-			awsVal[field] = types.ObjectNull(singleElementContainer)
-		}
-		for _, field := range securityGroupFields {
-			awsVal[field] = types.ObjectNull(singleElementContainer)
-		}
-
-		// Initialize remaining fields
-		awsVal["k8s_cluster_role"] = types.ObjectNull(singleElementContainer)
-		awsVal["cloud_storage_bucket"] = types.ObjectNull(singleElementContainer)
-		awsVal["permissions_boundary_policy"] = types.ObjectNull(singleElementContainer)
 
 		// Now set values for fields that exist in the input
 		if awsData.HasAgentInstanceProfile() {
