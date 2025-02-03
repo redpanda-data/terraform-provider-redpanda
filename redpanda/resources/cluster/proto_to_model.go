@@ -527,7 +527,6 @@ func generateModelGCPPrivateServiceConnect(cluster *controlplanev1beta2.Cluster,
 			return types.ObjectNull(gcpPrivateServiceConnectType), diagnostics
 		}
 
-		// Build status object - all fields optional
 		statusValues := map[string]attr.Value{
 			"service_attachment":            types.StringValue(status.GetServiceAttachment()),
 			"kafka_api_seed_port":           types.Int32Value(status.GetKafkaApiSeedPort()),

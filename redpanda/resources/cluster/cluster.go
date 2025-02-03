@@ -77,7 +77,7 @@ func getObjectFromAttributes(ctx context.Context, key string, typ map[string]att
 		UnhandledNullAsEmpty:    true,
 		UnhandledUnknownAsEmpty: true,
 	}); err != nil {
-		return types.ObjectNull(map[string]attr.Type{}), append(diags, diag.NewErrorDiagnostic(fmt.Sprintf("%s not found", key), "value is missing or malformed"))
+		return types.ObjectNull(typ), append(diags, diag.NewErrorDiagnostic(fmt.Sprintf("%s not found", key), "value is missing or malformed"))
 	}
 	return keyVal, diags
 }

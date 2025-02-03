@@ -58,7 +58,6 @@ func generateClusterRequest(ctx context.Context, model models.Cluster, diags dia
 		}
 	}
 
-	// Handle HTTPProxy configuration
 	if !model.HTTPProxy.IsNull() {
 		m, d := getMtlsSpec(ctx, model.HTTPProxy, diags)
 		if d.HasError() {
@@ -70,7 +69,6 @@ func generateClusterRequest(ctx context.Context, model models.Cluster, diags dia
 		}
 	}
 
-	// Handle SchemaRegistry configuration
 	if !model.SchemaRegistry.IsNull() {
 		m, d := getMtlsSpec(ctx, model.SchemaRegistry, diags)
 		if d.HasError() {
@@ -262,7 +260,6 @@ func generateClusterUpdate(cluster models.Cluster, diags diag.Diagnostics) (*con
 		}
 	}
 
-	// Handle HTTPProxy configuration
 	if !cluster.HTTPProxy.IsNull() {
 		m, d := getMtlsSpec(context.Background(), cluster.HTTPProxy, diags)
 		if d.HasError() {
