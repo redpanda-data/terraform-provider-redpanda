@@ -159,9 +159,6 @@ func SpawnConn(url, authToken, providerVersion, terraformVersion string) (*grpc.
 			func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 				return invoker(metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", authToken)), method, req, reply, cc, opts...)
 			},
-			func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-				return invoker(metadata.AppendToOutgoingContext(ctx, "user-agent", fmt.Sprintf("Terraform/%s %s_%s terraform-provider-redpanda/%s", terraformVersion, runtime.GOOS, runtime.GOARCH, providerVersion)), method, req, reply, cc, opts...)
-			},
 			func(ctx context.Context, method string, req any, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 				start := time.Now()
 				err := invoker(ctx, method, req, reply, cc, opts...)
@@ -191,6 +188,9 @@ func SpawnConn(url, authToken, providerVersion, terraformVersion string) (*grpc.
 		grpc.WithConnectParams(grpc.ConnectParams{
 			Backoff: backoff.DefaultConfig,
 		}),
+		grpc.WithUserAgent(
+			fmt.Sprintf("Terraform/%s %s_%s terraform-provider-redpanda/%s", terraformVersion, runtime.GOOS, runtime.GOARCH, providerVersion),
+		),
 		// We do not block (grpc.WithBlock) on purpose to avoid waiting
 		// indefinitely if the cluster is not responding and to provide an
 		// useful error on these cases. See:
