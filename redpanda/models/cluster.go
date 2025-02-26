@@ -21,73 +21,34 @@ import (
 
 // Cluster represents the Terraform schema for the cluster resource.
 type Cluster struct {
-	Name                     types.String              `tfsdk:"name"`
-	ID                       types.String              `tfsdk:"id"`
-	ConnectionType           types.String              `tfsdk:"connection_type"`
-	CloudProvider            types.String              `tfsdk:"cloud_provider"`
-	ClusterType              types.String              `tfsdk:"cluster_type"`
-	RedpandaVersion          types.String              `tfsdk:"redpanda_version"`
-	ThroughputTier           types.String              `tfsdk:"throughput_tier"`
-	Region                   types.String              `tfsdk:"region"`
-	Zones                    types.List                `tfsdk:"zones"`
-	AllowDeletion            types.Bool                `tfsdk:"allow_deletion"`
-	Tags                     types.Map                 `tfsdk:"tags"`
-	ResourceGroupID          types.String              `tfsdk:"resource_group_id"`
-	NetworkID                types.String              `tfsdk:"network_id"`
-	ClusterAPIURL            types.String              `tfsdk:"cluster_api_url"`
-	AwsPrivateLink           *AwsPrivateLink           `tfsdk:"aws_private_link"`
-	GcpPrivateServiceConnect *GcpPrivateServiceConnect `tfsdk:"gcp_private_service_connect"`
-	AzurePrivateLink         *AzurePrivateLink         `tfsdk:"azure_private_link"`
-	KafkaAPI                 *KafkaAPI                 `tfsdk:"kafka_api"`
-	HTTPProxy                *HTTPProxy                `tfsdk:"http_proxy"`
-	SchemaRegistry           *SchemaRegistry           `tfsdk:"schema_registry"`
-	ReadReplicaClusterIDs    types.List                `tfsdk:"read_replica_cluster_ids"`
-}
-
-// AwsPrivateLink represents the Terraform schema for the AWS Private Link configuration.
-type AwsPrivateLink struct {
-	Enabled           types.Bool `tfsdk:"enabled"`
-	ConnectConsole    types.Bool `tfsdk:"connect_console"`
-	AllowedPrincipals types.List `tfsdk:"allowed_principals"`
-}
-
-// GcpPrivateServiceConnect represents the Terraform schema for the GCP Private Service Connect configuration.
-type GcpPrivateServiceConnect struct {
-	Enabled             types.Bool                          `tfsdk:"enabled"`
-	GlobalAccessEnabled types.Bool                          `tfsdk:"global_access_enabled"`
-	ConsumerAcceptList  []*GcpPrivateServiceConnectConsumer `tfsdk:"consumer_accept_list"`
-}
-
-// GcpPrivateServiceConnectConsumer represents the Terraform schema for the GCP Private Service Connect consumer configuration.
-type GcpPrivateServiceConnectConsumer struct {
-	Source string `tfsdk:"source"`
-}
-
-// AzurePrivateLink represents the Terraform schema for the Azure Private Link configuration.
-type AzurePrivateLink struct {
-	AllowedSubscriptions types.List `tfsdk:"allowed_subscriptions"`
-	ConnectConsole       types.Bool `tfsdk:"connect_console"`
-	Enabled              types.Bool `tfsdk:"enabled"`
-}
-
-// KafkaAPI represents the Terraform schema for the Kafka API configuration.
-type KafkaAPI struct {
-	Mtls *Mtls `tfsdk:"mtls"`
-}
-
-// HTTPProxy represents the Terraform schema for the HTTP Proxy configuration.
-type HTTPProxy struct {
-	Mtls *Mtls `tfsdk:"mtls"`
-}
-
-// SchemaRegistry represents the Terraform schema for the Schema Registry configuration.
-type SchemaRegistry struct {
-	Mtls *Mtls `tfsdk:"mtls"`
-}
-
-// Mtls represents the Terraform schema for the mutual TLS configuration.
-type Mtls struct {
-	Enabled               types.Bool `tfsdk:"enabled"`
-	CaCertificatesPem     types.List `tfsdk:"ca_certificates_pem"`
-	PrincipalMappingRules types.List `tfsdk:"principal_mapping_rules"`
+	Name                     types.String `tfsdk:"name"`
+	ID                       types.String `tfsdk:"id"`
+	ConnectionType           types.String `tfsdk:"connection_type"`
+	CloudProvider            types.String `tfsdk:"cloud_provider"`
+	ClusterType              types.String `tfsdk:"cluster_type"`
+	RedpandaVersion          types.String `tfsdk:"redpanda_version"`
+	ThroughputTier           types.String `tfsdk:"throughput_tier"`
+	Region                   types.String `tfsdk:"region"`
+	Zones                    types.List   `tfsdk:"zones"`
+	AllowDeletion            types.Bool   `tfsdk:"allow_deletion"`
+	CreatedAt                types.String `tfsdk:"created_at"`
+	State                    types.String `tfsdk:"state"`
+	StateDescription         types.Object `tfsdk:"state_description"`
+	Tags                     types.Map    `tfsdk:"tags"`
+	ResourceGroupID          types.String `tfsdk:"resource_group_id"`
+	NetworkID                types.String `tfsdk:"network_id"`
+	ClusterAPIURL            types.String `tfsdk:"cluster_api_url"`
+	AwsPrivateLink           types.Object `tfsdk:"aws_private_link"`
+	GcpPrivateServiceConnect types.Object `tfsdk:"gcp_private_service_connect"`
+	AzurePrivateLink         types.Object `tfsdk:"azure_private_link"`
+	KafkaAPI                 types.Object `tfsdk:"kafka_api"`
+	HTTPProxy                types.Object `tfsdk:"http_proxy"`
+	SchemaRegistry           types.Object `tfsdk:"schema_registry"`
+	KafkaConnect             types.Object `tfsdk:"kafka_connect"`
+	ReadReplicaClusterIDs    types.List   `tfsdk:"read_replica_cluster_ids"`
+	CustomerManagedResources types.Object `tfsdk:"customer_managed_resources"`
+	Prometheus               types.Object `tfsdk:"prometheus"`
+	RedpandaConsole          types.Object `tfsdk:"redpanda_console"`
+	MaintenanceWindowConfig  types.Object `tfsdk:"maintenance_window_config"`
+	Connectivity             types.Object `tfsdk:"connectivity"`
 }
