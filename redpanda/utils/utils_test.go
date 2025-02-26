@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/mocks"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/codes"
@@ -610,6 +611,183 @@ func TestDeserializeGrpcError(t *testing.T) {
 			got := DeserializeGrpcError(tt.err)
 			if normalizeString(got) != normalizeString(tt.expected) {
 				t.Errorf("DeserializeGrpcError() got:\n%q\nwant:\n%q", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestRetryGetCluster(t *testing.T) {
+	testCases := []struct {
+		name            string
+		timeout         time.Duration
+		mockSetup       func(m *mocks.MockCpClientSet)
+		retryFunc       func(cluster *controlplanev1beta2.Cluster) *RetryError
+		expectedCluster *controlplanev1beta2.Cluster
+		expectedErr     error
+	}{
+		{
+			name:    "Cluster is ready immediately",
+			timeout: 5 * time.Minute,
+			mockSetup: func(m *mocks.MockCpClientSet) {
+				m.EXPECT().
+					ClusterForID(gomock.Any(), "test-cluster-id").
+					Return(&controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_READY}, nil)
+			},
+			retryFunc: func(cluster *controlplanev1beta2.Cluster) *RetryError {
+				if cluster.GetState() == controlplanev1beta2.Cluster_STATE_READY {
+					return nil
+				}
+				return RetryableError(fmt.Errorf("unexpected state: %v", cluster.GetState()))
+			},
+			expectedCluster: &controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_READY},
+			expectedErr:     nil,
+		},
+		{
+			name:    "Cluster requires retries",
+			timeout: 5 * time.Minute,
+			mockSetup: func(m *mocks.MockCpClientSet) {
+				gomock.InOrder(
+					m.EXPECT().
+						ClusterForID(gomock.Any(), "test-cluster-id").
+						Return(&controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_CREATING}, nil),
+					m.EXPECT().
+						ClusterForID(gomock.Any(), "test-cluster-id").
+						Return(&controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_READY}, nil),
+				)
+			},
+			retryFunc: func(cluster *controlplanev1beta2.Cluster) *RetryError {
+				if cluster.GetState() == controlplanev1beta2.Cluster_STATE_READY {
+					return nil
+				}
+				return RetryableError(fmt.Errorf("unexpected state: %v", cluster.GetState()))
+			},
+			expectedCluster: &controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_READY},
+			expectedErr:     nil,
+		},
+		{
+			name:    "Cluster fails to become ready (timeout)",
+			timeout: 100 * time.Millisecond,
+			mockSetup: func(m *mocks.MockCpClientSet) {
+				m.EXPECT().
+					ClusterForID(gomock.Any(), "test-cluster-id").
+					Return(&controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_CREATING}, nil).
+					AnyTimes()
+			},
+			retryFunc: func(_ *controlplanev1beta2.Cluster) *RetryError {
+				return RetryableError(fmt.Errorf("cluster not ready"))
+			},
+			expectedCluster: &controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_CREATING},
+			expectedErr:     &TimeoutError{Timeout: 100 * time.Millisecond, Wrapped: fmt.Errorf("cluster not ready")},
+		},
+		{
+			name:    "Cluster fails to become ready (non-retryable error)",
+			timeout: 5 * time.Minute,
+			mockSetup: func(m *mocks.MockCpClientSet) {
+				m.EXPECT().
+					ClusterForID(gomock.Any(), "test-cluster-id").
+					Return(nil, fmt.Errorf("cluster failed"))
+			},
+			retryFunc: func(_ *controlplanev1beta2.Cluster) *RetryError {
+				return NonRetryableError(fmt.Errorf("cluster failed"))
+			},
+			expectedCluster: nil,
+			expectedErr:     fmt.Errorf("cluster failed"),
+		},
+		{
+			name:    "Cluster not found",
+			timeout: 5 * time.Minute,
+			mockSetup: func(m *mocks.MockCpClientSet) {
+				m.EXPECT().
+					ClusterForID(gomock.Any(), "test-cluster-id").
+					Return(nil, NotFoundError{Message: "test-cluster-id not found"})
+			},
+			retryFunc: func(_ *controlplanev1beta2.Cluster) *RetryError {
+				return nil
+			},
+			expectedCluster: nil,
+			expectedErr:     nil,
+		},
+		{
+			name:    "Cluster goes through BYOC state",
+			timeout: 5 * time.Minute,
+			mockSetup: func(m *mocks.MockCpClientSet) {
+				gomock.InOrder(
+					m.EXPECT().
+						ClusterForID(gomock.Any(), "test-cluster-id").
+						Return(&controlplanev1beta2.Cluster{
+							State: controlplanev1beta2.Cluster_STATE_CREATING_AGENT,
+							Type:  controlplanev1beta2.Cluster_TYPE_BYOC,
+						}, nil),
+					m.EXPECT().
+						ClusterForID(gomock.Any(), "test-cluster-id").
+						Return(&controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_READY}, nil),
+				)
+			},
+			retryFunc: func(cluster *controlplanev1beta2.Cluster) *RetryError {
+				if cluster.GetState() == controlplanev1beta2.Cluster_STATE_CREATING_AGENT {
+					return RetryableError(fmt.Errorf("cluster in BYOC state"))
+				}
+				return nil
+			},
+			expectedCluster: &controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_READY},
+			expectedErr:     nil,
+		},
+		{
+			name:    "Unhandled cluster state",
+			timeout: 5 * time.Minute,
+			mockSetup: func(m *mocks.MockCpClientSet) {
+				m.EXPECT().
+					ClusterForID(gomock.Any(), "test-cluster-id").
+					Return(nil, fmt.Errorf("invalid state"))
+			},
+			retryFunc: func(_ *controlplanev1beta2.Cluster) *RetryError {
+				return NonRetryableError(fmt.Errorf("unhandled state"))
+			},
+			expectedCluster: nil,
+			expectedErr:     fmt.Errorf("invalid state"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockClient := mocks.NewMockCpClientSet(ctrl)
+			tc.mockSetup(mockClient)
+
+			ctx := context.Background()
+			cluster, err := RetryGetCluster(ctx, tc.timeout, "test-cluster-id", mockClient, tc.retryFunc)
+
+			if tc.expectedErr == nil {
+				assert.NoError(t, err)
+			} else {
+				var timeoutErr *TimeoutError
+				var notFoundErr NotFoundError
+				switch {
+				case errors.As(tc.expectedErr, &timeoutErr):
+					// For timeout errors, verify the type and properties
+					var actualTimeoutErr *TimeoutError
+					if assert.True(t, errors.As(err, &actualTimeoutErr), "expected TimeoutError") {
+						assert.Equal(t, timeoutErr.Timeout, actualTimeoutErr.Timeout)
+						assert.Equal(t, timeoutErr.Wrapped.Error(), actualTimeoutErr.Wrapped.Error())
+					}
+				case errors.As(tc.expectedErr, &notFoundErr):
+					// For NotFoundError, verify the type and message
+					var actualNotFoundErr NotFoundError
+					if assert.True(t, errors.As(err, &actualNotFoundErr), "expected NotFoundError") {
+						assert.Equal(t, notFoundErr.Message, actualNotFoundErr.Message)
+					}
+				default:
+					// For other errors, compare the error messages
+					assert.Equal(t, tc.expectedErr.Error(), err.Error())
+				}
+			}
+
+			if tc.expectedCluster == nil {
+				assert.Nil(t, cluster, "expected nil cluster")
+			} else {
+				assert.Equal(t, tc.expectedCluster.State, cluster.State)
 			}
 		})
 	}
