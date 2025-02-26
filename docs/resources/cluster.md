@@ -26,23 +26,32 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 ### Optional
 
 - `allow_deletion` (Boolean) Allows deletion of the cluster. Defaults to true. Should probably be set to false for production use.
-- `aws_private_link` (Attributes) The AWS Private Link configuration. (see [below for nested schema](#nestedatt--aws_private_link))
-- `azure_private_link` (Attributes) The Azure Private Link configuration. (see [below for nested schema](#nestedatt--azure_private_link))
+- `aws_private_link` (Attributes) AWS PrivateLink configuration. (see [below for nested schema](#nestedatt--aws_private_link))
+- `azure_private_link` (Attributes) Azure Private Link configuration. (see [below for nested schema](#nestedatt--azure_private_link))
 - `cloud_provider` (String) Cloud provider where resources are created.
-- `gcp_private_service_connect` (Attributes) The GCP Private Service Connect configuration. (see [below for nested schema](#nestedatt--gcp_private_service_connect))
+- `connectivity` (Attributes) Cloud provider-specific connectivity configuration. (see [below for nested schema](#nestedatt--connectivity))
+- `customer_managed_resources` (Attributes) Customer managed resources configuration for the cluster. (see [below for nested schema](#nestedatt--customer_managed_resources))
+- `gcp_private_service_connect` (Attributes) GCP Private Service Connect configuration. (see [below for nested schema](#nestedatt--gcp_private_service_connect))
 - `http_proxy` (Attributes) HTTP Proxy properties. (see [below for nested schema](#nestedatt--http_proxy))
 - `kafka_api` (Attributes) Cluster's Kafka API properties. (see [below for nested schema](#nestedatt--kafka_api))
-- `read_replica_cluster_ids` (List of String) IDs of clusters which may create read-only topics from this cluster.
+- `kafka_connect` (Attributes) Kafka Connect configuration. (see [below for nested schema](#nestedatt--kafka_connect))
+- `maintenance_window_config` (Attributes) Maintenance window configuration for the cluster. (see [below for nested schema](#nestedatt--maintenance_window_config))
+- `read_replica_cluster_ids` (List of String) IDs of clusters that can create read-only topics from this cluster.
 - `redpanda_version` (String) Current Redpanda version of the cluster.
 - `region` (String) Cloud provider region. Region represents the name of the region where the cluster will be provisioned.
-- `schema_registry` (Attributes) Cluster's Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
+- `schema_registry` (Attributes) Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
 - `tags` (Map of String) Tags placed on cloud resources. If the cloud provider is GCP and the name of a tag has the prefix "gcp.network-tag.", the tag is a network tag that will be added to the Redpanda cluster GKE nodes. Otherwise, the tag is a normal tag. For example, if the name of a tag is "gcp.network-tag.network-tag-foo", the network tag named "network-tag-foo" will be added to the Redpanda cluster GKE nodes. Note: The value of a network tag will be ignored. See the details on network tags at https://cloud.google.com/vpc/docs/add-remove-network-tags.
 - `zones` (List of String) Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster.
 
 ### Read-Only
 
 - `cluster_api_url` (String) The URL of the cluster API.
+- `created_at` (String) Timestamp when the cluster was created.
 - `id` (String) ID of the cluster. ID is an output from the Create Cluster endpoint and cannot be set by the caller.
+- `prometheus` (Attributes) Prometheus metrics endpoint properties. (see [below for nested schema](#nestedatt--prometheus))
+- `redpanda_console` (Attributes) Redpanda Console properties. (see [below for nested schema](#nestedatt--redpanda_console))
+- `state` (String) Current state of the cluster.
+- `state_description` (Attributes) Detailed state description when cluster is in a non-ready state. (see [below for nested schema](#nestedatt--state_description))
 
 <a id="nestedatt--aws_private_link"></a>
 ### Nested Schema for `aws_private_link`
@@ -50,8 +59,54 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 Required:
 
 - `allowed_principals` (List of String) The ARN of the principals that can access the Redpanda AWS PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).
-- `connect_console` (Boolean) Whether Console is connected in Redpanda AWS Private Link Service.
-- `enabled` (Boolean) Whether Redpanda AWS Private Link Endpoint Service is enabled.
+- `connect_console` (Boolean) Whether Console is connected via PrivateLink.
+- `enabled` (Boolean) Whether AWS PrivateLink is enabled.
+
+Read-Only:
+
+- `status` (Attributes) Current status of the PrivateLink configuration. (see [below for nested schema](#nestedatt--aws_private_link--status))
+
+<a id="nestedatt--aws_private_link--status"></a>
+### Nested Schema for `aws_private_link.status`
+
+Read-Only:
+
+- `console_port` (Number) Port for Redpanda Console.
+- `created_at` (String) When the PrivateLink service was created.
+- `deleted_at` (String) When the PrivateLink service was deleted.
+- `kafka_api_node_base_port` (Number) Base port for Kafka API nodes.
+- `kafka_api_seed_port` (Number) Port for Kafka API seed brokers.
+- `redpanda_proxy_node_base_port` (Number) Base port for HTTP proxy nodes.
+- `redpanda_proxy_seed_port` (Number) Port for HTTP proxy.
+- `schema_registry_seed_port` (Number) Port for Schema Registry.
+- `service_id` (String) The PrivateLink service ID.
+- `service_name` (String) The PrivateLink service name.
+- `service_state` (String) Current state of the PrivateLink service.
+- `vpc_endpoint_connections` (Attributes List) List of VPC endpoint connections. (see [below for nested schema](#nestedatt--aws_private_link--status--vpc_endpoint_connections))
+
+<a id="nestedatt--aws_private_link--status--vpc_endpoint_connections"></a>
+### Nested Schema for `aws_private_link.status.vpc_endpoint_connections`
+
+Read-Only:
+
+- `connection_id` (String) The connection ID.
+- `created_at` (String) When the endpoint connection was created.
+- `dns_entries` (Attributes List) DNS entries for the endpoint. (see [below for nested schema](#nestedatt--aws_private_link--status--vpc_endpoint_connections--dns_entries))
+- `id` (String) The endpoint connection ID.
+- `load_balancer_arns` (List of String) ARNs of associated load balancers.
+- `owner` (String) Owner of the endpoint connection.
+- `state` (String) State of the endpoint connection.
+
+<a id="nestedatt--aws_private_link--status--vpc_endpoint_connections--dns_entries"></a>
+### Nested Schema for `aws_private_link.status.vpc_endpoint_connections.dns_entries`
+
+Read-Only:
+
+- `dns_name` (String) The DNS name.
+- `hosted_zone_id` (String) The hosted zone ID.
+
+
+
 
 
 <a id="nestedatt--azure_private_link"></a>
@@ -63,6 +118,191 @@ Required:
 - `connect_console` (Boolean) Whether Console is connected in Redpanda Azure Private Link Service.
 - `enabled` (Boolean) Whether Redpanda Azure Private Link Endpoint Service is enabled.
 
+Read-Only:
+
+- `status` (Attributes) Current status of the Private Link configuration. (see [below for nested schema](#nestedatt--azure_private_link--status))
+
+<a id="nestedatt--azure_private_link--status"></a>
+### Nested Schema for `azure_private_link.status`
+
+Read-Only:
+
+- `approved_subscriptions` (List of String) List of approved Azure subscription IDs.
+- `console_port` (Number) Port for Redpanda Console.
+- `created_at` (String) When the Private Link service was created.
+- `deleted_at` (String) When the Private Link service was deleted.
+- `dns_a_record` (String) DNS A record for the service.
+- `kafka_api_node_base_port` (Number) Base port for Kafka API nodes.
+- `kafka_api_seed_port` (Number) Port for Kafka API seed brokers.
+- `private_endpoint_connections` (Attributes List) List of private endpoint connections. (see [below for nested schema](#nestedatt--azure_private_link--status--private_endpoint_connections))
+- `redpanda_proxy_node_base_port` (Number) Base port for HTTP proxy nodes.
+- `redpanda_proxy_seed_port` (Number) Port for HTTP proxy.
+- `schema_registry_seed_port` (Number) Port for Schema Registry.
+- `service_id` (String) The Private Link service ID.
+- `service_name` (String) The Private Link service name.
+
+<a id="nestedatt--azure_private_link--status--private_endpoint_connections"></a>
+### Nested Schema for `azure_private_link.status.private_endpoint_connections`
+
+Read-Only:
+
+- `connection_id` (String) ID of the connection.
+- `connection_name` (String) Name of the connection.
+- `created_at` (String) When the endpoint connection was created.
+- `private_endpoint_id` (String) ID of the private endpoint.
+- `private_endpoint_name` (String) Name of the private endpoint.
+- `status` (String) Status of the endpoint connection.
+
+
+
+
+<a id="nestedatt--connectivity"></a>
+### Nested Schema for `connectivity`
+
+Optional:
+
+- `gcp` (Attributes) GCP-specific connectivity settings. (see [below for nested schema](#nestedatt--connectivity--gcp))
+
+<a id="nestedatt--connectivity--gcp"></a>
+### Nested Schema for `connectivity.gcp`
+
+Required:
+
+- `enable_global_access` (Boolean) Whether global access is enabled.
+
+
+
+<a id="nestedatt--customer_managed_resources"></a>
+### Nested Schema for `customer_managed_resources`
+
+Optional:
+
+- `aws` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws))
+
+<a id="nestedatt--customer_managed_resources--aws"></a>
+### Nested Schema for `customer_managed_resources.aws`
+
+Required:
+
+- `agent_instance_profile` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--agent_instance_profile))
+- `cloud_storage_bucket` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--cloud_storage_bucket))
+- `cluster_security_group` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--cluster_security_group))
+- `connectors_node_group_instance_profile` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--connectors_node_group_instance_profile))
+- `connectors_security_group` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--connectors_security_group))
+- `k8s_cluster_role` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--k8s_cluster_role))
+- `node_security_group` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--node_security_group))
+- `permissions_boundary_policy` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--permissions_boundary_policy))
+- `redpanda_agent_security_group` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_agent_security_group))
+- `redpanda_node_group_instance_profile` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_node_group_instance_profile))
+- `redpanda_node_group_security_group` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_node_group_security_group))
+- `utility_node_group_instance_profile` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--utility_node_group_instance_profile))
+- `utility_security_group` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--utility_security_group))
+
+<a id="nestedatt--customer_managed_resources--aws--agent_instance_profile"></a>
+### Nested Schema for `customer_managed_resources.aws.agent_instance_profile`
+
+Required:
+
+- `arn` (String) ARN for the agent instance profile
+
+
+<a id="nestedatt--customer_managed_resources--aws--cloud_storage_bucket"></a>
+### Nested Schema for `customer_managed_resources.aws.cloud_storage_bucket`
+
+Required:
+
+- `arn` (String) ARN for the cloud storage bucket
+
+
+<a id="nestedatt--customer_managed_resources--aws--cluster_security_group"></a>
+### Nested Schema for `customer_managed_resources.aws.cluster_security_group`
+
+Required:
+
+- `arn` (String) ARN for the cluster security group
+
+
+<a id="nestedatt--customer_managed_resources--aws--connectors_node_group_instance_profile"></a>
+### Nested Schema for `customer_managed_resources.aws.connectors_node_group_instance_profile`
+
+Required:
+
+- `arn` (String) ARN for the connectors node group instance profile
+
+
+<a id="nestedatt--customer_managed_resources--aws--connectors_security_group"></a>
+### Nested Schema for `customer_managed_resources.aws.connectors_security_group`
+
+Required:
+
+- `arn` (String) ARN for the connectors security group
+
+
+<a id="nestedatt--customer_managed_resources--aws--k8s_cluster_role"></a>
+### Nested Schema for `customer_managed_resources.aws.k8s_cluster_role`
+
+Required:
+
+- `arn` (String) ARN for the Kubernetes cluster role
+
+
+<a id="nestedatt--customer_managed_resources--aws--node_security_group"></a>
+### Nested Schema for `customer_managed_resources.aws.node_security_group`
+
+Required:
+
+- `arn` (String) ARN for the node security group
+
+
+<a id="nestedatt--customer_managed_resources--aws--permissions_boundary_policy"></a>
+### Nested Schema for `customer_managed_resources.aws.permissions_boundary_policy`
+
+Required:
+
+- `arn` (String) ARN for the permissions boundary policy
+
+
+<a id="nestedatt--customer_managed_resources--aws--redpanda_agent_security_group"></a>
+### Nested Schema for `customer_managed_resources.aws.redpanda_agent_security_group`
+
+Required:
+
+- `arn` (String) ARN for the redpanda agent security group
+
+
+<a id="nestedatt--customer_managed_resources--aws--redpanda_node_group_instance_profile"></a>
+### Nested Schema for `customer_managed_resources.aws.redpanda_node_group_instance_profile`
+
+Required:
+
+- `arn` (String) ARN for the redpanda node group instance profile
+
+
+<a id="nestedatt--customer_managed_resources--aws--redpanda_node_group_security_group"></a>
+### Nested Schema for `customer_managed_resources.aws.redpanda_node_group_security_group`
+
+Required:
+
+- `arn` (String) ARN for the redpanda node group security group
+
+
+<a id="nestedatt--customer_managed_resources--aws--utility_node_group_instance_profile"></a>
+### Nested Schema for `customer_managed_resources.aws.utility_node_group_instance_profile`
+
+Required:
+
+- `arn` (String) ARN for the utility node group instance profile
+
+
+<a id="nestedatt--customer_managed_resources--aws--utility_security_group"></a>
+### Nested Schema for `customer_managed_resources.aws.utility_security_group`
+
+Required:
+
+- `arn` (String) ARN for the utility security group
+
+
+
 
 <a id="nestedatt--gcp_private_service_connect"></a>
 ### Nested Schema for `gcp_private_service_connect`
@@ -73,6 +313,10 @@ Required:
 - `enabled` (Boolean) Whether Redpanda GCP Private Service Connect is enabled.
 - `global_access_enabled` (Boolean) Whether global access is enabled.
 
+Read-Only:
+
+- `status` (Attributes) Current status of the Private Service Connect configuration. (see [below for nested schema](#nestedatt--gcp_private_service_connect--status))
+
 <a id="nestedatt--gcp_private_service_connect--consumer_accept_list"></a>
 ### Nested Schema for `gcp_private_service_connect.consumer_accept_list`
 
@@ -81,18 +325,51 @@ Required:
 - `source` (String) Either the GCP project number or its alphanumeric ID.
 
 
+<a id="nestedatt--gcp_private_service_connect--status"></a>
+### Nested Schema for `gcp_private_service_connect.status`
+
+Read-Only:
+
+- `connected_endpoints` (Attributes List) List of connected endpoints. (see [below for nested schema](#nestedatt--gcp_private_service_connect--status--connected_endpoints))
+- `created_at` (String) When the Private Service Connect service was created.
+- `deleted_at` (String) When the Private Service Connect service was deleted.
+- `dns_a_records` (List of String) DNS A records for the service.
+- `kafka_api_node_base_port` (Number) Base port for Kafka API nodes.
+- `kafka_api_seed_port` (Number) Port for Kafka API seed brokers.
+- `redpanda_proxy_node_base_port` (Number) Base port for HTTP proxy nodes.
+- `redpanda_proxy_seed_port` (Number) Port for HTTP proxy.
+- `schema_registry_seed_port` (Number) Port for Schema Registry.
+- `seed_hostname` (String) Hostname for the seed brokers.
+- `service_attachment` (String) The service attachment identifier.
+
+<a id="nestedatt--gcp_private_service_connect--status--connected_endpoints"></a>
+### Nested Schema for `gcp_private_service_connect.status.connected_endpoints`
+
+Read-Only:
+
+- `connection_id` (String) The connection ID.
+- `consumer_network` (String) The consumer network.
+- `endpoint` (String) The endpoint address.
+- `status` (String) Status of the endpoint connection.
+
+
+
 
 <a id="nestedatt--http_proxy"></a>
 ### Nested Schema for `http_proxy`
 
-Required:
+Optional:
 
 - `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--http_proxy--mtls))
+
+Read-Only:
+
+- `url` (String) The HTTP Proxy URL.
 
 <a id="nestedatt--http_proxy--mtls"></a>
 ### Nested Schema for `http_proxy.mtls`
 
-Required:
+Optional:
 
 - `ca_certificates_pem` (List of String) CA certificate in PEM format.
 - `enabled` (Boolean) Whether mTLS is enabled.
@@ -103,36 +380,100 @@ Required:
 <a id="nestedatt--kafka_api"></a>
 ### Nested Schema for `kafka_api`
 
-Required:
+Optional:
 
 - `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--kafka_api--mtls))
+
+Read-Only:
+
+- `seed_brokers` (List of String) List of Kafka broker addresses.
 
 <a id="nestedatt--kafka_api--mtls"></a>
 ### Nested Schema for `kafka_api.mtls`
 
-Required:
+Optional:
 
 - `ca_certificates_pem` (List of String) CA certificate in PEM format.
 - `enabled` (Boolean) Whether mTLS is enabled.
 - `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.
+
+
+
+<a id="nestedatt--kafka_connect"></a>
+### Nested Schema for `kafka_connect`
+
+Optional:
+
+- `enabled` (Boolean) Whether Kafka Connect is enabled.
+
+
+<a id="nestedatt--maintenance_window_config"></a>
+### Nested Schema for `maintenance_window_config`
+
+Optional:
+
+- `anytime` (Boolean) If true, maintenance can occur at any time.
+- `day_hour` (Attributes) (see [below for nested schema](#nestedatt--maintenance_window_config--day_hour))
+
+Read-Only:
+
+- `unspecified` (Boolean) If true, maintenance window is unspecified.
+
+<a id="nestedatt--maintenance_window_config--day_hour"></a>
+### Nested Schema for `maintenance_window_config.day_hour`
+
+Optional:
+
+- `day_of_week` (String) Day of week.
+- `hour_of_day` (Number) Hour of day.
 
 
 
 <a id="nestedatt--schema_registry"></a>
 ### Nested Schema for `schema_registry`
 
-Required:
+Optional:
 
 - `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--schema_registry--mtls))
+
+Read-Only:
+
+- `url` (String) The Schema Registry URL.
 
 <a id="nestedatt--schema_registry--mtls"></a>
 ### Nested Schema for `schema_registry.mtls`
 
-Required:
+Optional:
 
 - `ca_certificates_pem` (List of String) CA certificate in PEM format.
 - `enabled` (Boolean) Whether mTLS is enabled.
 - `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.
+
+
+
+<a id="nestedatt--prometheus"></a>
+### Nested Schema for `prometheus`
+
+Read-Only:
+
+- `url` (String) The Prometheus metrics endpoint URL.
+
+
+<a id="nestedatt--redpanda_console"></a>
+### Nested Schema for `redpanda_console`
+
+Read-Only:
+
+- `url` (String) The Redpanda Console URL.
+
+
+<a id="nestedatt--state_description"></a>
+### Nested Schema for `state_description`
+
+Read-Only:
+
+- `code` (Number) Error code if cluster is in error state.
+- `message` (String) Detailed error message if cluster is in error state.
 
 ## Usage
 
@@ -168,11 +509,11 @@ resource "redpanda_cluster" "test" {
   tags = {
     "key" = "value"
   }
-  aws_private_link = {
-    enabled         = true
-    connect_console = true
-    allowed_principals = ["arn:aws:iam::123456789024:root"]
-  }
+  # aws_private_link = {
+  #   enabled         = true
+  #   connect_console = true
+  #   allowed_principals = ["arn:aws:iam::123456789024:root"]
+  # }
 }
 
 variable "resource_group_name" {
@@ -326,7 +667,7 @@ variable "cloud_provider" {
 }
 
 variable "throughput_tier" {
-  default = "tier-1-gcp-v2-x86"
+  default = "tier-1-gcp-um4g"
 }
 
 
