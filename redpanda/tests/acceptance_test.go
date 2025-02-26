@@ -22,6 +22,7 @@ const (
 	gcpDedicatedClusterFile   = "../../examples/cluster/gcp/main.tf"
 	serverlessClusterFile     = "../../examples/cluster/serverless/main.tf"
 	awsByocClusterFile        = "../../examples/byoc/aws/main.tf"
+	awsByocVpcClusterFile     = "../../examples/byovpc/aws/main.tf"
 	azureByocClusterFile      = "../../examples/byoc/azure/main.tf"
 	gcpByocClusterFile        = "../../examples/byoc/gcp/main.tf"
 	dedicatedNetworkFile      = "../../examples/network/main.tf"
@@ -40,16 +41,40 @@ var (
 	accNamePrepend             = "tfrp-acc-"
 	runClusterTests            = os.Getenv("RUN_CLUSTER_TESTS")
 	runByocTests               = os.Getenv("RUN_BYOC_TESTS")
+	runByocVpcTests            = os.Getenv("RUN_BYOVPC_TESTS")
 	runServerlessTests         = os.Getenv("RUN_SERVERLESS_TESTS")
 	runBulkTests               = os.Getenv("RUN_BULK_TESTS")
 	clientID                   = os.Getenv(redpanda.ClientIDEnv)
 	clientSecret               = os.Getenv(redpanda.ClientSecretEnv)
 	testAgainstExistingCluster = os.Getenv("TEST_AGAINST_EXISTING_CLUSTER")
 	redpandaVersion            = os.Getenv("REDPANDA_VERSION")
+	cloudEnv                   string
+	throughputTier             string
 	testaws                    = "testaws"
 	testawsRename              = "testaws-rename"
 	testazure                  = "testazure"
 )
+
+func init() {
+	if v := os.Getenv("REDPANDA_CLOUD_ENVIRONMENT"); v != "" {
+		cloudEnv = v
+	} else {
+		cloudEnv = "pre"
+	}
+
+	if cloudEnv == "ign" {
+		if os.Getenv("GOOGLE_PROJECT") != "" {
+			fmt.Println("cloud environment ign but provider gcp, setting throughput tier to nothing")
+			throughputTier = ""
+		} else {
+			fmt.Println("cloud environment ign, setting throughput tier to test")
+			throughputTier = "test"
+		}
+	} else if v := os.Getenv("THROUGHPUT_TIER"); v != "" {
+		fmt.Println("setting throughput tier to", v)
+		throughputTier = v
+	}
+}
 
 func TestAccResourcesNetwork(t *testing.T) {
 	ctx := context.Background()
@@ -71,7 +96,7 @@ func TestAccResourcesNetwork(t *testing.T) {
 		PreCheck: func() {
 			testAccPreCheck(t)
 			if c == nil {
-				c, err = newTestClients(ctx, clientID, clientSecret, "pre")
+				c, err = newTestClients(ctx, clientID, clientSecret, cloudEnv)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -163,8 +188,11 @@ func TestAccResourcesBulk(t *testing.T) {
 	origTestCaseVars["network_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_id"] = config.StringVariable(os.Getenv("BULK_CLUSTER_ID"))
+	if throughputTier != "" {
+		origTestCaseVars["throughput_tier"] = config.StringVariable(throughputTier)
+	}
 
-	c, err := newTestClients(ctx, clientID, clientSecret, "pre")
+	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,7 +243,7 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testaws)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, "", awsDedicatedClusterFile, t)
+	testRunner(ctx, name, rename, "", awsDedicatedClusterFile, nil, t)
 }
 
 func TestAccResourcesClusterAzure(t *testing.T) {
@@ -225,7 +253,7 @@ func TestAccResourcesClusterAzure(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testazure)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, "", azureDedicatedClusterFile, t)
+	testRunner(ctx, name, rename, "", azureDedicatedClusterFile, nil, t)
 }
 
 func TestAccResourcesClusterGCP(t *testing.T) {
@@ -235,7 +263,7 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + "testgcp")
 	rename := generateRandomName(accNamePrepend + "testgcp-rename")
-	testRunner(ctx, name, rename, redpandaVersion, gcpDedicatedClusterFile, t)
+	testRunner(ctx, name, rename, redpandaVersion, gcpDedicatedClusterFile, nil, t)
 }
 
 func TestAccResourcesByocAWS(t *testing.T) {
@@ -245,7 +273,7 @@ func TestAccResourcesByocAWS(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testaws)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, redpandaVersion, awsByocClusterFile, t)
+	testRunner(ctx, name, rename, redpandaVersion, awsByocClusterFile, nil, t)
 }
 
 func TestAccResourcesByocAzure(t *testing.T) {
@@ -255,7 +283,7 @@ func TestAccResourcesByocAzure(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testazure)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, redpandaVersion, azureByocClusterFile, t)
+	testRunner(ctx, name, rename, redpandaVersion, azureByocClusterFile, nil, t)
 }
 
 func TestAccResourcesByocGCP(t *testing.T) {
@@ -265,11 +293,24 @@ func TestAccResourcesByocGCP(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + "testgcp")
 	rename := generateRandomName(accNamePrepend + "testgcp-rename")
-	testRunner(ctx, name, rename, redpandaVersion, gcpByocClusterFile, t)
+	testRunner(ctx, name, rename, redpandaVersion, gcpByocClusterFile, nil, t)
+}
+
+func TestAccResourcesByoVpcAWS(t *testing.T) {
+	if !strings.Contains(runByocVpcTests, "true") {
+		t.Skip("skipping byoc vpc tests")
+	}
+	ctx := context.Background()
+	name := generateRandomName(accNamePrepend + testaws)
+	rename := generateRandomName(accNamePrepend + testawsRename)
+	testRunner(ctx, name, rename, redpandaVersion, awsByocVpcClusterFile, map[string]string{
+		"aws_secret_key": os.Getenv("AWS_SECRET_ACCESS_KEY"),
+		"aws_access_key": os.Getenv("AWS_ACCESS_KEY_ID"),
+	}, t)
 }
 
 // testRunner is a helper function that runs a series of tests on a given cluster in a given cloud provider.
-func testRunner(ctx context.Context, name, rename, version, testFile string, t *testing.T) {
+func testRunner(ctx context.Context, name, rename, version, testFile string, customVars map[string]string, t *testing.T) {
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
@@ -277,6 +318,15 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, t *
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
 	origTestCaseVars["user_name"] = config.StringVariable(name)
 	origTestCaseVars["topic_name"] = config.StringVariable(name)
+	if throughputTier != "" {
+		origTestCaseVars["throughput_tier"] = config.StringVariable(throughputTier)
+	}
+
+	if len(customVars) > 0 {
+		for k, v := range customVars {
+			origTestCaseVars[k] = config.StringVariable(v)
+		}
+	}
 	if version != "" {
 		// version is only necessary to resolve a GCP install pack issue. we should generally use latest (nil)
 		origTestCaseVars["version"] = config.StringVariable(version)
@@ -286,10 +336,11 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, t *
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
 
-	c, err := newTestClients(ctx, clientID, clientSecret, "pre")
+	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
@@ -420,6 +471,9 @@ func TestAccResourcesWithDataSources(t *testing.T) {
 	origTestCaseVars["cluster_id"] = config.StringVariable(os.Getenv("CLUSTER_ID"))
 	origTestCaseVars["user_name"] = config.StringVariable(name)
 	origTestCaseVars["topic_name"] = config.StringVariable(name)
+	if throughputTier != "" {
+		origTestCaseVars["throughput_tier"] = config.StringVariable(throughputTier)
+	}
 
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
@@ -429,7 +483,7 @@ func TestAccResourcesWithDataSources(t *testing.T) {
 		"flush.ms":         config.StringVariable("100"),
 	})
 
-	c, err := newTestClients(ctx, clientID, clientSecret, "pre")
+	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -506,7 +560,7 @@ func TestAccResourcesStrippedDownServerlessCluster(t *testing.T) {
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
 	updateTestCaseVars["region"] = config.StringVariable(region)
 
-	c, err := newTestClients(ctx, clientID, clientSecret, "pre")
+	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
 	if err != nil {
 		t.Fatal(err)
 	}

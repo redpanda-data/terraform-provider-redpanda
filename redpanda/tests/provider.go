@@ -33,8 +33,18 @@ var providerCfgIDSecretVars = config.Variables{
 	"client_secret": config.StringVariable(os.Getenv(redpanda.ClientSecretEnv)),
 }
 
-var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-	"redpanda": providerserver.NewProtocol6WithError(redpanda.New(context.Background(), "pre", "test")()),
+var testAccProtoV6ProviderFactories map[string]func() (tfprotov6.ProviderServer, error)
+
+func init() {
+	if v := os.Getenv("REDPANDA_CLOUD_ENVIRONMENT"); v != "" {
+		testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
+			"redpanda": providerserver.NewProtocol6WithError(redpanda.New(context.Background(), os.Getenv("REDPANDA_CLOUD_ENVIRONMENT"), "test")()),
+		}
+	} else {
+		testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
+			"redpanda": providerserver.NewProtocol6WithError(redpanda.New(context.Background(), "pre", "test")()),
+		}
+	}
 }
 
 // testAccPreCheck is a test helper function used to perform provider validation
