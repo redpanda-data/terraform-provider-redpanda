@@ -138,7 +138,7 @@ endef
 # Function to determine TF_CONFIG_DIR
 define GET_TF_CONFIG_DIR
 $(shell \
-    if [ "$(TEST_TYPE)" = "cluster" ] || [ "$(TEST_TYPE)" = "byoc"]; then \
+    if [ "$(TEST_TYPE)" = "cluster" ] || [ "$(TEST_TYPE)" = "byoc"] || [ "$(TEST_TYPE)" = "byovpc" ]; then \
         echo "examples/$(TEST_TYPE)/$(CLOUD_PROVIDER)"; \
     elif [ "$(TEST_TYPE)" = "datasource" ]; then \
         echo "examples/$(TEST_TYPE)/$(DATASOURCE_TEST_DIR)"; \
@@ -222,7 +222,7 @@ tf-apply:
 update-cluster-info:
 	@echo "Updating cluster info..."
 	@cd $(call GET_TF_CONFIG_DIR) && \
-	CLUSTER_INFO='$(GET_OR_CREATE_CLUSTER_INFO)' \
+	CLUSTER_INFO='$(GET_OR_CREATE_CLUSTER_INFO)' && \
 	CLUSTER_ID=$$(terraform show -json | jq -r '.values.root_module.resources[] | select(.type == "redpanda_cluster" or .type == "redpanda_serverless_cluster") | .values.id') && \
 	if [ -n "$$CLUSTER_ID" ]; then \
 		NEW_CLUSTER_INFO=$$(echo "$$CLUSTER_INFO" | jq --arg id "$$CLUSTER_ID" '.id = $$id'); \
