@@ -23,9 +23,70 @@ Creates a network in the Redpanda Cloud.
 - `region` (String) The region to create the network in.
 - `resource_group_id` (String) The ID of the resource group in which to create the network
 
+### Optional
+
+- `customer_managed_resources` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources))
+
 ### Read-Only
 
 - `id` (String) The ID of the network
+
+<a id="nestedatt--customer_managed_resources"></a>
+### Nested Schema for `customer_managed_resources`
+
+Optional:
+
+- `aws` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws))
+
+<a id="nestedatt--customer_managed_resources--aws"></a>
+### Nested Schema for `customer_managed_resources.aws`
+
+Required:
+
+- `dynamodb_table` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--dynamodb_table))
+- `management_bucket` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--management_bucket))
+- `private_subnets` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--private_subnets))
+- `public_subnets` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--public_subnets))
+- `vpc` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--vpc))
+
+<a id="nestedatt--customer_managed_resources--aws--dynamodb_table"></a>
+### Nested Schema for `customer_managed_resources.aws.dynamodb_table`
+
+Required:
+
+- `arn` (String) AWS DynamoDB table identifier
+
+
+<a id="nestedatt--customer_managed_resources--aws--management_bucket"></a>
+### Nested Schema for `customer_managed_resources.aws.management_bucket`
+
+Required:
+
+- `arn` (String) AWS storage bucket identifier
+
+
+<a id="nestedatt--customer_managed_resources--aws--private_subnets"></a>
+### Nested Schema for `customer_managed_resources.aws.private_subnets`
+
+Required:
+
+- `arns` (List of String) AWS private subnet identifiers
+
+
+<a id="nestedatt--customer_managed_resources--aws--public_subnets"></a>
+### Nested Schema for `customer_managed_resources.aws.public_subnets`
+
+Required:
+
+- `arns` (List of String) AWS public subnet identifiers
+
+
+<a id="nestedatt--customer_managed_resources--aws--vpc"></a>
+### Nested Schema for `customer_managed_resources.aws.vpc`
+
+Required:
+
+- `arn` (String) AWS VPC identifier
 
 ## Usage
 
