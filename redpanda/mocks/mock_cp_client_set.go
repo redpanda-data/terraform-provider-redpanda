@@ -10,6 +10,7 @@ import (
 
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
 	gomock "github.com/golang/mock/gomock"
+	grpc "google.golang.org/grpc"
 )
 
 // MockCpClientSet is a mock of CpClientSet interface.
@@ -78,6 +79,26 @@ func (m *MockCpClientSet) CreateResourceGroup(arg0 context.Context, arg1 string)
 func (mr *MockCpClientSetMockRecorder) CreateResourceGroup(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateResourceGroup", reflect.TypeOf((*MockCpClientSet)(nil).CreateResourceGroup), arg0, arg1)
+}
+
+// GetCluster mocks base method.
+func (m *MockCpClientSet) GetCluster(arg0 context.Context, arg1 *controlplanev1beta2.GetClusterRequest, arg2 ...grpc.CallOption) (*controlplanev1beta2.GetClusterResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetCluster", varargs...)
+	ret0, _ := ret[0].(*controlplanev1beta2.GetClusterResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCluster indicates an expected call of GetCluster.
+func (mr *MockCpClientSetMockRecorder) GetCluster(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCluster", reflect.TypeOf((*MockCpClientSet)(nil).GetCluster), varargs...)
 }
 
 // NetworkForID mocks base method.
