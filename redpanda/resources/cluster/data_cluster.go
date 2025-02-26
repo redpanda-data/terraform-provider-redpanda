@@ -20,10 +20,13 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"time"
 
+	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
@@ -78,6 +81,7 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		return
 	}
 
+	// Convert cloud provider tags to Terraform map
 	tags := make(map[string]attr.Value)
 	for k, v := range cluster.CloudProviderTags {
 		tags[k] = types.StringValue(v)
@@ -88,7 +92,7 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		return
 	}
 
-	// Mapping the fields from the cluster to the Terraform state
+	// Create persistence model
 	persist := &models.Cluster{
 		Name:                  types.StringValue(cluster.Name),
 		ConnectionType:        types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
@@ -97,53 +101,269 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		RedpandaVersion:       types.StringValue(cluster.RedpandaVersion),
 		ThroughputTier:        types.StringValue(cluster.ThroughputTier),
 		Region:                types.StringValue(cluster.Region),
-		Zones:                 utils.StringSliceToTypeList(cluster.Zones),
-		Tags:                  tagsValue,
 		ResourceGroupID:       types.StringValue(cluster.ResourceGroupId),
 		NetworkID:             types.StringValue(cluster.NetworkId),
 		ID:                    types.StringValue(cluster.Id),
+		Tags:                  tagsValue,
+		Zones:                 utils.StringSliceToTypeList(cluster.Zones),
 		ReadReplicaClusterIDs: utils.StringSliceToTypeList(cluster.ReadReplicaClusterIds),
-		KafkaAPI: &models.KafkaAPI{
-			Mtls: toMtlsModel(cluster.GetKafkaApi().GetMtls()),
-		},
-		HTTPProxy: &models.HTTPProxy{
-			Mtls: toMtlsModel(cluster.GetHttpProxy().GetMtls()),
-		},
-		SchemaRegistry: &models.SchemaRegistry{
-			Mtls: toMtlsModel(cluster.GetSchemaRegistry().GetMtls()),
-		},
+		AllowDeletion:         types.BoolValue(true), // Default to true for data source
+		State:                 types.StringValue(cluster.State.String()),
 	}
 
-	if cluster.DataplaneApi != nil {
+	if cluster.HasCreatedAt() {
+		persist.CreatedAt = types.StringValue(cluster.CreatedAt.AsTime().Format(time.RFC3339))
+	}
+
+	if cluster.HasStateDescription() {
+		stateDescription, d := generateStateDescription(cluster)
+		if d.HasError() {
+			resp.Diagnostics.Append(d...)
+			return
+		}
+		persist.StateDescription = stateDescription
+	}
+
+	if cluster.HasDataplaneApi() {
 		persist.ClusterAPIURL = types.StringValue(cluster.DataplaneApi.Url)
 	}
 
-	if !isAwsPrivateLinkSpecNil(cluster.AwsPrivateLink) {
-		persist.AwsPrivateLink = &models.AwsPrivateLink{
-			Enabled:           types.BoolValue(cluster.AwsPrivateLink.Enabled),
-			ConnectConsole:    types.BoolValue(cluster.AwsPrivateLink.ConnectConsole),
-			AllowedPrincipals: utils.StringSliceToTypeList(cluster.AwsPrivateLink.AllowedPrincipals),
+	// Kafka API
+	if cluster.HasKafkaApi() {
+		kafkaAPI, d := generateKafkaAPI(cluster)
+		if d.HasError() {
+			resp.Diagnostics.Append(d...)
+			return
 		}
-	}
-	if !isGcpPrivateServiceConnectSpecNil(cluster.GcpPrivateServiceConnect) {
-		if len(cluster.GcpPrivateServiceConnect.ConsumerAcceptList) > 0 {
-			persist.GcpPrivateServiceConnect = &models.GcpPrivateServiceConnect{
-				Enabled:             types.BoolValue(cluster.GcpPrivateServiceConnect.Enabled),
-				GlobalAccessEnabled: types.BoolValue(cluster.GcpPrivateServiceConnect.GlobalAccessEnabled),
-				ConsumerAcceptList:  gcpConnectConsumerStructToModel(cluster.GcpPrivateServiceConnect.ConsumerAcceptList),
-			}
-		}
+		persist.KafkaAPI = kafkaAPI
 	}
 
-	if !isAzurePrivateLinkSpecNil(cluster.AzurePrivateLink) {
-		persist.AzurePrivateLink = &models.AzurePrivateLink{
-			Enabled:              types.BoolValue(cluster.AzurePrivateLink.Enabled),
-			ConnectConsole:       types.BoolValue(cluster.AzurePrivateLink.ConnectConsole),
-			AllowedSubscriptions: utils.StringSliceToTypeList(cluster.AzurePrivateLink.AllowedSubscriptions),
+	// HTTP Proxy
+	if cluster.HasHttpProxy() {
+		httpProxy, d := generateHTTPProxy(cluster)
+		if d.HasError() {
+			resp.Diagnostics.Append(d...)
+			return
 		}
+		persist.HTTPProxy = httpProxy
+	}
+
+	// Schema Registry
+	if cluster.HasSchemaRegistry() {
+		schemaRegistry, d := generateSchemaRegistry(cluster)
+		if d.HasError() {
+			resp.Diagnostics.Append(d...)
+			return
+		}
+		persist.SchemaRegistry = schemaRegistry
+	}
+
+	// Redpanda Console
+	if cluster.HasRedpandaConsole() {
+		console, d := generateRedpandaConsole(cluster)
+		if d.HasError() {
+			resp.Diagnostics.Append(d...)
+			return
+		}
+		persist.RedpandaConsole = console
+	}
+
+	// Prometheus
+	if cluster.HasPrometheus() {
+		prometheus, d := generatePrometheus(cluster)
+		if d.HasError() {
+			resp.Diagnostics.Append(d...)
+			return
+		}
+		persist.Prometheus = prometheus
+	}
+
+	// Maintenance Window
+	if cluster.HasMaintenanceWindowConfig() {
+		window, d := generateMaintenanceWindow(cluster)
+		if d.HasError() {
+			resp.Diagnostics.Append(d...)
+			return
+		}
+		persist.MaintenanceWindowConfig = window
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
+}
+
+// Helper functions to generate nested objects
+
+func generateStateDescription(cluster *controlplanev1beta2.Cluster) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if !cluster.HasStateDescription() {
+		return types.ObjectNull(stateDescriptionType), diags
+	}
+	sd := cluster.GetStateDescription()
+	obj, d := types.ObjectValue(stateDescriptionType, map[string]attr.Value{
+		"message": types.StringValue(sd.GetMessage()),
+		"code":    types.Int32Value(sd.GetCode()),
+	})
+	if d.HasError() {
+		diags.Append(d...)
+		diags.AddError("failed to generate state description object", "could not create state description object")
+		return types.ObjectNull(stateDescriptionType), diags
+	}
+	return obj, diags
+}
+
+func generateKafkaAPI(cluster *controlplanev1beta2.Cluster) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if !cluster.HasKafkaApi() {
+		return types.ObjectNull(kafkaAPIType), diags
+	}
+
+	kafkaAPI := cluster.GetKafkaApi()
+	mtls, d := generateMTLS(kafkaAPI.GetMtls())
+	if d.HasError() {
+		return types.ObjectNull(kafkaAPIType), d
+	}
+
+	obj, d := types.ObjectValue(kafkaAPIType, map[string]attr.Value{
+		"mtls":         mtls,
+		"seed_brokers": utils.StringSliceToTypeList(kafkaAPI.GetSeedBrokers()),
+	})
+	if d.HasError() {
+		return types.ObjectNull(kafkaAPIType), d
+	}
+	return obj, diags
+}
+
+func generateHTTPProxy(cluster *controlplanev1beta2.Cluster) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if !cluster.HasHttpProxy() {
+		return types.ObjectNull(httpProxyType), diags
+	}
+
+	httpProxy := cluster.GetHttpProxy()
+	mtls, d := generateMTLS(httpProxy.GetMtls())
+	if d.HasError() {
+		return types.ObjectNull(httpProxyType), d
+	}
+
+	obj, d := types.ObjectValue(httpProxyType, map[string]attr.Value{
+		"mtls": mtls,
+		"url":  types.StringValue(httpProxy.GetUrl()),
+	})
+	if d.HasError() {
+		diags.Append(d...)
+		return types.ObjectNull(httpProxyType), diags
+	}
+	return obj, diags
+}
+
+func generateSchemaRegistry(cluster *controlplanev1beta2.Cluster) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if !cluster.HasSchemaRegistry() {
+		return types.ObjectNull(schemaRegistryType), diags
+	}
+
+	registry := cluster.GetSchemaRegistry()
+	mtls, d := generateMTLS(registry.GetMtls())
+	if d.HasError() {
+		return types.ObjectNull(schemaRegistryType), d
+	}
+
+	obj, d := types.ObjectValue(schemaRegistryType, map[string]attr.Value{
+		"mtls": mtls,
+		"url":  types.StringValue(registry.GetUrl()),
+	})
+	if d.HasError() {
+		diags.Append(d...)
+		return types.ObjectNull(schemaRegistryType), diags
+	}
+	return obj, diags
+}
+
+func generateMTLS(mtls *controlplanev1beta2.MTLSSpec) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	if mtls == nil {
+		return types.ObjectNull(mtlsType), diags
+	}
+
+	obj, d := types.ObjectValue(mtlsType, map[string]attr.Value{
+		"enabled":                 types.BoolValue(mtls.GetEnabled()),
+		"ca_certificates_pem":     utils.StringSliceToTypeList(mtls.GetCaCertificatesPem()),
+		"principal_mapping_rules": utils.StringSliceToTypeList(mtls.GetPrincipalMappingRules()),
+	})
+	if d.HasError() {
+		diags.Append(d...)
+		return types.ObjectNull(mtlsType), diags
+	}
+	return obj, diags
+}
+
+func generateRedpandaConsole(cluster *controlplanev1beta2.Cluster) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if !cluster.HasRedpandaConsole() {
+		return types.ObjectNull(redpandaConsoleType), diags
+	}
+
+	console := cluster.GetRedpandaConsole()
+	obj, d := types.ObjectValue(redpandaConsoleType, map[string]attr.Value{
+		"url": types.StringValue(console.GetUrl()),
+	})
+	if d.HasError() {
+		diags.Append(d...)
+		return types.ObjectNull(redpandaConsoleType), diags
+	}
+	return obj, diags
+}
+
+func generatePrometheus(cluster *controlplanev1beta2.Cluster) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if !cluster.HasPrometheus() {
+		return types.ObjectNull(prometheusType), diags
+	}
+
+	prometheus := cluster.GetPrometheus()
+	obj, d := types.ObjectValue(prometheusType, map[string]attr.Value{
+		"url": types.StringValue(prometheus.GetUrl()),
+	})
+	if d.HasError() {
+		diags.Append(d...)
+		return types.ObjectNull(prometheusType), diags
+	}
+	return obj, diags
+}
+
+func generateMaintenanceWindow(cluster *controlplanev1beta2.Cluster) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if !cluster.HasMaintenanceWindowConfig() {
+		return types.ObjectNull(maintenanceWindowConfigType), diags
+	}
+
+	maintenance := cluster.GetMaintenanceWindowConfig()
+	window := make(map[string]attr.Value)
+
+	// Handle each possible window type
+	if maintenance.HasDayHour() {
+		dayHour := maintenance.GetDayHour()
+		dayHourObj, d := types.ObjectValue(dayHourType, map[string]attr.Value{
+			"hour_of_day": types.Int32Value(dayHour.GetHourOfDay()),
+			"day_of_week": types.StringValue(dayHour.GetDayOfWeek().String()),
+		})
+		if d.HasError() {
+			diags.Append(d...)
+			return types.ObjectNull(maintenanceWindowConfigType), diags
+		}
+		window["day_hour"] = dayHourObj
+	}
+
+	window["anytime"] = types.BoolValue(maintenance.HasAnytime())
+	window["unspecified"] = types.BoolValue(maintenance.HasUnspecified())
+
+	obj, d := types.ObjectValue(maintenanceWindowConfigType, window)
+	if d.HasError() {
+		diags.Append(d...)
+		return types.ObjectNull(maintenanceWindowConfigType), diags
+	}
+	return obj, diags
 }
 
 // Schema returns the schema for the Cluster data source.
@@ -154,10 +374,13 @@ func (*DataSourceCluster) Schema(_ context.Context, _ datasource.SchemaRequest, 
 func datasourceClusterSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
+			// Required field to look up cluster
 			"id": schema.StringAttribute{
 				Required:    true,
 				Description: "ID of the cluster. ID is an output from the Create Cluster endpoint and cannot be set by the caller.",
 			},
+
+			// Computed fields returned by the cluster API
 			"name": schema.StringAttribute{
 				Computed:    true,
 				Description: "Unique name of the cluster.",
@@ -184,20 +407,16 @@ func datasourceClusterSchema() schema.Schema {
 			},
 			"region": schema.StringAttribute{
 				Computed:    true,
-				Description: "Cloud provider region. Region represents the name of the region where the cluster will be provisioned.",
+				Description: "Cloud provider region.",
 			},
 			"zones": schema.ListAttribute{
 				Computed:    true,
 				Description: "Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster.",
 				ElementType: types.StringType,
 			},
-			"allow_deletion": schema.BoolAttribute{
-				Computed:    true,
-				Description: "Allows deletion of the cluster. Defaults to true. Not recommended for production use.",
-			},
 			"tags": schema.MapAttribute{
 				Computed:    true,
-				Description: "Tags placed on cloud resources. If the cloud provider is GCP and the name of a tag has the prefix \"gcp.network-tag.\", the tag is a network tag that will be added to the Redpanda cluster GKE nodes. Otherwise, the tag is a normal tag. For example, if the name of a tag is \"gcp.network-tag.network-tag-foo\", the network tag named \"network-tag-foo\" will be added to the Redpanda cluster GKE nodes. Note: The value of a network tag will be ignored. See the details on network tags at https://cloud.google.com/vpc/docs/add-remove-network-tags.",
+				Description: "Tags placed on cloud resources.",
 				ElementType: types.StringType,
 			},
 			"resource_group_id": schema.StringAttribute{
@@ -212,70 +431,12 @@ func datasourceClusterSchema() schema.Schema {
 				Computed:    true,
 				Description: "The URL of the cluster API.",
 			},
-			"aws_private_link": schema.SingleNestedAttribute{
+			"allow_deletion": schema.BoolAttribute{
 				Computed:    true,
-				Description: "The AWS Private Link configuration.",
-				Attributes: map[string]schema.Attribute{
-					"enabled": schema.BoolAttribute{
-						Computed:    true,
-						Description: "Whether Redpanda AWS Private Link Endpoint Service is enabled.",
-					},
-					"connect_console": schema.BoolAttribute{
-						Computed:    true,
-						Description: "Whether Console is connected in Redpanda AWS Private Link Service.",
-					},
-					"allowed_principals": schema.ListAttribute{
-						ElementType: types.StringType,
-						Computed:    true,
-						Description: "The ARN of the principals that can access the Redpanda AWS PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).",
-					},
-				},
+				Description: "Whether cluster deletion is allowed.",
 			},
-			"azure_private_link": schema.SingleNestedAttribute{
-				Computed:    true,
-				Description: "The Azure Private Link configuration.",
-				Attributes: map[string]schema.Attribute{
-					"allowed_subscriptions": schema.ListAttribute{
-						ElementType: types.StringType,
-						Computed:    true,
-						Description: "The subscriptions that can access the Redpanda Azure PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).",
-					},
-					"connect_console": schema.BoolAttribute{
-						Computed:    true,
-						Description: "Whether Console is connected in Redpanda Azure Private Link Service.",
-					},
-					"enabled": schema.BoolAttribute{
-						Computed:    true,
-						Description: "Whether Redpanda Azure Private Link Endpoint Service is enabled.",
-					},
-				},
-			},
-			"gcp_private_service_connect": schema.SingleNestedAttribute{
-				Computed:    true,
-				Description: "The GCP Private Service Connect configuration.",
-				Attributes: map[string]schema.Attribute{
-					"enabled": schema.BoolAttribute{
-						Computed:    true,
-						Description: "Whether Redpanda GCP Private Service Connect is enabled.",
-					},
-					"global_access_enabled": schema.BoolAttribute{
-						Computed:    true,
-						Description: "Whether global access is enabled.",
-					},
-					"consumer_accept_list": schema.ListNestedAttribute{
-						Computed:    true,
-						Description: "List of consumers that are allowed to connect to Redpanda GCP PSC (Private Service Connect) service attachment.",
-						NestedObject: schema.NestedAttributeObject{
-							Attributes: map[string]schema.Attribute{
-								"source": schema.StringAttribute{
-									Computed:    true,
-									Description: "Either the GCP project number or its alphanumeric ID.",
-								},
-							},
-						},
-					},
-				},
-			},
+
+			// Kafka API configuration
 			"kafka_api": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "Cluster's Kafka API properties.",
@@ -289,19 +450,26 @@ func datasourceClusterSchema() schema.Schema {
 								Description: "Whether mTLS is enabled.",
 							},
 							"ca_certificates_pem": schema.ListAttribute{
-								ElementType: types.StringType,
 								Computed:    true,
+								ElementType: types.StringType,
 								Description: "CA certificate in PEM format.",
 							},
 							"principal_mapping_rules": schema.ListAttribute{
-								ElementType: types.StringType,
 								Computed:    true,
-								Description: "Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.",
+								ElementType: types.StringType,
+								Description: "Principal mapping rules for mTLS authentication.",
 							},
 						},
 					},
+					"seed_brokers": schema.ListAttribute{
+						Computed:    true,
+						ElementType: types.StringType,
+						Description: "List of Kafka broker addresses.",
+					},
 				},
 			},
+
+			// HTTP Proxy configuration
 			"http_proxy": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "HTTP Proxy properties.",
@@ -315,22 +483,28 @@ func datasourceClusterSchema() schema.Schema {
 								Description: "Whether mTLS is enabled.",
 							},
 							"ca_certificates_pem": schema.ListAttribute{
-								ElementType: types.StringType,
 								Computed:    true,
+								ElementType: types.StringType,
 								Description: "CA certificate in PEM format.",
 							},
 							"principal_mapping_rules": schema.ListAttribute{
-								ElementType: types.StringType,
 								Computed:    true,
-								Description: "Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.",
+								ElementType: types.StringType,
+								Description: "Principal mapping rules for mTLS authentication.",
 							},
 						},
 					},
+					"url": schema.StringAttribute{
+						Computed:    true,
+						Description: "The HTTP Proxy URL.",
+					},
 				},
 			},
+
+			// Schema Registry configuration
 			"schema_registry": schema.SingleNestedAttribute{
 				Computed:    true,
-				Description: "Cluster's Schema Registry properties.",
+				Description: "Schema Registry properties.",
 				Attributes: map[string]schema.Attribute{
 					"mtls": schema.SingleNestedAttribute{
 						Computed:    true,
@@ -341,23 +515,101 @@ func datasourceClusterSchema() schema.Schema {
 								Description: "Whether mTLS is enabled.",
 							},
 							"ca_certificates_pem": schema.ListAttribute{
-								ElementType: types.StringType,
 								Computed:    true,
+								ElementType: types.StringType,
 								Description: "CA certificate in PEM format.",
 							},
 							"principal_mapping_rules": schema.ListAttribute{
-								ElementType: types.StringType,
 								Computed:    true,
-								Description: "Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.",
+								ElementType: types.StringType,
+								Description: "Principal mapping rules for mTLS authentication.",
 							},
 						},
 					},
+					"url": schema.StringAttribute{
+						Computed:    true,
+						Description: "The Schema Registry URL.",
+					},
 				},
 			},
+
+			// Read Replica Cluster IDs
 			"read_replica_cluster_ids": schema.ListAttribute{
-				ElementType: types.StringType,
 				Computed:    true,
-				Description: "IDs of clusters which may create read-only topics from this cluster.",
+				ElementType: types.StringType,
+				Description: "IDs of clusters that can create read-only topics from this cluster.",
+			},
+
+			// Service endpoints
+			"redpanda_console": schema.SingleNestedAttribute{
+				Computed:    true,
+				Description: "Redpanda Console properties.",
+				Attributes: map[string]schema.Attribute{
+					"url": schema.StringAttribute{
+						Computed:    true,
+						Description: "The Redpanda Console URL.",
+					},
+				},
+			},
+
+			"prometheus": schema.SingleNestedAttribute{
+				Computed:    true,
+				Description: "Prometheus metrics endpoint properties.",
+				Attributes: map[string]schema.Attribute{
+					"url": schema.StringAttribute{
+						Computed:    true,
+						Description: "The Prometheus metrics endpoint URL.",
+					},
+				},
+			},
+
+			// Status fields
+			"state": schema.StringAttribute{
+				Computed:    true,
+				Description: "Current state of the cluster.",
+			},
+			"state_description": schema.SingleNestedAttribute{
+				Computed:    true,
+				Description: "Detailed state description when cluster is in a non-ready state.",
+				Attributes: map[string]schema.Attribute{
+					"code": schema.Int32Attribute{
+						Computed:    true,
+						Description: "Error code if cluster is in error state.",
+					},
+					"message": schema.StringAttribute{
+						Computed:    true,
+						Description: "Detailed error message if cluster is in error state.",
+					},
+				},
+			},
+
+			// Maintenance window configuration
+			"maintenance_window_config": schema.SingleNestedAttribute{
+				Computed:    true,
+				Description: "Maintenance window configuration for the cluster.",
+				Attributes: map[string]schema.Attribute{
+					"day_hour": schema.SingleNestedAttribute{
+						Computed: true,
+						Attributes: map[string]schema.Attribute{
+							"hour_of_day": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Hour of day.",
+							},
+							"day_of_week": schema.StringAttribute{
+								Computed:    true,
+								Description: "Day of week.",
+							},
+						},
+					},
+					"anytime": schema.BoolAttribute{
+						Computed:    true,
+						Description: "If true, maintenance can occur at any time.",
+					},
+					"unspecified": schema.BoolAttribute{
+						Computed:    true,
+						Description: "If true, maintenance window is unspecified.",
+					},
+				},
 			},
 		},
 		Description: "Data source for a Redpanda Cloud cluster",
