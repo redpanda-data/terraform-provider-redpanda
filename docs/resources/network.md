@@ -16,7 +16,6 @@ Creates a network in the Redpanda Cloud.
 
 ### Required
 
-- `cidr_block` (String) The cidr_block to create the network in
 - `cloud_provider` (String) The cloud provider to create the network in.
 - `cluster_type` (String) The type of cluster this network is associated with, can be one of dedicated or cloud
 - `name` (String) Name of the network
@@ -25,6 +24,7 @@ Creates a network in the Redpanda Cloud.
 
 ### Optional
 
+- `cidr_block` (String) The cidr_block to create the network in
 - `customer_managed_resources` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources))
 
 ### Read-Only
@@ -46,7 +46,6 @@ Required:
 - `dynamodb_table` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--dynamodb_table))
 - `management_bucket` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--management_bucket))
 - `private_subnets` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--private_subnets))
-- `public_subnets` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--public_subnets))
 - `vpc` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--vpc))
 
 <a id="nestedatt--customer_managed_resources--aws--dynamodb_table"></a>
@@ -71,14 +70,6 @@ Required:
 Required:
 
 - `arns` (List of String) AWS private subnet identifiers
-
-
-<a id="nestedatt--customer_managed_resources--aws--public_subnets"></a>
-### Nested Schema for `customer_managed_resources.aws.public_subnets`
-
-Required:
-
-- `arns` (List of String) AWS public subnet identifiers
 
 
 <a id="nestedatt--customer_managed_resources--aws--vpc"></a>
