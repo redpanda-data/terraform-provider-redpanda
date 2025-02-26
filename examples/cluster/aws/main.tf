@@ -27,11 +27,11 @@ resource "redpanda_cluster" "test" {
   tags = {
     "key" = "value"
   }
-  aws_private_link = {
-    enabled         = true
-    connect_console = true
-    allowed_principals = ["arn:aws:iam::123456789024:root"]
-  }
+  # aws_private_link = {
+  #   enabled         = true
+  #   connect_console = true
+  #   allowed_principals = ["arn:aws:iam::123456789024:root"]
+  # }
 }
 
 variable "resource_group_name" {
@@ -59,7 +59,7 @@ variable "cloud_provider" {
 }
 
 variable "throughput_tier" {
-  default = "tier-1-aws-v2-arm"
+  default = "test"
 }
 
 resource "redpanda_user" "test" {
