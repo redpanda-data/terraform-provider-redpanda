@@ -8,7 +8,6 @@ module "redpanda_byovpc" {
   source = "redpanda-data/redpanda-byovpc/aws"
 
   region = var.region
-  aws_account_id = "879326078624"
   public_subnet_cidrs = [
     "10.0.16.0/20", "10.0.32.0/20", "10.0.48.0/20"
   ]
