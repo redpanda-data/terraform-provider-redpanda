@@ -59,7 +59,7 @@ variable "cloud_provider" {
 }
 
 variable "throughput_tier" {
-  default = "test"
+  default = "tier-1-aws-v2-arm"
 }
 
 resource "redpanda_user" "test" {
