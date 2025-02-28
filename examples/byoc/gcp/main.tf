@@ -65,7 +65,7 @@ variable "cloud_provider" {
 }
 
 variable "throughput_tier" {
-  default = "tier-1-gcp-v2-x86"
+  default = "tier-1-gcp-um4g"
 }
 
 
