@@ -724,12 +724,783 @@ variable "replication_factor" {
 }
 ```
 
+### On Azure
+
+```terraform
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = var.resource_group_name
+}
+
+resource "redpanda_network" "test" {
+  name              = var.network_name
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = var.cloud_provider
+  region            = var.region
+  cluster_type      = "dedicated"
+  cidr_block        = "10.0.0.0/20"
+}
+
+resource "redpanda_cluster" "test" {
+  name              = var.cluster_name
+  resource_group_id = redpanda_resource_group.test.id
+  network_id        = redpanda_network.test.id
+  cloud_provider    = var.cloud_provider
+  region            = var.region
+  cluster_type      = "dedicated"
+  connection_type   = "public"
+  throughput_tier   = var.throughput_tier
+  zones             = var.zones
+  allow_deletion    = true
+  tags = {
+    "key" = "value"
+  }
+#   azure_private_link = {
+#     enabled         = true
+#     connect_console = true
+#     allowed_subscriptions = ["12345678-1234-1234-1234-123456789012"]
+#   }
+}
+
+variable "resource_group_name" {
+  default = "testname"
+}
+
+variable "network_name" {
+  default = "testname"
+}
+
+variable "cluster_name" {
+  default = "testname"
+}
+
+variable "cloud_provider" {
+  default = "azure"
+}
+
+variable "region" {
+  default = "eastus"
+}
+
+variable "zones" {
+  default = ["eastus-az1", "eastus-az2", "eastus-az3"]
+}
+
+variable "throughput_tier" {
+  default = "tier-1-azure-v2-x86"
+}
+
+
+resource "redpanda_user" "test" {
+  name            = var.user_name
+  password        = var.user_pw
+  mechanism       = var.mechanism
+  cluster_api_url = redpanda_cluster.test.cluster_api_url
+}
+
+resource "redpanda_topic" "test" {
+  name               = var.topic_name
+  partition_count    = var.partition_count
+  replication_factor = var.replication_factor
+  cluster_api_url    = redpanda_cluster.test.cluster_api_url
+  allow_deletion     = true
+}
+
+
+resource "redpanda_acl" "test" {
+  resource_type         = "TOPIC"
+  resource_name         = redpanda_topic.test.name
+  resource_pattern_type = "LITERAL"
+  principal             = "User:${redpanda_user.test.name}"
+  host                  = "*"
+  operation             = "READ"
+  permission_type       = "ALLOW"
+  cluster_api_url       = redpanda_cluster.test.cluster_api_url
+}
+
+
+variable "user_name" {
+  default = "test-username"
+}
+
+variable "user_pw" {
+  default = "password"
+}
+
+variable "mechanism" {
+  default = "scram-sha-256"
+}
+
+variable "topic_name" {
+  default = "test-topic"
+}
+
+variable "partition_count" {
+  default = 3
+}
+
+variable "replication_factor" {
+  default = 3
+}
+```
+
+## BYOC
+
+This configuration of cluster allows the end user to provide access to their cloud account to the provider so that it can create the necessary infrastructure in their account rather than in Redpanda's Cloud.
+
+#### Additional Requirements
+
+To build a BYOC cluster you must provide credentials that enable the provider to authenticate to the relevant cloud provider. How this works will depend on which cloud provider you are using.
+
+### AWS BYOC
+
+To create a BYOC AWS cluster you must provide an AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY. The account [must have fairly wide ranging permissions](https://docs.redpanda.com/redpanda-cloud/security/authorization/cloud-iam-policies/) to create the necessary infrastructure.
+
+```terraform
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = var.resource_group_name
+}
+
+resource "redpanda_network" "test" {
+  name              = var.network_name
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = var.cloud_provider
+  region            = var.region
+  cluster_type      = "byoc"
+  cidr_block        = "10.0.0.0/20"
+}
+
+resource "redpanda_cluster" "test" {
+  name              = var.cluster_name
+  resource_group_id = redpanda_resource_group.test.id
+  network_id        = redpanda_network.test.id
+  cloud_provider    = redpanda_network.test.cloud_provider
+  region            = redpanda_network.test.region
+  cluster_type      = redpanda_network.test.cluster_type
+  connection_type   = "public"
+  throughput_tier   = var.throughput_tier
+  zones             = var.zones
+  allow_deletion    = true
+  tags = {
+    "key" = "value"
+  }
+  # aws_private_link = {
+  #   enabled         = true
+  #   connect_console = true
+  #   allowed_principals = ["arn:aws:iam::123456789024:root"]
+  # }
+}
+
+variable "resource_group_name" {
+  default = "testname"
+}
+
+variable "network_name" {
+  default = "testname"
+}
+
+variable "cluster_name" {
+  default = "testname"
+}
+
+variable "region" {
+  default = "us-east-2"
+}
+
+variable "zones" {
+  default = ["use2-az1", "use2-az2", "use2-az3"]
+}
+
+variable "cloud_provider" {
+  default = "aws"
+}
+
+variable "throughput_tier" {
+  default = "tier-1-aws-v2-x86"
+}
+
+resource "redpanda_user" "test" {
+  name            = var.user_name
+  password        = var.user_pw
+  mechanism       = var.mechanism
+  cluster_api_url = redpanda_cluster.test.cluster_api_url
+}
+
+resource "redpanda_topic" "test" {
+  name               = var.topic_name
+  partition_count    = var.partition_count
+  replication_factor = var.replication_factor
+  cluster_api_url    = redpanda_cluster.test.cluster_api_url
+  allow_deletion     = true
+}
+
+
+resource "redpanda_acl" "test" {
+  resource_type         = "TOPIC"
+  resource_name         = redpanda_topic.test.name
+  resource_pattern_type = "LITERAL"
+  principal             = "User:${redpanda_user.test.name}"
+  host                  = "*"
+  operation             = "READ"
+  permission_type       = "ALLOW"
+  cluster_api_url       = redpanda_cluster.test.cluster_api_url
+}
+
+
+variable "user_name" {
+  default = "test-username"
+}
+
+variable "user_pw" {
+  default = "password"
+}
+
+variable "mechanism" {
+  default = "scram-sha-256"
+}
+
+variable "topic_name" {
+  default = "test-topic"
+}
+
+variable "partition_count" {
+  default = 3
+}
+
+variable "replication_factor" {
+  default = 3
+}
+```
+
+### GCP BYOC
+
+To create a GCP BYOC cluster you must provide a GCP_PROJECT_ID and GOOGLE_CREDENTIALS. We also accept the credentials encoded in base64 format if you use GOOGLE_CREDENTIALS_BASE64. The account [must have fairly wide ranging permissions](https://docs.redpanda.com/redpanda-cloud/security/authorization/cloud-iam-policies-gcp/) to create the necessary infrastructure.
+
+```terraform
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = var.resource_group_name
+}
+
+resource "redpanda_network" "test" {
+  name              = var.network_name
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = var.cloud_provider
+  region            = var.region
+  cluster_type      = "byoc"
+  cidr_block        = "10.0.0.0/20"
+}
+
+resource "redpanda_cluster" "test" {
+  name              = var.cluster_name
+  resource_group_id = redpanda_resource_group.test.id
+  network_id        = redpanda_network.test.id
+  cloud_provider    = redpanda_network.test.cloud_provider
+  region            = redpanda_network.test.region
+  cluster_type      = redpanda_network.test.cluster_type
+  connection_type   = "public"
+  throughput_tier   = var.throughput_tier
+  zones             = var.zones
+  allow_deletion    = true
+  ## This is a reference for GCP tags
+  #   tags = {
+  #     "key" = "value"
+  #   }
+  ## This is a reference for GCP Private Service Connect
+  #   gcp_private_service_connect = {
+  #     enabled               = true
+  #     global_access_enabled = true
+  #     consumer_accept_list = [
+  #       {
+  #         source = "projects/123456789012"
+  #       }
+  #     ]
+  #   }
+}
+
+variable "cluster_name" {
+  default = ""
+}
+
+variable "resource_group_name" {
+  default = ""
+}
+
+variable "network_name" {
+  default = ""
+}
+
+variable "region" {
+  default = "us-central1"
+}
+
+variable "zones" {
+  default = ["us-central1-a", "us-central1-b", "us-central1-c"]
+}
+
+variable "cloud_provider" {
+  default = "gcp"
+}
+
+variable "throughput_tier" {
+  default = "tier-1-gcp-um4g"
+}
+
+
+resource "redpanda_user" "test" {
+  name            = var.user_name
+  password        = var.user_pw
+  mechanism       = var.mechanism
+  cluster_api_url = redpanda_cluster.test.cluster_api_url
+}
+
+resource "redpanda_topic" "test" {
+  name               = var.topic_name
+  partition_count    = var.partition_count
+  replication_factor = var.replication_factor
+  cluster_api_url    = redpanda_cluster.test.cluster_api_url
+  allow_deletion     = true
+}
+
+
+resource "redpanda_acl" "test" {
+  resource_type         = "TOPIC"
+  resource_name         = redpanda_topic.test.name
+  resource_pattern_type = "LITERAL"
+  principal             = "User:${redpanda_user.test.name}"
+  host                  = "*"
+  operation             = "READ"
+  permission_type       = "ALLOW"
+  cluster_api_url       = redpanda_cluster.test.cluster_api_url
+}
+
+
+variable "user_name" {
+  default = "test-username"
+}
+
+variable "user_pw" {
+  default = "password"
+}
+
+variable "mechanism" {
+  default = "scram-sha-256"
+}
+
+variable "topic_name" {
+  default = "test-topic"
+}
+
+variable "partition_count" {
+  default = 3
+}
+
+variable "replication_factor" {
+  default = 3
+}
+```
+
+### Azure BYOC
+
+To create a BYOC Azure cluster you must provide an AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID, and AZURE_SUBSCRIPTION_ID. Getting a Tenant ID [requires creating a subscription](https://learn.microsoft.com/en-us/azure/azure-portal/get-subscription-tenant-id). The account [must have fairly wide ranging permissions](https://docs.redpanda.com/redpanda-cloud/security/authorization/cloud-iam-policies-azure/) to create the necessary infrastructure.
+
+```terraform
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = var.resource_group_name
+}
+
+resource "redpanda_network" "test" {
+  name              = var.network_name
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = var.cloud_provider
+  region            = var.region
+  cluster_type      = "byoc"
+  cidr_block        = "10.0.0.0/20"
+}
+
+resource "redpanda_cluster" "test" {
+  name              = var.cluster_name
+  resource_group_id = redpanda_resource_group.test.id
+  network_id        = redpanda_network.test.id
+  cloud_provider    = redpanda_network.test.cloud_provider
+  region            = redpanda_network.test.region
+  cluster_type      = redpanda_network.test.cluster_type
+  connection_type   = "public"
+  throughput_tier   = var.throughput_tier
+  zones             = var.zones
+  allow_deletion    = true
+  tags = {
+    "key" = "value"
+  }
+  # azure_private_link = {
+  #   enabled         = true
+  #   connect_console = true
+  #   allowed_subscriptions = ["12345678-1234-1234-1234-123456789012"]
+  # }
+}
+
+variable "resource_group_name" {
+  default = "testname"
+}
+
+variable "network_name" {
+  default = "testname"
+}
+
+variable "cluster_name" {
+  default = "testname"
+}
+
+variable "cloud_provider" {
+  default = "azure"
+}
+
+variable "region" {
+  default = "eastus"
+}
+
+variable "zones" {
+  default = ["eastus-az1", "eastus-az2", "eastus-az3"]
+}
+
+variable "throughput_tier" {
+  default = "tier-1-azure-v2-x86"
+}
+
+
+resource "redpanda_user" "test" {
+  name            = var.user_name
+  password        = var.user_pw
+  mechanism       = var.mechanism
+  cluster_api_url = redpanda_cluster.test.cluster_api_url
+}
+
+resource "redpanda_topic" "test" {
+  name               = var.topic_name
+  partition_count    = var.partition_count
+  replication_factor = var.replication_factor
+  cluster_api_url    = redpanda_cluster.test.cluster_api_url
+  allow_deletion     = true
+}
+
+
+resource "redpanda_acl" "test" {
+  resource_type         = "TOPIC"
+  resource_name         = redpanda_topic.test.name
+  resource_pattern_type = "LITERAL"
+  principal             = "User:${redpanda_user.test.name}"
+  host                  = "*"
+  operation             = "READ"
+  permission_type       = "ALLOW"
+  cluster_api_url       = redpanda_cluster.test.cluster_api_url
+}
+
+
+variable "user_name" {
+  default = "test-username"
+}
+
+variable "user_pw" {
+  default = "password"
+}
+
+variable "mechanism" {
+  default = "scram-sha-256"
+}
+
+variable "topic_name" {
+  default = "test-topic"
+}
+
+variable "partition_count" {
+  default = 3
+}
+
+variable "replication_factor" {
+  default = 3
+}
+```
+
+## BYOVPC
+
+This accepts a network and other elements created by the end user inside their cloud provider account (currently limited to AWS) and builds a Redpanda Cluster inside it.
+
+There is [a module](https://github.com/redpanda-data/terraform-aws-redpanda-byovpc) provided for convenience of the end user here that handles the necessary setup. It contains outputs for the inputs the provider requires.
+
+### AWS BYOVPC
+
+Has the same requirements as the AWS BYOC Cluster in addition to ARNs for numerous resources that the end user must create.
+
+```terraform
+provider "redpanda" {}
+
+variable "management_bucket_arn" {
+  default = "arn:aws:s3:::rp-879326078624-us-east-2-mgmt-20250225235918572600000009"
+}
+
+variable "dynamodb_table_arn" {
+  default = "arn:aws:dynamodb:us-east-2:879326078624:table/rp-879326078624-us-east-2-mgmt-tflock-tjhc470imx"
+}
+
+variable "vpc_arn" {
+  default = "arn:aws:ec2:us-east-2:879326078624:vpc/vpc-0503833a1083ea5fd"
+}
+
+variable "private_subnet_arns" {
+  type = list(string)
+  default = [
+    "arn:aws:ec2:us-east-2:879326078624:subnet/subnet-085d9ca4d4a3b8234",
+    "arn:aws:ec2:us-east-2:879326078624:subnet/subnet-0facdafdad2b1b22e",
+    "arn:aws:ec2:us-east-2:879326078624:subnet/subnet-0315e9b25f16aafdb",
+    "arn:aws:ec2:us-east-2:879326078624:subnet/subnet-01165942af996f138",
+    "arn:aws:ec2:us-east-2:879326078624:subnet/subnet-06885141d4dc59d85",
+    "arn:aws:ec2:us-east-2:879326078624:subnet/subnet-00df5d655183e7d20"
+  ]
+}
+
+variable "permissions_boundary_policy_arn" {
+  default = "arn:aws:iam::879326078624:policy/redpanda-agent-boundary-20250225235919694500000019"
+}
+
+variable "agent_instance_profile_arn" {
+  default = "arn:aws:iam::879326078624:instance-profile/redpanda-agent-20250225235919028600000014"
+}
+
+variable "connectors_node_group_instance_profile_arn" {
+  default = "arn:aws:iam::879326078624:instance-profile/redpanda-connect-2025022523591892010000000e"
+}
+
+variable "utility_node_group_instance_profile_arn" {
+  default = "arn:aws:iam::879326078624:instance-profile/redpanda-util-20250225235918953200000010"
+}
+
+variable "redpanda_node_group_instance_profile_arn" {
+  default = "arn:aws:iam::879326078624:instance-profile/redpanda-rp-20250225235918976100000011"
+}
+
+variable "k8s_cluster_role_arn" {
+  default = "arn:aws:iam::879326078624:role/redpanda-cluster-20250225235918054800000006"
+}
+
+variable "redpanda_agent_security_group_arn" {
+  default = "arn:aws:ec2:us-east-2:879326078624:security-group/sg-0ec96ed0903732325"
+}
+
+variable "connectors_security_group_arn" {
+  default = "arn:aws:ec2:us-east-2:879326078624:security-group/sg-00559db2df4b2f0b3"
+}
+
+variable "redpanda_node_group_security_group_arn" {
+  default = "arn:aws:ec2:us-east-2:879326078624:security-group/sg-08cb0feabb7f8dad3"
+}
+
+variable "utility_security_group_arn" {
+  default = "arn:aws:ec2:us-east-2:879326078624:security-group/sg-0a69ef8471564a7fe"
+}
+
+variable "cluster_security_group_arn" {
+  default = "arn:aws:ec2:us-east-2:879326078624:security-group/sg-0d9368cd6a722a4df"
+}
+
+variable "node_security_group_arn" {
+  default = "arn:aws:ec2:us-east-2:879326078624:security-group/sg-0f8d41dd76c2cb52d"
+}
+
+variable "cloud_storage_bucket_arn" {
+  default = "arn:aws:s3:::redpanda-cloud-storage-20250225235918055000000008"
+}
+
+variable "byovpc_rpk_user_policy_arns" {
+  default = "[]"
+}
+
+# Existing variables from original configuration
+variable "resource_group_name" {
+  default = "testname"
+}
+
+variable "network_name" {
+  default = "testname"
+}
+
+variable "cluster_name" {
+  default = "testname"
+}
+
+variable "region" {
+  default = "us-east-2"
+}
+
+variable "zones" {
+  default = ["use2-az1", "use2-az2", "use2-az3"]
+}
+
+variable "cloud_provider" {
+  default = "aws"
+}
+
+variable "throughput_tier" {
+  default = "tier-1-aws-v2-x86"
+}
+
+variable "user_name" {
+  default = "test-username"
+}
+
+variable "user_pw" {
+  default = "password"
+}
+
+variable "mechanism" {
+  default = "scram-sha-256"
+}
+
+variable "topic_name" {
+  default = "test-topic"
+}
+
+variable "partition_count" {
+  default = 3
+}
+
+variable "replication_factor" {
+  default = 3
+}
+
+variable "aws_access_key" {
+  type = string
+}
+
+variable "aws_secret_key" {
+  type = string
+}
+
+resource "redpanda_resource_group" "test" {
+  name = var.resource_group_name
+}
+
+resource "redpanda_network" "test" {
+  name              = var.network_name
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = var.cloud_provider
+  region            = var.region
+  cluster_type      = "byoc"
+  customer_managed_resources = {
+    aws = {
+      management_bucket = {
+        arn = var.management_bucket_arn
+      }
+      dynamodb_table = {
+        arn = var.dynamodb_table_arn
+      }
+      vpc = {
+        arn = var.vpc_arn
+      }
+      private_subnets = {
+        arns = var.private_subnet_arns
+      }
+    }
+  }
+}
+
+resource "redpanda_cluster" "test" {
+  name              = var.cluster_name
+  resource_group_id = redpanda_resource_group.test.id
+  network_id        = redpanda_network.test.id
+  cloud_provider    = redpanda_network.test.cloud_provider
+  region            = redpanda_network.test.region
+  cluster_type      = redpanda_network.test.cluster_type
+  connection_type   = "private"
+  throughput_tier   = var.throughput_tier
+  zones             = var.zones
+  allow_deletion    = true
+  tags = {
+    "key" = "value"
+  }
+  customer_managed_resources = {
+    aws = {
+      aws_permissions_boundary_policy_arn = {
+        arn = var.permissions_boundary_policy_arn
+      }
+      agent_instance_profile = {
+        arn = var.agent_instance_profile_arn
+      }
+      connectors_node_group_instance_profile = {
+        arn = var.connectors_node_group_instance_profile_arn
+      }
+      utility_node_group_instance_profile = {
+        arn = var.utility_node_group_instance_profile_arn
+      }
+      redpanda_node_group_instance_profile = {
+        arn = var.redpanda_node_group_instance_profile_arn
+      }
+      k8s_cluster_role = {
+        arn = var.k8s_cluster_role_arn
+      }
+      redpanda_agent_security_group = {
+        arn = var.redpanda_agent_security_group_arn
+      }
+      connectors_security_group = {
+        arn = var.connectors_security_group_arn
+      }
+      redpanda_node_group_security_group = {
+        arn = var.redpanda_node_group_security_group_arn
+      }
+      utility_security_group = {
+        arn = var.utility_security_group_arn
+      }
+      cluster_security_group = {
+        arn = var.cluster_security_group_arn
+      }
+      node_security_group = {
+        arn = var.node_security_group_arn
+      }
+      cloud_storage_bucket = {
+        arn = var.cloud_storage_bucket_arn
+      }
+      permissions_boundary_policy = {
+        arn = var.permissions_boundary_policy_arn
+      }
+    }
+  }
+}
+
+resource "redpanda_user" "test" {
+  name            = var.user_name
+  password        = var.user_pw
+  mechanism       = var.mechanism
+  cluster_api_url = redpanda_cluster.test.cluster_api_url
+}
+
+resource "redpanda_topic" "test" {
+  name               = var.topic_name
+  partition_count    = var.partition_count
+  replication_factor = var.replication_factor
+  cluster_api_url    = redpanda_cluster.test.cluster_api_url
+  allow_deletion     = true
+}
+
+resource "redpanda_acl" "test" {
+  resource_type         = "TOPIC"
+  resource_name         = redpanda_topic.test.name
+  resource_pattern_type = "LITERAL"
+  principal             = "User:${redpanda_user.test.name}"
+  host                  = "*"
+  operation            = "READ"
+  permission_type      = "ALLOW"
+  cluster_api_url      = redpanda_cluster.test.cluster_api_url
+}
+```
+
 ## Limitations
 
-We are not currently able to support the provisioning of "BYOC" clusters using this provider. A workaround is available
-
- * First use [RPK](https://docs.redpanda.com/current/deploy/deployment-option/cloud/create-byoc-cluster-aws/) to provision the cluster
- * Then use the provider's redpanda_cluster data source to reference the cluster for use in other resources.
+We are not currently able to support GCP or Azure BYOVPC clusters.
 
 ### Example Usage of a data source BYOC to manage users and ACLs
 

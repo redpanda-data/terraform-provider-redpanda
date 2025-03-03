@@ -23,12 +23,51 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 
 {{ tffile "examples/cluster/gcp/main.tf" }}
 
+### On Azure
+
+{{ tffile "examples/cluster/azure/main.tf" }}
+
+## BYOC
+
+This configuration of cluster allows the end user to provide access to their cloud account to the provider so that it can create the necessary infrastructure in their account rather than in Redpanda's Cloud.
+
+#### Additional Requirements
+
+To build a BYOC cluster you must provide credentials that enable the provider to authenticate to the relevant cloud provider. How this works will depend on which cloud provider you are using.
+
+### AWS BYOC
+
+To create a BYOC AWS cluster you must provide an AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY. The account [must have fairly wide ranging permissions](https://docs.redpanda.com/redpanda-cloud/security/authorization/cloud-iam-policies/) to create the necessary infrastructure.
+
+{{ tffile "examples/byoc/aws/main.tf" }}
+
+### GCP BYOC
+
+To create a GCP BYOC cluster you must provide a GCP_PROJECT_ID and GOOGLE_CREDENTIALS. We also accept the credentials encoded in base64 format if you use GOOGLE_CREDENTIALS_BASE64. The account [must have fairly wide ranging permissions](https://docs.redpanda.com/redpanda-cloud/security/authorization/cloud-iam-policies-gcp/) to create the necessary infrastructure.
+
+{{ tffile "examples/byoc/gcp/main.tf" }}
+
+### Azure BYOC
+
+To create a BYOC Azure cluster you must provide an AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID, and AZURE_SUBSCRIPTION_ID. Getting a Tenant ID [requires creating a subscription](https://learn.microsoft.com/en-us/azure/azure-portal/get-subscription-tenant-id). The account [must have fairly wide ranging permissions](https://docs.redpanda.com/redpanda-cloud/security/authorization/cloud-iam-policies-azure/) to create the necessary infrastructure.
+
+{{ tffile "examples/byoc/azure/main.tf" }}
+
+## BYOVPC
+
+This accepts a network and other elements created by the end user inside their cloud provider account (currently limited to AWS) and builds a Redpanda Cluster inside it.
+
+There is [a module](https://github.com/redpanda-data/terraform-aws-redpanda-byovpc) provided for convenience of the end user here that handles the necessary setup. It contains outputs for the inputs the provider requires.
+
+### AWS BYOVPC
+
+Has the same requirements as the AWS BYOC Cluster in addition to ARNs for numerous resources that the end user must create.
+
+{{ tffile "examples/byovpc/aws/main.tf" }}
+
 ## Limitations
 
-We are not currently able to support the provisioning of "BYOC" clusters using this provider. A workaround is available
-
- * First use [RPK](https://docs.redpanda.com/current/deploy/deployment-option/cloud/create-byoc-cluster-aws/) to provision the cluster
- * Then use the provider's redpanda_cluster data source to reference the cluster for use in other resources.
+We are not currently able to support GCP or Azure BYOVPC clusters.
 
 ### Example Usage of a data source BYOC to manage users and ACLs
 
