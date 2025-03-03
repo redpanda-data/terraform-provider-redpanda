@@ -646,7 +646,11 @@ func generateClusterCMR(ctx context.Context, model models.Cluster, diags diag.Di
 		return cmr, nil
 	case "gcp":
 		// TODO: Implement GCP support
-		return nil, nil
+		diags.AddError("GCP BYOVPC is not yet supported", "GCP BYOVPC is not yet supported")
+		return nil, diags
+	case "azure":
+		diags.AddError("Azure BYOVPC is not supported", "Azure BYOVPC is not supported")
+		return nil, diags
 	default:
 		return nil, nil
 	}
