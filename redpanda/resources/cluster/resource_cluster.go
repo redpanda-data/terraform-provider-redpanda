@@ -160,7 +160,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 
 	if cluster.GetState() == controlplanev1beta2.Cluster_STATE_DELETING || cluster.GetState() == controlplanev1beta2.Cluster_STATE_DELETING_AGENT {
 		// null out the state, force it to be destroyed and recreated
-		resp.Diagnostics.Append(resp.State.Set(ctx, generateMinimalModel(cluster.Id))...)
+		resp.Diagnostics.Append(resp.State.Set(ctx, generateMinimalModel(cluster.GetId()))...)
 		resp.Diagnostics.AddWarning(fmt.Sprintf("cluster %s is in state %s", model.ID.ValueString(), cluster.GetState()), "")
 		return
 	}

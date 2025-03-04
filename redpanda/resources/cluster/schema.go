@@ -1,6 +1,9 @@
 package cluster
 
 import (
+	"regexp"
+
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
@@ -806,6 +809,155 @@ func resourceClusterSchema() schema.Schema {
 										Description: "ARN for the permissions boundary policy",
 									},
 								},
+							},
+						},
+					},
+					"gcp": schema.SingleNestedAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
+						Attributes: map[string]schema.Attribute{
+							"subnet": schema.SingleNestedAttribute{
+								Required:    true,
+								Description: "GCP subnet where Redpanda cluster is deployed.",
+								Attributes: map[string]schema.Attribute{
+									"name": schema.StringAttribute{
+										Required:      true,
+										Description:   "Subnet name.",
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+										Validators: []validator.String{
+											stringvalidator.RegexMatches(
+												// this regex is directly from the proto spec for these fields
+												regexp.MustCompile(`^[a-z]([-a-z0-9]*[a-z0-9])?$`),
+												"must start with a lowercase letter and can only contain lowercase letters, numbers, and hyphens, and must end with a letter or number",
+											),
+										},
+									},
+									"secondary_ipv4_range_pods": schema.SingleNestedAttribute{
+										Required:    true,
+										Description: "Secondary IPv4 range for pods.",
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Required:      true,
+												Description:   "Secondary IPv4 range name for pods.",
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+												Validators: []validator.String{
+													stringvalidator.RegexMatches(
+														regexp.MustCompile(`^[a-z]([-a-z0-9]*[a-z0-9])?$`),
+														"must start with a lowercase letter and can only contain lowercase letters, numbers, and hyphens, and must end with a letter or number",
+													),
+												},
+											},
+										},
+									},
+									"secondary_ipv4_range_services": schema.SingleNestedAttribute{
+										Required:    true,
+										Description: "Secondary IPv4 range for services.",
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Required:      true,
+												Description:   "Secondary IPv4 range name for services.",
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+												Validators: []validator.String{
+													stringvalidator.RegexMatches(
+														regexp.MustCompile(`^[a-z]([-a-z0-9]*[a-z0-9])?$`),
+														"must start with a lowercase letter and can only contain lowercase letters, numbers, and hyphens, and must end with a letter or number",
+													),
+												},
+											},
+										},
+									},
+									"k8s_master_ipv4_range": schema.StringAttribute{
+										Required:      true,
+										Description:   "Kubernetes Master IPv4 range, e.g. 10.0.0.0/24.",
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+									},
+								},
+							},
+							"agent_service_account": schema.SingleNestedAttribute{
+								Required:    true,
+								Description: "GCP service account for the agent.",
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Required:      true,
+										Description:   "GCP service account email.",
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+										Validators: []validator.String{
+											validators.EmailValidator{},
+										},
+									},
+								},
+							},
+							"console_service_account": schema.SingleNestedAttribute{
+								Required:    true,
+								Description: "GCP service account for Redpanda Console.",
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Required:      true,
+										Description:   "GCP service account email.",
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+										Validators: []validator.String{
+											validators.EmailValidator{},
+										},
+									},
+								},
+							},
+							"connector_service_account": schema.SingleNestedAttribute{
+								Required:    true,
+								Description: "GCP service account for managed connectors.",
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Required:      true,
+										Description:   "GCP service account email.",
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+										Validators: []validator.String{
+											validators.EmailValidator{},
+										},
+									},
+								},
+							},
+							"redpanda_cluster_service_account": schema.SingleNestedAttribute{
+								Required:    true,
+								Description: "GCP service account for the Redpanda cluster.",
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Required:      true,
+										Description:   "GCP service account email.",
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+										Validators: []validator.String{
+											validators.EmailValidator{},
+										},
+									},
+								},
+							},
+							"gke_service_account": schema.SingleNestedAttribute{
+								Required:    true,
+								Description: "GCP service account for GCP Kubernetes Engine (GKE).",
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Required:      true,
+										Description:   "GCP service account email.",
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+										Validators: []validator.String{
+											validators.EmailValidator{},
+										},
+									},
+								},
+							},
+							"tiered_storage_bucket": schema.SingleNestedAttribute{
+								Required:    true,
+								Description: "GCP storage bucket for Tiered storage.",
+								Attributes: map[string]schema.Attribute{
+									"name": schema.StringAttribute{
+										Required:      true,
+										Description:   "GCP storage bucket name.",
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+									},
+								},
+							},
+							"psc_nat_subnet_name": schema.StringAttribute{
+								Optional:      true,
+								Description:   "NAT subnet name if GCP Private Service Connect is enabled.",
+								PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 							},
 						},
 					},

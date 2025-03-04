@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"fmt"
 	"testing"
 
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
@@ -10,11 +11,6 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"github.com/stretchr/testify/assert"
 )
-
-func mustCloudProvider(s string) controlplanev1beta2.CloudProvider {
-	cp, _ := utils.StringToCloudProvider(s)
-	return cp
-}
 
 func TestGenerateModelCMR(t *testing.T) {
 	type expectedAWS struct {
@@ -40,6 +36,7 @@ func TestGenerateModelCMR(t *testing.T) {
 		expectedAWS    *expectedAWS
 		expectNull     bool
 		expectedErrors []string
+		expectedGCP    *expectedGCP
 	}{
 		{
 			name:       "nil cluster returns null object",
@@ -166,17 +163,6 @@ func TestGenerateModelCMR(t *testing.T) {
 			},
 		},
 		{
-			name: "GCP CMR returns null object (not implemented)",
-			cluster: &controlplanev1beta2.Cluster{
-				CloudProvider: mustCloudProvider("gcp"),
-				Type:          controlplanev1beta2.Cluster_TYPE_BYOC,
-				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{
-					CloudProvider: &controlplanev1beta2.CustomerManagedResources_Gcp{},
-				},
-			},
-			expectNull: true,
-		},
-		{
 			name: "unknown cloud provider returns null object",
 			cluster: &controlplanev1beta2.Cluster{
 				CloudProvider:            mustCloudProvider("unknown"),
@@ -184,6 +170,112 @@ func TestGenerateModelCMR(t *testing.T) {
 				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{},
 			},
 			expectNull: true,
+		},
+		{
+			name: "valid GCP BYOC cluster with complete CMR",
+			cluster: &controlplanev1beta2.Cluster{
+				CloudProvider: mustCloudProvider("gcp"),
+				Type:          controlplanev1beta2.Cluster_TYPE_BYOC,
+				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{
+					CloudProvider: &controlplanev1beta2.CustomerManagedResources_Gcp{
+						Gcp: &controlplanev1beta2.CustomerManagedResources_GCP{
+							Subnet: &controlplanev1beta2.CustomerManagedResources_GCP_Subnet{
+								Name: "test-subnet",
+								SecondaryIpv4RangePods: &controlplanev1beta2.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range{
+									Name: "pods-range",
+								},
+								SecondaryIpv4RangeServices: &controlplanev1beta2.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range{
+									Name: "services-range",
+								},
+								K8SMasterIpv4Range: "10.0.0.0/28",
+							},
+							AgentServiceAccount: &controlplanev1beta2.GCPServiceAccount{
+								Email: "agent-sa@project-id.iam.gserviceaccount.com",
+							},
+							ConsoleServiceAccount: &controlplanev1beta2.GCPServiceAccount{
+								Email: "console-sa@project-id.iam.gserviceaccount.com",
+							},
+							ConnectorServiceAccount: &controlplanev1beta2.GCPServiceAccount{
+								Email: "connector-sa@project-id.iam.gserviceaccount.com",
+							},
+							RedpandaClusterServiceAccount: &controlplanev1beta2.GCPServiceAccount{
+								Email: "redpanda-sa@project-id.iam.gserviceaccount.com",
+							},
+							GkeServiceAccount: &controlplanev1beta2.GCPServiceAccount{
+								Email: "gke-sa@project-id.iam.gserviceaccount.com",
+							},
+							TieredStorageBucket: &controlplanev1beta2.CustomerManagedGoogleCloudStorageBucket{
+								Name: "redpanda-tiered-storage-bucket",
+							},
+							PscNatSubnetName: "psc-nat-subnet",
+						},
+					},
+				},
+			},
+			expectedGCP: &expectedGCP{
+				subnetName:                         "test-subnet",
+				secondaryIPv4RangePodsName:         "pods-range",
+				secondaryIPv4RangeServicesName:     "services-range",
+				k8sMasterIPv4Range:                 "10.0.0.0/28",
+				agentServiceAccountEmail:           "agent-sa@project-id.iam.gserviceaccount.com",
+				consoleServiceAccountEmail:         "console-sa@project-id.iam.gserviceaccount.com",
+				connectorServiceAccountEmail:       "connector-sa@project-id.iam.gserviceaccount.com",
+				redpandaClusterServiceAccountEmail: "redpanda-sa@project-id.iam.gserviceaccount.com",
+				gkeServiceAccountEmail:             "gke-sa@project-id.iam.gserviceaccount.com",
+				tieredStorageBucketName:            "redpanda-tiered-storage-bucket",
+				pscNatSubnetName:                   "psc-nat-subnet",
+			},
+		},
+		{
+			name: "valid GCP BYOC cluster with partial CMR",
+			cluster: &controlplanev1beta2.Cluster{
+				CloudProvider: mustCloudProvider("gcp"),
+				Type:          controlplanev1beta2.Cluster_TYPE_BYOC,
+				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{
+					CloudProvider: &controlplanev1beta2.CustomerManagedResources_Gcp{
+						Gcp: &controlplanev1beta2.CustomerManagedResources_GCP{
+							Subnet: &controlplanev1beta2.CustomerManagedResources_GCP_Subnet{
+								Name: "test-subnet",
+								SecondaryIpv4RangePods: &controlplanev1beta2.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range{
+									Name: "pods-range",
+								},
+								SecondaryIpv4RangeServices: &controlplanev1beta2.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range{
+									Name: "services-range",
+								},
+								K8SMasterIpv4Range: "10.0.0.0/28",
+							},
+							AgentServiceAccount: &controlplanev1beta2.GCPServiceAccount{
+								Email: "agent-sa@project-id.iam.gserviceaccount.com",
+							},
+							TieredStorageBucket: &controlplanev1beta2.CustomerManagedGoogleCloudStorageBucket{
+								Name: "redpanda-tiered-storage-bucket",
+							},
+						},
+					},
+				},
+			},
+			expectedGCP: &expectedGCP{
+				subnetName:                     "test-subnet",
+				secondaryIPv4RangePodsName:     "pods-range",
+				secondaryIPv4RangeServicesName: "services-range",
+				k8sMasterIPv4Range:             "10.0.0.0/28",
+				agentServiceAccountEmail:       "agent-sa@project-id.iam.gserviceaccount.com",
+				tieredStorageBucketName:        "redpanda-tiered-storage-bucket",
+			},
+		},
+		{
+			name: "GCP BYOC cluster with empty CMR",
+			cluster: &controlplanev1beta2.Cluster{
+				CloudProvider: mustCloudProvider("gcp"),
+				Type:          controlplanev1beta2.Cluster_TYPE_BYOC,
+				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{
+					CloudProvider: &controlplanev1beta2.CustomerManagedResources_Gcp{
+						Gcp: &controlplanev1beta2.CustomerManagedResources_GCP{},
+					},
+				},
+			},
+			expectNull:  false, // We expect an empty object, not null
+			expectedGCP: &expectedGCP{},
 		},
 	}
 
@@ -214,15 +306,17 @@ func TestGenerateModelCMR(t *testing.T) {
 				return
 			}
 
+			// Verify attributes based on cloud provider
+			assert.False(t, obj.IsNull())
+			assert.False(t, diagnostics.HasError())
+
+			attrs := obj.Attributes()
+
 			// Verify AWS attributes if expected
 			if tt.expectedAWS != nil {
-				assert.False(t, obj.IsNull())
-				assert.False(t, diagnostics.HasError())
-
-				attrs := obj.Attributes()
 				awsObj, ok := attrs["aws"].(types.Object)
-				assert.True(t, ok)
-				assert.False(t, awsObj.IsNull())
+				assert.True(t, ok, "aws should be an Object")
+				assert.False(t, awsObj.IsNull(), "aws should not be null")
 
 				awsAttrs := awsObj.Attributes()
 				verifyARN(t, awsAttrs, "agent_instance_profile", tt.expectedAWS.agentProfileARN)
@@ -239,8 +333,132 @@ func TestGenerateModelCMR(t *testing.T) {
 				verifyARN(t, awsAttrs, "cloud_storage_bucket", tt.expectedAWS.bucketARN)
 				verifyARN(t, awsAttrs, "permissions_boundary_policy", tt.expectedAWS.permissionsBoundaryARN)
 			}
+
+			// Verify GCP attributes if expected
+			if tt.expectedGCP != nil {
+				gcpObj, ok := attrs["gcp"].(types.Object)
+				assert.True(t, ok, "gcp should be an Object")
+				assert.False(t, gcpObj.IsNull(), "gcp should not be null")
+
+				gcpAttrs := gcpObj.Attributes()
+				verifyGCPAttributes(t, gcpAttrs, tt.expectedGCP)
+			}
 		})
 	}
+}
+
+func mustCloudProvider(s string) controlplanev1beta2.CloudProvider {
+	cp, _ := utils.StringToCloudProvider(s)
+	return cp
+}
+
+type expectedGCP struct {
+	subnetName                         string
+	secondaryIPv4RangePodsName         string
+	secondaryIPv4RangeServicesName     string
+	k8sMasterIPv4Range                 string
+	agentServiceAccountEmail           string
+	consoleServiceAccountEmail         string
+	connectorServiceAccountEmail       string
+	redpandaClusterServiceAccountEmail string
+	gkeServiceAccountEmail             string
+	tieredStorageBucketName            string
+	pscNatSubnetName                   string
+}
+
+// verifyGCPAttributes helper function checks if GCP CMR attributes match expected values
+func verifyGCPAttributes(t *testing.T, attrs map[string]attr.Value, expected *expectedGCP) {
+	// Skip verification if no expectations are provided
+	if expected == nil {
+		return
+	}
+
+	// Verify subnet attributes
+	subnetObj, ok := attrs["subnet"].(types.Object)
+	if expected.subnetName != "" {
+		assert.True(t, ok, "subnet should be an Object")
+		assert.False(t, subnetObj.IsNull(), "subnet should not be null")
+
+		subnetAttrs := subnetObj.Attributes()
+
+		// Verify subnet name
+		nameAttr, ok := subnetAttrs["name"].(types.String)
+		assert.True(t, ok, "subnet name should be a String")
+		assert.Equal(t, expected.subnetName, nameAttr.ValueString(), "subnet name should match")
+
+		// Verify secondary IPv4 range for pods
+		podsRangeObj, ok := subnetAttrs["secondary_ipv4_range_pods"].(types.Object)
+		if expected.secondaryIPv4RangePodsName != "" {
+			assert.True(t, ok, "pods range should be an Object")
+			assert.False(t, podsRangeObj.IsNull(), "pods range should not be null")
+
+			podsRangeAttrs := podsRangeObj.Attributes()
+			nameAttr, ok := podsRangeAttrs["name"].(types.String)
+			assert.True(t, ok, "pods range name should be a String")
+			assert.Equal(t, expected.secondaryIPv4RangePodsName, nameAttr.ValueString(), "pods range name should match")
+		}
+
+		// Verify secondary IPv4 range for services
+		servicesRangeObj, ok := subnetAttrs["secondary_ipv4_range_services"].(types.Object)
+		if expected.secondaryIPv4RangeServicesName != "" {
+			assert.True(t, ok, "services range should be an Object")
+			assert.False(t, servicesRangeObj.IsNull(), "services range should not be null")
+
+			servicesRangeAttrs := servicesRangeObj.Attributes()
+			nameAttr, ok := servicesRangeAttrs["name"].(types.String)
+			assert.True(t, ok, "services range name should be a String")
+			assert.Equal(t, expected.secondaryIPv4RangeServicesName, nameAttr.ValueString(), "services range name should match")
+		}
+
+		// Verify k8s master IPv4 range
+		if expected.k8sMasterIPv4Range != "" {
+			k8sMasterIPv4RangeAttr, ok := subnetAttrs["k8s_master_ipv4_range"].(types.String)
+			assert.True(t, ok, "k8s master IPv4 range should be a String")
+			assert.Equal(t, expected.k8sMasterIPv4Range, k8sMasterIPv4RangeAttr.ValueString(), "k8s master IPv4 range should match")
+		}
+	}
+
+	// Verify service account emails
+	verifyServiceAccount(t, attrs, "agent_service_account", expected.agentServiceAccountEmail)
+	verifyServiceAccount(t, attrs, "console_service_account", expected.consoleServiceAccountEmail)
+	verifyServiceAccount(t, attrs, "connector_service_account", expected.connectorServiceAccountEmail)
+	verifyServiceAccount(t, attrs, "redpanda_cluster_service_account", expected.redpandaClusterServiceAccountEmail)
+	verifyServiceAccount(t, attrs, "gke_service_account", expected.gkeServiceAccountEmail)
+
+	// Verify tiered storage bucket
+	if expected.tieredStorageBucketName != "" {
+		bucketObj, ok := attrs["tiered_storage_bucket"].(types.Object)
+		assert.True(t, ok, "tiered storage bucket should be an Object")
+		assert.False(t, bucketObj.IsNull(), "tiered storage bucket should not be null")
+
+		bucketAttrs := bucketObj.Attributes()
+		nameAttr, ok := bucketAttrs["name"].(types.String)
+		assert.True(t, ok, "bucket name should be a String")
+		assert.Equal(t, expected.tieredStorageBucketName, nameAttr.ValueString(), "bucket name should match")
+	}
+
+	// Verify PSC NAT subnet name
+	if expected.pscNatSubnetName != "" {
+		pscNatSubnetNameAttr, ok := attrs["psc_nat_subnet_name"].(types.String)
+		assert.True(t, ok, "PSC NAT subnet name should be a String")
+		assert.Equal(t, expected.pscNatSubnetName, pscNatSubnetNameAttr.ValueString(), "PSC NAT subnet name should match")
+	}
+}
+
+// Helper function to verify service account emails
+func verifyServiceAccount(t *testing.T, attrs map[string]attr.Value, key, expectedEmail string) {
+	if expectedEmail == "" {
+		return
+	}
+
+	serviceAccountObj, ok := attrs[key].(types.Object)
+	assert.True(t, ok, fmt.Sprintf("%s should be an Object", key))
+	assert.False(t, serviceAccountObj.IsNull(), fmt.Sprintf("%s should not be null", key))
+
+	serviceAccountAttrs := serviceAccountObj.Attributes()
+	emailAttr, ok := serviceAccountAttrs["email"].(types.String)
+	assert.True(t, ok, fmt.Sprintf("%s email should be a String", key))
+	assert.Equal(t, expectedEmail, emailAttr.ValueString(), fmt.Sprintf("%s email should match", key))
 }
 
 // verifyARN helper function checks if the ARN matches expected value or is null if no value expected
