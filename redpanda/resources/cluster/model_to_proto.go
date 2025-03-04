@@ -2,8 +2,10 @@ package cluster
 
 import (
 	"context"
+	"fmt"
 
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -385,9 +387,45 @@ func getMtlsSpec(ctx context.Context, mtls types.Object, diags diag.Diagnostics)
 	}, diags
 }
 
-func generateClusterCMRUpdate(_ context.Context, _ models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.CustomerManagedResourcesUpdate, diag.Diagnostics) {
-	// TODO implement for GCP BYOVPC
-	return nil, diags
+func generateClusterCMRUpdate(ctx context.Context, cluster models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.CustomerManagedResourcesUpdate, diag.Diagnostics) {
+	// Early returns if not applicable
+	if cluster.CustomerManagedResources.IsNull() {
+		return nil, diags
+	}
+
+	// Only supports GCP in the API so no point going past here if not gcp
+	if cluster.CloudProvider.ValueString() != utils.CloudProviderStringGcp {
+		return nil, diags
+	}
+
+	// Get the CMR object
+	var cmrObj types.Object
+	if d := cluster.CustomerManagedResources.As(ctx, &cmrObj, basetypes.ObjectAsOptions{
+		UnhandledNullAsEmpty:    true,
+		UnhandledUnknownAsEmpty: true,
+	}); d.HasError() {
+		return nil, d
+	}
+
+	// Get the GCP object from CustomerManagedResources
+	gcp, d := getObjectFromAttributes(ctx, "gcp", gcpType, cmrObj.Attributes(), diags)
+	if d.HasError() {
+		if !utils.IsNotFoundSpec(d) {
+			return nil, d
+		}
+	}
+
+	gcpUpdate := &controlplanev1beta2.CustomerManagedResourcesUpdate_GCP{}
+	if pscNatSubnetName, ok := gcp.Attributes()["psc_nat_subnet_name"].(types.String); ok && !pscNatSubnetName.IsNull() {
+		gcpUpdate.PscNatSubnetName = pscNatSubnetName.ValueString()
+	}
+
+	// Create and return the update object
+	return &controlplanev1beta2.CustomerManagedResourcesUpdate{
+		CloudProvider: &controlplanev1beta2.CustomerManagedResourcesUpdate_Gcp{
+			Gcp: gcpUpdate,
+		},
+	}, diags
 }
 
 func getAzurePrivateLinkSpec(_ context.Context, azure types.Object, diags diag.Diagnostics) (*controlplanev1beta2.AzurePrivateLinkSpec, diag.Diagnostics) {
@@ -520,138 +558,294 @@ func generateClusterCMR(ctx context.Context, model models.Cluster, diags diag.Di
 		return nil, nil
 	}
 
-	// If CustomerManagedResources is not null, process it
 	switch model.CloudProvider.ValueString() {
 	case "aws":
-		awsRet := &controlplanev1beta2.CustomerManagedResources_AWS{
-			AgentInstanceProfile:               &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{},
-			ConnectorsNodeGroupInstanceProfile: &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{},
-			UtilityNodeGroupInstanceProfile:    &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{},
-			RedpandaNodeGroupInstanceProfile:   &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{},
-			K8SClusterRole:                     &controlplanev1beta2.CustomerManagedResources_AWS_Role{},
-			RedpandaAgentSecurityGroup:         &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
-			ConnectorsSecurityGroup:            &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
-			RedpandaNodeGroupSecurityGroup:     &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
-			UtilitySecurityGroup:               &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
-			ClusterSecurityGroup:               &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
-			NodeSecurityGroup:                  &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
-			CloudStorageBucket:                 &controlplanev1beta2.CustomerManagedAWSCloudStorageBucket{},
-			PermissionsBoundaryPolicy:          &controlplanev1beta2.CustomerManagedResources_AWS_Policy{},
-		}
-
-		// Get the AWS object from CustomerManagedResources
-		var cmrObj types.Object
-		if d := model.CustomerManagedResources.As(ctx, &cmrObj, basetypes.ObjectAsOptions{
-			UnhandledNullAsEmpty:    true,
-			UnhandledUnknownAsEmpty: true,
-		}); d.HasError() {
-			return nil, d
-		}
-
-		aws, d := getObjectFromAttributes(ctx, "aws", awsType, cmrObj.Attributes(), diags)
-		if d.HasError() {
-			if !utils.IsNotFoundSpec(d) {
-				return nil, d
-			}
-		}
-
-		// Agent instance profile
-		agentProfileArn, d := getStringFromAttributes("agent_instance_profile", aws.Attributes(), diags)
+		aws, d := generateClusterCMRAWS(ctx, model, diags)
 		if d.HasError() {
 			return nil, d
 		}
-		awsRet.AgentInstanceProfile.Arn = agentProfileArn
-
-		// Connectors node group instance profile
-		connectorsProfileArn, d := getStringFromAttributes("connectors_node_group_instance_profile", aws.Attributes(), diags)
-		if d.HasError() {
-			return nil, d
-		}
-		awsRet.ConnectorsNodeGroupInstanceProfile.Arn = connectorsProfileArn
-
-		// Utility node group instance profile
-		utilityProfileArn, d := getStringFromAttributes("utility_node_group_instance_profile", aws.Attributes(), diags)
-		if d.HasError() {
-			return nil, d
-		}
-		awsRet.UtilityNodeGroupInstanceProfile.Arn = utilityProfileArn
-
-		// Redpanda node group instance profile
-		redpandaProfileArn, d := getStringFromAttributes("redpanda_node_group_instance_profile", aws.Attributes(), diags)
-		if d.HasError() {
-			return nil, d
-		}
-		awsRet.RedpandaNodeGroupInstanceProfile.Arn = redpandaProfileArn
-
-		// K8s cluster role
-		k8sRoleArn, d := getStringFromAttributes("k8s_cluster_role", aws.Attributes(), diags)
-		if d.HasError() {
-			return nil, d
-		}
-		awsRet.K8SClusterRole.Arn = k8sRoleArn
-
-		policyArn, d := getStringFromAttributes("permissions_boundary_policy", aws.Attributes(), diags)
-		if d.HasError() {
-			return nil, d
-		}
-		awsRet.PermissionsBoundaryPolicy.Arn = policyArn
-
-		// Security groups
-		agentSecurityGroupArn, d := getStringFromAttributes("redpanda_agent_security_group", aws.Attributes(), diags)
-		if d.HasError() {
-			return nil, d
-		}
-		awsRet.RedpandaAgentSecurityGroup.Arn = agentSecurityGroupArn
-
-		connectorsSecurityGroupArn, d := getStringFromAttributes("connectors_security_group", aws.Attributes(), diags)
-		if d.HasError() {
-			return nil, d
-		}
-		awsRet.ConnectorsSecurityGroup.Arn = connectorsSecurityGroupArn
-
-		redpandaNodeGroupSecurityGroupArn, d := getStringFromAttributes("redpanda_node_group_security_group", aws.Attributes(), diags)
-		if d.HasError() {
-			return nil, d
-		}
-		awsRet.RedpandaNodeGroupSecurityGroup.Arn = redpandaNodeGroupSecurityGroupArn
-
-		utilitySecurityGroupArn, d := getStringFromAttributes("utility_security_group", aws.Attributes(), diags)
-		if d.HasError() {
-			return nil, d
-		}
-		awsRet.UtilitySecurityGroup.Arn = utilitySecurityGroupArn
-
-		clusterSecurityGroupArn, d := getStringFromAttributes("cluster_security_group", aws.Attributes(), diags)
-		if d.HasError() {
-			return nil, d
-		}
-		awsRet.ClusterSecurityGroup.Arn = clusterSecurityGroupArn
-
-		nodeSecurityGroupArn, d := getStringFromAttributes("node_security_group", aws.Attributes(), diags)
-		if d.HasError() {
-			return nil, d
-		}
-		awsRet.NodeSecurityGroup.Arn = nodeSecurityGroupArn
-
-		// Cloud storage bucket
-		bucketArn, d := getStringFromAttributes("cloud_storage_bucket", aws.Attributes(), diags)
-		if d.HasError() {
-			return nil, d
-		}
-		awsRet.CloudStorageBucket.Arn = bucketArn
-
-		cmr.CloudProvider = &controlplanev1beta2.CustomerManagedResources_Aws{
-			Aws: awsRet,
-		}
-		return cmr, nil
+		cmr.SetAws(aws)
+		return cmr, diags
 	case "gcp":
-		// TODO: Implement GCP support
-		diags.AddError("GCP BYOVPC is not yet supported", "GCP BYOVPC is not yet supported")
-		return nil, diags
+		gcp, d := generateClusterCMRGCP(ctx, model, diags)
+		if d.HasError() {
+			return nil, d
+		}
+		cmr.SetGcp(gcp)
+		return cmr, diags
 	case "azure":
 		diags.AddError("Azure BYOVPC is not supported", "Azure BYOVPC is not supported")
 		return nil, diags
 	default:
 		return nil, nil
 	}
+}
+
+func generateClusterCMRGCP(ctx context.Context, model models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.CustomerManagedResources_GCP, diag.Diagnostics) {
+	gcpRet := &controlplanev1beta2.CustomerManagedResources_GCP{
+		Subnet:                        &controlplanev1beta2.CustomerManagedResources_GCP_Subnet{},
+		AgentServiceAccount:           &controlplanev1beta2.GCPServiceAccount{},
+		ConsoleServiceAccount:         &controlplanev1beta2.GCPServiceAccount{},
+		ConnectorServiceAccount:       &controlplanev1beta2.GCPServiceAccount{},
+		RedpandaClusterServiceAccount: &controlplanev1beta2.GCPServiceAccount{},
+		GkeServiceAccount:             &controlplanev1beta2.GCPServiceAccount{},
+		TieredStorageBucket:           &controlplanev1beta2.CustomerManagedGoogleCloudStorageBucket{},
+	}
+
+	// Get the GCP object from CustomerManagedResources
+	var cmrObj types.Object
+	if d := model.CustomerManagedResources.As(ctx, &cmrObj, basetypes.ObjectAsOptions{
+		UnhandledNullAsEmpty:    true,
+		UnhandledUnknownAsEmpty: true,
+	}); d.HasError() {
+		return nil, d
+	}
+
+	gcp, d := getObjectFromAttributes(ctx, "gcp", gcpType, cmrObj.Attributes(), diags)
+	if d.HasError() {
+		if !utils.IsNotFoundSpec(d) {
+			return nil, d
+		}
+	}
+
+	// Get subnet configuration
+	subnet, d := getObjectFromAttributes(ctx, "subnet", gcpSubnetType, gcp.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+
+	// Subnet name
+	subnetName, d := getStringValue("name", subnet.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	gcpRet.Subnet.Name = subnetName
+
+	// Secondary IPv4 range for pods
+	podsRange, d := getObjectFromAttributes(ctx, "secondary_ipv4_range_pods", gcpSecondaryIPv4RangeType, subnet.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	podsRangeName, d := getStringValue("name", podsRange.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	gcpRet.Subnet.SecondaryIpv4RangePods = &controlplanev1beta2.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range{
+		Name: podsRangeName,
+	}
+
+	// Secondary IPv4 range for services
+	servicesRange, d := getObjectFromAttributes(ctx, "secondary_ipv4_range_services", gcpSecondaryIPv4RangeType, subnet.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	servicesRangeName, d := getStringValue("name", servicesRange.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	gcpRet.Subnet.SecondaryIpv4RangeServices = &controlplanev1beta2.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range{
+		Name: servicesRangeName,
+	}
+
+	// K8s master IPv4 range
+	k8sMasterRange, d := getStringValue("k8s_master_ipv4_range", subnet.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	gcpRet.Subnet.K8SMasterIpv4Range = k8sMasterRange
+
+	// Service accounts
+	agentEmail, d := getServiceAccountEmail(ctx, "agent_service_account", gcp.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	gcpRet.AgentServiceAccount.Email = agentEmail
+
+	consoleEmail, d := getServiceAccountEmail(ctx, "console_service_account", gcp.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	gcpRet.ConsoleServiceAccount.Email = consoleEmail
+
+	connectorEmail, d := getServiceAccountEmail(ctx, "connector_service_account", gcp.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	gcpRet.ConnectorServiceAccount.Email = connectorEmail
+
+	clusterEmail, d := getServiceAccountEmail(ctx, "redpanda_cluster_service_account", gcp.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	gcpRet.RedpandaClusterServiceAccount.Email = clusterEmail
+
+	gkeEmail, d := getServiceAccountEmail(ctx, "gke_service_account", gcp.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	gcpRet.GkeServiceAccount.Email = gkeEmail
+
+	// Tiered storage bucket
+	bucketObj, d := getObjectFromAttributes(ctx, "tiered_storage_bucket", gcpBucketType, gcp.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	bucketName, d := getStringValue("name", bucketObj.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	gcpRet.TieredStorageBucket.Name = bucketName
+
+	// Optional: PSC NAT subnet name
+	if pscSubnetName, ok := gcp.Attributes()["psc_nat_subnet_name"].(types.String); ok && !pscSubnetName.IsNull() {
+		gcpRet.PscNatSubnetName = pscSubnetName.ValueString()
+	}
+
+	return gcpRet, nil
+}
+
+// Helper to get service account email from nested object
+func getServiceAccountEmail(ctx context.Context, key string, attributes map[string]attr.Value, diags diag.Diagnostics) (string, diag.Diagnostics) {
+	serviceAccount, d := getObjectFromAttributes(ctx, key, gcpServiceAccountType, attributes, diags)
+	if d.HasError() {
+		return "", d
+	}
+
+	email, d := getStringValue("email", serviceAccount.Attributes(), diags)
+	if d.HasError() {
+		return "", d
+	}
+
+	return email, diags
+}
+
+// Helper to get string value directly
+func getStringValue(key string, attributes map[string]attr.Value, diags diag.Diagnostics) (string, diag.Diagnostics) {
+	if val, ok := attributes[key].(types.String); ok {
+		return val.ValueString(), diags
+	}
+
+	diags.AddError(fmt.Sprintf("%s not found", key), "string value is missing or malformed")
+	return "", diags
+}
+
+func generateClusterCMRAWS(ctx context.Context, model models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.CustomerManagedResources_AWS, diag.Diagnostics) {
+	awsRet := &controlplanev1beta2.CustomerManagedResources_AWS{
+		AgentInstanceProfile:               &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{},
+		ConnectorsNodeGroupInstanceProfile: &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{},
+		UtilityNodeGroupInstanceProfile:    &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{},
+		RedpandaNodeGroupInstanceProfile:   &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{},
+		K8SClusterRole:                     &controlplanev1beta2.CustomerManagedResources_AWS_Role{},
+		RedpandaAgentSecurityGroup:         &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
+		ConnectorsSecurityGroup:            &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
+		RedpandaNodeGroupSecurityGroup:     &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
+		UtilitySecurityGroup:               &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
+		ClusterSecurityGroup:               &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
+		NodeSecurityGroup:                  &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
+		CloudStorageBucket:                 &controlplanev1beta2.CustomerManagedAWSCloudStorageBucket{},
+		PermissionsBoundaryPolicy:          &controlplanev1beta2.CustomerManagedResources_AWS_Policy{},
+	}
+
+	// Get the AWS object from CustomerManagedResources
+	var cmrObj types.Object
+	if d := model.CustomerManagedResources.As(ctx, &cmrObj, basetypes.ObjectAsOptions{
+		UnhandledNullAsEmpty:    true,
+		UnhandledUnknownAsEmpty: true,
+	}); d.HasError() {
+		return nil, d
+	}
+
+	aws, d := getObjectFromAttributes(ctx, "aws", awsType, cmrObj.Attributes(), diags)
+	if d.HasError() {
+		if !utils.IsNotFoundSpec(d) {
+			return nil, d
+		}
+	}
+
+	// Agent instance profile
+	agentProfileArn, d := getStringFromAttributes("agent_instance_profile", aws.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	awsRet.AgentInstanceProfile.Arn = agentProfileArn
+
+	// Connectors node group instance profile
+	connectorsProfileArn, d := getStringFromAttributes("connectors_node_group_instance_profile", aws.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	awsRet.ConnectorsNodeGroupInstanceProfile.Arn = connectorsProfileArn
+
+	// Utility node group instance profile
+	utilityProfileArn, d := getStringFromAttributes("utility_node_group_instance_profile", aws.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	awsRet.UtilityNodeGroupInstanceProfile.Arn = utilityProfileArn
+
+	// Redpanda node group instance profile
+	redpandaProfileArn, d := getStringFromAttributes("redpanda_node_group_instance_profile", aws.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	awsRet.RedpandaNodeGroupInstanceProfile.Arn = redpandaProfileArn
+
+	// K8s cluster role
+	k8sRoleArn, d := getStringFromAttributes("k8s_cluster_role", aws.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	awsRet.K8SClusterRole.Arn = k8sRoleArn
+
+	policyArn, d := getStringFromAttributes("permissions_boundary_policy", aws.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	awsRet.PermissionsBoundaryPolicy.Arn = policyArn
+
+	// Security groups
+	agentSecurityGroupArn, d := getStringFromAttributes("redpanda_agent_security_group", aws.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	awsRet.RedpandaAgentSecurityGroup.Arn = agentSecurityGroupArn
+
+	connectorsSecurityGroupArn, d := getStringFromAttributes("connectors_security_group", aws.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	awsRet.ConnectorsSecurityGroup.Arn = connectorsSecurityGroupArn
+
+	redpandaNodeGroupSecurityGroupArn, d := getStringFromAttributes("redpanda_node_group_security_group", aws.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	awsRet.RedpandaNodeGroupSecurityGroup.Arn = redpandaNodeGroupSecurityGroupArn
+
+	utilitySecurityGroupArn, d := getStringFromAttributes("utility_security_group", aws.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	awsRet.UtilitySecurityGroup.Arn = utilitySecurityGroupArn
+
+	clusterSecurityGroupArn, d := getStringFromAttributes("cluster_security_group", aws.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	awsRet.ClusterSecurityGroup.Arn = clusterSecurityGroupArn
+
+	nodeSecurityGroupArn, d := getStringFromAttributes("node_security_group", aws.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	awsRet.NodeSecurityGroup.Arn = nodeSecurityGroupArn
+
+	// Cloud storage bucket
+	bucketArn, d := getStringFromAttributes("cloud_storage_bucket", aws.Attributes(), diags)
+	if d.HasError() {
+		return nil, d
+	}
+	awsRet.CloudStorageBucket.Arn = bucketArn
+
+	return awsRet, nil
 }

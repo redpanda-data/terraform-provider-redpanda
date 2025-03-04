@@ -9,6 +9,9 @@ var cmrType = map[string]attr.Type{
 	"aws": types.ObjectType{
 		AttrTypes: awsType,
 	},
+	"gcp": types.ObjectType{
+		AttrTypes: gcpType,
+	},
 }
 
 var awsType = map[string]attr.Type{
@@ -262,4 +265,69 @@ var connectivityType = map[string]attr.Type{
 var stateDescriptionType = map[string]attr.Type{
 	"message": types.StringType,
 	"code":    types.Int32Type,
+}
+
+// GCP customer managed resources type definitions
+var gcpType = map[string]attr.Type{
+	"subnet": types.ObjectType{
+		AttrTypes: gcpSubnetType,
+	},
+	"agent_service_account": types.ObjectType{
+		AttrTypes: gcpServiceAccountType,
+	},
+	"console_service_account": types.ObjectType{
+		AttrTypes: gcpServiceAccountType,
+	},
+	"connector_service_account": types.ObjectType{
+		AttrTypes: gcpServiceAccountType,
+	},
+	"redpanda_cluster_service_account": types.ObjectType{
+		AttrTypes: gcpServiceAccountType,
+	},
+	"gke_service_account": types.ObjectType{
+		AttrTypes: gcpServiceAccountType,
+	},
+	"tiered_storage_bucket": types.ObjectType{
+		AttrTypes: gcpBucketType,
+	},
+	"psc_nat_subnet_name": types.StringType,
+}
+
+// Subnet definition
+var gcpSubnetType = map[string]attr.Type{
+	"name": types.StringType,
+	"secondary_ipv4_range_pods": types.ObjectType{
+		AttrTypes: gcpSecondaryIPv4RangeType,
+	},
+	"secondary_ipv4_range_services": types.ObjectType{
+		AttrTypes: gcpSecondaryIPv4RangeType,
+	},
+	"k8s_master_ipv4_range": types.StringType,
+}
+
+// Secondary IPv4 range definition
+var gcpSecondaryIPv4RangeType = map[string]attr.Type{
+	"name": types.StringType,
+}
+
+// Service account definition
+var gcpServiceAccountType = map[string]attr.Type{
+	"email": types.StringType,
+}
+
+// Storage bucket definition
+var gcpBucketType = map[string]attr.Type{
+	"name": types.StringType,
+}
+
+// Define null values for GCP fields
+var gcpValueDefaults = map[string]attr.Value{
+	"subnet":                           types.ObjectNull(gcpSubnetType),
+	"agent_service_account":            types.ObjectNull(gcpServiceAccountType),
+	"console_service_account":          types.ObjectNull(gcpServiceAccountType),
+	"connector_service_account":        types.ObjectNull(gcpServiceAccountType),
+	"redpanda_cluster_service_account": types.ObjectNull(gcpServiceAccountType),
+	"gke_service_account":              types.ObjectNull(gcpServiceAccountType),
+	"tiered_storage_bucket":            types.ObjectNull(gcpBucketType),
+	"psc_nat_subnet_name":              types.StringNull(),
 }
