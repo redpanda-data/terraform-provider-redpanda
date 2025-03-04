@@ -32,10 +32,11 @@ type CpClientSet interface {
 	ResourceGroupForName(ctx context.Context, name string) (*controlplanev1beta2.ResourceGroup, error)
 	NetworkForID(ctx context.Context, id string) (*controlplanev1beta2.Network, error)
 	NetworkForName(ctx context.Context, name string) (*controlplanev1beta2.Network, error)
-	ClusterForID(ctx context.Context, id string) (*controlplanev1beta2.Cluster, error)
 	ClusterForName(ctx context.Context, name string) (*controlplanev1beta2.Cluster, error)
 	ServerlessClusterForID(ctx context.Context, id string) (*controlplanev1beta2.ServerlessCluster, error)
 	ServerlessClusterForName(ctx context.Context, name string) (*controlplanev1beta2.ServerlessCluster, error)
+	GetCluster(ctx context.Context, in *controlplanev1beta2.GetClusterRequest, opts ...grpc.CallOption) (*controlplanev1beta2.GetClusterResponse, error)
+	ClusterForID(ctx context.Context, id string) (*controlplanev1beta2.Cluster, error)
 }
 
 // ControlPlaneClientSet holds the respective service clients to interact with
@@ -67,8 +68,8 @@ func NewControlPlaneClientSet(conn *grpc.ClientConn) *ControlPlaneClientSet {
 }
 
 // CreateResourceGroup creates the resource group with the given name
-func (cpCl *ControlPlaneClientSet) CreateResourceGroup(ctx context.Context, name string) (*controlplanev1beta2.ResourceGroup, error) {
-	rgResp, err := cpCl.ResourceGroup.CreateResourceGroup(ctx, &controlplanev1beta2.CreateResourceGroupRequest{
+func (c *ControlPlaneClientSet) CreateResourceGroup(ctx context.Context, name string) (*controlplanev1beta2.ResourceGroup, error) {
+	rgResp, err := c.ResourceGroup.CreateResourceGroup(ctx, &controlplanev1beta2.CreateResourceGroupRequest{
 		ResourceGroup: &controlplanev1beta2.ResourceGroupCreate{
 			Name: name,
 		},
@@ -84,8 +85,8 @@ func (cpCl *ControlPlaneClientSet) CreateResourceGroup(ctx context.Context, name
 
 // ResourceGroupForID gets the resource group for a given ID and handles the
 // error if the returned resource group is nil.
-func (cpCl *ControlPlaneClientSet) ResourceGroupForID(ctx context.Context, id string) (*controlplanev1beta2.ResourceGroup, error) {
-	rg, err := cpCl.ResourceGroup.GetResourceGroup(ctx, &controlplanev1beta2.GetResourceGroupRequest{
+func (c *ControlPlaneClientSet) ResourceGroupForID(ctx context.Context, id string) (*controlplanev1beta2.ResourceGroup, error) {
+	rg, err := c.ResourceGroup.GetResourceGroup(ctx, &controlplanev1beta2.GetResourceGroupRequest{
 		Id: id,
 	})
 	if err != nil {
@@ -101,8 +102,8 @@ func (cpCl *ControlPlaneClientSet) ResourceGroupForID(ctx context.Context, id st
 
 // ResourceGroupForName lists all resource group with a name filter, returns
 // the resource group for the given name.
-func (cpCl *ControlPlaneClientSet) ResourceGroupForName(ctx context.Context, name string) (*controlplanev1beta2.ResourceGroup, error) {
-	listResp, err := cpCl.ResourceGroup.ListResourceGroups(ctx, &controlplanev1beta2.ListResourceGroupsRequest{
+func (c *ControlPlaneClientSet) ResourceGroupForName(ctx context.Context, name string) (*controlplanev1beta2.ResourceGroup, error) {
+	listResp, err := c.ResourceGroup.ListResourceGroups(ctx, &controlplanev1beta2.ListResourceGroupsRequest{
 		Filter: &controlplanev1beta2.ListResourceGroupsRequest_Filter{
 			Name: name,
 		},
@@ -123,9 +124,9 @@ func (cpCl *ControlPlaneClientSet) ResourceGroupForName(ctx context.Context, nam
 
 // ResourceGroupForIDOrName gets the resource group for a given ID and/or name, or neither,
 // and handles the error if the returned resource group is nil.
-func (cpCl *ControlPlaneClientSet) ResourceGroupForIDOrName(ctx context.Context, id, name string) (*controlplanev1beta2.ResourceGroup, error) {
+func (c *ControlPlaneClientSet) ResourceGroupForIDOrName(ctx context.Context, id, name string) (*controlplanev1beta2.ResourceGroup, error) {
 	if id != "" {
-		rg, err := cpCl.ResourceGroupForID(ctx, id)
+		rg, err := c.ResourceGroupForID(ctx, id)
 		if err != nil {
 			return nil, err
 		}
@@ -136,11 +137,11 @@ func (cpCl *ControlPlaneClientSet) ResourceGroupForIDOrName(ctx context.Context,
 	}
 
 	if name != "" {
-		return cpCl.ResourceGroupForName(ctx, name)
+		return c.ResourceGroupForName(ctx, name)
 	}
 
 	request := &controlplanev1beta2.ListResourceGroupsRequest{}
-	listResp, err := cpCl.ResourceGroup.ListResourceGroups(ctx, request)
+	listResp, err := c.ResourceGroup.ListResourceGroups(ctx, request)
 	if listResp.ResourceGroups == nil {
 		err = fmt.Errorf("provider response was empty. Please report this issue to the provider developers")
 	}
@@ -157,8 +158,8 @@ func (cpCl *ControlPlaneClientSet) ResourceGroupForIDOrName(ctx context.Context,
 
 // NetworkForID gets the Network for a given ID and handles the error if the
 // returned network is nil.
-func (cpCl *ControlPlaneClientSet) NetworkForID(ctx context.Context, id string) (*controlplanev1beta2.Network, error) {
-	c, err := cpCl.Network.GetNetwork(ctx, &controlplanev1beta2.GetNetworkRequest{
+func (c *ControlPlaneClientSet) NetworkForID(ctx context.Context, id string) (*controlplanev1beta2.Network, error) {
+	gnr, err := c.Network.GetNetwork(ctx, &controlplanev1beta2.GetNetworkRequest{
 		Id: id,
 	})
 	if err != nil {
@@ -167,13 +168,13 @@ func (cpCl *ControlPlaneClientSet) NetworkForID(ctx context.Context, id string) 
 	if c.Network == nil {
 		return nil, fmt.Errorf("unable to find network %q; please report this bug to Redpanda Support", id)
 	}
-	return c.Network, nil
+	return gnr.Network, nil
 }
 
 // NetworkForName lists all networks with a name filter, returns the network for
 // the given name.
-func (cpCl *ControlPlaneClientSet) NetworkForName(ctx context.Context, name string) (*controlplanev1beta2.Network, error) {
-	ns, err := cpCl.Network.ListNetworks(ctx, &controlplanev1beta2.ListNetworksRequest{
+func (c *ControlPlaneClientSet) NetworkForName(ctx context.Context, name string) (*controlplanev1beta2.Network, error) {
+	ns, err := c.Network.ListNetworks(ctx, &controlplanev1beta2.ListNetworksRequest{
 		Filter: &controlplanev1beta2.ListNetworksRequest_Filter{Name: name},
 	})
 	if err != nil {
@@ -189,8 +190,8 @@ func (cpCl *ControlPlaneClientSet) NetworkForName(ctx context.Context, name stri
 
 // ClusterForID gets the Cluster for a given ID and handles the error if the
 // returned cluster is nil.
-func (cpCl *ControlPlaneClientSet) ClusterForID(ctx context.Context, id string) (*controlplanev1beta2.Cluster, error) {
-	c, err := cpCl.Cluster.GetCluster(ctx, &controlplanev1beta2.GetClusterRequest{
+func (c *ControlPlaneClientSet) ClusterForID(ctx context.Context, id string) (*controlplanev1beta2.Cluster, error) {
+	cl, err := c.Cluster.GetCluster(ctx, &controlplanev1beta2.GetClusterRequest{
 		Id: id,
 	})
 	if err != nil {
@@ -199,13 +200,13 @@ func (cpCl *ControlPlaneClientSet) ClusterForID(ctx context.Context, id string) 
 	if c.Cluster == nil {
 		return nil, fmt.Errorf("unable to find cluster %q; please report this bug to Redpanda Support", id)
 	}
-	return c.Cluster, nil
+	return cl.Cluster, nil
 }
 
 // ClusterForName lists all clusters with a name filter, returns the cluster for
 // the given name.
-func (cpCl *ControlPlaneClientSet) ClusterForName(ctx context.Context, name string) (*controlplanev1beta2.Cluster, error) {
-	clusters, err := cpCl.Cluster.ListClusters(ctx, &controlplanev1beta2.ListClustersRequest{
+func (c *ControlPlaneClientSet) ClusterForName(ctx context.Context, name string) (*controlplanev1beta2.Cluster, error) {
+	clusters, err := c.Cluster.ListClusters(ctx, &controlplanev1beta2.ListClustersRequest{
 		Filter: &controlplanev1beta2.ListClustersRequest_Filter{Name: name},
 	})
 	if err != nil {
@@ -221,8 +222,8 @@ func (cpCl *ControlPlaneClientSet) ClusterForName(ctx context.Context, name stri
 
 // ServerlessClusterForID gets the ServerlessCluster for a given ID and handles the error if the
 // returned serverless cluster is nil.
-func (cpCl *ControlPlaneClientSet) ServerlessClusterForID(ctx context.Context, id string) (*controlplanev1beta2.ServerlessCluster, error) {
-	c, err := cpCl.ServerlessCluster.GetServerlessCluster(ctx, &controlplanev1beta2.GetServerlessClusterRequest{
+func (c *ControlPlaneClientSet) ServerlessClusterForID(ctx context.Context, id string) (*controlplanev1beta2.ServerlessCluster, error) {
+	cl, err := c.ServerlessCluster.GetServerlessCluster(ctx, &controlplanev1beta2.GetServerlessClusterRequest{
 		Id: id,
 	})
 	if err != nil {
@@ -231,13 +232,13 @@ func (cpCl *ControlPlaneClientSet) ServerlessClusterForID(ctx context.Context, i
 	if c.ServerlessCluster == nil {
 		return nil, fmt.Errorf("unable to find serverless cluster %q; please report this bug to Redpanda Support", id)
 	}
-	return c.ServerlessCluster, nil
+	return cl.ServerlessCluster, nil
 }
 
 // ServerlessClusterForName lists all serverless clusters with a name filter, returns the serverless cluster for
 // the given name.
-func (cpCl *ControlPlaneClientSet) ServerlessClusterForName(ctx context.Context, name string) (*controlplanev1beta2.ServerlessCluster, error) {
-	serverlessClusters, err := cpCl.ServerlessCluster.ListServerlessClusters(ctx, &controlplanev1beta2.ListServerlessClustersRequest{
+func (c *ControlPlaneClientSet) ServerlessClusterForName(ctx context.Context, name string) (*controlplanev1beta2.ServerlessCluster, error) {
+	serverlessClusters, err := c.ServerlessCluster.ListServerlessClusters(ctx, &controlplanev1beta2.ListServerlessClustersRequest{
 		Filter: &controlplanev1beta2.ListServerlessClustersRequest_Filter{NameContains: name},
 	})
 	if err != nil {
@@ -249,4 +250,9 @@ func (cpCl *ControlPlaneClientSet) ServerlessClusterForName(ctx context.Context,
 		}
 	}
 	return nil, fmt.Errorf("serverless cluster not found")
+}
+
+// GetCluster gets the cluster for a given request (primarily added to satisfy interface for mocks
+func (c *ControlPlaneClientSet) GetCluster(ctx context.Context, in *controlplanev1beta2.GetClusterRequest, opts ...grpc.CallOption) (*controlplanev1beta2.GetClusterResponse, error) {
+	return c.Cluster.GetCluster(ctx, in, opts...)
 }

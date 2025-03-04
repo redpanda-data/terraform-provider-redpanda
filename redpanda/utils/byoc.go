@@ -108,9 +108,11 @@ func (cl *ByocClient) generateByocArgs(cluster cloudapi.Cluster, verb string) ([
 		"--cloud-api-token", cl.authToken,
 		"--redpanda-id", cluster.ID, "--debug",
 	}
+
 	switch cloudProvider {
 	case CloudProviderStringAws:
-		// pass
+		// TODO: clean this up after patch from cloud, not a good lasting solution
+		byocArgs = append(byocArgs, "--no-validate")
 	case CloudProviderStringAzure:
 		if cl.azureSubscriptionID == "" {
 			return nil, fmt.Errorf("value must be set for Azure Subscription ID")
@@ -174,8 +176,6 @@ func (cl *ByocClient) getByocExecutable(ctx context.Context, cluster cloudapi.Cl
 }
 
 func runSubprocess(ctx context.Context, cloudURL, gcreds, gcreds64, executable string, args ...string) error {
-	// TODO: pass TF_LOG=JSON and parse message out?
-
 	tempDir, err := os.MkdirTemp("", "terraform-provider-redpanda-byoc")
 	if err != nil {
 		return err
@@ -197,6 +197,8 @@ func runSubprocess(ctx context.Context, cloudURL, gcreds, gcreds64, executable s
 		}
 	}
 	cmd.Env = append(cmd.Env, fmt.Sprintf("CLOUD_URL=%s/api/v1", cloudURL))
+
+	// Handle credentials file creation
 	if gcreds != "" {
 		if err := os.WriteFile(path.Join(tempDir, "creds.json"), []byte(gcreds), 0o600); err != nil {
 			return err
@@ -213,34 +215,40 @@ func runSubprocess(ctx context.Context, cloudURL, gcreds, gcreds64, executable s
 		}
 		cmd.Env = append(cmd.Env, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", path.Join(tempDir, "creds.json")))
 	}
+
 	lastLogs := &lastLogs{}
 
+	// Set up stdout pipe
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
 	}
 	go forwardLogs(ctx, stdout, lastLogs)
 
+	// Set up stderr pipe
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return err
 	}
 	go forwardLogs(ctx, stderr, lastLogs)
 
-	err = cmd.Start()
-	if err != nil {
+	// Start the command
+	if err := cmd.Start(); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 		return err
 	}
-	err = cmd.Wait()
-	if err != nil {
+
+	// Wait for completion
+	if err := cmd.Wait(); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		return fmt.Errorf("%w:\n%v", err, strings.Join(lastLogs.Lines, "\n"))
+		// Use the thread-safe method to get logs
+		return fmt.Errorf("%w:\n%v", err, strings.Join(lastLogs.GetLines(), "\n"))
 	}
+
 	return nil
 }
 
@@ -283,14 +291,22 @@ func (l *lastLogs) Append(line string) {
 	// to print the usage help
 	// TODO: capture stderr lines like "Error: " or "failed " and then surface them when
 	// the command fails instead of the whole log?
-	const n = 30
+	const maxLines = 60
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
-	if len(l.Lines) == n {
-		l.Lines = append(l.Lines[1:n], line)
+	if len(l.Lines) == maxLines {
+		l.Lines = append(l.Lines[1:maxLines], line)
 	} else {
 		l.Lines = append(l.Lines, line)
 	}
+}
+
+func (l *lastLogs) GetLines() []string {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	lines := make([]string, len(l.Lines))
+	copy(lines, l.Lines)
+	return lines
 }
 
 func forwardLogs(ctx context.Context, reader io.Reader, lastLogs *lastLogs) {

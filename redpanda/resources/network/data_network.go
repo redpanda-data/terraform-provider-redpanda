@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
@@ -94,6 +95,54 @@ func datasourceNetworkSchema() schema.Schema {
 					stringvalidator.OneOf("dedicated", "cloud"),
 				},
 			},
+			"customer_managed_resources": schema.SingleNestedAttribute{
+				Computed: true,
+				Attributes: map[string]schema.Attribute{
+					"aws": schema.SingleNestedAttribute{
+						Optional: true,
+						Computed: true,
+						Attributes: map[string]schema.Attribute{
+							"management_bucket": schema.SingleNestedAttribute{
+								Computed: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "AWS storage bucket identifier",
+									},
+								},
+							},
+							"dynamodb_table": schema.SingleNestedAttribute{
+								Computed: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "AWS DynamoDB table identifier",
+									},
+								},
+							},
+							"vpc": schema.SingleNestedAttribute{
+								Computed: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "AWS VPC identifier",
+									},
+								},
+							},
+							"private_subnets": schema.SingleNestedAttribute{
+								Computed: true,
+								Attributes: map[string]schema.Attribute{
+									"arns": schema.ListAttribute{
+										Required:    true,
+										ElementType: types.StringType,
+										Description: "AWS private subnet identifiers",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 		Description: "Data source for a Redpanda Cloud network",
 	}
@@ -108,7 +157,12 @@ func (n *DataSourceNetwork) Read(ctx context.Context, req datasource.ReadRequest
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.ID.ValueString()), utils.DeserializeGrpcError(err))
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, generateModel(nw))...)
+	m, d := generateModel(model.CloudProvider.ValueString(), nw, resp.Diagnostics)
+	if d.HasError() {
+		resp.Diagnostics = append(resp.Diagnostics, d...)
+		return
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, m)...)
 }
 
 // Configure uses provider level data to configure DataSourceNetwork's client.

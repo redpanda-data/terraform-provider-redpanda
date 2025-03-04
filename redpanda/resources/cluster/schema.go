@@ -2,8 +2,12 @@ package cluster
 
 import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -14,6 +18,7 @@ import (
 func resourceClusterSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
+			// Base cluster attributes
 			"name": schema.StringAttribute{
 				Required:    true,
 				Description: "Unique name of the cluster.",
@@ -25,10 +30,15 @@ func resourceClusterSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"connection_type": schema.StringAttribute{
-				Required:      true,
-				Description:   "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, Private is best-practice.",
-				Validators:    validators.ConnectionTypes(),
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Required:    true,
+				Description: "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, Private is best-practice.",
+				Validators: []validator.String{
+					validators.ConnectionTypes(),
+					validators.RequirePrivateConnectionValidator{},
+				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"cloud_provider": schema.StringAttribute{
 				Optional:      true,
@@ -82,27 +92,372 @@ func resourceClusterSchema() schema.Schema {
 				Description:   "ID of the cluster. ID is an output from the Create Cluster endpoint and cannot be set by the caller.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
+			"state": schema.StringAttribute{
+				Computed:      true,
+				Description:   "Current state of the cluster.",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"created_at": schema.StringAttribute{
+				Computed:      true,
+				Description:   "Timestamp when the cluster was created.",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
 			"cluster_api_url": schema.StringAttribute{
 				Computed:      true,
 				Description:   "The URL of the cluster API.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
+			"kafka_api": schema.SingleNestedAttribute{
+				Optional:      true,
+				Computed:      true,
+				Description:   "Cluster's Kafka API properties.",
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Attributes: map[string]schema.Attribute{
+					"mtls": schema.SingleNestedAttribute{
+						Optional:      true,
+						Computed:      true,
+						Description:   "mTLS configuration.",
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+						Attributes: map[string]schema.Attribute{
+							"enabled": schema.BoolAttribute{
+								Optional:      true,
+								Computed:      true,
+								Default:       booldefault.StaticBool(false),
+								Description:   "Whether mTLS is enabled.",
+								PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+							},
+							"ca_certificates_pem": schema.ListAttribute{
+								ElementType:   types.StringType,
+								Optional:      true,
+								Description:   "CA certificate in PEM format.",
+								PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+							},
+							"principal_mapping_rules": schema.ListAttribute{
+								ElementType:   types.StringType,
+								Optional:      true,
+								Description:   "Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.",
+								PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+							},
+						},
+					},
+					"seed_brokers": schema.ListAttribute{
+						ElementType:   types.StringType,
+						Computed:      true,
+						Description:   "List of Kafka broker addresses.",
+						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+					},
+				},
+			},
+			"http_proxy": schema.SingleNestedAttribute{
+				Optional:      true,
+				Computed:      true,
+				Description:   "HTTP Proxy properties.",
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Attributes: map[string]schema.Attribute{
+					"mtls": schema.SingleNestedAttribute{
+						Optional:      true,
+						Computed:      true,
+						Description:   "mTLS configuration.",
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+						Attributes: map[string]schema.Attribute{
+							"enabled": schema.BoolAttribute{
+								Optional:      true,
+								Computed:      true,
+								Default:       booldefault.StaticBool(false),
+								Description:   "Whether mTLS is enabled.",
+								PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+							},
+							"ca_certificates_pem": schema.ListAttribute{
+								ElementType:   types.StringType,
+								Optional:      true,
+								Description:   "CA certificate in PEM format.",
+								PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+							},
+							"principal_mapping_rules": schema.ListAttribute{
+								ElementType:   types.StringType,
+								Optional:      true,
+								Description:   "Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.",
+								PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+							},
+						},
+					},
+					"url": schema.StringAttribute{
+						Computed:      true,
+						Description:   "The HTTP Proxy URL.",
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+					},
+				},
+			},
+			"schema_registry": schema.SingleNestedAttribute{
+				Optional:      true,
+				Computed:      true,
+				Description:   "Schema Registry properties.",
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Attributes: map[string]schema.Attribute{
+					"mtls": schema.SingleNestedAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+						Description:   "mTLS configuration.",
+						Attributes: map[string]schema.Attribute{
+							"enabled": schema.BoolAttribute{
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+								Default:       booldefault.StaticBool(false),
+								Description:   "Whether mTLS is enabled.",
+							},
+							"ca_certificates_pem": schema.ListAttribute{
+								ElementType:   types.StringType,
+								Optional:      true,
+								Description:   "CA certificate in PEM format.",
+								PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+							},
+							"principal_mapping_rules": schema.ListAttribute{
+								ElementType:   types.StringType,
+								Optional:      true,
+								Description:   "Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.",
+								PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+							},
+						},
+					},
+					"url": schema.StringAttribute{
+						Computed:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						Description:   "The Schema Registry URL.",
+					},
+				},
+			},
+
+			"redpanda_console": schema.SingleNestedAttribute{
+				Computed:      true,
+				Description:   "Redpanda Console properties.",
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Attributes: map[string]schema.Attribute{
+					"url": schema.StringAttribute{
+						Computed:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						Description:   "The Redpanda Console URL.",
+					},
+				},
+			},
+
+			"prometheus": schema.SingleNestedAttribute{
+				Computed:      true,
+				Description:   "Prometheus metrics endpoint properties.",
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Attributes: map[string]schema.Attribute{
+					"url": schema.StringAttribute{
+						Computed:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						Description:   "The Prometheus metrics endpoint URL.",
+					},
+				},
+			},
+			"state_description": schema.SingleNestedAttribute{
+				Computed:      true,
+				Description:   "Detailed state description when cluster is in a non-ready state.",
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Attributes: map[string]schema.Attribute{
+					"code": schema.Int32Attribute{
+						Computed:      true,
+						Description:   "Error code if cluster is in error state.",
+						PlanModifiers: []planmodifier.Int32{int32planmodifier.UseStateForUnknown()},
+					},
+					"message": schema.StringAttribute{
+						Computed:      true,
+						Description:   "Detailed error message if cluster is in error state.",
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+					},
+				},
+			},
+
+			"read_replica_cluster_ids": schema.ListAttribute{
+				Optional:    true,
+				ElementType: types.StringType,
+				Description: "IDs of clusters that can create read-only topics from this cluster.",
+			},
+
+			"maintenance_window_config": schema.SingleNestedAttribute{
+				Optional:      true,
+				Computed:      true,
+				Description:   "Maintenance window configuration for the cluster.",
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Attributes: map[string]schema.Attribute{
+					"day_hour": schema.SingleNestedAttribute{
+						Optional: true,
+						Attributes: map[string]schema.Attribute{
+							"hour_of_day": schema.Int32Attribute{
+								Optional:      true,
+								Description:   "Hour of day.",
+								PlanModifiers: []planmodifier.Int32{int32planmodifier.UseStateForUnknown()},
+							},
+							"day_of_week": schema.StringAttribute{
+								Optional:      true,
+								Description:   "Day of week.",
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+							},
+						},
+					},
+					"anytime": schema.BoolAttribute{
+						Optional:      true,
+						Description:   "If true, maintenance can occur at any time.",
+						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+					},
+					"unspecified": schema.BoolAttribute{
+						Computed:      true,
+						Description:   "If true, maintenance window is unspecified.",
+						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+					},
+				},
+			},
+
+			"connectivity": schema.SingleNestedAttribute{
+				Optional:    true,
+				Description: "Cloud provider-specific connectivity configuration.",
+				Attributes: map[string]schema.Attribute{
+					"gcp": schema.SingleNestedAttribute{
+						Optional:    true,
+						Description: "GCP-specific connectivity settings.",
+						Attributes: map[string]schema.Attribute{
+							"enable_global_access": schema.BoolAttribute{
+								Required:    true,
+								Description: "Whether global access is enabled.",
+							},
+						},
+					},
+				},
+			},
+			"kafka_connect": schema.SingleNestedAttribute{
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Description:   "Kafka Connect configuration.",
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						Optional:      true,
+						Computed:      true,
+						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+						Default:       booldefault.StaticBool(false),
+						Description:   "Whether Kafka Connect is enabled.",
+					},
+				},
+			},
+			// Cloud provider specific configurations
 			"aws_private_link": schema.SingleNestedAttribute{
 				Optional:    true,
-				Description: "The AWS Private Link configuration.",
+				Description: "AWS PrivateLink configuration.",
 				Attributes: map[string]schema.Attribute{
 					"enabled": schema.BoolAttribute{
 						Required:    true,
-						Description: "Whether Redpanda AWS Private Link Endpoint Service is enabled.",
+						Description: "Whether AWS PrivateLink is enabled.",
 					},
 					"connect_console": schema.BoolAttribute{
 						Required:    true,
-						Description: "Whether Console is connected in Redpanda AWS Private Link Service.",
+						Description: "Whether Console is connected via PrivateLink.",
 					},
 					"allowed_principals": schema.ListAttribute{
 						ElementType: types.StringType,
 						Required:    true,
 						Description: "The ARN of the principals that can access the Redpanda AWS PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).",
+					},
+					"status": schema.SingleNestedAttribute{
+						Computed:    true,
+						Description: "Current status of the PrivateLink configuration.",
+						Attributes: map[string]schema.Attribute{
+							"service_id": schema.StringAttribute{
+								Computed:    true,
+								Description: "The PrivateLink service ID.",
+							},
+							"service_name": schema.StringAttribute{
+								Computed:    true,
+								Description: "The PrivateLink service name.",
+							},
+							"service_state": schema.StringAttribute{
+								Computed:    true,
+								Description: "Current state of the PrivateLink service.",
+							},
+							"created_at": schema.StringAttribute{
+								Computed:    true,
+								Description: "When the PrivateLink service was created.",
+							},
+							"deleted_at": schema.StringAttribute{
+								Computed:    true,
+								Description: "When the PrivateLink service was deleted.",
+							},
+							"vpc_endpoint_connections": schema.ListNestedAttribute{
+								Computed:    true,
+								Description: "List of VPC endpoint connections.",
+								NestedObject: schema.NestedAttributeObject{
+									Attributes: map[string]schema.Attribute{
+										"id": schema.StringAttribute{
+											Computed:    true,
+											Description: "The endpoint connection ID.",
+										},
+										"owner": schema.StringAttribute{
+											Computed:    true,
+											Description: "Owner of the endpoint connection.",
+										},
+										"state": schema.StringAttribute{
+											Computed:    true,
+											Description: "State of the endpoint connection.",
+										},
+										"created_at": schema.StringAttribute{
+											Computed:    true,
+											Description: "When the endpoint connection was created.",
+										},
+										"connection_id": schema.StringAttribute{
+											Computed:    true,
+											Description: "The connection ID.",
+										},
+										"load_balancer_arns": schema.ListAttribute{
+											Computed:    true,
+											ElementType: types.StringType,
+											Description: "ARNs of associated load balancers.",
+										},
+										"dns_entries": schema.ListNestedAttribute{
+											Computed:    true,
+											Description: "DNS entries for the endpoint.",
+											NestedObject: schema.NestedAttributeObject{
+												Attributes: map[string]schema.Attribute{
+													"dns_name": schema.StringAttribute{
+														Computed:    true,
+														Description: "The DNS name.",
+													},
+													"hosted_zone_id": schema.StringAttribute{
+														Computed:    true,
+														Description: "The hosted zone ID.",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							"kafka_api_seed_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for Kafka API seed brokers.",
+							},
+							"schema_registry_seed_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for Schema Registry.",
+							},
+							"redpanda_proxy_seed_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for HTTP proxy.",
+							},
+							"kafka_api_node_base_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Base port for Kafka API nodes.",
+							},
+							"redpanda_proxy_node_base_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Base port for HTTP proxy nodes.",
+							},
+							"console_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for Redpanda Console.",
+							},
+						},
 					},
 				},
 				Validators: []validator.Object{
@@ -112,34 +467,9 @@ func resourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-			"azure_private_link": schema.SingleNestedAttribute{
-				Optional:    true,
-				Description: "The Azure Private Link configuration.",
-				Attributes: map[string]schema.Attribute{
-					"allowed_subscriptions": schema.ListAttribute{
-						ElementType: types.StringType,
-						Required:    true,
-						Description: "The subscriptions that can access the Redpanda Azure PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).",
-					},
-					"connect_console": schema.BoolAttribute{
-						Required:    true,
-						Description: "Whether Console is connected in Redpanda Azure Private Link Service.",
-					},
-					"enabled": schema.BoolAttribute{
-						Required:    true,
-						Description: "Whether Redpanda Azure Private Link Endpoint Service is enabled.",
-					},
-				},
-				Validators: []validator.Object{
-					validators.CloudProviderDependentValidator{
-						AttributeName: "azure_private_link",
-						CloudProvider: "azure",
-					},
-				},
-			},
 			"gcp_private_service_connect": schema.SingleNestedAttribute{
 				Optional:    true,
-				Description: "The GCP Private Service Connect configuration.",
+				Description: "GCP Private Service Connect configuration.",
 				Attributes: map[string]schema.Attribute{
 					"enabled": schema.BoolAttribute{
 						Required:    true,
@@ -161,6 +491,77 @@ func resourceClusterSchema() schema.Schema {
 							},
 						},
 					},
+					"status": schema.SingleNestedAttribute{
+						Computed:    true,
+						Description: "Current status of the Private Service Connect configuration.",
+						Attributes: map[string]schema.Attribute{
+							"service_attachment": schema.StringAttribute{
+								Computed:    true,
+								Description: "The service attachment identifier.",
+							},
+							"created_at": schema.StringAttribute{
+								Computed:    true,
+								Description: "When the Private Service Connect service was created.",
+							},
+							"deleted_at": schema.StringAttribute{
+								Computed:    true,
+								Description: "When the Private Service Connect service was deleted.",
+							},
+							"kafka_api_seed_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for Kafka API seed brokers.",
+							},
+							"schema_registry_seed_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for Schema Registry.",
+							},
+							"redpanda_proxy_seed_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for HTTP proxy.",
+							},
+							"kafka_api_node_base_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Base port for Kafka API nodes.",
+							},
+							"redpanda_proxy_node_base_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Base port for HTTP proxy nodes.",
+							},
+							"connected_endpoints": schema.ListNestedAttribute{
+								Computed:    true,
+								Description: "List of connected endpoints.",
+								NestedObject: schema.NestedAttributeObject{
+									Attributes: map[string]schema.Attribute{
+										"connection_id": schema.StringAttribute{
+											Computed:    true,
+											Description: "The connection ID.",
+										},
+										"consumer_network": schema.StringAttribute{
+											Computed:    true,
+											Description: "The consumer network.",
+										},
+										"endpoint": schema.StringAttribute{
+											Computed:    true,
+											Description: "The endpoint address.",
+										},
+										"status": schema.StringAttribute{
+											Computed:    true,
+											Description: "Status of the endpoint connection.",
+										},
+									},
+								},
+							},
+							"dns_a_records": schema.ListAttribute{
+								Computed:    true,
+								ElementType: types.StringType,
+								Description: "DNS A records for the service.",
+							},
+							"seed_hostname": schema.StringAttribute{
+								Computed:    true,
+								Description: "Hostname for the seed brokers.",
+							},
+						},
+					},
 				},
 				Validators: []validator.Object{
 					validators.CloudProviderDependentValidator{
@@ -169,88 +570,246 @@ func resourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-			"kafka_api": schema.SingleNestedAttribute{
+			"azure_private_link": schema.SingleNestedAttribute{
 				Optional:    true,
-				Description: "Cluster's Kafka API properties.",
+				Description: "Azure Private Link configuration.",
 				Attributes: map[string]schema.Attribute{
-					"mtls": schema.SingleNestedAttribute{
+					"enabled": schema.BoolAttribute{
 						Required:    true,
-						Description: "mTLS configuration.",
+						Description: "Whether Redpanda Azure Private Link Endpoint Service is enabled.",
+					},
+					"connect_console": schema.BoolAttribute{
+						Required:    true,
+						Description: "Whether Console is connected in Redpanda Azure Private Link Service.",
+					},
+					"allowed_subscriptions": schema.ListAttribute{
+						ElementType: types.StringType,
+						Required:    true,
+						Description: "The subscriptions that can access the Redpanda Azure PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).",
+					},
+					"status": schema.SingleNestedAttribute{
+						Computed:    true,
+						Description: "Current status of the Private Link configuration.",
 						Attributes: map[string]schema.Attribute{
-							"enabled": schema.BoolAttribute{
-								Required:    true,
-								Description: "Whether mTLS is enabled.",
+							"service_id": schema.StringAttribute{
+								Computed:    true,
+								Description: "The Private Link service ID.",
 							},
-							"ca_certificates_pem": schema.ListAttribute{
-								ElementType: types.StringType,
-								Required:    true,
-								Description: "CA certificate in PEM format.",
+							"service_name": schema.StringAttribute{
+								Computed:    true,
+								Description: "The Private Link service name.",
 							},
-							"principal_mapping_rules": schema.ListAttribute{
+							"created_at": schema.StringAttribute{
+								Computed:    true,
+								Description: "When the Private Link service was created.",
+							},
+							"deleted_at": schema.StringAttribute{
+								Computed:    true,
+								Description: "When the Private Link service was deleted.",
+							},
+							"private_endpoint_connections": schema.ListNestedAttribute{
+								Computed:    true,
+								Description: "List of private endpoint connections.",
+								NestedObject: schema.NestedAttributeObject{
+									Attributes: map[string]schema.Attribute{
+										"private_endpoint_name": schema.StringAttribute{
+											Computed:    true,
+											Description: "Name of the private endpoint.",
+										},
+										"private_endpoint_id": schema.StringAttribute{
+											Computed:    true,
+											Description: "ID of the private endpoint.",
+										},
+										"connection_name": schema.StringAttribute{
+											Computed:    true,
+											Description: "Name of the connection.",
+										},
+										"connection_id": schema.StringAttribute{
+											Computed:    true,
+											Description: "ID of the connection.",
+										},
+										"status": schema.StringAttribute{
+											Computed:    true,
+											Description: "Status of the endpoint connection.",
+										},
+										"created_at": schema.StringAttribute{
+											Computed:    true,
+											Description: "When the endpoint connection was created.",
+										},
+									},
+								},
+							},
+							"dns_a_record": schema.StringAttribute{
+								Computed:    true,
+								Description: "DNS A record for the service.",
+							},
+							"approved_subscriptions": schema.ListAttribute{
+								Computed:    true,
 								ElementType: types.StringType,
-								Required:    true,
-								Description: "Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.",
+								Description: "List of approved Azure subscription IDs.",
+							},
+							"kafka_api_seed_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for Kafka API seed brokers.",
+							},
+							"schema_registry_seed_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for Schema Registry.",
+							},
+							"redpanda_proxy_seed_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for HTTP proxy.",
+							},
+							"kafka_api_node_base_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Base port for Kafka API nodes.",
+							},
+							"redpanda_proxy_node_base_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Base port for HTTP proxy nodes.",
+							},
+							"console_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for Redpanda Console.",
 							},
 						},
 					},
 				},
+				Validators: []validator.Object{
+					validators.CloudProviderDependentValidator{
+						AttributeName: "azure_private_link",
+						CloudProvider: "azure",
+					},
+				},
 			},
-			"http_proxy": schema.SingleNestedAttribute{
+			"customer_managed_resources": schema.SingleNestedAttribute{
 				Optional:    true,
-				Description: "HTTP Proxy properties.",
+				Description: "Customer managed resources configuration for the cluster.",
 				Attributes: map[string]schema.Attribute{
-					"mtls": schema.SingleNestedAttribute{
-						Required:    true,
-						Description: "mTLS configuration.",
+					"aws": schema.SingleNestedAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
 						Attributes: map[string]schema.Attribute{
-							"enabled": schema.BoolAttribute{
-								Required:    true,
-								Description: "Whether mTLS is enabled.",
+							"agent_instance_profile": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the agent instance profile",
+									},
+								},
 							},
-							"ca_certificates_pem": schema.ListAttribute{
-								ElementType: types.StringType,
-								Required:    true,
-								Description: "CA certificate in PEM format.",
+							"connectors_node_group_instance_profile": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the connectors node group instance profile",
+									},
+								},
 							},
-							"principal_mapping_rules": schema.ListAttribute{
-								ElementType: types.StringType,
-								Required:    true,
-								Description: "Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.",
+							"utility_node_group_instance_profile": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the utility node group instance profile",
+									},
+								},
+							},
+							"redpanda_node_group_instance_profile": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the redpanda node group instance profile",
+									},
+								},
+							},
+							"k8s_cluster_role": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the Kubernetes cluster role",
+									},
+								},
+							},
+							"redpanda_agent_security_group": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the redpanda agent security group",
+									},
+								},
+							},
+							"connectors_security_group": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the connectors security group",
+									},
+								},
+							},
+							"redpanda_node_group_security_group": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the redpanda node group security group",
+									},
+								},
+							},
+							"utility_security_group": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the utility security group",
+									},
+								},
+							},
+							"cluster_security_group": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the cluster security group",
+									},
+								},
+							},
+							"node_security_group": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the node security group",
+									},
+								},
+							},
+							"cloud_storage_bucket": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the cloud storage bucket",
+									},
+								},
+							},
+							"permissions_boundary_policy": schema.SingleNestedAttribute{
+								Required: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Required:    true,
+										Description: "ARN for the permissions boundary policy",
+									},
+								},
 							},
 						},
 					},
 				},
-			},
-			"schema_registry": schema.SingleNestedAttribute{
-				Optional:    true,
-				Description: "Cluster's Schema Registry properties.",
-				Attributes: map[string]schema.Attribute{
-					"mtls": schema.SingleNestedAttribute{
-						Required:    true,
-						Description: "mTLS configuration.",
-						Attributes: map[string]schema.Attribute{
-							"enabled": schema.BoolAttribute{
-								Required:    true,
-								Description: "Whether mTLS is enabled.",
-							},
-							"ca_certificates_pem": schema.ListAttribute{
-								ElementType: types.StringType,
-								Required:    true,
-								Description: "CA certificate in PEM format.",
-							},
-							"principal_mapping_rules": schema.ListAttribute{
-								ElementType: types.StringType,
-								Required:    true,
-								Description: "Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.",
-							},
-						},
-					},
-				},
-			},
-			"read_replica_cluster_ids": schema.ListAttribute{
-				ElementType: types.StringType,
-				Optional:    true,
-				Description: "IDs of clusters which may create read-only topics from this cluster.",
 			},
 		},
 	}

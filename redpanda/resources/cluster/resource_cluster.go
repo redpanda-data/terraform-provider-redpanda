@@ -79,9 +79,10 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	var model models.Cluster
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 
-	clusterReq, err := generateClusterRequest(model)
-	if err != nil {
-		resp.Diagnostics.AddError("unable to parse CreateCluster request", utils.DeserializeGrpcError(err))
+	clusterReq, d := generateClusterRequest(ctx, model, resp.Diagnostics)
+	if d.HasError() {
+		resp.Diagnostics.Append(d...)
+		resp.Diagnostics.AddError("unable to parse CreateCluster request", "")
 		return
 	}
 
@@ -93,19 +94,13 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	op := clResp.Operation
 	clusterID := op.GetResourceId()
 
-	// write initial state so that if cluster creation fails, we can still track and delete it
-	resp.Diagnostics.Append(resp.State.Set(ctx, generateMinimalModel(clusterID))...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	// wait for creation to complete, running "byoc apply" if we see STATE_CREATING_AGENT
-	ranByoc := false
+	var ranByoc bool
 	cluster, err := utils.RetryGetCluster(ctx, 90*time.Minute, clusterID, c.CpCl, func(cluster *controlplanev1beta2.Cluster) *utils.RetryError {
-		if cluster.GetState() == controlplanev1beta2.Cluster_STATE_CREATING {
+		switch cluster.GetState() {
+		case controlplanev1beta2.Cluster_STATE_CREATING:
 			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
-		}
-		if cluster.GetState() == controlplanev1beta2.Cluster_STATE_CREATING_AGENT {
+		case controlplanev1beta2.Cluster_STATE_CREATING_AGENT:
 			if cluster.Type == controlplanev1beta2.Cluster_TYPE_BYOC && !ranByoc {
 				err = c.Byoc.RunByoc(ctx, clusterID, "apply")
 				if err != nil {
@@ -114,26 +109,33 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 				ranByoc = true
 			}
 			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
-		}
-		if cluster.GetState() == controlplanev1beta2.Cluster_STATE_READY {
+		case controlplanev1beta2.Cluster_STATE_READY:
 			return nil
-		}
-		if cluster.GetState() == controlplanev1beta2.Cluster_STATE_FAILED {
+		case controlplanev1beta2.Cluster_STATE_FAILED:
 			return utils.NonRetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
+		default:
+			return utils.NonRetryableError(fmt.Errorf("unhandled state %v. please report this issue to the provider developers", cluster.GetState()))
 		}
-		return utils.NonRetryableError(fmt.Errorf("unhandled state %v. please report this issue to the provider developers", cluster.GetState()))
 	})
 	if err != nil {
+		// append minimal state because we failed
+		resp.Diagnostics.Append(resp.State.Set(ctx, generateMinimalModel(clusterID))...)
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to create cluster with ID %q", clusterID), utils.DeserializeGrpcError(err))
 		return
 	}
-	persist, err := generateModel(model, cluster)
-	if err != nil {
-		resp.Diagnostics.AddError("failed to generate model for state during cluster.Create", utils.DeserializeGrpcError(err))
-		return
-	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
+	// there are various states where cluster can be nil in which case we should default to the minimal model already persisted
+	if cluster != nil {
+		p, d := generateModel(model, cluster, resp.Diagnostics)
+		if d.HasError() {
+			// append minimal state because we failed
+			resp.Diagnostics.Append(resp.State.Set(ctx, generateMinimalModel(clusterID))...)
+			resp.Diagnostics.AddError("failed to generate model for state during cluster.Create", "")
+			resp.Diagnostics.Append(d...)
+			return
+		}
+		resp.Diagnostics.Append(resp.State.Set(ctx, p)...)
+	}
 }
 
 // Read reads Cluster resource's values and updates the state.
@@ -159,9 +161,10 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		return
 	}
 
-	persist, err := generateModel(model, cluster)
-	if err != nil {
-		resp.Diagnostics.AddError("failed to generate model for state during cluster.Read", utils.DeserializeGrpcError(err))
+	persist, d := generateModel(model, cluster, resp.Diagnostics)
+	if d.HasError() {
+		resp.Diagnostics.AddError("failed to generate model for state during cluster.Read", "")
+		resp.Diagnostics.Append(d...)
 		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
@@ -175,7 +178,12 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 	var state models.Cluster
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
-	updateReq := generateUpdateRequest(plan, state)
+	updateReq, ds := generateUpdateRequest(ctx, plan, state, resp.Diagnostics)
+	if ds.HasError() {
+		resp.Diagnostics.Append(ds...)
+		resp.Diagnostics.AddError("unable to parse UpdateCluster request", "")
+		return
+	}
 	if len(updateReq.UpdateMask.Paths) != 0 {
 		op, err := c.CpCl.Cluster.UpdateCluster(ctx, updateReq)
 		if err != nil {
@@ -195,9 +203,10 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		return
 	}
 
-	persist, err := generateModel(plan, cluster)
-	if err != nil {
-		resp.Diagnostics.AddError("failed to generate model for state during cluster.Update", utils.DeserializeGrpcError(err))
+	persist, d := generateModel(plan, cluster, resp.Diagnostics)
+	if d.HasError() {
+		resp.Diagnostics.AddError("failed to generate model for state during cluster.Update", "")
+		resp.Diagnostics.Append(d...)
 		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)

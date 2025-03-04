@@ -7,7 +7,7 @@ steps:
     command: make lint
     plugins:
       - docker#v5.11.0:
-          image: "golang:1.22"
+          image: "golang:1.23"
           environment:
             - BUILDKITE=true
   - label: unit
@@ -15,7 +15,7 @@ steps:
     command: make unit
     plugins:
       - docker#v5.11.0:
-          image: "golang:1.22"
+          image: "golang:1.23"
     depends_on:
       - lint
 
@@ -28,7 +28,7 @@ steps:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
-          image: "golang:1.22"
+          image: "golang:1.23"
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
@@ -45,7 +45,7 @@ steps:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
-          image: "golang:1.22"
+          image: "golang:1.23"
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
@@ -63,7 +63,7 @@ steps:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
-          image: "golang:1.22"
+          image: "golang:1.23"
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
@@ -81,7 +81,7 @@ steps:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
-          image: "golang:1.22"
+          image: "golang:1.23"
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
@@ -99,7 +99,7 @@ steps:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
-          image: "golang:1.22"
+          image: "golang:1.23"
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
@@ -117,7 +117,7 @@ steps:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.12.0:
-          image: "golang:1.22"
+          image: "golang:1.23"
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
@@ -136,7 +136,7 @@ steps:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
-          image: "golang:1.22"
+          image: "golang:1.23"
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
@@ -155,7 +155,7 @@ steps:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
-          image: "golang:1.22"
+          image: "golang:1.23"
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
