@@ -126,8 +126,8 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 
 	// there are various states where cluster can be nil in which case we should default to the minimal model already persisted
 	if cluster != nil {
-		p, d := generateModel(model, cluster, resp.Diagnostics)
-		if d.HasError() {
+		p, dg := generateModel(model, cluster, resp.Diagnostics)
+		if dg.HasError() {
 			// append minimal state because we failed
 			resp.Diagnostics.Append(resp.State.Set(ctx, generateMinimalModel(clusterID))...)
 			resp.Diagnostics.AddError("failed to generate model for state during cluster.Create", "")
