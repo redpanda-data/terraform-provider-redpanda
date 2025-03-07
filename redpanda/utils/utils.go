@@ -439,3 +439,16 @@ func DeserializeGrpcError(err error) string {
 	}
 	return fmt.Sprintf("%s : %s", st.Code(), st.Message())
 }
+
+// StringMapToTypesMap converts a map[string]string to a types.Map
+func StringMapToTypesMap(m map[string]string) (types.Map, error) {
+	mv := make(map[string]attr.Value)
+	for k, v := range m {
+		mv[k] = types.StringValue(v)
+	}
+	mvo, diags := types.MapValue(types.StringType, mv)
+	if diags.HasError() {
+		return types.MapNull(types.StringType), fmt.Errorf("unable to convert map to types.Map")
+	}
+	return mvo, nil
+}
