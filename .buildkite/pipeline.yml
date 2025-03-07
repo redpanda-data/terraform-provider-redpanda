@@ -169,7 +169,7 @@ steps:
       - unit
   - label: Release
     key: release
-    if: build.tag != null && build.tag =~ /^v/
+    if: build.tag != null
     command: make release
     depends_on:
       - lint
