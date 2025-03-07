@@ -1313,7 +1313,7 @@ variable "node_security_group_arn" {
 }
 
 variable "cloud_storage_bucket_arn" {
-  default = "arn:aws:s3:::redpanda-cloud-storage-20250225235918055000000008"
+  default = "arn:aws:s3:::redpanda-cloud-storage-20250305231154426300000001"
 }
 
 variable "byovpc_rpk_user_policy_arns" {
