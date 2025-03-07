@@ -7,8 +7,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"github.com/stretchr/testify/assert"
 )
+
+func mustCloudProvider(s string) controlplanev1beta2.CloudProvider {
+	cp, _ := utils.StringToCloudProvider(s)
+	return cp
+}
 
 func TestGenerateModelCMR(t *testing.T) {
 	type expectedAWS struct {
@@ -36,22 +42,20 @@ func TestGenerateModelCMR(t *testing.T) {
 		expectedErrors []string
 	}{
 		{
-			name:          "nil cluster returns null object",
-			cloudProvider: "aws",
-			cluster:       nil,
-			expectNull:    true,
+			name:       "nil cluster returns null object",
+			cluster:    nil,
+			expectNull: true,
 		},
 		{
-			name:          "cluster without CMR returns null object",
-			cloudProvider: "aws",
-			cluster:       &controlplanev1beta2.Cluster{},
-			expectNull:    true,
+			name:       "cluster without CMR returns null object",
+			cluster:    &controlplanev1beta2.Cluster{},
+			expectNull: true,
 		},
 		{
-			name:          "non-BYOC cluster with CMR returns error",
-			cloudProvider: "aws",
+			name: "non-BYOC cluster with CMR returns error",
 			cluster: &controlplanev1beta2.Cluster{
-				Type: controlplanev1beta2.Cluster_TYPE_DEDICATED,
+				CloudProvider: mustCloudProvider("aws"),
+				Type:          controlplanev1beta2.Cluster_TYPE_DEDICATED,
 				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{
 					CloudProvider: &controlplanev1beta2.CustomerManagedResources_Aws{},
 				},
@@ -60,10 +64,10 @@ func TestGenerateModelCMR(t *testing.T) {
 			expectedErrors: []string{"Customer Managed Resources with non-BYOC cluster type"},
 		},
 		{
-			name:          "cloud provider mismatch returns error",
-			cloudProvider: "aws",
+			name: "cloud provider mismatch returns error",
 			cluster: &controlplanev1beta2.Cluster{
-				Type: controlplanev1beta2.Cluster_TYPE_BYOC,
+				CloudProvider: mustCloudProvider("aws"),
+				Type:          controlplanev1beta2.Cluster_TYPE_BYOC,
 				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{
 					CloudProvider: &controlplanev1beta2.CustomerManagedResources_Gcp{},
 				},
@@ -72,10 +76,10 @@ func TestGenerateModelCMR(t *testing.T) {
 			expectedErrors: []string{"Cloud Provider Mismatch"},
 		},
 		{
-			name:          "valid AWS BYOC cluster with complete CMR",
-			cloudProvider: "aws",
+			name: "valid AWS BYOC cluster with complete CMR",
 			cluster: &controlplanev1beta2.Cluster{
-				Type: controlplanev1beta2.Cluster_TYPE_BYOC,
+				CloudProvider: mustCloudProvider("aws"),
+				Type:          controlplanev1beta2.Cluster_TYPE_BYOC,
 				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{
 					CloudProvider: &controlplanev1beta2.CustomerManagedResources_Aws{
 						Aws: &controlplanev1beta2.CustomerManagedResources_AWS{
@@ -139,10 +143,10 @@ func TestGenerateModelCMR(t *testing.T) {
 			},
 		},
 		{
-			name:          "valid AWS BYOC cluster with partial CMR",
-			cloudProvider: "aws",
+			name: "valid AWS BYOC cluster with partial CMR",
 			cluster: &controlplanev1beta2.Cluster{
-				Type: controlplanev1beta2.Cluster_TYPE_BYOC,
+				CloudProvider: mustCloudProvider("aws"),
+				Type:          controlplanev1beta2.Cluster_TYPE_BYOC,
 				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{
 					CloudProvider: &controlplanev1beta2.CustomerManagedResources_Aws{
 						Aws: &controlplanev1beta2.CustomerManagedResources_AWS{
@@ -162,10 +166,10 @@ func TestGenerateModelCMR(t *testing.T) {
 			},
 		},
 		{
-			name:          "GCP CMR returns null object (not implemented)",
-			cloudProvider: "gcp",
+			name: "GCP CMR returns null object (not implemented)",
 			cluster: &controlplanev1beta2.Cluster{
-				Type: controlplanev1beta2.Cluster_TYPE_BYOC,
+				CloudProvider: mustCloudProvider("gcp"),
+				Type:          controlplanev1beta2.Cluster_TYPE_BYOC,
 				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{
 					CloudProvider: &controlplanev1beta2.CustomerManagedResources_Gcp{},
 				},
@@ -173,9 +177,9 @@ func TestGenerateModelCMR(t *testing.T) {
 			expectNull: true,
 		},
 		{
-			name:          "unknown cloud provider returns null object",
-			cloudProvider: "unknown",
+			name: "unknown cloud provider returns null object",
 			cluster: &controlplanev1beta2.Cluster{
+				CloudProvider:            mustCloudProvider("unknown"),
 				Type:                     controlplanev1beta2.Cluster_TYPE_BYOC,
 				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{},
 			},
@@ -185,7 +189,7 @@ func TestGenerateModelCMR(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			obj, diagnostics := generateModelCMR(tt.cloudProvider, tt.cluster, diag.Diagnostics{})
+			obj, diagnostics := generateModelCMR(tt.cluster, diag.Diagnostics{})
 
 			// Check for expected errors
 			if len(tt.expectedErrors) > 0 {
