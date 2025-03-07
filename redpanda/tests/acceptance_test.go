@@ -464,7 +464,6 @@ func TestAccResourcesWithDataSources(t *testing.T) {
 	if !strings.Contains(testAgainstExistingCluster, "true") {
 		t.Skip("skipping cluster user-acl-topic tests")
 	}
-	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + "test-with-data-sources")
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
@@ -483,10 +482,6 @@ func TestAccResourcesWithDataSources(t *testing.T) {
 		"flush.ms":         config.StringVariable("100"),
 	})
 
-	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
-	if err != nil {
-		t.Fatal(err)
-	}
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
@@ -516,28 +511,6 @@ func TestAccResourcesWithDataSources(t *testing.T) {
 		},
 	},
 	)
-
-	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepResourceGroup{
-			ResourceGroupName: name,
-			Client:            c,
-		}.SweepResourceGroup,
-	})
-	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepNetwork{
-			NetworkName: name,
-			Client:      c,
-		}.SweepNetworks,
-	})
-	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepCluster{
-			ClusterName: name,
-			Client:      c,
-		}.SweepCluster,
-	})
 }
 
 func TestAccResourcesStrippedDownServerlessCluster(t *testing.T) {
