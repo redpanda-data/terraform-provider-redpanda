@@ -191,6 +191,9 @@ func (c *ControlPlaneClientSet) NetworkForName(ctx context.Context, name string)
 // ClusterForID gets the Cluster for a given ID and handles the error if the
 // returned cluster is nil.
 func (c *ControlPlaneClientSet) ClusterForID(ctx context.Context, id string) (*controlplanev1beta2.Cluster, error) {
+	if id == "" {
+		return nil, fmt.Errorf("cluster ID is empty")
+	}
 	cl, err := c.Cluster.GetCluster(ctx, &controlplanev1beta2.GetClusterRequest{
 		Id: id,
 	})
