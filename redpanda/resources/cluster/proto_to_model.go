@@ -15,21 +15,21 @@ import (
 // generateModel populates the Cluster model to be persisted to state for Create, Read and Update operations. It is also indirectly used by Import
 func generateModel(cfg models.Cluster, cluster *controlplanev1beta2.Cluster, diagnostics diag.Diagnostics) (*models.Cluster, diag.Diagnostics) {
 	output := &models.Cluster{
-		Name:                  types.StringValue(cluster.Name),
-		ID:                    types.StringValue(cluster.Id),
-		ConnectionType:        types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
-		CloudProvider:         types.StringValue(utils.CloudProviderToString(cluster.CloudProvider)),
-		ClusterType:           types.StringValue(utils.ClusterTypeToString(cluster.Type)),
+		Name:                  types.StringValue(cluster.GetName()),
+		ID:                    types.StringValue(cluster.GetId()),
+		ConnectionType:        types.StringValue(utils.ConnectionTypeToString(cluster.GetConnectionType())),
+		CloudProvider:         types.StringValue(utils.CloudProviderToString(cluster.GetCloudProvider())),
+		ClusterType:           types.StringValue(utils.ClusterTypeToString(cluster.GetType())),
 		RedpandaVersion:       cfg.RedpandaVersion,
-		ThroughputTier:        types.StringValue(cluster.ThroughputTier),
-		Region:                types.StringValue(cluster.Region),
+		ThroughputTier:        types.StringValue(cluster.GetThroughputTier()),
+		Region:                types.StringValue(cluster.GetRegion()),
 		AllowDeletion:         cfg.AllowDeletion,
 		Tags:                  cfg.Tags,
-		ResourceGroupID:       types.StringValue(cluster.ResourceGroupId),
-		NetworkID:             types.StringValue(cluster.NetworkId),
-		ReadReplicaClusterIDs: utils.StringSliceToTypeList(cluster.ReadReplicaClusterIds),
-		Zones:                 utils.StringSliceToTypeList(cluster.Zones),
-		State:                 types.StringValue(cluster.State.String()),
+		ResourceGroupID:       types.StringValue(cluster.GetResourceGroupId()),
+		NetworkID:             types.StringValue(cluster.GetNetworkId()),
+		ReadReplicaClusterIDs: utils.StringSliceToTypeList(cluster.GetReadReplicaClusterIds()),
+		Zones:                 utils.StringSliceToTypeList(cluster.GetZones()),
+		State:                 types.StringValue(cluster.GetState().String()),
 	}
 	if cluster.HasCreatedAt() {
 		output.CreatedAt = types.StringValue(cluster.CreatedAt.AsTime().Format(time.RFC3339))
