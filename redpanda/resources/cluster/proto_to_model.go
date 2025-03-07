@@ -48,7 +48,7 @@ func generateModel(cfg models.Cluster, cluster *controlplanev1beta2.Cluster, dia
 		output.ClusterAPIURL = types.StringValue(cluster.DataplaneApi.Url)
 	}
 
-	kafkaAPI, d := generateModelKafkaAPI(cluster, output, diagnostics)
+	kafkaAPI, d := generateModelKafkaAPI(cluster, diagnostics)
 	if d.HasError() {
 		diagnostics.Append(d...)
 		return nil, diagnostics
@@ -125,7 +125,7 @@ func generateModel(cfg models.Cluster, cluster *controlplanev1beta2.Cluster, dia
 	}
 	output.Connectivity = connectivity
 
-	cmr, dg := generateModelCMR(utils.CloudProviderToString(cluster.CloudProvider), cluster, diagnostics)
+	cmr, dg := generateModelCMR(cluster, diagnostics)
 	if dg.HasError() {
 		diagnostics.Append(d...)
 		return nil, diagnostics
@@ -311,18 +311,12 @@ func getMtlsModel(mtls *controlplanev1beta2.MTLSSpec, diagnostics diag.Diagnosti
 	return out, diagnostics
 }
 
-func generateModelKafkaAPI(cluster *controlplanev1beta2.Cluster, output *models.Cluster, diags diag.Diagnostics) (types.Object, diag.Diagnostics) {
+func generateModelKafkaAPI(cluster *controlplanev1beta2.Cluster, diags diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	if !cluster.HasKafkaApi() {
-		output.KafkaAPI = types.ObjectNull(kafkaAPIType)
 		return types.ObjectNull(kafkaAPIType), diags
 	}
 
 	kafkaAPI := cluster.GetKafkaApi()
-
-	var seedBrokers types.List
-	if sb := kafkaAPI.GetSeedBrokers(); sb != nil {
-		seedBrokers = utils.StringSliceToTypeList(sb)
-	}
 	mtls, d := getMtlsModel(kafkaAPI.GetMtls(), diags)
 	if d.HasError() {
 		return types.ObjectNull(kafkaAPIType), d
@@ -330,7 +324,7 @@ func generateModelKafkaAPI(cluster *controlplanev1beta2.Cluster, output *models.
 
 	obj, d := types.ObjectValue(kafkaAPIType, map[string]attr.Value{
 		"mtls":         mtls,
-		"seed_brokers": seedBrokers,
+		"seed_brokers": utils.StringSliceToTypeList(kafkaAPI.GetSeedBrokers()),
 	})
 	if d.HasError() {
 		return types.ObjectNull(kafkaAPIType), d
@@ -821,11 +815,13 @@ func generateModelAzurePrivateLink(cluster *controlplanev1beta2.Cluster, diagnos
 	return obj, diagnostics
 }
 
-func generateModelCMR(cloudProvider string, cluster *controlplanev1beta2.Cluster, diags diag.Diagnostics) (types.Object, diag.Diagnostics) {
+func generateModelCMR(cluster *controlplanev1beta2.Cluster, diags diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	// Early return conditions
 	if cluster == nil || !cluster.HasCustomerManagedResources() {
 		return types.ObjectNull(cmrType), diags
 	}
+
+	cloudProvider := utils.CloudProviderToString(cluster.GetCloudProvider())
 
 	if cluster.Type != controlplanev1beta2.Cluster_TYPE_BYOC {
 		diags.AddError("Customer Managed Resources with non-BYOC cluster type", "Customer Managed Resources are only supported for BYOC clusters")
