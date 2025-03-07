@@ -16,10 +16,15 @@ The Redpanda provider is designed for managing Redpanda clusters and Kafka resou
 ### Optional
 
 - `access_token` (String, Sensitive) Redpanda client token. You need either `access_token`, or both `client_id` and `client_secret` to use this provider. Can also be set with the `REDPANDA_ACCESS_TOKEN` environment variable.
+- `azure_client_id` (String) Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_CLIENT_ID or ARM_CLIENT_ID
+- `azure_client_secret` (String) Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_CLIENT_SECRET or ARM_CLIENT_SECRET
 - `azure_subscription_id` (String) The default Azure Subscription ID which should be used for Redpanda BYOC clusters. If another subscription is specified on a resource, it will take precedence. This can also be sourced from the `ARM_SUBSCRIPTION_ID` environment variable.
+- `azure_tenant_id` (String) Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_TENANT_ID or ARM_TENANT_ID
 - `client_id` (String, Sensitive) The ID for the client. You need either `client_id` AND `client_secret`, or `access_token`, to use this provider. Can also be set with the `REDPANDA_CLIENT_ID` environment variable.
 - `client_secret` (String, Sensitive) Redpanda client secret. You need either `client_id` AND `client_secret`, or `access_token`, to use this provider. Can also be set with the `REDPANDA_CLIENT_SECRET` environment variable.
 - `gcp_project_id` (String) The default Google Cloud Project ID to use for Redpanda BYOC clusters. If another project is specified on a resource, it will take precedence. This can also be sourced from the `GOOGLE_PROJECT` environment variable, or any of the following ordered by precedence: `GOOGLE_PROJECT`, `GOOGLE_CLOUD_PROJECT`, `GCLOUD_PROJECT`, or `CLOUDSDK_CORE_PROJECT`.
+- `google_credentials` (String) Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as GOOGLE_CREDENTIALS
+- `google_credentials_base64` (String) Used for creating and managing BYOC and BYOVPC clusters. Is a convenience passthrough for base64 encoded credentials intended for use in CI/CD. Can also be specified in the environment as GOOGLE_CREDENTIALS_BASE64
 
 ## Authentication with Redpanda Cloud
 

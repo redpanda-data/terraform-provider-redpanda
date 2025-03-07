@@ -134,6 +134,26 @@ func providerSchema() schema.Schema {
 					" the `GOOGLE_PROJECT` environment variable, or any of the following ordered by precedence:" +
 					" `GOOGLE_PROJECT`, `GOOGLE_CLOUD_PROJECT`, `GCLOUD_PROJECT`, or `CLOUDSDK_CORE_PROJECT`."),
 			},
+			"azure_client_id": schema.StringAttribute{
+				Optional:    true,
+				Description: ("Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_CLIENT_ID or ARM_CLIENT_ID"),
+			},
+			"azure_client_secret": schema.StringAttribute{
+				Optional:    true,
+				Description: ("Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_CLIENT_SECRET or ARM_CLIENT_SECRET"),
+			},
+			"azure_tenant_id": schema.StringAttribute{
+				Optional:    true,
+				Description: ("Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_TENANT_ID or ARM_TENANT_ID"),
+			},
+			"google_credentials": schema.StringAttribute{
+				Optional:    true,
+				Description: ("Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as GOOGLE_CREDENTIALS"),
+			},
+			"google_credentials_base64": schema.StringAttribute{
+				Optional:    true,
+				Description: ("Used for creating and managing BYOC and BYOVPC clusters. Is a convenience passthrough for base64 encoded credentials intended for use in CI/CD. Can also be specified in the environment as GOOGLE_CREDENTIALS_BASE64"),
+			},
 		},
 		Description:         "Redpanda Data terraform provider",
 		MarkdownDescription: "Provider configuration",
@@ -281,16 +301,25 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		os.Getenv("GCLOUD_PROJECT"),
 		os.Getenv("CLOUDSDK_CORE_PROJECT"))
 	azureClientID := firstNonEmptyString(
+		conf.AzureClientID.ValueString(),
 		os.Getenv("AZURE_CLIENT_ID"),
 		os.Getenv("ARM_CLIENT_ID"))
 	azureClientSecret := firstNonEmptyString(
+		conf.AzureClientSecret.ValueString(),
 		os.Getenv("AZURE_CLIENT_SECRET"),
 		os.Getenv("ARM_CLIENT_SECRET"))
 	azureTenantID := firstNonEmptyString(
+		conf.AzureTenantID.ValueString(),
 		os.Getenv("AZURE_TENANT_ID"),
 		os.Getenv("ARM_TENANT_ID"))
-	googleCredentials := os.Getenv("GOOGLE_CREDENTIALS")
-	googleCredentialsBase64 := os.Getenv("GOOGLE_CREDENTIALS_BASE64")
+	googleCredentials := firstNonEmptyString(
+		conf.GoogleCredentials.ValueString(),
+		os.Getenv("GOOGLE_CREDENTIALS"),
+	)
+	googleCredentialsBase64 := firstNonEmptyString(
+		conf.GoogleCredentialsBase64.ValueString(),
+		os.Getenv("GOOGLE_CREDENTIALS_BASE64"),
+	)
 	if r.byoc == nil {
 		r.byoc = utils.NewByocClient(utils.ByocClientConfig{
 			AuthToken:               creds.Token,
