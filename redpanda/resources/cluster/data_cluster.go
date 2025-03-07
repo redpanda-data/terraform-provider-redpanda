@@ -26,7 +26,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
@@ -81,6 +80,11 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		return
 	}
 
+	// Handle clusters in deleting states - add warning but still return the data
+	if cluster.GetState() == controlplanev1beta2.Cluster_STATE_DELETING || cluster.GetState() == controlplanev1beta2.Cluster_STATE_DELETING_AGENT {
+		resp.Diagnostics.AddWarning(fmt.Sprintf("cluster %s is in state %s", model.ID.ValueString(), cluster.GetState()), "")
+	}
+
 	// Convert cloud provider tags to Terraform map
 	tags := make(map[string]attr.Value)
 	for k, v := range cluster.CloudProviderTags {
@@ -116,9 +120,9 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 	}
 
 	if cluster.HasStateDescription() {
-		stateDescription, d := generateStateDescription(cluster)
-		if d.HasError() {
-			resp.Diagnostics.Append(d...)
+		stateDescription, dg := generateModelStateDescription(cluster, diags)
+		if dg.HasError() {
+			resp.Diagnostics.Append(dg...)
 			return
 		}
 		persist.StateDescription = stateDescription
@@ -128,242 +132,91 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		persist.ClusterAPIURL = types.StringValue(cluster.DataplaneApi.Url)
 	}
 
-	// Kafka API
-	if cluster.HasKafkaApi() {
-		kafkaAPI, d := generateKafkaAPI(cluster)
-		if d.HasError() {
-			resp.Diagnostics.Append(d...)
-			return
-		}
-		persist.KafkaAPI = kafkaAPI
+	kafkaAPI, dg := generateModelKafkaAPI(cluster, diags)
+	if dg.HasError() {
+		resp.Diagnostics.Append(dg...)
+		return
 	}
+	persist.KafkaAPI = kafkaAPI
 
-	// HTTP Proxy
-	if cluster.HasHttpProxy() {
-		httpProxy, d := generateHTTPProxy(cluster)
-		if d.HasError() {
-			resp.Diagnostics.Append(d...)
-			return
-		}
-		persist.HTTPProxy = httpProxy
+	httpProxy, dg := generateModelHTTPProxy(cluster, diags)
+	if dg.HasError() {
+		resp.Diagnostics.Append(dg...)
+		return
 	}
+	persist.HTTPProxy = httpProxy
 
-	// Schema Registry
-	if cluster.HasSchemaRegistry() {
-		schemaRegistry, d := generateSchemaRegistry(cluster)
-		if d.HasError() {
-			resp.Diagnostics.Append(d...)
-			return
-		}
-		persist.SchemaRegistry = schemaRegistry
+	schemaRegistry, dg := generateModelSchemaRegistry(cluster, diags)
+	if dg.HasError() {
+		resp.Diagnostics.Append(dg...)
+		return
 	}
+	persist.SchemaRegistry = schemaRegistry
 
-	// Redpanda Console
-	if cluster.HasRedpandaConsole() {
-		console, d := generateRedpandaConsole(cluster)
-		if d.HasError() {
-			resp.Diagnostics.Append(d...)
-			return
-		}
-		persist.RedpandaConsole = console
+	console, dg := generateModelRedpandaConsole(cluster, diags)
+	if dg.HasError() {
+		resp.Diagnostics.Append(dg...)
+		return
 	}
+	persist.RedpandaConsole = console
 
-	// Prometheus
-	if cluster.HasPrometheus() {
-		prometheus, d := generatePrometheus(cluster)
-		if d.HasError() {
-			resp.Diagnostics.Append(d...)
-			return
-		}
-		persist.Prometheus = prometheus
+	prometheus, dg := generateModelPrometheus(cluster, diags)
+	if dg.HasError() {
+		resp.Diagnostics.Append(dg...)
+		return
 	}
+	persist.Prometheus = prometheus
 
-	// Maintenance Window
-	if cluster.HasMaintenanceWindowConfig() {
-		window, d := generateMaintenanceWindow(cluster)
-		if d.HasError() {
-			resp.Diagnostics.Append(d...)
-			return
-		}
-		persist.MaintenanceWindowConfig = window
+	window, dg := generateModelMaintenanceWindow(cluster, diags)
+	if dg.HasError() {
+		resp.Diagnostics.Append(dg...)
+		return
 	}
+	persist.MaintenanceWindowConfig = window
+
+	awsPrivateLink, dg := generateModelAWSPrivateLink(cluster, resp.Diagnostics)
+	if dg.HasError() {
+		resp.Diagnostics.Append(dg...)
+		return
+	}
+	persist.AwsPrivateLink = awsPrivateLink
+
+	gcpPSC, dg := generateModelGCPPrivateServiceConnect(cluster, resp.Diagnostics)
+	if dg.HasError() {
+		resp.Diagnostics.Append(dg...)
+		return
+	}
+	persist.GcpPrivateServiceConnect = gcpPSC
+
+	azurePrivateLink, dg := generateModelAzurePrivateLink(cluster, resp.Diagnostics)
+	if dg.HasError() {
+		resp.Diagnostics.Append(dg...)
+		return
+	}
+	persist.AzurePrivateLink = azurePrivateLink
+
+	connectivity, dg := generateModelConnectivity(cluster, resp.Diagnostics)
+	if dg.HasError() {
+		resp.Diagnostics.Append(dg...)
+		return
+	}
+	persist.Connectivity = connectivity
+
+	kafkaConnect, dg := generateModelKafkaConnect(cluster, resp.Diagnostics)
+	if dg.HasError() {
+		resp.Diagnostics.Append(dg...)
+		return
+	}
+	persist.KafkaConnect = kafkaConnect
+
+	cmr, dg := generateModelCMR(cluster, resp.Diagnostics)
+	if dg.HasError() {
+		resp.Diagnostics.Append(dg...)
+		return
+	}
+	persist.CustomerManagedResources = cmr
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
-}
-
-// Helper functions to generate nested objects
-
-func generateStateDescription(cluster *controlplanev1beta2.Cluster) (types.Object, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	if !cluster.HasStateDescription() {
-		return types.ObjectNull(stateDescriptionType), diags
-	}
-	sd := cluster.GetStateDescription()
-	obj, d := types.ObjectValue(stateDescriptionType, map[string]attr.Value{
-		"message": types.StringValue(sd.GetMessage()),
-		"code":    types.Int32Value(sd.GetCode()),
-	})
-	if d.HasError() {
-		diags.Append(d...)
-		diags.AddError("failed to generate state description object", "could not create state description object")
-		return types.ObjectNull(stateDescriptionType), diags
-	}
-	return obj, diags
-}
-
-func generateKafkaAPI(cluster *controlplanev1beta2.Cluster) (types.Object, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	if !cluster.HasKafkaApi() {
-		return types.ObjectNull(kafkaAPIType), diags
-	}
-
-	kafkaAPI := cluster.GetKafkaApi()
-	mtls, d := generateMTLS(kafkaAPI.GetMtls())
-	if d.HasError() {
-		return types.ObjectNull(kafkaAPIType), d
-	}
-
-	obj, d := types.ObjectValue(kafkaAPIType, map[string]attr.Value{
-		"mtls":         mtls,
-		"seed_brokers": utils.StringSliceToTypeList(kafkaAPI.GetSeedBrokers()),
-	})
-	if d.HasError() {
-		return types.ObjectNull(kafkaAPIType), d
-	}
-	return obj, diags
-}
-
-func generateHTTPProxy(cluster *controlplanev1beta2.Cluster) (types.Object, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	if !cluster.HasHttpProxy() {
-		return types.ObjectNull(httpProxyType), diags
-	}
-
-	httpProxy := cluster.GetHttpProxy()
-	mtls, d := generateMTLS(httpProxy.GetMtls())
-	if d.HasError() {
-		return types.ObjectNull(httpProxyType), d
-	}
-
-	obj, d := types.ObjectValue(httpProxyType, map[string]attr.Value{
-		"mtls": mtls,
-		"url":  types.StringValue(httpProxy.GetUrl()),
-	})
-	if d.HasError() {
-		diags.Append(d...)
-		return types.ObjectNull(httpProxyType), diags
-	}
-	return obj, diags
-}
-
-func generateSchemaRegistry(cluster *controlplanev1beta2.Cluster) (types.Object, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	if !cluster.HasSchemaRegistry() {
-		return types.ObjectNull(schemaRegistryType), diags
-	}
-
-	registry := cluster.GetSchemaRegistry()
-	mtls, d := generateMTLS(registry.GetMtls())
-	if d.HasError() {
-		return types.ObjectNull(schemaRegistryType), d
-	}
-
-	obj, d := types.ObjectValue(schemaRegistryType, map[string]attr.Value{
-		"mtls": mtls,
-		"url":  types.StringValue(registry.GetUrl()),
-	})
-	if d.HasError() {
-		diags.Append(d...)
-		return types.ObjectNull(schemaRegistryType), diags
-	}
-	return obj, diags
-}
-
-func generateMTLS(mtls *controlplanev1beta2.MTLSSpec) (types.Object, diag.Diagnostics) {
-	var diags diag.Diagnostics
-
-	if mtls == nil {
-		return types.ObjectNull(mtlsType), diags
-	}
-
-	obj, d := types.ObjectValue(mtlsType, map[string]attr.Value{
-		"enabled":                 types.BoolValue(mtls.GetEnabled()),
-		"ca_certificates_pem":     utils.StringSliceToTypeList(mtls.GetCaCertificatesPem()),
-		"principal_mapping_rules": utils.StringSliceToTypeList(mtls.GetPrincipalMappingRules()),
-	})
-	if d.HasError() {
-		diags.Append(d...)
-		return types.ObjectNull(mtlsType), diags
-	}
-	return obj, diags
-}
-
-func generateRedpandaConsole(cluster *controlplanev1beta2.Cluster) (types.Object, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	if !cluster.HasRedpandaConsole() {
-		return types.ObjectNull(redpandaConsoleType), diags
-	}
-
-	console := cluster.GetRedpandaConsole()
-	obj, d := types.ObjectValue(redpandaConsoleType, map[string]attr.Value{
-		"url": types.StringValue(console.GetUrl()),
-	})
-	if d.HasError() {
-		diags.Append(d...)
-		return types.ObjectNull(redpandaConsoleType), diags
-	}
-	return obj, diags
-}
-
-func generatePrometheus(cluster *controlplanev1beta2.Cluster) (types.Object, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	if !cluster.HasPrometheus() {
-		return types.ObjectNull(prometheusType), diags
-	}
-
-	prometheus := cluster.GetPrometheus()
-	obj, d := types.ObjectValue(prometheusType, map[string]attr.Value{
-		"url": types.StringValue(prometheus.GetUrl()),
-	})
-	if d.HasError() {
-		diags.Append(d...)
-		return types.ObjectNull(prometheusType), diags
-	}
-	return obj, diags
-}
-
-func generateMaintenanceWindow(cluster *controlplanev1beta2.Cluster) (types.Object, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	if !cluster.HasMaintenanceWindowConfig() {
-		return types.ObjectNull(maintenanceWindowConfigType), diags
-	}
-
-	maintenance := cluster.GetMaintenanceWindowConfig()
-	window := make(map[string]attr.Value)
-
-	// Handle each possible window type
-	if maintenance.HasDayHour() {
-		dayHour := maintenance.GetDayHour()
-		dayHourObj, d := types.ObjectValue(dayHourType, map[string]attr.Value{
-			"hour_of_day": types.Int32Value(dayHour.GetHourOfDay()),
-			"day_of_week": types.StringValue(dayHour.GetDayOfWeek().String()),
-		})
-		if d.HasError() {
-			diags.Append(d...)
-			return types.ObjectNull(maintenanceWindowConfigType), diags
-		}
-		window["day_hour"] = dayHourObj
-	}
-
-	window["anytime"] = types.BoolValue(maintenance.HasAnytime())
-	window["unspecified"] = types.BoolValue(maintenance.HasUnspecified())
-
-	obj, d := types.ObjectValue(maintenanceWindowConfigType, window)
-	if d.HasError() {
-		diags.Append(d...)
-		return types.ObjectNull(maintenanceWindowConfigType), diags
-	}
-	return obj, diags
 }
 
 // Schema returns the schema for the Cluster data source.
@@ -434,6 +287,14 @@ func datasourceClusterSchema() schema.Schema {
 			"allow_deletion": schema.BoolAttribute{
 				Computed:    true,
 				Description: "Whether cluster deletion is allowed.",
+			},
+			"state": schema.StringAttribute{
+				Computed:    true,
+				Description: "Current state of the cluster.",
+			},
+			"created_at": schema.StringAttribute{
+				Computed:    true,
+				Description: "Timestamp when the cluster was created.",
 			},
 
 			// Kafka API configuration
@@ -564,10 +425,6 @@ func datasourceClusterSchema() schema.Schema {
 			},
 
 			// Status fields
-			"state": schema.StringAttribute{
-				Computed:    true,
-				Description: "Current state of the cluster.",
-			},
 			"state_description": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "Detailed state description when cluster is in a non-ready state.",
@@ -608,6 +465,491 @@ func datasourceClusterSchema() schema.Schema {
 					"unspecified": schema.BoolAttribute{
 						Computed:    true,
 						Description: "If true, maintenance window is unspecified.",
+					},
+				},
+			},
+
+			// Cloud provider specific configurations
+			"aws_private_link": schema.SingleNestedAttribute{
+				Computed:    true,
+				Description: "AWS PrivateLink configuration.",
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						Computed:    true,
+						Description: "Whether AWS PrivateLink is enabled.",
+					},
+					"connect_console": schema.BoolAttribute{
+						Computed:    true,
+						Description: "Whether Console is connected via PrivateLink.",
+					},
+					"allowed_principals": schema.ListAttribute{
+						Computed:    true,
+						ElementType: types.StringType,
+						Description: "The ARN of the principals that can access the Redpanda AWS PrivateLink Endpoint Service.",
+					},
+					"status": schema.SingleNestedAttribute{
+						Computed:    true,
+						Description: "Current status of the PrivateLink configuration.",
+						Attributes: map[string]schema.Attribute{
+							"service_id": schema.StringAttribute{
+								Computed:    true,
+								Description: "The PrivateLink service ID.",
+							},
+							"service_name": schema.StringAttribute{
+								Computed:    true,
+								Description: "The PrivateLink service name.",
+							},
+							"service_state": schema.StringAttribute{
+								Computed:    true,
+								Description: "Current state of the PrivateLink service.",
+							},
+							"created_at": schema.StringAttribute{
+								Computed:    true,
+								Description: "When the PrivateLink service was created.",
+							},
+							"deleted_at": schema.StringAttribute{
+								Computed:    true,
+								Description: "When the PrivateLink service was deleted.",
+							},
+							"vpc_endpoint_connections": schema.ListNestedAttribute{
+								Computed:    true,
+								Description: "List of VPC endpoint connections.",
+								NestedObject: schema.NestedAttributeObject{
+									Attributes: map[string]schema.Attribute{
+										"id": schema.StringAttribute{
+											Computed:    true,
+											Description: "The endpoint connection ID.",
+										},
+										"owner": schema.StringAttribute{
+											Computed:    true,
+											Description: "Owner of the endpoint connection.",
+										},
+										"state": schema.StringAttribute{
+											Computed:    true,
+											Description: "State of the endpoint connection.",
+										},
+										"created_at": schema.StringAttribute{
+											Computed:    true,
+											Description: "When the endpoint connection was created.",
+										},
+										"connection_id": schema.StringAttribute{
+											Computed:    true,
+											Description: "The connection ID.",
+										},
+										"load_balancer_arns": schema.ListAttribute{
+											Computed:    true,
+											ElementType: types.StringType,
+											Description: "ARNs of associated load balancers.",
+										},
+										"dns_entries": schema.ListNestedAttribute{
+											Computed:    true,
+											Description: "DNS entries for the endpoint.",
+											NestedObject: schema.NestedAttributeObject{
+												Attributes: map[string]schema.Attribute{
+													"dns_name": schema.StringAttribute{
+														Computed:    true,
+														Description: "The DNS name.",
+													},
+													"hosted_zone_id": schema.StringAttribute{
+														Computed:    true,
+														Description: "The hosted zone ID.",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							"kafka_api_seed_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for Kafka API seed brokers.",
+							},
+							"schema_registry_seed_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for Schema Registry.",
+							},
+							"redpanda_proxy_seed_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for HTTP proxy.",
+							},
+							"kafka_api_node_base_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Base port for Kafka API nodes.",
+							},
+							"redpanda_proxy_node_base_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Base port for HTTP proxy nodes.",
+							},
+							"console_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for Redpanda Console.",
+							},
+						},
+					},
+				},
+			},
+
+			"gcp_private_service_connect": schema.SingleNestedAttribute{
+				Computed:    true,
+				Description: "GCP Private Service Connect configuration.",
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						Computed:    true,
+						Description: "Whether Redpanda GCP Private Service Connect is enabled.",
+					},
+					"global_access_enabled": schema.BoolAttribute{
+						Computed:    true,
+						Description: "Whether global access is enabled.",
+					},
+					"consumer_accept_list": schema.ListNestedAttribute{
+						Computed:    true,
+						Description: "List of consumers that are allowed to connect to Redpanda GCP PSC service attachment.",
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"source": schema.StringAttribute{
+									Computed:    true,
+									Description: "Either the GCP project number or its alphanumeric ID.",
+								},
+							},
+						},
+					},
+					"status": schema.SingleNestedAttribute{
+						Computed:    true,
+						Description: "Current status of the Private Service Connect configuration.",
+						Attributes: map[string]schema.Attribute{
+							"service_attachment": schema.StringAttribute{
+								Computed:    true,
+								Description: "The service attachment identifier.",
+							},
+							"created_at": schema.StringAttribute{
+								Computed:    true,
+								Description: "When the Private Service Connect service was created.",
+							},
+							"deleted_at": schema.StringAttribute{
+								Computed:    true,
+								Description: "When the Private Service Connect service was deleted.",
+							},
+							"kafka_api_seed_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for Kafka API seed brokers.",
+							},
+							"schema_registry_seed_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for Schema Registry.",
+							},
+							"redpanda_proxy_seed_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for HTTP proxy.",
+							},
+							"kafka_api_node_base_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Base port for Kafka API nodes.",
+							},
+							"redpanda_proxy_node_base_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Base port for HTTP proxy nodes.",
+							},
+							"connected_endpoints": schema.ListNestedAttribute{
+								Computed:    true,
+								Description: "List of connected endpoints.",
+								NestedObject: schema.NestedAttributeObject{
+									Attributes: map[string]schema.Attribute{
+										"connection_id": schema.StringAttribute{
+											Computed:    true,
+											Description: "The connection ID.",
+										},
+										"consumer_network": schema.StringAttribute{
+											Computed:    true,
+											Description: "The consumer network.",
+										},
+										"endpoint": schema.StringAttribute{
+											Computed:    true,
+											Description: "The endpoint address.",
+										},
+										"status": schema.StringAttribute{
+											Computed:    true,
+											Description: "Status of the endpoint connection.",
+										},
+									},
+								},
+							},
+							"dns_a_records": schema.ListAttribute{
+								Computed:    true,
+								ElementType: types.StringType,
+								Description: "DNS A records for the service.",
+							},
+							"seed_hostname": schema.StringAttribute{
+								Computed:    true,
+								Description: "Hostname for the seed brokers.",
+							},
+						},
+					},
+				},
+			},
+
+			"azure_private_link": schema.SingleNestedAttribute{
+				Computed:    true,
+				Description: "Azure Private Link configuration.",
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						Computed:    true,
+						Description: "Whether Redpanda Azure Private Link Endpoint Service is enabled.",
+					},
+					"connect_console": schema.BoolAttribute{
+						Computed:    true,
+						Description: "Whether Console is connected in Redpanda Azure Private Link Service.",
+					},
+					"allowed_subscriptions": schema.ListAttribute{
+						Computed:    true,
+						ElementType: types.StringType,
+						Description: "The subscriptions that can access the Redpanda Azure PrivateLink Endpoint Service.",
+					},
+					"status": schema.SingleNestedAttribute{
+						Computed:    true,
+						Description: "Current status of the Private Link configuration.",
+						Attributes: map[string]schema.Attribute{
+							"service_id": schema.StringAttribute{
+								Computed:    true,
+								Description: "The Private Link service ID.",
+							},
+							"service_name": schema.StringAttribute{
+								Computed:    true,
+								Description: "The Private Link service name.",
+							},
+							"created_at": schema.StringAttribute{
+								Computed:    true,
+								Description: "When the Private Link service was created.",
+							},
+							"deleted_at": schema.StringAttribute{
+								Computed:    true,
+								Description: "When the Private Link service was deleted.",
+							},
+							"private_endpoint_connections": schema.ListNestedAttribute{
+								Computed:    true,
+								Description: "List of private endpoint connections.",
+								NestedObject: schema.NestedAttributeObject{
+									Attributes: map[string]schema.Attribute{
+										"private_endpoint_name": schema.StringAttribute{
+											Computed:    true,
+											Description: "Name of the private endpoint.",
+										},
+										"private_endpoint_id": schema.StringAttribute{
+											Computed:    true,
+											Description: "ID of the private endpoint.",
+										},
+										"connection_name": schema.StringAttribute{
+											Computed:    true,
+											Description: "Name of the connection.",
+										},
+										"connection_id": schema.StringAttribute{
+											Computed:    true,
+											Description: "ID of the connection.",
+										},
+										"status": schema.StringAttribute{
+											Computed:    true,
+											Description: "Status of the endpoint connection.",
+										},
+										"created_at": schema.StringAttribute{
+											Computed:    true,
+											Description: "When the endpoint connection was created.",
+										},
+									},
+								},
+							},
+							"dns_a_record": schema.StringAttribute{
+								Computed:    true,
+								Description: "DNS A record for the service.",
+							},
+							"approved_subscriptions": schema.ListAttribute{
+								Computed:    true,
+								ElementType: types.StringType,
+								Description: "List of approved Azure subscription IDs.",
+							},
+							"kafka_api_seed_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for Kafka API seed brokers.",
+							},
+							"schema_registry_seed_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for Schema Registry.",
+							},
+							"redpanda_proxy_seed_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for HTTP proxy.",
+							},
+							"kafka_api_node_base_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Base port for Kafka API nodes.",
+							},
+							"redpanda_proxy_node_base_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Base port for HTTP proxy nodes.",
+							},
+							"console_port": schema.Int32Attribute{
+								Computed:    true,
+								Description: "Port for Redpanda Console.",
+							},
+						},
+					},
+				},
+			},
+
+			// Connectivity configuration
+			"connectivity": schema.SingleNestedAttribute{
+				Computed:    true,
+				Description: "Cloud provider-specific connectivity configuration.",
+				Attributes: map[string]schema.Attribute{
+					"gcp": schema.SingleNestedAttribute{
+						Computed:    true,
+						Description: "GCP-specific connectivity settings.",
+						Attributes: map[string]schema.Attribute{
+							"enable_global_access": schema.BoolAttribute{
+								Computed:    true,
+								Description: "Whether global access is enabled.",
+							},
+						},
+					},
+				},
+			},
+
+			// Kafka Connect configuration
+			"kafka_connect": schema.SingleNestedAttribute{
+				Computed:    true,
+				Description: "Kafka Connect configuration.",
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						Computed:    true,
+						Description: "Whether Kafka Connect is enabled.",
+					},
+				},
+			},
+
+			// Customer managed resources
+			"customer_managed_resources": schema.SingleNestedAttribute{
+				Computed:    true,
+				Description: "Customer managed resources configuration for the cluster.",
+				Attributes: map[string]schema.Attribute{
+					"aws": schema.SingleNestedAttribute{
+						Computed: true,
+						Attributes: map[string]schema.Attribute{
+							"agent_instance_profile": schema.SingleNestedAttribute{
+								Computed: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Computed:    true,
+										Description: "ARN for the agent instance profile",
+									},
+								},
+							},
+							"connectors_node_group_instance_profile": schema.SingleNestedAttribute{
+								Computed: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Computed:    true,
+										Description: "ARN for the connectors node group instance profile",
+									},
+								},
+							},
+							"utility_node_group_instance_profile": schema.SingleNestedAttribute{
+								Computed: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Computed:    true,
+										Description: "ARN for the utility node group instance profile",
+									},
+								},
+							},
+							"redpanda_node_group_instance_profile": schema.SingleNestedAttribute{
+								Computed: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Computed:    true,
+										Description: "ARN for the redpanda node group instance profile",
+									},
+								},
+							},
+							"k8s_cluster_role": schema.SingleNestedAttribute{
+								Computed: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Computed:    true,
+										Description: "ARN for the Kubernetes cluster role",
+									},
+								},
+							},
+							"redpanda_agent_security_group": schema.SingleNestedAttribute{
+								Computed: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Computed:    true,
+										Description: "ARN for the redpanda agent security group",
+									},
+								},
+							},
+							"connectors_security_group": schema.SingleNestedAttribute{
+								Computed: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Computed:    true,
+										Description: "ARN for the connectors security group",
+									},
+								},
+							},
+							"redpanda_node_group_security_group": schema.SingleNestedAttribute{
+								Computed: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Computed:    true,
+										Description: "ARN for the redpanda node group security group",
+									},
+								},
+							},
+							"utility_security_group": schema.SingleNestedAttribute{
+								Computed: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Computed:    true,
+										Description: "ARN for the utility security group",
+									},
+								},
+							},
+							"cluster_security_group": schema.SingleNestedAttribute{
+								Computed: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Computed:    true,
+										Description: "ARN for the cluster security group",
+									},
+								},
+							},
+							"node_security_group": schema.SingleNestedAttribute{
+								Computed: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Computed:    true,
+										Description: "ARN for the node security group",
+									},
+								},
+							},
+							"cloud_storage_bucket": schema.SingleNestedAttribute{
+								Computed: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Computed:    true,
+										Description: "ARN for the cloud storage bucket",
+									},
+								},
+							},
+							"permissions_boundary_policy": schema.SingleNestedAttribute{
+								Computed: true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Computed:    true,
+										Description: "ARN for the permissions boundary policy",
+									},
+								},
+							},
+						},
 					},
 				},
 			},
