@@ -126,7 +126,11 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 
 	// there are various states where cluster can be nil in which case we should default to the minimal model already persisted
 	if cluster != nil {
-		p, dg := generateModel(model, cluster, resp.Diagnostics)
+		p, dg := generateModel(cluster, modelOrAPI{
+			RedpandaVersion: model.RedpandaVersion,
+			AllowDeletion:   model.AllowDeletion,
+			Tags:            model.Tags,
+		}, resp.Diagnostics)
 		if dg.HasError() {
 			// append minimal state because we failed
 			resp.Diagnostics.Append(resp.State.Set(ctx, generateMinimalModel(clusterID))...)
@@ -161,7 +165,11 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		return
 	}
 
-	persist, d := generateModel(model, cluster, resp.Diagnostics)
+	persist, d := generateModel(cluster, modelOrAPI{
+		RedpandaVersion: model.RedpandaVersion,
+		AllowDeletion:   model.AllowDeletion,
+		Tags:            model.Tags,
+	}, resp.Diagnostics)
 	if d.HasError() {
 		resp.Diagnostics.AddError("failed to generate model for state during cluster.Read", "")
 		resp.Diagnostics.Append(d...)
@@ -203,7 +211,11 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		return
 	}
 
-	persist, d := generateModel(plan, cluster, resp.Diagnostics)
+	persist, d := generateModel(cluster, modelOrAPI{
+		RedpandaVersion: plan.RedpandaVersion,
+		AllowDeletion:   plan.AllowDeletion,
+		Tags:            plan.Tags,
+	}, resp.Diagnostics)
 	if d.HasError() {
 		resp.Diagnostics.AddError("failed to generate model for state during cluster.Update", "")
 		resp.Diagnostics.Append(d...)

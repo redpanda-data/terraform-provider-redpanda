@@ -20,10 +20,8 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"time"
 
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -86,135 +84,21 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 	}
 
 	// Convert cloud provider tags to Terraform map
-	tags := make(map[string]attr.Value)
-	for k, v := range cluster.CloudProviderTags {
-		tags[k] = types.StringValue(v)
-	}
-	tagsValue, diags := types.MapValue(types.StringType, tags)
-	if diags.HasError() {
-		resp.Diagnostics.AddError("unable to parse Cloud tags", utils.DeserializeGrpcError(err))
+	tags, err := utils.StringMapToTypesMap(cluster.GetCloudProviderTags())
+	if err != nil {
+		resp.Diagnostics.AddError("error converting tags to MapType", err.Error())
 		return
 	}
 
-	// Create persistence model
-	persist := &models.Cluster{
-		Name:                  types.StringValue(cluster.Name),
-		ConnectionType:        types.StringValue(utils.ConnectionTypeToString(cluster.ConnectionType)),
-		CloudProvider:         types.StringValue(utils.CloudProviderToString(cluster.CloudProvider)),
-		ClusterType:           types.StringValue(utils.ClusterTypeToString(cluster.Type)),
-		RedpandaVersion:       types.StringValue(cluster.RedpandaVersion),
-		ThroughputTier:        types.StringValue(cluster.ThroughputTier),
-		Region:                types.StringValue(cluster.Region),
-		ResourceGroupID:       types.StringValue(cluster.ResourceGroupId),
-		NetworkID:             types.StringValue(cluster.NetworkId),
-		ID:                    types.StringValue(cluster.Id),
-		Tags:                  tagsValue,
-		Zones:                 utils.StringSliceToTypeList(cluster.Zones),
-		ReadReplicaClusterIDs: utils.StringSliceToTypeList(cluster.ReadReplicaClusterIds),
-		AllowDeletion:         types.BoolValue(true), // Default to true for data source
-		State:                 types.StringValue(cluster.State.String()),
-	}
-
-	if cluster.HasCreatedAt() {
-		persist.CreatedAt = types.StringValue(cluster.CreatedAt.AsTime().Format(time.RFC3339))
-	}
-
-	if cluster.HasStateDescription() {
-		stateDescription, dg := generateModelStateDescription(cluster, diags)
-		if dg.HasError() {
-			resp.Diagnostics.Append(dg...)
-			return
-		}
-		persist.StateDescription = stateDescription
-	}
-
-	if cluster.HasDataplaneApi() {
-		persist.ClusterAPIURL = types.StringValue(cluster.DataplaneApi.Url)
-	}
-
-	kafkaAPI, dg := generateModelKafkaAPI(cluster, diags)
+	persist, dg := generateModel(cluster, modelOrAPI{
+		RedpandaVersion: types.StringValue(cluster.RedpandaVersion),
+		Tags:            tags,
+	}, resp.Diagnostics)
 	if dg.HasError() {
+		resp.Diagnostics.AddError("error generating model", "failed to generate model in cluster datasource read")
 		resp.Diagnostics.Append(dg...)
 		return
 	}
-	persist.KafkaAPI = kafkaAPI
-
-	httpProxy, dg := generateModelHTTPProxy(cluster, diags)
-	if dg.HasError() {
-		resp.Diagnostics.Append(dg...)
-		return
-	}
-	persist.HTTPProxy = httpProxy
-
-	schemaRegistry, dg := generateModelSchemaRegistry(cluster, diags)
-	if dg.HasError() {
-		resp.Diagnostics.Append(dg...)
-		return
-	}
-	persist.SchemaRegistry = schemaRegistry
-
-	console, dg := generateModelRedpandaConsole(cluster, diags)
-	if dg.HasError() {
-		resp.Diagnostics.Append(dg...)
-		return
-	}
-	persist.RedpandaConsole = console
-
-	prometheus, dg := generateModelPrometheus(cluster, diags)
-	if dg.HasError() {
-		resp.Diagnostics.Append(dg...)
-		return
-	}
-	persist.Prometheus = prometheus
-
-	window, dg := generateModelMaintenanceWindow(cluster, diags)
-	if dg.HasError() {
-		resp.Diagnostics.Append(dg...)
-		return
-	}
-	persist.MaintenanceWindowConfig = window
-
-	awsPrivateLink, dg := generateModelAWSPrivateLink(cluster, resp.Diagnostics)
-	if dg.HasError() {
-		resp.Diagnostics.Append(dg...)
-		return
-	}
-	persist.AwsPrivateLink = awsPrivateLink
-
-	gcpPSC, dg := generateModelGCPPrivateServiceConnect(cluster, resp.Diagnostics)
-	if dg.HasError() {
-		resp.Diagnostics.Append(dg...)
-		return
-	}
-	persist.GcpPrivateServiceConnect = gcpPSC
-
-	azurePrivateLink, dg := generateModelAzurePrivateLink(cluster, resp.Diagnostics)
-	if dg.HasError() {
-		resp.Diagnostics.Append(dg...)
-		return
-	}
-	persist.AzurePrivateLink = azurePrivateLink
-
-	connectivity, dg := generateModelConnectivity(cluster, resp.Diagnostics)
-	if dg.HasError() {
-		resp.Diagnostics.Append(dg...)
-		return
-	}
-	persist.Connectivity = connectivity
-
-	kafkaConnect, dg := generateModelKafkaConnect(cluster, resp.Diagnostics)
-	if dg.HasError() {
-		resp.Diagnostics.Append(dg...)
-		return
-	}
-	persist.KafkaConnect = kafkaConnect
-
-	cmr, dg := generateModelCMR(cluster, resp.Diagnostics)
-	if dg.HasError() {
-		resp.Diagnostics.Append(dg...)
-		return
-	}
-	persist.CustomerManagedResources = cmr
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
