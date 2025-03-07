@@ -12,19 +12,26 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
+// used as an input to generateModel to allow populating these fields with either the model or the API
+type modelOrAPI struct {
+	RedpandaVersion types.String
+	AllowDeletion   types.Bool
+	Tags            types.Map
+}
+
 // generateModel populates the Cluster model to be persisted to state for Create, Read and Update operations. It is also indirectly used by Import
-func generateModel(cfg models.Cluster, cluster *controlplanev1beta2.Cluster, diagnostics diag.Diagnostics) (*models.Cluster, diag.Diagnostics) {
+func generateModel(cluster *controlplanev1beta2.Cluster, contingent modelOrAPI, diagnostics diag.Diagnostics) (*models.Cluster, diag.Diagnostics) {
 	output := &models.Cluster{
 		Name:                  types.StringValue(cluster.GetName()),
 		ID:                    types.StringValue(cluster.GetId()),
 		ConnectionType:        types.StringValue(utils.ConnectionTypeToString(cluster.GetConnectionType())),
 		CloudProvider:         types.StringValue(utils.CloudProviderToString(cluster.GetCloudProvider())),
 		ClusterType:           types.StringValue(utils.ClusterTypeToString(cluster.GetType())),
-		RedpandaVersion:       cfg.RedpandaVersion,
+		RedpandaVersion:       contingent.RedpandaVersion,
 		ThroughputTier:        types.StringValue(cluster.GetThroughputTier()),
 		Region:                types.StringValue(cluster.GetRegion()),
-		AllowDeletion:         cfg.AllowDeletion,
-		Tags:                  cfg.Tags,
+		AllowDeletion:         contingent.AllowDeletion,
+		Tags:                  contingent.Tags,
 		ResourceGroupID:       types.StringValue(cluster.GetResourceGroupId()),
 		NetworkID:             types.StringValue(cluster.GetNetworkId()),
 		ReadReplicaClusterIDs: utils.StringSliceToTypeList(cluster.GetReadReplicaClusterIds()),
