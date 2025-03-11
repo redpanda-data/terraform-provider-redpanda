@@ -20,7 +20,6 @@ package utils
 import (
 	"bufio"
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
@@ -38,45 +37,42 @@ import (
 
 // ByocClientConfig represents the options that must be passed to NewByocClient.
 type ByocClientConfig struct {
-	AuthToken               string
-	AzureSubscriptionID     string
-	GcpProject              string
-	InternalAPIURL          string
-	AzureClientID           string
-	AzureClientSecret       string
-	AzureTenantID           string
-	GoogleCredentials       string
-	GoogleCredentialsBase64 string
+	AuthToken           string
+	AzureSubscriptionID string
+	GcpProject          string
+	InternalAPIURL      string
+	AzureClientID       string
+	AzureClientSecret   string
+	AzureTenantID       string
+	GoogleCredentials   string
 }
 
 // ByocClient holds the information and clients needed to download and interact
 // with the rpk byoc plugin.
 type ByocClient struct {
-	api                     *cloudapi.Client
-	authToken               string
-	internalAPIURL          string
-	gcpProject              string
-	azureSubscriptionID     string
-	azureClientID           string
-	azureClientSecret       string
-	azureTenantID           string
-	googleCredentials       string
-	googleCredentialsBase64 string
+	api                 *cloudapi.Client
+	authToken           string
+	internalAPIURL      string
+	gcpProject          string
+	azureSubscriptionID string
+	azureClientID       string
+	azureClientSecret   string
+	azureTenantID       string
+	googleCredentials   string
 }
 
 // NewByocClient creates a new ByocClient.
 func NewByocClient(conf ByocClientConfig) *ByocClient {
 	return &ByocClient{
-		api:                     cloudapi.NewClient(conf.InternalAPIURL, conf.AuthToken),
-		authToken:               conf.AuthToken,
-		internalAPIURL:          conf.InternalAPIURL,
-		gcpProject:              conf.GcpProject,
-		azureSubscriptionID:     conf.AzureSubscriptionID,
-		azureClientID:           conf.AzureClientID,
-		azureClientSecret:       conf.AzureClientSecret,
-		azureTenantID:           conf.AzureTenantID,
-		googleCredentials:       conf.GoogleCredentials,
-		googleCredentialsBase64: conf.GoogleCredentialsBase64,
+		api:                 cloudapi.NewClient(conf.InternalAPIURL, conf.AuthToken),
+		authToken:           conf.AuthToken,
+		internalAPIURL:      conf.InternalAPIURL,
+		gcpProject:          conf.GcpProject,
+		azureSubscriptionID: conf.AzureSubscriptionID,
+		azureClientID:       conf.AzureClientID,
+		azureClientSecret:   conf.AzureClientSecret,
+		azureTenantID:       conf.AzureTenantID,
+		googleCredentials:   conf.GoogleCredentials,
 	}
 }
 
@@ -98,7 +94,7 @@ func (cl *ByocClient) RunByoc(ctx context.Context, clusterID, verb string) error
 		return err
 	}
 
-	return runSubprocess(ctx, cl.internalAPIURL, cl.googleCredentials, cl.googleCredentialsBase64, byocPath, byocArgs...)
+	return runSubprocess(ctx, cl.internalAPIURL, cl.googleCredentials, byocPath, byocArgs...)
 }
 
 func (cl *ByocClient) generateByocArgs(cluster cloudapi.Cluster, verb string) ([]string, error) {
@@ -175,7 +171,7 @@ func (cl *ByocClient) getByocExecutable(ctx context.Context, cluster cloudapi.Cl
 	return byocPath, nil
 }
 
-func runSubprocess(ctx context.Context, cloudURL, gcreds, gcreds64, executable string, args ...string) error {
+func runSubprocess(ctx context.Context, cloudURL, gcreds, executable string, args ...string) error {
 	tempDir, err := os.MkdirTemp("", "terraform-provider-redpanda-byoc")
 	if err != nil {
 		return err
@@ -201,16 +197,6 @@ func runSubprocess(ctx context.Context, cloudURL, gcreds, gcreds64, executable s
 	// Handle credentials file creation
 	if gcreds != "" {
 		if err := os.WriteFile(path.Join(tempDir, "creds.json"), []byte(gcreds), 0o600); err != nil {
-			return err
-		}
-		cmd.Env = append(cmd.Env, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", path.Join(tempDir, "creds.json")))
-	}
-	if gcreds64 != "" {
-		decodedBytes, err := base64.StdEncoding.DecodeString(gcreds64)
-		if err != nil {
-			return err
-		}
-		if err := os.WriteFile(path.Join(tempDir, "creds.json"), decodedBytes, 0o600); err != nil {
 			return err
 		}
 		cmd.Env = append(cmd.Env, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", path.Join(tempDir, "creds.json")))
