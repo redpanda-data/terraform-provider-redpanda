@@ -49,7 +49,9 @@ To create a GCP BYOC cluster you must provide a GCP_PROJECT_ID and GOOGLE_CREDEN
 
 ### Azure BYOC
 
-To create a BYOC Azure cluster you must provide an AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID, and AZURE_SUBSCRIPTION_ID. Getting a Tenant ID [requires creating a subscription](https://learn.microsoft.com/en-us/azure/azure-portal/get-subscription-tenant-id). The account [must have fairly wide ranging permissions](https://docs.redpanda.com/redpanda-cloud/security/authorization/cloud-iam-policies-azure/) to create the necessary infrastructure.
+To create a BYOC Azure cluster you must provide Azure credentials, be logged in to the Azure CLI, or specify an Azure authentication method. This provider supports [the same authentication methods and environment variables as the official AzureRM provider](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/guides/azure_cli). For example, to use a service principal and client certificate, you can pass the environment variables `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET`, `ARM_TENANT_ID`, and `ARM_SUBSCRIPTION_ID`.
+
+The account [must have fairly wide ranging permissions](https://docs.redpanda.com/redpanda-cloud/security/authorization/cloud-iam-policies-azure/) to create the necessary infrastructure.
 
 {{ tffile "examples/byoc/azure/main.tf" }}
 
