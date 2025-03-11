@@ -105,18 +105,103 @@ func (*ByocClient) generateAwsArgsAndEnv() (args, env []string, err error) {
 	return awsArgs, []string{}, nil
 }
 
+func getEnvBoolean(name string) (bool, error) {
+	value := strings.ToLower(os.Getenv(name))
+	if value == "" || value == "false" || value == "no" || value == "0" {
+		return false, nil
+	}
+	if value == "true" || value == "yes" || value == "1" {
+		return true, nil
+	}
+	return false, fmt.Errorf("bad boolean value %s=%q", name, value)
+}
+
 func (cl *ByocClient) generateAzureArgsAndEnv() (args, env []string, err error) {
+	// The rpk byoc plugin does authentication a bit differently from the Terraform
+	// azurerm provider. Namely, it operates in two stages: pre-flight validation
+	// checks using a different Azure library, and the internal Terraform project
+	// which has configurations passed into it. We want to let users use the normal
+	// Terraform azurerm provider environment variables and have everything work.
+	// TODO: do this in the rpk byoc plugin instead?
+
+	azureArgs := []string{}
+	azureEnv := []string{}
+
+	// How authentication method is chosen: pre-flight validation picks an auth method
+	// using --credential-source=[cli|msi|env|workload]; the internal Terraform project
+	// sets use_msi, use_oidc, and use_cli provider variables based on --identity=[cli|msi|oidc];
+	// and the actual Terraform azurerm provider chooses based on ARM_USE_MSI, ARM_USE_AKS_WORKLOAD_IDENTITY,
+	// or ARM_USE_OIDC, or if one of ARM_CLIENT_SECRET, ARM_CLIENT_CERTIFICATE, or ARM_CLIENT_CERTIFICATE_PATH
+	// are set, and otherwise uses the Azure CLI.
+	authMethods := []struct {
+		EnvName          string
+		CredentialSource string
+		Identity         string
+	}{
+		{"ARM_USE_MSI", "msi", "msi"},
+		{"ARM_USE_OIDC", "env", "oidc"},
+		{"ARM_USE_CLI", "cli", "cli"},
+		// --identity=none will set all of the other use_ configs to false.
+		// Terraform will correctly pick up ARM_USE_AKS_WORKLOAD_IDENTITY from the environment.
+		{"ARM_USE_AKS_WORKLOAD_IDENTITY", "workload", "none"},
+	}
+	seenExplicitAuthMethod := false
+	for _, method := range authMethods {
+		use, err := getEnvBoolean(method.EnvName)
+		if err != nil {
+			return nil, nil, err
+		}
+		if use {
+			if seenExplicitAuthMethod {
+				return nil, nil, fmt.Errorf("only one of ARM_USE_MSI, ARM_USE_OIDC, ARM_USE_CLI, or ARM_USE_AKS_WORKLOAD_IDENTITY can be set")
+			}
+			seenExplicitAuthMethod = true
+			azureArgs = append(azureArgs,
+				"--credential-source", method.CredentialSource,
+				"--identity", method.Identity,
+			)
+		}
+	}
+	if !seenExplicitAuthMethod {
+		if cl.azureClientSecret != "" || os.Getenv("ARM_CLIENT_CERTIFICATE") != "" || os.Getenv("ARM_CLIENT_CERTIFICATE_PATH") != "" {
+			azureArgs = append(azureArgs,
+				"--credential-source", "env",
+				// --identity=oidc will set use_oidc=true in the provider config which isn't what
+				// we want, but is required to correctly pass client_id and client_secret through
+				// to the backend config used after the first stage Terraform bootstrap. if the
+				// ARM_CLIENT_ID and ARM_CLIENT_SECRET variables are defined they'll get picked
+				// up automatically and it will be fine, but if AZURE_CLIENT_ID and AZURE_CLIENT_SECRET
+				// are being used instead they won't get picked up and the Terraform backend will fail.
+				// TODO: can change this to --identity=none after removing support for AZURE_ variables
+				"--identity", "oidc",
+			)
+		}
+	}
+
+	// Command line arguments: pre-flight validation requires --subscription-id to be set, and
+	// the internal Terraform project sets the subscription_id, client_id, and client_secret
+	// provider variables based on --subscription-id, --client-id, and --client-secret.
 	if cl.azureSubscriptionID == "" {
 		return nil, nil, fmt.Errorf("value must be set for Azure Subscription ID")
 	}
-	azureArgs := []string{
+	azureArgs = append(azureArgs,
 		"--subscription-id", cl.azureSubscriptionID,
-		"--credential-source", "env",
-		"--identity", "oidc",
 		"--client-id", cl.azureClientID,
 		"--client-secret", cl.azureClientSecret,
+	)
+
+	// Environment variables: pre-flight validation uses environment variables when passed
+	// --credential-source=env, prefixed with AZURE_ instead of ARM_; and the internal
+	// Terraform project sets the tenant_id provider variable based on AZURE_TENANT_ID.
+	// Handle this by taking all the ARM_ environment variables used by the Terraform azurerm
+	// provider and duplicate them as AZURE_ environment variables.
+	for _, s := range os.Environ() {
+		if strings.HasPrefix(s, "ARM_") {
+			azureEnv = append(azureEnv, fmt.Sprintf("AZURE_%s", strings.TrimPrefix(s, "ARM_")))
+		}
 	}
-	return azureArgs, []string{}, nil
+
+	return azureArgs, azureEnv, nil
 }
 
 func (cl *ByocClient) generateGcpArgsAndEnv() (args, env []string, err error) {
