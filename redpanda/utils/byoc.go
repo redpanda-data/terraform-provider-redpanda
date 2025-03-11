@@ -84,7 +84,7 @@ func (cl *ByocClient) RunByoc(ctx context.Context, clusterID, verb string) error
 		return fmt.Errorf("unable to request cluster details for %q: %w", clusterID, err)
 	}
 
-	byocArgs, err := cl.generateByocArgs(cluster, verb)
+	byocArgs, byocEnv, err := cl.generateByocArgsAndEnv(cluster, verb)
 	if err != nil {
 		return err
 	}
@@ -94,43 +94,101 @@ func (cl *ByocClient) RunByoc(ctx context.Context, clusterID, verb string) error
 		return err
 	}
 
-	return runSubprocess(ctx, cl.internalAPIURL, cl.googleCredentials, byocPath, byocArgs...)
+	return runSubprocess(ctx, byocEnv, byocPath, byocArgs...)
 }
 
-func (cl *ByocClient) generateByocArgs(cluster cloudapi.Cluster, verb string) ([]string, error) {
+func (*ByocClient) generateAwsArgsAndEnv() (args, env []string, err error) {
+	awsArgs := []string{
+		// TODO: clean this up after patch from cloud, not a good lasting solution
+		"--no-validate",
+	}
+	return awsArgs, []string{}, nil
+}
+
+func (cl *ByocClient) generateAzureArgsAndEnv() (args, env []string, err error) {
+	if cl.azureSubscriptionID == "" {
+		return nil, nil, fmt.Errorf("value must be set for Azure Subscription ID")
+	}
+	azureArgs := []string{
+		"--subscription-id", cl.azureSubscriptionID,
+		"--credential-source", "env",
+		"--identity", "oidc",
+		"--client-id", cl.azureClientID,
+		"--client-secret", cl.azureClientSecret,
+	}
+	return azureArgs, []string{}, nil
+}
+
+func (cl *ByocClient) generateGcpArgsAndEnv() (args, env []string, err error) {
+	if cl.gcpProject == "" {
+		return nil, nil, fmt.Errorf("value must be set for GCP Project")
+	}
+	gcpArgs := []string{
+		"--project-id", cl.gcpProject,
+	}
+
+	// Handle credentials file creation.
+	// Terraform's GCP provider accepts credentials directly in the GOOGLE_CREDENTIALS environment
+	// variable, but rpk byoc does some pre-flight validation using a different library that
+	// only allows credential paths passed in GOOGLE_APPLICATION_CREDENTIALS.
+	gcpEnv := []string{}
+	if cl.googleCredentials != "" {
+		tempDir, err := os.MkdirTemp("", "terraform-provider-redpanda-gcp")
+		if err != nil {
+			return nil, nil, err
+		}
+		// TODO: delete temp directory after running?
+		if err := os.WriteFile(path.Join(tempDir, "creds.json"), []byte(cl.googleCredentials), 0o600); err != nil {
+			return nil, nil, err
+		}
+		gcpEnv = append(gcpEnv, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", path.Join(tempDir, "creds.json")))
+	}
+
+	return gcpArgs, gcpEnv, nil
+}
+
+func (cl *ByocClient) generateByocArgsAndEnv(cluster cloudapi.Cluster, verb string) (args, env []string, err error) {
 	cloudProvider := strings.ToLower(cluster.Spec.Provider)
 	byocArgs := []string{
 		cloudProvider, verb,
 		"--cloud-api-token", cl.authToken,
-		"--redpanda-id", cluster.ID, "--debug",
+		"--redpanda-id", cluster.ID,
+		"--debug",
+	}
+	byocEnv := []string{
+		fmt.Sprintf("CLOUD_URL=%s/api/v1", cl.internalAPIURL),
+	}
+	for _, s := range os.Environ() {
+		// include all current environment variables, except for Terraform variables
+		// that byoc doesn't like and that might mess up the Terraform process that
+		// byoc calls.
+		if !strings.HasPrefix(s, "TF_") {
+			byocEnv = append(byocEnv, s)
+		}
 	}
 
-	switch cloudProvider {
-	case CloudProviderStringAws:
-		// TODO: clean this up after patch from cloud, not a good lasting solution
-		byocArgs = append(byocArgs, "--no-validate")
-	case CloudProviderStringAzure:
-		if cl.azureSubscriptionID == "" {
-			return nil, fmt.Errorf("value must be set for Azure Subscription ID")
+	providerArgs, providerEnv, err := func() ([]string, []string, error) {
+		switch cloudProvider {
+		case CloudProviderStringAws:
+			return cl.generateAwsArgsAndEnv()
+		case CloudProviderStringAzure:
+			return cl.generateAzureArgsAndEnv()
+		case CloudProviderStringGcp:
+			return cl.generateGcpArgsAndEnv()
+		default:
+			return nil, nil, fmt.Errorf(
+				"unimplemented cloud provider %v. please report this issue to the provider developers",
+				cloudProvider,
+			)
 		}
-		byocArgs = append(byocArgs,
-			"--subscription-id", cl.azureSubscriptionID,
-			"--credential-source", "env",
-			"--identity", "oidc",
-			"--client-id", cl.azureClientID,
-			"--client-secret", cl.azureClientSecret)
-	case CloudProviderStringGcp:
-		if cl.gcpProject == "" {
-			return nil, fmt.Errorf("value must be set for GCP Project")
-		}
-		byocArgs = append(byocArgs, "--project-id", cl.gcpProject)
-	default:
-		return nil, fmt.Errorf(
-			"unimplemented cloud provider %v. please report this issue to the provider developers",
-			cloudProvider,
-		)
+	}()
+	if err != nil {
+		return nil, nil, err
 	}
-	return byocArgs, nil
+	byocArgs = append(byocArgs, providerArgs...)
+	byocEnv = append(byocEnv, providerEnv...)
+
+	return byocArgs, byocEnv, nil
 }
 
 func (cl *ByocClient) getByocExecutable(ctx context.Context, cluster cloudapi.Cluster) (string, error) {
@@ -171,36 +229,18 @@ func (cl *ByocClient) getByocExecutable(ctx context.Context, cluster cloudapi.Cl
 	return byocPath, nil
 }
 
-func runSubprocess(ctx context.Context, cloudURL, gcreds, executable string, args ...string) error {
+func runSubprocess(ctx context.Context, env []string, executable string, args ...string) error {
 	tempDir, err := os.MkdirTemp("", "terraform-provider-redpanda-byoc")
 	if err != nil {
 		return err
 	}
 
 	cmd := exec.CommandContext(ctx, executable, args...)
+	cmd.Env = env
 
 	// switch to new temporary directory so we don't fill this one up,
 	// or in case this one isn't writable
 	cmd.Dir = tempDir
-
-	// get rid of all pesky Terraform environment variables that byoc
-	// doesn't like and that might mess up the Terraform process
-	// that byoc calls
-	cmd.Env = []string{}
-	for _, s := range os.Environ() {
-		if !strings.HasPrefix(s, "TF_") {
-			cmd.Env = append(cmd.Env, s)
-		}
-	}
-	cmd.Env = append(cmd.Env, fmt.Sprintf("CLOUD_URL=%s/api/v1", cloudURL))
-
-	// Handle credentials file creation
-	if gcreds != "" {
-		if err := os.WriteFile(path.Join(tempDir, "creds.json"), []byte(gcreds), 0o600); err != nil {
-			return err
-		}
-		cmd.Env = append(cmd.Env, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", path.Join(tempDir, "creds.json")))
-	}
 
 	lastLogs := &lastLogs{}
 
