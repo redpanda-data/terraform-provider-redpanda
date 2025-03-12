@@ -788,7 +788,7 @@ variable "zones" {
 }
 
 variable "throughput_tier" {
-  default = "tier-1-azure-v2-x86"
+  default = "tier-1-azure-v3-x86"
 }
 
 
@@ -1170,7 +1170,7 @@ variable "zones" {
 }
 
 variable "throughput_tier" {
-  default = "tier-1-azure-v2-x86"
+  default = "tier-1-azure-v3-x86"
 }
 
 
