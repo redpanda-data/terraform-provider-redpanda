@@ -843,6 +843,11 @@ func generateModelCMR(cluster *controlplanev1beta2.Cluster, diags diag.Diagnosti
 			return types.ObjectNull(cmrType), diags
 		}
 		aws, d := generateModelCMRAWS(cluster.GetCustomerManagedResources().GetAws(), diags)
+		if d.HasError() {
+			diags.AddError("failed to generate AWS CMR object", "could not create AWS CMR object")
+			diags.Append(d...)
+			return types.ObjectNull(cmrType), diags
+		}
 
 		// Create final CMR object
 		cmrObj, d := types.ObjectValue(cmrType, map[string]attr.Value{
@@ -881,7 +886,6 @@ func generateModelCMR(cluster *controlplanev1beta2.Cluster, diags diag.Diagnosti
 }
 
 func generateModelCMRGCP(gcpData *controlplanev1beta2.CustomerManagedResources_GCP, diags diag.Diagnostics) (basetypes.ObjectValue, diag.Diagnostics) {
-
 	// Initialize GCP values map with default null values
 	gcpVal := make(map[string]attr.Value)
 	for k, v := range gcpValueDefaults {
@@ -1033,7 +1037,6 @@ func generateModelCMRGCP(gcpData *controlplanev1beta2.CustomerManagedResources_G
 }
 
 func generateModelCMRAWS(awsData *controlplanev1beta2.CustomerManagedResources_AWS, diags diag.Diagnostics) (basetypes.ObjectValue, diag.Diagnostics) {
-
 	// Initialize AWS values map with default null values
 	awsVal := make(map[string]attr.Value)
 	for k, v := range awsValueDefaults {
