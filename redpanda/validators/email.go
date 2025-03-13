@@ -27,17 +27,17 @@ import (
 type EmailValidator struct{}
 
 // Description provides a description of the validator
-func (v EmailValidator) Description(_ context.Context) string {
+func (EmailValidator) Description(_ context.Context) string {
 	return "string value must be a valid email address"
 }
 
 // MarkdownDescription provides a description of the validator in markdown format
-func (v EmailValidator) MarkdownDescription(_ context.Context) string {
+func (EmailValidator) MarkdownDescription(_ context.Context) string {
 	return "String value must be a valid email address"
 }
 
 // ValidateString validates a string attribute
-func (v EmailValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+func (EmailValidator) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
 	// Skip validation if the value is null or unknown
 	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
 		return
@@ -47,7 +47,6 @@ func (v EmailValidator) ValidateString(ctx context.Context, req validator.String
 	// Regular expression pattern for validating email addresses
 	pattern := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
 	matched, err := regexp.MatchString(pattern, value)
-
 	if err != nil {
 		resp.Diagnostics.AddAttributeError(
 			req.Path,
