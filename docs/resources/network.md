@@ -37,6 +37,7 @@ Creates a network in the Redpanda Cloud.
 Optional:
 
 - `aws` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws))
+- `gcp` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--gcp))
 
 <a id="nestedatt--customer_managed_resources--aws"></a>
 ### Nested Schema for `customer_managed_resources.aws`
@@ -78,6 +79,24 @@ Required:
 Required:
 
 - `arn` (String) AWS VPC identifier
+
+
+
+<a id="nestedatt--customer_managed_resources--gcp"></a>
+### Nested Schema for `customer_managed_resources.gcp`
+
+Required:
+
+- `management_bucket` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--management_bucket))
+- `network_name` (String) Name of user-created network where the Redpanda cluster is deployed
+- `network_project_id` (String) GCP project ID where the network is created
+
+<a id="nestedatt--customer_managed_resources--gcp--management_bucket"></a>
+### Nested Schema for `customer_managed_resources.gcp.management_bucket`
+
+Required:
+
+- `name` (String) GCP storage bucket name for storing the state of Redpanda cluster deployment
 
 ## Usage
 
