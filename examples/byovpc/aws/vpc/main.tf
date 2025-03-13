@@ -1,24 +1,14 @@
 module "redpanda-byovpc" {
-  source = "git::https://github.com/redpanda-data/terraform-aws-redpanda-byovpc.git?ref=add-code-from-cloudexamples"
-
+  source = "redpanda-data/redpanda-byovpc/aws"
   region = var.region
-  aws_account_id = "879326078624"
 
-  aws_access_key = var.aws_access_key_id
-  aws_secret_key = var.aws_secret_access_key
   public_subnet_cidrs = [
     "10.0.16.0/20", "10.0.32.0/20", "10.0.48.0/20"
   ]
 }
 
-variable "aws_access_key_id" {
-  default = "access_key_id"
-  type = string
-}
-
-variable "aws_secret_access_key" {
-  default = "secret_key_id"
-  type = string
+provider "aws" {
+  region = var.region
 }
 
 variable "region" {
