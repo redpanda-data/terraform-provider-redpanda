@@ -4,7 +4,7 @@ go 1.23.5
 
 require (
 	buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20241024195046-353ea4645e3d.2
-	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.4-20241024195046-353ea4645e3d.1
+	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.5-20241024195046-353ea4645e3d.1
 	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.5.1-20250127174410-8bb7507b1982.2
 	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.4-20250127174410-8bb7507b1982.1
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
@@ -22,14 +22,14 @@ require (
 	google.golang.org/genproto v0.0.0-20250127172529-29210b9bc287
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250127172529-29210b9bc287
 	google.golang.org/grpc v1.71.0
-	google.golang.org/protobuf v1.36.4
+	google.golang.org/protobuf v1.36.5
 )
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.4-20241127180247-a33202765966.1 // indirect
-	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.4-20241220201140-4c5ba75caaf8.1 // indirect
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.5-20240508200655-46a4cf4ba109.1 // indirect
+	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.5-20221127060915-a1ecdc58eccd.1 // indirect
 	buf.build/gen/go/redpandadata/cloud/connectrpc/go v1.18.1-20241024195046-353ea4645e3d.1 // indirect
-	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.4-20240917150400-3f349e63f44a.1 // indirect
+	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.5-20240508150812-e0d0fbd58f25.1 // indirect
 	buf.build/gen/go/redpandadata/dataplane/connectrpc/go v1.18.1-20250127174410-8bb7507b1982.1 // indirect
 	connectrpc.com/connect v1.18.1 // indirect
 	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
