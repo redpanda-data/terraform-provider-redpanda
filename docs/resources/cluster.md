@@ -178,6 +178,7 @@ Required:
 Optional:
 
 - `aws` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws))
+- `gcp` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--gcp))
 
 <a id="nestedatt--customer_managed_resources--aws"></a>
 ### Nested Schema for `customer_managed_resources.aws`
@@ -300,6 +301,99 @@ Required:
 Required:
 
 - `arn` (String) ARN for the utility security group
+
+
+
+<a id="nestedatt--customer_managed_resources--gcp"></a>
+### Nested Schema for `customer_managed_resources.gcp`
+
+Required:
+
+- `agent_service_account` (Attributes) GCP service account for the agent. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--agent_service_account))
+- `connector_service_account` (Attributes) GCP service account for managed connectors. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--connector_service_account))
+- `console_service_account` (Attributes) GCP service account for Redpanda Console. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--console_service_account))
+- `gke_service_account` (Attributes) GCP service account for GCP Kubernetes Engine (GKE). (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--gke_service_account))
+- `redpanda_cluster_service_account` (Attributes) GCP service account for the Redpanda cluster. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--redpanda_cluster_service_account))
+- `subnet` (Attributes) GCP subnet where Redpanda cluster is deployed. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--subnet))
+- `tiered_storage_bucket` (Attributes) GCP storage bucket for Tiered storage. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--tiered_storage_bucket))
+
+Optional:
+
+- `psc_nat_subnet_name` (String) NAT subnet name if GCP Private Service Connect is enabled.
+
+<a id="nestedatt--customer_managed_resources--gcp--agent_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.agent_service_account`
+
+Required:
+
+- `email` (String) GCP service account email.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--connector_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.connector_service_account`
+
+Required:
+
+- `email` (String) GCP service account email.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--console_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.console_service_account`
+
+Required:
+
+- `email` (String) GCP service account email.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--gke_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.gke_service_account`
+
+Required:
+
+- `email` (String) GCP service account email.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--redpanda_cluster_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.redpanda_cluster_service_account`
+
+Required:
+
+- `email` (String) GCP service account email.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--subnet"></a>
+### Nested Schema for `customer_managed_resources.gcp.subnet`
+
+Required:
+
+- `k8s_master_ipv4_range` (String) Kubernetes Master IPv4 range, e.g. 10.0.0.0/24.
+- `name` (String) Subnet name.
+- `secondary_ipv4_range_pods` (Attributes) Secondary IPv4 range for pods. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_pods))
+- `secondary_ipv4_range_services` (Attributes) Secondary IPv4 range for services. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_services))
+
+<a id="nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_pods"></a>
+### Nested Schema for `customer_managed_resources.gcp.subnet.secondary_ipv4_range_pods`
+
+Required:
+
+- `name` (String) Secondary IPv4 range name for pods.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_services"></a>
+### Nested Schema for `customer_managed_resources.gcp.subnet.secondary_ipv4_range_services`
+
+Required:
+
+- `name` (String) Secondary IPv4 range name for services.
+
+
+
+<a id="nestedatt--customer_managed_resources--gcp--tiered_storage_bucket"></a>
+### Nested Schema for `customer_managed_resources.gcp.tiered_storage_bucket`
+
+Required:
+
+- `name` (String) GCP storage bucket name.
 
 
 
@@ -1250,7 +1344,6 @@ module "redpanda_byovpc" {
   source = "redpanda-data/redpanda-byovpc/aws"
 
   region = var.region
-  aws_account_id = "879326078624"
   public_subnet_cidrs = [
     "10.0.16.0/20", "10.0.32.0/20", "10.0.48.0/20"
   ]
