@@ -446,7 +446,7 @@ func verifyGCPAttributes(t *testing.T, attrs map[string]attr.Value, expected *ex
 }
 
 // Helper function to verify service account emails
-func verifyServiceAccount(t *testing.T, attrs map[string]attr.Value, key string, expectedEmail string) {
+func verifyServiceAccount(t *testing.T, attrs map[string]attr.Value, key, expectedEmail string) {
 	if expectedEmail == "" {
 		return
 	}
