@@ -387,9 +387,45 @@ func getMtlsSpec(ctx context.Context, mtls types.Object, diags diag.Diagnostics)
 	}, diags
 }
 
-func generateClusterCMRUpdate(_ context.Context, _ models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.CustomerManagedResourcesUpdate, diag.Diagnostics) {
-	// TODO implement for GCP BYOVPC
-	return nil, diags
+func generateClusterCMRUpdate(ctx context.Context, cluster models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.CustomerManagedResourcesUpdate, diag.Diagnostics) {
+	// Early returns if not applicable
+	if cluster.CustomerManagedResources.IsNull() {
+		return nil, diags
+	}
+
+	// Only supports GCP in the API so no point going past here if not gcp
+	if cluster.CloudProvider.ValueString() != utils.CloudProviderStringGcp {
+		return nil, diags
+	}
+
+	// Get the CMR object
+	var cmrObj types.Object
+	if d := cluster.CustomerManagedResources.As(ctx, &cmrObj, basetypes.ObjectAsOptions{
+		UnhandledNullAsEmpty:    true,
+		UnhandledUnknownAsEmpty: true,
+	}); d.HasError() {
+		return nil, d
+	}
+
+	// Get the GCP object from CustomerManagedResources
+	gcp, d := getObjectFromAttributes(ctx, "gcp", gcpType, cmrObj.Attributes(), diags)
+	if d.HasError() {
+		if !utils.IsNotFoundSpec(d) {
+			return nil, d
+		}
+	}
+
+	gcpUpdate := &controlplanev1beta2.CustomerManagedResourcesUpdate_GCP{}
+	if pscNatSubnetName, ok := gcp.Attributes()["psc_nat_subnet_name"].(types.String); ok && !pscNatSubnetName.IsNull() {
+		gcpUpdate.PscNatSubnetName = pscNatSubnetName.ValueString()
+	}
+
+	// Create and return the update object
+	return &controlplanev1beta2.CustomerManagedResourcesUpdate{
+		CloudProvider: &controlplanev1beta2.CustomerManagedResourcesUpdate_Gcp{
+			Gcp: gcpUpdate,
+		},
+	}, diags
 }
 
 func getAzurePrivateLinkSpec(_ context.Context, azure types.Object, diags diag.Diagnostics) (*controlplanev1beta2.AzurePrivateLinkSpec, diag.Diagnostics) {
