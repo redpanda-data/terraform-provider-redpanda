@@ -822,7 +822,6 @@ func generateModelAzurePrivateLink(cluster *controlplanev1beta2.Cluster, diagnos
 	}
 	return obj, diagnostics
 }
-
 func generateModelCMR(cluster *controlplanev1beta2.Cluster, diags diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	// Early return conditions
 	if cluster == nil || !cluster.HasCustomerManagedResources() {
@@ -836,13 +835,19 @@ func generateModelCMR(cluster *controlplanev1beta2.Cluster, diags diag.Diagnosti
 		return types.ObjectNull(cmrType), diags
 	}
 
+	cmr := cluster.GetCustomerManagedResources()
+	if cmr == nil {
+		return types.ObjectNull(cmrType), diags
+	}
+
 	switch cloudProvider {
 	case "aws":
-		if !cluster.CustomerManagedResources.HasAws() {
+		if !cmr.HasAws() {
 			diags.AddError("Cloud Provider Mismatch", "AWS customer managed resources are missing for AWS BYOVPC Cluster")
 			return types.ObjectNull(cmrType), diags
 		}
-		aws, d := generateModelCMRAWS(cluster.GetCustomerManagedResources().GetAws(), diags)
+
+		aws, d := generateModelCMRAWS(cmr.GetAws(), diags)
 		if d.HasError() {
 			diags.AddError("failed to generate AWS CMR object", "could not create AWS CMR object")
 			diags.Append(d...)
@@ -852,6 +857,7 @@ func generateModelCMR(cluster *controlplanev1beta2.Cluster, diags diag.Diagnosti
 		// Create final CMR object
 		cmrObj, d := types.ObjectValue(cmrType, map[string]attr.Value{
 			"aws": aws,
+			"gcp": types.ObjectNull(gcpType),
 		})
 		if d.HasError() {
 			diags.AddError("failed to generate CMR object", "could not create CMR object")
@@ -861,17 +867,20 @@ func generateModelCMR(cluster *controlplanev1beta2.Cluster, diags diag.Diagnosti
 		return cmrObj, diags
 
 	case "gcp":
-		if !cluster.CustomerManagedResources.HasGcp() {
+		if !cmr.HasGcp() {
 			diags.AddError("Cloud Provider Mismatch", "GCP customer managed resources are missing for GCP BYOVPC Cluster")
 			return types.ObjectNull(cmrType), diags
 		}
-		gcp, d := generateModelCMRGCP(cluster.GetCustomerManagedResources().GetGcp(), diags)
+
+		gcp, d := generateModelCMRGCP(cmr.GetGcp(), diags)
 		if d.HasError() {
 			diags.AddError("failed to generate GCP CMR object", "could not create GCP CMR object")
 			diags.Append(d...)
 			return types.ObjectNull(cmrType), diags
 		}
+
 		cmrObj, d := types.ObjectValue(cmrType, map[string]attr.Value{
+			"aws": types.ObjectNull(awsType),
 			"gcp": gcp,
 		})
 		if d.HasError() {
@@ -882,6 +891,7 @@ func generateModelCMR(cluster *controlplanev1beta2.Cluster, diags diag.Diagnosti
 		return cmrObj, diags
 	}
 
+	// Default return for unsupported cloud providers
 	return types.ObjectNull(cmrType), diags
 }
 
