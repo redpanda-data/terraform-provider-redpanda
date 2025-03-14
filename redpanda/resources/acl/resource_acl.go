@@ -43,9 +43,8 @@ type ACL struct {
 
 // Ensure provider defined types fully satisfy framework interfaces.
 var (
-	_ resource.Resource                = &ACL{}
-	_ resource.ResourceWithConfigure   = &ACL{}
-	_ resource.ResourceWithImportState = &ACL{}
+	_ resource.Resource              = &ACL{}
+	_ resource.ResourceWithConfigure = &ACL{}
 )
 
 // Metadata returns the metadata for the resource.
@@ -166,7 +165,7 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		return
 	}
 	defer a.dataplaneConn.Close()
-	// TODO doesn't return an acl object in the response, check on this
+	// FTODO doesn't return an acl object in the response, check on this
 	_, err = a.ACLClient.CreateACL(ctx, &dataplanev1alpha2.CreateACLRequest{
 		ResourceType:        resourceType,
 		ResourceName:        model.ResourceName.ValueString(),
@@ -328,11 +327,6 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 
 	// Remove the resource from state
 	response.State.RemoveResource(ctx)
-}
-
-// ImportState imports an ACL resource
-func (*ACL) ImportState(_ context.Context, _ resource.ImportStateRequest, _ *resource.ImportStateResponse) {
-	// TODO implement me.
 }
 
 func (a *ACL) createACLClient(clusterURL string) error {
