@@ -19,6 +19,7 @@ package redpanda
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 
@@ -316,21 +317,30 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		conf.GoogleCredentials.ValueString(),
 		os.Getenv("GOOGLE_CREDENTIALS"),
 	)
-	googleCredentialsBase64 := firstNonEmptyString(
-		conf.GoogleCredentialsBase64.ValueString(),
-		os.Getenv("GOOGLE_CREDENTIALS_BASE64"),
-	)
+	if googleCredentials == "" {
+		googleCredentialsBase64 := firstNonEmptyString(
+			conf.GoogleCredentialsBase64.ValueString(),
+			os.Getenv("GOOGLE_CREDENTIALS_BASE64"),
+		)
+		if googleCredentialsBase64 != "" {
+			decodedBytes, err := base64.StdEncoding.DecodeString(googleCredentialsBase64)
+			if err != nil {
+				response.Diagnostics.AddError("failed to decode GOOGLE_CREDENTIALS_BASE64", fmt.Sprint(err))
+				return
+			}
+			googleCredentials = string(decodedBytes)
+		}
+	}
 	if r.byoc == nil {
 		r.byoc = utils.NewByocClient(utils.ByocClientConfig{
-			AuthToken:               creds.Token,
-			InternalAPIURL:          creds.InternalAPIURL,
-			GcpProject:              gcpProjectID,
-			AzureSubscriptionID:     azureSubscriptionID,
-			AzureClientID:           azureClientID,
-			AzureClientSecret:       azureClientSecret,
-			AzureTenantID:           azureTenantID,
-			GoogleCredentials:       googleCredentials,
-			GoogleCredentialsBase64: googleCredentialsBase64,
+			AuthToken:           creds.Token,
+			InternalAPIURL:      creds.InternalAPIURL,
+			GcpProject:          gcpProjectID,
+			AzureSubscriptionID: azureSubscriptionID,
+			AzureClientID:       azureClientID,
+			AzureClientSecret:   azureClientSecret,
+			AzureTenantID:       azureTenantID,
+			GoogleCredentials:   googleCredentials,
 		})
 	}
 

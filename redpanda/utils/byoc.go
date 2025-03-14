@@ -20,7 +20,6 @@ package utils
 import (
 	"bufio"
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
@@ -38,45 +37,42 @@ import (
 
 // ByocClientConfig represents the options that must be passed to NewByocClient.
 type ByocClientConfig struct {
-	AuthToken               string
-	AzureSubscriptionID     string
-	GcpProject              string
-	InternalAPIURL          string
-	AzureClientID           string
-	AzureClientSecret       string
-	AzureTenantID           string
-	GoogleCredentials       string
-	GoogleCredentialsBase64 string
+	AuthToken           string
+	AzureSubscriptionID string
+	GcpProject          string
+	InternalAPIURL      string
+	AzureClientID       string
+	AzureClientSecret   string
+	AzureTenantID       string
+	GoogleCredentials   string
 }
 
 // ByocClient holds the information and clients needed to download and interact
 // with the rpk byoc plugin.
 type ByocClient struct {
-	api                     *cloudapi.Client
-	authToken               string
-	internalAPIURL          string
-	gcpProject              string
-	azureSubscriptionID     string
-	azureClientID           string
-	azureClientSecret       string
-	azureTenantID           string
-	googleCredentials       string
-	googleCredentialsBase64 string
+	api                 *cloudapi.Client
+	authToken           string
+	internalAPIURL      string
+	gcpProject          string
+	azureSubscriptionID string
+	azureClientID       string
+	azureClientSecret   string
+	azureTenantID       string
+	googleCredentials   string
 }
 
 // NewByocClient creates a new ByocClient.
 func NewByocClient(conf ByocClientConfig) *ByocClient {
 	return &ByocClient{
-		api:                     cloudapi.NewClient(conf.InternalAPIURL, conf.AuthToken),
-		authToken:               conf.AuthToken,
-		internalAPIURL:          conf.InternalAPIURL,
-		gcpProject:              conf.GcpProject,
-		azureSubscriptionID:     conf.AzureSubscriptionID,
-		azureClientID:           conf.AzureClientID,
-		azureClientSecret:       conf.AzureClientSecret,
-		azureTenantID:           conf.AzureTenantID,
-		googleCredentials:       conf.GoogleCredentials,
-		googleCredentialsBase64: conf.GoogleCredentialsBase64,
+		api:                 cloudapi.NewClient(conf.InternalAPIURL, conf.AuthToken),
+		authToken:           conf.AuthToken,
+		internalAPIURL:      conf.InternalAPIURL,
+		gcpProject:          conf.GcpProject,
+		azureSubscriptionID: conf.AzureSubscriptionID,
+		azureClientID:       conf.AzureClientID,
+		azureClientSecret:   conf.AzureClientSecret,
+		azureTenantID:       conf.AzureTenantID,
+		googleCredentials:   conf.GoogleCredentials,
 	}
 }
 
@@ -88,7 +84,7 @@ func (cl *ByocClient) RunByoc(ctx context.Context, clusterID, verb string) error
 		return fmt.Errorf("unable to request cluster details for %q: %w", clusterID, err)
 	}
 
-	byocArgs, err := cl.generateByocArgs(cluster, verb)
+	byocArgs, byocEnv, err := cl.generateByocArgsAndEnv(cluster, verb)
 	if err != nil {
 		return err
 	}
@@ -98,43 +94,186 @@ func (cl *ByocClient) RunByoc(ctx context.Context, clusterID, verb string) error
 		return err
 	}
 
-	return runSubprocess(ctx, cl.internalAPIURL, cl.googleCredentials, cl.googleCredentialsBase64, byocPath, byocArgs...)
+	return runSubprocess(ctx, byocEnv, byocPath, byocArgs...)
 }
 
-func (cl *ByocClient) generateByocArgs(cluster cloudapi.Cluster, verb string) ([]string, error) {
+func (*ByocClient) generateAwsArgsAndEnv() (args, env []string, err error) {
+	awsArgs := []string{
+		// TODO: clean this up after patch from cloud, not a good lasting solution
+		"--no-validate",
+	}
+	return awsArgs, []string{}, nil
+}
+
+func getEnvBoolean(name string) (bool, error) {
+	value := strings.ToLower(os.Getenv(name))
+	if value == "" || value == "false" || value == "no" || value == "0" {
+		return false, nil
+	}
+	if value == "true" || value == "yes" || value == "1" {
+		return true, nil
+	}
+	return false, fmt.Errorf("bad boolean value %s=%q", name, value)
+}
+
+func (cl *ByocClient) generateAzureArgsAndEnv() (args, env []string, err error) {
+	// The rpk byoc plugin does authentication a bit differently from the Terraform
+	// azurerm provider. Namely, it operates in two stages: pre-flight validation
+	// checks using a different Azure library, and the internal Terraform project
+	// which has configurations passed into it. We want to let users use the normal
+	// Terraform azurerm provider environment variables and have everything work.
+	// TODO: do this in the rpk byoc plugin instead?
+
+	azureArgs := []string{}
+	azureEnv := []string{}
+
+	// How authentication method is chosen: pre-flight validation picks an auth method
+	// using --credential-source=[cli|msi|env|workload]; the internal Terraform project
+	// sets use_msi, use_oidc, and use_cli provider variables based on --identity=[cli|msi|oidc];
+	// and the actual Terraform azurerm provider chooses based on ARM_USE_MSI, ARM_USE_AKS_WORKLOAD_IDENTITY,
+	// or ARM_USE_OIDC, or if one of ARM_CLIENT_SECRET, ARM_CLIENT_CERTIFICATE, or ARM_CLIENT_CERTIFICATE_PATH
+	// are set, and otherwise uses the Azure CLI.
+	authMethods := []struct {
+		EnvName          string
+		CredentialSource string
+		Identity         string
+	}{
+		{"ARM_USE_MSI", "msi", "msi"},
+		{"ARM_USE_OIDC", "env", "oidc"},
+		{"ARM_USE_CLI", "cli", "cli"},
+		// --identity=none will set all of the other use_ configs to false.
+		// Terraform will correctly pick up ARM_USE_AKS_WORKLOAD_IDENTITY from the environment.
+		{"ARM_USE_AKS_WORKLOAD_IDENTITY", "workload", "none"},
+	}
+	seenExplicitAuthMethod := false
+	for _, method := range authMethods {
+		use, err := getEnvBoolean(method.EnvName)
+		if err != nil {
+			return nil, nil, err
+		}
+		if use {
+			if seenExplicitAuthMethod {
+				return nil, nil, fmt.Errorf("only one of ARM_USE_MSI, ARM_USE_OIDC, ARM_USE_CLI, or ARM_USE_AKS_WORKLOAD_IDENTITY can be set")
+			}
+			seenExplicitAuthMethod = true
+			azureArgs = append(azureArgs,
+				"--credential-source", method.CredentialSource,
+				"--identity", method.Identity,
+			)
+		}
+	}
+	if !seenExplicitAuthMethod {
+		if cl.azureClientSecret != "" || os.Getenv("ARM_CLIENT_CERTIFICATE") != "" || os.Getenv("ARM_CLIENT_CERTIFICATE_PATH") != "" {
+			azureArgs = append(azureArgs,
+				"--credential-source", "env",
+				// --identity=oidc will set use_oidc=true in the provider config which isn't what
+				// we want, but is required to correctly pass client_id and client_secret through
+				// to the backend config used after the first stage Terraform bootstrap. if the
+				// ARM_CLIENT_ID and ARM_CLIENT_SECRET variables are defined they'll get picked
+				// up automatically and it will be fine, but if AZURE_CLIENT_ID and AZURE_CLIENT_SECRET
+				// are being used instead they won't get picked up and the Terraform backend will fail.
+				// TODO: can change this to --identity=none after removing support for AZURE_ variables
+				"--identity", "oidc",
+			)
+		}
+	}
+
+	// Command line arguments: pre-flight validation requires --subscription-id to be set, and
+	// the internal Terraform project sets the subscription_id, client_id, and client_secret
+	// provider variables based on --subscription-id, --client-id, and --client-secret.
+	if cl.azureSubscriptionID == "" {
+		return nil, nil, fmt.Errorf("value must be set for Azure Subscription ID")
+	}
+	azureArgs = append(azureArgs,
+		"--subscription-id", cl.azureSubscriptionID,
+		"--client-id", cl.azureClientID,
+		"--client-secret", cl.azureClientSecret,
+	)
+
+	// Environment variables: pre-flight validation uses environment variables when passed
+	// --credential-source=env, prefixed with AZURE_ instead of ARM_; and the internal
+	// Terraform project sets the tenant_id provider variable based on AZURE_TENANT_ID.
+	// Handle this by taking all the ARM_ environment variables used by the Terraform azurerm
+	// provider and duplicate them as AZURE_ environment variables.
+	for _, s := range os.Environ() {
+		if strings.HasPrefix(s, "ARM_") {
+			azureEnv = append(azureEnv, fmt.Sprintf("AZURE_%s", strings.TrimPrefix(s, "ARM_")))
+		}
+	}
+
+	return azureArgs, azureEnv, nil
+}
+
+func (cl *ByocClient) generateGcpArgsAndEnv() (args, env []string, err error) {
+	if cl.gcpProject == "" {
+		return nil, nil, fmt.Errorf("value must be set for GCP Project")
+	}
+	gcpArgs := []string{
+		"--project-id", cl.gcpProject,
+	}
+
+	// Handle credentials file creation.
+	// Terraform's GCP provider accepts credentials directly in the GOOGLE_CREDENTIALS environment
+	// variable, but rpk byoc does some pre-flight validation using a different library that
+	// only allows credential paths passed in GOOGLE_APPLICATION_CREDENTIALS.
+	gcpEnv := []string{}
+	if cl.googleCredentials != "" {
+		tempDir, err := os.MkdirTemp("", "terraform-provider-redpanda-gcp")
+		if err != nil {
+			return nil, nil, err
+		}
+		// TODO: delete temp directory after running?
+		if err := os.WriteFile(path.Join(tempDir, "creds.json"), []byte(cl.googleCredentials), 0o600); err != nil {
+			return nil, nil, err
+		}
+		gcpEnv = append(gcpEnv, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", path.Join(tempDir, "creds.json")))
+	}
+
+	return gcpArgs, gcpEnv, nil
+}
+
+func (cl *ByocClient) generateByocArgsAndEnv(cluster cloudapi.Cluster, verb string) (args, env []string, err error) {
 	cloudProvider := strings.ToLower(cluster.Spec.Provider)
 	byocArgs := []string{
 		cloudProvider, verb,
 		"--cloud-api-token", cl.authToken,
-		"--redpanda-id", cluster.ID, "--debug",
+		"--redpanda-id", cluster.ID,
+		"--debug",
+	}
+	byocEnv := []string{
+		fmt.Sprintf("CLOUD_URL=%s/api/v1", cl.internalAPIURL),
+	}
+	for _, s := range os.Environ() {
+		// include all current environment variables, except for Terraform variables
+		// that byoc doesn't like and that might mess up the Terraform process that
+		// byoc calls.
+		if !strings.HasPrefix(s, "TF_") {
+			byocEnv = append(byocEnv, s)
+		}
 	}
 
-	switch cloudProvider {
-	case CloudProviderStringAws:
-		// TODO: clean this up after patch from cloud, not a good lasting solution
-		byocArgs = append(byocArgs, "--no-validate")
-	case CloudProviderStringAzure:
-		if cl.azureSubscriptionID == "" {
-			return nil, fmt.Errorf("value must be set for Azure Subscription ID")
+	providerArgs, providerEnv, err := func() ([]string, []string, error) {
+		switch cloudProvider {
+		case CloudProviderStringAws:
+			return cl.generateAwsArgsAndEnv()
+		case CloudProviderStringAzure:
+			return cl.generateAzureArgsAndEnv()
+		case CloudProviderStringGcp:
+			return cl.generateGcpArgsAndEnv()
+		default:
+			return nil, nil, fmt.Errorf(
+				"unimplemented cloud provider %v. please report this issue to the provider developers",
+				cloudProvider,
+			)
 		}
-		byocArgs = append(byocArgs,
-			"--subscription-id", cl.azureSubscriptionID,
-			"--credential-source", "env",
-			"--identity", "oidc",
-			"--client-id", cl.azureClientID,
-			"--client-secret", cl.azureClientSecret)
-	case CloudProviderStringGcp:
-		if cl.gcpProject == "" {
-			return nil, fmt.Errorf("value must be set for GCP Project")
-		}
-		byocArgs = append(byocArgs, "--project-id", cl.gcpProject)
-	default:
-		return nil, fmt.Errorf(
-			"unimplemented cloud provider %v. please report this issue to the provider developers",
-			cloudProvider,
-		)
+	}()
+	if err != nil {
+		return nil, nil, err
 	}
-	return byocArgs, nil
+	byocArgs = append(byocArgs, providerArgs...)
+	byocEnv = append(byocEnv, providerEnv...)
+
+	return byocArgs, byocEnv, nil
 }
 
 func (cl *ByocClient) getByocExecutable(ctx context.Context, cluster cloudapi.Cluster) (string, error) {
@@ -175,46 +314,18 @@ func (cl *ByocClient) getByocExecutable(ctx context.Context, cluster cloudapi.Cl
 	return byocPath, nil
 }
 
-func runSubprocess(ctx context.Context, cloudURL, gcreds, gcreds64, executable string, args ...string) error {
+func runSubprocess(ctx context.Context, env []string, executable string, args ...string) error {
 	tempDir, err := os.MkdirTemp("", "terraform-provider-redpanda-byoc")
 	if err != nil {
 		return err
 	}
 
 	cmd := exec.CommandContext(ctx, executable, args...)
+	cmd.Env = env
 
 	// switch to new temporary directory so we don't fill this one up,
 	// or in case this one isn't writable
 	cmd.Dir = tempDir
-
-	// get rid of all pesky Terraform environment variables that byoc
-	// doesn't like and that might mess up the Terraform process
-	// that byoc calls
-	cmd.Env = []string{}
-	for _, s := range os.Environ() {
-		if !strings.HasPrefix(s, "TF_") {
-			cmd.Env = append(cmd.Env, s)
-		}
-	}
-	cmd.Env = append(cmd.Env, fmt.Sprintf("CLOUD_URL=%s/api/v1", cloudURL))
-
-	// Handle credentials file creation
-	if gcreds != "" {
-		if err := os.WriteFile(path.Join(tempDir, "creds.json"), []byte(gcreds), 0o600); err != nil {
-			return err
-		}
-		cmd.Env = append(cmd.Env, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", path.Join(tempDir, "creds.json")))
-	}
-	if gcreds64 != "" {
-		decodedBytes, err := base64.StdEncoding.DecodeString(gcreds64)
-		if err != nil {
-			return err
-		}
-		if err := os.WriteFile(path.Join(tempDir, "creds.json"), decodedBytes, 0o600); err != nil {
-			return err
-		}
-		cmd.Env = append(cmd.Env, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", path.Join(tempDir, "creds.json")))
-	}
 
 	lastLogs := &lastLogs{}
 
