@@ -822,6 +822,7 @@ func generateModelAzurePrivateLink(cluster *controlplanev1beta2.Cluster, diagnos
 	}
 	return obj, diagnostics
 }
+
 func generateModelCMR(cluster *controlplanev1beta2.Cluster, diags diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	// Early return conditions
 	if cluster == nil || !cluster.HasCustomerManagedResources() {
