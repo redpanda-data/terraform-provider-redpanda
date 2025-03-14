@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
@@ -835,203 +836,387 @@ func generateModelCMR(cluster *controlplanev1beta2.Cluster, diags diag.Diagnosti
 		return types.ObjectNull(cmrType), diags
 	}
 
+	cmr := cluster.GetCustomerManagedResources()
+	if cmr == nil {
+		return types.ObjectNull(cmrType), diags
+	}
+
 	switch cloudProvider {
 	case "aws":
-		if !cluster.CustomerManagedResources.HasAws() {
+		if !cmr.HasAws() {
 			diags.AddError("Cloud Provider Mismatch", "AWS customer managed resources are missing for AWS BYOVPC Cluster")
 			return types.ObjectNull(cmrType), diags
 		}
 
-		// Get AWS data
-		awsData := cluster.GetCustomerManagedResources().GetAws()
-
-		// Initialize AWS values map with default null values
-		awsVal := make(map[string]attr.Value)
-		for k, v := range awsValueDefaults {
-			awsVal[k] = v
-		}
-
-		// Now set values for fields that exist in the input
-		if awsData.HasAgentInstanceProfile() {
-			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
-				"arn": types.StringValue(awsData.GetAgentInstanceProfile().GetArn()),
-			})
-			if d.HasError() {
-				diags.AddError("failed to generate agent instance profile object", "could not create agent instance profile object")
-				diags.Append(d...)
-			} else {
-				awsVal["agent_instance_profile"] = obj
-			}
-		}
-
-		if awsData.HasConnectorsNodeGroupInstanceProfile() {
-			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
-				"arn": types.StringValue(awsData.GetConnectorsNodeGroupInstanceProfile().GetArn()),
-			})
-			if d.HasError() {
-				diags.AddError("failed to generate connectors node group instance profile object", "could not create connectors node group instance profile object")
-				diags.Append(d...)
-			} else {
-				awsVal["connectors_node_group_instance_profile"] = obj
-			}
-		}
-
-		if awsData.HasUtilityNodeGroupInstanceProfile() {
-			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
-				"arn": types.StringValue(awsData.GetUtilityNodeGroupInstanceProfile().GetArn()),
-			})
-			if d.HasError() {
-				diags.AddError("failed to generate utility node group instance profile object", "could not create utility node group instance profile object")
-				diags.Append(d...)
-			} else {
-				awsVal["utility_node_group_instance_profile"] = obj
-			}
-		}
-
-		if awsData.HasRedpandaNodeGroupInstanceProfile() {
-			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
-				"arn": types.StringValue(awsData.GetRedpandaNodeGroupInstanceProfile().GetArn()),
-			})
-			if d.HasError() {
-				diags.AddError("failed to generate redpanda node group instance profile object", "could not create redpanda node group instance profile object")
-				diags.Append(d...)
-			} else {
-				awsVal["redpanda_node_group_instance_profile"] = obj
-			}
-		}
-
-		if awsData.HasK8SClusterRole() {
-			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
-				"arn": types.StringValue(awsData.GetK8SClusterRole().GetArn()),
-			})
-			if d.HasError() {
-				diags.AddError("failed to generate k8s cluster role object", "could not create k8s cluster role object")
-				diags.Append(d...)
-			} else {
-				awsVal["k8s_cluster_role"] = obj
-			}
-		}
-
-		if awsData.HasRedpandaAgentSecurityGroup() {
-			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
-				"arn": types.StringValue(awsData.GetRedpandaAgentSecurityGroup().GetArn()),
-			})
-			if d.HasError() {
-				diags.AddError("failed to generate redpanda agent security group object", "could not create redpanda agent security group object")
-				diags.Append(d...)
-			} else {
-				awsVal["redpanda_agent_security_group"] = obj
-			}
-		}
-
-		if awsData.HasConnectorsSecurityGroup() {
-			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
-				"arn": types.StringValue(awsData.GetConnectorsSecurityGroup().GetArn()),
-			})
-			if d.HasError() {
-				diags.AddError("failed to generate connectors security group object", "could not create connectors security group object")
-				diags.Append(d...)
-			} else {
-				awsVal["connectors_security_group"] = obj
-			}
-		}
-
-		if awsData.HasRedpandaNodeGroupSecurityGroup() {
-			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
-				"arn": types.StringValue(awsData.GetRedpandaNodeGroupSecurityGroup().GetArn()),
-			})
-			if d.HasError() {
-				diags.AddError("failed to generate redpanda node group security group object", "could not create redpanda node group security group object")
-				diags.Append(d...)
-			} else {
-				awsVal["redpanda_node_group_security_group"] = obj
-			}
-		}
-
-		if awsData.HasUtilitySecurityGroup() {
-			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
-				"arn": types.StringValue(awsData.GetUtilitySecurityGroup().GetArn()),
-			})
-			if d.HasError() {
-				diags.AddError("failed to generate utility security group object", "could not create utility security group object")
-				diags.Append(d...)
-			} else {
-				awsVal["utility_security_group"] = obj
-			}
-		}
-
-		if awsData.HasClusterSecurityGroup() {
-			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
-				"arn": types.StringValue(awsData.GetClusterSecurityGroup().GetArn()),
-			})
-			if d.HasError() {
-				diags.AddError("failed to generate cluster security group object", "could not create cluster security group object")
-				diags.Append(d...)
-			} else {
-				awsVal["cluster_security_group"] = obj
-			}
-		}
-
-		if awsData.HasNodeSecurityGroup() {
-			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
-				"arn": types.StringValue(awsData.GetNodeSecurityGroup().GetArn()),
-			})
-			if d.HasError() {
-				diags.AddError("failed to generate node security group object", "could not create node security group object")
-				diags.Append(d...)
-			} else {
-				awsVal["node_security_group"] = obj
-			}
-		}
-
-		if awsData.HasCloudStorageBucket() {
-			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
-				"arn": types.StringValue(awsData.GetCloudStorageBucket().GetArn()),
-			})
-			if d.HasError() {
-				diags.AddError("failed to generate cloud storage bucket object", "could not create cloud storage bucket object")
-				diags.Append(d...)
-			} else {
-				awsVal["cloud_storage_bucket"] = obj
-			}
-		}
-
-		if awsData.HasPermissionsBoundaryPolicy() {
-			obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
-				"arn": types.StringValue(awsData.GetPermissionsBoundaryPolicy().GetArn()),
-			})
-			if d.HasError() {
-				diags.AddError("failed to generate permissions boundary policy object", "could not create permissions boundary policy object")
-				diags.Append(d...)
-			} else {
-				awsVal["permissions_boundary_policy"] = obj
-			}
-		}
-
-		// Create AWS object
-		awsObj, d := types.ObjectValue(awsType, awsVal)
+		aws, d := generateModelCMRAWS(cmr.GetAws(), diags)
 		if d.HasError() {
-			diags.AddError("failed to generate AWS object", "could not create AWS object")
+			diags.AddError("failed to generate AWS CMR object", "could not create AWS CMR object")
 			diags.Append(d...)
 			return types.ObjectNull(cmrType), diags
 		}
 
 		// Create final CMR object
 		cmrObj, d := types.ObjectValue(cmrType, map[string]attr.Value{
-			"aws": awsObj,
+			"aws": aws,
+			"gcp": types.ObjectNull(gcpType),
 		})
 		if d.HasError() {
 			diags.AddError("failed to generate CMR object", "could not create CMR object")
 			diags.Append(d...)
 			return types.ObjectNull(cmrType), diags
 		}
-
 		return cmrObj, diags
 
 	case "gcp":
-		// TODO: Implement GCP support
-		return types.ObjectNull(cmrType), diags
+		if !cmr.HasGcp() {
+			diags.AddError("Cloud Provider Mismatch", "GCP customer managed resources are missing for GCP BYOVPC Cluster")
+			return types.ObjectNull(cmrType), diags
+		}
+
+		gcp, d := generateModelCMRGCP(cmr.GetGcp(), diags)
+		if d.HasError() {
+			diags.AddError("failed to generate GCP CMR object", "could not create GCP CMR object")
+			diags.Append(d...)
+			return types.ObjectNull(cmrType), diags
+		}
+
+		cmrObj, d := types.ObjectValue(cmrType, map[string]attr.Value{
+			"aws": types.ObjectNull(awsType),
+			"gcp": gcp,
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate CMR object", "could not create CMR object")
+			diags.Append(d...)
+			return types.ObjectNull(cmrType), diags
+		}
+		return cmrObj, diags
 	}
 
+	// Default return for unsupported cloud providers
 	return types.ObjectNull(cmrType), diags
+}
+
+func generateModelCMRGCP(gcpData *controlplanev1beta2.CustomerManagedResources_GCP, diags diag.Diagnostics) (basetypes.ObjectValue, diag.Diagnostics) {
+	// Initialize GCP values map with default null values
+	gcpVal := make(map[string]attr.Value)
+	for k, v := range gcpValueDefaults {
+		gcpVal[k] = v
+	}
+
+	// Set subnet configuration if it exists
+	if gcpData.HasSubnet() {
+		subnet := gcpData.GetSubnet()
+
+		// Process secondary IPv4 range for pods
+		var podsRangeObj types.Object
+		if subnet.HasSecondaryIpv4RangePods() {
+			podsRange, d := types.ObjectValue(gcpSecondaryIPv4RangeType, map[string]attr.Value{
+				"name": types.StringValue(subnet.GetSecondaryIpv4RangePods().GetName()),
+			})
+			if d.HasError() {
+				diags.AddError("failed to generate secondary IPv4 range pods object", "could not create secondary IPv4 range pods object")
+				diags.Append(d...)
+			} else {
+				podsRangeObj = podsRange
+			}
+		} else {
+			podsRangeObj = types.ObjectNull(gcpSecondaryIPv4RangeType)
+		}
+
+		// Process secondary IPv4 range for services
+		var servicesRangeObj types.Object
+		if subnet.HasSecondaryIpv4RangeServices() {
+			servicesRange, d := types.ObjectValue(gcpSecondaryIPv4RangeType, map[string]attr.Value{
+				"name": types.StringValue(subnet.GetSecondaryIpv4RangeServices().GetName()),
+			})
+			if d.HasError() {
+				diags.AddError("failed to generate secondary IPv4 range services object", "could not create secondary IPv4 range services object")
+				diags.Append(d...)
+			} else {
+				servicesRangeObj = servicesRange
+			}
+		} else {
+			servicesRangeObj = types.ObjectNull(gcpSecondaryIPv4RangeType)
+		}
+
+		// Create the subnet object
+		subnetObj, d := types.ObjectValue(gcpSubnetType, map[string]attr.Value{
+			"name":                          types.StringValue(subnet.GetName()),
+			"secondary_ipv4_range_pods":     podsRangeObj,
+			"secondary_ipv4_range_services": servicesRangeObj,
+			"k8s_master_ipv4_range":         types.StringValue(subnet.GetK8SMasterIpv4Range()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate subnet object", "could not create subnet object")
+			diags.Append(d...)
+		} else {
+			gcpVal["subnet"] = subnetObj
+		}
+	}
+
+	// Process agent service account
+	if gcpData.HasAgentServiceAccount() {
+		obj, d := types.ObjectValue(gcpServiceAccountType, map[string]attr.Value{
+			"email": types.StringValue(gcpData.GetAgentServiceAccount().GetEmail()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate agent service account object", "could not create agent service account object")
+			diags.Append(d...)
+		} else {
+			gcpVal["agent_service_account"] = obj
+		}
+	}
+
+	// Process console service account
+	if gcpData.HasConsoleServiceAccount() {
+		obj, d := types.ObjectValue(gcpServiceAccountType, map[string]attr.Value{
+			"email": types.StringValue(gcpData.GetConsoleServiceAccount().GetEmail()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate console service account object", "could not create console service account object")
+			diags.Append(d...)
+		} else {
+			gcpVal["console_service_account"] = obj
+		}
+	}
+
+	// Process connector service account
+	if gcpData.HasConnectorServiceAccount() {
+		obj, d := types.ObjectValue(gcpServiceAccountType, map[string]attr.Value{
+			"email": types.StringValue(gcpData.GetConnectorServiceAccount().GetEmail()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate connector service account object", "could not create connector service account object")
+			diags.Append(d...)
+		} else {
+			gcpVal["connector_service_account"] = obj
+		}
+	}
+
+	// Process redpanda cluster service account
+	if gcpData.HasRedpandaClusterServiceAccount() {
+		obj, d := types.ObjectValue(gcpServiceAccountType, map[string]attr.Value{
+			"email": types.StringValue(gcpData.GetRedpandaClusterServiceAccount().GetEmail()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate redpanda cluster service account object", "could not create redpanda cluster service account object")
+			diags.Append(d...)
+		} else {
+			gcpVal["redpanda_cluster_service_account"] = obj
+		}
+	}
+
+	// Process GKE service account
+	if gcpData.HasGkeServiceAccount() {
+		obj, d := types.ObjectValue(gcpServiceAccountType, map[string]attr.Value{
+			"email": types.StringValue(gcpData.GetGkeServiceAccount().GetEmail()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate GKE service account object", "could not create GKE service account object")
+			diags.Append(d...)
+		} else {
+			gcpVal["gke_service_account"] = obj
+		}
+	}
+
+	// Process tiered storage bucket
+	if gcpData.HasTieredStorageBucket() {
+		obj, d := types.ObjectValue(gcpBucketType, map[string]attr.Value{
+			"name": types.StringValue(gcpData.GetTieredStorageBucket().GetName()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate tiered storage bucket object", "could not create tiered storage bucket object")
+			diags.Append(d...)
+		} else {
+			gcpVal["tiered_storage_bucket"] = obj
+		}
+	}
+
+	// Process optional PSC NAT subnet name
+	if gcpData.PscNatSubnetName != "" {
+		gcpVal["psc_nat_subnet_name"] = types.StringValue(gcpData.PscNatSubnetName)
+	}
+
+	// Create GCP object
+	gcpObj, d := types.ObjectValue(gcpType, gcpVal)
+	if d.HasError() {
+		diags.AddError("failed to generate GCP object", "could not create GCP object")
+		diags.Append(d...)
+		return types.ObjectNull(cmrType), diags
+	}
+	return gcpObj, diags
+}
+
+func generateModelCMRAWS(awsData *controlplanev1beta2.CustomerManagedResources_AWS, diags diag.Diagnostics) (basetypes.ObjectValue, diag.Diagnostics) {
+	// Initialize AWS values map with default null values
+	awsVal := make(map[string]attr.Value)
+	for k, v := range awsValueDefaults {
+		awsVal[k] = v
+	}
+
+	// Now set values for fields that exist in the input
+	if awsData.HasAgentInstanceProfile() {
+		obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			"arn": types.StringValue(awsData.GetAgentInstanceProfile().GetArn()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate agent instance profile object", "could not create agent instance profile object")
+			diags.Append(d...)
+		} else {
+			awsVal["agent_instance_profile"] = obj
+		}
+	}
+
+	if awsData.HasConnectorsNodeGroupInstanceProfile() {
+		obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			"arn": types.StringValue(awsData.GetConnectorsNodeGroupInstanceProfile().GetArn()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate connectors node group instance profile object", "could not create connectors node group instance profile object")
+			diags.Append(d...)
+		} else {
+			awsVal["connectors_node_group_instance_profile"] = obj
+		}
+	}
+
+	if awsData.HasUtilityNodeGroupInstanceProfile() {
+		obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			"arn": types.StringValue(awsData.GetUtilityNodeGroupInstanceProfile().GetArn()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate utility node group instance profile object", "could not create utility node group instance profile object")
+			diags.Append(d...)
+		} else {
+			awsVal["utility_node_group_instance_profile"] = obj
+		}
+	}
+
+	if awsData.HasRedpandaNodeGroupInstanceProfile() {
+		obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			"arn": types.StringValue(awsData.GetRedpandaNodeGroupInstanceProfile().GetArn()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate redpanda node group instance profile object", "could not create redpanda node group instance profile object")
+			diags.Append(d...)
+		} else {
+			awsVal["redpanda_node_group_instance_profile"] = obj
+		}
+	}
+
+	if awsData.HasK8SClusterRole() {
+		obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			"arn": types.StringValue(awsData.GetK8SClusterRole().GetArn()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate k8s cluster role object", "could not create k8s cluster role object")
+			diags.Append(d...)
+		} else {
+			awsVal["k8s_cluster_role"] = obj
+		}
+	}
+
+	if awsData.HasRedpandaAgentSecurityGroup() {
+		obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			"arn": types.StringValue(awsData.GetRedpandaAgentSecurityGroup().GetArn()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate redpanda agent security group object", "could not create redpanda agent security group object")
+			diags.Append(d...)
+		} else {
+			awsVal["redpanda_agent_security_group"] = obj
+		}
+	}
+
+	if awsData.HasConnectorsSecurityGroup() {
+		obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			"arn": types.StringValue(awsData.GetConnectorsSecurityGroup().GetArn()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate connectors security group object", "could not create connectors security group object")
+			diags.Append(d...)
+		} else {
+			awsVal["connectors_security_group"] = obj
+		}
+	}
+
+	if awsData.HasRedpandaNodeGroupSecurityGroup() {
+		obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			"arn": types.StringValue(awsData.GetRedpandaNodeGroupSecurityGroup().GetArn()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate redpanda node group security group object", "could not create redpanda node group security group object")
+			diags.Append(d...)
+		} else {
+			awsVal["redpanda_node_group_security_group"] = obj
+		}
+	}
+
+	if awsData.HasUtilitySecurityGroup() {
+		obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			"arn": types.StringValue(awsData.GetUtilitySecurityGroup().GetArn()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate utility security group object", "could not create utility security group object")
+			diags.Append(d...)
+		} else {
+			awsVal["utility_security_group"] = obj
+		}
+	}
+
+	if awsData.HasClusterSecurityGroup() {
+		obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			"arn": types.StringValue(awsData.GetClusterSecurityGroup().GetArn()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate cluster security group object", "could not create cluster security group object")
+			diags.Append(d...)
+		} else {
+			awsVal["cluster_security_group"] = obj
+		}
+	}
+
+	if awsData.HasNodeSecurityGroup() {
+		obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			"arn": types.StringValue(awsData.GetNodeSecurityGroup().GetArn()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate node security group object", "could not create node security group object")
+			diags.Append(d...)
+		} else {
+			awsVal["node_security_group"] = obj
+		}
+	}
+
+	if awsData.HasCloudStorageBucket() {
+		obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			"arn": types.StringValue(awsData.GetCloudStorageBucket().GetArn()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate cloud storage bucket object", "could not create cloud storage bucket object")
+			diags.Append(d...)
+		} else {
+			awsVal["cloud_storage_bucket"] = obj
+		}
+	}
+
+	if awsData.HasPermissionsBoundaryPolicy() {
+		obj, d := types.ObjectValue(singleElementContainer, map[string]attr.Value{
+			"arn": types.StringValue(awsData.GetPermissionsBoundaryPolicy().GetArn()),
+		})
+		if d.HasError() {
+			diags.AddError("failed to generate permissions boundary policy object", "could not create permissions boundary policy object")
+			diags.Append(d...)
+		} else {
+			awsVal["permissions_boundary_policy"] = obj
+		}
+	}
+
+	// Create AWS object
+	awsObj, d := types.ObjectValue(awsType, awsVal)
+	if d.HasError() {
+		diags.AddError("failed to generate AWS object", "could not create AWS object")
+		diags.Append(d...)
+		return types.ObjectNull(cmrType), diags
+	}
+	return awsObj, diags
 }
