@@ -61,6 +61,9 @@ func IsNotFound(err error) bool {
 	if e, ok := grpcstatus.FromError(err); ok && e.Code() == grpccodes.NotFound {
 		return true
 	}
+	if e, ok := grpcstatus.FromError(err); ok && e.Code() == grpccodes.PermissionDenied {
+		return true
+	}
 	return false
 }
 
