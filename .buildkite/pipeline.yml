@@ -110,7 +110,7 @@ steps:
       - test_network
   - label: test_byoc_aws
     key: test_byoc_aws
-    if: build.tag == null && build.pull_request.labels includes 'byoc-ready'
+    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: make test_byoc_aws
     plugins:
       - seek-oss/aws-sm#v2.3.2:
@@ -129,7 +129,7 @@ steps:
       - unit
   - label: test_byoc_gcp
     key: test_byoc_gcp
-    if: build.tag == null && build.pull_request.labels includes 'byoc-ready'
+    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: make test_byoc_gcp
     plugins:
       - seek-oss/aws-sm#v2.3.2:
@@ -148,7 +148,7 @@ steps:
       - unit
   - label: test_byoc_azure
     key: test_byoc_azure
-    if: build.tag == null && build.pull_request.labels includes 'byoc-ready'
+    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: make test_byoc_azure
     plugins:
       - seek-oss/aws-sm#v2.3.2:
