@@ -113,7 +113,7 @@ func (r *DataSourceServerlessRegions) Read(ctx context.Context, req datasource.R
 	model.ServerlessRegions = []models.ServerlessRegionsItem{}
 	for _, v := range regions.ServerlessRegions {
 		item := models.ServerlessRegionsItem{
-			Available:   v.Available,
+			Available:   v.Available, //nolint:staticcheck // Using deprecated field temporarily
 			DisplayName: v.DisplayName,
 			Name:        v.Name,
 		}
