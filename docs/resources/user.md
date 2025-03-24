@@ -163,7 +163,7 @@ We are not currently able to support user creation in self hosted clusters. This
 ## Import
 
 ```shell
-terraform import resource.redpanda_user.example userName,clusterId
+terraform import redpanda_user.example userName,clusterId
 ```
 
 Where clusterId is the ID of the cluster in Redpanda Cloud
