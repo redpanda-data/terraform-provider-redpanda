@@ -145,5 +145,5 @@ variable "replication_factor" {
 ## Import
 
 ```shell
-terraform import resource.redpanda_resource_group.example resourcegroupId
+terraform import redpanda_resource_group.example resourcegroupId
 ```

@@ -90,6 +90,6 @@ variable "region" {
 ## Import
 
 ```shell
-terraform import resource.redpanda_serverless_cluster.example serverlessClusterId
+terraform import redpanda_serverless_cluster.example serverlessClusterId
 ```
 
