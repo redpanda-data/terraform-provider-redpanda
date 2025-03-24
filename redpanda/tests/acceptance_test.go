@@ -23,6 +23,7 @@ const (
 	serverlessClusterFile     = "../../examples/cluster/serverless/main.tf"
 	awsByocClusterFile        = "../../examples/byoc/aws/main.tf"
 	awsByocVpcClusterFile     = "../../examples/byovpc/aws/main.tf"
+	gcpByoVpcClusterFile      = "../../examples/byovpc/gcp/main.tf"
 	azureByocClusterFile      = "../../examples/byoc/azure/main.tf"
 	gcpByocClusterFile        = "../../examples/byoc/gcp/main.tf"
 	dedicatedNetworkFile      = "../../examples/network/main.tf"
@@ -306,6 +307,19 @@ func TestAccResourcesByoVpcAWS(t *testing.T) {
 	testRunner(ctx, name, rename, redpandaVersion, awsByocVpcClusterFile, map[string]string{
 		"aws_secret_key": os.Getenv("AWS_SECRET_ACCESS_KEY"),
 		"aws_access_key": os.Getenv("AWS_ACCESS_KEY_ID"),
+	}, t)
+}
+
+func TestAccResourcesByoVpcGCP(t *testing.T) {
+	if !strings.Contains(runByocVpcTests, "true") {
+		t.Skip("skipping byoc vpc tests")
+	}
+	ctx := context.Background()
+	name := generateRandomName(accNamePrepend + testaws)
+	rename := generateRandomName(accNamePrepend + testawsRename)
+	testRunner(ctx, name, rename, redpandaVersion, gcpByoVpcClusterFile, map[string]string{
+		"gcp_creds":  os.Getenv("GCP_CREDENTIALS"),
+		"project_id": os.Getenv("GCP_PROJECT_ID"),
 	}, t)
 }
 
