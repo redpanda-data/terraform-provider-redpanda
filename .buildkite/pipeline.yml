@@ -127,6 +127,7 @@ steps:
     depends_on:
       - lint
       - unit
+      - test_network
   - label: test_byoc_gcp
     key: test_byoc_gcp
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
@@ -146,6 +147,7 @@ steps:
     depends_on:
       - lint
       - unit
+      - test_network
   - label: test_byoc_azure
     key: test_byoc_azure
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
@@ -167,6 +169,7 @@ steps:
     depends_on:
       - lint
       - unit
+      - test_network
   - label: Release
     key: release
     if: build.tag != null
