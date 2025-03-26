@@ -83,11 +83,10 @@ func resourceTopicSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"partition_count": schema.NumberAttribute{
-				Description: "The number of partitions for the topic. This determines how the data is distributed across brokers.",
+				Description: "The number of partitions for the topic. This determines how the data is distributed across brokers. Increases are fully supported without data loss, decreases will result in an error and should be accomplished by creating a new topic and migrating the data.",
 				Optional:    true,
 				Computed:    true,
 				PlanModifiers: []planmodifier.Number{
-					numberplanmodifier.RequiresReplace(),
 					numberplanmodifier.UseStateForUnknown(),
 				},
 			},
