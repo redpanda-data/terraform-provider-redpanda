@@ -16,7 +16,7 @@ provider "redpanda" {}
 
 # Use the Redpanda GCP BYOVPC module
 module "redpanda_gcp" {
-  source = "github.com/redpanda-data/terraform-gcp-redpanda-byovpc.git?ref=example-work"
+  source = "github.com/redpanda-data/terraform-gcp-redpanda-byovpc.git?ref=main"
   project_id        = var.project_id
   region            = var.region
   unique_identifier = var.environment
