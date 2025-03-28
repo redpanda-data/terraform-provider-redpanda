@@ -23,7 +23,7 @@ Creates a topic in a Redpanda Cluster
 
 - `allow_deletion` (Boolean) Indicates whether the topic can be deleted.
 - `configuration` (Map of String) A map of string key/value pairs of topic configurations.
-- `partition_count` (Number) The number of partitions for the topic. This determines how the data is distributed across brokers.
+- `partition_count` (Number) The number of partitions for the topic. This determines how the data is distributed across brokers. Increases are fully supported without data loss, decreases will result in an error and should be accomplished by creating a new topic and migrating the data.
 - `replication_factor` (Number) The replication factor for the topic, which defines how many copies of the data are kept across different brokers for fault tolerance.
 
 ### Read-Only
