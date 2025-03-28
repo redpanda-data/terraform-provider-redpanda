@@ -27,16 +27,16 @@ resource "redpanda_network" "test" {
   customer_managed_resources = {
     aws = {
       management_bucket = {
-        arn = redpanda_byovpc.management_bucket_arn
+        arn = module.redpanda_byovpc.management_bucket_arn
       }
       dynamodb_table = {
-        arn = red
+        arn = module.redpanda_byovpc.dynamodb_table_arn
       }
       vpc = {
-        arn = redpanda_byovpc.vpc_arn
+        arn = module.redpanda_byovpc.vpc_arn
       }
       private_subnets = {
-        arns = redpanda_byovpc.private_subnet_arns
+        arns = module.redpanda_byovpc.private_subnet_arns
       }
     }
   }
@@ -59,46 +59,46 @@ resource "redpanda_cluster" "test" {
   customer_managed_resources = {
     aws = {
       aws_permissions_boundary_policy_arn = {
-        arn = redpanda_byovpc.permissions_boundary_policy_arn
+        arn = module.redpanda_byovpc.permissions_boundary_policy_arn
       }
       agent_instance_profile = {
-        arn = redpanda_byovpc.agent_instance_profile_arn
+        arn = module.redpanda_byovpc.agent_instance_profile_arn
       }
       connectors_node_group_instance_profile = {
-        arn = redpanda_byovpc.connectors_node_group_instance_profile_arn
+        arn = module.redpanda_byovpc.connectors_node_group_instance_profile_arn
       }
       utility_node_group_instance_profile = {
-        arn = redpanda_byovpc.utility_node_group_instance_profile_arn
+        arn = module.redpanda_byovpc.utility_node_group_instance_profile_arn
       }
       redpanda_node_group_instance_profile = {
-        arn = redpanda_byovpc.redpanda_node_group_instance_profile_arn
+        arn = module.redpanda_byovpc.redpanda_node_group_instance_profile_arn
       }
       k8s_cluster_role = {
-        arn = redpanda_byovpc.k8s_cluster_role_arn
+        arn = module.redpanda_byovpc.k8s_cluster_role_arn
       }
       redpanda_agent_security_group = {
-        arn = redpanda_byovpc.redpanda_agent_security_group_arn
+        arn = module.redpanda_byovpc.redpanda_agent_security_group_arn
       }
       connectors_security_group = {
-        arn = redpanda_byovpc.connectors_security_group_arn
+        arn = module.redpanda_byovpc.connectors_security_group_arn
       }
       redpanda_node_group_security_group = {
-        arn = redpanda_byovpc.redpanda_node_group_security_group_arn
+        arn = module.redpanda_byovpc.redpanda_node_group_security_group_arn
       }
       utility_security_group = {
-        arn = redpanda_byovpc.utility_security_group_arn
+        arn = module.redpanda_byovpc.utility_security_group_arn
       }
       cluster_security_group = {
-        arn = redpanda_byovpc.cluster_security_group_arn
+        arn = module.redpanda_byovpc.cluster_security_group_arn
       }
       node_security_group = {
-        arn = redpanda_byovpc.node_security_group_arn
+        arn = module.redpanda_byovpc.node_security_group_arn
       }
       cloud_storage_bucket = {
-        arn = redpanda_byovpc.cloud_storage_bucket_arn
+        arn = module.redpanda_byovpc.cloud_storage_bucket_arn
       }
       permissions_boundary_policy = {
-        arn = redpanda_byovpc.permissions_boundary_policy_arn
+        arn = module.redpanda_byovpc.permissions_boundary_policy_arn
       }
     }
   }
@@ -182,12 +182,4 @@ variable "partition_count" {
 
 variable "replication_factor" {
   default = 3
-}
-
-variable "aws_access_key" {
-  type = string
-}
-
-variable "aws_secret_key" {
-  type = string
 }
