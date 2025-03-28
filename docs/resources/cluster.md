@@ -1325,11 +1325,19 @@ variable "replication_factor" {
 
 ## BYOVPC
 
+![Beta Release](https://img.shields.io/badge/release-beta-red.svg)
+
+This feature is in beta and is still under development or awaiting fixes. It can be used at some risk.
+
 This accepts a network and other elements created by the end user inside their cloud provider account (currently limited to AWS) and builds a Redpanda Cluster inside it.
 
 There is [a module](https://github.com/redpanda-data/terraform-aws-redpanda-byovpc) provided for convenience of the end user here that handles the necessary setup. It contains outputs for the inputs the provider requires.
 
 ### AWS BYOVPC
+
+![Beta Release](https://img.shields.io/badge/release-beta-red.svg)
+
+This feature is in beta and is still under development or awaiting fixes. It can be used at some risk.
 
 Has the same requirements as the AWS BYOC Cluster in addition to ARNs for numerous resources that the end user must create.
 
@@ -1363,16 +1371,16 @@ resource "redpanda_network" "test" {
   customer_managed_resources = {
     aws = {
       management_bucket = {
-        arn = redpanda_byovpc.management_bucket_arn
+        arn = module.redpanda_byovpc.management_bucket_arn
       }
       dynamodb_table = {
-        arn = red
+        arn = module.redpanda_byovpc.dynamodb_table_arn
       }
       vpc = {
-        arn = redpanda_byovpc.vpc_arn
+        arn = module.redpanda_byovpc.vpc_arn
       }
       private_subnets = {
-        arns = redpanda_byovpc.private_subnet_arns
+        arns = module.redpanda_byovpc.private_subnet_arns
       }
     }
   }
@@ -1395,46 +1403,46 @@ resource "redpanda_cluster" "test" {
   customer_managed_resources = {
     aws = {
       aws_permissions_boundary_policy_arn = {
-        arn = redpanda_byovpc.permissions_boundary_policy_arn
+        arn = module.redpanda_byovpc.permissions_boundary_policy_arn
       }
       agent_instance_profile = {
-        arn = redpanda_byovpc.agent_instance_profile_arn
+        arn = module.redpanda_byovpc.agent_instance_profile_arn
       }
       connectors_node_group_instance_profile = {
-        arn = redpanda_byovpc.connectors_node_group_instance_profile_arn
+        arn = module.redpanda_byovpc.connectors_node_group_instance_profile_arn
       }
       utility_node_group_instance_profile = {
-        arn = redpanda_byovpc.utility_node_group_instance_profile_arn
+        arn = module.redpanda_byovpc.utility_node_group_instance_profile_arn
       }
       redpanda_node_group_instance_profile = {
-        arn = redpanda_byovpc.redpanda_node_group_instance_profile_arn
+        arn = module.redpanda_byovpc.redpanda_node_group_instance_profile_arn
       }
       k8s_cluster_role = {
-        arn = redpanda_byovpc.k8s_cluster_role_arn
+        arn = module.redpanda_byovpc.k8s_cluster_role_arn
       }
       redpanda_agent_security_group = {
-        arn = redpanda_byovpc.redpanda_agent_security_group_arn
+        arn = module.redpanda_byovpc.redpanda_agent_security_group_arn
       }
       connectors_security_group = {
-        arn = redpanda_byovpc.connectors_security_group_arn
+        arn = module.redpanda_byovpc.connectors_security_group_arn
       }
       redpanda_node_group_security_group = {
-        arn = redpanda_byovpc.redpanda_node_group_security_group_arn
+        arn = module.redpanda_byovpc.redpanda_node_group_security_group_arn
       }
       utility_security_group = {
-        arn = redpanda_byovpc.utility_security_group_arn
+        arn = module.redpanda_byovpc.utility_security_group_arn
       }
       cluster_security_group = {
-        arn = redpanda_byovpc.cluster_security_group_arn
+        arn = module.redpanda_byovpc.cluster_security_group_arn
       }
       node_security_group = {
-        arn = redpanda_byovpc.node_security_group_arn
+        arn = module.redpanda_byovpc.node_security_group_arn
       }
       cloud_storage_bucket = {
-        arn = redpanda_byovpc.cloud_storage_bucket_arn
+        arn = module.redpanda_byovpc.cloud_storage_bucket_arn
       }
       permissions_boundary_policy = {
-        arn = redpanda_byovpc.permissions_boundary_policy_arn
+        arn = module.redpanda_byovpc.permissions_boundary_policy_arn
       }
     }
   }
@@ -1519,19 +1527,251 @@ variable "partition_count" {
 variable "replication_factor" {
   default = 3
 }
+```
 
-variable "aws_access_key" {
-  type = string
+### GCP BYOVPC
+
+![Beta Release](https://img.shields.io/badge/release-beta-red.svg)
+
+This feature is in beta and is still under development or awaiting fixes. It can be used at some risk.
+
+Has the same requirements as the GCP BYOC Cluster along with the additional requirement for numerous resources that the end user must create.
+
+```terraform
+terraform {
+  required_providers {
+    redpanda = {
+      source  = "hashicorp/redpanda"
+      version = "0.7.1"
+    }
+  }
+}
+provider "google" {
+  project     = var.project_id
+  region      = var.region
+  credentials = base64decode(var.google_credentials_base64)
 }
 
-variable "aws_secret_key" {
-  type = string
+provider "redpanda" {}
+
+# Use the Redpanda GCP BYOVPC module
+module "redpanda_gcp" {
+  source = "github.com/redpanda-data/terraform-gcp-redpanda-byovpc.git?ref=main"
+  project_id        = var.project_id
+  region            = var.region
+  unique_identifier = var.environment
+  force_destroy_mgmt_bucket = var.environment == "dev" ? true : false
+  create_customer_user = true
+}
+
+# Redpanda resource group
+resource "redpanda_resource_group" "test" {
+  name = var.resource_group_name
+}
+
+# Create Redpanda network with customer managed resources
+resource "redpanda_network" "test" {
+  name              = var.network_name
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = "gcp"
+  region            = var.region
+  cluster_type      = "byoc"
+
+  customer_managed_resources = {
+    gcp = {
+      network_name = module.redpanda_gcp.network-vpc-name
+      network_project_id = var.project_id
+      management_bucket = {
+        name = module.redpanda_gcp.management_bucket_name
+      }
+    }
+  }
+  depends_on = [module.redpanda_gcp]
+}
+
+# Create Redpanda cluster with customer managed resources
+resource "redpanda_cluster" "test" {
+  name              = var.cluster_name
+  resource_group_id = redpanda_resource_group.test.id
+  network_id        = redpanda_network.test.id
+  cloud_provider    = "gcp"
+  region            = var.region
+  cluster_type      = "byoc"
+  connection_type   = "private"
+  throughput_tier   = var.throughput_tier
+  zones             = var.zones
+  allow_deletion    = true
+
+  tags = {
+    "environment" = var.environment
+    "managed-by"  = "terraform"
+  }
+
+  # Customer managed resources for GCP
+  customer_managed_resources = {
+    gcp = {
+      subnet = {
+        name = module.redpanda_gcp.network-subnet-name-external
+        secondary_ipv4_range_pods = {
+          name = "redpanda-pods"
+        }
+        secondary_ipv4_range_services = {
+          name = "redpanda-services"
+        }
+        k8s_master_ipv4_range = var.k8s_master_ipv4_range
+      }
+      agent_service_account = {
+        email = module.redpanda_gcp.agent_service_account_email
+      }
+      console_service_account = {
+        email = module.redpanda_gcp.console_service_account_email
+      }
+      connector_service_account = {
+        email = module.redpanda_gcp.connectors_service_account_email
+      }
+      redpanda_cluster_service_account = {
+        email = module.redpanda_gcp.redpanda_cluster_service_account_email
+      }
+      gke_service_account = {
+        email = module.redpanda_gcp.gke_service_account_email
+      }
+      tiered_storage_bucket = {
+        name = module.redpanda_gcp.redpanda_cloud_storage_bucket_name
+      }
+    }
+  }
+}
+
+# Create Kafka user for the cluster
+resource "redpanda_user" "test" {
+  name            = var.user_name
+  password        = var.user_pw
+  mechanism       = var.mechanism
+  cluster_api_url = redpanda_cluster.test.cluster_api_url
+}
+
+# Create Kafka topic in the cluster
+resource "redpanda_topic" "test" {
+  name               = var.topic_name
+  partition_count    = var.partition_count
+  replication_factor = var.replication_factor
+  cluster_api_url    = redpanda_cluster.test.cluster_api_url
+  allow_deletion     = true
+}
+
+# Set ACL for the user on the topic
+resource "redpanda_acl" "test" {
+  resource_type         = "TOPIC"
+  resource_name         = redpanda_topic.test.name
+  resource_pattern_type = "LITERAL"
+  principal             = "User:${redpanda_user.test.name}"
+  host                  = "*"
+  operation             = "READ"
+  permission_type       = "ALLOW"
+  cluster_api_url       = redpanda_cluster.test.cluster_api_url
+}
+
+# Variables
+variable "project_id" {
+  description = "The Google Cloud project ID"
+  type        = string
+  default     = "hallowed-ray-376320"
+}
+
+variable "google_credentials_base64" {
+  description = "Base64 encoded Google Cloud credentials"
+  type        = string
+}
+
+variable "region" {
+  description = "GCP region for resources"
+  type        = string
+  default     = "us-central1"
+}
+
+variable "resource_group_name" {
+  description = "Redpanda resource group name"
+  type        = string
+  default     = "testname"
+}
+
+variable "network_name" {
+  description = "Name for the Redpanda network"
+  type        = string
+  default     = "testname"
+}
+
+variable "cluster_name" {
+  description = "Name for the Redpanda cluster"
+  type        = string
+  default     = "testname"
+}
+
+variable "k8s_master_ipv4_range" {
+  description = "CIDR range for Kubernetes master nodes"
+  type        = string
+  default     = "10.3.0.0/28"
+}
+
+variable "throughput_tier" {
+  description = "Throughput tier for the Redpanda cluster"
+  type        = string
+  default     = "tier-1-gcp-um4g"
+}
+
+variable "zones" {
+  description = "GCP zones for the Redpanda cluster"
+  type        = list(string)
+  default     = ["us-central1-a", "us-central1-b", "us-central1-c"]
+}
+
+variable "environment" {
+  description = "Environment name (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+}
+
+variable "user_name" {
+  description = "Kafka user name"
+  type        = string
+  default     = "test-username"
+}
+
+variable "user_pw" {
+  description = "Kafka user password"
+  type        = string
+  sensitive   = true
+  default     = "password"
+}
+
+variable "mechanism" {
+  description = "Kafka authentication mechanism"
+  type        = string
+  default     = "scram-sha-256"
+}
+
+variable "topic_name" {
+  description = "Kafka topic name"
+  type        = string
+  default     = "test-topic"
+}
+
+variable "partition_count" {
+  description = "Number of partitions for the Kafka topic"
+  type        = number
+  default     = 3
+}
+
+variable "replication_factor" {
+  description = "Replication factor for the Kafka topic"
+  type        = number
+  default     = 3
 }
 ```
 
 ## Limitations
 
-We are not currently able to support GCP or Azure BYOVPC clusters.
+We are not currently able to support Azure BYOVPC clusters.
 
 ### Example Usage of a data source BYOC to manage users and ACLs
 
