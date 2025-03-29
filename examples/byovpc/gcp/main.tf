@@ -1,11 +1,3 @@
-terraform {
-  required_providers {
-    redpanda = {
-      source  = "hashicorp/redpanda"
-      version = "0.7.1"
-    }
-  }
-}
 provider "google" {
   project     = var.project_id
   region      = var.region
@@ -16,12 +8,12 @@ provider "redpanda" {}
 
 # Use the Redpanda GCP BYOVPC module
 module "redpanda_gcp" {
-  source = "github.com/redpanda-data/terraform-gcp-redpanda-byovpc.git?ref=main"
-  project_id        = var.project_id
+  source = "github.com/redpanda-data/terraform-gcp-redpanda-byovpc.git?ref=fix-cross-var-error"
+  service_project_id        = var.project_id
   region            = var.region
   unique_identifier = var.environment
   force_destroy_mgmt_bucket = var.environment == "dev" ? true : false
-  create_customer_user = true
+  network_project_id = var.project_id
 }
 
 # Redpanda resource group
@@ -39,7 +31,7 @@ resource "redpanda_network" "test" {
 
   customer_managed_resources = {
     gcp = {
-      network_name = module.redpanda_gcp.network-vpc-name
+      network_name = module.redpanda_gcp.network_name
       network_project_id = var.project_id
       management_bucket = {
         name = module.redpanda_gcp.management_bucket_name
@@ -71,14 +63,14 @@ resource "redpanda_cluster" "test" {
   customer_managed_resources = {
     gcp = {
       subnet = {
-        name = module.redpanda_gcp.network-subnet-name-external
+        name = module.redpanda_gcp.subnet_name
         secondary_ipv4_range_pods = {
-          name = "redpanda-pods"
+          name = module.redpanda_gcp.secondary_ipv4_range_pods_name
         }
         secondary_ipv4_range_services = {
-          name = "redpanda-services"
+          name = module.redpanda_gcp.secondary_ipv4_range_services_name
         }
-        k8s_master_ipv4_range = var.k8s_master_ipv4_range
+        k8s_master_ipv4_range = module.redpanda_gcp.k8s_master_ipv4_range
       }
       agent_service_account = {
         email = module.redpanda_gcp.agent_service_account_email
@@ -87,7 +79,7 @@ resource "redpanda_cluster" "test" {
         email = module.redpanda_gcp.console_service_account_email
       }
       connector_service_account = {
-        email = module.redpanda_gcp.connectors_service_account_email
+        email = module.redpanda_gcp.connector_service_account_email
       }
       redpanda_cluster_service_account = {
         email = module.redpanda_gcp.redpanda_cluster_service_account_email
@@ -96,10 +88,11 @@ resource "redpanda_cluster" "test" {
         email = module.redpanda_gcp.gke_service_account_email
       }
       tiered_storage_bucket = {
-        name = module.redpanda_gcp.redpanda_cloud_storage_bucket_name
+        name = module.redpanda_gcp.tiered_storage_bucket_name
       }
     }
   }
+  depends_on = [module.redpanda_gcp]
 }
 
 # Create Kafka user for the cluster
@@ -165,12 +158,6 @@ variable "cluster_name" {
   description = "Name for the Redpanda cluster"
   type        = string
   default     = "testname"
-}
-
-variable "k8s_master_ipv4_range" {
-  description = "CIDR range for Kubernetes master nodes"
-  type        = string
-  default     = "10.3.0.0/28"
 }
 
 variable "throughput_tier" {
