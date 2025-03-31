@@ -835,6 +835,109 @@ func datasourceClusterSchema() schema.Schema {
 							},
 						},
 					},
+					"gcp": schema.SingleNestedAttribute{
+						Computed: true,
+						Attributes: map[string]schema.Attribute{
+							"subnet": schema.SingleNestedAttribute{
+								Computed:    true,
+								Description: "GCP subnet where Redpanda cluster is deployed.",
+								Attributes: map[string]schema.Attribute{
+									"name": schema.StringAttribute{
+										Computed:    true,
+										Description: "Subnet name.",
+									},
+									"secondary_ipv4_range_pods": schema.SingleNestedAttribute{
+										Computed:    true,
+										Description: "Secondary IPv4 range for pods.",
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Computed:    true,
+												Description: "Secondary IPv4 range name for pods.",
+											},
+										},
+									},
+									"secondary_ipv4_range_services": schema.SingleNestedAttribute{
+										Computed:    true,
+										Description: "Secondary IPv4 range for services.",
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Computed:    true,
+												Description: "Secondary IPv4 range name for services.",
+											},
+										},
+									},
+									"k8s_master_ipv4_range": schema.StringAttribute{
+										Computed:    true,
+										Description: "Kubernetes Master IPv4 range, e.g. 10.0.0.0/24.",
+									},
+								},
+							},
+							"agent_service_account": schema.SingleNestedAttribute{
+								Computed:    true,
+								Description: "GCP service account for the agent.",
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Computed:    true,
+										Description: "GCP service account email.",
+									},
+								},
+							},
+							"console_service_account": schema.SingleNestedAttribute{
+								Computed:    true,
+								Description: "GCP service account for Redpanda Console.",
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Computed:    true,
+										Description: "GCP service account email.",
+									},
+								},
+							},
+							"connector_service_account": schema.SingleNestedAttribute{
+								Computed:    true,
+								Description: "GCP service account for managed connectors.",
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Computed:    true,
+										Description: "GCP service account email.",
+									},
+								},
+							},
+							"redpanda_cluster_service_account": schema.SingleNestedAttribute{
+								Computed:    true,
+								Description: "GCP service account for the Redpanda cluster.",
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Computed:    true,
+										Description: "GCP service account email.",
+									},
+								},
+							},
+							"gke_service_account": schema.SingleNestedAttribute{
+								Computed:    true,
+								Description: "GCP service account for GCP Kubernetes Engine (GKE).",
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Computed:    true,
+										Description: "GCP service account email.",
+									},
+								},
+							},
+							"tiered_storage_bucket": schema.SingleNestedAttribute{
+								Computed:    true,
+								Description: "GCP storage bucket for Tiered storage.",
+								Attributes: map[string]schema.Attribute{
+									"name": schema.StringAttribute{
+										Computed:    true,
+										Description: "GCP storage bucket name.",
+									},
+								},
+							},
+							"psc_nat_subnet_name": schema.StringAttribute{
+								Computed:    true,
+								Description: "NAT subnet name if GCP Private Service Connect is enabled.",
+							},
+						},
+					},
 				},
 			},
 		},

@@ -138,7 +138,7 @@ endef
 # Function to determine TF_CONFIG_DIR
 define GET_TF_CONFIG_DIR
 $(shell \
-    if [ "$(TEST_TYPE)" = "cluster" ] || [ "$(TEST_TYPE)" = "byoc"] || [ "$(TEST_TYPE)" = "byovpc" ]; then \
+    if [ "$(TEST_TYPE)" = "cluster" ] || [ "$(TEST_TYPE)" = "byoc" ] || [ "$(TEST_TYPE)" = "byovpc" ]; then \
         echo "examples/$(TEST_TYPE)/$(CLOUD_PROVIDER)"; \
     elif [ "$(TEST_TYPE)" = "datasource" ]; then \
         echo "examples/$(TEST_TYPE)/$(DATASOURCE_TEST_DIR)"; \
