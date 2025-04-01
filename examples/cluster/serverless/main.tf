@@ -19,5 +19,5 @@ variable "cluster_name" {
 }
 
 variable "region" {
-  default = "pro-us-east-1"
+  default = "eu-west-1"
 }
