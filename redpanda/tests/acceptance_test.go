@@ -534,18 +534,15 @@ func TestAccResourcesStrippedDownServerlessCluster(t *testing.T) {
 	ctx := context.Background()
 
 	name := generateRandomName(accNamePrepend + testaws)
-	region := "int-eu-west-1"
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
-	origTestCaseVars["region"] = config.StringVariable(region)
 
 	rename := generateRandomName(accNamePrepend + testawsRename)
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
-	updateTestCaseVars["region"] = config.StringVariable(region)
 
 	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
 	if err != nil {
