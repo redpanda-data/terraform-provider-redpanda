@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -119,7 +119,9 @@ func (c *ServerlessCluster) Create(ctx context.Context, req resource.CreateReque
 		resp.Diagnostics.AddError("unable to parse CreateServerlessCluster request", utils.DeserializeGrpcError(err))
 		return
 	}
-	clResp, err := c.CpCl.ServerlessCluster.CreateServerlessCluster(ctx, &controlplanev1beta2.CreateServerlessClusterRequest{ServerlessCluster: clusterReq})
+	clResp, err := c.CpCl.ServerlessCluster.CreateServerlessCluster(ctx, &controlplanev1.CreateServerlessClusterRequest{
+		ServerlessCluster: clusterReq,
+	})
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create serverless cluster", utils.DeserializeGrpcError(err))
 		return
@@ -158,7 +160,7 @@ func (c *ServerlessCluster) Read(ctx context.Context, req resource.ReadRequest, 
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read serverless cluster %s", model.ID), utils.DeserializeGrpcError(err))
 		return
 	}
-	if cluster.GetState() == controlplanev1beta2.ServerlessCluster_STATE_DELETING {
+	if cluster.GetState() == controlplanev1.ServerlessCluster_STATE_DELETING {
 		// null out the state, force it to be destroyed and recreated
 		resp.State.RemoveResource(ctx)
 		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), cluster.Id)...)
@@ -189,7 +191,7 @@ func (c *ServerlessCluster) Delete(ctx context.Context, req resource.DeleteReque
 	var model models.ServerlessCluster
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
-	clResp, err := c.CpCl.ServerlessCluster.DeleteServerlessCluster(ctx, &controlplanev1beta2.DeleteServerlessClusterRequest{
+	clResp, err := c.CpCl.ServerlessCluster.DeleteServerlessCluster(ctx, &controlplanev1.DeleteServerlessClusterRequest{
 		Id: model.ID.ValueString(),
 	})
 	if err != nil {
@@ -209,8 +211,8 @@ func (*ServerlessCluster) ImportState(ctx context.Context, req resource.ImportSt
 }
 
 // GenerateServerlessClusterRequest was pulled out to enable unit testing
-func GenerateServerlessClusterRequest(model models.ServerlessCluster) (*controlplanev1beta2.ServerlessClusterCreate, error) {
-	return &controlplanev1beta2.ServerlessClusterCreate{
+func GenerateServerlessClusterRequest(model models.ServerlessCluster) (*controlplanev1.ServerlessClusterCreate, error) {
+	return &controlplanev1.ServerlessClusterCreate{
 		Name:             model.Name.ValueString(),
 		ServerlessRegion: model.ServerlessRegion.ValueString(),
 		ResourceGroupId:  model.ResourceGroupID.ValueString(),

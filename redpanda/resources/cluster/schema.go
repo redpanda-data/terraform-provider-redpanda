@@ -313,20 +313,14 @@ func resourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-
-			"connectivity": schema.SingleNestedAttribute{
-				Optional:    true,
-				Description: "Cloud provider-specific connectivity configuration.",
-				Attributes: map[string]schema.Attribute{
-					"gcp": schema.SingleNestedAttribute{
-						Optional:    true,
-						Description: "GCP-specific connectivity settings.",
-						Attributes: map[string]schema.Attribute{
-							"enable_global_access": schema.BoolAttribute{
-								Required:    true,
-								Description: "Whether global access is enabled.",
-							},
-						},
+			"gcp_global_access_enabled": schema.BoolAttribute{
+				Optional:      true,
+				Description:   "If true, GCP global access is enabled.",
+				PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+				Validators: []validator.Bool{
+					validators.CloudProviderDependentValidator{
+						AttributeName: "gcp_global_access_enabled",
+						CloudProvider: "gcp",
 					},
 				},
 			},

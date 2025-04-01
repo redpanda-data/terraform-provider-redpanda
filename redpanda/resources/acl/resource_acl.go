@@ -19,8 +19,8 @@ import (
 	"context"
 	"fmt"
 
-	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1alpha2/dataplanev1alpha2grpc"
-	dataplanev1alpha2 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha2"
+	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
+	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -35,7 +35,7 @@ import (
 
 // ACL represents the ACL Terraform resource.
 type ACL struct {
-	ACLClient dataplanev1alpha2grpc.ACLServiceClient
+	ACLClient dataplanev1grpc.ACLServiceClient
 
 	resData       config.Resource
 	dataplaneConn *grpc.ClientConn
@@ -166,7 +166,7 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 	}
 	defer a.dataplaneConn.Close()
 	// FTODO doesn't return an acl object in the response, check on this
-	_, err = a.ACLClient.CreateACL(ctx, &dataplanev1alpha2.CreateACLRequest{
+	_, err = a.ACLClient.CreateACL(ctx, &dataplanev1.CreateACLRequest{
 		ResourceType:        resourceType,
 		ResourceName:        model.ResourceName.ValueString(),
 		ResourcePatternType: resourcePatternType,
@@ -221,7 +221,7 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 		return
 	}
 
-	filter := &dataplanev1alpha2.ListACLsRequest_Filter{
+	filter := &dataplanev1.ListACLsRequest_Filter{
 		ResourceType:        resourceType,
 		ResourceName:        utils.StringToStringPointer(model.ResourceName.ValueString()),
 		ResourcePatternType: resourcePatternType,
@@ -237,7 +237,7 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 		return
 	}
 	defer a.dataplaneConn.Close()
-	aclList, err := a.ACLClient.ListACLs(ctx, &dataplanev1alpha2.ListACLsRequest{Filter: filter})
+	aclList, err := a.ACLClient.ListACLs(ctx, &dataplanev1.ListACLsRequest{Filter: filter})
 	if err != nil {
 		response.Diagnostics.AddError("Failed to list ACLs", utils.DeserializeGrpcError(err))
 		return
@@ -296,7 +296,7 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 		return
 	}
 
-	filter := &dataplanev1alpha2.DeleteACLsRequest_Filter{
+	filter := &dataplanev1.DeleteACLsRequest_Filter{
 		ResourceType:        resourceType,
 		ResourceName:        utils.StringToStringPointer(model.ResourceName.ValueString()),
 		ResourcePatternType: resourcePatternType,
@@ -311,7 +311,7 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 		return
 	}
 	defer a.dataplaneConn.Close()
-	deleteResponse, err := a.ACLClient.DeleteACLs(ctx, &dataplanev1alpha2.DeleteACLsRequest{Filter: filter})
+	deleteResponse, err := a.ACLClient.DeleteACLs(ctx, &dataplanev1.DeleteACLsRequest{Filter: filter})
 	if err != nil {
 		response.Diagnostics.AddError("Failed to delete ACL", utils.DeserializeGrpcError(err))
 		return
@@ -340,6 +340,6 @@ func (a *ACL) createACLClient(clusterURL string) error {
 		}
 		a.dataplaneConn = conn
 	}
-	a.ACLClient = dataplanev1alpha2grpc.NewACLServiceClient(a.dataplaneConn)
+	a.ACLClient = dataplanev1grpc.NewACLServiceClient(a.dataplaneConn)
 	return nil
 }

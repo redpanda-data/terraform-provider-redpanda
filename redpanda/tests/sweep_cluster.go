@@ -19,7 +19,7 @@ import (
 	"context"
 	"time"
 
-	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
@@ -36,7 +36,7 @@ func (s sweepCluster) SweepCluster(_ string) error {
 		return err
 	}
 
-	op, err := s.Client.Cluster.DeleteCluster(ctx, &controlplanev1beta2.DeleteClusterRequest{
+	op, err := s.Client.Cluster.DeleteCluster(ctx, &controlplanev1.DeleteClusterRequest{
 		Id: cluster.GetId(),
 	})
 	if err != nil {
@@ -53,7 +53,7 @@ func (s sweepCluster) SweepServerlessCluster(_ string) error {
 		return err
 	}
 
-	op, err := s.Client.ServerlessCluster.DeleteServerlessCluster(ctx, &controlplanev1beta2.DeleteServerlessClusterRequest{
+	op, err := s.Client.ServerlessCluster.DeleteServerlessCluster(ctx, &controlplanev1.DeleteServerlessClusterRequest{
 		Id: serverless.GetId(),
 	})
 	if err != nil {

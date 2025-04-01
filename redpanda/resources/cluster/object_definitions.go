@@ -254,14 +254,6 @@ var maintenanceWindowConfigType = map[string]attr.Type{
 	"unspecified": types.BoolType,
 }
 
-var connectivityGCPType = map[string]attr.Type{
-	"enable_global_access": types.BoolType,
-}
-
-var connectivityType = map[string]attr.Type{
-	"gcp": types.ObjectType{AttrTypes: connectivityGCPType},
-}
-
 var stateDescriptionType = map[string]attr.Type{
 	"message": types.StringType,
 	"code":    types.Int32Type,
