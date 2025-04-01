@@ -29,8 +29,8 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `aws_private_link` (Attributes) AWS PrivateLink configuration. (see [below for nested schema](#nestedatt--aws_private_link))
 - `azure_private_link` (Attributes) Azure Private Link configuration. (see [below for nested schema](#nestedatt--azure_private_link))
 - `cloud_provider` (String) Cloud provider where resources are created.
-- `connectivity` (Attributes) Cloud provider-specific connectivity configuration. (see [below for nested schema](#nestedatt--connectivity))
 - `customer_managed_resources` (Attributes) Customer managed resources configuration for the cluster. (see [below for nested schema](#nestedatt--customer_managed_resources))
+- `gcp_global_access_enabled` (Boolean) If true, GCP global access is enabled.
 - `gcp_private_service_connect` (Attributes) GCP Private Service Connect configuration. (see [below for nested schema](#nestedatt--gcp_private_service_connect))
 - `http_proxy` (Attributes) HTTP Proxy properties. (see [below for nested schema](#nestedatt--http_proxy))
 - `kafka_api` (Attributes) Cluster's Kafka API properties. (see [below for nested schema](#nestedatt--kafka_api))
@@ -153,22 +153,6 @@ Read-Only:
 - `private_endpoint_name` (String) Name of the private endpoint.
 - `status` (String) Status of the endpoint connection.
 
-
-
-
-<a id="nestedatt--connectivity"></a>
-### Nested Schema for `connectivity`
-
-Optional:
-
-- `gcp` (Attributes) GCP-specific connectivity settings. (see [below for nested schema](#nestedatt--connectivity--gcp))
-
-<a id="nestedatt--connectivity--gcp"></a>
-### Nested Schema for `connectivity.gcp`
-
-Required:
-
-- `enable_global_access` (Boolean) Whether global access is enabled.
 
 
 
@@ -1538,14 +1522,6 @@ This feature is in beta and is still under development or awaiting fixes. It can
 Has the same requirements as the GCP BYOC Cluster along with the additional requirement for numerous resources that the end user must create.
 
 ```terraform
-terraform {
-  required_providers {
-    redpanda = {
-      source  = "hashicorp/redpanda"
-      version = "0.7.1"
-    }
-  }
-}
 provider "google" {
   project     = var.project_id
   region      = var.region
@@ -1556,12 +1532,13 @@ provider "redpanda" {}
 
 # Use the Redpanda GCP BYOVPC module
 module "redpanda_gcp" {
-  source = "github.com/redpanda-data/terraform-gcp-redpanda-byovpc.git?ref=main"
-  project_id        = var.project_id
+  source = "github.com/redpanda-data/terraform-gcp-redpanda-byovpc.git?ref=fix-cross-var-error"
+  service_project_id        = var.project_id
   region            = var.region
   unique_identifier = var.environment
   force_destroy_mgmt_bucket = var.environment == "dev" ? true : false
-  create_customer_user = true
+  force_destroy_cloud_storage_bucket =  var.environment == "dev" ? true : false
+  network_project_id = var.project_id
 }
 
 # Redpanda resource group
@@ -1579,7 +1556,7 @@ resource "redpanda_network" "test" {
 
   customer_managed_resources = {
     gcp = {
-      network_name = module.redpanda_gcp.network-vpc-name
+      network_name = module.redpanda_gcp.network_name
       network_project_id = var.project_id
       management_bucket = {
         name = module.redpanda_gcp.management_bucket_name
@@ -1611,14 +1588,14 @@ resource "redpanda_cluster" "test" {
   customer_managed_resources = {
     gcp = {
       subnet = {
-        name = module.redpanda_gcp.network-subnet-name-external
+        name = module.redpanda_gcp.subnet_name
         secondary_ipv4_range_pods = {
-          name = "redpanda-pods"
+          name = module.redpanda_gcp.secondary_ipv4_range_pods_name
         }
         secondary_ipv4_range_services = {
-          name = "redpanda-services"
+          name = module.redpanda_gcp.secondary_ipv4_range_services_name
         }
-        k8s_master_ipv4_range = var.k8s_master_ipv4_range
+        k8s_master_ipv4_range = module.redpanda_gcp.k8s_master_ipv4_range
       }
       agent_service_account = {
         email = module.redpanda_gcp.agent_service_account_email
@@ -1627,7 +1604,7 @@ resource "redpanda_cluster" "test" {
         email = module.redpanda_gcp.console_service_account_email
       }
       connector_service_account = {
-        email = module.redpanda_gcp.connectors_service_account_email
+        email = module.redpanda_gcp.connector_service_account_email
       }
       redpanda_cluster_service_account = {
         email = module.redpanda_gcp.redpanda_cluster_service_account_email
@@ -1636,10 +1613,11 @@ resource "redpanda_cluster" "test" {
         email = module.redpanda_gcp.gke_service_account_email
       }
       tiered_storage_bucket = {
-        name = module.redpanda_gcp.redpanda_cloud_storage_bucket_name
+        name = module.redpanda_gcp.tiered_storage_bucket_name
       }
     }
   }
+  depends_on = [module.redpanda_gcp]
 }
 
 # Create Kafka user for the cluster
@@ -1675,7 +1653,6 @@ resource "redpanda_acl" "test" {
 variable "project_id" {
   description = "The Google Cloud project ID"
   type        = string
-  default     = "hallowed-ray-376320"
 }
 
 variable "google_credentials_base64" {
@@ -1705,12 +1682,6 @@ variable "cluster_name" {
   description = "Name for the Redpanda cluster"
   type        = string
   default     = "testname"
-}
-
-variable "k8s_master_ipv4_range" {
-  description = "CIDR range for Kubernetes master nodes"
-  type        = string
-  default     = "10.3.0.0/28"
 }
 
 variable "throughput_tier" {
