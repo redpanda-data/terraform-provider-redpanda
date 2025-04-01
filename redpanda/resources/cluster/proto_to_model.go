@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -21,7 +21,7 @@ type modelOrAPI struct {
 }
 
 // generateModel populates the Cluster model to be persisted to state for Create, Read and Update operations. It is also indirectly used by Import
-func generateModel(cluster *controlplanev1beta2.Cluster, contingent modelOrAPI, diagnostics diag.Diagnostics) (*models.Cluster, diag.Diagnostics) {
+func generateModel(cluster *controlplanev1.Cluster, contingent modelOrAPI, diagnostics diag.Diagnostics) (*models.Cluster, diag.Diagnostics) {
 	output := &models.Cluster{
 		Name:                  types.StringValue(cluster.GetName()),
 		ID:                    types.StringValue(cluster.GetId()),
@@ -39,8 +39,21 @@ func generateModel(cluster *controlplanev1beta2.Cluster, contingent modelOrAPI, 
 		Zones:                 utils.StringSliceToTypeList(cluster.GetZones()),
 		State:                 types.StringValue(cluster.GetState().String()),
 	}
+	switch {
+	case cluster.HasGcpGlobalAccessEnabled() && utils.CloudProviderToString(cluster.CloudProvider) == utils.CloudProviderStringGcp:
+		output.GCPGlobalAccessEnabled = types.BoolValue(cluster.GetGcpGlobalAccessEnabled())
+	case utils.CloudProviderToString(cluster.CloudProvider) == utils.CloudProviderStringGcp:
+		output.GCPGlobalAccessEnabled = types.BoolValue(false)
+	default:
+		output.GCPGlobalAccessEnabled = types.BoolNull()
+	}
+
 	if cluster.HasCreatedAt() {
 		output.CreatedAt = types.StringValue(cluster.CreatedAt.AsTime().Format(time.RFC3339))
+	}
+
+	if cluster.HasGcpGlobalAccessEnabled() {
+		output.GCPGlobalAccessEnabled = types.BoolValue(cluster.GetGcpGlobalAccessEnabled())
 	}
 
 	if cluster.HasStateDescription() {
@@ -126,13 +139,6 @@ func generateModel(cluster *controlplanev1beta2.Cluster, contingent modelOrAPI, 
 	}
 	output.KafkaConnect = kafkaConnect
 
-	connectivity, d := generateModelConnectivity(cluster, diagnostics)
-	if d.HasError() {
-		diagnostics.Append(d...)
-		return nil, diagnostics
-	}
-	output.Connectivity = connectivity
-
 	cmr, dg := generateModelCMR(cluster, diagnostics)
 	if dg.HasError() {
 		diagnostics.Append(d...)
@@ -143,7 +149,7 @@ func generateModel(cluster *controlplanev1beta2.Cluster, contingent modelOrAPI, 
 	return output, nil
 }
 
-func generateModelStateDescription(cluster *controlplanev1beta2.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
+func generateModelStateDescription(cluster *controlplanev1.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	if !cluster.HasStateDescription() {
 		return types.ObjectNull(stateDescriptionType), diagnostics
 	}
@@ -160,49 +166,7 @@ func generateModelStateDescription(cluster *controlplanev1beta2.Cluster, diagnos
 	return obj, diagnostics
 }
 
-func generateModelConnectivity(cluster *controlplanev1beta2.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
-	// Return null object if connectivity is not present
-	if !cluster.HasConnectivity() {
-		return types.ObjectNull(connectivityType), diagnostics
-	}
-
-	connectivity := cluster.GetConnectivity()
-
-	// For GCP provider, only generate connectivity object when enable_global_access is true
-	if utils.CloudProviderToString(cluster.GetCloudProvider()) == utils.CloudProviderStringGcp {
-		if gcp := connectivity.GetGcp(); gcp != nil {
-			// Only create the connectivity object if enable_global_access is explicitly true
-			// This prevents returning an object with the default false value
-			if gcp.GetEnableGlobalAccess() {
-				gcpObj, d := types.ObjectValue(connectivityGCPType, map[string]attr.Value{
-					"enable_global_access": types.BoolValue(true),
-				})
-				if d.HasError() {
-					diagnostics.Append(d...)
-					diagnostics.AddError("failed to generate GCP connectivity detail", "could not create GCP object")
-					return types.ObjectNull(connectivityType), diagnostics
-				}
-
-				// Create the connectivity object with the GCP config
-				obj, d := types.ObjectValue(connectivityType, map[string]attr.Value{
-					"gcp": gcpObj,
-				})
-				if d.HasError() {
-					diagnostics.Append(d...)
-					diagnostics.AddError("failed to generate connectivity object", "could not create connectivity object")
-					return types.ObjectNull(connectivityType), diagnostics
-				}
-
-				return obj, diagnostics
-			}
-		}
-	}
-
-	// For all other cases (including GCP with enable_global_access=false), return null
-	return types.ObjectNull(connectivityType), diagnostics
-}
-
-func generateModelKafkaConnect(cluster *controlplanev1beta2.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
+func generateModelKafkaConnect(cluster *controlplanev1.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	if !cluster.HasKafkaConnect() {
 		return types.ObjectNull(kafkaConnectType), diagnostics
 	}
@@ -224,7 +188,7 @@ func generateModelKafkaConnect(cluster *controlplanev1beta2.Cluster, diagnostics
 	return obj, diagnostics
 }
 
-func generateModelPrometheus(cluster *controlplanev1beta2.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
+func generateModelPrometheus(cluster *controlplanev1.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	if !cluster.HasPrometheus() {
 		return types.ObjectNull(prometheusType), diagnostics
 	}
@@ -244,7 +208,7 @@ func generateModelPrometheus(cluster *controlplanev1beta2.Cluster, diagnostics d
 	return obj, diagnostics
 }
 
-func generateModelSchemaRegistry(cluster *controlplanev1beta2.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
+func generateModelSchemaRegistry(cluster *controlplanev1.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	if !cluster.HasSchemaRegistry() {
 		return types.ObjectNull(schemaRegistryType), diagnostics
 	}
@@ -272,7 +236,7 @@ func generateModelSchemaRegistry(cluster *controlplanev1beta2.Cluster, diagnosti
 	return obj, diagnostics
 }
 
-func generateModelRedpandaConsole(cluster *controlplanev1beta2.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
+func generateModelRedpandaConsole(cluster *controlplanev1.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	if !cluster.HasRedpandaConsole() {
 		return types.ObjectNull(redpandaConsoleType), diagnostics
 	}
@@ -292,7 +256,7 @@ func generateModelRedpandaConsole(cluster *controlplanev1beta2.Cluster, diagnost
 	return obj, diagnostics
 }
 
-func getMtlsModel(mtls *controlplanev1beta2.MTLSSpec, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
+func getMtlsModel(mtls *controlplanev1.MTLSSpec, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	mtlsValue := map[string]attr.Value{
 		"enabled":                 types.BoolNull(),
 		"ca_certificates_pem":     types.ListNull(types.StringType),
@@ -319,7 +283,7 @@ func getMtlsModel(mtls *controlplanev1beta2.MTLSSpec, diagnostics diag.Diagnosti
 	return out, diagnostics
 }
 
-func generateModelKafkaAPI(cluster *controlplanev1beta2.Cluster, diags diag.Diagnostics) (types.Object, diag.Diagnostics) {
+func generateModelKafkaAPI(cluster *controlplanev1.Cluster, diags diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	if !cluster.HasKafkaApi() {
 		return types.ObjectNull(kafkaAPIType), diags
 	}
@@ -340,7 +304,7 @@ func generateModelKafkaAPI(cluster *controlplanev1beta2.Cluster, diags diag.Diag
 	return obj, diags
 }
 
-func generateModelAWSPrivateLink(cluster *controlplanev1beta2.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
+func generateModelAWSPrivateLink(cluster *controlplanev1.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	if !cluster.HasAwsPrivateLink() {
 		return types.ObjectNull(awsPrivateLinkType), diagnostics
 	}
@@ -480,7 +444,7 @@ func generateModelAWSPrivateLink(cluster *controlplanev1beta2.Cluster, diagnosti
 	return obj, diagnostics
 }
 
-func generateModelGCPPrivateServiceConnect(cluster *controlplanev1beta2.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
+func generateModelGCPPrivateServiceConnect(cluster *controlplanev1.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	if !cluster.HasGcpPrivateServiceConnect() {
 		return types.ObjectNull(gcpPrivateServiceConnectType), diagnostics
 	}
@@ -608,7 +572,7 @@ func generateModelGCPPrivateServiceConnect(cluster *controlplanev1beta2.Cluster,
 
 // generateUpdateRequest populates an UpdateClusterRequest that will update a cluster from the
 // // current state to a new state matching the plan.
-func generateUpdateRequest(ctx context.Context, plan, state models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.UpdateClusterRequest, diag.Diagnostics) {
+func generateUpdateRequest(ctx context.Context, plan, state models.Cluster, diags diag.Diagnostics) (*controlplanev1.UpdateClusterRequest, diag.Diagnostics) {
 	planUpdate, ds := generateClusterUpdate(ctx, plan, diags)
 	if ds.HasError() {
 		diags.Append(ds...)
@@ -622,13 +586,13 @@ func generateUpdateRequest(ctx context.Context, plan, state models.Cluster, diag
 
 	update, fieldmask := utils.GenerateProtobufDiffAndUpdateMask(planUpdate, stateUpdate)
 	update.Id = planUpdate.Id
-	return &controlplanev1beta2.UpdateClusterRequest{
+	return &controlplanev1.UpdateClusterRequest{
 		Cluster:    update,
 		UpdateMask: fieldmask,
 	}, nil
 }
 
-func generateModelMaintenanceWindow(cluster *controlplanev1beta2.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
+func generateModelMaintenanceWindow(cluster *controlplanev1.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	if !cluster.HasMaintenanceWindowConfig() {
 		return types.ObjectNull(maintenanceWindowConfigType), diagnostics
 	}
@@ -678,7 +642,7 @@ func generateModelMaintenanceWindow(cluster *controlplanev1beta2.Cluster, diagno
 	return obj, diagnostics
 }
 
-func generateModelHTTPProxy(cluster *controlplanev1beta2.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
+func generateModelHTTPProxy(cluster *controlplanev1.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	if !cluster.HasHttpProxy() {
 		return types.ObjectNull(httpProxyType), diagnostics
 	}
@@ -706,7 +670,7 @@ func generateModelHTTPProxy(cluster *controlplanev1beta2.Cluster, diagnostics di
 	return obj, diagnostics
 }
 
-func generateModelAzurePrivateLink(cluster *controlplanev1beta2.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
+func generateModelAzurePrivateLink(cluster *controlplanev1.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	if !cluster.HasAzurePrivateLink() {
 		return types.ObjectNull(azurePrivateLinkType), diagnostics
 	}
@@ -823,7 +787,7 @@ func generateModelAzurePrivateLink(cluster *controlplanev1beta2.Cluster, diagnos
 	return obj, diagnostics
 }
 
-func generateModelCMR(cluster *controlplanev1beta2.Cluster, diags diag.Diagnostics) (types.Object, diag.Diagnostics) {
+func generateModelCMR(cluster *controlplanev1.Cluster, diags diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	// Early return conditions
 	if cluster == nil || !cluster.HasCustomerManagedResources() {
 		return types.ObjectNull(cmrType), diags
@@ -831,7 +795,7 @@ func generateModelCMR(cluster *controlplanev1beta2.Cluster, diags diag.Diagnosti
 
 	cloudProvider := utils.CloudProviderToString(cluster.GetCloudProvider())
 
-	if cluster.Type != controlplanev1beta2.Cluster_TYPE_BYOC {
+	if cluster.Type != controlplanev1.Cluster_TYPE_BYOC {
 		diags.AddError("Customer Managed Resources with non-BYOC cluster type", "Customer Managed Resources are only supported for BYOC clusters")
 		return types.ObjectNull(cmrType), diags
 	}
@@ -842,7 +806,7 @@ func generateModelCMR(cluster *controlplanev1beta2.Cluster, diags diag.Diagnosti
 	}
 
 	switch cloudProvider {
-	case "aws":
+	case utils.CloudProviderStringAws:
 		if !cmr.HasAws() {
 			diags.AddError("Cloud Provider Mismatch", "AWS customer managed resources are missing for AWS BYOVPC Cluster")
 			return types.ObjectNull(cmrType), diags
@@ -867,7 +831,7 @@ func generateModelCMR(cluster *controlplanev1beta2.Cluster, diags diag.Diagnosti
 		}
 		return cmrObj, diags
 
-	case "gcp":
+	case utils.CloudProviderStringGcp:
 		if !cmr.HasGcp() {
 			diags.AddError("Cloud Provider Mismatch", "GCP customer managed resources are missing for GCP BYOVPC Cluster")
 			return types.ObjectNull(cmrType), diags
@@ -896,7 +860,7 @@ func generateModelCMR(cluster *controlplanev1beta2.Cluster, diags diag.Diagnosti
 	return types.ObjectNull(cmrType), diags
 }
 
-func generateModelCMRGCP(gcpData *controlplanev1beta2.CustomerManagedResources_GCP, diags diag.Diagnostics) (basetypes.ObjectValue, diag.Diagnostics) {
+func generateModelCMRGCP(gcpData *controlplanev1.CustomerManagedResources_GCP, diags diag.Diagnostics) (basetypes.ObjectValue, diag.Diagnostics) {
 	// Initialize GCP values map with default null values
 	gcpVal := make(map[string]attr.Value)
 	for k, v := range gcpValueDefaults {
@@ -1047,7 +1011,7 @@ func generateModelCMRGCP(gcpData *controlplanev1beta2.CustomerManagedResources_G
 	return gcpObj, diags
 }
 
-func generateModelCMRAWS(awsData *controlplanev1beta2.CustomerManagedResources_AWS, diags diag.Diagnostics) (basetypes.ObjectValue, diag.Diagnostics) {
+func generateModelCMRAWS(awsData *controlplanev1.CustomerManagedResources_AWS, diags diag.Diagnostics) (basetypes.ObjectValue, diag.Diagnostics) {
 	// Initialize AWS values map with default null values
 	awsVal := make(map[string]attr.Value)
 	for k, v := range awsValueDefaults {

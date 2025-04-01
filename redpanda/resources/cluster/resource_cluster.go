@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
@@ -86,7 +86,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		return
 	}
 
-	clResp, err := c.CpCl.Cluster.CreateCluster(ctx, &controlplanev1beta2.CreateClusterRequest{Cluster: clusterReq})
+	clResp, err := c.CpCl.Cluster.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{Cluster: clusterReq})
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create cluster", utils.DeserializeGrpcError(err))
 		return
@@ -96,12 +96,12 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 
 	// wait for creation to complete, running "byoc apply" if we see STATE_CREATING_AGENT
 	var ranByoc bool
-	cluster, err := utils.RetryGetCluster(ctx, 90*time.Minute, clusterID, c.CpCl, func(cluster *controlplanev1beta2.Cluster) *utils.RetryError {
+	cluster, err := utils.RetryGetCluster(ctx, 90*time.Minute, clusterID, c.CpCl, func(cluster *controlplanev1.Cluster) *utils.RetryError {
 		switch cluster.GetState() {
-		case controlplanev1beta2.Cluster_STATE_CREATING:
+		case controlplanev1.Cluster_STATE_CREATING:
 			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
-		case controlplanev1beta2.Cluster_STATE_CREATING_AGENT:
-			if cluster.Type == controlplanev1beta2.Cluster_TYPE_BYOC && !ranByoc {
+		case controlplanev1.Cluster_STATE_CREATING_AGENT:
+			if cluster.Type == controlplanev1.Cluster_TYPE_BYOC && !ranByoc {
 				err = c.Byoc.RunByoc(ctx, clusterID, "apply")
 				if err != nil {
 					return utils.NonRetryableError(err)
@@ -109,9 +109,9 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 				ranByoc = true
 			}
 			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
-		case controlplanev1beta2.Cluster_STATE_READY:
+		case controlplanev1.Cluster_STATE_READY:
 			return nil
-		case controlplanev1beta2.Cluster_STATE_FAILED:
+		case controlplanev1.Cluster_STATE_FAILED:
 			return utils.NonRetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
 		default:
 			return utils.NonRetryableError(fmt.Errorf("unhandled state %v. please report this issue to the provider developers", cluster.GetState()))
@@ -158,7 +158,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		return
 	}
 
-	if cluster.GetState() == controlplanev1beta2.Cluster_STATE_DELETING || cluster.GetState() == controlplanev1beta2.Cluster_STATE_DELETING_AGENT {
+	if cluster.GetState() == controlplanev1.Cluster_STATE_DELETING || cluster.GetState() == controlplanev1.Cluster_STATE_DELETING_AGENT {
 		// null out the state, force it to be destroyed and recreated
 		resp.Diagnostics.Append(resp.State.Set(ctx, generateMinimalModel(cluster.GetId()))...)
 		resp.Diagnostics.AddWarning(fmt.Sprintf("cluster %s is in state %s", model.ID.ValueString(), cluster.GetState()), "")
@@ -247,8 +247,8 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 	// call Delete on the cluster, if it's not already in progress. calling Delete on a cluster in
 	// STATE_DELETING_AGENT seems to destroy it immediately and we don't want to do that if we haven't
 	// cleaned up yet
-	if !(cluster.GetState() == controlplanev1beta2.Cluster_STATE_DELETING || cluster.GetState() == controlplanev1beta2.Cluster_STATE_DELETING_AGENT) {
-		_, err = c.CpCl.Cluster.DeleteCluster(ctx, &controlplanev1beta2.DeleteClusterRequest{
+	if !(cluster.GetState() == controlplanev1.Cluster_STATE_DELETING || cluster.GetState() == controlplanev1.Cluster_STATE_DELETING_AGENT) {
+		_, err = c.CpCl.Cluster.DeleteCluster(ctx, &controlplanev1.DeleteClusterRequest{
 			Id: clusterID,
 		})
 		if err != nil {
@@ -259,12 +259,12 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 
 	// wait for creation to complete, running "byoc apply" if we see STATE_DELETING_AGENT
 	ranByoc := false
-	_, err = utils.RetryGetCluster(ctx, 90*time.Minute, clusterID, c.CpCl, func(cluster *controlplanev1beta2.Cluster) *utils.RetryError {
-		if cluster.GetState() == controlplanev1beta2.Cluster_STATE_DELETING {
+	_, err = utils.RetryGetCluster(ctx, 90*time.Minute, clusterID, c.CpCl, func(cluster *controlplanev1.Cluster) *utils.RetryError {
+		if cluster.GetState() == controlplanev1.Cluster_STATE_DELETING {
 			return utils.RetryableError(fmt.Errorf("expected cluster to be deleted but was in state %v", cluster.GetState()))
 		}
-		if cluster.GetState() == controlplanev1beta2.Cluster_STATE_DELETING_AGENT {
-			if cluster.Type == controlplanev1beta2.Cluster_TYPE_BYOC && !ranByoc {
+		if cluster.GetState() == controlplanev1.Cluster_STATE_DELETING_AGENT {
+			if cluster.Type == controlplanev1.Cluster_TYPE_BYOC && !ranByoc {
 				err = c.Byoc.RunByoc(ctx, clusterID, "destroy")
 				if err != nil {
 					return utils.NonRetryableError(err)

@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
@@ -18,7 +18,7 @@ func TestGenerateServerlessClusterRequest(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *controlplanev1beta2.ServerlessClusterCreate
+		want *controlplanev1.ServerlessClusterCreate
 	}{
 		{
 			name: "validate_schema",
@@ -29,7 +29,7 @@ func TestGenerateServerlessClusterRequest(t *testing.T) {
 					ResourceGroupID:  types.StringValue("testrg"),
 				},
 			},
-			want: &controlplanev1beta2.ServerlessClusterCreate{
+			want: &controlplanev1.ServerlessClusterCreate{
 				Name:             "testname",
 				ServerlessRegion: "pro-us-east-1",
 				ResourceGroupId:  "testrg",

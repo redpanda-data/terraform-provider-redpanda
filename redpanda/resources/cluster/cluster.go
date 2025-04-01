@@ -46,6 +46,7 @@ func generateMinimalModel(clusterID string) models.Cluster {
 		ClusterAPIURL:            types.StringNull(),
 		State:                    types.StringNull(),
 		CreatedAt:                types.StringNull(),
+		GCPGlobalAccessEnabled:   types.BoolNull(),
 		AllowDeletion:            types.BoolValue(true),
 		ReadReplicaClusterIDs:    types.ListNull(types.StringType),
 		Zones:                    types.ListNull(types.StringType),
@@ -60,7 +61,6 @@ func generateMinimalModel(clusterID string) models.Cluster {
 		RedpandaConsole:          types.ObjectNull(redpandaConsoleType),
 		StateDescription:         types.ObjectNull(stateDescriptionType),
 		MaintenanceWindowConfig:  types.ObjectNull(maintenanceWindowConfigType),
-		Connectivity:             types.ObjectNull(connectivityType),
 		KafkaConnect:             types.ObjectNull(kafkaConnectType),
 	}
 }

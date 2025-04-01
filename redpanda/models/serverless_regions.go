@@ -27,7 +27,7 @@ type ServerlessRegions struct {
 
 // ServerlessRegionsItem represents a single region in a ServerlessRegions data source.
 type ServerlessRegionsItem struct {
-	Available   bool   `tfsdk:"available"`
-	DisplayName string `tfsdk:"display_name"`
-	Name        string `tfsdk:"name"`
+	CloudProvider string `tfsdk:"cloud_provider"`
+	TimeZone      string `tfsdk:"time_zone"`
+	Name          string `tfsdk:"name"`
 }

@@ -8,7 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	gomock "github.com/golang/mock/gomock"
 	grpc "google.golang.org/grpc"
 )
@@ -37,10 +37,10 @@ func (m *MockCpClientSet) EXPECT() *MockCpClientSetMockRecorder {
 }
 
 // ClusterForID mocks base method.
-func (m *MockCpClientSet) ClusterForID(arg0 context.Context, arg1 string) (*controlplanev1beta2.Cluster, error) {
+func (m *MockCpClientSet) ClusterForID(arg0 context.Context, arg1 string) (*controlplanev1.Cluster, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClusterForID", arg0, arg1)
-	ret0, _ := ret[0].(*controlplanev1beta2.Cluster)
+	ret0, _ := ret[0].(*controlplanev1.Cluster)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -52,10 +52,10 @@ func (mr *MockCpClientSetMockRecorder) ClusterForID(arg0, arg1 interface{}) *gom
 }
 
 // ClusterForName mocks base method.
-func (m *MockCpClientSet) ClusterForName(arg0 context.Context, arg1 string) (*controlplanev1beta2.Cluster, error) {
+func (m *MockCpClientSet) ClusterForName(arg0 context.Context, arg1 string) (*controlplanev1.Cluster, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClusterForName", arg0, arg1)
-	ret0, _ := ret[0].(*controlplanev1beta2.Cluster)
+	ret0, _ := ret[0].(*controlplanev1.Cluster)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -67,10 +67,10 @@ func (mr *MockCpClientSetMockRecorder) ClusterForName(arg0, arg1 interface{}) *g
 }
 
 // CreateResourceGroup mocks base method.
-func (m *MockCpClientSet) CreateResourceGroup(arg0 context.Context, arg1 string) (*controlplanev1beta2.ResourceGroup, error) {
+func (m *MockCpClientSet) CreateResourceGroup(arg0 context.Context, arg1 string) (*controlplanev1.ResourceGroup, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateResourceGroup", arg0, arg1)
-	ret0, _ := ret[0].(*controlplanev1beta2.ResourceGroup)
+	ret0, _ := ret[0].(*controlplanev1.ResourceGroup)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -82,14 +82,14 @@ func (mr *MockCpClientSetMockRecorder) CreateResourceGroup(arg0, arg1 interface{
 }
 
 // GetCluster mocks base method.
-func (m *MockCpClientSet) GetCluster(arg0 context.Context, arg1 *controlplanev1beta2.GetClusterRequest, arg2 ...grpc.CallOption) (*controlplanev1beta2.GetClusterResponse, error) {
+func (m *MockCpClientSet) GetCluster(arg0 context.Context, arg1 *controlplanev1.GetClusterRequest, arg2 ...grpc.CallOption) (*controlplanev1.GetClusterResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetCluster", varargs...)
-	ret0, _ := ret[0].(*controlplanev1beta2.GetClusterResponse)
+	ret0, _ := ret[0].(*controlplanev1.GetClusterResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -102,10 +102,10 @@ func (mr *MockCpClientSetMockRecorder) GetCluster(arg0, arg1 interface{}, arg2 .
 }
 
 // NetworkForID mocks base method.
-func (m *MockCpClientSet) NetworkForID(arg0 context.Context, arg1 string) (*controlplanev1beta2.Network, error) {
+func (m *MockCpClientSet) NetworkForID(arg0 context.Context, arg1 string) (*controlplanev1.Network, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NetworkForID", arg0, arg1)
-	ret0, _ := ret[0].(*controlplanev1beta2.Network)
+	ret0, _ := ret[0].(*controlplanev1.Network)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -117,10 +117,10 @@ func (mr *MockCpClientSetMockRecorder) NetworkForID(arg0, arg1 interface{}) *gom
 }
 
 // NetworkForName mocks base method.
-func (m *MockCpClientSet) NetworkForName(arg0 context.Context, arg1 string) (*controlplanev1beta2.Network, error) {
+func (m *MockCpClientSet) NetworkForName(arg0 context.Context, arg1 string) (*controlplanev1.Network, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NetworkForName", arg0, arg1)
-	ret0, _ := ret[0].(*controlplanev1beta2.Network)
+	ret0, _ := ret[0].(*controlplanev1.Network)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -132,10 +132,10 @@ func (mr *MockCpClientSetMockRecorder) NetworkForName(arg0, arg1 interface{}) *g
 }
 
 // ResourceGroupForID mocks base method.
-func (m *MockCpClientSet) ResourceGroupForID(arg0 context.Context, arg1 string) (*controlplanev1beta2.ResourceGroup, error) {
+func (m *MockCpClientSet) ResourceGroupForID(arg0 context.Context, arg1 string) (*controlplanev1.ResourceGroup, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResourceGroupForID", arg0, arg1)
-	ret0, _ := ret[0].(*controlplanev1beta2.ResourceGroup)
+	ret0, _ := ret[0].(*controlplanev1.ResourceGroup)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -147,10 +147,10 @@ func (mr *MockCpClientSetMockRecorder) ResourceGroupForID(arg0, arg1 interface{}
 }
 
 // ResourceGroupForName mocks base method.
-func (m *MockCpClientSet) ResourceGroupForName(arg0 context.Context, arg1 string) (*controlplanev1beta2.ResourceGroup, error) {
+func (m *MockCpClientSet) ResourceGroupForName(arg0 context.Context, arg1 string) (*controlplanev1.ResourceGroup, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResourceGroupForName", arg0, arg1)
-	ret0, _ := ret[0].(*controlplanev1beta2.ResourceGroup)
+	ret0, _ := ret[0].(*controlplanev1.ResourceGroup)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -162,10 +162,10 @@ func (mr *MockCpClientSetMockRecorder) ResourceGroupForName(arg0, arg1 interface
 }
 
 // ServerlessClusterForID mocks base method.
-func (m *MockCpClientSet) ServerlessClusterForID(arg0 context.Context, arg1 string) (*controlplanev1beta2.ServerlessCluster, error) {
+func (m *MockCpClientSet) ServerlessClusterForID(arg0 context.Context, arg1 string) (*controlplanev1.ServerlessCluster, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ServerlessClusterForID", arg0, arg1)
-	ret0, _ := ret[0].(*controlplanev1beta2.ServerlessCluster)
+	ret0, _ := ret[0].(*controlplanev1.ServerlessCluster)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -177,10 +177,10 @@ func (mr *MockCpClientSetMockRecorder) ServerlessClusterForID(arg0, arg1 interfa
 }
 
 // ServerlessClusterForName mocks base method.
-func (m *MockCpClientSet) ServerlessClusterForName(arg0 context.Context, arg1 string) (*controlplanev1beta2.ServerlessCluster, error) {
+func (m *MockCpClientSet) ServerlessClusterForName(arg0 context.Context, arg1 string) (*controlplanev1.ServerlessCluster, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ServerlessClusterForName", arg0, arg1)
-	ret0, _ := ret[0].(*controlplanev1beta2.ServerlessCluster)
+	ret0, _ := ret[0].(*controlplanev1.ServerlessCluster)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

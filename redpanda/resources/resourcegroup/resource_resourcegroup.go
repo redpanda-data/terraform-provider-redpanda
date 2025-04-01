@@ -21,7 +21,7 @@ import (
 	"context"
 	"fmt"
 
-	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -139,8 +139,8 @@ func (n *ResourceGroup) Update(ctx context.Context, req resource.UpdateRequest, 
 	var model models.ResourceGroup
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 	name, id := model.Name.ValueString(), model.ID.ValueString()
-	_, err := n.CpCl.ResourceGroup.UpdateResourceGroup(ctx, &controlplanev1beta2.UpdateResourceGroupRequest{
-		ResourceGroup: &controlplanev1beta2.ResourceGroupUpdate{
+	_, err := n.CpCl.ResourceGroup.UpdateResourceGroup(ctx, &controlplanev1.UpdateResourceGroupRequest{
+		ResourceGroup: &controlplanev1.ResourceGroupUpdate{
 			Name: name,
 			Id:   id,
 		},
@@ -160,7 +160,7 @@ func (n *ResourceGroup) Delete(ctx context.Context, req resource.DeleteRequest, 
 	var model models.ResourceGroup
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
-	_, err := n.CpCl.ResourceGroup.DeleteResourceGroup(ctx, &controlplanev1beta2.DeleteResourceGroupRequest{
+	_, err := n.CpCl.ResourceGroup.DeleteResourceGroup(ctx, &controlplanev1.DeleteResourceGroupRequest{
 		Id: model.ID.ValueString(),
 	})
 	if err != nil {

@@ -95,7 +95,7 @@ func (r *DataSourceThroughputTiers) Read(ctx context.Context, req datasource.Rea
 
 	listReq := &controlplanev1beta2.ListThroughputTiersRequest{}
 	if !model.CloudProvider.IsNull() {
-		cloudProvider, err := utils.StringToCloudProvider(model.CloudProvider.ValueString())
+		cloudProvider, err := utils.StringToCloudProviderBeta(model.CloudProvider.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError("unsupported cloud provider", utils.DeserializeGrpcError(err))
 			return
@@ -119,7 +119,7 @@ func (r *DataSourceThroughputTiers) Read(ctx context.Context, req datasource.Rea
 	model.ThroughputTiers = []models.ThroughputTiersItem{}
 	for _, v := range tiers.ThroughputTiers {
 		item := models.ThroughputTiersItem{
-			CloudProvider: utils.CloudProviderToString(v.CloudProvider),
+			CloudProvider: utils.CloudProviderToStringBeta(v.CloudProvider),
 			DisplayName:   v.DisplayName,
 			Name:          v.Name,
 		}

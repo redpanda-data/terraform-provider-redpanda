@@ -19,7 +19,7 @@ import (
 	"context"
 	"fmt"
 
-	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 )
 
@@ -34,7 +34,7 @@ func (s sweepResourceGroup) SweepResourceGroup(_ string) error {
 	if err != nil {
 		return fmt.Errorf("unable to sweep resource group: unable to find resource group %q: %v", s.ResourceGroupName, err)
 	}
-	if _, err := s.Client.ResourceGroup.DeleteResourceGroup(ctx, &controlplanev1beta2.DeleteResourceGroupRequest{
+	if _, err := s.Client.ResourceGroup.DeleteResourceGroup(ctx, &controlplanev1.DeleteResourceGroupRequest{
 		Id: rg.Name,
 	}); err != nil {
 		return fmt.Errorf("unable to sweep resource group: unable to delete resourceGroup %q: %v", s.ResourceGroupName, err)

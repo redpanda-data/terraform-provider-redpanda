@@ -42,7 +42,7 @@ func (v CloudProviderDependentValidator) MarkdownDescription(_ context.Context) 
 	return fmt.Sprintf("Ensures that `%s` is only set when `cloud_provider` is `%s`", v.AttributeName, v.CloudProvider)
 }
 
-// ValidateObject validates an object
+// ValidateObject validates an object attribute to ensure it is only set when cloud_provider is a specific value
 func (v CloudProviderDependentValidator) ValidateObject(ctx context.Context, req validator.ObjectRequest, resp *validator.ObjectResponse) {
 	var cloudProvider types.String
 	if diags := req.Config.GetAttribute(ctx, req.Path.ParentPath().AtName("cloud_provider"), &cloudProvider); diags.HasError() {
@@ -51,6 +51,25 @@ func (v CloudProviderDependentValidator) ValidateObject(ctx context.Context, req
 	}
 
 	// If the object is set and cloud_provider is known but doesn't match, add an error
+	if !req.ConfigValue.IsNull() && !cloudProvider.IsUnknown() && cloudProvider.ValueString() != v.CloudProvider {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Invalid Configuration",
+			fmt.Sprintf("%s can only be set when cloud_provider is %s, but it is set to %s",
+				v.AttributeName, v.CloudProvider, cloudProvider.ValueString()),
+		)
+	}
+}
+
+// ValidateBool validates a boolean attribute to ensure it is only set when cloud_provider is a specific value
+func (v CloudProviderDependentValidator) ValidateBool(ctx context.Context, req validator.BoolRequest, resp *validator.BoolResponse) {
+	var cloudProvider types.String
+	if diags := req.Config.GetAttribute(ctx, req.Path.ParentPath().AtName("cloud_provider"), &cloudProvider); diags.HasError() {
+		resp.Diagnostics.Append(diags...)
+		return
+	}
+
+	// If the bool is set and cloud_provider is known but doesn't match, add an error
 	if !req.ConfigValue.IsNull() && !cloudProvider.IsUnknown() && cloudProvider.ValueString() != v.CloudProvider {
 		resp.Diagnostics.AddAttributeError(
 			req.Path,
