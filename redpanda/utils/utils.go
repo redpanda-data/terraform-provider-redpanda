@@ -26,10 +26,11 @@ import (
 	"strings"
 	"time"
 
-	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta2/controlplanev1beta2grpc"
+	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1/controlplanev1grpc"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
-	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1alpha2/dataplanev1alpha2grpc"
-	dataplanev1alpha2 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha2"
+	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
+	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -86,9 +87,24 @@ const CloudProviderStringAzure = "azure"
 // CloudProviderStringGcp is the string representation of the CLOUD_PROVIDER_GCP enum
 const CloudProviderStringGcp = "gcp"
 
-// StringToCloudProvider returns the controlplanev1beta2's CloudProvider code based on
+// StringToCloudProvider returns the controlplanev1's CloudProvider code based on
 // the input string.
-func StringToCloudProvider(p string) (controlplanev1beta2.CloudProvider, error) {
+func StringToCloudProvider(p string) (controlplanev1.CloudProvider, error) {
+	switch strings.ToLower(p) {
+	case CloudProviderStringAws:
+		return controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS, nil
+	case CloudProviderStringGcp:
+		return controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP, nil
+	case CloudProviderStringAzure:
+		return controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE, nil
+	default:
+		return controlplanev1.CloudProvider_CLOUD_PROVIDER_UNSPECIFIED, fmt.Errorf("provider %q not supported", p)
+	}
+}
+
+// StringToCloudProviderBeta returns the controlplanev1's CloudProvider code based on
+// the input string.
+func StringToCloudProviderBeta(p string) (controlplanev1beta2.CloudProvider, error) {
 	switch strings.ToLower(p) {
 	case CloudProviderStringAws:
 		return controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_AWS, nil
@@ -102,8 +118,25 @@ func StringToCloudProvider(p string) (controlplanev1beta2.CloudProvider, error) 
 }
 
 // CloudProviderToString returns the cloud provider string based on the
+// controlplanev1's CloudProvider code.
+func CloudProviderToString(provider controlplanev1.CloudProvider) string {
+	switch provider {
+	case controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS:
+		return CloudProviderStringAws
+	case controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP:
+		return CloudProviderStringGcp
+	case controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE:
+		return CloudProviderStringAzure
+	default:
+		return providerUnspecified
+	}
+}
+
+// TODO: remove this when throughput tier is migrated
+
+// CloudProviderToStringBeta returns the cloud provider string based on the
 // controlplanev1beta2's CloudProvider code.
-func CloudProviderToString(provider controlplanev1beta2.CloudProvider) string {
+func CloudProviderToStringBeta(provider controlplanev1beta2.CloudProvider) string {
 	switch provider {
 	case controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_AWS:
 		return CloudProviderStringAws
@@ -116,26 +149,26 @@ func CloudProviderToString(provider controlplanev1beta2.CloudProvider) string {
 	}
 }
 
-// StringToClusterType returns the controlplanev1beta2's Cluster_Type code based on
+// StringToClusterType returns the controlplanev1's Cluster_Type code based on
 // the input string.
-func StringToClusterType(p string) (controlplanev1beta2.Cluster_Type, error) {
+func StringToClusterType(p string) (controlplanev1.Cluster_Type, error) {
 	switch strings.ToLower(p) {
 	case "dedicated":
-		return controlplanev1beta2.Cluster_TYPE_DEDICATED, nil
+		return controlplanev1.Cluster_TYPE_DEDICATED, nil
 	case "byoc":
-		return controlplanev1beta2.Cluster_TYPE_BYOC, nil
+		return controlplanev1.Cluster_TYPE_BYOC, nil
 	default:
-		return controlplanev1beta2.Cluster_TYPE_UNSPECIFIED, fmt.Errorf("cluster type %q not supported", p)
+		return controlplanev1.Cluster_TYPE_UNSPECIFIED, fmt.Errorf("cluster type %q not supported", p)
 	}
 }
 
 // ClusterTypeToString returns the cloud cluster type string based on the
-// controlplanev1beta2's Cluster_Type code.
-func ClusterTypeToString(provider controlplanev1beta2.Cluster_Type) string {
+// controlplanev1's Cluster_Type code.
+func ClusterTypeToString(provider controlplanev1.Cluster_Type) string {
 	switch provider {
-	case controlplanev1beta2.Cluster_TYPE_DEDICATED:
+	case controlplanev1.Cluster_TYPE_DEDICATED:
 		return "dedicated"
-	case controlplanev1beta2.Cluster_TYPE_BYOC:
+	case controlplanev1.Cluster_TYPE_BYOC:
 		return "byoc"
 	default:
 		return providerUnspecified
@@ -143,11 +176,11 @@ func ClusterTypeToString(provider controlplanev1beta2.Cluster_Type) string {
 }
 
 // AreWeDoneYet checks an operation's state until one of completion, failure or timeout is reached.
-func AreWeDoneYet(ctx context.Context, op *controlplanev1beta2.Operation, timeout time.Duration, client controlplanev1beta2grpc.OperationServiceClient) error {
+func AreWeDoneYet(ctx context.Context, op *controlplanev1.Operation, timeout time.Duration, client controlplanev1grpc.OperationServiceClient) error {
 	return Retry(ctx, timeout, func() *RetryError {
 		// Get the latest operation status
 		tflog.Info(ctx, "getting operation")
-		latestOp, err := client.GetOperation(ctx, &controlplanev1beta2.GetOperationRequest{
+		latestOp, err := client.GetOperation(ctx, &controlplanev1.GetOperationRequest{
 			Id: op.GetId(),
 		})
 		tflog.Info(ctx, "got result of operation")
@@ -163,36 +196,36 @@ func AreWeDoneYet(ctx context.Context, op *controlplanev1beta2.Operation, timeou
 		}
 
 		// Check the operation state
-		if op != nil && op.GetState() == controlplanev1beta2.Operation_STATE_FAILED {
+		if op != nil && op.GetState() == controlplanev1.Operation_STATE_FAILED {
 			return NonRetryableError(fmt.Errorf("operation failed: %s", op.GetError().GetMessage()))
 		}
-		if op != nil && op.GetState() != controlplanev1beta2.Operation_STATE_COMPLETED {
+		if op != nil && op.GetState() != controlplanev1.Operation_STATE_COMPLETED {
 			return RetryableError(fmt.Errorf("expected operation to be completed but was in state %s", op.GetState()))
 		}
 		return nil
 	})
 }
 
-// StringToConnectionType returns the controlplanev1beta2's Cluster_ConnectionType code
+// StringToConnectionType returns the controlplanev1's Cluster_ConnectionType code
 // based on the input string.
-func StringToConnectionType(s string) controlplanev1beta2.Cluster_ConnectionType {
+func StringToConnectionType(s string) controlplanev1.Cluster_ConnectionType {
 	switch strings.ToLower(s) {
 	case "public":
-		return controlplanev1beta2.Cluster_CONNECTION_TYPE_PUBLIC
+		return controlplanev1.Cluster_CONNECTION_TYPE_PUBLIC
 	case "private":
-		return controlplanev1beta2.Cluster_CONNECTION_TYPE_PRIVATE
+		return controlplanev1.Cluster_CONNECTION_TYPE_PRIVATE
 	default:
-		return controlplanev1beta2.Cluster_CONNECTION_TYPE_UNSPECIFIED
+		return controlplanev1.Cluster_CONNECTION_TYPE_UNSPECIFIED
 	}
 }
 
 // ConnectionTypeToString returns the cloud cluster connection type string based
-// on the controlplanev1beta2's Cluster_ConnectionType code.
-func ConnectionTypeToString(t controlplanev1beta2.Cluster_ConnectionType) string {
+// on the controlplanev1's Cluster_ConnectionType code.
+func ConnectionTypeToString(t controlplanev1.Cluster_ConnectionType) string {
 	switch t {
-	case controlplanev1beta2.Cluster_CONNECTION_TYPE_PUBLIC:
+	case controlplanev1.Cluster_CONNECTION_TYPE_PUBLIC:
 		return "public"
-	case controlplanev1beta2.Cluster_CONNECTION_TYPE_PRIVATE:
+	case controlplanev1.Cluster_CONNECTION_TYPE_PRIVATE:
 		return "private"
 	default:
 		return providerUnspecified
@@ -240,9 +273,9 @@ func TrimmedStringValue(s string) types.String {
 }
 
 // FindUserByName searches for a user by name using the provided client
-func FindUserByName(ctx context.Context, name string, client dataplanev1alpha2grpc.UserServiceClient) (*dataplanev1alpha2.ListUsersResponse_User, error) {
-	usrs, err := client.ListUsers(ctx, &dataplanev1alpha2.ListUsersRequest{
-		Filter: &dataplanev1alpha2.ListUsersRequest_Filter{
+func FindUserByName(ctx context.Context, name string, client dataplanev1grpc.UserServiceClient) (*dataplanev1.ListUsersResponse_User, error) {
+	usrs, err := client.ListUsers(ctx, &dataplanev1.ListUsersRequest{
+		Filter: &dataplanev1.ListUsersRequest_Filter{
 			Name: name,
 		},
 	})
@@ -263,36 +296,36 @@ func StringToStringPointer(s string) *string {
 	return &s
 }
 
-// StringToUserMechanism converts a string to a dataplanev1alpha2.SASLMechanism
-func StringToUserMechanism(s string) dataplanev1alpha2.SASLMechanism {
+// StringToUserMechanism converts a string to a dataplanev1.SASLMechanism
+func StringToUserMechanism(s string) dataplanev1.SASLMechanism {
 	switch strings.ToLower(s) {
 	case "scram-sha-256":
-		return dataplanev1alpha2.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_256
+		return dataplanev1.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_256
 	case "scram-sha-512":
-		return dataplanev1alpha2.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_512
+		return dataplanev1.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_512
 	default:
-		return dataplanev1alpha2.SASLMechanism_SASL_MECHANISM_UNSPECIFIED
+		return dataplanev1.SASLMechanism_SASL_MECHANISM_UNSPECIFIED
 	}
 }
 
-// UserMechanismToString converts a dataplanev1alpha2.SASLMechanism to a string
-func UserMechanismToString(m *dataplanev1alpha2.SASLMechanism) string {
+// UserMechanismToString converts a dataplanev1.SASLMechanism to a string
+func UserMechanismToString(m *dataplanev1.SASLMechanism) string {
 	if m == nil {
 		return "unspecified"
 	}
 	switch *m {
-	case dataplanev1alpha2.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_256:
+	case dataplanev1.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_256:
 		return "scram-sha-256"
-	case dataplanev1alpha2.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_512:
+	case dataplanev1.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_512:
 		return "scram-sha-512"
 	default:
 		return "unspecified"
 	}
 }
 
-// TopicConfigurationToMap converts a slice of dataplanev1alpha2.Topic_Configuration to a slice of
+// TopicConfigurationToMap converts a slice of dataplanev1.Topic_Configuration to a slice of
 // models.TopicConfiguration
-func TopicConfigurationToMap(cfg []*dataplanev1alpha2.Topic_Configuration) (types.Map, error) {
+func TopicConfigurationToMap(cfg []*dataplanev1.Topic_Configuration) (types.Map, error) {
 	configs := make(map[string]attr.Value, len(cfg))
 	for _, v := range cfg {
 		if v.Value == nil {
@@ -307,16 +340,16 @@ func TopicConfigurationToMap(cfg []*dataplanev1alpha2.Topic_Configuration) (type
 	return cfgMap, nil
 }
 
-// MapToCreateTopicConfiguration converts a cfg map to a slice of dataplanev1alpha2.CreateTopicRequest_Topic_Config
-func MapToCreateTopicConfiguration(cfg types.Map) ([]*dataplanev1alpha2.CreateTopicRequest_Topic_Config, error) {
-	var output []*dataplanev1alpha2.CreateTopicRequest_Topic_Config
+// MapToCreateTopicConfiguration converts a cfg map to a slice of dataplanev1.CreateTopicRequest_Topic_Config
+func MapToCreateTopicConfiguration(cfg types.Map) ([]*dataplanev1.CreateTopicRequest_Topic_Config, error) {
+	var output []*dataplanev1.CreateTopicRequest_Topic_Config
 
 	for k, v := range cfg.Elements() {
 		if v.IsNull() || v.IsUnknown() {
 			return nil, fmt.Errorf("topic configuration %q must have a value", k)
 		}
 		value := strings.Trim(v.String(), `"`)
-		output = append(output, &dataplanev1alpha2.CreateTopicRequest_Topic_Config{
+		output = append(output, &dataplanev1.CreateTopicRequest_Topic_Config{
 			Name:  k,
 			Value: &value,
 		})
@@ -325,16 +358,16 @@ func MapToCreateTopicConfiguration(cfg types.Map) ([]*dataplanev1alpha2.CreateTo
 }
 
 // MapToSetTopicConfiguration converts a cfg map to a slice of
-// dataplanev1alpha2.SetTopicConfigurationsRequest_SetConfiguration
-func MapToSetTopicConfiguration(cfg types.Map) ([]*dataplanev1alpha2.SetTopicConfigurationsRequest_SetConfiguration, error) {
-	var output []*dataplanev1alpha2.SetTopicConfigurationsRequest_SetConfiguration
+// dataplanev1.SetTopicConfigurationsRequest_SetConfiguration
+func MapToSetTopicConfiguration(cfg types.Map) ([]*dataplanev1.SetTopicConfigurationsRequest_SetConfiguration, error) {
+	var output []*dataplanev1.SetTopicConfigurationsRequest_SetConfiguration
 
 	for k, v := range cfg.Elements() {
 		if v.IsNull() || v.IsUnknown() {
 			return nil, fmt.Errorf("topic configuration %q must have a value", k)
 		}
 		value := strings.Trim(v.String(), `"`)
-		output = append(output, &dataplanev1alpha2.SetTopicConfigurationsRequest_SetConfiguration{
+		output = append(output, &dataplanev1.SetTopicConfigurationsRequest_SetConfiguration{
 			Name:  k,
 			Value: &value,
 		})
@@ -363,9 +396,9 @@ func Int32ToNumber(i int32) types.Number {
 }
 
 // FindTopicByName searches for a topic by name using the provided client.
-func FindTopicByName(ctx context.Context, topicName string, client dataplanev1alpha2grpc.TopicServiceClient) (*dataplanev1alpha2.ListTopicsResponse_Topic, error) {
-	topics, err := client.ListTopics(ctx, &dataplanev1alpha2.ListTopicsRequest{
-		Filter: &dataplanev1alpha2.ListTopicsRequest_Filter{
+func FindTopicByName(ctx context.Context, topicName string, client dataplanev1grpc.TopicServiceClient) (*dataplanev1.ListTopicsResponse_Topic, error) {
+	topics, err := client.ListTopics(ctx, &dataplanev1.ListTopicsRequest{
+		Filter: &dataplanev1.ListTopicsRequest_Filter{
 			NameContains: topicName,
 		},
 	})
@@ -395,8 +428,8 @@ func SplitSchemeDefPort(url, def string) (string, error) {
 
 // RetryGetCluster will retry a function, passing in the latest state of the given cluster id, until
 // it either no longer returns an error or times out
-func RetryGetCluster(ctx context.Context, timeout time.Duration, clusterID string, client cloud.CpClientSet, f func(*controlplanev1beta2.Cluster) *RetryError) (*controlplanev1beta2.Cluster, error) {
-	var cluster *controlplanev1beta2.Cluster
+func RetryGetCluster(ctx context.Context, timeout time.Duration, clusterID string, client cloud.CpClientSet, f func(*controlplanev1.Cluster) *RetryError) (*controlplanev1.Cluster, error) {
+	var cluster *controlplanev1.Cluster
 	err := Retry(ctx, timeout, func() *RetryError {
 		var err error
 		cluster, err = client.ClusterForID(ctx, clusterID)

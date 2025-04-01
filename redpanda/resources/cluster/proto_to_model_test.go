@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -32,7 +32,7 @@ func TestGenerateModelCMR(t *testing.T) {
 	tests := []struct {
 		name           string
 		cloudProvider  string
-		cluster        *controlplanev1beta2.Cluster
+		cluster        *controlplanev1.Cluster
 		expectedAWS    *expectedAWS
 		expectNull     bool
 		expectedErrors []string
@@ -45,16 +45,16 @@ func TestGenerateModelCMR(t *testing.T) {
 		},
 		{
 			name:       "cluster without CMR returns null object",
-			cluster:    &controlplanev1beta2.Cluster{},
+			cluster:    &controlplanev1.Cluster{},
 			expectNull: true,
 		},
 		{
 			name: "non-BYOC cluster with CMR returns error",
-			cluster: &controlplanev1beta2.Cluster{
+			cluster: &controlplanev1.Cluster{
 				CloudProvider: mustCloudProvider("aws"),
-				Type:          controlplanev1beta2.Cluster_TYPE_DEDICATED,
-				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{
-					CloudProvider: &controlplanev1beta2.CustomerManagedResources_Aws{},
+				Type:          controlplanev1.Cluster_TYPE_DEDICATED,
+				CustomerManagedResources: &controlplanev1.CustomerManagedResources{
+					CloudProvider: &controlplanev1.CustomerManagedResources_Aws{},
 				},
 			},
 			expectNull:     true,
@@ -62,11 +62,11 @@ func TestGenerateModelCMR(t *testing.T) {
 		},
 		{
 			name: "cloud provider mismatch returns error",
-			cluster: &controlplanev1beta2.Cluster{
+			cluster: &controlplanev1.Cluster{
 				CloudProvider: mustCloudProvider("aws"),
-				Type:          controlplanev1beta2.Cluster_TYPE_BYOC,
-				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{
-					CloudProvider: &controlplanev1beta2.CustomerManagedResources_Gcp{},
+				Type:          controlplanev1.Cluster_TYPE_BYOC,
+				CustomerManagedResources: &controlplanev1.CustomerManagedResources{
+					CloudProvider: &controlplanev1.CustomerManagedResources_Gcp{},
 				},
 			},
 			expectNull:     true,
@@ -74,49 +74,49 @@ func TestGenerateModelCMR(t *testing.T) {
 		},
 		{
 			name: "valid AWS BYOC cluster with complete CMR",
-			cluster: &controlplanev1beta2.Cluster{
+			cluster: &controlplanev1.Cluster{
 				CloudProvider: mustCloudProvider("aws"),
-				Type:          controlplanev1beta2.Cluster_TYPE_BYOC,
-				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{
-					CloudProvider: &controlplanev1beta2.CustomerManagedResources_Aws{
-						Aws: &controlplanev1beta2.CustomerManagedResources_AWS{
-							AgentInstanceProfile: &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{
+				Type:          controlplanev1.Cluster_TYPE_BYOC,
+				CustomerManagedResources: &controlplanev1.CustomerManagedResources{
+					CloudProvider: &controlplanev1.CustomerManagedResources_Aws{
+						Aws: &controlplanev1.CustomerManagedResources_AWS{
+							AgentInstanceProfile: &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{
 								Arn: "arn:aws:iam::123456789012:instance-profile/agent",
 							},
-							ConnectorsNodeGroupInstanceProfile: &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{
+							ConnectorsNodeGroupInstanceProfile: &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{
 								Arn: "arn:aws:iam::123456789012:instance-profile/connectors",
 							},
-							UtilityNodeGroupInstanceProfile: &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{
+							UtilityNodeGroupInstanceProfile: &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{
 								Arn: "arn:aws:iam::123456789012:instance-profile/utility",
 							},
-							RedpandaNodeGroupInstanceProfile: &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{
+							RedpandaNodeGroupInstanceProfile: &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{
 								Arn: "arn:aws:iam::123456789012:instance-profile/redpanda",
 							},
-							K8SClusterRole: &controlplanev1beta2.CustomerManagedResources_AWS_Role{
+							K8SClusterRole: &controlplanev1.CustomerManagedResources_AWS_Role{
 								Arn: "arn:aws:iam::123456789012:role/k8s",
 							},
-							RedpandaAgentSecurityGroup: &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{
+							RedpandaAgentSecurityGroup: &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{
 								Arn: "arn:aws:ec2:region:123456789012:security-group/agent",
 							},
-							ConnectorsSecurityGroup: &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{
+							ConnectorsSecurityGroup: &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{
 								Arn: "arn:aws:ec2:region:123456789012:security-group/connectors",
 							},
-							RedpandaNodeGroupSecurityGroup: &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{
+							RedpandaNodeGroupSecurityGroup: &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{
 								Arn: "arn:aws:ec2:region:123456789012:security-group/redpanda",
 							},
-							UtilitySecurityGroup: &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{
+							UtilitySecurityGroup: &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{
 								Arn: "arn:aws:ec2:region:123456789012:security-group/utility",
 							},
-							ClusterSecurityGroup: &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{
+							ClusterSecurityGroup: &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{
 								Arn: "arn:aws:ec2:region:123456789012:security-group/cluster",
 							},
-							NodeSecurityGroup: &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{
+							NodeSecurityGroup: &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{
 								Arn: "arn:aws:ec2:region:123456789012:security-group/node",
 							},
-							CloudStorageBucket: &controlplanev1beta2.CustomerManagedAWSCloudStorageBucket{
+							CloudStorageBucket: &controlplanev1.CustomerManagedAWSCloudStorageBucket{
 								Arn: "arn:aws:s3:::my-bucket",
 							},
-							PermissionsBoundaryPolicy: &controlplanev1beta2.CustomerManagedResources_AWS_Policy{
+							PermissionsBoundaryPolicy: &controlplanev1.CustomerManagedResources_AWS_Policy{
 								Arn: "arn:aws:iam::123456789012:policy/boundary",
 							},
 						},
@@ -141,16 +141,16 @@ func TestGenerateModelCMR(t *testing.T) {
 		},
 		{
 			name: "valid AWS BYOC cluster with partial CMR",
-			cluster: &controlplanev1beta2.Cluster{
+			cluster: &controlplanev1.Cluster{
 				CloudProvider: mustCloudProvider("aws"),
-				Type:          controlplanev1beta2.Cluster_TYPE_BYOC,
-				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{
-					CloudProvider: &controlplanev1beta2.CustomerManagedResources_Aws{
-						Aws: &controlplanev1beta2.CustomerManagedResources_AWS{
-							AgentInstanceProfile: &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{
+				Type:          controlplanev1.Cluster_TYPE_BYOC,
+				CustomerManagedResources: &controlplanev1.CustomerManagedResources{
+					CloudProvider: &controlplanev1.CustomerManagedResources_Aws{
+						Aws: &controlplanev1.CustomerManagedResources_AWS{
+							AgentInstanceProfile: &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{
 								Arn: "arn:aws:iam::123456789012:instance-profile/agent",
 							},
-							CloudStorageBucket: &controlplanev1beta2.CustomerManagedAWSCloudStorageBucket{
+							CloudStorageBucket: &controlplanev1.CustomerManagedAWSCloudStorageBucket{
 								Arn: "arn:aws:s3:::my-bucket",
 							},
 						},
@@ -164,47 +164,47 @@ func TestGenerateModelCMR(t *testing.T) {
 		},
 		{
 			name: "unknown cloud provider returns null object",
-			cluster: &controlplanev1beta2.Cluster{
+			cluster: &controlplanev1.Cluster{
 				CloudProvider:            mustCloudProvider("unknown"),
-				Type:                     controlplanev1beta2.Cluster_TYPE_BYOC,
-				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{},
+				Type:                     controlplanev1.Cluster_TYPE_BYOC,
+				CustomerManagedResources: &controlplanev1.CustomerManagedResources{},
 			},
 			expectNull: true,
 		},
 		{
 			name: "valid GCP BYOC cluster with complete CMR",
-			cluster: &controlplanev1beta2.Cluster{
+			cluster: &controlplanev1.Cluster{
 				CloudProvider: mustCloudProvider("gcp"),
-				Type:          controlplanev1beta2.Cluster_TYPE_BYOC,
-				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{
-					CloudProvider: &controlplanev1beta2.CustomerManagedResources_Gcp{
-						Gcp: &controlplanev1beta2.CustomerManagedResources_GCP{
-							Subnet: &controlplanev1beta2.CustomerManagedResources_GCP_Subnet{
+				Type:          controlplanev1.Cluster_TYPE_BYOC,
+				CustomerManagedResources: &controlplanev1.CustomerManagedResources{
+					CloudProvider: &controlplanev1.CustomerManagedResources_Gcp{
+						Gcp: &controlplanev1.CustomerManagedResources_GCP{
+							Subnet: &controlplanev1.CustomerManagedResources_GCP_Subnet{
 								Name: "test-subnet",
-								SecondaryIpv4RangePods: &controlplanev1beta2.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range{
+								SecondaryIpv4RangePods: &controlplanev1.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range{
 									Name: "pods-range",
 								},
-								SecondaryIpv4RangeServices: &controlplanev1beta2.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range{
+								SecondaryIpv4RangeServices: &controlplanev1.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range{
 									Name: "services-range",
 								},
 								K8SMasterIpv4Range: "10.0.0.0/28",
 							},
-							AgentServiceAccount: &controlplanev1beta2.GCPServiceAccount{
+							AgentServiceAccount: &controlplanev1.GCPServiceAccount{
 								Email: "agent-sa@project-id.iam.gserviceaccount.com",
 							},
-							ConsoleServiceAccount: &controlplanev1beta2.GCPServiceAccount{
+							ConsoleServiceAccount: &controlplanev1.GCPServiceAccount{
 								Email: "console-sa@project-id.iam.gserviceaccount.com",
 							},
-							ConnectorServiceAccount: &controlplanev1beta2.GCPServiceAccount{
+							ConnectorServiceAccount: &controlplanev1.GCPServiceAccount{
 								Email: "connector-sa@project-id.iam.gserviceaccount.com",
 							},
-							RedpandaClusterServiceAccount: &controlplanev1beta2.GCPServiceAccount{
+							RedpandaClusterServiceAccount: &controlplanev1.GCPServiceAccount{
 								Email: "redpanda-sa@project-id.iam.gserviceaccount.com",
 							},
-							GkeServiceAccount: &controlplanev1beta2.GCPServiceAccount{
+							GkeServiceAccount: &controlplanev1.GCPServiceAccount{
 								Email: "gke-sa@project-id.iam.gserviceaccount.com",
 							},
-							TieredStorageBucket: &controlplanev1beta2.CustomerManagedGoogleCloudStorageBucket{
+							TieredStorageBucket: &controlplanev1.CustomerManagedGoogleCloudStorageBucket{
 								Name: "redpanda-tiered-storage-bucket",
 							},
 							PscNatSubnetName: "psc-nat-subnet",
@@ -228,26 +228,26 @@ func TestGenerateModelCMR(t *testing.T) {
 		},
 		{
 			name: "valid GCP BYOC cluster with partial CMR",
-			cluster: &controlplanev1beta2.Cluster{
+			cluster: &controlplanev1.Cluster{
 				CloudProvider: mustCloudProvider("gcp"),
-				Type:          controlplanev1beta2.Cluster_TYPE_BYOC,
-				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{
-					CloudProvider: &controlplanev1beta2.CustomerManagedResources_Gcp{
-						Gcp: &controlplanev1beta2.CustomerManagedResources_GCP{
-							Subnet: &controlplanev1beta2.CustomerManagedResources_GCP_Subnet{
+				Type:          controlplanev1.Cluster_TYPE_BYOC,
+				CustomerManagedResources: &controlplanev1.CustomerManagedResources{
+					CloudProvider: &controlplanev1.CustomerManagedResources_Gcp{
+						Gcp: &controlplanev1.CustomerManagedResources_GCP{
+							Subnet: &controlplanev1.CustomerManagedResources_GCP_Subnet{
 								Name: "test-subnet",
-								SecondaryIpv4RangePods: &controlplanev1beta2.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range{
+								SecondaryIpv4RangePods: &controlplanev1.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range{
 									Name: "pods-range",
 								},
-								SecondaryIpv4RangeServices: &controlplanev1beta2.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range{
+								SecondaryIpv4RangeServices: &controlplanev1.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range{
 									Name: "services-range",
 								},
 								K8SMasterIpv4Range: "10.0.0.0/28",
 							},
-							AgentServiceAccount: &controlplanev1beta2.GCPServiceAccount{
+							AgentServiceAccount: &controlplanev1.GCPServiceAccount{
 								Email: "agent-sa@project-id.iam.gserviceaccount.com",
 							},
-							TieredStorageBucket: &controlplanev1beta2.CustomerManagedGoogleCloudStorageBucket{
+							TieredStorageBucket: &controlplanev1.CustomerManagedGoogleCloudStorageBucket{
 								Name: "redpanda-tiered-storage-bucket",
 							},
 						},
@@ -265,12 +265,12 @@ func TestGenerateModelCMR(t *testing.T) {
 		},
 		{
 			name: "GCP BYOC cluster with empty CMR",
-			cluster: &controlplanev1beta2.Cluster{
+			cluster: &controlplanev1.Cluster{
 				CloudProvider: mustCloudProvider("gcp"),
-				Type:          controlplanev1beta2.Cluster_TYPE_BYOC,
-				CustomerManagedResources: &controlplanev1beta2.CustomerManagedResources{
-					CloudProvider: &controlplanev1beta2.CustomerManagedResources_Gcp{
-						Gcp: &controlplanev1beta2.CustomerManagedResources_GCP{},
+				Type:          controlplanev1.Cluster_TYPE_BYOC,
+				CustomerManagedResources: &controlplanev1.CustomerManagedResources{
+					CloudProvider: &controlplanev1.CustomerManagedResources_Gcp{
+						Gcp: &controlplanev1.CustomerManagedResources_GCP{},
 					},
 				},
 			},
@@ -347,7 +347,7 @@ func TestGenerateModelCMR(t *testing.T) {
 	}
 }
 
-func mustCloudProvider(s string) controlplanev1beta2.CloudProvider {
+func mustCloudProvider(s string) controlplanev1.CloudProvider {
 	cp, _ := utils.StringToCloudProvider(s)
 	return cp
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -16,7 +16,7 @@ func TestGenerateNetworkCMR(t *testing.T) {
 	tests := []struct {
 		name    string
 		model   models.Network
-		want    *controlplanev1beta2.Network_CustomerManagedResources
+		want    *controlplanev1.Network_CustomerManagedResources
 		wantErr bool
 	}{
 		{
@@ -162,19 +162,19 @@ func TestGenerateNetworkCMR(t *testing.T) {
 					},
 				),
 			},
-			want: &controlplanev1beta2.Network_CustomerManagedResources{
-				CloudProvider: &controlplanev1beta2.Network_CustomerManagedResources_Aws{
-					Aws: &controlplanev1beta2.Network_CustomerManagedResources_AWS{
-						ManagementBucket: &controlplanev1beta2.CustomerManagedAWSCloudStorageBucket{
+			want: &controlplanev1.Network_CustomerManagedResources{
+				CloudProvider: &controlplanev1.Network_CustomerManagedResources_Aws{
+					Aws: &controlplanev1.Network_CustomerManagedResources_AWS{
+						ManagementBucket: &controlplanev1.CustomerManagedAWSCloudStorageBucket{
 							Arn: "arn:aws:s3:::rp-879326078624-us-east-2-mgmt-20250116215415273800000009",
 						},
-						DynamodbTable: &controlplanev1beta2.CustomerManagedDynamoDBTable{
+						DynamodbTable: &controlplanev1.CustomerManagedDynamoDBTable{
 							Arn: "arn:aws:dynamodb:us-east-2:879326078624:table/rp-879326078624-us-east-2-mgmt-tflock-mgkr8cfwlj",
 						},
-						Vpc: &controlplanev1beta2.CustomerManagedAWSVPC{
+						Vpc: &controlplanev1.CustomerManagedAWSVPC{
 							Arn: "arn:aws:ec2:us-east-2:879326078624:vpc/vpc-00398e37a5081c45d",
 						},
-						PrivateSubnets: &controlplanev1beta2.CustomerManagedAWSSubnets{
+						PrivateSubnets: &controlplanev1.CustomerManagedAWSSubnets{
 							Arns: []string{
 								"arn:aws:ec2:us-east-2:879326078624:subnet/subnet-00e09f8421e896955",
 								"arn:aws:ec2:us-east-2:879326078624:subnet/subnet-07cae67987779c5ea",

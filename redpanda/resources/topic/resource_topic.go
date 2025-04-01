@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"strings"
 
-	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1alpha2/dataplanev1alpha2grpc"
-	dataplanev1alpha2 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha2"
+	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
+	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -46,7 +46,7 @@ var (
 
 // Topic represents the Topic Terraform resource.
 type Topic struct {
-	TopicClient dataplanev1alpha2grpc.TopicServiceClient
+	TopicClient dataplanev1grpc.TopicServiceClient
 
 	resData       config.Resource
 	dataplaneConn *grpc.ClientConn
@@ -153,8 +153,8 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 	if !model.ReplicationFactor.IsUnknown() {
 		rf = utils.NumberToInt32(model.ReplicationFactor)
 	}
-	topic, err := t.TopicClient.CreateTopic(ctx, &dataplanev1alpha2.CreateTopicRequest{
-		Topic: &dataplanev1alpha2.CreateTopicRequest_Topic{
+	topic, err := t.TopicClient.CreateTopic(ctx, &dataplanev1.CreateTopicRequest{
+		Topic: &dataplanev1.CreateTopicRequest_Topic{
 			Name:              model.Name.ValueString(),
 			PartitionCount:    p,
 			ReplicationFactor: rf,
@@ -173,9 +173,9 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		return
 	}
 
-	tpCfgRes, err := t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1alpha2.GetTopicConfigurationsRequest{TopicName: topic.Name})
+	tpCfgRes, err := t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: topic.GetTopicName()})
 	if err != nil {
-		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration", topic.Name), utils.DeserializeGrpcError(err))
+		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration", topic.GetTopicName()), utils.DeserializeGrpcError(err))
 		return
 	}
 	tpCfg := filterDynamicConfig(tpCfgRes.Configurations)
@@ -185,13 +185,13 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		return
 	}
 	response.Diagnostics.Append(response.State.Set(ctx, models.Topic{
-		Name:              types.StringValue(topic.Name),
-		PartitionCount:    utils.Int32ToNumber(topic.PartitionCount),
-		ReplicationFactor: utils.Int32ToNumber(topic.ReplicationFactor),
+		Name:              types.StringValue(topic.GetTopicName()),
+		PartitionCount:    utils.Int32ToNumber(topic.GetPartitionCount()),
+		ReplicationFactor: utils.Int32ToNumber(topic.GetReplicationFactor()),
 		Configuration:     tpCfgMap,
 		AllowDeletion:     model.AllowDeletion,
 		ClusterAPIURL:     model.ClusterAPIURL,
-		ID:                types.StringValue(topic.Name),
+		ID:                types.StringValue(topic.GetTopicName()),
 	})...)
 }
 
@@ -214,7 +214,7 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 		response.Diagnostics.AddError(fmt.Sprintf("failed receive response from topic api for topic %s", model.Name), utils.DeserializeGrpcError(err))
 		return
 	}
-	tpCfgRes, err := t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1alpha2.GetTopicConfigurationsRequest{TopicName: tp.Name})
+	tpCfgRes, err := t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: tp.Name})
 	if err != nil {
 		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration", tp.Name), utils.DeserializeGrpcError(err))
 		return
@@ -253,7 +253,7 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 			response.Diagnostics.AddError("unable to parse the plan topic configuration", utils.DeserializeGrpcError(err))
 			return
 		}
-		_, err = t.TopicClient.SetTopicConfigurations(ctx, &dataplanev1alpha2.SetTopicConfigurationsRequest{
+		_, err = t.TopicClient.SetTopicConfigurations(ctx, &dataplanev1.SetTopicConfigurationsRequest{
 			TopicName:      plan.Name.ValueString(),
 			Configurations: cfgToSet,
 		})
@@ -279,8 +279,8 @@ func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, resp
 		return
 	}
 	defer t.dataplaneConn.Close()
-	_, err = t.TopicClient.DeleteTopic(ctx, &dataplanev1alpha2.DeleteTopicRequest{
-		Name: model.Name.ValueString(),
+	_, err = t.TopicClient.DeleteTopic(ctx, &dataplanev1.DeleteTopicRequest{
+		TopicName: model.Name.ValueString(),
 	})
 	if err != nil {
 		response.Diagnostics.AddError(fmt.Sprintf("failed to delete topic %s", model.Name), utils.DeserializeGrpcError(err))
@@ -318,17 +318,17 @@ func (t *Topic) createTopicClient(clusterURL string) error {
 		}
 		t.dataplaneConn = conn
 	}
-	t.TopicClient = dataplanev1alpha2grpc.NewTopicServiceClient(t.dataplaneConn)
+	t.TopicClient = dataplanev1grpc.NewTopicServiceClient(t.dataplaneConn)
 	return nil
 }
 
 // filterDynamicConfig filters the configs and returns only the one with a
 // DYNAMIC_TOPIC_CONFIG source.
-func filterDynamicConfig(configs []*dataplanev1alpha2.Topic_Configuration) []*dataplanev1alpha2.Topic_Configuration {
-	var filtered []*dataplanev1alpha2.Topic_Configuration
+func filterDynamicConfig(configs []*dataplanev1.Topic_Configuration) []*dataplanev1.Topic_Configuration {
+	var filtered []*dataplanev1.Topic_Configuration
 	for _, cfg := range configs {
 		if cfg != nil {
-			if cfg.Source == dataplanev1alpha2.ConfigSource_CONFIG_SOURCE_DYNAMIC_TOPIC_CONFIG {
+			if cfg.Source == dataplanev1.ConfigSource_CONFIG_SOURCE_DYNAMIC_TOPIC_CONFIG {
 				filtered = append(filtered, cfg)
 			}
 		}
