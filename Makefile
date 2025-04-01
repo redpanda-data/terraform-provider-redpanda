@@ -364,7 +364,7 @@ test_byoc_gcp:
 	VERSION=pre \
 	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesByocGCP
 
-RUN_SERVERLESS_TESTS ?= false
+RUN_SERVERLESS_TESTS ?= true
 .PHONY: test_serverless_cluster
 test_serverless_cluster:
 	@echo "Running TestAccResourcesStrippedDownServerlessCluster..."
