@@ -19,7 +19,7 @@ import (
 	"context"
 	"fmt"
 
-	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -28,7 +28,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
-func generateModel(cloudProvider string, nw *controlplanev1beta2.Network, diags diag.Diagnostics) (*models.Network, diag.Diagnostics) {
+func generateModel(cloudProvider string, nw *controlplanev1.Network, diags diag.Diagnostics) (*models.Network, diag.Diagnostics) {
 	output := &models.Network{
 		CloudProvider:   types.StringValue(utils.CloudProviderToString(nw.GetCloudProvider())),
 		ClusterType:     types.StringValue(utils.ClusterTypeToString(nw.GetClusterType())),
@@ -49,7 +49,7 @@ func generateModel(cloudProvider string, nw *controlplanev1beta2.Network, diags 
 	return output, diags
 }
 
-func generateModelCMR(cloudProvider string, nw *controlplanev1beta2.Network, output *models.Network, diags diag.Diagnostics) (*models.Network, diag.Diagnostics) {
+func generateModelCMR(cloudProvider string, nw *controlplanev1.Network, output *models.Network, diags diag.Diagnostics) (*models.Network, diag.Diagnostics) {
 	if nw == nil || !nw.HasCustomerManagedResources() {
 		output.CustomerManagedResources = types.ObjectNull(cmrType)
 		return output, diags
@@ -114,7 +114,7 @@ func generateModelCMR(cloudProvider string, nw *controlplanev1beta2.Network, out
 	return output, diags
 }
 
-func generateModelGCPCMR(gcpData *controlplanev1beta2.Network_CustomerManagedResources_GCP, diags diag.Diagnostics) (basetypes.ObjectValue, diag.Diagnostics) {
+func generateModelGCPCMR(gcpData *controlplanev1.Network_CustomerManagedResources_GCP, diags diag.Diagnostics) (basetypes.ObjectValue, diag.Diagnostics) {
 	// Initialize GCP values map with default null values
 	gcpVal := make(map[string]attr.Value)
 	for k, v := range gcpValueDefaults {
@@ -153,7 +153,7 @@ func generateModelGCPCMR(gcpData *controlplanev1beta2.Network_CustomerManagedRes
 	return gcpObj, diags
 }
 
-func generateModelAWSCMR(awsData *controlplanev1beta2.Network_CustomerManagedResources_AWS, diags diag.Diagnostics) (basetypes.ObjectValue, diag.Diagnostics) {
+func generateModelAWSCMR(awsData *controlplanev1.Network_CustomerManagedResources_AWS, diags diag.Diagnostics) (basetypes.ObjectValue, diag.Diagnostics) {
 	// Initialize AWS values map with default null values
 	awsVal := make(map[string]attr.Value)
 	for k, v := range awsValueDefaults {
@@ -220,8 +220,8 @@ func generateModelAWSCMR(awsData *controlplanev1beta2.Network_CustomerManagedRes
 	return awsObj, diags
 }
 
-func generateNetworkCMR(ctx context.Context, model models.Network, diags diag.Diagnostics) (*controlplanev1beta2.Network_CustomerManagedResources, diag.Diagnostics) {
-	cmr := &controlplanev1beta2.Network_CustomerManagedResources{}
+func generateNetworkCMR(ctx context.Context, model models.Network, diags diag.Diagnostics) (*controlplanev1.Network_CustomerManagedResources, diag.Diagnostics) {
+	cmr := &controlplanev1.Network_CustomerManagedResources{}
 
 	if model.CustomerManagedResources.IsNull() {
 		return nil, nil
@@ -250,11 +250,11 @@ func generateNetworkCMR(ctx context.Context, model models.Network, diags diag.Di
 	return cmr, diags
 }
 
-func generateGCPCMR(ctx context.Context, model models.Network, diags diag.Diagnostics) (*controlplanev1beta2.Network_CustomerManagedResources_GCP, diag.Diagnostics) {
-	gcpRet := &controlplanev1beta2.Network_CustomerManagedResources_GCP{
+func generateGCPCMR(ctx context.Context, model models.Network, diags diag.Diagnostics) (*controlplanev1.Network_CustomerManagedResources_GCP, diag.Diagnostics) {
+	gcpRet := &controlplanev1.Network_CustomerManagedResources_GCP{
 		NetworkName:      "",
 		NetworkProjectId: "",
-		ManagementBucket: &controlplanev1beta2.CustomerManagedGoogleCloudStorageBucket{
+		ManagementBucket: &controlplanev1.CustomerManagedGoogleCloudStorageBucket{
 			Name: "",
 		},
 	}
@@ -307,12 +307,12 @@ func generateGCPCMR(ctx context.Context, model models.Network, diags diag.Diagno
 	return gcpRet, diags
 }
 
-func generateAWSCMR(ctx context.Context, model models.Network, diags diag.Diagnostics) (*controlplanev1beta2.Network_CustomerManagedResources_AWS, diag.Diagnostics) {
-	awsRet := &controlplanev1beta2.Network_CustomerManagedResources_AWS{
-		ManagementBucket: &controlplanev1beta2.CustomerManagedAWSCloudStorageBucket{},
-		DynamodbTable:    &controlplanev1beta2.CustomerManagedDynamoDBTable{},
-		Vpc:              &controlplanev1beta2.CustomerManagedAWSVPC{},
-		PrivateSubnets:   &controlplanev1beta2.CustomerManagedAWSSubnets{},
+func generateAWSCMR(ctx context.Context, model models.Network, diags diag.Diagnostics) (*controlplanev1.Network_CustomerManagedResources_AWS, diag.Diagnostics) {
+	awsRet := &controlplanev1.Network_CustomerManagedResources_AWS{
+		ManagementBucket: &controlplanev1.CustomerManagedAWSCloudStorageBucket{},
+		DynamodbTable:    &controlplanev1.CustomerManagedDynamoDBTable{},
+		Vpc:              &controlplanev1.CustomerManagedAWSVPC{},
+		PrivateSubnets:   &controlplanev1.CustomerManagedAWSSubnets{},
 	}
 	// Get the AWS object from CustomerManagedResources
 	var cmrObj types.Object

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -14,7 +14,7 @@ import (
 	"google.golang.org/genproto/googleapis/type/dayofweek"
 )
 
-func generateClusterRequest(ctx context.Context, model models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.ClusterCreate, diag.Diagnostics) {
+func generateClusterRequest(ctx context.Context, model models.Cluster, diags diag.Diagnostics) (*controlplanev1.ClusterCreate, diag.Diagnostics) {
 	// Handle required fields first
 	provider, err := utils.StringToCloudProvider(model.CloudProvider.ValueString())
 	if err != nil {
@@ -29,7 +29,7 @@ func generateClusterRequest(ctx context.Context, model models.Cluster, diags dia
 	}
 
 	// Create base request with required fields
-	output := &controlplanev1beta2.ClusterCreate{
+	output := &controlplanev1.ClusterCreate{
 		Name:              model.Name.ValueString(),
 		ResourceGroupId:   model.ResourceGroupID.ValueString(),
 		ThroughputTier:    model.ThroughputTier.ValueString(),
@@ -55,7 +55,7 @@ func generateClusterRequest(ctx context.Context, model models.Cluster, diags dia
 			diags.Append(d...)
 			return nil, diags
 		}
-		output.KafkaApi = &controlplanev1beta2.KafkaAPISpec{
+		output.KafkaApi = &controlplanev1.KafkaAPISpec{
 			Mtls: m,
 		}
 	}
@@ -66,7 +66,7 @@ func generateClusterRequest(ctx context.Context, model models.Cluster, diags dia
 			diags.Append(d...)
 			return nil, diags
 		}
-		output.HttpProxy = &controlplanev1beta2.HTTPProxySpec{
+		output.HttpProxy = &controlplanev1.HTTPProxySpec{
 			Mtls: m,
 		}
 	}
@@ -77,7 +77,7 @@ func generateClusterRequest(ctx context.Context, model models.Cluster, diags dia
 			diags.Append(d...)
 			return nil, diags
 		}
-		output.SchemaRegistry = &controlplanev1beta2.SchemaRegistrySpec{
+		output.SchemaRegistry = &controlplanev1.SchemaRegistrySpec{
 			Mtls: m,
 		}
 	}
@@ -122,6 +122,10 @@ func generateClusterRequest(ctx context.Context, model models.Cluster, diags dia
 		output.AzurePrivateLink = m
 	}
 
+	if !model.GCPGlobalAccessEnabled.IsNull() {
+		output.GcpPrivateServiceConnect.GlobalAccessEnabled = model.GCPGlobalAccessEnabled.ValueBool()
+	}
+
 	// Handle Maintenance Window
 	if !model.MaintenanceWindowConfig.IsNull() {
 		m, d := getMaintenanceWindowConfig(ctx, model.MaintenanceWindowConfig, diags)
@@ -142,15 +146,6 @@ func generateClusterRequest(ctx context.Context, model models.Cluster, diags dia
 		output.KafkaConnect = m
 	}
 
-	// Handle Connectivity
-	if !model.Connectivity.IsNull() {
-		m, d := getConnectivitySpec(ctx, model.Connectivity, diags)
-		if d.HasError() {
-			diags.Append(d...)
-			return nil, diags
-		}
-		output.Connectivity = m
-	}
 	// Handle Read Replica Cluster IDs
 	if !model.ReadReplicaClusterIDs.IsNull() {
 		output.ReadReplicaClusterIds = utils.TypeListToStringSlice(model.ReadReplicaClusterIDs)
@@ -159,7 +154,7 @@ func generateClusterRequest(ctx context.Context, model models.Cluster, diags dia
 	return output, diags
 }
 
-func getGcpPrivateServiceConnect(_ context.Context, connect types.Object, diags diag.Diagnostics) (*controlplanev1beta2.GCPPrivateServiceConnectSpec, diag.Diagnostics) {
+func getGcpPrivateServiceConnect(_ context.Context, connect types.Object, diags diag.Diagnostics) (*controlplanev1.GCPPrivateServiceConnectSpec, diag.Diagnostics) {
 	if connect.IsNull() {
 		return nil, diags
 	}
@@ -183,7 +178,7 @@ func getGcpPrivateServiceConnect(_ context.Context, connect types.Object, diags 
 		return nil, diags
 	}
 
-	var consumers []*controlplanev1beta2.GCPPrivateServiceConnectConsumer
+	var consumers []*controlplanev1.GCPPrivateServiceConnectConsumer
 	for _, elem := range consumerList.Elements() {
 		// Each element should be an object with a "source" field
 		consumerObj, ok := elem.(types.Object)
@@ -205,19 +200,19 @@ func getGcpPrivateServiceConnect(_ context.Context, connect types.Object, diags 
 			return nil, diags
 		}
 
-		consumers = append(consumers, &controlplanev1beta2.GCPPrivateServiceConnectConsumer{
+		consumers = append(consumers, &controlplanev1.GCPPrivateServiceConnectConsumer{
 			Source: sourceVal.ValueString(),
 		})
 	}
 
-	return &controlplanev1beta2.GCPPrivateServiceConnectSpec{
+	return &controlplanev1.GCPPrivateServiceConnectSpec{
 		Enabled:             enabled,
 		GlobalAccessEnabled: globalAccessEnabled,
 		ConsumerAcceptList:  consumers,
 	}, diags
 }
 
-func getAwsPrivateLinkSpec(_ context.Context, aws types.Object, diags diag.Diagnostics) (*controlplanev1beta2.AWSPrivateLinkSpec, diag.Diagnostics) {
+func getAwsPrivateLinkSpec(_ context.Context, aws types.Object, diags diag.Diagnostics) (*controlplanev1.AWSPrivateLinkSpec, diag.Diagnostics) {
 	enabled, d := getBoolFromAttributes("enabled", aws.Attributes(), diags)
 	if d.HasError() {
 		return nil, d
@@ -233,15 +228,15 @@ func getAwsPrivateLinkSpec(_ context.Context, aws types.Object, diags diag.Diagn
 		return nil, d
 	}
 
-	return &controlplanev1beta2.AWSPrivateLinkSpec{
+	return &controlplanev1.AWSPrivateLinkSpec{
 		Enabled:           enabled,
 		AllowedPrincipals: utils.TypeListToStringSlice(allowedPrincipals),
 		ConnectConsole:    connectConsole,
 	}, diags
 }
 
-func generateClusterUpdate(ctx context.Context, cluster models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.ClusterUpdate, diag.Diagnostics) {
-	update := &controlplanev1beta2.ClusterUpdate{
+func generateClusterUpdate(ctx context.Context, cluster models.Cluster, diags diag.Diagnostics) (*controlplanev1.ClusterUpdate, diag.Diagnostics) {
+	update := &controlplanev1.ClusterUpdate{
 		Id:                    cluster.ID.ValueString(),
 		Name:                  cluster.Name.ValueString(),
 		ReadReplicaClusterIds: utils.TypeListToStringSlice(cluster.ReadReplicaClusterIDs),
@@ -254,7 +249,7 @@ func generateClusterUpdate(ctx context.Context, cluster models.Cluster, diags di
 			diags.Append(d...)
 			return nil, diags
 		}
-		update.KafkaApi = &controlplanev1beta2.KafkaAPISpec{
+		update.KafkaApi = &controlplanev1.KafkaAPISpec{
 			Mtls: m,
 		}
 	}
@@ -266,7 +261,7 @@ func generateClusterUpdate(ctx context.Context, cluster models.Cluster, diags di
 			diags.Append(d...)
 			return nil, diags
 		}
-		update.HttpProxy = &controlplanev1beta2.HTTPProxySpec{
+		update.HttpProxy = &controlplanev1.HTTPProxySpec{
 			Mtls: m,
 		}
 	}
@@ -278,7 +273,7 @@ func generateClusterUpdate(ctx context.Context, cluster models.Cluster, diags di
 			diags.Append(d...)
 			return nil, diags
 		}
-		update.SchemaRegistry = &controlplanev1beta2.SchemaRegistrySpec{
+		update.SchemaRegistry = &controlplanev1.SchemaRegistrySpec{
 			Mtls: m,
 		}
 	}
@@ -349,7 +344,7 @@ func generateClusterUpdate(ctx context.Context, cluster models.Cluster, diags di
 	return update, diags
 }
 
-func getMtlsSpec(ctx context.Context, mtls types.Object, diags diag.Diagnostics) (*controlplanev1beta2.MTLSSpec, diag.Diagnostics) {
+func getMtlsSpec(ctx context.Context, mtls types.Object, diags diag.Diagnostics) (*controlplanev1.MTLSSpec, diag.Diagnostics) {
 	if mtls.IsNull() {
 		return nil, diags
 	}
@@ -380,14 +375,14 @@ func getMtlsSpec(ctx context.Context, mtls types.Object, diags diag.Diagnostics)
 		return nil, diags
 	}
 
-	return &controlplanev1beta2.MTLSSpec{
+	return &controlplanev1.MTLSSpec{
 		Enabled:               en,
 		CaCertificatesPem:     utils.TypeListToStringSlice(caCerts),
 		PrincipalMappingRules: utils.TypeListToStringSlice(pr),
 	}, diags
 }
 
-func generateClusterCMRUpdate(ctx context.Context, cluster models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.CustomerManagedResourcesUpdate, diag.Diagnostics) {
+func generateClusterCMRUpdate(ctx context.Context, cluster models.Cluster, diags diag.Diagnostics) (*controlplanev1.CustomerManagedResourcesUpdate, diag.Diagnostics) {
 	// Early returns if not applicable
 	if cluster.CustomerManagedResources.IsNull() {
 		return nil, diags
@@ -415,20 +410,20 @@ func generateClusterCMRUpdate(ctx context.Context, cluster models.Cluster, diags
 		}
 	}
 
-	gcpUpdate := &controlplanev1beta2.CustomerManagedResourcesUpdate_GCP{}
+	gcpUpdate := &controlplanev1.CustomerManagedResourcesUpdate_GCP{}
 	if pscNatSubnetName, ok := gcp.Attributes()["psc_nat_subnet_name"].(types.String); ok && !pscNatSubnetName.IsNull() {
 		gcpUpdate.PscNatSubnetName = pscNatSubnetName.ValueString()
 	}
 
 	// Create and return the update object
-	return &controlplanev1beta2.CustomerManagedResourcesUpdate{
-		CloudProvider: &controlplanev1beta2.CustomerManagedResourcesUpdate_Gcp{
+	return &controlplanev1.CustomerManagedResourcesUpdate{
+		CloudProvider: &controlplanev1.CustomerManagedResourcesUpdate_Gcp{
 			Gcp: gcpUpdate,
 		},
 	}, diags
 }
 
-func getAzurePrivateLinkSpec(_ context.Context, azure types.Object, diags diag.Diagnostics) (*controlplanev1beta2.AzurePrivateLinkSpec, diag.Diagnostics) {
+func getAzurePrivateLinkSpec(_ context.Context, azure types.Object, diags diag.Diagnostics) (*controlplanev1.AzurePrivateLinkSpec, diag.Diagnostics) {
 	if azure.IsNull() {
 		return nil, diags
 	}
@@ -451,19 +446,19 @@ func getAzurePrivateLinkSpec(_ context.Context, azure types.Object, diags diag.D
 		return nil, diags
 	}
 
-	return &controlplanev1beta2.AzurePrivateLinkSpec{
+	return &controlplanev1.AzurePrivateLinkSpec{
 		Enabled:              enabled,
 		ConnectConsole:       connectConsole,
 		AllowedSubscriptions: utils.TypeListToStringSlice(allowedSubs),
 	}, diags
 }
 
-func getMaintenanceWindowConfig(_ context.Context, maintenance types.Object, diags diag.Diagnostics) (*controlplanev1beta2.MaintenanceWindowConfig, diag.Diagnostics) {
+func getMaintenanceWindowConfig(_ context.Context, maintenance types.Object, diags diag.Diagnostics) (*controlplanev1.MaintenanceWindowConfig, diag.Diagnostics) {
 	if maintenance.IsNull() {
 		return nil, diags
 	}
 
-	config := &controlplanev1beta2.MaintenanceWindowConfig{}
+	config := &controlplanev1.MaintenanceWindowConfig{}
 
 	attrs := maintenance.Attributes()
 	// Check each potential window type
@@ -481,25 +476,25 @@ func getMaintenanceWindowConfig(_ context.Context, maintenance types.Object, dia
 			return config, diags
 		}
 
-		wdw := &controlplanev1beta2.MaintenanceWindowConfig_DayHour{}
+		wdw := &controlplanev1.MaintenanceWindowConfig_DayHour{}
 		wdw.SetHourOfDay(hourAttr.ValueInt32())
 		wdw.SetDayOfWeek(dayofweek.DayOfWeek(dayofweek.DayOfWeek_value[dayAttr.ValueString()]))
-		config.Window = &controlplanev1beta2.MaintenanceWindowConfig_DayHour_{
+		config.Window = &controlplanev1.MaintenanceWindowConfig_DayHour_{
 			DayHour: wdw,
 		}
 		return config, diags
 	}
 
 	if anytimeAttr, ok := attrs["anytime"].(types.Bool); ok && anytimeAttr.ValueBool() {
-		config.Window = &controlplanev1beta2.MaintenanceWindowConfig_Anytime_{
-			Anytime: &controlplanev1beta2.MaintenanceWindowConfig_Anytime{},
+		config.Window = &controlplanev1.MaintenanceWindowConfig_Anytime_{
+			Anytime: &controlplanev1.MaintenanceWindowConfig_Anytime{},
 		}
 		return config, diags
 	}
 
 	if unspecAttr, ok := attrs["unspecified"].(types.Bool); ok && unspecAttr.ValueBool() {
-		config.Window = &controlplanev1beta2.MaintenanceWindowConfig_Unspecified_{
-			Unspecified: &controlplanev1beta2.MaintenanceWindowConfig_Unspecified{},
+		config.Window = &controlplanev1.MaintenanceWindowConfig_Unspecified_{
+			Unspecified: &controlplanev1.MaintenanceWindowConfig_Unspecified{},
 		}
 		return config, diags
 	}
@@ -507,7 +502,7 @@ func getMaintenanceWindowConfig(_ context.Context, maintenance types.Object, dia
 	return nil, diags
 }
 
-func getKafkaConnectConfig(_ context.Context, connect types.Object, diags diag.Diagnostics) (*controlplanev1beta2.KafkaConnect, diag.Diagnostics) {
+func getKafkaConnectConfig(_ context.Context, connect types.Object, diags diag.Diagnostics) (*controlplanev1.KafkaConnect, diag.Diagnostics) {
 	if connect.IsNull() {
 		return nil, diags
 	}
@@ -522,37 +517,13 @@ func getKafkaConnectConfig(_ context.Context, connect types.Object, diags diag.D
 		return nil, diags
 	}
 
-	return &controlplanev1beta2.KafkaConnect{
+	return &controlplanev1.KafkaConnect{
 		Enabled: enabled,
 	}, diags
 }
 
-func getConnectivitySpec(_ context.Context, connectivity types.Object, diags diag.Diagnostics) (*controlplanev1beta2.ConnectivitySpec, diag.Diagnostics) {
-	if connectivity.IsNull() {
-		return nil, diags
-	}
-
-	spec := &controlplanev1beta2.ConnectivitySpec{}
-	gcpAttr, ok := connectivity.Attributes()["gcp"].(types.Object)
-	if ok && !gcpAttr.IsNull() {
-		enabled, d := getBoolFromAttributes("enable_global_access", gcpAttr.Attributes(), diags)
-		if d.HasError() {
-			diags.Append(d...)
-			return nil, diags
-		}
-
-		spec.CloudProvider = &controlplanev1beta2.ConnectivitySpec_Gcp{
-			Gcp: &controlplanev1beta2.ConnectivitySpec_GCP{
-				EnableGlobalAccess: enabled,
-			},
-		}
-	}
-
-	return spec, diags
-}
-
-func generateClusterCMR(ctx context.Context, model models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.CustomerManagedResources, diag.Diagnostics) {
-	cmr := &controlplanev1beta2.CustomerManagedResources{}
+func generateClusterCMR(ctx context.Context, model models.Cluster, diags diag.Diagnostics) (*controlplanev1.CustomerManagedResources, diag.Diagnostics) {
+	cmr := &controlplanev1.CustomerManagedResources{}
 
 	if model.CustomerManagedResources.IsNull() {
 		return nil, nil
@@ -581,15 +552,15 @@ func generateClusterCMR(ctx context.Context, model models.Cluster, diags diag.Di
 	}
 }
 
-func generateClusterCMRGCP(ctx context.Context, model models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.CustomerManagedResources_GCP, diag.Diagnostics) {
-	gcpRet := &controlplanev1beta2.CustomerManagedResources_GCP{
-		Subnet:                        &controlplanev1beta2.CustomerManagedResources_GCP_Subnet{},
-		AgentServiceAccount:           &controlplanev1beta2.GCPServiceAccount{},
-		ConsoleServiceAccount:         &controlplanev1beta2.GCPServiceAccount{},
-		ConnectorServiceAccount:       &controlplanev1beta2.GCPServiceAccount{},
-		RedpandaClusterServiceAccount: &controlplanev1beta2.GCPServiceAccount{},
-		GkeServiceAccount:             &controlplanev1beta2.GCPServiceAccount{},
-		TieredStorageBucket:           &controlplanev1beta2.CustomerManagedGoogleCloudStorageBucket{},
+func generateClusterCMRGCP(ctx context.Context, model models.Cluster, diags diag.Diagnostics) (*controlplanev1.CustomerManagedResources_GCP, diag.Diagnostics) {
+	gcpRet := &controlplanev1.CustomerManagedResources_GCP{
+		Subnet:                        &controlplanev1.CustomerManagedResources_GCP_Subnet{},
+		AgentServiceAccount:           &controlplanev1.GCPServiceAccount{},
+		ConsoleServiceAccount:         &controlplanev1.GCPServiceAccount{},
+		ConnectorServiceAccount:       &controlplanev1.GCPServiceAccount{},
+		RedpandaClusterServiceAccount: &controlplanev1.GCPServiceAccount{},
+		GkeServiceAccount:             &controlplanev1.GCPServiceAccount{},
+		TieredStorageBucket:           &controlplanev1.CustomerManagedGoogleCloudStorageBucket{},
 	}
 
 	// Get the GCP object from CustomerManagedResources
@@ -630,7 +601,7 @@ func generateClusterCMRGCP(ctx context.Context, model models.Cluster, diags diag
 	if d.HasError() {
 		return nil, d
 	}
-	gcpRet.Subnet.SecondaryIpv4RangePods = &controlplanev1beta2.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range{
+	gcpRet.Subnet.SecondaryIpv4RangePods = &controlplanev1.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range{
 		Name: podsRangeName,
 	}
 
@@ -643,7 +614,7 @@ func generateClusterCMRGCP(ctx context.Context, model models.Cluster, diags diag
 	if d.HasError() {
 		return nil, d
 	}
-	gcpRet.Subnet.SecondaryIpv4RangeServices = &controlplanev1beta2.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range{
+	gcpRet.Subnet.SecondaryIpv4RangeServices = &controlplanev1.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range{
 		Name: servicesRangeName,
 	}
 
@@ -729,21 +700,21 @@ func getStringValue(key string, attributes map[string]attr.Value, diags diag.Dia
 	return "", diags
 }
 
-func generateClusterCMRAWS(ctx context.Context, model models.Cluster, diags diag.Diagnostics) (*controlplanev1beta2.CustomerManagedResources_AWS, diag.Diagnostics) {
-	awsRet := &controlplanev1beta2.CustomerManagedResources_AWS{
-		AgentInstanceProfile:               &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{},
-		ConnectorsNodeGroupInstanceProfile: &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{},
-		UtilityNodeGroupInstanceProfile:    &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{},
-		RedpandaNodeGroupInstanceProfile:   &controlplanev1beta2.CustomerManagedResources_AWS_InstanceProfile{},
-		K8SClusterRole:                     &controlplanev1beta2.CustomerManagedResources_AWS_Role{},
-		RedpandaAgentSecurityGroup:         &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
-		ConnectorsSecurityGroup:            &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
-		RedpandaNodeGroupSecurityGroup:     &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
-		UtilitySecurityGroup:               &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
-		ClusterSecurityGroup:               &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
-		NodeSecurityGroup:                  &controlplanev1beta2.CustomerManagedResources_AWS_SecurityGroup{},
-		CloudStorageBucket:                 &controlplanev1beta2.CustomerManagedAWSCloudStorageBucket{},
-		PermissionsBoundaryPolicy:          &controlplanev1beta2.CustomerManagedResources_AWS_Policy{},
+func generateClusterCMRAWS(ctx context.Context, model models.Cluster, diags diag.Diagnostics) (*controlplanev1.CustomerManagedResources_AWS, diag.Diagnostics) {
+	awsRet := &controlplanev1.CustomerManagedResources_AWS{
+		AgentInstanceProfile:               &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{},
+		ConnectorsNodeGroupInstanceProfile: &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{},
+		UtilityNodeGroupInstanceProfile:    &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{},
+		RedpandaNodeGroupInstanceProfile:   &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{},
+		K8SClusterRole:                     &controlplanev1.CustomerManagedResources_AWS_Role{},
+		RedpandaAgentSecurityGroup:         &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{},
+		ConnectorsSecurityGroup:            &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{},
+		RedpandaNodeGroupSecurityGroup:     &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{},
+		UtilitySecurityGroup:               &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{},
+		ClusterSecurityGroup:               &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{},
+		NodeSecurityGroup:                  &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{},
+		CloudStorageBucket:                 &controlplanev1.CustomerManagedAWSCloudStorageBucket{},
+		PermissionsBoundaryPolicy:          &controlplanev1.CustomerManagedResources_AWS_Policy{},
 	}
 
 	// Get the AWS object from CustomerManagedResources

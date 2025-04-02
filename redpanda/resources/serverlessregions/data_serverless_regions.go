@@ -21,7 +21,7 @@ import (
 	"context"
 	"fmt"
 
-	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
@@ -58,13 +58,13 @@ func DataSourceServerlessRegionsSchema() schema.Schema {
 							Computed:    true,
 							Description: "Region available",
 						},
-						"display_name": schema.StringAttribute{
-							Computed:    true,
-							Description: "Display name of the serverless region",
-						},
 						"name": schema.StringAttribute{
 							Computed:    true,
 							Description: "Name of the serverless region",
+						},
+						"time_zone": schema.StringAttribute{
+							Computed:    true,
+							Description: "Time zone of the serverless region",
 						},
 					},
 				},
@@ -98,7 +98,7 @@ func (r *DataSourceServerlessRegions) Read(ctx context.Context, req datasource.R
 		resp.Diagnostics.AddError("unsupported cloud provider", utils.DeserializeGrpcError(err))
 		return
 	}
-	regions, err := r.CpCl.ServerlessRegion.ListServerlessRegions(ctx, &controlplanev1beta2.ListServerlessRegionsRequest{
+	regions, err := r.CpCl.ServerlessRegion.ListServerlessRegions(ctx, &controlplanev1.ListServerlessRegionsRequest{
 		CloudProvider: cloudProvider,
 	})
 	if err != nil {
@@ -113,9 +113,9 @@ func (r *DataSourceServerlessRegions) Read(ctx context.Context, req datasource.R
 	model.ServerlessRegions = []models.ServerlessRegionsItem{}
 	for _, v := range regions.ServerlessRegions {
 		item := models.ServerlessRegionsItem{
-			Available:   v.Available, //nolint:staticcheck // Using deprecated field temporarily
-			DisplayName: v.DisplayName,
-			Name:        v.Name,
+			CloudProvider: utils.CloudProviderToString(v.GetCloudProvider()),
+			Name:          v.GetName(),
+			TimeZone:      v.GetDefaultTimezone().String(),
 		}
 		model.ServerlessRegions = append(model.ServerlessRegions, item)
 	}

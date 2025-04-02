@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
-	dataplanev1alpha2 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha2"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
+	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	"github.com/golang/mock/gomock"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -27,45 +27,45 @@ import (
 func TestAreWeDoneYet(t *testing.T) {
 	testCases := []struct {
 		name      string
-		op        *controlplanev1beta2.Operation
+		op        *controlplanev1.Operation
 		timeout   time.Duration
 		mockSetup func(m *mocks.MockOperationServiceClient)
 		wantErr   string
 	}{
 		{
 			name: "Operation completed successfully",
-			op:   &controlplanev1beta2.Operation{State: controlplanev1beta2.Operation_STATE_COMPLETED},
+			op:   &controlplanev1.Operation{State: controlplanev1.Operation_STATE_COMPLETED},
 			mockSetup: func(m *mocks.MockOperationServiceClient) {
-				m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1beta2.Operation_STATE_COMPLETED), nil)
+				m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1.Operation_STATE_COMPLETED), nil)
 			},
 			timeout: 5 * time.Minute,
 		},
 		{
 			name: "Operation goes unspecified but then completes",
-			op: &controlplanev1beta2.Operation{
-				State: controlplanev1beta2.Operation_STATE_IN_PROGRESS,
+			op: &controlplanev1.Operation{
+				State: controlplanev1.Operation_STATE_IN_PROGRESS,
 			},
 			mockSetup: func(m *mocks.MockOperationServiceClient) {
 				gomock.InOrder(
-					m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1beta2.Operation_STATE_IN_PROGRESS), nil),
-					m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1beta2.Operation_STATE_UNSPECIFIED), nil),
-					m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1beta2.Operation_STATE_UNSPECIFIED), nil),
-					m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1beta2.Operation_STATE_COMPLETED), nil),
+					m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1.Operation_STATE_IN_PROGRESS), nil),
+					m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1.Operation_STATE_UNSPECIFIED), nil),
+					m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1.Operation_STATE_UNSPECIFIED), nil),
+					m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1.Operation_STATE_COMPLETED), nil),
 				)
 			},
 			timeout: 5 * time.Minute,
 		},
 		{
 			name: "Operation failed with an error",
-			op: &controlplanev1beta2.Operation{
-				State: controlplanev1beta2.Operation_STATE_IN_PROGRESS,
+			op: &controlplanev1.Operation{
+				State: controlplanev1.Operation_STATE_IN_PROGRESS,
 			},
 			mockSetup: func(m *mocks.MockOperationServiceClient) {
 				gomock.InOrder(
-					m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1beta2.Operation_STATE_IN_PROGRESS), nil),
-					m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(&controlplanev1beta2.GetOperationResponse{Operation: &controlplanev1beta2.Operation{
-						State: controlplanev1beta2.Operation_STATE_FAILED,
-						Result: &controlplanev1beta2.Operation_Error{
+					m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1.Operation_STATE_IN_PROGRESS), nil),
+					m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(&controlplanev1.GetOperationResponse{Operation: &controlplanev1.Operation{
+						State: controlplanev1.Operation_STATE_FAILED,
+						Result: &controlplanev1.Operation_Error{
 							Error: &status.Status{
 								Code:    1,
 								Message: "operation failed",
@@ -78,19 +78,19 @@ func TestAreWeDoneYet(t *testing.T) {
 		},
 		{
 			name:    "Operation times out",
-			op:      &controlplanev1beta2.Operation{State: controlplanev1beta2.Operation_STATE_IN_PROGRESS},
+			op:      &controlplanev1.Operation{State: controlplanev1.Operation_STATE_IN_PROGRESS},
 			timeout: 100 * time.Millisecond,
 			mockSetup: func(m *mocks.MockOperationServiceClient) {
-				m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1beta2.Operation_STATE_IN_PROGRESS), nil).AnyTimes()
+				m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1.Operation_STATE_IN_PROGRESS), nil).AnyTimes()
 			},
 			wantErr: "timed out after 100ms: expected operation to be completed but was in state STATE_IN_PROGRESS",
 		},
 		{
 			name:    "Operation times out with unspecified",
-			op:      &controlplanev1beta2.Operation{State: controlplanev1beta2.Operation_STATE_UNSPECIFIED},
+			op:      &controlplanev1.Operation{State: controlplanev1.Operation_STATE_UNSPECIFIED},
 			timeout: 100 * time.Millisecond,
 			mockSetup: func(m *mocks.MockOperationServiceClient) {
-				m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1beta2.Operation_STATE_UNSPECIFIED), nil).AnyTimes()
+				m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1.Operation_STATE_UNSPECIFIED), nil).AnyTimes()
 			},
 			wantErr: "timed out after 100ms: expected operation to be completed but was in state STATE_UNSPECIFIED",
 		},
@@ -121,9 +121,9 @@ func TestAreWeDoneYet(t *testing.T) {
 	}
 }
 
-func createOpResponse(state controlplanev1beta2.Operation_State) *controlplanev1beta2.GetOperationResponse {
-	return &controlplanev1beta2.GetOperationResponse{
-		Operation: &controlplanev1beta2.Operation{
+func createOpResponse(state controlplanev1.Operation_State) *controlplanev1.GetOperationResponse {
+	return &controlplanev1.GetOperationResponse{
+		Operation: &controlplanev1.Operation{
 			State: state,
 		},
 	}
@@ -224,36 +224,36 @@ func TestFindUserByName(t *testing.T) {
 		name         string
 		setupMock    func()
 		inputName    string
-		expectedUser *dataplanev1alpha2.ListUsersResponse_User
+		expectedUser *dataplanev1.ListUsersResponse_User
 		expectedErr  string
 	}{
 		{
 			name: "User found",
 			setupMock: func() {
-				mockClient.EXPECT().ListUsers(gomock.Any(), &dataplanev1alpha2.ListUsersRequest{
-					Filter: &dataplanev1alpha2.ListUsersRequest_Filter{
+				mockClient.EXPECT().ListUsers(gomock.Any(), &dataplanev1.ListUsersRequest{
+					Filter: &dataplanev1.ListUsersRequest_Filter{
 						Name: "alice",
 					},
-				}).Return(&dataplanev1alpha2.ListUsersResponse{
-					Users: []*dataplanev1alpha2.ListUsersResponse_User{
+				}).Return(&dataplanev1.ListUsersResponse{
+					Users: []*dataplanev1.ListUsersResponse_User{
 						{Name: "alice"},
 						{Name: "bob"},
 					},
 				}, nil)
 			},
 			inputName:    "alice",
-			expectedUser: &dataplanev1alpha2.ListUsersResponse_User{Name: "alice"},
+			expectedUser: &dataplanev1.ListUsersResponse_User{Name: "alice"},
 			expectedErr:  "",
 		},
 		{
 			name: "User not found",
 			setupMock: func() {
-				mockClient.EXPECT().ListUsers(gomock.Any(), &dataplanev1alpha2.ListUsersRequest{
-					Filter: &dataplanev1alpha2.ListUsersRequest_Filter{
+				mockClient.EXPECT().ListUsers(gomock.Any(), &dataplanev1.ListUsersRequest{
+					Filter: &dataplanev1.ListUsersRequest_Filter{
 						Name: "charlie",
 					},
-				}).Return(&dataplanev1alpha2.ListUsersResponse{
-					Users: []*dataplanev1alpha2.ListUsersResponse_User{
+				}).Return(&dataplanev1.ListUsersResponse{
+					Users: []*dataplanev1.ListUsersResponse_User{
 						{Name: "alice"},
 						{Name: "bob"},
 					},
@@ -300,13 +300,13 @@ func TestFindUserByName(t *testing.T) {
 func TestTopicConfigurationToMap(t *testing.T) {
 	testCases := []struct {
 		name        string
-		input       []*dataplanev1alpha2.Topic_Configuration
+		input       []*dataplanev1.Topic_Configuration
 		expected    types.Map
 		expectedErr string
 	}{
 		{
 			name:  "Empty configuration",
-			input: []*dataplanev1alpha2.Topic_Configuration{},
+			input: []*dataplanev1.Topic_Configuration{},
 			expected: func() types.Map {
 				m, _ := types.MapValue(types.StringType, map[string]attr.Value{})
 				return m
@@ -315,7 +315,7 @@ func TestTopicConfigurationToMap(t *testing.T) {
 		},
 		{
 			name: "Single configuration",
-			input: []*dataplanev1alpha2.Topic_Configuration{
+			input: []*dataplanev1.Topic_Configuration{
 				{Name: "retention.ms", Value: StringToStringPointer("86400000")},
 			},
 			expected: func() types.Map {
@@ -328,7 +328,7 @@ func TestTopicConfigurationToMap(t *testing.T) {
 		},
 		{
 			name: "Multiple configurations",
-			input: []*dataplanev1alpha2.Topic_Configuration{
+			input: []*dataplanev1.Topic_Configuration{
 				{Name: "retention.ms", Value: StringToStringPointer("86400000")},
 				{Name: "cleanup.policy", Value: StringToStringPointer("delete")},
 				{Name: "max.message.bytes", Value: StringToStringPointer("1000000")},
@@ -345,7 +345,7 @@ func TestTopicConfigurationToMap(t *testing.T) {
 		},
 		{
 			name: "Configuration with nil value",
-			input: []*dataplanev1alpha2.Topic_Configuration{
+			input: []*dataplanev1.Topic_Configuration{
 				{Name: "retention.ms", Value: StringToStringPointer("86400000")},
 				{Name: "cleanup.policy", Value: nil},
 			},
@@ -381,7 +381,7 @@ func TestMapToCreateTopicConfiguration(t *testing.T) {
 	testCases := []struct {
 		name        string
 		input       types.Map
-		expected    []*dataplanev1alpha2.CreateTopicRequest_Topic_Config
+		expected    []*dataplanev1.CreateTopicRequest_Topic_Config
 		expectedErr string
 	}{
 		{
@@ -401,7 +401,7 @@ func TestMapToCreateTopicConfiguration(t *testing.T) {
 				})
 				return m
 			}(),
-			expected: []*dataplanev1alpha2.CreateTopicRequest_Topic_Config{
+			expected: []*dataplanev1.CreateTopicRequest_Topic_Config{
 				{Name: "retention.ms", Value: StringToStringPointer("86400000")},
 			},
 			expectedErr: "",
@@ -416,7 +416,7 @@ func TestMapToCreateTopicConfiguration(t *testing.T) {
 				})
 				return m
 			}(),
-			expected: []*dataplanev1alpha2.CreateTopicRequest_Topic_Config{
+			expected: []*dataplanev1.CreateTopicRequest_Topic_Config{
 				{Name: "cleanup.policy", Value: StringToStringPointer("delete")},
 				{Name: "retention.ms", Value: StringToStringPointer("86400000")},
 				{Name: "max.message.bytes", Value: StringToStringPointer("1000000")},
@@ -487,36 +487,36 @@ func TestFindTopicByName(t *testing.T) {
 		name          string
 		setupMock     func()
 		inputName     string
-		expectedTopic *dataplanev1alpha2.ListTopicsResponse_Topic
+		expectedTopic *dataplanev1.ListTopicsResponse_Topic
 		expectedErr   string
 	}{
 		{
 			name: "Topic found",
 			setupMock: func() {
-				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1alpha2.ListTopicsRequest{
-					Filter: &dataplanev1alpha2.ListTopicsRequest_Filter{
+				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1.ListTopicsRequest{
+					Filter: &dataplanev1.ListTopicsRequest_Filter{
 						NameContains: "test-topic",
 					},
-				}).Return(&dataplanev1alpha2.ListTopicsResponse{
-					Topics: []*dataplanev1alpha2.ListTopicsResponse_Topic{
+				}).Return(&dataplanev1.ListTopicsResponse{
+					Topics: []*dataplanev1.ListTopicsResponse_Topic{
 						{Name: "test-topic"},
 						{Name: "another-topic"},
 					},
 				}, nil)
 			},
 			inputName:     "test-topic",
-			expectedTopic: &dataplanev1alpha2.ListTopicsResponse_Topic{Name: "test-topic"},
+			expectedTopic: &dataplanev1.ListTopicsResponse_Topic{Name: "test-topic"},
 			expectedErr:   "",
 		},
 		{
 			name: "Topic not found",
 			setupMock: func() {
-				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1alpha2.ListTopicsRequest{
-					Filter: &dataplanev1alpha2.ListTopicsRequest_Filter{
+				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1.ListTopicsRequest{
+					Filter: &dataplanev1.ListTopicsRequest_Filter{
 						NameContains: "non-existent-topic",
 					},
-				}).Return(&dataplanev1alpha2.ListTopicsResponse{
-					Topics: []*dataplanev1alpha2.ListTopicsResponse_Topic{
+				}).Return(&dataplanev1.ListTopicsResponse{
+					Topics: []*dataplanev1.ListTopicsResponse_Topic{
 						{Name: "test-topic"},
 						{Name: "another-topic"},
 					},
@@ -621,8 +621,8 @@ func TestRetryGetCluster(t *testing.T) {
 		name            string
 		timeout         time.Duration
 		mockSetup       func(m *mocks.MockCpClientSet)
-		retryFunc       func(cluster *controlplanev1beta2.Cluster) *RetryError
-		expectedCluster *controlplanev1beta2.Cluster
+		retryFunc       func(cluster *controlplanev1.Cluster) *RetryError
+		expectedCluster *controlplanev1.Cluster
 		expectedErr     error
 	}{
 		{
@@ -631,15 +631,15 @@ func TestRetryGetCluster(t *testing.T) {
 			mockSetup: func(m *mocks.MockCpClientSet) {
 				m.EXPECT().
 					ClusterForID(gomock.Any(), "test-cluster-id").
-					Return(&controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_READY}, nil)
+					Return(&controlplanev1.Cluster{State: controlplanev1.Cluster_STATE_READY}, nil)
 			},
-			retryFunc: func(cluster *controlplanev1beta2.Cluster) *RetryError {
-				if cluster.GetState() == controlplanev1beta2.Cluster_STATE_READY {
+			retryFunc: func(cluster *controlplanev1.Cluster) *RetryError {
+				if cluster.GetState() == controlplanev1.Cluster_STATE_READY {
 					return nil
 				}
 				return RetryableError(fmt.Errorf("unexpected state: %v", cluster.GetState()))
 			},
-			expectedCluster: &controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_READY},
+			expectedCluster: &controlplanev1.Cluster{State: controlplanev1.Cluster_STATE_READY},
 			expectedErr:     nil,
 		},
 		{
@@ -649,19 +649,19 @@ func TestRetryGetCluster(t *testing.T) {
 				gomock.InOrder(
 					m.EXPECT().
 						ClusterForID(gomock.Any(), "test-cluster-id").
-						Return(&controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_CREATING}, nil),
+						Return(&controlplanev1.Cluster{State: controlplanev1.Cluster_STATE_CREATING}, nil),
 					m.EXPECT().
 						ClusterForID(gomock.Any(), "test-cluster-id").
-						Return(&controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_READY}, nil),
+						Return(&controlplanev1.Cluster{State: controlplanev1.Cluster_STATE_READY}, nil),
 				)
 			},
-			retryFunc: func(cluster *controlplanev1beta2.Cluster) *RetryError {
-				if cluster.GetState() == controlplanev1beta2.Cluster_STATE_READY {
+			retryFunc: func(cluster *controlplanev1.Cluster) *RetryError {
+				if cluster.GetState() == controlplanev1.Cluster_STATE_READY {
 					return nil
 				}
 				return RetryableError(fmt.Errorf("unexpected state: %v", cluster.GetState()))
 			},
-			expectedCluster: &controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_READY},
+			expectedCluster: &controlplanev1.Cluster{State: controlplanev1.Cluster_STATE_READY},
 			expectedErr:     nil,
 		},
 		{
@@ -670,13 +670,13 @@ func TestRetryGetCluster(t *testing.T) {
 			mockSetup: func(m *mocks.MockCpClientSet) {
 				m.EXPECT().
 					ClusterForID(gomock.Any(), "test-cluster-id").
-					Return(&controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_CREATING}, nil).
+					Return(&controlplanev1.Cluster{State: controlplanev1.Cluster_STATE_CREATING}, nil).
 					AnyTimes()
 			},
-			retryFunc: func(_ *controlplanev1beta2.Cluster) *RetryError {
+			retryFunc: func(_ *controlplanev1.Cluster) *RetryError {
 				return RetryableError(fmt.Errorf("cluster not ready"))
 			},
-			expectedCluster: &controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_CREATING},
+			expectedCluster: &controlplanev1.Cluster{State: controlplanev1.Cluster_STATE_CREATING},
 			expectedErr:     &TimeoutError{Timeout: 100 * time.Millisecond, Wrapped: fmt.Errorf("cluster not ready")},
 		},
 		{
@@ -687,7 +687,7 @@ func TestRetryGetCluster(t *testing.T) {
 					ClusterForID(gomock.Any(), "test-cluster-id").
 					Return(nil, fmt.Errorf("cluster failed"))
 			},
-			retryFunc: func(_ *controlplanev1beta2.Cluster) *RetryError {
+			retryFunc: func(_ *controlplanev1.Cluster) *RetryError {
 				return NonRetryableError(fmt.Errorf("cluster failed"))
 			},
 			expectedCluster: nil,
@@ -701,7 +701,7 @@ func TestRetryGetCluster(t *testing.T) {
 					ClusterForID(gomock.Any(), "test-cluster-id").
 					Return(nil, NotFoundError{Message: "test-cluster-id not found"})
 			},
-			retryFunc: func(_ *controlplanev1beta2.Cluster) *RetryError {
+			retryFunc: func(_ *controlplanev1.Cluster) *RetryError {
 				return nil
 			},
 			expectedCluster: nil,
@@ -714,22 +714,22 @@ func TestRetryGetCluster(t *testing.T) {
 				gomock.InOrder(
 					m.EXPECT().
 						ClusterForID(gomock.Any(), "test-cluster-id").
-						Return(&controlplanev1beta2.Cluster{
-							State: controlplanev1beta2.Cluster_STATE_CREATING_AGENT,
-							Type:  controlplanev1beta2.Cluster_TYPE_BYOC,
+						Return(&controlplanev1.Cluster{
+							State: controlplanev1.Cluster_STATE_CREATING_AGENT,
+							Type:  controlplanev1.Cluster_TYPE_BYOC,
 						}, nil),
 					m.EXPECT().
 						ClusterForID(gomock.Any(), "test-cluster-id").
-						Return(&controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_READY}, nil),
+						Return(&controlplanev1.Cluster{State: controlplanev1.Cluster_STATE_READY}, nil),
 				)
 			},
-			retryFunc: func(cluster *controlplanev1beta2.Cluster) *RetryError {
-				if cluster.GetState() == controlplanev1beta2.Cluster_STATE_CREATING_AGENT {
+			retryFunc: func(cluster *controlplanev1.Cluster) *RetryError {
+				if cluster.GetState() == controlplanev1.Cluster_STATE_CREATING_AGENT {
 					return RetryableError(fmt.Errorf("cluster in BYOC state"))
 				}
 				return nil
 			},
-			expectedCluster: &controlplanev1beta2.Cluster{State: controlplanev1beta2.Cluster_STATE_READY},
+			expectedCluster: &controlplanev1.Cluster{State: controlplanev1.Cluster_STATE_READY},
 			expectedErr:     nil,
 		},
 		{
@@ -740,7 +740,7 @@ func TestRetryGetCluster(t *testing.T) {
 					ClusterForID(gomock.Any(), "test-cluster-id").
 					Return(nil, fmt.Errorf("invalid state"))
 			},
-			retryFunc: func(_ *controlplanev1beta2.Cluster) *RetryError {
+			retryFunc: func(_ *controlplanev1.Cluster) *RetryError {
 				return NonRetryableError(fmt.Errorf("unhandled state"))
 			},
 			expectedCluster: nil,

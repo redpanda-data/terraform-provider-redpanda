@@ -23,7 +23,7 @@ import (
 	"regexp"
 	"time"
 
-	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -238,8 +238,8 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		return
 	}
 
-	netResp, err := n.CpCl.Network.CreateNetwork(ctx, &controlplanev1beta2.CreateNetworkRequest{
-		Network: &controlplanev1beta2.NetworkCreate{
+	netResp, err := n.CpCl.Network.CreateNetwork(ctx, &controlplanev1.CreateNetworkRequest{
+		Network: &controlplanev1.NetworkCreate{
 			Name:                     model.Name.ValueString(),
 			CidrBlock:                model.CidrBlock.ValueString(),
 			Region:                   model.Region.ValueString(),
@@ -288,7 +288,7 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 		response.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.ID.ValueString()), utils.DeserializeGrpcError(err))
 		return
 	}
-	if nw.GetState() == controlplanev1beta2.Network_STATE_DELETING {
+	if nw.GetState() == controlplanev1.Network_STATE_DELETING {
 		// null out the state, force it to be destroyed and recreated
 		response.State.RemoveResource(ctx)
 		response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("id"), nw.Id)...)
@@ -313,7 +313,7 @@ func (*Network) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.
 func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
 	var model models.Network
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
-	netResp, err := n.CpCl.Network.DeleteNetwork(ctx, &controlplanev1beta2.DeleteNetworkRequest{
+	netResp, err := n.CpCl.Network.DeleteNetwork(ctx, &controlplanev1.DeleteNetworkRequest{
 		Id: model.ID.ValueString(),
 	})
 	if err != nil {

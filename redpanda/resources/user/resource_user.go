@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"strings"
 
-	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1alpha2/dataplanev1alpha2grpc"
-	dataplanev1alpha2 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1alpha2"
+	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
+	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -47,7 +47,7 @@ var (
 
 // User represents the User Terraform resource.
 type User struct {
-	UserClient dataplanev1alpha2grpc.UserServiceClient
+	UserClient dataplanev1grpc.UserServiceClient
 
 	resData       config.Resource
 	dataplaneConn *grpc.ClientConn
@@ -129,8 +129,8 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 		return
 	}
 	defer u.dataplaneConn.Close()
-	user, err := u.UserClient.CreateUser(ctx, &dataplanev1alpha2.CreateUserRequest{
-		User: &dataplanev1alpha2.CreateUserRequest_User{
+	user, err := u.UserClient.CreateUser(ctx, &dataplanev1.CreateUserRequest{
+		User: &dataplanev1.CreateUserRequest_User{
 			Name:      model.Name.ValueString(),
 			Password:  model.Password.ValueString(), // This seems wrong and bad. See issue #12.
 			Mechanism: utils.StringToUserMechanism(model.Mechanism.ValueString()),
@@ -198,7 +198,7 @@ func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 		return
 	}
 	defer u.dataplaneConn.Close()
-	_, err = u.UserClient.DeleteUser(ctx, &dataplanev1alpha2.DeleteUserRequest{
+	_, err = u.UserClient.DeleteUser(ctx, &dataplanev1.DeleteUserRequest{
 		Name: model.Name.ValueString(),
 	})
 	if err != nil {
@@ -244,6 +244,6 @@ func (u *User) createUserClient(clusterURL string) error {
 		}
 		u.dataplaneConn = conn
 	}
-	u.UserClient = dataplanev1alpha2grpc.NewUserServiceClient(u.dataplaneConn)
+	u.UserClient = dataplanev1grpc.NewUserServiceClient(u.dataplaneConn)
 	return nil
 }

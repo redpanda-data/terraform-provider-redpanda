@@ -21,7 +21,7 @@ import (
 	"context"
 	"fmt"
 
-	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -89,7 +89,7 @@ func (r *DataSourceRegion) Read(ctx context.Context, req datasource.ReadRequest,
 		return
 	}
 
-	region, err := r.CpCl.Region.GetRegion(ctx, &controlplanev1beta2.GetRegionRequest{
+	region, err := r.CpCl.Region.GetRegion(ctx, &controlplanev1.GetRegionRequest{
 		Name:          model.Name.ValueString(),
 		CloudProvider: cloudProvider,
 	})

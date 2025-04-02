@@ -29,5 +29,5 @@ Data source for a list of Redpanda Cloud serverless regions
 Read-Only:
 
 - `available` (Boolean) Region available
-- `display_name` (String) Display name of the serverless region
 - `name` (String) Name of the serverless region
+- `time_zone` (String) Time zone of the serverless region
