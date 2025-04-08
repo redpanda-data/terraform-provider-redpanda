@@ -26,6 +26,33 @@ func resourceClusterSchema() schema.Schema {
 				Required:    true,
 				Description: "Unique name of the cluster.",
 			},
+			"timeouts": schema.SingleNestedAttribute{
+				Description: "Configurable timeouts for various operations",
+				Optional:    true,
+				Attributes: map[string]schema.Attribute{
+					"create": schema.StringAttribute{
+						Description: "Create timeout duration. Default value 90m. For example: '30m', '1h'.",
+						Optional:    true,
+						Validators: []validator.String{
+							validators.Timeout{},
+						},
+					},
+					"update": schema.StringAttribute{
+						Description: "Update timeout duration. Default value 90m. For example: '30m', '1h'",
+						Optional:    true,
+						Validators: []validator.String{
+							validators.Timeout{},
+						},
+					},
+					"delete": schema.StringAttribute{
+						Description: "Delete timeout duration. Default value 90m. For example: '30m', '1h'",
+						Optional:    true,
+						Validators: []validator.String{
+							validators.Timeout{},
+						},
+					},
+				},
+			},
 			"cluster_type": schema.StringAttribute{
 				Required:      true,
 				Description:   "Cluster type. Type is immutable and can only be set on cluster creation.",

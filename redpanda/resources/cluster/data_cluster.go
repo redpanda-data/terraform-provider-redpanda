@@ -89,11 +89,12 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		resp.Diagnostics.AddError("error converting tags to MapType", err.Error())
 		return
 	}
-
+	tm := &utils.Timeouts{}
 	persist, dg := generateModel(cluster, modelOrAPI{
 		RedpandaVersion:       types.StringValue(cluster.GetCurrentRedpandaVersion()),
 		Tags:                  tags,
 		GcpGlobalAccessConfig: types.BoolValue(cluster.GetGcpGlobalAccessEnabled()),
+		Timeout:               tm.GetNullModel(),
 	}, resp.Diagnostics)
 	if dg.HasError() {
 		resp.Diagnostics.AddError("error generating model", "failed to generate model in cluster datasource read")
@@ -574,7 +575,26 @@ func datasourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-
+			// TODO this is a kludge. Models need to be split into datasource and resource with only relevant fields returned from the API in the datasource
+			// but this is a quick fix to get the schema working for now
+			"timeouts": schema.SingleNestedAttribute{
+				Computed:    true,
+				Description: "Timeouts for the cluster operations.",
+				Attributes: map[string]schema.Attribute{
+					"create": schema.StringAttribute{
+						Computed:    true,
+						Description: "Timeout for creating the cluster.",
+					},
+					"update": schema.StringAttribute{
+						Computed:    true,
+						Description: "Timeout for updating the cluster.",
+					},
+					"delete": schema.StringAttribute{
+						Computed:    true,
+						Description: "Timeout for deleting the cluster.",
+					},
+				},
+			},
 			"azure_private_link": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "Azure Private Link configuration.",

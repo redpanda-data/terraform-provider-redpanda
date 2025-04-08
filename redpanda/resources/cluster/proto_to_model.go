@@ -19,6 +19,7 @@ type modelOrAPI struct {
 	AllowDeletion         types.Bool
 	Tags                  types.Map
 	GcpGlobalAccessConfig types.Bool
+	Timeout               types.Object
 }
 
 // generateModel populates the Cluster model to be persisted to state for Create, Read and Update operations. It is also indirectly used by Import
@@ -147,6 +148,7 @@ func generateModel(cluster *controlplanev1.Cluster, contingent modelOrAPI, diagn
 		return nil, diagnostics
 	}
 	output.CustomerManagedResources = cmr
+	output.Timeouts = contingent.Timeout
 
 	return output, nil
 }

@@ -20,7 +20,6 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"time"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -93,10 +92,11 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	}
 	op := clResp.Operation
 	clusterID := op.GetResourceId()
+	timeout := utils.GetTimeouts(model.Timeouts)
 
 	// wait for creation to complete, running "byoc apply" if we see STATE_CREATING_AGENT
 	var ranByoc bool
-	cluster, err := utils.RetryGetCluster(ctx, 90*time.Minute, clusterID, c.CpCl, func(cluster *controlplanev1.Cluster) *utils.RetryError {
+	cluster, err := utils.RetryGetCluster(ctx, timeout.GetCreate(), clusterID, c.CpCl, func(cluster *controlplanev1.Cluster) *utils.RetryError {
 		switch cluster.GetState() {
 		case controlplanev1.Cluster_STATE_CREATING:
 			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
@@ -134,6 +134,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 			AllowDeletion:         model.AllowDeletion,
 			Tags:                  model.Tags,
 			GcpGlobalAccessConfig: clusterConfig.GCPGlobalAccessEnabled,
+			Timeout:               timeout.GetModel(),
 		}, resp.Diagnostics)
 		if dg.HasError() {
 			// append minimal state because we failed
@@ -174,6 +175,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		AllowDeletion:         model.AllowDeletion,
 		Tags:                  model.Tags,
 		GcpGlobalAccessConfig: model.GCPGlobalAccessEnabled,
+		Timeout:               utils.GetTimeouts(model.Timeouts).GetModel(),
 	}, resp.Diagnostics)
 	if d.HasError() {
 		resp.Diagnostics.AddError("failed to generate model for state during cluster.Read", "")
@@ -197,6 +199,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		resp.Diagnostics.AddError("unable to parse UpdateCluster request", "")
 		return
 	}
+	timeout := utils.GetTimeouts(plan.Timeouts)
 	if len(updateReq.UpdateMask.Paths) != 0 {
 		op, err := c.CpCl.Cluster.UpdateCluster(ctx, updateReq)
 		if err != nil {
@@ -204,7 +207,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 			return
 		}
 
-		if err := utils.AreWeDoneYet(ctx, op.GetOperation(), 90*time.Minute, c.CpCl.Operation); err != nil {
+		if err := utils.AreWeDoneYet(ctx, op.GetOperation(), timeout.GetUpdate(), c.CpCl.Operation); err != nil {
 			resp.Diagnostics.AddError("failed while waiting to update cluster", utils.DeserializeGrpcError(err))
 			return
 		}
@@ -224,6 +227,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		AllowDeletion:         plan.AllowDeletion,
 		Tags:                  plan.Tags,
 		GcpGlobalAccessConfig: clusterConfig.GCPGlobalAccessEnabled,
+		Timeout:               timeout.GetModel(),
 	}, resp.Diagnostics)
 	if d.HasError() {
 		resp.Diagnostics.AddError("failed to generate model for state during cluster.Update", "")
@@ -252,6 +256,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), utils.DeserializeGrpcError(err))
 		return
 	}
+	timeout := utils.GetTimeouts(model.Timeouts)
 
 	// call Delete on the cluster, if it's not already in progress. calling Delete on a cluster in
 	// STATE_DELETING_AGENT seems to destroy it immediately and we don't want to do that if we haven't
@@ -268,7 +273,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 
 	// wait for creation to complete, running "byoc apply" if we see STATE_DELETING_AGENT
 	ranByoc := false
-	_, err = utils.RetryGetCluster(ctx, 90*time.Minute, clusterID, c.CpCl, func(cluster *controlplanev1.Cluster) *utils.RetryError {
+	_, err = utils.RetryGetCluster(ctx, timeout.GetDelete(), clusterID, c.CpCl, func(cluster *controlplanev1.Cluster) *utils.RetryError {
 		if cluster.GetState() == controlplanev1.Cluster_STATE_DELETING {
 			return utils.RetryableError(fmt.Errorf("expected cluster to be deleted but was in state %v", cluster.GetState()))
 		}

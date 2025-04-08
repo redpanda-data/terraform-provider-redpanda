@@ -51,5 +51,6 @@ type Cluster struct {
 	Prometheus               types.Object        `tfsdk:"prometheus"`
 	RedpandaConsole          types.Object        `tfsdk:"redpanda_console"`
 	MaintenanceWindowConfig  types.Object        `tfsdk:"maintenance_window_config"`
+	Timeouts                 types.Object        `tfsdk:"timeouts"`
 	GCPGlobalAccessEnabled   basetypes.BoolValue `tfsdk:"gcp_global_access_enabled"`
 }
