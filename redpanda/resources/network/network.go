@@ -38,7 +38,7 @@ func generateModel(cloudProvider string, nw *controlplanev1.Network, diags diag.
 		ResourceGroupID: types.StringValue(nw.GetResourceGroupId()),
 	}
 
-	if nw.GetCidrBlock() != "" {
+	if nw.GetCidrBlock() != "" && nw.CidrBlock != "0.0.0.0/0" {
 		output.CidrBlock = types.StringValue(nw.GetCidrBlock())
 	}
 	if nw.HasCustomerManagedResources() {
