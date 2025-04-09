@@ -13,6 +13,7 @@ module "redpanda_gcp" {
   region            = var.region
   unique_identifier = var.environment
   force_destroy_mgmt_bucket = var.environment == "dev" ? true : false
+  force_destroy_cloud_storage_bucket =  var.environment == "dev" ? true : false
   network_project_id = var.project_id
   force_destroy_cloud_storage_bucket = var.environment == "dev" ? true : false
 }
@@ -129,7 +130,6 @@ resource "redpanda_acl" "test" {
 variable "project_id" {
   description = "The Google Cloud project ID"
   type        = string
-  default     = "hallowed-ray-376320"
 }
 
 variable "google_credentials_base64" {
