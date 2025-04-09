@@ -198,14 +198,25 @@ tf-apply:
 	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
 	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
 	REDPANDA_CLOUD_ENVIRONMENT="$(REDPANDA_CLOUD_ENVIRONMENT)" \
+	GOOGLE_CREDENTIALS_BASE64="$(GOOGLE_CREDENTIALS_BASE64)" \
+	CLOUD_PROVIDER="$(CLOUD_PROVIDER)" \
+	TEST_TYPE="$(TEST_TYPE)" \
 	TF_LOG=$(TF_LOG) \
 	TF_INSECURE_SKIP_PROVIDER_VERIFICATION=true \
 	TF_PLUGIN_CACHE_DIR=.terraform.d/plugins_cache \
 	bash -c 'if grep -q "resource \"redpanda_cluster\"" *.tf; then \
-		terraform apply -auto-approve \
-			-var="resource_group_name=$$CLUSTER_NAME" \
-			-var="network_name=$$CLUSTER_NAME" \
-			-var="cluster_name=$$CLUSTER_NAME"; \
+    	if [ "$$CLOUD_PROVIDER" = "gcp" ] && [ "$$TEST_TYPE" = "byovpc" ]; then \
+			terraform apply -auto-approve \
+				-var="resource_group_name=$$CLUSTER_NAME" \
+				-var="network_name=$$CLUSTER_NAME" \
+				-var="cluster_name=$$CLUSTER_NAME" \
+				-var="google_credentials_base64=$$GOOGLE_CREDENTIALS_BASE64"; \
+    	else \
+        	terraform apply -auto-approve \
+				-var="resource_group_name=$$CLUSTER_NAME" \
+				-var="network_name=$$CLUSTER_NAME" \
+				-var="cluster_name=$$CLUSTER_NAME"; \
+   		 fi; \
 	elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then \
 		terraform apply -auto-approve \
 			-var="resource_group_name=$$CLUSTER_NAME" \
@@ -247,10 +258,18 @@ test-destroy:
 	TF_PLUGIN_CACHE_DIR=.terraform.d/plugins_cache \
 	bash -c 'terraform init -plugin-dir=.terraform.d/plugins && \
 	if grep -q "resource \"redpanda_cluster\"" *.tf; then \
-		terraform destroy -auto-approve \
-			-var="resource_group_name=$$CLUSTER_NAME" \
-			-var="network_name=$$CLUSTER_NAME" \
-			-var="cluster_name=$$CLUSTER_NAME"; \
+		if [ "$$CLOUD_PROVIDER" = "gcp" ] && [ "$$TEST_TYPE" = "byovpc" ]; then \
+			terraform destroy -auto-approve \
+				-var="resource_group_name=$$CLUSTER_NAME" \
+				-var="network_name=$$CLUSTER_NAME" \
+				-var="cluster_name=$$CLUSTER_NAME" \
+				-var="google_credentials_base64=$$GOOGLE_CREDENTIALS_BASE64"; \
+		else \
+			terraform destroy -auto-approve \
+				-var="resource_group_name=$$CLUSTER_NAME" \
+				-var="network_name=$$CLUSTER_NAME" \
+				-var="cluster_name=$$CLUSTER_NAME"; \
+		 fi; \
 	elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then \
 		terraform destroy -auto-approve \
 			-var="resource_group_name=$$CLUSTER_NAME" \
