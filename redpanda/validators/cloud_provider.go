@@ -23,6 +23,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
+var (
+	_ validator.Object = CloudProviderDependentValidator{}
+	_ validator.Bool   = CloudProviderDependentValidator{}
+)
+
 // CloudProviderDependentValidator is a custom validator to ensure that an attribute is only set when cloud_provider is a specific value
 // For example when using this on aws_private_link it will ensure that the HCL fails validation unless cloud_provider is set to "aws"
 // AttributeName should be the name of the attribute that is being validated

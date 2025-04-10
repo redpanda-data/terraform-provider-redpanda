@@ -8,6 +8,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
+var _ validator.String = CIDRBlockValidator{}
+
 // CIDRBlockValidator ensures that cidr_block is only set when customer_managed_resources is not set
 type CIDRBlockValidator struct{}
 

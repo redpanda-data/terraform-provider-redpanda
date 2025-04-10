@@ -23,6 +23,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 )
 
+var _ validator.String = EmailValidator{}
+
 // EmailValidator is a custom validator to ensure a string attribute is a valid email address
 type EmailValidator struct{}
 
