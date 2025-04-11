@@ -124,12 +124,16 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		return
 	}
 
+	var clusterConfig models.Cluster
+	resp.Diagnostics.Append(req.Config.Get(ctx, &clusterConfig)...)
+
 	// there are various states where cluster can be nil in which case we should default to the minimal model already persisted
 	if cluster != nil {
 		p, dg := generateModel(cluster, modelOrAPI{
-			RedpandaVersion: model.RedpandaVersion,
-			AllowDeletion:   model.AllowDeletion,
-			Tags:            model.Tags,
+			RedpandaVersion:       model.RedpandaVersion,
+			AllowDeletion:         model.AllowDeletion,
+			Tags:                  model.Tags,
+			GcpGlobalAccessConfig: clusterConfig.GCPGlobalAccessEnabled,
 		}, resp.Diagnostics)
 		if dg.HasError() {
 			// append minimal state because we failed
@@ -166,9 +170,10 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 	}
 
 	persist, d := generateModel(cluster, modelOrAPI{
-		RedpandaVersion: model.RedpandaVersion,
-		AllowDeletion:   model.AllowDeletion,
-		Tags:            model.Tags,
+		RedpandaVersion:       model.RedpandaVersion,
+		AllowDeletion:         model.AllowDeletion,
+		Tags:                  model.Tags,
+		GcpGlobalAccessConfig: model.GCPGlobalAccessEnabled,
 	}, resp.Diagnostics)
 	if d.HasError() {
 		resp.Diagnostics.AddError("failed to generate model for state during cluster.Read", "")
@@ -211,10 +216,14 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		return
 	}
 
+	var clusterConfig models.Cluster
+	resp.Diagnostics.Append(req.Config.Get(ctx, &clusterConfig)...)
+
 	persist, d := generateModel(cluster, modelOrAPI{
-		RedpandaVersion: plan.RedpandaVersion,
-		AllowDeletion:   plan.AllowDeletion,
-		Tags:            plan.Tags,
+		RedpandaVersion:       plan.RedpandaVersion,
+		AllowDeletion:         plan.AllowDeletion,
+		Tags:                  plan.Tags,
+		GcpGlobalAccessConfig: clusterConfig.GCPGlobalAccessEnabled,
 	}, resp.Diagnostics)
 	if d.HasError() {
 		resp.Diagnostics.AddError("failed to generate model for state during cluster.Update", "")

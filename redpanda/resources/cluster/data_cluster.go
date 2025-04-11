@@ -91,8 +91,9 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 	}
 
 	persist, dg := generateModel(cluster, modelOrAPI{
-		RedpandaVersion: types.StringValue(cluster.GetCurrentRedpandaVersion()),
-		Tags:            tags,
+		RedpandaVersion:       types.StringValue(cluster.GetCurrentRedpandaVersion()),
+		Tags:                  tags,
+		GcpGlobalAccessConfig: types.BoolValue(cluster.GetGcpGlobalAccessEnabled()),
 	}, resp.Diagnostics)
 	if dg.HasError() {
 		resp.Diagnostics.AddError("error generating model", "failed to generate model in cluster datasource read")

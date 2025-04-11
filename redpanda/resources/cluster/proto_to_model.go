@@ -15,9 +15,10 @@ import (
 
 // used as an input to generateModel to allow populating these fields with either the model or the API
 type modelOrAPI struct {
-	RedpandaVersion types.String
-	AllowDeletion   types.Bool
-	Tags            types.Map
+	RedpandaVersion       types.String
+	AllowDeletion         types.Bool
+	Tags                  types.Map
+	GcpGlobalAccessConfig types.Bool
 }
 
 // generateModel populates the Cluster model to be persisted to state for Create, Read and Update operations. It is also indirectly used by Import
@@ -39,21 +40,22 @@ func generateModel(cluster *controlplanev1.Cluster, contingent modelOrAPI, diagn
 		Zones:                 utils.StringSliceToTypeList(cluster.GetZones()),
 		State:                 types.StringValue(cluster.GetState().String()),
 	}
-	switch {
-	case cluster.HasGcpGlobalAccessEnabled() && utils.CloudProviderToString(cluster.CloudProvider) == utils.CloudProviderStringGcp:
-		output.GCPGlobalAccessEnabled = types.BoolValue(cluster.GetGcpGlobalAccessEnabled())
-	case utils.CloudProviderToString(cluster.CloudProvider) == utils.CloudProviderStringGcp:
-		output.GCPGlobalAccessEnabled = types.BoolValue(false)
-	default:
+
+	if cluster.HasGcpGlobalAccessEnabled() && utils.CloudProviderToString(cluster.CloudProvider) == utils.CloudProviderStringGcp {
+		switch {
+		case cluster.GetGcpGlobalAccessEnabled() || contingent.GcpGlobalAccessConfig.ValueBool():
+			output.GCPGlobalAccessEnabled = types.BoolValue(true)
+		case !cluster.GetGcpGlobalAccessEnabled() && !contingent.GcpGlobalAccessConfig.IsNull():
+			output.GCPGlobalAccessEnabled = types.BoolValue(false)
+		default:
+			output.GCPGlobalAccessEnabled = types.BoolNull()
+		}
+	} else {
 		output.GCPGlobalAccessEnabled = types.BoolNull()
 	}
 
 	if cluster.HasCreatedAt() {
 		output.CreatedAt = types.StringValue(cluster.CreatedAt.AsTime().Format(time.RFC3339))
-	}
-
-	if cluster.HasGcpGlobalAccessEnabled() {
-		output.GCPGlobalAccessEnabled = types.BoolValue(cluster.GetGcpGlobalAccessEnabled())
 	}
 
 	if cluster.HasStateDescription() {
