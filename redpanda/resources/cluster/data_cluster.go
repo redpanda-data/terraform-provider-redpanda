@@ -473,7 +473,10 @@ func datasourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-
+			"gcp_global_access_enabled": schema.BoolAttribute{
+				Computed:    true,
+				Description: "If true, GCP global access is enabled.",
+			},
 			"gcp_private_service_connect": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "GCP Private Service Connect configuration.",
@@ -678,25 +681,6 @@ func datasourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-
-			// Connectivity configuration
-			"connectivity": schema.SingleNestedAttribute{
-				Computed:    true,
-				Description: "Cloud provider-specific connectivity configuration.",
-				Attributes: map[string]schema.Attribute{
-					"gcp": schema.SingleNestedAttribute{
-						Computed:    true,
-						Description: "GCP-specific connectivity settings.",
-						Attributes: map[string]schema.Attribute{
-							"enable_global_access": schema.BoolAttribute{
-								Computed:    true,
-								Description: "Whether global access is enabled.",
-							},
-						},
-					},
-				},
-			},
-
 			// Kafka Connect configuration
 			"kafka_connect": schema.SingleNestedAttribute{
 				Computed:    true,
