@@ -25,9 +25,9 @@ Data source for a Redpanda Cloud cluster
 - `cluster_api_url` (String) The URL of the cluster API.
 - `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation.
 - `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, Private is best-practice.
-- `connectivity` (Attributes) Cloud provider-specific connectivity configuration. (see [below for nested schema](#nestedatt--connectivity))
 - `created_at` (String) Timestamp when the cluster was created.
 - `customer_managed_resources` (Attributes) Customer managed resources configuration for the cluster. (see [below for nested schema](#nestedatt--customer_managed_resources))
+- `gcp_global_access_enabled` (Boolean) If true, GCP global access is enabled.
 - `gcp_private_service_connect` (Attributes) GCP Private Service Connect configuration. (see [below for nested schema](#nestedatt--gcp_private_service_connect))
 - `http_proxy` (Attributes) HTTP Proxy properties. (see [below for nested schema](#nestedatt--http_proxy))
 - `kafka_api` (Attributes) Cluster's Kafka API properties. (see [below for nested schema](#nestedatt--kafka_api))
@@ -145,28 +145,13 @@ Read-Only:
 
 
 
-<a id="nestedatt--connectivity"></a>
-### Nested Schema for `connectivity`
-
-Read-Only:
-
-- `gcp` (Attributes) GCP-specific connectivity settings. (see [below for nested schema](#nestedatt--connectivity--gcp))
-
-<a id="nestedatt--connectivity--gcp"></a>
-### Nested Schema for `connectivity.gcp`
-
-Read-Only:
-
-- `enable_global_access` (Boolean) Whether global access is enabled.
-
-
-
 <a id="nestedatt--customer_managed_resources"></a>
 ### Nested Schema for `customer_managed_resources`
 
 Read-Only:
 
 - `aws` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws))
+- `gcp` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--gcp))
 
 <a id="nestedatt--customer_managed_resources--aws"></a>
 ### Nested Schema for `customer_managed_resources.aws`
@@ -289,6 +274,96 @@ Read-Only:
 Read-Only:
 
 - `arn` (String) ARN for the utility security group
+
+
+
+<a id="nestedatt--customer_managed_resources--gcp"></a>
+### Nested Schema for `customer_managed_resources.gcp`
+
+Read-Only:
+
+- `agent_service_account` (Attributes) GCP service account for the agent. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--agent_service_account))
+- `connector_service_account` (Attributes) GCP service account for managed connectors. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--connector_service_account))
+- `console_service_account` (Attributes) GCP service account for Redpanda Console. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--console_service_account))
+- `gke_service_account` (Attributes) GCP service account for GCP Kubernetes Engine (GKE). (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--gke_service_account))
+- `psc_nat_subnet_name` (String) NAT subnet name if GCP Private Service Connect is enabled.
+- `redpanda_cluster_service_account` (Attributes) GCP service account for the Redpanda cluster. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--redpanda_cluster_service_account))
+- `subnet` (Attributes) GCP subnet where Redpanda cluster is deployed. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--subnet))
+- `tiered_storage_bucket` (Attributes) GCP storage bucket for Tiered storage. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--tiered_storage_bucket))
+
+<a id="nestedatt--customer_managed_resources--gcp--agent_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.agent_service_account`
+
+Read-Only:
+
+- `email` (String) GCP service account email.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--connector_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.connector_service_account`
+
+Read-Only:
+
+- `email` (String) GCP service account email.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--console_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.console_service_account`
+
+Read-Only:
+
+- `email` (String) GCP service account email.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--gke_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.gke_service_account`
+
+Read-Only:
+
+- `email` (String) GCP service account email.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--redpanda_cluster_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.redpanda_cluster_service_account`
+
+Read-Only:
+
+- `email` (String) GCP service account email.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--subnet"></a>
+### Nested Schema for `customer_managed_resources.gcp.subnet`
+
+Read-Only:
+
+- `k8s_master_ipv4_range` (String) Kubernetes Master IPv4 range, e.g. 10.0.0.0/24.
+- `name` (String) Subnet name.
+- `secondary_ipv4_range_pods` (Attributes) Secondary IPv4 range for pods. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_pods))
+- `secondary_ipv4_range_services` (Attributes) Secondary IPv4 range for services. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_services))
+
+<a id="nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_pods"></a>
+### Nested Schema for `customer_managed_resources.gcp.subnet.secondary_ipv4_range_pods`
+
+Read-Only:
+
+- `name` (String) Secondary IPv4 range name for pods.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_services"></a>
+### Nested Schema for `customer_managed_resources.gcp.subnet.secondary_ipv4_range_services`
+
+Read-Only:
+
+- `name` (String) Secondary IPv4 range name for services.
+
+
+
+<a id="nestedatt--customer_managed_resources--gcp--tiered_storage_bucket"></a>
+### Nested Schema for `customer_managed_resources.gcp.tiered_storage_bucket`
+
+Read-Only:
+
+- `name` (String) GCP storage bucket name.
 
 
 
