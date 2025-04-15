@@ -36,6 +36,24 @@ steps:
     depends_on:
       - lint
       - unit
+  - label: test_datasource
+    key: test_datasource
+    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
+    command: make test_datasource
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.11.0:
+          image: "golang:1.23"
+          environment:
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
+            - TF_LOG=DEBUG
+            - DATASOURCE_CLUSTER_ID
+    depends_on:
+      - lint
+      - unit
   - label: test_cluster_aws
     key: test_cluster_aws
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'

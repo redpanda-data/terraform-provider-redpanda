@@ -306,8 +306,21 @@ test_network:
 	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
 	TF_ACC=true \
 	TF_LOG=$(TF_LOG) \
-	VERSION=ign \
+	VERSION=pre \
 	$(GOCMD) test -v -timeout=1h ./redpanda/tests -run TestAccResourcesNetwork
+
+.PHONY: test_datasource
+test_datasource:
+	@echo "Running TestAccResourcesWithDataSources..."
+	@DEBUG=true \
+	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
+  	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
+  	TEST_AGAINST_EXISTING_CLUSTER=true \
+  	CLUSTER_ID="$(DATASOURCE_CLUSTER_ID)" \
+  	TF_ACC=true \
+  	TF_LOG=$(TF_LOG) \
+  	VERSION=pre \
+	$(GOCMD) test -v -timeout=1h ./redpanda/tests -run TestAccResourcesWithDataSources
 
 TIMEOUT ?= 6h
 .PHONY: test_cluster_aws
@@ -319,7 +332,7 @@ test_cluster_aws:
 	RUN_CLUSTER_TESTS=true \
 	TF_ACC=true \
 	TF_LOG=$(TF_LOG) \
-	VERSION=ign \
+	VERSION=pre \
 	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesClusterAWS
 
 .PHONY: test_cluster_azure
@@ -331,7 +344,7 @@ test_cluster_azure:
 	RUN_CLUSTER_TESTS=true \
 	TF_ACC=true \
 	TF_LOG=$(TF_LOG) \
-	VERSION=ign \
+	VERSION=pre \
 	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesClusterAzure
 
 .PHONY: test_cluster_gcp
@@ -343,7 +356,7 @@ test_cluster_gcp:
 	RUN_CLUSTER_TESTS=true \
 	TF_ACC=true \
 	TF_LOG=$(TF_LOG) \
-	VERSION=ign \
+	VERSION=pre \
 	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesClusterGCP
 
 .PHONY: test_byoc_aws
@@ -393,7 +406,7 @@ test_serverless_cluster:
 	RUN_SERVERLESS_TESTS="$(RUN_SERVERLESS_TESTS)" \
 	TF_ACC=true \
 	TF_LOG=$(TF_LOG) \
-	VERSION=ign \
+	VERSION=pre \
 	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesStrippedDownServerlessCluster
 
 import-gpg:
