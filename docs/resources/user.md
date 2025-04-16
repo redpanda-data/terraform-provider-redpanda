@@ -60,6 +60,9 @@ resource "redpanda_cluster" "test" {
   tags = {
     "key" = "value"
   }
+  timeouts = {
+    create = "120m"
+  }
   # aws_private_link = {
   #   enabled         = true
   #   connect_console = true
