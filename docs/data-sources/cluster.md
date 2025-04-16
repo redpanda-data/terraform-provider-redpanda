@@ -46,6 +46,7 @@ Data source for a Redpanda Cloud cluster
 - `state_description` (Attributes) Detailed state description when cluster is in a non-ready state. (see [below for nested schema](#nestedatt--state_description))
 - `tags` (Map of String) Tags placed on cloud resources.
 - `throughput_tier` (String) Throughput tier of the cluster.
+- `timeouts` (Attributes) Timeouts for the cluster operations. (see [below for nested schema](#nestedatt--timeouts))
 - `zones` (List of String) Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster.
 
 <a id="nestedatt--aws_private_link"></a>
@@ -523,6 +524,16 @@ Read-Only:
 
 - `code` (Number) Error code if cluster is in error state.
 - `message` (String) Detailed error message if cluster is in error state.
+
+
+<a id="nestedatt--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Read-Only:
+
+- `create` (String) Timeout for creating the cluster.
+- `delete` (String) Timeout for deleting the cluster.
+- `update` (String) Timeout for updating the cluster.
 
 ## Usage
 

@@ -41,6 +41,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `region` (String) Cloud provider region. Region represents the name of the region where the cluster will be provisioned.
 - `schema_registry` (Attributes) Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
 - `tags` (Map of String) Tags placed on cloud resources. If the cloud provider is GCP and the name of a tag has the prefix "gcp.network-tag.", the tag is a network tag that will be added to the Redpanda cluster GKE nodes. Otherwise, the tag is a normal tag. For example, if the name of a tag is "gcp.network-tag.network-tag-foo", the network tag named "network-tag-foo" will be added to the Redpanda cluster GKE nodes. Note: The value of a network tag will be ignored. See the details on network tags at https://cloud.google.com/vpc/docs/add-remove-network-tags.
+- `timeouts` (Attributes) Configurable timeouts for various operations (see [below for nested schema](#nestedatt--timeouts))
 - `zones` (List of String) Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster.
 
 ### Read-Only
@@ -529,6 +530,16 @@ Optional:
 
 
 
+<a id="nestedatt--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Optional:
+
+- `create` (String) Create timeout duration. Default value 90m. For example: '30m', '1h'.
+- `delete` (String) Delete timeout duration. Default value 90m. For example: '30m', '1h'
+- `update` (String) Update timeout duration. Default value 90m. For example: '30m', '1h'
+
+
 <a id="nestedatt--prometheus"></a>
 ### Nested Schema for `prometheus`
 
@@ -586,6 +597,9 @@ resource "redpanda_cluster" "test" {
   allow_deletion    = true
   tags = {
     "key" = "value"
+  }
+  timeouts = {
+    create = "120m"
   }
   # aws_private_link = {
   #   enabled         = true
