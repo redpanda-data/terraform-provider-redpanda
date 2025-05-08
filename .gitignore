@@ -35,3 +35,6 @@ terraform-provider-hashicorp
 **/.tmp_*
 .cluster_info*
 creds.json
+.run/datasource.run.xml
+redpanda/tests/infra/network/inputs.json
+.run/datasource.run.xml
