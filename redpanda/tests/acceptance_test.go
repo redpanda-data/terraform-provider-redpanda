@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -22,7 +23,7 @@ const (
 	gcpDedicatedClusterFile   = "../../examples/cluster/gcp/main.tf"
 	serverlessClusterFile     = "../../examples/cluster/serverless/main.tf"
 	awsByocClusterFile        = "../../examples/byoc/aws/main.tf"
-	awsByocVpcClusterFile     = "../../examples/byovpc/aws/main.tf"
+	awsByocVpcClusterFile     = "infra/byovpc/aws/main.tf"
 	gcpByoVpcClusterFile      = "../../examples/byovpc/gcp/main.tf"
 	azureByocClusterFile      = "../../examples/byoc/azure/main.tf"
 	gcpByocClusterFile        = "../../examples/byoc/gcp/main.tf"
@@ -304,10 +305,57 @@ func TestAccResourcesByoVpcAWS(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testaws)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, redpandaVersion, awsByocVpcClusterFile, map[string]string{
-		"aws_secret_key": os.Getenv("AWS_SECRET_ACCESS_KEY"),
-		"aws_access_key": os.Getenv("AWS_ACCESS_KEY_ID"),
-	}, t)
+
+	var privateSubnetArns []string
+	privateSubnetArnsEnv := os.Getenv("RP_PRIVATE_SUBNET_ARNS")
+	if err := json.Unmarshal([]byte(privateSubnetArnsEnv), &privateSubnetArns); err != nil {
+		t.Fatalf("Error parsing private subnet ARNs: %v", err)
+	}
+	var zones []string
+	zonesEnv := os.Getenv("AWS_ZONES")
+	if err := json.Unmarshal([]byte(zonesEnv), &zones); err != nil {
+		t.Fatalf("Error parsing zones: %v", err)
+	}
+	customVars := map[string]config.Variable{
+		"cloud_provider":                  config.StringVariable("aws"),
+		"region":                          config.StringVariable(os.Getenv("AWS_REGION")),
+		"aws_secret_key":                  config.StringVariable(os.Getenv("AWS_SECRET_ACCESS_KEY")),
+		"aws_access_key":                  config.StringVariable(os.Getenv("AWS_ACCESS_KEY_ID")),
+		"management_bucket_arn":           config.StringVariable(os.Getenv("RP_MANAGEMENT_BUCKET_ARN")),
+		"dynamodb_table_arn":              config.StringVariable(os.Getenv("RP_DYNAMODB_TABLE_ARN")),
+		"vpc_arn":                         config.StringVariable(os.Getenv("RP_VPC_ARN")),
+		"permissions_boundary_policy_arn": config.StringVariable(os.Getenv("RP_PERMISSIONS_BOUNDARY_POLICY_ARN")),
+		"agent_instance_profile_arn":      config.StringVariable(os.Getenv("RP_AGENT_INSTANCE_PROFILE_ARN")),
+		"connectors_node_group_instance_profile_arn": config.StringVariable(os.Getenv("RP_CONNECTORS_NODE_GROUP_INSTANCE_PROFILE_ARN")),
+		"utility_node_group_instance_profile_arn":    config.StringVariable(os.Getenv("RP_UTILITY_NODE_GROUP_INSTANCE_PROFILE_ARN")),
+		"redpanda_node_group_instance_profile_arn":   config.StringVariable(os.Getenv("RP_REDPANDA_NODE_GROUP_INSTANCE_PROFILE_ARN")),
+		"k8s_cluster_role_arn":                       config.StringVariable(os.Getenv("RP_K8S_CLUSTER_ROLE_ARN")),
+		"redpanda_agent_security_group_arn":          config.StringVariable(os.Getenv("RP_REDPANDA_AGENT_SECURITY_GROUP_ARN")),
+		"connectors_security_group_arn":              config.StringVariable(os.Getenv("RP_CONNECTORS_SECURITY_GROUP_ARN")),
+		"redpanda_node_group_security_group_arn":     config.StringVariable(os.Getenv("RP_REDPANDA_NODE_GROUP_SECURITY_GROUP_ARN")),
+		"utility_security_group_arn":                 config.StringVariable(os.Getenv("RP_UTILITY_SECURITY_GROUP_ARN")),
+		"cluster_security_group_arn":                 config.StringVariable(os.Getenv("RP_CLUSTER_SECURITY_GROUP_ARN")),
+		"node_security_group_arn":                    config.StringVariable(os.Getenv("RP_NODE_SECURITY_GROUP_ARN")),
+		"cloud_storage_bucket_arn":                   config.StringVariable(os.Getenv("RP_CLOUD_STORAGE_BUCKET_ARN")),
+	}
+
+	if len(privateSubnetArns) > 0 {
+		subnetVars := make([]config.Variable, len(privateSubnetArns))
+		for i, arn := range privateSubnetArns {
+			subnetVars[i] = config.StringVariable(arn)
+		}
+		customVars["private_subnet_arns"] = config.ListVariable(subnetVars...)
+	}
+
+	if len(zones) > 0 {
+		zonesVars := make([]config.Variable, len(zones))
+		for i, zone := range zones {
+			zonesVars[i] = config.StringVariable(zone)
+		}
+		customVars["zones"] = config.ListVariable(zonesVars...)
+	}
+
+	testRunner(ctx, name, rename, redpandaVersion, awsByocVpcClusterFile, customVars, t)
 }
 
 func TestAccResourcesByoVpcGCP(t *testing.T) {
@@ -317,14 +365,14 @@ func TestAccResourcesByoVpcGCP(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testaws)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, redpandaVersion, gcpByoVpcClusterFile, map[string]string{
-		"gcp_creds":  os.Getenv("GCP_CREDENTIALS"),
-		"project_id": os.Getenv("GCP_PROJECT_ID"),
+	testRunner(ctx, name, rename, redpandaVersion, gcpByoVpcClusterFile, map[string]config.Variable{
+		"gcp_creds":  config.StringVariable(os.Getenv("GCP_CREDENTIALS")),
+		"project_id": config.StringVariable(os.Getenv("GCP_PROJECT_ID")),
 	}, t)
 }
 
 // testRunner is a helper function that runs a series of tests on a given cluster in a given cloud provider.
-func testRunner(ctx context.Context, name, rename, version, testFile string, customVars map[string]string, t *testing.T) {
+func testRunner(ctx context.Context, name, rename, version, testFile string, customVars map[string]config.Variable, t *testing.T) {
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
@@ -338,7 +386,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 
 	if len(customVars) > 0 {
 		for k, v := range customVars {
-			origTestCaseVars[k] = config.StringVariable(v)
+			origTestCaseVars[k] = v
 		}
 	}
 	if version != "" {
