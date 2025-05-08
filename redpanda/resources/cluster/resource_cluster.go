@@ -204,7 +204,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 			return
 		}
 
-		if err := utils.AreWeDoneYet(ctx, op.GetOperation(), 90*time.Minute, c.CpCl.Operation); err != nil {
+		if err := utils.AreWeDoneYet(ctx, op.GetOperation(), 180*time.Minute, c.CpCl.Operation); err != nil {
 			resp.Diagnostics.AddError("failed while waiting to update cluster", utils.DeserializeGrpcError(err))
 			return
 		}
