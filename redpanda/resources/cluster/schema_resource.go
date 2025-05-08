@@ -69,6 +69,9 @@ func resourceClusterSchema() schema.Schema {
 				Description:   "Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster.",
 				ElementType:   types.StringType,
 				PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
+				Validators: []validator.List{
+					validators.AWSZoneIDValidator{},
+				},
 			},
 			"allow_deletion": schema.BoolAttribute{
 				Optional:    true,
