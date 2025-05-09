@@ -1,0 +1,1 @@
+Contains network and infra related to standing up a BYO VPC Redpanda cluster for CI testing. The network is separated from the cluster to enable us to build the cluster without having the module run by the Hashicorp acceptance testing which does not support module cleanup with its sweepers. 
