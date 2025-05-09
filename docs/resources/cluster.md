@@ -1309,19 +1309,11 @@ variable "replication_factor" {
 
 ## BYOVPC
 
-![Beta Release](https://img.shields.io/badge/release-beta-red.svg)
-
-This feature is in beta and is still under development or awaiting fixes. It can be used at some risk.
-
 This accepts a network and other elements created by the end user inside their cloud provider account (currently limited to AWS) and builds a Redpanda Cluster inside it.
 
 There is [a module](https://github.com/redpanda-data/terraform-aws-redpanda-byovpc) provided for convenience of the end user here that handles the necessary setup. It contains outputs for the inputs the provider requires.
 
 ### AWS BYOVPC
-
-![Beta Release](https://img.shields.io/badge/release-beta-red.svg)
-
-This feature is in beta and is still under development or awaiting fixes. It can be used at some risk.
 
 Has the same requirements as the AWS BYOC Cluster in addition to ARNs for numerous resources that the end user must create.
 
@@ -1514,10 +1506,6 @@ variable "replication_factor" {
 ```
 
 ### GCP BYOVPC
-
-![Beta Release](https://img.shields.io/badge/release-beta-red.svg)
-
-This feature is in beta and is still under development or awaiting fixes. It can be used at some risk.
 
 Has the same requirements as the GCP BYOC Cluster along with the additional requirement for numerous resources that the end user must create.
 
