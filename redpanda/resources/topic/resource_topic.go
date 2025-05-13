@@ -211,7 +211,7 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 
 	// we can only increase the partition count
 	if to.Cmp(from) > 0 {
-		_, err := t.TopicClient.AddTopicPartitions(ctx, &dataplanev1.AddTopicPartitionsRequest{
+		_, err := t.TopicClient.SetTopicPartitions(ctx, &dataplanev1.SetTopicPartitionsRequest{
 			TopicName:      plan.Name.ValueString(),
 			PartitionCount: *utils.NumberToInt32(plan.PartitionCount),
 		})
