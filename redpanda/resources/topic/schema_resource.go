@@ -1,6 +1,8 @@
 package topic
 
 import (
+	"context"
+
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/numberplanmodifier"
@@ -19,11 +21,16 @@ func resourceTopicSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"partition_count": schema.NumberAttribute{
-				Description: "The number of partitions for the topic. This determines how the data is distributed across brokers. Increases are fully supported without data loss, decreases will result in an error and should be accomplished by creating a new topic and migrating the data.",
+				Description: "The number of partitions for the topic. This determines how the data is distributed across brokers. Increases are fully supported without data loss. Decreases will destroy and recreate the topic if allow_deletion is set to true (defaults to false).",
 				Optional:    true,
 				Computed:    true,
 				PlanModifiers: []planmodifier.Number{
 					numberplanmodifier.UseStateForUnknown(),
+					numberplanmodifier.RequiresReplaceIf(
+						partitionRequiresReplaceWhenShrinking,
+						"Decreasing partition count requires recreating the topic",
+						"Decreasing partition count requires recreating the topic",
+					),
 				},
 			},
 			"replication_factor": schema.NumberAttribute{
@@ -58,5 +65,16 @@ func resourceTopicSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 		},
+	}
+}
+
+func partitionRequiresReplaceWhenShrinking(_ context.Context, req planmodifier.NumberRequest, resp *numberplanmodifier.RequiresReplaceIfFuncResponse) {
+	if !req.PlanValue.IsNull() && !req.StateValue.IsNull() {
+		to := req.PlanValue.ValueBigFloat()
+		from := req.StateValue.ValueBigFloat()
+		if to.Cmp(from) < 0 {
+			resp.RequiresReplace = true
+			resp.Diagnostics.AddWarning("Partition count decrease detected", "Decreasing partition count requires recreating the topic")
+		}
 	}
 }
