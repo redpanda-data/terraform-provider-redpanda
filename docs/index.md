@@ -16,11 +16,11 @@ The Redpanda provider is designed for managing Redpanda clusters and Kafka resou
 - `access_token` (String, Sensitive) Redpanda client token. You need either `access_token`, or both `client_id` and `client_secret` to use this provider. Can also be set with the `REDPANDA_ACCESS_TOKEN` environment variable.
 - `azure_client_id` (String) Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_CLIENT_ID or ARM_CLIENT_ID
 - `azure_client_secret` (String) Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_CLIENT_SECRET or ARM_CLIENT_SECRET
-- `azure_subscription_id` (String) The default Azure Subscription ID which should be used for Redpanda BYOC clusters. If another subscription is specified on a resource, it will take precedence. This can also be sourced from the `ARM_SUBSCRIPTION_ID` environment variable.
+- `azure_subscription_id` (String) The default Azure Subscription ID which should be used for Redpanda BYOC clusters. This can also be sourced from the `ARM_SUBSCRIPTION_ID` environment variable.
 - `azure_tenant_id` (String) Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_TENANT_ID or ARM_TENANT_ID
 - `client_id` (String, Sensitive) The ID for the client. You need either `client_id` AND `client_secret`, or `access_token`, to use this provider. Can also be set with the `REDPANDA_CLIENT_ID` environment variable.
 - `client_secret` (String, Sensitive) Redpanda client secret. You need either `client_id` AND `client_secret`, or `access_token`, to use this provider. Can also be set with the `REDPANDA_CLIENT_SECRET` environment variable.
-- `gcp_project_id` (String) The default Google Cloud Project ID to use for Redpanda BYOC clusters. If another project is specified on a resource, it will take precedence. This can also be sourced from the `GOOGLE_PROJECT` environment variable, or any of the following ordered by precedence: `GOOGLE_PROJECT`, `GOOGLE_CLOUD_PROJECT`, `GCLOUD_PROJECT`, or `CLOUDSDK_CORE_PROJECT`.
+- `gcp_project_id` (String) The default Google Cloud Project ID to use for Redpanda BYOC clusters. If anotherThis can also be sourced from the `GOOGLE_PROJECT` environment variable, or any of the following ordered by precedence: `GOOGLE_PROJECT`, `GOOGLE_CLOUD_PROJECT`, `GCLOUD_PROJECT`, or `CLOUDSDK_CORE_PROJECT`.
 - `google_credentials` (String) Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as GOOGLE_CREDENTIALS
 - `google_credentials_base64` (String) Used for creating and managing BYOC and BYOVPC clusters. Is a convenience passthrough for base64 encoded credentials intended for use in CI/CD. Can also be specified in the environment as GOOGLE_CREDENTIALS_BASE64
 
@@ -371,6 +371,14 @@ variable "replication_factor" {
 ### Example Usage to create a serverless cluster
 
 ```terraform
+terraform {
+  required_providers {
+    redpanda = {
+      source  = "redpanda-data/redpanda"
+      version = "0.10.0"
+    }
+  }
+}
 provider "redpanda" {
 }
 resource "redpanda_resource_group" "test" {
@@ -393,5 +401,57 @@ variable "cluster_name" {
 
 variable "region" {
   default = "eu-west-1"
+}
+
+resource "redpanda_user" "test" {
+  name            = var.user_name
+  password        = var.user_pw
+  mechanism       = var.mechanism
+  cluster_api_url = redpanda_cluster.test.cluster_api_url
+}
+
+resource "redpanda_topic" "test" {
+  name               = var.topic_name
+  partition_count    = var.partition_count
+  replication_factor = var.replication_factor
+  cluster_api_url    = redpanda_cluster.test.cluster_api_url
+  allow_deletion     = true
+}
+
+
+resource "redpanda_acl" "test" {
+  resource_type         = "TOPIC"
+  resource_name         = redpanda_topic.test.name
+  resource_pattern_type = "LITERAL"
+  principal             = "User:${redpanda_user.test.name}"
+  host                  = "*"
+  operation             = "READ"
+  permission_type       = "ALLOW"
+  cluster_api_url       = redpanda_cluster.test.cluster_api_url
+}
+
+
+variable "user_name" {
+  default = "test-username"
+}
+
+variable "user_pw" {
+  default = "password"
+}
+
+variable "mechanism" {
+  default = "scram-sha-256"
+}
+
+variable "topic_name" {
+  default = "test-topic"
+}
+
+variable "partition_count" {
+  default = 3
+}
+
+variable "replication_factor" {
+  default = 3
 }
 ```
