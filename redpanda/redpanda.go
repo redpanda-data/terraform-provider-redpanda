@@ -125,14 +125,12 @@ func providerSchema() schema.Schema {
 			"azure_subscription_id": schema.StringAttribute{
 				Optional: true,
 				Description: ("The default Azure Subscription ID which should be used for Redpanda BYOC clusters." +
-					" If another subscription is specified on a resource, it will take precedence. This can also be" +
-					" sourced from the `ARM_SUBSCRIPTION_ID` environment variable."),
+					" This can also be sourced from the `ARM_SUBSCRIPTION_ID` environment variable."),
 			},
 			"gcp_project_id": schema.StringAttribute{
 				Optional: true,
 				Description: ("The default Google Cloud Project ID to use for Redpanda BYOC clusters. If another" +
-					" project is specified on a resource, it will take precedence. This can also be sourced from" +
-					" the `GOOGLE_PROJECT` environment variable, or any of the following ordered by precedence:" +
+					"This can also be sourced from the `GOOGLE_PROJECT` environment variable, or any of the following ordered by precedence:" +
 					" `GOOGLE_PROJECT`, `GOOGLE_CLOUD_PROJECT`, `GCLOUD_PROJECT`, or `CLOUDSDK_CORE_PROJECT`."),
 			},
 			"azure_client_id": schema.StringAttribute{
@@ -297,6 +295,7 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		os.Getenv("AZURE_SUBSCRIPTION_ID"))
 	gcpProjectID := firstNonEmptyString(
 		conf.GcpProjectID.ValueString(),
+		os.Getenv("GCP_PROJECT_ID"),
 		os.Getenv("GOOGLE_PROJECT"),
 		os.Getenv("GOOGLE_CLOUD_PROJECT"),
 		os.Getenv("GCLOUD_PROJECT"),
