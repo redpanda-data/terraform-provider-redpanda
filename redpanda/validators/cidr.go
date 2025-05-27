@@ -53,7 +53,7 @@ func (CIDRBlockValidator) ValidateString(ctx context.Context, req validator.Stri
 
 	// Validate CIDR block format if a value is provided
 	if !req.ConfigValue.IsNull() {
-		cidrRegex := regexp.MustCompile(`^(\d{1,3}\.){3}\d{1,3}/(\d{1,2})$`)
+		cidrRegex := regexp.MustCompile(`^(\d{1,3}\.){3}\d{1,3}\/(\d{1,2})$`)
 		if !cidrRegex.MatchString(req.ConfigValue.ValueString()) {
 			resp.Diagnostics.AddAttributeError(
 				req.Path,
