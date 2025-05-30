@@ -98,6 +98,29 @@ func datasourceNetworkSchema() schema.Schema {
 			"customer_managed_resources": schema.SingleNestedAttribute{
 				Computed: true,
 				Attributes: map[string]schema.Attribute{
+					"gcp": schema.SingleNestedAttribute{
+						Optional: true,
+						Computed: true,
+						Attributes: map[string]schema.Attribute{
+							"network_name": schema.StringAttribute{
+								Computed:    true,
+								Description: "Name of user-created network where the Redpanda cluster is deployed",
+							},
+							"network_project_id": schema.StringAttribute{
+								Computed:    true,
+								Description: "GCP project ID where the network is created",
+							},
+							"management_bucket": schema.SingleNestedAttribute{
+								Computed: true,
+								Attributes: map[string]schema.Attribute{
+									"name": schema.StringAttribute{
+										Required:    true,
+										Description: "GCP storage bucket name for storing the state of Redpanda cluster deployment",
+									},
+								},
+							},
+						},
+					},
 					"aws": schema.SingleNestedAttribute{
 						Optional: true,
 						Computed: true,
