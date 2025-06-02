@@ -25,7 +25,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 
 ### Optional
 
-- `allow_deletion` (Boolean) Allows deletion of the cluster. Defaults to true. Should probably be set to false for production use.
+- `allow_deletion` (Boolean) Allows deletion of the cluster. Defaults to false.
 - `aws_private_link` (Attributes) AWS PrivateLink configuration. (see [below for nested schema](#nestedatt--aws_private_link))
 - `azure_private_link` (Attributes) Azure Private Link configuration. (see [below for nested schema](#nestedatt--azure_private_link))
 - `cloud_provider` (String) Cloud provider where resources are created.
@@ -1520,14 +1520,13 @@ provider "redpanda" {}
 
 # Use the Redpanda GCP BYOVPC module
 module "redpanda_gcp" {
-  source = "github.com/redpanda-data/terraform-gcp-redpanda-byovpc.git?ref=fix-cross-var-error"
+  source  = "redpanda-data/redpanda-byovpc/gcp"
   service_project_id        = var.project_id
   region            = var.region
   unique_identifier = var.environment
   force_destroy_mgmt_bucket = var.environment == "dev" ? true : false
   force_destroy_cloud_storage_bucket =  var.environment == "dev" ? true : false
   network_project_id = var.project_id
-  force_destroy_cloud_storage_bucket = var.environment == "dev" ? true : false
 }
 
 # Redpanda resource group
