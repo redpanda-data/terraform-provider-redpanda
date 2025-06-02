@@ -180,7 +180,7 @@ func (n *DataSourceNetwork) Read(ctx context.Context, req datasource.ReadRequest
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.ID.ValueString()), utils.DeserializeGrpcError(err))
 		return
 	}
-	m, d := generateModel(model.CloudProvider.ValueString(), nw, resp.Diagnostics)
+	m, d := generateModel(utils.CloudProviderToString(nw.CloudProvider), nw, resp.Diagnostics)
 	if d.HasError() {
 		resp.Diagnostics = append(resp.Diagnostics, d...)
 		return
