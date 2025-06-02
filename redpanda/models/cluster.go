@@ -52,4 +52,5 @@ type Cluster struct {
 	RedpandaConsole          types.Object        `tfsdk:"redpanda_console"`
 	MaintenanceWindowConfig  types.Object        `tfsdk:"maintenance_window_config"`
 	GCPGlobalAccessEnabled   basetypes.BoolValue `tfsdk:"gcp_global_access_enabled"`
+	ClusterConfiguration     types.Object        `tfsdk:"cluster_configuration"`
 }

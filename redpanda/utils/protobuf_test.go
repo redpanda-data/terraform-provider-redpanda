@@ -1,3 +1,4 @@
+// filepath: /Users/simon/redpanda/terraform-provider-redpanda/redpanda/utils/protobuf_test.go
 package utils
 
 import (

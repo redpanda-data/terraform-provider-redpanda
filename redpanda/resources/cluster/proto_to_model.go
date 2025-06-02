@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
@@ -147,6 +148,14 @@ func generateModel(cluster *controlplanev1.Cluster, contingent modelOrAPI, diagn
 		return nil, diagnostics
 	}
 	output.CustomerManagedResources = cmr
+
+	// Handle cluster configuration
+	clusterConfig, dg := generateModelClusterConfiguration(cluster, diagnostics)
+	if dg.HasError() {
+		diagnostics.Append(dg...)
+		return nil, diagnostics
+	}
+	output.ClusterConfiguration = clusterConfig
 
 	return output, nil
 }
@@ -1185,4 +1194,56 @@ func generateModelCMRAWS(awsData *controlplanev1.CustomerManagedResources_AWS, d
 		return types.ObjectNull(cmrType), diags
 	}
 	return awsObj, diags
+}
+
+// generateModelClusterConfiguration transforms ClusterConfiguration proto to Terraform model
+func generateModelClusterConfiguration(cluster *controlplanev1.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
+	// Define the object types for cluster configuration
+	clusterConfigType := map[string]attr.Type{
+		"custom_properties_json":   types.StringType,
+		"computed_properties_json": types.StringType,
+	}
+
+	// If the cluster doesn't have configuration, return null object
+	if !cluster.HasClusterConfiguration() {
+		return types.ObjectNull(clusterConfigType), diagnostics
+	}
+
+	clusterConfig := cluster.GetClusterConfiguration()
+
+	// Initialize attribute values
+	configValues := map[string]attr.Value{
+		"custom_properties_json":   types.StringNull(),
+		"computed_properties_json": types.StringNull(),
+	}
+
+	// Handle custom properties if present
+	if clusterConfig.HasCustomProperties() {
+		customPropsBytes, err := json.Marshal(clusterConfig.GetCustomProperties().AsMap())
+		if err != nil {
+			diagnostics.AddError("failed to marshal custom properties", "could not convert custom properties to JSON")
+			return types.ObjectNull(clusterConfigType), diagnostics
+		}
+		configValues["custom_properties_json"] = types.StringValue(string(customPropsBytes))
+	}
+
+	// Handle computed properties if present
+	if clusterConfig.HasComputedProperties() {
+		computedPropsBytes, err := json.Marshal(clusterConfig.GetComputedProperties().AsMap())
+		if err != nil {
+			diagnostics.AddError("failed to marshal computed properties", "could not convert computed properties to JSON")
+			return types.ObjectNull(clusterConfigType), diagnostics
+		}
+		configValues["computed_properties_json"] = types.StringValue(string(computedPropsBytes))
+	}
+
+	// Create the cluster configuration object
+	obj, d := types.ObjectValue(clusterConfigType, configValues)
+	if d.HasError() {
+		diagnostics.Append(d...)
+		diagnostics.AddError("failed to generate cluster configuration object", "could not create cluster configuration object")
+		return types.ObjectNull(clusterConfigType), diagnostics
+	}
+
+	return obj, diagnostics
 }
