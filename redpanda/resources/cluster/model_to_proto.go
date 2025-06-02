@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
@@ -12,6 +13,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"google.golang.org/genproto/googleapis/type/dayofweek"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func generateClusterRequest(ctx context.Context, model models.Cluster, diags diag.Diagnostics) (*controlplanev1.ClusterCreate, diag.Diagnostics) {
@@ -149,6 +151,18 @@ func generateClusterRequest(ctx context.Context, model models.Cluster, diags dia
 	// Handle Read Replica Cluster IDs
 	if !model.ReadReplicaClusterIDs.IsNull() {
 		output.ReadReplicaClusterIds = utils.TypeListToStringSlice(model.ReadReplicaClusterIDs)
+	}
+
+	// Handle Cluster Configuration
+	if !model.ClusterConfiguration.IsNull() {
+		config, d := getClusterConfigurationCustomProps(model.ClusterConfiguration, diags)
+		if d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+		output.ClusterConfiguration = &controlplanev1.ClusterCreate_ClusterConfiguration{
+			CustomProperties: config,
+		}
 	}
 
 	return output, diags
@@ -340,6 +354,18 @@ func generateClusterUpdate(ctx context.Context, cluster models.Cluster, diags di
 
 	// Handle cloud provider tags if present
 	update.CloudProviderTags = utils.TypeMapToStringMap(cluster.Tags)
+
+	// Handle Cluster Configuration
+	if !cluster.ClusterConfiguration.IsNull() {
+		config, d := getClusterConfigurationCustomProps(cluster.ClusterConfiguration, diags)
+		if d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+		update.ClusterConfiguration = &controlplanev1.ClusterUpdate_ClusterConfiguration{
+			CustomProperties: config,
+		}
+	}
 
 	return update, diags
 }
@@ -814,4 +840,33 @@ func generateClusterCMRAWS(ctx context.Context, model models.Cluster, diags diag
 	awsRet.CloudStorageBucket.Arn = bucketArn
 
 	return awsRet, nil
+}
+
+func getClusterConfigurationCustomProps(config types.Object, diags diag.Diagnostics) (*structpb.Struct, diag.Diagnostics) {
+	if config.IsNull() {
+		return nil, diags
+	}
+	// Get custom properties if defined
+	if customPropsJSON, ok := config.Attributes()["custom_properties_json"]; ok && !customPropsJSON.IsNull() {
+		customPropsJSONStr, ok := customPropsJSON.(types.String)
+		if !ok {
+			diags.AddError("invalid custom_properties_json type", "expected string type")
+			return nil, diags
+		}
+		// Convert JSON string to a map
+		customProps := map[string]any{}
+		if err := json.Unmarshal([]byte(customPropsJSONStr.ValueString()), &customProps); err != nil {
+			diags.AddError("failed to unmarshal custom_properties_json", err.Error())
+			return nil, diags
+		}
+		// Convert map to structpb.Struct
+		customPropsStruct, err := structpb.NewStruct(customProps)
+		if err != nil {
+			diags.AddError("failed to convert custom_properties_json to structpb.Struct", err.Error())
+			return nil, diags
+		}
+		return customPropsStruct, diags
+	}
+
+	return nil, diags
 }
