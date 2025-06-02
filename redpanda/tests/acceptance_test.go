@@ -30,6 +30,7 @@ const (
 	dedicatedNetworkFile      = "../../examples/network/main.tf"
 	dataSourcesTest           = "../../examples/datasource/standard/main.tf"
 	bulkDataCreateFile        = "../../examples/datasource/bulk/main.tf"
+	networkDataSourceFile     = "../../examples/datasource/network/main.tf"
 	// These are the resource names as named in the TF files.
 	resourceGroupName      = "redpanda_resource_group.test"
 	networkResourceName    = "redpanda_network.test"
@@ -37,6 +38,7 @@ const (
 	userResourceName       = "redpanda_user.test"
 	topicResourceName      = "redpanda_topic.test"
 	serverlessResourceName = "redpanda_serverless_cluster.test"
+	networkDataSourceName  = "data.redpanda_network.test"
 )
 
 var (
@@ -519,6 +521,41 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 			ClusterName: rename,
 			Client:      c,
 		}.SweepCluster,
+	})
+}
+
+func TestAccDataSourceNetwork(t *testing.T) {
+	if !strings.Contains(testAgainstExistingCluster, "true") {
+		t.Skip("skipping network datasource test")
+	}
+
+	networkIDEnv := os.Getenv("REDPANDA_NETWORK_ID")
+	if networkIDEnv == "" {
+		t.Skip("skipping network data source test: REDPANDA_NETWORK_ID not set")
+	}
+
+	origTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
+	origTestCaseVars["network_id"] = config.StringVariable(networkIDEnv)
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				ConfigFile:               config.StaticFile(networkDataSourceFile),
+				ConfigVariables:          origTestCaseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(networkDataSourceName, "id"),
+					resource.TestCheckResourceAttrSet(networkDataSourceName, "name"),
+					resource.TestCheckResourceAttrSet(networkDataSourceName, "cloud_provider"),
+					resource.TestCheckResourceAttrSet(networkDataSourceName, "region"),
+					resource.TestCheckResourceAttrSet(networkDataSourceName, "resource_group_id"),
+					resource.TestCheckResourceAttrSet(networkDataSourceName, "cluster_type"),
+					resource.TestCheckResourceAttr(networkDataSourceName, "id", networkIDEnv),
+				),
+			},
+		},
 	})
 }
 
