@@ -75,7 +75,7 @@ func resourceClusterSchema() schema.Schema {
 			},
 			"allow_deletion": schema.BoolAttribute{
 				Optional:    true,
-				Description: "Allows deletion of the cluster. Defaults to true. Should probably be set to false for production use.",
+				Description: "Allows deletion of the cluster. Defaults to false.",
 			},
 			"tags": schema.MapAttribute{
 				Optional:      true,
