@@ -41,11 +41,11 @@ func generateModel(cloudProvider string, nw *controlplanev1.Network, diags diag.
 	if nw.GetCidrBlock() != "" && nw.CidrBlock != "0.0.0.0/0" {
 		output.CidrBlock = types.StringValue(nw.GetCidrBlock())
 	}
+
+	output.CustomerManagedResources = types.ObjectNull(cmrType)
 	if nw.HasCustomerManagedResources() {
-		output.CustomerManagedResources = types.ObjectNull(cmrType)
 		return generateModelCMR(cloudProvider, nw, output, diags)
 	}
-	output.CustomerManagedResources = types.ObjectNull(cmrType)
 	return output, diags
 }
 
