@@ -15,7 +15,6 @@ module "redpanda_gcp" {
   force_destroy_mgmt_bucket = var.environment == "dev" ? true : false
   force_destroy_cloud_storage_bucket =  var.environment == "dev" ? true : false
   network_project_id = var.project_id
-  force_destroy_cloud_storage_bucket = var.environment == "dev" ? true : false
 }
 
 # Redpanda resource group
