@@ -224,6 +224,9 @@ tf-apply:
 	elif grep -q "data \"redpanda_cluster\"" *.tf; then \
 		CLUSTER_ID=$$(echo "$$CLUSTER_INFO" | jq -r ".id"); \
 		terraform apply -auto-approve -var="cluster_id=$$CLUSTER_ID"; \
+	elif grep -q "data \"redpanda_network\"" *.tf; then \
+		CLUSTER_ID=$$(echo "$$CLUSTER_INFO" | jq -r ".id"); \
+		terraform apply -auto-approve -var="network_id=$$NETWORK_ID"; \
 	else \
 		echo "Error: No supported Redpanda cluster configuration found in Terraform files."; \
 		exit 1; \
@@ -277,6 +280,9 @@ test-destroy:
 	elif grep -q "data \"redpanda_cluster\"" *.tf; then \
 		terraform destroy -auto-approve \
 			-var="cluster_id=$$CLUSTER_ID"; \
+	elif grep -q "data \"redpanda_network\"" *.tf; then \
+		CLUSTER_ID=$$(echo "$$CLUSTER_INFO" | jq -r ".id"); \
+		terraform apply -auto-approve -var="network_id=$$NETWORK_ID"; \
 	else \
 		echo "Error: No supported Redpanda cluster configuration found in Terraform files."; \
 		exit 1; \
