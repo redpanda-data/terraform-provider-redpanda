@@ -300,7 +300,9 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		os.Getenv("GOOGLE_PROJECT"),
 		os.Getenv("GOOGLE_CLOUD_PROJECT"),
 		os.Getenv("GCLOUD_PROJECT"),
-		os.Getenv("CLOUDSDK_CORE_PROJECT"))
+		os.Getenv("CLOUDSDK_CORE_PROJECT"),
+		os.Getenv("GOOGLE_PROJECT_ID"),
+		os.Getenv("GCP_PROJECT_ID"))
 	azureClientID := firstNonEmptyString(
 		conf.AzureClientID.ValueString(),
 		os.Getenv("AZURE_CLIENT_ID"),
