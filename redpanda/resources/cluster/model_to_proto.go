@@ -512,11 +512,6 @@ func getKafkaConnectConfig(_ context.Context, connect types.Object, diags diag.D
 		diags.Append(d...)
 		return nil, diags
 	}
-	if !enabled {
-		// TODO: remove when cloud fixes this bug
-		return nil, diags
-	}
-
 	return &controlplanev1.KafkaConnect{
 		Enabled: enabled,
 	}, diags
