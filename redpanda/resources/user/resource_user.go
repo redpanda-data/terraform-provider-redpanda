@@ -266,13 +266,23 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 
 	client := cloud.NewControlPlaneClientSet(u.resData.ControlPlaneConnection)
 	cluster, err := client.ClusterForID(ctx, clusterID)
-	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to find cluster with ID %q; make sure ADDR ID format is <user_name>,<cluster_id>", clusterID), utils.DeserializeGrpcError(err))
-		return
+	var dataplaneURL string
+
+	if err == nil && cluster != nil {
+		dataplaneURL = cluster.DataplaneApi.Url
+	} else {
+		serverlessCluster, serr := client.ServerlessClusterForID(ctx, clusterID)
+		if serr == nil && serverlessCluster != nil {
+			dataplaneURL = serverlessCluster.DataplaneApi.Url
+		} else {
+			resp.Diagnostics.AddError(fmt.Sprintf("failed to find cluster with ID %q; make sure ADDR ID format is <user_name>,<cluster_id>", clusterID), utils.DeserializeGrpcError(err)+utils.DeserializeGrpcError(serr))
+			return
+		}
 	}
+
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(user))...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(user))...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_api_url"), cluster.DataplaneApi.Url)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_api_url"), dataplaneURL)...)
 }
 
 func (u *User) createUserClient(clusterURL string) error {
