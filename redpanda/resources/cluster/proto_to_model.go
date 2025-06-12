@@ -1208,7 +1208,7 @@ func generateModelClusterConfiguration(cluster *controlplanev1.Cluster, diagnost
 	// Initialize attribute values with nulls
 	configValues := map[string]attr.Value{
 		"custom_properties_json":   types.StringNull(),
-		"computed_properties_json": types.StringNull(),
+		"computed_properties_json": types.StringUnknown(),
 	}
 
 	clusterConfig := cluster.GetClusterConfiguration()

@@ -970,7 +970,8 @@ func resourceClusterSchema() schema.Schema {
 						Optional: true,
 					},
 					"computed_properties_json": schema.StringAttribute{
-						Computed: true,
+						Computed:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 				},
 			},
