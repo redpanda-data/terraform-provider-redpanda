@@ -155,6 +155,7 @@ func generateModel(cluster *controlplanev1.Cluster, contingent modelOrAPI, diagn
 		diagnostics.Append(dg...)
 		return nil, diagnostics
 	}
+
 	output.ClusterConfiguration = clusterConfig
 
 	return output, nil
@@ -1204,19 +1205,13 @@ func generateModelClusterConfiguration(cluster *controlplanev1.Cluster, diagnost
 		"computed_properties_json": types.StringType,
 	}
 
-	// If the cluster doesn't have configuration, return null object
-	if !cluster.HasClusterConfiguration() {
-		return types.ObjectNull(clusterConfigType), diagnostics
-	}
-
-	clusterConfig := cluster.GetClusterConfiguration()
-
-	// Initialize attribute values
+	// Initialize attribute values with nulls
 	configValues := map[string]attr.Value{
 		"custom_properties_json":   types.StringNull(),
 		"computed_properties_json": types.StringNull(),
 	}
 
+	clusterConfig := cluster.GetClusterConfiguration()
 	// Handle custom properties if present
 	if clusterConfig.HasCustomProperties() {
 		customPropsBytes, err := json.Marshal(clusterConfig.GetCustomProperties().AsMap())
@@ -1238,6 +1233,7 @@ func generateModelClusterConfiguration(cluster *controlplanev1.Cluster, diagnost
 	}
 
 	// Create the cluster configuration object
+	// Always return an object even if no properties are set but cluster has configuration
 	obj, d := types.ObjectValue(clusterConfigType, configValues)
 	if d.HasError() {
 		diagnostics.Append(d...)
