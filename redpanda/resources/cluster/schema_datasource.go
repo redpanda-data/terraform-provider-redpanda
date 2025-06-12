@@ -821,6 +821,21 @@ func datasourceClusterSchema() schema.Schema {
 					},
 				},
 			},
+
+			"cluster_configuration": schema.SingleNestedAttribute{
+				Computed:    true,
+				Description: "Configuration for the cluster.",
+				Attributes: map[string]schema.Attribute{
+					"custom_properties_json": schema.StringAttribute{
+						Computed:    true,
+						Description: "Custom properties for the cluster in JSON format.",
+					},
+					"computed_properties_json": schema.StringAttribute{
+						Computed:    true,
+						Description: "Computed properties for the cluster in JSON format.",
+					},
+				},
+			},
 		},
 		Description: "Data source for a Redpanda Cloud cluster",
 	}
