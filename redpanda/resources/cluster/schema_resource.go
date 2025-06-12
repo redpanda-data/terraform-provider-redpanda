@@ -962,6 +962,7 @@ func resourceClusterSchema() schema.Schema {
 			},
 
 			"cluster_configuration": schema.SingleNestedAttribute{
+				Computed:    true,
 				Optional:    true,
 				Description: "Configuration for the cluster.",
 				Attributes: map[string]schema.Attribute{
