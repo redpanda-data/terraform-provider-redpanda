@@ -962,16 +962,11 @@ func resourceClusterSchema() schema.Schema {
 			},
 
 			"cluster_configuration": schema.SingleNestedAttribute{
-				Computed:    true,
 				Optional:    true,
 				Description: "Configuration for the cluster.",
 				Attributes: map[string]schema.Attribute{
 					"custom_properties_json": schema.StringAttribute{
 						Optional: true,
-					},
-					"computed_properties_json": schema.StringAttribute{
-						Computed:      true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 				},
 			},

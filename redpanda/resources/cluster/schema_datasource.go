@@ -830,10 +830,6 @@ func datasourceClusterSchema() schema.Schema {
 						Computed:    true,
 						Description: "Custom properties for the cluster in JSON format.",
 					},
-					"computed_properties_json": schema.StringAttribute{
-						Computed:    true,
-						Description: "Computed properties for the cluster in JSON format.",
-					},
 				},
 			},
 		},

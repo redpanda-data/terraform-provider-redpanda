@@ -164,10 +164,6 @@ Optional:
 
 - `custom_properties_json` (String)
 
-Read-Only:
-
-- `computed_properties_json` (String)
-
 
 <a id="nestedatt--customer_managed_resources"></a>
 ### Nested Schema for `customer_managed_resources`

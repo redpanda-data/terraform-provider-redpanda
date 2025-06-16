@@ -1201,14 +1201,12 @@ func generateModelCMRAWS(awsData *controlplanev1.CustomerManagedResources_AWS, d
 func generateModelClusterConfiguration(cluster *controlplanev1.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
 	// Define the object types for cluster configuration
 	clusterConfigType := map[string]attr.Type{
-		"custom_properties_json":   types.StringType,
-		"computed_properties_json": types.StringType,
+		"custom_properties_json": types.StringType,
 	}
 
 	// Initialize attribute values with nulls
 	configValues := map[string]attr.Value{
-		"custom_properties_json":   types.StringNull(),
-		"computed_properties_json": types.StringUnknown(),
+		"custom_properties_json": types.StringNull(),
 	}
 
 	clusterConfig := cluster.GetClusterConfiguration()
@@ -1220,16 +1218,6 @@ func generateModelClusterConfiguration(cluster *controlplanev1.Cluster, diagnost
 			return types.ObjectNull(clusterConfigType), diagnostics
 		}
 		configValues["custom_properties_json"] = types.StringValue(string(customPropsBytes))
-	}
-
-	// Handle computed properties if present
-	if clusterConfig.HasComputedProperties() {
-		computedPropsBytes, err := json.Marshal(clusterConfig.GetComputedProperties().AsMap())
-		if err != nil {
-			diagnostics.AddError("failed to marshal computed properties", "could not convert computed properties to JSON")
-			return types.ObjectNull(clusterConfigType), diagnostics
-		}
-		configValues["computed_properties_json"] = types.StringValue(string(computedPropsBytes))
 	}
 
 	// Create the cluster configuration object
