@@ -1204,9 +1204,13 @@ func generateModelClusterConfiguration(cluster *controlplanev1.Cluster, diagnost
 		"custom_properties_json": types.StringType,
 	}
 
-	// Initialize attribute values with nulls
+	if cluster == nil || cluster.GetClusterConfiguration() == nil || cluster.GetClusterConfiguration().GetCustomProperties() == nil || len(cluster.GetClusterConfiguration().GetCustomProperties().AsMap()) == 0 {
+		return types.ObjectNull(clusterConfigType), diagnostics
+	}
+
+	// Initialize attribute values with empty object
 	configValues := map[string]attr.Value{
-		"custom_properties_json": types.StringNull(),
+		"custom_properties_json": types.StringValue("{}"),
 	}
 
 	clusterConfig := cluster.GetClusterConfiguration()
