@@ -102,37 +102,37 @@ func TestGenerateClusterCMRUpdate(t *testing.T) {
 		CustomerManagedResources: &controlplanev1.CustomerManagedResources{
 			CloudProvider: &controlplanev1.CustomerManagedResources_Aws{
 				Aws: &controlplanev1.CustomerManagedResources_AWS{
-					AgentInstanceProfile: &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{
+					AgentInstanceProfile: &controlplanev1.AWSInstanceProfile{
 						Arn: "arn:aws:iam::123456789012:instance-profile/agent",
 					},
-					ConnectorsNodeGroupInstanceProfile: &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{
+					ConnectorsNodeGroupInstanceProfile: &controlplanev1.AWSInstanceProfile{
 						Arn: "arn:aws:iam::123456789012:instance-profile/connectors",
 					},
-					UtilityNodeGroupInstanceProfile: &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{
+					UtilityNodeGroupInstanceProfile: &controlplanev1.AWSInstanceProfile{
 						Arn: "arn:aws:iam::123456789012:instance-profile/utility",
 					},
-					RedpandaNodeGroupInstanceProfile: &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{
+					RedpandaNodeGroupInstanceProfile: &controlplanev1.AWSInstanceProfile{
 						Arn: "arn:aws:iam::123456789012:instance-profile/redpanda",
 					},
 					K8SClusterRole: &controlplanev1.CustomerManagedResources_AWS_Role{
 						Arn: "arn:aws:iam::123456789012:role/k8s",
 					},
-					RedpandaAgentSecurityGroup: &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{
+					RedpandaAgentSecurityGroup: &controlplanev1.AWSSecurityGroup{
 						Arn: "arn:aws:ec2:region:123456789012:security-group/agent",
 					},
-					ConnectorsSecurityGroup: &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{
+					ConnectorsSecurityGroup: &controlplanev1.AWSSecurityGroup{
 						Arn: "arn:aws:ec2:region:123456789012:security-group/connectors",
 					},
-					RedpandaNodeGroupSecurityGroup: &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{
+					RedpandaNodeGroupSecurityGroup: &controlplanev1.AWSSecurityGroup{
 						Arn: "arn:aws:ec2:region:123456789012:security-group/redpanda",
 					},
-					UtilitySecurityGroup: &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{
+					UtilitySecurityGroup: &controlplanev1.AWSSecurityGroup{
 						Arn: "arn:aws:ec2:region:123456789012:security-group/utility",
 					},
-					ClusterSecurityGroup: &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{
+					ClusterSecurityGroup: &controlplanev1.AWSSecurityGroup{
 						Arn: "arn:aws:ec2:region:123456789012:security-group/cluster",
 					},
-					NodeSecurityGroup: &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{
+					NodeSecurityGroup: &controlplanev1.AWSSecurityGroup{
 						Arn: "arn:aws:ec2:region:123456789012:security-group/node",
 					},
 					CloudStorageBucket: &controlplanev1.CustomerManagedAWSCloudStorageBucket{

@@ -323,3 +323,7 @@ var gcpValueDefaults = map[string]attr.Value{
 	"tiered_storage_bucket":            types.ObjectNull(gcpBucketType),
 	"psc_nat_subnet_name":              types.StringNull(),
 }
+
+var clusterConfigType = map[string]attr.Type{
+	"custom_properties_json": types.StringType,
+}
