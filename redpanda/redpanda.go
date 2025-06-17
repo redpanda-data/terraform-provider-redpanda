@@ -236,6 +236,7 @@ func getCredentials(ctx context.Context, cloudEnv string, conf models.Redpanda) 
 
 		creds.ClientID = id
 		creds.ClientSecret = sec
+		creds.Token = token
 		if creds.Token == "" {
 			creds.Token, err = cloud.RequestToken(ctx, endpoint, creds.ClientID, creds.ClientSecret)
 			if err != nil {
