@@ -1199,16 +1199,7 @@ func generateModelCMRAWS(awsData *controlplanev1.CustomerManagedResources_AWS, d
 
 // generateModelClusterConfiguration transforms ClusterConfiguration proto to Terraform model
 func generateModelClusterConfiguration(cluster *controlplanev1.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
-	// Define the object types for cluster configuration
-	clusterConfigType := map[string]attr.Type{
-		"custom_properties_json": types.StringType,
-	}
-
-	if cluster == nil || cluster.GetClusterConfiguration() == nil || cluster.GetClusterConfiguration().GetCustomProperties() == nil || len(cluster.GetClusterConfiguration().GetCustomProperties().AsMap()) == 0 {
-		return types.ObjectNull(clusterConfigType), diagnostics
-	}
-
-	// Initialize attribute values with empty object
+	// Initialize cluster config values with defaults
 	configValues := map[string]attr.Value{
 		"custom_properties_json": types.StringValue("{}"),
 	}

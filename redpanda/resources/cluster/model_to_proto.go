@@ -847,26 +847,22 @@ func getClusterConfigurationCustomProps(config types.Object, diags diag.Diagnost
 		return nil, diags
 	}
 	// Get custom properties if defined
-	if customPropsJSON, ok := config.Attributes()["custom_properties_json"]; ok && !customPropsJSON.IsNull() {
-		customPropsJSONStr, ok := customPropsJSON.(types.String)
-		if !ok {
-			diags.AddError("invalid custom_properties_json type", "expected string type")
-			return nil, diags
-		}
-		// Convert JSON string to a map
-		customProps := map[string]any{}
-		if err := json.Unmarshal([]byte(customPropsJSONStr.ValueString()), &customProps); err != nil {
-			diags.AddError("failed to unmarshal custom_properties_json", err.Error())
-			return nil, diags
-		}
-		// Convert map to structpb.Struct
-		customPropsStruct, err := structpb.NewStruct(customProps)
-		if err != nil {
-			diags.AddError("failed to convert custom_properties_json to structpb.Struct", err.Error())
-			return nil, diags
-		}
-		return customPropsStruct, diags
+	customPropsJSON, d := getStringValue("custom_properties_json", config.Attributes(), diags)
+	if d.HasError() {
+		diags.Append(d...)
+		return nil, diags
 	}
-
-	return nil, diags
+	// Convert JSON string to a map
+	customProps := map[string]any{}
+	if err := json.Unmarshal([]byte(customPropsJSON), &customProps); err != nil {
+		diags.AddError("failed to unmarshal custom_properties_json", err.Error())
+		return nil, diags
+	}
+	// Convert map to structpb.Struct
+	customPropsStruct, err := structpb.NewStruct(customProps)
+	if err != nil {
+		diags.AddError("failed to convert custom_properties_json to structpb.Struct", err.Error())
+		return nil, diags
+	}
+	return customPropsStruct, diags
 }
