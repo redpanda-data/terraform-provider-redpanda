@@ -24,17 +24,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/resourcegroup"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
-var (
-	_ datasource.DataSource = &DataSourceResourceGroup{}
-)
+var _ datasource.DataSource = &DataSourceResourceGroup{}
 
-// DataSourceResourceGroup represents a data source for a Redpanda Cloud
-// resource group.
+// DataSourceResourceGroup represents a data source for a Redpanda Cloud resource group.
 type DataSourceResourceGroup struct {
 	CpCl *cloud.ControlPlaneClientSet
 }
@@ -49,8 +45,7 @@ func (*DataSourceResourceGroup) Schema(_ context.Context, _ datasource.SchemaReq
 	resp.Schema = datasourceResourceGroupSchema()
 }
 
-// datasourceResourceGroupSchema defines the schema for a resource group data
-// source.
+// datasourceResourceGroupSchema defines the schema for a resource group data source.
 func datasourceResourceGroupSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
@@ -71,7 +66,7 @@ func datasourceResourceGroupSchema() schema.Schema {
 
 // Read reads the ResourceGroup data source's values and updates the state.
 func (n *DataSourceResourceGroup) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var model models.ResourceGroup
+	var model resourcegroup.DataModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 
 	rg, err := n.CpCl.ResourceGroupForIDOrName(ctx, model.ID.ValueString(), model.Name.ValueString())
@@ -79,7 +74,7 @@ func (n *DataSourceResourceGroup) Read(ctx context.Context, req datasource.ReadR
 		resp.Diagnostics.AddError("failed to read resource group", utils.DeserializeGrpcError(err))
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, models.ResourceGroup{
+	resp.Diagnostics.Append(resp.State.Set(ctx, resourcegroup.DataModel{
 		Name: types.StringValue(rg.Name),
 		ID:   types.StringValue(rg.Id),
 	})...)
