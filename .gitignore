@@ -38,3 +38,4 @@ creds.json
 .run/datasource.run.xml
 redpanda/tests/infra/network/inputs.json
 .run/datasource.run.xml
+*.xml
