@@ -13,12 +13,12 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-package models
+package resourcegroup
 
 import "github.com/hashicorp/terraform-plugin-framework/types"
 
-// ResourceGroup represents the Terraform schema for the ResourceGroup resource.
-type ResourceGroup struct {
+// ResourceModel represents the Terraform schema for the ResourceModel resource.
+type ResourceModel struct {
 	Name types.String `tfsdk:"name"`
 	ID   types.String `tfsdk:"id"`
 }

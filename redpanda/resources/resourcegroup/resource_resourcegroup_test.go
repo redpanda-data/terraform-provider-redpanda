@@ -14,7 +14,7 @@ func TestResourceGroupSchema(t *testing.T) {
 	n.Schema(context.Background(), req, resp)
 
 	if _, ok := resp.Schema.Attributes["name"]; !ok {
-		t.Errorf("Expected 'name' attribute to be present in schema")
+		t.Error("Expected 'name' attribute to be present in schema")
 	}
 }
 
