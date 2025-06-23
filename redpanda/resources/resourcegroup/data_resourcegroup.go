@@ -24,7 +24,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/objects/resourcegroup"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
@@ -71,7 +71,7 @@ func datasourceResourceGroupSchema() schema.Schema {
 
 // Read reads the ResourceGroup data source's values and updates the state.
 func (n *DataSourceResourceGroup) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var model models.ResourceGroup
+	var model resourcegroup.DataModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 
 	rg, err := n.CpCl.ResourceGroupForIDOrName(ctx, model.ID.ValueString(), model.Name.ValueString())
@@ -79,7 +79,7 @@ func (n *DataSourceResourceGroup) Read(ctx context.Context, req datasource.ReadR
 		resp.Diagnostics.AddError("failed to read resource group", utils.DeserializeGrpcError(err))
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, models.ResourceGroup{
+	resp.Diagnostics.Append(resp.State.Set(ctx, resourcegroup.DataModel{
 		Name: types.StringValue(rg.Name),
 		ID:   types.StringValue(rg.Id),
 	})...)
