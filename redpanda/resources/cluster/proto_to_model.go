@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
@@ -147,6 +148,15 @@ func generateModel(cluster *controlplanev1.Cluster, contingent modelOrAPI, diagn
 		return nil, diagnostics
 	}
 	output.CustomerManagedResources = cmr
+
+	// Handle cluster configuration
+	clusterConfig, dg := generateModelClusterConfiguration(cluster, diagnostics)
+	if dg.HasError() {
+		diagnostics.Append(dg...)
+		return nil, diagnostics
+	}
+
+	output.ClusterConfiguration = clusterConfig
 
 	return output, nil
 }
@@ -1185,4 +1195,34 @@ func generateModelCMRAWS(awsData *controlplanev1.CustomerManagedResources_AWS, d
 		return types.ObjectNull(cmrType), diags
 	}
 	return awsObj, diags
+}
+
+// generateModelClusterConfiguration transforms ClusterConfiguration proto to Terraform model
+func generateModelClusterConfiguration(cluster *controlplanev1.Cluster, diagnostics diag.Diagnostics) (types.Object, diag.Diagnostics) {
+	// Initialize cluster config values with defaults
+	configValues := map[string]attr.Value{
+		"custom_properties_json": types.StringValue("{}"),
+	}
+
+	clusterConfig := cluster.GetClusterConfiguration()
+	// Handle custom properties if present
+	if clusterConfig.HasCustomProperties() {
+		customPropsBytes, err := json.Marshal(clusterConfig.GetCustomProperties().AsMap())
+		if err != nil {
+			diagnostics.AddError("failed to marshal custom properties", "could not convert custom properties to JSON")
+			return types.ObjectNull(clusterConfigType), diagnostics
+		}
+		configValues["custom_properties_json"] = types.StringValue(string(customPropsBytes))
+	}
+
+	// Create the cluster configuration object
+	// Always return an object even if no properties are set but cluster has configuration
+	obj, d := types.ObjectValue(clusterConfigType, configValues)
+	if d.HasError() {
+		diagnostics.Append(d...)
+		diagnostics.AddError("failed to generate cluster configuration object", "could not create cluster configuration object")
+		return types.ObjectNull(clusterConfigType), diagnostics
+	}
+
+	return obj, diagnostics
 }

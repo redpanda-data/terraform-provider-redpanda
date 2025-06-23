@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
@@ -12,6 +13,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"google.golang.org/genproto/googleapis/type/dayofweek"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func generateClusterRequest(ctx context.Context, model models.Cluster, diags diag.Diagnostics) (*controlplanev1.ClusterCreate, diag.Diagnostics) {
@@ -149,6 +151,18 @@ func generateClusterRequest(ctx context.Context, model models.Cluster, diags dia
 	// Handle Read Replica Cluster IDs
 	if !model.ReadReplicaClusterIDs.IsNull() {
 		output.ReadReplicaClusterIds = utils.TypeListToStringSlice(model.ReadReplicaClusterIDs)
+	}
+
+	// Handle Cluster Configuration
+	if !model.ClusterConfiguration.IsNull() {
+		config, d := getClusterConfigurationCustomProps(model.ClusterConfiguration, diags)
+		if d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+		output.ClusterConfiguration = &controlplanev1.ClusterCreate_ClusterConfiguration{
+			CustomProperties: config,
+		}
 	}
 
 	return output, diags
@@ -340,6 +354,18 @@ func generateClusterUpdate(ctx context.Context, cluster models.Cluster, diags di
 
 	// Handle cloud provider tags if present
 	update.CloudProviderTags = utils.TypeMapToStringMap(cluster.Tags)
+
+	// Handle Cluster Configuration
+	if !cluster.ClusterConfiguration.IsNull() {
+		config, d := getClusterConfigurationCustomProps(cluster.ClusterConfiguration, diags)
+		if d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+		update.ClusterConfiguration = &controlplanev1.ClusterUpdate_ClusterConfiguration{
+			CustomProperties: config,
+		}
+	}
 
 	return update, diags
 }
@@ -697,17 +723,17 @@ func getStringValue(key string, attributes map[string]attr.Value, diags diag.Dia
 
 func generateClusterCMRAWS(ctx context.Context, model models.Cluster, diags diag.Diagnostics) (*controlplanev1.CustomerManagedResources_AWS, diag.Diagnostics) {
 	awsRet := &controlplanev1.CustomerManagedResources_AWS{
-		AgentInstanceProfile:               &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{},
-		ConnectorsNodeGroupInstanceProfile: &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{},
-		UtilityNodeGroupInstanceProfile:    &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{},
-		RedpandaNodeGroupInstanceProfile:   &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{},
+		AgentInstanceProfile:               &controlplanev1.AWSInstanceProfile{},
+		ConnectorsNodeGroupInstanceProfile: &controlplanev1.AWSInstanceProfile{},
+		UtilityNodeGroupInstanceProfile:    &controlplanev1.AWSInstanceProfile{},
+		RedpandaNodeGroupInstanceProfile:   &controlplanev1.AWSInstanceProfile{},
 		K8SClusterRole:                     &controlplanev1.CustomerManagedResources_AWS_Role{},
-		RedpandaAgentSecurityGroup:         &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{},
-		ConnectorsSecurityGroup:            &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{},
-		RedpandaNodeGroupSecurityGroup:     &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{},
-		UtilitySecurityGroup:               &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{},
-		ClusterSecurityGroup:               &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{},
-		NodeSecurityGroup:                  &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{},
+		RedpandaAgentSecurityGroup:         &controlplanev1.AWSSecurityGroup{},
+		ConnectorsSecurityGroup:            &controlplanev1.AWSSecurityGroup{},
+		RedpandaNodeGroupSecurityGroup:     &controlplanev1.AWSSecurityGroup{},
+		UtilitySecurityGroup:               &controlplanev1.AWSSecurityGroup{},
+		ClusterSecurityGroup:               &controlplanev1.AWSSecurityGroup{},
+		NodeSecurityGroup:                  &controlplanev1.AWSSecurityGroup{},
 		CloudStorageBucket:                 &controlplanev1.CustomerManagedAWSCloudStorageBucket{},
 		PermissionsBoundaryPolicy:          &controlplanev1.CustomerManagedResources_AWS_Policy{},
 	}
@@ -814,4 +840,29 @@ func generateClusterCMRAWS(ctx context.Context, model models.Cluster, diags diag
 	awsRet.CloudStorageBucket.Arn = bucketArn
 
 	return awsRet, nil
+}
+
+func getClusterConfigurationCustomProps(config types.Object, diags diag.Diagnostics) (*structpb.Struct, diag.Diagnostics) {
+	if config.IsNull() {
+		return nil, diags
+	}
+	// Get custom properties if defined
+	customPropsJSON, d := getStringValue("custom_properties_json", config.Attributes(), diags)
+	if d.HasError() {
+		diags.Append(d...)
+		return nil, diags
+	}
+	// Convert JSON string to a map
+	customProps := map[string]any{}
+	if err := json.Unmarshal([]byte(customPropsJSON), &customProps); err != nil {
+		diags.AddError("failed to unmarshal custom_properties_json", err.Error())
+		return nil, diags
+	}
+	// Convert map to structpb.Struct
+	customPropsStruct, err := structpb.NewStruct(customProps)
+	if err != nil {
+		diags.AddError("failed to convert custom_properties_json to structpb.Struct", err.Error())
+		return nil, diags
+	}
+	return customPropsStruct, diags
 }
