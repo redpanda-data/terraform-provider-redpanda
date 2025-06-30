@@ -19,6 +19,7 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -93,7 +94,7 @@ type RetryError struct {
 // RetryableError is a helper to create a RetryError that's retryable
 func RetryableError(err error) *RetryError {
 	if err == nil {
-		return &RetryError{Err: fmt.Errorf("RetryableError was passed a nil error"), Retryable: false}
+		return &RetryError{Err: errors.New("RetryableError was passed a nil error"), Retryable: false}
 	}
 	return &RetryError{Err: err, Retryable: true}
 }
@@ -101,7 +102,7 @@ func RetryableError(err error) *RetryError {
 // NonRetryableError is a helper to create a RetryError that's _not_ retryable
 func NonRetryableError(err error) *RetryError {
 	if err == nil {
-		return &RetryError{Err: fmt.Errorf("NonRetryableError was passed a nil error"), Retryable: false}
+		return &RetryError{Err: errors.New("NonRetryableError was passed a nil error"), Retryable: false}
 	}
 	return &RetryError{Err: err, Retryable: false}
 }

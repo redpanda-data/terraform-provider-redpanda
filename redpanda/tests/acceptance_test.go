@@ -432,7 +432,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				ImportStateIdFunc: func(_ *terraform.State) (string, error) {
 					i, err := c.ClusterForName(ctx, name)
 					if err != nil {
-						return "", fmt.Errorf("test error: unable to get cluster by name")
+						return "", errors.New("test error: unable to get cluster by name")
 					}
 					importID := fmt.Sprintf("%v,%v", name, i.GetId())
 					return importID, nil

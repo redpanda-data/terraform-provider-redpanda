@@ -21,6 +21,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -94,10 +95,10 @@ func EndpointForEnv(cloudEnv string) (*Endpoint, error) {
 // RequestToken requests an authentication token for a given Endpoint.
 func RequestToken(ctx context.Context, endpoint *Endpoint, clientID, clientSecret string) (string, error) {
 	if clientID == "" {
-		return "", fmt.Errorf("client_id is not set")
+		return "", errors.New("client_id is not set")
 	}
 	if clientSecret == "" {
-		return "", fmt.Errorf("client_secret is not set")
+		return "", errors.New("client_secret is not set")
 	}
 	payload := fmt.Sprintf("grant_type=client_credentials&client_id=%s&client_secret=%s&audience=%s", clientID, clientSecret, endpoint.audience)
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.authURL, strings.NewReader(payload))
