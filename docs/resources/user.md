@@ -7,7 +7,7 @@ description: |-
 
 # redpanda_user (Resource)
 
-User is a user that can be created in Redpanda.
+User is a user that can be created in Redpanda
 
 Creates a user in a Redpanda Cluster.
 
