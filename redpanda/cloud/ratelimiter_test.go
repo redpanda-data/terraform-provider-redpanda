@@ -201,7 +201,7 @@ func TestParseRateLimit(t *testing.T) {
 
 			if tt.expectError {
 				if err == nil {
-					t.Errorf("Expected an error, but got none")
+					t.Error("Expected an error, but got none")
 				}
 			} else {
 				if err != nil {
