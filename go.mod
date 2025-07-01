@@ -6,7 +6,7 @@ require (
 	buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20250320090119-84779f9e5085.2
 	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.6-20250320090119-84779f9e5085.1
 	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.5.1-20250323160046-ca27d7563686.2
-	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.6-20250323160046-ca27d7563686.1
+	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.6-20250630124413-cae509a9c171.1
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/golang/mock v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
@@ -26,9 +26,9 @@ require (
 )
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.6-20241127180247-a33202765966.1 // indirect
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.6-20250425153114-8976f5be98c1.1 // indirect
 	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.6-20240617172850-a48fcebcf8f1.1 // indirect
-	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.6-20240917150400-3f349e63f44a.1 // indirect
+	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.6-20250504123906-40b63a811436.1 // indirect
 	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c // indirect
 	github.com/Kunde21/markdownfmt/v3 v3.1.0 // indirect
