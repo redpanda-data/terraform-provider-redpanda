@@ -3,6 +3,7 @@ package cluster
 import (
 	"regexp"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -21,7 +22,6 @@ import (
 func resourceClusterSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			// Base cluster attributes
 			"name": schema.StringAttribute{
 				Required:    true,
 				Description: "Unique name of the cluster.",
@@ -233,7 +233,6 @@ func resourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-
 			"redpanda_console": schema.SingleNestedAttribute{
 				Computed:      true,
 				Description:   "Redpanda Console properties.",
@@ -246,7 +245,6 @@ func resourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-
 			"prometheus": schema.SingleNestedAttribute{
 				Computed:      true,
 				Description:   "Prometheus metrics endpoint properties.",
@@ -276,13 +274,11 @@ func resourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-
 			"read_replica_cluster_ids": schema.ListAttribute{
 				Optional:    true,
 				ElementType: types.StringType,
 				Description: "IDs of clusters that can create read-only topics from this cluster.",
 			},
-
 			"maintenance_window_config": schema.SingleNestedAttribute{
 				Optional:      true,
 				Computed:      true,
@@ -342,7 +338,6 @@ func resourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-			// Cloud provider specific configurations
 			"aws_private_link": schema.SingleNestedAttribute{
 				Optional:    true,
 				Description: "AWS PrivateLink configuration.",
@@ -359,6 +354,11 @@ func resourceClusterSchema() schema.Schema {
 						ElementType: types.StringType,
 						Required:    true,
 						Description: "The ARN of the principals that can access the Redpanda AWS PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).",
+						Validators: []validator.List{
+							listvalidator.ValueStringsAre(
+								stringvalidator.LengthAtLeast(1),
+							),
+						},
 					},
 					"status": schema.SingleNestedAttribute{
 						Computed:    true,

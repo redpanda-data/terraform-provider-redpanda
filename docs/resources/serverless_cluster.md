@@ -16,18 +16,16 @@ Enables the provisioning and management of Redpanda Serverless clusters. A Serve
 
 ### Required
 
-- `name` (String) Name of the Serverless cluster
-- `resource_group_id` (String) The ID of the resource group in which to create the Serverless cluster
-- `serverless_region` (String) Redpanda-specific region of the Serverless cluster
+- `name` (String) Name of the serverless cluster
+- `resource_group_id` (String) The ID of the Resource Group in which to create the serverless cluster
+- `serverless_region` (String) Redpanda specific region of the serverless cluster
 
 ### Read-Only
 
-- `cluster_api_url` (String) The URL of the dataplane API for the Serverless cluster
-- `id` (String) The ID of the Serverless cluster
+- `cluster_api_url` (String) The URL of the dataplane API for the serverless cluster
+- `id` (String) The ID of the serverless cluster
 
 ## Usage
-
-### On AWS
 
 ```terraform
 provider "redpanda" {
