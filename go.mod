@@ -16,6 +16,7 @@ require (
 	github.com/hashicorp/terraform-plugin-go v0.26.0
 	github.com/hashicorp/terraform-plugin-log v0.9.0
 	github.com/hashicorp/terraform-plugin-testing v1.12.0
+	github.com/pkg/errors v0.9.1
 	github.com/redpanda-data/redpanda/src/go/rpk v0.0.0-20250324141452-c979dc730ef3
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/time v0.11.0
