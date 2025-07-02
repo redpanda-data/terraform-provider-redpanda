@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"reflect"
 	"strings"
 	"time"
 
@@ -484,7 +485,61 @@ func StringMapToTypesMap(m map[string]string) (types.Map, error) {
 	}
 	mvo, diags := types.MapValue(types.StringType, mv)
 	if diags.HasError() {
-		return types.MapNull(types.StringType), fmt.Errorf("unable to convert map to types.Map")
+		return types.MapNull(types.StringType), errors.New("unable to convert map to types.Map")
 	}
 	return mvo, nil
+}
+
+// GetObjectFromAttributes is used to pull a Terraform Object out of a attribute map using the name
+func GetObjectFromAttributes(ctx context.Context, key string, att map[string]attr.Value) (types.Object, error) {
+	attVal, ok := att[key].(basetypes.ObjectValue)
+	if !ok {
+		return types.ObjectNull(map[string]attr.Type{}), fmt.Errorf(fmt.Sprintf("%s not found", key), "object is missing or malformed for network resource")
+	}
+	var keyVal types.Object
+	if err := attVal.As(ctx, &keyVal, basetypes.ObjectAsOptions{
+		UnhandledNullAsEmpty:    true,
+		UnhandledUnknownAsEmpty: true,
+	}); err != nil {
+		return types.ObjectNull(map[string]attr.Type{}), fmt.Errorf(fmt.Sprintf("%s not found", key), "value is missing or malformed for network resource")
+	}
+	return keyVal, nil
+}
+
+// GetStringFromAttributes is used to pull a Terraform String out of a Terraform attribute map using the name
+func GetStringFromAttributes(key string, attributes map[string]attr.Value) (string, error) {
+	if val, ok := attributes[key].(types.String); ok {
+		return val.ValueString(), nil
+	}
+	return "", fmt.Errorf(fmt.Sprintf("%s not found", key), "string value is missing or malformed")
+}
+
+// GetARNListFromAttributes is used to pull a Terraform List out of a Terraform attribute map using the name
+func GetARNListFromAttributes(key string, att map[string]attr.Value) ([]string, error) {
+	attVal, ok := att[key].(basetypes.ObjectValue)
+	if !ok {
+		return nil, fmt.Errorf(fmt.Sprintf("%s not found", key), "object is missing or malformed for network resource")
+	}
+	rt, ok := attVal.Attributes()["arns"].(types.List)
+	if !ok {
+		return nil, fmt.Errorf(fmt.Sprintf("%s not found", key), "list is missing or malformed for network resource")
+	}
+	return TypeListToStringSlice(rt), nil
+}
+
+// IsNil checks if something is nil
+func IsNil[T any](v T) bool {
+	// Get the reflection value
+	rv := reflect.ValueOf(v)
+
+	// Check if it's a nil-able type and is nil
+	switch rv.Kind() {
+	case reflect.Ptr, reflect.Interface, reflect.Map,
+		reflect.Slice, reflect.Func, reflect.Chan:
+		return rv.IsNil()
+	case reflect.Invalid:
+		return true
+	default:
+		return false
+	}
 }
