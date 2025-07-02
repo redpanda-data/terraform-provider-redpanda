@@ -25,7 +25,7 @@ const (
 	serverlessClusterFile           = "../../examples/cluster/serverless/main.tf"
 	awsByocClusterFile              = "../../examples/byoc/aws/main.tf"
 	awsByocVpcClusterFile           = "infra/byovpc/aws/main.tf"
-	gcpByoVpcClusterFile            = "../../examples/byovpc/gcp/main.tf"
+	gcpByoVpcClusterFile            = "infra/byovpc/gcp/main.tf"
 	azureByocClusterFile            = "../../examples/byoc/azure/main.tf"
 	gcpByocClusterFile              = "../../examples/byoc/gcp/main.tf"
 	dedicatedNetworkFile            = "../../examples/network/main.tf"
@@ -361,7 +361,7 @@ func TestAccResourcesByoVpcAWS(t *testing.T) {
 		customVars["zones"] = config.ListVariable(zonesVars...)
 	}
 
-	testRunner(ctx, name, rename, redpandaVersion, awsByocVpcClusterFile, customVars, t)
+	testRunnerCluster(ctx, name, rename, redpandaVersion, awsByocVpcClusterFile, customVars, t)
 }
 
 func TestAccResourcesByoVpcGCP(t *testing.T) {
@@ -369,12 +369,27 @@ func TestAccResourcesByoVpcGCP(t *testing.T) {
 		t.Skip("skipping byoc vpc tests")
 	}
 	ctx := context.Background()
-	name := generateRandomName(accNamePrepend + testaws)
-	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, redpandaVersion, gcpByoVpcClusterFile, map[string]config.Variable{
-		"gcp_creds":  config.StringVariable(os.Getenv("GCP_CREDENTIALS")),
-		"project_id": config.StringVariable(os.Getenv("GCP_PROJECT_ID")),
-	}, t)
+	name := generateRandomName(accNamePrepend + "testgcp")
+	rename := generateRandomName(accNamePrepend + "testgcp-rename")
+
+	customVars := map[string]config.Variable{
+		"region":                                 config.StringVariable(os.Getenv("GCP_REGION")),
+		"network_project_id":                     config.StringVariable(os.Getenv("GCP_PROJECT_ID")),
+		"vpc_network_name":                       config.StringVariable(os.Getenv("GCP_VPC_NETWORK_NAME")),
+		"management_bucket_name":                 config.StringVariable(os.Getenv("GCP_MANAGEMENT_BUCKET_NAME")),
+		"subnet_name":                            config.StringVariable(os.Getenv("GCP_SUBNET_NAME")),
+		"secondary_ipv4_range_pods_name":         config.StringVariable(os.Getenv("GCP_SECONDARY_IPV4_RANGE_PODS_NAME")),
+		"secondary_ipv4_range_services_name":     config.StringVariable(os.Getenv("GCP_SECONDARY_IPV4_RANGE_SERVICES_NAME")),
+		"k8s_master_ipv4_range":                  config.StringVariable(os.Getenv("GCP_K8S_MASTER_IPV4_RANGE")),
+		"agent_service_account_email":            config.StringVariable(os.Getenv("GCP_AGENT_SERVICE_ACCOUNT_EMAIL")),
+		"console_service_account_email":          config.StringVariable(os.Getenv("GCP_CONSOLE_SERVICE_ACCOUNT_EMAIL")),
+		"connector_service_account_email":        config.StringVariable(os.Getenv("GCP_CONNECTOR_SERVICE_ACCOUNT_EMAIL")),
+		"redpanda_cluster_service_account_email": config.StringVariable(os.Getenv("GCP_REDPANDA_CLUSTER_SERVICE_ACCOUNT_EMAIL")),
+		"gke_service_account_email":              config.StringVariable(os.Getenv("GCP_GKE_SERVICE_ACCOUNT_EMAIL")),
+		"tiered_storage_bucket_name":             config.StringVariable(os.Getenv("GCP_TIERED_STORAGE_BUCKET_NAME")),
+	}
+
+	testRunnerCluster(ctx, name, rename, redpandaVersion, gcpByoVpcClusterFile, customVars, t)
 }
 
 // testRunner is a helper function that runs a series of tests on a given cluster in a given cloud provider.
@@ -472,6 +487,104 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 					resource.TestCheckResourceAttr(networkResourceName, "name", name),
 					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
 				),
+			},
+			{
+				ResourceName:      clusterResourceName,
+				ConfigFile:        config.StaticFile(testFile),
+				ConfigVariables:   updateTestCaseVars,
+				ImportState:       true,
+				ImportStateVerify: true,
+				//  These two only matter on apply; On apply the user will be
+				//  getting Plan, not State, and have correct values for both.
+				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+				),
+			},
+			{
+				ConfigFile:               config.StaticFile(testFile),
+				ConfigVariables:          updateTestCaseVars,
+				Destroy:                  true,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+		},
+	},
+	)
+	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepResourceGroup{
+			ResourceGroupName: name,
+			Client:            c,
+		}.SweepResourceGroup,
+	})
+	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepNetwork{
+			NetworkName: name,
+			Client:      c,
+		}.SweepNetworks,
+	})
+	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepCluster{
+			ClusterName: name,
+			Client:      c,
+		}.SweepCluster,
+	})
+	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
+		Name: rename,
+		F: sweepCluster{
+			ClusterName: rename,
+			Client:      c,
+		}.SweepCluster,
+	})
+}
+
+// testRunnerCluster is a helper function that runs a series of tests on a given cluster in a given cloud provider. Does not test for user or topic
+func testRunnerCluster(ctx context.Context, name, rename, version, testFile string, customVars map[string]config.Variable, t *testing.T) {
+	origTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
+	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
+	origTestCaseVars["network_name"] = config.StringVariable(name)
+	origTestCaseVars["cluster_name"] = config.StringVariable(name)
+	if throughputTier != "" {
+		origTestCaseVars["throughput_tier"] = config.StringVariable(throughputTier)
+	}
+
+	if len(customVars) > 0 {
+		for k, v := range customVars {
+			origTestCaseVars[k] = v
+		}
+	}
+	if version != "" {
+		// version is only necessary to resolve a GCP install pack issue. we should generally use latest (nil)
+		origTestCaseVars["version"] = config.StringVariable(version)
+	}
+
+	updateTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(updateTestCaseVars, origTestCaseVars)
+	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
+
+	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				ConfigFile:      config.StaticFile(testFile),
+				ConfigVariables: origTestCaseVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
+				),
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 			{
 				ResourceName:      clusterResourceName,
