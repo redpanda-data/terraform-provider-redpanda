@@ -266,7 +266,7 @@ func TestFindUserByName(t *testing.T) {
 		{
 			name: "ListUsers error",
 			setupMock: func() {
-				mockClient.EXPECT().ListUsers(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("connection error"))
+				mockClient.EXPECT().ListUsers(gomock.Any(), gomock.Any()).Return(nil, errors.New("connection error"))
 			},
 			inputName:    "alice",
 			expectedUser: nil,
@@ -529,7 +529,7 @@ func TestFindTopicByName(t *testing.T) {
 		{
 			name: "ListTopics error",
 			setupMock: func() {
-				mockClient.EXPECT().ListTopics(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("connection error"))
+				mockClient.EXPECT().ListTopics(gomock.Any(), gomock.Any()).Return(nil, errors.New("connection error"))
 			},
 			inputName:     "test-topic",
 			expectedTopic: nil,
@@ -674,10 +674,10 @@ func TestRetryGetCluster(t *testing.T) {
 					AnyTimes()
 			},
 			retryFunc: func(_ *controlplanev1.Cluster) *RetryError {
-				return RetryableError(fmt.Errorf("cluster not ready"))
+				return RetryableError(errors.New("cluster not ready"))
 			},
 			expectedCluster: &controlplanev1.Cluster{State: controlplanev1.Cluster_STATE_CREATING},
-			expectedErr:     &TimeoutError{Timeout: 100 * time.Millisecond, Wrapped: fmt.Errorf("cluster not ready")},
+			expectedErr:     &TimeoutError{Timeout: 100 * time.Millisecond, Wrapped: errors.New("cluster not ready")},
 		},
 		{
 			name:    "Cluster fails to become ready (non-retryable error)",
@@ -685,13 +685,13 @@ func TestRetryGetCluster(t *testing.T) {
 			mockSetup: func(m *mocks.MockCpClientSet) {
 				m.EXPECT().
 					ClusterForID(gomock.Any(), "test-cluster-id").
-					Return(nil, fmt.Errorf("cluster failed"))
+					Return(nil, errors.New("cluster failed"))
 			},
 			retryFunc: func(_ *controlplanev1.Cluster) *RetryError {
-				return NonRetryableError(fmt.Errorf("cluster failed"))
+				return NonRetryableError(errors.New("cluster failed"))
 			},
 			expectedCluster: nil,
-			expectedErr:     fmt.Errorf("cluster failed"),
+			expectedErr:     errors.New("cluster failed"),
 		},
 		{
 			name:    "Cluster not found",
@@ -725,7 +725,7 @@ func TestRetryGetCluster(t *testing.T) {
 			},
 			retryFunc: func(cluster *controlplanev1.Cluster) *RetryError {
 				if cluster.GetState() == controlplanev1.Cluster_STATE_CREATING_AGENT {
-					return RetryableError(fmt.Errorf("cluster in BYOC state"))
+					return RetryableError(errors.New("cluster in BYOC state"))
 				}
 				return nil
 			},
@@ -738,13 +738,13 @@ func TestRetryGetCluster(t *testing.T) {
 			mockSetup: func(m *mocks.MockCpClientSet) {
 				m.EXPECT().
 					ClusterForID(gomock.Any(), "test-cluster-id").
-					Return(nil, fmt.Errorf("invalid state"))
+					Return(nil, errors.New("invalid state"))
 			},
 			retryFunc: func(_ *controlplanev1.Cluster) *RetryError {
-				return NonRetryableError(fmt.Errorf("unhandled state"))
+				return NonRetryableError(errors.New("unhandled state"))
 			},
 			expectedCluster: nil,
-			expectedErr:     fmt.Errorf("invalid state"),
+			expectedErr:     errors.New("invalid state"),
 		},
 	}
 
@@ -791,4 +791,182 @@ func TestRetryGetCluster(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestIsNil(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    any
+		expected bool
+	}{
+		// Nil-able types that are nil
+		{
+			name:     "nil pointer",
+			value:    (*int)(nil),
+			expected: true,
+		},
+		{
+			name:     "nil interface",
+			value:    any(nil),
+			expected: true,
+		},
+		{
+			name:     "nil map",
+			value:    map[string]int(nil),
+			expected: true,
+		},
+		{
+			name:     "nil slice",
+			value:    []int(nil),
+			expected: true,
+		},
+		{
+			name:     "nil function",
+			value:    (func())(nil),
+			expected: true,
+		},
+		{
+			name:     "nil channel",
+			value:    chan int(nil),
+			expected: true,
+		},
+
+		// Nil-able types that are not nil
+		{
+			name:     "non-nil pointer",
+			value:    new(int),
+			expected: false,
+		},
+		{
+			name:     "non-nil interface with value",
+			value:    any(42),
+			expected: false,
+		},
+		{
+			name:     "empty map (not nil)",
+			value:    make(map[string]int),
+			expected: false,
+		},
+		{
+			name:     "empty slice (not nil)",
+			value:    make([]int, 0),
+			expected: false,
+		},
+		{
+			name:     "non-nil function",
+			value:    func() {},
+			expected: false,
+		},
+		{
+			name:     "non-nil channel",
+			value:    make(chan int),
+			expected: false,
+		},
+
+		// Non-nil-able types (should always return false)
+		{
+			name:     "int value",
+			value:    42,
+			expected: false,
+		},
+		{
+			name:     "string value",
+			value:    "hello",
+			expected: false,
+		},
+		{
+			name:     "empty string",
+			value:    "",
+			expected: false,
+		},
+		{
+			name:     "boolean true",
+			value:    true,
+			expected: false,
+		},
+		{
+			name:     "boolean false",
+			value:    false,
+			expected: false,
+		},
+		{
+			name:     "float value",
+			value:    3.14,
+			expected: false,
+		},
+		{
+			name:     "struct value",
+			value:    struct{ Name string }{Name: "test"},
+			expected: false,
+		},
+		{
+			name:     "array value",
+			value:    [3]int{1, 2, 3},
+			expected: false,
+		},
+		{
+			name:     "empty string",
+			value:    "",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsNil(tt.value)
+			assert.Equal(t, tt.expected, result, "IsNil(%T) = %v, expected %v", tt.value, result, tt.expected)
+		})
+	}
+}
+
+// TestIsNilGenericTypes tests the function with specific generic type constraints
+func TestIsNilGenericTypes(t *testing.T) {
+	// Test with specific types to ensure generics work correctly
+
+	// Test with string pointer
+	var strPtr *string
+	assert.True(t, IsNil(strPtr), "nil string pointer should be nil")
+
+	nonNilStrPtr := new(string)
+	assert.False(t, IsNil(nonNilStrPtr), "non-nil string pointer should not be nil")
+
+	// Test with custom struct pointer
+	type CustomStruct struct {
+		Field string
+	}
+	var customPtr *CustomStruct
+	assert.True(t, IsNil(customPtr), "nil custom struct pointer should be nil")
+
+	nonNilCustomPtr := &CustomStruct{}
+	assert.False(t, IsNil(nonNilCustomPtr), "non-nil custom struct pointer should not be nil")
+
+	// Test with interface containing nil pointer
+	var nilInterface any = (*int)(nil)
+	assert.True(t, IsNil(nilInterface), "interface containing nil pointer should be nil")
+
+	// Test with truly nil interface
+	var trueNilInterface any
+	assert.True(t, IsNil(trueNilInterface), "truly nil interface should be nil")
+}
+
+// TestIsNilEdgeCases tests edge cases and reflect.Invalid scenarios
+func TestIsNilEdgeCases(t *testing.T) {
+	// Test with reflect.Value of Invalid kind (though this is hard to create directly)
+	// The function handles reflect.Invalid by returning true
+
+	// Test with nested pointers
+	var nestedPtr **int
+	assert.True(t, IsNil(nestedPtr), "nil nested pointer should be nil")
+
+	// Test with pointer to nil pointer
+	var innerPtr *int
+	nestedPtrToNil := &innerPtr
+	assert.False(t, IsNil(nestedPtrToNil), "pointer to nil pointer should not be nil itself")
+
+	// Test with slice of pointers
+	var sliceOfPtrs []*int
+	assert.True(t, IsNil(sliceOfPtrs), "nil slice of pointers should be nil")
+
+	emptySliceOfPtrs := make([]*int, 0)
+	assert.False(t, IsNil(emptySliceOfPtrs), "empty slice of pointers should not be nil")
 }

@@ -71,7 +71,7 @@ func TestParseHTTPSURLAsGrpc(t *testing.T) {
 			result, err := parseHTTPSURLAsGrpc(tc.url)
 			if tc.expectError {
 				if err == nil {
-					t.Errorf("Expected an error, but got none")
+					t.Error("Expected an error, but got none")
 				}
 			} else {
 				if err != nil {

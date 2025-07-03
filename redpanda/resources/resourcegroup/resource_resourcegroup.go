@@ -30,7 +30,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/resourcegroup"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
@@ -100,7 +100,7 @@ func resourceGroupSchema() schema.Schema {
 // Create creates a new ResourceGroup resource. It updates the state if the
 // resource is successfully created.
 func (n *ResourceGroup) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var model models.ResourceGroup
+	var model resourcegroup.ResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 
 	rg, err := n.CpCl.CreateResourceGroup(ctx, model.Name.ValueString())
@@ -108,7 +108,7 @@ func (n *ResourceGroup) Create(ctx context.Context, req resource.CreateRequest, 
 		resp.Diagnostics.AddError("failed to create resource group", utils.DeserializeGrpcError(err))
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, models.ResourceGroup{
+	resp.Diagnostics.Append(resp.State.Set(ctx, resourcegroup.ResourceModel{
 		Name: types.StringValue(rg.Name),
 		ID:   types.StringValue(rg.Id),
 	})...)
@@ -116,7 +116,7 @@ func (n *ResourceGroup) Create(ctx context.Context, req resource.CreateRequest, 
 
 // Read reads ResourceGroup resource's values and updates the state.
 func (n *ResourceGroup) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var model models.ResourceGroup
+	var model resourcegroup.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 	rg, err := n.CpCl.ResourceGroupForID(ctx, model.ID.ValueString())
 	if err != nil {
@@ -128,7 +128,7 @@ func (n *ResourceGroup) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, models.ResourceGroup{
+	resp.Diagnostics.Append(resp.State.Set(ctx, resourcegroup.ResourceModel{
 		Name: types.StringValue(rg.Name),
 		ID:   types.StringValue(rg.Id),
 	})...)
@@ -136,7 +136,7 @@ func (n *ResourceGroup) Read(ctx context.Context, req resource.ReadRequest, resp
 
 // Update updates the state of the ResourceGroup resource.
 func (n *ResourceGroup) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var model models.ResourceGroup
+	var model resourcegroup.ResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 	name, id := model.Name.ValueString(), model.ID.ValueString()
 	_, err := n.CpCl.ResourceGroup.UpdateResourceGroup(ctx, &controlplanev1.UpdateResourceGroupRequest{
@@ -149,7 +149,7 @@ func (n *ResourceGroup) Update(ctx context.Context, req resource.UpdateRequest, 
 		resp.Diagnostics.AddError("failed to update resource group", utils.DeserializeGrpcError(err))
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, models.ResourceGroup{
+	resp.Diagnostics.Append(resp.State.Set(ctx, resourcegroup.ResourceModel{
 		Name: types.StringValue(name),
 		ID:   types.StringValue(id),
 	})...)
@@ -157,7 +157,7 @@ func (n *ResourceGroup) Update(ctx context.Context, req resource.UpdateRequest, 
 
 // Delete deletes the ResourceGroup resource.
 func (n *ResourceGroup) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var model models.ResourceGroup
+	var model resourcegroup.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
 	_, err := n.CpCl.ResourceGroup.DeleteResourceGroup(ctx, &controlplanev1.DeleteResourceGroupRequest{

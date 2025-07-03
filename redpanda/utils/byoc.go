@@ -20,6 +20,7 @@ package utils
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -153,7 +154,7 @@ func (cl *ByocClient) generateAzureArgsAndEnv() (args, env []string, err error) 
 		}
 		if use {
 			if seenExplicitAuthMethod {
-				return nil, nil, fmt.Errorf("only one of ARM_USE_MSI, ARM_USE_OIDC, ARM_USE_CLI, or ARM_USE_AKS_WORKLOAD_IDENTITY can be set")
+				return nil, nil, errors.New("only one of ARM_USE_MSI, ARM_USE_OIDC, ARM_USE_CLI, or ARM_USE_AKS_WORKLOAD_IDENTITY can be set")
 			}
 			seenExplicitAuthMethod = true
 			azureArgs = append(azureArgs,
@@ -182,7 +183,7 @@ func (cl *ByocClient) generateAzureArgsAndEnv() (args, env []string, err error) 
 	// the internal Terraform project sets the subscription_id, client_id, and client_secret
 	// provider variables based on --subscription-id, --client-id, and --client-secret.
 	if cl.azureSubscriptionID == "" {
-		return nil, nil, fmt.Errorf("value must be set for Azure Subscription ID")
+		return nil, nil, errors.New("value must be set for Azure Subscription ID")
 	}
 	azureArgs = append(azureArgs,
 		"--subscription-id", cl.azureSubscriptionID,
@@ -206,7 +207,7 @@ func (cl *ByocClient) generateAzureArgsAndEnv() (args, env []string, err error) 
 
 func (cl *ByocClient) generateGcpArgsAndEnv() (args, env []string, err error) {
 	if cl.gcpProject == "" {
-		return nil, nil, fmt.Errorf("value must be set for GCP Project")
+		return nil, nil, errors.New("value must be set for GCP Project")
 	}
 	gcpArgs := []string{
 		"--project-id", cl.gcpProject,

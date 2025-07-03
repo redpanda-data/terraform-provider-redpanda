@@ -144,15 +144,15 @@ func (c *ControlPlaneClientSet) ResourceGroupForIDOrName(ctx context.Context, id
 	request := &controlplanev1.ListResourceGroupsRequest{}
 	listResp, err := c.ResourceGroup.ListResourceGroups(ctx, request)
 	if listResp.ResourceGroups == nil {
-		err = fmt.Errorf("provider response was empty. Please report this issue to the provider developers")
+		err = errors.New("provider response was empty. Please report this issue to the provider developers")
 	}
 	if err != nil {
 		return nil, fmt.Errorf("unable to find resource groups: %w", err)
 	}
 	if len(listResp.ResourceGroups) > 1 {
-		return nil, fmt.Errorf("found more than one resource group matching filters")
+		return nil, errors.New("found more than one resource group matching filters")
 	} else if len(listResp.ResourceGroups) == 0 {
-		return nil, fmt.Errorf("unable to find any resource group matching filters")
+		return nil, errors.New("unable to find any resource group matching filters")
 	}
 	return listResp.ResourceGroups[0], nil
 }
@@ -186,14 +186,14 @@ func (c *ControlPlaneClientSet) NetworkForName(ctx context.Context, name string)
 			return v, nil
 		}
 	}
-	return nil, fmt.Errorf("network not found")
+	return nil, errors.New("network not found")
 }
 
 // ClusterForID gets the Cluster for a given ID and handles the error if the
 // returned cluster is nil.
 func (c *ControlPlaneClientSet) ClusterForID(ctx context.Context, id string) (*controlplanev1.Cluster, error) {
 	if id == "" {
-		return nil, fmt.Errorf("cluster ID is empty")
+		return nil, errors.New("cluster ID is empty")
 	}
 	cl, err := c.Cluster.GetCluster(ctx, &controlplanev1.GetClusterRequest{
 		Id: id,
@@ -221,7 +221,7 @@ func (c *ControlPlaneClientSet) ClusterForName(ctx context.Context, name string)
 			return c, nil
 		}
 	}
-	return nil, fmt.Errorf("cluster not found")
+	return nil, errors.New("cluster not found")
 }
 
 // ServerlessClusterForID gets the ServerlessCluster for a given ID and handles the error if the
@@ -253,7 +253,7 @@ func (c *ControlPlaneClientSet) ServerlessClusterForName(ctx context.Context, na
 			return c, nil
 		}
 	}
-	return nil, fmt.Errorf("serverless cluster not found")
+	return nil, errors.New("serverless cluster not found")
 }
 
 // GetCluster gets the cluster for a given request (primarily added to satisfy interface for mocks
