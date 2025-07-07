@@ -256,7 +256,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 	// call Delete on the cluster, if it's not already in progress. calling Delete on a cluster in
 	// STATE_DELETING_AGENT seems to destroy it immediately and we don't want to do that if we haven't
 	// cleaned up yet
-	if !(cluster.GetState() == controlplanev1.Cluster_STATE_DELETING || cluster.GetState() == controlplanev1.Cluster_STATE_DELETING_AGENT) {
+	if cluster.GetState() != controlplanev1.Cluster_STATE_DELETING && cluster.GetState() != controlplanev1.Cluster_STATE_DELETING_AGENT {
 		_, err = c.CpCl.Cluster.DeleteCluster(ctx, &controlplanev1.DeleteClusterRequest{
 			Id: clusterID,
 		})
