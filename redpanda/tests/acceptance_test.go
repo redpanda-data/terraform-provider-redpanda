@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -18,27 +19,30 @@ import (
 )
 
 const (
-	awsDedicatedClusterFile   = "../../examples/cluster/aws/main.tf"
-	azureDedicatedClusterFile = "../../examples/cluster/azure/main.tf"
-	gcpDedicatedClusterFile   = "../../examples/cluster/gcp/main.tf"
-	serverlessClusterFile     = "../../examples/cluster/serverless/main.tf"
-	awsByocClusterFile        = "../../examples/byoc/aws/main.tf"
-	awsByocVpcClusterFile     = "infra/byovpc/aws/main.tf"
-	gcpByoVpcClusterFile      = "../../examples/byovpc/gcp/main.tf"
-	azureByocClusterFile      = "../../examples/byoc/azure/main.tf"
-	gcpByocClusterFile        = "../../examples/byoc/gcp/main.tf"
-	dedicatedNetworkFile      = "../../examples/network/main.tf"
-	dataSourcesTest           = "../../examples/datasource/standard/main.tf"
-	bulkDataCreateFile        = "../../examples/datasource/bulk/main.tf"
-	networkDataSourceFile     = "../../examples/datasource/network/main.tf"
+	awsDedicatedClusterFile         = "../../examples/cluster/aws/main.tf"
+	azureDedicatedClusterFile       = "../../examples/cluster/azure/main.tf"
+	gcpDedicatedClusterFile         = "../../examples/cluster/gcp/main.tf"
+	serverlessClusterFile           = "../../examples/cluster/serverless/main.tf"
+	awsByocClusterFile              = "../../examples/byoc/aws/main.tf"
+	awsByocVpcClusterFile           = "infra/byovpc/aws/main.tf"
+	gcpByoVpcClusterFile            = "../../examples/byovpc/gcp/main.tf"
+	azureByocClusterFile            = "../../examples/byoc/azure/main.tf"
+	gcpByocClusterFile              = "../../examples/byoc/gcp/main.tf"
+	dedicatedNetworkFile            = "../../examples/network/main.tf"
+	dataSourcesTest                 = "../../examples/datasource/standard/main.tf"
+	bulkDataCreateFile              = "../../examples/datasource/bulk/main.tf"
+	networkDataSourceFile           = "../../examples/datasource/network/main.tf"
+	serverlessRegionsDataSourceFile = "../../examples/datasource/serverless_regions/main.tf"
 	// These are the resource names as named in the TF files.
-	resourceGroupName      = "redpanda_resource_group.test"
-	networkResourceName    = "redpanda_network.test"
-	clusterResourceName    = "redpanda_cluster.test"
-	userResourceName       = "redpanda_user.test"
-	topicResourceName      = "redpanda_topic.test"
-	serverlessResourceName = "redpanda_serverless_cluster.test"
-	networkDataSourceName  = "data.redpanda_network.test"
+	resourceGroupName                  = "redpanda_resource_group.test"
+	networkResourceName                = "redpanda_network.test"
+	clusterResourceName                = "redpanda_cluster.test"
+	userResourceName                   = "redpanda_user.test"
+	topicResourceName                  = "redpanda_topic.test"
+	serverlessResourceName             = "redpanda_serverless_cluster.test"
+	networkDataSourceName              = "data.redpanda_network.test"
+	serverlessRegionsAWSDataSourceName = "data.redpanda_serverless_regions.aws"
+	serverlessRegionsGCPDataSourceName = "data.redpanda_serverless_regions.gcp"
 )
 
 var (
@@ -674,5 +678,42 @@ func TestAccResourcesStrippedDownServerlessCluster(t *testing.T) {
 			ResourceGroupName: name,
 			Client:            c,
 		}.SweepResourceGroup,
+	})
+}
+
+func TestAccDataSourceServerlessRegions(t *testing.T) {
+	if !strings.Contains(runServerlessTests, "true") {
+		t.Skip("skipping serverless tests")
+	}
+
+	origTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				ConfigFile:               config.StaticFile(serverlessRegionsDataSourceFile),
+				ConfigVariables:          origTestCaseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					// Check that the count of serverless_regions is greater than 0
+					resource.TestCheckResourceAttrSet(serverlessRegionsAWSDataSourceName, "serverless_regions.#"),
+					resource.TestMatchResourceAttr(serverlessRegionsAWSDataSourceName, "serverless_regions.#", regexp.MustCompile(`^[1-9][0-9]*$`)),
+
+					// Check that at least the first region has the expected attributes
+					resource.TestCheckResourceAttrSet(serverlessRegionsAWSDataSourceName, "serverless_regions.0.name"),
+					resource.TestCheckResourceAttrSet(serverlessRegionsAWSDataSourceName, "serverless_regions.0.time_zone"),
+
+					// Check that the count of serverless_regions is greater than 0
+					resource.TestCheckResourceAttrSet(serverlessRegionsGCPDataSourceName, "serverless_regions.#"),
+					resource.TestMatchResourceAttr(serverlessRegionsGCPDataSourceName, "serverless_regions.#", regexp.MustCompile(`^[1-9][0-9]*$`)),
+
+					// Check that at least the first region has the expected attributes
+					resource.TestCheckResourceAttrSet(serverlessRegionsGCPDataSourceName, "serverless_regions.0.name"),
+					resource.TestCheckResourceAttrSet(serverlessRegionsGCPDataSourceName, "serverless_regions.0.time_zone"),
+				),
+			},
+		},
 	})
 }

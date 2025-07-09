@@ -54,10 +54,6 @@ func DataSourceServerlessRegionsSchema() schema.Schema {
 				Computed: true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
-						"available": schema.BoolAttribute{
-							Computed:    true,
-							Description: "Region available",
-						},
 						"name": schema.StringAttribute{
 							Computed:    true,
 							Description: "Name of the serverless region",
@@ -65,6 +61,10 @@ func DataSourceServerlessRegionsSchema() schema.Schema {
 						"time_zone": schema.StringAttribute{
 							Computed:    true,
 							Description: "Time zone of the serverless region",
+						},
+						"cloud_provider": schema.StringAttribute{
+							Computed:    true,
+							Description: "Cloud provider where the serverless regions exist",
 						},
 					},
 				},
