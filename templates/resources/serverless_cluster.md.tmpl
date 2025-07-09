@@ -9,19 +9,17 @@ description: |-
 
 {{ .Description | trimspace }}
 
-Enables the provisioning and management of Redpanda serverless clusters on AWS. A serverless cluster must always have a resource group.
+Enables the provisioning and management of Redpanda serverless clusters. A serverless cluster must always have a resource group.
 
 {{ .SchemaMarkdown | trimspace }}
 
 ## Usage
 
-### On AWS
-
 {{ tffile "examples/cluster/serverless/main.tf" }}
 
 ## Limitations
 
-We are not currently able to support the provisioning of serverless clusters on GCP.
+Provisioning of serverless clusters on GCP is currently in beta. Contact your Redpanda account team.
 
 ### Example Usage to create a serverless cluster
 
