@@ -9,7 +9,7 @@ description: |-
 
 {{ .Description | trimspace }}
 
-Enables the provisioning and management of Redpanda Serverless clusters. A Serverless cluster must always have a resource group.
+Enables the provisioning and management of Redpanda Serverless clusters. A Serverless cluster requires a resource group.
 
 {{ .SchemaMarkdown | trimspace }}
 
@@ -21,7 +21,7 @@ Enables the provisioning and management of Redpanda Serverless clusters. A Serve
 
 Serverless on GCP is currently in beta. To unlock this feature for your account, contact your Redpanda account team.
 
-### Example Usage to create a serverless cluster
+### Example: Create a Serverless cluster
 
 {{ tffile "examples/cluster/serverless/main.tf" }}
 
