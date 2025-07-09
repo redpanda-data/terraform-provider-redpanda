@@ -699,7 +699,7 @@ func TestAccDataSourceServerlessRegions(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					// Check that the count of serverless_regions is greater than 0
 					resource.TestCheckResourceAttrSet(serverlessRegionsAWSDataSourceName, "serverless_regions.#"),
-					resource.TestMatchResourceAttr(serverlessRegionsAWSDataSourceName, "serverless_regions.#", regexp.MustCompile(`^[1-9][0-9]*$`)),
+					resource.TestMatchResourceAttr(serverlessRegionsAWSDataSourceName, "serverless_regions.#", regexp.MustCompile(`^[1-9]\d*$`)),
 
 					// Check that at least the first region has the expected attributes
 					resource.TestCheckResourceAttrSet(serverlessRegionsAWSDataSourceName, "serverless_regions.0.name"),
@@ -707,7 +707,7 @@ func TestAccDataSourceServerlessRegions(t *testing.T) {
 
 					// Check that the count of serverless_regions is greater than 0
 					resource.TestCheckResourceAttrSet(serverlessRegionsGCPDataSourceName, "serverless_regions.#"),
-					resource.TestMatchResourceAttr(serverlessRegionsGCPDataSourceName, "serverless_regions.#", regexp.MustCompile(`^[1-9][0-9]*$`)),
+					resource.TestMatchResourceAttr(serverlessRegionsGCPDataSourceName, "serverless_regions.#", regexp.MustCompile(`^[1-9]\d*$`)),
 
 					// Check that at least the first region has the expected attributes
 					resource.TestCheckResourceAttrSet(serverlessRegionsGCPDataSourceName, "serverless_regions.0.name"),
