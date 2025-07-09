@@ -227,6 +227,8 @@ tf-apply:
 	elif grep -q "data \"redpanda_network\"" *.tf; then \
 		CLUSTER_ID=$$(echo "$$CLUSTER_INFO" | jq -r ".id"); \
 		terraform apply -auto-approve -var="network_id=$$NETWORK_ID"; \
+	elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then \
+		terraform apply -auto-approve; \
 	else \
 		echo "Error: No supported Redpanda cluster configuration found in Terraform files."; \
 		exit 1; \
@@ -249,7 +251,7 @@ update-cluster-info:
 .PHONY: test-destroy
 test-destroy:
 	@echo "Destroying Terraform configuration..."
-	@(cd $(TF_CONFIG_DIR) && \
+	@cd $(call GET_TF_CONFIG_DIR) && \
 	CLUSTER_INFO='$(call GET_OR_CREATE_CLUSTER_INFO)' \
 	CLUSTER_NAME=$$(echo "$$CLUSTER_INFO" | jq -r '.name') \
 	CLUSTER_ID=$$(echo "$$CLUSTER_INFO" | jq -r '.id') \
@@ -283,10 +285,12 @@ test-destroy:
 	elif grep -q "data \"redpanda_network\"" *.tf; then \
 		CLUSTER_ID=$$(echo "$$CLUSTER_INFO" | jq -r ".id"); \
 		terraform apply -auto-approve -var="network_id=$$NETWORK_ID"; \
+	elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then \
+		terraform destroy -auto-approve; \
 	else \
 		echo "Error: No supported Redpanda cluster configuration found in Terraform files."; \
 		exit 1; \
-	fi')
+	fi'
 # Define the directory where the mocks are located
 MOCKS_DIR := redpanda/mocks
 
@@ -414,6 +418,19 @@ test_serverless_cluster:
 	TF_LOG=$(TF_LOG) \
 	VERSION=pre \
 	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccResourcesStrippedDownServerlessCluster
+
+RUN_SERVERLESS_TESTS ?= true
+.PHONY: test_serverless_regions
+test_serverless_regions:
+	@echo "Running TestAccDataSourceServerlessRegions..."
+	@DEBUG=true \
+	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
+	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
+	RUN_SERVERLESS_TESTS="$(RUN_SERVERLESS_TESTS)" \
+	TF_ACC=true \
+	TF_LOG=$(TF_LOG) \
+	VERSION=pre \
+	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccDataSourceServerlessRegions
 
 import-gpg:
 	echo "$$GPG_PRIVATE_KEY" | base64 -d | gpg --batch --pinentry-mode loopback --passphrase "$$PASSPHRASE" --import

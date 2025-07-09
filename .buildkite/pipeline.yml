@@ -126,6 +126,24 @@ steps:
       - lint
       - unit
       - test_network
+  - label: test_serverless_regions
+    key: test_serverless_regions
+    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
+    command: make test_serverless_regions
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.11.0:
+          image: "golang:1.23"
+          environment:
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
+            - TF_LOG=DEBUG
+            - DATASOURCE_CLUSTER_ID
+    depends_on:
+      - lint
+      - unit
   - label: test_byoc_aws
     key: test_byoc_aws
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
