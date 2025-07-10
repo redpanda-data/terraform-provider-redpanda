@@ -30,4 +30,12 @@ Read-Only:
 
 - `cloud_provider` (String) Cloud provider where the serverless regions exist
 - `name` (String) Name of the serverless region
+- `placement` (Attributes) (see [below for nested schema](#nestedatt--serverless_regions--placement))
 - `time_zone` (String) Time zone of the serverless region
+
+<a id="nestedatt--serverless_regions--placement"></a>
+### Nested Schema for `serverless_regions.placement`
+
+Read-Only:
+
+- `enabled` (Boolean) Region available

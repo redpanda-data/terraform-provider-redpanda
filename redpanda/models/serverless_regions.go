@@ -25,9 +25,15 @@ type ServerlessRegions struct {
 	ServerlessRegions []ServerlessRegionsItem `tfsdk:"serverless_regions"`
 }
 
+// Placement represents the placement configuration for a serverless region.
+type Placement struct {
+	Enabled types.Bool `tfsdk:"enabled"`
+}
+
 // ServerlessRegionsItem represents a single region in a ServerlessRegions data source.
 type ServerlessRegionsItem struct {
-	CloudProvider string `tfsdk:"cloud_provider"`
-	TimeZone      string `tfsdk:"time_zone"`
-	Name          string `tfsdk:"name"`
+	CloudProvider string    `tfsdk:"cloud_provider"`
+	TimeZone      string    `tfsdk:"time_zone"`
+	Name          string    `tfsdk:"name"`
+	Placement     Placement `tfsdk:"placement"`
 }
