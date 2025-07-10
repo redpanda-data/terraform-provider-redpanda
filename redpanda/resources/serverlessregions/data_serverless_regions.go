@@ -24,6 +24,7 @@ import (
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
@@ -65,6 +66,15 @@ func DataSourceServerlessRegionsSchema() schema.Schema {
 						"cloud_provider": schema.StringAttribute{
 							Computed:    true,
 							Description: "Cloud provider where the serverless regions exist",
+						},
+						"placement": schema.SingleNestedAttribute{
+							Computed: true,
+							Attributes: map[string]schema.Attribute{
+								"enabled": schema.BoolAttribute{
+									Computed:    true,
+									Description: "Region available",
+								},
+							},
 						},
 					},
 				},
@@ -116,6 +126,9 @@ func (r *DataSourceServerlessRegions) Read(ctx context.Context, req datasource.R
 			CloudProvider: utils.CloudProviderToString(v.GetCloudProvider()),
 			Name:          v.GetName(),
 			TimeZone:      v.GetDefaultTimezone().String(),
+			Placement: models.Placement{
+				Enabled: types.BoolValue(v.GetPlacement().GetEnabled()),
+			},
 		}
 		model.ServerlessRegions = append(model.ServerlessRegions, item)
 	}

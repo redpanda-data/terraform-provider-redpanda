@@ -697,17 +697,17 @@ func getStringValue(key string, attributes map[string]attr.Value, diags diag.Dia
 
 func generateClusterCMRAWS(ctx context.Context, model models.Cluster, diags diag.Diagnostics) (*controlplanev1.CustomerManagedResources_AWS, diag.Diagnostics) {
 	awsRet := &controlplanev1.CustomerManagedResources_AWS{
-		AgentInstanceProfile:               &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{},
-		ConnectorsNodeGroupInstanceProfile: &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{},
-		UtilityNodeGroupInstanceProfile:    &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{},
-		RedpandaNodeGroupInstanceProfile:   &controlplanev1.CustomerManagedResources_AWS_InstanceProfile{},
+		AgentInstanceProfile:               &controlplanev1.AWSInstanceProfile{},
+		ConnectorsNodeGroupInstanceProfile: &controlplanev1.AWSInstanceProfile{},
+		UtilityNodeGroupInstanceProfile:    &controlplanev1.AWSInstanceProfile{},
+		RedpandaNodeGroupInstanceProfile:   &controlplanev1.AWSInstanceProfile{},
 		K8SClusterRole:                     &controlplanev1.CustomerManagedResources_AWS_Role{},
-		RedpandaAgentSecurityGroup:         &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{},
-		ConnectorsSecurityGroup:            &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{},
-		RedpandaNodeGroupSecurityGroup:     &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{},
-		UtilitySecurityGroup:               &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{},
-		ClusterSecurityGroup:               &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{},
-		NodeSecurityGroup:                  &controlplanev1.CustomerManagedResources_AWS_SecurityGroup{},
+		RedpandaAgentSecurityGroup:         &controlplanev1.AWSSecurityGroup{},
+		ConnectorsSecurityGroup:            &controlplanev1.AWSSecurityGroup{},
+		RedpandaNodeGroupSecurityGroup:     &controlplanev1.AWSSecurityGroup{},
+		UtilitySecurityGroup:               &controlplanev1.AWSSecurityGroup{},
+		ClusterSecurityGroup:               &controlplanev1.AWSSecurityGroup{},
+		NodeSecurityGroup:                  &controlplanev1.AWSSecurityGroup{},
 		CloudStorageBucket:                 &controlplanev1.CustomerManagedAWSCloudStorageBucket{},
 		PermissionsBoundaryPolicy:          &controlplanev1.CustomerManagedResources_AWS_Policy{},
 	}

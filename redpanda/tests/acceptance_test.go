@@ -704,6 +704,7 @@ func TestAccDataSourceServerlessRegions(t *testing.T) {
 					// Check that at least the first region has the expected attributes
 					resource.TestCheckResourceAttrSet(serverlessRegionsAWSDataSourceName, "serverless_regions.0.name"),
 					resource.TestCheckResourceAttrSet(serverlessRegionsAWSDataSourceName, "serverless_regions.0.time_zone"),
+					resource.TestCheckResourceAttrSet(serverlessRegionsAWSDataSourceName, "serverless_regions.0.placement.enabled"),
 
 					// Check that the count of serverless_regions is greater than 0
 					resource.TestCheckResourceAttrSet(serverlessRegionsGCPDataSourceName, "serverless_regions.#"),
@@ -712,6 +713,7 @@ func TestAccDataSourceServerlessRegions(t *testing.T) {
 					// Check that at least the first region has the expected attributes
 					resource.TestCheckResourceAttrSet(serverlessRegionsGCPDataSourceName, "serverless_regions.0.name"),
 					resource.TestCheckResourceAttrSet(serverlessRegionsGCPDataSourceName, "serverless_regions.0.time_zone"),
+					resource.TestCheckResourceAttrSet(serverlessRegionsGCPDataSourceName, "serverless_regions.0.placement.enabled"),
 				),
 			},
 		},
