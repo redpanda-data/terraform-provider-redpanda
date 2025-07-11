@@ -22,7 +22,7 @@ Creates an Access Control List (ACL) in a Redpanda cluster.
 - `permission_type` (String) The permission type. It determines whether the operation should be ALLOWED or DENIED
 - `principal` (String) The principal to apply this ACL for
 - `resource_name` (String) The name of the resource this ACL entry will be on
-- `resource_pattern_type` (String) The pattern type of the resource. It determines the strategy how the provided resource name is matched (ANY, LITERAL or PREFIXED) against the actual resource names
+- `resource_pattern_type` (String) The pattern type of the resource. It determines the strategy how the provided resource name is matched (LITERAL, MATCH, PREFIXED, etc ...) against the actual resource names
 - `resource_type` (String) The type of the resource (TOPIC, GROUP, etc...) this ACL shall target
 
 ### Read-Only

@@ -8,13 +8,10 @@ import (
 func datasourceClusterSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			// Required field to look up cluster
 			"id": schema.StringAttribute{
 				Required:    true,
 				Description: "ID of the cluster. ID is an output from the Create Cluster endpoint and cannot be set by the caller.",
 			},
-
-			// Computed fields returned by the cluster API
 			"name": schema.StringAttribute{
 				Computed:    true,
 				Description: "Unique name of the cluster.",
@@ -77,8 +74,6 @@ func datasourceClusterSchema() schema.Schema {
 				Computed:    true,
 				Description: "Timestamp when the cluster was created.",
 			},
-
-			// Kafka API configuration
 			"kafka_api": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "Cluster's Kafka API properties.",
@@ -110,8 +105,6 @@ func datasourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-
-			// HTTP Proxy configuration
 			"http_proxy": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "HTTP Proxy properties.",
@@ -142,8 +135,6 @@ func datasourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-
-			// Schema Registry configuration
 			"schema_registry": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "Schema Registry properties.",
@@ -174,15 +165,11 @@ func datasourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-
-			// Read Replica Cluster IDs
 			"read_replica_cluster_ids": schema.ListAttribute{
 				Computed:    true,
 				ElementType: types.StringType,
 				Description: "IDs of clusters that can create read-only topics from this cluster.",
 			},
-
-			// Service endpoints
 			"redpanda_console": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "Redpanda Console properties.",
@@ -193,7 +180,6 @@ func datasourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-
 			"prometheus": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "Prometheus metrics endpoint properties.",
@@ -204,8 +190,6 @@ func datasourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-
-			// Status fields
 			"state_description": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "Detailed state description when cluster is in a non-ready state.",
@@ -220,8 +204,6 @@ func datasourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-
-			// Maintenance window configuration
 			"maintenance_window_config": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "Maintenance window configuration for the cluster.",
@@ -249,8 +231,6 @@ func datasourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-
-			// Cloud provider specific configurations
 			"aws_private_link": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "AWS PrivateLink configuration.",
@@ -470,7 +450,6 @@ func datasourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-
 			"azure_private_link": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "Azure Private Link configuration.",
@@ -577,7 +556,6 @@ func datasourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-			// Kafka Connect configuration
 			"kafka_connect": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "Kafka Connect configuration.",
@@ -588,8 +566,6 @@ func datasourceClusterSchema() schema.Schema {
 					},
 				},
 			},
-
-			// Customer managed resources
 			"customer_managed_resources": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "Customer managed resources configuration for the cluster.",

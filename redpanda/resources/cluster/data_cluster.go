@@ -26,14 +26,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/cluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
-var (
-	_ datasource.DataSource = &DataSourceCluster{}
-)
+var _ datasource.DataSource = &DataSourceCluster{}
 
 // DataSourceCluster represents a cluster data source.
 type DataSourceCluster struct {
@@ -64,10 +61,10 @@ func (d *DataSourceCluster) Configure(_ context.Context, req datasource.Configur
 
 // Read reads the Cluster data source's values and updates the state.
 func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var model models.Cluster
+	var model cluster.DataModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 
-	cluster, err := d.CpCl.ClusterForID(ctx, model.ID.ValueString())
+	cl, err := d.CpCl.ClusterForID(ctx, model.ID.ValueString())
 	if err != nil {
 		if utils.IsNotFound(err) {
 			resp.Diagnostics.AddError(fmt.Sprintf("unable to find cluster %s", model.ID), utils.DeserializeGrpcError(err))
@@ -78,22 +75,21 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 	}
 
 	// Handle clusters in deleting states - add warning but still return the data
-	if cluster.GetState() == controlplanev1.Cluster_STATE_DELETING || cluster.GetState() == controlplanev1.Cluster_STATE_DELETING_AGENT {
-		resp.Diagnostics.AddWarning(fmt.Sprintf("cluster %s is in state %s", model.ID.ValueString(), cluster.GetState()), "")
+	if cl.GetState() == controlplanev1.Cluster_STATE_DELETING || cl.GetState() == controlplanev1.Cluster_STATE_DELETING_AGENT {
+		resp.Diagnostics.AddWarning(fmt.Sprintf("cluster %s is in state %s", model.ID.ValueString(), cl.GetState()), "")
 	}
 
-	// Convert cloud provider tags to Terraform map
-	tags, err := utils.StringMapToTypesMap(cluster.GetCloudProviderTags())
+	tags, err := utils.StringMapToTypesMap(cl.GetCloudProviderTags())
 	if err != nil {
 		resp.Diagnostics.AddError("error converting tags to MapType", err.Error())
 		return
 	}
 
-	persist, dg := generateModel(cluster, modelOrAPI{
-		RedpandaVersion:       types.StringValue(cluster.GetCurrentRedpandaVersion()),
+	persist, dg := model.GetUpdatedModel(ctx, cl, cluster.ContingentFields{
+		RedpandaVersion:       types.StringValue(cl.GetCurrentRedpandaVersion()),
 		Tags:                  tags,
-		GcpGlobalAccessConfig: types.BoolValue(cluster.GetGcpGlobalAccessEnabled()),
-	}, resp.Diagnostics)
+		GcpGlobalAccessConfig: types.BoolValue(cl.GetGcpGlobalAccessEnabled()),
+	})
 	if dg.HasError() {
 		resp.Diagnostics.AddError("error generating model", "failed to generate model in cluster datasource read")
 		resp.Diagnostics.Append(dg...)
