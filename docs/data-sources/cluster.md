@@ -23,6 +23,7 @@ Data source for a Redpanda Cloud cluster
 - `azure_private_link` (Attributes) Azure Private Link configuration. (see [below for nested schema](#nestedatt--azure_private_link))
 - `cloud_provider` (String) Cloud provider where resources are created.
 - `cluster_api_url` (String) The URL of the cluster API.
+- `cluster_configuration` (Attributes) Configuration for the cluster. (see [below for nested schema](#nestedatt--cluster_configuration))
 - `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation.
 - `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, Private is best-practice.
 - `created_at` (String) Timestamp when the cluster was created.
@@ -143,6 +144,14 @@ Read-Only:
 - `status` (String) Status of the endpoint connection.
 
 
+
+
+<a id="nestedatt--cluster_configuration"></a>
+### Nested Schema for `cluster_configuration`
+
+Read-Only:
+
+- `custom_properties_json` (String) Custom properties for the cluster in JSON format.
 
 
 <a id="nestedatt--customer_managed_resources"></a>

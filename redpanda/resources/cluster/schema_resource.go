@@ -113,6 +113,15 @@ func resourceClusterSchema() schema.Schema {
 				Description:   "The URL of the cluster API.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
+			"cluster_configuration": schema.SingleNestedAttribute{
+				Optional:    true,
+				Description: "Configuration for the cluster.",
+				Attributes: map[string]schema.Attribute{
+					"custom_properties_json": schema.StringAttribute{
+						Optional: true,
+					},
+				},
+			},
 			"kafka_api": schema.SingleNestedAttribute{
 				Optional:      true,
 				Computed:      true,
