@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/genproto/googleapis/type/dayofweek"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -1209,5 +1211,150 @@ func TestDataModel_GenerateCustomerManagedResources(t *testing.T) {
 		assert.True(t, diags.HasError())
 		assert.True(t, result.IsNull())
 		assert.Contains(t, diags.Errors()[0].Summary(), "Customer Managed Resources with non-BYOC cluster type")
+	})
+}
+
+func TestDataModel_GenerateClusterConfiguration(t *testing.T) {
+	model := &DataModel{}
+
+	t.Run("with cluster configuration and custom properties", func(t *testing.T) {
+		customProps, err := structpb.NewStruct(map[string]any{
+			"auto.create.topics.enable": true,
+			"log.segment.bytes":         "1073741824",
+			"retention.ms":              "604800000",
+			"compaction.type":           "cleanup",
+		})
+		require.NoError(t, err)
+
+		cluster := &controlplanev1.Cluster{
+			ClusterConfiguration: &controlplanev1.Cluster_ClusterConfiguration{
+				CustomProperties: customProps,
+			},
+		}
+
+		result, diags := model.generateModelClusterConfiguration(cluster)
+
+		assert.False(t, diags.HasError())
+		assert.False(t, result.IsNull())
+
+		attrs := result.Attributes()
+		customPropsJSONAttr, ok := attrs["custom_properties_json"].(types.String)
+		require.True(t, ok)
+
+		// Parse the JSON to verify it contains expected properties
+		jsonStr := customPropsJSONAttr.ValueString()
+		assert.Contains(t, jsonStr, "auto.create.topics.enable")
+		assert.Contains(t, jsonStr, "log.segment.bytes")
+		assert.Contains(t, jsonStr, "retention.ms")
+		assert.Contains(t, jsonStr, "compaction.type")
+
+		// Verify it's valid JSON
+		var parsedJSON map[string]any
+		err = json.Unmarshal([]byte(jsonStr), &parsedJSON)
+		require.NoError(t, err)
+
+		// Verify specific values
+		assert.Equal(t, true, parsedJSON["auto.create.topics.enable"])
+		assert.Equal(t, "1073741824", parsedJSON["log.segment.bytes"])
+		assert.Equal(t, "604800000", parsedJSON["retention.ms"])
+		assert.Equal(t, "cleanup", parsedJSON["compaction.type"])
+	})
+
+	t.Run("with cluster configuration but no custom properties", func(t *testing.T) {
+		cluster := &controlplanev1.Cluster{
+			ClusterConfiguration: &controlplanev1.Cluster_ClusterConfiguration{
+				// No custom properties set
+			},
+		}
+
+		result, diags := model.generateModelClusterConfiguration(cluster)
+
+		assert.False(t, diags.HasError())
+		assert.True(t, result.IsNull())
+	})
+
+	t.Run("with cluster configuration and empty custom properties", func(t *testing.T) {
+		customProps, err := structpb.NewStruct(map[string]any{})
+		require.NoError(t, err)
+
+		cluster := &controlplanev1.Cluster{
+			ClusterConfiguration: &controlplanev1.Cluster_ClusterConfiguration{
+				CustomProperties: customProps,
+			},
+		}
+
+		result, diags := model.generateModelClusterConfiguration(cluster)
+
+		assert.False(t, diags.HasError())
+		assert.True(t, result.IsNull(), "Empty custom properties should return null to avoid plan/apply consistency issues")
+	})
+
+	t.Run("with complex nested custom properties", func(t *testing.T) {
+		customProps, err := structpb.NewStruct(map[string]any{
+			"redpanda.enable_transactions":    true,
+			"redpanda.transaction_timeout_ms": 60000,
+			"kafka_batch_max_bytes":           1048576,
+			"cluster_id":                      "test-cluster-123",
+			"security": map[string]any{
+				"enable_sasl":     true,
+				"mechanism_scram": "SCRAM-SHA-256",
+				"mechanism_plain": "PLAIN",
+			},
+			"quotas": map[string]any{
+				"producer_byte_rate": 1048576,
+				"consumer_byte_rate": 2097152,
+			},
+		})
+		require.NoError(t, err)
+
+		cluster := &controlplanev1.Cluster{
+			ClusterConfiguration: &controlplanev1.Cluster_ClusterConfiguration{
+				CustomProperties: customProps,
+			},
+		}
+
+		result, diags := model.generateModelClusterConfiguration(cluster)
+
+		assert.False(t, diags.HasError())
+		assert.False(t, result.IsNull())
+
+		attrs := result.Attributes()
+		customPropsJSONAttr, ok := attrs["custom_properties_json"].(types.String)
+		require.True(t, ok)
+
+		// Parse the JSON to verify nested structure
+		jsonStr := customPropsJSONAttr.ValueString()
+		var parsedJSON map[string]any
+		err = json.Unmarshal([]byte(jsonStr), &parsedJSON)
+		require.NoError(t, err)
+
+		// Verify top-level properties
+		assert.Equal(t, true, parsedJSON["redpanda.enable_transactions"])
+		assert.Equal(t, float64(60000), parsedJSON["redpanda.transaction_timeout_ms"])
+		assert.Equal(t, float64(1048576), parsedJSON["kafka_batch_max_bytes"])
+		assert.Equal(t, "test-cluster-123", parsedJSON["cluster_id"])
+
+		// Verify nested objects exist
+		security, ok := parsedJSON["security"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, true, security["enable_sasl"])
+		assert.Equal(t, "SCRAM-SHA-256", security["mechanism_scram"])
+		assert.Equal(t, "PLAIN", security["mechanism_plain"])
+
+		quotas, ok := parsedJSON["quotas"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, float64(1048576), quotas["producer_byte_rate"])
+		assert.Equal(t, float64(2097152), quotas["consumer_byte_rate"])
+	})
+
+	t.Run("without cluster configuration", func(t *testing.T) {
+		cluster := &controlplanev1.Cluster{
+			// No cluster configuration
+		}
+
+		result, diags := model.generateModelClusterConfiguration(cluster)
+
+		assert.False(t, diags.HasError())
+		assert.True(t, result.IsNull())
 	})
 }

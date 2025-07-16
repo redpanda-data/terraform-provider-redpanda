@@ -74,6 +74,16 @@ func datasourceClusterSchema() schema.Schema {
 				Computed:    true,
 				Description: "Timestamp when the cluster was created.",
 			},
+			"cluster_configuration": schema.SingleNestedAttribute{
+				Computed:    true,
+				Description: "Configuration for the cluster.",
+				Attributes: map[string]schema.Attribute{
+					"custom_properties_json": schema.StringAttribute{
+						Computed:    true,
+						Description: "Custom properties for the cluster in JSON format.",
+					},
+				},
+			},
 			"kafka_api": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "Cluster's Kafka API properties.",
