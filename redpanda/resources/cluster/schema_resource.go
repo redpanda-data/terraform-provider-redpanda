@@ -44,7 +44,7 @@ func resourceClusterSchema() schema.Schema {
 				},
 			},
 			"cloud_provider": schema.StringAttribute{
-				Optional:      true,
+				Required:      true,
 				Description:   "Cloud provider where resources are created.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    validators.CloudProviders(),
@@ -60,12 +60,12 @@ func resourceClusterSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"region": schema.StringAttribute{
-				Optional:      true,
+				Required:      true,
 				Description:   "Cloud provider region. Region represents the name of the region where the cluster will be provisioned.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"zones": schema.ListAttribute{
-				Optional:      true,
+				Required:      true,
 				Description:   "Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster.",
 				ElementType:   types.StringType,
 				PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
