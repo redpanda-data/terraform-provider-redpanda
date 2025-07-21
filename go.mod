@@ -19,6 +19,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/redpanda-data/redpanda/src/go/rpk v0.0.0-20250324141452-c979dc730ef3
 	github.com/stretchr/testify v1.10.0
+	github.com/twmb/franz-go/pkg/sr v1.3.0
 	golang.org/x/time v0.11.0
 	google.golang.org/genproto v0.0.0-20250313205543-e70fdf4c4cb4
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250313205543-e70fdf4c4cb4
