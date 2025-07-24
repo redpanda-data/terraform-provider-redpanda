@@ -19,6 +19,7 @@ package kclients
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/twmb/franz-go/pkg/sr"
@@ -69,4 +70,71 @@ func FetchSchema(ctx context.Context, client *sr.Client, subject string, version
 	}
 
 	return schemas[len(schemas)-1], nil
+}
+
+// stringToCompatibilityLevel converts a string to sr.CompatibilityLevel
+func stringToCompatibilityLevel(s string) sr.CompatibilityLevel {
+	switch strings.ToUpper(s) {
+	case "NONE":
+		return sr.CompatNone
+	case "BACKWARD":
+		return sr.CompatBackward
+	case "BACKWARD_TRANSITIVE":
+		return sr.CompatBackwardTransitive
+	case "FORWARD":
+		return sr.CompatForward
+	case "FORWARD_TRANSITIVE":
+		return sr.CompatForwardTransitive
+	case "FULL":
+		return sr.CompatFull
+	case "FULL_TRANSITIVE":
+		return sr.CompatFullTransitive
+	default:
+		return sr.CompatBackward // Default to BACKWARD
+	}
+}
+
+// SetSubjectCompatibility sets the compatibility level for a subject
+func SetSubjectCompatibility(ctx context.Context, client *sr.Client, subject, compatibility string) error {
+	if compatibility == "" {
+		return nil // No compatibility to set
+	}
+
+	// Use SetCompatibility method with proper struct
+	setCompat := sr.SetCompatibility{
+		Level: stringToCompatibilityLevel(compatibility),
+	}
+
+	results := client.SetCompatibility(ctx, setCompat, subject)
+	// Check if any result has an error
+	for _, result := range results {
+		if result.Err != nil {
+			return result.Err
+		}
+	}
+	return nil
+}
+
+// GetSubjectCompatibility gets the compatibility level for a subject
+func GetSubjectCompatibility(ctx context.Context, client *sr.Client, subject string) (string, error) {
+	// Use Compatibility method to get subject compatibility
+	results := client.Compatibility(ctx, subject)
+
+	// Check results for the subject
+	for _, result := range results {
+		if result.Err != nil {
+			return "", fmt.Errorf("failed to get compatibility for subject %s: %w", subject, result.Err)
+		}
+		if result.Subject == subject {
+			return result.Level.String(), nil
+		}
+	}
+
+	// If no specific result found, check if we have any results
+	if len(results) > 0 && results[0].Err == nil {
+		return results[0].Level.String(), nil
+	}
+
+	// No compatibility level found for the subject
+	return "", fmt.Errorf("no compatibility level found for subject %s", subject)
 }

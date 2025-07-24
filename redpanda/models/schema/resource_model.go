@@ -28,15 +28,17 @@ import (
 
 // ResourceModel represents the Terraform schema for the schema resource.
 type ResourceModel struct {
-	Subject    types.String `tfsdk:"subject"`
-	Schema     types.String `tfsdk:"schema"`
-	SchemaType types.String `tfsdk:"schema_type"`
-	Version    types.Int64  `tfsdk:"version"`
-	ID         types.Int64  `tfsdk:"id"`
-	ClusterID  types.String `tfsdk:"cluster_id"`
-	References types.List   `tfsdk:"references"`
-	Username   types.String `tfsdk:"username"`
-	Password   types.String `tfsdk:"password"`
+	Subject       types.String `tfsdk:"subject"`
+	Schema        types.String `tfsdk:"schema"`
+	SchemaType    types.String `tfsdk:"schema_type"`
+	Version       types.Int64  `tfsdk:"version"`
+	ID            types.Int64  `tfsdk:"id"`
+	ClusterID     types.String `tfsdk:"cluster_id"`
+	References    types.List   `tfsdk:"references"`
+	Compatibility types.String `tfsdk:"compatibility"`
+	Username      types.String `tfsdk:"username"`
+	Password      types.String `tfsdk:"password"`
+	AllowDeletion types.Bool   `tfsdk:"allow_deletion"`
 }
 
 // GetID returns the schema ID.
@@ -219,4 +221,35 @@ func (r *ResourceModel) normalizeJSON(registrySchema string) string {
 
 	// Schemas are different, return empty to use registry version
 	return ""
+}
+
+// convertCompatibility converts string compatibility to API format
+func (r *ResourceModel) convertCompatibility() string {
+	if r.Compatibility.IsNull() || r.Compatibility.IsUnknown() {
+		return "BACKWARD" // Default to BACKWARD per API docs
+	}
+	
+	compatLevel := strings.ToUpper(r.Compatibility.ValueString())
+	switch compatLevel {
+	case "BACKWARD", "BACKWARD_TRANSITIVE", "FORWARD", "FORWARD_TRANSITIVE", 
+		 "FULL", "FULL_TRANSITIVE", "NONE":
+		return compatLevel
+	default:
+		return "BACKWARD"
+	}
+}
+
+// GetCompatibility returns the compatibility as a string
+func (r *ResourceModel) GetCompatibility() string {
+	if r.Compatibility.IsNull() || r.Compatibility.IsUnknown() {
+		return ""
+	}
+	return r.Compatibility.ValueString()
+}
+
+// UpdateCompatibility updates the compatibility from API response
+func (r *ResourceModel) UpdateCompatibility(compatibility string) {
+	if compatibility != "" {
+		r.Compatibility = types.StringValue(strings.ToUpper(compatibility))
+	}
 }

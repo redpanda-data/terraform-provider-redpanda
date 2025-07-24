@@ -73,6 +73,18 @@ func resourceSchemaSchema() schema.Schema {
 				Required:    true,
 				Sensitive:   true,
 			},
+			"compatibility": schema.StringAttribute{
+				Description: "The compatibility level for schema evolution (BACKWARD, BACKWARD_TRANSITIVE, FORWARD, FORWARD_TRANSITIVE, FULL, FULL_TRANSITIVE, NONE). Defaults to BACKWARD.",
+				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"allow_deletion": schema.BoolAttribute{
+				Description: "When enabled, prevents the resource from being deleted if the cluster is unreachable. When disabled (default), the resource will be removed from state without attempting deletion when the cluster is unreachable.",
+				Optional:    true,
+			},
 		},
 	}
 }

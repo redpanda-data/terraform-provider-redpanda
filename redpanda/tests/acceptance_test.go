@@ -43,6 +43,9 @@ const (
 	networkDataSourceName              = "data.redpanda_network.test"
 	serverlessRegionsAWSDataSourceName = "data.redpanda_serverless_regions.aws"
 	serverlessRegionsGCPDataSourceName = "data.redpanda_serverless_regions.gcp"
+	schemaResourceName                 = "redpanda_schema.user_schema"
+	schemaEventResourceName            = "redpanda_schema.user_event_schema"
+	schemaProductResourceName          = "redpanda_schema.product_schema"
 )
 
 var (
@@ -418,6 +421,10 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
+	
+	compatibilityUpdateVars := make(map[string]config.Variable)
+	maps.Copy(compatibilityUpdateVars, updateTestCaseVars)
+	compatibilityUpdateVars["compatibility_level"] = config.StringVariable("FORWARD")
 
 	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
 	if err != nil {
@@ -436,6 +443,16 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
 					resource.TestCheckResourceAttr(userResourceName, "name", name),
 					resource.TestCheckResourceAttr(topicResourceName, "name", name),
+					resource.TestCheckResourceAttr(schemaResourceName, "subject", name+"-value"),
+					resource.TestCheckResourceAttr(schemaResourceName, "schema_type", "AVRO"),
+					resource.TestCheckResourceAttr(schemaResourceName, "compatibility", "BACKWARD"), // Default compatibility
+					resource.TestCheckResourceAttrSet(schemaResourceName, "id"),
+					resource.TestCheckResourceAttrSet(schemaResourceName, "version"),
+					resource.TestCheckResourceAttr(schemaEventResourceName, "subject", name+"-events-value"),
+					resource.TestCheckResourceAttr(schemaEventResourceName, "references.#", "1"),
+					resource.TestCheckResourceAttr(schemaEventResourceName, "references.0.name", "User"),
+					resource.TestCheckResourceAttr(schemaProductResourceName, "subject", name+"-product-value"),
+					resource.TestCheckResourceAttr(schemaProductResourceName, "compatibility", "FULL"),
 				),
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
@@ -486,6 +503,19 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
 					resource.TestCheckResourceAttr(networkResourceName, "name", name),
 					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+				),
+			},
+			// Test compatibility update on schema
+			{
+				ConfigFile:               config.StaticFile(testFile),
+				ConfigVariables:          compatibilityUpdateVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+					// Check that product schema compatibility was updated
+					resource.TestCheckResourceAttr(schemaProductResourceName, "compatibility", "FORWARD"),
 				),
 			},
 			{

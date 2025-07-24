@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/kclients"
@@ -106,6 +107,32 @@ func (s *Schema) Create(ctx context.Context, request resource.CreateRequest, res
 
 	plan.ID = types.Int64Value(int64(schemaResp.ID))
 	plan.Version = types.Int64Value(int64(schemaResp.Version))
+
+	// Set compatibility level if specified
+	if !plan.Compatibility.IsNull() && !plan.Compatibility.IsUnknown() {
+		err = kclients.SetSubjectCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility.ValueString())
+		if err != nil {
+			response.Diagnostics.AddError(
+				"Failed to set compatibility level",
+				fmt.Sprintf("Unable to set compatibility level for subject %s: %v", plan.Subject.ValueString(), err),
+			)
+			return
+		}
+	} else {
+		// If compatibility is not specified, get the current compatibility level
+		compatibility, err := kclients.GetSubjectCompatibility(ctx, client, plan.Subject.ValueString())
+		if err != nil {
+			// Log warning but don't fail the resource creation
+			tflog.Warn(ctx, "Failed to get compatibility level", map[string]any{
+				"subject": plan.Subject.ValueString(),
+				"error":   err.Error(),
+			})
+			plan.Compatibility = types.StringValue(kclients.DefaultCompatibilityLevel)
+		} else {
+			plan.Compatibility = types.StringValue(compatibility)
+		}
+	}
+
 	response.Diagnostics.Append(response.State.Set(ctx, &plan)...)
 }
 
@@ -139,13 +166,31 @@ func (s *Schema) Read(ctx context.Context, request resource.ReadRequest, respons
 	}
 
 	state.UpdateFromSchema(schemaResp)
+
+	// Get compatibility level for the subject
+	compatibility, err := kclients.GetSubjectCompatibility(ctx, client, state.Subject.ValueString())
+	if err != nil {
+		tflog.Warn(ctx, "Failed to get compatibility level", map[string]any{
+			"subject": state.Subject.ValueString(),
+			"error":   err.Error(),
+		})
+		// Don't fail the read, just use the existing value or default
+		if state.Compatibility.IsNull() {
+			state.Compatibility = types.StringValue(kclients.DefaultCompatibilityLevel)
+		}
+	} else {
+		state.Compatibility = types.StringValue(compatibility)
+	}
+
 	response.Diagnostics.Append(response.State.Set(ctx, &state)...)
 }
 
 // Update creates a new version of an existing schema.
 func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
 	var plan schemamodel.ResourceModel
+	var state schemamodel.ResourceModel
 	response.Diagnostics.Append(request.Plan.Get(ctx, &plan)...)
+	response.Diagnostics.Append(request.State.Get(ctx, &state)...)
 	if response.Diagnostics.HasError() {
 		return
 	}
@@ -159,8 +204,54 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 		return
 	}
 
-	schemaReq := plan.ToSchemaRequest()
-	schemaResp, err := client.CreateSchema(ctx, plan.Subject.ValueString(), schemaReq)
+	// Check if the schema has actually changed by comparing the normalized versions
+	planReq := plan.ToSchemaRequest()
+	stateReq := state.ToSchemaRequest()
+
+	// Compare schema content, type, and references
+	if planReq.Schema == stateReq.Schema &&
+		planReq.Type == stateReq.Type &&
+		len(planReq.References) == len(stateReq.References) {
+		// Check if references are identical
+		referencesEqual := true
+		for i, planRef := range planReq.References {
+			if i >= len(stateReq.References) ||
+				planRef.Name != stateReq.References[i].Name ||
+				planRef.Subject != stateReq.References[i].Subject ||
+				planRef.Version != stateReq.References[i].Version {
+				referencesEqual = false
+				break
+			}
+		}
+
+		if referencesEqual {
+			// Schema hasn't changed, just update state with current values
+			plan.UpdateFromSchema(sr.SubjectSchema{
+				ID:      int(state.ID.ValueInt64()),
+				Version: int(state.Version.ValueInt64()),
+				Schema:  planReq,
+				Subject: state.Subject.ValueString(),
+			})
+
+			// Check if only compatibility changed
+			if plan.Compatibility.ValueString() != state.Compatibility.ValueString() && !plan.Compatibility.IsNull() && !plan.Compatibility.IsUnknown() {
+				err = kclients.SetSubjectCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility.ValueString())
+				if err != nil {
+					response.Diagnostics.AddError(
+						"Failed to update compatibility level",
+						fmt.Sprintf("Unable to update compatibility level for subject %s: %v", plan.Subject.ValueString(), err),
+					)
+					return
+				}
+			}
+
+			response.Diagnostics.Append(response.State.Set(ctx, &plan)...)
+			return
+		}
+	}
+
+	// Schema has changed, create new version
+	schemaResp, err := client.CreateSchema(ctx, plan.Subject.ValueString(), planReq)
 	if err != nil {
 		response.Diagnostics.AddError(
 			"Failed to update schema",
@@ -170,6 +261,19 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 	}
 
 	plan.UpdateFromSchema(schemaResp)
+
+	// Update compatibility level if it changed
+	if plan.Compatibility.ValueString() != state.Compatibility.ValueString() && !plan.Compatibility.IsNull() && !plan.Compatibility.IsUnknown() {
+		err = kclients.SetSubjectCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility.ValueString())
+		if err != nil {
+			response.Diagnostics.AddError(
+				"Failed to update compatibility level",
+				fmt.Sprintf("Unable to update compatibility level for subject %s: %v", plan.Subject.ValueString(), err),
+			)
+			return
+		}
+	}
+
 	response.Diagnostics.Append(response.State.Set(ctx, &plan)...)
 }
 
@@ -193,6 +297,24 @@ func (s *Schema) Delete(ctx context.Context, request resource.DeleteRequest, res
 	_, err = client.DeleteSubject(ctx, state.GetSubject(), sr.SoftDelete)
 	if err != nil {
 		if !utils.IsNotFound(err) {
+			// Check if cluster is unreachable
+			if utils.IsClusterUnreachable(err) {
+				if !state.AllowDeletion.ValueBool() {
+					// When allow_deletion is false (default), prevent deletion and keep in state
+					response.Diagnostics.AddError(
+						"Cannot delete schema - cluster unreachable",
+						fmt.Sprintf("Unable to delete schema subject %s because the cluster is unreachable. Set allow_deletion=true to force removal from state. Error: %v", state.GetSubject(), err),
+					)
+					return
+				}
+				// When allow_deletion is true, remove from state even though cluster is unreachable
+				tflog.Warn(ctx, "Cluster unreachable during deletion, but allow_deletion=true, removing from state", map[string]any{
+					"subject":        state.GetSubject(),
+					"allow_deletion": state.AllowDeletion.ValueBool(),
+				})
+				return
+			}
+			// Other errors should always fail
 			response.Diagnostics.AddError(
 				"Failed to delete schema",
 				fmt.Sprintf("Unable to delete schema subject %s: %v", state.GetSubject(), err),
