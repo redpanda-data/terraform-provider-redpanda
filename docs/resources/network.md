@@ -17,7 +17,7 @@ Creates a network in the Redpanda Cloud.
 ### Required
 
 - `cloud_provider` (String) The cloud provider to create the network in.
-- `cluster_type` (String) The type of cluster this network is associated with, can be one of dedicated or cloud
+- `cluster_type` (String) The type of cluster this network is associated with, can be one of dedicated or byoc
 - `name` (String) Name of the network
 - `region` (String) The region to create the network in.
 - `resource_group_id` (String) The ID of the resource group in which to create the network
