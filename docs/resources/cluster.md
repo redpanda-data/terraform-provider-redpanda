@@ -16,7 +16,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 
 ### Required
 
-- `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation.
+- `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation. Can be one of dedicated or byoc.
 - `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, Private is best-practice.
 - `name` (String) Unique name of the cluster.
 - `network_id` (String) Network ID where cluster is placed.
