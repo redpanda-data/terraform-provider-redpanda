@@ -29,6 +29,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `aws_private_link` (Attributes) AWS PrivateLink configuration. (see [below for nested schema](#nestedatt--aws_private_link))
 - `azure_private_link` (Attributes) Azure Private Link configuration. (see [below for nested schema](#nestedatt--azure_private_link))
 - `cloud_provider` (String) Cloud provider where resources are created.
+- `cluster_configuration` (Attributes) Configuration for the cluster. (see [below for nested schema](#nestedatt--cluster_configuration))
 - `customer_managed_resources` (Attributes) Customer managed resources configuration for the cluster. (see [below for nested schema](#nestedatt--customer_managed_resources))
 - `gcp_global_access_enabled` (Boolean) If true, GCP global access is enabled.
 - `gcp_private_service_connect` (Attributes) GCP Private Service Connect configuration. (see [below for nested schema](#nestedatt--gcp_private_service_connect))
@@ -154,6 +155,14 @@ Read-Only:
 - `status` (String) Status of the endpoint connection.
 
 
+
+
+<a id="nestedatt--cluster_configuration"></a>
+### Nested Schema for `cluster_configuration`
+
+Optional:
+
+- `custom_properties_json` (String) Custom properties for the cluster in JSON format.
 
 
 <a id="nestedatt--customer_managed_resources"></a>

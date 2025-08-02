@@ -18,6 +18,7 @@ package cluster
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
@@ -27,6 +28,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"google.golang.org/genproto/googleapis/type/dayofweek"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // ResourceModel represents the Terraform schema for the cluster resource.
@@ -61,6 +63,7 @@ type ResourceModel struct {
 	RedpandaConsole          types.Object        `tfsdk:"redpanda_console"`
 	MaintenanceWindowConfig  types.Object        `tfsdk:"maintenance_window_config"`
 	GCPGlobalAccessEnabled   basetypes.BoolValue `tfsdk:"gcp_global_access_enabled"`
+	ClusterConfiguration     types.Object        `tfsdk:"cluster_configuration"`
 }
 
 // GetID returns the cluster ID.
@@ -104,6 +107,7 @@ func GenerateMinimalResourceModel(clusterID string) *ResourceModel {
 		StateDescription:         types.ObjectNull(getStateDescriptionType()),
 		MaintenanceWindowConfig:  types.ObjectNull(getMaintenanceWindowConfigType()),
 		KafkaConnect:             types.ObjectNull(getKafkaConnectType()),
+		ClusterConfiguration:     types.ObjectNull(getClusterConfigurationType()),
 	}
 }
 
@@ -223,6 +227,12 @@ func (r *ResourceModel) GetUpdatedModel(ctx context.Context, cluster *controlpla
 		r.MaintenanceWindowConfig = maintenanceWindow
 	}
 
+	if clusterConfiguration, d := r.generateModelClusterConfiguration(cluster); d.HasError() {
+		diags.Append(d...)
+	} else {
+		r.ClusterConfiguration = clusterConfiguration
+	}
+
 	return r, diags
 }
 
@@ -340,6 +350,15 @@ func (r *ResourceModel) GetClusterCreate(ctx context.Context) (*controlplanev1.C
 	if !r.GCPGlobalAccessEnabled.IsNull() {
 		output.GcpEnableGlobalAccess = r.GCPGlobalAccessEnabled.ValueBool()
 	}
+	if !r.ClusterConfiguration.IsNull() {
+		ccCr, d := r.generateClusterClusterConfiguration()
+		if d.HasError() {
+			diags.Append(d...)
+		}
+		output.ClusterConfiguration = &controlplanev1.ClusterCreate_ClusterConfiguration{
+			CustomProperties: ccCr,
+		}
+	}
 
 	return output, diags
 }
@@ -432,6 +451,16 @@ func (r *ResourceModel) getClusterUpdate(ctx context.Context) (*controlplanev1.C
 			diags.Append(d...)
 		}
 		update.CustomerManagedResources = cmrUpdate
+	}
+
+	if !r.ClusterConfiguration.IsNull() {
+		ccUp, d := r.generateClusterClusterConfiguration()
+		if d.HasError() {
+			diags.Append(d...)
+		}
+		update.ClusterConfiguration = &controlplanev1.ClusterUpdate_ClusterConfiguration{
+			CustomProperties: ccUp,
+		}
 	}
 
 	return update, diags
@@ -768,6 +797,35 @@ func (r *ResourceModel) generateClusterMaintenanceWindow() (*controlplanev1.Main
 	}
 
 	return nil, diags
+}
+
+func (r *ResourceModel) generateClusterClusterConfiguration() (*structpb.Struct, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if r.ClusterConfiguration.IsNull() {
+		return nil, diags
+	}
+	// Get custom properties if defined
+	customPropsJSON, err := utils.GetStringFromAttributes("custom_properties_json", r.ClusterConfiguration.Attributes())
+	if err != nil {
+		// custom_properties_json is optional, so it's okay if it doesn't exist
+		// Return nil struct which means no custom properties
+		return nil, diags
+	}
+	// Convert JSON string to a map
+	customProps := map[string]any{}
+	if customPropsJSON != "" {
+		if err := json.Unmarshal([]byte(customPropsJSON), &customProps); err != nil {
+			diags.AddError("failed to unmarshal custom_properties_json", err.Error())
+			return nil, diags
+		}
+	}
+	// Convert map to structpb.Struct
+	customPropsStruct, err := structpb.NewStruct(customProps)
+	if err != nil {
+		diags.AddError("failed to convert custom_properties_json to structpb.Struct", err.Error())
+		return nil, diags
+	}
+	return customPropsStruct, diags
 }
 
 func (*ResourceModel) generateModelStateDescription(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
@@ -1409,6 +1467,45 @@ func (*ResourceModel) generateMtlsModel(mtls *controlplanev1.MTLSSpec) (types.Ob
 		diags.Append(d...)
 		diags.AddError("failed to generate MTLS object", "could not create MTLS object")
 		return types.ObjectNull(getMtlsType()), diags
+	}
+
+	return obj, diags
+}
+
+func (*ResourceModel) generateModelClusterConfiguration(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if !cluster.HasClusterConfiguration() {
+		return types.ObjectNull(getClusterConfigurationType()), diags
+	}
+
+	cfg := cluster.GetClusterConfiguration()
+	configValues := map[string]attr.Value{
+		"custom_properties_json": types.StringNull(),
+	}
+
+	// Handle custom properties
+	if cfg.HasCustomProperties() {
+		customPropsMap := cfg.GetCustomProperties().AsMap()
+		if len(customPropsMap) > 0 {
+			customPropsBytes, err := json.Marshal(customPropsMap)
+			if err != nil {
+				diags.AddError("failed to marshal custom properties", "could not convert custom properties to JSON")
+				return types.ObjectNull(getClusterConfigurationType()), diags
+			}
+			configValues["custom_properties_json"] = types.StringValue(string(customPropsBytes))
+		}
+	}
+
+	// Only return null if custom properties are null
+	if configValues["custom_properties_json"].IsNull() {
+		return types.ObjectNull(getClusterConfigurationType()), diags
+	}
+
+	obj, d := types.ObjectValue(getClusterConfigurationType(), configValues)
+	if d.HasError() {
+		diags.Append(d...)
+		diags.AddError("failed to generate cluster configuration object", "could not create cluster configuration object")
+		return types.ObjectNull(getClusterConfigurationType()), diags
 	}
 
 	return obj, diags
