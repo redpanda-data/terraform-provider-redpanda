@@ -18,6 +18,7 @@ package cluster
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
@@ -60,6 +61,7 @@ type DataModel struct {
 	RedpandaConsole          types.Object        `tfsdk:"redpanda_console"`
 	MaintenanceWindowConfig  types.Object        `tfsdk:"maintenance_window_config"`
 	GCPGlobalAccessEnabled   basetypes.BoolValue `tfsdk:"gcp_global_access_enabled"`
+	ClusterConfiguration     types.Object        `tfsdk:"cluster_configuration"`
 }
 
 // GetID returns the ID
@@ -177,6 +179,12 @@ func (r *DataModel) GetUpdatedModel(_ context.Context, cluster *controlplanev1.C
 		diags.Append(d...)
 	} else {
 		r.CustomerManagedResources = cmr
+	}
+
+	if clusterConfiguration, d := r.generateModelClusterConfiguration(cluster); d.HasError() {
+		diags.Append(d...)
+	} else {
+		r.ClusterConfiguration = clusterConfiguration
 	}
 
 	return r, diags
@@ -978,4 +986,43 @@ func (*DataModel) generateModelGCPCMR(gcpData *controlplanev1.CustomerManagedRes
 	}
 
 	return gcpObj, diags
+}
+
+func (*DataModel) generateModelClusterConfiguration(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if !cluster.HasClusterConfiguration() {
+		return types.ObjectNull(getClusterConfigurationType()), diags
+	}
+
+	cfg := cluster.GetClusterConfiguration()
+	configValues := map[string]attr.Value{
+		"custom_properties_json": types.StringNull(),
+	}
+
+	// Handle custom properties
+	if cfg.HasCustomProperties() {
+		customPropsMap := cfg.GetCustomProperties().AsMap()
+		if len(customPropsMap) > 0 {
+			customPropsBytes, err := json.Marshal(customPropsMap)
+			if err != nil {
+				diags.AddError("failed to marshal custom properties", "could not convert custom properties to JSON")
+				return types.ObjectNull(getClusterConfigurationType()), diags
+			}
+			configValues["custom_properties_json"] = types.StringValue(string(customPropsBytes))
+		}
+	}
+
+	// Only return null if custom properties are null
+	if configValues["custom_properties_json"].IsNull() {
+		return types.ObjectNull(getClusterConfigurationType()), diags
+	}
+
+	obj, d := types.ObjectValue(getClusterConfigurationType(), configValues)
+	if d.HasError() {
+		diags.Append(d...)
+		diags.AddError("failed to generate cluster configuration object", "could not create cluster configuration object")
+		return types.ObjectNull(getClusterConfigurationType()), diags
+	}
+
+	return obj, diags
 }

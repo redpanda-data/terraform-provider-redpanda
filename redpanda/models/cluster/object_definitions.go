@@ -159,6 +159,12 @@ func getMtlsType() map[string]attr.Type {
 	}
 }
 
+func getClusterConfigurationType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"custom_properties_json": types.StringType,
+	}
+}
+
 func getHTTPProxyType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"mtls": types.ObjectType{AttrTypes: getMtlsType()},
