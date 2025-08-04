@@ -28,7 +28,7 @@ func resourceClusterSchema() schema.Schema {
 			},
 			"cluster_type": schema.StringAttribute{
 				Required:      true,
-				Description:   "Cluster type. Type is immutable and can only be set on cluster creation.",
+				Description:   "Cluster type. Type is immutable and can only be set on cluster creation. Can be one of dedicated or byoc.",
 				Validators:    validators.ClusterTypes(),
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
