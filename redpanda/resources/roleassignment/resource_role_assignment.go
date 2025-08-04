@@ -34,38 +34,38 @@ func NewRoleAssignment() resource.Resource {
 }
 
 // Metadata returns the metadata for the role assignment resource.
-func (r *RoleAssignment) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+func (*RoleAssignment) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_role_assignment"
 }
 
 // Schema returns the schema for the role assignment resource.
-func (r *RoleAssignment) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (*RoleAssignment) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Assigns existing Redpanda roles to principals. Requires an existing role and user.",
 		Attributes: map[string]schema.Attribute{
 			"role_name": schema.StringAttribute{
-				MarkdownDescription: "The name of the role to assign.",
+				MarkdownDescription: "The name of the role to assign",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"principal": schema.StringAttribute{
-				MarkdownDescription: "The principal (username) to assign the role to. Format: just the username (e.g., 'john.doe').",
+				MarkdownDescription: "The principal to assign the role to. Specify just the username (e.g., `\"john.doe\"`)",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"cluster_api_url": schema.StringAttribute{
-				MarkdownDescription: "The API URL of the cluster where the role assignment should be made.",
+				MarkdownDescription: "The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Unique identifier for the role assignment in the format '{role_name}:{principal}'.",
+				MarkdownDescription: "The ID of this resource. Format: `{role_name}:{principal}`",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
@@ -230,7 +230,7 @@ func (r *RoleAssignment) Delete(ctx context.Context, req resource.DeleteRequest,
 }
 
 // ImportState imports the role assignment state
-func (r *RoleAssignment) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (*RoleAssignment) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Expected format: role_name:principal
 	parts := strings.SplitN(req.ID, ":", 2)
 	if len(parts) != 2 {
@@ -300,7 +300,7 @@ func (r *RoleAssignment) roleAssignmentExists(ctx context.Context, roleName, pri
 }
 
 // createSecurityClient creates a SecurityService client
-func (r *RoleAssignment) createSecurityClient(ctx context.Context, clusterURL string) error {
+func (r *RoleAssignment) createSecurityClient(_ context.Context, clusterURL string) error {
 	if r.SecurityClient != nil {
 		return nil // Client already exists
 	}
