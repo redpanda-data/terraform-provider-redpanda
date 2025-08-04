@@ -52,7 +52,7 @@ func resourceNetworkSchema() schema.Schema {
 			},
 			"cluster_type": schema.StringAttribute{
 				Required:      true,
-				Description:   "The type of cluster this network is associated with, can be one of dedicated or cloud",
+				Description:   "The type of cluster this network is associated with, can be one of dedicated or byoc",
 				Validators:    validators.ClusterTypes(),
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
