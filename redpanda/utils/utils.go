@@ -69,6 +69,33 @@ func IsNotFound(err error) bool {
 	return false
 }
 
+// IsClusterUnreachable checks if the error indicates the cluster is unreachable
+// This typically happens when the cluster is down or DNS cannot resolve the addresses.
+//
+// IMPORTANT: This should be used in Read operations to determine if a resource should be
+// removed from state. However, deletion prevention (allow_deletion) must still be respected:
+// - If allow_deletion=false, the resource should remain in state even if unreachable
+// - If allow_deletion=true (or not set), the resource can be removed from state
+func IsClusterUnreachable(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Check for gRPC Unavailable status with name resolver error
+	if e, ok := grpcstatus.FromError(err); ok && e.Code() == grpccodes.Unavailable {
+		// Check if the error message contains the specific name resolver error
+		if strings.Contains(e.Message(), "name resolver error") &&
+			strings.Contains(e.Message(), "produced zero addresses") {
+			return true
+		}
+	}
+
+	// Also check the error string directly in case it's wrapped
+	errStr := err.Error()
+	return strings.Contains(errStr, "name resolver error") &&
+		strings.Contains(errStr, "produced zero addresses")
+}
+
 // IsNotFoundSpec checks if the passed diag.Diagnostics contains the words missing or malformed
 func IsNotFoundSpec(diags diag.Diagnostics) bool {
 	for _, d := range diags {
