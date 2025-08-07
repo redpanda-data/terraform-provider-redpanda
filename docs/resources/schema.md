@@ -25,6 +25,8 @@ Schema represents a Schema Registry schema
 
 ### Optional
 
+- `allow_deletion` (Boolean) When enabled, prevents the resource from being deleted if the cluster is unreachable. When disabled (default), the resource will be removed from state without attempting deletion when the cluster is unreachable.
+- `compatibility` (String) The compatibility level for schema evolution (BACKWARD, BACKWARD_TRANSITIVE, FORWARD, FORWARD_TRANSITIVE, FULL, FULL_TRANSITIVE, NONE). Defaults to BACKWARD.
 - `references` (Attributes List) List of schema references. (see [below for nested schema](#nestedatt--references))
 - `schema_type` (String) The type of schema (AVRO, JSON, PROTOBUF).
 

@@ -303,7 +303,7 @@ func (r *ResourceModel) GetClusterCreate(ctx context.Context) (*controlplanev1.C
 		if d.HasError() {
 			diags.Append(d...)
 		}
-		output.KafkaConnect = connectSpec
+		output.KafkaConnect = connectSpec //nolint:staticcheck // Field is deprecated but still supported
 	}
 
 	if !r.CustomerManagedResources.IsNull() {
@@ -410,7 +410,7 @@ func (r *ResourceModel) getClusterUpdate(ctx context.Context) (*controlplanev1.C
 		if d.HasError() {
 			diags.Append(d...)
 		}
-		update.KafkaConnect = connectSpec
+		update.KafkaConnect = connectSpec //nolint:staticcheck // Field is deprecated but still supported
 	}
 
 	if !r.AwsPrivateLink.IsNull() {

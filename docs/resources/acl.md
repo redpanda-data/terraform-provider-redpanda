@@ -138,6 +138,16 @@ resource "redpanda_schema" "user_event_schema" {
   ]
 }
 
+resource "redpanda_schema" "product_schema" {
+  cluster_id    = redpanda_cluster.test.id
+  subject       = "${var.topic_name}-product-value"
+  schema_type   = var.schema_type
+  schema        = var.product_schema_definition
+  compatibility = var.compatibility_level
+  username      = redpanda_user.test.name
+  password      = var.user_pw
+}
+
 
 resource "redpanda_acl" "test" {
   resource_type         = "TOPIC"
@@ -250,6 +260,58 @@ variable "user_event_schema_definition" {
 EOF
 }
 
+variable "product_schema_definition" {
+  description = "The AVRO schema definition for product data with strict compatibility"
+  default = <<EOF
+{
+  "type": "record",
+  "name": "Product",
+  "fields": [
+    {
+      "name": "id",
+      "type": "string"
+    },
+    {
+      "name": "name",
+      "type": "string"
+    },
+    {
+      "name": "price",
+      "type": {
+        "type": "bytes",
+        "logicalType": "decimal",
+        "precision": 10,
+        "scale": 2
+      }
+    },
+    {
+      "name": "category",
+      "type": {
+        "type": "enum",
+        "name": "Category",
+        "symbols": ["ELECTRONICS", "CLOTHING", "BOOKS", "HOME"]
+      }
+    },
+    {
+      "name": "description",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "created_at",
+      "type": "long",
+      "logicalType": "timestamp-millis"
+    }
+  ]
+}
+EOF
+}
+
+variable "compatibility_level" {
+  description = "The compatibility level for schema evolution (BACKWARD, BACKWARD_TRANSITIVE, FORWARD, FORWARD_TRANSITIVE, FULL, FULL_TRANSITIVE, NONE)"
+  default     = "FULL"
+}
+
 output "user_schema_info" {
   description = "Information about the created user schema"
   value = {
@@ -268,6 +330,17 @@ output "user_event_schema_info" {
     version    = redpanda_schema.user_event_schema.version
     type       = redpanda_schema.user_event_schema.schema_type
     references = redpanda_schema.user_event_schema.references
+  }
+}
+
+output "product_schema_info" {
+  description = "Information about the created product schema with compatibility settings"
+  value = {
+    id            = redpanda_schema.product_schema.id
+    subject       = redpanda_schema.product_schema.subject
+    version       = redpanda_schema.product_schema.version
+    type          = redpanda_schema.product_schema.schema_type
+    compatibility = redpanda_schema.product_schema.compatibility
   }
 }
 ```

@@ -421,7 +421,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
-	
+
 	compatibilityUpdateVars := make(map[string]config.Variable)
 	maps.Copy(compatibilityUpdateVars, updateTestCaseVars)
 	compatibilityUpdateVars["compatibility_level"] = config.StringVariable("FORWARD")

@@ -110,14 +110,14 @@ func TestResourceModel_PlanApplyComparison(t *testing.T) {
 		description         string
 	}{
 		{
-			name:           "formatted vs minified - same content",
-			currentSchema:  `{"type": "record", "name": "User", "fields": [{"name": "id", "type": "int"}]}`,
-			registrySchema: `{"type":"record","name":"User","fields":[{"name":"id","type":"int"}]}`,
+			name:                "formatted vs minified - same content",
+			currentSchema:       `{"type": "record", "name": "User", "fields": [{"name": "id", "type": "int"}]}`,
+			registrySchema:      `{"type":"record","name":"User","fields":[{"name":"id","type":"int"}]}`,
 			expectNormalization: true,
-			description: "Should preserve original formatting when content is semantically identical",
+			description:         "Should preserve original formatting when content is semantically identical",
 		},
 		{
-			name:           "pretty printed vs minified - same content",
+			name: "pretty printed vs minified - same content",
 			currentSchema: `{
   "type": "record",
   "name": "User", 
@@ -132,37 +132,37 @@ func TestResourceModel_PlanApplyComparison(t *testing.T) {
     }
   ]
 }`,
-			registrySchema: `{"type":"record","name":"User","fields":[{"name":"id","type":"int"},{"name":"name","type":"string"}]}`,
+			registrySchema:      `{"type":"record","name":"User","fields":[{"name":"id","type":"int"},{"name":"name","type":"string"}]}`,
 			expectNormalization: true,
-			description: "Should preserve pretty printing when content matches",
+			description:         "Should preserve pretty printing when content matches",
 		},
 		{
-			name:           "different content - field added",
-			currentSchema:  `{"type": "record", "name": "User", "fields": [{"name": "id", "type": "int"}]}`,
-			registrySchema: `{"type":"record","name":"User","fields":[{"name":"id","type":"int"},{"name":"name","type":"string"}]}`,
+			name:                "different content - field added",
+			currentSchema:       `{"type": "record", "name": "User", "fields": [{"name": "id", "type": "int"}]}`,
+			registrySchema:      `{"type":"record","name":"User","fields":[{"name":"id","type":"int"},{"name":"name","type":"string"}]}`,
 			expectNormalization: false,
-			description: "Should not normalize when content actually differs",
+			description:         "Should not normalize when content actually differs",
 		},
 		{
-			name:           "different field order - semantically same",
-			currentSchema:  `{"name": "User", "type": "record", "fields": [{"name": "id", "type": "int"}]}`,
-			registrySchema: `{"type":"record","name":"User","fields":[{"name":"id","type":"int"}]}`,
+			name:                "different field order - semantically same",
+			currentSchema:       `{"name": "User", "type": "record", "fields": [{"name": "id", "type": "int"}]}`,
+			registrySchema:      `{"type":"record","name":"User","fields":[{"name":"id","type":"int"}]}`,
 			expectNormalization: true,
-			description: "Should normalize when field order differs but content is same",
+			description:         "Should normalize when field order differs but content is same",
 		},
 		{
-			name:           "invalid JSON in current",
-			currentSchema:  `{invalid json}`,
-			registrySchema: `{"type":"record","name":"User","fields":[]}`,
+			name:                "invalid JSON in current",
+			currentSchema:       `{invalid json}`,
+			registrySchema:      `{"type":"record","name":"User","fields":[]}`,
 			expectNormalization: false,
-			description: "Should handle invalid JSON gracefully",
+			description:         "Should handle invalid JSON gracefully",
 		},
 		{
-			name:           "invalid JSON in registry",
-			currentSchema:  `{"type": "record", "name": "User", "fields": []}`,
-			registrySchema: `{invalid json}`,
+			name:                "invalid JSON in registry",
+			currentSchema:       `{"type": "record", "name": "User", "fields": []}`,
+			registrySchema:      `{invalid json}`,
 			expectNormalization: false,
-			description: "Should handle invalid registry JSON gracefully",
+			description:         "Should handle invalid registry JSON gracefully",
 		},
 	}
 
@@ -224,7 +224,7 @@ func TestResourceModel_UpdateFromSchema_JSONNormalization(t *testing.T) {
 	model.UpdateFromSchema(schemaResp)
 
 	// Should preserve original formatting since content is semantically identical
-	assert.Equal(t, currentFormattedSchema, model.Schema.ValueString(), 
+	assert.Equal(t, currentFormattedSchema, model.Schema.ValueString(),
 		"Should preserve original JSON formatting when content is equivalent")
 	assert.Equal(t, int64(200), model.ID.ValueInt64())
 	assert.Equal(t, int64(2), model.Version.ValueInt64())
@@ -296,7 +296,7 @@ func TestResourceModel_ToSchemaRequest_Equivalence(t *testing.T) {
 	}
 
 	model2 := &ResourceModel{
-		Schema:     types.StringValue(minifiedSchema), 
+		Schema:     types.StringValue(minifiedSchema),
 		SchemaType: types.StringValue("avro"), // different case
 		References: types.ListNull(types.ObjectType{}),
 	}
@@ -307,7 +307,7 @@ func TestResourceModel_ToSchemaRequest_Equivalence(t *testing.T) {
 	// Schema content should be identical (both use their original formatting)
 	assert.Equal(t, formattedSchema, req1.Schema)
 	assert.Equal(t, minifiedSchema, req2.Schema)
-	
+
 	// But schema type should be normalized to same value
 	assert.Equal(t, req1.Type, req2.Type)
 	assert.Equal(t, sr.TypeAvro, req1.Type)

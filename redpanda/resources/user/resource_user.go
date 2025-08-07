@@ -199,7 +199,7 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 			tflog.Warn(ctx, fmt.Sprintf("user %s not found or cluster unreachable, keeping in state since allow_deletion is false", model.Name.ValueString()))
 			if utils.IsNotFound(err) {
 				resp.Diagnostics.AddWarning(
-					"User Not Found", 
+					"User Not Found",
 					fmt.Sprintf("User %s not found but will remain in state because allow_deletion is false", model.Name.ValueString()),
 				)
 			} else {

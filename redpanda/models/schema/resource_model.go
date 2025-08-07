@@ -223,22 +223,6 @@ func (r *ResourceModel) normalizeJSON(registrySchema string) string {
 	return ""
 }
 
-// convertCompatibility converts string compatibility to API format
-func (r *ResourceModel) convertCompatibility() string {
-	if r.Compatibility.IsNull() || r.Compatibility.IsUnknown() {
-		return "BACKWARD" // Default to BACKWARD per API docs
-	}
-	
-	compatLevel := strings.ToUpper(r.Compatibility.ValueString())
-	switch compatLevel {
-	case "BACKWARD", "BACKWARD_TRANSITIVE", "FORWARD", "FORWARD_TRANSITIVE", 
-		 "FULL", "FULL_TRANSITIVE", "NONE":
-		return compatLevel
-	default:
-		return "BACKWARD"
-	}
-}
-
 // GetCompatibility returns the compatibility as a string
 func (r *ResourceModel) GetCompatibility() string {
 	if r.Compatibility.IsNull() || r.Compatibility.IsUnknown() {
