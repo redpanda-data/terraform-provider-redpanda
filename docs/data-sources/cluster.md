@@ -25,7 +25,7 @@ Data source for a Redpanda Cloud cluster
 - `cluster_api_url` (String) The URL of the cluster API.
 - `cluster_configuration` (Attributes) Configuration for the cluster. (see [below for nested schema](#nestedatt--cluster_configuration))
 - `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation.
-- `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, Private is best-practice.
+- `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, private is best-practice.
 - `created_at` (String) Timestamp when the cluster was created.
 - `customer_managed_resources` (Attributes) Customer managed resources configuration for the cluster. (see [below for nested schema](#nestedatt--customer_managed_resources))
 - `gcp_global_access_enabled` (Boolean) If true, GCP global access is enabled.
@@ -46,7 +46,7 @@ Data source for a Redpanda Cloud cluster
 - `state` (String) Current state of the cluster.
 - `state_description` (Attributes) Detailed state description when cluster is in a non-ready state. (see [below for nested schema](#nestedatt--state_description))
 - `tags` (Map of String) Tags placed on cloud resources.
-- `throughput_tier` (String) Throughput tier of the cluster.
+- `throughput_tier` (String) Usage tier of the cluster.
 - `zones` (List of String) Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster.
 
 <a id="nestedatt--aws_private_link"></a>

@@ -28,13 +28,13 @@ func resourceClusterSchema() schema.Schema {
 			},
 			"cluster_type": schema.StringAttribute{
 				Required:      true,
-				Description:   "Cluster type. Type is immutable and can only be set on cluster creation. Can be one of dedicated or byoc.",
+				Description:   "Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated.",
 				Validators:    validators.ClusterTypes(),
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"connection_type": schema.StringAttribute{
 				Required:    true,
-				Description: "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, Private is best-practice.",
+				Description: "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, private is best-practice.",
 				Validators: []validator.String{
 					validators.ConnectionTypes(),
 					validators.RequirePrivateConnectionValidator{},
@@ -56,7 +56,7 @@ func resourceClusterSchema() schema.Schema {
 			},
 			"throughput_tier": schema.StringAttribute{
 				Required:      true,
-				Description:   "Throughput tier of the cluster.",
+				Description:   "Usage tier of the cluster. Changing this value will destroy and recreate the cluster.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"region": schema.StringAttribute{

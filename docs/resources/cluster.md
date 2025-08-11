@@ -17,13 +17,13 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 ### Required
 
 - `cloud_provider` (String) Cloud provider where resources are created.
-- `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation. Can be one of dedicated or byoc.
-- `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, Private is best-practice.
+- `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated.
+- `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, private is best-practice.
 - `name` (String) Unique name of the cluster.
 - `network_id` (String) Network ID where cluster is placed.
 - `region` (String) Cloud provider region. Region represents the name of the region where the cluster will be provisioned.
 - `resource_group_id` (String) Resource group ID of the cluster.
-- `throughput_tier` (String) Throughput tier of the cluster.
+- `throughput_tier` (String) Usage tier of the cluster. Changing this value will destroy and recreate the cluster.
 - `zones` (List of String) Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster.
 
 ### Optional
