@@ -22,7 +22,7 @@ func datasourceClusterSchema() schema.Schema {
 			},
 			"connection_type": schema.StringAttribute{
 				Computed:    true,
-				Description: "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, Private is best-practice.",
+				Description: "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, private is best-practice.",
 			},
 			"cloud_provider": schema.StringAttribute{
 				Computed:    true,
@@ -34,7 +34,7 @@ func datasourceClusterSchema() schema.Schema {
 			},
 			"throughput_tier": schema.StringAttribute{
 				Computed:    true,
-				Description: "Throughput tier of the cluster.",
+				Description: "Usage tier of the cluster.",
 			},
 			"region": schema.StringAttribute{
 				Computed:    true,
