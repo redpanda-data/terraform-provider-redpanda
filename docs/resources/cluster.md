@@ -23,7 +23,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `network_id` (String) Network ID where cluster is placed.
 - `region` (String) Cloud provider region. Region represents the name of the region where the cluster will be provisioned.
 - `resource_group_id` (String) Resource group ID of the cluster.
-- `throughput_tier` (String) Usage tier of the cluster. Changing this value will destroy and recreate the cluster.
+- `throughput_tier` (String) Usage tier of the cluster. WARNING: Do not modify after it is set. When allow_deletion is true, modifying this forces replacement of the cluster - Terraform will destroy the existing cluster and create a new one, causing data loss.
 - `zones` (List of String) Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster.
 
 ### Optional
