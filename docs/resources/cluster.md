@@ -24,8 +24,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `throughput_tier` (String) Usage tier of the cluster.
 
 [!WARNING]
-Do not modify `throughput_tier` after it is set. Modifying it will tear down the cluster and build a new one.
-
+Do not modify `throughput_tier` after it is set. When `allow_deletion` is set to `true`, modifying `throughput_tier` forces replacement of the cluster: Terraform will destroy the existing cluster and create a new one, causing data loss. 
 
 ### Optional
 
