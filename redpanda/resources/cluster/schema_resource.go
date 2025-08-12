@@ -56,7 +56,7 @@ func resourceClusterSchema() schema.Schema {
 			},
 			"throughput_tier": schema.StringAttribute{
 				Required:      true,
-				Description:   "Usage tier of the cluster. Changing this value will destroy and recreate the cluster.",
+				Description:   "Usage tier of the cluster. WARNING: Do not modify after it is set. When allow_deletion is true, modifying this forces replacement of the cluster - Terraform will destroy the existing cluster and create a new one, causing data loss.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"region": schema.StringAttribute{
