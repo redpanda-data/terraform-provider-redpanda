@@ -24,4 +24,5 @@ type User struct {
 	Mechanism     types.String `tfsdk:"mechanism"`
 	ID            types.String `tfsdk:"id"`
 	ClusterAPIURL types.String `tfsdk:"cluster_api_url"`
+	AllowDeletion types.Bool   `tfsdk:"allow_deletion"`
 }
