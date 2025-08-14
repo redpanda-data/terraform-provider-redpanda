@@ -51,11 +51,11 @@ variable "cloud_provider" {
 }
 
 variable "region" {
-  default = "eastus"
+  default = "westus2"
 }
 
 variable "zones" {
-  default = ["eastus-az1", "eastus-az2", "eastus-az3"]
+  default = ["westus2-az1", "westus2-az2", "westus2-az3"]
 }
 
 variable "throughput_tier" {
