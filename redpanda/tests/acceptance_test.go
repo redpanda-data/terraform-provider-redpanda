@@ -43,6 +43,9 @@ const (
 	networkDataSourceName              = "data.redpanda_network.test"
 	serverlessRegionsAWSDataSourceName = "data.redpanda_serverless_regions.aws"
 	serverlessRegionsGCPDataSourceName = "data.redpanda_serverless_regions.gcp"
+	schemaResourceName                 = "redpanda_schema.user_schema"
+	schemaEventResourceName            = "redpanda_schema.user_event_schema"
+	schemaProductResourceName          = "redpanda_schema.product_schema"
 )
 
 var (
@@ -392,6 +395,53 @@ func TestAccResourcesByoVpcGCP(t *testing.T) {
 	testRunnerCluster(ctx, name, rename, redpandaVersion, gcpByoVpcClusterFile, customVars, t)
 }
 
+// buildTestCheckFuncs reads the test file and returns appropriate check functions based on resources present
+func buildTestCheckFuncs(testFile, name string) ([]resource.TestCheckFunc, error) {
+	// Read the test file to check which resources exist
+	testFileContent, err := os.ReadFile(testFile) // #nosec G304 -- testFile is controlled by test constants
+	if err != nil {
+		return nil, fmt.Errorf("failed to read test file: %w", err)
+	}
+	testFileStr := string(testFileContent)
+
+	// Start with base check functions that should always be present
+	checkFuncs := []resource.TestCheckFunc{
+		resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+		resource.TestCheckResourceAttr(networkResourceName, "name", name),
+		resource.TestCheckResourceAttr(clusterResourceName, "name", name),
+		resource.TestCheckResourceAttr(userResourceName, "name", name),
+		resource.TestCheckResourceAttr(topicResourceName, "name", name),
+	}
+
+	// Check if schema resources exist in the test file and add appropriate checks
+	if strings.Contains(testFileStr, `resource "redpanda_schema" "user_schema"`) {
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttr(schemaResourceName, "subject", name+"-value"),
+			resource.TestCheckResourceAttr(schemaResourceName, "schema_type", "AVRO"),
+			resource.TestCheckResourceAttr(schemaResourceName, "compatibility", "BACKWARD"), // Default compatibility
+			resource.TestCheckResourceAttrSet(schemaResourceName, "id"),
+			resource.TestCheckResourceAttrSet(schemaResourceName, "version"),
+		)
+	}
+
+	if strings.Contains(testFileStr, `resource "redpanda_schema" "user_event_schema"`) {
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttr(schemaEventResourceName, "subject", name+"-events-value"),
+			resource.TestCheckResourceAttr(schemaEventResourceName, "references.#", "1"),
+			resource.TestCheckResourceAttr(schemaEventResourceName, "references.0.name", "User"),
+		)
+	}
+
+	if strings.Contains(testFileStr, `resource "redpanda_schema" "product_schema"`) {
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttr(schemaProductResourceName, "subject", name+"-product-value"),
+			resource.TestCheckResourceAttr(schemaProductResourceName, "compatibility", "FULL"),
+		)
+	}
+
+	return checkFuncs, nil
+}
+
 // testRunner is a helper function that runs a series of tests on a given cluster in a given cloud provider.
 func testRunner(ctx context.Context, name, rename, version, testFile string, customVars map[string]config.Variable, t *testing.T) {
 	origTestCaseVars := make(map[string]config.Variable)
@@ -419,7 +469,17 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
 
+	compatibilityUpdateVars := make(map[string]config.Variable)
+	maps.Copy(compatibilityUpdateVars, updateTestCaseVars)
+	compatibilityUpdateVars["compatibility_level"] = config.StringVariable("FORWARD")
+
 	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Build check functions based on resources present in test file
+	checkFuncs, err := buildTestCheckFuncs(testFile, name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -428,15 +488,9 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			{
-				ConfigFile:      config.StaticFile(testFile),
-				ConfigVariables: origTestCaseVars,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
-					resource.TestCheckResourceAttr(userResourceName, "name", name),
-					resource.TestCheckResourceAttr(topicResourceName, "name", name),
-				),
+				ConfigFile:               config.StaticFile(testFile),
+				ConfigVariables:          origTestCaseVars,
+				Check:                    resource.ComposeAggregateTestCheckFunc(checkFuncs...),
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 			{
@@ -486,6 +540,34 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
 					resource.TestCheckResourceAttr(networkResourceName, "name", name),
 					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+				),
+			},
+			// Test compatibility update on schema (only if product schema exists)
+			{
+				ConfigFile:               config.StaticFile(testFile),
+				ConfigVariables:          compatibilityUpdateVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+					// Check that product schema compatibility was updated
+					func() resource.TestCheckFunc {
+						// Read the test file to check if product schema exists
+						testFileContent, err := os.ReadFile(testFile) // #nosec G304 -- testFile is controlled by test constants
+						if err != nil {
+							return func(_ *terraform.State) error {
+								return fmt.Errorf("failed to read test file: %w", err)
+							}
+						}
+						if strings.Contains(string(testFileContent), `resource "redpanda_schema" "product_schema"`) {
+							return resource.TestCheckResourceAttr(schemaProductResourceName, "compatibility", "FORWARD")
+						}
+						// Return a no-op function if schema doesn't exist
+						return func(_ *terraform.State) error {
+							return nil
+						}
+					}(),
 				),
 			},
 			{
