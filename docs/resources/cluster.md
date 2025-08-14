@@ -16,12 +16,15 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 
 ### Required
 
-- `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation. Can be one of dedicated or byoc.
-- `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, Private is best-practice.
+- `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated.
+- `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, private is best-practice.
 - `name` (String) Unique name of the cluster.
 - `network_id` (String) Network ID where cluster is placed.
 - `resource_group_id` (String) Resource group ID of the cluster.
-- `throughput_tier` (String) Throughput tier of the cluster.
+- `throughput_tier` (String) Usage tier of the cluster.
+
+[!WARNING]
+Do not modify `throughput_tier` after it is set. When `allow_deletion` is set to `true`, modifying `throughput_tier` forces replacement of the cluster: Terraform will destroy the existing cluster and create a new one, causing data loss. 
 
 ### Optional
 
