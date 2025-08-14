@@ -42,6 +42,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/regions"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/resourcegroup"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/roleassignment"
+	schemaresource "github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/schema"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlesscluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlessregions"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/throughputtiers"
@@ -401,6 +402,9 @@ func (*Redpanda) DataSources(_ context.Context) []func() datasource.DataSource {
 		func() datasource.DataSource {
 			return &throughputtiers.DataSourceThroughputTiers{}
 		},
+		func() datasource.DataSource {
+			return &schemaresource.SchemaDataSource{}
+		},
 	}
 }
 
@@ -421,5 +425,6 @@ func (*Redpanda) Resources(_ context.Context) []func() resource.Resource {
 		func() resource.Resource { return &user.User{} },
 		func() resource.Resource { return &topic.Topic{} },
 		func() resource.Resource { return &roleassignment.RoleAssignment{} },
+		func() resource.Resource { return &schemaresource.Schema{} },
 	}
 }
