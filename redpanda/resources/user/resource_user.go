@@ -27,10 +27,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
@@ -114,6 +116,12 @@ func resourceUserSchema() schema.Schema {
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
+			"allow_deletion": schema.BoolAttribute{
+				Description: "Allows deletion of the user. If false, the user cannot be deleted and the resource will be removed from the state on destruction. Defaults to true.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(true),
+			},
 		},
 	}
 }
@@ -147,6 +155,7 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 		Mechanism:     model.Mechanism,
 		ClusterAPIURL: model.ClusterAPIURL,
 		ID:            types.StringValue(user.User.Name),
+		AllowDeletion: model.AllowDeletion,
 	})...)
 }
 
@@ -156,14 +165,49 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 	err := u.createUserClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
+		// Check if cluster is unreachable (DNS resolution failed)
+		if utils.IsClusterUnreachable(err) {
+			// Only remove from state if deletion is allowed
+			if model.AllowDeletion.IsNull() || model.AllowDeletion.ValueBool() {
+				tflog.Info(ctx, fmt.Sprintf("cluster unreachable for user %s, removing from state since allow_deletion is true", model.Name.ValueString()))
+				resp.State.RemoveResource(ctx)
+				return
+			}
+			// If deletion is not allowed, keep the resource in state but report the error
+			tflog.Warn(ctx, fmt.Sprintf("cluster unreachable for user %s, keeping in state since allow_deletion is false", model.Name.ValueString()))
+			resp.Diagnostics.AddWarning(
+				"Cluster Unreachable",
+				fmt.Sprintf("Unable to reach cluster for user %s. Resource will remain in state because allow_deletion is false. Error: %s", model.Name.ValueString(), utils.DeserializeGrpcError(err)),
+			)
+			return
+		}
 		resp.Diagnostics.AddError("failed to create user client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer u.dataplaneConn.Close()
 	user, err := utils.FindUserByName(ctx, model.Name.ValueString(), u.UserClient)
 	if err != nil {
-		if utils.IsNotFound(err) {
-			resp.State.RemoveResource(ctx)
+		// Check if this is a not found error or cluster unreachable error
+		if utils.IsNotFound(err) || utils.IsClusterUnreachable(err) {
+			// Only remove from state if deletion is allowed
+			if model.AllowDeletion.IsNull() || model.AllowDeletion.ValueBool() {
+				tflog.Info(ctx, fmt.Sprintf("user %s not found or cluster unreachable, removing from state since allow_deletion is true", model.Name.ValueString()))
+				resp.State.RemoveResource(ctx)
+				return
+			}
+			// If deletion is not allowed, keep the resource in state but report the error
+			tflog.Warn(ctx, fmt.Sprintf("user %s not found or cluster unreachable, keeping in state since allow_deletion is false", model.Name.ValueString()))
+			if utils.IsNotFound(err) {
+				resp.Diagnostics.AddWarning(
+					"User Not Found",
+					fmt.Sprintf("User %s not found but will remain in state because allow_deletion is false", model.Name.ValueString()),
+				)
+			} else {
+				resp.Diagnostics.AddWarning(
+					"Cluster Unreachable",
+					fmt.Sprintf("Unable to reach cluster for user %s. Resource will remain in state because allow_deletion is false. Error: %s", model.Name.ValueString(), utils.DeserializeGrpcError(err)),
+				)
+			}
 			return
 		}
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to find user %s", model.Name), utils.DeserializeGrpcError(err))
@@ -179,6 +223,7 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 		Mechanism:     mechanism,
 		ClusterAPIURL: model.ClusterAPIURL,
 		ID:            types.StringValue(user.Name),
+		AllowDeletion: model.AllowDeletion,
 	})...)
 }
 
