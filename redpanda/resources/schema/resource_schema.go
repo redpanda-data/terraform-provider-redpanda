@@ -299,15 +299,15 @@ func (s *Schema) Delete(ctx context.Context, request resource.DeleteRequest, res
 		if !utils.IsNotFound(err) {
 			// Check if cluster is unreachable
 			if utils.IsClusterUnreachable(err) {
-				if !state.AllowDeletion.ValueBool() {
-					// When allow_deletion is false (default), prevent deletion and keep in state
+				if !state.AllowDeletion.IsNull() && !state.AllowDeletion.ValueBool() {
+					// When allow_deletion is false, prevent deletion and keep in state
 					response.Diagnostics.AddError(
 						"Cannot delete schema - cluster unreachable",
 						fmt.Sprintf("Unable to delete schema subject %s because the cluster is unreachable. Set allow_deletion=true to force removal from state. Error: %v", state.GetSubject(), err),
 					)
 					return
 				}
-				// When allow_deletion is true, remove from state even though cluster is unreachable
+				// When allow_deletion is true or null, remove from state even though cluster is unreachable
 				tflog.Warn(ctx, "Cluster unreachable during deletion, but allow_deletion=true, removing from state", map[string]any{
 					"subject":        state.GetSubject(),
 					"allow_deletion": state.AllowDeletion.ValueBool(),
