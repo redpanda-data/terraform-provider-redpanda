@@ -33,7 +33,6 @@ import (
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -94,16 +93,6 @@ func IsClusterUnreachable(err error) bool {
 	errStr := err.Error()
 	return strings.Contains(errStr, "name resolver error") &&
 		strings.Contains(errStr, "produced zero addresses")
-}
-
-// IsNotFoundSpec checks if the passed diag.Diagnostics contains the words missing or malformed
-func IsNotFoundSpec(diags diag.Diagnostics) bool {
-	for _, d := range diags {
-		if strings.Contains(d.Summary(), "missing") || strings.Contains(d.Summary(), "malformed") {
-			return true
-		}
-	}
-	return false
 }
 
 // CloudProviderStringAws is the string representation of the CLOUD_PROVIDER_AWS enum
