@@ -5,10 +5,10 @@ go 1.23.7
 toolchain go1.24
 
 require (
-	buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20250718023059-caa93998ab88.2
-	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.6-20250718023059-caa93998ab88.1
-	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.5.1-20250729140024-9b54e9216c82.2
-	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.6-20250729140024-9b54e9216c82.1
+	buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20250822165938-3142a6300fcc.2
+	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.8-20250822165938-3142a6300fcc.1
+	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.5.1-20250829164938-cb01f499c363.2
+	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.8-20250829164938-cb01f499c363.1
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/golang/mock v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
@@ -26,13 +26,13 @@ require (
 	google.golang.org/genproto v0.0.0-20250313205543-e70fdf4c4cb4
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250313205543-e70fdf4c4cb4
 	google.golang.org/grpc v1.72.1
-	google.golang.org/protobuf v1.36.6
+	google.golang.org/protobuf v1.36.8
 )
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.6-20250425153114-8976f5be98c1.1 // indirect
-	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.6-20240617172850-a48fcebcf8f1.1 // indirect
-	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.6-20250504123906-40b63a811436.1 // indirect
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.8-20250425153114-8976f5be98c1.1 // indirect
+	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.8-20240617172850-a48fcebcf8f1.1 // indirect
+	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.8-20250504123906-40b63a811436.1 // indirect
 	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c // indirect
 	github.com/Kunde21/markdownfmt/v3 v3.1.0 // indirect
