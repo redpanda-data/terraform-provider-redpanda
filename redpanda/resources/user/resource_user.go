@@ -272,12 +272,11 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 		dataplaneURL = cluster.DataplaneApi.Url
 	} else {
 		serverlessCluster, serr := client.ServerlessClusterForID(ctx, clusterID)
-		if serr == nil && serverlessCluster != nil {
-			dataplaneURL = serverlessCluster.DataplaneApi.Url
-		} else {
+		if serr != nil || serverlessCluster == nil {
 			resp.Diagnostics.AddError(fmt.Sprintf("failed to find cluster with ID %q; make sure ADDR ID format is <user_name>,<cluster_id>", clusterID), utils.DeserializeGrpcError(err)+utils.DeserializeGrpcError(serr))
 			return
 		}
+		dataplaneURL = serverlessCluster.DataplaneApi.Url
 	}
 
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(user))...)
