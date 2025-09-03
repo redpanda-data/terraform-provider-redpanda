@@ -46,6 +46,7 @@ type ByocClientConfig struct {
 	AzureClientSecret   string
 	AzureTenantID       string
 	GoogleCredentials   string
+	PublicAPIURL        string
 }
 
 // ByocClient holds the information and clients needed to download and interact
@@ -60,6 +61,7 @@ type ByocClient struct {
 	azureClientSecret   string
 	azureTenantID       string
 	googleCredentials   string
+	publicAPIURL        string
 }
 
 // NewByocClient creates a new ByocClient.
@@ -74,6 +76,7 @@ func NewByocClient(conf ByocClientConfig) *ByocClient {
 		azureClientSecret:   conf.AzureClientSecret,
 		azureTenantID:       conf.AzureTenantID,
 		googleCredentials:   conf.GoogleCredentials,
+		publicAPIURL:        conf.PublicAPIURL,
 	}
 }
 
@@ -243,6 +246,7 @@ func (cl *ByocClient) generateByocArgsAndEnv(cluster cloudapi.Cluster, verb stri
 	}
 	byocEnv := []string{
 		fmt.Sprintf("CLOUD_URL=%s/api/v1", cl.internalAPIURL),
+		fmt.Sprintf("RPK_PUBLIC_API_URL=https://%s", strings.TrimSuffix(cl.publicAPIURL, ":443")),
 	}
 	for _, s := range os.Environ() {
 		// include all current environment variables, except for Terraform variables
