@@ -338,6 +338,7 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	if r.byoc == nil {
 		r.byoc = utils.NewByocClient(utils.ByocClientConfig{
 			AuthToken:           creds.Token,
+			PublicAPIURL:        creds.EndpointAPIURL,
 			InternalAPIURL:      creds.InternalAPIURL,
 			GcpProject:          gcpProjectID,
 			AzureSubscriptionID: azureSubscriptionID,
