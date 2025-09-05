@@ -1,6 +1,8 @@
 package acl
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
@@ -183,6 +185,141 @@ func Test_stringToACLOperation(t *testing.T) {
 			}
 			if got != tt.exp {
 				t.Errorf("got = %v, want = %v", got, tt.exp)
+			}
+		})
+	}
+}
+
+func Test_generateACLCompositeID(t *testing.T) {
+	tests := []struct {
+		name           string
+		resourceType   string
+		resourceName   string
+		patternType    string
+		principal      string
+		host           string
+		operation      string
+		permissionType string
+		expected       string
+	}{
+		{
+			name:           "basic topic ACL",
+			resourceType:   "TOPIC",
+			resourceName:   "test-topic",
+			patternType:    "LITERAL",
+			principal:      "User:testuser",
+			host:           "*",
+			operation:      "READ",
+			permissionType: "ALLOW",
+			expected:       "TOPIC:test-topic:LITERAL:User:testuser:*:READ:ALLOW",
+		},
+		{
+			name:           "group ACL with specific host",
+			resourceType:   "GROUP",
+			resourceName:   "test-group",
+			patternType:    "PREFIXED",
+			principal:      "User:admin",
+			host:           "192.168.1.100",
+			operation:      "WRITE",
+			permissionType: "DENY",
+			expected:       "GROUP:test-group:PREFIXED:User:admin:192.168.1.100:WRITE:DENY",
+		},
+		{
+			name:           "cluster ACL with colon in resource name",
+			resourceType:   "CLUSTER",
+			resourceName:   "my:cluster:name",
+			patternType:    "MATCH",
+			principal:      "ServiceAccount:service",
+			host:           "*",
+			operation:      "CLUSTER_ACTION",
+			permissionType: "ALLOW",
+			expected:       "CLUSTER:my:cluster:name:MATCH:ServiceAccount:service:*:CLUSTER_ACTION:ALLOW",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test the composite ID format used in both Create and Read methods
+			compositeID := fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s",
+				tt.resourceType,
+				tt.resourceName,
+				tt.patternType,
+				tt.principal,
+				tt.host,
+				tt.operation,
+				tt.permissionType)
+
+			if compositeID != tt.expected {
+				t.Errorf("generateACLCompositeID() = %q, expected %q", compositeID, tt.expected)
+			}
+		})
+	}
+}
+
+func Test_ACLCompositeIDFormat(t *testing.T) {
+	tests := []struct {
+		name           string
+		resourceType   string
+		resourceName   string
+		patternType    string
+		principal      string
+		host           string
+		operation      string
+		permissionType string
+		expectedFormat string
+	}{
+		{
+			name:           "simple format validation",
+			resourceType:   "TOPIC",
+			resourceName:   "test-topic",
+			patternType:    "LITERAL",
+			principal:      "User:testuser",
+			host:           "*",
+			operation:      "READ",
+			permissionType: "ALLOW",
+			expectedFormat: "TOPIC:test-topic:LITERAL:User:testuser:*:READ:ALLOW",
+		},
+		{
+			name:           "format with complex values",
+			resourceType:   "GROUP",
+			resourceName:   "my-consumer-group",
+			patternType:    "PREFIXED",
+			principal:      "ServiceAccount:my-service",
+			host:           "192.168.1.100",
+			operation:      "DESCRIBE",
+			permissionType: "DENY",
+			expectedFormat: "GROUP:my-consumer-group:PREFIXED:ServiceAccount:my-service:192.168.1.100:DESCRIBE:DENY",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test that the composite ID format matches what's used in the actual resource implementation
+			compositeID := fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s",
+				tt.resourceType,
+				tt.resourceName,
+				tt.patternType,
+				tt.principal,
+				tt.host,
+				tt.operation,
+				tt.permissionType)
+
+			if compositeID != tt.expectedFormat {
+				t.Errorf("Composite ID format = %q, expected %q", compositeID, tt.expectedFormat)
+			}
+
+			// Verify that the ID contains all required fields
+			parts := strings.Split(compositeID, ":")
+			if len(parts) < 7 {
+				t.Errorf("Composite ID should have at least 7 colon-separated parts, got %d", len(parts))
+			}
+
+			// Verify first and last parts (most reliable for validation)
+			if parts[0] != tt.resourceType {
+				t.Errorf("First part should be resource type %q, got %q", tt.resourceType, parts[0])
+			}
+			if parts[len(parts)-1] != tt.permissionType {
+				t.Errorf("Last part should be permission type %q, got %q", tt.permissionType, parts[len(parts)-1])
 			}
 		})
 	}

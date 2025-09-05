@@ -180,6 +180,16 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		return
 	}
 
+	// Generate a composite ID from the ACL fields
+	aclID := fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s",
+		model.ResourceType.ValueString(),
+		model.ResourceName.ValueString(),
+		model.ResourcePatternType.ValueString(),
+		model.Principal.ValueString(),
+		model.Host.ValueString(),
+		model.Operation.ValueString(),
+		model.PermissionType.ValueString())
+
 	response.Diagnostics.Append(response.State.Set(ctx, &models.ACL{
 		ResourceType:        model.ResourceType,
 		ResourceName:        model.ResourceName,
@@ -189,6 +199,7 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		Operation:           model.Operation,
 		PermissionType:      model.PermissionType,
 		ClusterAPIURL:       model.ClusterAPIURL,
+		ID:                  types.StringValue(aclID),
 	})...)
 }
 
@@ -245,6 +256,16 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 
 	for _, res := range aclList.Resources {
 		if res.ResourceName == model.ResourceName.ValueString() && res.ResourceType == resourceType && res.ResourcePatternType == resourcePatternType {
+			// Generate the same composite ID as in Create
+			aclID := fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s",
+				model.ResourceType.ValueString(),
+				model.ResourceName.ValueString(),
+				model.ResourcePatternType.ValueString(),
+				model.Principal.ValueString(),
+				model.Host.ValueString(),
+				model.Operation.ValueString(),
+				model.PermissionType.ValueString())
+
 			response.Diagnostics.Append(response.State.Set(ctx, &models.ACL{
 				ResourceType:        types.StringValue(aclResourceTypeToString(res.ResourceType)),
 				ResourceName:        types.StringValue(res.ResourceName),
@@ -254,6 +275,7 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 				Operation:           model.Operation,
 				PermissionType:      model.PermissionType,
 				ClusterAPIURL:       model.ClusterAPIURL,
+				ID:                  types.StringValue(aclID),
 			})...)
 			return
 		}
