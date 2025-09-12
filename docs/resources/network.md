@@ -98,38 +98,22 @@ Required:
 
 - `name` (String) GCP storage bucket name for storing the state of Redpanda cluster deployment
 
-## Usage
+## Example Usage
 
 ```terraform
 provider "redpanda" {}
 
-resource "redpanda_resource_group" "test" {
-  name = var.resource_group_name
+resource "redpanda_resource_group" "example" {
+  name = "example-resource-group"
 }
 
-resource "redpanda_network" "test" {
-  name              = var.network_name
-  resource_group_id = redpanda_resource_group.test.id
-  cloud_provider    = var.cloud_provider
-  region            = var.region
+resource "redpanda_network" "example" {
+  name              = "example-network"
+  resource_group_id = redpanda_resource_group.example.id
+  cloud_provider    = "aws"
+  region            = "us-west-2"
   cluster_type      = "dedicated"
   cidr_block        = "10.0.0.0/20"
-}
-
-variable "resource_group_name" {
-  default = "testname"
-}
-
-variable "network_name" {
-  default = "testname"
-}
-
-variable "region" {
-  default = "us-east-1"
-}
-
-variable "cloud_provider" {
-  default = "aws"
 }
 ```
 
@@ -138,3 +122,7 @@ variable "cloud_provider" {
 ```shell
 terraform import redpanda_network.example networkId
 ```
+
+## API Reference
+
+For more information, see the [Redpanda Cloud Control Plane API documentation](https://docs.redpanda.com/api/cloud-controlplane-api/).

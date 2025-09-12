@@ -14,78 +14,42 @@ Assigns an existing Redpanda role to a principal. Resource ID format: `{role_nam
 ```terraform
 provider "redpanda" {}
 
-resource "redpanda_resource_group" "test" {
-  name = var.resource_group_name
+resource "redpanda_resource_group" "example" {
+  name = "example-resource-group"
 }
 
-resource "redpanda_network" "test" {
-  name              = var.network_name
-  resource_group_id = redpanda_resource_group.test.id
-  cloud_provider    = var.cloud_provider
-  region            = var.region
+resource "redpanda_network" "example" {
+  name              = "example-network"
+  resource_group_id = redpanda_resource_group.example.id
+  cloud_provider    = "aws"
+  region            = "us-west-2"
   cluster_type      = "dedicated"
   cidr_block        = "10.0.0.0/20"
 }
 
-resource "redpanda_cluster" "test" {
-  name              = var.cluster_name
-  network_id        = redpanda_network.test.id
-  cloud_provider    = var.cloud_provider
-  region            = var.region
+resource "redpanda_cluster" "example" {
+  name              = "example-cluster"
+  resource_group_id = redpanda_resource_group.example.id
+  network_id        = redpanda_network.example.id
+  cloud_provider    = "aws"
+  region            = "us-west-2"
   cluster_type      = "dedicated"
   connection_type   = "public"
-  throughput_tier   = var.throughput_tier
-  zones             = var.zones
-  allow_deletion    = true
-  tags = {
-    "key" = "value"
-  }
+  throughput_tier   = "tier-1-aws"
+  zones             = ["us-west-2a", "us-west-2b", "us-west-2c"]
 }
 
-# Create a user
-resource "redpanda_user" "test_user" {
-  name            = "test-user"
-  password        = "test-password"
+resource "redpanda_user" "example" {
+  name            = "example-user"
+  password        = "secure-password-123"
   mechanism       = "scram-sha-256"
-  cluster_api_url = redpanda_cluster.test.cluster_api_url
+  cluster_api_url = redpanda_cluster.example.cluster_api_url
 }
 
-# Create a role (note: this would need to be created via rpk CLI separately)
-# rpk security role create test-role
-
-# Assign the role to the user
-resource "redpanda_role_assignment" "test" {
+resource "redpanda_role_assignment" "example" {
   role_name       = "test-role"
-  principal       = redpanda_user.test_user.id
-  cluster_api_url = redpanda_cluster.test.cluster_api_url
-}
-
-variable "resource_group_name" {
-  default = "testname"
-}
-
-variable "network_name" {
-  default = "testname"
-}
-
-variable "cluster_name" {
-  default = "testname"
-}
-
-variable "region" {
-  default = "us-east-2"
-}
-
-variable "zones" {
-  default = ["use2-az1", "use2-az2", "use2-az3"]
-}
-
-variable "cloud_provider" {
-  default = "aws"
-}
-
-variable "throughput_tier" {
-  default = "tier-1-aws-v2-arm"
+  principal       = redpanda_user.example.name
+  cluster_api_url = redpanda_cluster.example.cluster_api_url
 }
 ```
 
@@ -118,3 +82,7 @@ Note: The `cluster_api_url` must be specified in your Terraform configuration. T
 - The principal should be specified as just the username (e.g., `"john.doe"`). The `User:` prefix is not needed and will be automatically stripped if provided.
 - Role assignments are atomic operations - you cannot update an existing assignment. To change a role assignment, delete and recreate the resource.
 - The resource uses the Redpanda gRPC SecurityService (via console endpoint) for role management operations.
+
+## API Reference
+
+For more information, see the [Redpanda Cloud Data Plane API documentation](https://docs.redpanda.com/api/cloud-dataplane-api/).
