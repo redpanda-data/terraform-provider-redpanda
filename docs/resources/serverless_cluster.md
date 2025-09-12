@@ -25,31 +25,19 @@ Enables the provisioning and management of Redpanda Serverless clusters. A Serve
 - `cluster_api_url` (String) The URL of the dataplane API for the serverless cluster
 - `id` (String) The ID of the serverless cluster
 
-## Usage
+## Example Usage
 
 ```terraform
-provider "redpanda" {
-}
-resource "redpanda_resource_group" "test" {
-  name = var.resource_group_name
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "example" {
+  name = "example-resource-group"
 }
 
-resource "redpanda_serverless_cluster" "test" {
-  name              = var.cluster_name
-  resource_group_id = redpanda_resource_group.test.id
-  serverless_region = var.region
-}
-
-variable "resource_group_name" {
-  default = "testgroup"
-}
-
-variable "cluster_name" {
-  default = "testname"
-}
-
-variable "region" {
-  default = "eu-west-1"
+resource "redpanda_serverless_cluster" "example" {
+  name              = "example-serverless-cluster"
+  resource_group_id = redpanda_resource_group.example.id
+  region            = "us-west-2"
 }
 ```
 
@@ -57,7 +45,7 @@ variable "region" {
 
 Serverless on GCP is currently in beta. To unlock this feature for your account, contact your Redpanda account team.
 
-### Example: Create a Serverless cluster
+### Advanced Usage
 
 ```terraform
 provider "redpanda" {
@@ -90,4 +78,8 @@ variable "region" {
 ```shell
 terraform import redpanda_serverless_cluster.example serverlessClusterId
 ```
+
+## API Reference
+
+For more information, see the [Redpanda Cloud Control Plane API documentation](https://docs.redpanda.com/api/cloud-controlplane-api/).
 
