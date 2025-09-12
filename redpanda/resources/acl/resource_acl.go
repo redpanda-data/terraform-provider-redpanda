@@ -123,6 +123,10 @@ func resourceACLSchema() schema.Schema {
 					"change this value unless you are planning to do state imports",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
+			"allow_deletion": schema.BoolAttribute{
+				Optional:    true,
+				Description: "When set to true, allows the resource to be removed from state even if the cluster is unreachable",
+			},
 			"id": schema.StringAttribute{
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
@@ -180,17 +184,7 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		return
 	}
 
-	// Generate a composite ID from the ACL fields
-	aclID := fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s",
-		model.ResourceType.ValueString(),
-		model.ResourceName.ValueString(),
-		model.ResourcePatternType.ValueString(),
-		model.Principal.ValueString(),
-		model.Host.ValueString(),
-		model.Operation.ValueString(),
-		model.PermissionType.ValueString())
-
-	response.Diagnostics.Append(response.State.Set(ctx, &models.ACL{
+	acl := &models.ACL{
 		ResourceType:        model.ResourceType,
 		ResourceName:        model.ResourceName,
 		ResourcePatternType: model.ResourcePatternType,
@@ -199,14 +193,21 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		Operation:           model.Operation,
 		PermissionType:      model.PermissionType,
 		ClusterAPIURL:       model.ClusterAPIURL,
-		ID:                  types.StringValue(aclID),
-	})...)
+		AllowDeletion:       model.AllowDeletion,
+	}
+	acl.ID = types.StringValue(acl.GenerateID())
+	response.Diagnostics.Append(response.State.Set(ctx, acl)...)
 }
 
 // Read checks for the existence of an ACL resource
 func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
 	var model models.ACL
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
+
+	if model.ClusterAPIURL.IsNull() || model.ClusterAPIURL.IsUnknown() || model.ClusterAPIURL.ValueString() == "" {
+		response.State.RemoveResource(ctx)
+		return
+	}
 
 	resourceType, err := stringToACLResourceType(model.ResourceType.ValueString())
 	if err != nil {
@@ -244,29 +245,31 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 
 	err = a.createACLClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
+		if utils.IsClusterUnreachable(err) {
+			if model.AllowDeletion.IsNull() || model.AllowDeletion.ValueBool() {
+				response.State.RemoveResource(ctx)
+				return
+			}
+		}
 		response.Diagnostics.AddError("failed to create ACL client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer a.dataplaneConn.Close()
 	aclList, err := a.ACLClient.ListACLs(ctx, &dataplanev1.ListACLsRequest{Filter: filter})
 	if err != nil {
+		if utils.IsClusterUnreachable(err) {
+			if model.AllowDeletion.IsNull() || model.AllowDeletion.ValueBool() {
+				response.State.RemoveResource(ctx)
+				return
+			}
+		}
 		response.Diagnostics.AddError("Failed to list ACLs", utils.DeserializeGrpcError(err))
 		return
 	}
 
 	for _, res := range aclList.Resources {
 		if res.ResourceName == model.ResourceName.ValueString() && res.ResourceType == resourceType && res.ResourcePatternType == resourcePatternType {
-			// Generate the same composite ID as in Create
-			aclID := fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s",
-				model.ResourceType.ValueString(),
-				model.ResourceName.ValueString(),
-				model.ResourcePatternType.ValueString(),
-				model.Principal.ValueString(),
-				model.Host.ValueString(),
-				model.Operation.ValueString(),
-				model.PermissionType.ValueString())
-
-			response.Diagnostics.Append(response.State.Set(ctx, &models.ACL{
+			acl := &models.ACL{
 				ResourceType:        types.StringValue(aclResourceTypeToString(res.ResourceType)),
 				ResourceName:        types.StringValue(res.ResourceName),
 				ResourcePatternType: types.StringValue(aclResourcePatternTypeToString(res.ResourcePatternType)),
@@ -275,8 +278,15 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 				Operation:           model.Operation,
 				PermissionType:      model.PermissionType,
 				ClusterAPIURL:       model.ClusterAPIURL,
-				ID:                  types.StringValue(aclID),
-			})...)
+				AllowDeletion:       model.AllowDeletion,
+			}
+			// Ensure ID is set
+			if model.ID.IsNull() || model.ID.IsUnknown() {
+				acl.ID = types.StringValue(acl.GenerateID())
+			} else {
+				acl.ID = model.ID
+			}
+			response.Diagnostics.Append(response.State.Set(ctx, acl)...)
 			return
 		}
 	}
