@@ -1,8 +1,8 @@
 module github.com/redpanda-data/terraform-provider-redpanda
 
-go 1.23.7
+go 1.24.3
 
-toolchain go1.24
+toolchain go1.24.4
 
 require (
 	buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20250822165938-3142a6300fcc.2
@@ -19,9 +19,10 @@ require (
 	github.com/hashicorp/terraform-plugin-log v0.9.0
 	github.com/hashicorp/terraform-plugin-testing v1.13.2
 	github.com/pkg/errors v0.9.1
+	github.com/redpanda-data/common-go/rpsr v0.1.2
 	github.com/redpanda-data/redpanda/src/go/rpk v0.0.0-20250324141452-c979dc730ef3
 	github.com/stretchr/testify v1.10.0
-	github.com/twmb/franz-go/pkg/sr v1.3.0
+	github.com/twmb/franz-go/pkg/sr v1.4.1-0.20250711145744-a849b8be17b7
 	golang.org/x/time v0.11.0
 	google.golang.org/genproto v0.0.0-20250313205543-e70fdf4c4cb4
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250313205543-e70fdf4c4cb4
