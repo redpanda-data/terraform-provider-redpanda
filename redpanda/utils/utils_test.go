@@ -970,3 +970,69 @@ func TestIsNilEdgeCases(t *testing.T) {
 	emptySliceOfPtrs := make([]*int, 0)
 	assert.False(t, IsNil(emptySliceOfPtrs), "empty slice of pointers should not be nil")
 }
+
+func TestIsPermissionDenied(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			name:     "gRPC PermissionDenied error",
+			err:      grpcstatus.Error(codes.PermissionDenied, "access denied"),
+			expected: true,
+		},
+		{
+			name:     "HTTP 403 error",
+			err:      errors.New("HTTP 403 Forbidden"),
+			expected: true,
+		},
+		{
+			name:     "Schema Registry forbidden error",
+			err:      errors.New("Forbidden (missing required ACLs)"),
+			expected: true,
+		},
+		{
+			name:     "case insensitive forbidden check",
+			err:      errors.New("request FORBIDDEN by server"),
+			expected: true,
+		},
+		{
+			name:     "missing required ACLs check",
+			err:      errors.New("Error: Missing Required ACLs for operation"),
+			expected: true,
+		},
+		{
+			name:     "generic error",
+			err:      errors.New("some other error"),
+			expected: false,
+		},
+		{
+			name:     "gRPC NotFound error (not permission)",
+			err:      grpcstatus.Error(codes.NotFound, "not found"),
+			expected: false,
+		},
+		{
+			name:     "gRPC Internal error (not permission)",
+			err:      grpcstatus.Error(codes.Internal, "internal error"),
+			expected: false,
+		},
+		{
+			name:     "Exact error message from schema read failure",
+			err:      errors.New("Unable to read schema for subject test-topic-value: Forbidden (missing required ACLs)"),
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsPermissionDenied(tt.err)
+			assert.Equal(t, tt.expected, result, "IsPermissionDenied(%v) = %v, want %v", tt.err, result, tt.expected)
+		})
+	}
+}

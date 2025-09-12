@@ -65,7 +65,27 @@ func IsNotFound(err error) bool {
 	if e, ok := grpcstatus.FromError(err); ok && e.Code() == grpccodes.PermissionDenied {
 		return true
 	}
-	return false
+	errStr := err.Error()
+	return strings.Contains(strings.ToLower(errStr), "not found") ||
+		strings.Contains(errStr, "404") ||
+		strings.Contains(strings.ToLower(errStr), "does not exist")
+}
+
+// IsPermissionDenied checks if the error indicates a permission/ACL issue
+// This includes both gRPC PermissionDenied and HTTP 403/Forbidden errors
+func IsPermissionDenied(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if e, ok := grpcstatus.FromError(err); ok && e.Code() == grpccodes.PermissionDenied {
+		return true
+	}
+
+	errStr := err.Error()
+	return strings.Contains(strings.ToLower(errStr), "forbidden") ||
+		strings.Contains(strings.ToLower(errStr), "missing required acls") ||
+		strings.Contains(errStr, "403")
 }
 
 // IsClusterUnreachable checks if the error indicates the cluster is unreachable
