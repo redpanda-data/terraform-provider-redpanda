@@ -13,15 +13,15 @@ Enables the provisioning and management of Redpanda Serverless clusters. A Serve
 
 {{ .SchemaMarkdown | trimspace }}
 
-## Usage
+## Example Usage
 
-{{ tffile "examples/cluster/serverless/main.tf" }}
+{{ tffile "examples/docs/serverless_cluster/main.tf" }}
 
 ## Limitations
 
 Serverless on GCP is currently in beta. To unlock this feature for your account, contact your Redpanda account team.
 
-### Example: Create a Serverless cluster
+### Advanced Usage
 
 {{ tffile "examples/cluster/serverless/main.tf" }}
 
@@ -30,4 +30,8 @@ Serverless on GCP is currently in beta. To unlock this feature for your account,
 ```shell
 terraform import {{.Name}}.example serverlessClusterId
 ```
+
+## API Reference
+
+For more information, see the [Redpanda Cloud Control Plane API documentation](https://docs.redpanda.com/api/cloud-controlplane-api/).
 
