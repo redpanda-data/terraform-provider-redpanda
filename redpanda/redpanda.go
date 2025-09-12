@@ -43,6 +43,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/resourcegroup"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/roleassignment"
 	schemaresource "github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/schema"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/schema_registry_acl"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlesscluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlessregions"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/throughputtiers"
@@ -427,5 +428,6 @@ func (*Redpanda) Resources(_ context.Context) []func() resource.Resource {
 		func() resource.Resource { return &topic.Topic{} },
 		func() resource.Resource { return &roleassignment.RoleAssignment{} },
 		func() resource.Resource { return &schemaresource.Schema{} },
+		func() resource.Resource { return &schema_registry_acl.SchemaRegistryACL{} },
 	}
 }
