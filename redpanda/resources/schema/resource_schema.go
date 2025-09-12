@@ -143,8 +143,19 @@ func (s *Schema) Read(ctx context.Context, request resource.ReadRequest, respons
 		return
 	}
 
+	if state.ClusterID.IsNull() || state.ClusterID.IsUnknown() || state.ClusterID.ValueString() == "" {
+		response.State.RemoveResource(ctx)
+		return
+	}
+
 	client, err := kclients.GetSchemaRegistryClientForCluster(ctx, s.CpCl, state.ClusterID.ValueString(), state.Username.ValueString(), state.Password.ValueString())
 	if err != nil {
+		if utils.IsClusterUnreachable(err) || utils.IsPermissionDenied(err) {
+			if state.AllowDeletion.IsNull() || state.AllowDeletion.ValueBool() {
+				response.State.RemoveResource(ctx)
+				return
+			}
+		}
 		response.Diagnostics.AddError(
 			"Failed to create Schema Registry client",
 			fmt.Sprintf("Unable to create client for cluster %s: %v", state.ClusterID.ValueString(), err),
@@ -154,7 +165,15 @@ func (s *Schema) Read(ctx context.Context, request resource.ReadRequest, respons
 
 	schemaResp, err := kclients.FetchSchema(ctx, client, state.GetSubject(), state.GetVersion())
 	if err != nil {
+		tflog.Debug(ctx, "Schema read error encountered", map[string]any{
+			"subject":              state.GetSubject(),
+			"error":                err.Error(),
+			"is_not_found":         utils.IsNotFound(err),
+			"is_permission_denied": utils.IsPermissionDenied(err),
+		})
+
 		if utils.IsNotFound(err) {
+			tflog.Debug(ctx, "Schema read failed due to not found, removing from state")
 			response.State.RemoveResource(ctx)
 			return
 		}
@@ -287,6 +306,22 @@ func (s *Schema) Delete(ctx context.Context, request resource.DeleteRequest, res
 
 	client, err := kclients.GetSchemaRegistryClientForCluster(ctx, s.CpCl, state.ClusterID.ValueString(), state.Username.ValueString(), state.Password.ValueString())
 	if err != nil {
+		if utils.IsPermissionDenied(err) || utils.IsClusterUnreachable(err) {
+			if !state.AllowDeletion.IsNull() && !state.AllowDeletion.ValueBool() {
+				response.Diagnostics.AddError(
+					"Cannot delete schema - permission denied or cluster unreachable",
+					fmt.Sprintf("Unable to delete schema because of permission error or cluster is unreachable. Set allow_deletion=true to force removal from state. Error: %v", err),
+				)
+				return
+			}
+			tflog.Warn(ctx, "Schema deletion failed due to permission/cluster error during client creation, removing from state", map[string]any{
+				"subject":        state.GetSubject(),
+				"allow_deletion": state.AllowDeletion.ValueBool(),
+				"error":          err.Error(),
+			})
+			response.State.RemoveResource(ctx)
+			return
+		}
 		response.Diagnostics.AddError(
 			"Failed to create Schema Registry client",
 			fmt.Sprintf("Unable to create client for cluster %s: %v", state.ClusterID.ValueString(), err),
@@ -297,24 +332,22 @@ func (s *Schema) Delete(ctx context.Context, request resource.DeleteRequest, res
 	_, err = client.DeleteSubject(ctx, state.GetSubject(), sr.SoftDelete)
 	if err != nil {
 		if !utils.IsNotFound(err) {
-			// Check if cluster is unreachable
-			if utils.IsClusterUnreachable(err) {
+			if utils.IsClusterUnreachable(err) || utils.IsPermissionDenied(err) {
 				if !state.AllowDeletion.IsNull() && !state.AllowDeletion.ValueBool() {
-					// When allow_deletion is false, prevent deletion and keep in state
 					response.Diagnostics.AddError(
-						"Cannot delete schema - cluster unreachable",
-						fmt.Sprintf("Unable to delete schema subject %s because the cluster is unreachable. Set allow_deletion=true to force removal from state. Error: %v", state.GetSubject(), err),
+						"Cannot delete schema - cluster unreachable or permission denied",
+						fmt.Sprintf("Unable to delete schema subject %s. Set allow_deletion=true to force removal from state. Error: %v", state.GetSubject(), err),
 					)
 					return
 				}
-				// When allow_deletion is true or null, remove from state even though cluster is unreachable
-				tflog.Warn(ctx, "Cluster unreachable during deletion, but allow_deletion=true, removing from state", map[string]any{
+				tflog.Warn(ctx, "Schema deletion failed but removing from state", map[string]any{
 					"subject":        state.GetSubject(),
 					"allow_deletion": state.AllowDeletion.ValueBool(),
+					"error":          err.Error(),
 				})
+				response.State.RemoveResource(ctx)
 				return
 			}
-			// Other errors should always fail
 			response.Diagnostics.AddError(
 				"Failed to delete schema",
 				fmt.Sprintf("Unable to delete schema subject %s: %v", state.GetSubject(), err),
@@ -322,4 +355,5 @@ func (s *Schema) Delete(ctx context.Context, request resource.DeleteRequest, res
 			return
 		}
 	}
+	response.State.RemoveResource(ctx)
 }

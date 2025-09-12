@@ -15,7 +15,11 @@
 
 package models
 
-import "github.com/hashicorp/terraform-plugin-framework/types"
+import (
+	"fmt"
+
+	"github.com/hashicorp/terraform-plugin-framework/types"
+)
 
 // ACL defines the structure for configuration settings parsed from HCL.
 type ACL struct {
@@ -27,5 +31,18 @@ type ACL struct {
 	Operation           types.String `tfsdk:"operation"`
 	PermissionType      types.String `tfsdk:"permission_type"`
 	ClusterAPIURL       types.String `tfsdk:"cluster_api_url"`
+	AllowDeletion       types.Bool   `tfsdk:"allow_deletion"`
 	ID                  types.String `tfsdk:"id"`
+}
+
+// GenerateID generates a unique ID for the ACL
+func (a *ACL) GenerateID() string {
+	return fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s",
+		a.ResourceType.ValueString(),
+		a.ResourceName.ValueString(),
+		a.ResourcePatternType.ValueString(),
+		a.Principal.ValueString(),
+		a.Host.ValueString(),
+		a.Operation.ValueString(),
+		a.PermissionType.ValueString())
 }
