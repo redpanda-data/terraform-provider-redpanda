@@ -752,19 +752,15 @@ func TestResourceModel_GenerateClusterConfiguration(t *testing.T) {
 		customPropsJSONAttr, ok := attrs["custom_properties_json"].(types.String)
 		require.True(t, ok)
 
-		// Parse the JSON to verify it contains expected properties
 		jsonStr := customPropsJSONAttr.ValueString()
 		require.Contains(t, jsonStr, "auto.create.topics.enable")
 		require.Contains(t, jsonStr, "log.segment.bytes")
 		require.Contains(t, jsonStr, "retention.ms")
 		require.Contains(t, jsonStr, "compaction.type")
 
-		// Verify it's valid JSON
 		var parsedJSON map[string]any
 		err = json.Unmarshal([]byte(jsonStr), &parsedJSON)
 		require.NoError(t, err)
-
-		// Verify specific values
 		require.Equal(t, true, parsedJSON["auto.create.topics.enable"])
 		require.Equal(t, "1073741824", parsedJSON["log.segment.bytes"])
 		require.Equal(t, "604800000", parsedJSON["retention.ms"])
@@ -808,38 +804,111 @@ func TestResourceModel_GenerateClusterConfiguration(t *testing.T) {
 	})
 
 	t.Run("consistency test - simulate plan vs apply scenario", func(t *testing.T) {
-		// This test simulates the exact scenario from the error:
-		// Plan phase: cluster_configuration is null
-		// Apply phase: cluster_configuration becomes {"custom_properties_json":"{}"}
-
-		// Simulate plan phase - cluster without configuration
 		planCluster := &controlplanev1.Cluster{}
 		planResult, planDiags := model.generateModelClusterConfiguration(planCluster)
 		require.False(t, planDiags.HasError())
 		require.True(t, planResult.IsNull(), "Plan phase should return null when no cluster configuration")
 
-		// Simulate apply phase - cluster with empty configuration (what might happen during creation)
 		applyCluster := &controlplanev1.Cluster{
-			ClusterConfiguration: &controlplanev1.Cluster_ClusterConfiguration{
-				// No CustomProperties set - this is the key scenario
-			},
+			ClusterConfiguration: &controlplanev1.Cluster_ClusterConfiguration{},
 		}
 		applyResult, applyDiags := model.generateModelClusterConfiguration(applyCluster)
 		require.False(t, applyDiags.HasError())
-
-		// The bug would be if applyResult is not null when it should be
-		// But since we have the HasClusterConfiguration() check, it should be null
 		require.True(t, applyResult.IsNull(), "Apply phase should also return null when cluster configuration has no custom properties")
-
-		// Verify they're consistent
 		require.Equal(t, planResult.IsNull(), applyResult.IsNull(), "Plan and Apply phases should be consistent")
+	})
+}
+
+func TestClusterConfigurationConsistency(t *testing.T) {
+	t.Run("plan_apply_consistency_empty_config", func(t *testing.T) {
+		planModel := &ResourceModel{
+			ClusterConfiguration: types.ObjectNull(getClusterConfigurationType()),
+		}
+
+		applyCluster := &controlplanev1.Cluster{
+			ClusterConfiguration: &controlplanev1.Cluster_ClusterConfiguration{},
+		}
+
+		applyResult, diags := planModel.generateModelClusterConfiguration(applyCluster)
+		require.False(t, diags.HasError())
+		require.True(t, applyResult.IsNull(),
+			"When cluster has empty ClusterConfiguration, result should be null to match plan")
+	})
+
+	t.Run("plan_apply_consistency_with_empty_json", func(t *testing.T) {
+		planModel := &ResourceModel{
+			ClusterConfiguration: types.ObjectNull(getClusterConfigurationType()),
+		}
+
+		emptyProps, err := structpb.NewStruct(map[string]any{})
+		require.NoError(t, err)
+
+		applyCluster := &controlplanev1.Cluster{
+			ClusterConfiguration: &controlplanev1.Cluster_ClusterConfiguration{
+				CustomProperties: emptyProps,
+			},
+		}
+
+		applyResult, diags := planModel.generateModelClusterConfiguration(applyCluster)
+		require.False(t, diags.HasError())
+		require.True(t, applyResult.IsNull(),
+			"When cluster has empty custom properties, result should be null to match plan")
+	})
+
+	t.Run("plan_apply_consistency_object_with_null_field", func(t *testing.T) {
+		planModel := &ResourceModel{
+			ClusterConfiguration: types.ObjectValueMust(
+				getClusterConfigurationType(),
+				map[string]attr.Value{
+					"custom_properties_json": types.StringNull(),
+				},
+			),
+		}
+
+		applyCluster := &controlplanev1.Cluster{}
+
+		applyResult, diags := planModel.generateModelClusterConfiguration(applyCluster)
+		require.False(t, diags.HasError())
+		require.True(t, applyResult.IsNull(),
+			"When cluster has no configuration, result should be null")
+	})
+
+	t.Run("plan_apply_consistency_with_actual_properties", func(t *testing.T) {
+		planModel := &ResourceModel{
+			ClusterConfiguration: types.ObjectValueMust(
+				getClusterConfigurationType(),
+				map[string]attr.Value{
+					"custom_properties_json": types.StringValue(`{"log.retention.ms":"604800000"}`),
+				},
+			),
+		}
+
+		customProps, err := structpb.NewStruct(map[string]any{
+			"log.retention.ms": "604800000",
+		})
+		require.NoError(t, err)
+
+		applyCluster := &controlplanev1.Cluster{
+			ClusterConfiguration: &controlplanev1.Cluster_ClusterConfiguration{
+				CustomProperties: customProps,
+			},
+		}
+
+		applyResult, diags := planModel.generateModelClusterConfiguration(applyCluster)
+		require.False(t, diags.HasError())
+		require.False(t, applyResult.IsNull(),
+			"When cluster has actual custom properties, result should not be null")
+
+		attrs := applyResult.Attributes()
+		customPropsJSON, ok := attrs["custom_properties_json"].(types.String)
+		require.True(t, ok)
+		require.Contains(t, customPropsJSON.ValueString(), "log.retention.ms")
 	})
 }
 
 func TestResourceModel_ComprehensiveConsistencyTest(t *testing.T) {
 	ctx := context.Background()
 
-	// Helper function to compare two ResourceModels for consistency
 	compareModels := func(t *testing.T, planModel, applyModel *ResourceModel, fieldName string) {
 		t.Helper()
 
@@ -895,21 +964,15 @@ func TestResourceModel_ComprehensiveConsistencyTest(t *testing.T) {
 				require.Equal(t, planModel.AllowDeletion.ValueBool(), applyModel.AllowDeletion.ValueBool(), "AllowDeletion value should be consistent")
 			}
 		case "CreatedAt":
-			// CreatedAt is expected to be different: null during plan, non-null after apply
-			// This is acceptable as the timestamp is set during creation
 			if !planModel.CreatedAt.IsNull() || applyModel.CreatedAt.IsNull() {
-				// If both are non-null, they should match
 				require.Equal(t, planModel.CreatedAt.IsNull(), applyModel.CreatedAt.IsNull(), "CreatedAt null status should be consistent when both are set")
 				if !planModel.CreatedAt.IsNull() && !applyModel.CreatedAt.IsNull() {
 					require.Equal(t, planModel.CreatedAt.ValueString(), applyModel.CreatedAt.ValueString(), "CreatedAt value should be consistent")
 				}
 			}
 		case "State":
-			// State can legitimately change from CREATING to READY between plan and apply
-			// but both should always be non-null
 			require.False(t, planModel.State.IsNull(), "Plan state should not be null")
 			require.False(t, applyModel.State.IsNull(), "Apply state should not be null")
-			// We don't require the state values to be the same as this is expected to change
 		case "StateDescription":
 			require.Equal(t, planModel.StateDescription.IsNull(), applyModel.StateDescription.IsNull(), "StateDescription null status should be consistent")
 		case "Tags":
@@ -925,10 +988,7 @@ func TestResourceModel_ComprehensiveConsistencyTest(t *testing.T) {
 				require.Equal(t, planModel.NetworkID.ValueString(), applyModel.NetworkID.ValueString(), "NetworkID value should be consistent")
 			}
 		case "ClusterAPIURL":
-			// ClusterAPIURL is expected to be different: null during plan, non-null after apply
-			// This is acceptable as the URL is set during cluster creation
 			if !planModel.ClusterAPIURL.IsNull() || applyModel.ClusterAPIURL.IsNull() {
-				// If both are non-null, they should match
 				require.Equal(t, planModel.ClusterAPIURL.IsNull(), applyModel.ClusterAPIURL.IsNull(), "ClusterAPIURL null status should be consistent when both are set")
 				if !planModel.ClusterAPIURL.IsNull() && !applyModel.ClusterAPIURL.IsNull() {
 					require.Equal(t, planModel.ClusterAPIURL.ValueString(), applyModel.ClusterAPIURL.ValueString(), "ClusterAPIURL value should be consistent")
@@ -1000,10 +1060,7 @@ func TestResourceModel_ComprehensiveConsistencyTest(t *testing.T) {
 				DataplaneApi: &controlplanev1.Cluster_DataplaneAPI{
 					Url: "https://test.example.com",
 				},
-				// These might be added during cluster creation but shouldn't affect consistency
-				ClusterConfiguration: &controlplanev1.Cluster_ClusterConfiguration{
-					// No custom properties - should remain null
-				},
+				ClusterConfiguration: &controlplanev1.Cluster_ClusterConfiguration{},
 			},
 			contingentPlan: ContingentFields{
 				RedpandaVersion: types.StringValue("v24.1.1"),
@@ -1038,12 +1095,11 @@ func TestResourceModel_ComprehensiveConsistencyTest(t *testing.T) {
 				Region:         "us-central1",
 				State:          controlplanev1.Cluster_STATE_READY,
 				CreatedAt:      timestamppb.New(time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)),
-				// These are created empty during provision but should remain null for consistency
 				KafkaConnect: &controlplanev1.KafkaConnect{
-					Enabled: false, // Disabled should result in null
+					Enabled: false,
 				},
 				AwsPrivateLink: &controlplanev1.Cluster_AWSPrivateLink{
-					Enabled: false, // Disabled should result in null
+					Enabled: false,
 				},
 			},
 			contingentPlan: ContingentFields{
@@ -1076,7 +1132,7 @@ func TestResourceModel_ComprehensiveConsistencyTest(t *testing.T) {
 					SeedBrokers: []string{"broker1:9092"},
 				},
 				KafkaConnect: &controlplanev1.KafkaConnect{
-					Enabled: true, // Enabled should result in non-null
+					Enabled: true,
 				},
 				Prometheus: &controlplanev1.Cluster_Prometheus{
 					Url: "https://prometheus.example.com",
@@ -1096,7 +1152,7 @@ func TestResourceModel_ComprehensiveConsistencyTest(t *testing.T) {
 					SeedBrokers: []string{"broker1:9092"},
 				},
 				KafkaConnect: &controlplanev1.KafkaConnect{
-					Enabled: true, // Enabled should result in non-null
+					Enabled: true,
 				},
 				Prometheus: &controlplanev1.Cluster_Prometheus{
 					Url: "https://prometheus.example.com",
@@ -1117,19 +1173,15 @@ func TestResourceModel_ComprehensiveConsistencyTest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Generate plan phase model
 			planModel := &ResourceModel{}
 			planResult, planDiags := planModel.GetUpdatedModel(ctx, tc.planCluster, tc.contingentPlan)
 			require.False(t, planDiags.HasError(), "Plan phase should not have errors")
 			require.NotNil(t, planResult, "Plan result should not be nil")
 
-			// Generate apply phase model
 			applyModel := &ResourceModel{}
 			applyResult, applyDiags := applyModel.GetUpdatedModel(ctx, tc.applyCluster, tc.contingentApply)
 			require.False(t, applyDiags.HasError(), "Apply phase should not have errors")
 			require.NotNil(t, applyResult, "Apply result should not be nil")
-
-			// Test consistency for each field
 			fields := []string{
 				"Name", "ID", "ConnectionType", "CloudProvider", "ClusterType",
 				"RedpandaVersion", "ThroughputTier", "Region", "Zones", "AllowDeletion",
