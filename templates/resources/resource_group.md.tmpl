@@ -13,12 +13,16 @@ Creates a Resource Group in the Redpanda Cloud.
 
 {{ .SchemaMarkdown | trimspace }}
 
-## Usage
+## Example Usage
 
-{{ tffile "examples/cluster/aws/main.tf" }}
+{{ tffile "examples/docs/resource_group/main.tf" }}
 
 ## Import
 
 ```shell
 terraform import {{.Name}}.example resourcegroupId
 ```
+
+## API Reference
+
+For more information, see the [Redpanda Cloud Control Plane API documentation](https://docs.redpanda.com/api/cloud-controlplane-api/).

@@ -13,17 +13,21 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 
 {{ .SchemaMarkdown | trimspace }}
 
-## Usage
+## Example Usage
 
-### On AWS
+{{ tffile "examples/docs/cluster/main.tf" }}
+
+### Advanced Usage
+
+#### On AWS
 
 {{ tffile "examples/cluster/aws/main.tf" }}
 
-### On GCP
+#### On GCP
 
 {{ tffile "examples/cluster/gcp/main.tf" }}
 
-### On Azure
+#### On Azure
 
 {{ tffile "examples/cluster/azure/main.tf" }}
 
@@ -86,4 +90,8 @@ We are not currently able to support Azure BYOVPC clusters.
 ```shell
 terraform import {{.Name}}.example clusterId
 ```
+
+## API Reference
+
+For more information, see the [Redpanda Cloud Control Plane API documentation](https://docs.redpanda.com/api/cloud-controlplane-api/).
 

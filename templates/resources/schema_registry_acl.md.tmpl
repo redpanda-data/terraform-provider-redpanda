@@ -1,0 +1,67 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+Creates Access Control Lists (ACLs) for Redpanda Schema Registry resources. Schema Registry ACLs provide fine-grained access control over subjects and registry operations.
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+{{ tffile "examples/docs/schema_registry_acl/main.tf" }}
+
+## Resource Types
+
+Schema Registry ACLs support two resource types:
+
+### SUBJECT
+Controls access to specific subjects or subject patterns in the Schema Registry. Use this for schema-level permissions.
+
+### REGISTRY  
+Controls access to registry-wide operations like listing subjects or getting compatibility settings.
+
+## Operations
+
+Available operations depend on the resource type:
+
+- `ALL`: All operations (use with caution)
+- `READ`: Read schemas and subject metadata
+- `WRITE`: Create and update schemas
+- `DELETE`: Delete schemas and subjects
+- `DESCRIBE`: View subject and schema metadata
+- `DESCRIBE_CONFIGS`: View compatibility and other configuration settings
+- `ALTER`: Modify subject settings
+- `ALTER_CONFIGS`: Modify compatibility and other configuration settings
+
+## Pattern Types
+
+- `LITERAL`: Exact match on resource name
+- `PREFIXED`: Match resources that start with the specified prefix
+
+## Administrative Requirements
+
+To manage Schema Registry ACLs, the user must have cluster-level ALTER permissions. This is typically configured with a regular Kafka ACL granting ALTER operation on the CLUSTER resource.
+
+For more details about Schema Registry ACLs, see the [Redpanda Schema Registry API documentation](https://docs.redpanda.com/current/manage/schema-reg/schema-reg-api/).
+
+## Security Considerations
+
+We recommend storing Schema Registry credentials in environment variables or a secret store:
+
+- `REDPANDA_SR_USERNAME` for the username  
+- `REDPANDA_SR_PASSWORD` for the password
+
+## Import
+
+We do not currently support importing Schema Registry ACLs.
+
+## API Reference
+
+For more information, see the [Redpanda Schema Registry API documentation](https://docs.redpanda.com/current/manage/schema-reg/schema-reg-api/) and the [Redpanda Cloud Data Plane API documentation](https://docs.redpanda.com/api/cloud-dataplane-api/).
