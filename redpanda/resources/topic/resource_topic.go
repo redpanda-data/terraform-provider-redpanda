@@ -142,8 +142,20 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
 	var model models.Topic
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
+
+	if model.ClusterAPIURL.IsNull() || model.ClusterAPIURL.IsUnknown() || model.ClusterAPIURL.ValueString() == "" {
+		response.State.RemoveResource(ctx)
+		return
+	}
+
 	err := t.createTopicClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
+		if utils.IsClusterUnreachable(err) {
+			if model.AllowDeletion.IsNull() || model.AllowDeletion.ValueBool() {
+				response.State.RemoveResource(ctx)
+				return
+			}
+		}
 		response.Diagnostics.AddError("failed to create topic client", utils.DeserializeGrpcError(err))
 		return
 	}
@@ -153,6 +165,12 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 		if utils.IsNotFound(err) {
 			response.State.RemoveResource(ctx)
 			return
+		}
+		if utils.IsClusterUnreachable(err) {
+			if model.AllowDeletion.IsNull() || model.AllowDeletion.ValueBool() {
+				response.State.RemoveResource(ctx)
+				return
+			}
 		}
 		response.Diagnostics.AddError(fmt.Sprintf("failed receive response from topic api for topic %s", model.Name), utils.DeserializeGrpcError(err))
 		return

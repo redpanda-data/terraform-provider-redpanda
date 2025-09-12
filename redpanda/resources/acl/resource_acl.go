@@ -123,6 +123,10 @@ func resourceACLSchema() schema.Schema {
 					"change this value unless you are planning to do state imports",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
+			"allow_deletion": schema.BoolAttribute{
+				Optional:    true,
+				Description: "When set to true, allows the resource to be removed from state even if the cluster is unreachable",
+			},
 			"id": schema.StringAttribute{
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
@@ -189,6 +193,7 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		Operation:           model.Operation,
 		PermissionType:      model.PermissionType,
 		ClusterAPIURL:       model.ClusterAPIURL,
+		AllowDeletion:       model.AllowDeletion,
 	})...)
 }
 
@@ -196,6 +201,11 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
 	var model models.ACL
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
+
+	if model.ClusterAPIURL.IsNull() || model.ClusterAPIURL.IsUnknown() || model.ClusterAPIURL.ValueString() == "" {
+		response.State.RemoveResource(ctx)
+		return
+	}
 
 	resourceType, err := stringToACLResourceType(model.ResourceType.ValueString())
 	if err != nil {
@@ -233,12 +243,24 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 
 	err = a.createACLClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
+		if utils.IsClusterUnreachable(err) {
+			if model.AllowDeletion.IsNull() || model.AllowDeletion.ValueBool() {
+				response.State.RemoveResource(ctx)
+				return
+			}
+		}
 		response.Diagnostics.AddError("failed to create ACL client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer a.dataplaneConn.Close()
 	aclList, err := a.ACLClient.ListACLs(ctx, &dataplanev1.ListACLsRequest{Filter: filter})
 	if err != nil {
+		if utils.IsClusterUnreachable(err) {
+			if model.AllowDeletion.IsNull() || model.AllowDeletion.ValueBool() {
+				response.State.RemoveResource(ctx)
+				return
+			}
+		}
 		response.Diagnostics.AddError("Failed to list ACLs", utils.DeserializeGrpcError(err))
 		return
 	}
@@ -254,6 +276,7 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 				Operation:           model.Operation,
 				PermissionType:      model.PermissionType,
 				ClusterAPIURL:       model.ClusterAPIURL,
+				AllowDeletion:       model.AllowDeletion,
 			})...)
 			return
 		}
