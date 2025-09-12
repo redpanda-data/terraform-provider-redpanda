@@ -78,15 +78,14 @@ install_lint:
 .PHONY: linter
 linter:
 	@if [ "$$BUILDKITE" = "true" ]; then \
-		GOFLAGS="-buildvcs=false" $(GOLANGCILINTCMD) run --timeout=5m; \
+		GOFLAGS="-buildvcs=false" $(GOLANGCILINTCMD) run --timeout=5m $(CLI_ARGS); \
 	else \
-		$(GOLANGCILINTCMD) run; \
+		$(GOLANGCILINTCMD) run $(CLI_ARGS); \
 	fi
 
 .PHONY: fix-lint
 fix-lint:
-	@echo "running gofumpt..."
-	@$(GOLANGCILINTCMD) run --fix
+	@$(MAKE) lint CLI_ARGS="--fix"
 
 OS ?= $(shell go env GOOS)
 ARCH ?= $(shell go env GOARCH)
@@ -431,6 +430,17 @@ test_serverless_regions:
 	TF_LOG=$(TF_LOG) \
 	VERSION=pre \
 	$(GOCMD) test -v -timeout=$(TIMEOUT) ./redpanda/tests -run TestAccDataSourceServerlessRegions
+
+.PHONY: test_schema_registry_acl
+test_schema_registry_acl:
+	@echo "Running TestAccSchemaRegistryACL..."
+	@DEBUG=true \
+	REDPANDA_CLIENT_ID="$(REDPANDA_CLIENT_ID)" \
+	REDPANDA_CLIENT_SECRET="$(REDPANDA_CLIENT_SECRET)" \
+	TF_ACC=true \
+	TF_LOG=$(TF_LOG) \
+	VERSION=pre \
+	$(GOCMD) test -v -timeout=1h ./redpanda/tests -run TestAccSchemaRegistryACL
 
 import-gpg:
 	echo "$$GPG_PRIVATE_KEY" | base64 -d | gpg --batch --pinentry-mode loopback --passphrase "$$PASSPHRASE" --import
