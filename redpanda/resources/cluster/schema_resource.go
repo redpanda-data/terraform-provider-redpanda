@@ -118,6 +118,7 @@ func resourceClusterSchema() schema.Schema {
 				Computed:      true,
 				Description:   "Configuration for the cluster.",
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Validators:    []validator.Object{validators.ClusterConfiguration()},
 				Attributes: map[string]schema.Attribute{
 					"custom_properties_json": schema.StringAttribute{
 						Optional:    true,

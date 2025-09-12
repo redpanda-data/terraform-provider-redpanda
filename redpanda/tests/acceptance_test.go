@@ -439,6 +439,79 @@ func buildTestCheckFuncs(testFile, name string) ([]resource.TestCheckFunc, error
 		)
 	}
 
+	// Check if Schema Registry ACL resources exist and add appropriate checks
+	if strings.Contains(testFileStr, `resource "redpanda_schema_registry_acl" "read_product"`) {
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttrSet("redpanda_schema_registry_acl.read_product", "id"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.read_product", "principal", "User:"+name),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.read_product", "resource_type", "SUBJECT"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.read_product", "resource_name", "product-"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.read_product", "pattern_type", "PREFIXED"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.read_product", "operation", "READ"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.read_product", "permission", "ALLOW"),
+		)
+	}
+
+	if strings.Contains(testFileStr, `resource "redpanda_schema_registry_acl" "write_orders"`) {
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttrSet("redpanda_schema_registry_acl.write_orders", "id"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.write_orders", "principal", "User:"+name),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.write_orders", "resource_type", "SUBJECT"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.write_orders", "resource_name", "orders-value"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.write_orders", "pattern_type", "LITERAL"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.write_orders", "operation", "WRITE"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.write_orders", "permission", "ALLOW"),
+		)
+	}
+
+	if strings.Contains(testFileStr, `resource "redpanda_schema_registry_acl" "all_test_topic"`) {
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttrSet("redpanda_schema_registry_acl.all_test_topic", "id"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.all_test_topic", "principal", "User:"+name),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.all_test_topic", "resource_type", "SUBJECT"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.all_test_topic", "resource_name", name+"-"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.all_test_topic", "pattern_type", "PREFIXED"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.all_test_topic", "operation", "ALL"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.all_test_topic", "permission", "ALLOW"),
+		)
+	}
+
+	if strings.Contains(testFileStr, `resource "redpanda_schema_registry_acl" "describe_test_topic"`) {
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttrSet("redpanda_schema_registry_acl.describe_test_topic", "id"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.describe_test_topic", "principal", "User:"+name),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.describe_test_topic", "resource_type", "SUBJECT"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.describe_test_topic", "resource_name", name+"-"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.describe_test_topic", "pattern_type", "PREFIXED"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.describe_test_topic", "operation", "DESCRIBE"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.describe_test_topic", "permission", "ALLOW"),
+		)
+	}
+
+	if strings.Contains(testFileStr, `resource "redpanda_schema_registry_acl" "describe_registry"`) {
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttrSet("redpanda_schema_registry_acl.describe_registry", "id"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.describe_registry", "principal", "User:"+name),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.describe_registry", "resource_type", "REGISTRY"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.describe_registry", "resource_name", "*"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.describe_registry", "pattern_type", "LITERAL"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.describe_registry", "operation", "DESCRIBE"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.describe_registry", "permission", "ALLOW"),
+		)
+	}
+
+	if strings.Contains(testFileStr, `resource "redpanda_schema_registry_acl" "alter_configs_registry"`) {
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttrSet("redpanda_schema_registry_acl.alter_configs_registry", "id"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.alter_configs_registry", "principal", "User:"+name),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.alter_configs_registry", "resource_type", "REGISTRY"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.alter_configs_registry", "resource_name", "*"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.alter_configs_registry", "pattern_type", "LITERAL"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.alter_configs_registry", "operation", "ALTER_CONFIGS"),
+			resource.TestCheckResourceAttr("redpanda_schema_registry_acl.alter_configs_registry", "permission", "ALLOW"),
+		)
+	}
+
 	return checkFuncs, nil
 }
 
