@@ -132,7 +132,7 @@ func (c *ServerlessCluster) Create(ctx context.Context, req resource.CreateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if err := utils.AreWeDoneYet(ctx, op, time.Minute, c.CpCl.Operation); err != nil {
+	if err := utils.AreWeDoneYet(ctx, op, 30*time.Minute, c.CpCl.Operation); err != nil {
 		resp.Diagnostics.AddError("operation error while creating serverless cluster", utils.DeserializeGrpcError(err))
 		return
 	}
@@ -199,7 +199,7 @@ func (c *ServerlessCluster) Delete(ctx context.Context, req resource.DeleteReque
 		return
 	}
 
-	if err := utils.AreWeDoneYet(ctx, clResp.Operation, time.Minute, c.CpCl.Operation); err != nil {
+	if err := utils.AreWeDoneYet(ctx, clResp.Operation, 30*time.Minute, c.CpCl.Operation); err != nil {
 		resp.Diagnostics.AddError("failed to delete serverless cluster", utils.DeserializeGrpcError(err))
 		return
 	}

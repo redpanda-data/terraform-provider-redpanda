@@ -22,6 +22,7 @@ import (
 	"time"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -64,6 +65,7 @@ type ResourceModel struct {
 	MaintenanceWindowConfig  types.Object        `tfsdk:"maintenance_window_config"`
 	GCPGlobalAccessEnabled   basetypes.BoolValue `tfsdk:"gcp_global_access_enabled"`
 	ClusterConfiguration     types.Object        `tfsdk:"cluster_configuration"`
+	Timeouts                 timeouts.Value      `tfsdk:"timeouts"`
 }
 
 // GetID returns the cluster ID.
@@ -108,6 +110,7 @@ func GenerateMinimalResourceModel(clusterID string) *ResourceModel {
 		MaintenanceWindowConfig:  types.ObjectNull(getMaintenanceWindowConfigType()),
 		KafkaConnect:             types.ObjectNull(getKafkaConnectType()),
 		ClusterConfiguration:     types.ObjectNull(getClusterConfigurationType()),
+		Timeouts:                 timeouts.Value{},
 	}
 }
 
