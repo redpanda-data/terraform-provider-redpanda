@@ -32,6 +32,10 @@ resource "redpanda_cluster" "test" {
   tags = {
     "key" = "value"
   }
+
+  timeouts = {
+    create = "90m"
+  }
 }
 
 variable "resource_group_name" {
@@ -88,6 +92,8 @@ resource "redpanda_schema" "user_schema" {
 
   depends_on = [
     redpanda_acl.schema_registry_admin,
+    redpanda_acl.cluster_action,
+    redpanda_acl.topic_access,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry
@@ -113,6 +119,8 @@ resource "redpanda_schema" "user_event_schema" {
 
   depends_on = [
     redpanda_acl.schema_registry_admin,
+    redpanda_acl.cluster_action,
+    redpanda_acl.topic_access,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry
@@ -131,6 +139,8 @@ resource "redpanda_schema" "product_schema" {
 
   depends_on = [
     redpanda_acl.schema_registry_admin,
+    redpanda_acl.cluster_action,
+    redpanda_acl.topic_access,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry
@@ -156,6 +166,30 @@ resource "redpanda_acl" "schema_registry_admin" {
   principal             = "User:${redpanda_user.test.name}"
   host                  = "*"
   operation             = "ALTER"
+  permission_type       = "ALLOW"
+  cluster_api_url       = redpanda_cluster.test.cluster_api_url
+  allow_deletion        = true
+}
+
+resource "redpanda_acl" "cluster_action" {
+  resource_type         = "CLUSTER"
+  resource_name         = "kafka-cluster"
+  resource_pattern_type = "LITERAL"
+  principal             = "User:${redpanda_user.test.name}"
+  host                  = "*"
+  operation             = "CLUSTER_ACTION"
+  permission_type       = "ALLOW"
+  cluster_api_url       = redpanda_cluster.test.cluster_api_url
+  allow_deletion        = true
+}
+
+resource "redpanda_acl" "topic_access" {
+  resource_type         = "TOPIC"
+  resource_name         = var.topic_name
+  resource_pattern_type = "LITERAL"
+  principal             = "User:${redpanda_user.test.name}"
+  host                  = "*"
+  operation             = "ALL"
   permission_type       = "ALLOW"
   cluster_api_url       = redpanda_cluster.test.cluster_api_url
   allow_deletion        = true
@@ -208,21 +242,6 @@ resource "redpanda_schema_registry_acl" "all_test_topic" {
   depends_on = [redpanda_acl.schema_registry_admin]
 }
 
-resource "redpanda_schema_registry_acl" "describe_test_topic" {
-  cluster_id     = redpanda_cluster.test.id
-  principal      = "User:${redpanda_user.test.name}"
-  resource_type  = "SUBJECT"
-  resource_name  = "${var.topic_name}-"
-  pattern_type   = "PREFIXED"
-  host           = "*"
-  operation      = "DESCRIBE"
-  permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
-  allow_deletion = true
-
-  depends_on = [redpanda_acl.schema_registry_admin]
-}
 
 resource "redpanda_schema_registry_acl" "describe_registry" {
   cluster_id     = redpanda_cluster.test.id

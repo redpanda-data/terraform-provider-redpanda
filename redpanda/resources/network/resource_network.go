@@ -69,14 +69,22 @@ func (n *Network) Configure(_ context.Context, request resource.ConfigureRequest
 }
 
 // Schema returns the schema for the Network resource.
-func (*Network) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
-	response.Schema = resourceNetworkSchema()
+func (*Network) Schema(ctx context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
+	response.Schema = resourceNetworkSchema(ctx)
 }
 
 // Create creates a new Network resource. It updates the state if the resource is successfully created.
 func (n *Network) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
 	var model network.ResourceModel
 	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
+
+	// Get create timeout from configuration
+	createTimeout, diags := model.Timeouts.Create(ctx, 15*time.Minute)
+	response.Diagnostics.Append(diags...)
+	if response.Diagnostics.HasError() {
+		return
+	}
+
 	m, d := model.GetNetworkCreate(ctx)
 	if d.HasError() {
 		d.AddError("error creating network", "error getting proto from network model")
@@ -93,7 +101,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 	// write initial state so that if network creation fails, we can still track and delete it
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("id"), utils.TrimmedStringValue(op.GetResourceId()))...)
 
-	if err := utils.AreWeDoneYet(ctx, op, 15*time.Minute, n.CpCl.Operation); err != nil {
+	if err := utils.AreWeDoneYet(ctx, op, createTimeout, n.CpCl.Operation); err != nil {
 		response.Diagnostics.AddError("failed waiting for network creation", utils.DeserializeGrpcError(err))
 		return
 	}
@@ -108,6 +116,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		response.Diagnostics = append(response.Diagnostics, dgs...)
 		return
 	}
+	toPersist.Timeouts = model.Timeouts
 	response.Diagnostics.Append(response.State.Set(ctx, toPersist)...)
 }
 
@@ -136,6 +145,7 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 		response.Diagnostics = append(response.Diagnostics, d...)
 		return
 	}
+	m.Timeouts = model.Timeouts
 
 	response.Diagnostics.Append(response.State.Set(ctx, m)...)
 }
@@ -148,6 +158,14 @@ func (*Network) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.
 func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
 	var model network.ResourceModel
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
+
+	// Get delete timeout from configuration
+	deleteTimeout, diags := model.Timeouts.Delete(ctx, 15*time.Minute)
+	response.Diagnostics.Append(diags...)
+	if response.Diagnostics.HasError() {
+		return
+	}
+
 	netResp, err := n.CpCl.Network.DeleteNetwork(ctx, &controlplanev1.DeleteNetworkRequest{
 		Id: model.GetID(),
 	})
@@ -155,7 +173,7 @@ func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, re
 		response.Diagnostics.AddError("failed to delete network", utils.DeserializeGrpcError(err))
 		return
 	}
-	if err := utils.AreWeDoneYet(ctx, netResp.Operation, 15*time.Minute, n.CpCl.Operation); err != nil {
+	if err := utils.AreWeDoneYet(ctx, netResp.Operation, deleteTimeout, n.CpCl.Operation); err != nil {
 		response.Diagnostics.AddError("failed waiting for network deletion", utils.DeserializeGrpcError(err))
 	}
 }

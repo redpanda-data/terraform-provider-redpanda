@@ -1,8 +1,10 @@
 package cluster
 
 import (
+	"context"
 	"regexp"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -19,7 +21,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
-func resourceClusterSchema() schema.Schema {
+func resourceClusterSchema(ctx context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
@@ -973,6 +975,11 @@ func resourceClusterSchema() schema.Schema {
 					},
 				},
 			},
+			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
+				Create: true,
+				Update: true,
+				Delete: true,
+			}),
 		},
 	}
 }

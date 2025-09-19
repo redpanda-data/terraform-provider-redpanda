@@ -20,6 +20,7 @@ import (
 	"context"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -29,14 +30,15 @@ import (
 
 // ResourceModel represents the Terraform schema for the network resource.
 type ResourceModel struct {
-	Name                     types.String `tfsdk:"name"`
-	ResourceGroupID          types.String `tfsdk:"resource_group_id"`
-	CloudProvider            types.String `tfsdk:"cloud_provider"`
-	Region                   types.String `tfsdk:"region"`
-	CidrBlock                types.String `tfsdk:"cidr_block"`
-	ID                       types.String `tfsdk:"id"`
-	ClusterType              types.String `tfsdk:"cluster_type"`
-	CustomerManagedResources types.Object `tfsdk:"customer_managed_resources"`
+	Name                     types.String   `tfsdk:"name"`
+	ResourceGroupID          types.String   `tfsdk:"resource_group_id"`
+	CloudProvider            types.String   `tfsdk:"cloud_provider"`
+	Region                   types.String   `tfsdk:"region"`
+	CidrBlock                types.String   `tfsdk:"cidr_block"`
+	ID                       types.String   `tfsdk:"id"`
+	ClusterType              types.String   `tfsdk:"cluster_type"`
+	CustomerManagedResources types.Object   `tfsdk:"customer_managed_resources"`
+	Timeouts                 timeouts.Value `tfsdk:"timeouts"`
 }
 
 // GetUpdatedModel updates the Network ResourceModel using a provided Network proto object. It returns an updated model for convenience

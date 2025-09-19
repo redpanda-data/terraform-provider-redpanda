@@ -43,6 +43,10 @@ resource "redpanda_cluster" "test" {
   #       }
   #     ]
   #   }
+
+  timeouts = {
+    create = "90m"
+  }
 }
 
 variable "cluster_name" {

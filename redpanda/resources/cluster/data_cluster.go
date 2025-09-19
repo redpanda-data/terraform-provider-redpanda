@@ -20,6 +20,7 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"time"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -64,7 +65,18 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 	var model cluster.DataModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 
-	cl, err := d.CpCl.ClusterForID(ctx, model.ID.ValueString())
+	// Get read timeout from configuration
+	readTimeout, diags := model.Timeouts.Read(ctx, 10*time.Minute)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Create context with timeout for API call
+	timeoutCtx, cancel := context.WithTimeout(ctx, readTimeout)
+	defer cancel()
+
+	cl, err := d.CpCl.ClusterForID(timeoutCtx, model.ID.ValueString())
 	if err != nil {
 		if utils.IsNotFound(err) {
 			resp.Diagnostics.AddError(fmt.Sprintf("unable to find cluster %s", model.ID), utils.DeserializeGrpcError(err))
@@ -100,6 +112,6 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 }
 
 // Schema returns the schema for the Cluster data source.
-func (*DataSourceCluster) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	resp.Schema = datasourceClusterSchema() // Reuse the schema from the resource
+func (*DataSourceCluster) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = datasourceClusterSchema(ctx) // Reuse the schema from the resource
 }

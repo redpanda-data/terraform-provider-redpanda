@@ -37,6 +37,10 @@ resource "redpanda_cluster" "test" {
 #     connect_console = true
 #     allowed_subscriptions = ["12345678-1234-1234-1234-123456789012"]
 #   }
+
+  timeouts = {
+    create = "90m"
+  }
 }
 
 variable "resource_group_name" {

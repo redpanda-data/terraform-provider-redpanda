@@ -1,8 +1,10 @@
 package network
 
 import (
+	"context"
 	"regexp"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
@@ -13,7 +15,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
-func resourceNetworkSchema() schema.Schema {
+func resourceNetworkSchema(ctx context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
@@ -141,6 +143,10 @@ func resourceNetworkSchema() schema.Schema {
 					},
 				},
 			},
+			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
+				Create: true,
+				Delete: true,
+			}),
 		},
 	}
 }

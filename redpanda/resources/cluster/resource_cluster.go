@@ -69,8 +69,8 @@ func (c *Cluster) Configure(_ context.Context, req resource.ConfigureRequest, re
 }
 
 // Schema returns the schema for the Cluster resource
-func (*Cluster) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = resourceClusterSchema()
+func (*Cluster) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = resourceClusterSchema(ctx)
 }
 
 // Create creates a new Cluster resource. It updates the state if the resource is successfully created
@@ -93,9 +93,16 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	op := clResp.Operation
 	clusterID := op.GetResourceId()
 
+	// Get create timeout from configuration
+	createTimeout, diags := model.Timeouts.Create(ctx, 90*time.Minute)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	// wait for creation to complete, running "byoc apply" if we see STATE_CREATING_AGENT
 	var ranByoc bool
-	cl, err := utils.RetryGetCluster(ctx, 90*time.Minute, clusterID, c.CpCl, func(cluster *controlplanev1.Cluster) *utils.RetryError {
+	cl, err := utils.RetryGetCluster(ctx, createTimeout, clusterID, c.CpCl, func(cluster *controlplanev1.Cluster) *utils.RetryError {
 		switch cluster.GetState() {
 		case controlplanev1.Cluster_STATE_CREATING:
 			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
@@ -203,7 +210,14 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 			return
 		}
 
-		if err := utils.AreWeDoneYet(ctx, op.GetOperation(), 180*time.Minute, c.CpCl.Operation); err != nil {
+		// Get update timeout from configuration
+		updateTimeout, diags := plan.Timeouts.Update(ctx, 180*time.Minute)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		if err := utils.AreWeDoneYet(ctx, op.GetOperation(), updateTimeout, c.CpCl.Operation); err != nil {
 			resp.Diagnostics.AddError("failed while waiting to update cluster", utils.DeserializeGrpcError(err))
 			return
 		}
@@ -266,9 +280,16 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		}
 	}
 
-	// wait for creation to complete, running "byoc apply" if we see STATE_DELETING_AGENT
+	// Get delete timeout from configuration
+	deleteTimeout, diags := model.Timeouts.Delete(ctx, 90*time.Minute)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// wait for deletion to complete, running "byoc destroy" if we see STATE_DELETING_AGENT
 	ranByoc := false
-	_, err = utils.RetryGetCluster(ctx, 90*time.Minute, clusterID, c.CpCl, func(cluster *controlplanev1.Cluster) *utils.RetryError {
+	_, err = utils.RetryGetCluster(ctx, deleteTimeout, clusterID, c.CpCl, func(cluster *controlplanev1.Cluster) *utils.RetryError {
 		if cluster.GetState() == controlplanev1.Cluster_STATE_DELETING {
 			return utils.RetryableError(fmt.Errorf("expected cluster to be deleted but was in state %v", cluster.GetState()))
 		}

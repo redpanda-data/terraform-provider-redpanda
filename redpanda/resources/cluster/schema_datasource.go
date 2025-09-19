@@ -1,11 +1,14 @@
 package cluster
 
 import (
+	"context"
+
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/datasource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func datasourceClusterSchema() schema.Schema {
+func datasourceClusterSchema(ctx context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -807,6 +810,7 @@ func datasourceClusterSchema() schema.Schema {
 					},
 				},
 			},
+			"timeouts": timeouts.Attributes(ctx),
 		},
 		Description: "Data source for a Redpanda Cloud cluster",
 	}
