@@ -4,15 +4,16 @@ agents:
 steps:
   - label: lint
     key: lint
-    command: make lint
+    command: task lint:default
     plugins:
       - docker#v5.11.0:
           image: "golang:1.24"
           environment:
             - BUILDKITE=true
+    depends_on: []
   - label: unit
     key: unit
-    command: make unit
+    command: task test:unit
     plugins:
       - docker#v5.11.0:
           image: "golang:1.24"
@@ -22,7 +23,7 @@ steps:
   - label: test_network
     key: test_network
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
-    command: make test_network
+    command: task test:network
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -39,7 +40,7 @@ steps:
   - label: test_datasource
     key: test_datasource
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
-    command: make test_datasource
+    command: task test:datasource
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -57,7 +58,7 @@ steps:
   - label: test_cluster_aws
     key: test_cluster_aws
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
-    command: make test_cluster_aws
+    command: task test:cluster:aws
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -75,7 +76,7 @@ steps:
   - label: test_cluster_azure
     key: test_cluster_azure
     if: build.tag == null &&  build.pull_request.labels includes 'ci-ready'
-    command: make test_cluster_azure
+    command: task test:cluster:azure
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -93,7 +94,7 @@ steps:
   - label: test_cluster_gcp
     key: test_cluster_gcp
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
-    command: make test_cluster_gcp
+    command: task test:cluster:gcp
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -111,7 +112,7 @@ steps:
   - label: test_serverless_cluster
     key: test_serverless_cluster
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
-    command: make test_serverless_cluster
+    command: task test:serverless
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -129,7 +130,7 @@ steps:
   - label: test_serverless_regions
     key: test_serverless_regions
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
-    command: make test_serverless_regions
+    command: task test:serverless:regions
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -147,7 +148,7 @@ steps:
   - label: test_byoc_aws
     key: test_byoc_aws
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
-    command: make test_byoc_aws
+    command: task test:byoc:aws
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -167,7 +168,7 @@ steps:
   - label: test_byoc_gcp
     key: test_byoc_gcp
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
-    command: make test_byoc_gcp
+    command: task test:byoc:gcp
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -187,7 +188,7 @@ steps:
   - label: test_byoc_azure
     key: test_byoc_azure
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
-    command: make test_byoc_azure
+    command: task test:byoc:azure
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -206,10 +207,17 @@ steps:
       - lint
       - unit
       - test_network
-  - label: Release
+  - label: "Release"
     key: release
-    if: build.tag != null
-    command: make release
+    if: build.tag =~ /^v\d+\.\d+\.\d+$/
+    command: |
+      # Install task
+      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b ./bin
+      export PATH=$$PWD/bin:$$PATH
+      # Verify installation
+      task --version
+      # Run the release task
+      task release:default
     depends_on:
       - lint
       - unit
@@ -218,10 +226,11 @@ steps:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.11.0:
-          image: "glrp/make-goreleaser:latest"
+          image: "goreleaser/goreleaser:latest"
           environment:
             - GITHUB_TOKEN
             - GPG_PRIVATE_KEY
             - GPG_FINGERPRINT
             - PASSPHRASE
+    timeout_in_minutes: 30
           

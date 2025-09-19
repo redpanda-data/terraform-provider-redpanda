@@ -1,0 +1,69 @@
+version: '3'
+
+vars:
+  GPG_PRIVATE_KEY: '{{.GPG_PRIVATE_KEY | default ""}}'
+  PASSPHRASE: '{{.PASSPHRASE | default ""}}'
+  GPG_FINGERPRINT: '{{.GPG_FINGERPRINT | default ""}}'
+
+tasks:
+  import-gpg:
+    desc: "Import GPG private key for signing releases"
+    cmds:
+      - |
+        if [ -z "{{.GPG_PRIVATE_KEY}}" ]; then
+          echo "Error: GPG_PRIVATE_KEY environment variable is required"
+          exit 1
+        fi
+        if [ -z "{{.PASSPHRASE}}" ]; then
+          echo "Error: PASSPHRASE environment variable is required"
+          exit 1
+        fi
+        echo "Importing GPG private key..."
+        echo "{{.GPG_PRIVATE_KEY}}" | base64 -d | gpg --batch --pinentry-mode loopback --passphrase "{{.PASSPHRASE}}" --import
+        echo "GPG key imported successfully"
+
+  default:
+    desc: "Create a new release using goreleaser"
+    deps: [import-gpg]
+    cmds:
+      - |
+        if [ -z "{{.GPG_FINGERPRINT}}" ]; then
+          echo "Error: GPG_FINGERPRINT environment variable is required"
+          exit 1
+        fi
+        echo "Creating release with goreleaser..."
+        goreleaser release --clean --verbose
+        echo "Release created successfully"
+
+  check:
+    desc: "Check goreleaser configuration without creating a release"
+    cmds:
+      - echo "Checking goreleaser configuration..."
+      - goreleaser check
+      - echo "Configuration is valid"
+
+  build:
+    desc: "Build release artifacts locally without publishing"
+    deps: [import-gpg]
+    cmds:
+      - |
+        if [ -z "{{.GPG_FINGERPRINT}}" ]; then
+          echo "Error: GPG_FINGERPRINT environment variable is required"
+          exit 1
+        fi
+        echo "Building release artifacts locally..."
+        goreleaser build --snapshot --clean
+        echo "Local build completed"
+
+  snapshot:
+    desc: "Create a snapshot release for testing"
+    deps: [import-gpg]
+    cmds:
+      - |
+        if [ -z "{{.GPG_FINGERPRINT}}" ]; then
+          echo "Error: GPG_FINGERPRINT environment variable is required"
+          exit 1
+        fi
+        echo "Creating snapshot release..."
+        goreleaser release --snapshot --clean
+        echo "Snapshot created successfully"

@@ -1,0 +1,257 @@
+version: '3'
+
+vars:
+  REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID | default ""}}'
+  REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET | default ""}}'
+  REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT | default "pre"}}'
+  TF_LOG: '{{.TF_LOG | default "WARN"}}'
+  GOOGLE_CREDENTIALS_BASE64: '{{.GOOGLE_CREDENTIALS_BASE64 | default ""}}'
+
+tasks:
+  build:
+    desc: "Build and install provider for local testing to specified directory"
+    vars:
+      TARGET_DIR: '{{.TARGET_DIR | default ""}}'
+    cmds:
+      - echo "Building terraform provider..."
+      - go build -o terraform-provider-redpanda
+      - echo "Installing provider to {{.TARGET_DIR}}..."
+      - |
+        if [ -z "{{.TARGET_DIR}}" ]; then
+          # Install to content root only when no target directory is specified
+          mkdir -p .terraform.d/plugins/registry.terraform.io/hashicorp/redpanda/0.7.1/darwin_arm64
+          cp terraform-provider-redpanda .terraform.d/plugins/registry.terraform.io/hashicorp/redpanda/0.7.1/darwin_arm64/terraform-provider-redpanda_v0.7.1
+          echo "Installed to content root"
+        else
+          # Install to specified target directory
+          if [ -d "{{.TARGET_DIR}}" ]; then
+            mkdir -p "{{.TARGET_DIR}}/.terraform.d/plugins/registry.terraform.io/hashicorp/redpanda/0.7.1/darwin_arm64"
+            cp terraform-provider-redpanda "{{.TARGET_DIR}}/.terraform.d/plugins/registry.terraform.io/hashicorp/redpanda/0.7.1/darwin_arm64/terraform-provider-redpanda_v0.7.1"
+
+            # Create plugin_path file
+            mkdir -p "{{.TARGET_DIR}}/.terraform"
+            echo '[".terraform.d/plugins"]' > "{{.TARGET_DIR}}/.terraform/plugin_path"
+
+            echo "Installed to {{.TARGET_DIR}}"
+          else
+            echo "Error: Target directory {{.TARGET_DIR}} does not exist"
+            exit 1
+          fi
+        fi
+
+  cluster:aws:apply:
+    desc: "Apply AWS cluster for local testing"
+    deps:
+      - task: build
+        vars:
+          TARGET_DIR: examples/cluster/aws
+    dir: examples/cluster/aws
+    vars:
+      CLUSTER_NAME: 'local-test-aws'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_INSECURE_SKIP_PROVIDER_VERIFICATION: 'true'
+      TF_PLUGIN_CACHE_DIR: '.terraform.d/plugins_cache'
+    cmds:
+      - echo "Creating AWS cluster {{.CLUSTER_NAME}}"
+      - rm -f .terraform.lock.hcl
+      - terraform init -plugin-dir=.terraform.d/plugins
+      - |
+        if grep -q "resource \"redpanda_cluster\"" *.tf; then
+          terraform apply -auto-approve \
+            -var="resource_group_name={{.CLUSTER_NAME}}" \
+            -var="network_name={{.CLUSTER_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
+          terraform apply -auto-approve \
+            -var="resource_group_name={{.CLUSTER_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
+          terraform apply -auto-approve
+        else
+          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
+          exit 1
+        fi
+      - echo "AWS cluster created successfully"
+
+  cluster:aws:destroy:
+    desc: "Destroy AWS cluster from local testing"
+    dir: examples/cluster/aws
+    vars:
+      CLUSTER_NAME: 'local-test-aws'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_INSECURE_SKIP_PROVIDER_VERIFICATION: 'true'
+      TF_PLUGIN_CACHE_DIR: '.terraform.d/plugins_cache'
+    cmds:
+      - echo "Destroying AWS cluster {{.CLUSTER_NAME}}"
+      - terraform init -plugin-dir=.terraform.d/plugins
+      - |
+        if grep -q "resource \"redpanda_cluster\"" *.tf; then
+          terraform destroy -auto-approve \
+            -var="resource_group_name={{.CLUSTER_NAME}}" \
+            -var="network_name={{.CLUSTER_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
+          terraform destroy -auto-approve \
+            -var="resource_group_name={{.CLUSTER_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
+          terraform destroy -auto-approve
+        else
+          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
+          exit 1
+        fi
+      - echo "AWS cluster destroyed successfully"
+
+  cluster:azure:apply:
+    desc: "Apply Azure cluster for local testing"
+    deps:
+      - task: build
+        vars:
+          TARGET_DIR: examples/cluster/azure
+    dir: examples/cluster/azure
+    vars:
+      CLUSTER_NAME: 'local-test-azure'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_INSECURE_SKIP_PROVIDER_VERIFICATION: 'true'
+      TF_PLUGIN_CACHE_DIR: '.terraform.d/plugins_cache'
+    cmds:
+      - echo "Creating Azure cluster {{.CLUSTER_NAME}}"
+      - rm -f .terraform.lock.hcl
+      - terraform init -plugin-dir=.terraform.d/plugins
+      - |
+        if grep -q "resource \"redpanda_cluster\"" *.tf; then
+          terraform apply -auto-approve \
+            -var="resource_group_name={{.CLUSTER_NAME}}" \
+            -var="network_name={{.CLUSTER_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
+          terraform apply -auto-approve \
+            -var="resource_group_name={{.CLUSTER_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
+          terraform apply -auto-approve
+        else
+          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
+          exit 1
+        fi
+      - echo "Azure cluster created successfully"
+
+  cluster:azure:destroy:
+    desc: "Destroy Azure cluster from local testing"
+    dir: examples/cluster/azure
+    vars:
+      CLUSTER_NAME: 'local-test-azure'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_INSECURE_SKIP_PROVIDER_VERIFICATION: 'true'
+      TF_PLUGIN_CACHE_DIR: '.terraform.d/plugins_cache'
+    cmds:
+      - echo "Destroying Azure cluster {{.CLUSTER_NAME}}"
+      - terraform init -plugin-dir=.terraform.d/plugins
+      - |
+        if grep -q "resource \"redpanda_cluster\"" *.tf; then
+          terraform destroy -auto-approve \
+            -var="resource_group_name={{.CLUSTER_NAME}}" \
+            -var="network_name={{.CLUSTER_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
+          terraform destroy -auto-approve \
+            -var="resource_group_name={{.CLUSTER_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
+          terraform destroy -auto-approve
+        else
+          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
+          exit 1
+        fi
+      - echo "Azure cluster destroyed successfully"
+
+  cluster:gcp:apply:
+    desc: "Apply GCP cluster for local testing"
+    deps:
+      - task: build
+        vars:
+          TARGET_DIR: examples/cluster/gcp
+    dir: examples/cluster/gcp
+    vars:
+      CLUSTER_NAME: 'local-test-gcp'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_INSECURE_SKIP_PROVIDER_VERIFICATION: 'true'
+      TF_PLUGIN_CACHE_DIR: '.terraform.d/plugins_cache'
+      GOOGLE_CREDENTIALS_BASE64: '{{.GOOGLE_CREDENTIALS_BASE64}}'
+    cmds:
+      - echo "Creating GCP cluster {{.CLUSTER_NAME}}"
+      - rm -f .terraform.lock.hcl
+      - terraform init -plugin-dir=.terraform.d/plugins
+      - |
+        if grep -q "resource \"redpanda_cluster\"" *.tf; then
+          terraform apply -auto-approve \
+            -var="resource_group_name={{.CLUSTER_NAME}}" \
+            -var="network_name={{.CLUSTER_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}" \
+            -var="google_credentials_base64={{.GOOGLE_CREDENTIALS_BASE64}}"
+        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
+          terraform apply -auto-approve \
+            -var="resource_group_name={{.CLUSTER_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
+          terraform apply -auto-approve
+        else
+          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
+          exit 1
+        fi
+      - echo "GCP cluster created successfully"
+
+  cluster:gcp:destroy:
+    desc: "Destroy GCP cluster from local testing"
+    dir: examples/cluster/gcp
+    vars:
+      CLUSTER_NAME: 'local-test-gcp'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_INSECURE_SKIP_PROVIDER_VERIFICATION: 'true'
+      TF_PLUGIN_CACHE_DIR: '.terraform.d/plugins_cache'
+      GOOGLE_CREDENTIALS_BASE64: '{{.GOOGLE_CREDENTIALS_BASE64}}'
+    cmds:
+      - echo "Destroying GCP cluster {{.CLUSTER_NAME}}"
+      - terraform init -plugin-dir=.terraform.d/plugins
+      - |
+        if grep -q "resource \"redpanda_cluster\"" *.tf; then
+          terraform destroy -auto-approve \
+            -var="resource_group_name={{.CLUSTER_NAME}}" \
+            -var="network_name={{.CLUSTER_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}" \
+            -var="google_credentials_base64={{.GOOGLE_CREDENTIALS_BASE64}}"
+        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
+          terraform destroy -auto-approve \
+            -var="resource_group_name={{.CLUSTER_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
+          terraform destroy -auto-approve
+        else
+          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
+          exit 1
+        fi
+      - echo "GCP cluster destroyed successfully"
