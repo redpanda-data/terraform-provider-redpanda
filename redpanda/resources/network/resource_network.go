@@ -99,7 +99,8 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 	}
 	op := netResp.Operation
 	// write initial state so that if network creation fails, we can still track and delete it
-	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("id"), utils.TrimmedStringValue(op.GetResourceId()))...)
+	model.ID = utils.TrimmedStringValue(op.GetResourceId())
+	response.Diagnostics.Append(response.State.Set(ctx, &model)...)
 
 	if err := utils.AreWeDoneYet(ctx, op, createTimeout, n.CpCl.Operation); err != nil {
 		response.Diagnostics.AddError("failed waiting for network creation", utils.DeserializeGrpcError(err))
