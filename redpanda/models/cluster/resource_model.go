@@ -77,7 +77,7 @@ func (r *ResourceModel) GetID() string {
 // track an existing cluster and to delete it, if necessary. Used in creation to track
 // partially created clusters, and on reading to null out cluster that are found in the
 // deleting state and force them to be recreated.
-func GenerateMinimalResourceModel(clusterID string) *ResourceModel {
+func GenerateMinimalResourceModel(clusterID string, timeout timeouts.Value) *ResourceModel {
 	return &ResourceModel{
 		ID:                       types.StringValue(clusterID),
 		Tags:                     types.MapNull(types.StringType),
@@ -110,7 +110,7 @@ func GenerateMinimalResourceModel(clusterID string) *ResourceModel {
 		MaintenanceWindowConfig:  types.ObjectNull(getMaintenanceWindowConfigType()),
 		KafkaConnect:             types.ObjectNull(getKafkaConnectType()),
 		ClusterConfiguration:     types.ObjectNull(getClusterConfigurationType()),
-		Timeouts:                 timeouts.Value{},
+		Timeouts:                 timeout,
 	}
 }
 

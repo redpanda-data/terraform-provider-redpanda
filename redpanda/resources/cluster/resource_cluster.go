@@ -125,7 +125,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	})
 	if err != nil {
 		// append minimal state because we failed
-		resp.Diagnostics.Append(resp.State.Set(ctx, cluster.GenerateMinimalResourceModel(clusterID))...)
+		resp.Diagnostics.Append(resp.State.Set(ctx, cluster.GenerateMinimalResourceModel(clusterID, model.Timeouts))...)
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to create cluster with ID %q", clusterID), utils.DeserializeGrpcError(err))
 		return
 	}
@@ -143,7 +143,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		})
 		if dg.HasError() {
 			// append minimal state because we failed
-			resp.Diagnostics.Append(resp.State.Set(ctx, cluster.GenerateMinimalResourceModel(clusterID))...)
+			resp.Diagnostics.Append(resp.State.Set(ctx, cluster.GenerateMinimalResourceModel(clusterID, model.Timeouts))...)
 			resp.Diagnostics.AddError("failed to generate model for state during cluster.Create", "")
 			resp.Diagnostics.Append(d...)
 			return
@@ -170,7 +170,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 
 	if cl.GetState() == controlplanev1.Cluster_STATE_DELETING || cl.GetState() == controlplanev1.Cluster_STATE_DELETING_AGENT {
 		// null out the state, force it to be destroyed and recreated
-		resp.Diagnostics.Append(resp.State.Set(ctx, cluster.GenerateMinimalResourceModel(cl.GetId()))...)
+		resp.Diagnostics.Append(resp.State.Set(ctx, cluster.GenerateMinimalResourceModel(cl.GetId(), model.Timeouts))...)
 		resp.Diagnostics.AddWarning(fmt.Sprintf("cluster %s is in state %s", model.ID.ValueString(), cl.GetState()), "")
 		return
 	}

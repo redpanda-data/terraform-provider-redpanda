@@ -39,8 +39,8 @@ type SchemaRegistryACL struct {
 }
 
 // ToSchemaRegistryACLRequest converts the model to a SchemaRegistryACLRequest for API calls
-func (s *SchemaRegistryACL) ToSchemaRegistryACLRequest() *kclients.SchemaRegistryACLRequest {
-	return &kclients.SchemaRegistryACLRequest{
+func (s *SchemaRegistryACL) ToSchemaRegistryACLRequest() kclients.SchemaRegistryACLRequest {
+	return kclients.SchemaRegistryACLRequest{
 		Principal:    s.Principal.ValueString(),
 		Resource:     s.ResourceName.ValueString(),
 		ResourceType: s.ResourceType.ValueString(),
@@ -52,8 +52,8 @@ func (s *SchemaRegistryACL) ToSchemaRegistryACLRequest() *kclients.SchemaRegistr
 }
 
 // ToSchemaRegistryACLFilter converts the model to a SchemaRegistryACLFilter for API calls
-func (s *SchemaRegistryACL) ToSchemaRegistryACLFilter() *kclients.SchemaRegistryACLFilter {
-	return &kclients.SchemaRegistryACLFilter{
+func (s *SchemaRegistryACL) ToSchemaRegistryACLFilter() kclients.SchemaRegistryACLFilter {
+	return kclients.SchemaRegistryACLFilter{
 		Principal:    s.Principal.ValueString(),
 		Resource:     s.ResourceName.ValueString(),
 		ResourceType: s.ResourceType.ValueString(),

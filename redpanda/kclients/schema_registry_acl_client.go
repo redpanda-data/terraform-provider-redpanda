@@ -23,6 +23,13 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 )
 
+// SchemaRegistryACLClientInterface defines the interface for Schema Registry ACL operations
+type SchemaRegistryACLClientInterface interface {
+	CreateACL(ctx context.Context, acl SchemaRegistryACLRequest) error
+	ListACLs(ctx context.Context, filter SchemaRegistryACLFilter) ([]SchemaRegistryACLResponse, error)
+	DeleteACL(ctx context.Context, acl SchemaRegistryACLRequest) error
+}
+
 // SchemaRegistryACLClient wraps the common-go rpsr.Client for ACL operations
 type SchemaRegistryACLClient struct {
 	client *rpsr.Client
@@ -81,24 +88,21 @@ func NewSchemaRegistryACLClient(ctx context.Context, cpCl *cloud.ControlPlaneCli
 }
 
 // CreateACL creates a new Schema Registry ACL
-func (c *SchemaRegistryACLClient) CreateACL(ctx context.Context, acl *SchemaRegistryACLRequest) error {
-	rpACL := c.convertToRPACL(acl)
+func (c *SchemaRegistryACLClient) CreateACL(ctx context.Context, acl SchemaRegistryACLRequest) error {
+	rpACL := c.convertToRPACL(&acl)
 	return c.client.CreateACLs(ctx, []rpsr.ACL{rpACL})
 }
 
 // ListACLs lists Schema Registry ACLs with optional filtering
-func (c *SchemaRegistryACLClient) ListACLs(ctx context.Context, filter *SchemaRegistryACLFilter) ([]SchemaRegistryACLResponse, error) {
-	var rpFilter *rpsr.ACL
-	if filter != nil {
-		rpFilter = &rpsr.ACL{
-			Principal:    filter.Principal,
-			Resource:     filter.Resource,
-			ResourceType: rpsr.ResourceType(filter.ResourceType),
-			PatternType:  rpsr.PatternType(filter.PatternType),
-			Host:         filter.Host,
-			Operation:    rpsr.Operation(filter.Operation),
-			Permission:   rpsr.Permission(filter.Permission),
-		}
+func (c *SchemaRegistryACLClient) ListACLs(ctx context.Context, filter SchemaRegistryACLFilter) ([]SchemaRegistryACLResponse, error) {
+	rpFilter := &rpsr.ACL{
+		Principal:    filter.Principal,
+		Resource:     filter.Resource,
+		ResourceType: rpsr.ResourceType(filter.ResourceType),
+		PatternType:  rpsr.PatternType(filter.PatternType),
+		Host:         filter.Host,
+		Operation:    rpsr.Operation(filter.Operation),
+		Permission:   rpsr.Permission(filter.Permission),
 	}
 
 	rpACLs, err := c.client.ListACLs(ctx, rpFilter)
@@ -115,8 +119,8 @@ func (c *SchemaRegistryACLClient) ListACLs(ctx context.Context, filter *SchemaRe
 }
 
 // DeleteACL deletes a Schema Registry ACL
-func (c *SchemaRegistryACLClient) DeleteACL(ctx context.Context, acl *SchemaRegistryACLRequest) error {
-	rpACL := c.convertToRPACL(acl)
+func (c *SchemaRegistryACLClient) DeleteACL(ctx context.Context, acl SchemaRegistryACLRequest) error {
+	rpACL := c.convertToRPACL(&acl)
 	return c.client.DeleteACLs(ctx, []rpsr.ACL{rpACL})
 }
 

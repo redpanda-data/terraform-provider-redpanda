@@ -7,6 +7,7 @@ import (
 	"time"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/stretchr/testify/require"
@@ -715,7 +716,7 @@ func TestResourceModel_GetID(t *testing.T) {
 
 func TestGenerateMinimalResourceModel(t *testing.T) {
 	clusterID := "rp-test123"
-	result := GenerateMinimalResourceModel(clusterID)
+	result := GenerateMinimalResourceModel(clusterID, timeouts.Value{})
 
 	require.NotNil(t, result)
 	require.Equal(t, clusterID, result.ID.ValueString())
