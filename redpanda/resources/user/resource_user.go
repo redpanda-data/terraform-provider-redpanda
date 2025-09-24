@@ -27,7 +27,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -117,10 +116,9 @@ func resourceUserSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"allow_deletion": schema.BoolAttribute{
-				Description: "Allows deletion of the user. If false, the user cannot be deleted and the resource will be removed from the state on destruction. Defaults to true.",
+				Description: "Allows deletion of the user. If false, the user cannot be deleted and the resource will be removed from the state on destruction. Defaults to false.",
 				Optional:    true,
 				Computed:    true,
-				Default:     booldefault.StaticBool(true),
 			},
 		},
 	}
@@ -149,13 +147,18 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 		return
 	}
 
+	allowDeletion := model.AllowDeletion
+	if allowDeletion.IsNull() || allowDeletion.IsUnknown() {
+		allowDeletion = types.BoolValue(false)
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, models.User{
 		Name:          types.StringValue(user.User.Name),
 		Password:      model.Password,
 		Mechanism:     model.Mechanism,
 		ClusterAPIURL: model.ClusterAPIURL,
 		ID:            types.StringValue(user.User.Name),
-		AllowDeletion: model.AllowDeletion,
+		AllowDeletion: allowDeletion,
 	})...)
 }
 
@@ -217,13 +220,18 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 	if user.Mechanism != nil {
 		mechanism = types.StringValue(utils.UserMechanismToString(user.Mechanism))
 	}
+	allowDeletion := model.AllowDeletion
+	if allowDeletion.IsNull() || allowDeletion.IsUnknown() {
+		allowDeletion = types.BoolValue(false)
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, models.User{
 		Name:          types.StringValue(user.Name),
 		Password:      model.Password,
 		Mechanism:     mechanism,
 		ClusterAPIURL: model.ClusterAPIURL,
 		ID:            types.StringValue(user.Name),
-		AllowDeletion: model.AllowDeletion,
+		AllowDeletion: allowDeletion,
 	})...)
 }
 
