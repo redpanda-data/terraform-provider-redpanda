@@ -32,6 +32,10 @@ resource "redpanda_cluster" "test" {
   #   connect_console = true
   #   allowed_principals = ["arn:aws:iam::123456789024:root"]
   # }
+
+  timeouts = {
+    create = "90m"
+  }
 }
 
 variable "resource_group_name" {
