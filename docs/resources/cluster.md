@@ -43,6 +43,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `redpanda_version` (String) Current Redpanda version of the cluster.
 - `schema_registry` (Attributes) Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
 - `tags` (Map of String) Tags placed on cloud resources. If the cloud provider is GCP and the name of a tag has the prefix "gcp.network-tag.", the tag is a network tag that will be added to the Redpanda cluster GKE nodes. Otherwise, the tag is a normal tag. For example, if the name of a tag is "gcp.network-tag.network-tag-foo", the network tag named "network-tag-foo" will be added to the Redpanda cluster GKE nodes. Note: The value of a network tag will be ignored. See the details on network tags at https://cloud.google.com/vpc/docs/add-remove-network-tags.
+- `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
 
@@ -538,6 +539,16 @@ Optional:
 
 
 
+<a id="nestedatt--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Optional:
+
+- `create` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+- `delete` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+- `update` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+
+
 <a id="nestedatt--prometheus"></a>
 ### Nested Schema for `prometheus`
 
@@ -611,6 +622,11 @@ resource "redpanda_network" "test" {
   region            = var.region
   cluster_type      = "dedicated"
   cidr_block        = "10.0.0.0/20"
+
+  timeouts = {
+    create = "20m"
+    delete = "20m"
+  }
 }
 
 resource "redpanda_cluster" "test" {
@@ -631,6 +647,10 @@ resource "redpanda_cluster" "test" {
   }
   tags = {
     "key" = "value"
+  }
+
+  timeouts = {
+    create = "90m"
   }
 }
 
@@ -678,15 +698,19 @@ resource "redpanda_topic" "test" {
 }
 
 resource "redpanda_schema" "user_schema" {
-  cluster_id  = redpanda_cluster.test.id
-  subject     = "${var.topic_name}-value"
-  schema_type = var.schema_type
-  schema      = var.user_schema_definition
-  username    = redpanda_user.test.name
-  password    = var.user_pw
+  cluster_id     = redpanda_cluster.test.id
+  subject        = "${var.topic_name}-value"
+  schema_type    = var.schema_type
+  schema         = var.user_schema_definition
+  username       = redpanda_user.test.name
+  password       = var.user_pw
   allow_deletion = true
-  
+
   depends_on = [
+    redpanda_acl.cluster_admin,
+    redpanda_acl.schema_registry_admin,
+    redpanda_acl.cluster_action,
+    redpanda_acl.topic_access,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry
@@ -694,14 +718,14 @@ resource "redpanda_schema" "user_schema" {
 }
 
 resource "redpanda_schema" "user_event_schema" {
-  cluster_id  = redpanda_cluster.test.id
-  subject     = "${var.topic_name}-events-value"
-  schema_type = var.schema_type
-  schema      = var.user_event_schema_definition
-  username    = redpanda_user.test.name
-  password    = var.user_pw
+  cluster_id     = redpanda_cluster.test.id
+  subject        = "${var.topic_name}-events-value"
+  schema_type    = var.schema_type
+  schema         = var.user_event_schema_definition
+  username       = redpanda_user.test.name
+  password       = var.user_pw
   allow_deletion = true
-  
+
   references = [
     {
       name    = "User"
@@ -709,8 +733,12 @@ resource "redpanda_schema" "user_event_schema" {
       version = redpanda_schema.user_schema.version
     }
   ]
-  
+
   depends_on = [
+    redpanda_acl.cluster_admin,
+    redpanda_acl.schema_registry_admin,
+    redpanda_acl.cluster_action,
+    redpanda_acl.topic_access,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry
@@ -718,16 +746,20 @@ resource "redpanda_schema" "user_event_schema" {
 }
 
 resource "redpanda_schema" "product_schema" {
-  cluster_id    = redpanda_cluster.test.id
-  subject       = "${var.topic_name}-product-value"
-  schema_type   = var.schema_type
-  schema        = var.product_schema_definition
-  compatibility = var.compatibility_level
-  username      = redpanda_user.test.name
-  password      = var.user_pw
+  cluster_id     = redpanda_cluster.test.id
+  subject        = "${var.topic_name}-product-value"
+  schema_type    = var.schema_type
+  schema         = var.product_schema_definition
+  compatibility  = var.compatibility_level
+  username       = redpanda_user.test.name
+  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [
+    redpanda_acl.cluster_admin,
+    redpanda_acl.schema_registry_admin,
+    redpanda_acl.cluster_action,
+    redpanda_acl.topic_access,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry
@@ -758,96 +790,105 @@ resource "redpanda_acl" "schema_registry_admin" {
   allow_deletion        = true
 }
 
+resource "redpanda_acl" "cluster_action" {
+  resource_type         = "CLUSTER"
+  resource_name         = "kafka-cluster"
+  resource_pattern_type = "LITERAL"
+  principal             = "User:${redpanda_user.test.name}"
+  host                  = "*"
+  operation             = "CLUSTER_ACTION"
+  permission_type       = "ALLOW"
+  cluster_api_url       = redpanda_cluster.test.cluster_api_url
+  allow_deletion        = true
+}
+
+resource "redpanda_acl" "topic_access" {
+  resource_type         = "TOPIC"
+  resource_name         = var.topic_name
+  resource_pattern_type = "LITERAL"
+  principal             = "User:${redpanda_user.test.name}"
+  host                  = "*"
+  operation             = "ALL"
+  permission_type       = "ALLOW"
+  cluster_api_url       = redpanda_cluster.test.cluster_api_url
+  allow_deletion        = true
+}
+
 resource "redpanda_schema_registry_acl" "read_product" {
-  cluster_id    = redpanda_cluster.test.id
-  principal     = "User:${redpanda_user.test.name}"
-  resource_type = "SUBJECT"
-  resource_name = "product-"
-  pattern_type  = "PREFIXED"
-  host          = "*"
-  operation     = "READ"
-  permission    = "ALLOW"
-  username      = redpanda_user.test.name
-  password      = var.user_pw
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "SUBJECT"
+  resource_name  = "product-"
+  pattern_type   = "PREFIXED"
+  host           = "*"
+  operation      = "READ"
+  permission     = "ALLOW"
+  username       = redpanda_user.test.name
+  password       = var.user_pw
   allow_deletion = true
-  depends_on = [redpanda_acl.schema_registry_admin]
+  depends_on     = [redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_schema_registry_acl" "write_orders" {
-  cluster_id    = redpanda_cluster.test.id
-  principal     = "User:${redpanda_user.test.name}"
-  resource_type = "SUBJECT"
-  resource_name = "orders-value"
-  pattern_type  = "LITERAL"
-  host          = "*"
-  operation     = "WRITE"
-  permission    = "ALLOW"
-  username      = redpanda_user.test.name
-  password      = var.user_pw
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "SUBJECT"
+  resource_name  = "orders-value"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "WRITE"
+  permission     = "ALLOW"
+  username       = redpanda_user.test.name
+  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_schema_registry_acl" "all_test_topic" {
-  cluster_id    = redpanda_cluster.test.id
-  principal     = "User:${redpanda_user.test.name}"
-  resource_type = "SUBJECT"
-  resource_name = "${var.topic_name}-"
-  pattern_type  = "PREFIXED"
-  host          = "*"
-  operation     = "ALL"
-  permission    = "ALLOW"
-  username      = redpanda_user.test.name
-  password      = var.user_pw
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "SUBJECT"
+  resource_name  = "${var.topic_name}-"
+  pattern_type   = "PREFIXED"
+  host           = "*"
+  operation      = "ALL"
+  permission     = "ALLOW"
+  username       = redpanda_user.test.name
+  password       = var.user_pw
   allow_deletion = true
-  
+
   depends_on = [redpanda_acl.schema_registry_admin]
 }
 
-resource "redpanda_schema_registry_acl" "describe_test_topic" {
-  cluster_id    = redpanda_cluster.test.id
-  principal     = "User:${redpanda_user.test.name}"
-  resource_type = "SUBJECT"
-  resource_name = "${var.topic_name}-"
-  pattern_type  = "PREFIXED"
-  host          = "*"
-  operation     = "DESCRIBE"
-  permission    = "ALLOW"
-  username      = redpanda_user.test.name
-  password      = var.user_pw
-  allow_deletion = true
-  
-  depends_on = [redpanda_acl.schema_registry_admin]
-}
 
 resource "redpanda_schema_registry_acl" "describe_registry" {
-  cluster_id    = redpanda_cluster.test.id
-  principal     = "User:${redpanda_user.test.name}"
-  resource_type = "REGISTRY"
-  resource_name = "*"
-  pattern_type  = "LITERAL"
-  host          = "*"
-  operation     = "DESCRIBE"
-  permission    = "ALLOW"
-  username      = redpanda_user.test.name
-  password      = var.user_pw
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "REGISTRY"
+  resource_name  = "*"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "DESCRIBE"
+  permission     = "ALLOW"
+  username       = redpanda_user.test.name
+  password       = var.user_pw
   allow_deletion = true
-  
+
   depends_on = [redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_schema_registry_acl" "alter_configs_registry" {
-  cluster_id    = redpanda_cluster.test.id
-  principal     = "User:${redpanda_user.test.name}"
-  resource_type = "REGISTRY"
-  resource_name = "*"
-  pattern_type  = "LITERAL"
-  host          = "*"
-  operation     = "ALTER_CONFIGS"
-  permission    = "ALLOW"
-  username      = redpanda_user.test.name
-  password      = var.user_pw
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "REGISTRY"
+  resource_name  = "*"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "ALTER_CONFIGS"
+  permission     = "ALLOW"
+  username       = redpanda_user.test.name
+  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.schema_registry_admin]
@@ -885,7 +926,7 @@ variable "schema_type" {
 
 variable "user_schema_definition" {
   description = "The AVRO schema definition for user data"
-  default = <<EOF
+  default     = <<EOF
 {
   "type": "record",
   "name": "User",
@@ -914,7 +955,7 @@ EOF
 
 variable "user_event_schema_definition" {
   description = "The AVRO schema definition for user events that references the User schema"
-  default = <<EOF
+  default     = <<EOF
 {
   "type": "record",
   "name": "UserEvent",
@@ -955,7 +996,7 @@ EOF
 
 variable "product_schema_definition" {
   description = "The AVRO schema definition for product data with strict compatibility"
-  default = <<EOF
+  default     = <<EOF
 {
   "type": "record",
   "name": "Product",
@@ -1054,6 +1095,11 @@ resource "redpanda_network" "test" {
   region            = var.region
   cluster_type      = "dedicated"
   cidr_block        = "10.0.0.0/20"
+
+  timeouts = {
+    create = "20m"
+    delete = "20m"
+  }
 }
 
 resource "redpanda_cluster" "test" {
@@ -1086,18 +1132,22 @@ resource "redpanda_cluster" "test" {
   #       }
   #     ]
   #   }
+
+  timeouts = {
+    create = "90m"
+  }
 }
 
 variable "cluster_name" {
-  default = ""
+  default = "testname"
 }
 
 variable "resource_group_name" {
-  default = ""
+  default = "testname"
 }
 
 variable "network_name" {
-  default = ""
+  default = "testname"
 }
 
 variable "region" {
@@ -1143,6 +1193,7 @@ resource "redpanda_schema" "user_schema" {
   allow_deletion = true
   
   depends_on = [
+    redpanda_acl.schema_registry_admin,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry
@@ -1167,6 +1218,7 @@ resource "redpanda_schema" "user_event_schema" {
   ]
   
   depends_on = [
+    redpanda_acl.schema_registry_admin,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry
@@ -1184,6 +1236,7 @@ resource "redpanda_schema" "product_schema" {
   allow_deletion = true
 
   depends_on = [
+    redpanda_acl.schema_registry_admin,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry
@@ -1511,6 +1564,11 @@ resource "redpanda_network" "test" {
   region            = var.region
   cluster_type      = "dedicated"
   cidr_block        = "10.0.0.0/20"
+
+  timeouts = {
+    create = "20m"
+    delete = "20m"
+  }
 }
 
 resource "redpanda_cluster" "test" {
@@ -1537,6 +1595,10 @@ resource "redpanda_cluster" "test" {
 #     connect_console = true
 #     allowed_subscriptions = ["12345678-1234-1234-1234-123456789012"]
 #   }
+
+  timeouts = {
+    create = "90m"
+  }
 }
 
 variable "resource_group_name" {
@@ -1594,6 +1656,7 @@ resource "redpanda_schema" "user_schema" {
   allow_deletion = true
   
   depends_on = [
+    redpanda_acl.schema_registry_admin,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry
@@ -1618,6 +1681,7 @@ resource "redpanda_schema" "user_event_schema" {
   ]
   
   depends_on = [
+    redpanda_acl.schema_registry_admin,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry
@@ -1635,6 +1699,7 @@ resource "redpanda_schema" "product_schema" {
   allow_deletion = true
 
   depends_on = [
+    redpanda_acl.schema_registry_admin,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry
@@ -1993,6 +2058,10 @@ resource "redpanda_cluster" "test" {
   #   connect_console = true
   #   allowed_principals = ["arn:aws:iam::123456789024:root"]
   # }
+
+  timeouts = {
+    create = "90m"
+  }
 }
 
 variable "resource_group_name" {

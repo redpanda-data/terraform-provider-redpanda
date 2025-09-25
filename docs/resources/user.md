@@ -22,7 +22,7 @@ Creates a user in a Redpanda Cluster.
 
 ### Optional
 
-- `allow_deletion` (Boolean) Allows deletion of the user. If false, the user cannot be deleted and the resource will be removed from the state on destruction. Defaults to true.
+- `allow_deletion` (Boolean) Allows deletion of the user. If false, the user cannot be deleted and the resource will be removed from the state on destruction. Defaults to false.
 - `mechanism` (String) Which authentication method to use, see https://docs.redpanda.com/current/manage/security/authentication/ for more information
 
 ### Read-Only
