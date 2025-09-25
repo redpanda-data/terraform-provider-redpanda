@@ -11,6 +11,11 @@ resource "redpanda_network" "test" {
   region            = var.region
   cluster_type      = "dedicated"
   cidr_block        = "10.0.0.0/20"
+
+  timeouts = {
+    create = "20m"
+    delete = "20m"
+  }
 }
 
 resource "redpanda_cluster" "test" {
@@ -43,18 +48,22 @@ resource "redpanda_cluster" "test" {
   #       }
   #     ]
   #   }
+
+  timeouts = {
+    create = "90m"
+  }
 }
 
 variable "cluster_name" {
-  default = ""
+  default = "testname"
 }
 
 variable "resource_group_name" {
-  default = ""
+  default = "testname"
 }
 
 variable "network_name" {
-  default = ""
+  default = "testname"
 }
 
 variable "region" {
@@ -100,6 +109,7 @@ resource "redpanda_schema" "user_schema" {
   allow_deletion = true
   
   depends_on = [
+    redpanda_acl.schema_registry_admin,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry
@@ -124,6 +134,7 @@ resource "redpanda_schema" "user_event_schema" {
   ]
   
   depends_on = [
+    redpanda_acl.schema_registry_admin,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry
@@ -141,6 +152,7 @@ resource "redpanda_schema" "product_schema" {
   allow_deletion = true
 
   depends_on = [
+    redpanda_acl.schema_registry_admin,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry
