@@ -404,13 +404,36 @@ func buildTestCheckFuncs(testFile, name string) ([]resource.TestCheckFunc, error
 	}
 	testFileStr := string(testFileContent)
 
-	// Start with base check functions that should always be present
-	checkFuncs := []resource.TestCheckFunc{
-		resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-		resource.TestCheckResourceAttr(networkResourceName, "name", name),
-		resource.TestCheckResourceAttr(clusterResourceName, "name", name),
-		resource.TestCheckResourceAttr(userResourceName, "name", name),
-		resource.TestCheckResourceAttr(topicResourceName, "name", name),
+	// Start with empty check functions and add based on what resources exist
+	var checkFuncs []resource.TestCheckFunc
+
+	// Check for each resource type and add appropriate validations
+	if strings.Contains(testFileStr, `resource "redpanda_resource_group" "test"`) {
+		checkFuncs = append(checkFuncs, resource.TestCheckResourceAttr(resourceGroupName, "name", name))
+	}
+
+	if strings.Contains(testFileStr, `resource "redpanda_network" "test"`) {
+		checkFuncs = append(checkFuncs, resource.TestCheckResourceAttr(networkResourceName, "name", name))
+	}
+
+	if strings.Contains(testFileStr, `resource "redpanda_cluster" "test"`) {
+		checkFuncs = append(checkFuncs, resource.TestCheckResourceAttr(clusterResourceName, "name", name))
+	}
+
+	if strings.Contains(testFileStr, `resource "redpanda_serverless_cluster" "test"`) {
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttr(serverlessResourceName, "name", name),
+			resource.TestCheckResourceAttrSet(serverlessResourceName, "id"),
+			resource.TestCheckResourceAttrSet(serverlessResourceName, "cluster_api_url"),
+		)
+	}
+
+	if strings.Contains(testFileStr, `resource "redpanda_user" "test"`) {
+		checkFuncs = append(checkFuncs, resource.TestCheckResourceAttr(userResourceName, "name", name))
+	}
+
+	if strings.Contains(testFileStr, `resource "redpanda_topic" "test"`) {
+		checkFuncs = append(checkFuncs, resource.TestCheckResourceAttr(topicResourceName, "name", name))
 	}
 
 	// Check if schema resources exist in the test file and add appropriate checks
@@ -551,7 +574,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 		t.Fatal(err)
 	}
 
-	// Build check functions based on resources present in test file
 	checkFuncs, err := buildTestCheckFuncs(testFile, name)
 	if err != nil {
 		t.Fatal(err)
@@ -615,7 +637,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
 				),
 			},
-			// Test compatibility update on schema (only if product schema exists)
 			{
 				ConfigFile:               config.StaticFile(testFile),
 				ConfigVariables:          compatibilityUpdateVars,
@@ -624,9 +645,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
 					resource.TestCheckResourceAttr(networkResourceName, "name", name),
 					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
-					// Check that product schema compatibility was updated
 					func() resource.TestCheckFunc {
-						// Read the test file to check if product schema exists
 						testFileContent, err := os.ReadFile(testFile) // #nosec G304 -- testFile is controlled by test constants
 						if err != nil {
 							return func(_ *terraform.State) error {
@@ -636,7 +655,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 						if strings.Contains(string(testFileContent), `resource "redpanda_schema" "product_schema"`) {
 							return resource.TestCheckResourceAttr(schemaProductResourceName, "compatibility", "FORWARD")
 						}
-						// Return a no-op function if schema doesn't exist
 						return func(_ *terraform.State) error {
 							return nil
 						}
@@ -895,11 +913,18 @@ func TestAccResourcesStrippedDownServerlessCluster(t *testing.T) {
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
+	origTestCaseVars["topic_name"] = config.StringVariable(name)
+	origTestCaseVars["user_name"] = config.StringVariable(name)
 
 	rename := generateRandomName(accNamePrepend + testawsRename)
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
+
+	checkFuncs, err := buildTestCheckFuncs(serverlessClusterFile, name)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
 	if err != nil {
@@ -909,12 +934,9 @@ func TestAccResourcesStrippedDownServerlessCluster(t *testing.T) {
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			{
-				ConfigFile:      config.StaticFile(serverlessClusterFile),
-				ConfigVariables: origTestCaseVars,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(serverlessResourceName, "name", name),
-				),
+				ConfigFile:               config.StaticFile(serverlessClusterFile),
+				ConfigVariables:          origTestCaseVars,
+				Check:                    resource.ComposeAggregateTestCheckFunc(checkFuncs...),
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 			{
