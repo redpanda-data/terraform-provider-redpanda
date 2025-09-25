@@ -169,7 +169,6 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		return
 	}
 	defer a.dataplaneConn.Close()
-	// FTODO doesn't return an acl object in the response, check on this
 	_, err = a.ACLClient.CreateACL(ctx, &dataplanev1.CreateACLRequest{
 		ResourceType:        resourceType,
 		ResourceName:        model.ResourceName.ValueString(),
