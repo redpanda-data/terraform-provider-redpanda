@@ -16,6 +16,10 @@ Data source for a Redpanda Cloud cluster
 
 - `id` (String) ID of the cluster. ID is an output from the Create Cluster endpoint and cannot be set by the caller.
 
+### Optional
+
+- `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
+
 ### Read-Only
 
 - `allow_deletion` (Boolean) Whether cluster deletion is allowed.
@@ -48,6 +52,14 @@ Data source for a Redpanda Cloud cluster
 - `tags` (Map of String) Tags placed on cloud resources.
 - `throughput_tier` (String) Usage tier of the cluster.
 - `zones` (List of String) Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster.
+
+<a id="nestedatt--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Optional:
+
+- `read` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+
 
 <a id="nestedatt--aws_private_link"></a>
 ### Nested Schema for `aws_private_link`
