@@ -1,0 +1,23 @@
+version: '3'
+
+vars:
+  MOCKS_DIR: "redpanda/mocks"
+
+tasks:
+  default:
+    desc: "Generate and clean mocks (combines clean and generate)"
+    deps: [clean, generate]
+
+  clean:
+    desc: "Clean generated mocks"
+    cmds:
+      - echo "Cleaning generated mocks..."
+      - rm -f {{.MOCKS_DIR}}/mock_*.go
+      - echo "Mocks cleaned successfully"
+
+  generate:
+    desc: "Generate all mocks"
+    cmds:
+      - echo "Generating mocks..."
+      - cd {{.MOCKS_DIR}} && go generate
+      - echo "Mocks generated successfully"

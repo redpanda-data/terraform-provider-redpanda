@@ -1,0 +1,21 @@
+version: '3'
+
+vars:
+  GOBIN: "{{.USER_WORKING_DIR}}/tools"
+  TFPLUGINDOCS_CMD: "{{.GOBIN}}/tfplugindocs"
+
+tasks:
+  install:
+    desc: "Install documentation tools"
+    cmds:
+      - echo "Installing tfplugindocs..."
+      - mkdir -p {{.GOBIN}}
+      - GOBIN={{.GOBIN}} go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@latest
+      - echo "tfplugindocs installed successfully to {{.GOBIN}}"
+
+  default:
+    desc: "Generate provider documentation"
+    cmds:
+      - echo "Generating provider documentation..."
+      - "{{.TFPLUGINDOCS_CMD}}"
+      - echo "Provider documentation generated successfully"

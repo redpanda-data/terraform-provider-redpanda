@@ -8,10 +8,13 @@ resources on [Redpanda Cloud](https://redpanda.com/redpanda-cloud).
 - [Getting Started](#getting-started)
 - [Contributing](#contributing)
     - [Pull Request Process](#pull-request-process)
-- [Makefile Commands - Developer Guide](#makefile-commands---developer-guide)
+- [Development Guide](#development-guide)
     - [Prerequisites](#prerequisites)
+    - [Task Commands Overview](#task-commands-overview)
+    - [Local Development & Testing](#local-development--testing)
     - [Cluster Management Commands](#cluster-management-commands)
     - [Development Commands](#development-commands)
+    - [Release Commands](#release-commands)
     - [Best Practices](#best-practices)
 - [Contributing](#contributing)
 - [Releasing a Version](#releasing-a-version)
@@ -24,7 +27,7 @@ the [Terraform Registry](https://registry.terraform.io/providers/redpanda-data/r
 
 ## Contributing
 
-When contributing to this project, please ensure you've run `make ready` and all tests pass before submitting a pull
+When contributing to this project, please ensure you've run `task ready` and all tests pass before submitting a pull
 request. If you've added new functionality, consider adding appropriate unit and integration tests.
 
 ### Pull Request Process
@@ -32,134 +35,227 @@ request. If you've added new functionality, consider adding appropriate unit and
 * (optional) Use the label docs to generate documentation
 * Use the label ci-ready to run integration tests
 
-## Makefile Commands - Developer Guide
+## Development Guide
 
-This guide provides an overview of the key Makefile commands used in the development and testing of the Redpanda
-Terraform Provider. These commands help streamline the development process, manage Redpanda clusters for testing, and
-ensure code quality.
+This guide provides an overview of the development workflow using [Task](https://taskfile.dev/) for building, testing, and managing the Redpanda Terraform Provider. Task replaces our previous Makefile-based workflow with a more modern, cross-platform solution.
 
 ### Prerequisites
 
 Before using these commands, ensure you have the following:
 
+- [Task](https://taskfile.dev/) installed on your system
 - Go installed on your system
 - Terraform CLI installed
 - Access to a Redpanda Cloud account with appropriate permissions
-- Required environment variables set (REDPANDA_CLIENT_ID, REDPANDA_CLIENT_SECRET)
+- Required environment variables set (see [Environment Configuration](#environment-configuration))
+
+#### Environment Configuration
+
+Create a `.env` file in the project root with your configuration:
+
+```bash
+# Copy the example file and customize
+cp .env.example .env
+```
+
+Required variables:
+- `REDPANDA_CLIENT_ID`: Redpanda Cloud client ID
+- `REDPANDA_CLIENT_SECRET`: Redpanda Cloud client secret
+- `REDPANDA_CLOUD_ENVIRONMENT`: Redpanda Cloud environment (pre/prod)
+
+### Task Commands Overview
+
+View all available commands:
+
+```bash
+task --list-all
+```
+
+The task system is organized into domains:
+
+- **build**: Provider compilation and installation
+- **test**: Unit and integration testing
+- **docs**: Documentation generation
+- **lint**: Code quality and formatting
+- **local**: Local development cluster management
+- **release**: Release preparation and publishing
+
+### Local Development & Testing
+
+The local task domain provides commands for testing your locally-built provider against live Redpanda Cloud clusters. Note that "local" refers to using a locally-built version of the provider rather than the published version from the Terraform Registry - the clusters themselves are still created in Redpanda Cloud.
+
+#### Local Provider Testing
+
+Test your provider changes against real cloud infrastructure:
+
+```bash
+# Create an AWS cluster using your local provider build
+task local:cluster:aws:apply
+
+# Create an Azure cluster using your local provider build
+task local:cluster:azure:apply
+
+# Create a GCP cluster using your local provider build
+task local:cluster:gcp:apply
+
+# Destroy clusters when done
+task local:cluster:aws:destroy
+task local:cluster:azure:destroy
+task local:cluster:gcp:destroy
+```
+
+These commands:
+- Build the provider locally from your current code
+- Install the local build to the specific example directory (not globally)
+- Run `terraform init` and `terraform apply/destroy` using your local provider build
+- Create real clusters in Redpanda Cloud for testing your changes
+- Handle different cluster types automatically (cluster, serverless, data sources)
+
+Example workflow:
+
+```bash
+# Build and test AWS cluster with your local provider changes
+task local:cluster:aws:apply
+
+# Make changes to your provider code or examples/cluster/aws/main.tf
+# Test your changes (rebuilds provider automatically)
+task local:cluster:aws:apply
+
+# Clean up the cloud resources when done
+task local:cluster:aws:destroy
+```
+
+**Important:** These commands create real resources in Redpanda Cloud and may incur costs. Always clean up test clusters when finished.
 
 ### Cluster Management Commands
 
-These commands are used to create and manage Redpanda clusters for testing purposes.
+For CI/CD and integration testing, use the test domain commands:
 
-#### apply
+#### Integration Tests
 
-Creates and sets up a Redpanda cluster using Terraform. This is intended for use in manual testing and development. It
-should not be active when running the integration tests or you will lose the cluster ID and name.
+```bash
+# Run unit tests (no credentials needed)
+task test:unit
 
-Here's an example usage
+# Run network tests (requires credentials)
+task test:network
 
-```shell
-# Test type defaults to cluster
-# Cloud provider defaults to aws
-make apply 
-# make changes to examples/cluster/aws/main.tf
-# rerun apply to review
-make apply
+# Run data source tests (requires existing cluster)
+task test:datasource
 
-# switch to datasource to test accessing the cluster with datasource and creating resources
-# this is convenient for manual testing of changes to dataplane resources
-# make changes in examples/datasource/standard/main.tf
-export TEST_TYPE=datasource
-make apply
+# Run full cluster tests (creates real resources)
+task test:cluster:aws
+task test:cluster:azure
+task test:cluster:gcp
 
-# switch to GCP to validate cluster against GCP. 
-# Note that you won't lose your AWS state or cluster when doing this
-export TEST_TYPE=cluster
-export CLOUD_PROVIDER=gcp
+# Run BYOC tests
+task test:byoc:aws
+task test:byoc:azure
+task test:byoc:gcp
 
-make apply
-
-# clean up by tearing down the GCP cluster
-make teardown
-
-# switch back to AWS and cleanup
-export CLOUD_PROVIDER=aws
-make teardown
+# Run serverless tests
+task test:serverless
+task test:serverless:regions
 ```
 
-Command: `make apply`
-
-**Key Variables:**
-
-- `REDPANDA_CLIENT_ID`: Redpanda Cloud client ID
-- `REDPANDA_CLIENT_SECRET`: Redpanda Cloud client secret
-- `REDPANDA_CLOUD_ENVIRONMENT`: Redpanda Cloud environment (ign or prod)
-- `TF_CONFIG_DIR`: Terraform configuration directory (auto-generated)
-- `CLOUD_PROVIDER`: Cloud provider (e.g., aws, azure, gcp)
-- `TEST_TYPE`: Type of test (e.g., byoc, cluster, datasource)
-
-The `TF_CONFIG_DIR` is dynamically constructed based on the `TEST_TYPE` and `CLOUD_PROVIDER`:
-
-For byoc and cluster tests: `TF_CONFIG_DIR := examples/$(TEST_TYPE)/$(CLOUD_PROVIDER)`
-For datasource tests: `TF_CONFIG_DIR := examples/$(TEST_TYPE)/$(DATASOURCE_TEST_DIR)`
-
-This is done to enable persisting the name and id of a cluster created by apply while still allowing for name
-randomization. Names and IDs are persisted by cloud provider, so you can switch between providers without losing them.
-You can also switch from the cluster test to the datasource test and the correct cluster will be reused depending on the
-cloud provider you have set.
-
-#### teardown
-
-Destroys the current Redpanda cluster and associated infrastructure managed by Terraform.
-
-Command: `make teardown`
-
-This command uses the same `TF_CONFIG_DIR` as the `apply` command to ensure it targets the correct resources.
+**Important:** Integration tests create real cloud resources and require valid credentials.
 
 ### Development Commands
 
 These commands assist in code development, testing, and maintenance.
 
-#### ready
+#### Build Commands
 
-Prepares the project by generating documentation, running linters, and tidying dependencies.
+```bash
+# Build the provider binary
+task build
 
-Command: `make ready`
+# Install provider to local Terraform cache
+task build:install
 
-This command is useful to run before committing changes to ensure code quality and up-to-date documentation.
+# Clean up Go modules
+task build:tidy
+```
 
-#### unit
+#### Code Quality
 
-Runs unit tests for the project.
+```bash
+# Prepare code for commit (docs, lint, tidy)
+task ready
 
-Command: `make unit`
+# Run linting
+task lint
 
-**Note:** This command uses dummy credentials and does not run cluster tests.
+# Run linting with auto-fix
+task lint:fix
 
-#### int
+# Install linting tools
+task lint:install
+```
 
-Runs integration tests for the project.
+#### Documentation
 
-Command: `make int`
+```bash
+# Generate provider documentation
+task docs
 
-**Important:** This command requires valid Redpanda credentials and will create actual resources in your Redpanda Cloud
-account.
+# Install documentation tools
+task docs:install
+```
 
-#### mock
+#### Testing & Mocks
 
-Cleans and regenerates mock files used in testing.
+```bash
+# Run unit tests (no credentials needed)
+task test:unit
 
-Command: `make mock`
+# Generate and clean mocks
+task mock
 
-Mocks are generated using mockgen from specific interfaces as defined in redpanda/mocks/mocks.go. Once you have tagged
-them with go generate, you can run this command to generate the mocks.
+# Clean existing mocks
+task mock:clean
+
+# Generate mocks from interfaces
+task mock:generate
+```
+
+The `task ready` command is especially useful before committing changes as it ensures code quality and up-to-date documentation.
+
+### Release Commands
+
+These commands are used for creating and managing releases:
+
+```bash
+# Check GoReleaser configuration
+task release:check
+
+# Import GPG key for signing
+task release:import-gpg
+
+# Create a full release (requires GPG setup)
+task release
+
+# Build release artifacts locally
+task release:build
+
+# Create a snapshot release for testing
+task release:snapshot
+```
+
+**Environment Variables for Releases:**
+- `GPG_PRIVATE_KEY`: Base64-encoded GPG private key
+- `PASSPHRASE`: GPG key passphrase
+- `GPG_FINGERPRINT`: GPG key fingerprint
+- `GITHUB_TOKEN`: GitHub token for release publishing
 
 ### Best Practices
 
-1. Always run `make ready` before committing changes to ensure code quality and documentation accuracy.
-2. Use `make unit` for quick, local testing that doesn't require Redpanda credentials.
-3. Use `apply` and `teardown` for more complex manual testing during development
+1. Always run `task ready` before committing changes to ensure code quality and documentation accuracy.
+2. Use `task test:unit` for quick, local testing that doesn't require Redpanda credentials.
+3. Use `task local:cluster:*:apply` and `task local:cluster:*:destroy` for manual testing during development.
 4. Run the integration tests by tagging your PR with `ci-ready` to ensure all tests pass before merging.
+5. Use `task release:check` to validate GoReleaser configuration before creating releases.
+6. Set up your `.env` file with appropriate credentials for your development environment.
 
 ## Releasing a Version
 

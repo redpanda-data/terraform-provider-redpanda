@@ -1,0 +1,37 @@
+version: '3'
+
+vars:
+  OS:
+    sh: go env GOOS
+  ARCH:
+    sh: go env GOARCH
+  PROVIDER_VERSION: "0.7.1"
+  PROVIDER_NAMESPACE: "hashicorp"
+  PROVIDER_NAME: "redpanda"
+  PROVIDER_BINARY: "{{.USER_WORKING_DIR}}/terraform-provider-{{.PROVIDER_NAME}}"
+  PROVIDER_DIR: ".terraform.d/plugins/registry.terraform.io/{{.PROVIDER_NAMESPACE}}/{{.PROVIDER_NAME}}/{{.PROVIDER_VERSION}}/{{.OS}}_{{.ARCH}}"
+
+tasks:
+  default:
+    desc: "Build the Terraform provider binary"
+    cmds:
+      - echo "Building terraform provider..."
+      - go build -o {{.PROVIDER_BINARY}}
+      - echo "Provider binary built successfully at {{.PROVIDER_BINARY}}"
+
+  install:
+    desc: "Install provider to local Terraform cache"
+    deps: [default]
+    cmds:
+      - echo "Installing provider binary to local Terraform cache..."
+      - echo "PROVIDER_DIR {{.PROVIDER_DIR}}"
+      - mkdir -p {{.PROVIDER_DIR}}
+      - cp {{.PROVIDER_BINARY}} {{.PROVIDER_DIR}}/terraform-provider-{{.PROVIDER_NAME}}_v{{.PROVIDER_VERSION}}
+      - echo "Provider installed successfully"
+
+  tidy:
+    desc: "Run go mod tidy to clean up module dependencies"
+    cmds:
+      - echo "Running go mod tidy..."
+      - go mod tidy
+      - echo "Go modules tidied successfully"
