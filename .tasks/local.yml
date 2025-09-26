@@ -1,0 +1,493 @@
+version: '3'
+
+vars:
+  REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID | default ""}}'
+  REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET | default ""}}'
+  REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT | default "pre"}}'
+  TF_LOG: '{{.TF_LOG | default "WARN"}}'
+  GOOGLE_CREDENTIALS_BASE64: '{{.GOOGLE_CREDENTIALS_BASE64 | default ""}}'
+
+tasks:
+  clean-terraform:
+    desc: "Clean terraform state and directories in target path"
+    internal: true
+    vars:
+      TARGET_DIR: '{{.TARGET_DIR}}'
+    cmds:
+      - echo "Cleaning Terraform plugins and lock in {{.TARGET_DIR}}..."
+      - rm -rf {{.TARGET_DIR}}/.terraform {{.TARGET_DIR}}/.terraform.lock.hcl {{.TARGET_DIR}}/.terraform.d
+      - echo "Terraform lock and plugins cleaned"
+
+  build:
+    desc: "Build terraform provider for local testing"
+    cmds:
+      - echo "Building terraform provider..."
+      - go build -o terraform-provider-redpanda
+      - echo "Provider built successfully"
+
+  cluster:aws:apply:
+    desc: "Apply AWS cluster for local testing"
+    dir: examples/cluster/aws
+    vars:
+      CURRENT_USER:
+        sh: whoami
+      CLUSTER_NAME: 'tfrp-local-aws-{{.CURRENT_USER}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-aws-{{.CURRENT_USER}}'
+      NETWORK_NAME: 'tfrp-local-aws-{{.CURRENT_USER}}'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_CLI_CONFIG_FILE: '.terraformrc'
+    cmds:
+      - task: clean-terraform
+        vars:
+          TARGET_DIR: "."
+      - task: build
+      - |
+        echo 'provider_installation {
+          dev_overrides {
+            "hashicorp/redpanda" = "../../../"
+          }
+          direct {}
+        }' > .terraformrc
+      - |
+        if grep -q "resource \"redpanda_cluster\"" *.tf; then
+          terraform apply -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="network_name={{.NETWORK_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
+          terraform apply -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
+          terraform apply -auto-approve
+        else
+          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
+          exit 1
+        fi
+      - echo "AWS cluster created successfully"
+
+  cluster:aws:destroy:
+    desc: "Destroy AWS cluster from local testing"
+    dir: examples/cluster/aws
+    vars:
+      CURRENT_USER:
+        sh: whoami
+      CLUSTER_NAME: 'tfrp-local-aws-{{.CURRENT_USER}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-aws-{{.CURRENT_USER}}'
+      NETWORK_NAME: 'tfrp-local-aws-{{.CURRENT_USER}}'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_CLI_CONFIG_FILE: '.terraformrc'
+    cmds:
+      - task: clean-terraform
+        vars:
+          TARGET_DIR: "."
+      - task: build
+      - |
+        echo 'provider_installation {
+          dev_overrides {
+            "hashicorp/redpanda" = "../../../"
+          }
+          direct {}
+        }' > .terraformrc
+      - echo "Destroying AWS cluster {{.CLUSTER_NAME}}"
+      - |
+        if grep -q "resource \"redpanda_cluster\"" *.tf; then
+          terraform destroy -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="network_name={{.NETWORK_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
+          terraform destroy -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
+          terraform destroy -auto-approve
+        else
+          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
+          exit 1
+        fi
+      - echo "AWS cluster destroyed successfully"
+
+  cluster:azure:apply:
+    desc: "Apply Azure cluster for local testing"
+    dir: examples/cluster/azure
+    vars:
+      CURRENT_USER:
+        sh: whoami
+      CLUSTER_NAME: 'tfrp-local-azure-{{.CURRENT_USER}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-azure-{{.CURRENT_USER}}'
+      NETWORK_NAME: 'tfrp-local-azure-{{.CURRENT_USER}}'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_CLI_CONFIG_FILE: '.terraformrc'
+    cmds:
+      - task: clean-terraform
+        vars:
+          TARGET_DIR: "."
+      - task: build
+      - |
+        echo 'provider_installation {
+          dev_overrides {
+            "hashicorp/redpanda" = "../../../"
+          }
+          direct {}
+        }' > .terraformrc
+      - echo "Creating Azure cluster {{.CLUSTER_NAME}}"
+      - |
+        if grep -q "resource \"redpanda_cluster\"" *.tf; then
+          terraform apply -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="network_name={{.NETWORK_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
+          terraform apply -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
+          terraform apply -auto-approve
+        else
+          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
+          exit 1
+        fi
+      - echo "Azure cluster created successfully"
+
+  cluster:azure:destroy:
+    desc: "Destroy Azure cluster from local testing"
+    dir: examples/cluster/azure
+    vars:
+      CURRENT_USER:
+        sh: whoami
+      CLUSTER_NAME: 'tfrp-local-azure-{{.CURRENT_USER}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-azure-{{.CURRENT_USER}}'
+      NETWORK_NAME: 'tfrp-local-azure-{{.CURRENT_USER}}'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_CLI_CONFIG_FILE: '.terraformrc'
+    cmds:
+      - task: clean-terraform
+        vars:
+          TARGET_DIR: "."
+      - task: build
+      - |
+        echo 'provider_installation {
+          dev_overrides {
+            "hashicorp/redpanda" = "../../../"
+          }
+          direct {}
+        }' > .terraformrc
+      - echo "Destroying Azure cluster {{.CLUSTER_NAME}}"
+      - |
+        if grep -q "resource \"redpanda_cluster\"" *.tf; then
+          terraform destroy -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="network_name={{.NETWORK_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
+          terraform destroy -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
+          terraform destroy -auto-approve
+        else
+          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
+          exit 1
+        fi
+      - echo "Azure cluster destroyed successfully"
+
+  cluster:gcp:apply:
+    desc: "Apply GCP cluster for local testing"
+    dir: examples/cluster/gcp
+    vars:
+      CURRENT_USER:
+        sh: whoami
+      CLUSTER_NAME: 'tfrp-local-gcp-{{.CURRENT_USER}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-gcp-{{.CURRENT_USER}}'
+      NETWORK_NAME: 'tfrp-local-gcp-{{.CURRENT_USER}}'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_CLI_CONFIG_FILE: '.terraformrc'
+      GOOGLE_CREDENTIALS_BASE64: '{{.GOOGLE_CREDENTIALS_BASE64}}'
+    cmds:
+      - task: clean-terraform
+        vars:
+          TARGET_DIR: "."
+      - task: build
+      - |
+        echo 'provider_installation {
+          dev_overrides {
+            "hashicorp/redpanda" = "../../../"
+          }
+          direct {}
+        }' > .terraformrc
+      - echo "Creating GCP cluster {{.CLUSTER_NAME}}"
+      - |
+        if grep -q "resource \"redpanda_cluster\"" *.tf; then
+          terraform apply -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="network_name={{.NETWORK_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}" \
+            -var="google_credentials_base64={{.GOOGLE_CREDENTIALS_BASE64}}"
+        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
+          terraform apply -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
+          terraform apply -auto-approve
+        else
+          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
+          exit 1
+        fi
+      - echo "GCP cluster created successfully"
+
+  cluster:gcp:destroy:
+    desc: "Destroy GCP cluster from local testing"
+    dir: examples/cluster/gcp
+    vars:
+      CURRENT_USER:
+        sh: whoami
+      CLUSTER_NAME: 'tfrp-local-gcp-{{.CURRENT_USER}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-gcp-{{.CURRENT_USER}}'
+      NETWORK_NAME: 'tfrp-local-gcp-{{.CURRENT_USER}}'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_CLI_CONFIG_FILE: '.terraformrc'
+      GOOGLE_CREDENTIALS_BASE64: '{{.GOOGLE_CREDENTIALS_BASE64}}'
+    cmds:
+      - task: clean-terraform
+        vars:
+          TARGET_DIR: "."
+      - task: build
+      - |
+        echo 'provider_installation {
+          dev_overrides {
+            "hashicorp/redpanda" = "../../../"
+          }
+          direct {}
+        }' > .terraformrc
+      - echo "Destroying GCP cluster {{.CLUSTER_NAME}}"
+      - |
+        if grep -q "resource \"redpanda_cluster\"" *.tf; then
+          terraform destroy -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="network_name={{.NETWORK_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}" \
+            -var="google_credentials_base64={{.GOOGLE_CREDENTIALS_BASE64}}"
+        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
+          terraform destroy -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
+          terraform destroy -auto-approve
+        else
+          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
+          exit 1
+        fi
+      - echo "GCP cluster destroyed successfully"
+
+  byovpc:aws:apply:
+    desc: "Apply AWS BYOVPC cluster for local testing"
+    dir: examples/byovpc/aws
+    vars:
+      CURRENT_USER:
+        sh: whoami
+      CLUSTER_NAME: 'tfrp-local-byovpc-aws-{{.CURRENT_USER}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-byovpc-aws-{{.CURRENT_USER}}'
+      NETWORK_NAME: 'tfrp-local-byovpc-aws-{{.CURRENT_USER}}'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_CLI_CONFIG_FILE: '.terraformrc'
+    cmds:
+      - task: clean-terraform
+        vars:
+          TARGET_DIR: "."
+      - task: build
+      - |
+        echo 'provider_installation {
+          dev_overrides {
+            "hashicorp/redpanda" = "../../../"
+          }
+          direct {}
+        }' > .terraformrc
+      - echo "Creating AWS BYOVPC cluster {{.CLUSTER_NAME}}"
+      - |
+        if grep -q "resource \"redpanda_cluster\"" *.tf; then
+          terraform apply -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="network_name={{.NETWORK_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
+          terraform apply -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
+          terraform apply -auto-approve
+        else
+          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
+          exit 1
+        fi
+      - echo "AWS BYOVPC cluster created successfully"
+
+  byovpc:aws:destroy:
+    desc: "Destroy AWS BYOVPC cluster from local testing"
+    dir: examples/byovpc/aws
+    vars:
+      CURRENT_USER:
+        sh: whoami
+      CLUSTER_NAME: 'tfrp-local-byovpc-aws-{{.CURRENT_USER}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-byovpc-aws-{{.CURRENT_USER}}'
+      NETWORK_NAME: 'tfrp-local-byovpc-aws-{{.CURRENT_USER}}'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_CLI_CONFIG_FILE: '.terraformrc'
+    cmds:
+      - task: clean-terraform
+        vars:
+          TARGET_DIR: "."
+      - task: build
+      - |
+        echo 'provider_installation {
+          dev_overrides {
+            "hashicorp/redpanda" = "../../../"
+          }
+          direct {}
+        }' > .terraformrc
+      - echo "Destroying AWS BYOVPC cluster {{.CLUSTER_NAME}}"
+      - |
+        if grep -q "resource \"redpanda_cluster\"" *.tf; then
+          terraform destroy -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="network_name={{.NETWORK_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
+          terraform destroy -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
+          terraform destroy -auto-approve
+        else
+          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
+          exit 1
+        fi
+      - echo "AWS BYOVPC cluster destroyed successfully"
+
+  byovpc:gcp:apply:
+    desc: "Apply GCP BYOVPC cluster for local testing"
+    dir: examples/byovpc/gcp
+    vars:
+      CURRENT_USER:
+        sh: whoami
+      CLUSTER_NAME: 'tfrp-local-byovpc-gcp-{{.CURRENT_USER}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-byovpc-gcp-{{.CURRENT_USER}}'
+      NETWORK_NAME: 'tfrp-local-byovpc-gcp-{{.CURRENT_USER}}'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_CLI_CONFIG_FILE: '.terraformrc'
+      GOOGLE_CREDENTIALS_BASE64: '{{.GOOGLE_CREDENTIALS_BASE64}}'
+    cmds:
+      - task: clean-terraform
+        vars:
+          TARGET_DIR: "."
+      - task: build
+      - |
+        echo 'provider_installation {
+          dev_overrides {
+            "hashicorp/redpanda" = "../../../"
+          }
+          direct {}
+        }' > .terraformrc
+      - echo "Creating GCP BYOVPC cluster {{.CLUSTER_NAME}}"
+      - |
+        if grep -q "resource \"redpanda_cluster\"" *.tf; then
+          terraform apply -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="network_name={{.NETWORK_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}" \
+            -var="google_credentials_base64={{.GOOGLE_CREDENTIALS_BASE64}}"
+        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
+          terraform apply -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
+          terraform apply -auto-approve
+        else
+          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
+          exit 1
+        fi
+      - echo "GCP BYOVPC cluster created successfully"
+
+  byovpc:gcp:destroy:
+    desc: "Destroy GCP BYOVPC cluster from local testing"
+    dir: examples/byovpc/gcp
+    vars:
+      CURRENT_USER:
+        sh: whoami
+      CLUSTER_NAME: 'tfrp-local-byovpc-gcp-{{.CURRENT_USER}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-byovpc-gcp-{{.CURRENT_USER}}'
+      NETWORK_NAME: 'tfrp-local-byovpc-gcp-{{.CURRENT_USER}}'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_CLI_CONFIG_FILE: '.terraformrc'
+      GOOGLE_CREDENTIALS_BASE64: '{{.GOOGLE_CREDENTIALS_BASE64}}'
+    cmds:
+      - task: clean-terraform
+        vars:
+          TARGET_DIR: "."
+      - task: build
+      - |
+        echo 'provider_installation {
+          dev_overrides {
+            "hashicorp/redpanda" = "../../../"
+          }
+          direct {}
+        }' > .terraformrc
+      - echo "Destroying GCP BYOVPC cluster {{.CLUSTER_NAME}}"
+      - |
+        if grep -q "resource \"redpanda_cluster\"" *.tf; then
+          terraform destroy -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="network_name={{.NETWORK_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}" \
+            -var="google_credentials_base64={{.GOOGLE_CREDENTIALS_BASE64}}"
+        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
+          terraform destroy -auto-approve \
+            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+            -var="cluster_name={{.CLUSTER_NAME}}"
+        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
+          terraform destroy -auto-approve
+        else
+          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
+          exit 1
+        fi
+      - echo "GCP BYOVPC cluster destroyed successfully"

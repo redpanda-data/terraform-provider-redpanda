@@ -1,0 +1,23 @@
+version: '3'
+
+dotenv: ['.env']
+
+includes:
+  build: .tasks/build.yml
+  test: .tasks/test.yml
+  docs: .tasks/docs.yml
+  lint: .tasks/lint.yml
+  mock: .tasks/mock.yml
+  local: .tasks/local.yml
+  release: .tasks/release.yml
+
+tasks:
+  default:
+    desc: "Show available tasks"
+    cmds:
+      - task --list-all
+    silent: true
+
+  ready:
+    desc: "Prepare code for commit (docs, lint, tidy)"
+    deps: [docs:default, lint:default, build:tidy]

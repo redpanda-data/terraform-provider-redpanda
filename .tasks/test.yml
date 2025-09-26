@@ -1,0 +1,177 @@
+version: '3'
+
+vars:
+  REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID | default ""}}'
+  REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET | default ""}}'
+  REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT | default "pre"}}'
+  TF_LOG: '{{.TF_LOG | default "WARN"}}'
+  TIMEOUT: '{{.TIMEOUT | default "6h"}}'
+  TIMEOUT_SHORT: '{{.TIMEOUT_SHORT | default "1h"}}'
+  VERSION: '{{.VERSION | default "pre"}}'
+
+tasks:
+  unit:
+    desc: "Run unit tests with coverage"
+    cmds:
+      - echo "Running unit tests..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="dummy_id" \
+        REDPANDA_CLIENT_SECRET="dummy_secret" \
+        RUN_CLUSTER_TESTS=false \
+        RUN_BYOC_TESTS=false \
+        go test -short ./...
+      - echo "Unit tests completed successfully"
+
+  network:
+    desc: "Run network resource tests"
+    cmds:
+      - echo "Running TestAccResourcesNetwork..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        go test -v -timeout={{.TIMEOUT_SHORT}} ./redpanda/tests -run TestAccResourcesNetwork
+      - echo "Network tests completed successfully"
+
+  datasource:
+    desc: "Run data source tests"
+    cmds:
+      - echo "Running TestAccResourcesWithDataSources..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        TEST_AGAINST_EXISTING_CLUSTER=true \
+        CLUSTER_ID="{{.DATASOURCE_CLUSTER_ID}}" \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        go test -v -timeout={{.TIMEOUT_SHORT}} ./redpanda/tests -run TestAccResourcesWithDataSources
+      - echo "Data source tests completed successfully"
+
+  # CLUSTER TESTS - DO NOT RUN DURING IMPLEMENTATION
+  # These create actual cloud resources and must be validated by user
+  cluster:aws:
+    desc: "Run AWS cluster acceptance tests"
+    cmds:
+      - echo "Running TestAccResourcesClusterAWS..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        RUN_CLUSTER_TESTS=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesClusterAWS
+      - echo "AWS cluster tests completed successfully"
+
+  cluster:azure:
+    desc: "Run Azure cluster acceptance tests"
+    cmds:
+      - echo "Running TestAccResourcesClusterAzure..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        RUN_CLUSTER_TESTS=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesClusterAzure
+      - echo "Azure cluster tests completed successfully"
+
+  cluster:gcp:
+    desc: "Run GCP cluster acceptance tests"
+    cmds:
+      - echo "Running TestAccResourcesClusterGCP..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        RUN_CLUSTER_TESTS=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesClusterGCP
+      - echo "GCP cluster tests completed successfully"
+
+  byoc:aws:
+    desc: "Run AWS BYOC acceptance tests"
+    cmds:
+      - echo "Running TestAccResourcesByocAWS..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        RUN_BYOC_TESTS=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesByocAWS
+      - echo "AWS BYOC tests completed successfully"
+
+  byoc:azure:
+    desc: "Run Azure BYOC acceptance tests"
+    cmds:
+      - echo "Running TestAccResourcesByocAzure..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        RUN_BYOC_TESTS=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesByocAzure
+      - echo "Azure BYOC tests completed successfully"
+
+  byoc:gcp:
+    desc: "Run GCP BYOC acceptance tests"
+    cmds:
+      - echo "Running TestAccResourcesByocGCP..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        REDPANDA_VERSION="24.2.20240809182625" \
+        RUN_BYOC_TESTS=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesByocGCP
+      - echo "GCP BYOC tests completed successfully"
+
+  serverless:
+    desc: "Run serverless cluster tests"
+    cmds:
+      - echo "Running TestAccResourcesStrippedDownServerlessCluster..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        RUN_SERVERLESS_TESTS=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesStrippedDownServerlessCluster
+      - echo "Serverless cluster tests completed successfully"
+
+  serverless:regions:
+    desc: "Run serverless regions data source tests"
+    cmds:
+      - echo "Running TestAccDataSourceServerlessRegions..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        RUN_SERVERLESS_TESTS=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccDataSourceServerlessRegions
+      - echo "Serverless regions tests completed successfully"
