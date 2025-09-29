@@ -1,20 +1,23 @@
 version: '3'
 
 vars:
-  GOBIN: "{{.USER_WORKING_DIR}}/tools"
-  TFPLUGINDOCS_CMD: "{{.GOBIN}}/tfplugindocs"
+  GOBIN:
+    sh: go env GOPATH
+  TFPLUGINDOCS_CMD: "{{.GOBIN}}/bin/tfplugindocs"
 
 tasks:
   install:
     desc: "Install documentation tools"
     cmds:
       - echo "Installing tfplugindocs..."
-      - mkdir -p {{.GOBIN}}
-      - GOBIN={{.GOBIN}} go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@latest
-      - echo "tfplugindocs installed successfully to {{.GOBIN}}"
+      - go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@latest
+      - echo "tfplugindocs installed successfully"
+    status:
+      - test -f {{.TFPLUGINDOCS_CMD}}
 
   default:
     desc: "Generate provider documentation"
+    deps: [install]
     cmds:
       - echo "Generating provider documentation..."
       - "{{.TFPLUGINDOCS_CMD}}"
