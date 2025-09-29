@@ -1,9 +1,5 @@
 provider "redpanda" {}
 
-variable "network_id" {
-  default = ""
-}
-
 data "redpanda_network" "test" {
   id = var.network_id
 }

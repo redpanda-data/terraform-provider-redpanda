@@ -12,19 +12,3 @@ resource "redpanda_network" "test" {
   cluster_type      = "dedicated"
   cidr_block        = "10.0.0.0/20"
 }
-
-variable "resource_group_name" {
-  default = "testname"
-}
-
-variable "network_name" {
-  default = "testname"
-}
-
-variable "region" {
-  default = "us-east-1"
-}
-
-variable "cloud_provider" {
-  default = "aws"
-}
