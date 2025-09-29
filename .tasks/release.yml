@@ -6,34 +6,44 @@ vars:
   GPG_FINGERPRINT: '{{.GPG_FINGERPRINT | default ""}}'
 
 tasks:
+  check-gpg-key:
+    desc: "Check if GPG_PRIVATE_KEY is set"
+    internal: true
+    preconditions:
+      - sh: '[ -n "{{.GPG_PRIVATE_KEY}}" ]'
+        msg: "GPG_PRIVATE_KEY environment variable is required"
+
+  check-passphrase:
+    desc: "Check if PASSPHRASE is set"
+    internal: true
+    preconditions:
+      - sh: '[ -n "{{.PASSPHRASE}}" ]'
+        msg: "PASSPHRASE environment variable is required"
+
+  check-gpg-fingerprint:
+    desc: "Check if GPG_FINGERPRINT is set"
+    internal: true
+    preconditions:
+      - sh: '[ -n "{{.GPG_FINGERPRINT}}" ]'
+        msg: "GPG_FINGERPRINT environment variable is required"
+
   import-gpg:
     desc: "Import GPG private key for signing releases"
+    deps: [check-gpg-key, check-passphrase]
     cmds:
-      - |
-        if [ -z "{{.GPG_PRIVATE_KEY}}" ]; then
-          echo "Error: GPG_PRIVATE_KEY environment variable is required"
-          exit 1
-        fi
-        if [ -z "{{.PASSPHRASE}}" ]; then
-          echo "Error: PASSPHRASE environment variable is required"
-          exit 1
-        fi
-        echo "Importing GPG private key..."
-        echo "{{.GPG_PRIVATE_KEY}}" | base64 -d | gpg --batch --pinentry-mode loopback --passphrase "{{.PASSPHRASE}}" --import
-        echo "GPG key imported successfully"
+      - echo "Importing GPG private key..."
+      - echo "{{.GPG_PRIVATE_KEY}}" | base64 -d | gpg --batch --pinentry-mode loopback --passphrase "{{.PASSPHRASE}}" --import
+      - echo "GPG key imported successfully"
+    status:
+      - gpg --list-secret-keys "{{.GPG_FINGERPRINT}}" 2>/dev/null
 
   default:
     desc: "Create a new release using goreleaser"
-    deps: [import-gpg]
+    deps: [import-gpg, check-gpg-fingerprint]
     cmds:
-      - |
-        if [ -z "{{.GPG_FINGERPRINT}}" ]; then
-          echo "Error: GPG_FINGERPRINT environment variable is required"
-          exit 1
-        fi
-        echo "Creating release with goreleaser..."
-        goreleaser release --clean --verbose
-        echo "Release created successfully"
+      - echo "Creating release with goreleaser..."
+      - goreleaser release --clean --verbose
+      - echo "Release created successfully"
 
   check:
     desc: "Check goreleaser configuration without creating a release"
@@ -44,26 +54,16 @@ tasks:
 
   build:
     desc: "Build release artifacts locally without publishing"
-    deps: [import-gpg]
+    deps: [import-gpg, check-gpg-fingerprint]
     cmds:
-      - |
-        if [ -z "{{.GPG_FINGERPRINT}}" ]; then
-          echo "Error: GPG_FINGERPRINT environment variable is required"
-          exit 1
-        fi
-        echo "Building release artifacts locally..."
-        goreleaser build --snapshot --clean
-        echo "Local build completed"
+      - echo "Building release artifacts locally..."
+      - goreleaser build --snapshot --clean
+      - echo "Local build completed"
 
   snapshot:
     desc: "Create a snapshot release for testing"
-    deps: [import-gpg]
+    deps: [import-gpg, check-gpg-fingerprint]
     cmds:
-      - |
-        if [ -z "{{.GPG_FINGERPRINT}}" ]; then
-          echo "Error: GPG_FINGERPRINT environment variable is required"
-          exit 1
-        fi
-        echo "Creating snapshot release..."
-        goreleaser release --snapshot --clean
-        echo "Snapshot created successfully"
+      - echo "Creating snapshot release..."
+      - goreleaser release --snapshot --clean
+      - echo "Snapshot created successfully"
