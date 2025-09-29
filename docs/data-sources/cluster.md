@@ -103,7 +103,7 @@ Read-Only:
 - `state` (String) State of the endpoint connection.
 
 <a id="nestedatt--aws_private_link--status--vpc_endpoint_connections--dns_entries"></a>
-### Nested Schema for `aws_private_link.status.vpc_endpoint_connections.dns_entries`
+### Nested Schema for `aws_private_link.status.vpc_endpoint_connections.state`
 
 Read-Only:
 
@@ -363,7 +363,7 @@ Read-Only:
 - `secondary_ipv4_range_services` (Attributes) Secondary IPv4 range for services. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_services))
 
 <a id="nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_pods"></a>
-### Nested Schema for `customer_managed_resources.gcp.subnet.secondary_ipv4_range_pods`
+### Nested Schema for `customer_managed_resources.gcp.subnet.secondary_ipv4_range_services`
 
 Read-Only:
 
@@ -558,10 +558,6 @@ data "redpanda_cluster" "example" {
 ```terraform
 provider "redpanda" {}
 
-variable "cluster_id" {
-  default = ""
-}
-
 data "redpanda_cluster" "test" {
   id = var.cluster_id
 }
@@ -591,38 +587,6 @@ resource "redpanda_acl" "test" {
   operation             = "ALTER"
   permission_type       = "ALLOW"
   cluster_api_url       = data.redpanda_cluster.test.cluster_api_url
-}
-
-variable "topic_config" {
-  default = {
-    "cleanup.policy"   = "compact"
-    "flush.ms"         = 100
-    "compression.type" = "snappy"
-  }
-}
-
-variable "user_name" {
-  default = "data-test-username"
-}
-
-variable "user_pw" {
-  default = "password"
-}
-
-variable "mechanism" {
-  default = "scram-sha-256"
-}
-
-variable "topic_name" {
-  default = "data-test-topic"
-}
-
-variable "partition_count" {
-  default = 3
-}
-
-variable "replication_factor" {
-  default = 3
 }
 ```
 

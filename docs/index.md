@@ -96,34 +96,6 @@ resource "redpanda_cluster" "test" {
   }
 }
 
-variable "resource_group_name" {
-  default = "testname"
-}
-
-variable "network_name" {
-  default = "testname"
-}
-
-variable "cluster_name" {
-  default = "testname"
-}
-
-variable "region" {
-  default = "us-east-2"
-}
-
-variable "zones" {
-  default = ["use2-az1", "use2-az2", "use2-az3"]
-}
-
-variable "cloud_provider" {
-  default = "aws"
-}
-
-variable "throughput_tier" {
-  default = "tier-1-aws-v2-arm"
-}
-
 resource "redpanda_user" "test" {
   name            = var.user_name
   password        = var.user_pw
@@ -336,158 +308,6 @@ resource "redpanda_schema_registry_acl" "alter_configs_registry" {
   depends_on = [redpanda_acl.schema_registry_admin]
 }
 
-
-variable "user_name" {
-  default = "test-username"
-}
-
-variable "user_pw" {
-  default = "password"
-}
-
-variable "mechanism" {
-  default = "scram-sha-256"
-}
-
-variable "topic_name" {
-  default = "test-topic"
-}
-
-variable "partition_count" {
-  default = 3
-}
-
-variable "replication_factor" {
-  default = 3
-}
-
-variable "schema_type" {
-  description = "The type of schema (AVRO, JSON, PROTOBUF)"
-  default     = "AVRO"
-}
-
-variable "user_schema_definition" {
-  description = "The AVRO schema definition for user data"
-  default     = <<EOF
-{
-  "type": "record",
-  "name": "User",
-  "fields": [
-    {
-      "name": "id",
-      "type": "int"
-    },
-    {
-      "name": "name",
-      "type": "string"
-    },
-    {
-      "name": "email",
-      "type": "string"
-    },
-    {
-      "name": "created_at",
-      "type": "long",
-      "logicalType": "timestamp-millis"
-    }
-  ]
-}
-EOF
-}
-
-variable "user_event_schema_definition" {
-  description = "The AVRO schema definition for user events that references the User schema"
-  default     = <<EOF
-{
-  "type": "record",
-  "name": "UserEvent",
-  "fields": [
-    {
-      "name": "event_id",
-      "type": "string"
-    },
-    {
-      "name": "event_type",
-      "type": {
-        "type": "enum",
-        "name": "EventType",
-        "symbols": ["CREATED", "UPDATED", "DELETED"]
-      }
-    },
-    {
-      "name": "user",
-      "type": "User"
-    },
-    {
-      "name": "timestamp",
-      "type": "long",
-      "logicalType": "timestamp-millis"
-    },
-    {
-      "name": "metadata",
-      "type": ["null", {
-        "type": "map",
-        "values": "string"
-      }],
-      "default": null
-    }
-  ]
-}
-EOF
-}
-
-variable "product_schema_definition" {
-  description = "The AVRO schema definition for product data with strict compatibility"
-  default     = <<EOF
-{
-  "type": "record",
-  "name": "Product",
-  "fields": [
-    {
-      "name": "id",
-      "type": "string"
-    },
-    {
-      "name": "name",
-      "type": "string"
-    },
-    {
-      "name": "price",
-      "type": {
-        "type": "bytes",
-        "logicalType": "decimal",
-        "precision": 10,
-        "scale": 2
-      }
-    },
-    {
-      "name": "category",
-      "type": {
-        "type": "enum",
-        "name": "Category",
-        "symbols": ["ELECTRONICS", "CLOTHING", "BOOKS", "HOME"]
-      }
-    },
-    {
-      "name": "description",
-      "type": ["null", "string"],
-      "default": null
-    },
-    {
-      "name": "created_at",
-      "type": "long",
-      "logicalType": "timestamp-millis"
-    }
-  ]
-}
-EOF
-}
-
-variable "compatibility_level" {
-  description = "The compatibility level for schema evolution (BACKWARD, BACKWARD_TRANSITIVE, FORWARD, FORWARD_TRANSITIVE, FULL, FULL_TRANSITIVE, NONE)"
-  default     = "FULL"
-}
-
 output "user_schema_info" {
   description = "Information about the created user schema"
   value = {
@@ -579,35 +399,6 @@ resource "redpanda_cluster" "test" {
     create = "90m"
   }
 }
-
-variable "cluster_name" {
-  default = "testname"
-}
-
-variable "resource_group_name" {
-  default = "testname"
-}
-
-variable "network_name" {
-  default = "testname"
-}
-
-variable "region" {
-  default = "us-central1"
-}
-
-variable "zones" {
-  default = ["us-central1-a", "us-central1-b", "us-central1-c"]
-}
-
-variable "cloud_provider" {
-  default = "gcp"
-}
-
-variable "throughput_tier" {
-  default = "tier-1-gcp-um4g"
-}
-
 
 resource "redpanda_user" "test" {
   name            = var.user_name
@@ -708,158 +499,6 @@ resource "redpanda_acl" "schema_registry_admin" {
   permission_type       = "ALLOW"
   cluster_api_url       = redpanda_cluster.test.cluster_api_url
   allow_deletion        = true
-}
-
-
-variable "user_name" {
-  default = "test-username"
-}
-
-variable "user_pw" {
-  default = "password"
-}
-
-variable "mechanism" {
-  default = "scram-sha-256"
-}
-
-variable "topic_name" {
-  default = "test-topic"
-}
-
-variable "partition_count" {
-  default = 3
-}
-
-variable "replication_factor" {
-  default = 3
-}
-
-variable "schema_type" {
-  description = "The type of schema (AVRO, JSON, PROTOBUF)"
-  default     = "AVRO"
-}
-
-variable "user_schema_definition" {
-  description = "The AVRO schema definition for user data"
-  default = <<EOF
-{
-  "type": "record",
-  "name": "User",
-  "fields": [
-    {
-      "name": "id",
-      "type": "int"
-    },
-    {
-      "name": "name",
-      "type": "string"
-    },
-    {
-      "name": "email",
-      "type": "string"
-    },
-    {
-      "name": "created_at",
-      "type": "long",
-      "logicalType": "timestamp-millis"
-    }
-  ]
-}
-EOF
-}
-
-variable "user_event_schema_definition" {
-  description = "The AVRO schema definition for user events that references the User schema"
-  default = <<EOF
-{
-  "type": "record",
-  "name": "UserEvent",
-  "fields": [
-    {
-      "name": "event_id",
-      "type": "string"
-    },
-    {
-      "name": "event_type",
-      "type": {
-        "type": "enum",
-        "name": "EventType",
-        "symbols": ["CREATED", "UPDATED", "DELETED"]
-      }
-    },
-    {
-      "name": "user",
-      "type": "User"
-    },
-    {
-      "name": "timestamp",
-      "type": "long",
-      "logicalType": "timestamp-millis"
-    },
-    {
-      "name": "metadata",
-      "type": ["null", {
-        "type": "map",
-        "values": "string"
-      }],
-      "default": null
-    }
-  ]
-}
-EOF
-}
-
-variable "product_schema_definition" {
-  description = "The AVRO schema definition for product data with strict compatibility"
-  default = <<EOF
-{
-  "type": "record",
-  "name": "Product",
-  "fields": [
-    {
-      "name": "id",
-      "type": "string"
-    },
-    {
-      "name": "name",
-      "type": "string"
-    },
-    {
-      "name": "price",
-      "type": {
-        "type": "bytes",
-        "logicalType": "decimal",
-        "precision": 10,
-        "scale": 2
-      }
-    },
-    {
-      "name": "category",
-      "type": {
-        "type": "enum",
-        "name": "Category",
-        "symbols": ["ELECTRONICS", "CLOTHING", "BOOKS", "HOME"]
-      }
-    },
-    {
-      "name": "description",
-      "type": ["null", "string"],
-      "default": null
-    },
-    {
-      "name": "created_at",
-      "type": "long",
-      "logicalType": "timestamp-millis"
-    }
-  ]
-}
-EOF
-}
-
-variable "compatibility_level" {
-  description = "The compatibility level for schema evolution (BACKWARD, BACKWARD_TRANSITIVE, FORWARD, FORWARD_TRANSITIVE, FULL, FULL_TRANSITIVE, NONE)"
-  default     = "FULL"
 }
 
 resource "redpanda_schema_registry_acl" "read_product" {
@@ -995,10 +634,6 @@ output "product_schema_info" {
 ```terraform
 provider "redpanda" {}
 
-variable "cluster_id" {
-  default = ""
-}
-
 data "redpanda_cluster" "test" {
   id = var.cluster_id
 }
@@ -1029,38 +664,6 @@ resource "redpanda_acl" "test" {
   permission_type       = "ALLOW"
   cluster_api_url       = data.redpanda_cluster.test.cluster_api_url
 }
-
-variable "topic_config" {
-  default = {
-    "cleanup.policy"   = "compact"
-    "flush.ms"         = 100
-    "compression.type" = "snappy"
-  }
-}
-
-variable "user_name" {
-  default = "data-test-username"
-}
-
-variable "user_pw" {
-  default = "password"
-}
-
-variable "mechanism" {
-  default = "scram-sha-256"
-}
-
-variable "topic_name" {
-  default = "data-test-topic"
-}
-
-variable "partition_count" {
-  default = 3
-}
-
-variable "replication_factor" {
-  default = 3
-}
 ```
 
 ### Example Usage to create a serverless cluster
@@ -1068,6 +671,7 @@ variable "replication_factor" {
 ```terraform
 provider "redpanda" {
 }
+
 resource "redpanda_resource_group" "test" {
   name = var.resource_group_name
 }
@@ -1078,29 +682,6 @@ resource "redpanda_serverless_cluster" "test" {
   serverless_region = var.region
 }
 
-variable "resource_group_name" {
-  default = "testgroup"
-}
-
-variable "cluster_name" {
-  default = "testname"
-}
-
-variable "region" {
-  default = "eu-west-1"
-}
-
-variable "topic_name" {
-  default = "test-topic"
-}
-
-variable "partition_count" {
-  default = 3
-}
-
-variable "replication_factor" {
-  default = 3
-}
 resource "redpanda_topic" "test" {
   name               = var.topic_name
   partition_count    = var.partition_count
@@ -1114,17 +695,5 @@ resource "redpanda_user" "test" {
   password        = var.user_pw
   mechanism       = var.mechanism
   cluster_api_url = redpanda_serverless_cluster.test.cluster_api_url
-}
-
-variable "user_name" {
-  default = "test-username"
-}
-
-variable "user_pw" {
-  default = "password"
-}
-
-variable "mechanism" {
-  default = "scram-sha-256"
 }
 ```
