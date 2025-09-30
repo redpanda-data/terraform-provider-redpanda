@@ -1,0 +1,22 @@
+agents:
+  queue: k8s-builders
+
+steps:
+  - label: "Release Success"
+    key: tag_success
+    if: build.tag != null
+    command: |
+      echo "=========================================="
+      echo "Tag Created Successfully!"
+      echo "=========================================="
+      echo ""
+      echo "Tag: $${BUILDKITE_TAG}"
+      echo "Commit: $${BUILDKITE_COMMIT}"
+      echo "Branch: $${BUILDKITE_BRANCH}"
+      echo "Build URL: $${BUILDKITE_BUILD_URL}"
+      echo ""
+      echo "Tag pipeline completed successfully."
+      echo "=========================================="
+    plugins:
+      - docker#v5.11.0:
+          image: "alpine:latest"
