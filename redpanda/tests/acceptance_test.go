@@ -19,20 +19,20 @@ import (
 )
 
 const (
-	awsDedicatedClusterFile         = "../../examples/cluster/aws/main.tf"
-	azureDedicatedClusterFile       = "../../examples/cluster/azure/main.tf"
-	gcpDedicatedClusterFile         = "../../examples/cluster/gcp/main.tf"
-	serverlessClusterFile           = "../../examples/cluster/serverless/main.tf"
-	awsByocClusterFile              = "../../examples/byoc/aws/main.tf"
-	awsByocVpcClusterFile           = "infra/byovpc/aws/main.tf"
-	gcpByoVpcClusterFile            = "infra/byovpc/gcp/main.tf"
-	azureByocClusterFile            = "../../examples/byoc/azure/main.tf"
-	gcpByocClusterFile              = "../../examples/byoc/gcp/main.tf"
-	dedicatedNetworkFile            = "../../examples/network/main.tf"
-	dataSourcesTest                 = "../../examples/datasource/standard/main.tf"
-	bulkDataCreateFile              = "../../examples/datasource/bulk/main.tf"
-	networkDataSourceFile           = "../../examples/datasource/network/main.tf"
-	serverlessRegionsDataSourceFile = "../../examples/datasource/serverless_regions/main.tf"
+	awsDedicatedClusterDir         = "../../examples/cluster/aws"
+	azureDedicatedClusterDir       = "../../examples/cluster/azure"
+	gcpDedicatedClusterDir         = "../../examples/cluster/gcp"
+	serverlessClusterDir           = "../../examples/cluster/serverless"
+	awsByocClusterDir              = "../../examples/byoc/aws"
+	awsByocVpcClusterDir           = "infra/byovpc/aws"
+	gcpByoVpcClusterDir            = "infra/byovpc/gcp"
+	azureByocClusterDir            = "../../examples/byoc/azure"
+	gcpByocClusterDir              = "../../examples/byoc/gcp"
+	dedicatedNetworkDir            = "../../examples/network"
+	dataSourcesTestDir             = "../../examples/datasource/standard"
+	bulkDataCreateDir              = "../../examples/datasource/bulk"
+	networkDataSourceDir           = "../../examples/datasource/network"
+	serverlessRegionsDataSourceDir = "../../examples/datasource/serverless_regions"
 	// These are the resource names as named in the TF files.
 	resourceGroupName                  = "redpanda_resource_group.test"
 	networkResourceName                = "redpanda_network.test"
@@ -115,7 +115,7 @@ func TestAccResourcesNetwork(t *testing.T) {
 		},
 		Steps: []resource.TestStep{
 			{
-				ConfigFile:               config.StaticFile(dedicatedNetworkFile),
+				ConfigDirectory:          config.StaticDirectory(dedicatedNetworkDir),
 				ConfigVariables:          origTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -135,7 +135,7 @@ func TestAccResourcesNetwork(t *testing.T) {
 				),
 			},
 			{
-				ConfigFile:               config.StaticFile(dedicatedNetworkFile),
+				ConfigDirectory:          config.StaticDirectory(dedicatedNetworkDir),
 				ConfigVariables:          updateTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -145,7 +145,7 @@ func TestAccResourcesNetwork(t *testing.T) {
 			},
 			{
 				ResourceName:             networkResourceName,
-				ConfigFile:               config.StaticFile(dedicatedNetworkFile),
+				ConfigDirectory:          config.StaticDirectory(dedicatedNetworkDir),
 				ConfigVariables:          updateTestCaseVars,
 				ImportState:              true,
 				ImportStateVerify:        true,
@@ -156,7 +156,7 @@ func TestAccResourcesNetwork(t *testing.T) {
 				),
 			},
 			{
-				ConfigFile:               config.StaticFile(dedicatedNetworkFile),
+				ConfigDirectory:          config.StaticDirectory(dedicatedNetworkDir),
 				ConfigVariables:          updateTestCaseVars,
 				Destroy:                  true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -211,12 +211,12 @@ func TestAccResourcesBulk(t *testing.T) {
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			{
-				ConfigFile:               config.StaticFile(bulkDataCreateFile),
+				ConfigDirectory:          config.StaticDirectory(bulkDataCreateDir),
 				ConfigVariables:          origTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 			{
-				ConfigFile:               config.StaticFile(bulkDataCreateFile),
+				ConfigDirectory:          config.StaticDirectory(bulkDataCreateDir),
 				ConfigVariables:          origTestCaseVars,
 				Destroy:                  true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -254,7 +254,7 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testaws)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, "", awsDedicatedClusterFile, nil, t)
+	testRunner(ctx, name, rename, "", awsDedicatedClusterDir, nil, t)
 }
 
 func TestAccResourcesClusterAzure(t *testing.T) {
@@ -264,7 +264,7 @@ func TestAccResourcesClusterAzure(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testazure)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, "", azureDedicatedClusterFile, nil, t)
+	testRunner(ctx, name, rename, "", azureDedicatedClusterDir, nil, t)
 }
 
 func TestAccResourcesClusterGCP(t *testing.T) {
@@ -274,7 +274,7 @@ func TestAccResourcesClusterGCP(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + "testgcp")
 	rename := generateRandomName(accNamePrepend + "testgcp-rename")
-	testRunner(ctx, name, rename, redpandaVersion, gcpDedicatedClusterFile, nil, t)
+	testRunner(ctx, name, rename, redpandaVersion, gcpDedicatedClusterDir, nil, t)
 }
 
 func TestAccResourcesByocAWS(t *testing.T) {
@@ -284,7 +284,7 @@ func TestAccResourcesByocAWS(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testaws)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, redpandaVersion, awsByocClusterFile, nil, t)
+	testRunner(ctx, name, rename, redpandaVersion, awsByocClusterDir, nil, t)
 }
 
 func TestAccResourcesByocAzure(t *testing.T) {
@@ -294,7 +294,7 @@ func TestAccResourcesByocAzure(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testazure)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, redpandaVersion, azureByocClusterFile, nil, t)
+	testRunner(ctx, name, rename, redpandaVersion, azureByocClusterDir, nil, t)
 }
 
 func TestAccResourcesByocGCP(t *testing.T) {
@@ -304,7 +304,7 @@ func TestAccResourcesByocGCP(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + "testgcp")
 	rename := generateRandomName(accNamePrepend + "testgcp-rename")
-	testRunner(ctx, name, rename, redpandaVersion, gcpByocClusterFile, nil, t)
+	testRunner(ctx, name, rename, redpandaVersion, gcpByocClusterDir, nil, t)
 }
 
 func TestAccResourcesByoVpcAWS(t *testing.T) {
@@ -364,7 +364,7 @@ func TestAccResourcesByoVpcAWS(t *testing.T) {
 		customVars["zones"] = config.ListVariable(zonesVars...)
 	}
 
-	testRunnerCluster(ctx, name, rename, redpandaVersion, awsByocVpcClusterFile, customVars, t)
+	testRunnerCluster(ctx, name, rename, redpandaVersion, awsByocVpcClusterDir, customVars, t)
 }
 
 func TestAccResourcesByoVpcGCP(t *testing.T) {
@@ -392,13 +392,13 @@ func TestAccResourcesByoVpcGCP(t *testing.T) {
 		"tiered_storage_bucket_name":             config.StringVariable(os.Getenv("GCP_TIERED_STORAGE_BUCKET_NAME")),
 	}
 
-	testRunnerCluster(ctx, name, rename, redpandaVersion, gcpByoVpcClusterFile, customVars, t)
+	testRunnerCluster(ctx, name, rename, redpandaVersion, gcpByoVpcClusterDir, customVars, t)
 }
 
 // buildTestCheckFuncs reads the test file and returns appropriate check functions based on resources present
-func buildTestCheckFuncs(testFile, name string) ([]resource.TestCheckFunc, error) {
+func buildTestCheckFuncs(testDir, name string) ([]resource.TestCheckFunc, error) {
 	// Read the test file to check which resources exist
-	testFileContent, err := os.ReadFile(testFile) // #nosec G304 -- testFile is controlled by test constants
+	testFileContent, err := os.ReadFile(testDir + "/main.tf") // #nosec G304 -- testDir is controlled by test constants
 	if err != nil {
 		return nil, fmt.Errorf("failed to read test file: %w", err)
 	}
@@ -583,14 +583,14 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			{
-				ConfigFile:               config.StaticFile(testFile),
+				ConfigDirectory:          config.StaticDirectory(testFile),
 				ConfigVariables:          origTestCaseVars,
 				Check:                    resource.ComposeAggregateTestCheckFunc(checkFuncs...),
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 			{
 				ResourceName:    userResourceName,
-				ConfigFile:      config.StaticFile(testFile),
+				ConfigDirectory: config.StaticDirectory(testFile),
 				ConfigVariables: origTestCaseVars,
 				ImportState:     true,
 				ImportStateIdFunc: func(_ *terraform.State) (string, error) {
@@ -628,7 +628,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				),
 			},
 			{
-				ConfigFile:               config.StaticFile(testFile),
+				ConfigDirectory:          config.StaticDirectory(testFile),
 				ConfigVariables:          updateTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -638,7 +638,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				),
 			},
 			{
-				ConfigFile:               config.StaticFile(testFile),
+				ConfigDirectory:          config.StaticDirectory(testFile),
 				ConfigVariables:          compatibilityUpdateVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -646,7 +646,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 					resource.TestCheckResourceAttr(networkResourceName, "name", name),
 					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
 					func() resource.TestCheckFunc {
-						testFileContent, err := os.ReadFile(testFile) // #nosec G304 -- testFile is controlled by test constants
+						testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
 						if err != nil {
 							return func(_ *terraform.State) error {
 								return fmt.Errorf("failed to read test file: %w", err)
@@ -663,7 +663,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 			},
 			{
 				ResourceName:      clusterResourceName,
-				ConfigFile:        config.StaticFile(testFile),
+				ConfigDirectory:   config.StaticDirectory(testFile),
 				ConfigVariables:   updateTestCaseVars,
 				ImportState:       true,
 				ImportStateVerify: true,
@@ -678,7 +678,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				),
 			},
 			{
-				ConfigFile:               config.StaticFile(testFile),
+				ConfigDirectory:          config.StaticDirectory(testFile),
 				ConfigVariables:          updateTestCaseVars,
 				Destroy:                  true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -750,7 +750,7 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			{
-				ConfigFile:      config.StaticFile(testFile),
+				ConfigDirectory: config.StaticDirectory(testFile),
 				ConfigVariables: origTestCaseVars,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
@@ -761,7 +761,7 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 			},
 			{
 				ResourceName:      clusterResourceName,
-				ConfigFile:        config.StaticFile(testFile),
+				ConfigDirectory:   config.StaticDirectory(testFile),
 				ConfigVariables:   updateTestCaseVars,
 				ImportState:       true,
 				ImportStateVerify: true,
@@ -776,7 +776,7 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 				),
 			},
 			{
-				ConfigFile:               config.StaticFile(testFile),
+				ConfigDirectory:          config.StaticDirectory(testFile),
 				ConfigVariables:          updateTestCaseVars,
 				Destroy:                  true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -832,7 +832,7 @@ func TestAccDataSourceNetwork(t *testing.T) {
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			{
-				ConfigFile:               config.StaticFile(networkDataSourceFile),
+				ConfigDirectory:          config.StaticDirectory(networkDataSourceDir),
 				ConfigVariables:          origTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -875,7 +875,7 @@ func TestAccResourcesWithDataSources(t *testing.T) {
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			{
-				ConfigFile:               config.StaticFile(dataSourcesTest),
+				ConfigDirectory:          config.StaticDirectory(dataSourcesTestDir),
 				ConfigVariables:          origTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -884,7 +884,7 @@ func TestAccResourcesWithDataSources(t *testing.T) {
 				),
 			},
 			{
-				ConfigFile:               config.StaticFile(dataSourcesTest),
+				ConfigDirectory:          config.StaticDirectory(dataSourcesTestDir),
 				ConfigVariables:          updateTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -892,7 +892,7 @@ func TestAccResourcesWithDataSources(t *testing.T) {
 				),
 			},
 			{
-				ConfigFile:               config.StaticFile(dataSourcesTest),
+				ConfigDirectory:          config.StaticDirectory(dataSourcesTestDir),
 				ConfigVariables:          origTestCaseVars,
 				Destroy:                  true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -921,7 +921,7 @@ func TestAccResourcesStrippedDownServerlessCluster(t *testing.T) {
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
 
-	checkFuncs, err := buildTestCheckFuncs(serverlessClusterFile, name)
+	checkFuncs, err := buildTestCheckFuncs(serverlessClusterDir, name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -934,13 +934,13 @@ func TestAccResourcesStrippedDownServerlessCluster(t *testing.T) {
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			{
-				ConfigFile:               config.StaticFile(serverlessClusterFile),
+				ConfigDirectory:          config.StaticDirectory(serverlessClusterDir),
 				ConfigVariables:          origTestCaseVars,
 				Check:                    resource.ComposeAggregateTestCheckFunc(checkFuncs...),
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 			{
-				ConfigFile:               config.StaticFile(serverlessClusterFile),
+				ConfigDirectory:          config.StaticDirectory(serverlessClusterDir),
 				ConfigVariables:          updateTestCaseVars,
 				Destroy:                  true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -983,7 +983,7 @@ func TestAccDataSourceServerlessRegions(t *testing.T) {
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			{
-				ConfigFile:               config.StaticFile(serverlessRegionsDataSourceFile),
+				ConfigDirectory:          config.StaticDirectory(serverlessRegionsDataSourceDir),
 				ConfigVariables:          origTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
