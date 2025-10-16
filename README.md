@@ -268,3 +268,4 @@ To raise issues, questions, or interact with the community:
 
 - [Github Issues](https://github.com/redpanda-data/terraform-provider-redpanda/issues)
 - [Slack](https://redpanda.com/slack)
+- 
