@@ -658,7 +658,8 @@ func (r *ResourceModel) generateClusterAwsPrivateLinkSpec(_ context.Context) (*c
 	}
 
 	if connectConsoleVal, ok := attrs["connect_console"].(types.Bool); ok && !connectConsoleVal.IsNull() {
-		spec.ConnectConsole = connectConsoleVal.ValueBool()
+		val := connectConsoleVal.ValueBool()
+		spec.ConnectConsole = &val
 	}
 
 	return spec, diags
@@ -733,7 +734,8 @@ func (r *ResourceModel) generateClusterAzurePrivateLinkSpec() (*controlplanev1.A
 	}
 
 	if connectConsoleVal, ok := attrs["connect_console"].(types.Bool); ok && !connectConsoleVal.IsNull() {
-		spec.ConnectConsole = connectConsoleVal.ValueBool()
+		val := connectConsoleVal.ValueBool()
+		spec.ConnectConsole = &val
 	}
 
 	if subscriptionsVal, ok := attrs["allowed_subscriptions"].(types.List); ok && !subscriptionsVal.IsNull() {
