@@ -4,6 +4,7 @@ package schema
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -48,25 +49,39 @@ func (s *Schema) Configure(_ context.Context, request resource.ConfigureRequest,
 	s.CpCl = cloud.NewControlPlaneClientSet(cc.ControlPlaneConnection)
 }
 
-// ImportState imports an existing schema resource using cluster_id:subject:version format.
+// ImportState imports an existing schema resource using cluster_id,subject,version,username,password format.
 func (*Schema) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
-	// Import format: "cluster_id:subject:version"
-	parts := strings.Split(request.ID, ":")
-	if len(parts) != 3 {
+	// Import format: "cluster_id,subject,version,username,password"
+	parts := strings.Split(request.ID, ",")
+	if len(parts) != 5 {
 		response.Diagnostics.AddError(
 			"Invalid import format",
-			"Expected format: cluster_id:subject:version",
+			"Expected format: cluster_id,subject,version,username,password",
 		)
 		return
 	}
 
 	clusterID := parts[0]
 	subject := parts[1]
-	version := parts[2]
+	versionStr := parts[2]
+	username := parts[3]
+	password := parts[4]
+
+	// Convert version string to int64
+	version, err := strconv.ParseInt(versionStr, 10, 64)
+	if err != nil {
+		response.Diagnostics.AddError(
+			"Invalid version format",
+			"Version must be a valid integer",
+		)
+		return
+	}
 
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("cluster_id"), clusterID)...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("subject"), subject)...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("version"), version)...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("username"), username)...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("password"), password)...)
 }
 
 // Metadata returns the resource metadata.
@@ -98,6 +113,13 @@ func (s *Schema) Create(ctx context.Context, request resource.CreateRequest, res
 
 	schemaResp, err := client.CreateSchema(ctx, plan.Subject.ValueString(), plan.ToSchemaRequest())
 	if err != nil {
+		tflog.Error(ctx, "Schema creation failed with detailed error", map[string]any{
+			"subject":    plan.Subject.ValueString(),
+			"error":      err.Error(),
+			"error_type": fmt.Sprintf("%T", err),
+			"cluster_id": plan.ClusterID.ValueString(),
+			"username":   plan.Username.ValueString(),
+		})
 		response.Diagnostics.AddError(
 			"Failed to create schema",
 			fmt.Sprintf("Unable to create schema for subject %s: %v", plan.Subject.ValueString(), err),
@@ -108,7 +130,6 @@ func (s *Schema) Create(ctx context.Context, request resource.CreateRequest, res
 	plan.ID = types.Int64Value(int64(schemaResp.ID))
 	plan.Version = types.Int64Value(int64(schemaResp.Version))
 
-	// Set compatibility level if specified
 	if !plan.Compatibility.IsNull() && !plan.Compatibility.IsUnknown() {
 		err = kclients.SetSubjectCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility.ValueString())
 		if err != nil {
@@ -150,11 +171,26 @@ func (s *Schema) Read(ctx context.Context, request resource.ReadRequest, respons
 
 	client, err := kclients.GetSchemaRegistryClientForCluster(ctx, s.CpCl, state.ClusterID.ValueString(), state.Username.ValueString(), state.Password.ValueString())
 	if err != nil {
-		if utils.IsClusterUnreachable(err) || utils.IsPermissionDenied(err) {
-			if state.AllowDeletion.IsNull() || state.AllowDeletion.ValueBool() {
+		if utils.IsClusterUnreachable(err) {
+			tflog.Warn(ctx, "Schema read failed due to cluster unreachable", map[string]any{
+				"subject": state.GetSubject(),
+				"error":   err.Error(),
+			})
+			if state.AllowDeletion.ValueBool() == true {
 				response.State.RemoveResource(ctx)
-				return
 			}
+			return
+		}
+		// For permission/authentication errors during client creation, keep existing state
+		// This handles password transitions where Read() is called with old password from state
+		// but the actual password has already been updated. Update() will be called next with
+		// the new password from the plan and will succeed.
+		if utils.IsPermissionDenied(err) {
+			tflog.Warn(ctx, "Schema read failed during client creation due to authentication error, keeping existing state", map[string]any{
+				"subject": state.GetSubject(),
+				"error":   err.Error(),
+			})
+			return
 		}
 		response.Diagnostics.AddError(
 			"Failed to create Schema Registry client",
@@ -166,15 +202,45 @@ func (s *Schema) Read(ctx context.Context, request resource.ReadRequest, respons
 	schemaResp, err := kclients.FetchSchema(ctx, client, state.GetSubject(), state.GetVersion())
 	if err != nil {
 		tflog.Debug(ctx, "Schema read error encountered", map[string]any{
-			"subject":              state.GetSubject(),
-			"error":                err.Error(),
-			"is_not_found":         utils.IsNotFound(err),
-			"is_permission_denied": utils.IsPermissionDenied(err),
+			"subject":                state.GetSubject(),
+			"error":                  err.Error(),
+			"is_not_found":           utils.IsNotFound(err),
+			"is_permission_denied":   utils.IsPermissionDenied(err),
+			"is_cluster_unreachable": utils.IsClusterUnreachable(err),
 		})
 
 		if utils.IsNotFound(err) {
-			tflog.Debug(ctx, "Schema read failed due to not found, removing from state")
-			response.State.RemoveResource(ctx)
+			tflog.Debug(ctx, "Schema read failed due to not found")
+			if state.AllowDeletion.ValueBool() == true {
+				response.State.RemoveResource(ctx)
+			}
+			return
+		}
+		if utils.IsClusterUnreachable(err) {
+			tflog.Warn(ctx, "Schema read failed due to cluster unreachable", map[string]any{
+				"subject": state.GetSubject(),
+				"error":   err.Error(),
+			})
+			if state.AllowDeletion.ValueBool() == true {
+				response.State.RemoveResource(ctx)
+			}
+			return
+		}
+		// For permission errors, respect allow_deletion setting
+		if utils.IsPermissionDenied(err) {
+			if !state.AllowDeletion.IsNull() && state.AllowDeletion.ValueBool() {
+				tflog.Warn(ctx, "Schema read failed due to permission denied", map[string]any{
+					"subject":        state.GetSubject(),
+					"allow_deletion": state.AllowDeletion.ValueBool(),
+					"error":          err.Error(),
+				})
+				response.State.RemoveResource(ctx)
+				return
+			}
+			tflog.Warn(ctx, "Failed to refresh schema due to permission denied, keeping current state", map[string]any{
+				"subject": state.GetSubject(),
+				"error":   err.Error(),
+			})
 			return
 		}
 		response.Diagnostics.AddError(
@@ -186,14 +252,12 @@ func (s *Schema) Read(ctx context.Context, request resource.ReadRequest, respons
 
 	state.UpdateFromSchema(schemaResp)
 
-	// Get compatibility level for the subject
 	compatibility, err := kclients.GetSubjectCompatibility(ctx, client, state.Subject.ValueString())
 	if err != nil {
 		tflog.Warn(ctx, "Failed to get compatibility level", map[string]any{
 			"subject": state.Subject.ValueString(),
 			"error":   err.Error(),
 		})
-		// Don't fail the read, just use the existing value or default
 		if state.Compatibility.IsNull() {
 			state.Compatibility = types.StringValue(kclients.DefaultCompatibilityLevel)
 		}
@@ -227,11 +291,9 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 	planReq := plan.ToSchemaRequest()
 	stateReq := state.ToSchemaRequest()
 
-	// Compare schema content, type, and references
 	if planReq.Schema == stateReq.Schema &&
 		planReq.Type == stateReq.Type &&
 		len(planReq.References) == len(stateReq.References) {
-		// Check if references are identical
 		referencesEqual := true
 		for i, planRef := range planReq.References {
 			if i >= len(stateReq.References) ||
@@ -304,20 +366,28 @@ func (s *Schema) Delete(ctx context.Context, request resource.DeleteRequest, res
 		return
 	}
 
+	if state.AllowDeletion.IsNull() || !state.AllowDeletion.ValueBool() {
+		response.Diagnostics.AddError(
+			"Cannot delete schema",
+			fmt.Sprintf("Deletion of schema subject %s is not allowed. Set allow_deletion=true to allow deletion of this resource.", state.GetSubject()),
+		)
+		return
+	}
+
 	client, err := kclients.GetSchemaRegistryClientForCluster(ctx, s.CpCl, state.ClusterID.ValueString(), state.Username.ValueString(), state.Password.ValueString())
 	if err != nil {
-		if utils.IsPermissionDenied(err) || utils.IsClusterUnreachable(err) {
-			if !state.AllowDeletion.IsNull() && !state.AllowDeletion.ValueBool() {
-				response.Diagnostics.AddError(
-					"Cannot delete schema - permission denied or cluster unreachable",
-					fmt.Sprintf("Unable to delete schema because of permission error or cluster is unreachable. Set allow_deletion=true to force removal from state. Error: %v", err),
-				)
-				return
-			}
-			tflog.Warn(ctx, "Schema deletion failed due to permission/cluster error during client creation, removing from state", map[string]any{
-				"subject":        state.GetSubject(),
-				"allow_deletion": state.AllowDeletion.ValueBool(),
-				"error":          err.Error(),
+		if utils.IsClusterUnreachable(err) {
+			tflog.Warn(ctx, "Schema deletion failed due to cluster unreachable", map[string]any{
+				"subject": state.GetSubject(),
+				"error":   err.Error(),
+			})
+			response.State.RemoveResource(ctx)
+			return
+		}
+		if utils.IsPermissionDenied(err) {
+			tflog.Warn(ctx, "Schema deletion failed due to permission denied", map[string]any{
+				"subject": state.GetSubject(),
+				"error":   err.Error(),
 			})
 			response.State.RemoveResource(ctx)
 			return
@@ -331,29 +401,42 @@ func (s *Schema) Delete(ctx context.Context, request resource.DeleteRequest, res
 
 	_, err = client.DeleteSubject(ctx, state.GetSubject(), sr.SoftDelete)
 	if err != nil {
-		if !utils.IsNotFound(err) {
-			if utils.IsClusterUnreachable(err) || utils.IsPermissionDenied(err) {
-				if !state.AllowDeletion.IsNull() && !state.AllowDeletion.ValueBool() {
-					response.Diagnostics.AddError(
-						"Cannot delete schema - cluster unreachable or permission denied",
-						fmt.Sprintf("Unable to delete schema subject %s. Set allow_deletion=true to force removal from state. Error: %v", state.GetSubject(), err),
-					)
-					return
-				}
-				tflog.Warn(ctx, "Schema deletion failed but removing from state", map[string]any{
-					"subject":        state.GetSubject(),
-					"allow_deletion": state.AllowDeletion.ValueBool(),
-					"error":          err.Error(),
-				})
-				response.State.RemoveResource(ctx)
-				return
-			}
-			response.Diagnostics.AddError(
-				"Failed to delete schema",
-				fmt.Sprintf("Unable to delete schema subject %s: %v", state.GetSubject(), err),
-			)
+		tflog.Debug(ctx, "Schema deletion error encountered", map[string]any{
+			"subject":                state.GetSubject(),
+			"error":                  err.Error(),
+			"is_not_found":           utils.IsNotFound(err),
+			"is_permission_denied":   utils.IsPermissionDenied(err),
+			"is_cluster_unreachable": utils.IsClusterUnreachable(err),
+		})
+
+		if utils.IsNotFound(err) {
+			tflog.Debug(ctx, "Schema deletion failed due to not found")
+			response.State.RemoveResource(ctx)
 			return
 		}
+		// For cluster unreachable errors (including "no such host"), remove from state
+		if utils.IsClusterUnreachable(err) {
+			tflog.Warn(ctx, "Schema deletion failed due to cluster unreachable", map[string]any{
+				"subject": state.GetSubject(),
+				"error":   err.Error(),
+			})
+			response.State.RemoveResource(ctx)
+			return
+		}
+		// For permission errors, remove from state
+		if utils.IsPermissionDenied(err) {
+			tflog.Warn(ctx, "Schema deletion failed due to permission denied", map[string]any{
+				"subject": state.GetSubject(),
+				"error":   err.Error(),
+			})
+			response.State.RemoveResource(ctx)
+			return
+		}
+		response.Diagnostics.AddError(
+			"Failed to delete schema",
+			fmt.Sprintf("Unable to delete schema subject %s: %v", state.GetSubject(), err),
+		)
+		return
 	}
 	response.State.RemoveResource(ctx)
 }

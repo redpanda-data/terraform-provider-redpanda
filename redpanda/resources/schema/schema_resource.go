@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -24,6 +25,7 @@ func resourceSchemaSchema() schema.Schema {
 			"schema": schema.StringAttribute{
 				Description: "The schema definition in JSON format.",
 				Required:    true,
+				CustomType:  jsontypes.NormalizedType{},
 			},
 			"schema_type": schema.StringAttribute{
 				Description: "The type of schema (AVRO, JSON, PROTOBUF).",
