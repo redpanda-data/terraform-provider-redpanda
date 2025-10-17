@@ -30,12 +30,14 @@ resource "redpanda_user" "example" {
   password        = "secure-password-123"
   mechanism       = "scram-sha-256"
   cluster_api_url = redpanda_cluster.example.cluster_api_url
+  allow_deletion  = true
 }
 
 resource "redpanda_schema" "example" {
-  cluster_id  = redpanda_cluster.example.id
-  subject     = "user-value"
-  schema_type = "AVRO"
+  cluster_id     = redpanda_cluster.example.id
+  subject        = "user-value"
+  schema_type    = "AVRO"
+  allow_deletion = true
   schema = jsonencode({
     type = "record"
     name = "User"

@@ -109,6 +109,7 @@ resource "redpanda_user" "test" {
   password        = var.user_pw
   mechanism       = var.mechanism
   cluster_api_url = redpanda_cluster.test.cluster_api_url
+  allow_deletion  = true
 }
 
 resource "redpanda_topic" "test" {
@@ -125,7 +126,8 @@ resource "redpanda_acl" "test" {
   resource_pattern_type = "LITERAL"
   principal             = "User:${redpanda_user.test.name}"
   host                  = "*"
-  operation            = "READ"
-  permission_type      = "ALLOW"
-  cluster_api_url      = redpanda_cluster.test.cluster_api_url
+  operation             = "READ"
+  permission_type       = "ALLOW"
+  cluster_api_url       = redpanda_cluster.test.cluster_api_url
+  allow_deletion        = true
 }

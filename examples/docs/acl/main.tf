@@ -48,4 +48,5 @@ resource "redpanda_acl" "example" {
   operation             = "READ"
   permission_type       = "ALLOW"
   cluster_api_url       = redpanda_cluster.example.cluster_api_url
+  allow_deletion        = true
 }

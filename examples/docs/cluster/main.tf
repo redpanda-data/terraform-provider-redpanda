@@ -23,4 +23,5 @@ resource "redpanda_cluster" "example" {
   connection_type   = "public"
   throughput_tier   = "tier-1-aws"
   zones             = ["us-west-2a", "us-west-2b", "us-west-2c"]
+  allow_deletion    = true
 }

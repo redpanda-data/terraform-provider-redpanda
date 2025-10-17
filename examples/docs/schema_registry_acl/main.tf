@@ -30,6 +30,7 @@ resource "redpanda_user" "example" {
   password        = "secure-password-123"
   mechanism       = "scram-sha-256"
   cluster_api_url = redpanda_cluster.example.cluster_api_url
+  allow_deletion  = true
 }
 
 resource "redpanda_acl" "schema_registry_admin" {
@@ -41,19 +42,21 @@ resource "redpanda_acl" "schema_registry_admin" {
   operation             = "ALTER"
   permission_type       = "ALLOW"
   cluster_api_url       = redpanda_cluster.example.cluster_api_url
+  allow_deletion        = true
 }
 
 resource "redpanda_schema_registry_acl" "example" {
-  cluster_id    = redpanda_cluster.example.id
-  principal     = "User:${redpanda_user.example.name}"
-  resource_type = "SUBJECT"
-  resource_name = "user-value"
-  pattern_type  = "LITERAL"
-  host          = "*"
-  operation     = "READ"
-  permission    = "ALLOW"
-  username      = redpanda_user.example.name
-  password      = "secure-password-123"
+  cluster_id     = redpanda_cluster.example.id
+  principal      = "User:${redpanda_user.example.name}"
+  resource_type  = "SUBJECT"
+  resource_name  = "user-value"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "READ"
+  permission     = "ALLOW"
+  username       = redpanda_user.example.name
+  password       = "secure-password-123"
+  allow_deletion = true
 
   depends_on = [redpanda_acl.schema_registry_admin]
 }
