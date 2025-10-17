@@ -23,13 +23,8 @@ import (
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
@@ -80,50 +75,6 @@ func (*User) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.
 	resp.Schema = resourceUserSchema()
 }
 
-// ResourceUserSchema returns the schema for the User resource.
-func resourceUserSchema() schema.Schema {
-	return schema.Schema{
-		Description: "User is a user that can be created in Redpanda",
-		Attributes: map[string]schema.Attribute{
-			"name": schema.StringAttribute{
-				Description:   "Name of the user, must be unique",
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"password": schema.StringAttribute{
-				Description:   "Password of the user",
-				Required:      true,
-				Sensitive:     true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"mechanism": schema.StringAttribute{
-				Description:   "Which authentication method to use, see https://docs.redpanda.com/current/manage/security/authentication/ for more information",
-				Optional:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Validators: []validator.String{
-					stringvalidator.OneOf("", "scram-sha-256", "scram-sha-512"),
-				},
-			},
-			"cluster_api_url": schema.StringAttribute{
-				Required: true,
-				Description: "The cluster API URL. Changing this will prevent deletion of the resource on the existing " +
-					"cluster. It is generally a better idea to delete an existing resource and create a new one than to " +
-					"change this value unless you are planning to do state imports",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"id": schema.StringAttribute{
-				Computed:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-			},
-			"allow_deletion": schema.BoolAttribute{
-				Description: "Allows deletion of the user. If false, the user cannot be deleted and the resource will be removed from the state on destruction. Defaults to false.",
-				Optional:    true,
-				Computed:    true,
-			},
-		},
-	}
-}
-
 // Create creates a User resource.
 func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var model models.User
@@ -147,19 +98,14 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 		return
 	}
 
-	allowDeletion := model.AllowDeletion
-	if allowDeletion.IsNull() || allowDeletion.IsUnknown() {
-		allowDeletion = types.BoolValue(false)
-	}
+	persist := model.GetUpdatedModel(user.User, models.ContingentFields{
+		AllowDeletion: model.AllowDeletion,
+	})
+	// Preserve password and cluster URL from plan (not returned by API)
+	persist.Password = model.Password
+	persist.ClusterAPIURL = model.ClusterAPIURL
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, models.User{
-		Name:          types.StringValue(user.User.Name),
-		Password:      model.Password,
-		Mechanism:     model.Mechanism,
-		ClusterAPIURL: model.ClusterAPIURL,
-		ID:            types.StringValue(user.User.Name),
-		AllowDeletion: allowDeletion,
-	})...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
 // Read reads the state of the User resource.
@@ -216,34 +162,82 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to find user %s", model.Name), utils.DeserializeGrpcError(err))
 		return
 	}
-	mechanism := model.Mechanism
-	if user.Mechanism != nil {
-		mechanism = types.StringValue(utils.UserMechanismToString(user.Mechanism))
-	}
-	allowDeletion := model.AllowDeletion
-	if allowDeletion.IsNull() || allowDeletion.IsUnknown() {
-		allowDeletion = types.BoolValue(false)
+
+	persist := &models.User{}
+	persist.GetUpdatedModel(user, models.ContingentFields{})
+
+	// Preserve fields not returned by API from existing state
+	persist.Password = model.Password
+	persist.ClusterAPIURL = model.ClusterAPIURL
+	persist.AllowDeletion = model.AllowDeletion
+
+	// Preserve mechanism if not returned by API
+	if persist.Mechanism.IsNull() || persist.Mechanism.IsUnknown() {
+		persist.Mechanism = model.Mechanism
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, models.User{
-		Name:          types.StringValue(user.Name),
-		Password:      model.Password,
-		Mechanism:     mechanism,
-		ClusterAPIURL: model.ClusterAPIURL,
-		ID:            types.StringValue(user.Name),
-		AllowDeletion: allowDeletion,
-	})...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
 // Update updates the state of the User resource.
-func (*User) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
-	// TODO implement me
+func (u *User) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan models.User
+	var state models.User
+
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	passwordChanged := !plan.Password.Equal(state.Password)
+	mechanismChanged := !plan.Mechanism.Equal(state.Mechanism)
+
+	if passwordChanged || mechanismChanged {
+		err := u.createUserClient(plan.ClusterAPIURL.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("failed to create user client", utils.DeserializeGrpcError(err))
+			return
+		}
+		defer u.dataplaneConn.Close()
+
+		updateResp, err := u.UserClient.UpdateUser(ctx, &dataplanev1.UpdateUserRequest{
+			User: &dataplanev1.UpdateUserRequest_User{
+				Name:      plan.Name.ValueString(),
+				Password:  plan.Password.ValueString(),
+				Mechanism: utils.StringToUserMechanism(plan.Mechanism.ValueString()),
+			},
+		})
+		if err != nil {
+			resp.Diagnostics.AddError("failed to update user", utils.DeserializeGrpcError(err))
+			return
+		}
+
+		persist := plan.GetUpdatedModel(updateResp.User, models.ContingentFields{
+			AllowDeletion: plan.AllowDeletion,
+		})
+		persist.Password = plan.Password
+		persist.ClusterAPIURL = plan.ClusterAPIURL
+
+		resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
+		return
+	}
+
+	// Only allow_deletion changed - just update state directly
+	state.AllowDeletion = plan.AllowDeletion
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
 // Delete deletes the User resource.
 func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var model models.User
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
+
+	if !model.AllowDeletion.ValueBool() {
+		resp.Diagnostics.AddError("user deletion not allowed", "allow_deletion is set to false")
+		return
+	}
 
 	err := u.createUserClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
