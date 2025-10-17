@@ -30,6 +30,7 @@ resource "redpanda_user" "example" {
   password        = "secure-password-123"
   mechanism       = "scram-sha-256"
   cluster_api_url = redpanda_cluster.example.cluster_api_url
+  allow_deletion  = true
 }
 
 resource "redpanda_role_assignment" "example" {
