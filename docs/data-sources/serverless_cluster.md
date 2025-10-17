@@ -60,6 +60,7 @@ resource "redpanda_user" "test" {
   password        = var.user_pw
   mechanism       = var.mechanism
   cluster_api_url = redpanda_serverless_cluster.test.cluster_api_url
+  allow_deletion  = true
 }
 ```
 
