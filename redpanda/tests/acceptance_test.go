@@ -29,6 +29,7 @@ const (
 	azureByocClusterDir            = "../../examples/byoc/azure"
 	gcpByocClusterDir              = "../../examples/byoc/gcp"
 	dedicatedNetworkDir            = "../../examples/network"
+	dataplaneDir                   = "../../examples/dataplane"
 	dataSourcesTestDir             = "../../examples/datasource/standard"
 	bulkDataCreateDir              = "../../examples/datasource/bulk"
 	networkDataSourceDir           = "../../examples/datasource/network"
@@ -38,6 +39,7 @@ const (
 	networkResourceName                = "redpanda_network.test"
 	clusterResourceName                = "redpanda_cluster.test"
 	userResourceName                   = "redpanda_user.test"
+	testUserResourceName               = "redpanda_user.test_user"
 	topicResourceName                  = "redpanda_topic.test"
 	serverlessResourceName             = "redpanda_serverless_cluster.test"
 	networkDataSourceName              = "data.redpanda_network.test"
@@ -46,6 +48,8 @@ const (
 	schemaResourceName                 = "redpanda_schema.user_schema"
 	schemaEventResourceName            = "redpanda_schema.user_event_schema"
 	schemaProductResourceName          = "redpanda_schema.product_schema"
+	clusterAdminACLResourceName        = "redpanda_acl.cluster_admin"
+	topicAccessACLResourceName         = "redpanda_acl.topic_access"
 )
 
 var (
@@ -254,7 +258,7 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testaws)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, "", awsDedicatedClusterDir, nil, t)
+	testRunner(ctx, name, rename, redpandaVersion, awsDedicatedClusterDir, nil, t)
 }
 
 func TestAccResourcesClusterAzure(t *testing.T) {
@@ -264,7 +268,7 @@ func TestAccResourcesClusterAzure(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testazure)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, "", azureDedicatedClusterDir, nil, t)
+	testRunner(ctx, name, rename, redpandaVersion, azureDedicatedClusterDir, nil, t)
 }
 
 func TestAccResourcesClusterGCP(t *testing.T) {
@@ -432,6 +436,10 @@ func buildTestCheckFuncs(testDir, name string) ([]resource.TestCheckFunc, error)
 		checkFuncs = append(checkFuncs, resource.TestCheckResourceAttr(userResourceName, "name", name))
 	}
 
+	if strings.Contains(testFileStr, `resource "redpanda_user" "test_user"`) {
+		checkFuncs = append(checkFuncs, resource.TestCheckResourceAttr(testUserResourceName, "name", name+"-test"))
+	}
+
 	if strings.Contains(testFileStr, `resource "redpanda_topic" "test"`) {
 		checkFuncs = append(checkFuncs, resource.TestCheckResourceAttr(topicResourceName, "name", name))
 	}
@@ -463,6 +471,7 @@ func buildTestCheckFuncs(testDir, name string) ([]resource.TestCheckFunc, error)
 	}
 
 	// Check if Schema Registry ACL resources exist and add appropriate checks
+	// These ACLs use admin user as principal for schema management
 	if strings.Contains(testFileStr, `resource "redpanda_schema_registry_acl" "read_product"`) {
 		checkFuncs = append(checkFuncs,
 			resource.TestCheckResourceAttrSet("redpanda_schema_registry_acl.read_product", "id"),
@@ -564,10 +573,30 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
+	updateTestCaseVars["user_allow_deletion"] = config.BoolVariable(true)
+	updateTestCaseVars["acl_allow_deletion"] = config.BoolVariable(true)
 
 	compatibilityUpdateVars := make(map[string]config.Variable)
 	maps.Copy(compatibilityUpdateVars, updateTestCaseVars)
 	compatibilityUpdateVars["compatibility_level"] = config.StringVariable("FORWARD")
+
+	// Test toggling allow_deletion for user (false -> verify -> true)
+	userAllowDeletionFalseVars := make(map[string]config.Variable)
+	maps.Copy(userAllowDeletionFalseVars, updateTestCaseVars)
+	userAllowDeletionFalseVars["user_allow_deletion"] = config.BoolVariable(false)
+
+	userAllowDeletionTrueVars := make(map[string]config.Variable)
+	maps.Copy(userAllowDeletionTrueVars, updateTestCaseVars)
+	userAllowDeletionTrueVars["user_allow_deletion"] = config.BoolVariable(true)
+
+	// Test toggling allow_deletion for ACL (false -> verify -> true)
+	aclAllowDeletionFalseVars := make(map[string]config.Variable)
+	maps.Copy(aclAllowDeletionFalseVars, updateTestCaseVars)
+	aclAllowDeletionFalseVars["acl_allow_deletion"] = config.BoolVariable(false)
+
+	aclAllowDeletionTrueVars := make(map[string]config.Variable)
+	maps.Copy(aclAllowDeletionTrueVars, updateTestCaseVars)
+	aclAllowDeletionTrueVars["acl_allow_deletion"] = config.BoolVariable(true)
 
 	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
 	if err != nil {
@@ -620,12 +649,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				},
 				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
-					resource.TestCheckResourceAttr(userResourceName, "name", name),
-				),
 			},
 			{
 				ConfigDirectory:          config.StaticDirectory(testFile),
@@ -635,6 +658,66 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
 					resource.TestCheckResourceAttr(networkResourceName, "name", name),
 					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+				),
+			},
+			{
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          userAllowDeletionFalseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(userResourceName, "allow_deletion", "false"),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+				),
+			},
+			{
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          userAllowDeletionTrueVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(userResourceName, "allow_deletion", "true"),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+				),
+			},
+			{
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          aclAllowDeletionFalseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					func() resource.TestCheckFunc {
+						testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
+						if err != nil {
+							return func(_ *terraform.State) error {
+								return fmt.Errorf("failed to read test file: %w", err)
+							}
+						}
+						aclResourceName := clusterAdminACLResourceName
+						if strings.Contains(string(testFileContent), `resource "redpanda_acl" "topic_access"`) {
+							aclResourceName = topicAccessACLResourceName
+						}
+						return resource.TestCheckResourceAttr(aclResourceName, "allow_deletion", "false")
+					}(),
+					resource.TestCheckResourceAttr(userResourceName, "allow_deletion", "true"),
+				),
+			},
+			{
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          aclAllowDeletionTrueVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					func() resource.TestCheckFunc {
+						testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
+						if err != nil {
+							return func(_ *terraform.State) error {
+								return fmt.Errorf("failed to read test file: %w", err)
+							}
+						}
+						aclResourceName := clusterAdminACLResourceName
+						if strings.Contains(string(testFileContent), `resource "redpanda_acl" "topic_access"`) {
+							aclResourceName = topicAccessACLResourceName
+						}
+						return resource.TestCheckResourceAttr(aclResourceName, "allow_deletion", "true")
+					}(),
+					resource.TestCheckResourceAttr(userResourceName, "allow_deletion", "true"),
 				),
 			},
 			{
@@ -760,13 +843,11 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 			{
-				ResourceName:      clusterResourceName,
-				ConfigDirectory:   config.StaticDirectory(testFile),
-				ConfigVariables:   updateTestCaseVars,
-				ImportState:       true,
-				ImportStateVerify: true,
-				//  These two only matter on apply; On apply the user will be
-				//  getting Plan, not State, and have correct values for both.
+				ResourceName:             clusterResourceName,
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          updateTestCaseVars,
+				ImportState:              true,
+				ImportStateVerify:        true,
 				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -849,11 +930,11 @@ func TestAccDataSourceNetwork(t *testing.T) {
 	})
 }
 
-func TestAccResourcesWithDataSources(t *testing.T) {
+func TestAccResourcesDataSource(t *testing.T) {
 	if !strings.Contains(testAgainstExistingCluster, "true") {
 		t.Skip("skipping cluster user-acl-topic tests")
 	}
-	name := generateRandomName(accNamePrepend + "test-with-data-sources")
+	name := generateRandomName(accNamePrepend + "datasource")
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["cluster_id"] = config.StringVariable(os.Getenv("CLUSTER_ID"))
@@ -865,7 +946,6 @@ func TestAccResourcesWithDataSources(t *testing.T) {
 
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
-	// Change 1, remove other
 	updateTestCaseVars["topic_config"] = config.MapVariable(map[string]config.Variable{
 		"compression.type": config.StringVariable("gzip"),
 		"flush.ms":         config.StringVariable("100"),
