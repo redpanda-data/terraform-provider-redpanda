@@ -65,6 +65,7 @@ resource "redpanda_topic" "example" {
   partition_count    = 3
   replication_factor = 3
   cluster_api_url    = redpanda_cluster.example.cluster_api_url
+  allow_deletion     = true
   configuration = {
     "cleanup.policy" = "delete"
     "retention.ms"   = "604800000"
