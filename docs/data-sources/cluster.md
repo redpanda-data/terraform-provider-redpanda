@@ -576,6 +576,7 @@ resource "redpanda_user" "test" {
   password        = var.user_pw
   mechanism       = var.mechanism
   cluster_api_url = data.redpanda_cluster.test.cluster_api_url
+  allow_deletion  = true
 }
 
 resource "redpanda_acl" "test" {
