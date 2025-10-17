@@ -71,21 +71,27 @@ func IsNotFound(err error) bool {
 		strings.Contains(strings.ToLower(errStr), "does not exist")
 }
 
-// IsPermissionDenied checks if the error indicates a permission/ACL issue
-// This includes both gRPC PermissionDenied and HTTP 403/Forbidden errors
+// IsPermissionDenied checks if the error indicates a permission/ACL issue or authentication failure
+// This includes both gRPC PermissionDenied and HTTP 403/Forbidden errors, as well as
+// HTTP 401/Unauthorized errors (which can occur when credentials are stale or invalid)
 func IsPermissionDenied(err error) bool {
 	if err == nil {
 		return false
 	}
 
-	if e, ok := grpcstatus.FromError(err); ok && e.Code() == grpccodes.PermissionDenied {
-		return true
+	if e, ok := grpcstatus.FromError(err); ok {
+		if e.Code() == grpccodes.PermissionDenied || e.Code() == grpccodes.Unauthenticated {
+			return true
+		}
 	}
 
-	errStr := err.Error()
-	return strings.Contains(strings.ToLower(errStr), "forbidden") ||
-		strings.Contains(strings.ToLower(errStr), "missing required acls") ||
-		strings.Contains(errStr, "403")
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "forbidden") ||
+		strings.Contains(errStr, "missing required acls") ||
+		strings.Contains(errStr, "unauthorized") ||
+		strings.Contains(errStr, "malformed authorization header") ||
+		strings.Contains(err.Error(), "403") ||
+		strings.Contains(err.Error(), "401")
 }
 
 // IsClusterUnreachable checks if the error indicates the cluster is unreachable
@@ -110,9 +116,10 @@ func IsClusterUnreachable(err error) bool {
 	}
 
 	// Also check the error string directly in case it's wrapped
-	errStr := err.Error()
-	return strings.Contains(errStr, "name resolver error") &&
-		strings.Contains(errStr, "produced zero addresses")
+	errStr := strings.ToLower(err.Error())
+	return (strings.Contains(errStr, "name resolver error") &&
+		strings.Contains(errStr, "produced zero addresses")) ||
+		strings.Contains(errStr, "no such host")
 }
 
 // CloudProviderStringAws is the string representation of the CLOUD_PROVIDER_AWS enum
