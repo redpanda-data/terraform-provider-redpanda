@@ -15,7 +15,11 @@
 
 package models
 
-import "github.com/hashicorp/terraform-plugin-framework/types"
+import (
+	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+)
 
 // User defines the structure for configuration settings parsed from HCL.
 type User struct {
@@ -25,4 +29,37 @@ type User struct {
 	ID            types.String `tfsdk:"id"`
 	ClusterAPIURL types.String `tfsdk:"cluster_api_url"`
 	AllowDeletion types.Bool   `tfsdk:"allow_deletion"`
+}
+
+// ContingentFields contains fields that are not returned by the User API
+// but need to be preserved in Terraform state.
+type ContingentFields struct {
+	AllowDeletion types.Bool
+}
+
+// UserResponse is an interface that CreateUserResponse_User, ListUsersResponse_User, and UpdateUserResponse_User all satisfy
+type UserResponse interface {
+	GetName() string
+	GetMechanism() dataplanev1.SASLMechanism
+	HasMechanism() bool
+}
+
+// GetUpdatedModel populates the User model from a dataplane User response
+// and contingent fields that are managed by Terraform only.
+func (u *User) GetUpdatedModel(user UserResponse, contingent ContingentFields) *User {
+	u.Name = types.StringValue(user.GetName())
+	u.ID = types.StringValue(user.GetName())
+
+	if user.HasMechanism() {
+		mechanism := user.GetMechanism()
+		u.Mechanism = types.StringValue(utils.UserMechanismToString(&mechanism))
+	}
+
+	// Set contingent fields from either model or defaults
+	u.AllowDeletion = contingent.AllowDeletion
+	if u.AllowDeletion.IsNull() || u.AllowDeletion.IsUnknown() {
+		u.AllowDeletion = types.BoolValue(false)
+	}
+
+	return u
 }
