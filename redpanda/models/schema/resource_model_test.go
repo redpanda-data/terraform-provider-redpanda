@@ -3,6 +3,7 @@ package schema
 import (
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/twmb/franz-go/pkg/sr"
@@ -35,7 +36,7 @@ func TestResourceModel_GetID_UnknownValue(t *testing.T) {
 func TestResourceModel_AllFields(t *testing.T) {
 	model := &ResourceModel{
 		Subject:    types.StringValue("test-resource-subject"),
-		Schema:     types.StringValue(`{"type": "string"}`),
+		Schema:     jsontypes.NewNormalizedValue(`{"type": "string"}`),
 		SchemaType: types.StringValue("JSON"),
 		Version:    types.Int64Value(2),
 		ID:         types.Int64Value(200),
@@ -55,7 +56,7 @@ func TestResourceModel_AllFields(t *testing.T) {
 func TestResourceModel_EmptyFields(t *testing.T) {
 	model := &ResourceModel{
 		Subject:    types.StringValue(""),
-		Schema:     types.StringValue(""),
+		Schema:     jsontypes.NewNormalizedValue(""),
 		SchemaType: types.StringValue(""),
 		Version:    types.Int64Value(0),
 		ID:         types.Int64Value(0),
@@ -168,16 +169,14 @@ func TestResourceModel_PlanApplyComparison(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			model := &ResourceModel{
-				Schema: types.StringValue(tt.currentSchema),
-			}
-
-			result := model.normalizeJSON(tt.registrySchema)
+			// Test compactJSON directly to verify normalization behavior
+			compactCurrent := compactJSON(tt.currentSchema)
+			compactRegistry := compactJSON(tt.registrySchema)
 
 			if tt.expectNormalization {
-				assert.Equal(t, tt.currentSchema, result, tt.description)
+				assert.Equal(t, compactCurrent, compactRegistry, tt.description)
 			} else {
-				assert.Empty(t, result, tt.description)
+				assert.NotEqual(t, compactCurrent, compactRegistry, tt.description)
 			}
 		})
 	}
@@ -204,7 +203,7 @@ func TestResourceModel_UpdateFromSchema_JSONNormalization(t *testing.T) {
 
 	model := &ResourceModel{
 		Subject:    types.StringValue("test-subject"),
-		Schema:     types.StringValue(currentFormattedSchema),
+		Schema:     jsontypes.NewNormalizedValue(currentFormattedSchema),
 		SchemaType: types.StringValue("AVRO"),
 		Version:    types.Int64Value(1),
 		ID:         types.Int64Value(100),
@@ -223,9 +222,10 @@ func TestResourceModel_UpdateFromSchema_JSONNormalization(t *testing.T) {
 
 	model.UpdateFromSchema(schemaResp)
 
-	// Should preserve original formatting since content is semantically identical
-	assert.Equal(t, currentFormattedSchema, model.Schema.ValueString(),
-		"Should preserve original JSON formatting when content is equivalent")
+	// Schema gets compacted by UpdateFromSchema
+	expectedCompact := compactJSON(currentFormattedSchema)
+	assert.Equal(t, expectedCompact, model.Schema.ValueString(),
+		"Schema should be compacted by UpdateFromSchema")
 	assert.Equal(t, int64(200), model.ID.ValueInt64())
 	assert.Equal(t, int64(2), model.Version.ValueInt64())
 	assert.Equal(t, "AVRO", model.SchemaType.ValueString())
@@ -248,7 +248,7 @@ func TestResourceModel_UpdateFromSchema_DifferentContent(t *testing.T) {
 
 	model := &ResourceModel{
 		Subject:    types.StringValue("test-subject"),
-		Schema:     types.StringValue(currentSchema),
+		Schema:     jsontypes.NewNormalizedValue(currentSchema),
 		SchemaType: types.StringValue("AVRO"),
 		Version:    types.Int64Value(1),
 		ID:         types.Int64Value(100),
@@ -268,7 +268,9 @@ func TestResourceModel_UpdateFromSchema_DifferentContent(t *testing.T) {
 	model.UpdateFromSchema(schemaResp)
 
 	// Should use registry response since content actually differs
-	assert.Equal(t, updatedSchemaFromRegistry, model.Schema.ValueString(),
+	// Note: compactJSON may reorder keys, so we compare compacted versions
+	expectedCompact := compactJSON(updatedSchemaFromRegistry)
+	assert.Equal(t, expectedCompact, model.Schema.ValueString(),
 		"Should use registry response when content actually differs")
 	assert.Equal(t, int64(200), model.ID.ValueInt64())
 	assert.Equal(t, int64(2), model.Version.ValueInt64())
@@ -290,13 +292,13 @@ func TestResourceModel_ToSchemaRequest_Equivalence(t *testing.T) {
 	minifiedSchema := `{"type":"record","name":"User","fields":[{"name":"id","type":"int"}]}`
 
 	model1 := &ResourceModel{
-		Schema:     types.StringValue(formattedSchema),
+		Schema:     jsontypes.NewNormalizedValue(formattedSchema),
 		SchemaType: types.StringValue("AVRO"),
 		References: types.ListNull(types.ObjectType{}),
 	}
 
 	model2 := &ResourceModel{
-		Schema:     types.StringValue(minifiedSchema),
+		Schema:     jsontypes.NewNormalizedValue(minifiedSchema),
 		SchemaType: types.StringValue("avro"), // different case
 		References: types.ListNull(types.ObjectType{}),
 	}

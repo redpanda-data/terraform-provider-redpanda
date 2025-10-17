@@ -17,10 +17,10 @@
 package schema
 
 import (
-	"bytes"
 	"encoding/json"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/twmb/franz-go/pkg/sr"
@@ -28,17 +28,17 @@ import (
 
 // ResourceModel represents the Terraform schema for the schema resource.
 type ResourceModel struct {
-	Subject       types.String `tfsdk:"subject"`
-	Schema        types.String `tfsdk:"schema"`
-	SchemaType    types.String `tfsdk:"schema_type"`
-	Version       types.Int64  `tfsdk:"version"`
-	ID            types.Int64  `tfsdk:"id"`
-	ClusterID     types.String `tfsdk:"cluster_id"`
-	References    types.List   `tfsdk:"references"`
-	Compatibility types.String `tfsdk:"compatibility"`
-	Username      types.String `tfsdk:"username"`
-	Password      types.String `tfsdk:"password"`
-	AllowDeletion types.Bool   `tfsdk:"allow_deletion"`
+	Subject       types.String         `tfsdk:"subject"`
+	Schema        jsontypes.Normalized `tfsdk:"schema"`
+	SchemaType    types.String         `tfsdk:"schema_type"`
+	Version       types.Int64          `tfsdk:"version"`
+	ID            types.Int64          `tfsdk:"id"`
+	ClusterID     types.String         `tfsdk:"cluster_id"`
+	References    types.List           `tfsdk:"references"`
+	Compatibility types.String         `tfsdk:"compatibility"`
+	Username      types.String         `tfsdk:"username"`
+	Password      types.String         `tfsdk:"password"`
+	AllowDeletion types.Bool           `tfsdk:"allow_deletion"`
 }
 
 // GetID returns the schema ID.
@@ -64,16 +64,25 @@ func (r *ResourceModel) GetVersion() *int {
 func (r *ResourceModel) UpdateFromSchema(schemaResp sr.SubjectSchema) {
 	r.ID = types.Int64Value(int64(schemaResp.ID))
 	r.Version = types.Int64Value(int64(schemaResp.Version))
-
-	normalizedSchema := r.normalizeJSON(schemaResp.Schema.Schema)
-	if normalizedSchema != "" {
-		r.Schema = types.StringValue(normalizedSchema)
-	} else {
-		r.Schema = types.StringValue(schemaResp.Schema.Schema)
-	}
-
+	// Normalize the JSON to compact format for consistent storage
+	r.Schema = jsontypes.NewNormalizedValue(compactJSON(schemaResp.Schema.Schema))
 	r.SchemaType = types.StringValue(strings.ToUpper(schemaResp.Type.String()))
 	r.References = r.convertReferencesToTerraform(schemaResp.References)
+}
+
+// compactJSON compacts a JSON string by removing unnecessary whitespace
+func compactJSON(jsonStr string) string {
+	var obj any
+	if err := json.Unmarshal([]byte(jsonStr), &obj); err != nil {
+		// If unmarshal fails, return original string
+		return jsonStr
+	}
+	compact, err := json.Marshal(obj)
+	if err != nil {
+		// If marshal fails, return original string
+		return jsonStr
+	}
+	return string(compact)
 }
 
 // convertReferencesToTerraform converts sr.SchemaReference slice to Terraform List type
@@ -180,43 +189,6 @@ func (r *ResourceModel) parseSchemaReferences() []sr.SchemaReference {
 	}
 
 	return references
-}
-
-// normalizeJSON attempts to preserve the original JSON formatting when the content is semantically equivalent.
-// If the current schema and registry schema are equivalent, returns the current schema formatting.
-// If they differ or normalization fails, returns empty string to use registry response as-is.
-func (r *ResourceModel) normalizeJSON(registrySchema string) string {
-	if r.Schema.IsNull() || r.Schema.IsUnknown() {
-		return ""
-	}
-
-	currentSchema := r.Schema.ValueString()
-
-	var currentJSON, registryJSON any
-
-	if err := json.Unmarshal([]byte(currentSchema), &currentJSON); err != nil {
-		return ""
-	}
-
-	if err := json.Unmarshal([]byte(registrySchema), &registryJSON); err != nil {
-		return ""
-	}
-
-	currentBytes, err := json.Marshal(currentJSON)
-	if err != nil {
-		return ""
-	}
-
-	registryBytes, err := json.Marshal(registryJSON)
-	if err != nil {
-		return ""
-	}
-
-	if bytes.Equal(currentBytes, registryBytes) {
-		return currentSchema
-	}
-
-	return ""
 }
 
 // GetCompatibility returns the compatibility as a string
