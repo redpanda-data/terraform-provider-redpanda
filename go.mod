@@ -5,20 +5,21 @@ go 1.24.3
 toolchain go1.24.4
 
 require (
-	buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20250822165938-3142a6300fcc.2
-	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.8-20250822165938-3142a6300fcc.1
+	buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20251010171648-9b816e7f35dc.2
+	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.10-20251010171648-9b816e7f35dc.1
 	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.5.1-20250829164938-cb01f499c363.2
 	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.8-20250829164938-cb01f499c363.1
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/golang/mock v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/hashicorp/terraform-plugin-docs v0.22.0
-	github.com/hashicorp/terraform-plugin-framework v1.16.0
+	github.com/hashicorp/terraform-plugin-framework v1.16.1
+	github.com/hashicorp/terraform-plugin-framework-jsontypes v0.2.0
 	github.com/hashicorp/terraform-plugin-framework-timeouts v0.6.0
-	github.com/hashicorp/terraform-plugin-framework-validators v0.18.0
+	github.com/hashicorp/terraform-plugin-framework-validators v0.19.0
 	github.com/hashicorp/terraform-plugin-go v0.29.0
 	github.com/hashicorp/terraform-plugin-log v0.9.0
-	github.com/hashicorp/terraform-plugin-testing v1.13.2
+	github.com/hashicorp/terraform-plugin-testing v1.13.3
 	github.com/pkg/errors v0.9.1
 	github.com/redpanda-data/common-go/rpsr v0.1.2
 	github.com/redpanda-data/redpanda/src/go/rpk v0.0.0-20250324141452-c979dc730ef3
@@ -28,13 +29,13 @@ require (
 	google.golang.org/genproto v0.0.0-20250313205543-e70fdf4c4cb4
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7
 	google.golang.org/grpc v1.75.1
-	google.golang.org/protobuf v1.36.9
+	google.golang.org/protobuf v1.36.10
 )
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.8-20250425153114-8976f5be98c1.1 // indirect
-	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.8-20240617172850-a48fcebcf8f1.1 // indirect
-	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.8-20250504123906-40b63a811436.1 // indirect
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.10-20250912141014-52f32327d4b0.1 // indirect
+	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.10-20221127060915-a1ecdc58eccd.1 // indirect
+	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.10-20250904135917-9feeb2588236.1 // indirect
 	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c // indirect
 	github.com/Kunde21/markdownfmt/v3 v3.1.0 // indirect
