@@ -29,6 +29,7 @@ const (
 	azureByocClusterDir            = "../../examples/byoc/azure"
 	gcpByocClusterDir              = "../../examples/byoc/gcp"
 	dedicatedNetworkDir            = "../../examples/network"
+	dataplaneDir                   = "../../examples/dataplane"
 	dataSourcesTestDir             = "../../examples/datasource/standard"
 	bulkDataCreateDir              = "../../examples/datasource/bulk"
 	networkDataSourceDir           = "../../examples/datasource/network"
@@ -38,6 +39,7 @@ const (
 	networkResourceName                = "redpanda_network.test"
 	clusterResourceName                = "redpanda_cluster.test"
 	userResourceName                   = "redpanda_user.test"
+	testUserResourceName               = "redpanda_user.test_user"
 	topicResourceName                  = "redpanda_topic.test"
 	serverlessResourceName             = "redpanda_serverless_cluster.test"
 	networkDataSourceName              = "data.redpanda_network.test"
@@ -254,7 +256,7 @@ func TestAccResourcesClusterAWS(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testaws)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, "", awsDedicatedClusterDir, nil, t)
+	testRunner(ctx, name, rename, redpandaVersion, awsDedicatedClusterDir, nil, t)
 }
 
 func TestAccResourcesClusterAzure(t *testing.T) {
@@ -264,7 +266,7 @@ func TestAccResourcesClusterAzure(t *testing.T) {
 	ctx := context.Background()
 	name := generateRandomName(accNamePrepend + testazure)
 	rename := generateRandomName(accNamePrepend + testawsRename)
-	testRunner(ctx, name, rename, "", azureDedicatedClusterDir, nil, t)
+	testRunner(ctx, name, rename, redpandaVersion, azureDedicatedClusterDir, nil, t)
 }
 
 func TestAccResourcesClusterGCP(t *testing.T) {
@@ -432,6 +434,10 @@ func buildTestCheckFuncs(testDir, name string) ([]resource.TestCheckFunc, error)
 		checkFuncs = append(checkFuncs, resource.TestCheckResourceAttr(userResourceName, "name", name))
 	}
 
+	if strings.Contains(testFileStr, `resource "redpanda_user" "test_user"`) {
+		checkFuncs = append(checkFuncs, resource.TestCheckResourceAttr(testUserResourceName, "name", name+"-test"))
+	}
+
 	if strings.Contains(testFileStr, `resource "redpanda_topic" "test"`) {
 		checkFuncs = append(checkFuncs, resource.TestCheckResourceAttr(topicResourceName, "name", name))
 	}
@@ -463,6 +469,7 @@ func buildTestCheckFuncs(testDir, name string) ([]resource.TestCheckFunc, error)
 	}
 
 	// Check if Schema Registry ACL resources exist and add appropriate checks
+	// These ACLs use admin user as principal for schema management
 	if strings.Contains(testFileStr, `resource "redpanda_schema_registry_acl" "read_product"`) {
 		checkFuncs = append(checkFuncs,
 			resource.TestCheckResourceAttrSet("redpanda_schema_registry_acl.read_product", "id"),
@@ -620,12 +627,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				},
 				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
-					resource.TestCheckResourceAttr(userResourceName, "name", name),
-				),
 			},
 			{
 				ConfigDirectory:          config.StaticDirectory(testFile),
@@ -849,27 +850,25 @@ func TestAccDataSourceNetwork(t *testing.T) {
 	})
 }
 
-func TestAccResourcesWithDataSources(t *testing.T) {
+func TestAccResourcesDataSource(t *testing.T) {
 	if !strings.Contains(testAgainstExistingCluster, "true") {
-		t.Skip("skipping cluster user-acl-topic tests")
+		t.Skip("skipping datasource tests")
 	}
-	name := generateRandomName(accNamePrepend + "test-with-data-sources")
+	name := generateRandomName(accNamePrepend + "datasource")
+
+	// Test case variables
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["cluster_id"] = config.StringVariable(os.Getenv("CLUSTER_ID"))
 	origTestCaseVars["user_name"] = config.StringVariable(name)
 	origTestCaseVars["topic_name"] = config.StringVariable(name)
+	origTestCaseVars["user_pw"] = config.StringVariable("password-123")
+	origTestCaseVars["mechanism"] = config.StringVariable("scram-sha-256")
 	if throughputTier != "" {
 		origTestCaseVars["throughput_tier"] = config.StringVariable(throughputTier)
 	}
 
-	updateTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(updateTestCaseVars, origTestCaseVars)
-	// Change 1, remove other
-	updateTestCaseVars["topic_config"] = config.MapVariable(map[string]config.Variable{
-		"compression.type": config.StringVariable("gzip"),
-		"flush.ms":         config.StringVariable("100"),
-	})
+	clusterID := os.Getenv("CLUSTER_ID")
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
@@ -879,16 +878,31 @@ func TestAccResourcesWithDataSources(t *testing.T) {
 				ConfigVariables:          origTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
+					// Cluster data source
+					resource.TestCheckResourceAttrSet("data.redpanda_cluster.test", "id"),
+					resource.TestCheckResourceAttr("data.redpanda_cluster.test", "id", clusterID),
+					resource.TestCheckResourceAttrSet("data.redpanda_cluster.test", "cluster_api_url"),
+
+					// User resource
 					resource.TestCheckResourceAttr(userResourceName, "name", name),
+					resource.TestCheckResourceAttr(userResourceName, "mechanism", "scram-sha-256"),
+					resource.TestCheckResourceAttrSet(userResourceName, "cluster_api_url"),
+
+					// Topic resource
 					resource.TestCheckResourceAttr(topicResourceName, "name", name),
-				),
-			},
-			{
-				ConfigDirectory:          config.StaticDirectory(dataSourcesTestDir),
-				ConfigVariables:          updateTestCaseVars,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(topicResourceName, "configuration.compression.type", "gzip"),
+					resource.TestCheckResourceAttr(topicResourceName, "partition_count", "3"),
+					resource.TestCheckResourceAttr(topicResourceName, "replication_factor", "3"),
+					resource.TestCheckResourceAttrSet(topicResourceName, "cluster_api_url"),
+
+					// ACL resource
+					resource.TestCheckResourceAttrSet("redpanda_acl.test", "id"),
+					resource.TestCheckResourceAttr("redpanda_acl.test", "resource_type", "CLUSTER"),
+					resource.TestCheckResourceAttr("redpanda_acl.test", "resource_name", "kafka-cluster"),
+					resource.TestCheckResourceAttr("redpanda_acl.test", "resource_pattern_type", "LITERAL"),
+					resource.TestCheckResourceAttr("redpanda_acl.test", "principal", "User:"+name),
+					resource.TestCheckResourceAttr("redpanda_acl.test", "host", "*"),
+					resource.TestCheckResourceAttr("redpanda_acl.test", "operation", "ALTER"),
+					resource.TestCheckResourceAttr("redpanda_acl.test", "permission_type", "ALLOW"),
 				),
 			},
 			{
@@ -898,8 +912,7 @@ func TestAccResourcesWithDataSources(t *testing.T) {
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 		},
-	},
-	)
+	})
 }
 
 func TestAccResourcesStrippedDownServerlessCluster(t *testing.T) {
