@@ -48,6 +48,7 @@ const (
 	schemaResourceName                 = "redpanda_schema.user_schema"
 	schemaEventResourceName            = "redpanda_schema.user_event_schema"
 	schemaProductResourceName          = "redpanda_schema.product_schema"
+	clusterAdminACLResourceName        = "redpanda_acl.cluster_admin"
 )
 
 var (
@@ -576,6 +577,24 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	maps.Copy(compatibilityUpdateVars, updateTestCaseVars)
 	compatibilityUpdateVars["compatibility_level"] = config.StringVariable("FORWARD")
 
+	// Test toggling allow_deletion for user (false -> verify -> true)
+	userAllowDeletionFalseVars := make(map[string]config.Variable)
+	maps.Copy(userAllowDeletionFalseVars, updateTestCaseVars)
+	userAllowDeletionFalseVars["user_allow_deletion"] = config.BoolVariable(false)
+
+	userAllowDeletionTrueVars := make(map[string]config.Variable)
+	maps.Copy(userAllowDeletionTrueVars, updateTestCaseVars)
+	userAllowDeletionTrueVars["user_allow_deletion"] = config.BoolVariable(true)
+
+	// Test toggling allow_deletion for ACL (false -> verify -> true)
+	aclAllowDeletionFalseVars := make(map[string]config.Variable)
+	maps.Copy(aclAllowDeletionFalseVars, updateTestCaseVars)
+	aclAllowDeletionFalseVars["acl_allow_deletion"] = config.BoolVariable(false)
+
+	aclAllowDeletionTrueVars := make(map[string]config.Variable)
+	maps.Copy(aclAllowDeletionTrueVars, updateTestCaseVars)
+	aclAllowDeletionTrueVars["acl_allow_deletion"] = config.BoolVariable(true)
+
 	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
 	if err != nil {
 		t.Fatal(err)
@@ -636,6 +655,42 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
 					resource.TestCheckResourceAttr(networkResourceName, "name", name),
 					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+				),
+			},
+			{
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          userAllowDeletionFalseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(userResourceName, "allow_deletion", "false"),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+				),
+			},
+			{
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          userAllowDeletionTrueVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(userResourceName, "allow_deletion", "true"),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+				),
+			},
+			{
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          aclAllowDeletionFalseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(clusterAdminACLResourceName, "allow_deletion", "false"),
+					resource.TestCheckResourceAttr(userResourceName, "allow_deletion", "true"),
+				),
+			},
+			{
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          aclAllowDeletionTrueVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(clusterAdminACLResourceName, "allow_deletion", "true"),
+					resource.TestCheckResourceAttr(userResourceName, "allow_deletion", "true"),
 				),
 			},
 			{
@@ -761,13 +816,11 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 			{
-				ResourceName:      clusterResourceName,
-				ConfigDirectory:   config.StaticDirectory(testFile),
-				ConfigVariables:   updateTestCaseVars,
-				ImportState:       true,
-				ImportStateVerify: true,
-				//  These two only matter on apply; On apply the user will be
-				//  getting Plan, not State, and have correct values for both.
+				ResourceName:             clusterResourceName,
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          updateTestCaseVars,
+				ImportState:              true,
+				ImportStateVerify:        true,
 				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -852,23 +905,24 @@ func TestAccDataSourceNetwork(t *testing.T) {
 
 func TestAccResourcesDataSource(t *testing.T) {
 	if !strings.Contains(testAgainstExistingCluster, "true") {
-		t.Skip("skipping datasource tests")
+		t.Skip("skipping cluster user-acl-topic tests")
 	}
 	name := generateRandomName(accNamePrepend + "datasource")
-
-	// Test case variables
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["cluster_id"] = config.StringVariable(os.Getenv("CLUSTER_ID"))
 	origTestCaseVars["user_name"] = config.StringVariable(name)
 	origTestCaseVars["topic_name"] = config.StringVariable(name)
-	origTestCaseVars["user_pw"] = config.StringVariable("password-123")
-	origTestCaseVars["mechanism"] = config.StringVariable("scram-sha-256")
 	if throughputTier != "" {
 		origTestCaseVars["throughput_tier"] = config.StringVariable(throughputTier)
 	}
 
-	clusterID := os.Getenv("CLUSTER_ID")
+	updateTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(updateTestCaseVars, origTestCaseVars)
+	updateTestCaseVars["topic_config"] = config.MapVariable(map[string]config.Variable{
+		"compression.type": config.StringVariable("gzip"),
+		"flush.ms":         config.StringVariable("100"),
+	})
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
@@ -878,31 +932,16 @@ func TestAccResourcesDataSource(t *testing.T) {
 				ConfigVariables:          origTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					// Cluster data source
-					resource.TestCheckResourceAttrSet("data.redpanda_cluster.test", "id"),
-					resource.TestCheckResourceAttr("data.redpanda_cluster.test", "id", clusterID),
-					resource.TestCheckResourceAttrSet("data.redpanda_cluster.test", "cluster_api_url"),
-
-					// User resource
 					resource.TestCheckResourceAttr(userResourceName, "name", name),
-					resource.TestCheckResourceAttr(userResourceName, "mechanism", "scram-sha-256"),
-					resource.TestCheckResourceAttrSet(userResourceName, "cluster_api_url"),
-
-					// Topic resource
 					resource.TestCheckResourceAttr(topicResourceName, "name", name),
-					resource.TestCheckResourceAttr(topicResourceName, "partition_count", "3"),
-					resource.TestCheckResourceAttr(topicResourceName, "replication_factor", "3"),
-					resource.TestCheckResourceAttrSet(topicResourceName, "cluster_api_url"),
-
-					// ACL resource
-					resource.TestCheckResourceAttrSet("redpanda_acl.test", "id"),
-					resource.TestCheckResourceAttr("redpanda_acl.test", "resource_type", "CLUSTER"),
-					resource.TestCheckResourceAttr("redpanda_acl.test", "resource_name", "kafka-cluster"),
-					resource.TestCheckResourceAttr("redpanda_acl.test", "resource_pattern_type", "LITERAL"),
-					resource.TestCheckResourceAttr("redpanda_acl.test", "principal", "User:"+name),
-					resource.TestCheckResourceAttr("redpanda_acl.test", "host", "*"),
-					resource.TestCheckResourceAttr("redpanda_acl.test", "operation", "ALTER"),
-					resource.TestCheckResourceAttr("redpanda_acl.test", "permission_type", "ALLOW"),
+				),
+			},
+			{
+				ConfigDirectory:          config.StaticDirectory(dataSourcesTestDir),
+				ConfigVariables:          updateTestCaseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(topicResourceName, "configuration.compression.type", "gzip"),
 				),
 			},
 			{
@@ -912,7 +951,8 @@ func TestAccResourcesDataSource(t *testing.T) {
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 		},
-	})
+	},
+	)
 }
 
 func TestAccResourcesStrippedDownServerlessCluster(t *testing.T) {
