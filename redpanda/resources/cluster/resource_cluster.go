@@ -119,6 +119,8 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 			return nil
 		case controlplanev1.Cluster_STATE_FAILED:
 			return utils.NonRetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
+		case controlplanev1.Cluster_STATE_DELETING, controlplanev1.Cluster_STATE_DELETING_AGENT:
+			return utils.NonRetryableError(fmt.Errorf("cluster is being deleted (state %v), cannot complete creation", cluster.GetState()))
 		default:
 			return utils.NonRetryableError(fmt.Errorf("unhandled state %v. please report this issue to the provider developers", cluster.GetState()))
 		}
