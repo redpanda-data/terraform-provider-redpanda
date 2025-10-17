@@ -6,6 +6,8 @@ vars:
   REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT | default "pre"}}'
   TF_LOG: '{{.TF_LOG | default "WARN"}}'
   GOOGLE_CREDENTIALS_BASE64: '{{.GOOGLE_CREDENTIALS_BASE64 | default ""}}'
+  LOCAL_NAME_POSTPEND:
+    sh: echo "{{.LOCAL_NAME_POSTPEND | default `whoami`}}"
 
 tasks:
   clean-terraform:
@@ -29,11 +31,9 @@ tasks:
     desc: "Apply AWS cluster for local testing"
     dir: examples/cluster/aws
     vars:
-      CURRENT_USER:
-        sh: whoami
-      CLUSTER_NAME: 'tfrp-local-aws-{{.CURRENT_USER}}'
-      RESOURCE_GROUP_NAME: 'tfrp-local-aws-{{.CURRENT_USER}}'
-      NETWORK_NAME: 'tfrp-local-aws-{{.CURRENT_USER}}'
+      CLUSTER_NAME: 'tfrp-local-aws-{{.LOCAL_NAME_POSTPEND}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-aws-{{.LOCAL_NAME_POSTPEND}}'
+      NETWORK_NAME: 'tfrp-local-aws-{{.LOCAL_NAME_POSTPEND}}'
     env:
       REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
       REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
@@ -74,11 +74,9 @@ tasks:
     desc: "Destroy AWS cluster from local testing"
     dir: examples/cluster/aws
     vars:
-      CURRENT_USER:
-        sh: whoami
-      CLUSTER_NAME: 'tfrp-local-aws-{{.CURRENT_USER}}'
-      RESOURCE_GROUP_NAME: 'tfrp-local-aws-{{.CURRENT_USER}}'
-      NETWORK_NAME: 'tfrp-local-aws-{{.CURRENT_USER}}'
+      CLUSTER_NAME: 'tfrp-local-aws-{{.LOCAL_NAME_POSTPEND}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-aws-{{.LOCAL_NAME_POSTPEND}}'
+      NETWORK_NAME: 'tfrp-local-aws-{{.LOCAL_NAME_POSTPEND}}'
     env:
       REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
       REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
@@ -120,11 +118,9 @@ tasks:
     desc: "Apply Azure cluster for local testing"
     dir: examples/cluster/azure
     vars:
-      CURRENT_USER:
-        sh: whoami
-      CLUSTER_NAME: 'tfrp-local-azure-{{.CURRENT_USER}}'
-      RESOURCE_GROUP_NAME: 'tfrp-local-azure-{{.CURRENT_USER}}'
-      NETWORK_NAME: 'tfrp-local-azure-{{.CURRENT_USER}}'
+      CLUSTER_NAME: 'tfrp-local-azure-{{.LOCAL_NAME_POSTPEND}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-azure-{{.LOCAL_NAME_POSTPEND}}'
+      NETWORK_NAME: 'tfrp-local-azure-{{.LOCAL_NAME_POSTPEND}}'
     env:
       REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
       REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
@@ -166,11 +162,9 @@ tasks:
     desc: "Destroy Azure cluster from local testing"
     dir: examples/cluster/azure
     vars:
-      CURRENT_USER:
-        sh: whoami
-      CLUSTER_NAME: 'tfrp-local-azure-{{.CURRENT_USER}}'
-      RESOURCE_GROUP_NAME: 'tfrp-local-azure-{{.CURRENT_USER}}'
-      NETWORK_NAME: 'tfrp-local-azure-{{.CURRENT_USER}}'
+      CLUSTER_NAME: 'tfrp-local-azure-{{.LOCAL_NAME_POSTPEND}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-azure-{{.LOCAL_NAME_POSTPEND}}'
+      NETWORK_NAME: 'tfrp-local-azure-{{.LOCAL_NAME_POSTPEND}}'
     env:
       REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
       REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
@@ -212,11 +206,9 @@ tasks:
     desc: "Apply GCP cluster for local testing"
     dir: examples/cluster/gcp
     vars:
-      CURRENT_USER:
-        sh: whoami
-      CLUSTER_NAME: 'tfrp-local-gcp-{{.CURRENT_USER}}'
-      RESOURCE_GROUP_NAME: 'tfrp-local-gcp-{{.CURRENT_USER}}'
-      NETWORK_NAME: 'tfrp-local-gcp-{{.CURRENT_USER}}'
+      CLUSTER_NAME: 'tfrp-local-gcp-{{.LOCAL_NAME_POSTPEND}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-gcp-{{.LOCAL_NAME_POSTPEND}}'
+      NETWORK_NAME: 'tfrp-local-gcp-{{.LOCAL_NAME_POSTPEND}}'
     env:
       REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
       REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
@@ -260,11 +252,9 @@ tasks:
     desc: "Destroy GCP cluster from local testing"
     dir: examples/cluster/gcp
     vars:
-      CURRENT_USER:
-        sh: whoami
-      CLUSTER_NAME: 'tfrp-local-gcp-{{.CURRENT_USER}}'
-      RESOURCE_GROUP_NAME: 'tfrp-local-gcp-{{.CURRENT_USER}}'
-      NETWORK_NAME: 'tfrp-local-gcp-{{.CURRENT_USER}}'
+      CLUSTER_NAME: 'tfrp-local-gcp-{{.LOCAL_NAME_POSTPEND}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-gcp-{{.LOCAL_NAME_POSTPEND}}'
+      NETWORK_NAME: 'tfrp-local-gcp-{{.LOCAL_NAME_POSTPEND}}'
     env:
       REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
       REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
@@ -308,11 +298,9 @@ tasks:
     desc: "Apply AWS BYOVPC cluster for local testing"
     dir: examples/byovpc/aws
     vars:
-      CURRENT_USER:
-        sh: whoami
-      CLUSTER_NAME: 'tfrp-local-byovpc-aws-{{.CURRENT_USER}}'
-      RESOURCE_GROUP_NAME: 'tfrp-local-byovpc-aws-{{.CURRENT_USER}}'
-      NETWORK_NAME: 'tfrp-local-byovpc-aws-{{.CURRENT_USER}}'
+      CLUSTER_NAME: 'tfrp-local-byovpc-aws-{{.LOCAL_NAME_POSTPEND}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-byovpc-aws-{{.LOCAL_NAME_POSTPEND}}'
+      NETWORK_NAME: 'tfrp-local-byovpc-aws-{{.LOCAL_NAME_POSTPEND}}'
     env:
       REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
       REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
@@ -354,11 +342,9 @@ tasks:
     desc: "Destroy AWS BYOVPC cluster from local testing"
     dir: examples/byovpc/aws
     vars:
-      CURRENT_USER:
-        sh: whoami
-      CLUSTER_NAME: 'tfrp-local-byovpc-aws-{{.CURRENT_USER}}'
-      RESOURCE_GROUP_NAME: 'tfrp-local-byovpc-aws-{{.CURRENT_USER}}'
-      NETWORK_NAME: 'tfrp-local-byovpc-aws-{{.CURRENT_USER}}'
+      CLUSTER_NAME: 'tfrp-local-byovpc-aws-{{.LOCAL_NAME_POSTPEND}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-byovpc-aws-{{.LOCAL_NAME_POSTPEND}}'
+      NETWORK_NAME: 'tfrp-local-byovpc-aws-{{.LOCAL_NAME_POSTPEND}}'
     env:
       REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
       REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
@@ -400,11 +386,9 @@ tasks:
     desc: "Apply GCP BYOVPC cluster for local testing"
     dir: examples/byovpc/gcp
     vars:
-      CURRENT_USER:
-        sh: whoami
-      CLUSTER_NAME: 'tfrp-local-byovpc-gcp-{{.CURRENT_USER}}'
-      RESOURCE_GROUP_NAME: 'tfrp-local-byovpc-gcp-{{.CURRENT_USER}}'
-      NETWORK_NAME: 'tfrp-local-byovpc-gcp-{{.CURRENT_USER}}'
+      CLUSTER_NAME: 'tfrp-local-byovpc-gcp-{{.LOCAL_NAME_POSTPEND}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-byovpc-gcp-{{.LOCAL_NAME_POSTPEND}}'
+      NETWORK_NAME: 'tfrp-local-byovpc-gcp-{{.LOCAL_NAME_POSTPEND}}'
     env:
       REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
       REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
@@ -448,11 +432,9 @@ tasks:
     desc: "Destroy GCP BYOVPC cluster from local testing"
     dir: examples/byovpc/gcp
     vars:
-      CURRENT_USER:
-        sh: whoami
-      CLUSTER_NAME: 'tfrp-local-byovpc-gcp-{{.CURRENT_USER}}'
-      RESOURCE_GROUP_NAME: 'tfrp-local-byovpc-gcp-{{.CURRENT_USER}}'
-      NETWORK_NAME: 'tfrp-local-byovpc-gcp-{{.CURRENT_USER}}'
+      CLUSTER_NAME: 'tfrp-local-byovpc-gcp-{{.LOCAL_NAME_POSTPEND}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-byovpc-gcp-{{.LOCAL_NAME_POSTPEND}}'
+      NETWORK_NAME: 'tfrp-local-byovpc-gcp-{{.LOCAL_NAME_POSTPEND}}'
     env:
       REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
       REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'

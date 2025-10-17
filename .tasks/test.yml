@@ -4,6 +4,8 @@ vars:
   REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID | default ""}}'
   REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET | default ""}}'
   REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT | default "pre"}}'
+  CLUSTER_ID: '{{.CLUSTER_ID | default ""}}'
+  DATASOURCE_CLUSTER_ID: '{{.DATASOURCE_CLUSTER_ID | default ""}}'
   TF_LOG: '{{.TF_LOG | default "WARN"}}'
   TIMEOUT: '{{.TIMEOUT | default "6h"}}'
   TIMEOUT_SHORT: '{{.TIMEOUT_SHORT | default "1h"}}'
@@ -38,9 +40,9 @@ tasks:
       - echo "Network tests completed successfully"
 
   datasource:
-    desc: "Run data source tests"
+    desc: "Run datasource tests against existing cluster"
     cmds:
-      - echo "Running TestAccResourcesWithDataSources..."
+      - echo "Running TestAccResourcesDataSource..."
       - |
         DEBUG=true \
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
@@ -50,8 +52,8 @@ tasks:
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        go test -v -timeout={{.TIMEOUT_SHORT}} ./redpanda/tests -run TestAccResourcesWithDataSources
-      - echo "Data source tests completed successfully"
+        go test -v -timeout={{.TIMEOUT_SHORT}} ./redpanda/tests -run TestAccResourcesDataSource
+      - echo "Datasource tests completed successfully"
 
   # CLUSTER TESTS - DO NOT RUN DURING IMPLEMENTATION
   # These create actual cloud resources and must be validated by user
@@ -138,7 +140,6 @@ tasks:
         DEBUG=true \
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        REDPANDA_VERSION="24.2.20240809182625" \
         RUN_BYOC_TESTS=true \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
