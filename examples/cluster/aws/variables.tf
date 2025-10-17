@@ -176,3 +176,63 @@ variable "compatibility_level" {
   description = "The compatibility level for schema evolution (BACKWARD, BACKWARD_TRANSITIVE, FORWARD, FORWARD_TRANSITIVE, FULL, FULL_TRANSITIVE, NONE)"
   default     = "FULL"
 }
+
+variable "user_allow_deletion" {
+  description = "Allow deletion of users"
+  default     = true
+}
+
+variable "topic_allow_deletion" {
+  description = "Allow deletion of topics"
+  default     = true
+}
+
+variable "schema_allow_deletion" {
+  description = "Allow deletion of schemas"
+  default     = true
+}
+
+variable "acl_allow_deletion" {
+  description = "Allow deletion of ACLs"
+  default     = true
+}
+
+variable "sr_acl_allow_deletion" {
+  description = "Allow deletion of schema registry ACLs"
+  default     = true
+}
+
+variable "acl_permission_type" {
+  description = "Permission type for ACLs"
+  default     = "ALLOW"
+}
+
+variable "sr_acl_permission" {
+  description = "Permission for schema registry ACLs"
+  default     = "ALLOW"
+}
+
+variable "acl_host" {
+  description = "Host for ACLs"
+  default     = "*"
+}
+
+variable "sr_acl_host" {
+  description = "Host for schema registry ACLs"
+  default     = "*"
+}
+
+variable "user_schema_subject" {
+  description = "Subject for user schema (optional, defaults to topic_name-value)"
+  default     = null
+}
+
+variable "user_event_schema_subject" {
+  description = "Subject for user event schema (optional, defaults to topic_name-events-value)"
+  default     = null
+}
+
+variable "product_schema_subject" {
+  description = "Subject for product schema (optional, defaults to topic_name-product-value)"
+  default     = null
+}
