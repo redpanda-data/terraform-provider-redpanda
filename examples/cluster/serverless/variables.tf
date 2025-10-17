@@ -33,3 +33,9 @@ variable "user_pw" {
 variable "mechanism" {
   default = "scram-sha-256"
 }
+
+variable "user_allow_deletion" {
+  description = "Allow deletion of user resource"
+  type        = bool
+  default     = true
+}

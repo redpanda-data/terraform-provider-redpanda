@@ -53,7 +53,7 @@ resource "redpanda_user" "test" {
   password        = var.user_pw
   mechanism       = var.mechanism
   cluster_api_url = redpanda_cluster.test.cluster_api_url
-  allow_deletion  = true
+  allow_deletion  = var.user_allow_deletion
 }
 
 resource "redpanda_topic" "test" {
@@ -78,7 +78,9 @@ resource "redpanda_schema" "user_schema" {
     redpanda_acl.schema_registry_admin,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
-    redpanda_schema_registry_acl.alter_configs_registry
+    redpanda_schema_registry_acl.alter_configs_registry,
+    redpanda_schema_registry_acl.read_registry,
+    redpanda_schema_registry_acl.write_registry
   ]
 }
 
@@ -103,7 +105,9 @@ resource "redpanda_schema" "user_event_schema" {
     redpanda_acl.schema_registry_admin,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
-    redpanda_schema_registry_acl.alter_configs_registry
+    redpanda_schema_registry_acl.alter_configs_registry,
+    redpanda_schema_registry_acl.read_registry,
+    redpanda_schema_registry_acl.write_registry
   ]
 }
 
@@ -121,7 +125,9 @@ resource "redpanda_schema" "product_schema" {
     redpanda_acl.schema_registry_admin,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
-    redpanda_schema_registry_acl.alter_configs_registry
+    redpanda_schema_registry_acl.alter_configs_registry,
+    redpanda_schema_registry_acl.read_registry,
+    redpanda_schema_registry_acl.write_registry
   ]
 }
 
@@ -135,7 +141,7 @@ resource "redpanda_acl" "cluster_admin" {
   operation             = "ALL"
   permission_type       = "ALLOW"
   cluster_api_url       = redpanda_cluster.test.cluster_api_url
-  allow_deletion        = true
+  allow_deletion        = var.acl_allow_deletion
 }
 
 resource "redpanda_acl" "schema_registry_admin" {
@@ -147,7 +153,7 @@ resource "redpanda_acl" "schema_registry_admin" {
   operation             = "ALTER"
   permission_type       = "ALLOW"
   cluster_api_url       = redpanda_cluster.test.cluster_api_url
-  allow_deletion        = true
+  allow_deletion        = var.acl_allow_deletion
 }
 
 resource "redpanda_schema_registry_acl" "read_product" {
@@ -237,6 +243,38 @@ resource "redpanda_schema_registry_acl" "alter_configs_registry" {
   pattern_type  = "LITERAL"
   host          = "*"
   operation     = "ALTER_CONFIGS"
+  permission    = "ALLOW"
+  username      = redpanda_user.test.name
+  password      = var.user_pw
+  allow_deletion = true
+
+  depends_on = [redpanda_acl.schema_registry_admin]
+}
+
+resource "redpanda_schema_registry_acl" "read_registry" {
+  cluster_id    = redpanda_cluster.test.id
+  principal     = "User:${redpanda_user.test.name}"
+  resource_type = "REGISTRY"
+  resource_name = "*"
+  pattern_type  = "LITERAL"
+  host          = "*"
+  operation     = "READ"
+  permission    = "ALLOW"
+  username      = redpanda_user.test.name
+  password      = var.user_pw
+  allow_deletion = true
+
+  depends_on = [redpanda_acl.schema_registry_admin]
+}
+
+resource "redpanda_schema_registry_acl" "write_registry" {
+  cluster_id    = redpanda_cluster.test.id
+  principal     = "User:${redpanda_user.test.name}"
+  resource_type = "REGISTRY"
+  resource_name = "*"
+  pattern_type  = "LITERAL"
+  host          = "*"
+  operation     = "WRITE"
   permission    = "ALLOW"
   username      = redpanda_user.test.name
   password      = var.user_pw

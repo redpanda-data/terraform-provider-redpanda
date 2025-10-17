@@ -87,3 +87,15 @@ variable "replication_factor" {
   type        = number
   default     = 3
 }
+
+variable "user_allow_deletion" {
+  description = "Allow deletion of user resource"
+  type        = bool
+  default     = true
+}
+
+variable "acl_allow_deletion" {
+  description = "Allow deletion of ACL resources"
+  type        = bool
+  default     = true
+}
