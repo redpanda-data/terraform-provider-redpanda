@@ -48,7 +48,7 @@ resource "redpanda_user" "test" {
   password        = var.user_pw
   mechanism       = var.mechanism
   cluster_api_url = redpanda_cluster.test.cluster_api_url
-  allow_deletion  = true
+  allow_deletion  = var.user_allow_deletion
 }
 
 resource "redpanda_topic" "test" {
@@ -137,7 +137,7 @@ resource "redpanda_acl" "cluster_admin" {
   operation             = "ALL"
   permission_type       = "ALLOW"
   cluster_api_url       = redpanda_cluster.test.cluster_api_url
-  allow_deletion        = true
+  allow_deletion        = var.acl_allow_deletion
 }
 
 resource "redpanda_acl" "schema_registry_admin" {
@@ -149,7 +149,7 @@ resource "redpanda_acl" "schema_registry_admin" {
   operation             = "ALTER"
   permission_type       = "ALLOW"
   cluster_api_url       = redpanda_cluster.test.cluster_api_url
-  allow_deletion        = true
+  allow_deletion        = var.acl_allow_deletion
 }
 
 resource "redpanda_acl" "cluster_action" {
@@ -161,7 +161,7 @@ resource "redpanda_acl" "cluster_action" {
   operation             = "CLUSTER_ACTION"
   permission_type       = "ALLOW"
   cluster_api_url       = redpanda_cluster.test.cluster_api_url
-  allow_deletion        = true
+  allow_deletion        = var.acl_allow_deletion
 }
 
 resource "redpanda_acl" "topic_access" {
@@ -173,7 +173,7 @@ resource "redpanda_acl" "topic_access" {
   operation             = "ALL"
   permission_type       = "ALLOW"
   cluster_api_url       = redpanda_cluster.test.cluster_api_url
-  allow_deletion        = true
+  allow_deletion        = var.acl_allow_deletion
 }
 
 resource "redpanda_schema_registry_acl" "read_product" {
