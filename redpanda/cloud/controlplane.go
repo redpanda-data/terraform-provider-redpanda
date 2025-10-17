@@ -128,33 +128,11 @@ func (c *ControlPlaneClientSet) ResourceGroupForName(ctx context.Context, name s
 func (c *ControlPlaneClientSet) ResourceGroupForIDOrName(ctx context.Context, id, name string) (*controlplanev1.ResourceGroup, error) {
 	if id != "" {
 		rg, err := c.ResourceGroupForID(ctx, id)
-		if err != nil {
-			return nil, err
+		if err == nil && rg != nil {
+			return rg, err
 		}
-		if name != "" && rg.Name != name {
-			return nil, fmt.Errorf("unable to find resource group with id %q and name %q", id, name)
-		}
-		return rg, nil
 	}
-
-	if name != "" {
-		return c.ResourceGroupForName(ctx, name)
-	}
-
-	request := &controlplanev1.ListResourceGroupsRequest{}
-	listResp, err := c.ResourceGroup.ListResourceGroups(ctx, request)
-	if listResp.ResourceGroups == nil {
-		err = errors.New("provider response was empty. Please report this issue to the provider developers")
-	}
-	if err != nil {
-		return nil, fmt.Errorf("unable to find resource groups: %w", err)
-	}
-	if len(listResp.ResourceGroups) > 1 {
-		return nil, errors.New("found more than one resource group matching filters")
-	} else if len(listResp.ResourceGroups) == 0 {
-		return nil, errors.New("unable to find any resource group matching filters")
-	}
-	return listResp.ResourceGroups[0], nil
+	return c.ResourceGroupForName(ctx, name)
 }
 
 // NetworkForID gets the Network for a given ID and handles the error if the
