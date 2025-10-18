@@ -1,0 +1,5 @@
+# Compiled binary
+cleanup-redpanda-byovpc
+
+# macOS files
+.DS_Store
