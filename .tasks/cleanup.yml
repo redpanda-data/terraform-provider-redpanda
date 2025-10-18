@@ -11,6 +11,10 @@ vars:
   AWS_REGION: '{{.AWS_REGION | default "us-east-1"}}'
   COMMON_PREFIX: '{{.COMMON_PREFIX | default "redpanda"}}'
 
+  # GCP cleanup parameters
+  PROJECT_ID: '{{.PROJECT_ID | default ""}}'
+  GCP_REGION: '{{.GCP_REGION | default "us-central1"}}'
+
 tasks:
   redpanda:status:
     desc: "Show current state of test resources with 'tfrp-' prefix"
@@ -60,6 +64,27 @@ tasks:
           {{if .VPC_ID}}--vpc-id "{{.VPC_ID}}"{{end}} \
           --dry-run
 
+  gcp:
+    desc: "Delete GCP resources created by terraform-gcp-redpanda-byovpc module"
+    dir: scripts/cleanup-gcp-redpanda-byovpc
+    cmds:
+      - |
+        go run main.go \
+          --project-id "{{.PROJECT_ID}}" \
+          --common-prefix "{{.COMMON_PREFIX}}" \
+          --region "{{.GCP_REGION}}"
+
+  gcp:dry:
+    desc: "Dry run - show what GCP resources would be deleted (does not actually delete)"
+    dir: scripts/cleanup-gcp-redpanda-byovpc
+    cmds:
+      - |
+        go run main.go \
+          --project-id "{{.PROJECT_ID}}" \
+          --common-prefix "{{.COMMON_PREFIX}}" \
+          --region "{{.GCP_REGION}}" \
+          --dry-run
+
   default:
     desc: "Show available cleanup commands"
     cmds:
@@ -75,9 +100,16 @@ tasks:
       - echo "  task cleanup:aws VPC_ID=vpc-xxx                   - Delete AWS resources"
       - echo "  task cleanup:aws VPC_ID=vpc-xxx AWS_REGION=us-west-2  - With custom region"
       - echo ""
+      - echo "GCP BYOVPC:"
+      - echo "  task cleanup:gcp:dry PROJECT_ID=my-project         - Dry run GCP cleanup"
+      - echo "  task cleanup:gcp PROJECT_ID=my-project             - Delete GCP resources"
+      - echo "  task cleanup:gcp PROJECT_ID=my-project GCP_REGION=us-west1  - With custom region"
+      - echo ""
       - echo "Environment variables:"
       - echo "  REDPANDA_CLIENT_ID, REDPANDA_CLIENT_SECRET - Required for Redpanda Cloud"
       - echo "  REDPANDA_CLOUD_ENVIRONMENT - Optional, defaults to 'prod'"
       - echo "  VPC_ID - Optional for AWS cleanup, skips VPC resources if not provided"
       - echo "  AWS_REGION - Optional, defaults to 'us-east-1'"
+      - echo "  PROJECT_ID - Required for GCP cleanup"
+      - echo "  GCP_REGION - Optional, defaults to 'us-central1'"
       - echo "  COMMON_PREFIX - Optional, defaults to 'redpanda'"
