@@ -1,0 +1,83 @@
+version: '3'
+
+vars:
+  # Redpanda Cloud credentials
+  REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID | default ""}}'
+  REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET | default ""}}'
+  REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT | default "prod"}}'
+
+  # AWS cleanup parameters
+  VPC_ID: '{{.VPC_ID | default ""}}'
+  AWS_REGION: '{{.AWS_REGION | default "us-east-1"}}'
+  COMMON_PREFIX: '{{.COMMON_PREFIX | default "redpanda"}}'
+
+tasks:
+  redpanda:status:
+    desc: "Show current state of test resources with 'tfrp-' prefix"
+    cmds:
+      - |
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
+        go run ./scripts/cleanup_test_resources.go --status
+
+  redpanda:
+    desc: "Delete test resources with 'tfrp-' prefix from Redpanda Cloud"
+    cmds:
+      - |
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
+        go run ./scripts/cleanup_test_resources.go
+
+  redpanda:dry:
+    desc: "Dry run - show what test resources would be deleted (does not actually delete)"
+    cmds:
+      - |
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
+        go run ./scripts/cleanup_test_resources.go --dry-run
+
+  aws:
+    desc: "Delete AWS resources created by terraform-aws-redpanda-byovpc module"
+    dir: scripts/cleanup-redpanda-byovpc
+    cmds:
+      - |
+        go run main.go \
+          --common-prefix "{{.COMMON_PREFIX}}" \
+          --region "{{.AWS_REGION}}" \
+          {{if .VPC_ID}}--vpc-id "{{.VPC_ID}}"{{end}}
+
+  aws:dry:
+    desc: "Dry run - show what AWS resources would be deleted (does not actually delete)"
+    dir: scripts/cleanup-redpanda-byovpc
+    cmds:
+      - |
+        go run main.go \
+          --common-prefix "{{.COMMON_PREFIX}}" \
+          --region "{{.AWS_REGION}}" \
+          {{if .VPC_ID}}--vpc-id "{{.VPC_ID}}"{{end}} \
+          --dry-run
+
+  default:
+    desc: "Show available cleanup commands"
+    cmds:
+      - echo "Available cleanup commands:"
+      - echo ""
+      - echo "Redpanda Cloud:"
+      - echo "  task cleanup:redpanda:status  - Show test resources"
+      - echo "  task cleanup:redpanda:dry     - Dry run cleanup"
+      - echo "  task cleanup:redpanda         - Delete test resources"
+      - echo ""
+      - echo "AWS BYOVPC:"
+      - echo "  task cleanup:aws:dry VPC_ID=vpc-xxx               - Dry run AWS cleanup"
+      - echo "  task cleanup:aws VPC_ID=vpc-xxx                   - Delete AWS resources"
+      - echo "  task cleanup:aws VPC_ID=vpc-xxx AWS_REGION=us-west-2  - With custom region"
+      - echo ""
+      - echo "Environment variables:"
+      - echo "  REDPANDA_CLIENT_ID, REDPANDA_CLIENT_SECRET - Required for Redpanda Cloud"
+      - echo "  REDPANDA_CLOUD_ENVIRONMENT - Optional, defaults to 'prod'"
+      - echo "  VPC_ID - Optional for AWS cleanup, skips VPC resources if not provided"
+      - echo "  AWS_REGION - Optional, defaults to 'us-east-1'"
+      - echo "  COMMON_PREFIX - Optional, defaults to 'redpanda'"

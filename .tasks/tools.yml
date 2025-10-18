@@ -4,11 +4,6 @@ vars:
   GOBIN:
     sh: go env GOPATH
 
-  # Environment variables for cleanup
-  REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID | default ""}}'
-  REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET | default ""}}'
-  REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT | default "prod"}}'
-
   # Tool versions
   GOFUMPT_VERSION: "v0.7.0"
   GOLANGCI_LINT_VERSION: "v2.2.1"
@@ -94,33 +89,6 @@ tasks:
         else
           echo "✗ tfplugindocs: not installed"
         fi
-
-  cleanup:status:
-    desc: "Show current state of test resources with 'tfrp-' prefix"
-    cmds:
-      - |
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
-        go run ./scripts/cleanup_test_resources.go --status
-
-  cleanup:
-    desc: "Delete test resources with 'tfrp-' prefix from Redpanda Cloud"
-    cmds:
-      - |
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
-        go run ./scripts/cleanup_test_resources.go
-
-  cleanup:dry:
-    desc: "Dry run - show what test resources would be deleted (does not actually delete)"
-    cmds:
-      - |
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
-        go run ./scripts/cleanup_test_resources.go --dry-run
 
   default:
     desc: "Show tool installation status"
