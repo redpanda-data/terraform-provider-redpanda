@@ -279,7 +279,6 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 				ClusterAPIURL:       model.ClusterAPIURL,
 				AllowDeletion:       model.AllowDeletion,
 			}
-			// Ensure ID is set
 			if model.ID.IsNull() || model.ID.IsUnknown() {
 				acl.ID = types.StringValue(acl.GenerateID())
 			} else {
@@ -290,18 +289,42 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 		}
 	}
 
-	// If no matching ACL found, remove the resource from state
 	response.State.RemoveResource(ctx)
 }
 
 // Update updates an ACL resource
-func (*ACL) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
+func (*ACL) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
+	var plan models.ACL
+	var state models.ACL
+
+	response.Diagnostics.Append(request.Plan.Get(ctx, &plan)...)
+	response.Diagnostics.Append(request.State.Get(ctx, &state)...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	state.AllowDeletion = plan.AllowDeletion
+
+	response.Diagnostics.Append(response.State.Set(ctx, &state)...)
 }
 
 // Delete deletes an ACL resource
 func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
 	var model models.ACL
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	// Check if deletion is allowed
+	if model.AllowDeletion.IsNull() || !model.AllowDeletion.ValueBool() {
+		response.Diagnostics.AddError(
+			"Cannot delete ACL",
+			fmt.Sprintf("Deletion of ACL for principal %s on resource %s is not allowed. Set allow_deletion=true to allow deletion of this resource.", model.Principal.ValueString(), model.ResourceName.ValueString()),
+		)
+		return
+	}
 
 	resourceType, err := stringToACLResourceType(model.ResourceType.ValueString())
 	if err != nil {
@@ -338,17 +361,24 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 	}
 	err = a.createACLClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
+		if utils.IsClusterUnreachable(err) {
+			response.State.RemoveResource(ctx)
+			return
+		}
 		response.Diagnostics.AddError("failed to create ACL client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer a.dataplaneConn.Close()
 	deleteResponse, err := a.ACLClient.DeleteACLs(ctx, &dataplanev1.DeleteACLsRequest{Filter: filter})
 	if err != nil {
+		if utils.IsClusterUnreachable(err) {
+			response.State.RemoveResource(ctx)
+			return
+		}
 		response.Diagnostics.AddError("Failed to delete ACL", utils.DeserializeGrpcError(err))
 		return
 	}
 
-	// Check for errors in the response
 	for _, matchingACL := range deleteResponse.MatchingAcls {
 		if matchingACL.Error != nil && matchingACL.Error.Code != 0 {
 			response.Diagnostics.AddError("Error deleting ACL", matchingACL.Error.Message)
@@ -356,7 +386,6 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 		}
 	}
 
-	// Remove the resource from state
 	response.State.RemoveResource(ctx)
 }
 
