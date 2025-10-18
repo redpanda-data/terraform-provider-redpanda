@@ -572,6 +572,8 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
+	updateTestCaseVars["user_allow_deletion"] = config.BoolVariable(true)
+	updateTestCaseVars["acl_allow_deletion"] = config.BoolVariable(true)
 
 	compatibilityUpdateVars := make(map[string]config.Variable)
 	maps.Copy(compatibilityUpdateVars, updateTestCaseVars)
