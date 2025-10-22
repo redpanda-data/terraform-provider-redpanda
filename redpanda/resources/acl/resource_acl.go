@@ -361,20 +361,12 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 	}
 	err = a.createACLClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
-		if utils.IsClusterUnreachable(err) {
-			response.State.RemoveResource(ctx)
-			return
-		}
 		response.Diagnostics.AddError("failed to create ACL client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer a.dataplaneConn.Close()
 	deleteResponse, err := a.ACLClient.DeleteACLs(ctx, &dataplanev1.DeleteACLsRequest{Filter: filter})
 	if err != nil {
-		if utils.IsClusterUnreachable(err) {
-			response.State.RemoveResource(ctx)
-			return
-		}
 		response.Diagnostics.AddError("Failed to delete ACL", utils.DeserializeGrpcError(err))
 		return
 	}
