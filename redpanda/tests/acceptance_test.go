@@ -50,6 +50,7 @@ const (
 	schemaProductResourceName          = "redpanda_schema.product_schema"
 	clusterAdminACLResourceName        = "redpanda_acl.cluster_admin"
 	topicAccessACLResourceName         = "redpanda_acl.topic_access"
+	schemaRegistryACLReadProductName   = "redpanda_schema_registry_acl.read_product"
 )
 
 var (
@@ -600,6 +601,15 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	maps.Copy(aclAllowDeletionTrueVars, updateTestCaseVars)
 	aclAllowDeletionTrueVars["acl_allow_deletion"] = config.BoolVariable(true)
 
+	// Test toggling allow_deletion for Schema Registry ACL (false -> verify -> true)
+	srACLAllowDeletionFalseVars := make(map[string]config.Variable)
+	maps.Copy(srACLAllowDeletionFalseVars, updateTestCaseVars)
+	srACLAllowDeletionFalseVars["sr_acl_allow_deletion"] = config.BoolVariable(false)
+
+	srACLAllowDeletionTrueVars := make(map[string]config.Variable)
+	maps.Copy(srACLAllowDeletionTrueVars, updateTestCaseVars)
+	srACLAllowDeletionTrueVars["sr_acl_allow_deletion"] = config.BoolVariable(true)
+
 	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
 	if err != nil {
 		t.Fatal(err)
@@ -724,6 +734,48 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 			},
 			{
 				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          srACLAllowDeletionFalseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					func() resource.TestCheckFunc {
+						testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
+						if err != nil {
+							return func(_ *terraform.State) error {
+								return fmt.Errorf("failed to read test file: %w", err)
+							}
+						}
+						if strings.Contains(string(testFileContent), `resource "redpanda_schema_registry_acl" "read_product"`) {
+							return resource.TestCheckResourceAttr(schemaRegistryACLReadProductName, "allow_deletion", "false")
+						}
+						return func(_ *terraform.State) error {
+							return nil
+						}
+					}(),
+				),
+			},
+			{
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          srACLAllowDeletionTrueVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					func() resource.TestCheckFunc {
+						testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
+						if err != nil {
+							return func(_ *terraform.State) error {
+								return fmt.Errorf("failed to read test file: %w", err)
+							}
+						}
+						if strings.Contains(string(testFileContent), `resource "redpanda_schema_registry_acl" "read_product"`) {
+							return resource.TestCheckResourceAttr(schemaRegistryACLReadProductName, "allow_deletion", "true")
+						}
+						return func(_ *terraform.State) error {
+							return nil
+						}
+					}(),
+				),
+			},
+			{
+				ConfigDirectory:          config.StaticDirectory(testFile),
 				ConfigVariables:          compatibilityUpdateVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -761,6 +813,61 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 					resource.TestCheckResourceAttr(networkResourceName, "name", name),
 					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
 				),
+			},
+			{
+				ResourceName:    schemaRegistryACLReadProductName,
+				ConfigDirectory: config.StaticDirectory(testFile),
+				ConfigVariables: updateTestCaseVars,
+				ImportState:     true,
+				ImportStateIdFunc: func(state *terraform.State) (string, error) {
+					testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
+					if err != nil {
+						return "", fmt.Errorf("failed to read test file: %w", err)
+					}
+					if !strings.Contains(string(testFileContent), `resource "redpanda_schema_registry_acl" "read_product"`) {
+						return "", errors.New("schema registry ACL resource not found in test file")
+					}
+
+					rs, ok := state.RootModule().Resources[schemaRegistryACLReadProductName]
+					if !ok {
+						return "", errors.New("schema registry ACL resource not found in state")
+					}
+
+					// Import format: cluster_id:principal:resource_type:resource_name:pattern_type:host:operation:permission
+					clusterID := rs.Primary.Attributes["cluster_id"]
+					principal := rs.Primary.Attributes["principal"]
+					resourceType := rs.Primary.Attributes["resource_type"]
+					resourceName := rs.Primary.Attributes["resource_name"]
+					patternType := rs.Primary.Attributes["pattern_type"]
+					host := rs.Primary.Attributes["host"]
+					operation := rs.Primary.Attributes["operation"]
+					permission := rs.Primary.Attributes["permission"]
+
+					importID := fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s:%s",
+						clusterID, principal, resourceType, resourceName, patternType, host, operation, permission)
+					return importID, nil
+				},
+				ImportStateCheck: func(state []*terraform.InstanceState) error {
+					attr := state[0].Attributes
+					if attr["resource_type"] != "SUBJECT" {
+						return fmt.Errorf("expected resource_type SUBJECT; got %q", attr["resource_type"])
+					}
+					if attr["resource_name"] != "product-" {
+						return fmt.Errorf("expected resource_name 'product-'; got %q", attr["resource_name"])
+					}
+					if attr["pattern_type"] != "PREFIXED" {
+						return fmt.Errorf("expected pattern_type PREFIXED; got %q", attr["pattern_type"])
+					}
+					if attr["operation"] != "READ" {
+						return fmt.Errorf("expected operation READ; got %q", attr["operation"])
+					}
+					if attr["permission"] != "ALLOW" {
+						return fmt.Errorf("expected permission ALLOW; got %q", attr["permission"])
+					}
+					return nil
+				},
+				ImportStateVerifyIgnore:  []string{"username", "password", "allow_deletion"},
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 			{
 				ConfigDirectory:          config.StaticDirectory(testFile),
