@@ -265,23 +265,27 @@ type importIDComponents struct {
 	host         string
 	operation    string
 	permission   string
+	username     string
+	password     string
 }
 
 func parseImportID(importID string) (*importIDComponents, error) {
 	parts := strings.Split(importID, ":")
-	if len(parts) < 8 {
-		return nil, fmt.Errorf("expected format: cluster_id:principal:resource_type:resource_name:pattern_type:host:operation:permission, got %d parts (expected at least 8)", len(parts))
+	if len(parts) < 10 {
+		return nil, fmt.Errorf("expected format: cluster_id:principal:resource_type:resource_name:pattern_type:host:operation:permission:username:password, got %d parts (expected at least 10)", len(parts))
 	}
 
 	return &importIDComponents{
 		clusterID:    parts[0],
-		principal:    strings.Join(parts[1:len(parts)-6], ":"),
-		resourceType: parts[len(parts)-6],
-		resourceName: parts[len(parts)-5],
-		patternType:  parts[len(parts)-4],
-		host:         parts[len(parts)-3],
-		operation:    parts[len(parts)-2],
-		permission:   parts[len(parts)-1],
+		principal:    strings.Join(parts[1:len(parts)-8], ":"),
+		resourceType: parts[len(parts)-8],
+		resourceName: parts[len(parts)-7],
+		patternType:  parts[len(parts)-6],
+		host:         parts[len(parts)-5],
+		operation:    parts[len(parts)-4],
+		permission:   parts[len(parts)-3],
+		username:     parts[len(parts)-2],
+		password:     parts[len(parts)-1],
 	}, nil
 }
 
@@ -301,6 +305,8 @@ func (*SchemaRegistryACL) ImportState(ctx context.Context, request resource.Impo
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("host"), components.host)...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("operation"), components.operation)...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("permission"), components.permission)...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("username"), components.username)...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("password"), components.password)...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("id"), request.ID)...)
 }
 

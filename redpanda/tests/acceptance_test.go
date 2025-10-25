@@ -833,7 +833,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 						return "", errors.New("schema registry ACL resource not found in state")
 					}
 
-					// Import format: cluster_id:principal:resource_type:resource_name:pattern_type:host:operation:permission
+					// Import format: cluster_id:principal:resource_type:resource_name:pattern_type:host:operation:permission:username:password
 					clusterID := rs.Primary.Attributes["cluster_id"]
 					principal := rs.Primary.Attributes["principal"]
 					resourceType := rs.Primary.Attributes["resource_type"]
@@ -842,9 +842,11 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 					host := rs.Primary.Attributes["host"]
 					operation := rs.Primary.Attributes["operation"]
 					permission := rs.Primary.Attributes["permission"]
+					username := rs.Primary.Attributes["username"]
+					password := rs.Primary.Attributes["password"]
 
-					importID := fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s:%s",
-						clusterID, principal, resourceType, resourceName, patternType, host, operation, permission)
+					importID := fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s:%s:%s:%s",
+						clusterID, principal, resourceType, resourceName, patternType, host, operation, permission, username, password)
 					return importID, nil
 				},
 				ImportStateCheck: func(state []*terraform.InstanceState) error {
@@ -866,7 +868,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 					}
 					return nil
 				},
-				ImportStateVerifyIgnore:  []string{"username", "password", "allow_deletion"},
+				ImportStateVerifyIgnore:  []string{"allow_deletion"},
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 			{
