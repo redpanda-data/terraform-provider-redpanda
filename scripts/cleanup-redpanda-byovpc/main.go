@@ -24,11 +24,14 @@ import (
 )
 
 type CleanupConfig struct {
-	CommonPrefix string
-	Region       string
-	VpcID        string
-	DryRun       bool
-	AccountID    string
+	CommonPrefix  string
+	Region        string
+	VpcID         string
+	DryRun        bool
+	AutoApprove   bool
+	AutoDetectVPC bool
+	AccountID     string
+	ListVPCs      bool
 }
 
 type AWSClients struct {
@@ -42,12 +45,24 @@ type AWSClients struct {
 	ELBV2       *elasticloadbalancingv2.Client
 }
 
+type VPCInfo struct {
+	ID   string
+	Name string
+}
+
 var (
 	red    = color.New(color.FgRed).SprintFunc()
 	green  = color.New(color.FgGreen).SprintFunc()
 	yellow = color.New(color.FgYellow).SprintFunc()
 	cyan   = color.New(color.FgCyan).SprintFunc()
 )
+
+func pluralize(count int) string {
+	if count == 1 {
+		return ""
+	}
+	return "s"
+}
 
 func main() {
 	cfg := parseFlags()
@@ -73,7 +88,75 @@ func main() {
 
 	// Get AWS account ID if not provided
 	if cfg.AccountID == "" {
-		cfg.AccountID = getAccountID(ctx, clients.STS)
+		accountID, err := getAccountID(ctx, clients.STS)
+		if err != nil {
+			fmt.Printf("%s %v\n", red("ERROR:"), err)
+			fmt.Printf("%s Please check your AWS credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)\n", red("ERROR:"))
+			os.Exit(1)
+		}
+		cfg.AccountID = accountID
+	}
+
+	// Handle --list-vpcs flag
+	if cfg.ListVPCs {
+		fmt.Printf("\n%s Querying all AWS regions for non-default VPCs with 'network-' prefix...\n", cyan("INFO:"))
+
+		// Get all regions
+		regions, err := getAllRegions(ctx, clients.EC2)
+		if err != nil {
+			fmt.Printf("%s Failed to get regions: %v\n", red("ERROR:"), err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("%s Scanning %d region(s)...\n\n", cyan("INFO:"), len(regions))
+
+		// Query each region
+		type regionVPCs struct {
+			region string
+			vpcs   []VPCInfo
+		}
+		var results []regionVPCs
+		totalVPCs := 0
+
+		for _, region := range regions {
+			// Create region-specific EC2 client
+			regionalCfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
+			if err != nil {
+				fmt.Printf("%s Failed to load config for region %s: %v\n", yellow("WARNING:"), region, err)
+				continue
+			}
+			regionalEC2 := ec2.NewFromConfig(regionalCfg)
+
+			vpcs, err := getNonDefaultVPCs(ctx, regionalEC2, region)
+			if err != nil {
+				fmt.Printf("%s Failed to list VPCs in region %s: %v\n", yellow("WARNING:"), region, err)
+				continue
+			}
+
+			if len(vpcs) > 0 {
+				results = append(results, regionVPCs{region: region, vpcs: vpcs})
+				totalVPCs += len(vpcs)
+			}
+		}
+
+		// Display results grouped by region
+		if totalVPCs == 0 {
+			fmt.Printf("%s No non-default VPCs found with 'network-' prefix in any region\n", yellow("INFO:"))
+			os.Exit(0)
+		}
+
+		fmt.Printf("%s Found %d non-default VPC(s) with 'network-' prefix across %d region(s):\n\n", green("SUCCESS:"), totalVPCs, len(results))
+
+		for _, result := range results {
+			fmt.Printf("%s Region: %s (%d VPC%s)\n", cyan("→"), result.region, len(result.vpcs), pluralize(len(result.vpcs)))
+			for _, vpc := range result.vpcs {
+				fmt.Printf("  - VPC ID: %s\n", vpc.ID)
+				fmt.Printf("    Name:   %s\n", vpc.Name)
+			}
+			fmt.Println()
+		}
+
+		os.Exit(0)
 	}
 
 	// List resources that will be deleted
@@ -88,12 +171,14 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Confirm deletion (unless dry-run)
-	if !cfg.DryRun {
+	// Confirm deletion (unless dry-run or auto-approved)
+	if !cfg.DryRun && !cfg.AutoApprove && !isCI() {
 		if !confirmDeletion(resourceCount) {
 			fmt.Println(yellow("Deletion cancelled by user"))
 			os.Exit(0)
 		}
+	} else if cfg.AutoApprove || isCI() {
+		fmt.Printf("%s Auto-approved deletion, skipping confirmation\n", yellow("INFO:"))
 	}
 
 	fmt.Printf("\n%s Starting cleanup for Redpanda BYOVPC resources\n", cyan("INFO:"))
@@ -140,39 +225,81 @@ func main() {
 		errorCount++
 	}
 
-	if err := deleteVPCEndpoints(ctx, clients, cfg); err != nil {
-		fmt.Printf("%s Failed to delete VPC endpoints: %v\n", red("ERROR:"), err)
-		errorCount++
+	// Handle VPC cleanup - either single VPC or auto-detected VPCs
+	var vpcsToClean []string
+
+	if cfg.VpcID != "" {
+		// Single VPC specified explicitly
+		vpcsToClean = []string{cfg.VpcID}
+	} else if cfg.AutoDetectVPC {
+		// Auto-detect VPCs matching prefix
+		fmt.Printf("%s Auto-detecting VPCs with prefix '%s'...\n", cyan("INFO:"), cfg.CommonPrefix)
+		detectedVPCs, err := detectVPCsByPrefix(ctx, clients.EC2, cfg.CommonPrefix)
+		if err != nil {
+			fmt.Printf("%s Failed to auto-detect VPCs: %v\n", red("ERROR:"), err)
+			errorCount++
+		} else if len(detectedVPCs) == 0 {
+			fmt.Printf("%s No VPCs detected with prefix '%s'\n", yellow("INFO:"), cfg.CommonPrefix)
+		} else {
+			fmt.Printf("%s Found %d VPC(s) to clean up\n", green("INFO:"), len(detectedVPCs))
+			vpcsToClean = detectedVPCs
+		}
 	}
 
-	if err := deleteSecurityGroups(ctx, clients, cfg); err != nil {
-		fmt.Printf("%s Failed to delete security groups: %v\n", red("ERROR:"), err)
-		errorCount++
-	}
+	// Clean up VPCs (if any)
+	for _, vpcID := range vpcsToClean {
+		// Create temporary config with this VPC ID
+		vpcCfg := *cfg
+		vpcCfg.VpcID = vpcID
 
-	if err := deleteNATGateways(ctx, clients, cfg); err != nil {
-		fmt.Printf("%s Failed to delete NAT gateways: %v\n", red("ERROR:"), err)
-		errorCount++
-	}
+		fmt.Printf("\n%s Cleaning up VPC: %s\n", cyan("═══"), vpcID)
 
-	if err := deleteRouteTables(ctx, clients, cfg); err != nil {
-		fmt.Printf("%s Failed to delete route tables: %v\n", red("ERROR:"), err)
-		errorCount++
-	}
+		if err := deleteVPCEndpoints(ctx, clients, &vpcCfg); err != nil {
+			fmt.Printf("%s Failed to delete VPC endpoints for VPC %s: %v\n", red("ERROR:"), vpcID, err)
+			errorCount++
+		}
 
-	if err := deleteSubnets(ctx, clients, cfg); err != nil {
-		fmt.Printf("%s Failed to delete subnets: %v\n", red("ERROR:"), err)
-		errorCount++
-	}
+		if err := deleteSecurityGroups(ctx, clients, &vpcCfg); err != nil {
+			fmt.Printf("%s Failed to delete security groups for VPC %s: %v\n", red("ERROR:"), vpcID, err)
+			errorCount++
+		}
 
-	if err := deleteInternetGateways(ctx, clients, cfg); err != nil {
-		fmt.Printf("%s Failed to delete internet gateways: %v\n", red("ERROR:"), err)
-		errorCount++
-	}
+		if err := deleteNATGateways(ctx, clients, &vpcCfg); err != nil {
+			fmt.Printf("%s Failed to delete NAT gateways for VPC %s: %v\n", red("ERROR:"), vpcID, err)
+			errorCount++
+		}
 
-	if err := deleteVPC(ctx, clients, cfg); err != nil {
-		fmt.Printf("%s Failed to delete VPC: %v\n", red("ERROR:"), err)
-		errorCount++
+		if err := deleteElasticIPs(ctx, clients, &vpcCfg); err != nil {
+			fmt.Printf("%s Failed to delete Elastic IPs for VPC %s: %v\n", red("ERROR:"), vpcID, err)
+			errorCount++
+		}
+
+		if err := deleteRouteTables(ctx, clients, &vpcCfg); err != nil {
+			fmt.Printf("%s Failed to delete route tables for VPC %s: %v\n", red("ERROR:"), vpcID, err)
+			errorCount++
+		}
+
+		if err := deleteSubnets(ctx, clients, &vpcCfg); err != nil {
+			fmt.Printf("%s Failed to delete subnets for VPC %s: %v\n", red("ERROR:"), vpcID, err)
+			errorCount++
+		}
+
+		if err := deleteNetworkInterfaces(ctx, clients, &vpcCfg); err != nil {
+			fmt.Printf("%s Failed to delete network interfaces for VPC %s: %v\n", red("ERROR:"), vpcID, err)
+			errorCount++
+		}
+
+		if err := deleteInternetGatewaysWithRetry(ctx, clients, &vpcCfg); err != nil {
+			fmt.Printf("%s Failed to delete internet gateways for VPC %s: %v\n", red("ERROR:"), vpcID, err)
+			errorCount++
+		}
+
+		if err := deleteVPC(ctx, clients, &vpcCfg); err != nil {
+			fmt.Printf("%s Failed to delete VPC %s: %v\n", red("ERROR:"), vpcID, err)
+			errorCount++
+		}
+
+		fmt.Printf("%s Completed cleanup for VPC: %s\n", cyan("═══"), vpcID)
 	}
 
 	if err := deleteStorageResources(ctx, clients, cfg); err != nil {
@@ -193,7 +320,10 @@ func parseFlags() *CleanupConfig {
 	flag.StringVar(&cfg.Region, "region", "us-east-1", "AWS region")
 	flag.StringVar(&cfg.VpcID, "vpc-id", "", "VPC ID to delete (optional)")
 	flag.BoolVar(&cfg.DryRun, "dry-run", false, "Preview actions without deleting")
+	flag.BoolVar(&cfg.AutoApprove, "auto-approve", false, "Skip confirmation prompt (use with caution)")
+	flag.BoolVar(&cfg.AutoDetectVPC, "auto-detect-vpc", false, "Auto-detect and cleanup all VPCs matching common prefix")
 	flag.StringVar(&cfg.AccountID, "account-id", "", "AWS account ID (auto-detected if not provided)")
+	flag.BoolVar(&cfg.ListVPCs, "list-vpcs", false, "List non-default VPCs with 'network-' prefix and exit")
 
 	flag.Parse()
 
@@ -488,17 +618,45 @@ func confirmDeletion(resourceCount int) bool {
 	return strings.ToLower(response) == "yes"
 }
 
-func getAccountID(ctx context.Context, stsClient *sts.Client) string {
-	result, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
-	if err != nil {
-		fmt.Printf("%s Failed to get account ID: %v\n", yellow("WARNING:"), err)
-		return ""
-	}
-
-	return aws.ToString(result.Account)
+func isCI() bool {
+	ci := os.Getenv("CI")
+	buildkite := os.Getenv("BUILDKITE")
+	return ci == "true" || buildkite == "true"
 }
 
-// deleteEKSClusters deletes EKS clusters
+// isNotFoundError checks if an error is a "not found" type error
+// These errors indicate the resource is already deleted, which is the desired state
+func isNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	// Check for common AWS "not found" error patterns
+	notFoundPatterns := []string{
+		"NotFound",
+		"does not exist",
+		"DoesNotExist",
+		"NoSuch",
+		"not found",
+	}
+	for _, pattern := range notFoundPatterns {
+		if strings.Contains(errStr, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+func getAccountID(ctx context.Context, stsClient *sts.Client) (string, error) {
+	result, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
+	if err != nil {
+		return "", fmt.Errorf("authentication failed - unable to get AWS account ID: %w", err)
+	}
+
+	return aws.ToString(result.Account), nil
+}
+
+// deleteEKSClusters deletes EKS clusters and their nodegroups
 func deleteEKSClusters(ctx context.Context, clients *AWSClients, cfg *CleanupConfig) error {
 	fmt.Printf("%s Deleting EKS clusters...\n", cyan("INFO:"))
 
@@ -512,7 +670,53 @@ func deleteEKSClusters(ctx context.Context, clients *AWSClients, cfg *CleanupCon
 			if cfg.DryRun {
 				fmt.Printf("  [DRY RUN] Would delete EKS cluster: %s\n", clusterName)
 			} else {
-				_, err := clients.EKS.DeleteCluster(ctx, &eks.DeleteClusterInput{
+				// First, list and delete all nodegroups
+				nodegroups, err := clients.EKS.ListNodegroups(ctx, &eks.ListNodegroupsInput{
+					ClusterName: aws.String(clusterName),
+				})
+				if err != nil {
+					fmt.Printf("%s Failed to list nodegroups for cluster %s: %v\n", yellow("WARNING:"), clusterName, err)
+				} else {
+					// Delete each nodegroup
+					for _, nodegroupName := range nodegroups.Nodegroups {
+						fmt.Printf("  %s Deleting nodegroup: %s (cluster: %s)\n", cyan("INFO:"), nodegroupName, clusterName)
+						_, err := clients.EKS.DeleteNodegroup(ctx, &eks.DeleteNodegroupInput{
+							ClusterName:   aws.String(clusterName),
+							NodegroupName: aws.String(nodegroupName),
+						})
+						if err != nil {
+							fmt.Printf("%s Failed to delete nodegroup %s: %v\n", yellow("WARNING:"), nodegroupName, err)
+						} else {
+							fmt.Printf("  %s Deleted nodegroup: %s\n", green("✓"), nodegroupName)
+						}
+					}
+
+					// Wait for nodegroups to be deleted
+					if len(nodegroups.Nodegroups) > 0 {
+						fmt.Printf("  %s Waiting for nodegroups to delete for cluster %s...\n", yellow("WAIT:"), clusterName)
+						time.Sleep(60 * time.Second) // Wait 60 seconds for nodegroups to start deleting
+
+						// Poll until all nodegroups are deleted (max 10 minutes)
+						maxWaitTime := 10 * time.Minute
+						pollInterval := 30 * time.Second
+						startTime := time.Now()
+
+						for time.Since(startTime) < maxWaitTime {
+							remaining, err := clients.EKS.ListNodegroups(ctx, &eks.ListNodegroupsInput{
+								ClusterName: aws.String(clusterName),
+							})
+							if err != nil || len(remaining.Nodegroups) == 0 {
+								fmt.Printf("  %s All nodegroups deleted for cluster %s\n", green("✓"), clusterName)
+								break
+							}
+							fmt.Printf("  %s Still waiting for %d nodegroup(s) to delete...\n", yellow("WAIT:"), len(remaining.Nodegroups))
+							time.Sleep(pollInterval)
+						}
+					}
+				}
+
+				// Now delete the cluster
+				_, err = clients.EKS.DeleteCluster(ctx, &eks.DeleteClusterInput{
 					Name: aws.String(clusterName),
 				})
 				if err != nil {
@@ -865,6 +1069,10 @@ func deleteVPCEndpoints(ctx context.Context, clients *AWSClients, cfg *CleanupCo
 
 	result, err := clients.EC2.DescribeVpcEndpoints(ctx, input)
 	if err != nil {
+		if isNotFoundError(err) {
+			fmt.Printf("  %s No VPC endpoints found (already deleted)\n", green("✓"))
+			return nil
+		}
 		return err
 	}
 
@@ -906,6 +1114,10 @@ func deleteSecurityGroups(ctx context.Context, clients *AWSClients, cfg *Cleanup
 
 	result, err := clients.EC2.DescribeSecurityGroups(ctx, input)
 	if err != nil {
+		if isNotFoundError(err) {
+			fmt.Printf("  %s No security groups found (already deleted)\n", green("✓"))
+			return nil
+		}
 		return err
 	}
 
@@ -966,6 +1178,64 @@ func deleteSecurityGroups(ctx context.Context, clients *AWSClients, cfg *Cleanup
 	return nil
 }
 
+// deleteElasticIPs finds and releases all Elastic IPs associated with the VPC
+func deleteElasticIPs(ctx context.Context, clients *AWSClients, cfg *CleanupConfig) error {
+	fmt.Printf("%s Deleting Elastic IPs...\n", cyan("INFO:"))
+
+	if cfg.VpcID == "" {
+		fmt.Printf("  %s Skipping Elastic IPs (no VPC ID provided)\n", yellow("SKIP:"))
+		return nil
+	}
+
+	// Get all addresses
+	addressResult, err := clients.EC2.DescribeAddresses(ctx, &ec2.DescribeAddressesInput{})
+	if err != nil {
+		return err
+	}
+
+	// Filter to addresses associated with network interfaces in our VPC
+	for _, addr := range addressResult.Addresses {
+		// Skip if not associated with a network interface
+		if addr.NetworkInterfaceId == nil {
+			continue
+		}
+
+		// Check if the network interface belongs to our VPC
+		eniResult, err := clients.EC2.DescribeNetworkInterfaces(ctx, &ec2.DescribeNetworkInterfacesInput{
+			NetworkInterfaceIds: []string{aws.ToString(addr.NetworkInterfaceId)},
+		})
+		if err != nil {
+			continue
+		}
+
+		if len(eniResult.NetworkInterfaces) == 0 {
+			continue
+		}
+
+		eni := eniResult.NetworkInterfaces[0]
+		if aws.ToString(eni.VpcId) != cfg.VpcID {
+			continue
+		}
+
+		// Release the Elastic IP
+		allocationID := aws.ToString(addr.AllocationId)
+		if cfg.DryRun {
+			fmt.Printf("  [DRY RUN] Would release Elastic IP: %s\n", allocationID)
+		} else {
+			_, err := clients.EC2.ReleaseAddress(ctx, &ec2.ReleaseAddressInput{
+				AllocationId: aws.String(allocationID),
+			})
+			if err != nil {
+				fmt.Printf("%s Failed to release Elastic IP %s: %v\n", yellow("WARNING:"), allocationID, err)
+			} else {
+				fmt.Printf("  %s Released Elastic IP: %s\n", green("✓"), allocationID)
+			}
+		}
+	}
+
+	return nil
+}
+
 // deleteNATGateways deletes NAT gateways and associated Elastic IPs
 func deleteNATGateways(ctx context.Context, clients *AWSClients, cfg *CleanupConfig) error {
 	fmt.Printf("%s Deleting NAT gateways...\n", cyan("INFO:"))
@@ -986,6 +1256,10 @@ func deleteNATGateways(ctx context.Context, clients *AWSClients, cfg *CleanupCon
 
 	result, err := clients.EC2.DescribeNatGateways(ctx, input)
 	if err != nil {
+		if isNotFoundError(err) {
+			fmt.Printf("  %s No NAT gateways found (already deleted)\n", green("✓"))
+			return nil
+		}
 		return err
 	}
 
@@ -1037,6 +1311,66 @@ func deleteNATGateways(ctx context.Context, clients *AWSClients, cfg *CleanupCon
 	return nil
 }
 
+// deleteNetworkInterfaces deletes orphaned network interfaces in the VPC
+func deleteNetworkInterfaces(ctx context.Context, clients *AWSClients, cfg *CleanupConfig) error {
+	fmt.Printf("%s Deleting network interfaces...\n", cyan("INFO:"))
+
+	if cfg.VpcID == "" {
+		fmt.Printf("  %s Skipping network interfaces (no VPC ID provided)\n", yellow("SKIP:"))
+		return nil
+	}
+
+	input := &ec2.DescribeNetworkInterfacesInput{
+		Filters: []types.Filter{
+			{
+				Name:   aws.String("vpc-id"),
+				Values: []string{cfg.VpcID},
+			},
+		},
+	}
+
+	result, err := clients.EC2.DescribeNetworkInterfaces(ctx, input)
+	if err != nil {
+		if isNotFoundError(err) {
+			fmt.Printf("  %s No network interfaces found (already deleted)\n", green("✓"))
+			return nil
+		}
+		return err
+	}
+
+	for _, eni := range result.NetworkInterfaces {
+		// Skip network interfaces that are attached to instances
+		if eni.Attachment != nil && aws.ToString(eni.Attachment.InstanceId) != "" {
+			continue
+		}
+
+		// Skip network interfaces managed by AWS services (like Lambda, ELB, etc.)
+		if eni.RequesterId != nil && aws.ToString(eni.RequesterId) != "" {
+			requester := aws.ToString(eni.RequesterId)
+			// Skip AWS-managed ENIs
+			if requester == "amazon-elb" || requester == "amazon-aws" {
+				continue
+			}
+		}
+
+		eniID := aws.ToString(eni.NetworkInterfaceId)
+		if cfg.DryRun {
+			fmt.Printf("  [DRY RUN] Would delete network interface: %s\n", eniID)
+		} else {
+			_, err := clients.EC2.DeleteNetworkInterface(ctx, &ec2.DeleteNetworkInterfaceInput{
+				NetworkInterfaceId: aws.String(eniID),
+			})
+			if err != nil {
+				fmt.Printf("%s Failed to delete network interface %s: %v\n", yellow("WARNING:"), eniID, err)
+			} else {
+				fmt.Printf("  %s Deleted network interface: %s\n", green("✓"), eniID)
+			}
+		}
+	}
+
+	return nil
+}
+
 // deleteRouteTables deletes route tables
 func deleteRouteTables(ctx context.Context, clients *AWSClients, cfg *CleanupConfig) error {
 	fmt.Printf("%s Deleting route tables...\n", cyan("INFO:"))
@@ -1057,6 +1391,10 @@ func deleteRouteTables(ctx context.Context, clients *AWSClients, cfg *CleanupCon
 
 	result, err := clients.EC2.DescribeRouteTables(ctx, input)
 	if err != nil {
+		if isNotFoundError(err) {
+			fmt.Printf("  %s No route tables found (already deleted)\n", green("✓"))
+			return nil
+		}
 		return err
 	}
 
@@ -1123,6 +1461,10 @@ func deleteSubnets(ctx context.Context, clients *AWSClients, cfg *CleanupConfig)
 
 	result, err := clients.EC2.DescribeSubnets(ctx, input)
 	if err != nil {
+		if isNotFoundError(err) {
+			fmt.Printf("  %s No subnets found (already deleted)\n", green("✓"))
+			return nil
+		}
 		return err
 	}
 
@@ -1142,6 +1484,29 @@ func deleteSubnets(ctx context.Context, clients *AWSClients, cfg *CleanupConfig)
 	}
 
 	return nil
+}
+
+// deleteInternetGatewaysWithRetry deletes internet gateways with retry logic for dependencies
+func deleteInternetGatewaysWithRetry(ctx context.Context, clients *AWSClients, cfg *CleanupConfig) error {
+	maxRetries := 3
+	retryDelay := 10 * time.Second
+
+	var lastErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		err := deleteInternetGateways(ctx, clients, cfg)
+		if err == nil {
+			return nil
+		}
+
+		lastErr = err
+		if attempt < maxRetries {
+			fmt.Printf("  %s Internet Gateway deletion failed (attempt %d/%d), retrying in %v...\n",
+				yellow("RETRY:"), attempt, maxRetries, retryDelay)
+			time.Sleep(retryDelay)
+		}
+	}
+
+	return lastErr
 }
 
 // deleteInternetGateways deletes internet gateways
@@ -1164,6 +1529,10 @@ func deleteInternetGateways(ctx context.Context, clients *AWSClients, cfg *Clean
 
 	result, err := clients.EC2.DescribeInternetGateways(ctx, input)
 	if err != nil {
+		if isNotFoundError(err) {
+			fmt.Printf("  %s No internet gateways found (already deleted)\n", green("✓"))
+			return nil
+		}
 		return err
 	}
 
@@ -1176,7 +1545,7 @@ func deleteInternetGateways(ctx context.Context, clients *AWSClients, cfg *Clean
 				InternetGatewayId: igw.InternetGatewayId,
 				VpcId:             aws.String(cfg.VpcID),
 			})
-			if err != nil {
+			if err != nil && !isNotFoundError(err) {
 				fmt.Printf("%s Failed to detach internet gateway: %v\n", yellow("WARNING:"), err)
 			}
 
@@ -1184,7 +1553,11 @@ func deleteInternetGateways(ctx context.Context, clients *AWSClients, cfg *Clean
 				InternetGatewayId: igw.InternetGatewayId,
 			})
 			if err != nil {
-				fmt.Printf("%s Failed to delete internet gateway %s: %v\n", yellow("WARNING:"), aws.ToString(igw.InternetGatewayId), err)
+				if isNotFoundError(err) {
+					fmt.Printf("  %s Internet gateway already deleted: %s\n", green("✓"), aws.ToString(igw.InternetGatewayId))
+				} else {
+					fmt.Printf("%s Failed to delete internet gateway %s: %v\n", yellow("WARNING:"), aws.ToString(igw.InternetGatewayId), err)
+				}
 			} else {
 				fmt.Printf("  %s Deleted internet gateway: %s\n", green("✓"), aws.ToString(igw.InternetGatewayId))
 			}
@@ -1210,9 +1583,14 @@ func deleteVPC(ctx context.Context, clients *AWSClients, cfg *CleanupConfig) err
 			VpcId: aws.String(cfg.VpcID),
 		})
 		if err != nil {
-			return err
+			if isNotFoundError(err) {
+				fmt.Printf("  %s VPC already deleted: %s\n", green("✓"), cfg.VpcID)
+			} else {
+				return err
+			}
+		} else {
+			fmt.Printf("  %s Deleted VPC: %s\n", green("✓"), cfg.VpcID)
 		}
-		fmt.Printf("  %s Deleted VPC: %s\n", green("✓"), cfg.VpcID)
 	}
 
 	return nil
@@ -1368,4 +1746,99 @@ func emptyAndDeleteBucketWithRegion(ctx context.Context, s3Client *s3.Client, bu
 	})
 
 	return err
+}
+
+// getAllRegions returns a list of all enabled AWS regions
+func getAllRegions(ctx context.Context, ec2Client *ec2.Client) ([]string, error) {
+	input := &ec2.DescribeRegionsInput{
+		AllRegions: aws.Bool(false), // Only enabled regions
+	}
+
+	result, err := ec2Client.DescribeRegions(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe regions: %w", err)
+	}
+
+	var regions []string
+	for _, region := range result.Regions {
+		regions = append(regions, aws.ToString(region.RegionName))
+	}
+
+	return regions, nil
+}
+
+// getNonDefaultVPCs returns all non-default VPCs in the region that have a Name tag starting with "network-"
+func getNonDefaultVPCs(ctx context.Context, ec2Client *ec2.Client, region string) ([]VPCInfo, error) {
+	input := &ec2.DescribeVpcsInput{
+		Filters: []types.Filter{
+			{
+				Name:   aws.String("isDefault"),
+				Values: []string{"false"},
+			},
+		},
+	}
+
+	result, err := ec2Client.DescribeVpcs(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe VPCs: %w", err)
+	}
+
+	var vpcs []VPCInfo
+	for _, vpc := range result.Vpcs {
+		// Extract the Name tag
+		var name string
+		for _, tag := range vpc.Tags {
+			if aws.ToString(tag.Key) == "Name" {
+				name = aws.ToString(tag.Value)
+				break
+			}
+		}
+
+		// Filter by "network-" prefix
+		if strings.HasPrefix(name, "network-") {
+			vpcs = append(vpcs, VPCInfo{
+				ID:   aws.ToString(vpc.VpcId),
+				Name: name,
+			})
+		}
+	}
+
+	return vpcs, nil
+}
+
+// detectVPCsByPrefix finds all non-default VPCs with Name tag matching the common prefix
+func detectVPCsByPrefix(ctx context.Context, ec2Client *ec2.Client, commonPrefix string) ([]string, error) {
+	input := &ec2.DescribeVpcsInput{
+		Filters: []types.Filter{
+			{
+				Name:   aws.String("isDefault"),
+				Values: []string{"false"},
+			},
+		},
+	}
+
+	result, err := ec2Client.DescribeVpcs(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe VPCs: %w", err)
+	}
+
+	var vpcIDs []string
+	for _, vpc := range result.Vpcs {
+		// Extract Name tag
+		var name string
+		for _, tag := range vpc.Tags {
+			if aws.ToString(tag.Key) == "Name" {
+				name = aws.ToString(tag.Value)
+				break
+			}
+		}
+
+		// Check if name starts with common prefix
+		if strings.HasPrefix(name, commonPrefix) {
+			vpcIDs = append(vpcIDs, aws.ToString(vpc.VpcId))
+			fmt.Printf("  %s Detected VPC: %s (Name: %s)\n", cyan("INFO:"), aws.ToString(vpc.VpcId), name)
+		}
+	}
+
+	return vpcIDs, nil
 }
