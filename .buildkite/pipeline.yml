@@ -231,4 +231,48 @@ steps:
       - lint
       - unit
       - test_network
-          
+
+  - label: cleanup_byoc_aws
+    key: cleanup_byoc_aws
+    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
+    command: |
+      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+      task cleanup:aws:ci || echo "AWS cleanup completed with errors (non-blocking)"
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.12.0:
+          image: "golang:1.24"
+          environment:
+            - AWS_ACCESS_KEY_ID
+            - AWS_SECRET_ACCESS_KEY
+            - AWS_REGION=us-east-2
+            - CI=true
+    depends_on:
+      - test_byoc_aws
+    allow_dependency_failure: true
+    soft_fail: true
+
+  - label: cleanup_byoc_gcp
+    key: cleanup_byoc_gcp
+    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
+    command: |
+      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+      task cleanup:gcp:ci PROJECT_ID="$$GOOGLE_PROJECT" || echo "GCP cleanup completed with errors (non-blocking)"
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.11.0:
+          image: "golang:1.24"
+          environment:
+            - GOOGLE_CREDENTIALS_BASE64
+            - GOOGLE_PROJECT
+            - GCP_REGION=us-central1
+            - CI=true
+    depends_on:
+      - test_byoc_gcp
+    allow_dependency_failure: true
+    soft_fail: true
+

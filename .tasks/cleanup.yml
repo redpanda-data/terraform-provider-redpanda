@@ -8,7 +8,7 @@ vars:
 
   # AWS cleanup parameters
   VPC_ID: '{{.VPC_ID | default ""}}'
-  AWS_REGION: '{{.AWS_REGION | default "us-east-1"}}'
+  AWS_REGION: '{{.AWS_REGION | default "us-east-2"}}'
   COMMON_PREFIX: '{{.COMMON_PREFIX | default "redpanda"}}'
 
   # GCP cleanup parameters
@@ -53,6 +53,17 @@ tasks:
           --region "{{.AWS_REGION}}" \
           {{if .VPC_ID}}--vpc-id "{{.VPC_ID}}"{{end}}
 
+  aws:ci:
+    desc: "Delete AWS resources with VPC auto-detection (auto-approves)"
+    dir: scripts/cleanup-redpanda-byovpc
+    cmds:
+      - |
+        go run main.go \
+          --common-prefix "{{.COMMON_PREFIX}}" \
+          --region "{{.AWS_REGION}}" \
+          --auto-detect-vpc \
+          --auto-approve
+
   aws:dry:
     desc: "Dry run - show what AWS resources would be deleted (does not actually delete)"
     dir: scripts/cleanup-redpanda-byovpc
@@ -82,6 +93,18 @@ tasks:
           --common-prefix "{{.COMMON_PREFIX}}" \
           --region "{{.GCP_REGION}}"
 
+  gcp:ci:
+    desc: "Delete GCP resources (auto-approves without confirmation)"
+    dir: scripts/cleanup-gcp-redpanda-byovpc
+    cmds:
+      - |
+        go run main.go \
+          --project-id "{{.PROJECT_ID}}" \
+          --common-prefix "{{.COMMON_PREFIX}}" \
+          --region "{{.GCP_REGION}}" \
+          --auto-approve \
+          --use-gcp-creds-base64
+
   gcp:dry:
     desc: "Dry run - show what GCP resources would be deleted (does not actually delete)"
     dir: scripts/cleanup-gcp-redpanda-byovpc
@@ -107,11 +130,13 @@ tasks:
       - echo "  task cleanup:aws:vpcs                             - List non-default VPCs across all regions"
       - echo "  task cleanup:aws:dry VPC_ID=vpc-xxx               - Dry run AWS cleanup"
       - echo "  task cleanup:aws VPC_ID=vpc-xxx                   - Delete AWS resources"
+      - echo "  task cleanup:aws:ci                               - Delete AWS resources (CI mode, auto-detect VPCs)"
       - echo "  task cleanup:aws VPC_ID=vpc-xxx AWS_REGION=us-west-2  - With custom region"
       - echo ""
       - echo "GCP BYOVPC:"
       - echo "  task cleanup:gcp:dry PROJECT_ID=my-project         - Dry run GCP cleanup"
       - echo "  task cleanup:gcp PROJECT_ID=my-project             - Delete GCP resources"
+      - echo "  task cleanup:gcp:ci PROJECT_ID=my-project          - Delete GCP resources (CI mode, auto-approve)"
       - echo "  task cleanup:gcp PROJECT_ID=my-project GCP_REGION=us-west1  - With custom region"
       - echo ""
       - echo "Environment variables:"
