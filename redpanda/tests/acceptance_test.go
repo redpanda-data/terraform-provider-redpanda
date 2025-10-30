@@ -50,6 +50,7 @@ const (
 	schemaProductResourceName          = "redpanda_schema.product_schema"
 	clusterAdminACLResourceName        = "redpanda_acl.cluster_admin"
 	topicAccessACLResourceName         = "redpanda_acl.topic_access"
+	schemaRegistryACLReadProductName   = "redpanda_schema_registry_acl.read_product"
 )
 
 var (
@@ -600,6 +601,15 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	maps.Copy(aclAllowDeletionTrueVars, updateTestCaseVars)
 	aclAllowDeletionTrueVars["acl_allow_deletion"] = config.BoolVariable(true)
 
+	// Test toggling allow_deletion for Schema Registry ACL (false -> verify -> true)
+	srACLAllowDeletionFalseVars := make(map[string]config.Variable)
+	maps.Copy(srACLAllowDeletionFalseVars, updateTestCaseVars)
+	srACLAllowDeletionFalseVars["sr_acl_allow_deletion"] = config.BoolVariable(false)
+
+	srACLAllowDeletionTrueVars := make(map[string]config.Variable)
+	maps.Copy(srACLAllowDeletionTrueVars, updateTestCaseVars)
+	srACLAllowDeletionTrueVars["sr_acl_allow_deletion"] = config.BoolVariable(true)
+
 	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
 	if err != nil {
 		t.Fatal(err)
@@ -610,165 +620,266 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 		t.Fatal(err)
 	}
 
+	testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
+	if err != nil {
+		t.Fatal(fmt.Errorf("failed to read test file: %w", err))
+	}
+	hasSchemaRegistryACL := strings.Contains(string(testFileContent), `resource "redpanda_schema_registry_acl" "read_product"`)
+
+	steps := []resource.TestStep{
+		{
+			ConfigDirectory:          config.StaticDirectory(testFile),
+			ConfigVariables:          origTestCaseVars,
+			Check:                    resource.ComposeAggregateTestCheckFunc(checkFuncs...),
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		},
+		{
+			ResourceName:    userResourceName,
+			ConfigDirectory: config.StaticDirectory(testFile),
+			ConfigVariables: origTestCaseVars,
+			ImportState:     true,
+			ImportStateIdFunc: func(_ *terraform.State) (string, error) {
+				i, err := c.ClusterForName(ctx, name)
+				if err != nil {
+					return "", errors.New("test error: unable to get cluster by name")
+				}
+				importID := fmt.Sprintf("%v,%v", name, i.GetId())
+				return importID, nil
+			},
+			ImportStateCheck: func(state []*terraform.InstanceState) error {
+				attr := state[0].Attributes
+				id, user := attr["id"], attr["name"]
+				if user != name {
+					return fmt.Errorf("expected user %q; got %q", name, user)
+				}
+				if id != name {
+					return fmt.Errorf("expected ID %q; got %q", name, id)
+				}
+				if cloudURL := attr["cluster_api_url"]; cloudURL == "" {
+					return errors.New("unexpected empty cloud URL")
+				}
+				if pw, ok := attr["password"]; ok {
+					return fmt.Errorf("expected empty password; got %q", pw)
+				}
+				return nil
+			},
+			ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		},
+		{
+			ConfigDirectory:          config.StaticDirectory(testFile),
+			ConfigVariables:          updateTestCaseVars,
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+				resource.TestCheckResourceAttr(networkResourceName, "name", name),
+				resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+			),
+		},
+		{
+			ConfigDirectory:          config.StaticDirectory(testFile),
+			ConfigVariables:          userAllowDeletionFalseVars,
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(userResourceName, "allow_deletion", "false"),
+				resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+			),
+		},
+		{
+			ConfigDirectory:          config.StaticDirectory(testFile),
+			ConfigVariables:          userAllowDeletionTrueVars,
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(userResourceName, "allow_deletion", "true"),
+				resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+			),
+		},
+		{
+			ConfigDirectory:          config.StaticDirectory(testFile),
+			ConfigVariables:          aclAllowDeletionFalseVars,
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				func() resource.TestCheckFunc {
+					testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
+					if err != nil {
+						return func(_ *terraform.State) error {
+							return fmt.Errorf("failed to read test file: %w", err)
+						}
+					}
+					aclResourceName := clusterAdminACLResourceName
+					if strings.Contains(string(testFileContent), `resource "redpanda_acl" "topic_access"`) {
+						aclResourceName = topicAccessACLResourceName
+					}
+					return resource.TestCheckResourceAttr(aclResourceName, "allow_deletion", "false")
+				}(),
+				resource.TestCheckResourceAttr(userResourceName, "allow_deletion", "true"),
+			),
+		},
+		{
+			ConfigDirectory:          config.StaticDirectory(testFile),
+			ConfigVariables:          aclAllowDeletionTrueVars,
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				func() resource.TestCheckFunc {
+					testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
+					if err != nil {
+						return func(_ *terraform.State) error {
+							return fmt.Errorf("failed to read test file: %w", err)
+						}
+					}
+					aclResourceName := clusterAdminACLResourceName
+					if strings.Contains(string(testFileContent), `resource "redpanda_acl" "topic_access"`) {
+						aclResourceName = topicAccessACLResourceName
+					}
+					return resource.TestCheckResourceAttr(aclResourceName, "allow_deletion", "true")
+				}(),
+				resource.TestCheckResourceAttr(userResourceName, "allow_deletion", "true"),
+			),
+		},
+		{
+			ConfigDirectory:          config.StaticDirectory(testFile),
+			ConfigVariables:          srACLAllowDeletionFalseVars,
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				func() resource.TestCheckFunc {
+					testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
+					if err != nil {
+						return func(_ *terraform.State) error {
+							return fmt.Errorf("failed to read test file: %w", err)
+						}
+					}
+					if strings.Contains(string(testFileContent), `resource "redpanda_schema_registry_acl" "read_product"`) {
+						return resource.TestCheckResourceAttr(schemaRegistryACLReadProductName, "allow_deletion", "false")
+					}
+					return func(_ *terraform.State) error {
+						return nil
+					}
+				}(),
+			),
+		},
+		{
+			ConfigDirectory:          config.StaticDirectory(testFile),
+			ConfigVariables:          srACLAllowDeletionTrueVars,
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				func() resource.TestCheckFunc {
+					testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
+					if err != nil {
+						return func(_ *terraform.State) error {
+							return fmt.Errorf("failed to read test file: %w", err)
+						}
+					}
+					if strings.Contains(string(testFileContent), `resource "redpanda_schema_registry_acl" "read_product"`) {
+						return resource.TestCheckResourceAttr(schemaRegistryACLReadProductName, "allow_deletion", "true")
+					}
+					return func(_ *terraform.State) error {
+						return nil
+					}
+				}(),
+			),
+		},
+		{
+			ConfigDirectory:          config.StaticDirectory(testFile),
+			ConfigVariables:          compatibilityUpdateVars,
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+				resource.TestCheckResourceAttr(networkResourceName, "name", name),
+				resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+				func() resource.TestCheckFunc {
+					testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
+					if err != nil {
+						return func(_ *terraform.State) error {
+							return fmt.Errorf("failed to read test file: %w", err)
+						}
+					}
+					if strings.Contains(string(testFileContent), `resource "redpanda_schema" "product_schema"`) {
+						return resource.TestCheckResourceAttr(schemaProductResourceName, "compatibility", "FORWARD")
+					}
+					return func(_ *terraform.State) error {
+						return nil
+					}
+				}(),
+			),
+		},
+		{
+			ResourceName:             clusterResourceName,
+			ConfigDirectory:          config.StaticDirectory(testFile),
+			ConfigVariables:          updateTestCaseVars,
+			ImportState:              true,
+			ImportStateVerify:        true,
+			ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+				resource.TestCheckResourceAttr(networkResourceName, "name", name),
+				resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+			),
+		},
+	}
+
+	if hasSchemaRegistryACL {
+		steps = append(steps, resource.TestStep{
+			ResourceName:    schemaRegistryACLReadProductName,
+			ConfigDirectory: config.StaticDirectory(testFile),
+			ConfigVariables: updateTestCaseVars,
+			ImportState:     true,
+			ImportStateIdFunc: func(state *terraform.State) (string, error) {
+				rs, ok := state.RootModule().Resources[schemaRegistryACLReadProductName]
+				if !ok {
+					return "", errors.New("schema registry ACL resource not found in state")
+				}
+
+				// Import format: cluster_id:principal:resource_type:resource_name:pattern_type:host:operation:permission:username:password
+				clusterID := rs.Primary.Attributes["cluster_id"]
+				principal := rs.Primary.Attributes["principal"]
+				resourceType := rs.Primary.Attributes["resource_type"]
+				resourceName := rs.Primary.Attributes["resource_name"]
+				patternType := rs.Primary.Attributes["pattern_type"]
+				host := rs.Primary.Attributes["host"]
+				operation := rs.Primary.Attributes["operation"]
+				permission := rs.Primary.Attributes["permission"]
+				username := rs.Primary.Attributes["username"]
+				password := rs.Primary.Attributes["password"]
+
+				importID := fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s:%s:%s:%s",
+					clusterID, principal, resourceType, resourceName, patternType, host, operation, permission, username, password)
+				return importID, nil
+			},
+			ImportStateCheck: func(state []*terraform.InstanceState) error {
+				attr := state[0].Attributes
+				if attr["resource_type"] != "SUBJECT" {
+					return fmt.Errorf("expected resource_type SUBJECT; got %q", attr["resource_type"])
+				}
+				if attr["resource_name"] != "product-" {
+					return fmt.Errorf("expected resource_name 'product-'; got %q", attr["resource_name"])
+				}
+				if attr["pattern_type"] != "PREFIXED" {
+					return fmt.Errorf("expected pattern_type PREFIXED; got %q", attr["pattern_type"])
+				}
+				if attr["operation"] != "READ" {
+					return fmt.Errorf("expected operation READ; got %q", attr["operation"])
+				}
+				if attr["permission"] != "ALLOW" {
+					return fmt.Errorf("expected permission ALLOW; got %q", attr["permission"])
+				}
+				return nil
+			},
+			ImportStateVerifyIgnore:  []string{"allow_deletion"},
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		})
+	}
+
+	steps = append(steps, resource.TestStep{
+		ConfigDirectory:          config.StaticDirectory(testFile),
+		ConfigVariables:          updateTestCaseVars,
+		Destroy:                  true,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+	})
+
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
-		Steps: []resource.TestStep{
-			{
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          origTestCaseVars,
-				Check:                    resource.ComposeAggregateTestCheckFunc(checkFuncs...),
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-			{
-				ResourceName:    userResourceName,
-				ConfigDirectory: config.StaticDirectory(testFile),
-				ConfigVariables: origTestCaseVars,
-				ImportState:     true,
-				ImportStateIdFunc: func(_ *terraform.State) (string, error) {
-					i, err := c.ClusterForName(ctx, name)
-					if err != nil {
-						return "", errors.New("test error: unable to get cluster by name")
-					}
-					importID := fmt.Sprintf("%v,%v", name, i.GetId())
-					return importID, nil
-				},
-				ImportStateCheck: func(state []*terraform.InstanceState) error {
-					attr := state[0].Attributes
-					id, user := attr["id"], attr["name"]
-					if user != name {
-						return fmt.Errorf("expected user %q; got %q", name, user)
-					}
-					if id != name {
-						return fmt.Errorf("expected ID %q; got %q", name, id)
-					}
-					if cloudURL := attr["cluster_api_url"]; cloudURL == "" {
-						return errors.New("unexpected empty cloud URL")
-					}
-					if pw, ok := attr["password"]; ok {
-						return fmt.Errorf("expected empty password; got %q", pw)
-					}
-					return nil
-				},
-				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-			{
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          updateTestCaseVars,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
-				),
-			},
-			{
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          userAllowDeletionFalseVars,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(userResourceName, "allow_deletion", "false"),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
-				),
-			},
-			{
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          userAllowDeletionTrueVars,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(userResourceName, "allow_deletion", "true"),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
-				),
-			},
-			{
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          aclAllowDeletionFalseVars,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					func() resource.TestCheckFunc {
-						testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
-						if err != nil {
-							return func(_ *terraform.State) error {
-								return fmt.Errorf("failed to read test file: %w", err)
-							}
-						}
-						aclResourceName := clusterAdminACLResourceName
-						if strings.Contains(string(testFileContent), `resource "redpanda_acl" "topic_access"`) {
-							aclResourceName = topicAccessACLResourceName
-						}
-						return resource.TestCheckResourceAttr(aclResourceName, "allow_deletion", "false")
-					}(),
-					resource.TestCheckResourceAttr(userResourceName, "allow_deletion", "true"),
-				),
-			},
-			{
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          aclAllowDeletionTrueVars,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					func() resource.TestCheckFunc {
-						testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
-						if err != nil {
-							return func(_ *terraform.State) error {
-								return fmt.Errorf("failed to read test file: %w", err)
-							}
-						}
-						aclResourceName := clusterAdminACLResourceName
-						if strings.Contains(string(testFileContent), `resource "redpanda_acl" "topic_access"`) {
-							aclResourceName = topicAccessACLResourceName
-						}
-						return resource.TestCheckResourceAttr(aclResourceName, "allow_deletion", "true")
-					}(),
-					resource.TestCheckResourceAttr(userResourceName, "allow_deletion", "true"),
-				),
-			},
-			{
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          compatibilityUpdateVars,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
-					func() resource.TestCheckFunc {
-						testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
-						if err != nil {
-							return func(_ *terraform.State) error {
-								return fmt.Errorf("failed to read test file: %w", err)
-							}
-						}
-						if strings.Contains(string(testFileContent), `resource "redpanda_schema" "product_schema"`) {
-							return resource.TestCheckResourceAttr(schemaProductResourceName, "compatibility", "FORWARD")
-						}
-						return func(_ *terraform.State) error {
-							return nil
-						}
-					}(),
-				),
-			},
-			{
-				ResourceName:      clusterResourceName,
-				ConfigDirectory:   config.StaticDirectory(testFile),
-				ConfigVariables:   updateTestCaseVars,
-				ImportState:       true,
-				ImportStateVerify: true,
-				//  These two only matter on apply; On apply the user will be
-				//  getting Plan, not State, and have correct values for both.
-				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(networkResourceName, "name", name),
-					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
-				),
-			},
-			{
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          updateTestCaseVars,
-				Destroy:                  true,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-		},
+		Steps:    steps,
 	},
 	)
 	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
@@ -818,7 +929,7 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 		}
 	}
 	if version != "" {
-		// version is only necessary to resolve a GCP install pack issue. we should generally use latest (nil)
+		// we should generally use latest (nil) but this is available as a workaround for install pack issues
 		origTestCaseVars["version"] = config.StringVariable(version)
 	}
 
