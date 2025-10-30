@@ -4,12 +4,13 @@ dotenv: ['.env']
 
 includes:
   build: .tasks/build.yml
-  test: .tasks/test.yml
+  cleanup: .tasks/cleanup.yml
   docs: .tasks/docs.yml
   lint: .tasks/lint.yml
-  mock: .tasks/mock.yml
   local: .tasks/local.yml
+  mock: .tasks/mock.yml
   release: .tasks/release.yml
+  test: .tasks/test.yml
   tools: .tasks/tools.yml
 
 tasks:
