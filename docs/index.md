@@ -246,7 +246,7 @@ resource "redpanda_schema_registry_acl" "read_product" {
   permission     = "ALLOW"
   username       = redpanda_user.test.name
   password       = var.user_pw
-  allow_deletion = true
+  allow_deletion = var.sr_acl_allow_deletion
   depends_on     = [redpanda_acl.schema_registry_admin]
 }
 
@@ -558,7 +558,7 @@ resource "redpanda_schema_registry_acl" "read_product" {
   permission    = "ALLOW"
   username      = redpanda_user.test.name
   password      = var.user_pw
-  allow_deletion = true
+  allow_deletion = var.sr_acl_allow_deletion
   depends_on = [redpanda_acl.schema_registry_admin]
 }
 

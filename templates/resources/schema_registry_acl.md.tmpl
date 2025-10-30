@@ -60,7 +60,26 @@ We recommend storing Schema Registry credentials in environment variables or a s
 
 ## Import
 
-We do not currently support importing Schema Registry ACLs.
+Schema Registry ACLs can be imported using a colon-separated string with the following format:
+
+```
+cluster_id:principal:resource_type:resource_name:pattern_type:host:operation:permission:username:password
+```
+
+Example imports:
+
+```shell
+# Import a subject-level READ ACL for user alice
+terraform import redpanda_schema_registry_acl.example "cluster-123:User:alice:SUBJECT:user-value:LITERAL:*:READ:ALLOW:alice:mypassword"
+
+# Import a registry-level ALL ACL for a role
+terraform import redpanda_schema_registry_acl.admin "cluster-123:RedpandaRole:admin:REGISTRY:*:LITERAL:*:ALL:ALLOW:admin:secret"
+
+# Import a prefixed pattern ACL
+terraform import redpanda_schema_registry_acl.prefix "cluster-123:User:bob:SUBJECT:orders-:PREFIXED:*:WRITE:ALLOW:bob:pass123"
+```
+
+**Note:** Principals containing colons (e.g., `RedpandaRole:admin:extra`) are supported in the import format. Credentials (username and password) are required for import to verify the ACL exists.
 
 ## API Reference
 
