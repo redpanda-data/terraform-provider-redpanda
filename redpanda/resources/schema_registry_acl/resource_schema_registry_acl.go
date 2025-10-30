@@ -18,8 +18,10 @@ package schema_registry_acl
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -30,16 +32,21 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
+// SchemaRegistryACLClientFactory is a function type for creating Schema Registry ACL clients
+type SchemaRegistryACLClientFactory func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, username, password string) (kclients.SchemaRegistryACLClientInterface, error)
+
 // SchemaRegistryACL represents the Schema Registry ACL Terraform resource.
 type SchemaRegistryACL struct {
-	CpCl    *cloud.ControlPlaneClientSet
-	resData config.Resource
+	CpCl          *cloud.ControlPlaneClientSet
+	resData       config.Resource
+	clientFactory SchemaRegistryACLClientFactory
 }
 
 // Ensure provider defined types fully satisfy framework interfaces.
 var (
-	_ resource.Resource              = &SchemaRegistryACL{}
-	_ resource.ResourceWithConfigure = &SchemaRegistryACL{}
+	_ resource.Resource                = &SchemaRegistryACL{}
+	_ resource.ResourceWithConfigure   = &SchemaRegistryACL{}
+	_ resource.ResourceWithImportState = &SchemaRegistryACL{}
 )
 
 // Metadata returns the metadata for the resource.
@@ -63,6 +70,12 @@ func (s *SchemaRegistryACL) Configure(_ context.Context, request resource.Config
 	}
 	s.resData = p
 	s.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
+
+	if s.clientFactory == nil {
+		s.clientFactory = func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, username, password string) (kclients.SchemaRegistryACLClientInterface, error) {
+			return kclients.NewSchemaRegistryACLClient(ctx, cpCl, clusterID, username, password)
+		}
+	}
 }
 
 // Schema returns the schema for the resource.
@@ -175,8 +188,14 @@ func (s *SchemaRegistryACL) Read(ctx context.Context, request resource.ReadReque
 }
 
 // Update updates a Schema Registry ACL resource
-func (*SchemaRegistryACL) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
-	// All fields require replacement, so Update is not needed
+func (*SchemaRegistryACL) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
+	var model models.SchemaRegistryACL
+	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	response.Diagnostics.Append(response.State.Set(ctx, &model)...)
 }
 
 // Delete deletes a Schema Registry ACL resource
@@ -237,8 +256,62 @@ func (s *SchemaRegistryACL) Delete(ctx context.Context, request resource.DeleteR
 	response.State.RemoveResource(ctx)
 }
 
+type importIDComponents struct {
+	clusterID    string
+	principal    string
+	resourceType string
+	resourceName string
+	patternType  string
+	host         string
+	operation    string
+	permission   string
+	username     string
+	password     string
+}
+
+func parseImportID(importID string) (*importIDComponents, error) {
+	parts := strings.Split(importID, ":")
+	if len(parts) < 10 {
+		return nil, fmt.Errorf("expected format: cluster_id:principal:resource_type:resource_name:pattern_type:host:operation:permission:username:password, got %d parts (expected at least 10)", len(parts))
+	}
+
+	return &importIDComponents{
+		clusterID:    parts[0],
+		principal:    strings.Join(parts[1:len(parts)-8], ":"),
+		resourceType: parts[len(parts)-8],
+		resourceName: parts[len(parts)-7],
+		patternType:  parts[len(parts)-6],
+		host:         parts[len(parts)-5],
+		operation:    parts[len(parts)-4],
+		permission:   parts[len(parts)-3],
+		username:     parts[len(parts)-2],
+		password:     parts[len(parts)-1],
+	}, nil
+}
+
+// ImportState imports a Schema Registry ACL resource from a colon-separated ID string
+func (*SchemaRegistryACL) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
+	components, err := parseImportID(request.ID)
+	if err != nil {
+		response.Diagnostics.AddError("Invalid import format", err.Error())
+		return
+	}
+
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("cluster_id"), components.clusterID)...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("principal"), components.principal)...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("resource_type"), components.resourceType)...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("resource_name"), components.resourceName)...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("pattern_type"), components.patternType)...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("host"), components.host)...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("operation"), components.operation)...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("permission"), components.permission)...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("username"), components.username)...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("password"), components.password)...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("id"), request.ID)...)
+}
+
 func (s *SchemaRegistryACL) getSchemaRegistryClient(ctx context.Context, model *models.SchemaRegistryACL) (kclients.SchemaRegistryACLClientInterface, error) {
-	return kclients.NewSchemaRegistryACLClient(ctx, s.CpCl, model.ClusterID.ValueString(), model.Username.ValueString(), model.Password.ValueString())
+	return s.clientFactory(ctx, s.CpCl, model.ClusterID.ValueString(), model.Username.ValueString(), model.Password.ValueString())
 }
 
 // verifyACLPropagation verifies that the ACL has been propagated and is ready for use.
