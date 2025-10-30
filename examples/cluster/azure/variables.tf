@@ -188,3 +188,9 @@ variable "acl_allow_deletion" {
   type        = bool
   default     = true
 }
+
+variable "sr_acl_allow_deletion" {
+  description = "Allow deletion of Schema Registry ACL resources"
+  type        = bool
+  default     = true
+}
