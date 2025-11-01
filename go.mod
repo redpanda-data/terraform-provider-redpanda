@@ -5,7 +5,7 @@ go 1.24.3
 toolchain go1.24.4
 
 require (
-	buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20250822165938-3142a6300fcc.2
+	buf.build/gen/go/redpandadata/cloud/grpc/go v1.5.1-20250924171732-8459758b8d3f.2
 	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.8-20250822165938-3142a6300fcc.1
 	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.5.1-20250829164938-cb01f499c363.2
 	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.8-20250829164938-cb01f499c363.1
