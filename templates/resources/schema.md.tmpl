@@ -44,14 +44,26 @@ We recommend storing Schema Registry credentials in environment variables or a s
 
 ## Import
 
-```shell
-terraform import {{.Name}}.example clusterId,subjectName,version
+Schemas can be imported using a colon-separated string with the following format:
+
+```
+cluster_id:subject:version:username:password
 ```
 
-Where:
-- `clusterId` is the ID of the cluster
-- `subjectName` is the subject name of the schema
-- `version` is the version of the schema to import
+Example imports:
+
+```shell
+# Import a schema with version 1
+terraform import redpanda_schema.example "cluster-123:user-value:1:myuser:mypassword"
+
+# Import a schema with a complex subject name
+terraform import redpanda_schema.product "cluster-456:com.example.Product-v2:5:admin:secret123"
+
+# Import schema version 0
+terraform import redpanda_schema.initial "cluster-789:test-subject:0:svc_account:p@ssw0rd"
+```
+
+**Note:** Credentials (username and password) are required for import to authenticate with the Schema Registry and verify the schema exists
 
 ## API Reference
 

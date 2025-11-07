@@ -625,6 +625,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 		t.Fatal(fmt.Errorf("failed to read test file: %w", err))
 	}
 	hasSchemaRegistryACL := strings.Contains(string(testFileContent), `resource "redpanda_schema_registry_acl" "read_product"`)
+	hasSchema := strings.Contains(string(testFileContent), `resource "redpanda_schema" "user_schema"`)
 
 	steps := []resource.TestStep{
 		{
@@ -862,6 +863,50 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				}
 				if attr["permission"] != "ALLOW" {
 					return fmt.Errorf("expected permission ALLOW; got %q", attr["permission"])
+				}
+				return nil
+			},
+			ImportStateVerifyIgnore:  []string{"allow_deletion"},
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		})
+	}
+
+	if hasSchema {
+		steps = append(steps, resource.TestStep{
+			ResourceName:    schemaResourceName,
+			ConfigDirectory: config.StaticDirectory(testFile),
+			ConfigVariables: updateTestCaseVars,
+			ImportState:     true,
+			ImportStateIdFunc: func(state *terraform.State) (string, error) {
+				rs, ok := state.RootModule().Resources[schemaResourceName]
+				if !ok {
+					return "", errors.New("schema resource not found in state")
+				}
+
+				// Import format: cluster_id:subject:version:username:password
+				clusterID := rs.Primary.Attributes["cluster_id"]
+				subject := rs.Primary.Attributes["subject"]
+				version := rs.Primary.Attributes["version"]
+				username := rs.Primary.Attributes["username"]
+				password := rs.Primary.Attributes["password"]
+
+				importID := fmt.Sprintf("%s:%s:%s:%s:%s",
+					clusterID, subject, version, username, password)
+				return importID, nil
+			},
+			ImportStateCheck: func(state []*terraform.InstanceState) error {
+				attr := state[0].Attributes
+				if attr["subject"] != name+"-value" {
+					return fmt.Errorf("expected subject %q; got %q", name+"-value", attr["subject"])
+				}
+				if attr["schema_type"] != "AVRO" {
+					return fmt.Errorf("expected schema_type AVRO; got %q", attr["schema_type"])
+				}
+				if attr["version"] == "" {
+					return errors.New("expected non-empty version")
+				}
+				if attr["id"] == "" {
+					return errors.New("expected non-empty id")
 				}
 				return nil
 			},

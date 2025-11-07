@@ -4,6 +4,7 @@ package schema
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -48,25 +49,57 @@ func (s *Schema) Configure(_ context.Context, request resource.ConfigureRequest,
 	s.CpCl = cloud.NewControlPlaneClientSet(cc.ControlPlaneConnection)
 }
 
-// ImportState imports an existing schema resource using cluster_id:subject:version format.
-func (*Schema) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
-	// Import format: "cluster_id:subject:version"
-	parts := strings.Split(request.ID, ":")
-	if len(parts) != 3 {
-		response.Diagnostics.AddError(
-			"Invalid import format",
-			"Expected format: cluster_id:subject:version",
-		)
-		return
+// importIDComponents holds the parsed components from an import ID string
+type importIDComponents struct {
+	clusterID string
+	subject   string
+	version   int64
+	username  string
+	password  string
+}
+
+// parseImportID parses the import ID string into its components
+// Expected format: "cluster_id:subject:version:username:password"
+func parseImportID(importID string) (*importIDComponents, error) {
+	parts := strings.Split(importID, ":")
+	if len(parts) != 5 {
+		return nil, fmt.Errorf("invalid import ID format: expected cluster_id:subject:version:username:password, got %d parts (expected 5)", len(parts))
 	}
 
 	clusterID := parts[0]
 	subject := parts[1]
-	version := parts[2]
+	versionStr := parts[2]
+	username := parts[3]
+	password := parts[4]
 
-	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("cluster_id"), clusterID)...)
-	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("subject"), subject)...)
-	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("version"), version)...)
+	// Parse version to int64
+	version, err := strconv.ParseInt(versionStr, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("version must be a valid integer: %w", err)
+	}
+
+	return &importIDComponents{
+		clusterID: clusterID,
+		subject:   subject,
+		version:   version,
+		username:  username,
+		password:  password,
+	}, nil
+}
+
+// ImportState imports an existing schema resource using cluster_id:subject:version:username:password format.
+func (*Schema) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
+	components, err := parseImportID(request.ID)
+	if err != nil {
+		response.Diagnostics.AddError("Invalid import format", err.Error())
+		return
+	}
+
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("cluster_id"), types.StringValue(components.clusterID))...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("subject"), types.StringValue(components.subject))...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("version"), types.Int64Value(components.version))...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("username"), types.StringValue(components.username))...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("password"), types.StringValue(components.password))...)
 }
 
 // Metadata returns the resource metadata.
