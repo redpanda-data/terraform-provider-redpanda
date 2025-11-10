@@ -1024,7 +1024,10 @@ resource "redpanda_schema" "user_schema" {
   allow_deletion = true
   
   depends_on = [
+    redpanda_acl.cluster_admin,
     redpanda_acl.schema_registry_admin,
+    redpanda_acl.cluster_action,
+    redpanda_acl.topic_access,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry,
@@ -1049,9 +1052,12 @@ resource "redpanda_schema" "user_event_schema" {
       version = redpanda_schema.user_schema.version
     }
   ]
-  
+
   depends_on = [
+    redpanda_acl.cluster_admin,
     redpanda_acl.schema_registry_admin,
+    redpanda_acl.cluster_action,
+    redpanda_acl.topic_access,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry,
@@ -1071,7 +1077,10 @@ resource "redpanda_schema" "product_schema" {
   allow_deletion = true
 
   depends_on = [
+    redpanda_acl.cluster_admin,
     redpanda_acl.schema_registry_admin,
+    redpanda_acl.cluster_action,
+    redpanda_acl.topic_access,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry,
@@ -1100,6 +1109,30 @@ resource "redpanda_acl" "schema_registry_admin" {
   principal             = "User:${redpanda_user.test.name}"
   host                  = "*"
   operation             = "ALTER"
+  permission_type       = "ALLOW"
+  cluster_api_url       = redpanda_cluster.test.cluster_api_url
+  allow_deletion        = var.acl_allow_deletion
+}
+
+resource "redpanda_acl" "cluster_action" {
+  resource_type         = "CLUSTER"
+  resource_name         = "kafka-cluster"
+  resource_pattern_type = "LITERAL"
+  principal             = "User:${redpanda_user.test.name}"
+  host                  = "*"
+  operation             = "CLUSTER_ACTION"
+  permission_type       = "ALLOW"
+  cluster_api_url       = redpanda_cluster.test.cluster_api_url
+  allow_deletion        = var.acl_allow_deletion
+}
+
+resource "redpanda_acl" "topic_access" {
+  resource_type         = "TOPIC"
+  resource_name         = var.topic_name
+  resource_pattern_type = "LITERAL"
+  principal             = "User:${redpanda_user.test.name}"
+  host                  = "*"
+  operation             = "ALL"
   permission_type       = "ALLOW"
   cluster_api_url       = redpanda_cluster.test.cluster_api_url
   allow_deletion        = var.acl_allow_deletion

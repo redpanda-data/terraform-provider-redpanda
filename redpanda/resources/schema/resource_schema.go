@@ -26,10 +26,21 @@ var (
 	_ resource.ResourceWithImportState = &Schema{}
 )
 
+// SRClienter defines the interface for Schema Registry client operations
+type SRClienter interface {
+	CreateSchema(ctx context.Context, subject string, schema sr.Schema) (sr.SubjectSchema, error)
+	SchemaByVersion(ctx context.Context, subject string, version int) (sr.SubjectSchema, error)
+	Schemas(ctx context.Context, subject string) ([]sr.SubjectSchema, error)
+	DeleteSubject(ctx context.Context, subject string, how sr.DeleteHow) ([]int, error)
+	SetCompatibility(ctx context.Context, c sr.SetCompatibility, subjects ...string) []sr.CompatibilityResult
+	Compatibility(ctx context.Context, subjects ...string) []sr.CompatibilityResult
+}
+
 // Schema represents a schema managed resource
 type Schema struct {
-	CpCl    *cloud.ControlPlaneClientSet
-	resData config.Resource
+	CpCl          *cloud.ControlPlaneClientSet
+	resData       config.Resource
+	clientFactory func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, username, password string) (SRClienter, error)
 }
 
 // Configure configures the schema resource with provider data.
@@ -120,7 +131,7 @@ func (s *Schema) Create(ctx context.Context, request resource.CreateRequest, res
 		return
 	}
 
-	client, err := kclients.GetSchemaRegistryClientForCluster(ctx, s.CpCl, plan.ClusterID.ValueString(), plan.Username.ValueString(), plan.Password.ValueString())
+	client, err := s.getClient(ctx, plan.ClusterID.ValueString(), plan.Username.ValueString(), plan.Password.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError(
 			"Failed to create Schema Registry client",
@@ -143,7 +154,7 @@ func (s *Schema) Create(ctx context.Context, request resource.CreateRequest, res
 
 	// Set compatibility level if specified
 	if !plan.Compatibility.IsNull() && !plan.Compatibility.IsUnknown() {
-		err = kclients.SetSubjectCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility.ValueString())
+		err = setSubjectCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility.ValueString())
 		if err != nil {
 			response.Diagnostics.AddError(
 				"Failed to set compatibility level",
@@ -153,17 +164,7 @@ func (s *Schema) Create(ctx context.Context, request resource.CreateRequest, res
 		}
 	} else {
 		// If compatibility is not specified, get the current compatibility level
-		compatibility, err := kclients.GetSubjectCompatibility(ctx, client, plan.Subject.ValueString())
-		if err != nil {
-			// Log warning but don't fail the resource creation
-			tflog.Warn(ctx, "Failed to get compatibility level", map[string]any{
-				"subject": plan.Subject.ValueString(),
-				"error":   err.Error(),
-			})
-			plan.Compatibility = types.StringValue(kclients.DefaultCompatibilityLevel)
-		} else {
-			plan.Compatibility = types.StringValue(compatibility)
-		}
+		plan.Compatibility = s.getOrDefaultCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility)
 	}
 
 	response.Diagnostics.Append(response.State.Set(ctx, &plan)...)
@@ -181,7 +182,7 @@ func (s *Schema) Read(ctx context.Context, request resource.ReadRequest, respons
 		return
 	}
 
-	client, err := kclients.GetSchemaRegistryClientForCluster(ctx, s.CpCl, state.ClusterID.ValueString(), state.Username.ValueString(), state.Password.ValueString())
+	client, err := s.getClient(ctx, state.ClusterID.ValueString(), state.Username.ValueString(), state.Password.ValueString())
 	if err != nil {
 		if utils.IsClusterUnreachable(err) || utils.IsPermissionDenied(err) {
 			if state.AllowDeletion.IsNull() || state.AllowDeletion.ValueBool() {
@@ -196,7 +197,7 @@ func (s *Schema) Read(ctx context.Context, request resource.ReadRequest, respons
 		return
 	}
 
-	schemaResp, err := kclients.FetchSchema(ctx, client, state.GetSubject(), state.GetVersion())
+	schemaResp, err := fetchSchema(ctx, client, state.GetSubject(), state.GetVersion())
 	if err != nil {
 		tflog.Debug(ctx, "Schema read error encountered", map[string]any{
 			"subject":              state.GetSubject(),
@@ -220,19 +221,7 @@ func (s *Schema) Read(ctx context.Context, request resource.ReadRequest, respons
 	state.UpdateFromSchema(schemaResp)
 
 	// Get compatibility level for the subject
-	compatibility, err := kclients.GetSubjectCompatibility(ctx, client, state.Subject.ValueString())
-	if err != nil {
-		tflog.Warn(ctx, "Failed to get compatibility level", map[string]any{
-			"subject": state.Subject.ValueString(),
-			"error":   err.Error(),
-		})
-		// Don't fail the read, just use the existing value or default
-		if state.Compatibility.IsNull() {
-			state.Compatibility = types.StringValue(kclients.DefaultCompatibilityLevel)
-		}
-	} else {
-		state.Compatibility = types.StringValue(compatibility)
-	}
+	state.Compatibility = s.getOrDefaultCompatibility(ctx, client, state.Subject.ValueString(), state.Compatibility)
 
 	response.Diagnostics.Append(response.State.Set(ctx, &state)...)
 }
@@ -247,7 +236,7 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 		return
 	}
 
-	client, err := kclients.GetSchemaRegistryClientForCluster(ctx, s.CpCl, plan.ClusterID.ValueString(), plan.Username.ValueString(), plan.Password.ValueString())
+	client, err := s.getClient(ctx, plan.ClusterID.ValueString(), plan.Username.ValueString(), plan.Password.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError(
 			"Failed to create Schema Registry client",
@@ -287,7 +276,7 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 
 			// Check if only compatibility changed
 			if plan.Compatibility.ValueString() != state.Compatibility.ValueString() && !plan.Compatibility.IsNull() && !plan.Compatibility.IsUnknown() {
-				err = kclients.SetSubjectCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility.ValueString())
+				err = setSubjectCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility.ValueString())
 				if err != nil {
 					response.Diagnostics.AddError(
 						"Failed to update compatibility level",
@@ -295,6 +284,10 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 					)
 					return
 				}
+				plan.Compatibility = s.getOrDefaultCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility)
+			} else {
+				// Even if compatibility didn't change, retrieve the current value for consistency
+				plan.Compatibility = s.getOrDefaultCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility)
 			}
 
 			response.Diagnostics.Append(response.State.Set(ctx, &plan)...)
@@ -316,7 +309,7 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 
 	// Update compatibility level if it changed
 	if plan.Compatibility.ValueString() != state.Compatibility.ValueString() && !plan.Compatibility.IsNull() && !plan.Compatibility.IsUnknown() {
-		err = kclients.SetSubjectCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility.ValueString())
+		err = setSubjectCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility.ValueString())
 		if err != nil {
 			response.Diagnostics.AddError(
 				"Failed to update compatibility level",
@@ -324,6 +317,11 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 			)
 			return
 		}
+		// Verify the change was applied
+		plan.Compatibility = s.getOrDefaultCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility)
+	} else {
+		// Even if compatibility didn't change, retrieve the current value
+		plan.Compatibility = s.getOrDefaultCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility)
 	}
 
 	response.Diagnostics.Append(response.State.Set(ctx, &plan)...)
@@ -337,7 +335,7 @@ func (s *Schema) Delete(ctx context.Context, request resource.DeleteRequest, res
 		return
 	}
 
-	client, err := kclients.GetSchemaRegistryClientForCluster(ctx, s.CpCl, state.ClusterID.ValueString(), state.Username.ValueString(), state.Password.ValueString())
+	client, err := s.getClient(ctx, state.ClusterID.ValueString(), state.Username.ValueString(), state.Password.ValueString())
 	if err != nil {
 		if utils.IsPermissionDenied(err) || utils.IsClusterUnreachable(err) {
 			if !state.AllowDeletion.IsNull() && !state.AllowDeletion.ValueBool() {
@@ -389,4 +387,116 @@ func (s *Schema) Delete(ctx context.Context, request resource.DeleteRequest, res
 		}
 	}
 	response.State.RemoveResource(ctx)
+}
+
+// getClient returns a Schema Registry client, using the factory if available or the default implementation
+func (s *Schema) getClient(ctx context.Context, clusterID, username, password string) (SRClienter, error) {
+	if s.clientFactory != nil {
+		return s.clientFactory(ctx, s.CpCl, clusterID, username, password)
+	}
+	client, err := kclients.GetSchemaRegistryClientForCluster(ctx, s.CpCl, clusterID, username, password)
+	if err != nil {
+		return nil, err
+	}
+	return newSchemaRegistryClientWrapper(client), nil
+}
+
+// fetchSchema fetches a schema by subject and optional version
+func fetchSchema(ctx context.Context, client SRClienter, subject string, version *int) (sr.SubjectSchema, error) {
+	if version != nil {
+		return client.SchemaByVersion(ctx, subject, *version)
+	}
+
+	schemas, err := client.Schemas(ctx, subject)
+	if err != nil {
+		return sr.SubjectSchema{}, err
+	}
+
+	if len(schemas) == 0 {
+		return sr.SubjectSchema{}, fmt.Errorf("no schemas found for subject %s", subject)
+	}
+
+	return schemas[len(schemas)-1], nil
+}
+
+// setSubjectCompatibility sets the compatibility level for a subject
+func setSubjectCompatibility(ctx context.Context, client SRClienter, subject, compatibility string) error {
+	if compatibility == "" {
+		return nil // No compatibility to set
+	}
+
+	var level sr.CompatibilityLevel
+	if err := level.UnmarshalText([]byte(strings.ToUpper(compatibility))); err != nil {
+		return fmt.Errorf("invalid compatibility level %q: %w", compatibility, err)
+	}
+
+	setCompat := sr.SetCompatibility{
+		Level: level,
+	}
+
+	results := client.SetCompatibility(ctx, setCompat, subject)
+	for _, result := range results {
+		if result.Err != nil {
+			return result.Err
+		}
+	}
+	return nil
+}
+
+// getSubjectCompatibility gets the compatibility level for a subject
+func getSubjectCompatibility(ctx context.Context, client SRClienter, subject string) (string, error) {
+	results := client.Compatibility(ctx, subject)
+
+	// Check results for the subject
+	for _, result := range results {
+		if result.Err != nil {
+			return "", fmt.Errorf("failed to get compatibility for subject %s: %w", subject, result.Err)
+		}
+		if result.Subject == subject {
+			return result.Level.String(), nil
+		}
+	}
+
+	// If no specific result found, check if we have any results
+	if len(results) > 0 && results[0].Err == nil {
+		return results[0].Level.String(), nil
+	}
+
+	// No compatibility level found for the subject
+	return "", fmt.Errorf("no compatibility level found for subject %s", subject)
+}
+
+// getOrDefaultCompatibility attempts to retrieve the compatibility level from the Schema Registry.
+// If retrieval fails and there's an existing value, it preserves that value.
+// If retrieval fails and there's no existing value, it returns the default "BACKWARD".
+// This ensures consistent error handling across Create, Read, and Update operations.
+//
+//nolint:revive,staticcheck // receiver needed for method call pattern
+func (_ *Schema) getOrDefaultCompatibility(ctx context.Context, client SRClienter, subject string, currentValue types.String) types.String {
+	compatibility, err := getSubjectCompatibility(ctx, client, subject)
+	if err != nil {
+		tflog.Warn(ctx, "Failed to get compatibility level", map[string]any{
+			"subject": subject,
+			"error":   err.Error(),
+		})
+
+		// If we have a current value (from plan or state), preserve it on error
+		if !currentValue.IsNull() && !currentValue.IsUnknown() {
+			tflog.Debug(ctx, "Preserving existing compatibility value due to API error", map[string]any{
+				"subject":       subject,
+				"current_value": currentValue.ValueString(),
+			})
+			return currentValue
+		}
+
+		// No existing value, use default
+		tflog.Debug(ctx, "Using default compatibility level due to API error", map[string]any{
+			"subject": subject,
+			"default": kclients.DefaultCompatibilityLevel,
+		})
+		return types.StringValue(kclients.DefaultCompatibilityLevel)
+	}
+
+	// Successfully retrieved from API
+	return types.StringValue(compatibility)
 }
