@@ -194,3 +194,14 @@ variable "sr_acl_allow_deletion" {
   type        = bool
   default     = true
 }
+
+variable "role_name" {
+  description = "Name of the role to create"
+  default     = "developer"
+}
+
+variable "role_allow_deletion" {
+  description = "Allow deletion of role resource"
+  type        = bool
+  default     = true
+}
