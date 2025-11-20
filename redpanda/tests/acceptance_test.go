@@ -647,6 +647,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	hasSchemaRegistryACL := strings.Contains(string(testFileContent), `resource "redpanda_schema_registry_acl" "read_product"`)
 	hasSchema := strings.Contains(string(testFileContent), `resource "redpanda_schema" "user_schema"`)
 	hasRole := strings.Contains(string(testFileContent), `resource "redpanda_role" "developer"`)
+	hasTopic := strings.Contains(string(testFileContent), `resource "redpanda_topic" "test"`)
 
 	steps := []resource.TestStep{
 		{
@@ -683,9 +684,51 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				if pw, ok := attr["password"]; ok {
 					return fmt.Errorf("expected empty password; got %q", pw)
 				}
+				if allowDeletion := attr["allow_deletion"]; allowDeletion != "false" {
+					return fmt.Errorf("expected allow_deletion to default to false; got %q", allowDeletion)
+				}
 				return nil
 			},
-			ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
+			ImportStateVerifyIgnore:  []string{"tags"},
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		},
+		{
+			ResourceName:    userResourceName,
+			ConfigDirectory: config.StaticDirectory(testFile),
+			ConfigVariables: origTestCaseVars,
+			ImportState:     true,
+			ImportStateIdFunc: func(_ *terraform.State) (string, error) {
+				i, err := c.ClusterForName(ctx, name)
+				if err != nil {
+					return "", errors.New("test error: unable to get cluster by name")
+				}
+				// Test extended import format with password and mechanism
+				importID := fmt.Sprintf("%v,%v,test-password,SCRAM-SHA-256", name, i.GetId())
+				return importID, nil
+			},
+			ImportStateCheck: func(state []*terraform.InstanceState) error {
+				attr := state[0].Attributes
+				if attr["name"] != name {
+					return fmt.Errorf("expected user name %q; got %q", name, attr["name"])
+				}
+				if attr["id"] != name {
+					return fmt.Errorf("expected ID %q; got %q", name, attr["id"])
+				}
+				if attr["password"] != "test-password" {
+					return fmt.Errorf("expected password 'test-password'; got %q", attr["password"])
+				}
+				if attr["mechanism"] != "SCRAM-SHA-256" {
+					return fmt.Errorf("expected mechanism 'SCRAM-SHA-256'; got %q", attr["mechanism"])
+				}
+				if cloudURL := attr["cluster_api_url"]; cloudURL == "" {
+					return errors.New("unexpected empty cloud URL")
+				}
+				if allowDeletion := attr["allow_deletion"]; allowDeletion != "false" {
+					return fmt.Errorf("expected allow_deletion to default to false; got %q", allowDeletion)
+				}
+				return nil
+			},
+			ImportStateVerifyIgnore:  []string{"tags"},
 			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		},
 		{
@@ -830,7 +873,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 			ConfigVariables:          updateTestCaseVars,
 			ImportState:              true,
 			ImportStateVerify:        true,
-			ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
+			ImportStateVerifyIgnore:  []string{"tags"},
 			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			Check: resource.ComposeAggregateTestCheckFunc(
 				resource.TestCheckResourceAttr(resourceGroupName, "name", name),
@@ -870,6 +913,12 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 			},
 			ImportStateCheck: func(state []*terraform.InstanceState) error {
 				attr := state[0].Attributes
+				if attr["cluster_id"] == "" {
+					return errors.New("expected non-empty cluster_id")
+				}
+				if attr["principal"] == "" {
+					return errors.New("expected non-empty principal")
+				}
 				if attr["resource_type"] != "SUBJECT" {
 					return fmt.Errorf("expected resource_type SUBJECT; got %q", attr["resource_type"])
 				}
@@ -879,15 +928,29 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				if attr["pattern_type"] != "PREFIXED" {
 					return fmt.Errorf("expected pattern_type PREFIXED; got %q", attr["pattern_type"])
 				}
+				if attr["host"] == "" {
+					return errors.New("expected non-empty host")
+				}
 				if attr["operation"] != "READ" {
 					return fmt.Errorf("expected operation READ; got %q", attr["operation"])
 				}
 				if attr["permission"] != "ALLOW" {
 					return fmt.Errorf("expected permission ALLOW; got %q", attr["permission"])
 				}
+				if attr["username"] == "" {
+					return errors.New("expected non-empty username")
+				}
+				if attr["password"] == "" {
+					return errors.New("expected non-empty password")
+				}
+				if attr["id"] == "" {
+					return errors.New("expected non-empty id")
+				}
+				if allowDeletion := attr["allow_deletion"]; allowDeletion != "false" {
+					return fmt.Errorf("expected allow_deletion to default to false; got %q", allowDeletion)
+				}
 				return nil
 			},
-			ImportStateVerifyIgnore:  []string{"allow_deletion"},
 			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		})
 	}
@@ -929,9 +992,20 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				if attr["id"] == "" {
 					return errors.New("expected non-empty id")
 				}
+				if attr["cluster_id"] == "" {
+					return errors.New("expected non-empty cluster_id")
+				}
+				if attr["username"] == "" {
+					return errors.New("expected non-empty username")
+				}
+				if attr["password"] == "" {
+					return errors.New("expected non-empty password")
+				}
+				if allowDeletion := attr["allow_deletion"]; allowDeletion != "false" {
+					return fmt.Errorf("expected allow_deletion to default to false; got %q", allowDeletion)
+				}
 				return nil
 			},
-			ImportStateVerifyIgnore:  []string{"allow_deletion"},
 			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		})
 	}
@@ -958,6 +1032,42 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				}
 				if attr["id"] != "developer" {
 					return fmt.Errorf("expected ID 'developer'; got %q", attr["id"])
+				}
+				if cloudURL := attr["cluster_api_url"]; cloudURL == "" {
+					return errors.New("expected cluster_api_url to be set after import")
+				}
+				if allowDeletion := attr["allow_deletion"]; allowDeletion != "false" {
+					return fmt.Errorf("expected allow_deletion to default to false; got %q", allowDeletion)
+				}
+				return nil
+			},
+			ImportStateVerifyIgnore:  []string{"tags"},
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		})
+	}
+
+	if hasTopic {
+		steps = append(steps, resource.TestStep{
+			ResourceName:    topicResourceName,
+			ConfigDirectory: config.StaticDirectory(testFile),
+			ConfigVariables: updateTestCaseVars,
+			ImportState:     true,
+			ImportStateIdFunc: func(_ *terraform.State) (string, error) {
+				cluster, err := c.ClusterForName(ctx, rename)
+				if err != nil {
+					return "", errors.New("test error: unable to get cluster by name")
+				}
+				// Import format: topic_name,cluster_id
+				importID := fmt.Sprintf("%s,%v", name, cluster.GetId())
+				return importID, nil
+			},
+			ImportStateCheck: func(state []*terraform.InstanceState) error {
+				attr := state[0].Attributes
+				if attr["name"] != name {
+					return fmt.Errorf("expected topic name %q; got %q", name, attr["name"])
+				}
+				if attr["id"] != name {
+					return fmt.Errorf("expected ID %q; got %q", name, attr["id"])
 				}
 				if cloudURL := attr["cluster_api_url"]; cloudURL == "" {
 					return errors.New("expected cluster_api_url to be set after import")

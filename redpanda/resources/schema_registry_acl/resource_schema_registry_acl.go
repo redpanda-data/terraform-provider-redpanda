@@ -308,6 +308,7 @@ func (*SchemaRegistryACL) ImportState(ctx context.Context, request resource.Impo
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("username"), components.username)...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("password"), components.password)...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("id"), request.ID)...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
 }
 
 func (s *SchemaRegistryACL) getSchemaRegistryClient(ctx context.Context, model *models.SchemaRegistryACL) (kclients.SchemaRegistryACLClientInterface, error) {

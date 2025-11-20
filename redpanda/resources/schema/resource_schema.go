@@ -111,6 +111,7 @@ func (*Schema) ImportState(ctx context.Context, request resource.ImportStateRequ
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("version"), types.Int64Value(components.version))...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("username"), types.StringValue(components.username))...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("password"), types.StringValue(components.password))...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
 }
 
 // Metadata returns the resource metadata.
