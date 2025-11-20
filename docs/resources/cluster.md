@@ -639,7 +639,7 @@ resource "redpanda_cluster" "test" {
   connection_type   = "public"
   throughput_tier   = var.throughput_tier
   zones             = var.zones
-  allow_deletion    = true
+  allow_deletion    = var.cluster_allow_deletion
   cluster_configuration = {
     custom_properties_json = jsonencode({
       "schema_registry_enable_authorization" = true
@@ -985,7 +985,7 @@ resource "redpanda_cluster" "test" {
   connection_type   = "public"
   throughput_tier   = var.throughput_tier
   zones             = var.zones
-  allow_deletion    = true
+  allow_deletion    = var.cluster_allow_deletion
   cluster_configuration = {
     custom_properties_json = jsonencode({
       "schema_registry_enable_authorization" = true
@@ -1359,7 +1359,7 @@ resource "redpanda_cluster" "test" {
   connection_type   = "public"
   throughput_tier   = var.throughput_tier
   zones             = var.zones
-  allow_deletion    = true
+  allow_deletion    = var.cluster_allow_deletion
   cluster_configuration = {
     custom_properties_json = jsonencode({
       "schema_registry_enable_authorization" = true
@@ -1699,7 +1699,7 @@ resource "redpanda_cluster" "test" {
   connection_type   = "public"
   throughput_tier   = var.throughput_tier
   zones             = var.zones
-  allow_deletion    = true
+  allow_deletion    = var.cluster_allow_deletion
   tags = {
     "key" = "value"
   }
@@ -1774,7 +1774,7 @@ resource "redpanda_cluster" "test" {
   connection_type   = "public"
   throughput_tier   = var.throughput_tier
   zones             = var.zones
-  allow_deletion    = true
+  allow_deletion    = var.cluster_allow_deletion
   ## This is a reference for GCP tags
   #   tags = {
   #     "key" = "value"
@@ -1853,7 +1853,7 @@ resource "redpanda_cluster" "test" {
   connection_type   = "public"
   throughput_tier   = var.throughput_tier
   zones             = var.zones
-  allow_deletion    = true
+  allow_deletion    = var.cluster_allow_deletion
   tags = {
     "key" = "value"
   }
