@@ -79,11 +79,14 @@ Note: The `cluster_api_url` must be specified in your Terraform configuration. T
 
 ## Notes
 
-- The role must already exist before it can be assigned. Roles are typically created using `rpk security role create` or through the Redpanda Console.
-- The principal should be specified as just the username (e.g., `"john.doe"`). The `User:` prefix is not needed and will be automatically stripped if provided.
+- The role must already exist before it can be assigned. Create roles using the `redpanda_role` resource, or import existing roles created via `rpk` or Redpanda Console.
+- The principal should be specified as just the username (e.g., `"john.doe"`). While Redpanda's native format is `User:username`, this resource automatically handles the `User:` prefix for you. The prefix will be automatically stripped if provided.
+- A user can have multiple role assignments simultaneously. Permissions from all assigned roles are combined.
 - Role assignments are atomic operations - you cannot update an existing assignment. To change a role assignment, delete and recreate the resource.
 - The resource uses the Redpanda gRPC SecurityService (via console endpoint) for role management operations.
 
 ## API Reference
 
-For more information, see the [Redpanda Cloud Data Plane API documentation](https://docs.redpanda.com/api/cloud-dataplane-api/).
+For more information, see:
+- [Redpanda RBAC in Data Plane](https://docs.redpanda.com/redpanda-cloud/security/authorization/rbac/rbac_dp/)
+- [Redpanda Cloud Data Plane API](https://docs.redpanda.com/api/cloud-dataplane-api/)
