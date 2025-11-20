@@ -53,6 +53,9 @@ const (
 	schemaRegistryACLReadProductName   = "redpanda_schema_registry_acl.read_product"
 	roleResourceName                   = "redpanda_role.developer"
 	roleAssignmentResourceName         = "redpanda_role_assignment.developer_assignment"
+
+	// Test assertion values
+	allowDeletionFalseValue = "false"
 )
 
 var (
@@ -596,6 +599,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
+	updateTestCaseVars["cluster_allow_deletion"] = config.BoolVariable(true)
 	updateTestCaseVars["user_allow_deletion"] = config.BoolVariable(true)
 	updateTestCaseVars["acl_allow_deletion"] = config.BoolVariable(true)
 
@@ -684,7 +688,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				if pw, ok := attr["password"]; ok {
 					return fmt.Errorf("expected empty password; got %q", pw)
 				}
-				if allowDeletion := attr["allow_deletion"]; allowDeletion != "false" {
+				if allowDeletion := attr["allow_deletion"]; allowDeletion != allowDeletionFalseValue {
 					return fmt.Errorf("expected allow_deletion to default to false; got %q", allowDeletion)
 				}
 				return nil
@@ -723,11 +727,20 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				if cloudURL := attr["cluster_api_url"]; cloudURL == "" {
 					return errors.New("unexpected empty cloud URL")
 				}
-				if allowDeletion := attr["allow_deletion"]; allowDeletion != "false" {
+				if allowDeletion := attr["allow_deletion"]; allowDeletion != allowDeletionFalseValue {
 					return fmt.Errorf("expected allow_deletion to default to false; got %q", allowDeletion)
 				}
 				return nil
 			},
+			ImportStateVerifyIgnore:  []string{"tags"},
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		},
+		{
+			ResourceName:             clusterResourceName,
+			ConfigDirectory:          config.StaticDirectory(testFile),
+			ConfigVariables:          origTestCaseVars,
+			ImportState:              true,
+			ImportStateVerify:        true,
 			ImportStateVerifyIgnore:  []string{"tags"},
 			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		},
@@ -867,20 +880,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				}(),
 			),
 		},
-		{
-			ResourceName:             clusterResourceName,
-			ConfigDirectory:          config.StaticDirectory(testFile),
-			ConfigVariables:          updateTestCaseVars,
-			ImportState:              true,
-			ImportStateVerify:        true,
-			ImportStateVerifyIgnore:  []string{"tags"},
-			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			Check: resource.ComposeAggregateTestCheckFunc(
-				resource.TestCheckResourceAttr(resourceGroupName, "name", name),
-				resource.TestCheckResourceAttr(networkResourceName, "name", name),
-				resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
-			),
-		},
 	}
 
 	if hasSchemaRegistryACL {
@@ -946,7 +945,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				if attr["id"] == "" {
 					return errors.New("expected non-empty id")
 				}
-				if allowDeletion := attr["allow_deletion"]; allowDeletion != "false" {
+				if allowDeletion := attr["allow_deletion"]; allowDeletion != allowDeletionFalseValue {
 					return fmt.Errorf("expected allow_deletion to default to false; got %q", allowDeletion)
 				}
 				return nil
@@ -1001,7 +1000,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				if attr["password"] == "" {
 					return errors.New("expected non-empty password")
 				}
-				if allowDeletion := attr["allow_deletion"]; allowDeletion != "false" {
+				if allowDeletion := attr["allow_deletion"]; allowDeletion != allowDeletionFalseValue {
 					return fmt.Errorf("expected allow_deletion to default to false; got %q", allowDeletion)
 				}
 				return nil
@@ -1036,7 +1035,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				if cloudURL := attr["cluster_api_url"]; cloudURL == "" {
 					return errors.New("expected cluster_api_url to be set after import")
 				}
-				if allowDeletion := attr["allow_deletion"]; allowDeletion != "false" {
+				if allowDeletion := attr["allow_deletion"]; allowDeletion != allowDeletionFalseValue {
 					return fmt.Errorf("expected allow_deletion to default to false; got %q", allowDeletion)
 				}
 				return nil
@@ -1072,7 +1071,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				if cloudURL := attr["cluster_api_url"]; cloudURL == "" {
 					return errors.New("expected cluster_api_url to be set after import")
 				}
-				if allowDeletion := attr["allow_deletion"]; allowDeletion != "false" {
+				if allowDeletion := attr["allow_deletion"]; allowDeletion != allowDeletionFalseValue {
 					return fmt.Errorf("expected allow_deletion to default to false; got %q", allowDeletion)
 				}
 				return nil
@@ -1081,17 +1080,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		})
 	}
-
-	destroyTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(destroyTestCaseVars, updateTestCaseVars)
-	destroyTestCaseVars["cluster_allow_deletion"] = config.BoolVariable(true)
-
-	steps = append(steps, resource.TestStep{
-		ConfigDirectory:          config.StaticDirectory(testFile),
-		ConfigVariables:          destroyTestCaseVars,
-		Destroy:                  true,
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-	})
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
@@ -1152,6 +1140,7 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
+	updateTestCaseVars["cluster_allow_deletion"] = config.BoolVariable(true)
 
 	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
 	if err != nil {
@@ -1174,21 +1163,20 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 			{
 				ResourceName:             clusterResourceName,
 				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          updateTestCaseVars,
+				ConfigVariables:          origTestCaseVars,
 				ImportState:              true,
 				ImportStateVerify:        true,
-				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
+				ImportStateVerifyIgnore:  []string{"tags"},
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			{
+				ConfigDirectory: config.StaticDirectory(testFile),
+				ConfigVariables: updateTestCaseVars,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
 					resource.TestCheckResourceAttr(networkResourceName, "name", name),
 					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
 				),
-			},
-			{
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          updateTestCaseVars,
-				Destroy:                  true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 		},
