@@ -51,6 +51,8 @@ const (
 	clusterAdminACLResourceName        = "redpanda_acl.cluster_admin"
 	topicAccessACLResourceName         = "redpanda_acl.topic_access"
 	schemaRegistryACLReadProductName   = "redpanda_schema_registry_acl.read_product"
+	roleResourceName                   = "redpanda_role.developer"
+	roleAssignmentResourceName         = "redpanda_role_assignment.developer_assignment"
 )
 
 var (
@@ -547,6 +549,24 @@ func buildTestCheckFuncs(testDir, name string) ([]resource.TestCheckFunc, error)
 		)
 	}
 
+	// Check for RBAC resources
+	if strings.Contains(testFileStr, `resource "redpanda_role" "developer"`) {
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttrSet(roleResourceName, "id"),
+			resource.TestCheckResourceAttr(roleResourceName, "name", "developer"),
+			resource.TestCheckResourceAttrSet(roleResourceName, "cluster_api_url"),
+		)
+	}
+
+	if strings.Contains(testFileStr, `resource "redpanda_role_assignment" "developer_assignment"`) {
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttrSet(roleAssignmentResourceName, "id"),
+			resource.TestCheckResourceAttr(roleAssignmentResourceName, "role_name", "developer"),
+			resource.TestCheckResourceAttr(roleAssignmentResourceName, "principal", name),
+			resource.TestCheckResourceAttrSet(roleAssignmentResourceName, "cluster_api_url"),
+		)
+	}
+
 	return checkFuncs, nil
 }
 
@@ -626,6 +646,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	}
 	hasSchemaRegistryACL := strings.Contains(string(testFileContent), `resource "redpanda_schema_registry_acl" "read_product"`)
 	hasSchema := strings.Contains(string(testFileContent), `resource "redpanda_schema" "user_schema"`)
+	hasRole := strings.Contains(string(testFileContent), `resource "redpanda_role" "developer"`)
 
 	steps := []resource.TestStep{
 		{
@@ -911,6 +932,42 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				return nil
 			},
 			ImportStateVerifyIgnore:  []string{"allow_deletion"},
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		})
+	}
+
+	if hasRole {
+		steps = append(steps, resource.TestStep{
+			ResourceName:    roleResourceName,
+			ConfigDirectory: config.StaticDirectory(testFile),
+			ConfigVariables: updateTestCaseVars,
+			ImportState:     true,
+			ImportStateIdFunc: func(_ *terraform.State) (string, error) {
+				cluster, err := c.ClusterForName(ctx, rename)
+				if err != nil {
+					return "", errors.New("test error: unable to get cluster by name")
+				}
+				// Import format: role_name,cluster_id
+				importID := fmt.Sprintf("developer,%v", cluster.GetId())
+				return importID, nil
+			},
+			ImportStateCheck: func(state []*terraform.InstanceState) error {
+				attr := state[0].Attributes
+				if attr["name"] != "developer" {
+					return fmt.Errorf("expected role name 'developer'; got %q", attr["name"])
+				}
+				if attr["id"] != "developer" {
+					return fmt.Errorf("expected ID 'developer'; got %q", attr["id"])
+				}
+				if cloudURL := attr["cluster_api_url"]; cloudURL == "" {
+					return errors.New("expected cluster_api_url to be set after import")
+				}
+				if allowDeletion := attr["allow_deletion"]; allowDeletion != "false" {
+					return fmt.Errorf("expected allow_deletion to default to false; got %q", allowDeletion)
+				}
+				return nil
+			},
+			ImportStateVerifyIgnore:  []string{"tags"},
 			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		})
 	}
