@@ -1082,9 +1082,13 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 		})
 	}
 
+	destroyTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(destroyTestCaseVars, updateTestCaseVars)
+	destroyTestCaseVars["cluster_allow_deletion"] = config.BoolVariable(true)
+
 	steps = append(steps, resource.TestStep{
 		ConfigDirectory:          config.StaticDirectory(testFile),
-		ConfigVariables:          updateTestCaseVars,
+		ConfigVariables:          destroyTestCaseVars,
 		Destroy:                  true,
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 	})

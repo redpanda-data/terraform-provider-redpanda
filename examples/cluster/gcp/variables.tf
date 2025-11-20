@@ -177,6 +177,12 @@ variable "compatibility_level" {
   default     = "FULL"
 }
 
+variable "cluster_allow_deletion" {
+  description = "Allow deletion of cluster resource"
+  type        = bool
+  default     = false
+}
+
 variable "user_allow_deletion" {
   description = "Allow deletion of user resource"
   type        = bool
