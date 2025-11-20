@@ -1,0 +1,80 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+Creates a role in a Redpanda Cluster for RBAC (Role-Based Access Control) management. Roles can be assigned to principals using the `redpanda_role_assignment` resource.
+
+## Availability
+
+RBAC is available for:
+- ✅ BYOC (Bring Your Own Cloud) clusters
+- ✅ Dedicated clusters
+- ❌ Not available for Serverless clusters
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Role Naming Best Practices
+
+When choosing role names:
+- Use **descriptive names** that clearly indicate purpose (`DataEngineers`, `ReadOnlyAnalysts`)
+- **Align with responsibilities**: Reflect actual job functions and organizational structure
+- **Prefer specificity**: Create specific roles rather than overly broad ones (`TopicReaders` vs `SuperUsers`)
+- Roles cannot be renamed once created - choose names carefully
+
+## Example Usage
+
+{{ tffile "examples/docs/role/main.tf" }}
+
+## Usage with Role Assignment
+
+Roles created with this resource can be assigned to users using the `redpanda_role_assignment` resource:
+
+```terraform
+resource "redpanda_role" "developer" {
+  name            = "developer"
+  cluster_api_url = var.cluster_api_url
+  allow_deletion  = true
+}
+
+resource "redpanda_role_assignment" "dev_assignment" {
+  role_name       = redpanda_role.developer.name
+  principal       = "john.doe"
+  cluster_api_url = var.cluster_api_url
+}
+```
+
+## Deletion Protection
+
+By default, `allow_deletion` is set to `false` to prevent accidental deletion of roles. Set this to `true` if you want Terraform to be able to delete the role when the resource is destroyed.
+
+If `allow_deletion` is `false` and the resource is destroyed, the role will remain in Redpanda but will be removed from Terraform state.
+
+## Important: Deletion Behavior
+
+When a role is deleted (with `allow_deletion = true`):
+- **All ACLs assigned to the role are automatically deleted**
+- **All user assignments to the role are automatically removed**
+- **This operation is irreversible**
+
+Consider the impact on users and permissions before deleting roles. It's recommended to review all role assignments and associated ACLs before enabling deletion.
+
+## Import
+
+```shell
+terraform import {{.Name}}.example roleName,clusterId
+```
+
+Where `clusterId` is the ID of the cluster in Redpanda Cloud.
+
+## API Reference
+
+For more information, see:
+- [Redpanda RBAC in Data Plane](https://docs.redpanda.com/redpanda-cloud/security/authorization/rbac/rbac_dp/)
+- [Redpanda Cloud Data Plane API](https://docs.redpanda.com/api/cloud-dataplane-api/)
