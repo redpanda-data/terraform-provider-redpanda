@@ -259,12 +259,28 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 	// We need multiple attributes here: Name and the cluster URL. But asking
 	// for the URL is a bad UX, so we get the cluster ID and get the URL from
 	// there.
-	split := strings.SplitN(req.ID, ",", 2)
-	if len(split) != 2 {
-		resp.Diagnostics.AddError(fmt.Sprintf("wrong ADDR ID format: %v", req.ID), "ADDR ID format is <user_name>,<cluster_id>")
+	// Import ID format supports:
+	// - <user_name>,<cluster_id>
+	// - <user_name>,<cluster_id>,<password>
+	// - <user_name>,<cluster_id>,<password>,<mechanism>
+	split := strings.Split(req.ID, ",")
+	if len(split) < 2 || len(split) > 4 {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("wrong import ID format: %v", req.ID),
+			"Import ID format is <user_name>,<cluster_id>[,<password>[,<mechanism>]]",
+		)
 		return
 	}
-	user, clusterID := split[0], split[1]
+
+	user := split[0]
+	clusterID := split[1]
+	var password, mechanism string
+	if len(split) >= 3 {
+		password = split[2]
+	}
+	if len(split) == 4 {
+		mechanism = split[3]
+	}
 
 	client := cloud.NewControlPlaneClientSet(u.resData.ControlPlaneConnection)
 	cluster, err := client.ClusterForID(ctx, clusterID)
@@ -275,7 +291,10 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 	} else {
 		serverlessCluster, serr := client.ServerlessClusterForID(ctx, clusterID)
 		if serr != nil || serverlessCluster == nil {
-			resp.Diagnostics.AddError(fmt.Sprintf("failed to find cluster with ID %q; make sure ADDR ID format is <user_name>,<cluster_id>", clusterID), utils.DeserializeGrpcError(err)+utils.DeserializeGrpcError(serr))
+			resp.Diagnostics.AddError(
+				fmt.Sprintf("failed to find cluster with ID %q; make sure import ID format is <user_name>,<cluster_id>[,<password>[,<mechanism>]]", clusterID),
+				utils.DeserializeGrpcError(err)+utils.DeserializeGrpcError(serr),
+			)
 			return
 		}
 		dataplaneURL = serverlessCluster.DataplaneApi.Url
@@ -284,6 +303,15 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(user))...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(user))...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_api_url"), dataplaneURL)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
+
+	// Set optional fields if provided during import
+	if password != "" {
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("password"), types.StringValue(password))...)
+	}
+	if mechanism != "" {
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("mechanism"), types.StringValue(mechanism))...)
+	}
 }
 
 func (u *User) createUserClient(clusterURL string) error {
