@@ -177,6 +177,12 @@ variable "compatibility_level" {
   default     = "FULL"
 }
 
+variable "cluster_allow_deletion" {
+  description = "Allow deletion of cluster resource"
+  type        = bool
+  default     = false
+}
+
 variable "user_allow_deletion" {
   description = "Allow deletion of user resource"
   type        = bool
@@ -191,6 +197,17 @@ variable "acl_allow_deletion" {
 
 variable "sr_acl_allow_deletion" {
   description = "Allow deletion of Schema Registry ACL resources"
+  type        = bool
+  default     = true
+}
+
+variable "role_name" {
+  description = "Name of the role to create"
+  default     = "developer"
+}
+
+variable "role_allow_deletion" {
+  description = "Allow deletion of role resource"
   type        = bool
   default     = true
 }

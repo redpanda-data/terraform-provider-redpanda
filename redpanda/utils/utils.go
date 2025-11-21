@@ -463,6 +463,18 @@ func SplitSchemeDefPort(url, def string) (string, error) {
 	return host + ":" + port, nil
 }
 
+// ConvertToConsoleURL converts a cluster API URL to a console URL for SecurityService operations.
+// This transformation is needed because the SecurityService uses console URLs instead of cluster API URLs.
+//
+// Example:
+//
+//	https://api-123456.cluster-id.byoc.prd.cloud.redpanda.com
+//	-> https://console-123456.cluster-id.byoc.prd.cloud.redpanda.com
+func ConvertToConsoleURL(clusterAPIURL string) string {
+	// Simple string replacement to convert api- prefix to console-
+	return strings.Replace(clusterAPIURL, "://api-", "://console-", 1)
+}
+
 // RetryGetCluster will retry a function, passing in the latest state of the given cluster id, until
 // it either no longer returns an error or times out
 func RetryGetCluster(ctx context.Context, timeout time.Duration, clusterID string, client cloud.CpClientSet, f func(*controlplanev1.Cluster) *RetryError) (*controlplanev1.Cluster, error) {

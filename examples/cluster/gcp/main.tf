@@ -28,7 +28,7 @@ resource "redpanda_cluster" "test" {
   connection_type   = "public"
   throughput_tier   = var.throughput_tier
   zones             = var.zones
-  allow_deletion    = true
+  allow_deletion    = var.cluster_allow_deletion
   cluster_configuration = {
     custom_properties_json = jsonencode({
       "schema_registry_enable_authorization" = true
@@ -320,6 +320,20 @@ resource "redpanda_schema_registry_acl" "write_registry" {
   allow_deletion = true
 
   depends_on = [redpanda_acl.schema_registry_admin]
+}
+
+resource "redpanda_role" "developer" {
+  name            = var.role_name
+  cluster_api_url = redpanda_cluster.test.cluster_api_url
+  allow_deletion  = var.role_allow_deletion
+}
+
+resource "redpanda_role_assignment" "developer_assignment" {
+  role_name       = redpanda_role.developer.name
+  principal       = redpanda_user.test.name
+  cluster_api_url = redpanda_cluster.test.cluster_api_url
+
+  depends_on = [redpanda_user.test]
 }
 
 output "user_schema_info" {

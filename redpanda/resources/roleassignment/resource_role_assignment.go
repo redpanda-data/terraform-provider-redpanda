@@ -307,7 +307,7 @@ func (r *RoleAssignment) createSecurityClient(_ context.Context, clusterURL stri
 
 	if r.dataplaneConn == nil {
 		// Convert cluster API URL to console URL for SecurityService
-		consoleURL := convertToConsoleURL(clusterURL)
+		consoleURL := utils.ConvertToConsoleURL(clusterURL)
 
 		conn, err := cloud.SpawnConn(consoleURL, r.resData.AuthToken, r.resData.ProviderVersion, r.resData.TerraformVersion)
 		if err != nil {
@@ -318,13 +318,4 @@ func (r *RoleAssignment) createSecurityClient(_ context.Context, clusterURL stri
 
 	r.SecurityClient = consolev1alpha1grpc.NewSecurityServiceClient(r.dataplaneConn)
 	return nil
-}
-
-// convertToConsoleURL converts a cluster API URL to a console URL
-// e.g., https://api-123456.cluster-id.byoc.prd.cloud.redpanda.com
-//
-//	-> https://console-123456.d110a6bu3l09un9dm4jg.byoc.prd.cloud.redpanda.com
-func convertToConsoleURL(clusterAPIURL string) string {
-	// Simple string replacement to convert api- prefix to console-
-	return strings.Replace(clusterAPIURL, "://api-", "://console-", 1)
 }

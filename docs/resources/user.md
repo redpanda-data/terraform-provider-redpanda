@@ -83,10 +83,21 @@ We are not currently able to support user creation in self hosted clusters. This
 ## Import
 
 ```shell
+# Basic import with just user name and cluster ID
 terraform import redpanda_user.example userName,clusterId
+
+# Extended import with password
+terraform import redpanda_user.example userName,clusterId,password
+
+# Extended import with password and mechanism
+terraform import redpanda_user.example userName,clusterId,password,mechanism
 ```
 
-Where clusterId is the ID of the cluster in Redpanda Cloud
+Where:
+- `userName` is the name of the user
+- `clusterId` is the ID of the cluster in Redpanda Cloud
+- `password` (optional) is the user's password to set in state after import
+- `mechanism` (optional) is the authentication mechanism (e.g., `SCRAM-SHA-256`) and can only be passed in with password
 
 ## API Reference
 

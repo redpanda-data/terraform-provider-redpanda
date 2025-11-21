@@ -1036,3 +1036,41 @@ func TestIsPermissionDenied(t *testing.T) {
 		})
 	}
 }
+
+func TestConvertToConsoleURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "standard cluster API URL",
+			input:    "https://api-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+			expected: "https://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+		},
+		{
+			name:     "URL with different cluster ID",
+			input:    "https://api-abcdef.d110a6bu3l09un9dm4jg.byoc.prd.cloud.redpanda.com",
+			expected: "https://console-abcdef.d110a6bu3l09un9dm4jg.byoc.prd.cloud.redpanda.com",
+		},
+		{
+			name:     "URL without api- prefix should not change",
+			input:    "https://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+			expected: "https://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+		},
+		{
+			name:     "http protocol",
+			input:    "http://api-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+			expected: "http://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ConvertToConsoleURL(tt.input)
+			if result != tt.expected {
+				t.Errorf("ConvertToConsoleURL(%q) = %q, expected %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}

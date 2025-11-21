@@ -77,6 +77,8 @@ func resourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 			"allow_deletion": schema.BoolAttribute{
 				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
 				Description: "Allows deletion of the cluster. Defaults to false.",
 			},
 			"tags": schema.MapAttribute{

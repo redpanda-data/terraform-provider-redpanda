@@ -2,6 +2,7 @@ package schema_registry_acl
 
 import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -97,6 +98,8 @@ func resourceSchemaRegistryACLSchema() schema.Schema {
 			},
 			"allow_deletion": schema.BoolAttribute{
 				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
 				Description: "When set to true, allows the resource to be removed from state even if deletion fails due to permission errors",
 			},
 		},
