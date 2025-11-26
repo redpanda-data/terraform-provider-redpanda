@@ -535,6 +535,75 @@ func TestFindTopicByName(t *testing.T) {
 			expectedTopic: nil,
 			expectedErr:   "connection error",
 		},
+		{
+			name: "Topic found on second page",
+			setupMock: func() {
+				// First page with token
+				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1.ListTopicsRequest{
+					Filter: &dataplanev1.ListTopicsRequest_Filter{
+						NameContains: "xyz",
+					},
+					PageToken: "",
+				}).Return(&dataplanev1.ListTopicsResponse{
+					Topics: []*dataplanev1.ListTopicsResponse_Topic{
+						{Name: "app1_xyz_logs"},
+						{Name: "app2_xyz_metrics"},
+					},
+					NextPageToken: "page2",
+				}, nil)
+				
+				// Second page without token
+				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1.ListTopicsRequest{
+					Filter: &dataplanev1.ListTopicsRequest_Filter{
+						NameContains: "xyz",
+					},
+					PageToken: "page2",
+				}).Return(&dataplanev1.ListTopicsResponse{
+					Topics: []*dataplanev1.ListTopicsResponse_Topic{
+						{Name: "xyz"},
+						{Name: "xyz_internal_data"},
+					},
+					NextPageToken: "",
+				}, nil)
+			},
+			inputName:     "xyz",
+			expectedTopic: &dataplanev1.ListTopicsResponse_Topic{Name: "xyz"},
+			expectedErr:   "",
+		},
+		{
+			name: "Topic not found after multiple pages",
+			setupMock: func() {
+				// First page
+				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1.ListTopicsRequest{
+					Filter: &dataplanev1.ListTopicsRequest_Filter{
+						NameContains: "missing",
+					},
+					PageToken: "",
+				}).Return(&dataplanev1.ListTopicsResponse{
+					Topics: []*dataplanev1.ListTopicsResponse_Topic{
+						{Name: "missing_topic1"},
+						{Name: "missing_topic2"},
+					},
+					NextPageToken: "page2",
+				}, nil)
+				
+				// Second page
+				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1.ListTopicsRequest{
+					Filter: &dataplanev1.ListTopicsRequest_Filter{
+						NameContains: "missing",
+					},
+					PageToken: "page2",
+				}).Return(&dataplanev1.ListTopicsResponse{
+					Topics: []*dataplanev1.ListTopicsResponse_Topic{
+						{Name: "missing_topic3"},
+					},
+					NextPageToken: "",
+				}, nil)
+			},
+			inputName:     "missing",
+			expectedTopic: nil,
+			expectedErr:   "topic missing not found",
+		},
 	}
 
 	for _, tc := range testCases {

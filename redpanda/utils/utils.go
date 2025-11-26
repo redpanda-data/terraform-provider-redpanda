@@ -434,17 +434,25 @@ func Int32ToNumber(i int32) types.Number {
 
 // FindTopicByName searches for a topic by name using the provided client.
 func FindTopicByName(ctx context.Context, topicName string, client dataplanev1grpc.TopicServiceClient) (*dataplanev1.ListTopicsResponse_Topic, error) {
-	topics, err := client.ListTopics(ctx, &dataplanev1.ListTopicsRequest{
-		Filter: &dataplanev1.ListTopicsRequest_Filter{
-			NameContains: topicName,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	for _, v := range topics.GetTopics() {
-		if v.GetName() == topicName {
-			return v, nil
+	var pageToken string
+	for {
+		topics, err := client.ListTopics(ctx, &dataplanev1.ListTopicsRequest{
+			Filter: &dataplanev1.ListTopicsRequest_Filter{
+				NameContains: topicName,
+			},
+			PageToken: pageToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range topics.GetTopics() {
+			if v.GetName() == topicName {
+				return v, nil
+			}
+		}
+		pageToken = topics.GetNextPageToken()
+		if pageToken == "" {
+			break
 		}
 	}
 	return nil, NotFoundError{fmt.Sprintf("topic %s not found", topicName)}
