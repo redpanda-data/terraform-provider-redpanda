@@ -29,7 +29,6 @@ func GetStateDescriptionType() map[string]attr.Type {
 	}
 }
 
-
 // GetAwsPrivateLinkType returns the type definition for AWS PrivateLink configuration
 // Used for validation and model generation
 func GetAwsPrivateLinkType() map[string]attr.Type {
@@ -40,7 +39,6 @@ func GetAwsPrivateLinkType() map[string]attr.Type {
 		"status":             types.ObjectType{AttrTypes: GetAwsPrivateLinkStatusType()},
 	}
 }
-
 
 // GetAwsPrivateLinkStatusType returns the type definition for AWS PrivateLink status
 // Used for validation and model generation
@@ -61,7 +59,6 @@ func GetAwsPrivateLinkStatusType() map[string]attr.Type {
 	}
 }
 
-
 // GetVpcEndpointConnectionType returns the type definition for VPC endpoint connection
 // Used for validation and model generation
 func GetVpcEndpointConnectionType() map[string]attr.Type {
@@ -76,7 +73,6 @@ func GetVpcEndpointConnectionType() map[string]attr.Type {
 	}
 }
 
-
 // GetDNSEntryType returns the type definition for DNS entry
 // Used for validation and model generation
 func GetDNSEntryType() map[string]attr.Type {
@@ -85,7 +81,6 @@ func GetDNSEntryType() map[string]attr.Type {
 		"hosted_zone_id": types.StringType,
 	}
 }
-
 
 // GetGcpPrivateServiceConnectType returns the type definition for GCP Private Service Connect configuration
 // Used for validation and model generation
@@ -97,7 +92,6 @@ func GetGcpPrivateServiceConnectType() map[string]attr.Type {
 		"status":                types.ObjectType{AttrTypes: GetGcpPrivateServiceConnectStatusType()},
 	}
 }
-
 
 // GetGcpPrivateServiceConnectStatusType returns the type definition for GCP Private Service Connect status
 // Used for validation and model generation
@@ -117,7 +111,6 @@ func GetGcpPrivateServiceConnectStatusType() map[string]attr.Type {
 	}
 }
 
-
 // GetConnectedEndpointType returns the type definition for connected endpoint
 // Used for validation and model generation
 func GetConnectedEndpointType() map[string]attr.Type {
@@ -129,7 +122,6 @@ func GetConnectedEndpointType() map[string]attr.Type {
 	}
 }
 
-
 // GetAzurePrivateLinkType returns the type definition for Azure Private Link configuration
 // Used for validation and model generation
 func GetAzurePrivateLinkType() map[string]attr.Type {
@@ -140,7 +132,6 @@ func GetAzurePrivateLinkType() map[string]attr.Type {
 		"status":                types.ObjectType{AttrTypes: GetAzurePrivateLinkStatusType()},
 	}
 }
-
 
 // GetAzurePrivateLinkStatusType returns the type definition for Azure Private Link status
 // Used for validation and model generation
@@ -162,7 +153,6 @@ func GetAzurePrivateLinkStatusType() map[string]attr.Type {
 	}
 }
 
-
 // GetAzureEndpointConnectionType returns the type definition for Azure endpoint connection
 // Used for validation and model generation
 func GetAzureEndpointConnectionType() map[string]attr.Type {
@@ -176,7 +166,6 @@ func GetAzureEndpointConnectionType() map[string]attr.Type {
 	}
 }
 
-
 // GetKafkaAPIType returns the type definition for Kafka API configuration
 // Used for validation and model generation
 func GetKafkaAPIType() map[string]attr.Type {
@@ -185,7 +174,6 @@ func GetKafkaAPIType() map[string]attr.Type {
 		"mtls":         types.ObjectType{AttrTypes: GetMtlsType()},
 	}
 }
-
 
 // GetMtlsType returns the type definition for MTLS configuration
 // Exported for use in schema validation tests
@@ -197,7 +185,6 @@ func GetMtlsType() map[string]attr.Type {
 	}
 }
 
-
 // GetClusterConfigurationType returns the type definition for cluster configuration
 // Used for validation and model generation
 func GetClusterConfigurationType() map[string]attr.Type {
@@ -205,7 +192,6 @@ func GetClusterConfigurationType() map[string]attr.Type {
 		"custom_properties_json": types.StringType,
 	}
 }
-
 
 // GetHTTPProxyType returns the type definition for HTTP Proxy configuration
 // Exported for use in schema validation tests
@@ -216,7 +202,6 @@ func GetHTTPProxyType() map[string]attr.Type {
 	}
 }
 
-
 // GetSchemaRegistryType returns the type definition for Schema Registry configuration
 // Used for validation and model generation
 func GetSchemaRegistryType() map[string]attr.Type {
@@ -226,7 +211,6 @@ func GetSchemaRegistryType() map[string]attr.Type {
 	}
 }
 
-
 // GetKafkaConnectType returns the type definition for Kafka Connect configuration
 // Used for validation and model generation
 func GetKafkaConnectType() map[string]attr.Type {
@@ -234,7 +218,6 @@ func GetKafkaConnectType() map[string]attr.Type {
 		"enabled": types.BoolType,
 	}
 }
-
 
 // GetCustomerManagedResourcesType returns the type definition for customer managed resources configuration
 // Used for validation and model generation
@@ -244,7 +227,6 @@ func GetCustomerManagedResourcesType() map[string]attr.Type {
 		"gcp": types.ObjectType{AttrTypes: GetGcpCmrType()},
 	}
 }
-
 
 // GetAwsCmrType returns the type definition for AWS customer managed resources
 // Used for validation and model generation
@@ -266,7 +248,6 @@ func GetAwsCmrType() map[string]attr.Type {
 	}
 }
 
-
 // GetArnContainerType returns the type definition for ARN container
 // Used for validation and model generation
 func GetArnContainerType() map[string]attr.Type {
@@ -274,7 +255,6 @@ func GetArnContainerType() map[string]attr.Type {
 		"arn": types.StringType,
 	}
 }
-
 
 // GetGcpCmrType returns the type definition for GCP customer managed resources
 // Used for validation and model generation
@@ -291,7 +271,6 @@ func GetGcpCmrType() map[string]attr.Type {
 	}
 }
 
-
 // GetGcpSubnetType returns the type definition for GCP subnet configuration
 // Used for validation and model generation
 func GetGcpSubnetType() map[string]attr.Type {
@@ -303,7 +282,6 @@ func GetGcpSubnetType() map[string]attr.Type {
 	}
 }
 
-
 // GetGcpSecondaryIPv4RangeType returns the type definition for GCP secondary IPv4 range
 // Used for validation and model generation
 func GetGcpSecondaryIPv4RangeType() map[string]attr.Type {
@@ -311,7 +289,6 @@ func GetGcpSecondaryIPv4RangeType() map[string]attr.Type {
 		"name": types.StringType,
 	}
 }
-
 
 // GetGcpServiceAccountType returns the type definition for GCP service account
 // Used for validation and model generation
@@ -321,7 +298,6 @@ func GetGcpServiceAccountType() map[string]attr.Type {
 	}
 }
 
-
 // GetGcpBucketType returns the type definition for GCP bucket
 // Used for validation and model generation
 func GetGcpBucketType() map[string]attr.Type {
@@ -329,7 +305,6 @@ func GetGcpBucketType() map[string]attr.Type {
 		"name": types.StringType,
 	}
 }
-
 
 // GetPrometheusType returns the type definition for Prometheus configuration
 // Used for validation and model generation
@@ -339,7 +314,6 @@ func GetPrometheusType() map[string]attr.Type {
 	}
 }
 
-
 // GetRedpandaConsoleType returns the type definition for Redpanda Console configuration
 // Used for validation and model generation
 func GetRedpandaConsoleType() map[string]attr.Type {
@@ -347,7 +321,6 @@ func GetRedpandaConsoleType() map[string]attr.Type {
 		"url": types.StringType,
 	}
 }
-
 
 // GetMaintenanceWindowConfigType returns the type definition for maintenance window configuration
 // Used for validation and model generation
@@ -359,7 +332,6 @@ func GetMaintenanceWindowConfigType() map[string]attr.Type {
 	}
 }
 
-
 // GetDayHourType returns the type definition for day and hour configuration
 // Used for validation and model generation
 func GetDayHourType() map[string]attr.Type {
@@ -368,7 +340,6 @@ func GetDayHourType() map[string]attr.Type {
 		"day_of_week": types.StringType,
 	}
 }
-
 
 func getAwsCmrNullAttributes() map[string]attr.Value {
 	return map[string]attr.Value{
