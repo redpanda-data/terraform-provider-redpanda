@@ -180,10 +180,7 @@ func prepareTemplateData(pairs []ModelResourcePair, nestedValidations []NestedOb
 
 	// Add nested validations
 	for _, validation := range nestedValidations {
-		data.ClusterNestedValidations = append(data.ClusterNestedValidations, ClusterNestedValidation{
-			AttributeName: validation.AttributeName,
-			TypeDefFunc:   validation.TypeDefFunc,
-		})
+		data.ClusterNestedValidations = append(data.ClusterNestedValidations, ClusterNestedValidation(validation))
 	}
 
 	for path, alias := range importMap {

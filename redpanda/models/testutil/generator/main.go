@@ -46,7 +46,7 @@ func main() {
 	}
 
 	// Discover nested object validations for cluster resource
-	fmt.Printf("\nDiscovering nested object validations for cluster resource...\n")
+	fmt.Print("\nDiscovering nested object validations for cluster resource...\n")
 	nestedValidations, err := DiscoverNestedObjectValidations()
 	if err != nil {
 		log.Fatalf("Failed to discover nested object validations: %v", err)
