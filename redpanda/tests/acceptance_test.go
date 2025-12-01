@@ -53,6 +53,7 @@ const (
 	schemaRegistryACLReadProductName   = "redpanda_schema_registry_acl.read_product"
 	roleResourceName                   = "redpanda_role.developer"
 	roleAssignmentResourceName         = "redpanda_role_assignment.developer_assignment"
+	pipelineResourceName               = "redpanda_pipeline.test"
 
 	// Test assertion values
 	allowDeletionFalseValue = "false"

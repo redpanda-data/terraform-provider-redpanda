@@ -38,6 +38,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/acl"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/cluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/network"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/pipeline"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/region"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/regions"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/resourcegroup"
@@ -431,5 +432,6 @@ func (*Redpanda) Resources(_ context.Context) []func() resource.Resource {
 		func() resource.Resource { return &roleassignment.RoleAssignment{} },
 		func() resource.Resource { return &schemaresource.Schema{} },
 		func() resource.Resource { return &schema_registry_acl.SchemaRegistryACL{} },
+		func() resource.Resource { return &pipeline.Pipeline{} },
 	}
 }
