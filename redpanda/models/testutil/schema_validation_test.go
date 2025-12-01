@@ -221,7 +221,9 @@ func TestClusterNestedObjectValidation(t *testing.T) {
 // - DEMO tests (skipped): Tests with intentional errors to demonstrate validation capabilities
 //
 // To see error detection in action:
-//   go test -v ./redpanda/models/testutil/... -run TestNestedAttributeValidationWithErrors/DEMO
+//
+//	go test -v ./redpanda/models/testutil/... -run TestNestedAttributeValidationWithErrors/DEMO
+//
 // Then comment out the t.Skip() lines in the DEMO tests.
 func TestNestedAttributeValidationWithErrors(t *testing.T) {
 	t.Run("DEMO_DetectMultipleErrorsInNestedAttributes", func(t *testing.T) {
