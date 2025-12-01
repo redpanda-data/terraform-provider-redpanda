@@ -551,6 +551,8 @@ func validateElementType(t *testing.T, schemaElementType attr.Type, expectedKind
 		if schemaElementType != types.Float64Type {
 			t.Errorf("Attribute '%s': schema ElementType is %T but expected types.Float64Type (model is []float64)", attrPath, schemaElementType)
 		}
+	default:
+		t.Errorf("Attribute '%s': unsupported element kind %v for ElementType validation", attrPath, expectedKind)
 	}
 }
 
@@ -665,19 +667,20 @@ func ValidateSchemaAgainstObjectType(t *testing.T, schemaAttrs map[string]schema
 			switch expectedAttr := expectedType.(type) {
 			case types.ListType:
 				// Check if schema is ListAttribute or ListNestedAttribute
-				if listAttr, ok := schemaAttr.(schema.ListAttribute); ok {
+				switch listSchemaAttr := schemaAttr.(type) {
+				case schema.ListAttribute:
 					// ListAttribute - verify ElementType matches
-					if listAttr.ElementType != expectedAttr.ElemType {
-						t.Errorf("Attribute '%s': schema ElementType is %T but type definition expects %T", attrPath, listAttr.ElementType, expectedAttr.ElemType)
+					if listSchemaAttr.ElementType != expectedAttr.ElemType {
+						t.Errorf("Attribute '%s': schema ElementType is %T but type definition expects %T", attrPath, listSchemaAttr.ElementType, expectedAttr.ElemType)
 					}
-				} else if listNested, ok := schemaAttr.(schema.ListNestedAttribute); ok {
+				case schema.ListNestedAttribute:
 					// ListNestedAttribute - verify type definition expects ObjectType and recursively validate
 					if objType, ok := expectedAttr.ElemType.(types.ObjectType); ok {
-						ValidateSchemaAgainstObjectType(t, listNested.NestedObject.Attributes, objType.AttrTypes, attrPath+"[]")
+						ValidateSchemaAgainstObjectType(t, listSchemaAttr.NestedObject.Attributes, objType.AttrTypes, attrPath+"[]")
 					} else {
 						t.Errorf("Attribute '%s': schema is ListNestedAttribute but type definition expects ListType with %T (should be ObjectType)", attrPath, expectedAttr.ElemType)
 					}
-				} else {
+				default:
 					t.Errorf("Attribute '%s': type definition expects ListType but schema is %T", attrPath, schemaAttr)
 				}
 

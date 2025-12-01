@@ -15,6 +15,7 @@ import (
 	aclres "github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/acl"
 	clusterres "github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/cluster"
 	networkres "github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/network"
+	pipelineres "github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/pipeline"
 	regionres "github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/region"
 	regionsres "github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/regions"
 	resourcegroupres "github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/resourcegroup"
@@ -58,6 +59,11 @@ var allResourceTests = []struct {
 		name:     "ACL",
 		model:    models.ACL{},
 		resource: &aclres.ACL{},
+	},
+	{
+		name:     "Pipeline",
+		model:    models.Pipeline{},
+		resource: &pipelineres.Pipeline{},
 	},
 	{
 		name:     "Role",
