@@ -90,6 +90,14 @@ tasks:
           echo "✗ tfplugindocs: not installed"
         fi
 
+  generate:
+    desc: "Run go generate for schema-model validation tests"
+    dir: redpanda/utils/testutil
+    cmds:
+      - echo "Generating schema-model validation tests..."
+      - go generate .
+      - echo "Generation complete"
+
   default:
     desc: "Show tool installation status"
     cmds:
