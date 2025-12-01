@@ -374,24 +374,24 @@ func TestResourceModel_GetClusterCreate(t *testing.T) {
 				RedpandaVersion: types.StringValue("v24.3.1"),
 				AllowDeletion:   types.BoolValue(true),
 				CustomerManagedResources: types.ObjectValueMust(
-					getCustomerManagedResourcesType(),
+					GetCustomerManagedResourcesType(),
 					map[string]attr.Value{
-						"aws": types.ObjectNull(getAwsCmrType()),
+						"aws": types.ObjectNull(GetAwsCmrType()),
 						"gcp": types.ObjectValueMust(
-							getGcpCmrType(),
+							GetGcpCmrType(),
 							map[string]attr.Value{
 								"subnet": types.ObjectValueMust(
-									getGcpSubnetType(),
+									GetGcpSubnetType(),
 									map[string]attr.Value{
 										"name": types.StringValue("redpanda-subnet-testname"),
 										"secondary_ipv4_range_pods": types.ObjectValueMust(
-											getGcpSecondaryIPv4RangeType(),
+											GetGcpSecondaryIPv4RangeType(),
 											map[string]attr.Value{
 												"name": types.StringValue("redpanda-pods-testname"),
 											},
 										),
 										"secondary_ipv4_range_services": types.ObjectValueMust(
-											getGcpSecondaryIPv4RangeType(),
+											GetGcpSecondaryIPv4RangeType(),
 											map[string]attr.Value{
 												"name": types.StringValue("redpanda-services-testname"),
 											},
@@ -400,37 +400,37 @@ func TestResourceModel_GetClusterCreate(t *testing.T) {
 									},
 								),
 								"agent_service_account": types.ObjectValueMust(
-									getGcpServiceAccountType(),
+									GetGcpServiceAccountType(),
 									map[string]attr.Value{
 										"email": types.StringValue("redpanda-agent-testname@project.iam.gserviceaccount.com"),
 									},
 								),
 								"console_service_account": types.ObjectValueMust(
-									getGcpServiceAccountType(),
+									GetGcpServiceAccountType(),
 									map[string]attr.Value{
 										"email": types.StringValue("redpanda-console-testname@project.iam.gserviceaccount.com"),
 									},
 								),
 								"connector_service_account": types.ObjectValueMust(
-									getGcpServiceAccountType(),
+									GetGcpServiceAccountType(),
 									map[string]attr.Value{
 										"email": types.StringValue("redpanda-connector-testname@project.iam.gserviceaccount.com"),
 									},
 								),
 								"redpanda_cluster_service_account": types.ObjectValueMust(
-									getGcpServiceAccountType(),
+									GetGcpServiceAccountType(),
 									map[string]attr.Value{
 										"email": types.StringValue("redpanda-cluster-testname@project.iam.gserviceaccount.com"),
 									},
 								),
 								"gke_service_account": types.ObjectValueMust(
-									getGcpServiceAccountType(),
+									GetGcpServiceAccountType(),
 									map[string]attr.Value{
 										"email": types.StringValue("redpanda-gke-testname@project.iam.gserviceaccount.com"),
 									},
 								),
 								"tiered_storage_bucket": types.ObjectValueMust(
-									getGcpBucketType(),
+									GetGcpBucketType(),
 									map[string]attr.Value{
 										"name": types.StringValue("redpanda-storage-testname"),
 									},
@@ -558,50 +558,50 @@ func TestResourceModel_GetClusterCreate(t *testing.T) {
 				RedpandaVersion: types.StringValue("v24.3.1"),
 				AllowDeletion:   types.BoolValue(true),
 				CustomerManagedResources: types.ObjectValueMust(
-					getCustomerManagedResourcesType(),
+					GetCustomerManagedResourcesType(),
 					map[string]attr.Value{
-						"gcp": types.ObjectNull(getGcpCmrType()),
+						"gcp": types.ObjectNull(GetGcpCmrType()),
 						"aws": types.ObjectValueMust(
-							getAwsCmrType(),
+							GetAwsCmrType(),
 							map[string]attr.Value{
 								"agent_instance_profile": types.ObjectValueMust(
-									getArnContainerType(),
+									GetArnContainerType(),
 									map[string]attr.Value{
 										"arn": types.StringValue("arn:aws:iam::123456789012:instance-profile/redpanda-byovpc-agent-instance-profile"),
 									},
 								),
 								"cloud_storage_bucket": types.ObjectValueMust(
-									getArnContainerType(),
+									GetArnContainerType(),
 									map[string]attr.Value{
 										"arn": types.StringValue("arn:aws:s3:::redpanda-byovpc-cloud-storage-bucket"),
 									},
 								),
 								"k8s_cluster_role": types.ObjectValueMust(
-									getArnContainerType(),
+									GetArnContainerType(),
 									map[string]attr.Value{
 										"arn": types.StringValue("arn:aws:iam::123456789012:role/redpanda-byovpc-k8s-cluster-role"),
 									},
 								),
 								"redpanda_agent_security_group": types.ObjectValueMust(
-									getArnContainerType(),
+									GetArnContainerType(),
 									map[string]attr.Value{
 										"arn": types.StringValue("arn:aws:ec2:us-east-2:123456789012:security-group/sg-agent123"),
 									},
 								),
 								"cluster_security_group": types.ObjectValueMust(
-									getArnContainerType(),
+									GetArnContainerType(),
 									map[string]attr.Value{
 										"arn": types.StringValue("arn:aws:ec2:us-east-2:123456789012:security-group/sg-cluster123"),
 									},
 								),
-								"connectors_node_group_instance_profile": types.ObjectNull(getArnContainerType()),
-								"utility_node_group_instance_profile":    types.ObjectNull(getArnContainerType()),
-								"redpanda_node_group_instance_profile":   types.ObjectNull(getArnContainerType()),
-								"connectors_security_group":              types.ObjectNull(getArnContainerType()),
-								"redpanda_node_group_security_group":     types.ObjectNull(getArnContainerType()),
-								"utility_security_group":                 types.ObjectNull(getArnContainerType()),
-								"node_security_group":                    types.ObjectNull(getArnContainerType()),
-								"permissions_boundary_policy":            types.ObjectNull(getArnContainerType()),
+								"connectors_node_group_instance_profile": types.ObjectNull(GetArnContainerType()),
+								"utility_node_group_instance_profile":    types.ObjectNull(GetArnContainerType()),
+								"redpanda_node_group_instance_profile":   types.ObjectNull(GetArnContainerType()),
+								"connectors_security_group":              types.ObjectNull(GetArnContainerType()),
+								"redpanda_node_group_security_group":     types.ObjectNull(GetArnContainerType()),
+								"utility_security_group":                 types.ObjectNull(GetArnContainerType()),
+								"node_security_group":                    types.ObjectNull(GetArnContainerType()),
+								"permissions_boundary_policy":            types.ObjectNull(GetArnContainerType()),
 							},
 						),
 					},
@@ -823,7 +823,7 @@ func TestResourceModel_GenerateClusterConfiguration(t *testing.T) {
 func TestClusterConfigurationConsistency(t *testing.T) {
 	t.Run("plan_apply_consistency_empty_config", func(t *testing.T) {
 		planModel := &ResourceModel{
-			ClusterConfiguration: types.ObjectNull(getClusterConfigurationType()),
+			ClusterConfiguration: types.ObjectNull(GetClusterConfigurationType()),
 		}
 
 		applyCluster := &controlplanev1.Cluster{
@@ -838,7 +838,7 @@ func TestClusterConfigurationConsistency(t *testing.T) {
 
 	t.Run("plan_apply_consistency_with_empty_json", func(t *testing.T) {
 		planModel := &ResourceModel{
-			ClusterConfiguration: types.ObjectNull(getClusterConfigurationType()),
+			ClusterConfiguration: types.ObjectNull(GetClusterConfigurationType()),
 		}
 
 		emptyProps, err := structpb.NewStruct(map[string]any{})
@@ -859,7 +859,7 @@ func TestClusterConfigurationConsistency(t *testing.T) {
 	t.Run("plan_apply_consistency_object_with_null_field", func(t *testing.T) {
 		planModel := &ResourceModel{
 			ClusterConfiguration: types.ObjectValueMust(
-				getClusterConfigurationType(),
+				GetClusterConfigurationType(),
 				map[string]attr.Value{
 					"custom_properties_json": types.StringNull(),
 				},
@@ -877,7 +877,7 @@ func TestClusterConfigurationConsistency(t *testing.T) {
 	t.Run("plan_apply_consistency_with_actual_properties", func(t *testing.T) {
 		planModel := &ResourceModel{
 			ClusterConfiguration: types.ObjectValueMust(
-				getClusterConfigurationType(),
+				GetClusterConfigurationType(),
 				map[string]attr.Value{
 					"custom_properties_json": types.StringValue(`{"log.retention.ms":"604800000"}`),
 				},
