@@ -8,8 +8,8 @@ buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.8-20250822165938-31
 buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.8-20250822165938-3142a6300fcc.1/go.mod h1:ukKlbqubBun3ZNtvK7WIx+SlwoXlZZznbHLWZM7SmdQ=
 buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.8-20250504123906-40b63a811436.1 h1:V91taNnhYfnvxOB3bEuGoskxf7HA1u5oLhOmwgOcPEE=
 buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.8-20250504123906-40b63a811436.1/go.mod h1:3kW2jQGAxQeAS66/6IUt7CCfctsgwxkRGnWyflHzRUM=
-buf.build/gen/go/redpandadata/dataplane/grpc/go v1.5.1-20250829164938-cb01f499c363.2 h1:Ehz7txIMkEywAJvYOVFIfdHvGkacZIeI2m0mzonZHio=
-buf.build/gen/go/redpandadata/dataplane/grpc/go v1.5.1-20250829164938-cb01f499c363.2/go.mod h1:ly/KduQKsJ8o/3FEKJMjDzHTzQ5zmHtOe8VKEA6lqCk=
+buf.build/gen/go/redpandadata/dataplane/grpc/go v1.5.1-20250930133505-04cb35cecb9f.2 h1:dL6cfrtRA/3r2oFm4zBLzTUE54ZcvCR4RhCVMV1wM1Y=
+buf.build/gen/go/redpandadata/dataplane/grpc/go v1.5.1-20250930133505-04cb35cecb9f.2/go.mod h1:MGdy0VXZLPbFdqP/9RL1eUBUdSrVhP6CBCpgoY04Pio=
 buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.8-20250829164938-cb01f499c363.1 h1:+i2ZE4pmgcpAlS+s3e6VK4WkqMPuu3XScuX3trUwmlk=
 buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.8-20250829164938-cb01f499c363.1/go.mod h1:y6r17DkRRqFHcpVuLHTr3hi9aGduswzGctfPMEr7ixA=
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
