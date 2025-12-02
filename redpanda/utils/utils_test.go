@@ -551,7 +551,7 @@ func TestFindTopicByName(t *testing.T) {
 					},
 					NextPageToken: "page2",
 				}, nil)
-				
+
 				// Second page without token
 				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1.ListTopicsRequest{
 					Filter: &dataplanev1.ListTopicsRequest_Filter{
@@ -586,7 +586,7 @@ func TestFindTopicByName(t *testing.T) {
 					},
 					NextPageToken: "page2",
 				}, nil)
-				
+
 				// Second page
 				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1.ListTopicsRequest{
 					Filter: &dataplanev1.ListTopicsRequest_Filter{
