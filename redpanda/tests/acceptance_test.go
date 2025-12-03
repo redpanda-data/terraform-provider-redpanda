@@ -53,6 +53,7 @@ const (
 	schemaRegistryACLReadProductName   = "redpanda_schema_registry_acl.read_product"
 	roleResourceName                   = "redpanda_role.developer"
 	roleAssignmentResourceName         = "redpanda_role_assignment.developer_assignment"
+	pipelineResourceName               = "redpanda_pipeline.test"
 
 	// Test assertion values
 	allowDeletionFalseValue = "false"
@@ -570,6 +571,15 @@ func buildTestCheckFuncs(testDir, name string) ([]resource.TestCheckFunc, error)
 		)
 	}
 
+	if strings.Contains(testFileStr, `resource "redpanda_pipeline" "test"`) {
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttrSet(pipelineResourceName, "id"),
+			resource.TestCheckResourceAttr(pipelineResourceName, "display_name", "test-pipeline"),
+			resource.TestCheckResourceAttrSet(pipelineResourceName, "state"),
+			resource.TestCheckResourceAttrSet(pipelineResourceName, "cluster_api_url"),
+		)
+	}
+
 	return checkFuncs, nil
 }
 
@@ -652,6 +662,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	hasSchema := strings.Contains(string(testFileContent), `resource "redpanda_schema" "user_schema"`)
 	hasRole := strings.Contains(string(testFileContent), `resource "redpanda_role" "developer"`)
 	hasTopic := strings.Contains(string(testFileContent), `resource "redpanda_topic" "test"`)
+	hasPipeline := strings.Contains(string(testFileContent), `resource "redpanda_pipeline" "test"`)
 
 	steps := []resource.TestStep{
 		{
@@ -1077,6 +1088,51 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				return nil
 			},
 			ImportStateVerifyIgnore:  []string{"tags"},
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		})
+	}
+
+	if hasPipeline {
+		steps = append(steps, resource.TestStep{
+			ResourceName:    pipelineResourceName,
+			ConfigDirectory: config.StaticDirectory(testFile),
+			ConfigVariables: updateTestCaseVars,
+			ImportState:     true,
+			ImportStateIdFunc: func(state *terraform.State) (string, error) {
+				rs, ok := state.RootModule().Resources[pipelineResourceName]
+				if !ok {
+					return "", errors.New("pipeline resource not found in state")
+				}
+				pipelineID := rs.Primary.Attributes["id"]
+				cluster, err := c.ClusterForName(ctx, rename)
+				if err != nil {
+					return "", errors.New("test error: unable to get cluster by name")
+				}
+				// Import format: pipeline_id,cluster_id
+				importID := fmt.Sprintf("%s,%v", pipelineID, cluster.GetId())
+				return importID, nil
+			},
+			ImportStateCheck: func(state []*terraform.InstanceState) error {
+				attr := state[0].Attributes
+				if attr["id"] == "" {
+					return errors.New("expected non-empty id")
+				}
+				if attr["display_name"] != "test-pipeline" {
+					return fmt.Errorf("expected display_name 'test-pipeline'; got %q", attr["display_name"])
+				}
+				if cloudURL := attr["cluster_api_url"]; cloudURL == "" {
+					return errors.New("expected cluster_api_url to be set after import")
+				}
+				if attr["state"] == "" {
+					return errors.New("expected non-empty state")
+				}
+				// start_after_create defaults to false on import
+				if attr["start_after_create"] != "false" {
+					return fmt.Errorf("expected start_after_create to default to false; got %q", attr["start_after_create"])
+				}
+				return nil
+			},
+			ImportStateVerifyIgnore:  []string{"config_yaml", "description", "resources", "tags"},
 			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		})
 	}
