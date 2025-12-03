@@ -57,9 +57,8 @@ func resourceClusterSchema(ctx context.Context) schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"throughput_tier": schema.StringAttribute{
-				Required:      true,
-				Description:   "Usage tier of the cluster. WARNING: Do not modify after it is set. When allow_deletion is true, modifying this forces replacement of the cluster - Terraform will destroy the existing cluster and create a new one, causing data loss.",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Required:    true,
+				Description: "Usage tier of the cluster.",
 			},
 			"region": schema.StringAttribute{
 				Required:      true,

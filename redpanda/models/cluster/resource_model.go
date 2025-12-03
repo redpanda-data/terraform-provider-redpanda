@@ -382,7 +382,9 @@ func (r *ResourceModel) getClusterUpdate(ctx context.Context) (*controlplanev1.C
 		update.CloudProviderTags = utils.TypeMapToStringMap(r.Tags)
 	}
 
-	// Note: ThroughputTier is not updatable in ClusterUpdate (field doesn't exist)
+	if !r.ThroughputTier.IsNull() {
+		update.ThroughputTier = r.ThroughputTier.ValueString()
+	}
 
 	if !r.KafkaAPI.IsNull() {
 		kafkaSpec, d := r.generateClusterKafkaAPISpec(ctx)
