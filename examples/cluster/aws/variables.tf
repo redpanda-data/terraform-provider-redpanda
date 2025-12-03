@@ -55,6 +55,12 @@ variable "schema_type" {
   default     = "AVRO"
 }
 
+variable "cluster_enable_shadow_linking" {
+  description = "Enable shadowlinking"
+  type        = bool
+  default     = true
+}
+
 variable "user_schema_definition" {
   description = "The AVRO schema definition for user data"
   default     = <<EOF
@@ -211,3 +217,4 @@ variable "role_allow_deletion" {
   type        = bool
   default     = true
 }
+
