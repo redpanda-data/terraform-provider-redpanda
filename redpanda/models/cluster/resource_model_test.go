@@ -652,6 +652,7 @@ func TestResourceModel_GetClusterUpdateRequest(t *testing.T) {
 			model: &ResourceModel{
 				ID:              types.StringValue("rp-abc123def"),
 				RedpandaVersion: types.StringValue("v24.3.2"),
+				ThroughputTier:  types.StringValue("tier2"),
 				Tags: types.MapValueMust(types.StringType, map[string]attr.Value{
 					"key":         types.StringValue("new-value"),
 					"environment": types.StringValue("production"),
@@ -660,6 +661,7 @@ func TestResourceModel_GetClusterUpdateRequest(t *testing.T) {
 			previousState: &ResourceModel{
 				ID:              types.StringValue("rp-abc123def"),
 				RedpandaVersion: types.StringValue("v24.3.1"),
+				ThroughputTier:  types.StringValue("tier1"),
 				Tags: types.MapValueMust(types.StringType, map[string]attr.Value{
 					"key": types.StringValue("value"),
 				}),
