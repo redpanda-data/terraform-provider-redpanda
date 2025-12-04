@@ -291,6 +291,7 @@ steps:
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLOUD_ENVIRONMENT=pre
             - CI=true
     depends_on:
       - test_cluster_aws
