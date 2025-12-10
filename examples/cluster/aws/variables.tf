@@ -218,3 +218,49 @@ variable "role_allow_deletion" {
   default     = true
 }
 
+variable "pipeline_name" {
+  description = "Name of the pipeline"
+  default     = "test-pipeline"
+}
+
+variable "pipeline_description" {
+  description = "Description of the pipeline"
+  default     = "Test pipeline for acceptance testing"
+}
+
+variable "pipeline_config_yaml" {
+  description = "Pipeline configuration in YAML format"
+  default     = <<EOF
+input:
+  generate:
+    interval: "1s"
+    mapping: |
+      root.message = "hello world"
+      root.timestamp = now()
+
+output:
+  drop: {}
+EOF
+}
+
+variable "pipeline_state" {
+  description = "Desired state of the pipeline: 'running' or 'stopped'"
+  type        = string
+  default     = "stopped"
+}
+
+variable "pipeline_memory_shares" {
+  description = "Memory allocation for the pipeline"
+  default     = "256Mi"
+}
+
+variable "pipeline_cpu_shares" {
+  description = "CPU allocation for the pipeline"
+  default     = "200m"
+}
+
+variable "pipeline_allow_deletion" {
+  description = "Allow deletion of pipeline resource"
+  type        = bool
+  default     = false
+}
