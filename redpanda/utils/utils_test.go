@@ -538,7 +538,6 @@ func TestFindTopicByName(t *testing.T) {
 		{
 			name: "Topic found on second page",
 			setupMock: func() {
-				// First page with token
 				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1.ListTopicsRequest{
 					Filter: &dataplanev1.ListTopicsRequest_Filter{
 						NameContains: "xyz",
@@ -552,7 +551,6 @@ func TestFindTopicByName(t *testing.T) {
 					NextPageToken: "page2",
 				}, nil)
 
-				// Second page without token
 				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1.ListTopicsRequest{
 					Filter: &dataplanev1.ListTopicsRequest_Filter{
 						NameContains: "xyz",
@@ -573,7 +571,6 @@ func TestFindTopicByName(t *testing.T) {
 		{
 			name: "Topic not found after multiple pages",
 			setupMock: func() {
-				// First page
 				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1.ListTopicsRequest{
 					Filter: &dataplanev1.ListTopicsRequest_Filter{
 						NameContains: "missing",
@@ -587,7 +584,6 @@ func TestFindTopicByName(t *testing.T) {
 					NextPageToken: "page2",
 				}, nil)
 
-				// Second page
 				mockClient.EXPECT().ListTopics(gomock.Any(), &dataplanev1.ListTopicsRequest{
 					Filter: &dataplanev1.ListTopicsRequest_Filter{
 						NameContains: "missing",
@@ -630,9 +626,7 @@ func TestFindTopicByName(t *testing.T) {
 }
 
 func normalizeString(s string) string {
-	// Replace all whitespace with single spaces
 	s = strings.Join(strings.Fields(s), " ")
-	// Normalize line endings
 	s = strings.ReplaceAll(s, "\r\n", "\n")
 	return s
 }
@@ -835,20 +829,17 @@ func TestRetryGetCluster(t *testing.T) {
 				var notFoundErr NotFoundError
 				switch {
 				case errors.As(tc.expectedErr, &timeoutErr):
-					// For timeout errors, verify the type and properties
 					var actualTimeoutErr *TimeoutError
 					if assert.True(t, errors.As(err, &actualTimeoutErr), "expected TimeoutError") {
 						assert.Equal(t, timeoutErr.Timeout, actualTimeoutErr.Timeout)
 						assert.Equal(t, timeoutErr.Wrapped.Error(), actualTimeoutErr.Wrapped.Error())
 					}
 				case errors.As(tc.expectedErr, &notFoundErr):
-					// For NotFoundError, verify the type and message
 					var actualNotFoundErr NotFoundError
 					if assert.True(t, errors.As(err, &actualNotFoundErr), "expected NotFoundError") {
 						assert.Equal(t, notFoundErr.Message, actualNotFoundErr.Message)
 					}
 				default:
-					// For other errors, compare the error messages
 					assert.Equal(t, tc.expectedErr.Error(), err.Error())
 				}
 			}
@@ -868,7 +859,6 @@ func TestIsNil(t *testing.T) {
 		value    any
 		expected bool
 	}{
-		// Nil-able types that are nil
 		{
 			name:     "nil pointer",
 			value:    (*int)(nil),
@@ -899,8 +889,6 @@ func TestIsNil(t *testing.T) {
 			value:    chan int(nil),
 			expected: true,
 		},
-
-		// Nil-able types that are not nil
 		{
 			name:     "non-nil pointer",
 			value:    new(int),
@@ -931,8 +919,6 @@ func TestIsNil(t *testing.T) {
 			value:    make(chan int),
 			expected: false,
 		},
-
-		// Non-nil-able types (should always return false)
 		{
 			name:     "int value",
 			value:    42,
@@ -988,18 +974,13 @@ func TestIsNil(t *testing.T) {
 	}
 }
 
-// TestIsNilGenericTypes tests the function with specific generic type constraints
 func TestIsNilGenericTypes(t *testing.T) {
-	// Test with specific types to ensure generics work correctly
-
-	// Test with string pointer
 	var strPtr *string
 	assert.True(t, IsNil(strPtr), "nil string pointer should be nil")
 
 	nonNilStrPtr := new(string)
 	assert.False(t, IsNil(nonNilStrPtr), "non-nil string pointer should not be nil")
 
-	// Test with custom struct pointer
 	type CustomStruct struct {
 		Field string
 	}
@@ -1009,30 +990,21 @@ func TestIsNilGenericTypes(t *testing.T) {
 	nonNilCustomPtr := &CustomStruct{}
 	assert.False(t, IsNil(nonNilCustomPtr), "non-nil custom struct pointer should not be nil")
 
-	// Test with interface containing nil pointer
 	var nilInterface any = (*int)(nil)
 	assert.True(t, IsNil(nilInterface), "interface containing nil pointer should be nil")
 
-	// Test with truly nil interface
 	var trueNilInterface any
 	assert.True(t, IsNil(trueNilInterface), "truly nil interface should be nil")
 }
 
-// TestIsNilEdgeCases tests edge cases and reflect.Invalid scenarios
 func TestIsNilEdgeCases(t *testing.T) {
-	// Test with reflect.Value of Invalid kind (though this is hard to create directly)
-	// The function handles reflect.Invalid by returning true
-
-	// Test with nested pointers
 	var nestedPtr **int
 	assert.True(t, IsNil(nestedPtr), "nil nested pointer should be nil")
 
-	// Test with pointer to nil pointer
 	var innerPtr *int
 	nestedPtrToNil := &innerPtr
 	assert.False(t, IsNil(nestedPtrToNil), "pointer to nil pointer should not be nil itself")
 
-	// Test with slice of pointers
 	var sliceOfPtrs []*int
 	assert.True(t, IsNil(sliceOfPtrs), "nil slice of pointers should be nil")
 
@@ -1139,6 +1111,74 @@ func TestConvertToConsoleURL(t *testing.T) {
 			result := ConvertToConsoleURL(tt.input)
 			if result != tt.expected {
 				t.Errorf("ConvertToConsoleURL(%q) = %q, expected %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestParseCPUToMillicores(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expected    int64
+		expectError bool
+	}{
+		{"100m", "100m", 100, false},
+		{"500m", "500m", 500, false},
+		{"1000m", "1000m", 1000, false},
+		{"1 core", "1", 1000, false},
+		{"2 cores", "2", 2000, false},
+		{"0.5 cores", "0.5", 500, false},
+		{"1.5 cores", "1.5", 1500, false},
+		{"empty", "", 0, true},
+		{"invalid", "abc", 0, true},
+		{"invalid millicores", "abcm", 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseCPUToMillicores(tt.input)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestParseMemoryToBytes(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expected    int64
+		expectError bool
+	}{
+		{"256Ki", "256Ki", 256 * 1024, false},
+		{"512Mi", "512Mi", 512 * 1024 * 1024, false},
+		{"1Gi", "1Gi", 1024 * 1024 * 1024, false},
+		{"2Gi", "2Gi", 2 * 1024 * 1024 * 1024, false},
+		{"128M", "128M", 128 * 1000 * 1000, false},
+		{"1G", "1G", 1000 * 1000 * 1000, false},
+		{"500k", "500k", 500 * 1000, false},
+		{"1024 bytes", "1024", 1024, false},
+		{"1048576 bytes", "1048576", 1048576, false},
+		{"1.5Gi", "1.5Gi", int64(1.5 * 1024 * 1024 * 1024), false},
+		{"2.5M", "2.5M", int64(2.5 * 1000 * 1000), false},
+		{"empty", "", 0, true},
+		{"invalid", "abc", 0, true},
+		{"invalid suffix", "100X", 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseMemoryToBytes(tt.input)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, result)
 			}
 		})
 	}
