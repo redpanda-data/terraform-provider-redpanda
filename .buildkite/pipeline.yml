@@ -276,3 +276,31 @@ steps:
     allow_dependency_failure: true
     soft_fail: true
 
+  - label: cleanup_redpanda_cloud
+    key: cleanup_redpanda_cloud
+    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
+    command: |
+      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+      task cleanup:redpanda || echo "Redpanda Cloud cleanup completed with errors (non-blocking)"
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.11.0:
+          image: "golang:1.24"
+          environment:
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLOUD_ENVIRONMENT=pre
+            - CI=true
+    depends_on:
+      - test_cluster_aws
+      - test_cluster_azure
+      - test_cluster_gcp
+      - test_serverless_cluster
+      - test_byoc_aws
+      - test_byoc_gcp
+      - test_byoc_azure
+    allow_dependency_failure: true
+    soft_fail: true
+

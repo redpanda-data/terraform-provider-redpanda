@@ -28,3 +28,4 @@ package mocks
 //go:generate mockgen -destination=./mock_schema_registry_acl_client.go -package=mocks github.com/redpanda-data/terraform-provider-redpanda/redpanda/kclients SchemaRegistryACLClientInterface
 //go:generate mockgen -destination=./mock_schema_registry_client.go -package=mocks github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/schema SRClienter
 //go:generate mockgen -destination=./mock_security_service_client.go -package=mocks buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/console/v1alpha1/consolev1alpha1grpc SecurityServiceClient
+//go:generate mockgen -destination=./mock_pipeline_service_client.go -package=mocks buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc PipelineServiceClient

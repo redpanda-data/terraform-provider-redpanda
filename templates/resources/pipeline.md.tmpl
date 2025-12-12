@@ -1,0 +1,28 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+{{ tffile "examples/docs/pipeline/main.tf" }}
+
+## Import
+
+```shell
+terraform import {{.Name}}.example pipelineId,clusterId
+```
+
+Where `pipelineId` is the ID of the pipeline and `clusterId` is the ID of the cluster in Redpanda Cloud.
+
+## API Reference
+
+For more information, see the [Redpanda Cloud Data Plane API documentation](https://docs.redpanda.com/api/cloud-dataplane-api/).

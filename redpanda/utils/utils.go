@@ -40,6 +40,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	grpccodes "google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 const providerUnspecified = "unspecified"
@@ -100,16 +101,13 @@ func IsClusterUnreachable(err error) bool {
 		return false
 	}
 
-	// Check for gRPC Unavailable status with name resolver error
 	if e, ok := grpcstatus.FromError(err); ok && e.Code() == grpccodes.Unavailable {
-		// Check if the error message contains the specific name resolver error
 		if strings.Contains(e.Message(), "name resolver error") &&
 			strings.Contains(e.Message(), "produced zero addresses") {
 			return true
 		}
 	}
 
-	// Also check the error string directly in case it's wrapped
 	errStr := err.Error()
 	return strings.Contains(errStr, "name resolver error") &&
 		strings.Contains(errStr, "produced zero addresses")
@@ -215,7 +213,6 @@ func ClusterTypeToString(provider controlplanev1.Cluster_Type) string {
 // AreWeDoneYet checks an operation's state until one of completion, failure or timeout is reached.
 func AreWeDoneYet(ctx context.Context, op *controlplanev1.Operation, timeout time.Duration, client controlplanev1grpc.OperationServiceClient) error {
 	return Retry(ctx, timeout, func() *RetryError {
-		// Get the latest operation status
 		tflog.Info(ctx, "getting operation")
 		latestOp, err := client.GetOperation(ctx, &controlplanev1.GetOperationRequest{
 			Id: op.GetId(),
@@ -232,7 +229,6 @@ func AreWeDoneYet(ctx context.Context, op *controlplanev1.Operation, timeout tim
 			tflog.Info(ctx, "op is nil")
 		}
 
-		// Check the operation state
 		if op != nil && op.GetState() == controlplanev1.Operation_STATE_FAILED {
 			return NonRetryableError(fmt.Errorf("operation failed: %s", op.GetError().GetMessage()))
 		}
@@ -298,8 +294,6 @@ func StringSliceToTypeList(elements []string) types.List {
 	for _, e := range elements {
 		values = append(values, types.StringValue(e))
 	}
-	// this is safe because ListValueMust only panics if the values don't match the list
-	// type, and we're making sure that all values that go in are strings.
 	return types.ListValueMust(types.StringType, values)
 }
 
@@ -479,7 +473,6 @@ func SplitSchemeDefPort(url, def string) (string, error) {
 //	https://api-123456.cluster-id.byoc.prd.cloud.redpanda.com
 //	-> https://console-123456.cluster-id.byoc.prd.cloud.redpanda.com
 func ConvertToConsoleURL(clusterAPIURL string) string {
-	// Simple string replacement to convert api- prefix to console-
 	return strings.Replace(clusterAPIURL, "://api-", "://console-", 1)
 }
 
@@ -585,10 +578,8 @@ func GetARNListFromAttributes(key string, att map[string]attr.Value) ([]string, 
 
 // IsNil checks if something is nil
 func IsNil[T any](v T) bool {
-	// Get the reflection value
 	rv := reflect.ValueOf(v)
 
-	// Check if it's a nil-able type and is nil
 	switch rv.Kind() {
 	case reflect.Ptr, reflect.Interface, reflect.Map,
 		reflect.Slice, reflect.Func, reflect.Chan:
@@ -598,4 +589,22 @@ func IsNil[T any](v T) bool {
 	default:
 		return false
 	}
+}
+
+// ParseCPUToMillicores parses a Kubernetes CPU quantity string and returns millicores.
+func ParseCPUToMillicores(value string) (int64, error) {
+	qty, err := resource.ParseQuantity(value)
+	if err != nil {
+		return 0, err
+	}
+	return qty.MilliValue(), nil
+}
+
+// ParseMemoryToBytes parses a Kubernetes memory quantity string and returns bytes.
+func ParseMemoryToBytes(value string) (int64, error) {
+	qty, err := resource.ParseQuantity(value)
+	if err != nil {
+		return 0, err
+	}
+	return qty.Value(), nil
 }

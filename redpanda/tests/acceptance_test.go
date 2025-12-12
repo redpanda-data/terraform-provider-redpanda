@@ -19,22 +19,21 @@ import (
 )
 
 const (
-	awsDedicatedClusterDir         = "../../examples/cluster/aws"
-	azureDedicatedClusterDir       = "../../examples/cluster/azure"
-	gcpDedicatedClusterDir         = "../../examples/cluster/gcp"
-	serverlessClusterDir           = "../../examples/cluster/serverless"
-	awsByocClusterDir              = "../../examples/byoc/aws"
-	awsByocVpcClusterDir           = "infra/byovpc/aws"
-	gcpByoVpcClusterDir            = "infra/byovpc/gcp"
-	azureByocClusterDir            = "../../examples/byoc/azure"
-	gcpByocClusterDir              = "../../examples/byoc/gcp"
-	dedicatedNetworkDir            = "../../examples/network"
-	dataplaneDir                   = "../../examples/dataplane"
-	dataSourcesTestDir             = "../../examples/datasource/standard"
-	bulkDataCreateDir              = "../../examples/datasource/bulk"
-	networkDataSourceDir           = "../../examples/datasource/network"
-	serverlessRegionsDataSourceDir = "../../examples/datasource/serverless_regions"
-	// These are the resource names as named in the TF files.
+	awsDedicatedClusterDir             = "../../examples/cluster/aws"
+	azureDedicatedClusterDir           = "../../examples/cluster/azure"
+	gcpDedicatedClusterDir             = "../../examples/cluster/gcp"
+	serverlessClusterDir               = "../../examples/cluster/serverless"
+	awsByocClusterDir                  = "../../examples/byoc/aws"
+	awsByocVpcClusterDir               = "infra/byovpc/aws"
+	gcpByoVpcClusterDir                = "infra/byovpc/gcp"
+	azureByocClusterDir                = "../../examples/byoc/azure"
+	gcpByocClusterDir                  = "../../examples/byoc/gcp"
+	dedicatedNetworkDir                = "../../examples/network"
+	dataplaneDir                       = "../../examples/dataplane"
+	dataSourcesTestDir                 = "../../examples/datasource/standard"
+	bulkDataCreateDir                  = "../../examples/datasource/bulk"
+	networkDataSourceDir               = "../../examples/datasource/network"
+	serverlessRegionsDataSourceDir     = "../../examples/datasource/serverless_regions"
 	resourceGroupName                  = "redpanda_resource_group.test"
 	networkResourceName                = "redpanda_network.test"
 	clusterResourceName                = "redpanda_cluster.test"
@@ -53,9 +52,8 @@ const (
 	schemaRegistryACLReadProductName   = "redpanda_schema_registry_acl.read_product"
 	roleResourceName                   = "redpanda_role.developer"
 	roleAssignmentResourceName         = "redpanda_role_assignment.developer_assignment"
-
-	// Test assertion values
-	allowDeletionFalseValue = "false"
+	pipelineResourceName               = "redpanda_pipeline.test"
+	allowDeletionFalseValue            = "false"
 )
 
 var (
@@ -409,17 +407,14 @@ func TestAccResourcesByoVpcGCP(t *testing.T) {
 
 // buildTestCheckFuncs reads the test file and returns appropriate check functions based on resources present
 func buildTestCheckFuncs(testDir, name string) ([]resource.TestCheckFunc, error) {
-	// Read the test file to check which resources exist
 	testFileContent, err := os.ReadFile(testDir + "/main.tf") // #nosec G304 -- testDir is controlled by test constants
 	if err != nil {
 		return nil, fmt.Errorf("failed to read test file: %w", err)
 	}
 	testFileStr := string(testFileContent)
 
-	// Start with empty check functions and add based on what resources exist
 	var checkFuncs []resource.TestCheckFunc
 
-	// Check for each resource type and add appropriate validations
 	if strings.Contains(testFileStr, `resource "redpanda_resource_group" "test"`) {
 		checkFuncs = append(checkFuncs, resource.TestCheckResourceAttr(resourceGroupName, "name", name))
 	}
@@ -452,7 +447,6 @@ func buildTestCheckFuncs(testDir, name string) ([]resource.TestCheckFunc, error)
 		checkFuncs = append(checkFuncs, resource.TestCheckResourceAttr(topicResourceName, "name", name))
 	}
 
-	// Check if schema resources exist in the test file and add appropriate checks
 	if strings.Contains(testFileStr, `resource "redpanda_schema" "user_schema"`) {
 		checkFuncs = append(checkFuncs,
 			resource.TestCheckResourceAttr(schemaResourceName, "subject", name+"-value"),
@@ -478,8 +472,6 @@ func buildTestCheckFuncs(testDir, name string) ([]resource.TestCheckFunc, error)
 		)
 	}
 
-	// Check if Schema Registry ACL resources exist and add appropriate checks
-	// These ACLs use admin user as principal for schema management
 	if strings.Contains(testFileStr, `resource "redpanda_schema_registry_acl" "read_product"`) {
 		checkFuncs = append(checkFuncs,
 			resource.TestCheckResourceAttrSet("redpanda_schema_registry_acl.read_product", "id"),
@@ -552,7 +544,6 @@ func buildTestCheckFuncs(testDir, name string) ([]resource.TestCheckFunc, error)
 		)
 	}
 
-	// Check for RBAC resources
 	if strings.Contains(testFileStr, `resource "redpanda_role" "developer"`) {
 		checkFuncs = append(checkFuncs,
 			resource.TestCheckResourceAttrSet(roleResourceName, "id"),
@@ -567,6 +558,15 @@ func buildTestCheckFuncs(testDir, name string) ([]resource.TestCheckFunc, error)
 			resource.TestCheckResourceAttr(roleAssignmentResourceName, "role_name", "developer"),
 			resource.TestCheckResourceAttr(roleAssignmentResourceName, "principal", name),
 			resource.TestCheckResourceAttrSet(roleAssignmentResourceName, "cluster_api_url"),
+		)
+	}
+
+	if strings.Contains(testFileStr, `resource "redpanda_pipeline" "test"`) {
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttrSet(pipelineResourceName, "id"),
+			resource.TestCheckResourceAttr(pipelineResourceName, "display_name", "test-pipeline"),
+			resource.TestCheckResourceAttrSet(pipelineResourceName, "state"),
+			resource.TestCheckResourceAttrSet(pipelineResourceName, "cluster_api_url"),
 		)
 	}
 
@@ -592,7 +592,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 		}
 	}
 	if version != "" {
-		// version is only necessary to resolve a GCP install pack issue. we should generally use latest (nil)
 		origTestCaseVars["version"] = config.StringVariable(version)
 	}
 
@@ -607,7 +606,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	maps.Copy(compatibilityUpdateVars, updateTestCaseVars)
 	compatibilityUpdateVars["compatibility_level"] = config.StringVariable("FORWARD")
 
-	// Test toggling allow_deletion for user (false -> verify -> true)
 	userAllowDeletionFalseVars := make(map[string]config.Variable)
 	maps.Copy(userAllowDeletionFalseVars, updateTestCaseVars)
 	userAllowDeletionFalseVars["user_allow_deletion"] = config.BoolVariable(false)
@@ -616,7 +614,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	maps.Copy(userAllowDeletionTrueVars, updateTestCaseVars)
 	userAllowDeletionTrueVars["user_allow_deletion"] = config.BoolVariable(true)
 
-	// Test toggling allow_deletion for ACL (false -> verify -> true)
 	aclAllowDeletionFalseVars := make(map[string]config.Variable)
 	maps.Copy(aclAllowDeletionFalseVars, updateTestCaseVars)
 	aclAllowDeletionFalseVars["acl_allow_deletion"] = config.BoolVariable(false)
@@ -625,7 +622,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	maps.Copy(aclAllowDeletionTrueVars, updateTestCaseVars)
 	aclAllowDeletionTrueVars["acl_allow_deletion"] = config.BoolVariable(true)
 
-	// Test toggling allow_deletion for Schema Registry ACL (false -> verify -> true)
 	srACLAllowDeletionFalseVars := make(map[string]config.Variable)
 	maps.Copy(srACLAllowDeletionFalseVars, updateTestCaseVars)
 	srACLAllowDeletionFalseVars["sr_acl_allow_deletion"] = config.BoolVariable(false)
@@ -633,6 +629,14 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	srACLAllowDeletionTrueVars := make(map[string]config.Variable)
 	maps.Copy(srACLAllowDeletionTrueVars, updateTestCaseVars)
 	srACLAllowDeletionTrueVars["sr_acl_allow_deletion"] = config.BoolVariable(true)
+
+	pipelineRunningVars := make(map[string]config.Variable)
+	maps.Copy(pipelineRunningVars, updateTestCaseVars)
+	pipelineRunningVars["pipeline_state"] = config.StringVariable("running")
+
+	pipelineAllowDeletionTrueVars := make(map[string]config.Variable)
+	maps.Copy(pipelineAllowDeletionTrueVars, pipelineRunningVars)
+	pipelineAllowDeletionTrueVars["pipeline_allow_deletion"] = config.BoolVariable(true)
 
 	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
 	if err != nil {
@@ -652,6 +656,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	hasSchema := strings.Contains(string(testFileContent), `resource "redpanda_schema" "user_schema"`)
 	hasRole := strings.Contains(string(testFileContent), `resource "redpanda_role" "developer"`)
 	hasTopic := strings.Contains(string(testFileContent), `resource "redpanda_topic" "test"`)
+	hasPipeline := strings.Contains(string(testFileContent), `resource "redpanda_pipeline" "test"`)
 
 	steps := []resource.TestStep{
 		{
@@ -706,7 +711,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				if err != nil {
 					return "", errors.New("test error: unable to get cluster by name")
 				}
-				// Test extended import format with password and mechanism
 				importID := fmt.Sprintf("%v,%v,test-password,SCRAM-SHA-256", name, i.GetId())
 				return importID, nil
 			},
@@ -894,7 +898,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 					return "", errors.New("schema registry ACL resource not found in state")
 				}
 
-				// Import format: cluster_id:principal:resource_type:resource_name:pattern_type:host:operation:permission:username:password
 				clusterID := rs.Primary.Attributes["cluster_id"]
 				principal := rs.Primary.Attributes["principal"]
 				resourceType := rs.Primary.Attributes["resource_type"]
@@ -966,7 +969,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 					return "", errors.New("schema resource not found in state")
 				}
 
-				// Import format: cluster_id:subject:version:username:password
 				clusterID := rs.Primary.Attributes["cluster_id"]
 				subject := rs.Primary.Attributes["subject"]
 				version := rs.Primary.Attributes["version"]
@@ -1020,7 +1022,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				if err != nil {
 					return "", errors.New("test error: unable to get cluster by name")
 				}
-				// Import format: role_name,cluster_id
 				importID := fmt.Sprintf("developer,%v", cluster.GetId())
 				return importID, nil
 			},
@@ -1056,7 +1057,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				if err != nil {
 					return "", errors.New("test error: unable to get cluster by name")
 				}
-				// Import format: topic_name,cluster_id
 				importID := fmt.Sprintf("%s,%v", name, cluster.GetId())
 				return importID, nil
 			},
@@ -1079,6 +1079,65 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 			ImportStateVerifyIgnore:  []string{"tags"},
 			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		})
+	}
+
+	if hasPipeline {
+		steps = append(steps,
+			resource.TestStep{
+				ResourceName:    pipelineResourceName,
+				ConfigDirectory: config.StaticDirectory(testFile),
+				ConfigVariables: updateTestCaseVars,
+				ImportState:     true,
+				ImportStateIdFunc: func(state *terraform.State) (string, error) {
+					rs, ok := state.RootModule().Resources[pipelineResourceName]
+					if !ok {
+						return "", errors.New("pipeline resource not found in state")
+					}
+					pipelineID := rs.Primary.Attributes["id"]
+					cluster, err := c.ClusterForName(ctx, rename)
+					if err != nil {
+						return "", errors.New("test error: unable to get cluster by name")
+					}
+					importID := fmt.Sprintf("%s,%v", pipelineID, cluster.GetId())
+					return importID, nil
+				},
+				ImportStateCheck: func(state []*terraform.InstanceState) error {
+					attr := state[0].Attributes
+					if attr["id"] == "" {
+						return errors.New("expected non-empty id")
+					}
+					if attr["display_name"] != "test-pipeline" {
+						return fmt.Errorf("expected display_name 'test-pipeline'; got %q", attr["display_name"])
+					}
+					if cloudURL := attr["cluster_api_url"]; cloudURL == "" {
+						return errors.New("expected cluster_api_url to be set after import")
+					}
+					if attr["state"] == "" {
+						return errors.New("expected non-empty state")
+					}
+					return nil
+				},
+				ImportStateVerifyIgnore:  []string{"config_yaml", "description", "resources", "tags"},
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			resource.TestStep{
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          pipelineRunningVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(pipelineResourceName, "state", "running"),
+				),
+			},
+			// Enable deletion for cleanup - pipeline defaults to allow_deletion=false
+			resource.TestStep{
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          pipelineAllowDeletionTrueVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(pipelineResourceName, "allow_deletion", "true"),
+				),
+			},
+		)
 	}
 
 	resource.ParallelTest(t, resource.TestCase{
@@ -1133,7 +1192,6 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 		}
 	}
 	if version != "" {
-		// we should generally use latest (nil) but this is available as a workaround for install pack issues
 		origTestCaseVars["version"] = config.StringVariable(version)
 	}
 
@@ -1384,20 +1442,13 @@ func TestAccDataSourceServerlessRegions(t *testing.T) {
 				ConfigVariables:          origTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					// Check that the count of serverless_regions is greater than 0
 					resource.TestCheckResourceAttrSet(serverlessRegionsAWSDataSourceName, "serverless_regions.#"),
 					resource.TestMatchResourceAttr(serverlessRegionsAWSDataSourceName, "serverless_regions.#", regexp.MustCompile(`^[1-9]\d*$`)),
-
-					// Check that at least the first region has the expected attributes
 					resource.TestCheckResourceAttrSet(serverlessRegionsAWSDataSourceName, "serverless_regions.0.name"),
 					resource.TestCheckResourceAttrSet(serverlessRegionsAWSDataSourceName, "serverless_regions.0.time_zone"),
 					resource.TestCheckResourceAttrSet(serverlessRegionsAWSDataSourceName, "serverless_regions.0.placement.enabled"),
-
-					// Check that the count of serverless_regions is greater than 0
 					resource.TestCheckResourceAttrSet(serverlessRegionsGCPDataSourceName, "serverless_regions.#"),
 					resource.TestMatchResourceAttr(serverlessRegionsGCPDataSourceName, "serverless_regions.#", regexp.MustCompile(`^[1-9]\d*$`)),
-
-					// Check that at least the first region has the expected attributes
 					resource.TestCheckResourceAttrSet(serverlessRegionsGCPDataSourceName, "serverless_regions.0.name"),
 					resource.TestCheckResourceAttrSet(serverlessRegionsGCPDataSourceName, "serverless_regions.0.time_zone"),
 					resource.TestCheckResourceAttrSet(serverlessRegionsGCPDataSourceName, "serverless_regions.0.placement.enabled"),
