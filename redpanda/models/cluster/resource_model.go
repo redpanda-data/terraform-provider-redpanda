@@ -41,6 +41,7 @@ type ResourceModel struct {
 	ClusterType              types.String        `tfsdk:"cluster_type"`
 	RedpandaVersion          types.String        `tfsdk:"redpanda_version"`
 	ThroughputTier           types.String        `tfsdk:"throughput_tier"`
+	RedpandaNodeCount        types.Int32         `tfsdk:"redpanda_node_count"`
 	Region                   types.String        `tfsdk:"region"`
 	Zones                    types.List          `tfsdk:"zones"`
 	AllowDeletion            types.Bool          `tfsdk:"allow_deletion"`
@@ -124,6 +125,7 @@ func (r *ResourceModel) GetUpdatedModel(ctx context.Context, cluster *controlpla
 	r.CloudProvider = types.StringValue(utils.CloudProviderToString(cluster.GetCloudProvider()))
 	r.ClusterType = types.StringValue(utils.ClusterTypeToString(cluster.GetType()))
 	r.ThroughputTier = types.StringValue(cluster.GetThroughputTier())
+	r.RedpandaNodeCount = types.Int32Value(cluster.GetRedpandaNodeCount())
 	r.Region = types.StringValue(cluster.GetRegion())
 	r.ResourceGroupID = types.StringValue(cluster.GetResourceGroupId())
 	r.NetworkID = types.StringValue(cluster.GetNetworkId())
@@ -384,6 +386,10 @@ func (r *ResourceModel) getClusterUpdate(ctx context.Context) (*controlplanev1.C
 
 	if !r.ThroughputTier.IsNull() {
 		update.ThroughputTier = r.ThroughputTier.ValueString()
+	}
+
+	if !r.RedpandaNodeCount.IsNull() {
+		update.RedpandaNodeCount = r.RedpandaNodeCount.ValueInt32()
 	}
 
 	if !r.KafkaAPI.IsNull() {
@@ -660,7 +666,8 @@ func (r *ResourceModel) generateClusterAwsPrivateLinkSpec(_ context.Context) (*c
 	}
 
 	if connectConsoleVal, ok := attrs["connect_console"].(types.Bool); ok && !connectConsoleVal.IsNull() {
-		spec.ConnectConsole = connectConsoleVal.ValueBool()
+		val := connectConsoleVal.ValueBool()
+		spec.ConnectConsole = &val
 	}
 
 	return spec, diags
@@ -735,7 +742,8 @@ func (r *ResourceModel) generateClusterAzurePrivateLinkSpec() (*controlplanev1.A
 	}
 
 	if connectConsoleVal, ok := attrs["connect_console"].(types.Bool); ok && !connectConsoleVal.IsNull() {
-		spec.ConnectConsole = connectConsoleVal.ValueBool()
+		val := connectConsoleVal.ValueBool()
+		spec.ConnectConsole = &val
 	}
 
 	if subscriptionsVal, ok := attrs["allowed_subscriptions"].(types.List); ok && !subscriptionsVal.IsNull() {
