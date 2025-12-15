@@ -28,6 +28,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	pipelinemodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/pipeline"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
@@ -65,9 +66,9 @@ func resourcePipelineSchema(ctx context.Context) schema.Schema {
 			"state": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString("stopped"),
+				Default:             stringdefault.StaticString(pipelinemodel.StateStopped),
 				MarkdownDescription: "Desired state of the pipeline: 'running' or 'stopped'. The provider will ensure the pipeline reaches this state after create/update operations.",
-				Validators:          []validator.String{stringvalidator.OneOf("running", "stopped")},
+				Validators:          []validator.String{stringvalidator.OneOf(pipelinemodel.StateRunning, pipelinemodel.StateStopped)},
 			},
 			"url": schema.StringAttribute{
 				Computed:            true,

@@ -106,8 +106,8 @@ func (*ResourceModel) generateModelResources(pipeline *dataplanev1.Pipeline, pla
 	case pipeline.HasResources():
 		res := pipeline.GetResources()
 		resourcesObj, d := types.ObjectValue(GetResourcesType(), map[string]attr.Value{
-			"memory_shares": types.StringValue(res.GetMemoryShares()),
-			"cpu_shares":    types.StringValue(res.GetCpuShares()),
+			FieldMemoryShares: types.StringValue(res.GetMemoryShares()),
+			FieldCPUShares:    types.StringValue(res.GetCpuShares()),
 		})
 		diags.Append(d...)
 		return resourcesObj, diags
