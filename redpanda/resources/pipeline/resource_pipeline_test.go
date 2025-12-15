@@ -99,8 +99,8 @@ func createResourcesObject(cpuShares, memoryShares string) types.Object {
 		return types.ObjectNull(pipelinemodel.GetResourcesType())
 	}
 	obj, _ := types.ObjectValue(pipelinemodel.GetResourcesType(), map[string]attr.Value{
-		"cpu_shares":    types.StringValue(cpuShares),
-		"memory_shares": types.StringValue(memoryShares),
+		pipelinemodel.FieldCPUShares:    types.StringValue(cpuShares),
+		pipelinemodel.FieldMemoryShares: types.StringValue(memoryShares),
 	})
 	return obj
 }
@@ -230,14 +230,14 @@ func TestPipelineStateToString(t *testing.T) {
 		input    dataplanev1.Pipeline_State
 		expected string
 	}{
-		{"starting", dataplanev1.Pipeline_STATE_STARTING, "starting"},
-		{"running", dataplanev1.Pipeline_STATE_RUNNING, "running"},
-		{"stopping", dataplanev1.Pipeline_STATE_STOPPING, "stopping"},
-		{"stopped", dataplanev1.Pipeline_STATE_STOPPED, "stopped"},
-		{"error", dataplanev1.Pipeline_STATE_ERROR, "error"},
-		{"completed", dataplanev1.Pipeline_STATE_COMPLETED, "completed"},
-		{"unspecified", dataplanev1.Pipeline_STATE_UNSPECIFIED, "unknown"},
-		{"invalid", dataplanev1.Pipeline_State(999), "unknown"},
+		{"starting", dataplanev1.Pipeline_STATE_STARTING, pipelinemodel.StateStarting},
+		{"running", dataplanev1.Pipeline_STATE_RUNNING, pipelinemodel.StateRunning},
+		{"stopping", dataplanev1.Pipeline_STATE_STOPPING, pipelinemodel.StateStopping},
+		{"stopped", dataplanev1.Pipeline_STATE_STOPPED, pipelinemodel.StateStopped},
+		{"error", dataplanev1.Pipeline_STATE_ERROR, pipelinemodel.StateError},
+		{"completed", dataplanev1.Pipeline_STATE_COMPLETED, pipelinemodel.StateCompleted},
+		{"unspecified", dataplanev1.Pipeline_STATE_UNSPECIFIED, pipelinemodel.StateUnknown},
+		{"invalid", dataplanev1.Pipeline_State(999), pipelinemodel.StateUnknown},
 	}
 
 	for _, tt := range tests {
@@ -266,7 +266,7 @@ func TestPipelineToModel(t *testing.T) {
 			),
 			wantID:          testPipelineID,
 			wantDisplayName: testDisplayName,
-			wantState:       "stopped",
+			wantState:       pipelinemodel.StateStopped,
 		},
 		{
 			name: "running pipeline",
@@ -276,7 +276,7 @@ func TestPipelineToModel(t *testing.T) {
 			),
 			wantID:          "pipeline-456",
 			wantDisplayName: "running-pipeline",
-			wantState:       "running",
+			wantState:       pipelinemodel.StateRunning,
 		},
 		{
 			name: "pipeline with resources",
@@ -288,7 +288,7 @@ func TestPipelineToModel(t *testing.T) {
 			),
 			wantID:          "pipeline-789",
 			wantDisplayName: "resourced-pipeline",
-			wantState:       "stopped",
+			wantState:       pipelinemodel.StateStopped,
 		},
 		{
 			name: "pipeline with tags",
@@ -299,7 +299,7 @@ func TestPipelineToModel(t *testing.T) {
 			),
 			wantID:          "pipeline-tags",
 			wantDisplayName: "tagged-pipeline",
-			wantState:       "stopped",
+			wantState:       pipelinemodel.StateStopped,
 		},
 	}
 
@@ -393,13 +393,13 @@ func TestDesiredStateFromAPIState(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"starting", "starting", "running"},
-		{"running", "running", "running"},
-		{"stopping", "stopping", "stopped"},
-		{"stopped", "stopped", "stopped"},
-		{"completed", "completed", "stopped"},
-		{"error", "error", "stopped"},
-		{"unknown", "unknown", "stopped"},
+		{"starting", pipelinemodel.StateStarting, pipelinemodel.StateRunning},
+		{"running", pipelinemodel.StateRunning, pipelinemodel.StateRunning},
+		{"stopping", pipelinemodel.StateStopping, pipelinemodel.StateStopped},
+		{"stopped", pipelinemodel.StateStopped, pipelinemodel.StateStopped},
+		{"completed", pipelinemodel.StateCompleted, pipelinemodel.StateStopped},
+		{"error", pipelinemodel.StateError, pipelinemodel.StateStopped},
+		{"unknown", pipelinemodel.StateUnknown, pipelinemodel.StateStopped},
 	}
 
 	for _, tt := range tests {
@@ -439,7 +439,7 @@ func TestGetUpdatedModel_EdgeCases(t *testing.T) {
 				dataplanev1.Pipeline_STATE_ERROR, nil, nil,
 			),
 			contingent:    createDefaultContingentFields(),
-			expectedState: "stopped", // error state normalizes to stopped
+			expectedState: pipelinemodel.StateStopped, // error state normalizes to stopped
 			expectedID:    "pipeline-error",
 			resourcesNull: true,
 			tagsNull:      true,
@@ -451,7 +451,7 @@ func TestGetUpdatedModel_EdgeCases(t *testing.T) {
 				dataplanev1.Pipeline_STATE_UNSPECIFIED, nil, nil,
 			),
 			contingent:    createDefaultContingentFields(),
-			expectedState: "stopped", // unknown state normalizes to stopped
+			expectedState: pipelinemodel.StateStopped, // unknown state normalizes to stopped
 			expectedID:    "pipeline-unspec",
 			resourcesNull: true,
 			tagsNull:      true,
@@ -463,7 +463,7 @@ func TestGetUpdatedModel_EdgeCases(t *testing.T) {
 				dataplanev1.Pipeline_STATE_STOPPED, nil, nil,
 			),
 			contingent:    createDefaultContingentFields(),
-			expectedState: "stopped",
+			expectedState: pipelinemodel.StateStopped,
 			expectedID:    "pipeline-empty",
 			resourcesNull: true,
 			tagsNull:      true,
@@ -475,7 +475,7 @@ func TestGetUpdatedModel_EdgeCases(t *testing.T) {
 				dataplanev1.Pipeline_STATE_STOPPED, nil, map[string]string{},
 			),
 			contingent:    createDefaultContingentFields(),
-			expectedState: "stopped",
+			expectedState: pipelinemodel.StateStopped,
 			expectedID:    "pipeline-empty-tags",
 			resourcesNull: true,
 			tagsNull:      true, // empty map should result in null
@@ -487,7 +487,7 @@ func TestGetUpdatedModel_EdgeCases(t *testing.T) {
 				dataplanev1.Pipeline_STATE_RUNNING, nil, nil,
 			),
 			contingent:    createDefaultContingentFields(),
-			expectedState: "running",
+			expectedState: pipelinemodel.StateRunning,
 			expectedID:    "pipeline-nil-resources",
 			resourcesNull: true,
 			tagsNull:      true,
@@ -502,10 +502,10 @@ func TestGetUpdatedModel_EdgeCases(t *testing.T) {
 				ClusterAPIURL: types.StringValue(testClusterAPIURL),
 				AllowDeletion: types.BoolNull(),
 				Resources:     types.ObjectNull(pipelinemodel.GetResourcesType()),
-				State:         types.StringValue("running"), // prior was running, now stopped
+				State:         types.StringValue(pipelinemodel.StateRunning), // prior was running, now stopped
 				Timeouts:      timeouts.Value{},
 			},
-			expectedState: "stopped", // should update to actual state
+			expectedState: pipelinemodel.StateStopped, // should update to actual state
 			expectedID:    "pipeline-mismatch",
 			resourcesNull: true,
 			tagsNull:      true,
@@ -540,8 +540,8 @@ func TestExtractResources_EdgeCases(t *testing.T) {
 			memAttr = types.StringNull()
 		}
 		obj, _ := types.ObjectValue(pipelinemodel.GetResourcesType(), map[string]attr.Value{
-			"cpu_shares":    cpuAttr,
-			"memory_shares": memAttr,
+			pipelinemodel.FieldCPUShares:    cpuAttr,
+			pipelinemodel.FieldMemoryShares: memAttr,
 		})
 		return obj
 	}
@@ -698,9 +698,9 @@ func TestPipelineToModelPreservesPlannedValues(t *testing.T) {
 				"pipeline-1", "test", "", "", "",
 				dataplanev1.Pipeline_STATE_STARTING, nil, nil,
 			),
-			plannedState:     types.StringValue("running"),
+			plannedState:     types.StringValue(pipelinemodel.StateRunning),
 			plannedResources: createResourcesObject("", ""),
-			expectedState:    "running",
+			expectedState:    pipelinemodel.StateRunning,
 		},
 		{
 			name: "preserves stopped state when API returns stopping",
@@ -708,9 +708,9 @@ func TestPipelineToModelPreservesPlannedValues(t *testing.T) {
 				"pipeline-2", "test", "", "", "",
 				dataplanev1.Pipeline_STATE_STOPPING, nil, nil,
 			),
-			plannedState:     types.StringValue("stopped"),
+			plannedState:     types.StringValue(pipelinemodel.StateStopped),
 			plannedResources: createResourcesObject("", ""),
-			expectedState:    "stopped",
+			expectedState:    pipelinemodel.StateStopped,
 		},
 		{
 			name: "preserves stopped state when API returns completed",
@@ -718,9 +718,9 @@ func TestPipelineToModelPreservesPlannedValues(t *testing.T) {
 				"pipeline-3", "test", "", "", "",
 				dataplanev1.Pipeline_STATE_COMPLETED, nil, nil,
 			),
-			plannedState:     types.StringValue("stopped"),
+			plannedState:     types.StringValue(pipelinemodel.StateStopped),
 			plannedResources: createResourcesObject("", ""),
-			expectedState:    "stopped",
+			expectedState:    pipelinemodel.StateStopped,
 		},
 		{
 			name: "preserves user-configured resources when API normalizes values",
@@ -730,9 +730,9 @@ func TestPipelineToModelPreservesPlannedValues(t *testing.T) {
 				createMockPipelineResources("300m", "1200M"),
 				nil,
 			),
-			plannedState:      types.StringValue("stopped"),
+			plannedState:      types.StringValue(pipelinemodel.StateStopped),
 			plannedResources:  createResourcesObject("100m", "256Mi"),
-			expectedState:     "stopped",
+			expectedState:     pipelinemodel.StateStopped,
 			expectedResources: true,
 		},
 	}
@@ -777,14 +777,14 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 				displayName:  testDisplayName,
 				description:  testDescription,
 				configYaml:   testConfigYaml,
-				desiredState: "stopped",
+				desiredState: pipelinemodel.StateStopped,
 			},
 			apiReturns: pipelineAPIResponse{
 				id:    testPipelineID,
 				state: dataplanev1.Pipeline_STATE_STOPPED,
 				url:   testPipelineURL,
 			},
-			expectedState: "stopped",
+			expectedState: pipelinemodel.StateStopped,
 		},
 		{
 			name:      "create_stops_autostarted_pipeline",
@@ -792,14 +792,14 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 			inputPipeline: pipelineInput{
 				displayName:  testDisplayName,
 				configYaml:   testConfigYaml,
-				desiredState: "stopped",
+				desiredState: pipelinemodel.StateStopped,
 			},
 			apiReturns: pipelineAPIResponse{
 				id:    "pipeline-autostart",
 				state: dataplanev1.Pipeline_STATE_RUNNING, // API auto-starts it
 			},
 			apiAutoStarts: true,
-			expectedState: "stopped",
+			expectedState: pipelinemodel.StateStopped,
 		},
 		{
 			name:      "update_read_consistency",
@@ -809,19 +809,19 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 				displayName: "old-name",
 				description: "old description",
 				configYaml:  testConfigYaml,
-				state:       "stopped",
+				state:       pipelinemodel.StateStopped,
 			},
 			inputPipeline: pipelineInput{
 				displayName:  "new-name",
 				description:  "new description",
 				configYaml:   "input:\n  generate: {}\noutput:\n  drop: {}",
-				desiredState: "stopped",
+				desiredState: pipelinemodel.StateStopped,
 			},
 			apiReturns: pipelineAPIResponse{
 				id:    "pipeline-update",
 				state: dataplanev1.Pipeline_STATE_STOPPED,
 			},
-			expectedState: "stopped",
+			expectedState: pipelinemodel.StateStopped,
 		},
 		{
 			name:      "all_fields_with_resources_and_tags",
@@ -830,7 +830,7 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 				displayName:  "full-pipeline",
 				description:  "A fully configured pipeline",
 				configYaml:   "input:\n  generate:\n    interval: 1s\noutput:\n  stdout: {}",
-				desiredState: "stopped",
+				desiredState: pipelinemodel.StateStopped,
 				cpuShares:    testCPUShares,
 				memoryShares: testMemoryShares,
 				tags:         map[string]string{"environment": "test", "team": "data"},
@@ -843,7 +843,7 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 				memoryShares: testMemoryShares,
 				tags:         map[string]string{"environment": "test", "team": "data"},
 			},
-			expectedState: "stopped",
+			expectedState: pipelinemodel.StateStopped,
 		},
 	}
 
@@ -1054,7 +1054,7 @@ func TestPipeline_CreateErrors(t *testing.T) {
 		DisplayName:   types.StringValue(testDisplayName),
 		Description:   types.StringValue(testDescription),
 		ConfigYaml:    types.StringValue(testConfigYaml),
-		State:         types.StringValue("stopped"),
+		State:         types.StringValue(pipelinemodel.StateStopped),
 		URL:           types.StringUnknown(),
 		Resources:     createResourcesObject("", ""),
 		Tags:          createTagsMap(nil),
@@ -1096,7 +1096,7 @@ func TestPipeline_DeleteBlockedByAllowDeletion(t *testing.T) {
 		DisplayName:   types.StringValue(testDisplayName),
 		Description:   types.StringValue(testDescription),
 		ConfigYaml:    types.StringValue(testConfigYaml),
-		State:         types.StringValue("stopped"),
+		State:         types.StringValue(pipelinemodel.StateStopped),
 		URL:           types.StringValue(testPipelineURL),
 		Resources:     createResourcesObject("", ""),
 		Tags:          createTagsMap(nil),
@@ -1156,7 +1156,7 @@ func TestPipeline_StartPipelineError(t *testing.T) {
 		DisplayName:   types.StringValue(testDisplayName),
 		Description:   types.StringValue(testDescription),
 		ConfigYaml:    types.StringValue(testConfigYaml),
-		State:         types.StringValue("running"), // User wants running state
+		State:         types.StringValue(pipelinemodel.StateRunning), // User wants running state
 		URL:           types.StringUnknown(),
 		Resources:     createResourcesObject("", ""),
 		Tags:          createTagsMap(nil),

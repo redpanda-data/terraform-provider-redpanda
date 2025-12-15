@@ -22,23 +22,34 @@ import (
 
 // State constants for pipeline.
 const (
-	StateRunning = "running"
-	StateStopped = "stopped"
+	StateRunning   = "running"
+	StateStopped   = "stopped"
+	StateStarting  = "starting"
+	StateStopping  = "stopping"
+	StateCompleted = "completed"
+	StateError     = "error"
+	StateUnknown   = "unknown"
+)
+
+// Field name constants for pipeline resources.
+const (
+	FieldMemoryShares = "memory_shares"
+	FieldCPUShares    = "cpu_shares"
 )
 
 // State equivalence maps for pipeline lifecycle.
 // Running states: pipeline is either starting up or actively running.
 // Stopped states: pipeline is stopping, fully stopped, or completed its work.
 var (
-	runningStates = map[string]bool{"starting": true, StateRunning: true}
-	stoppedStates = map[string]bool{"stopping": true, StateStopped: true, "completed": true}
+	runningStates = map[string]bool{StateStarting: true, StateRunning: true}
+	stoppedStates = map[string]bool{StateStopping: true, StateStopped: true, StateCompleted: true}
 )
 
 // GetResourcesType returns the attribute types for the resources nested object.
 func GetResourcesType() map[string]attr.Type {
 	return map[string]attr.Type{
-		"memory_shares": types.StringType,
-		"cpu_shares":    types.StringType,
+		FieldMemoryShares: types.StringType,
+		FieldCPUShares:    types.StringType,
 	}
 }
 
@@ -46,19 +57,19 @@ func GetResourcesType() map[string]attr.Type {
 func StateToString(state dataplanev1.Pipeline_State) string {
 	switch state {
 	case dataplanev1.Pipeline_STATE_STARTING:
-		return "starting"
+		return StateStarting
 	case dataplanev1.Pipeline_STATE_RUNNING:
 		return StateRunning
 	case dataplanev1.Pipeline_STATE_STOPPING:
-		return "stopping"
+		return StateStopping
 	case dataplanev1.Pipeline_STATE_STOPPED:
 		return StateStopped
 	case dataplanev1.Pipeline_STATE_ERROR:
-		return "error"
+		return StateError
 	case dataplanev1.Pipeline_STATE_COMPLETED:
-		return "completed"
+		return StateCompleted
 	default:
-		return "unknown"
+		return StateUnknown
 	}
 }
 
@@ -79,9 +90,9 @@ func StatesEquivalent(prior, current string) bool {
 // DesiredStateFromAPIState normalizes API state to desired state.
 func DesiredStateFromAPIState(apiState string) string {
 	switch apiState {
-	case "starting", StateRunning:
+	case StateStarting, StateRunning:
 		return StateRunning
-	case "stopping", StateStopped, "completed":
+	case StateStopping, StateStopped, StateCompleted:
 		return StateStopped
 	default:
 		return StateStopped
