@@ -60,6 +60,11 @@ func resourceClusterSchema(ctx context.Context) schema.Schema {
 				Required:    true,
 				Description: "Usage tier of the cluster.",
 			},
+			"redpanda_node_count": schema.Int32Attribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Number of Redpanda nodes in the cluster.",
+			},
 			"region": schema.StringAttribute{
 				Required:      true,
 				Description:   "Cloud provider region. Region represents the name of the region where the cluster will be provisioned.",
