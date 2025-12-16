@@ -279,6 +279,10 @@ func (r *ResourceModel) GetClusterCreate(ctx context.Context) (*controlplanev1.C
 		output.RedpandaVersion = &rpVersion
 	}
 
+	if !r.RedpandaNodeCount.IsNull() {
+		output.RedpandaNodeCount = r.RedpandaNodeCount.ValueInt32()
+	}
+
 	if !r.KafkaAPI.IsNull() {
 		kafkaSpec, d := r.generateClusterKafkaAPISpec(ctx)
 		if d.HasError() {
