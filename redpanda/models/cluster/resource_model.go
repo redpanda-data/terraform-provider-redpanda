@@ -279,7 +279,7 @@ func (r *ResourceModel) GetClusterCreate(ctx context.Context) (*controlplanev1.C
 		output.RedpandaVersion = &rpVersion
 	}
 
-	if !r.RedpandaNodeCount.IsNull() {
+	if !r.RedpandaNodeCount.IsNull() && !r.RedpandaNodeCount.IsUnknown() {
 		output.RedpandaNodeCount = r.RedpandaNodeCount.ValueInt32()
 	}
 
@@ -392,7 +392,7 @@ func (r *ResourceModel) getClusterUpdate(ctx context.Context) (*controlplanev1.C
 		update.ThroughputTier = r.ThroughputTier.ValueString()
 	}
 
-	if !r.RedpandaNodeCount.IsNull() {
+	if !r.RedpandaNodeCount.IsNull() && !r.RedpandaNodeCount.IsUnknown() {
 		update.RedpandaNodeCount = r.RedpandaNodeCount.ValueInt32()
 	}
 
