@@ -176,26 +176,6 @@ func (mr *MockPipelineServiceClientMockRecorder) LintPipelineConfig(arg0, arg1 i
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LintPipelineConfig", reflect.TypeOf((*MockPipelineServiceClient)(nil).LintPipelineConfig), varargs...)
 }
 
-// ListComponents mocks base method.
-func (m *MockPipelineServiceClient) ListComponents(arg0 context.Context, arg1 *dataplanev1.ListComponentsRequest, arg2 ...grpc.CallOption) (*dataplanev1.ListComponentsResponse, error) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "ListComponents", varargs...)
-	ret0, _ := ret[0].(*dataplanev1.ListComponentsResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ListComponents indicates an expected call of ListComponents.
-func (mr *MockPipelineServiceClientMockRecorder) ListComponents(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListComponents", reflect.TypeOf((*MockPipelineServiceClient)(nil).ListComponents), varargs...)
-}
-
 // ListPipelines mocks base method.
 func (m *MockPipelineServiceClient) ListPipelines(arg0 context.Context, arg1 *dataplanev1.ListPipelinesRequest, arg2 ...grpc.CallOption) (*dataplanev1.ListPipelinesResponse, error) {
 	m.ctrl.T.Helper()
