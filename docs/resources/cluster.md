@@ -40,6 +40,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `kafka_connect` (Attributes) Kafka Connect configuration. (see [below for nested schema](#nestedatt--kafka_connect))
 - `maintenance_window_config` (Attributes) Maintenance window configuration for the cluster. (see [below for nested schema](#nestedatt--maintenance_window_config))
 - `read_replica_cluster_ids` (List of String) IDs of clusters that can create read-only topics from this cluster.
+- `redpanda_node_count` (Number) Number of Redpanda nodes in the cluster. NOTE: This feature is not available for all customers by default. Contact your Redpanda account team to enable this feature.
 - `redpanda_version` (String) Current Redpanda version of the cluster.
 - `schema_registry` (Attributes) Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
 - `tags` (Map of String) Tags placed on cloud resources. If the cloud provider is GCP and the name of a tag has the prefix "gcp.network-tag.", the tag is a network tag that will be added to the Redpanda cluster GKE nodes. Otherwise, the tag is a normal tag. For example, if the name of a tag is "gcp.network-tag.network-tag-foo", the network tag named "network-tag-foo" will be added to the Redpanda cluster GKE nodes. Note: The value of a network tag will be ignored. See the details on network tags at https://cloud.google.com/vpc/docs/add-remove-network-tags.
@@ -2300,6 +2301,15 @@ resource "redpanda_acl" "test" {
 ## Limitations
 
 We are not currently able to support Azure BYOVPC clusters.
+
+### Node Count Configuration
+
+The `redpanda_node_count` attribute is an experimental feature and is not available for all customers by default. To enable this feature for your account, contact your Redpanda account team.
+
+When available, this attribute allows you to:
+- Specify the number of Redpanda nodes during cluster creation
+- Modify the node count after cluster creation without replacing the cluster
+- The node count value is computed from the API if not explicitly set
 
 ### Example Usage of a data source BYOC to manage users and ACLs
 

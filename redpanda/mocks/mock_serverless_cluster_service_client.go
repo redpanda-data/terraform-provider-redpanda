@@ -116,6 +116,26 @@ func (mr *MockServerlessClusterServiceClientMockRecorder) DummyDeleteMetadata(ar
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DummyDeleteMetadata", reflect.TypeOf((*MockServerlessClusterServiceClient)(nil).DummyDeleteMetadata), varargs...)
 }
 
+// GetPrometheusCredentials mocks base method.
+func (m *MockServerlessClusterServiceClient) GetPrometheusCredentials(arg0 context.Context, arg1 *controlplanev1.GetPrometheusCredentialsRequest, arg2 ...grpc.CallOption) (*controlplanev1.GetPrometheusCredentialsResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetPrometheusCredentials", varargs...)
+	ret0, _ := ret[0].(*controlplanev1.GetPrometheusCredentialsResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPrometheusCredentials indicates an expected call of GetPrometheusCredentials.
+func (mr *MockServerlessClusterServiceClientMockRecorder) GetPrometheusCredentials(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPrometheusCredentials", reflect.TypeOf((*MockServerlessClusterServiceClient)(nil).GetPrometheusCredentials), varargs...)
+}
+
 // GetServerlessCluster mocks base method.
 func (m *MockServerlessClusterServiceClient) GetServerlessCluster(arg0 context.Context, arg1 *controlplanev1.GetServerlessClusterRequest, arg2 ...grpc.CallOption) (*controlplanev1.GetServerlessClusterResponse, error) {
 	m.ctrl.T.Helper()
@@ -154,4 +174,24 @@ func (mr *MockServerlessClusterServiceClientMockRecorder) ListServerlessClusters
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServerlessClusters", reflect.TypeOf((*MockServerlessClusterServiceClient)(nil).ListServerlessClusters), varargs...)
+}
+
+// UpdateServerlessCluster mocks base method.
+func (m *MockServerlessClusterServiceClient) UpdateServerlessCluster(arg0 context.Context, arg1 *controlplanev1.UpdateServerlessClusterRequest, arg2 ...grpc.CallOption) (*controlplanev1.UpdateServerlessClusterOperation, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "UpdateServerlessCluster", varargs...)
+	ret0, _ := ret[0].(*controlplanev1.UpdateServerlessClusterOperation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateServerlessCluster indicates an expected call of UpdateServerlessCluster.
+func (mr *MockServerlessClusterServiceClientMockRecorder) UpdateServerlessCluster(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServerlessCluster", reflect.TypeOf((*MockServerlessClusterServiceClient)(nil).UpdateServerlessCluster), varargs...)
 }

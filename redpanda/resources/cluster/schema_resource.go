@@ -63,7 +63,7 @@ func resourceClusterSchema(ctx context.Context) schema.Schema {
 			"redpanda_node_count": schema.Int32Attribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "Number of Redpanda nodes in the cluster.",
+				Description: "Number of Redpanda nodes in the cluster. NOTE: This feature is not available for all customers by default. Contact your Redpanda account team to enable this feature.",
 			},
 			"region": schema.StringAttribute{
 				Required:      true,
