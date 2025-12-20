@@ -54,12 +54,20 @@ tasks:
           {{if .VPC_ID}}--vpc-id "{{.VPC_ID}}"{{end}}
 
   aws:ci:
-    desc: "Delete AWS resources with VPC auto-detection (auto-approves)"
+    desc: "Delete AWS resources with VPC auto-detection (auto-approves, runs for both 'redpanda' and 'network-' prefixes)"
     dir: scripts/cleanup-redpanda-byovpc
     cmds:
       - |
+        echo "Cleaning up resources with 'redpanda' prefix..."
         go run main.go \
-          --common-prefix "{{.COMMON_PREFIX}}" \
+          --common-prefix "redpanda" \
+          --region "{{.AWS_REGION}}" \
+          --auto-detect-vpc \
+          --auto-approve
+      - |
+        echo "Cleaning up resources with 'network-' prefix..."
+        go run main.go \
+          --common-prefix "network-" \
           --region "{{.AWS_REGION}}" \
           --auto-detect-vpc \
           --auto-approve
@@ -74,14 +82,6 @@ tasks:
           --region "{{.AWS_REGION}}" \
           {{if .VPC_ID}}--vpc-id "{{.VPC_ID}}"{{end}} \
           --dry-run
-
-  aws:vpcs:
-    desc: "List non-default VPCs with 'network-' prefix across all AWS regions"
-    dir: scripts/cleanup-redpanda-byovpc
-    cmds:
-      - |
-        go run main.go \
-          --list-vpcs
 
   gcp:
     desc: "Delete GCP resources created by terraform-gcp-redpanda-byovpc module"
@@ -127,7 +127,6 @@ tasks:
       - echo "  task cleanup:redpanda         - Delete test resources"
       - echo ""
       - echo "AWS BYOVPC:"
-      - echo "  task cleanup:aws:vpcs                             - List non-default VPCs across all regions"
       - echo "  task cleanup:aws:dry VPC_ID=vpc-xxx               - Dry run AWS cleanup"
       - echo "  task cleanup:aws VPC_ID=vpc-xxx                   - Delete AWS resources"
       - echo "  task cleanup:aws:ci                               - Delete AWS resources (CI mode, auto-detect VPCs)"

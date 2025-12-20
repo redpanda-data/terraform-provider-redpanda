@@ -81,6 +81,15 @@ Has the same requirements as the GCP BYOC Cluster along with the additional requ
 
 We are not currently able to support Azure BYOVPC clusters.
 
+### Node Count Configuration
+
+The `redpanda_node_count` attribute is an experimental feature and is not available for all customers by default. To enable this feature for your account, contact your Redpanda account team.
+
+When available, this attribute allows you to:
+- Specify the number of Redpanda nodes during cluster creation
+- Modify the node count after cluster creation without replacing the cluster
+- The node count value is computed from the API if not explicitly set
+
 ### Example Usage of a data source BYOC to manage users and ACLs
 
 {{ tffile "examples/datasource/standard/main.tf" }}
