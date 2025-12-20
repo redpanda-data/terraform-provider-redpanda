@@ -15,7 +15,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
+	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -42,6 +44,7 @@ type AWSClients struct {
 	STS         *sts.Client
 	AutoScaling *autoscaling.Client
 	EKS         *eks.Client
+	ELB         *elasticloadbalancing.Client
 	ELBV2       *elasticloadbalancingv2.Client
 }
 
@@ -64,6 +67,13 @@ func pluralize(count int) string {
 	return "s"
 }
 
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
+}
+
 func main() {
 	cfg := parseFlags()
 	ctx := context.Background()
@@ -83,6 +93,7 @@ func main() {
 		STS:         sts.NewFromConfig(awsCfg),
 		AutoScaling: autoscaling.NewFromConfig(awsCfg),
 		EKS:         eks.NewFromConfig(awsCfg),
+		ELB:         elasticloadbalancing.NewFromConfig(awsCfg),
 		ELBV2:       elasticloadbalancingv2.NewFromConfig(awsCfg),
 	}
 
@@ -99,7 +110,7 @@ func main() {
 
 	// Handle --list-vpcs flag
 	if cfg.ListVPCs {
-		fmt.Printf("\n%s Querying all AWS regions for non-default VPCs with 'network-' prefix...\n", cyan("INFO:"))
+		fmt.Printf("\n%s Querying all AWS regions for non-default VPCs with '%s' prefix...\n", cyan("INFO:"), cfg.CommonPrefix)
 
 		// Get all regions
 		regions, err := getAllRegions(ctx, clients.EC2)
@@ -127,7 +138,7 @@ func main() {
 			}
 			regionalEC2 := ec2.NewFromConfig(regionalCfg)
 
-			vpcs, err := getNonDefaultVPCs(ctx, regionalEC2, region)
+			vpcs, err := getNonDefaultVPCs(ctx, regionalEC2, region, cfg.CommonPrefix)
 			if err != nil {
 				fmt.Printf("%s Failed to list VPCs in region %s: %v\n", yellow("WARNING:"), region, err)
 				continue
@@ -141,11 +152,11 @@ func main() {
 
 		// Display results grouped by region
 		if totalVPCs == 0 {
-			fmt.Printf("%s No non-default VPCs found with 'network-' prefix in any region\n", yellow("INFO:"))
+			fmt.Printf("%s No non-default VPCs found with '%s' prefix in any region\n", yellow("INFO:"), cfg.CommonPrefix)
 			os.Exit(0)
 		}
 
-		fmt.Printf("%s Found %d non-default VPC(s) with 'network-' prefix across %d region(s):\n\n", green("SUCCESS:"), totalVPCs, len(results))
+		fmt.Printf("%s Found %d non-default VPC(s) with '%s' prefix across %d region(s):\n\n", green("SUCCESS:"), totalVPCs, cfg.CommonPrefix, len(results))
 
 		for _, result := range results {
 			fmt.Printf("%s Region: %s (%d VPC%s)\n", cyan("→"), result.region, len(result.vpcs), pluralize(len(result.vpcs)))
@@ -256,6 +267,29 @@ func main() {
 
 		if err := deleteVPCEndpoints(ctx, clients, &vpcCfg); err != nil {
 			fmt.Printf("%s Failed to delete VPC endpoints for VPC %s: %v\n", red("ERROR:"), vpcID, err)
+			errorCount++
+		}
+
+		// Delete load balancers and target groups first - they create security groups and ENIs
+		if err := deleteVPCLoadBalancers(ctx, clients, &vpcCfg); err != nil {
+			fmt.Printf("%s Failed to delete load balancers for VPC %s: %v\n", red("ERROR:"), vpcID, err)
+			errorCount++
+		}
+
+		// Also delete Classic Load Balancers (ELBv1) - Kubernetes sometimes creates these
+		if err := deleteVPCClassicLoadBalancers(ctx, clients, &vpcCfg); err != nil {
+			fmt.Printf("%s Failed to delete classic load balancers for VPC %s: %v\n", red("ERROR:"), vpcID, err)
+			errorCount++
+		}
+
+		if err := deleteVPCTargetGroups(ctx, clients, &vpcCfg); err != nil {
+			fmt.Printf("%s Failed to delete target groups for VPC %s: %v\n", red("ERROR:"), vpcID, err)
+			errorCount++
+		}
+
+		// Delete network interfaces BEFORE security groups (ENIs reference SGs)
+		if err := deleteNetworkInterfaces(ctx, clients, &vpcCfg); err != nil {
+			fmt.Printf("%s Failed to delete network interfaces for VPC %s: %v\n", red("ERROR:"), vpcID, err)
 			errorCount++
 		}
 
@@ -474,33 +508,89 @@ func listResources(ctx context.Context, clients *AWSClients, cfg *CleanupConfig)
 	}
 	totalCount += roleCount
 
-	// List VPC resources only if VPC ID is provided
+	// Determine which VPCs to list resources for
+	var vpcsToList []string
 	if cfg.VpcID != "" {
+		vpcsToList = []string{cfg.VpcID}
+	} else if cfg.AutoDetectVPC {
+		// Auto-detect VPCs matching prefix
+		detected, err := detectVPCsByPrefix(ctx, clients.EC2, cfg.CommonPrefix)
+		if err != nil {
+			fmt.Printf("%s Failed to auto-detect VPCs for listing: %v\n", yellow("WARNING:"), err)
+		} else {
+			vpcsToList = detected
+		}
+	}
+
+	// List VPC resources for each VPC
+	for _, vpcID := range vpcsToList {
+		totalCount++ // Count the VPC itself
+		fmt.Printf("  - VPC: %s\n", vpcID)
+
 		// VPC Endpoints
 		vpcEndpointResult, err := clients.EC2.DescribeVpcEndpoints(ctx, &ec2.DescribeVpcEndpointsInput{
 			Filters: []types.Filter{
-				{Name: aws.String("vpc-id"), Values: []string{cfg.VpcID}},
+				{Name: aws.String("vpc-id"), Values: []string{vpcID}},
 			},
 		})
 		if err == nil {
 			for _, endpoint := range vpcEndpointResult.VpcEndpoints {
 				totalCount++
-				fmt.Printf("  - VPC Endpoint: %s\n", aws.ToString(endpoint.VpcEndpointId))
+				fmt.Printf("    - VPC Endpoint: %s\n", aws.ToString(endpoint.VpcEndpointId))
+			}
+		}
+
+		// Load Balancers in this VPC (includes k8s-created load balancers)
+		if lbResult != nil {
+			for _, lb := range lbResult.LoadBalancers {
+				if aws.ToString(lb.VpcId) == vpcID {
+					lbName := aws.ToString(lb.LoadBalancerName)
+					// Only count if not already counted by prefix match above
+					if !strings.HasPrefix(lbName, cfg.CommonPrefix) {
+						totalCount++
+						fmt.Printf("    - Load Balancer: %s\n", lbName)
+					}
+				}
+			}
+		}
+
+		// Target Groups in this VPC (includes k8s-created target groups)
+		if tgResult != nil {
+			for _, tg := range tgResult.TargetGroups {
+				if aws.ToString(tg.VpcId) == vpcID {
+					tgName := aws.ToString(tg.TargetGroupName)
+					// Only count if not already counted by prefix match above
+					if !strings.HasPrefix(tgName, cfg.CommonPrefix) {
+						totalCount++
+						fmt.Printf("    - Target Group: %s\n", tgName)
+					}
+				}
+			}
+		}
+
+		// Classic Load Balancers in this VPC
+		classicLBResult, err := clients.ELB.DescribeLoadBalancers(ctx, &elasticloadbalancing.DescribeLoadBalancersInput{})
+		if err == nil {
+			for _, lb := range classicLBResult.LoadBalancerDescriptions {
+				if aws.ToString(lb.VPCId) == vpcID {
+					totalCount++
+					fmt.Printf("    - Classic Load Balancer: %s\n", aws.ToString(lb.LoadBalancerName))
+				}
 			}
 		}
 
 		// Security Groups
 		sgResult, err := clients.EC2.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
 			Filters: []types.Filter{
-				{Name: aws.String("vpc-id"), Values: []string{cfg.VpcID}},
+				{Name: aws.String("vpc-id"), Values: []string{vpcID}},
 			},
 		})
 		if err == nil {
 			for _, sg := range sgResult.SecurityGroups {
 				name := aws.ToString(sg.GroupName)
-				if strings.HasPrefix(name, cfg.CommonPrefix) && name != "default" {
+				if name != "default" {
 					totalCount++
-					fmt.Printf("  - Security Group: %s (%s)\n", name, aws.ToString(sg.GroupId))
+					fmt.Printf("    - Security Group: %s (%s)\n", name, aws.ToString(sg.GroupId))
 				}
 			}
 		}
@@ -508,20 +598,20 @@ func listResources(ctx context.Context, clients *AWSClients, cfg *CleanupConfig)
 		// NAT Gateways
 		natResult, err := clients.EC2.DescribeNatGateways(ctx, &ec2.DescribeNatGatewaysInput{
 			Filter: []types.Filter{
-				{Name: aws.String("vpc-id"), Values: []string{cfg.VpcID}},
+				{Name: aws.String("vpc-id"), Values: []string{vpcID}},
 			},
 		})
 		if err == nil {
 			for _, natGw := range natResult.NatGateways {
 				totalCount++
-				fmt.Printf("  - NAT Gateway: %s\n", aws.ToString(natGw.NatGatewayId))
+				fmt.Printf("    - NAT Gateway: %s\n", aws.ToString(natGw.NatGatewayId))
 			}
 		}
 
 		// Route Tables
 		rtResult, err := clients.EC2.DescribeRouteTables(ctx, &ec2.DescribeRouteTablesInput{
 			Filters: []types.Filter{
-				{Name: aws.String("vpc-id"), Values: []string{cfg.VpcID}},
+				{Name: aws.String("vpc-id"), Values: []string{vpcID}},
 			},
 		})
 		if err == nil {
@@ -535,7 +625,7 @@ func listResources(ctx context.Context, clients *AWSClients, cfg *CleanupConfig)
 				}
 				if !isMain {
 					totalCount++
-					fmt.Printf("  - Route Table: %s\n", aws.ToString(rt.RouteTableId))
+					fmt.Printf("    - Route Table: %s\n", aws.ToString(rt.RouteTableId))
 				}
 			}
 		}
@@ -543,32 +633,28 @@ func listResources(ctx context.Context, clients *AWSClients, cfg *CleanupConfig)
 		// Subnets
 		subnetResult, err := clients.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{
 			Filters: []types.Filter{
-				{Name: aws.String("vpc-id"), Values: []string{cfg.VpcID}},
+				{Name: aws.String("vpc-id"), Values: []string{vpcID}},
 			},
 		})
 		if err == nil {
 			for _, subnet := range subnetResult.Subnets {
 				totalCount++
-				fmt.Printf("  - Subnet: %s\n", aws.ToString(subnet.SubnetId))
+				fmt.Printf("    - Subnet: %s\n", aws.ToString(subnet.SubnetId))
 			}
 		}
 
 		// Internet Gateways
 		igwResult, err := clients.EC2.DescribeInternetGateways(ctx, &ec2.DescribeInternetGatewaysInput{
 			Filters: []types.Filter{
-				{Name: aws.String("attachment.vpc-id"), Values: []string{cfg.VpcID}},
+				{Name: aws.String("attachment.vpc-id"), Values: []string{vpcID}},
 			},
 		})
 		if err == nil {
 			for _, igw := range igwResult.InternetGateways {
 				totalCount++
-				fmt.Printf("  - Internet Gateway: %s\n", aws.ToString(igw.InternetGatewayId))
+				fmt.Printf("    - Internet Gateway: %s\n", aws.ToString(igw.InternetGatewayId))
 			}
 		}
-
-		// VPC itself
-		totalCount++
-		fmt.Printf("  - VPC: %s\n", cfg.VpcID)
 	}
 
 	// List S3 buckets
@@ -858,6 +944,142 @@ func deleteLoadBalancers(ctx context.Context, clients *AWSClients, cfg *CleanupC
 	return nil
 }
 
+// deleteVPCLoadBalancers deletes all load balancers in a specific VPC
+// This is used for VPC cleanup where we want to delete everything in the VPC,
+// regardless of name prefix (the VPC was already identified by prefix)
+func deleteVPCLoadBalancers(ctx context.Context, clients *AWSClients, cfg *CleanupConfig) error {
+	if cfg.VpcID == "" {
+		return nil
+	}
+
+	fmt.Printf("%s Deleting load balancers in VPC...\n", cyan("INFO:"))
+
+	result, err := clients.ELBV2.DescribeLoadBalancers(ctx, &elasticloadbalancingv2.DescribeLoadBalancersInput{})
+	if err != nil {
+		return err
+	}
+
+	var lbsToDelete []elbv2types.LoadBalancer
+	for _, lb := range result.LoadBalancers {
+		if aws.ToString(lb.VpcId) == cfg.VpcID {
+			lbsToDelete = append(lbsToDelete, lb)
+		}
+	}
+
+	if len(lbsToDelete) == 0 {
+		return nil
+	}
+
+	for _, lb := range lbsToDelete {
+		lbName := aws.ToString(lb.LoadBalancerName)
+		if cfg.DryRun {
+			fmt.Printf("  [DRY RUN] Would delete Load Balancer: %s\n", lbName)
+		} else {
+			_, err := clients.ELBV2.DeleteLoadBalancer(ctx, &elasticloadbalancingv2.DeleteLoadBalancerInput{
+				LoadBalancerArn: lb.LoadBalancerArn,
+			})
+			if err != nil {
+				fmt.Printf("%s Failed to delete Load Balancer %s: %v\n", yellow("WARNING:"), lbName, err)
+			} else {
+				fmt.Printf("  %s Deleted Load Balancer: %s\n", green("✓"), lbName)
+			}
+		}
+	}
+
+	// Wait for load balancers to be fully deleted (AWS needs time to release ENIs)
+	if !cfg.DryRun {
+		fmt.Printf("  %s Waiting for Load Balancers to be fully deleted...\n", yellow("WAIT:"))
+		time.Sleep(30 * time.Second)
+	}
+
+	return nil
+}
+
+// deleteVPCClassicLoadBalancers deletes all Classic Load Balancers in a specific VPC
+// This handles ELBs created by Kubernetes that use the older Classic LB type
+func deleteVPCClassicLoadBalancers(ctx context.Context, clients *AWSClients, cfg *CleanupConfig) error {
+	if cfg.VpcID == "" {
+		return nil
+	}
+
+	fmt.Printf("%s Deleting classic load balancers in VPC...\n", cyan("INFO:"))
+
+	result, err := clients.ELB.DescribeLoadBalancers(ctx, &elasticloadbalancing.DescribeLoadBalancersInput{})
+	if err != nil {
+		return err
+	}
+
+	var lbsToDelete []string
+	for _, lb := range result.LoadBalancerDescriptions {
+		if aws.ToString(lb.VPCId) == cfg.VpcID {
+			lbsToDelete = append(lbsToDelete, aws.ToString(lb.LoadBalancerName))
+		}
+	}
+
+	if len(lbsToDelete) == 0 {
+		return nil
+	}
+
+	for _, lbName := range lbsToDelete {
+		if cfg.DryRun {
+			fmt.Printf("  [DRY RUN] Would delete Classic Load Balancer: %s\n", lbName)
+		} else {
+			_, err := clients.ELB.DeleteLoadBalancer(ctx, &elasticloadbalancing.DeleteLoadBalancerInput{
+				LoadBalancerName: aws.String(lbName),
+			})
+			if err != nil {
+				fmt.Printf("%s Failed to delete Classic Load Balancer %s: %v\n", yellow("WARNING:"), lbName, err)
+			} else {
+				fmt.Printf("  %s Deleted Classic Load Balancer: %s\n", green("✓"), lbName)
+			}
+		}
+	}
+
+	// Wait for classic load balancers to be deleted
+	if !cfg.DryRun {
+		fmt.Printf("  %s Waiting for Classic Load Balancers to be deleted...\n", yellow("WAIT:"))
+		time.Sleep(30 * time.Second)
+	}
+
+	return nil
+}
+
+// deleteVPCTargetGroups deletes all target groups in a specific VPC
+// This is used for VPC cleanup where we want to delete everything in the VPC,
+// regardless of name prefix (the VPC was already identified by prefix)
+func deleteVPCTargetGroups(ctx context.Context, clients *AWSClients, cfg *CleanupConfig) error {
+	if cfg.VpcID == "" {
+		return nil
+	}
+
+	fmt.Printf("%s Deleting target groups in VPC...\n", cyan("INFO:"))
+
+	result, err := clients.ELBV2.DescribeTargetGroups(ctx, &elasticloadbalancingv2.DescribeTargetGroupsInput{})
+	if err != nil {
+		return err
+	}
+
+	for _, tg := range result.TargetGroups {
+		if aws.ToString(tg.VpcId) == cfg.VpcID {
+			tgName := aws.ToString(tg.TargetGroupName)
+			if cfg.DryRun {
+				fmt.Printf("  [DRY RUN] Would delete Target Group: %s\n", tgName)
+			} else {
+				_, err := clients.ELBV2.DeleteTargetGroup(ctx, &elasticloadbalancingv2.DeleteTargetGroupInput{
+					TargetGroupArn: tg.TargetGroupArn,
+				})
+				if err != nil {
+					fmt.Printf("%s Failed to delete Target Group %s: %v\n", yellow("WARNING:"), tgName, err)
+				} else {
+					fmt.Printf("  %s Deleted Target Group: %s\n", green("✓"), tgName)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 // deleteTargetGroups deletes Target Groups
 func deleteTargetGroups(ctx context.Context, clients *AWSClients, cfg *CleanupConfig) error {
 	fmt.Printf("%s Deleting Target Groups...\n", cyan("INFO:"))
@@ -1121,11 +1343,12 @@ func deleteSecurityGroups(ctx context.Context, clients *AWSClients, cfg *Cleanup
 		return err
 	}
 
-	// Filter to only security groups matching our prefix
+	// Delete all non-default security groups in this VPC
+	// (The VPC was already identified by prefix - clean up everything inside it)
 	var sgToDelete []types.SecurityGroup
 	for _, sg := range result.SecurityGroups {
 		name := aws.ToString(sg.GroupName)
-		if strings.HasPrefix(name, cfg.CommonPrefix) && name != "default" {
+		if name != "default" {
 			sgToDelete = append(sgToDelete, sg)
 		}
 	}
@@ -1338,22 +1561,30 @@ func deleteNetworkInterfaces(ctx context.Context, clients *AWSClients, cfg *Clea
 		return err
 	}
 
+	var availableCount, inUseCount int
 	for _, eni := range result.NetworkInterfaces {
+		eniID := aws.ToString(eni.NetworkInterfaceId)
+		status := string(eni.Status)
+		requester := aws.ToString(eni.RequesterId)
+		description := aws.ToString(eni.Description)
+
 		// Skip network interfaces that are attached to instances
 		if eni.Attachment != nil && aws.ToString(eni.Attachment.InstanceId) != "" {
 			continue
 		}
 
-		// Skip network interfaces managed by AWS services (like Lambda, ELB, etc.)
-		if eni.RequesterId != nil && aws.ToString(eni.RequesterId) != "" {
-			requester := aws.ToString(eni.RequesterId)
-			// Skip AWS-managed ENIs
-			if requester == "amazon-elb" || requester == "amazon-aws" {
-				continue
-			}
+		// Only delete ENIs that are in "available" status
+		// After load balancers are deleted, their ENIs become "available" and can be cleaned up
+		if eni.Status != types.NetworkInterfaceStatusAvailable {
+			inUseCount++
+			// Show debug info for in-use ENIs so we can understand what's blocking
+			fmt.Printf("  %s ENI %s is %s (requester: %s, desc: %s)\n",
+				yellow("SKIP:"), eniID, status, requester, truncateString(description, 50))
+			continue
 		}
+		availableCount++
 
-		eniID := aws.ToString(eni.NetworkInterfaceId)
+		eniID = aws.ToString(eni.NetworkInterfaceId)
 		if cfg.DryRun {
 			fmt.Printf("  [DRY RUN] Would delete network interface: %s\n", eniID)
 		} else {
@@ -1767,8 +1998,8 @@ func getAllRegions(ctx context.Context, ec2Client *ec2.Client) ([]string, error)
 	return regions, nil
 }
 
-// getNonDefaultVPCs returns all non-default VPCs in the region that have a Name tag starting with "network-"
-func getNonDefaultVPCs(ctx context.Context, ec2Client *ec2.Client, region string) ([]VPCInfo, error) {
+// getNonDefaultVPCs returns all non-default VPCs in the region that have a Name tag starting with the given prefix
+func getNonDefaultVPCs(ctx context.Context, ec2Client *ec2.Client, region, commonPrefix string) ([]VPCInfo, error) {
 	input := &ec2.DescribeVpcsInput{
 		Filters: []types.Filter{
 			{
@@ -1794,8 +2025,8 @@ func getNonDefaultVPCs(ctx context.Context, ec2Client *ec2.Client, region string
 			}
 		}
 
-		// Filter by "network-" prefix
-		if strings.HasPrefix(name, "network-") {
+		// Filter by commonPrefix
+		if strings.HasPrefix(name, commonPrefix) {
 			vpcs = append(vpcs, VPCInfo{
 				ID:   aws.ToString(vpc.VpcId),
 				Name: name,
