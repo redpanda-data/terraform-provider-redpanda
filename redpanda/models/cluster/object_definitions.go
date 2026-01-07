@@ -20,30 +20,33 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func getStateDescriptionType() map[string]attr.Type {
+// GetStateDescriptionType returns the type definition for state description
+func GetStateDescriptionType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"message": types.StringType,
 		"code":    types.Int32Type,
 	}
 }
 
-func getAwsPrivateLinkType() map[string]attr.Type {
+// GetAwsPrivateLinkType returns the type definition for AWS PrivateLink configuration
+func GetAwsPrivateLinkType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"enabled":            types.BoolType,
 		"connect_console":    types.BoolType,
 		"allowed_principals": types.ListType{ElemType: types.StringType},
-		"status":             types.ObjectType{AttrTypes: getAwsPrivateLinkStatusType()},
+		"status":             types.ObjectType{AttrTypes: GetAwsPrivateLinkStatusType()},
 	}
 }
 
-func getAwsPrivateLinkStatusType() map[string]attr.Type {
+// GetAwsPrivateLinkStatusType returns the type definition for AWS PrivateLink status
+func GetAwsPrivateLinkStatusType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"service_id":                    types.StringType,
 		"service_name":                  types.StringType,
 		"service_state":                 types.StringType,
 		"created_at":                    types.StringType,
 		"deleted_at":                    types.StringType,
-		"vpc_endpoint_connections":      types.ListType{ElemType: types.ObjectType{AttrTypes: getVpcEndpointConnectionType()}},
+		"vpc_endpoint_connections":      types.ListType{ElemType: types.ObjectType{AttrTypes: GetVpcEndpointConnectionType()}},
 		"kafka_api_seed_port":           types.Int32Type,
 		"schema_registry_seed_port":     types.Int32Type,
 		"redpanda_proxy_seed_port":      types.Int32Type,
@@ -53,7 +56,8 @@ func getAwsPrivateLinkStatusType() map[string]attr.Type {
 	}
 }
 
-func getVpcEndpointConnectionType() map[string]attr.Type {
+// GetVpcEndpointConnectionType returns the type definition for VPC endpoint connection
+func GetVpcEndpointConnectionType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"id":                 types.StringType,
 		"owner":              types.StringType,
@@ -61,27 +65,30 @@ func getVpcEndpointConnectionType() map[string]attr.Type {
 		"created_at":         types.StringType,
 		"connection_id":      types.StringType,
 		"load_balancer_arns": types.ListType{ElemType: types.StringType},
-		"dns_entries":        types.ListType{ElemType: types.ObjectType{AttrTypes: getDNSEntryType()}},
+		"dns_entries":        types.ListType{ElemType: types.ObjectType{AttrTypes: GetDNSEntryType()}},
 	}
 }
 
-func getDNSEntryType() map[string]attr.Type {
+// GetDNSEntryType returns the type definition for DNS entry
+func GetDNSEntryType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"dns_name":       types.StringType,
 		"hosted_zone_id": types.StringType,
 	}
 }
 
-func getGcpPrivateServiceConnectType() map[string]attr.Type {
+// GetGcpPrivateServiceConnectType returns the type definition for GCP Private Service Connect configuration
+func GetGcpPrivateServiceConnectType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"enabled":               types.BoolType,
 		"global_access_enabled": types.BoolType,
 		"consumer_accept_list":  types.ListType{ElemType: types.ObjectType{AttrTypes: map[string]attr.Type{"source": types.StringType}}},
-		"status":                types.ObjectType{AttrTypes: getGcpPrivateServiceConnectStatusType()},
+		"status":                types.ObjectType{AttrTypes: GetGcpPrivateServiceConnectStatusType()},
 	}
 }
 
-func getGcpPrivateServiceConnectStatusType() map[string]attr.Type {
+// GetGcpPrivateServiceConnectStatusType returns the type definition for GCP Private Service Connect status
+func GetGcpPrivateServiceConnectStatusType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"service_attachment":            types.StringType,
 		"created_at":                    types.StringType,
@@ -91,13 +98,14 @@ func getGcpPrivateServiceConnectStatusType() map[string]attr.Type {
 		"redpanda_proxy_seed_port":      types.Int32Type,
 		"kafka_api_node_base_port":      types.Int32Type,
 		"redpanda_proxy_node_base_port": types.Int32Type,
-		"connected_endpoints":           types.ListType{ElemType: types.ObjectType{AttrTypes: getConnectedEndpointType()}},
+		"connected_endpoints":           types.ListType{ElemType: types.ObjectType{AttrTypes: GetConnectedEndpointType()}},
 		"dns_a_records":                 types.ListType{ElemType: types.StringType},
 		"seed_hostname":                 types.StringType,
 	}
 }
 
-func getConnectedEndpointType() map[string]attr.Type {
+// GetConnectedEndpointType returns the type definition for connected endpoint
+func GetConnectedEndpointType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"connection_id":    types.StringType,
 		"consumer_network": types.StringType,
@@ -106,22 +114,24 @@ func getConnectedEndpointType() map[string]attr.Type {
 	}
 }
 
-func getAzurePrivateLinkType() map[string]attr.Type {
+// GetAzurePrivateLinkType returns the type definition for Azure Private Link configuration
+func GetAzurePrivateLinkType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"enabled":               types.BoolType,
 		"connect_console":       types.BoolType,
 		"allowed_subscriptions": types.ListType{ElemType: types.StringType},
-		"status":                types.ObjectType{AttrTypes: getAzurePrivateLinkStatusType()},
+		"status":                types.ObjectType{AttrTypes: GetAzurePrivateLinkStatusType()},
 	}
 }
 
-func getAzurePrivateLinkStatusType() map[string]attr.Type {
+// GetAzurePrivateLinkStatusType returns the type definition for Azure Private Link status
+func GetAzurePrivateLinkStatusType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"service_id":                    types.StringType,
 		"service_name":                  types.StringType,
 		"created_at":                    types.StringType,
 		"deleted_at":                    types.StringType,
-		"private_endpoint_connections":  types.ListType{ElemType: types.ObjectType{AttrTypes: getAzureEndpointConnectionType()}},
+		"private_endpoint_connections":  types.ListType{ElemType: types.ObjectType{AttrTypes: GetAzureEndpointConnectionType()}},
 		"dns_a_record":                  types.StringType,
 		"approved_subscriptions":        types.ListType{ElemType: types.StringType},
 		"kafka_api_seed_port":           types.Int32Type,
@@ -133,7 +143,8 @@ func getAzurePrivateLinkStatusType() map[string]attr.Type {
 	}
 }
 
-func getAzureEndpointConnectionType() map[string]attr.Type {
+// GetAzureEndpointConnectionType returns the type definition for Azure endpoint connection
+func GetAzureEndpointConnectionType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"private_endpoint_name": types.StringType,
 		"private_endpoint_id":   types.StringType,
@@ -144,14 +155,16 @@ func getAzureEndpointConnectionType() map[string]attr.Type {
 	}
 }
 
-func getKafkaAPIType() map[string]attr.Type {
+// GetKafkaAPIType returns the type definition for Kafka API configuration
+func GetKafkaAPIType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"seed_brokers": types.ListType{ElemType: types.StringType},
-		"mtls":         types.ObjectType{AttrTypes: getMtlsType()},
+		"mtls":         types.ObjectType{AttrTypes: GetMtlsType()},
 	}
 }
 
-func getMtlsType() map[string]attr.Type {
+// GetMtlsType returns the type definition for MTLS configuration
+func GetMtlsType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"enabled":                 types.BoolType,
 		"ca_certificates_pem":     types.ListType{ElemType: types.StringType},
@@ -159,124 +172,140 @@ func getMtlsType() map[string]attr.Type {
 	}
 }
 
-func getClusterConfigurationType() map[string]attr.Type {
+// GetClusterConfigurationType returns the type definition for cluster configuration
+func GetClusterConfigurationType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"custom_properties_json": types.StringType,
 	}
 }
 
-func getHTTPProxyType() map[string]attr.Type {
+// GetHTTPProxyType returns the type definition for HTTP Proxy configuration
+func GetHTTPProxyType() map[string]attr.Type {
 	return map[string]attr.Type{
-		"mtls": types.ObjectType{AttrTypes: getMtlsType()},
+		"mtls": types.ObjectType{AttrTypes: GetMtlsType()},
 		"url":  types.StringType,
 	}
 }
 
-func getSchemaRegistryType() map[string]attr.Type {
+// GetSchemaRegistryType returns the type definition for Schema Registry configuration
+func GetSchemaRegistryType() map[string]attr.Type {
 	return map[string]attr.Type{
-		"mtls": types.ObjectType{AttrTypes: getMtlsType()},
+		"mtls": types.ObjectType{AttrTypes: GetMtlsType()},
 		"url":  types.StringType,
 	}
 }
 
-func getKafkaConnectType() map[string]attr.Type {
+// GetKafkaConnectType returns the type definition for Kafka Connect configuration
+func GetKafkaConnectType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"enabled": types.BoolType,
 	}
 }
 
-func getCustomerManagedResourcesType() map[string]attr.Type {
+// GetCustomerManagedResourcesType returns the type definition for customer managed resources configuration
+func GetCustomerManagedResourcesType() map[string]attr.Type {
 	return map[string]attr.Type{
-		"aws": types.ObjectType{AttrTypes: getAwsCmrType()},
-		"gcp": types.ObjectType{AttrTypes: getGcpCmrType()},
+		"aws": types.ObjectType{AttrTypes: GetAwsCmrType()},
+		"gcp": types.ObjectType{AttrTypes: GetGcpCmrType()},
 	}
 }
 
-func getAwsCmrType() map[string]attr.Type {
+// GetAwsCmrType returns the type definition for AWS customer managed resources
+func GetAwsCmrType() map[string]attr.Type {
 	return map[string]attr.Type{
-		"agent_instance_profile":                 types.ObjectType{AttrTypes: getArnContainerType()},
-		"connectors_node_group_instance_profile": types.ObjectType{AttrTypes: getArnContainerType()},
-		"utility_node_group_instance_profile":    types.ObjectType{AttrTypes: getArnContainerType()},
-		"redpanda_node_group_instance_profile":   types.ObjectType{AttrTypes: getArnContainerType()},
-		"k8s_cluster_role":                       types.ObjectType{AttrTypes: getArnContainerType()},
-		"redpanda_agent_security_group":          types.ObjectType{AttrTypes: getArnContainerType()},
-		"connectors_security_group":              types.ObjectType{AttrTypes: getArnContainerType()},
-		"redpanda_node_group_security_group":     types.ObjectType{AttrTypes: getArnContainerType()},
-		"utility_security_group":                 types.ObjectType{AttrTypes: getArnContainerType()},
-		"cluster_security_group":                 types.ObjectType{AttrTypes: getArnContainerType()},
-		"node_security_group":                    types.ObjectType{AttrTypes: getArnContainerType()},
-		"cloud_storage_bucket":                   types.ObjectType{AttrTypes: getArnContainerType()},
-		"permissions_boundary_policy":            types.ObjectType{AttrTypes: getArnContainerType()},
+		"agent_instance_profile":                 types.ObjectType{AttrTypes: GetArnContainerType()},
+		"connectors_node_group_instance_profile": types.ObjectType{AttrTypes: GetArnContainerType()},
+		"utility_node_group_instance_profile":    types.ObjectType{AttrTypes: GetArnContainerType()},
+		"redpanda_node_group_instance_profile":   types.ObjectType{AttrTypes: GetArnContainerType()},
+		"k8s_cluster_role":                       types.ObjectType{AttrTypes: GetArnContainerType()},
+		"redpanda_agent_security_group":          types.ObjectType{AttrTypes: GetArnContainerType()},
+		"connectors_security_group":              types.ObjectType{AttrTypes: GetArnContainerType()},
+		"redpanda_node_group_security_group":     types.ObjectType{AttrTypes: GetArnContainerType()},
+		"utility_security_group":                 types.ObjectType{AttrTypes: GetArnContainerType()},
+		"cluster_security_group":                 types.ObjectType{AttrTypes: GetArnContainerType()},
+		"node_security_group":                    types.ObjectType{AttrTypes: GetArnContainerType()},
+		"cloud_storage_bucket":                   types.ObjectType{AttrTypes: GetArnContainerType()},
+		"permissions_boundary_policy":            types.ObjectType{AttrTypes: GetArnContainerType()},
 	}
 }
 
-func getArnContainerType() map[string]attr.Type {
+// GetArnContainerType returns the type definition for ARN container
+func GetArnContainerType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"arn": types.StringType,
 	}
 }
 
-func getGcpCmrType() map[string]attr.Type {
+// GetGcpCmrType returns the type definition for GCP customer managed resources
+func GetGcpCmrType() map[string]attr.Type {
 	return map[string]attr.Type{
-		"subnet":                           types.ObjectType{AttrTypes: getGcpSubnetType()},
-		"agent_service_account":            types.ObjectType{AttrTypes: getGcpServiceAccountType()},
-		"console_service_account":          types.ObjectType{AttrTypes: getGcpServiceAccountType()},
-		"connector_service_account":        types.ObjectType{AttrTypes: getGcpServiceAccountType()},
-		"redpanda_cluster_service_account": types.ObjectType{AttrTypes: getGcpServiceAccountType()},
-		"gke_service_account":              types.ObjectType{AttrTypes: getGcpServiceAccountType()},
-		"tiered_storage_bucket":            types.ObjectType{AttrTypes: getGcpBucketType()},
+		"subnet":                           types.ObjectType{AttrTypes: GetGcpSubnetType()},
+		"agent_service_account":            types.ObjectType{AttrTypes: GetGcpServiceAccountType()},
+		"console_service_account":          types.ObjectType{AttrTypes: GetGcpServiceAccountType()},
+		"connector_service_account":        types.ObjectType{AttrTypes: GetGcpServiceAccountType()},
+		"redpanda_cluster_service_account": types.ObjectType{AttrTypes: GetGcpServiceAccountType()},
+		"gke_service_account":              types.ObjectType{AttrTypes: GetGcpServiceAccountType()},
+		"tiered_storage_bucket":            types.ObjectType{AttrTypes: GetGcpBucketType()},
 		"psc_nat_subnet_name":              types.StringType,
 	}
 }
 
-func getGcpSubnetType() map[string]attr.Type {
+// GetGcpSubnetType returns the type definition for GCP subnet configuration
+func GetGcpSubnetType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"name":                          types.StringType,
-		"secondary_ipv4_range_pods":     types.ObjectType{AttrTypes: getGcpSecondaryIPv4RangeType()},
-		"secondary_ipv4_range_services": types.ObjectType{AttrTypes: getGcpSecondaryIPv4RangeType()},
+		"secondary_ipv4_range_pods":     types.ObjectType{AttrTypes: GetGcpSecondaryIPv4RangeType()},
+		"secondary_ipv4_range_services": types.ObjectType{AttrTypes: GetGcpSecondaryIPv4RangeType()},
 		"k8s_master_ipv4_range":         types.StringType,
 	}
 }
 
-func getGcpSecondaryIPv4RangeType() map[string]attr.Type {
+// GetGcpSecondaryIPv4RangeType returns the type definition for GCP secondary IPv4 range
+func GetGcpSecondaryIPv4RangeType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"name": types.StringType,
 	}
 }
 
-func getGcpServiceAccountType() map[string]attr.Type {
+// GetGcpServiceAccountType returns the type definition for GCP service account
+func GetGcpServiceAccountType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"email": types.StringType,
 	}
 }
 
-func getGcpBucketType() map[string]attr.Type {
+// GetGcpBucketType returns the type definition for GCP bucket
+func GetGcpBucketType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"name": types.StringType,
 	}
 }
 
-func getPrometheusType() map[string]attr.Type {
+// GetPrometheusType returns the type definition for Prometheus configuration
+func GetPrometheusType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"url": types.StringType,
 	}
 }
 
-func getRedpandaConsoleType() map[string]attr.Type {
+// GetRedpandaConsoleType returns the type definition for Redpanda Console configuration
+func GetRedpandaConsoleType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"url": types.StringType,
 	}
 }
 
-func getMaintenanceWindowConfigType() map[string]attr.Type {
+// GetMaintenanceWindowConfigType returns the type definition for maintenance window configuration
+func GetMaintenanceWindowConfigType() map[string]attr.Type {
 	return map[string]attr.Type{
-		"day_hour":    types.ObjectType{AttrTypes: getDayHourType()},
+		"day_hour":    types.ObjectType{AttrTypes: GetDayHourType()},
 		"anytime":     types.BoolType,
 		"unspecified": types.BoolType,
 	}
 }
 
-func getDayHourType() map[string]attr.Type {
+// GetDayHourType returns the type definition for day and hour configuration
+func GetDayHourType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"hour_of_day": types.Int32Type,
 		"day_of_week": types.StringType,
@@ -285,31 +314,31 @@ func getDayHourType() map[string]attr.Type {
 
 func getAwsCmrNullAttributes() map[string]attr.Value {
 	return map[string]attr.Value{
-		"agent_instance_profile":                 types.ObjectNull(getArnContainerType()),
-		"connectors_node_group_instance_profile": types.ObjectNull(getArnContainerType()),
-		"utility_node_group_instance_profile":    types.ObjectNull(getArnContainerType()),
-		"redpanda_node_group_instance_profile":   types.ObjectNull(getArnContainerType()),
-		"k8s_cluster_role":                       types.ObjectNull(getArnContainerType()),
-		"redpanda_agent_security_group":          types.ObjectNull(getArnContainerType()),
-		"connectors_security_group":              types.ObjectNull(getArnContainerType()),
-		"redpanda_node_group_security_group":     types.ObjectNull(getArnContainerType()),
-		"utility_security_group":                 types.ObjectNull(getArnContainerType()),
-		"cluster_security_group":                 types.ObjectNull(getArnContainerType()),
-		"node_security_group":                    types.ObjectNull(getArnContainerType()),
-		"cloud_storage_bucket":                   types.ObjectNull(getArnContainerType()),
-		"permissions_boundary_policy":            types.ObjectNull(getArnContainerType()),
+		"agent_instance_profile":                 types.ObjectNull(GetArnContainerType()),
+		"connectors_node_group_instance_profile": types.ObjectNull(GetArnContainerType()),
+		"utility_node_group_instance_profile":    types.ObjectNull(GetArnContainerType()),
+		"redpanda_node_group_instance_profile":   types.ObjectNull(GetArnContainerType()),
+		"k8s_cluster_role":                       types.ObjectNull(GetArnContainerType()),
+		"redpanda_agent_security_group":          types.ObjectNull(GetArnContainerType()),
+		"connectors_security_group":              types.ObjectNull(GetArnContainerType()),
+		"redpanda_node_group_security_group":     types.ObjectNull(GetArnContainerType()),
+		"utility_security_group":                 types.ObjectNull(GetArnContainerType()),
+		"cluster_security_group":                 types.ObjectNull(GetArnContainerType()),
+		"node_security_group":                    types.ObjectNull(GetArnContainerType()),
+		"cloud_storage_bucket":                   types.ObjectNull(GetArnContainerType()),
+		"permissions_boundary_policy":            types.ObjectNull(GetArnContainerType()),
 	}
 }
 
 func getGcpCmrNullAttributes() map[string]attr.Value {
 	return map[string]attr.Value{
-		"subnet":                           types.ObjectNull(getGcpSubnetType()),
-		"agent_service_account":            types.ObjectNull(getGcpServiceAccountType()),
-		"console_service_account":          types.ObjectNull(getGcpServiceAccountType()),
-		"connector_service_account":        types.ObjectNull(getGcpServiceAccountType()),
-		"redpanda_cluster_service_account": types.ObjectNull(getGcpServiceAccountType()),
-		"gke_service_account":              types.ObjectNull(getGcpServiceAccountType()),
-		"tiered_storage_bucket":            types.ObjectNull(getGcpBucketType()),
+		"subnet":                           types.ObjectNull(GetGcpSubnetType()),
+		"agent_service_account":            types.ObjectNull(GetGcpServiceAccountType()),
+		"console_service_account":          types.ObjectNull(GetGcpServiceAccountType()),
+		"connector_service_account":        types.ObjectNull(GetGcpServiceAccountType()),
+		"redpanda_cluster_service_account": types.ObjectNull(GetGcpServiceAccountType()),
+		"gke_service_account":              types.ObjectNull(GetGcpServiceAccountType()),
+		"tiered_storage_bucket":            types.ObjectNull(GetGcpBucketType()),
 		"psc_nat_subnet_name":              types.StringNull(),
 	}
 }
