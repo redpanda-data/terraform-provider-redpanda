@@ -203,17 +203,17 @@ type ContingentFields struct {
 func (*DataModel) generateModelStateDescription(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if !cluster.HasStateDescription() {
-		return types.ObjectNull(getStateDescriptionType()), diags
+		return types.ObjectNull(GetStateDescriptionType()), diags
 	}
 	sd := cluster.GetStateDescription()
-	obj, d := types.ObjectValue(getStateDescriptionType(), map[string]attr.Value{
+	obj, d := types.ObjectValue(GetStateDescriptionType(), map[string]attr.Value{
 		"message": types.StringValue(sd.GetMessage()),
 		"code":    types.Int32Value(sd.GetCode()),
 	})
 	if d.HasError() {
 		diags.Append(d...)
 		diags.AddError("failed to generate state description object", "could not create state description object")
-		return types.ObjectNull(getStateDescriptionType()), diags
+		return types.ObjectNull(GetStateDescriptionType()), diags
 	}
 	return obj, diags
 }
@@ -221,21 +221,21 @@ func (*DataModel) generateModelStateDescription(cluster *controlplanev1.Cluster)
 func (*DataModel) generateModelKafkaConnect(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if !cluster.HasKafkaConnect() {
-		return types.ObjectNull(getKafkaConnectType()), diags
+		return types.ObjectNull(GetKafkaConnectType()), diags
 	}
 
 	kafkaConnect := cluster.GetKafkaConnect()
 	if !kafkaConnect.GetEnabled() {
-		return types.ObjectNull(getKafkaConnectType()), diags
+		return types.ObjectNull(GetKafkaConnectType()), diags
 	}
 
-	obj, d := types.ObjectValue(getKafkaConnectType(), map[string]attr.Value{
+	obj, d := types.ObjectValue(GetKafkaConnectType(), map[string]attr.Value{
 		"enabled": types.BoolValue(kafkaConnect.GetEnabled()),
 	})
 	if d.HasError() {
 		diags.Append(d...)
 		diags.AddError("failed to generate Kafka Connect object", "could not create Kafka Connect object")
-		return types.ObjectNull(getKafkaConnectType()), diags
+		return types.ObjectNull(GetKafkaConnectType()), diags
 	}
 
 	return obj, diags
@@ -244,18 +244,18 @@ func (*DataModel) generateModelKafkaConnect(cluster *controlplanev1.Cluster) (ty
 func (*DataModel) generateModelPrometheus(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if !cluster.HasPrometheus() {
-		return types.ObjectNull(getPrometheusType()), diags
+		return types.ObjectNull(GetPrometheusType()), diags
 	}
 
 	prometheus := cluster.GetPrometheus()
 
-	obj, d := types.ObjectValue(getPrometheusType(), map[string]attr.Value{
+	obj, d := types.ObjectValue(GetPrometheusType(), map[string]attr.Value{
 		"url": types.StringValue(prometheus.GetUrl()),
 	})
 	if d.HasError() {
 		diags.Append(d...)
 		diags.AddError("failed to generate Prometheus object", "could not create Prometheus object")
-		return types.ObjectNull(getPrometheusType()), diags
+		return types.ObjectNull(GetPrometheusType()), diags
 	}
 
 	return obj, diags
@@ -264,18 +264,18 @@ func (*DataModel) generateModelPrometheus(cluster *controlplanev1.Cluster) (type
 func (*DataModel) generateModelRedpandaConsole(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if !cluster.HasRedpandaConsole() {
-		return types.ObjectNull(getRedpandaConsoleType()), diags
+		return types.ObjectNull(GetRedpandaConsoleType()), diags
 	}
 
 	console := cluster.GetRedpandaConsole()
 
-	obj, d := types.ObjectValue(getRedpandaConsoleType(), map[string]attr.Value{
+	obj, d := types.ObjectValue(GetRedpandaConsoleType(), map[string]attr.Value{
 		"url": types.StringValue(console.GetUrl()),
 	})
 	if d.HasError() {
 		diags.Append(d...)
 		diags.AddError("failed to generate Redpanda Console object", "could not create Redpanda Console object")
-		return types.ObjectNull(getRedpandaConsoleType()), diags
+		return types.ObjectNull(GetRedpandaConsoleType()), diags
 	}
 
 	return obj, diags
@@ -284,7 +284,7 @@ func (*DataModel) generateModelRedpandaConsole(cluster *controlplanev1.Cluster) 
 func (r *DataModel) generateModelSchemaRegistry(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if !cluster.HasSchemaRegistry() {
-		return types.ObjectNull(getSchemaRegistryType()), diags
+		return types.ObjectNull(GetSchemaRegistryType()), diags
 	}
 
 	schemaRegistry := cluster.GetSchemaRegistry()
@@ -292,17 +292,17 @@ func (r *DataModel) generateModelSchemaRegistry(cluster *controlplanev1.Cluster)
 	mtls, d := r.generateModelMtls(schemaRegistry.GetMtls())
 	if d.HasError() {
 		diags.Append(d...)
-		return types.ObjectNull(getSchemaRegistryType()), diags
+		return types.ObjectNull(GetSchemaRegistryType()), diags
 	}
 
-	obj, d := types.ObjectValue(getSchemaRegistryType(), map[string]attr.Value{
+	obj, d := types.ObjectValue(GetSchemaRegistryType(), map[string]attr.Value{
 		"mtls": mtls,
 		"url":  types.StringValue(schemaRegistry.GetUrl()),
 	})
 	if d.HasError() {
 		diags.Append(d...)
 		diags.AddError("failed to generate Schema Registry object", "could not create Schema Registry object")
-		return types.ObjectNull(getSchemaRegistryType()), diags
+		return types.ObjectNull(GetSchemaRegistryType()), diags
 	}
 
 	return obj, diags
@@ -311,7 +311,7 @@ func (r *DataModel) generateModelSchemaRegistry(cluster *controlplanev1.Cluster)
 func (r *DataModel) generateModelHTTPProxy(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if !cluster.HasHttpProxy() {
-		return types.ObjectNull(getHTTPProxyType()), diags
+		return types.ObjectNull(GetHTTPProxyType()), diags
 	}
 
 	httpProxy := cluster.GetHttpProxy()
@@ -319,17 +319,17 @@ func (r *DataModel) generateModelHTTPProxy(cluster *controlplanev1.Cluster) (typ
 	mtls, d := r.generateModelMtls(httpProxy.GetMtls())
 	if d.HasError() {
 		diags.Append(d...)
-		return types.ObjectNull(getHTTPProxyType()), diags
+		return types.ObjectNull(GetHTTPProxyType()), diags
 	}
 
-	obj, d := types.ObjectValue(getHTTPProxyType(), map[string]attr.Value{
+	obj, d := types.ObjectValue(GetHTTPProxyType(), map[string]attr.Value{
 		"mtls": mtls,
 		"url":  types.StringValue(httpProxy.GetUrl()),
 	})
 	if d.HasError() {
 		diags.Append(d...)
 		diags.AddError("failed to generate HTTP Proxy object", "could not create HTTP Proxy object")
-		return types.ObjectNull(getHTTPProxyType()), diags
+		return types.ObjectNull(GetHTTPProxyType()), diags
 	}
 
 	return obj, diags
@@ -338,7 +338,7 @@ func (r *DataModel) generateModelHTTPProxy(cluster *controlplanev1.Cluster) (typ
 func (r *DataModel) generateModelKafkaAPI(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if !cluster.HasKafkaApi() {
-		return types.ObjectNull(getKafkaAPIType()), diags
+		return types.ObjectNull(GetKafkaAPIType()), diags
 	}
 
 	kafkaAPI := cluster.GetKafkaApi()
@@ -346,17 +346,17 @@ func (r *DataModel) generateModelKafkaAPI(cluster *controlplanev1.Cluster) (type
 	mtls, d := r.generateModelMtls(kafkaAPI.GetMtls())
 	if d.HasError() {
 		diags.Append(d...)
-		return types.ObjectNull(getKafkaAPIType()), diags
+		return types.ObjectNull(GetKafkaAPIType()), diags
 	}
 
-	obj, d := types.ObjectValue(getKafkaAPIType(), map[string]attr.Value{
+	obj, d := types.ObjectValue(GetKafkaAPIType(), map[string]attr.Value{
 		"seed_brokers": utils.StringSliceToTypeList(kafkaAPI.GetSeedBrokers()),
 		"mtls":         mtls,
 	})
 	if d.HasError() {
 		diags.Append(d...)
 		diags.AddError("failed to generate Kafka API object", "could not create Kafka API object")
-		return types.ObjectNull(getKafkaAPIType()), diags
+		return types.ObjectNull(GetKafkaAPIType()), diags
 	}
 
 	return obj, diags
@@ -365,10 +365,10 @@ func (r *DataModel) generateModelKafkaAPI(cluster *controlplanev1.Cluster) (type
 func (*DataModel) generateModelMtls(mtls *controlplanev1.MTLSSpec) (types.Object, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if mtls == nil {
-		return types.ObjectNull(getMtlsType()), diags
+		return types.ObjectNull(GetMtlsType()), diags
 	}
 
-	obj, d := types.ObjectValue(getMtlsType(), map[string]attr.Value{
+	obj, d := types.ObjectValue(GetMtlsType(), map[string]attr.Value{
 		"enabled":                 types.BoolValue(mtls.GetEnabled()),
 		"ca_certificates_pem":     utils.StringSliceToTypeList(mtls.GetCaCertificatesPem()),
 		"principal_mapping_rules": utils.StringSliceToTypeList(mtls.GetPrincipalMappingRules()),
@@ -376,7 +376,7 @@ func (*DataModel) generateModelMtls(mtls *controlplanev1.MTLSSpec) (types.Object
 	if d.HasError() {
 		diags.Append(d...)
 		diags.AddError("failed to generate MTLS object", "could not create MTLS object")
-		return types.ObjectNull(getMtlsType()), diags
+		return types.ObjectNull(GetMtlsType()), diags
 	}
 
 	return obj, diags
@@ -385,30 +385,30 @@ func (*DataModel) generateModelMtls(mtls *controlplanev1.MTLSSpec) (types.Object
 func (*DataModel) generateModelMaintenanceWindow(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if !cluster.HasMaintenanceWindowConfig() {
-		return types.ObjectNull(getMaintenanceWindowConfigType()), diags
+		return types.ObjectNull(GetMaintenanceWindowConfigType()), diags
 	}
 
 	maintenance := cluster.GetMaintenanceWindowConfig()
 
-	windowObj := types.ObjectNull(getDayHourType())
+	windowObj := types.ObjectNull(GetDayHourType())
 	unspec := types.BoolNull()
 	anytime := types.BoolNull()
 
 	if !maintenance.HasWindow() {
-		return types.ObjectNull(getMaintenanceWindowConfigType()), diags
+		return types.ObjectNull(GetMaintenanceWindowConfigType()), diags
 	}
 
 	switch {
 	case maintenance.HasDayHour():
 		w := maintenance.GetDayHour()
-		obj, d := types.ObjectValue(getDayHourType(), map[string]attr.Value{
+		obj, d := types.ObjectValue(GetDayHourType(), map[string]attr.Value{
 			"hour_of_day": types.Int32Value(w.GetHourOfDay()),
 			"day_of_week": types.StringValue(w.GetDayOfWeek().String()),
 		})
 		if d.HasError() {
 			diags.Append(d...)
 			diags.AddError("failed to generate maintenance window detail", "could not create window object")
-			return types.ObjectNull(getMaintenanceWindowConfigType()), diags
+			return types.ObjectNull(GetMaintenanceWindowConfigType()), diags
 		}
 		windowObj = obj
 	case maintenance.HasAnytime():
@@ -417,7 +417,7 @@ func (*DataModel) generateModelMaintenanceWindow(cluster *controlplanev1.Cluster
 		unspec = types.BoolValue(true)
 	}
 
-	obj, d := types.ObjectValue(getMaintenanceWindowConfigType(), map[string]attr.Value{
+	obj, d := types.ObjectValue(GetMaintenanceWindowConfigType(), map[string]attr.Value{
 		"day_hour":    windowObj,
 		"anytime":     anytime,
 		"unspecified": unspec,
@@ -425,7 +425,7 @@ func (*DataModel) generateModelMaintenanceWindow(cluster *controlplanev1.Cluster
 	if d.HasError() {
 		diags.Append(d...)
 		diags.AddError("failed to generate Maintenance Window object", "could not create Maintenance Window object")
-		return types.ObjectNull(getMaintenanceWindowConfigType()), diags
+		return types.ObjectNull(GetMaintenanceWindowConfigType()), diags
 	}
 
 	return obj, diags
@@ -434,12 +434,12 @@ func (*DataModel) generateModelMaintenanceWindow(cluster *controlplanev1.Cluster
 func (*DataModel) generateModelAWSPrivateLink(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if !cluster.HasAwsPrivateLink() {
-		return types.ObjectNull(getAwsPrivateLinkType()), diags
+		return types.ObjectNull(GetAwsPrivateLinkType()), diags
 	}
 
 	awsPrivateLink := cluster.GetAwsPrivateLink()
 	if !awsPrivateLink.GetEnabled() {
-		return types.ObjectNull(getAwsPrivateLinkType()), diags
+		return types.ObjectNull(GetAwsPrivateLinkType()), diags
 	}
 
 	var allowedPrincipals types.List
@@ -456,29 +456,29 @@ func (*DataModel) generateModelAWSPrivateLink(cluster *controlplanev1.Cluster) (
 		for _, conn := range status.GetVpcEndpointConnections() {
 			var dnsEntries []attr.Value
 			for _, dns := range conn.GetDnsEntries() {
-				dnsEntry, d := types.ObjectValue(getDNSEntryType(), map[string]attr.Value{
+				dnsEntry, d := types.ObjectValue(GetDNSEntryType(), map[string]attr.Value{
 					"dns_name":       types.StringValue(dns.GetDnsName()),
 					"hosted_zone_id": types.StringValue(dns.GetHostedZoneId()),
 				})
 				if d.HasError() {
 					diags.Append(d...)
 					diags.AddError("failed to generate DNS entry", "could not create DNS entry object")
-					return types.ObjectNull(getAwsPrivateLinkType()), diags
+					return types.ObjectNull(GetAwsPrivateLinkType()), diags
 				}
 				dnsEntries = append(dnsEntries, dnsEntry)
 			}
 
 			dnsEntriesList, d := types.ListValue(
-				types.ObjectType{AttrTypes: getDNSEntryType()},
+				types.ObjectType{AttrTypes: GetDNSEntryType()},
 				dnsEntries,
 			)
 			if d.HasError() {
 				diags.Append(d...)
 				diags.AddError("failed to generate DNS entries list", "could not create DNS entries list")
-				return types.ObjectNull(getAwsPrivateLinkType()), diags
+				return types.ObjectNull(GetAwsPrivateLinkType()), diags
 			}
 
-			connObj, d := types.ObjectValue(getVpcEndpointConnectionType(), map[string]attr.Value{
+			connObj, d := types.ObjectValue(GetVpcEndpointConnectionType(), map[string]attr.Value{
 				"id":                 types.StringValue(conn.GetId()),
 				"owner":              types.StringValue(conn.GetOwner()),
 				"state":              types.StringValue(conn.GetState()),
@@ -490,22 +490,22 @@ func (*DataModel) generateModelAWSPrivateLink(cluster *controlplanev1.Cluster) (
 			if d.HasError() {
 				diags.Append(d...)
 				diags.AddError("failed to generate VPC endpoint connection", "could not create VPC endpoint connection object")
-				return types.ObjectNull(getAwsPrivateLinkType()), diags
+				return types.ObjectNull(GetAwsPrivateLinkType()), diags
 			}
 			vpcEndpointConns = append(vpcEndpointConns, connObj)
 		}
 
 		vpcConnsList, d := types.ListValue(
-			types.ObjectType{AttrTypes: getVpcEndpointConnectionType()},
+			types.ObjectType{AttrTypes: GetVpcEndpointConnectionType()},
 			vpcEndpointConns,
 		)
 		if d.HasError() {
 			diags.Append(d...)
 			diags.AddError("failed to generate VPC endpoint connections list", "could not create VPC endpoint connections list")
-			return types.ObjectNull(getAwsPrivateLinkType()), diags
+			return types.ObjectNull(GetAwsPrivateLinkType()), diags
 		}
 
-		statusObj, d = types.ObjectValue(getAwsPrivateLinkStatusType(), map[string]attr.Value{
+		statusObj, d = types.ObjectValue(GetAwsPrivateLinkStatusType(), map[string]attr.Value{
 			"service_id":                    types.StringValue(status.GetServiceId()),
 			"service_name":                  types.StringValue(status.GetServiceName()),
 			"service_state":                 types.StringValue(status.GetServiceState()),
@@ -522,13 +522,13 @@ func (*DataModel) generateModelAWSPrivateLink(cluster *controlplanev1.Cluster) (
 		if d.HasError() {
 			diags.Append(d...)
 			diags.AddError("failed to generate AWS Private Link status", "could not create status object")
-			return types.ObjectNull(getAwsPrivateLinkType()), diags
+			return types.ObjectNull(GetAwsPrivateLinkType()), diags
 		}
 	} else {
-		statusObj = types.ObjectNull(getAwsPrivateLinkStatusType())
+		statusObj = types.ObjectNull(GetAwsPrivateLinkStatusType())
 	}
 
-	obj, d := types.ObjectValue(getAwsPrivateLinkType(), map[string]attr.Value{
+	obj, d := types.ObjectValue(GetAwsPrivateLinkType(), map[string]attr.Value{
 		"enabled":            types.BoolValue(awsPrivateLink.GetEnabled()),
 		"connect_console":    types.BoolValue(awsPrivateLink.GetConnectConsole()),
 		"allowed_principals": allowedPrincipals,
@@ -537,7 +537,7 @@ func (*DataModel) generateModelAWSPrivateLink(cluster *controlplanev1.Cluster) (
 	if d.HasError() {
 		diags.Append(d...)
 		diags.AddError("failed to generate AWS Private Link object", "could not create AWS Private Link object")
-		return types.ObjectNull(getAwsPrivateLinkType()), diags
+		return types.ObjectNull(GetAwsPrivateLinkType()), diags
 	}
 
 	return obj, diags
@@ -546,12 +546,12 @@ func (*DataModel) generateModelAWSPrivateLink(cluster *controlplanev1.Cluster) (
 func (*DataModel) generateModelGCPPrivateServiceConnect(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if !cluster.HasGcpPrivateServiceConnect() {
-		return types.ObjectNull(getGcpPrivateServiceConnectType()), diags
+		return types.ObjectNull(GetGcpPrivateServiceConnectType()), diags
 	}
 
 	gcpPSC := cluster.GetGcpPrivateServiceConnect()
 	if !gcpPSC.GetEnabled() {
-		return types.ObjectNull(getGcpPrivateServiceConnectType()), diags
+		return types.ObjectNull(GetGcpPrivateServiceConnectType()), diags
 	}
 
 	var consumerAcceptList []attr.Value
@@ -563,7 +563,7 @@ func (*DataModel) generateModelGCPPrivateServiceConnect(cluster *controlplanev1.
 		if d.HasError() {
 			diags.Append(d...)
 			diags.AddError("failed to generate consumer accept list entry", "could not create consumer object")
-			return types.ObjectNull(getGcpPrivateServiceConnectType()), diags
+			return types.ObjectNull(GetGcpPrivateServiceConnectType()), diags
 		}
 		consumerAcceptList = append(consumerAcceptList, consumerObj)
 	}
@@ -575,7 +575,7 @@ func (*DataModel) generateModelGCPPrivateServiceConnect(cluster *controlplanev1.
 	if d.HasError() {
 		diags.Append(d...)
 		diags.AddError("failed to generate consumer accept list", "could not create consumer accept list")
-		return types.ObjectNull(getGcpPrivateServiceConnectType()), diags
+		return types.ObjectNull(GetGcpPrivateServiceConnectType()), diags
 	}
 
 	status := gcpPSC.GetStatus()
@@ -583,7 +583,7 @@ func (*DataModel) generateModelGCPPrivateServiceConnect(cluster *controlplanev1.
 	if status != nil {
 		var connectedEndpoints []attr.Value
 		for _, endpoint := range status.GetConnectedEndpoints() {
-			endpointObj, d := types.ObjectValue(getConnectedEndpointType(), map[string]attr.Value{
+			endpointObj, d := types.ObjectValue(GetConnectedEndpointType(), map[string]attr.Value{
 				"connection_id":    types.StringValue(endpoint.GetConnectionId()),
 				"consumer_network": types.StringValue(endpoint.GetConsumerNetwork()),
 				"endpoint":         types.StringValue(endpoint.GetEndpoint()),
@@ -592,22 +592,22 @@ func (*DataModel) generateModelGCPPrivateServiceConnect(cluster *controlplanev1.
 			if d.HasError() {
 				diags.Append(d...)
 				diags.AddError("failed to generate connected endpoint", "could not create connected endpoint object")
-				return types.ObjectNull(getGcpPrivateServiceConnectType()), diags
+				return types.ObjectNull(GetGcpPrivateServiceConnectType()), diags
 			}
 			connectedEndpoints = append(connectedEndpoints, endpointObj)
 		}
 
 		connectedEndpointsList, d := types.ListValue(
-			types.ObjectType{AttrTypes: getConnectedEndpointType()},
+			types.ObjectType{AttrTypes: GetConnectedEndpointType()},
 			connectedEndpoints,
 		)
 		if d.HasError() {
 			diags.Append(d...)
 			diags.AddError("failed to generate connected endpoints list", "could not create connected endpoints list")
-			return types.ObjectNull(getGcpPrivateServiceConnectType()), diags
+			return types.ObjectNull(GetGcpPrivateServiceConnectType()), diags
 		}
 
-		statusObj, d = types.ObjectValue(getGcpPrivateServiceConnectStatusType(), map[string]attr.Value{
+		statusObj, d = types.ObjectValue(GetGcpPrivateServiceConnectStatusType(), map[string]attr.Value{
 			"service_attachment":            types.StringValue(status.GetServiceAttachment()),
 			"created_at":                    types.StringValue(status.GetCreatedAt().AsTime().Format(time.RFC3339)),
 			"deleted_at":                    types.StringValue(status.GetDeletedAt().AsTime().Format(time.RFC3339)),
@@ -623,13 +623,13 @@ func (*DataModel) generateModelGCPPrivateServiceConnect(cluster *controlplanev1.
 		if d.HasError() {
 			diags.Append(d...)
 			diags.AddError("failed to generate GCP PSC status", "could not create status object")
-			return types.ObjectNull(getGcpPrivateServiceConnectType()), diags
+			return types.ObjectNull(GetGcpPrivateServiceConnectType()), diags
 		}
 	} else {
-		statusObj = types.ObjectNull(getGcpPrivateServiceConnectStatusType())
+		statusObj = types.ObjectNull(GetGcpPrivateServiceConnectStatusType())
 	}
 
-	obj, d := types.ObjectValue(getGcpPrivateServiceConnectType(), map[string]attr.Value{
+	obj, d := types.ObjectValue(GetGcpPrivateServiceConnectType(), map[string]attr.Value{
 		"enabled":               types.BoolValue(gcpPSC.GetEnabled()),
 		"global_access_enabled": types.BoolValue(gcpPSC.GetGlobalAccessEnabled()),
 		"consumer_accept_list":  consumerList,
@@ -638,7 +638,7 @@ func (*DataModel) generateModelGCPPrivateServiceConnect(cluster *controlplanev1.
 	if d.HasError() {
 		diags.Append(d...)
 		diags.AddError("failed to generate GCP Private Service Connect object", "could not create GCP PSC object")
-		return types.ObjectNull(getGcpPrivateServiceConnectType()), diags
+		return types.ObjectNull(GetGcpPrivateServiceConnectType()), diags
 	}
 
 	return obj, diags
@@ -647,12 +647,12 @@ func (*DataModel) generateModelGCPPrivateServiceConnect(cluster *controlplanev1.
 func (*DataModel) generateModelAzurePrivateLink(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if !cluster.HasAzurePrivateLink() {
-		return types.ObjectNull(getAzurePrivateLinkType()), diags
+		return types.ObjectNull(GetAzurePrivateLinkType()), diags
 	}
 
 	azurePrivateLink := cluster.GetAzurePrivateLink()
 	if !azurePrivateLink.GetEnabled() {
-		return types.ObjectNull(getAzurePrivateLinkType()), diags
+		return types.ObjectNull(GetAzurePrivateLinkType()), diags
 	}
 
 	var allowedSubscriptions types.List
@@ -667,7 +667,7 @@ func (*DataModel) generateModelAzurePrivateLink(cluster *controlplanev1.Cluster)
 	if status != nil {
 		var privateEndpointConns []attr.Value
 		for _, conn := range status.GetPrivateEndpointConnections() {
-			connObj, d := types.ObjectValue(getAzureEndpointConnectionType(), map[string]attr.Value{
+			connObj, d := types.ObjectValue(GetAzureEndpointConnectionType(), map[string]attr.Value{
 				"private_endpoint_name": types.StringValue(conn.GetPrivateEndpointName()),
 				"private_endpoint_id":   types.StringValue(conn.GetPrivateEndpointId()),
 				"connection_name":       types.StringValue(conn.GetConnectionName()),
@@ -678,22 +678,22 @@ func (*DataModel) generateModelAzurePrivateLink(cluster *controlplanev1.Cluster)
 			if d.HasError() {
 				diags.Append(d...)
 				diags.AddError("failed to generate private endpoint connection", "could not create private endpoint connection object")
-				return types.ObjectNull(getAzurePrivateLinkType()), diags
+				return types.ObjectNull(GetAzurePrivateLinkType()), diags
 			}
 			privateEndpointConns = append(privateEndpointConns, connObj)
 		}
 
 		privateEndpointConnsList, d := types.ListValue(
-			types.ObjectType{AttrTypes: getAzureEndpointConnectionType()},
+			types.ObjectType{AttrTypes: GetAzureEndpointConnectionType()},
 			privateEndpointConns,
 		)
 		if d.HasError() {
 			diags.Append(d...)
 			diags.AddError("failed to generate private endpoint connections list", "could not create private endpoint connections list")
-			return types.ObjectNull(getAzurePrivateLinkType()), diags
+			return types.ObjectNull(GetAzurePrivateLinkType()), diags
 		}
 
-		statusObj, d = types.ObjectValue(getAzurePrivateLinkStatusType(), map[string]attr.Value{
+		statusObj, d = types.ObjectValue(GetAzurePrivateLinkStatusType(), map[string]attr.Value{
 			"service_id":                    types.StringValue(status.GetServiceId()),
 			"service_name":                  types.StringValue(status.GetServiceName()),
 			"created_at":                    types.StringValue(status.GetCreatedAt().AsTime().Format(time.RFC3339)),
@@ -711,13 +711,13 @@ func (*DataModel) generateModelAzurePrivateLink(cluster *controlplanev1.Cluster)
 		if d.HasError() {
 			diags.Append(d...)
 			diags.AddError("failed to generate Azure Private Link status", "could not create status object")
-			return types.ObjectNull(getAzurePrivateLinkType()), diags
+			return types.ObjectNull(GetAzurePrivateLinkType()), diags
 		}
 	} else {
-		statusObj = types.ObjectNull(getAzurePrivateLinkStatusType())
+		statusObj = types.ObjectNull(GetAzurePrivateLinkStatusType())
 	}
 
-	obj, d := types.ObjectValue(getAzurePrivateLinkType(), map[string]attr.Value{
+	obj, d := types.ObjectValue(GetAzurePrivateLinkType(), map[string]attr.Value{
 		"enabled":               types.BoolValue(azurePrivateLink.GetEnabled()),
 		"connect_console":       types.BoolValue(azurePrivateLink.GetConnectConsole()),
 		"allowed_subscriptions": allowedSubscriptions,
@@ -726,7 +726,7 @@ func (*DataModel) generateModelAzurePrivateLink(cluster *controlplanev1.Cluster)
 	if d.HasError() {
 		diags.Append(d...)
 		diags.AddError("failed to generate Azure Private Link object", "could not create Azure Private Link object")
-		return types.ObjectNull(getAzurePrivateLinkType()), diags
+		return types.ObjectNull(GetAzurePrivateLinkType()), diags
 	}
 
 	return obj, diags
@@ -736,94 +736,94 @@ func (r *DataModel) generateModelCustomerManagedResources(cluster *controlplanev
 	var diags diag.Diagnostics
 
 	if cluster == nil || !cluster.HasCustomerManagedResources() {
-		return types.ObjectNull(getCustomerManagedResourcesType()), diags
+		return types.ObjectNull(GetCustomerManagedResourcesType()), diags
 	}
 
 	cloudProvider := utils.CloudProviderToString(cluster.GetCloudProvider())
 
 	if cluster.Type != controlplanev1.Cluster_TYPE_BYOC {
 		diags.AddError("Customer Managed Resources with non-BYOC cluster type", "Customer Managed Resources are only supported for BYOC clusters")
-		return types.ObjectNull(getCustomerManagedResourcesType()), diags
+		return types.ObjectNull(GetCustomerManagedResourcesType()), diags
 	}
 
 	cmr := cluster.GetCustomerManagedResources()
 	if cmr == nil {
-		return types.ObjectNull(getCustomerManagedResourcesType()), diags
+		return types.ObjectNull(GetCustomerManagedResourcesType()), diags
 	}
 
 	switch cloudProvider {
 	case utils.CloudProviderStringAws:
 		if !cmr.HasAws() {
 			diags.AddError("AWS Cloud Provider Mismatch", "Expected AWS CMR but not found")
-			return types.ObjectNull(getCustomerManagedResourcesType()), diags
+			return types.ObjectNull(GetCustomerManagedResourcesType()), diags
 		}
 
 		aws, d := r.generateModelAWSCMR(cmr.GetAws())
 		if d.HasError() {
 			diags.AddError("failed to generate AWS CMR object", "could not create AWS CMR object")
 			diags.Append(d...)
-			return types.ObjectNull(getCustomerManagedResourcesType()), diags
+			return types.ObjectNull(GetCustomerManagedResourcesType()), diags
 		}
 
-		cmrObj, d := types.ObjectValue(getCustomerManagedResourcesType(), map[string]attr.Value{
+		cmrObj, d := types.ObjectValue(GetCustomerManagedResourcesType(), map[string]attr.Value{
 			"aws": aws,
-			"gcp": types.ObjectNull(getGcpCmrType()),
+			"gcp": types.ObjectNull(GetGcpCmrType()),
 		})
 		if d.HasError() {
 			diags.AddError("failed to generate CMR object", "could not create CMR object")
 			diags.Append(d...)
-			return types.ObjectNull(getCustomerManagedResourcesType()), diags
+			return types.ObjectNull(GetCustomerManagedResourcesType()), diags
 		}
 		return cmrObj, diags
 
 	case utils.CloudProviderStringGcp:
 		if !cmr.HasGcp() {
 			diags.AddError("GCP Cloud Provider Mismatch", "Expected GCP CMR but not found")
-			return types.ObjectNull(getCustomerManagedResourcesType()), diags
+			return types.ObjectNull(GetCustomerManagedResourcesType()), diags
 		}
 
 		gcp, d := r.generateModelGCPCMR(cmr.GetGcp())
 		if d.HasError() {
 			diags.AddError("failed to generate GCP CMR object", "could not create GCP CMR object")
 			diags.Append(d...)
-			return types.ObjectNull(getCustomerManagedResourcesType()), diags
+			return types.ObjectNull(GetCustomerManagedResourcesType()), diags
 		}
 
-		cmrObj, d := types.ObjectValue(getCustomerManagedResourcesType(), map[string]attr.Value{
-			"aws": types.ObjectNull(getAwsCmrType()),
+		cmrObj, d := types.ObjectValue(GetCustomerManagedResourcesType(), map[string]attr.Value{
+			"aws": types.ObjectNull(GetAwsCmrType()),
 			"gcp": gcp,
 		})
 		if d.HasError() {
 			diags.AddError("failed to generate CMR object", "could not create CMR object")
 			diags.Append(d...)
-			return types.ObjectNull(getCustomerManagedResourcesType()), diags
+			return types.ObjectNull(GetCustomerManagedResourcesType()), diags
 		}
 		return cmrObj, diags
 	}
-	return types.ObjectNull(getCustomerManagedResourcesType()), diags
+	return types.ObjectNull(GetCustomerManagedResourcesType()), diags
 }
 
 func (*DataModel) generateModelAWSCMR(awsData *controlplanev1.CustomerManagedResources_AWS) (types.Object, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
 	awsVal := map[string]attr.Value{
-		"agent_instance_profile":                 types.ObjectNull(getArnContainerType()),
-		"connectors_node_group_instance_profile": types.ObjectNull(getArnContainerType()),
-		"utility_node_group_instance_profile":    types.ObjectNull(getArnContainerType()),
-		"redpanda_node_group_instance_profile":   types.ObjectNull(getArnContainerType()),
-		"k8s_cluster_role":                       types.ObjectNull(getArnContainerType()),
-		"redpanda_agent_security_group":          types.ObjectNull(getArnContainerType()),
-		"connectors_security_group":              types.ObjectNull(getArnContainerType()),
-		"redpanda_node_group_security_group":     types.ObjectNull(getArnContainerType()),
-		"utility_security_group":                 types.ObjectNull(getArnContainerType()),
-		"cluster_security_group":                 types.ObjectNull(getArnContainerType()),
-		"node_security_group":                    types.ObjectNull(getArnContainerType()),
-		"cloud_storage_bucket":                   types.ObjectNull(getArnContainerType()),
-		"permissions_boundary_policy":            types.ObjectNull(getArnContainerType()),
+		"agent_instance_profile":                 types.ObjectNull(GetArnContainerType()),
+		"connectors_node_group_instance_profile": types.ObjectNull(GetArnContainerType()),
+		"utility_node_group_instance_profile":    types.ObjectNull(GetArnContainerType()),
+		"redpanda_node_group_instance_profile":   types.ObjectNull(GetArnContainerType()),
+		"k8s_cluster_role":                       types.ObjectNull(GetArnContainerType()),
+		"redpanda_agent_security_group":          types.ObjectNull(GetArnContainerType()),
+		"connectors_security_group":              types.ObjectNull(GetArnContainerType()),
+		"redpanda_node_group_security_group":     types.ObjectNull(GetArnContainerType()),
+		"utility_security_group":                 types.ObjectNull(GetArnContainerType()),
+		"cluster_security_group":                 types.ObjectNull(GetArnContainerType()),
+		"node_security_group":                    types.ObjectNull(GetArnContainerType()),
+		"cloud_storage_bucket":                   types.ObjectNull(GetArnContainerType()),
+		"permissions_boundary_policy":            types.ObjectNull(GetArnContainerType()),
 	}
 
 	createArnObject := func(arn string) types.Object {
-		obj, _ := types.ObjectValue(getArnContainerType(), map[string]attr.Value{
+		obj, _ := types.ObjectValue(GetArnContainerType(), map[string]attr.Value{
 			"arn": types.StringValue(arn),
 		})
 		return obj
@@ -869,11 +869,11 @@ func (*DataModel) generateModelAWSCMR(awsData *controlplanev1.CustomerManagedRes
 		awsVal["permissions_boundary_policy"] = createArnObject(awsData.GetPermissionsBoundaryPolicy().GetArn())
 	}
 
-	awsObj, d := types.ObjectValue(getAwsCmrType(), awsVal)
+	awsObj, d := types.ObjectValue(GetAwsCmrType(), awsVal)
 	if d.HasError() {
 		diags.AddError("failed to generate AWS CMR object", "could not create AWS CMR object")
 		diags.Append(d...)
-		return types.ObjectNull(getAwsCmrType()), diags
+		return types.ObjectNull(GetAwsCmrType()), diags
 	}
 
 	return awsObj, diags
@@ -883,13 +883,13 @@ func (*DataModel) generateModelGCPCMR(gcpData *controlplanev1.CustomerManagedRes
 	var diags diag.Diagnostics
 
 	gcpVal := map[string]attr.Value{
-		"subnet":                           types.ObjectNull(getGcpSubnetType()),
-		"agent_service_account":            types.ObjectNull(getGcpServiceAccountType()),
-		"console_service_account":          types.ObjectNull(getGcpServiceAccountType()),
-		"connector_service_account":        types.ObjectNull(getGcpServiceAccountType()),
-		"redpanda_cluster_service_account": types.ObjectNull(getGcpServiceAccountType()),
-		"gke_service_account":              types.ObjectNull(getGcpServiceAccountType()),
-		"tiered_storage_bucket":            types.ObjectNull(getGcpBucketType()),
+		"subnet":                           types.ObjectNull(GetGcpSubnetType()),
+		"agent_service_account":            types.ObjectNull(GetGcpServiceAccountType()),
+		"console_service_account":          types.ObjectNull(GetGcpServiceAccountType()),
+		"connector_service_account":        types.ObjectNull(GetGcpServiceAccountType()),
+		"redpanda_cluster_service_account": types.ObjectNull(GetGcpServiceAccountType()),
+		"gke_service_account":              types.ObjectNull(GetGcpServiceAccountType()),
+		"tiered_storage_bucket":            types.ObjectNull(GetGcpBucketType()),
 		"psc_nat_subnet_name":              types.StringNull(),
 	}
 
@@ -897,7 +897,7 @@ func (*DataModel) generateModelGCPCMR(gcpData *controlplanev1.CustomerManagedRes
 		subnet := gcpData.GetSubnet()
 		var podsRangeObj types.Object
 		if subnet.HasSecondaryIpv4RangePods() {
-			podsRange, d := types.ObjectValue(getGcpSecondaryIPv4RangeType(), map[string]attr.Value{
+			podsRange, d := types.ObjectValue(GetGcpSecondaryIPv4RangeType(), map[string]attr.Value{
 				"name": types.StringValue(subnet.GetSecondaryIpv4RangePods().GetName()),
 			})
 			if d.HasError() {
@@ -907,12 +907,12 @@ func (*DataModel) generateModelGCPCMR(gcpData *controlplanev1.CustomerManagedRes
 				podsRangeObj = podsRange
 			}
 		} else {
-			podsRangeObj = types.ObjectNull(getGcpSecondaryIPv4RangeType())
+			podsRangeObj = types.ObjectNull(GetGcpSecondaryIPv4RangeType())
 		}
 
 		var servicesRangeObj types.Object
 		if subnet.HasSecondaryIpv4RangeServices() {
-			servicesRange, d := types.ObjectValue(getGcpSecondaryIPv4RangeType(), map[string]attr.Value{
+			servicesRange, d := types.ObjectValue(GetGcpSecondaryIPv4RangeType(), map[string]attr.Value{
 				"name": types.StringValue(subnet.GetSecondaryIpv4RangeServices().GetName()),
 			})
 			if d.HasError() {
@@ -922,7 +922,7 @@ func (*DataModel) generateModelGCPCMR(gcpData *controlplanev1.CustomerManagedRes
 				servicesRangeObj = servicesRange
 			}
 		} else {
-			servicesRangeObj = types.ObjectNull(getGcpSecondaryIPv4RangeType())
+			servicesRangeObj = types.ObjectNull(GetGcpSecondaryIPv4RangeType())
 		}
 
 		subnetVal := map[string]attr.Value{
@@ -932,7 +932,7 @@ func (*DataModel) generateModelGCPCMR(gcpData *controlplanev1.CustomerManagedRes
 			"k8s_master_ipv4_range":         types.StringValue(subnet.GetK8SMasterIpv4Range()),
 		}
 
-		subnetObj, d := types.ObjectValue(getGcpSubnetType(), subnetVal)
+		subnetObj, d := types.ObjectValue(GetGcpSubnetType(), subnetVal)
 		if d.HasError() {
 			diags.AddError("failed to generate subnet object", "could not create subnet object")
 			diags.Append(d...)
@@ -942,7 +942,7 @@ func (*DataModel) generateModelGCPCMR(gcpData *controlplanev1.CustomerManagedRes
 	}
 
 	createServiceAccountObject := func(email string) types.Object {
-		obj, _ := types.ObjectValue(getGcpServiceAccountType(), map[string]attr.Value{
+		obj, _ := types.ObjectValue(GetGcpServiceAccountType(), map[string]attr.Value{
 			"email": types.StringValue(email),
 		})
 		return obj
@@ -965,7 +965,7 @@ func (*DataModel) generateModelGCPCMR(gcpData *controlplanev1.CustomerManagedRes
 	}
 
 	if gcpData.HasTieredStorageBucket() {
-		bucketObj, d := types.ObjectValue(getGcpBucketType(), map[string]attr.Value{
+		bucketObj, d := types.ObjectValue(GetGcpBucketType(), map[string]attr.Value{
 			"name": types.StringValue(gcpData.GetTieredStorageBucket().GetName()),
 		})
 		if d.HasError() {
@@ -980,11 +980,11 @@ func (*DataModel) generateModelGCPCMR(gcpData *controlplanev1.CustomerManagedRes
 		gcpVal["psc_nat_subnet_name"] = types.StringValue(gcpData.GetPscNatSubnetName())
 	}
 
-	gcpObj, d := types.ObjectValue(getGcpCmrType(), gcpVal)
+	gcpObj, d := types.ObjectValue(GetGcpCmrType(), gcpVal)
 	if d.HasError() {
 		diags.AddError("failed to generate GCP CMR object", "could not create GCP CMR object")
 		diags.Append(d...)
-		return types.ObjectNull(getGcpCmrType()), diags
+		return types.ObjectNull(GetGcpCmrType()), diags
 	}
 
 	return gcpObj, diags
@@ -993,7 +993,7 @@ func (*DataModel) generateModelGCPCMR(gcpData *controlplanev1.CustomerManagedRes
 func (*DataModel) generateModelClusterConfiguration(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if !cluster.HasClusterConfiguration() {
-		return types.ObjectNull(getClusterConfigurationType()), diags
+		return types.ObjectNull(GetClusterConfigurationType()), diags
 	}
 
 	cfg := cluster.GetClusterConfiguration()
@@ -1008,7 +1008,7 @@ func (*DataModel) generateModelClusterConfiguration(cluster *controlplanev1.Clus
 			customPropsBytes, err := json.Marshal(customPropsMap)
 			if err != nil {
 				diags.AddError("failed to marshal custom properties", "could not convert custom properties to JSON")
-				return types.ObjectNull(getClusterConfigurationType()), diags
+				return types.ObjectNull(GetClusterConfigurationType()), diags
 			}
 			configValues["custom_properties_json"] = types.StringValue(string(customPropsBytes))
 		}
@@ -1016,14 +1016,14 @@ func (*DataModel) generateModelClusterConfiguration(cluster *controlplanev1.Clus
 
 	// Only return null if custom properties are null
 	if configValues["custom_properties_json"].IsNull() {
-		return types.ObjectNull(getClusterConfigurationType()), diags
+		return types.ObjectNull(GetClusterConfigurationType()), diags
 	}
 
-	obj, d := types.ObjectValue(getClusterConfigurationType(), configValues)
+	obj, d := types.ObjectValue(GetClusterConfigurationType(), configValues)
 	if d.HasError() {
 		diags.Append(d...)
 		diags.AddError("failed to generate cluster configuration object", "could not create cluster configuration object")
-		return types.ObjectNull(getClusterConfigurationType()), diags
+		return types.ObjectNull(GetClusterConfigurationType()), diags
 	}
 
 	return obj, diags

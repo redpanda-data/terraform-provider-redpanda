@@ -172,7 +172,7 @@ func generateModelClusterAWSCMR(_ context.Context, awsData *controlplanev1.Custo
 	awsVal := getAwsCmrNullAttributes()
 
 	createArnObject := func(arn string) (types.Object, diag.Diagnostics) {
-		return types.ObjectValue(getArnContainerType(), map[string]attr.Value{
+		return types.ObjectValue(GetArnContainerType(), map[string]attr.Value{
 			"arn": types.StringValue(arn),
 		})
 	}
@@ -281,7 +281,7 @@ func generateModelClusterAWSCMR(_ context.Context, awsData *controlplanev1.Custo
 		}
 	}
 
-	awsObj, d := types.ObjectValue(getAwsCmrType(), awsVal)
+	awsObj, d := types.ObjectValue(GetAwsCmrType(), awsVal)
 	if d.HasError() {
 		diags.AddError("failed to create AWS Customer Managed Resources object", "could not create AWS Customer Managed Resources object")
 		diags.Append(d...)
@@ -296,7 +296,7 @@ func generateModelClusterGCPCMR(_ context.Context, gcpData *controlplanev1.Custo
 	gcpVal := getGcpCmrNullAttributes()
 
 	createServiceAccountObject := func(email string) (types.Object, diag.Diagnostics) {
-		return types.ObjectValue(getGcpServiceAccountType(), map[string]attr.Value{
+		return types.ObjectValue(GetGcpServiceAccountType(), map[string]attr.Value{
 			"email": types.StringValue(email),
 		})
 	}
@@ -305,13 +305,13 @@ func generateModelClusterGCPCMR(_ context.Context, gcpData *controlplanev1.Custo
 		subnet := gcpData.GetSubnet()
 		subnetVal := map[string]attr.Value{
 			"name":                          types.StringValue(subnet.GetName()),
-			"secondary_ipv4_range_pods":     types.ObjectNull(getGcpSecondaryIPv4RangeType()),
-			"secondary_ipv4_range_services": types.ObjectNull(getGcpSecondaryIPv4RangeType()),
+			"secondary_ipv4_range_pods":     types.ObjectNull(GetGcpSecondaryIPv4RangeType()),
+			"secondary_ipv4_range_services": types.ObjectNull(GetGcpSecondaryIPv4RangeType()),
 			"k8s_master_ipv4_range":         types.StringNull(),
 		}
 
 		if subnet.HasSecondaryIpv4RangePods() {
-			if obj, d := types.ObjectValue(getGcpSecondaryIPv4RangeType(), map[string]attr.Value{
+			if obj, d := types.ObjectValue(GetGcpSecondaryIPv4RangeType(), map[string]attr.Value{
 				"name": types.StringValue(subnet.GetSecondaryIpv4RangePods().GetName()),
 			}); !d.HasError() {
 				subnetVal["secondary_ipv4_range_pods"] = obj
@@ -321,7 +321,7 @@ func generateModelClusterGCPCMR(_ context.Context, gcpData *controlplanev1.Custo
 		}
 
 		if subnet.HasSecondaryIpv4RangeServices() {
-			if obj, d := types.ObjectValue(getGcpSecondaryIPv4RangeType(), map[string]attr.Value{
+			if obj, d := types.ObjectValue(GetGcpSecondaryIPv4RangeType(), map[string]attr.Value{
 				"name": types.StringValue(subnet.GetSecondaryIpv4RangeServices().GetName()),
 			}); !d.HasError() {
 				subnetVal["secondary_ipv4_range_services"] = obj
@@ -334,7 +334,7 @@ func generateModelClusterGCPCMR(_ context.Context, gcpData *controlplanev1.Custo
 			subnetVal["k8s_master_ipv4_range"] = types.StringValue(subnet.GetK8SMasterIpv4Range())
 		}
 
-		if subnetObj, d := types.ObjectValue(getGcpSubnetType(), subnetVal); !d.HasError() {
+		if subnetObj, d := types.ObjectValue(GetGcpSubnetType(), subnetVal); !d.HasError() {
 			gcpVal["subnet"] = subnetObj
 		} else {
 			diags.Append(d...)
@@ -382,7 +382,7 @@ func generateModelClusterGCPCMR(_ context.Context, gcpData *controlplanev1.Custo
 	}
 
 	if gcpData.HasTieredStorageBucket() {
-		if obj, d := types.ObjectValue(getGcpBucketType(), map[string]attr.Value{
+		if obj, d := types.ObjectValue(GetGcpBucketType(), map[string]attr.Value{
 			"name": types.StringValue(gcpData.GetTieredStorageBucket().GetName()),
 		}); !d.HasError() {
 			gcpVal["tiered_storage_bucket"] = obj
@@ -395,7 +395,7 @@ func generateModelClusterGCPCMR(_ context.Context, gcpData *controlplanev1.Custo
 		gcpVal["psc_nat_subnet_name"] = types.StringValue(gcpData.GetPscNatSubnetName())
 	}
 
-	gcpObj, d := types.ObjectValue(getGcpCmrType(), gcpVal)
+	gcpObj, d := types.ObjectValue(GetGcpCmrType(), gcpVal)
 	if d.HasError() {
 		diags.AddError("failed to create GCP Customer Managed Resources object", "could not create GCP Customer Managed Resources object")
 		diags.Append(d...)
@@ -406,9 +406,9 @@ func generateModelClusterGCPCMR(_ context.Context, gcpData *controlplanev1.Custo
 }
 
 func getClusterAWSCMRNull() basetypes.ObjectValue {
-	return types.ObjectNull(getAwsCmrType())
+	return types.ObjectNull(GetAwsCmrType())
 }
 
 func getClusterGCPCMRNull() basetypes.ObjectValue {
-	return types.ObjectNull(getGcpCmrType())
+	return types.ObjectNull(GetGcpCmrType())
 }

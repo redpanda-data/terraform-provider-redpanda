@@ -3,6 +3,8 @@ package cluster
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -374,24 +376,24 @@ func TestResourceModel_GetClusterCreate(t *testing.T) {
 				RedpandaVersion: types.StringValue("v24.3.1"),
 				AllowDeletion:   types.BoolValue(true),
 				CustomerManagedResources: types.ObjectValueMust(
-					getCustomerManagedResourcesType(),
+					GetCustomerManagedResourcesType(),
 					map[string]attr.Value{
-						"aws": types.ObjectNull(getAwsCmrType()),
+						"aws": types.ObjectNull(GetAwsCmrType()),
 						"gcp": types.ObjectValueMust(
-							getGcpCmrType(),
+							GetGcpCmrType(),
 							map[string]attr.Value{
 								"subnet": types.ObjectValueMust(
-									getGcpSubnetType(),
+									GetGcpSubnetType(),
 									map[string]attr.Value{
 										"name": types.StringValue("redpanda-subnet-testname"),
 										"secondary_ipv4_range_pods": types.ObjectValueMust(
-											getGcpSecondaryIPv4RangeType(),
+											GetGcpSecondaryIPv4RangeType(),
 											map[string]attr.Value{
 												"name": types.StringValue("redpanda-pods-testname"),
 											},
 										),
 										"secondary_ipv4_range_services": types.ObjectValueMust(
-											getGcpSecondaryIPv4RangeType(),
+											GetGcpSecondaryIPv4RangeType(),
 											map[string]attr.Value{
 												"name": types.StringValue("redpanda-services-testname"),
 											},
@@ -400,37 +402,37 @@ func TestResourceModel_GetClusterCreate(t *testing.T) {
 									},
 								),
 								"agent_service_account": types.ObjectValueMust(
-									getGcpServiceAccountType(),
+									GetGcpServiceAccountType(),
 									map[string]attr.Value{
 										"email": types.StringValue("redpanda-agent-testname@project.iam.gserviceaccount.com"),
 									},
 								),
 								"console_service_account": types.ObjectValueMust(
-									getGcpServiceAccountType(),
+									GetGcpServiceAccountType(),
 									map[string]attr.Value{
 										"email": types.StringValue("redpanda-console-testname@project.iam.gserviceaccount.com"),
 									},
 								),
 								"connector_service_account": types.ObjectValueMust(
-									getGcpServiceAccountType(),
+									GetGcpServiceAccountType(),
 									map[string]attr.Value{
 										"email": types.StringValue("redpanda-connector-testname@project.iam.gserviceaccount.com"),
 									},
 								),
 								"redpanda_cluster_service_account": types.ObjectValueMust(
-									getGcpServiceAccountType(),
+									GetGcpServiceAccountType(),
 									map[string]attr.Value{
 										"email": types.StringValue("redpanda-cluster-testname@project.iam.gserviceaccount.com"),
 									},
 								),
 								"gke_service_account": types.ObjectValueMust(
-									getGcpServiceAccountType(),
+									GetGcpServiceAccountType(),
 									map[string]attr.Value{
 										"email": types.StringValue("redpanda-gke-testname@project.iam.gserviceaccount.com"),
 									},
 								),
 								"tiered_storage_bucket": types.ObjectValueMust(
-									getGcpBucketType(),
+									GetGcpBucketType(),
 									map[string]attr.Value{
 										"name": types.StringValue("redpanda-storage-testname"),
 									},
@@ -558,50 +560,50 @@ func TestResourceModel_GetClusterCreate(t *testing.T) {
 				RedpandaVersion: types.StringValue("v24.3.1"),
 				AllowDeletion:   types.BoolValue(true),
 				CustomerManagedResources: types.ObjectValueMust(
-					getCustomerManagedResourcesType(),
+					GetCustomerManagedResourcesType(),
 					map[string]attr.Value{
-						"gcp": types.ObjectNull(getGcpCmrType()),
+						"gcp": types.ObjectNull(GetGcpCmrType()),
 						"aws": types.ObjectValueMust(
-							getAwsCmrType(),
+							GetAwsCmrType(),
 							map[string]attr.Value{
 								"agent_instance_profile": types.ObjectValueMust(
-									getArnContainerType(),
+									GetArnContainerType(),
 									map[string]attr.Value{
 										"arn": types.StringValue("arn:aws:iam::123456789012:instance-profile/redpanda-byovpc-agent-instance-profile"),
 									},
 								),
 								"cloud_storage_bucket": types.ObjectValueMust(
-									getArnContainerType(),
+									GetArnContainerType(),
 									map[string]attr.Value{
 										"arn": types.StringValue("arn:aws:s3:::redpanda-byovpc-cloud-storage-bucket"),
 									},
 								),
 								"k8s_cluster_role": types.ObjectValueMust(
-									getArnContainerType(),
+									GetArnContainerType(),
 									map[string]attr.Value{
 										"arn": types.StringValue("arn:aws:iam::123456789012:role/redpanda-byovpc-k8s-cluster-role"),
 									},
 								),
 								"redpanda_agent_security_group": types.ObjectValueMust(
-									getArnContainerType(),
+									GetArnContainerType(),
 									map[string]attr.Value{
 										"arn": types.StringValue("arn:aws:ec2:us-east-2:123456789012:security-group/sg-agent123"),
 									},
 								),
 								"cluster_security_group": types.ObjectValueMust(
-									getArnContainerType(),
+									GetArnContainerType(),
 									map[string]attr.Value{
 										"arn": types.StringValue("arn:aws:ec2:us-east-2:123456789012:security-group/sg-cluster123"),
 									},
 								),
-								"connectors_node_group_instance_profile": types.ObjectNull(getArnContainerType()),
-								"utility_node_group_instance_profile":    types.ObjectNull(getArnContainerType()),
-								"redpanda_node_group_instance_profile":   types.ObjectNull(getArnContainerType()),
-								"connectors_security_group":              types.ObjectNull(getArnContainerType()),
-								"redpanda_node_group_security_group":     types.ObjectNull(getArnContainerType()),
-								"utility_security_group":                 types.ObjectNull(getArnContainerType()),
-								"node_security_group":                    types.ObjectNull(getArnContainerType()),
-								"permissions_boundary_policy":            types.ObjectNull(getArnContainerType()),
+								"connectors_node_group_instance_profile": types.ObjectNull(GetArnContainerType()),
+								"utility_node_group_instance_profile":    types.ObjectNull(GetArnContainerType()),
+								"redpanda_node_group_instance_profile":   types.ObjectNull(GetArnContainerType()),
+								"connectors_security_group":              types.ObjectNull(GetArnContainerType()),
+								"redpanda_node_group_security_group":     types.ObjectNull(GetArnContainerType()),
+								"utility_security_group":                 types.ObjectNull(GetArnContainerType()),
+								"node_security_group":                    types.ObjectNull(GetArnContainerType()),
+								"permissions_boundary_policy":            types.ObjectNull(GetArnContainerType()),
 							},
 						),
 					},
@@ -825,7 +827,7 @@ func TestResourceModel_GenerateClusterConfiguration(t *testing.T) {
 func TestClusterConfigurationConsistency(t *testing.T) {
 	t.Run("plan_apply_consistency_empty_config", func(t *testing.T) {
 		planModel := &ResourceModel{
-			ClusterConfiguration: types.ObjectNull(getClusterConfigurationType()),
+			ClusterConfiguration: types.ObjectNull(GetClusterConfigurationType()),
 		}
 
 		applyCluster := &controlplanev1.Cluster{
@@ -840,7 +842,7 @@ func TestClusterConfigurationConsistency(t *testing.T) {
 
 	t.Run("plan_apply_consistency_with_empty_json", func(t *testing.T) {
 		planModel := &ResourceModel{
-			ClusterConfiguration: types.ObjectNull(getClusterConfigurationType()),
+			ClusterConfiguration: types.ObjectNull(GetClusterConfigurationType()),
 		}
 
 		emptyProps, err := structpb.NewStruct(map[string]any{})
@@ -861,7 +863,7 @@ func TestClusterConfigurationConsistency(t *testing.T) {
 	t.Run("plan_apply_consistency_object_with_null_field", func(t *testing.T) {
 		planModel := &ResourceModel{
 			ClusterConfiguration: types.ObjectValueMust(
-				getClusterConfigurationType(),
+				GetClusterConfigurationType(),
 				map[string]attr.Value{
 					"custom_properties_json": types.StringNull(),
 				},
@@ -879,7 +881,7 @@ func TestClusterConfigurationConsistency(t *testing.T) {
 	t.Run("plan_apply_consistency_with_actual_properties", func(t *testing.T) {
 		planModel := &ResourceModel{
 			ClusterConfiguration: types.ObjectValueMust(
-				getClusterConfigurationType(),
+				GetClusterConfigurationType(),
 				map[string]attr.Value{
 					"custom_properties_json": types.StringValue(`{"log.retention.ms":"604800000"}`),
 				},
@@ -911,125 +913,6 @@ func TestClusterConfigurationConsistency(t *testing.T) {
 
 func TestResourceModel_ComprehensiveConsistencyTest(t *testing.T) {
 	ctx := context.Background()
-
-	compareModels := func(t *testing.T, planModel, applyModel *ResourceModel, fieldName string) {
-		t.Helper()
-
-		switch fieldName {
-		case "Name":
-			require.Equal(t, planModel.Name.IsNull(), applyModel.Name.IsNull(), "Name null status should be consistent")
-			if !planModel.Name.IsNull() && !applyModel.Name.IsNull() {
-				require.Equal(t, planModel.Name.ValueString(), applyModel.Name.ValueString(), "Name value should be consistent")
-			}
-		case "ID":
-			require.Equal(t, planModel.ID.IsNull(), applyModel.ID.IsNull(), "ID null status should be consistent")
-			if !planModel.ID.IsNull() && !applyModel.ID.IsNull() {
-				require.Equal(t, planModel.ID.ValueString(), applyModel.ID.ValueString(), "ID value should be consistent")
-			}
-		case "ConnectionType":
-			require.Equal(t, planModel.ConnectionType.IsNull(), applyModel.ConnectionType.IsNull(), "ConnectionType null status should be consistent")
-			if !planModel.ConnectionType.IsNull() && !applyModel.ConnectionType.IsNull() {
-				require.Equal(t, planModel.ConnectionType.ValueString(), applyModel.ConnectionType.ValueString(), "ConnectionType value should be consistent")
-			}
-		case "CloudProvider":
-			require.Equal(t, planModel.CloudProvider.IsNull(), applyModel.CloudProvider.IsNull(), "CloudProvider null status should be consistent")
-			if !planModel.CloudProvider.IsNull() && !applyModel.CloudProvider.IsNull() {
-				require.Equal(t, planModel.CloudProvider.ValueString(), applyModel.CloudProvider.ValueString(), "CloudProvider value should be consistent")
-			}
-		case "ClusterType":
-			require.Equal(t, planModel.ClusterType.IsNull(), applyModel.ClusterType.IsNull(), "ClusterType null status should be consistent")
-			if !planModel.ClusterType.IsNull() && !applyModel.ClusterType.IsNull() {
-				require.Equal(t, planModel.ClusterType.ValueString(), applyModel.ClusterType.ValueString(), "ClusterType value should be consistent")
-			}
-		case "RedpandaVersion":
-			require.Equal(t, planModel.RedpandaVersion.IsNull(), applyModel.RedpandaVersion.IsNull(), "RedpandaVersion null status should be consistent")
-			if !planModel.RedpandaVersion.IsNull() && !applyModel.RedpandaVersion.IsNull() {
-				require.Equal(t, planModel.RedpandaVersion.ValueString(), applyModel.RedpandaVersion.ValueString(), "RedpandaVersion value should be consistent")
-			}
-		case "ThroughputTier":
-			require.Equal(t, planModel.ThroughputTier.IsNull(), applyModel.ThroughputTier.IsNull(), "ThroughputTier null status should be consistent")
-			if !planModel.ThroughputTier.IsNull() && !applyModel.ThroughputTier.IsNull() {
-				require.Equal(t, planModel.ThroughputTier.ValueString(), applyModel.ThroughputTier.ValueString(), "ThroughputTier value should be consistent")
-			}
-		case "Region":
-			require.Equal(t, planModel.Region.IsNull(), applyModel.Region.IsNull(), "Region null status should be consistent")
-			if !planModel.Region.IsNull() && !applyModel.Region.IsNull() {
-				require.Equal(t, planModel.Region.ValueString(), applyModel.Region.ValueString(), "Region value should be consistent")
-			}
-		case "Zones":
-			require.Equal(t, planModel.Zones.IsNull(), applyModel.Zones.IsNull(), "Zones null status should be consistent")
-			if !planModel.Zones.IsNull() && !applyModel.Zones.IsNull() {
-				require.Equal(t, len(planModel.Zones.Elements()), len(applyModel.Zones.Elements()), "Zones length should be consistent")
-			}
-		case "AllowDeletion":
-			require.Equal(t, planModel.AllowDeletion.IsNull(), applyModel.AllowDeletion.IsNull(), "AllowDeletion null status should be consistent")
-			if !planModel.AllowDeletion.IsNull() && !applyModel.AllowDeletion.IsNull() {
-				require.Equal(t, planModel.AllowDeletion.ValueBool(), applyModel.AllowDeletion.ValueBool(), "AllowDeletion value should be consistent")
-			}
-		case "CreatedAt":
-			if !planModel.CreatedAt.IsNull() || applyModel.CreatedAt.IsNull() {
-				require.Equal(t, planModel.CreatedAt.IsNull(), applyModel.CreatedAt.IsNull(), "CreatedAt null status should be consistent when both are set")
-				if !planModel.CreatedAt.IsNull() && !applyModel.CreatedAt.IsNull() {
-					require.Equal(t, planModel.CreatedAt.ValueString(), applyModel.CreatedAt.ValueString(), "CreatedAt value should be consistent")
-				}
-			}
-		case "State":
-			require.False(t, planModel.State.IsNull(), "Plan state should not be null")
-			require.False(t, applyModel.State.IsNull(), "Apply state should not be null")
-		case "StateDescription":
-			require.Equal(t, planModel.StateDescription.IsNull(), applyModel.StateDescription.IsNull(), "StateDescription null status should be consistent")
-		case "Tags":
-			require.Equal(t, planModel.Tags.IsNull(), applyModel.Tags.IsNull(), "Tags null status should be consistent")
-		case "ResourceGroupID":
-			require.Equal(t, planModel.ResourceGroupID.IsNull(), applyModel.ResourceGroupID.IsNull(), "ResourceGroupID null status should be consistent")
-			if !planModel.ResourceGroupID.IsNull() && !applyModel.ResourceGroupID.IsNull() {
-				require.Equal(t, planModel.ResourceGroupID.ValueString(), applyModel.ResourceGroupID.ValueString(), "ResourceGroupID value should be consistent")
-			}
-		case "NetworkID":
-			require.Equal(t, planModel.NetworkID.IsNull(), applyModel.NetworkID.IsNull(), "NetworkID null status should be consistent")
-			if !planModel.NetworkID.IsNull() && !applyModel.NetworkID.IsNull() {
-				require.Equal(t, planModel.NetworkID.ValueString(), applyModel.NetworkID.ValueString(), "NetworkID value should be consistent")
-			}
-		case "ClusterAPIURL":
-			if !planModel.ClusterAPIURL.IsNull() || applyModel.ClusterAPIURL.IsNull() {
-				require.Equal(t, planModel.ClusterAPIURL.IsNull(), applyModel.ClusterAPIURL.IsNull(), "ClusterAPIURL null status should be consistent when both are set")
-				if !planModel.ClusterAPIURL.IsNull() && !applyModel.ClusterAPIURL.IsNull() {
-					require.Equal(t, planModel.ClusterAPIURL.ValueString(), applyModel.ClusterAPIURL.ValueString(), "ClusterAPIURL value should be consistent")
-				}
-			}
-		case "AwsPrivateLink":
-			require.Equal(t, planModel.AwsPrivateLink.IsNull(), applyModel.AwsPrivateLink.IsNull(), "AwsPrivateLink null status should be consistent")
-		case "GcpPrivateServiceConnect":
-			require.Equal(t, planModel.GcpPrivateServiceConnect.IsNull(), applyModel.GcpPrivateServiceConnect.IsNull(), "GcpPrivateServiceConnect null status should be consistent")
-		case "AzurePrivateLink":
-			require.Equal(t, planModel.AzurePrivateLink.IsNull(), applyModel.AzurePrivateLink.IsNull(), "AzurePrivateLink null status should be consistent")
-		case "KafkaAPI":
-			require.Equal(t, planModel.KafkaAPI.IsNull(), applyModel.KafkaAPI.IsNull(), "KafkaAPI null status should be consistent")
-		case "HTTPProxy":
-			require.Equal(t, planModel.HTTPProxy.IsNull(), applyModel.HTTPProxy.IsNull(), "HTTPProxy null status should be consistent")
-		case "SchemaRegistry":
-			require.Equal(t, planModel.SchemaRegistry.IsNull(), applyModel.SchemaRegistry.IsNull(), "SchemaRegistry null status should be consistent")
-		case "KafkaConnect":
-			require.Equal(t, planModel.KafkaConnect.IsNull(), applyModel.KafkaConnect.IsNull(), "KafkaConnect null status should be consistent")
-		case "ReadReplicaClusterIDs":
-			require.Equal(t, planModel.ReadReplicaClusterIDs.IsNull(), applyModel.ReadReplicaClusterIDs.IsNull(), "ReadReplicaClusterIDs null status should be consistent")
-		case "CustomerManagedResources":
-			require.Equal(t, planModel.CustomerManagedResources.IsNull(), applyModel.CustomerManagedResources.IsNull(), "CustomerManagedResources null status should be consistent")
-		case "Prometheus":
-			require.Equal(t, planModel.Prometheus.IsNull(), applyModel.Prometheus.IsNull(), "Prometheus null status should be consistent")
-		case "RedpandaConsole":
-			require.Equal(t, planModel.RedpandaConsole.IsNull(), applyModel.RedpandaConsole.IsNull(), "RedpandaConsole null status should be consistent")
-		case "MaintenanceWindowConfig":
-			require.Equal(t, planModel.MaintenanceWindowConfig.IsNull(), applyModel.MaintenanceWindowConfig.IsNull(), "MaintenanceWindowConfig null status should be consistent")
-		case "GCPGlobalAccessEnabled":
-			require.Equal(t, planModel.GCPGlobalAccessEnabled.IsNull(), applyModel.GCPGlobalAccessEnabled.IsNull(), "GCPGlobalAccessEnabled null status should be consistent")
-			if !planModel.GCPGlobalAccessEnabled.IsNull() && !applyModel.GCPGlobalAccessEnabled.IsNull() {
-				require.Equal(t, planModel.GCPGlobalAccessEnabled.ValueBool(), applyModel.GCPGlobalAccessEnabled.ValueBool(), "GCPGlobalAccessEnabled value should be consistent")
-			}
-		case "ClusterConfiguration":
-			require.Equal(t, planModel.ClusterConfiguration.IsNull(), applyModel.ClusterConfiguration.IsNull(), "ClusterConfiguration null status should be consistent")
-		}
-	}
 
 	testCases := []struct {
 		name            string
@@ -1185,22 +1068,23 @@ func TestResourceModel_ComprehensiveConsistencyTest(t *testing.T) {
 			applyResult, applyDiags := applyModel.GetUpdatedModel(ctx, tc.applyCluster, tc.contingentApply)
 			require.False(t, applyDiags.HasError(), "Apply phase should not have errors")
 			require.NotNil(t, applyResult, "Apply result should not be nil")
-			fields := []string{
-				"Name", "ID", "ConnectionType", "CloudProvider", "ClusterType",
-				"RedpandaVersion", "ThroughputTier", "Region", "Zones", "AllowDeletion",
-				"CreatedAt", "State", "StateDescription", "Tags", "ResourceGroupID",
-				"NetworkID", "ClusterAPIURL", "AwsPrivateLink", "GcpPrivateServiceConnect",
-				"AzurePrivateLink", "KafkaAPI", "HTTPProxy", "SchemaRegistry",
-				"KafkaConnect", "ReadReplicaClusterIDs", "CustomerManagedResources",
-				"Prometheus", "RedpandaConsole", "MaintenanceWindowConfig",
-				"GCPGlobalAccessEnabled", "ClusterConfiguration",
+
+			// Use the generated Compare function for comprehensive field-by-field comparison
+			// This replaces the previous 120-line switch statement with a single call
+			diffs := planResult.Compare(applyResult)
+
+			// Filter out expected differences (e.g., fields that are computed and only set after apply)
+			var unexpectedDiffs []string
+			for _, d := range diffs {
+				// CreatedAt and ClusterAPIURL are computed fields that are only set after apply
+				// State changes during lifecycle (CREATING -> READY)
+				if d.Field == "created_at" || d.Field == "cluster_api_url" || d.Field == "state" {
+					continue
+				}
+				unexpectedDiffs = append(unexpectedDiffs, fmt.Sprintf("Field %q: %s (a=%s, b=%s)", d.Field, d.Type, d.A, d.B))
 			}
 
-			for _, field := range fields {
-				t.Run(field, func(t *testing.T) {
-					compareModels(t, planResult, applyResult, field)
-				})
-			}
+			require.Empty(t, unexpectedDiffs, "Found unexpected differences between plan and apply models:\n%s", strings.Join(unexpectedDiffs, "\n"))
 		})
 	}
 }
