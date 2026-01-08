@@ -250,18 +250,11 @@ variable "pipeline_state" {
 }
 
 variable "pipeline_memory_shares" {
-  description = "Memory allocation for the pipeline"
-  default     = "256Mi"
+  description = "Memory allocation for the pipeline (minimum 400M per compute unit)"
+  default     = "400M"
 }
 
 variable "pipeline_cpu_shares" {
   description = "CPU allocation for the pipeline"
   default     = "200m"
 }
-
-variable "pipeline_allow_deletion" {
-  description = "Allow deletion of pipeline resource"
-  type        = bool
-  default     = false
-}
-

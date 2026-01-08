@@ -61,5 +61,16 @@ func (CPUSharesValidator) ValidateString(_ context.Context, req validator.String
 			"Invalid CPU shares value",
 			fmt.Sprintf("cpu_shares must be a multiple of 100m, got %q (%d millicores). Valid examples: '100m', '200m', '500m', '1', '2'.", value, millicores),
 		)
+		return
+	}
+
+	// Minimum 100m (1 compute unit) per Redpanda Cloud documentation
+	const minCPUMillicores = 100
+	if millicores < minCPUMillicores {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"CPU below minimum",
+			fmt.Sprintf("cpu_shares must be at least 100m (1 compute unit), got %q (%dm).", value, millicores),
+		)
 	}
 }

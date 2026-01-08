@@ -634,10 +634,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	maps.Copy(pipelineRunningVars, updateTestCaseVars)
 	pipelineRunningVars["pipeline_state"] = config.StringVariable("running")
 
-	pipelineAllowDeletionTrueVars := make(map[string]config.Variable)
-	maps.Copy(pipelineAllowDeletionTrueVars, pipelineRunningVars)
-	pipelineAllowDeletionTrueVars["pipeline_allow_deletion"] = config.BoolVariable(true)
-
 	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
 	if err != nil {
 		t.Fatal(err)
@@ -1126,15 +1122,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(pipelineResourceName, "state", "running"),
-				),
-			},
-			// Enable deletion for cleanup - pipeline defaults to allow_deletion=false
-			resource.TestStep{
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          pipelineAllowDeletionTrueVars,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(pipelineResourceName, "allow_deletion", "true"),
 				),
 			},
 		)

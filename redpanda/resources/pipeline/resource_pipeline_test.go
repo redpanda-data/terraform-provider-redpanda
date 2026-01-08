@@ -166,6 +166,11 @@ func setupPipelineResource(mockClient dataplanev1grpc.PipelineServiceClient) *Pi
 
 // setupCreateMocks configures mock expectations for a create operation.
 func setupCreateMocks(mockClient *mocks.MockPipelineServiceClient, apiPipeline *dataplanev1.Pipeline, autoStarts bool) {
+	// Expect ListPipelines call for cluster support check
+	mockClient.EXPECT().
+		ListPipelines(gomock.Any(), gomock.Any()).
+		Return(&dataplanev1.ListPipelinesResponse{Pipelines: []*dataplanev1.Pipeline{}}, nil)
+
 	mockClient.EXPECT().
 		CreatePipeline(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&dataplanev1.CreatePipelineResponse{Pipeline: apiPipeline}, nil)
@@ -1037,6 +1042,11 @@ func TestPipeline_CreateErrors(t *testing.T) {
 	ctx := context.Background()
 	mockClient := mocks.NewMockPipelineServiceClient(ctrl)
 
+	// Expect ListPipelines call for cluster support check
+	mockClient.EXPECT().
+		ListPipelines(gomock.Any(), gomock.Any()).
+		Return(&dataplanev1.ListPipelinesResponse{Pipelines: []*dataplanev1.Pipeline{}}, nil)
+
 	// Simulate API error on create
 	mockClient.EXPECT().
 		CreatePipeline(gomock.Any(), gomock.Any()).
@@ -1129,6 +1139,11 @@ func TestPipeline_StartPipelineError(t *testing.T) {
 
 	ctx := context.Background()
 	mockClient := mocks.NewMockPipelineServiceClient(ctrl)
+
+	// Expect ListPipelines call for cluster support check
+	mockClient.EXPECT().
+		ListPipelines(gomock.Any(), gomock.Any()).
+		Return(&dataplanev1.ListPipelinesResponse{Pipelines: []*dataplanev1.Pipeline{}}, nil)
 
 	// Create succeeds
 	createdPipeline := createMockPipeline(

@@ -315,7 +315,7 @@ resource "redpanda_pipeline" "test" {
   description     = var.pipeline_description
   config_yaml     = var.pipeline_config_yaml
   state           = var.pipeline_state
-  allow_deletion  = var.pipeline_allow_deletion
+  allow_deletion  = true
 
   resources = {
     memory_shares = var.pipeline_memory_shares

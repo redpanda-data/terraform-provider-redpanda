@@ -31,20 +31,30 @@ func TestMemorySharesValidator(t *testing.T) {
 		value       types.String
 		expectError bool
 	}{
-		{"valid 256Ki", types.StringValue("256Ki"), false},
+		// Valid values (>= 400MB minimum)
+		{"valid 400M", types.StringValue("400M"), false},
 		{"valid 512Mi", types.StringValue("512Mi"), false},
 		{"valid 1Gi", types.StringValue("1Gi"), false},
 		{"valid 2Gi", types.StringValue("2Gi"), false},
-		{"valid 128M", types.StringValue("128M"), false},
 		{"valid 1G", types.StringValue("1G"), false},
-		{"valid 500k", types.StringValue("500k"), false},
-		{"valid 1024 bytes", types.StringValue("1024"), false},
-		{"valid 1048576 bytes", types.StringValue("1048576"), false},
 		{"valid 1.5Gi", types.StringValue("1.5Gi"), false},
-		{"valid 2.5M", types.StringValue("2.5M"), false},
+		{"valid 500M", types.StringValue("500M"), false},
+
+		// Invalid: below 400MB minimum
+		{"below min 256Ki", types.StringValue("256Ki"), true},
+		{"below min 128M", types.StringValue("128M"), true},
+		{"below min 500k", types.StringValue("500k"), true},
+		{"below min 1024 bytes", types.StringValue("1024"), true},
+		{"below min 1048576 bytes", types.StringValue("1048576"), true},
+		{"below min 2.5M", types.StringValue("2.5M"), true},
+		{"below min 399M", types.StringValue("399M"), true},
+
+		// Invalid: bad format
 		{"invalid format", types.StringValue("invalid"), true},
 		{"invalid empty", types.StringValue(""), true},
 		{"invalid suffix", types.StringValue("100X"), true},
+
+		// Null/unknown values are allowed
 		{"null value", types.StringNull(), false},
 		{"unknown value", types.StringUnknown(), false},
 	}

@@ -104,6 +104,21 @@ func (p *Pipeline) Create(ctx context.Context, req resource.CreateRequest, resp 
 		}
 	}()
 
+	// Check cluster pipeline support before attempting to create
+	tflog.Debug(ctx, "Pipeline Create: checking cluster pipeline support")
+	listResp, listErr := p.PipelineClient.ListPipelines(ctx, &dataplanev1.ListPipelinesRequest{})
+	if listErr != nil {
+		tflog.Warn(ctx, "Pipeline Create: ListPipelines check failed", map[string]any{
+			"error": utils.DeserializeGrpcError(listErr),
+		})
+		// Don't fail here - the cluster might support pipelines but have a temporary issue
+		// The actual CreatePipeline call will give us the real error
+	} else {
+		tflog.Debug(ctx, "Pipeline Create: cluster supports pipelines", map[string]any{
+			"existing_pipelines": len(listResp.GetPipelines()),
+		})
+	}
+
 	pipelineCreate := &dataplanev1.PipelineCreate{
 		DisplayName: model.DisplayName.ValueString(),
 		ConfigYaml:  model.ConfigYaml.ValueString(),
@@ -131,6 +146,25 @@ func (p *Pipeline) Create(ctx context.Context, req resource.CreateRequest, resp 
 			return
 		}
 		pipelineCreate.Tags = tags
+	}
+
+	// Log the full request payload before making the API call
+	tflog.Debug(ctx, "Pipeline Create: preparing API request", map[string]any{
+		"display_name":  pipelineCreate.DisplayName,
+		"description":   pipelineCreate.Description,
+		"config_yaml":   pipelineCreate.ConfigYaml,
+		"has_resources": pipelineCreate.Resources != nil,
+	})
+	if pipelineCreate.Resources != nil {
+		tflog.Debug(ctx, "Pipeline Create: resource allocation", map[string]any{
+			"memory_shares": pipelineCreate.Resources.MemoryShares,
+			"cpu_shares":    pipelineCreate.Resources.CpuShares,
+		})
+	}
+	if len(pipelineCreate.Tags) > 0 {
+		tflog.Debug(ctx, "Pipeline Create: tags", map[string]any{
+			"tags": pipelineCreate.Tags,
+		})
 	}
 
 	createResp, err := p.PipelineClient.CreatePipeline(ctx, &dataplanev1.CreatePipelineRequest{
@@ -188,6 +222,12 @@ func (p *Pipeline) Create(ctx context.Context, req resource.CreateRequest, resp 
 		return
 	}
 
+	tflog.Debug(ctx, "Pipeline Create: saving state", map[string]any{
+		"id":              state.ID.ValueString(),
+		"cluster_api_url": state.ClusterAPIURL.ValueString(),
+		"display_name":    state.DisplayName.ValueString(),
+		"allow_deletion":  state.AllowDeletion.ValueBool(),
+	})
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
@@ -199,8 +239,15 @@ func (p *Pipeline) Read(ctx context.Context, req resource.ReadRequest, resp *res
 		return
 	}
 
+	tflog.Debug(ctx, "Pipeline Read: starting", map[string]any{
+		"id":              model.ID.ValueString(),
+		"cluster_api_url": model.ClusterAPIURL.ValueString(),
+		"allow_deletion":  model.AllowDeletion.ValueBool(),
+	})
+
 	if model.ClusterAPIURL.IsNull() || model.ClusterAPIURL.IsUnknown() || model.ClusterAPIURL.ValueString() == "" {
 		if model.AllowDeletion.IsNull() || model.AllowDeletion.ValueBool() {
+			tflog.Info(ctx, fmt.Sprintf("pipeline %s has empty cluster_api_url, removing from state since allow_deletion is %v", model.ID.ValueString(), model.AllowDeletion.ValueBool()))
 			resp.State.RemoveResource(ctx)
 			return
 		}

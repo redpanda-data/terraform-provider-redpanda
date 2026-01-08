@@ -31,6 +31,7 @@ func TestCPUSharesValidator(t *testing.T) {
 		value       types.String
 		expectError bool
 	}{
+		// Valid values (>= 100m minimum and multiple of 100m)
 		{"valid 100m", types.StringValue("100m"), false},
 		{"valid 200m", types.StringValue("200m"), false},
 		{"valid 500m", types.StringValue("500m"), false},
@@ -39,12 +40,22 @@ func TestCPUSharesValidator(t *testing.T) {
 		{"valid 2 cores", types.StringValue("2"), false},
 		{"valid 0.5 core", types.StringValue("0.5"), false},
 		{"valid 1.5 cores", types.StringValue("1.5"), false},
+
+		// Invalid: not a multiple of 100m
 		{"invalid 50m", types.StringValue("50m"), true},
 		{"invalid 150m", types.StringValue("150m"), true},
 		{"invalid 250m", types.StringValue("250m"), true},
 		{"invalid 0.15 cores", types.StringValue("0.15"), true},
+
+		// Invalid: below 100m minimum
+		{"below min 0m", types.StringValue("0m"), true},
+		{"below min 0", types.StringValue("0"), true},
+
+		// Invalid: bad format
 		{"invalid format", types.StringValue("invalid"), true},
 		{"invalid empty", types.StringValue(""), true},
+
+		// Null/unknown values are allowed
 		{"null value", types.StringNull(), false},
 		{"unknown value", types.StringUnknown(), false},
 	}

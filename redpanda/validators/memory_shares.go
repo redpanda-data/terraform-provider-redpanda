@@ -45,12 +45,23 @@ func (MemorySharesValidator) ValidateString(_ context.Context, req validator.Str
 	}
 
 	value := req.ConfigValue.ValueString()
-	_, err := utils.ParseMemoryToBytes(value)
+	bytes, err := utils.ParseMemoryToBytes(value)
 	if err != nil {
 		resp.Diagnostics.AddAttributeError(
 			req.Path,
 			"Invalid memory shares format",
 			fmt.Sprintf("Could not parse memory_shares value %q: %s. Use Kubernetes quantity format (e.g., '256Mi', '1Gi', '512M', '2G').", value, err),
+		)
+		return
+	}
+
+	// Minimum 400MB (1 compute unit) per Redpanda Cloud documentation
+	const minMemoryBytes = 400 * 1000 * 1000 // 400MB in decimal (SI) units
+	if bytes < minMemoryBytes {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Memory below minimum",
+			fmt.Sprintf("memory_shares must be at least 400M (1 compute unit), got %q (~%dMB).", value, bytes/(1000*1000)),
 		)
 	}
 }
