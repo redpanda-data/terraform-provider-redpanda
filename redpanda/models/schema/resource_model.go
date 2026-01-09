@@ -23,8 +23,14 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"github.com/twmb/franz-go/pkg/sr"
 )
+
+// GetEffectivePassword returns the password to use, preferring password_wo over password.
+func (r *ResourceModel) GetEffectivePassword() string {
+	return utils.GetEffectivePassword(r.Password, r.PasswordWO)
+}
 
 // GetID returns the schema ID.
 func (r *ResourceModel) GetID() string {
