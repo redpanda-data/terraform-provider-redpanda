@@ -354,6 +354,16 @@ func UserMechanismToString(m *dataplanev1.SASLMechanism) string {
 	}
 }
 
+// GetEffectivePassword returns the password to use from password_wo and password fields.
+// Prefers password_wo over password when both are set. This centralizes the logic
+// for choosing between write-only and legacy password fields.
+func GetEffectivePassword(password, passwordWO types.String) string {
+	if !passwordWO.IsNull() && !passwordWO.IsUnknown() {
+		return passwordWO.ValueString()
+	}
+	return password.ValueString()
+}
+
 // TopicConfigurationToMap converts a slice of dataplanev1.Topic_Configuration to a slice of
 // models.TopicConfiguration
 func TopicConfigurationToMap(cfg []*dataplanev1.Topic_Configuration) (types.Map, error) {
