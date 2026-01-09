@@ -1,11 +1,15 @@
 package schema
 
 import (
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
 // ResourceSchemaSchema returns the schema for the schema resource.
@@ -69,11 +73,29 @@ func ResourceSchemaSchema() schema.Schema {
 			"username": schema.StringAttribute{
 				Description: "The SASL username for Schema Registry authentication.",
 				Required:    true,
+				Sensitive:   true,
 			},
 			"password": schema.StringAttribute{
-				Description: "The SASL password for Schema Registry authentication.",
-				Required:    true,
-				Sensitive:   true,
+				Description:        "The SASL password for Schema Registry authentication. Deprecated: use password_wo instead.",
+				Optional:           true,
+				Sensitive:          true,
+				DeprecationMessage: "Use password_wo instead to avoid storing password in Terraform state",
+				Validators: []validator.String{
+					validators.Password(
+						path.MatchRoot("password"),
+						path.MatchRoot("password_wo"),
+					),
+				},
+			},
+			"password_wo": schema.StringAttribute{
+				Description: "The SASL password for Schema Registry authentication (write-only, not stored in state). Requires Terraform 1.11+.",
+				Optional:    true,
+				WriteOnly:   true,
+			},
+			"password_wo_version": schema.Int64Attribute{
+				Description:   "Version number for password_wo. Increment this value to trigger a password update when using password_wo.",
+				Optional:      true,
+				PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
 			},
 			"compatibility": schema.StringAttribute{
 				Description: "The compatibility level for schema evolution (BACKWARD, BACKWARD_TRANSITIVE, FORWARD, FORWARD_TRANSITIVE, FULL, FULL_TRANSITIVE, NONE). Defaults to BACKWARD.",

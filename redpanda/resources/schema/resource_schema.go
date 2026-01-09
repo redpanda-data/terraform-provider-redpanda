@@ -4,6 +4,7 @@ package schema
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -98,19 +99,26 @@ func parseImportID(importID string) (*importIDComponents, error) {
 	}, nil
 }
 
-// ImportState imports an existing schema resource using cluster_id:subject:version:username:password format.
+// ImportState imports an existing schema resource.
+// Format: cluster_id:subject:version:username:password
+// Password can also be set via REDPANDA_IMPORT_PASSWORD env var.
 func (*Schema) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
 	components, err := parseImportID(request.ID)
 	if err != nil {
-		response.Diagnostics.AddError("Invalid import format", err.Error())
+		response.Diagnostics.AddError("Invalid import format", err.Error()+". Password can also be set via REDPANDA_IMPORT_PASSWORD env var.")
 		return
+	}
+
+	password := components.password
+	if envPassword := os.Getenv("REDPANDA_IMPORT_PASSWORD"); envPassword != "" {
+		password = envPassword
 	}
 
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("cluster_id"), types.StringValue(components.clusterID))...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("subject"), types.StringValue(components.subject))...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("version"), types.Int64Value(components.version))...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("username"), types.StringValue(components.username))...)
-	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("password"), types.StringValue(components.password))...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("password"), types.StringValue(password))...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
 }
 
@@ -132,7 +140,7 @@ func (s *Schema) Create(ctx context.Context, request resource.CreateRequest, res
 		return
 	}
 
-	client, err := s.getClient(ctx, plan.ClusterID.ValueString(), plan.Username.ValueString(), plan.Password.ValueString())
+	client, err := s.getClient(ctx, plan.ClusterID.ValueString(), plan.Username.ValueString(), plan.GetEffectivePassword())
 	if err != nil {
 		response.Diagnostics.AddError(
 			"Failed to create Schema Registry client",
@@ -184,8 +192,7 @@ func (s *Schema) Read(ctx context.Context, request resource.ReadRequest, respons
 	}
 
 	subject := state.GetSubject()
-
-	client, err := s.getClient(ctx, state.ClusterID.ValueString(), state.Username.ValueString(), state.Password.ValueString())
+	client, err := s.getClient(ctx, state.ClusterID.ValueString(), state.Username.ValueString(), state.GetEffectivePassword())
 	if err != nil {
 		action, diags := utils.HandleGracefulRemoval(ctx, "schema", subject, state.AllowDeletion, err, "create schema registry client")
 		response.Diagnostics.Append(diags...)
@@ -212,7 +219,11 @@ func (s *Schema) Read(ctx context.Context, request resource.ReadRequest, respons
 		return
 	}
 
+	password := state.Password
+	passwordWOVersion := state.PasswordWOVersion
 	state.UpdateFromSchema(schemaResp)
+	state.Password = password
+	state.PasswordWOVersion = passwordWOVersion
 
 	// Get compatibility level for the subject
 	state.Compatibility = s.getOrDefaultCompatibility(ctx, client, state.Subject.ValueString(), state.Compatibility)
@@ -230,7 +241,7 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 		return
 	}
 
-	client, err := s.getClient(ctx, plan.ClusterID.ValueString(), plan.Username.ValueString(), plan.Password.ValueString())
+	client, err := s.getClient(ctx, plan.ClusterID.ValueString(), plan.Username.ValueString(), plan.GetEffectivePassword())
 	if err != nil {
 		response.Diagnostics.AddError(
 			"Failed to create Schema Registry client",
@@ -329,7 +340,7 @@ func (s *Schema) Delete(ctx context.Context, request resource.DeleteRequest, res
 		return
 	}
 
-	client, err := s.getClient(ctx, state.ClusterID.ValueString(), state.Username.ValueString(), state.Password.ValueString())
+	client, err := s.getClient(ctx, state.ClusterID.ValueString(), state.Username.ValueString(), state.GetEffectivePassword())
 	if err != nil {
 		if utils.IsPermissionDenied(err) || utils.IsClusterUnreachable(err) {
 			if !state.AllowDeletion.IsNull() && !state.AllowDeletion.ValueBool() {

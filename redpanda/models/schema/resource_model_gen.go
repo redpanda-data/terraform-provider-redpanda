@@ -24,15 +24,17 @@ import (
 
 // ResourceModel represents the Terraform schema for the schema resource.
 type ResourceModel struct {
-	AllowDeletion types.Bool   `tfsdk:"allow_deletion"`
-	ClusterID     types.String `tfsdk:"cluster_id"`
-	Compatibility types.String `tfsdk:"compatibility"`
-	ID            types.Int64  `tfsdk:"id"`
-	Password      types.String `tfsdk:"password"`
-	References    types.List   `tfsdk:"references"`
-	Schema        types.String `tfsdk:"schema"`
-	SchemaType    types.String `tfsdk:"schema_type"`
-	Subject       types.String `tfsdk:"subject"`
-	Username      types.String `tfsdk:"username"`
-	Version       types.Int64  `tfsdk:"version"`
+	AllowDeletion     types.Bool   `tfsdk:"allow_deletion"`
+	ClusterID         types.String `tfsdk:"cluster_id"`
+	Compatibility     types.String `tfsdk:"compatibility"`
+	ID                types.Int64  `tfsdk:"id"`
+	Password          types.String `tfsdk:"password"`
+	PasswordWO        types.String `tfsdk:"password_wo"`
+	PasswordWOVersion types.Int64  `tfsdk:"password_wo_version"`
+	References        types.List   `tfsdk:"references"`
+	Schema            types.String `tfsdk:"schema"`
+	SchemaType        types.String `tfsdk:"schema_type"`
+	Subject           types.String `tfsdk:"subject"`
+	Username          types.String `tfsdk:"username"`
+	Version           types.Int64  `tfsdk:"version"`
 }

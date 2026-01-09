@@ -274,6 +274,70 @@ func TestResourceModel_UpdateFromSchema_DifferentContent(t *testing.T) {
 	assert.Equal(t, int64(2), model.Version.ValueInt64())
 }
 
+func TestResourceModel_GetEffectivePassword(t *testing.T) {
+	tests := []struct {
+		name     string
+		model    ResourceModel
+		expected string
+	}{
+		{
+			name: "password_wo takes precedence over password",
+			model: ResourceModel{
+				Password:   types.StringValue("legacy-password"),
+				PasswordWO: types.StringValue("write-only-password"),
+			},
+			expected: "write-only-password",
+		},
+		{
+			name: "falls back to password when password_wo is null",
+			model: ResourceModel{
+				Password:   types.StringValue("legacy-password"),
+				PasswordWO: types.StringNull(),
+			},
+			expected: "legacy-password",
+		},
+		{
+			name: "falls back to password when password_wo is unknown",
+			model: ResourceModel{
+				Password:   types.StringValue("legacy-password"),
+				PasswordWO: types.StringUnknown(),
+			},
+			expected: "legacy-password",
+		},
+		{
+			name: "returns empty string when both are null",
+			model: ResourceModel{
+				Password:   types.StringNull(),
+				PasswordWO: types.StringNull(),
+			},
+			expected: "",
+		},
+		{
+			name: "returns password_wo when password is null",
+			model: ResourceModel{
+				Password:   types.StringNull(),
+				PasswordWO: types.StringValue("write-only-password"),
+			},
+			expected: "write-only-password",
+		},
+		{
+			name: "returns empty password_wo if explicitly set to empty",
+			model: ResourceModel{
+				Password:   types.StringValue("legacy-password"),
+				PasswordWO: types.StringValue(""),
+			},
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.model.GetEffectivePassword()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestResourceModel_ToSchemaRequest_Equivalence(t *testing.T) {
 	// Test that ToSchemaRequest produces equivalent results for semantically identical schemas
 	formattedSchema := `{
