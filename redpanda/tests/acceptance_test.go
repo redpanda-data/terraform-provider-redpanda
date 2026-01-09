@@ -11,9 +11,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hashicorp/go-version"
 	"github.com/hashicorp/terraform-plugin-testing/config"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/tfversion"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 )
@@ -1638,5 +1640,367 @@ func TestAccDataSourceServerlessRegions(t *testing.T) {
 				),
 			},
 		},
+	})
+}
+
+// TestAccUserWriteOnlyPassword tests the write-only password field for the user resource.
+// Tests create/update with password_wo and bidirectional migration between password and password_wo.
+func TestAccUserWriteOnlyPassword(t *testing.T) {
+	if !strings.Contains(runClusterTests, "true") {
+		t.Skip("skipping cluster tests")
+	}
+	ctx := context.Background()
+	name := generateRandomName(accNamePrepend + "wo-user")
+
+	// Step 1: Create with password_wo
+	createVars := make(map[string]config.Variable)
+	maps.Copy(createVars, providerCfgIDSecretVars)
+	createVars["resource_group_name"] = config.StringVariable(name)
+	createVars["network_name"] = config.StringVariable(name)
+	createVars["cluster_name"] = config.StringVariable(name)
+	createVars["user_name"] = config.StringVariable(name)
+	createVars["topic_name"] = config.StringVariable(name)
+	createVars["user_password_wo"] = config.StringVariable("initial-secret-123")
+	createVars["user_password_wo_version"] = config.IntegerVariable(1)
+	createVars["cluster_allow_deletion"] = config.BoolVariable(true)
+	createVars["user_allow_deletion"] = config.BoolVariable(true)
+	createVars["acl_allow_deletion"] = config.BoolVariable(true)
+	createVars["sr_acl_allow_deletion"] = config.BoolVariable(true)
+	if throughputTier != "" {
+		createVars["throughput_tier"] = config.StringVariable(throughputTier)
+	}
+
+	// Step 2: Update password via version bump
+	updateVars := make(map[string]config.Variable)
+	maps.Copy(updateVars, createVars)
+	updateVars["user_password_wo"] = config.StringVariable("updated-secret-456")
+	updateVars["user_password_wo_version"] = config.IntegerVariable(2)
+
+	// Step 3: Migrate to legacy password field
+	migrateToLegacyVars := make(map[string]config.Variable)
+	maps.Copy(migrateToLegacyVars, createVars)
+	delete(migrateToLegacyVars, "user_password_wo")
+	delete(migrateToLegacyVars, "user_password_wo_version")
+	migrateToLegacyVars["user_pw"] = config.StringVariable("legacy-secret-789")
+
+	// Step 4: Migrate back to password_wo
+	migrateBackToWOVars := make(map[string]config.Variable)
+	maps.Copy(migrateBackToWOVars, createVars)
+	migrateBackToWOVars["user_password_wo"] = config.StringVariable("final-secret-000")
+	migrateBackToWOVars["user_password_wo_version"] = config.IntegerVariable(3)
+
+	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resource.ParallelTest(t, resource.TestCase{
+		TerraformVersionChecks: []tfversion.TerraformVersionCheck{
+			tfversion.SkipBelow(version.Must(version.NewVersion("1.11.0"))),
+		},
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Step 1: Create with password_wo
+			{
+				ConfigDirectory: config.StaticDirectory(awsDedicatedClusterDir),
+				ConfigVariables: createVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(userResourceName, "name", name),
+					resource.TestCheckResourceAttr(userResourceName, "password_wo_version", "1"),
+				),
+			},
+			// Step 2: Update via version bump
+			{
+				ConfigDirectory: config.StaticDirectory(awsDedicatedClusterDir),
+				ConfigVariables: updateVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(userResourceName, "name", name),
+					resource.TestCheckResourceAttr(userResourceName, "password_wo_version", "2"),
+				),
+			},
+			// Step 3: Migrate to legacy password
+			{
+				ConfigDirectory: config.StaticDirectory(awsDedicatedClusterDir),
+				ConfigVariables: migrateToLegacyVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(userResourceName, "name", name),
+					resource.TestCheckResourceAttr(userResourceName, "password", "legacy-secret-789"),
+				),
+			},
+			// Step 4: Migrate back to password_wo
+			{
+				ConfigDirectory: config.StaticDirectory(awsDedicatedClusterDir),
+				ConfigVariables: migrateBackToWOVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(userResourceName, "name", name),
+					resource.TestCheckResourceAttr(userResourceName, "password_wo_version", "3"),
+				),
+			},
+		},
+	})
+
+	resource.AddTestSweepers(generateRandomName("wo-user-clusterSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepCluster{
+			ClusterName: name,
+			Client:      c,
+		}.SweepCluster,
+	})
+	resource.AddTestSweepers(generateRandomName("wo-user-networkSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepNetwork{
+			NetworkName: name,
+			Client:      c,
+		}.SweepNetworks,
+	})
+	resource.AddTestSweepers(generateRandomName("wo-user-resourcegroupSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepResourceGroup{
+			ResourceGroupName: name,
+			Client:            c,
+		}.SweepResourceGroup,
+	})
+}
+
+// TestAccSchemaWriteOnlyPassword tests the write-only password field for the schema resource.
+// Tests create/update with password_wo and bidirectional migration between password and password_wo.
+func TestAccSchemaWriteOnlyPassword(t *testing.T) {
+	if !strings.Contains(runClusterTests, "true") {
+		t.Skip("skipping cluster tests")
+	}
+	ctx := context.Background()
+	name := generateRandomName(accNamePrepend + "wo-schema")
+
+	// Step 1: Create with password_wo
+	createVars := make(map[string]config.Variable)
+	maps.Copy(createVars, providerCfgIDSecretVars)
+	createVars["resource_group_name"] = config.StringVariable(name)
+	createVars["network_name"] = config.StringVariable(name)
+	createVars["cluster_name"] = config.StringVariable(name)
+	createVars["user_name"] = config.StringVariable(name)
+	createVars["topic_name"] = config.StringVariable(name)
+	createVars["user_pw"] = config.StringVariable("user-password-123")
+	createVars["schema_password_wo"] = config.StringVariable("initial-schema-secret")
+	createVars["schema_password_wo_version"] = config.IntegerVariable(1)
+	createVars["cluster_allow_deletion"] = config.BoolVariable(true)
+	createVars["user_allow_deletion"] = config.BoolVariable(true)
+	createVars["acl_allow_deletion"] = config.BoolVariable(true)
+	createVars["sr_acl_allow_deletion"] = config.BoolVariable(true)
+	if throughputTier != "" {
+		createVars["throughput_tier"] = config.StringVariable(throughputTier)
+	}
+
+	// Step 2: Update password via version bump
+	updateVars := make(map[string]config.Variable)
+	maps.Copy(updateVars, createVars)
+	updateVars["schema_password_wo"] = config.StringVariable("updated-schema-secret")
+	updateVars["schema_password_wo_version"] = config.IntegerVariable(2)
+
+	// Step 3: Migrate to legacy password field (uses user_pw for schemas)
+	migrateToLegacyVars := make(map[string]config.Variable)
+	maps.Copy(migrateToLegacyVars, createVars)
+	delete(migrateToLegacyVars, "schema_password_wo")
+	delete(migrateToLegacyVars, "schema_password_wo_version")
+	// Schema uses user_pw as fallback password
+
+	// Step 4: Migrate back to password_wo
+	migrateBackToWOVars := make(map[string]config.Variable)
+	maps.Copy(migrateBackToWOVars, createVars)
+	migrateBackToWOVars["schema_password_wo"] = config.StringVariable("final-schema-secret")
+	migrateBackToWOVars["schema_password_wo_version"] = config.IntegerVariable(3)
+
+	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resource.ParallelTest(t, resource.TestCase{
+		TerraformVersionChecks: []tfversion.TerraformVersionCheck{
+			tfversion.SkipBelow(version.Must(version.NewVersion("1.11.0"))),
+		},
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Step 1: Create with password_wo
+			{
+				ConfigDirectory: config.StaticDirectory(awsDedicatedClusterDir),
+				ConfigVariables: createVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(schemaResourceName, "subject", name+"-value"),
+					resource.TestCheckResourceAttr(schemaResourceName, "password_wo_version", "1"),
+				),
+			},
+			// Step 2: Update via version bump
+			{
+				ConfigDirectory: config.StaticDirectory(awsDedicatedClusterDir),
+				ConfigVariables: updateVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(schemaResourceName, "subject", name+"-value"),
+					resource.TestCheckResourceAttr(schemaResourceName, "password_wo_version", "2"),
+				),
+			},
+			// Step 3: Migrate to legacy password (fallback to user_pw)
+			{
+				ConfigDirectory: config.StaticDirectory(awsDedicatedClusterDir),
+				ConfigVariables: migrateToLegacyVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(schemaResourceName, "subject", name+"-value"),
+					resource.TestCheckResourceAttr(schemaResourceName, "password", "user-password-123"),
+				),
+			},
+			// Step 4: Migrate back to password_wo
+			{
+				ConfigDirectory: config.StaticDirectory(awsDedicatedClusterDir),
+				ConfigVariables: migrateBackToWOVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(schemaResourceName, "subject", name+"-value"),
+					resource.TestCheckResourceAttr(schemaResourceName, "password_wo_version", "3"),
+				),
+			},
+		},
+	})
+
+	resource.AddTestSweepers(generateRandomName("wo-schema-clusterSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepCluster{
+			ClusterName: name,
+			Client:      c,
+		}.SweepCluster,
+	})
+	resource.AddTestSweepers(generateRandomName("wo-schema-networkSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepNetwork{
+			NetworkName: name,
+			Client:      c,
+		}.SweepNetworks,
+	})
+	resource.AddTestSweepers(generateRandomName("wo-schema-resourcegroupSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepResourceGroup{
+			ResourceGroupName: name,
+			Client:            c,
+		}.SweepResourceGroup,
+	})
+}
+
+// TestAccSchemaRegistryACLWriteOnlyPassword tests the write-only password field for the schema registry ACL resource.
+// Tests create/update with password_wo and bidirectional migration between password and password_wo.
+func TestAccSchemaRegistryACLWriteOnlyPassword(t *testing.T) {
+	if !strings.Contains(runClusterTests, "true") {
+		t.Skip("skipping cluster tests")
+	}
+	ctx := context.Background()
+	name := generateRandomName(accNamePrepend + "wo-sr-acl")
+
+	// Step 1: Create with password_wo
+	createVars := make(map[string]config.Variable)
+	maps.Copy(createVars, providerCfgIDSecretVars)
+	createVars["resource_group_name"] = config.StringVariable(name)
+	createVars["network_name"] = config.StringVariable(name)
+	createVars["cluster_name"] = config.StringVariable(name)
+	createVars["user_name"] = config.StringVariable(name)
+	createVars["topic_name"] = config.StringVariable(name)
+	createVars["user_pw"] = config.StringVariable("user-password-123")
+	createVars["sr_acl_password_wo"] = config.StringVariable("initial-sr-acl-secret")
+	createVars["sr_acl_password_wo_version"] = config.IntegerVariable(1)
+	createVars["cluster_allow_deletion"] = config.BoolVariable(true)
+	createVars["user_allow_deletion"] = config.BoolVariable(true)
+	createVars["acl_allow_deletion"] = config.BoolVariable(true)
+	createVars["sr_acl_allow_deletion"] = config.BoolVariable(true)
+	if throughputTier != "" {
+		createVars["throughput_tier"] = config.StringVariable(throughputTier)
+	}
+
+	// Step 2: Update password via version bump
+	updateVars := make(map[string]config.Variable)
+	maps.Copy(updateVars, createVars)
+	updateVars["sr_acl_password_wo"] = config.StringVariable("updated-sr-acl-secret")
+	updateVars["sr_acl_password_wo_version"] = config.IntegerVariable(2)
+
+	// Step 3: Migrate to legacy password field (uses user_pw for SR ACLs)
+	migrateToLegacyVars := make(map[string]config.Variable)
+	maps.Copy(migrateToLegacyVars, createVars)
+	delete(migrateToLegacyVars, "sr_acl_password_wo")
+	delete(migrateToLegacyVars, "sr_acl_password_wo_version")
+	// SR ACL uses user_pw as fallback password
+
+	// Step 4: Migrate back to password_wo
+	migrateBackToWOVars := make(map[string]config.Variable)
+	maps.Copy(migrateBackToWOVars, createVars)
+	migrateBackToWOVars["sr_acl_password_wo"] = config.StringVariable("final-sr-acl-secret")
+	migrateBackToWOVars["sr_acl_password_wo_version"] = config.IntegerVariable(3)
+
+	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resource.ParallelTest(t, resource.TestCase{
+		TerraformVersionChecks: []tfversion.TerraformVersionCheck{
+			tfversion.SkipBelow(version.Must(version.NewVersion("1.11.0"))),
+		},
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Step 1: Create with password_wo
+			{
+				ConfigDirectory: config.StaticDirectory(awsDedicatedClusterDir),
+				ConfigVariables: createVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(schemaRegistryACLReadProductName, "id"),
+					resource.TestCheckResourceAttr(schemaRegistryACLReadProductName, "password_wo_version", "1"),
+				),
+			},
+			// Step 2: Update via version bump
+			{
+				ConfigDirectory: config.StaticDirectory(awsDedicatedClusterDir),
+				ConfigVariables: updateVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(schemaRegistryACLReadProductName, "id"),
+					resource.TestCheckResourceAttr(schemaRegistryACLReadProductName, "password_wo_version", "2"),
+				),
+			},
+			// Step 3: Migrate to legacy password (fallback to user_pw)
+			{
+				ConfigDirectory: config.StaticDirectory(awsDedicatedClusterDir),
+				ConfigVariables: migrateToLegacyVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(schemaRegistryACLReadProductName, "id"),
+					resource.TestCheckResourceAttr(schemaRegistryACLReadProductName, "password", "user-password-123"),
+				),
+			},
+			// Step 4: Migrate back to password_wo
+			{
+				ConfigDirectory: config.StaticDirectory(awsDedicatedClusterDir),
+				ConfigVariables: migrateBackToWOVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(schemaRegistryACLReadProductName, "id"),
+					resource.TestCheckResourceAttr(schemaRegistryACLReadProductName, "password_wo_version", "3"),
+				),
+			},
+		},
+	})
+
+	resource.AddTestSweepers(generateRandomName("wo-sr-acl-clusterSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepCluster{
+			ClusterName: name,
+			Client:      c,
+		}.SweepCluster,
+	})
+	resource.AddTestSweepers(generateRandomName("wo-sr-acl-networkSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepNetwork{
+			NetworkName: name,
+			Client:      c,
+		}.SweepNetworks,
+	})
+	resource.AddTestSweepers(generateRandomName("wo-sr-acl-resourcegroupSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepResourceGroup{
+			ResourceGroupName: name,
+			Client:            c,
+		}.SweepResourceGroup,
 	})
 }
