@@ -17,15 +17,17 @@ Creates a schema in the Redpanda Schema Registry.
 ### Required
 
 - `cluster_id` (String) The ID of the cluster where the schema is stored.
-- `password` (String, Sensitive) The SASL password for Schema Registry authentication.
 - `schema` (String) The schema definition in JSON format.
 - `subject` (String) The subject name for the schema.
-- `username` (String) The SASL username for Schema Registry authentication.
+- `username` (String, Sensitive) The SASL username for Schema Registry authentication.
 
 ### Optional
 
 - `allow_deletion` (Boolean) When enabled, prevents the resource from being deleted if the cluster is unreachable. When disabled (default), the resource will be removed from state without attempting deletion when the cluster is unreachable.
 - `compatibility` (String) The compatibility level for schema evolution (BACKWARD, BACKWARD_TRANSITIVE, FORWARD, FORWARD_TRANSITIVE, FULL, FULL_TRANSITIVE, NONE). Defaults to BACKWARD.
+- `password` (String, Sensitive, Deprecated) The SASL password for Schema Registry authentication. Deprecated: use password_wo instead.
+- `password_wo` (String) The SASL password for Schema Registry authentication (write-only, not stored in state). Requires Terraform 1.11+.
+- `password_wo_version` (Number) Version number for password_wo. Increment this value to trigger a password update when using password_wo.
 - `references` (Attributes List) List of schema references. (see [below for nested schema](#nestedatt--references))
 - `schema_type` (String) The type of schema (AVRO, JSON, PROTOBUF).
 
@@ -47,6 +49,12 @@ Required:
 
 ```terraform
 provider "redpanda" {}
+
+variable "user_password" {
+  type        = string
+  sensitive   = true
+  description = "Password for the Redpanda user and schema authentication"
+}
 
 resource "redpanda_resource_group" "example" {
   name = "example-resource-group"
@@ -74,11 +82,12 @@ resource "redpanda_cluster" "example" {
 }
 
 resource "redpanda_user" "example" {
-  name            = "schema-user"
-  password        = "secure-password-123"
-  mechanism       = "scram-sha-256"
-  cluster_api_url = redpanda_cluster.example.cluster_api_url
-  allow_deletion  = true
+  name                = "schema-user"
+  password_wo         = var.user_password # Write-only, not stored in state
+  password_wo_version = 1                 # Increment to trigger password update
+  mechanism           = "scram-sha-256"
+  cluster_api_url     = redpanda_cluster.example.cluster_api_url
+  allow_deletion      = true
 }
 
 resource "redpanda_schema" "example" {
@@ -103,8 +112,9 @@ resource "redpanda_schema" "example" {
       }
     ]
   })
-  username = redpanda_user.example.name
-  password = "secure-password-123"
+  username            = redpanda_user.example.name
+  password_wo         = var.user_password # Write-only, not stored in state
+  password_wo_version = 1                 # Increment to trigger password update
 }
 ```
 
@@ -132,6 +142,26 @@ We recommend storing Schema Registry credentials in environment variables or a s
 
 - `REDPANDA_SR_USERNAME` for the username
 - `REDPANDA_SR_PASSWORD` for the password
+
+### Write-Only Password (Recommended)
+
+For Terraform 1.11+, we recommend using the `password_wo` attribute instead of `password`. Write-only attributes are never stored in Terraform state, providing enhanced security:
+
+```hcl
+resource "redpanda_schema" "example" {
+  cluster_id          = redpanda_cluster.example.id
+  subject             = "user-value"
+  schema_type         = "AVRO"
+  schema              = file("schemas/user.avsc")
+  username            = "schema-user"
+  password_wo         = var.schema_password  # Not stored in state
+  password_wo_version = 1                    # Increment to trigger password update
+}
+```
+
+To update the password, change the `password_wo` value and increment `password_wo_version`. The version field signals Terraform that the password has changed since write-only values cannot be compared between plan and apply.
+
+~> **Note:** The `password` attribute is deprecated and will be removed in a future version. Migrate to `password_wo` when using Terraform 1.11+.
 
 ## Import
 

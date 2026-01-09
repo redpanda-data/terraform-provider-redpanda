@@ -18,12 +18,14 @@ Creates a user in a Redpanda Cluster.
 
 - `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports
 - `name` (String) Name of the user, must be unique
-- `password` (String, Sensitive) Password of the user
 
 ### Optional
 
 - `allow_deletion` (Boolean) Allows deletion of the user. If false, the user cannot be deleted and the resource will be removed from the state on destruction. Defaults to false.
 - `mechanism` (String) Which authentication method to use, see https://docs.redpanda.com/current/manage/security/authentication/ for more information
+- `password` (String, Sensitive, Deprecated) Password of the user. Deprecated: use password_wo instead to avoid storing password in state.
+- `password_wo` (String) Password of the user (write-only, not stored in state). Requires Terraform 1.11+. Either password or password_wo must be set.
+- `password_wo_version` (Number) Version number for password_wo. Increment this value to trigger a password update when using password_wo.
 
 ### Read-Only
 
@@ -33,6 +35,12 @@ Creates a user in a Redpanda Cluster.
 
 ```terraform
 provider "redpanda" {}
+
+variable "user_password" {
+  type        = string
+  sensitive   = true
+  description = "Password for the Redpanda user"
+}
 
 resource "redpanda_resource_group" "example" {
   name = "example-resource-group"
@@ -60,11 +68,12 @@ resource "redpanda_cluster" "example" {
 }
 
 resource "redpanda_user" "example" {
-  name            = "example-user"
-  password        = "secure-password-123"
-  mechanism       = "scram-sha-256"
-  cluster_api_url = redpanda_cluster.example.cluster_api_url
-  allow_deletion  = true
+  name                = "example-user"
+  password_wo         = var.user_password # Write-only, not stored in state
+  password_wo_version = 1                 # Increment to trigger password update
+  mechanism           = "scram-sha-256"
+  cluster_api_url     = redpanda_cluster.example.cluster_api_url
+  allow_deletion      = true
 }
 ```
 
@@ -75,6 +84,24 @@ We recommend storing user passwords in a secret store and only passing them in a
 However it is worth remembering that [marking a field sensitive](https://developer.hashicorp.com/terraform/plugin/best-practices/sensitive-state) does not obscure it or encrypt it in state and that terraform offers limited support on this matter.
 
 Be cognizant of the security implications of storing sensitive data in state and consider using a secure state backend for your state files.
+
+### Write-Only Password (Recommended)
+
+For Terraform 1.11+, we recommend using the `password_wo` attribute instead of `password`. Write-only attributes are never stored in Terraform state, providing enhanced security:
+
+```hcl
+resource "redpanda_user" "example" {
+  name                = "example-user"
+  password_wo         = var.user_password  # Not stored in state
+  password_wo_version = 1                  # Increment to trigger password update
+  mechanism           = "scram-sha-256"
+  cluster_api_url     = redpanda_cluster.example.cluster_api_url
+}
+```
+
+To update the password, change the `password_wo` value and increment `password_wo_version`. The version field signals Terraform that the password has changed since write-only values cannot be compared between plan and apply.
+
+~> **Note:** The `password` attribute is deprecated and will be removed in a future version. Migrate to `password_wo` when using Terraform 1.11+.
 
 ## Limitations
 

@@ -28,7 +28,9 @@ Creates Access Control Lists (ACLs) for Redpanda Schema Registry resources. Sche
 ### Optional
 
 - `allow_deletion` (Boolean) When set to true, allows the resource to be removed from state even if deletion fails due to permission errors
-- `password` (String, Sensitive) Password for authentication. Can be set via REDPANDA_SR_PASSWORD environment variable
+- `password` (String, Sensitive, Deprecated) Password for authentication. Deprecated: use password_wo instead. Can be set via REDPANDA_SR_PASSWORD environment variable
+- `password_wo` (String) Password for authentication (write-only, not stored in state). Requires Terraform 1.11+. Can be set via REDPANDA_SR_PASSWORD environment variable
+- `password_wo_version` (Number) Version number for password_wo. Increment this value to trigger a password update when using password_wo.
 - `username` (String, Sensitive) Username for authentication. Can be set via REDPANDA_SR_USERNAME environment variable
 
 ### Read-Only
@@ -39,6 +41,12 @@ Creates Access Control Lists (ACLs) for Redpanda Schema Registry resources. Sche
 
 ```terraform
 provider "redpanda" {}
+
+variable "user_password" {
+  type        = string
+  sensitive   = true
+  description = "Password for the Redpanda user and Schema Registry ACL authentication"
+}
 
 resource "redpanda_resource_group" "example" {
   name = "example-resource-group"
@@ -66,11 +74,12 @@ resource "redpanda_cluster" "example" {
 }
 
 resource "redpanda_user" "example" {
-  name            = "schema-user"
-  password        = "secure-password-123"
-  mechanism       = "scram-sha-256"
-  cluster_api_url = redpanda_cluster.example.cluster_api_url
-  allow_deletion  = true
+  name                = "schema-user"
+  password_wo         = var.user_password # Write-only, not stored in state
+  password_wo_version = 1                 # Increment to trigger password update
+  mechanism           = "scram-sha-256"
+  cluster_api_url     = redpanda_cluster.example.cluster_api_url
+  allow_deletion      = true
 }
 
 resource "redpanda_acl" "schema_registry_admin" {
@@ -85,16 +94,17 @@ resource "redpanda_acl" "schema_registry_admin" {
 }
 
 resource "redpanda_schema_registry_acl" "example" {
-  cluster_id    = redpanda_cluster.example.id
-  principal     = "User:${redpanda_user.example.name}"
-  resource_type = "SUBJECT"
-  resource_name = "user-value"
-  pattern_type  = "LITERAL"
-  host          = "*"
-  operation     = "READ"
-  permission    = "ALLOW"
-  username      = redpanda_user.example.name
-  password      = "secure-password-123"
+  cluster_id          = redpanda_cluster.example.id
+  principal           = "User:${redpanda_user.example.name}"
+  resource_type       = "SUBJECT"
+  resource_name       = "user-value"
+  pattern_type        = "LITERAL"
+  host                = "*"
+  operation           = "READ"
+  permission          = "ALLOW"
+  username            = redpanda_user.example.name
+  password_wo         = var.user_password # Write-only, not stored in state
+  password_wo_version = 1                 # Increment to trigger password update
 
   depends_on = [redpanda_acl.schema_registry_admin]
 }
@@ -138,8 +148,32 @@ For more details about Schema Registry ACLs, see the [Redpanda Schema Registry A
 
 We recommend storing Schema Registry credentials in environment variables or a secret store:
 
-- `REDPANDA_SR_USERNAME` for the username  
+- `REDPANDA_SR_USERNAME` for the username
 - `REDPANDA_SR_PASSWORD` for the password
+
+### Write-Only Password (Recommended)
+
+For Terraform 1.11+, we recommend using the `password_wo` attribute instead of `password`. Write-only attributes are never stored in Terraform state, providing enhanced security:
+
+```hcl
+resource "redpanda_schema_registry_acl" "example" {
+  cluster_id          = redpanda_cluster.example.id
+  principal           = "User:alice"
+  resource_type       = "SUBJECT"
+  resource_name       = "user-value"
+  pattern_type        = "LITERAL"
+  host                = "*"
+  operation           = "READ"
+  permission          = "ALLOW"
+  username            = "admin-user"
+  password_wo         = var.sr_password  # Not stored in state
+  password_wo_version = 1                # Increment to trigger password update
+}
+```
+
+To update the password, change the `password_wo` value and increment `password_wo_version`. The version field signals Terraform that the password has changed since write-only values cannot be compared between plan and apply.
+
+~> **Note:** The `password` attribute is deprecated and will be removed in a future version. Migrate to `password_wo` when using Terraform 1.11+.
 
 ## Import
 

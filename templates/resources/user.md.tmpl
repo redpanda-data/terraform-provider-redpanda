@@ -25,6 +25,24 @@ However it is worth remembering that [marking a field sensitive](https://develop
 
 Be cognizant of the security implications of storing sensitive data in state and consider using a secure state backend for your state files.
 
+### Write-Only Password (Recommended)
+
+For Terraform 1.11+, we recommend using the `password_wo` attribute instead of `password`. Write-only attributes are never stored in Terraform state, providing enhanced security:
+
+```hcl
+resource "redpanda_user" "example" {
+  name                = "example-user"
+  password_wo         = var.user_password  # Not stored in state
+  password_wo_version = 1                  # Increment to trigger password update
+  mechanism           = "scram-sha-256"
+  cluster_api_url     = redpanda_cluster.example.cluster_api_url
+}
+```
+
+To update the password, change the `password_wo` value and increment `password_wo_version`. The version field signals Terraform that the password has changed since write-only values cannot be compared between plan and apply.
+
+~> **Note:** The `password` attribute is deprecated and will be removed in a future version. Migrate to `password_wo` when using Terraform 1.11+.
+
 ## Limitations
 
 We are not currently able to support user creation in self hosted clusters. This is an area of active development so expect that to change soon.
