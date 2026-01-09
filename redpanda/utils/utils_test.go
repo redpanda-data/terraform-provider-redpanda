@@ -1183,3 +1183,56 @@ func TestParseMemoryToBytes(t *testing.T) {
 		})
 	}
 }
+
+func TestGetEffectivePassword(t *testing.T) {
+	tests := []struct {
+		name       string
+		password   types.String
+		passwordWO types.String
+		expected   string
+	}{
+		{
+			name:       "password_wo takes precedence over password",
+			password:   types.StringValue("legacy-password"),
+			passwordWO: types.StringValue("write-only-password"),
+			expected:   "write-only-password",
+		},
+		{
+			name:       "falls back to password when password_wo is null",
+			password:   types.StringValue("legacy-password"),
+			passwordWO: types.StringNull(),
+			expected:   "legacy-password",
+		},
+		{
+			name:       "falls back to password when password_wo is unknown",
+			password:   types.StringValue("legacy-password"),
+			passwordWO: types.StringUnknown(),
+			expected:   "legacy-password",
+		},
+		{
+			name:       "returns empty string when both are null",
+			password:   types.StringNull(),
+			passwordWO: types.StringNull(),
+			expected:   "",
+		},
+		{
+			name:       "returns empty password_wo when explicitly set to empty",
+			password:   types.StringValue("legacy-password"),
+			passwordWO: types.StringValue(""),
+			expected:   "",
+		},
+		{
+			name:       "returns password_wo even if password is null",
+			password:   types.StringNull(),
+			passwordWO: types.StringValue("write-only-password"),
+			expected:   "write-only-password",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := GetEffectivePassword(tt.password, tt.passwordWO)
+			assert.Equal(t, tt.expected, result, "GetEffectivePassword() = %q, expected %q", result, tt.expected)
+		})
+	}
+}
