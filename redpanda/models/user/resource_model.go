@@ -21,6 +21,11 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
+// GetEffectivePassword returns the password to use, preferring password_wo over password.
+func (u *ResourceModel) GetEffectivePassword() string {
+	return utils.GetEffectivePassword(u.Password, u.PasswordWO)
+}
+
 // ContingentFields contains fields that are not returned by the User API
 // but need to be preserved in Terraform state.
 type ContingentFields struct {

@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
@@ -88,7 +89,7 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 	user, err := u.UserClient.CreateUser(ctx, &dataplanev1.CreateUserRequest{
 		User: &dataplanev1.CreateUserRequest_User{
 			Name:      model.Name.ValueString(),
-			Password:  model.Password.ValueString(), // This seems wrong and bad. See issue #12.
+			Password:  model.GetEffectivePassword(),
 			Mechanism: utils.StringToUserMechanism(model.Mechanism.ValueString()),
 		},
 	})
@@ -100,8 +101,8 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 	persist := model.GetUpdatedModel(user.User, usermodel.ContingentFields{
 		AllowDeletion: model.AllowDeletion,
 	})
-	// Preserve password and cluster URL from plan (not returned by API)
 	persist.Password = model.Password
+	persist.PasswordWOVersion = model.PasswordWOVersion
 	persist.ClusterAPIURL = model.ClusterAPIURL
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
@@ -136,13 +137,10 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 
 	persist := &usermodel.ResourceModel{}
 	persist.GetUpdatedModel(user, usermodel.ContingentFields{})
-
-	// Preserve fields not returned by API from existing state
 	persist.Password = model.Password
+	persist.PasswordWOVersion = model.PasswordWOVersion
 	persist.ClusterAPIURL = model.ClusterAPIURL
 	persist.AllowDeletion = model.AllowDeletion
-
-	// Preserve mechanism if not returned by API
 	if persist.Mechanism.IsNull() || persist.Mechanism.IsUnknown() {
 		persist.Mechanism = model.Mechanism
 	}
@@ -163,9 +161,10 @@ func (u *User) Update(ctx context.Context, req resource.UpdateRequest, resp *res
 	}
 
 	passwordChanged := !plan.Password.Equal(state.Password)
+	passwordWOVersionChanged := !plan.PasswordWOVersion.Equal(state.PasswordWOVersion)
 	mechanismChanged := !plan.Mechanism.Equal(state.Mechanism)
 
-	if passwordChanged || mechanismChanged {
+	if passwordChanged || passwordWOVersionChanged || mechanismChanged {
 		err := u.createUserClient(plan.ClusterAPIURL.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError("failed to create user client", utils.DeserializeGrpcError(err))
@@ -176,7 +175,7 @@ func (u *User) Update(ctx context.Context, req resource.UpdateRequest, resp *res
 		updateResp, err := u.UserClient.UpdateUser(ctx, &dataplanev1.UpdateUserRequest{
 			User: &dataplanev1.UpdateUserRequest_User{
 				Name:      plan.Name.ValueString(),
-				Password:  plan.Password.ValueString(),
+				Password:  plan.GetEffectivePassword(),
 				Mechanism: utils.StringToUserMechanism(plan.Mechanism.ValueString()),
 			},
 		})
@@ -189,14 +188,15 @@ func (u *User) Update(ctx context.Context, req resource.UpdateRequest, resp *res
 			AllowDeletion: plan.AllowDeletion,
 		})
 		persist.Password = plan.Password
+		persist.PasswordWOVersion = plan.PasswordWOVersion
 		persist.ClusterAPIURL = plan.ClusterAPIURL
 
 		resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 		return
 	}
 
-	// Only allow_deletion changed - just update state directly
 	state.AllowDeletion = plan.AllowDeletion
+	state.PasswordWOVersion = plan.PasswordWOVersion
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
@@ -231,19 +231,14 @@ func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 }
 
 // ImportState imports the state of the User resource.
+// Format: <user_name>,<cluster_id>[,<password>[,<mechanism>]]
+// Password can also be set via REDPANDA_IMPORT_PASSWORD env var.
 func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	// We need multiple attributes here: Name and the cluster URL. But asking
-	// for the URL is a bad UX, so we get the cluster ID and get the URL from
-	// there.
-	// Import ID format supports:
-	// - <user_name>,<cluster_id>
-	// - <user_name>,<cluster_id>,<password>
-	// - <user_name>,<cluster_id>,<password>,<mechanism>
 	split := strings.Split(req.ID, ",")
 	if len(split) < 2 || len(split) > 4 {
 		resp.Diagnostics.AddError(
 			fmt.Sprintf("wrong import ID format: %v", req.ID),
-			"Import ID format is <user_name>,<cluster_id>[,<password>[,<mechanism>]]",
+			"Import ID format is <user_name>,<cluster_id>[,<password>[,<mechanism>]]. Password can also be set via REDPANDA_IMPORT_PASSWORD env var.",
 		)
 		return
 	}
@@ -256,6 +251,10 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 	}
 	if len(split) == 4 {
 		mechanism = split[3]
+	}
+
+	if envPassword := os.Getenv("REDPANDA_IMPORT_PASSWORD"); envPassword != "" {
+		password = envPassword
 	}
 
 	client := cloud.NewControlPlaneClientSet(u.resData.ControlPlaneConnection)
@@ -280,8 +279,6 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(user))...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_api_url"), dataplaneURL)...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
-
-	// Set optional fields if provided during import
 	if password != "" {
 		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("password"), types.StringValue(password))...)
 	}

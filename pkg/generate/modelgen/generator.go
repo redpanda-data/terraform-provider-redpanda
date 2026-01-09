@@ -171,6 +171,7 @@ func toGoFieldName(name string) string {
 		"dns":  "DNS",
 		"arn":  "ARN",
 		"cmr":  "CMR",
+		"wo":   "WO",
 	}
 
 	parts := strings.Split(name, "_")

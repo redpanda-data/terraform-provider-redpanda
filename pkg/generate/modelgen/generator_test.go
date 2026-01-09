@@ -62,6 +62,9 @@ func TestToGoFieldName(t *testing.T) {
 		{name: "ssh", input: "ssh_key", expected: "SSHKey"},
 		{name: "uri", input: "uri_path", expected: "URIPath"},
 		{name: "cmr", input: "cmr_enabled", expected: "CMREnabled"},
+		{name: "wo alone", input: "wo", expected: "WO"},
+		{name: "wo suffix", input: "password_wo", expected: "PasswordWO"},
+		{name: "wo version", input: "password_wo_version", expected: "PasswordWOVersion"},
 
 		// Edge cases
 		{name: "empty string", input: "", expected: ""},

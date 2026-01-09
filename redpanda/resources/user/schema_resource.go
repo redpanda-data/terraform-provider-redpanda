@@ -16,11 +16,14 @@ package user
 
 import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
 // ResourceUserSchema returns the schema for the User resource.
@@ -34,9 +37,26 @@ func ResourceUserSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"password": schema.StringAttribute{
-				Description: "Password of the user",
-				Required:    true,
-				Sensitive:   true,
+				Description:        "Password of the user. Deprecated: use password_wo instead to avoid storing password in state.",
+				Optional:           true,
+				Sensitive:          true,
+				DeprecationMessage: "Use password_wo instead to avoid storing password in Terraform state",
+				Validators: []validator.String{
+					validators.Password(
+						path.MatchRoot("password"),
+						path.MatchRoot("password_wo"),
+					),
+				},
+			},
+			"password_wo": schema.StringAttribute{
+				Description: "Password of the user (write-only, not stored in state). Requires Terraform 1.11+. Either password or password_wo must be set.",
+				Optional:    true,
+				WriteOnly:   true,
+			},
+			"password_wo_version": schema.Int64Attribute{
+				Description:   "Version number for password_wo. Increment this value to trigger a password update when using password_wo.",
+				Optional:      true,
+				PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
 			},
 			"mechanism": schema.StringAttribute{
 				Description: "Which authentication method to use, see https://docs.redpanda.com/current/manage/security/authentication/ for more information",
