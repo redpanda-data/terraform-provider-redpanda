@@ -147,6 +147,7 @@ func providerSchema() schema.Schema {
 			},
 			"azure_client_secret": schema.StringAttribute{
 				Optional:    true,
+				Sensitive:   true,
 				Description: ("Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_CLIENT_SECRET or ARM_CLIENT_SECRET"),
 			},
 			"azure_tenant_id": schema.StringAttribute{
@@ -155,10 +156,12 @@ func providerSchema() schema.Schema {
 			},
 			"google_credentials": schema.StringAttribute{
 				Optional:    true,
+				Sensitive:   true,
 				Description: ("Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as GOOGLE_CREDENTIALS"),
 			},
 			"google_credentials_base64": schema.StringAttribute{
 				Optional:    true,
+				Sensitive:   true,
 				Description: ("Used for creating and managing BYOC and BYOVPC clusters. Is a convenience passthrough for base64 encoded credentials intended for use in CI/CD. Can also be specified in the environment as GOOGLE_CREDENTIALS_BASE64"),
 			},
 		},
