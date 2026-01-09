@@ -24,10 +24,12 @@ import (
 
 // ResourceModel represents the Terraform schema for the user resource.
 type ResourceModel struct {
-	AllowDeletion types.Bool   `tfsdk:"allow_deletion"`
-	ClusterAPIURL types.String `tfsdk:"cluster_api_url"`
-	ID            types.String `tfsdk:"id"`
-	Mechanism     types.String `tfsdk:"mechanism"`
-	Name          types.String `tfsdk:"name"`
-	Password      types.String `tfsdk:"password"`
+	AllowDeletion     types.Bool   `tfsdk:"allow_deletion"`
+	ClusterAPIURL     types.String `tfsdk:"cluster_api_url"`
+	ID                types.String `tfsdk:"id"`
+	Mechanism         types.String `tfsdk:"mechanism"`
+	Name              types.String `tfsdk:"name"`
+	Password          types.String `tfsdk:"password"`
+	PasswordWO        types.String `tfsdk:"password_wo"`
+	PasswordWOVersion types.Int64  `tfsdk:"password_wo_version"`
 }
