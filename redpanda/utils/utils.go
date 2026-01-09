@@ -113,6 +113,24 @@ func IsClusterUnreachable(err error) bool {
 		strings.Contains(errStr, "produced zero addresses")
 }
 
+// IsUnavailable checks if the error indicates a service unavailable or transient error
+// that should be retried at the application level. This includes gRPC Unavailable errors
+// and HTTP 503 responses that may come from load balancers or gateways.
+func IsUnavailable(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if e, ok := grpcstatus.FromError(err); ok && e.Code() == grpccodes.Unavailable {
+		return true
+	}
+
+	errStr := err.Error()
+	return strings.Contains(errStr, "503") ||
+		strings.Contains(strings.ToLower(errStr), "service unavailable") ||
+		strings.Contains(strings.ToLower(errStr), "unavailable")
+}
+
 // CloudProviderStringAws is the string representation of the CLOUD_PROVIDER_AWS enum
 const CloudProviderStringAws = "aws"
 
@@ -211,7 +229,11 @@ func ClusterTypeToString(provider controlplanev1.Cluster_Type) string {
 }
 
 // AreWeDoneYet checks an operation's state until one of completion, failure or timeout is reached.
+// Transient errors (503/Unavailable) are retried up to maxTransientRetries times before failing.
 func AreWeDoneYet(ctx context.Context, op *controlplanev1.Operation, timeout time.Duration, client controlplanev1grpc.OperationServiceClient) error {
+	const maxTransientRetries = 10
+	transientRetryCount := 0
+
 	return Retry(ctx, timeout, func() *RetryError {
 		tflog.Info(ctx, "getting operation")
 		latestOp, err := client.GetOperation(ctx, &controlplanev1.GetOperationRequest{
@@ -219,8 +241,18 @@ func AreWeDoneYet(ctx context.Context, op *controlplanev1.Operation, timeout tim
 		})
 		tflog.Info(ctx, "got result of operation")
 		if err != nil {
+			if IsUnavailable(err) {
+				transientRetryCount++
+				if transientRetryCount >= maxTransientRetries {
+					tflog.Warn(ctx, fmt.Sprintf("max transient retries (%d) exceeded for operation %q", maxTransientRetries, op.GetId()))
+					return NonRetryableError(fmt.Errorf("max transient retries exceeded: %w", err))
+				}
+				tflog.Info(ctx, fmt.Sprintf("transient error for operation %q (attempt %d/%d): %v", op.GetId(), transientRetryCount, maxTransientRetries, err))
+				return RetryableError(err)
+			}
 			return NonRetryableError(err)
 		}
+		transientRetryCount = 0 // Reset on success
 		op = latestOp.Operation
 
 		if op != nil {
@@ -487,9 +519,13 @@ func ConvertToConsoleURL(clusterAPIURL string) string {
 }
 
 // RetryGetCluster will retry a function, passing in the latest state of the given cluster id, until
-// it either no longer returns an error or times out
+// it either no longer returns an error or times out. Transient errors (503/Unavailable) are retried
+// up to maxTransientRetries times before failing.
 func RetryGetCluster(ctx context.Context, timeout time.Duration, clusterID string, client cloud.CpClientSet, f func(*controlplanev1.Cluster) *RetryError) (*controlplanev1.Cluster, error) {
 	var cluster *controlplanev1.Cluster
+	const maxTransientRetries = 10
+	transientRetryCount := 0
+
 	err := Retry(ctx, timeout, func() *RetryError {
 		var err error
 		cluster, err = client.ClusterForID(ctx, clusterID)
@@ -499,8 +535,18 @@ func RetryGetCluster(ctx context.Context, timeout time.Duration, clusterID strin
 				cluster = nil
 				return nil
 			}
+			if IsUnavailable(err) {
+				transientRetryCount++
+				if transientRetryCount >= maxTransientRetries {
+					tflog.Warn(ctx, fmt.Sprintf("max transient retries (%d) exceeded for cluster %q", maxTransientRetries, clusterID))
+					return NonRetryableError(fmt.Errorf("max transient retries exceeded: %w", err))
+				}
+				tflog.Info(ctx, fmt.Sprintf("transient error for cluster %q (attempt %d/%d): %v", clusterID, transientRetryCount, maxTransientRetries, err))
+				return RetryableError(err)
+			}
 			return NonRetryableError(err)
 		}
+		transientRetryCount = 0 // Reset on success
 		tflog.Info(ctx, fmt.Sprintf("cluster %v : %v", clusterID, cluster.GetState()))
 		return f(cluster)
 	})
@@ -519,8 +565,8 @@ func TypeMapToStringMap(tags types.Map) map[string]string {
 	return tagsMap
 }
 
-// DeserializeGrpcError err.Error() if it is a standard error. If it is a GRPC error, it returns status and codes
-// for sure and details if they're set. Mild formatting to put details on a separate line for readability
+// DeserializeGrpcError returns a formatted error string with gRPC status code, message, and details.
+// Falls back to raw error string when the gRPC message is empty.
 func DeserializeGrpcError(err error) string {
 	if err == nil {
 		return ""
@@ -530,10 +576,25 @@ func DeserializeGrpcError(err error) string {
 		return err.Error()
 	}
 
-	if len(st.Details()) > 0 {
-		return fmt.Sprintf("%s : %s\n%s", st.Code(), st.Message(), st.Details())
+	code := st.Code().String()
+	msg := st.Message()
+	rawErr := err.Error()
+
+	var result string
+	switch {
+	case msg != "":
+		result = fmt.Sprintf("%s : %s", code, msg)
+	case rawErr != "":
+		result = fmt.Sprintf("%s (raw: %s)", code, rawErr)
+	default:
+		result = code
 	}
-	return fmt.Sprintf("%s : %s", st.Code(), st.Message())
+
+	if len(st.Details()) > 0 {
+		result = fmt.Sprintf("%s\n%v", result, st.Details())
+	}
+
+	return result
 }
 
 // StringMapToTypesMap converts a map[string]string to a types.Map
