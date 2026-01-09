@@ -663,6 +663,11 @@ func TestDeserializeGrpcError(t *testing.T) {
 			expected: "NotFound : resource not found",
 		},
 		{
+			name:     "grpc error with empty message",
+			err:      grpcstatus.Error(codes.Internal, ""),
+			expected: "Internal (raw: rpc error: code = Internal desc = )",
+		},
+		{
 			name:     "grpc error",
 			err:      detailedStatus.Err(),
 			expected: "InvalidArgument : invalid parameter\n[field_violations:{field:\"user_id\" description:\"must be positive integer\"}]",
@@ -808,6 +813,47 @@ func TestRetryGetCluster(t *testing.T) {
 			},
 			expectedCluster: nil,
 			expectedErr:     errors.New("invalid state"),
+		},
+		{
+			name:    "Transient error succeeds after retries",
+			timeout: 5 * time.Minute,
+			mockSetup: func(m *mocks.MockCpClientSet) {
+				gomock.InOrder(
+					// First 3 calls return unavailable
+					m.EXPECT().ClusterForID(gomock.Any(), "test-cluster-id").
+						Return(nil, grpcstatus.Error(codes.Unavailable, "service unavailable")),
+					m.EXPECT().ClusterForID(gomock.Any(), "test-cluster-id").
+						Return(nil, grpcstatus.Error(codes.Unavailable, "service unavailable")),
+					m.EXPECT().ClusterForID(gomock.Any(), "test-cluster-id").
+						Return(nil, grpcstatus.Error(codes.Unavailable, "service unavailable")),
+					// 4th call succeeds
+					m.EXPECT().ClusterForID(gomock.Any(), "test-cluster-id").
+						Return(&controlplanev1.Cluster{State: controlplanev1.Cluster_STATE_READY}, nil),
+				)
+			},
+			retryFunc: func(cluster *controlplanev1.Cluster) *RetryError {
+				if cluster.GetState() == controlplanev1.Cluster_STATE_READY {
+					return nil
+				}
+				return RetryableError(fmt.Errorf("unexpected state: %v", cluster.GetState()))
+			},
+			expectedCluster: &controlplanev1.Cluster{State: controlplanev1.Cluster_STATE_READY},
+			expectedErr:     nil,
+		},
+		{
+			name:    "Transient error exceeds max retries",
+			timeout: 5 * time.Minute,
+			mockSetup: func(m *mocks.MockCpClientSet) {
+				// Return unavailable 11 times (1 more than max of 10)
+				m.EXPECT().ClusterForID(gomock.Any(), "test-cluster-id").
+					Return(nil, grpcstatus.Error(codes.Unavailable, "service unavailable")).
+					Times(10)
+			},
+			retryFunc: func(_ *controlplanev1.Cluster) *RetryError {
+				return nil
+			},
+			expectedCluster: nil,
+			expectedErr:     errors.New("max transient retries exceeded: rpc error: code = Unavailable desc = service unavailable"),
 		},
 	}
 
@@ -1074,6 +1120,62 @@ func TestIsPermissionDenied(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := IsPermissionDenied(tt.err)
 			assert.Equal(t, tt.expected, result, "IsPermissionDenied(%v) = %v, want %v", tt.err, result, tt.expected)
+		})
+	}
+}
+
+func TestIsUnavailable(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			name:     "gRPC Unavailable error",
+			err:      grpcstatus.Error(codes.Unavailable, "service unavailable"),
+			expected: true,
+		},
+		{
+			name:     "HTTP 503 error",
+			err:      errors.New("unexpected status code 503"),
+			expected: true,
+		},
+		{
+			name:     "service unavailable string",
+			err:      errors.New("Service Unavailable"),
+			expected: true,
+		},
+		{
+			name:     "unavailable in error message",
+			err:      errors.New("server is currently unavailable"),
+			expected: true,
+		},
+		{
+			name:     "generic error",
+			err:      errors.New("some other error"),
+			expected: false,
+		},
+		{
+			name:     "gRPC NotFound error (not unavailable)",
+			err:      grpcstatus.Error(codes.NotFound, "not found"),
+			expected: false,
+		},
+		{
+			name:     "gRPC Internal error (not unavailable)",
+			err:      grpcstatus.Error(codes.Internal, "internal error"),
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsUnavailable(tt.err)
+			assert.Equal(t, tt.expected, result, "IsUnavailable(%v) = %v, want %v", tt.err, result, tt.expected)
 		})
 	}
 }
