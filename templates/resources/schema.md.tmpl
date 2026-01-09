@@ -42,6 +42,26 @@ We recommend storing Schema Registry credentials in environment variables or a s
 - `REDPANDA_SR_USERNAME` for the username
 - `REDPANDA_SR_PASSWORD` for the password
 
+### Write-Only Password (Recommended)
+
+For Terraform 1.11+, we recommend using the `password_wo` attribute instead of `password`. Write-only attributes are never stored in Terraform state, providing enhanced security:
+
+```hcl
+resource "redpanda_schema" "example" {
+  cluster_id          = redpanda_cluster.example.id
+  subject             = "user-value"
+  schema_type         = "AVRO"
+  schema              = file("schemas/user.avsc")
+  username            = "schema-user"
+  password_wo         = var.schema_password  # Not stored in state
+  password_wo_version = 1                    # Increment to trigger password update
+}
+```
+
+To update the password, change the `password_wo` value and increment `password_wo_version`. The version field signals Terraform that the password has changed since write-only values cannot be compared between plan and apply.
+
+~> **Note:** The `password` attribute is deprecated and will be removed in a future version. Migrate to `password_wo` when using Terraform 1.11+.
+
 ## Import
 
 Schemas can be imported using a colon-separated string with the following format:

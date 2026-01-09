@@ -23,6 +23,7 @@ Manages a Redpanda Connect pipeline. Redpanda Connect is a declarative data stre
 - `allow_deletion` (Boolean) Allows deletion of the pipeline. Default is false. Must be set to true to delete the resource.
 - `description` (String) Optional description of the pipeline.
 - `resources` (Attributes) Resource allocation for the pipeline. (see [below for nested schema](#nestedatt--resources))
+- `service_account` (Attributes) Service account credentials for the pipeline. Used to authenticate the pipeline with external services. (see [below for nested schema](#nestedatt--service_account))
 - `state` (String) Desired state of the pipeline: 'running' or 'stopped'. The provider will ensure the pipeline reaches this state after create/update operations.
 - `tags` (Map of String) Key-value pairs to tag the pipeline for organization and filtering.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
@@ -39,6 +40,19 @@ Optional:
 
 - `cpu_shares` (String) Amount of CPU to allocate for the pipeline.
 - `memory_shares` (String) Amount of memory to allocate for the pipeline.
+
+
+<a id="nestedatt--service_account"></a>
+### Nested Schema for `service_account`
+
+Required:
+
+- `client_id` (String) The client ID for the service account.
+- `client_secret` (String) The client secret for the service account (write-only, not stored in state). Requires Terraform 1.11+.
+
+Optional:
+
+- `secret_version` (Number) Version number for client_secret. Increment to trigger a secret update.
 
 
 <a id="nestedatt--timeouts"></a>

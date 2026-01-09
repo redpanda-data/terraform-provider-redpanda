@@ -34,6 +34,19 @@ variable "user_pw" {
   default = "password"
 }
 
+variable "user_password_wo" {
+  description = "Write-only password for user (not stored in state)"
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "user_password_wo_version" {
+  description = "Version number to trigger password update when using password_wo"
+  type        = number
+  default     = null
+}
+
 variable "mechanism" {
   default = "scram-sha-256"
 }
@@ -181,6 +194,32 @@ EOF
 variable "compatibility_level" {
   description = "The compatibility level for schema evolution (BACKWARD, BACKWARD_TRANSITIVE, FORWARD, FORWARD_TRANSITIVE, FULL, FULL_TRANSITIVE, NONE)"
   default     = "FULL"
+}
+
+variable "schema_password_wo" {
+  description = "Write-only password for schema resources (not stored in state)"
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "schema_password_wo_version" {
+  description = "Version number to trigger password update when using password_wo for schema resources"
+  type        = number
+  default     = null
+}
+
+variable "sr_acl_password_wo" {
+  description = "Write-only password for schema registry ACL resources (not stored in state)"
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "sr_acl_password_wo_version" {
+  description = "Version number to trigger password update when using password_wo for schema registry ACL resources"
+  type        = number
+  default     = null
 }
 
 variable "cluster_allow_deletion" {

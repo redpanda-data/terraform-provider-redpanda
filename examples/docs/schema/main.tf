@@ -1,5 +1,11 @@
 provider "redpanda" {}
 
+variable "user_password" {
+  type        = string
+  sensitive   = true
+  description = "Password for the Redpanda user and schema authentication"
+}
+
 resource "redpanda_resource_group" "example" {
   name = "example-resource-group"
 }
@@ -26,11 +32,12 @@ resource "redpanda_cluster" "example" {
 }
 
 resource "redpanda_user" "example" {
-  name            = "schema-user"
-  password        = "secure-password-123"
-  mechanism       = "scram-sha-256"
-  cluster_api_url = redpanda_cluster.example.cluster_api_url
-  allow_deletion  = true
+  name                = "schema-user"
+  password_wo         = var.user_password # Write-only, not stored in state
+  password_wo_version = 1                 # Increment to trigger password update
+  mechanism           = "scram-sha-256"
+  cluster_api_url     = redpanda_cluster.example.cluster_api_url
+  allow_deletion      = true
 }
 
 resource "redpanda_schema" "example" {
@@ -55,6 +62,7 @@ resource "redpanda_schema" "example" {
       }
     ]
   })
-  username = redpanda_user.example.name
-  password = "secure-password-123"
+  username            = redpanda_user.example.name
+  password_wo         = var.user_password # Write-only, not stored in state
+  password_wo_version = 1                 # Increment to trigger password update
 }
