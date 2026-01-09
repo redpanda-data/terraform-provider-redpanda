@@ -18,6 +18,7 @@ package schemaregistryacl
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -240,12 +241,19 @@ func parseImportID(importID string) (*importIDComponents, error) {
 	}, nil
 }
 
-// ImportState imports a Schema Registry ACL resource from a colon-separated ID string
+// ImportState imports a Schema Registry ACL resource.
+// Format: cluster_id:principal:resource_type:resource_name:pattern_type:host:operation:permission:username:password
+// Password can also be set via REDPANDA_IMPORT_PASSWORD env var.
 func (*SchemaRegistryACL) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
 	components, err := parseImportID(request.ID)
 	if err != nil {
-		response.Diagnostics.AddError("Invalid import format", err.Error())
+		response.Diagnostics.AddError("Invalid import format", err.Error()+". Password can also be set via REDPANDA_IMPORT_PASSWORD env var.")
 		return
+	}
+
+	password := components.password
+	if envPassword := os.Getenv("REDPANDA_IMPORT_PASSWORD"); envPassword != "" {
+		password = envPassword
 	}
 
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("cluster_id"), components.clusterID)...)
@@ -257,13 +265,13 @@ func (*SchemaRegistryACL) ImportState(ctx context.Context, request resource.Impo
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("operation"), components.operation)...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("permission"), components.permission)...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("username"), components.username)...)
-	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("password"), components.password)...)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("password"), password)...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("id"), request.ID)...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
 }
 
 func (s *SchemaRegistryACL) getSchemaRegistryClient(ctx context.Context, model *schemaregistryaclmodel.ResourceModel) (kclients.SchemaRegistryACLClientInterface, error) {
-	return s.clientFactory(ctx, s.CpCl, model.ClusterID.ValueString(), model.Username.ValueString(), model.Password.ValueString())
+	return s.clientFactory(ctx, s.CpCl, model.ClusterID.ValueString(), model.Username.ValueString(), model.GetEffectivePassword())
 }
 
 // verifyACLPropagation verifies that the ACL has been propagated and is ready for use.

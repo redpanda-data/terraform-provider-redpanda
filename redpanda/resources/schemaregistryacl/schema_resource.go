@@ -1,8 +1,10 @@
 package schemaregistryacl
 
 import (
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -93,9 +95,26 @@ func ResourceSchemaRegistryACLSchema() schema.Schema {
 				Description: "Username for authentication. Can be set via REDPANDA_SR_USERNAME environment variable",
 			},
 			"password": schema.StringAttribute{
+				Optional:           true,
+				Sensitive:          true,
+				Description:        "Password for authentication. Deprecated: use password_wo instead. Can be set via REDPANDA_SR_PASSWORD environment variable",
+				DeprecationMessage: "Use password_wo instead to avoid storing password in Terraform state",
+				Validators: []validator.String{
+					validators.Password(
+						path.MatchRoot("password"),
+						path.MatchRoot("password_wo"),
+					),
+				},
+			},
+			"password_wo": schema.StringAttribute{
 				Optional:    true,
-				Sensitive:   true,
-				Description: "Password for authentication. Can be set via REDPANDA_SR_PASSWORD environment variable",
+				WriteOnly:   true,
+				Description: "Password for authentication (write-only, not stored in state). Requires Terraform 1.11+. Can be set via REDPANDA_SR_PASSWORD environment variable",
+			},
+			"password_wo_version": schema.Int64Attribute{
+				Optional:      true,
+				Description:   "Version number for password_wo. Increment this value to trigger a password update when using password_wo.",
+				PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
 			},
 			"allow_deletion": schema.BoolAttribute{
 				Optional:    true,

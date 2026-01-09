@@ -137,6 +137,33 @@ func TestSchemaRegistryACL_Create(t *testing.T) {
 			},
 		},
 		{
+			name: "ACL with username and password_wo (write-only)",
+			input: schemaregistryaclmodel.ResourceModel{
+				ClusterID:         types.StringValue("cluster-1"),
+				Principal:         types.StringValue("User:carol-wo"),
+				ResourceType:      types.StringValue("SUBJECT"),
+				ResourceName:      types.StringValue("private-subject-wo"),
+				PatternType:       types.StringValue("LITERAL"),
+				Host:              types.StringValue("*"),
+				Operation:         types.StringValue("READ"),
+				Permission:        types.StringValue("ALLOW"),
+				Username:          types.StringValue("testuser"),
+				PasswordWO:        types.StringValue("testpass-wo"),
+				PasswordWOVersion: types.Int64Value(1),
+			},
+			mockResponse: []kclients.SchemaRegistryACLResponse{
+				{
+					Principal:    "User:carol-wo",
+					ResourceType: "SUBJECT",
+					Resource:     "private-subject-wo",
+					PatternType:  "LITERAL",
+					Host:         "*",
+					Operation:    "READ",
+					Permission:   "ALLOW",
+				},
+			},
+		},
+		{
 			name: "ACL with allow_deletion set to true",
 			input: schemaregistryaclmodel.ResourceModel{
 				ClusterID:     types.StringValue("cluster-1"),
