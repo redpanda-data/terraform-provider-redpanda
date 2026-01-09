@@ -24,16 +24,18 @@ import (
 
 // ResourceModel represents the Terraform schema for the schemaregistryacl resource.
 type ResourceModel struct {
-	AllowDeletion types.Bool   `tfsdk:"allow_deletion"`
-	ClusterID     types.String `tfsdk:"cluster_id"`
-	Host          types.String `tfsdk:"host"`
-	ID            types.String `tfsdk:"id"`
-	Operation     types.String `tfsdk:"operation"`
-	Password      types.String `tfsdk:"password"`
-	PatternType   types.String `tfsdk:"pattern_type"`
-	Permission    types.String `tfsdk:"permission"`
-	Principal     types.String `tfsdk:"principal"`
-	ResourceName  types.String `tfsdk:"resource_name"`
-	ResourceType  types.String `tfsdk:"resource_type"`
-	Username      types.String `tfsdk:"username"`
+	AllowDeletion     types.Bool   `tfsdk:"allow_deletion"`
+	ClusterID         types.String `tfsdk:"cluster_id"`
+	Host              types.String `tfsdk:"host"`
+	ID                types.String `tfsdk:"id"`
+	Operation         types.String `tfsdk:"operation"`
+	Password          types.String `tfsdk:"password"`
+	PasswordWO        types.String `tfsdk:"password_wo"`
+	PasswordWOVersion types.Int64  `tfsdk:"password_wo_version"`
+	PatternType       types.String `tfsdk:"pattern_type"`
+	Permission        types.String `tfsdk:"permission"`
+	Principal         types.String `tfsdk:"principal"`
+	ResourceName      types.String `tfsdk:"resource_name"`
+	ResourceType      types.String `tfsdk:"resource_type"`
+	Username          types.String `tfsdk:"username"`
 }

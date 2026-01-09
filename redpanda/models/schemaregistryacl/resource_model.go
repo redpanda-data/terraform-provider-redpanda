@@ -19,7 +19,13 @@ import (
 	"fmt"
 
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/kclients"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
+
+// GetEffectivePassword returns the password to use, preferring password_wo over password.
+func (s *ResourceModel) GetEffectivePassword() string {
+	return utils.GetEffectivePassword(s.Password, s.PasswordWO)
+}
 
 // ToSchemaRegistryACLRequest converts the model to a SchemaRegistryACLRequest for API calls
 func (s *ResourceModel) ToSchemaRegistryACLRequest() kclients.SchemaRegistryACLRequest {
