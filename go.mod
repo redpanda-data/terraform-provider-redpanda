@@ -5,12 +5,13 @@ go 1.24.3
 toolchain go1.24.4
 
 require (
-	buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.0-20260114182253-ef9f41ba3d23.1
-	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20260114182253-ef9f41ba3d23.1
-	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.5.1-20250829164938-cb01f499c363.2
-	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.8-20250829164938-cb01f499c363.1
+	buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.0-20260109172505-478c671758fa.1
+	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20260109172505-478c671758fa.1
+	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.6.0-20260112104406-88d0531cfa06.1
+	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.11-20260112104406-88d0531cfa06.1
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
+	github.com/hashicorp/go-version v1.7.0
 	github.com/hashicorp/terraform-plugin-docs v0.22.0
 	github.com/hashicorp/terraform-plugin-framework v1.16.0
 	github.com/hashicorp/terraform-plugin-framework-timeouts v0.6.0
@@ -34,9 +35,9 @@ require (
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20250912141014-52f32327d4b0.1 // indirect
-	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.11-20221127060915-a1ecdc58eccd.1 // indirect
-	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.11-20250904135917-9feeb2588236.1 // indirect
-	buf.build/gen/go/redpandadata/core/protocolbuffers/go v1.36.11-20251024023333-e0f79c48b9f0.1 // indirect
+	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.11-20240617172850-a48fcebcf8f1.1 // indirect
+	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.11-20251106193941-bb850a944663.1 // indirect
+	buf.build/gen/go/redpandadata/core/protocolbuffers/go v1.36.11-20251125205739-05aa34b3829a.1 // indirect
 	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c // indirect
 	github.com/Kunde21/markdownfmt/v3 v3.1.0 // indirect
@@ -66,7 +67,6 @@ require (
 	github.com/hashicorp/go-plugin v1.7.0 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
-	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/hashicorp/hc-install v0.9.2 // indirect
 	github.com/hashicorp/hcl/v2 v2.23.0 // indirect
 	github.com/hashicorp/logutils v1.0.0 // indirect
