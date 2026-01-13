@@ -27,6 +27,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
@@ -141,6 +142,17 @@ func (p *Pipeline) Create(ctx context.Context, req resource.CreateRequest, resp 
 			return
 		}
 		pipelineCreate.Tags = tags
+	}
+
+	if !model.ServiceAccount.IsNull() && !model.ServiceAccount.IsUnknown() {
+		serviceAccount, diags := model.ExtractServiceAccount(ctx)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		if serviceAccount != nil {
+			pipelineCreate.ServiceAccount = serviceAccount
+		}
 	}
 
 	createResp, err := p.PipelineClient.CreatePipeline(ctx, &dataplanev1.CreatePipelineRequest{
@@ -278,11 +290,12 @@ func (p *Pipeline) Read(ctx context.Context, req resource.ReadRequest, resp *res
 
 	readState := &pipelinemodel.ResourceModel{}
 	readState, diags := readState.GetUpdatedModel(ctx, getResp.GetPipeline(), pipelinemodel.ContingentFields{
-		ClusterAPIURL: model.ClusterAPIURL,
-		AllowDeletion: model.AllowDeletion,
-		Resources:     model.Resources,
-		State:         model.State,
-		Timeouts:      model.Timeouts,
+		ClusterAPIURL:  model.ClusterAPIURL,
+		AllowDeletion:  model.AllowDeletion,
+		Resources:      model.Resources,
+		ServiceAccount: model.ServiceAccount,
+		State:          model.State,
+		Timeouts:       model.Timeouts,
 	})
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -379,6 +392,37 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 			return
 		}
 		pipelineUpdate.Tags = tags
+	}
+
+	// Only include service_account in update when:
+	// - Adding service account for the first time (state was null)
+	// - client_id changed
+	// - secret_version changed (signals intent to update the write-only secret)
+	if !plan.ServiceAccount.IsNull() && !plan.ServiceAccount.IsUnknown() {
+		shouldUpdateServiceAccount := state.ServiceAccount.IsNull()
+		if !shouldUpdateServiceAccount {
+			var planSA, stateSA pipelinemodel.ServiceAccount
+			resp.Diagnostics.Append(plan.ServiceAccount.As(ctx, &planSA, basetypes.ObjectAsOptions{})...)
+			resp.Diagnostics.Append(state.ServiceAccount.As(ctx, &stateSA, basetypes.ObjectAsOptions{})...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+
+			clientIDChanged := !planSA.ClientID.Equal(stateSA.ClientID)
+			secretVersionChanged := !planSA.SecretVersion.Equal(stateSA.SecretVersion)
+			shouldUpdateServiceAccount = clientIDChanged || secretVersionChanged
+		}
+
+		if shouldUpdateServiceAccount {
+			serviceAccount, diags := plan.ExtractServiceAccount(ctx)
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+			if serviceAccount != nil {
+				pipelineUpdate.ServiceAccount = serviceAccount
+			}
+		}
 	}
 
 	updateResp, err := p.PipelineClient.UpdatePipeline(ctx, &dataplanev1.UpdatePipelineRequest{

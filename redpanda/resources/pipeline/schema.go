@@ -21,6 +21,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -96,6 +97,27 @@ func resourcePipelineSchema(ctx context.Context) schema.Schema {
 						Optional:            true,
 						MarkdownDescription: "Amount of CPU to allocate for the pipeline.",
 						Validators:          []validator.String{validators.CPUSharesValidator{}},
+					},
+				},
+			},
+			"service_account": schema.SingleNestedAttribute{
+				Optional:            true,
+				MarkdownDescription: "Service account credentials for the pipeline. Used to authenticate the pipeline with external services.",
+				PlanModifiers:       []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Attributes: map[string]schema.Attribute{
+					"client_id": schema.StringAttribute{
+						Required:            true,
+						MarkdownDescription: "The client ID for the service account.",
+					},
+					"client_secret": schema.StringAttribute{
+						Required:            true,
+						WriteOnly:           true,
+						MarkdownDescription: "The client secret for the service account (write-only, not stored in state). Requires Terraform 1.11+.",
+					},
+					"secret_version": schema.Int64Attribute{
+						Optional:            true,
+						MarkdownDescription: "Version number for client_secret. Increment to trigger a secret update.",
+						PlanModifiers:       []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
 					},
 				},
 			},

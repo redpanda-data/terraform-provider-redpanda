@@ -37,6 +37,13 @@ const (
 	FieldCPUShares    = "cpu_shares"
 )
 
+// Field name constants for pipeline service account.
+const (
+	FieldClientID      = "client_id"
+	FieldClientSecret  = "client_secret"
+	FieldSecretVersion = "secret_version"
+)
+
 // State equivalence maps for pipeline lifecycle.
 // Running states: pipeline is either starting up or actively running.
 // Stopped states: pipeline is stopping, fully stopped, or completed its work.
@@ -50,6 +57,15 @@ func GetResourcesType() map[string]attr.Type {
 	return map[string]attr.Type{
 		FieldMemoryShares: types.StringType,
 		FieldCPUShares:    types.StringType,
+	}
+}
+
+// GetServiceAccountType returns the attribute types for the service_account nested object.
+func GetServiceAccountType() map[string]attr.Type {
+	return map[string]attr.Type{
+		FieldClientID:      types.StringType,
+		FieldClientSecret:  types.StringType,
+		FieldSecretVersion: types.Int64Type,
 	}
 }
 
