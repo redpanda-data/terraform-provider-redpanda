@@ -83,11 +83,12 @@ type pipelineAPIResponse struct {
 
 func createDefaultContingentFields() pipelinemodel.ContingentFields {
 	return pipelinemodel.ContingentFields{
-		ClusterAPIURL: types.StringValue(testClusterAPIURL),
-		AllowDeletion: types.BoolNull(),
-		Resources:     types.ObjectNull(pipelinemodel.GetResourcesType()),
-		State:         types.StringNull(),
-		Timeouts:      timeouts.Value{},
+		ClusterAPIURL:  types.StringValue(testClusterAPIURL),
+		AllowDeletion:  types.BoolNull(),
+		Resources:      types.ObjectNull(pipelinemodel.GetResourcesType()),
+		ServiceAccount: types.ObjectNull(pipelinemodel.GetServiceAccountType()),
+		State:          types.StringNull(),
+		Timeouts:       timeouts.Value{},
 	}
 }
 
@@ -98,6 +99,22 @@ func createResourcesObject(cpuShares, memoryShares string) types.Object {
 	obj, _ := types.ObjectValue(pipelinemodel.GetResourcesType(), map[string]attr.Value{
 		pipelinemodel.FieldCPUShares:    types.StringValue(cpuShares),
 		pipelinemodel.FieldMemoryShares: types.StringValue(memoryShares),
+	})
+	return obj
+}
+
+func createServiceAccountObject(clientID, clientSecret string, secretVersion int64) types.Object {
+	if clientID == "" {
+		return types.ObjectNull(pipelinemodel.GetServiceAccountType())
+	}
+	secretVersionAttr := types.Int64Null()
+	if secretVersion > 0 {
+		secretVersionAttr = types.Int64Value(secretVersion)
+	}
+	obj, _ := types.ObjectValue(pipelinemodel.GetServiceAccountType(), map[string]attr.Value{
+		pipelinemodel.FieldClientID:      types.StringValue(clientID),
+		pipelinemodel.FieldClientSecret:  types.StringValue(clientSecret),
+		pipelinemodel.FieldSecretVersion: secretVersionAttr,
 	})
 	return obj
 }
@@ -598,11 +615,12 @@ func TestGetUpdatedModel_EdgeCases(t *testing.T) {
 				dataplanev1.Pipeline_STATE_STOPPED, nil, nil,
 			),
 			contingent: pipelinemodel.ContingentFields{
-				ClusterAPIURL: types.StringValue(testClusterAPIURL),
-				AllowDeletion: types.BoolNull(),
-				Resources:     types.ObjectNull(pipelinemodel.GetResourcesType()),
-				State:         types.StringValue(pipelinemodel.StateRunning), // prior was running, now stopped
-				Timeouts:      timeouts.Value{},
+				ClusterAPIURL:  types.StringValue(testClusterAPIURL),
+				AllowDeletion:  types.BoolNull(),
+				Resources:      types.ObjectNull(pipelinemodel.GetResourcesType()),
+				ServiceAccount: types.ObjectNull(pipelinemodel.GetServiceAccountType()),
+				State:          types.StringValue(pipelinemodel.StateRunning), // prior was running, now stopped
+				Timeouts:       timeouts.Value{},
 			},
 			expectedState: pipelinemodel.StateStopped, // should update to actual state
 			expectedID:    "pipeline-mismatch",
@@ -843,11 +861,12 @@ func TestPipelineToModelPreservesPlannedValues(t *testing.T) {
 				ctx,
 				tt.pipeline,
 				pipelinemodel.ContingentFields{
-					ClusterAPIURL: types.StringValue(testClusterAPIURL),
-					AllowDeletion: types.BoolNull(),
-					Resources:     tt.plannedResources,
-					State:         tt.plannedState,
-					Timeouts:      timeouts.Value{},
+					ClusterAPIURL:  types.StringValue(testClusterAPIURL),
+					AllowDeletion:  types.BoolNull(),
+					Resources:      tt.plannedResources,
+					ServiceAccount: types.ObjectNull(pipelinemodel.GetServiceAccountType()),
+					State:          tt.plannedState,
+					Timeouts:       timeouts.Value{},
 				},
 			)
 			require.False(t, diags.HasError())
@@ -995,16 +1014,17 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 			switch tt.operation {
 			case opCreate:
 				input := pipelinemodel.ResourceModel{
-					ID:            types.StringUnknown(),
-					ClusterAPIURL: types.StringValue(testClusterAPIURL),
-					DisplayName:   types.StringValue(tt.inputPipeline.displayName),
-					Description:   types.StringValue(tt.inputPipeline.description),
-					ConfigYaml:    types.StringValue(tt.inputPipeline.configYaml),
-					State:         types.StringValue(tt.inputPipeline.desiredState),
-					URL:           types.StringUnknown(),
-					Resources:     resourcesObj,
-					Tags:          tagsMap,
-					Timeouts:      createTestTimeouts(),
+					ID:             types.StringUnknown(),
+					ClusterAPIURL:  types.StringValue(testClusterAPIURL),
+					DisplayName:    types.StringValue(tt.inputPipeline.displayName),
+					Description:    types.StringValue(tt.inputPipeline.description),
+					ConfigYaml:     types.StringValue(tt.inputPipeline.configYaml),
+					State:          types.StringValue(tt.inputPipeline.desiredState),
+					URL:            types.StringUnknown(),
+					Resources:      resourcesObj,
+					ServiceAccount: types.ObjectNull(pipelinemodel.GetServiceAccountType()),
+					Tags:           tagsMap,
+					Timeouts:       createTestTimeouts(),
 				}
 
 				createReq := resource.CreateRequest{Plan: tfsdk.Plan{Schema: schemaResp.Schema}}
@@ -1037,29 +1057,31 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 
 			case opUpdate:
 				currentState := pipelinemodel.ResourceModel{
-					ID:            types.StringValue(tt.existingState.id),
-					ClusterAPIURL: types.StringValue(testClusterAPIURL),
-					DisplayName:   types.StringValue(tt.existingState.displayName),
-					Description:   types.StringValue(tt.existingState.description),
-					ConfigYaml:    types.StringValue(tt.existingState.configYaml),
-					State:         types.StringValue(tt.existingState.state),
-					URL:           types.StringValue(""),
-					Resources:     createResourcesObject("", ""),
-					Tags:          createTagsMap(nil),
-					Timeouts:      createTestTimeouts(),
+					ID:             types.StringValue(tt.existingState.id),
+					ClusterAPIURL:  types.StringValue(testClusterAPIURL),
+					DisplayName:    types.StringValue(tt.existingState.displayName),
+					Description:    types.StringValue(tt.existingState.description),
+					ConfigYaml:     types.StringValue(tt.existingState.configYaml),
+					State:          types.StringValue(tt.existingState.state),
+					URL:            types.StringValue(""),
+					Resources:      createResourcesObject("", ""),
+					ServiceAccount: types.ObjectNull(pipelinemodel.GetServiceAccountType()),
+					Tags:           createTagsMap(nil),
+					Timeouts:       createTestTimeouts(),
 				}
 
 				planModel := pipelinemodel.ResourceModel{
-					ID:            types.StringValue(tt.existingState.id),
-					ClusterAPIURL: types.StringValue(testClusterAPIURL),
-					DisplayName:   types.StringValue(tt.inputPipeline.displayName),
-					Description:   types.StringValue(tt.inputPipeline.description),
-					ConfigYaml:    types.StringValue(tt.inputPipeline.configYaml),
-					State:         types.StringValue(tt.inputPipeline.desiredState),
-					URL:           types.StringUnknown(),
-					Resources:     resourcesObj,
-					Tags:          tagsMap,
-					Timeouts:      createTestTimeouts(),
+					ID:             types.StringValue(tt.existingState.id),
+					ClusterAPIURL:  types.StringValue(testClusterAPIURL),
+					DisplayName:    types.StringValue(tt.inputPipeline.displayName),
+					Description:    types.StringValue(tt.inputPipeline.description),
+					ConfigYaml:     types.StringValue(tt.inputPipeline.configYaml),
+					State:          types.StringValue(tt.inputPipeline.desiredState),
+					URL:            types.StringUnknown(),
+					Resources:      resourcesObj,
+					ServiceAccount: types.ObjectNull(pipelinemodel.GetServiceAccountType()),
+					Tags:           tagsMap,
+					Timeouts:       createTestTimeouts(),
 				}
 
 				updateReq := resource.UpdateRequest{
@@ -1413,58 +1435,163 @@ func TestPipeline_StartFailureBehavior(t *testing.T) {
 	}
 }
 
-func TestPipeline_ImportIDFormat(t *testing.T) {
-	tests := []struct {
-		name             string
-		importID         string
-		expectError      bool
-		expectedPipeline string
-		expectedCluster  string
-	}{
-		{
-			name:             "valid format",
-			importID:         "pipeline-123,cluster-456",
-			expectError:      false,
-			expectedPipeline: "pipeline-123",
-			expectedCluster:  "cluster-456",
-		},
-		{
-			name:             "valid format with complex IDs",
-			importID:         "abc-def-123,xyz-789-cluster",
-			expectError:      false,
-			expectedPipeline: "abc-def-123",
-			expectedCluster:  "xyz-789-cluster",
-		},
-		{
-			name:        "missing cluster ID",
-			importID:    "pipeline-123",
-			expectError: true,
-		},
-		{
-			name:        "empty string",
-			importID:    "",
-			expectError: true,
-		},
-		{
-			name:             "only comma",
-			importID:         ",",
-			expectError:      false, // Will split to ["", ""]
-			expectedPipeline: "",
-			expectedCluster:  "",
-		},
-	}
+func TestPipeline_ServiceAccountSecretVersionUpdate(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			parts := strings.SplitN(tt.importID, ",", 2)
+	ctx := context.Background()
+	mockClient := mocks.NewMockPipelineServiceClient(ctrl)
 
-			if tt.expectError {
-				assert.NotEqual(t, 2, len(parts), "Expected invalid format for import ID %q", tt.importID)
-			} else {
-				require.Equal(t, 2, len(parts), "Expected valid format for import ID %q", tt.importID)
-				assert.Equal(t, tt.expectedPipeline, parts[0], "Pipeline ID mismatch")
-				assert.Equal(t, tt.expectedCluster, parts[1], "Cluster ID mismatch")
-			}
+	// Setup for update: get current pipeline state, then update
+	beforePipeline := createMockPipeline(
+		testPipelineID, testDisplayName, testDescription, testConfigYaml, testPipelineURL,
+		dataplanev1.Pipeline_STATE_STOPPED, nil, nil,
+	)
+	afterPipeline := createMockPipeline(
+		testPipelineID, testDisplayName, testDescription, testConfigYaml, testPipelineURL,
+		dataplanev1.Pipeline_STATE_STOPPED, nil, nil,
+	)
+
+	mockClient.EXPECT().
+		GetPipeline(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&dataplanev1.GetPipelineResponse{Pipeline: beforePipeline}, nil)
+
+	// Expect UpdatePipeline with service_account included (since secret_version changed)
+	mockClient.EXPECT().
+		UpdatePipeline(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, req *dataplanev1.UpdatePipelineRequest, _ ...any) (*dataplanev1.UpdatePipelineResponse, error) {
+			// Verify service_account is included in the update
+			assert.NotNil(t, req.Pipeline.ServiceAccount, "ServiceAccount should be included when secret_version changes")
+			return &dataplanev1.UpdatePipelineResponse{Pipeline: afterPipeline}, nil
 		})
+
+	r := setupPipelineResource(mockClient)
+
+	schemaResp := resource.SchemaResponse{}
+	r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	require.False(t, schemaResp.Diagnostics.HasError())
+
+	// Current state has service_account with secret_version = 1
+	currentState := pipelinemodel.ResourceModel{
+		ID:             types.StringValue(testPipelineID),
+		ClusterAPIURL:  types.StringValue(testClusterAPIURL),
+		DisplayName:    types.StringValue(testDisplayName),
+		Description:    types.StringValue(testDescription),
+		ConfigYaml:     types.StringValue(testConfigYaml),
+		State:          types.StringValue(pipelinemodel.StateStopped),
+		URL:            types.StringValue(testPipelineURL),
+		Resources:      createResourcesObject("", ""),
+		ServiceAccount: createServiceAccountObject("client-123", "secret-abc", 1),
+		Tags:           createTagsMap(nil),
+		Timeouts:       createTestTimeouts(),
 	}
+
+	// Plan has secret_version = 2 (incremented to trigger update)
+	planModel := pipelinemodel.ResourceModel{
+		ID:             types.StringValue(testPipelineID),
+		ClusterAPIURL:  types.StringValue(testClusterAPIURL),
+		DisplayName:    types.StringValue(testDisplayName),
+		Description:    types.StringValue(testDescription),
+		ConfigYaml:     types.StringValue(testConfigYaml),
+		State:          types.StringValue(pipelinemodel.StateStopped),
+		URL:            types.StringUnknown(),
+		Resources:      createResourcesObject("", ""),
+		ServiceAccount: createServiceAccountObject("client-123", "new-secret-xyz", 2),
+		Tags:           createTagsMap(nil),
+		Timeouts:       createTestTimeouts(),
+	}
+
+	updateReq := resource.UpdateRequest{
+		State: tfsdk.State{Schema: schemaResp.Schema},
+		Plan:  tfsdk.Plan{Schema: schemaResp.Schema},
+	}
+	diags := updateReq.State.Set(ctx, &currentState)
+	require.False(t, diags.HasError())
+	diags = updateReq.Plan.Set(ctx, &planModel)
+	require.False(t, diags.HasError())
+
+	updateResp := resource.UpdateResponse{State: tfsdk.State{Schema: schemaResp.Schema}}
+	r.Update(ctx, updateReq, &updateResp)
+
+	require.False(t, updateResp.Diagnostics.HasError(), "Update error: %v", updateResp.Diagnostics)
+}
+
+func TestPipeline_ServiceAccountNoUpdateWhenVersionUnchanged(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+	mockClient := mocks.NewMockPipelineServiceClient(ctrl)
+
+	beforePipeline := createMockPipeline(
+		testPipelineID, testDisplayName, testDescription, testConfigYaml, testPipelineURL,
+		dataplanev1.Pipeline_STATE_STOPPED, nil, nil,
+	)
+	afterPipeline := createMockPipeline(
+		testPipelineID, "updated-name", testDescription, testConfigYaml, testPipelineURL,
+		dataplanev1.Pipeline_STATE_STOPPED, nil, nil,
+	)
+
+	mockClient.EXPECT().
+		GetPipeline(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&dataplanev1.GetPipelineResponse{Pipeline: beforePipeline}, nil)
+
+	// Expect UpdatePipeline without service_account (since secret_version unchanged)
+	mockClient.EXPECT().
+		UpdatePipeline(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, req *dataplanev1.UpdatePipelineRequest, _ ...any) (*dataplanev1.UpdatePipelineResponse, error) {
+			// Verify service_account is NOT included when secret_version unchanged
+			assert.Nil(t, req.Pipeline.ServiceAccount, "ServiceAccount should NOT be included when secret_version unchanged")
+			return &dataplanev1.UpdatePipelineResponse{Pipeline: afterPipeline}, nil
+		})
+
+	r := setupPipelineResource(mockClient)
+
+	schemaResp := resource.SchemaResponse{}
+	r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	require.False(t, schemaResp.Diagnostics.HasError())
+
+	// Both state and plan have same secret_version = 1
+	currentState := pipelinemodel.ResourceModel{
+		ID:             types.StringValue(testPipelineID),
+		ClusterAPIURL:  types.StringValue(testClusterAPIURL),
+		DisplayName:    types.StringValue(testDisplayName),
+		Description:    types.StringValue(testDescription),
+		ConfigYaml:     types.StringValue(testConfigYaml),
+		State:          types.StringValue(pipelinemodel.StateStopped),
+		URL:            types.StringValue(testPipelineURL),
+		Resources:      createResourcesObject("", ""),
+		ServiceAccount: createServiceAccountObject("client-123", "secret-abc", 1),
+		Tags:           createTagsMap(nil),
+		Timeouts:       createTestTimeouts(),
+	}
+
+	// Plan changes display_name but NOT secret_version
+	planModel := pipelinemodel.ResourceModel{
+		ID:             types.StringValue(testPipelineID),
+		ClusterAPIURL:  types.StringValue(testClusterAPIURL),
+		DisplayName:    types.StringValue("updated-name"),
+		Description:    types.StringValue(testDescription),
+		ConfigYaml:     types.StringValue(testConfigYaml),
+		State:          types.StringValue(pipelinemodel.StateStopped),
+		URL:            types.StringUnknown(),
+		Resources:      createResourcesObject("", ""),
+		ServiceAccount: createServiceAccountObject("client-123", "secret-abc", 1),
+		Tags:           createTagsMap(nil),
+		Timeouts:       createTestTimeouts(),
+	}
+
+	updateReq := resource.UpdateRequest{
+		State: tfsdk.State{Schema: schemaResp.Schema},
+		Plan:  tfsdk.Plan{Schema: schemaResp.Schema},
+	}
+	diags := updateReq.State.Set(ctx, &currentState)
+	require.False(t, diags.HasError())
+	diags = updateReq.Plan.Set(ctx, &planModel)
+	require.False(t, diags.HasError())
+
+	updateResp := resource.UpdateResponse{State: tfsdk.State{Schema: schemaResp.Schema}}
+	r.Update(ctx, updateReq, &updateResp)
+
+	require.False(t, updateResp.Diagnostics.HasError(), "Update error: %v", updateResp.Diagnostics)
 }

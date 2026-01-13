@@ -28,17 +28,18 @@ import (
 
 // ResourceModel represents the Terraform schema for the pipeline resource.
 type ResourceModel struct {
-	ID            types.String   `tfsdk:"id"`
-	ClusterAPIURL types.String   `tfsdk:"cluster_api_url"`
-	DisplayName   types.String   `tfsdk:"display_name"`
-	Description   types.String   `tfsdk:"description"`
-	ConfigYaml    types.String   `tfsdk:"config_yaml"`
-	State         types.String   `tfsdk:"state"`
-	URL           types.String   `tfsdk:"url"`
-	Resources     types.Object   `tfsdk:"resources"`
-	Tags          types.Map      `tfsdk:"tags"`
-	AllowDeletion types.Bool     `tfsdk:"allow_deletion"`
-	Timeouts      timeouts.Value `tfsdk:"timeouts"`
+	ID             types.String   `tfsdk:"id"`
+	ClusterAPIURL  types.String   `tfsdk:"cluster_api_url"`
+	DisplayName    types.String   `tfsdk:"display_name"`
+	Description    types.String   `tfsdk:"description"`
+	ConfigYaml     types.String   `tfsdk:"config_yaml"`
+	State          types.String   `tfsdk:"state"`
+	URL            types.String   `tfsdk:"url"`
+	Resources      types.Object   `tfsdk:"resources"`
+	ServiceAccount types.Object   `tfsdk:"service_account"`
+	Tags           types.Map      `tfsdk:"tags"`
+	AllowDeletion  types.Bool     `tfsdk:"allow_deletion"`
+	Timeouts       timeouts.Value `tfsdk:"timeouts"`
 }
 
 // Resources defines the structure for pipeline resource allocation.
@@ -47,13 +48,21 @@ type Resources struct {
 	CpuShares    types.String `tfsdk:"cpu_shares"`
 }
 
+// ServiceAccount defines the structure for pipeline service account credentials.
+type ServiceAccount struct {
+	ClientID      types.String `tfsdk:"client_id"`
+	ClientSecret  types.String `tfsdk:"client_secret"`
+	SecretVersion types.Int64  `tfsdk:"secret_version"`
+}
+
 // ContingentFields contains fields that preserve plan/prior values.
 type ContingentFields struct {
-	ClusterAPIURL types.String
-	AllowDeletion types.Bool
-	Resources     types.Object
-	State         types.String
-	Timeouts      timeouts.Value
+	ClusterAPIURL  types.String
+	AllowDeletion  types.Bool
+	Resources      types.Object
+	ServiceAccount types.Object
+	State          types.String
+	Timeouts       timeouts.Value
 }
 
 // GetUpdatedModel populates the ResourceModel from a protobuf pipeline response.
@@ -88,6 +97,11 @@ func (r *ResourceModel) GetUpdatedModel(ctx context.Context, pipeline *dataplane
 	diags.Append(d...)
 	r.Resources = resourcesObj
 
+	// Handle service account
+	serviceAccountObj, d := r.generateModelServiceAccount(pipeline, contingent.ServiceAccount)
+	diags.Append(d...)
+	r.ServiceAccount = serviceAccountObj
+
 	// Handle tags
 	tagsMap, d := r.generateModelTags(ctx, pipeline)
 	diags.Append(d...)
@@ -114,6 +128,31 @@ func (*ResourceModel) generateModelResources(pipeline *dataplanev1.Pipeline, pla
 	default:
 		return types.ObjectNull(GetResourcesType()), diags
 	}
+}
+
+// generateModelServiceAccount converts pipeline service account from API to Terraform types.
+// Since client_secret is write-only (not returned by API), we preserve the planned value.
+func (*ResourceModel) generateModelServiceAccount(pipeline *dataplanev1.Pipeline, plannedServiceAccount types.Object) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	// Always preserve the planned value if set, since client_secret is write-only
+	if !plannedServiceAccount.IsNull() && !plannedServiceAccount.IsUnknown() {
+		return plannedServiceAccount, diags
+	}
+
+	// If API returns a service account (with client_id), create object with null secret and version
+	if pipeline.HasServiceAccount() {
+		sa := pipeline.GetServiceAccount()
+		serviceAccountObj, d := types.ObjectValue(GetServiceAccountType(), map[string]attr.Value{
+			FieldClientID:      types.StringValue(sa.GetClientId()),
+			FieldClientSecret:  types.StringNull(),
+			FieldSecretVersion: types.Int64Null(),
+		})
+		diags.Append(d...)
+		return serviceAccountObj, diags
+	}
+
+	return types.ObjectNull(GetServiceAccountType()), diags
 }
 
 // generateModelTags converts pipeline tags from API to Terraform types.
@@ -148,6 +187,31 @@ func (r *ResourceModel) ExtractResources(ctx context.Context) (*dataplanev1.Pipe
 	}
 	if !resources.CpuShares.IsNull() && !resources.CpuShares.IsUnknown() {
 		result.CpuShares = resources.CpuShares.ValueString()
+	}
+
+	return result, diags
+}
+
+// ExtractServiceAccount converts ServiceAccount from Terraform model to API type.
+func (r *ResourceModel) ExtractServiceAccount(ctx context.Context) (*dataplanev1.Pipeline_ServiceAccount, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	if r.ServiceAccount.IsNull() || r.ServiceAccount.IsUnknown() {
+		return nil, diags
+	}
+
+	var serviceAccount ServiceAccount
+	diags.Append(r.ServiceAccount.As(ctx, &serviceAccount, basetypes.ObjectAsOptions{})...)
+	if diags.HasError() {
+		return nil, diags
+	}
+
+	result := &dataplanev1.Pipeline_ServiceAccount{}
+	if !serviceAccount.ClientID.IsNull() && !serviceAccount.ClientID.IsUnknown() {
+		result.ClientId = serviceAccount.ClientID.ValueString()
+	}
+	if !serviceAccount.ClientSecret.IsNull() && !serviceAccount.ClientSecret.IsUnknown() {
+		result.ClientSecret = serviceAccount.ClientSecret.ValueString()
 	}
 
 	return result, diags
