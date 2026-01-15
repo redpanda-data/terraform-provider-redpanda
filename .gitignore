@@ -46,3 +46,6 @@ redpanda/tests/infra/network/aws/inputs.json
 
 # Environment variables (contains secrets)
 .env
+
+# Tools install directory
+.build
