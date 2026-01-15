@@ -23,7 +23,7 @@ tasks:
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
-        go run ./scripts/cleanup_test_resources.go --status
+        "{{.PATH_PREFIX}} go run ./scripts/cleanup_test_resources.go --status"
 
   redpanda:
     desc: "Delete test resources with 'tfrp-' prefix from Redpanda Cloud"
@@ -32,7 +32,7 @@ tasks:
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
-        go run ./scripts/cleanup_test_resources.go
+        "{{.PATH_PREFIX}} go run ./scripts/cleanup_test_resources.go"
 
   redpanda:dry:
     desc: "Dry run - show what test resources would be deleted (does not actually delete)"
@@ -41,14 +41,14 @@ tasks:
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
-        go run ./scripts/cleanup_test_resources.go --dry-run
+        "{{.PATH_PREFIX}} go run ./scripts/cleanup_test_resources.go --dry-run"
 
   aws:
     desc: "Delete AWS resources created by terraform-aws-redpanda-byovpc module"
     dir: scripts/cleanup-redpanda-byovpc
     cmds:
       - |
-        go run main.go \
+        {{.PATH_PREFIX}} go run main.go \
           --common-prefix "{{.COMMON_PREFIX}}" \
           --region "{{.AWS_REGION}}" \
           {{if .VPC_ID}}--vpc-id "{{.VPC_ID}}"{{end}}
@@ -59,14 +59,14 @@ tasks:
     cmds:
       - |
         echo "Cleaning up resources with 'redpanda' prefix..."
-        go run main.go \
+        {{.PATH_PREFIX}} go run main.go \
           --common-prefix "redpanda" \
           --region "{{.AWS_REGION}}" \
           --auto-detect-vpc \
           --auto-approve
       - |
         echo "Cleaning up resources with 'network-' prefix..."
-        go run main.go \
+        {{.PATH_PREFIX}} go run main.go \
           --common-prefix "network-" \
           --region "{{.AWS_REGION}}" \
           --auto-detect-vpc \
@@ -77,7 +77,7 @@ tasks:
     dir: scripts/cleanup-redpanda-byovpc
     cmds:
       - |
-        go run main.go \
+        {{.PATH_PREFIX}} go run main.go \
           --common-prefix "{{.COMMON_PREFIX}}" \
           --region "{{.AWS_REGION}}" \
           {{if .VPC_ID}}--vpc-id "{{.VPC_ID}}"{{end}} \
@@ -88,7 +88,7 @@ tasks:
     dir: scripts/cleanup-gcp-redpanda-byovpc
     cmds:
       - |
-        go run main.go \
+        {{.PATH_PREFIX}} go run main.go \
           --project-id "{{.PROJECT_ID}}" \
           --common-prefix "{{.COMMON_PREFIX}}" \
           --region "{{.GCP_REGION}}"
@@ -98,7 +98,7 @@ tasks:
     dir: scripts/cleanup-gcp-redpanda-byovpc
     cmds:
       - |
-        go run main.go \
+        {{.PATH_PREFIX}} go run main.go \
           --project-id "{{.PROJECT_ID}}" \
           --common-prefix "{{.COMMON_PREFIX}}" \
           --region "{{.GCP_REGION}}" \
@@ -110,7 +110,7 @@ tasks:
     dir: scripts/cleanup-gcp-redpanda-byovpc
     cmds:
       - |
-        go run main.go \
+        {{.PATH_PREFIX}} go run main.go \
           --project-id "{{.PROJECT_ID}}" \
           --common-prefix "{{.COMMON_PREFIX}}" \
           --region "{{.GCP_REGION}}" \

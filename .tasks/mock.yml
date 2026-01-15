@@ -2,21 +2,8 @@ version: '3'
 
 vars:
   MOCKS_DIR: "redpanda/mocks"
-  MOCKGEN_VERSION: "v0.5.0"
-  GOBIN:
-    sh: go env GOPATH
-  MOCKGEN_CMD: "{{.GOBIN}}/bin/mockgen"
 
 tasks:
-  install:mockgen:
-    desc: "Install mockgen tool"
-    cmds:
-      - echo "Installing mockgen {{.MOCKGEN_VERSION}}..."
-      - go install go.uber.org/mock/mockgen@{{.MOCKGEN_VERSION}}
-      - echo "mockgen installed successfully"
-    status:
-      - test -f {{.MOCKGEN_CMD}}
-
   default:
     desc: "Generate and clean mocks (combines clean and generate)"
     deps: [clean, generate]
@@ -30,8 +17,10 @@ tasks:
 
   generate:
     desc: "Generate all mocks"
-    deps: [install:mockgen]
+    deps:
+      - :tools:install:mockgen
+    dir: "{{.MOCKS_DIR}}"
     cmds:
       - echo "Generating mocks..."
-      - cd {{.MOCKS_DIR}} && go generate
+      - "{{.PATH_PREFIX}} go generate"
       - echo "Mocks generated successfully"

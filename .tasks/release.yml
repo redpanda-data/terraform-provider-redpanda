@@ -42,14 +42,14 @@ tasks:
     deps: [import-gpg, check-gpg-fingerprint]
     cmds:
       - echo "Creating release with goreleaser..."
-      - goreleaser release --clean --verbose
+      - "{{.GORELEASER_INSTALL_DIR}}/goreleaser release --clean --verbose"
       - echo "Release created successfully"
 
   check:
     desc: "Check goreleaser configuration without creating a release"
     cmds:
       - echo "Checking goreleaser configuration..."
-      - goreleaser check
+      - "{{.GORELEASER_INSTALL_DIR}}/goreleaser check"
       - echo "Configuration is valid"
 
   build:
@@ -57,7 +57,7 @@ tasks:
     deps: [import-gpg, check-gpg-fingerprint]
     cmds:
       - echo "Building release artifacts locally..."
-      - goreleaser build --snapshot --clean
+      - "{{.GORELEASER_INSTALL_DIR}}/goreleaser build --snapshot --clean"
       - echo "Local build completed"
 
   snapshot:
@@ -65,5 +65,5 @@ tasks:
     deps: [import-gpg, check-gpg-fingerprint]
     cmds:
       - echo "Creating snapshot release..."
-      - goreleaser release --snapshot --clean
+      - "{{.GORELEASER_INSTALL_DIR}}/goreleaser release --snapshot --clean"
       - echo "Snapshot created successfully"

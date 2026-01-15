@@ -5,9 +5,7 @@ steps:
   - label: lint
     key: lint
     command: |
-      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-      task lint:install
-      task lint
+      ./taskw lint
     plugins:
       - docker#v5.11.0:
           image: "golang:1.24"
@@ -16,8 +14,7 @@ steps:
   - label: unit
     key: unit
     command: |
-      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-      task test:unit
+      ./taskw test:unit
     plugins:
       - docker#v5.11.0:
           image: "golang:1.24"
@@ -28,8 +25,7 @@ steps:
     key: test_network
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: |
-      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-      task test:network
+      ./taskw test:network
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -47,8 +43,7 @@ steps:
     key: test_datasource
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: |
-      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-      task test:datasource
+      ./taskw test:datasource
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -67,8 +62,7 @@ steps:
     key: test_cluster_aws
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: |
-      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-      task test:cluster:aws
+      ./taskw test:cluster:aws
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -87,8 +81,7 @@ steps:
     key: test_cluster_azure
     if: build.tag == null &&  build.pull_request.labels includes 'ci-ready'
     command: |
-      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-      task test:cluster:azure
+      ./taskw test:cluster:azure
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -107,8 +100,7 @@ steps:
     key: test_cluster_gcp
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: |
-      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-      task test:cluster:gcp
+      ./taskw test:cluster:gcp
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -127,8 +119,7 @@ steps:
     key: test_serverless_cluster
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: |
-      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-      task test:serverless
+      ./taskw test:serverless
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -147,8 +138,7 @@ steps:
     key: test_serverless_regions
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: |
-      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-      task test:serverless:regions
+      ./taskw test:serverless:regions
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -167,8 +157,7 @@ steps:
     key: test_byoc_aws
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: |
-      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-      task test:byoc:aws
+      ./taskw test:byoc:aws
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -189,8 +178,7 @@ steps:
     key: test_byoc_gcp
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: |
-      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-      task test:byoc:gcp
+      ./taskw test:byoc:gcp
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -211,8 +199,7 @@ steps:
     key: test_byoc_azure
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: |
-      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-      task test:byoc:azure
+      ./taskw test:byoc:azure
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -236,8 +223,7 @@ steps:
     key: cleanup_byoc_aws
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: |
-      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-      task cleanup:aws:ci || echo "AWS cleanup completed with errors (non-blocking)"
+      ./taskw cleanup:aws:ci || echo "AWS cleanup completed with errors (non-blocking)"
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -258,8 +244,7 @@ steps:
     key: cleanup_byoc_gcp
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: |
-      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-      task cleanup:gcp:ci PROJECT_ID="$$GOOGLE_PROJECT" || echo "GCP cleanup completed with errors (non-blocking)"
+      ./taskw cleanup:gcp:ci PROJECT_ID="$$GOOGLE_PROJECT" || echo "GCP cleanup completed with errors (non-blocking)"
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -280,8 +265,7 @@ steps:
     key: cleanup_redpanda_cloud
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: |
-      sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-      task cleanup:redpanda || echo "Redpanda Cloud cleanup completed with errors (non-blocking)"
+      ./taskw cleanup:redpanda || echo "Redpanda Cloud cleanup completed with errors (non-blocking)"
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
