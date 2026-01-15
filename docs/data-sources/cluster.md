@@ -103,7 +103,7 @@ Read-Only:
 - `state` (String) State of the endpoint connection.
 
 <a id="nestedatt--aws_private_link--status--vpc_endpoint_connections--dns_entries"></a>
-### Nested Schema for `aws_private_link.status.vpc_endpoint_connections.state`
+### Nested Schema for `aws_private_link.status.vpc_endpoint_connections.dns_entries`
 
 Read-Only:
 
@@ -363,7 +363,7 @@ Read-Only:
 - `secondary_ipv4_range_services` (Attributes) Secondary IPv4 range for services. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_services))
 
 <a id="nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_pods"></a>
-### Nested Schema for `customer_managed_resources.gcp.subnet.secondary_ipv4_range_services`
+### Nested Schema for `customer_managed_resources.gcp.subnet.secondary_ipv4_range_pods`
 
 Read-Only:
 
