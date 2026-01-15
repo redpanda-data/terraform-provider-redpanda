@@ -7,5 +7,12 @@ tasks:
       - :tools:install:tfplugindocs
     cmds:
       - echo "Generating provider documentation..."
-      - "{{.PATH_PREFIX}} tfplugindocs"
+      - |
+        if [ "$BUILDKITE" = "true" ]; then
+          echo "Running in BuildKite environment with buildvcs=false"
+          GOFLAGS="-buildvcs=false" {{.PATH_PREFIX}} tfplugindocs generate --provider-name terraform-provider-redpanda
+        else
+          echo "Running in local environment"
+          {{.PATH_PREFIX}} tfplugindocs generate --provider-name terraform-provider-redpanda
+        fi
       - echo "Provider documentation generated successfully"
