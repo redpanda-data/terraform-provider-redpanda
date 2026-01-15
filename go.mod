@@ -10,7 +10,6 @@ require (
 	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.5.1-20250829164938-cb01f499c363.2
 	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.8-20250829164938-cb01f499c363.1
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/golang/mock v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/hashicorp/terraform-plugin-docs v0.22.0
 	github.com/hashicorp/terraform-plugin-framework v1.16.0
@@ -24,6 +23,7 @@ require (
 	github.com/redpanda-data/redpanda/src/go/rpk v0.0.0-20250324141452-c979dc730ef3
 	github.com/stretchr/testify v1.10.0
 	github.com/twmb/franz-go/pkg/sr v1.4.1-0.20250711145744-a849b8be17b7
+	go.uber.org/mock v0.5.0
 	golang.org/x/time v0.11.0
 	google.golang.org/genproto v0.0.0-20250313205543-e70fdf4c4cb4
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7
