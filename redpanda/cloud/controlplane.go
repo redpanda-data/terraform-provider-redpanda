@@ -43,28 +43,30 @@ type CpClientSet interface {
 // ControlPlaneClientSet holds the respective service clients to interact with
 // the control plane endpoints of the Public API.
 type ControlPlaneClientSet struct {
-	ResourceGroup     controlplanev1grpc.ResourceGroupServiceClient
-	Network           controlplanev1grpc.NetworkServiceClient
-	Cluster           controlplanev1grpc.ClusterServiceClient
-	ServerlessCluster controlplanev1grpc.ServerlessClusterServiceClient
-	ServerlessRegion  controlplanev1grpc.ServerlessRegionServiceClient
-	Operation         controlplanev1grpc.OperationServiceClient
-	Region            controlplanev1grpc.RegionServiceClient
-	ThroughputTier    controlplanev1beta2grpc.ThroughputTierServiceClient
+	ResourceGroup         controlplanev1grpc.ResourceGroupServiceClient
+	Network               controlplanev1grpc.NetworkServiceClient
+	Cluster               controlplanev1grpc.ClusterServiceClient
+	ServerlessCluster     controlplanev1grpc.ServerlessClusterServiceClient
+	ServerlessPrivateLink controlplanev1grpc.ServerlessPrivateLinkServiceClient
+	ServerlessRegion      controlplanev1grpc.ServerlessRegionServiceClient
+	Operation             controlplanev1grpc.OperationServiceClient
+	Region                controlplanev1grpc.RegionServiceClient
+	ThroughputTier        controlplanev1beta2grpc.ThroughputTierServiceClient
 }
 
 // NewControlPlaneClientSet uses the passed grpc connection to create a control
 // plane client set.
 func NewControlPlaneClientSet(conn *grpc.ClientConn) *ControlPlaneClientSet {
 	return &ControlPlaneClientSet{
-		ResourceGroup:     controlplanev1grpc.NewResourceGroupServiceClient(conn),
-		Network:           controlplanev1grpc.NewNetworkServiceClient(conn),
-		Cluster:           controlplanev1grpc.NewClusterServiceClient(conn),
-		ServerlessCluster: controlplanev1grpc.NewServerlessClusterServiceClient(conn),
-		ServerlessRegion:  controlplanev1grpc.NewServerlessRegionServiceClient(conn),
-		Operation:         controlplanev1grpc.NewOperationServiceClient(conn),
-		Region:            controlplanev1grpc.NewRegionServiceClient(conn),
-		ThroughputTier:    controlplanev1beta2grpc.NewThroughputTierServiceClient(conn),
+		ResourceGroup:         controlplanev1grpc.NewResourceGroupServiceClient(conn),
+		Network:               controlplanev1grpc.NewNetworkServiceClient(conn),
+		Cluster:               controlplanev1grpc.NewClusterServiceClient(conn),
+		ServerlessCluster:     controlplanev1grpc.NewServerlessClusterServiceClient(conn),
+		ServerlessPrivateLink: controlplanev1grpc.NewServerlessPrivateLinkServiceClient(conn),
+		ServerlessRegion:      controlplanev1grpc.NewServerlessRegionServiceClient(conn),
+		Operation:             controlplanev1grpc.NewOperationServiceClient(conn),
+		Region:                controlplanev1grpc.NewRegionServiceClient(conn),
+		ThroughputTier:        controlplanev1beta2grpc.NewThroughputTierServiceClient(conn),
 	}
 }
 
@@ -259,4 +261,36 @@ func (c *ControlPlaneClientSet) ServerlessClusterForName(ctx context.Context, na
 // GetCluster gets the cluster for a given request (primarily added to satisfy interface for mocks
 func (c *ControlPlaneClientSet) GetCluster(ctx context.Context, in *controlplanev1.GetClusterRequest, opts ...grpc.CallOption) (*controlplanev1.GetClusterResponse, error) {
 	return c.Cluster.GetCluster(ctx, in, opts...)
+}
+
+// ServerlessPrivateLinkForID gets the ServerlessPrivateLink for a given ID and handles the error if the
+// returned serverless private link is nil.
+func (c *ControlPlaneClientSet) ServerlessPrivateLinkForID(ctx context.Context, id string) (*controlplanev1.ServerlessPrivateLink, error) {
+	resp, err := c.ServerlessPrivateLink.GetServerlessPrivateLink(ctx, &controlplanev1.GetServerlessPrivateLinkRequest{
+		Id: id,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to request serverless private link %q information: %w", id, err)
+	}
+	if resp.ServerlessPrivateLink == nil {
+		return nil, fmt.Errorf("unable to find serverless private link %q; please report this bug to Redpanda Support", id)
+	}
+	return resp.ServerlessPrivateLink, nil
+}
+
+// ServerlessPrivateLinkForName lists all serverless private links with a name filter, returns the serverless private link for
+// the given name.
+func (c *ControlPlaneClientSet) ServerlessPrivateLinkForName(ctx context.Context, name string) (*controlplanev1.ServerlessPrivateLink, error) {
+	privateLinks, err := c.ServerlessPrivateLink.ListServerlessPrivateLinks(ctx, &controlplanev1.ListServerlessPrivateLinksRequest{
+		Filter: &controlplanev1.ListServerlessPrivateLinksRequest_Filter{NameContains: name},
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, pl := range privateLinks.GetServerlessPrivateLinks() {
+		if pl.GetName() == name {
+			return pl, nil
+		}
+	}
+	return nil, errors.New("serverless private link not found")
 }

@@ -363,3 +363,141 @@ tasks:
           -var="cluster_name={{.CLUSTER_NAME}}" \
           -var="google_credentials_base64={{.GOOGLE_CREDENTIALS_BASE64}}"
       - echo "GCP BYOVPC cluster destroyed successfully"
+
+  serverless:apply:
+    desc: "Apply AWS vcluster for local testing"
+    dir: examples/cluster/serverless
+    vars:
+      CLUSTER_NAME: 'tfrp-local-serverless-aws-{{.LOCAL_NAME_POSTPEND}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-serverless-aws-{{.LOCAL_NAME_POSTPEND}}'
+      NETWORK_NAME: 'tfrp-local-serverless-aws-{{.LOCAL_NAME_POSTPEND}}'
+      REGION: '{{.REGION | default "eu-west-1"}}'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_CLI_CONFIG_FILE: '.terraformrc'
+    cmds:
+      - task: clean-terraform
+        vars:
+          TARGET_DIR: "."
+      - task: build
+      - |
+        echo 'provider_installation {
+          dev_overrides {
+            "hashicorp/redpanda" = "../../../"
+          }
+          direct {}
+        }' > .terraformrc
+      - |
+        terraform apply -auto-approve \
+          -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+          -var="cluster_name={{.CLUSTER_NAME}}" \
+          -var="region={{.REGION}}"
+      - echo "AWS vcluster created successfully"
+
+  serverless:destroy:
+    desc: "Destroy AWS vcluster from local testing"
+    dir: examples/cluster/serverless
+    vars:
+      CLUSTER_NAME: 'tfrp-local-serverless-aws-{{.LOCAL_NAME_POSTPEND}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-serverless-aws-{{.LOCAL_NAME_POSTPEND}}'
+      NETWORK_NAME: 'tfrp-local-serverless-aws-{{.LOCAL_NAME_POSTPEND}}'
+      REGION: '{{.REGION | default "eu-west-1"}}'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_CLI_CONFIG_FILE: '.terraformrc'
+    cmds:
+      - task: clean-terraform
+        vars:
+          TARGET_DIR: "."
+      - task: build
+      - |
+        echo 'provider_installation {
+          dev_overrides {
+            "hashicorp/redpanda" = "../../../"
+          }
+          direct {}
+        }' > .terraformrc
+      - echo "Destroying AWS cluster {{.CLUSTER_NAME}}"
+      - |
+        terraform destroy -auto-approve \
+          -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+          -var="cluster_name={{.CLUSTER_NAME}}" \
+          -var="region={{.REGION}}"
+      - echo "AWS vcluster destroyed successfully"
+
+  serverless-private-link:aws:apply:
+    desc: "Apply AWS serverless private link for local testing"
+    dir: examples/serverless_private_link/aws
+    vars:
+      PRIVATE_LINK_NAME: 'tfrp-local-spl-aws-{{.LOCAL_NAME_POSTPEND}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-spl-aws-{{.LOCAL_NAME_POSTPEND}}'
+      SERVERLESS_REGION: '{{.SERVERLESS_REGION | default "eu-west-1"}}'
+      ALLOWED_PRINCIPALS: '{{.ALLOWED_PRINCIPALS | default "arn:aws:iam::123456789012:root"}}'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_CLI_CONFIG_FILE: '.terraformrc'
+    cmds:
+      - task: clean-terraform
+        vars:
+          TARGET_DIR: "."
+      - task: build
+      - |
+        echo 'provider_installation {
+          dev_overrides {
+            "hashicorp/redpanda" = "../../../"
+          }
+          direct {}
+        }' > .terraformrc
+      - echo "Creating AWS serverless private link {{.PRIVATE_LINK_NAME}}"
+      - |
+        terraform apply -auto-approve \
+          -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+          -var="private_link_name={{.PRIVATE_LINK_NAME}}" \
+          -var="serverless_region={{.SERVERLESS_REGION}}" \
+          -var='allowed_principals=["{{.ALLOWED_PRINCIPALS}}"]' \
+          -var="allow_deletion=true"
+      - echo "AWS serverless private link created successfully"
+
+  serverless-private-link:aws:destroy:
+    desc: "Destroy AWS serverless private link from local testing"
+    dir: examples/serverless_private_link/aws
+    vars:
+      PRIVATE_LINK_NAME: 'tfrp-local-spl-aws-{{.LOCAL_NAME_POSTPEND}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-spl-aws-{{.LOCAL_NAME_POSTPEND}}'
+      SERVERLESS_REGION: '{{.SERVERLESS_REGION | default "eu-west-1"}}'
+      ALLOWED_PRINCIPALS: '{{.ALLOWED_PRINCIPALS | default "arn:aws:iam::123456789012:root"}}'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_CLI_CONFIG_FILE: '.terraformrc'
+    cmds:
+      - task: clean-terraform
+        vars:
+          TARGET_DIR: "."
+      - task: build
+      - |
+        echo 'provider_installation {
+          dev_overrides {
+            "hashicorp/redpanda" = "../../../"
+          }
+          direct {}
+        }' > .terraformrc
+      - echo "Destroying AWS serverless private link {{.PRIVATE_LINK_NAME}}"
+      - |
+        terraform destroy -auto-approve \
+          -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+          -var="private_link_name={{.PRIVATE_LINK_NAME}}" \
+          -var="serverless_region={{.SERVERLESS_REGION}}" \
+          -var='allowed_principals=["{{.ALLOWED_PRINCIPALS}}"]'
+      - echo "AWS serverless private link destroyed successfully"

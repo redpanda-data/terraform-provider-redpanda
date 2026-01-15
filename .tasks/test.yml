@@ -174,3 +174,18 @@ tasks:
         VERSION={{.VERSION}} \
         {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccDataSourceServerlessRegions
       - echo "Serverless regions tests completed successfully"
+
+  serverless:privatelink:
+    desc: "Run serverless private link tests"
+    cmds:
+      - echo "Running TestAccServerlessPrivateLink..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        RUN_SERVERLESS_TESTS=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccServerlessPrivateLink
+      - echo "Serverless private link tests completed successfully"
