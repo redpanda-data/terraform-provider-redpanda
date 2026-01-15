@@ -2,6 +2,23 @@ version: '3'
 
 dotenv: ['.env']
 
+env:
+  BUILD_ROOT:
+    sh: realpath ".build/"
+  PATH: '{{.BUILD_ROOT}}/bin:{{.BUILD_ROOT}}/bin/go:{{.BUILD_ROOT}}/go/bin:{{.BUILD_ROOT}}/node/bin:{{.PATH}}'
+  # modcacherw  instructs go command(s) to leave newly-created dirs in the module cache at their default permissions
+  # instead of making them read-only.
+  GOFLAGS: -modcacherw
+
+vars:
+  OS: fail "In Task, OS is a function not an env var. Use 'OS' (without '.') to get the OS instead of '.OS'. See https://taskfile.dev/reference/templating/#task-functions."
+  ARCH: fail "In Task, ARCH is a function not an env var. Use 'ARCH' (without '.') to get the ARCH instead of '.ARCH'. See https://taskfile.dev/reference/templating/#task-functions."
+  BUILD_ROOT:
+    sh: realpath ".build/"
+  GO_BUILD_ROOT: '{{.BUILD_ROOT}}/go'
+  GO_VERSION: 1.24.3
+  PATH_PREFIX: PATH={{.BUILD_ROOT}}/bin:{{.GO_BUILD_ROOT}}/bin:{{.BUILD_ROOT}}/bin/go:$PATH GOBIN={{ .BUILD_ROOT }}/bin/go GOROOT=
+
 includes:
   build: .tasks/build.yml
   cleanup: .tasks/cleanup.yml
