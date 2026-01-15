@@ -22,7 +22,7 @@ tasks:
         REDPANDA_CLIENT_SECRET="dummy_secret" \
         RUN_CLUSTER_TESTS=false \
         RUN_BYOC_TESTS=false \
-        go test -short ./...
+        {{.PATH_PREFIX}} go test -short ./...
       - echo "Unit tests completed successfully"
 
   network:
@@ -36,7 +36,7 @@ tasks:
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        go test -v -timeout={{.TIMEOUT_SHORT}} ./redpanda/tests -run TestAccResourcesNetwork
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT_SHORT}} ./redpanda/tests -run TestAccResourcesNetwork
       - echo "Network tests completed successfully"
 
   datasource:
@@ -52,7 +52,7 @@ tasks:
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        go test -v -timeout={{.TIMEOUT_SHORT}} ./redpanda/tests -run TestAccResourcesDataSource
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT_SHORT}} ./redpanda/tests -run TestAccResourcesDataSource
       - echo "Datasource tests completed successfully"
 
   cluster:aws:
@@ -67,7 +67,7 @@ tasks:
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesClusterAWS
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesClusterAWS
       - echo "AWS cluster tests completed successfully"
 
   cluster:azure:
@@ -82,7 +82,7 @@ tasks:
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesClusterAzure
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesClusterAzure
       - echo "Azure cluster tests completed successfully"
 
   cluster:gcp:
@@ -97,7 +97,7 @@ tasks:
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesClusterGCP
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesClusterGCP
       - echo "GCP cluster tests completed successfully"
 
   byoc:aws:
@@ -112,7 +112,7 @@ tasks:
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesByocAWS
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesByocAWS
       - echo "AWS BYOC tests completed successfully"
 
   byoc:azure:
@@ -127,7 +127,7 @@ tasks:
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesByocAzure
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesByocAzure
       - echo "Azure BYOC tests completed successfully"
 
   byoc:gcp:
@@ -142,7 +142,7 @@ tasks:
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesByocGCP
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesByocGCP
       - echo "GCP BYOC tests completed successfully"
 
   serverless:
@@ -157,7 +157,7 @@ tasks:
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesStrippedDownServerlessCluster
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesStrippedDownServerlessCluster
       - echo "Serverless cluster tests completed successfully"
 
   serverless:regions:
@@ -172,5 +172,5 @@ tasks:
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccDataSourceServerlessRegions
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccDataSourceServerlessRegions
       - echo "Serverless regions tests completed successfully"

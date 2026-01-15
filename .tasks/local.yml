@@ -24,7 +24,7 @@ tasks:
     desc: "Build terraform provider for local testing"
     cmds:
       - echo "Building terraform provider..."
-      - go build -o terraform-provider-redpanda
+      - "{{.PATH_PREFIX}} go build -o terraform-provider-redpanda"
       - echo "Provider built successfully"
 
   cluster:aws:apply:

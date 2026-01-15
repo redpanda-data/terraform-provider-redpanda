@@ -2,50 +2,22 @@ version: '3'
 
 vars:
   CLI_ARGS: '{{.CLI_ARGS | default ""}}'
-  GOFUMPT_VERSION: "v0.7.0"
-  GOLANGCI_LINT_VERSION: "v2.2.1"
-  GOBIN:
-    sh: go env GOPATH
-  GOFUMPT_CMD: "{{.GOBIN}}/bin/gofumpt"
-  GOLANGCI_LINT_CMD: "{{.GOBIN}}/bin/golangci-lint"
+  GOLANGCI_LINT: "{{.BUILD_ROOT}}/bin/golangci-lint"
 
 tasks:
-  install:gofumpt:
-    desc: "Install gofumpt formatting tool"
-    cmds:
-      - echo "Installing gofumpt {{.GOFUMPT_VERSION}}..."
-      - go install mvdan.cc/gofumpt@{{.GOFUMPT_VERSION}}
-      - echo "gofumpt installed successfully"
-    status:
-      - test -f {{.GOFUMPT_CMD}}
-
-  install:golangci-lint:
-    desc: "Install golangci-lint"
-    cmds:
-      - echo "Installing golangci-lint {{.GOLANGCI_LINT_VERSION}}..."
-      - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_LINT_VERSION}}
-      - echo "golangci-lint installed successfully"
-    status:
-      - test -f {{.GOLANGCI_LINT_CMD}}
-
-  install:
-    desc: "Install all linting tools"
-    deps: [install:gofumpt, install:golangci-lint]
-    cmds:
-      - echo "All linting tools installed successfully"
-
   default:
     desc: "Run all code quality checks"
-    deps: [install:golangci-lint]
+    deps:
+      - :tools:install:golangci-lint
     cmds:
       - echo "Running linting..."
       - |
         if [ "$BUILDKITE" = "true" ]; then
           echo "Running in BuildKite environment with buildvcs=false"
-          GOFLAGS="-buildvcs=false" golangci-lint run --timeout=5m {{.CLI_ARGS}}
+          {{.PATH_PREFIX}} GOFLAGS="-buildvcs=false" golangci-lint run --timeout=5m {{.CLI_ARGS}}
         else
           echo "Running in local environment"
-          golangci-lint run {{.CLI_ARGS}}
+          {{.PATH_PREFIX}} golangci-lint run {{.CLI_ARGS}}
         fi
       - echo "Linting completed successfully"
 

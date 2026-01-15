@@ -6,52 +6,86 @@ vars:
 
   # Tool versions
   GOFUMPT_VERSION: "v0.7.0"
-  GOLANGCI_LINT_VERSION: "v2.2.1"
+  GOLANGCI_LINT_VERSION: "2.2.1"
   MOCKGEN_VERSION: "v0.5.0"
   TFPLUGINDOCS_VERSION: "latest"
+  GORELEASER_VERSION: 1.9.2-pro
 
-  # Tool paths
-  GOFUMPT_CMD: "{{.GOBIN}}/bin/gofumpt"
-  GOLANGCI_LINT_CMD: "{{.GOBIN}}/bin/golangci-lint"
-  MOCKGEN_CMD: "{{.GOBIN}}/bin/mockgen"
-  TFPLUGINDOCS_CMD: "{{.GOBIN}}/bin/tfplugindocs"
+  GORELEASER_INSTALL_DIR: '{{ .BUILD_ROOT }}/tools/goreleaser/{{.GORELEASER_VERSION}}'
 
 tasks:
+
+  install:go:
+    desc: install golang compiler
+    run: once
+    vars:
+      GOLANG_URL_DEFAULT: https://go.dev/dl/go{{.GO_VERSION}}.{{OS}}-{{ARCH}}.tar.gz
+      GOLANG_URL: '{{default .GOLANG_URL_DEFAULT .GOLANG_URL}}'
+    cmds:
+      - rm -rf {{.GO_BUILD_ROOT}}
+      - mkdir -p '{{.GO_BUILD_ROOT}}'
+      - curl -sSLf --retry 3 --retry-connrefused --retry-delay 2 '{{.GOLANG_URL}}' | tar -xz -C '{{.GO_BUILD_ROOT}}' --strip 1
+    status:
+      - test -f '{{.GO_BUILD_ROOT}}/bin/go'
+      - '[[ $(GOTOOLCHAIN=local {{.GO_BUILD_ROOT}}/bin/go version) == *"go version go{{ .GO_VERSION }}"* ]]'
+
   install:gofumpt:
+    deps:
+      - install:go
     desc: "Install gofumpt formatting tool"
+    run: once
     cmds:
       - echo "Installing gofumpt {{.GOFUMPT_VERSION}}..."
-      - go install mvdan.cc/gofumpt@{{.GOFUMPT_VERSION}}
+      - "{{.PATH_PREFIX}} go install mvdan.cc/gofumpt@{{ .GOFUMPT_VERSION }}"
       - echo "gofumpt installed successfully"
     status:
-      - test -f {{.GOFUMPT_CMD}}
-
+      - test -f {{.BUILD_ROOT}}/bin/go/gofumpt
+      - '[[ $({{.BUILD_ROOT}}/bin/go/gofumpt --version) == *"{{.GOFUMPT_VERSION}}"* ]]'
   install:golangci-lint:
     desc: "Install golangci-lint"
+    run: once
     cmds:
       - echo "Installing golangci-lint {{.GOLANGCI_LINT_VERSION}}..."
-      - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_LINT_VERSION}}
+      - mkdir -p {{ .BUILD_ROOT}}/bin
+      - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "{{ .BUILD_ROOT }}"/bin v{{ .GOLANGCI_LINT_VERSION }}
       - echo "golangci-lint installed successfully"
     status:
-      - test -f {{.GOLANGCI_LINT_CMD}}
+      - '[ -f ''{{ .BUILD_ROOT }}/bin'' ] || command -v {{ .BUILD_ROOT }}/bin/golangci-lint >/dev/null 2>&1'
+      - '[[ $({{ .BUILD_ROOT }}/bin/golangci-lint --version) == *"version {{ .GOLANGCI_LINT_VERSION }} built"* ]]'
 
   install:mockgen:
+    deps:
+      - install:go
     desc: "Install mockgen tool"
+    run: once
     cmds:
       - echo "Installing mockgen {{.MOCKGEN_VERSION}}..."
-      - go install go.uber.org/mock/mockgen@{{.MOCKGEN_VERSION}}
+      - "{{.PATH_PREFIX}} go install go.uber.org/mock/mockgen@{{.MOCKGEN_VERSION}}"
       - echo "mockgen installed successfully"
     status:
-      - test -f {{.MOCKGEN_CMD}}
+      - test -f {{.BUILD_ROOT}}/bin/go/mockgen
+      - '[[ $({{.BUILD_ROOT}}/bin/go/mockgen --version) == "{{.MOCKGEN_VERSION}}" ]]'
 
   install:tfplugindocs:
+    deps:
+      - install:go
     desc: "Install terraform-plugin-docs tool"
+    run: once
     cmds:
       - echo "Installing tfplugindocs {{.TFPLUGINDOCS_VERSION}}..."
-      - go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@{{.TFPLUGINDOCS_VERSION}}
+      - "{{.PATH_PREFIX}} go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@{{.TFPLUGINDOCS_VERSION}}"
       - echo "tfplugindocs installed successfully"
     status:
-      - test -f {{.TFPLUGINDOCS_CMD}}
+      - test -f {{.BUILD_ROOT}}/bin/go/tfplugindocs
+
+  install:goreleaser:
+    desc: install goreleaser
+    run: once
+    cmds:
+      - mkdir -p {{ .GORELEASER_INSTALL_DIR }}
+      - curl -sSLf --retry 3 --retry-connrefused --retry-delay 2 "https://github.com/goreleaser/goreleaser-pro/releases/download/v{{.GORELEASER_VERSION}}/goreleaser-pro_$(uname -s)_$(uname -m).tar.gz" | tar -xz -C '{{.GORELEASER_INSTALL_DIR}}'
+    status:
+      - test -f {{ .GORELEASER_INSTALL_DIR }}/goreleaser
 
   install:all:
     desc: "Install all development tools"
@@ -60,6 +94,7 @@ tasks:
       - install:golangci-lint
       - install:mockgen
       - install:tfplugindocs
+      - install:goreleaser
     cmds:
       - echo "All development tools installed successfully"
 
@@ -69,25 +104,30 @@ tasks:
       - |
         echo "Checking installed tools..."
         echo ""
-        if [ -f "{{.GOFUMPT_CMD}}" ]; then
-          echo "✓ gofumpt: {{.GOFUMPT_VERSION}} ({{.GOFUMPT_CMD}})"
+        if [ -f "{{.BUILD_ROOT}}/bin/go/gofumpt" ]; then
+          echo "✓ gofumpt: {{.GOFUMPT_VERSION}} ({{.BUILD_ROOT}}/bin/go/gofumpt)"
         else
           echo "✗ gofumpt: not installed"
         fi
-        if [ -f "{{.GOLANGCI_LINT_CMD}}" ]; then
-          echo "✓ golangci-lint: {{.GOLANGCI_LINT_VERSION}} ({{.GOLANGCI_LINT_CMD}})"
+        if [ -f "{{.BUILD_ROOT}}/bin/golangci-lint" ]; then
+          echo "✓ golangci-lint: {{.GOLANGCI_LINT_VERSION}} ({{.BUILD_ROOT}}/bin/golangci-lint)"
         else
           echo "✗ golangci-lint: not installed"
         fi
-        if [ -f "{{.MOCKGEN_CMD}}" ]; then
-          echo "✓ mockgen: {{.MOCKGEN_VERSION}} ({{.MOCKGEN_CMD}})"
+        if [ -f "{{.BUILD_ROOT}}/bin/go/mockgen" ]; then
+          echo "✓ mockgen: {{.MOCKGEN_VERSION}} ({{.BUILD_ROOT}}/bin/go/mockgen)"
         else
           echo "✗ mockgen: not installed"
         fi
-        if [ -f "{{.TFPLUGINDOCS_CMD}}" ]; then
-          echo "✓ tfplugindocs: {{.TFPLUGINDOCS_VERSION}} ({{.TFPLUGINDOCS_CMD}})"
+        if [ -f "{{.BUILD_ROOT}}/bin/go/tfplugindocs" ]; then
+          echo "✓ tfplugindocs: {{.TFPLUGINDOCS_VERSION}} ({{.BUILD_ROOT}}/bin/go/tfplugindocs)"
         else
           echo "✗ tfplugindocs: not installed"
+        fi
+        if [ -f "{{.GORELEASER_INSTALL_DIR}}/goreleaser" ]; then
+          echo "✓ goreleaser: {{.GORELEASER_VERSION}} ({{.GORELEASER_INSTALL_DIR}}/goreleaser)"
+        else
+          echo "✗ goreleaser: not installed"
         fi
 
   default:
