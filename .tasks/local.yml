@@ -53,21 +53,10 @@ tasks:
           direct {}
         }' > .terraformrc
       - |
-        if grep -q "resource \"redpanda_cluster\"" *.tf; then
-          terraform apply -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="network_name={{.NETWORK_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}"
-        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
-          terraform apply -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}"
-        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
-          terraform apply -auto-approve
-        else
-          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
-          exit 1
-        fi
+        terraform apply -auto-approve \
+          -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+          -var="network_name={{.NETWORK_NAME}}" \
+          -var="cluster_name={{.CLUSTER_NAME}}"
       - echo "AWS cluster created successfully"
 
   cluster:aws:destroy:
@@ -97,21 +86,10 @@ tasks:
         }' > .terraformrc
       - echo "Destroying AWS cluster {{.CLUSTER_NAME}}"
       - |
-        if grep -q "resource \"redpanda_cluster\"" *.tf; then
-          terraform destroy -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="network_name={{.NETWORK_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}"
-        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
-          terraform destroy -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}"
-        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
-          terraform destroy -auto-approve
-        else
-          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
-          exit 1
-        fi
+        terraform destroy -auto-approve \
+          -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+          -var="network_name={{.NETWORK_NAME}}" \
+          -var="cluster_name={{.CLUSTER_NAME}}"
       - echo "AWS cluster destroyed successfully"
 
   cluster:azure:apply:
@@ -141,21 +119,10 @@ tasks:
         }' > .terraformrc
       - echo "Creating Azure cluster {{.CLUSTER_NAME}}"
       - |
-        if grep -q "resource \"redpanda_cluster\"" *.tf; then
-          terraform apply -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="network_name={{.NETWORK_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}"
-        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
-          terraform apply -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}"
-        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
-          terraform apply -auto-approve
-        else
-          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
-          exit 1
-        fi
+        terraform apply -auto-approve \
+          -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+          -var="network_name={{.NETWORK_NAME}}" \
+          -var="cluster_name={{.CLUSTER_NAME}}"
       - echo "Azure cluster created successfully"
 
   cluster:azure:destroy:
@@ -185,21 +152,10 @@ tasks:
         }' > .terraformrc
       - echo "Destroying Azure cluster {{.CLUSTER_NAME}}"
       - |
-        if grep -q "resource \"redpanda_cluster\"" *.tf; then
-          terraform destroy -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="network_name={{.NETWORK_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}"
-        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
-          terraform destroy -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}"
-        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
-          terraform destroy -auto-approve
-        else
-          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
-          exit 1
-        fi
+        terraform destroy -auto-approve \
+          -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+          -var="network_name={{.NETWORK_NAME}}" \
+          -var="cluster_name={{.CLUSTER_NAME}}"
       - echo "Azure cluster destroyed successfully"
 
   cluster:gcp:apply:
@@ -230,22 +186,11 @@ tasks:
         }' > .terraformrc
       - echo "Creating GCP cluster {{.CLUSTER_NAME}}"
       - |
-        if grep -q "resource \"redpanda_cluster\"" *.tf; then
-          terraform apply -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="network_name={{.NETWORK_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}" \
-            -var="google_credentials_base64={{.GOOGLE_CREDENTIALS_BASE64}}"
-        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
-          terraform apply -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}"
-        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
-          terraform apply -auto-approve
-        else
-          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
-          exit 1
-        fi
+        terraform apply -auto-approve \
+          -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+          -var="network_name={{.NETWORK_NAME}}" \
+          -var="cluster_name={{.CLUSTER_NAME}}" \
+          -var="google_credentials_base64={{.GOOGLE_CREDENTIALS_BASE64}}"
       - echo "GCP cluster created successfully"
 
   cluster:gcp:destroy:
@@ -276,22 +221,11 @@ tasks:
         }' > .terraformrc
       - echo "Destroying GCP cluster {{.CLUSTER_NAME}}"
       - |
-        if grep -q "resource \"redpanda_cluster\"" *.tf; then
-          terraform destroy -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="network_name={{.NETWORK_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}" \
-            -var="google_credentials_base64={{.GOOGLE_CREDENTIALS_BASE64}}"
-        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
-          terraform destroy -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}"
-        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
-          terraform destroy -auto-approve
-        else
-          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
-          exit 1
-        fi
+        terraform destroy -auto-approve \
+          -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+          -var="network_name={{.NETWORK_NAME}}" \
+          -var="cluster_name={{.CLUSTER_NAME}}" \
+          -var="google_credentials_base64={{.GOOGLE_CREDENTIALS_BASE64}}"
       - echo "GCP cluster destroyed successfully"
 
   byovpc:aws:apply:
@@ -321,21 +255,10 @@ tasks:
         }' > .terraformrc
       - echo "Creating AWS BYOVPC cluster {{.CLUSTER_NAME}}"
       - |
-        if grep -q "resource \"redpanda_cluster\"" *.tf; then
-          terraform apply -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="network_name={{.NETWORK_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}"
-        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
-          terraform apply -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}"
-        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
-          terraform apply -auto-approve
-        else
-          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
-          exit 1
-        fi
+        terraform apply -auto-approve \
+          -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+          -var="network_name={{.NETWORK_NAME}}" \
+          -var="cluster_name={{.CLUSTER_NAME}}"
       - echo "AWS BYOVPC cluster created successfully"
 
   byovpc:aws:destroy:
@@ -365,21 +288,10 @@ tasks:
         }' > .terraformrc
       - echo "Destroying AWS BYOVPC cluster {{.CLUSTER_NAME}}"
       - |
-        if grep -q "resource \"redpanda_cluster\"" *.tf; then
-          terraform destroy -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="network_name={{.NETWORK_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}"
-        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
-          terraform destroy -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}"
-        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
-          terraform destroy -auto-approve
-        else
-          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
-          exit 1
-        fi
+        terraform destroy -auto-approve \
+          -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+          -var="network_name={{.NETWORK_NAME}}" \
+          -var="cluster_name={{.CLUSTER_NAME}}"
       - echo "AWS BYOVPC cluster destroyed successfully"
 
   byovpc:gcp:apply:
@@ -410,22 +322,11 @@ tasks:
         }' > .terraformrc
       - echo "Creating GCP BYOVPC cluster {{.CLUSTER_NAME}}"
       - |
-        if grep -q "resource \"redpanda_cluster\"" *.tf; then
-          terraform apply -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="network_name={{.NETWORK_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}" \
-            -var="google_credentials_base64={{.GOOGLE_CREDENTIALS_BASE64}}"
-        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
-          terraform apply -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}"
-        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
-          terraform apply -auto-approve
-        else
-          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
-          exit 1
-        fi
+        terraform apply -auto-approve \
+          -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+          -var="network_name={{.NETWORK_NAME}}" \
+          -var="cluster_name={{.CLUSTER_NAME}}" \
+          -var="google_credentials_base64={{.GOOGLE_CREDENTIALS_BASE64}}"
       - echo "GCP BYOVPC cluster created successfully"
 
   byovpc:gcp:destroy:
@@ -456,20 +357,9 @@ tasks:
         }' > .terraformrc
       - echo "Destroying GCP BYOVPC cluster {{.CLUSTER_NAME}}"
       - |
-        if grep -q "resource \"redpanda_cluster\"" *.tf; then
-          terraform destroy -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="network_name={{.NETWORK_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}" \
-            -var="google_credentials_base64={{.GOOGLE_CREDENTIALS_BASE64}}"
-        elif grep -q "resource \"redpanda_serverless_cluster\"" *.tf; then
-          terraform destroy -auto-approve \
-            -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
-            -var="cluster_name={{.CLUSTER_NAME}}"
-        elif grep -q "data \"redpanda_serverless_regions\"" *.tf; then
-          terraform destroy -auto-approve
-        else
-          echo "Error: No supported Redpanda cluster configuration found in Terraform files."
-          exit 1
-        fi
+        terraform destroy -auto-approve \
+          -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+          -var="network_name={{.NETWORK_NAME}}" \
+          -var="cluster_name={{.CLUSTER_NAME}}" \
+          -var="google_credentials_base64={{.GOOGLE_CREDENTIALS_BASE64}}"
       - echo "GCP BYOVPC cluster destroyed successfully"
