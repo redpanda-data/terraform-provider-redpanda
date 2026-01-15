@@ -23,6 +23,7 @@ const (
 	azureDedicatedClusterDir           = "../../examples/cluster/azure"
 	gcpDedicatedClusterDir             = "../../examples/cluster/gcp"
 	serverlessClusterDir               = "../../examples/cluster/serverless"
+	serverlessPrivateLinkDir           = "../../examples/serverless_private_link/aws"
 	awsByocClusterDir                  = "../../examples/byoc/aws"
 	awsByocVpcClusterDir               = "infra/byovpc/aws"
 	gcpByoVpcClusterDir                = "infra/byovpc/gcp"
@@ -41,6 +42,7 @@ const (
 	testUserResourceName               = "redpanda_user.test_user"
 	topicResourceName                  = "redpanda_topic.test"
 	serverlessResourceName             = "redpanda_serverless_cluster.test"
+	serverlessPrivateLinkResourceName  = "redpanda_serverless_private_link.example"
 	networkDataSourceName              = "data.redpanda_network.test"
 	serverlessRegionsAWSDataSourceName = "data.redpanda_serverless_regions.aws"
 	serverlessRegionsGCPDataSourceName = "data.redpanda_serverless_regions.gcp"
@@ -1421,6 +1423,101 @@ func TestAccResourcesStrippedDownServerlessCluster(t *testing.T) {
 			ClusterName: name,
 			Client:      c,
 		}.SweepServerlessCluster,
+	})
+	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepResourceGroup{
+			ResourceGroupName: name,
+			Client:            c,
+		}.SweepResourceGroup,
+	})
+}
+
+func TestAccServerlessPrivateLink(t *testing.T) {
+	if !strings.Contains(runServerlessTests, "true") {
+		t.Skip("skipping serverless tests")
+	}
+	ctx := context.Background()
+
+	name := generateRandomName(accNamePrepend + "spl-test")
+	origTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
+	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
+	origTestCaseVars["private_link_name"] = config.StringVariable(name)
+	origTestCaseVars["serverless_region"] = config.StringVariable("eu-west-1")
+	origTestCaseVars["allow_deletion"] = config.BoolVariable(true)
+	// Use a dummy AWS principal ARN for testing
+	origTestCaseVars["allowed_principals"] = config.ListVariable(
+		config.StringVariable("arn:aws:iam::123456789012:root"),
+	)
+	origTestCaseVars["allow_deletion"] = config.BoolVariable(true)
+
+	// Update test case with different allowed_principals
+	updateTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(updateTestCaseVars, origTestCaseVars)
+	updateTestCaseVars["allowed_principals"] = config.ListVariable(
+		config.StringVariable("arn:aws:iam::123456789012:root"),
+		config.StringVariable("arn:aws:iam::987654321098:root"),
+	)
+
+	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				ConfigDirectory:          config.StaticDirectory(serverlessPrivateLinkDir),
+				ConfigVariables:          origTestCaseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(serverlessPrivateLinkResourceName, "name", name),
+					resource.TestCheckResourceAttr(serverlessPrivateLinkResourceName, "cloud_provider", "aws"),
+					resource.TestCheckResourceAttr(serverlessPrivateLinkResourceName, "serverless_region", "eu-west-1"),
+					resource.TestCheckResourceAttrSet(serverlessPrivateLinkResourceName, "id"),
+					resource.TestCheckResourceAttrSet(serverlessPrivateLinkResourceName, "resource_group_id"),
+					resource.TestCheckResourceAttrSet(serverlessPrivateLinkResourceName, "state"),
+					resource.TestCheckResourceAttrSet(serverlessPrivateLinkResourceName, "status.aws.vpc_endpoint_service_name"),
+					resource.TestCheckResourceAttrSet(serverlessPrivateLinkResourceName, "status.aws.availability_zones.#"),
+					resource.TestCheckResourceAttrSet(serverlessPrivateLinkResourceName, "status.aws.availability_zones.0"),
+					resource.TestCheckResourceAttr(serverlessPrivateLinkResourceName, "cloud_provider_config.aws.allowed_principals.#", "1"),
+				),
+			},
+			{
+				ConfigDirectory:          config.StaticDirectory(serverlessPrivateLinkDir),
+				ConfigVariables:          updateTestCaseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(serverlessPrivateLinkResourceName, "name", name),
+					resource.TestCheckResourceAttr(serverlessPrivateLinkResourceName, "cloud_provider_config.aws.allowed_principals.#", "2"),
+				),
+			},
+			{
+				ResourceName:             serverlessPrivateLinkResourceName,
+				ConfigDirectory:          config.StaticDirectory(serverlessPrivateLinkDir),
+				ConfigVariables:          updateTestCaseVars,
+				ImportState:              true,
+				ImportStateVerify:        true,
+				ImportStateVerifyIgnore:  []string{"updated_at", "allow_deletion"},
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			{
+				ConfigDirectory:          config.StaticDirectory(serverlessPrivateLinkDir),
+				ConfigVariables:          origTestCaseVars,
+				Destroy:                  true,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+		},
+	})
+
+	resource.AddTestSweepers(generateRandomName("privateLinkSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepServerlessPrivateLink{
+			PrivateLinkName: name,
+			Client:          c,
+		}.SweepServerlessPrivateLink,
 	})
 	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
 		Name: name,

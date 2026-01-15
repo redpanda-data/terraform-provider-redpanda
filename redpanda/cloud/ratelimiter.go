@@ -104,7 +104,7 @@ func (r *rateLimiter) Limiter(ctx context.Context, method string, req, reply any
 			"error":  err.Error(),
 			"header": rateLimitHeader[0],
 		})
-		// lint:ignore nilerr logging and not returning error as it is not fail worthy
+		//nolint:nilerr // logging and not returning error as it is not fail worthy
 		return nil
 	}
 

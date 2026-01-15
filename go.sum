@@ -2,10 +2,10 @@ buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-202509121410
 buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20250912141014-52f32327d4b0.1/go.mod h1:tvtbpgaVXZX4g6Pn+AnzFycuRK3MOz5HJfEGeEllXYM=
 buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.11-20221127060915-a1ecdc58eccd.1 h1:hyd3R7ABDs4p5EuzlfaNjMQyNROPI/h0BQJYu7Y4k8E=
 buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.11-20221127060915-a1ecdc58eccd.1/go.mod h1:KAAU6zfI4aGOR/SiWil31PiNwdpo1SlqZidcB3z+sL0=
-buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.0-20251212204213-945f0efabc6a.1 h1:D3ErBf5MRgH8w7sCu2sATA21OxXN7gbC4mCr3tGHQzo=
-buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.0-20251212204213-945f0efabc6a.1/go.mod h1:vIpEtTc1ZOeucz63N0ak0kRz86/DENIMld5PpaqWi3g=
-buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20251212204213-945f0efabc6a.1 h1:EY2YDobNYQGK1F0aEe0cRRvse5H0+RpMDwna9mz11jk=
-buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20251212204213-945f0efabc6a.1/go.mod h1:JBQl8yBQHJASf+RSZdbOvc8LES/Qh2XB3IzifvAXwsk=
+buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.0-20260114182253-ef9f41ba3d23.1 h1:xKpLEc87uTV5Ggx/1blSPRIQuFdLV/Ec0W6TTb73BRw=
+buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.0-20260114182253-ef9f41ba3d23.1/go.mod h1:7WMi14e+oQR+O8fIOT50sxfdFqofI03s2rAVdUexbac=
+buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20260114182253-ef9f41ba3d23.1 h1:lqsbt2WHhv2sAcEMOdhi6/CUWFDFBWctB4dL0Tctsi4=
+buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20260114182253-ef9f41ba3d23.1/go.mod h1:JBQl8yBQHJASf+RSZdbOvc8LES/Qh2XB3IzifvAXwsk=
 buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.11-20250904135917-9feeb2588236.1 h1:zJPEmLphPnQLndX2UOXo0fhuSAR/M/TOnkSVI4cWoWM=
 buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.11-20250904135917-9feeb2588236.1/go.mod h1:3w7EzexwlL6PIFGbbeKZ0yHfUlAmI0aBVzF/QoFb8Cg=
 buf.build/gen/go/redpandadata/core/protocolbuffers/go v1.36.11-20251024023333-e0f79c48b9f0.1 h1:+/+1sJLW4yC8RVoH6HMPf5IEvUx+jPsokzy9ynOiOqI=

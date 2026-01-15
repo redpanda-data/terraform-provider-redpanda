@@ -47,6 +47,7 @@ import (
 	schemaresource "github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/schema"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/schemaregistryacl"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlesscluster"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlessprivatelink"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlessregions"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/throughputtiers"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/topic"
@@ -422,6 +423,7 @@ func (*Redpanda) Resources(_ context.Context) []func() resource.Resource {
 			return &network.Network{}
 		},
 		func() resource.Resource { return &serverlesscluster.ServerlessCluster{} },
+		func() resource.Resource { return &serverlessprivatelink.ServerlessPrivateLink{} },
 		func() resource.Resource {
 			return &cluster.Cluster{}
 		},
