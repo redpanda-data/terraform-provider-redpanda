@@ -997,10 +997,10 @@ func TestResourceModel_ComprehensiveConsistencyTest(t *testing.T) {
 					require.Equal(t, planModel.ClusterAPIURL.ValueString(), applyModel.ClusterAPIURL.ValueString(), "ClusterAPIURL value should be consistent")
 				}
 			}
-		case "AwsPrivateLink":
-			require.Equal(t, planModel.AwsPrivateLink.IsNull(), applyModel.AwsPrivateLink.IsNull(), "AwsPrivateLink null status should be consistent")
-		case "GcpPrivateServiceConnect":
-			require.Equal(t, planModel.GcpPrivateServiceConnect.IsNull(), applyModel.GcpPrivateServiceConnect.IsNull(), "GcpPrivateServiceConnect null status should be consistent")
+		case "AWSPrivateLink":
+			require.Equal(t, planModel.AWSPrivateLink.IsNull(), applyModel.AWSPrivateLink.IsNull(), "AWSPrivateLink null status should be consistent")
+		case "GCPPrivateServiceConnect":
+			require.Equal(t, planModel.GCPPrivateServiceConnect.IsNull(), applyModel.GCPPrivateServiceConnect.IsNull(), "GCPPrivateServiceConnect null status should be consistent")
 		case "AzurePrivateLink":
 			require.Equal(t, planModel.AzurePrivateLink.IsNull(), applyModel.AzurePrivateLink.IsNull(), "AzurePrivateLink null status should be consistent")
 		case "KafkaAPI":
@@ -1011,8 +1011,8 @@ func TestResourceModel_ComprehensiveConsistencyTest(t *testing.T) {
 			require.Equal(t, planModel.SchemaRegistry.IsNull(), applyModel.SchemaRegistry.IsNull(), "SchemaRegistry null status should be consistent")
 		case "KafkaConnect":
 			require.Equal(t, planModel.KafkaConnect.IsNull(), applyModel.KafkaConnect.IsNull(), "KafkaConnect null status should be consistent")
-		case "ReadReplicaClusterIDs":
-			require.Equal(t, planModel.ReadReplicaClusterIDs.IsNull(), applyModel.ReadReplicaClusterIDs.IsNull(), "ReadReplicaClusterIDs null status should be consistent")
+		case "ReadReplicaClusterIds":
+			require.Equal(t, planModel.ReadReplicaClusterIds.IsNull(), applyModel.ReadReplicaClusterIds.IsNull(), "ReadReplicaClusterIds null status should be consistent")
 		case "CustomerManagedResources":
 			require.Equal(t, planModel.CustomerManagedResources.IsNull(), applyModel.CustomerManagedResources.IsNull(), "CustomerManagedResources null status should be consistent")
 		case "Prometheus":

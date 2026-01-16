@@ -8,7 +8,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 )
 
-func resourceSchemaSchema() schema.Schema {
+// ResourceSchemaSchema returns the schema for the schema resource.
+func ResourceSchemaSchema() schema.Schema {
 	return schema.Schema{
 		Description: "Schema represents a Schema Registry schema",
 		Attributes: map[string]schema.Attribute{

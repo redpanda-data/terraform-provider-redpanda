@@ -70,7 +70,7 @@ func (n *Network) Configure(_ context.Context, request resource.ConfigureRequest
 
 // Schema returns the schema for the Network resource.
 func (*Network) Schema(ctx context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
-	response.Schema = resourceNetworkSchema(ctx)
+	response.Schema = ResourceNetworkSchema(ctx)
 }
 
 // Create creates a new Network resource. It updates the state if the resource is successfully created.

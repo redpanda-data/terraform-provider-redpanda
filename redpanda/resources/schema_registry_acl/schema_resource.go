@@ -9,7 +9,8 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
-func resourceSchemaRegistryACLSchema() schema.Schema {
+// ResourceSchemaRegistryACLSchema returns the schema for the SchemaRegistryACL resource.
+func ResourceSchemaRegistryACLSchema() schema.Schema {
 	return schema.Schema{
 		Description: "Resource for managing Redpanda Schema Registry ACLs (Access Control Lists). " +
 			"This resource allows you to configure fine-grained access control for Schema Registry resources.",

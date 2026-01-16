@@ -25,7 +25,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	serverlessclustermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/serverlesscluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
@@ -63,7 +63,7 @@ func (d *DataSourceServerlessCluster) Configure(_ context.Context, req datasourc
 
 // Read reads the ServerlessCluster data source's values and updates the state.
 func (d *DataSourceServerlessCluster) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var model models.ServerlessCluster
+	var model serverlessclustermodel.DataModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 
 	serverlessCluster, err := d.CpCl.ServerlessClusterForID(ctx, model.ID.ValueString())
@@ -76,16 +76,17 @@ func (d *DataSourceServerlessCluster) Read(ctx context.Context, req datasource.R
 		return
 	}
 	// Mapping the fields from the serverless cluster to the Terraform state
-	persist := generateModel(serverlessCluster)
+	persist := generateDataModel(serverlessCluster)
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
 // Schema returns the schema for the ServerlessCluster data source.
 func (*DataSourceServerlessCluster) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	resp.Schema = datasourceServerlessClusterSchema() // Reuse the schema from the resource
+	resp.Schema = DatasourceServerlessClusterSchema() // Reuse the schema from the resource
 }
 
-func datasourceServerlessClusterSchema() schema.Schema {
+// DatasourceServerlessClusterSchema returns the schema for the ServerlessCluster datasource.
+func DatasourceServerlessClusterSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

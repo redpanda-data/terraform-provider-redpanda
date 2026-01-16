@@ -42,11 +42,11 @@ func (*DataSourceResourceGroup) Metadata(_ context.Context, _ datasource.Metadat
 
 // Schema returns the schema for the ResourceGroup data source.
 func (*DataSourceResourceGroup) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	resp.Schema = datasourceResourceGroupSchema()
+	resp.Schema = DatasourceResourceGroupSchema()
 }
 
-// datasourceResourceGroupSchema defines the schema for a resource group data source.
-func datasourceResourceGroupSchema() schema.Schema {
+// DatasourceResourceGroupSchema defines the schema for a resource group data source.
+func DatasourceResourceGroupSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

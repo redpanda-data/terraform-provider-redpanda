@@ -27,7 +27,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/mocks"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	rolemodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/role"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -39,20 +39,20 @@ import (
 func TestRole_Create(t *testing.T) {
 	tests := []struct {
 		name      string
-		input     models.Role
+		input     rolemodel.ResourceModel
 		mockError error
 		wantErr   bool
 	}{
 		{
 			name: "basic role with minimal fields",
-			input: models.Role{
+			input: rolemodel.ResourceModel{
 				Name:          types.StringValue("developer"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 			},
 		},
 		{
 			name: "role with allow_deletion=true",
-			input: models.Role{
+			input: rolemodel.ResourceModel{
 				Name:          types.StringValue("admin"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(true),
@@ -60,7 +60,7 @@ func TestRole_Create(t *testing.T) {
 		},
 		{
 			name: "role with allow_deletion=false",
-			input: models.Role{
+			input: rolemodel.ResourceModel{
 				Name:          types.StringValue("viewer"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(false),
@@ -68,7 +68,7 @@ func TestRole_Create(t *testing.T) {
 		},
 		{
 			name: "role with allow_deletion unset (defaults to false)",
-			input: models.Role{
+			input: rolemodel.ResourceModel{
 				Name:          types.StringValue("operator"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolNull(),
@@ -76,21 +76,21 @@ func TestRole_Create(t *testing.T) {
 		},
 		{
 			name: "role with long name",
-			input: models.Role{
+			input: rolemodel.ResourceModel{
 				Name:          types.StringValue("super-long-role-name-with-many-characters-for-testing"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 			},
 		},
 		{
 			name: "role with special characters in name",
-			input: models.Role{
+			input: rolemodel.ResourceModel{
 				Name:          types.StringValue("role-with_special.chars"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 			},
 		},
 		{
 			name: "create fails - API error",
-			input: models.Role{
+			input: rolemodel.ResourceModel{
 				Name:          types.StringValue("failing-role"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 			},
@@ -161,7 +161,7 @@ func TestRole_Create(t *testing.T) {
 			require.False(t, resp.Diagnostics.HasError(), "Create should not error: %v", resp.Diagnostics)
 
 			// Validate state
-			var state models.Role
+			var state rolemodel.ResourceModel
 			diags = resp.State.Get(ctx, &state)
 			require.False(t, diags.HasError(), "State.Get should not error")
 
@@ -181,7 +181,7 @@ func TestRole_Create(t *testing.T) {
 func TestRole_Read(t *testing.T) {
 	tests := []struct {
 		name          string
-		initialState  models.Role
+		initialState  rolemodel.ResourceModel
 		mockSetup     func(*mocks.MockSecurityServiceClient)
 		expectRemoved bool
 		expectWarning bool
@@ -189,7 +189,7 @@ func TestRole_Read(t *testing.T) {
 	}{
 		{
 			name: "role exists - preserve all fields",
-			initialState: models.Role{
+			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("developer"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(true),
@@ -204,7 +204,7 @@ func TestRole_Read(t *testing.T) {
 		},
 		{
 			name: "role exists with allow_deletion=false",
-			initialState: models.Role{
+			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("admin"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(false),
@@ -219,7 +219,7 @@ func TestRole_Read(t *testing.T) {
 		},
 		{
 			name: "role not found + allow_deletion=true - remove from state",
-			initialState: models.Role{
+			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("missing-role"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(true),
@@ -234,7 +234,7 @@ func TestRole_Read(t *testing.T) {
 		},
 		{
 			name: "role not found + allow_deletion=false - keep in state with warning",
-			initialState: models.Role{
+			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("missing-role"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(false),
@@ -250,7 +250,7 @@ func TestRole_Read(t *testing.T) {
 		},
 		{
 			name: "role not found + allow_deletion=null - keep in state with warning",
-			initialState: models.Role{
+			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("missing-role"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolNull(),
@@ -266,7 +266,7 @@ func TestRole_Read(t *testing.T) {
 		},
 		{
 			name: "cluster unreachable + allow_deletion=true - remove from state",
-			initialState: models.Role{
+			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("unreachable-role"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(true),
@@ -281,7 +281,7 @@ func TestRole_Read(t *testing.T) {
 		},
 		{
 			name: "cluster unreachable + allow_deletion=false - keep in state with warning",
-			initialState: models.Role{
+			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("unreachable-role"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(false),
@@ -297,7 +297,7 @@ func TestRole_Read(t *testing.T) {
 		},
 		{
 			name: "empty cluster_api_url - should fail with error",
-			initialState: models.Role{
+			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("invalid-role"),
 				ClusterAPIURL: types.StringValue(""),
 				AllowDeletion: types.BoolValue(true),
@@ -370,7 +370,7 @@ func TestRole_Read(t *testing.T) {
 
 			// Check if removed from state
 			if tt.expectRemoved {
-				var state *models.Role
+				var state *rolemodel.ResourceModel
 				diags = resp.State.Get(ctx, &state)
 				require.False(t, diags.HasError(), "State.Get should not error")
 				assert.Nil(t, state, "State should be removed (nil)")
@@ -378,7 +378,7 @@ func TestRole_Read(t *testing.T) {
 			}
 
 			// Validate all fields preserved
-			var state models.Role
+			var state rolemodel.ResourceModel
 			diags = resp.State.Get(ctx, &state)
 			require.False(t, diags.HasError(), "State.Get should not error")
 
@@ -393,18 +393,18 @@ func TestRole_Read(t *testing.T) {
 func TestRole_Update(t *testing.T) {
 	tests := []struct {
 		name         string
-		initialState models.Role
-		plan         models.Role
+		initialState rolemodel.ResourceModel
+		plan         rolemodel.ResourceModel
 	}{
 		{
 			name: "no changes - validate no-op",
-			initialState: models.Role{
+			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("developer"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(true),
 				ID:            types.StringValue("developer"),
 			},
-			plan: models.Role{
+			plan: rolemodel.ResourceModel{
 				Name:          types.StringValue("developer"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(true),
@@ -413,13 +413,13 @@ func TestRole_Update(t *testing.T) {
 		},
 		{
 			name: "attempt to change allow_deletion - should be ignored (no-op)",
-			initialState: models.Role{
+			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("admin"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(false),
 				ID:            types.StringValue("admin"),
 			},
-			plan: models.Role{
+			plan: rolemodel.ResourceModel{
 				Name:          types.StringValue("admin"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(true), // Changed, but should be ignored
@@ -428,13 +428,13 @@ func TestRole_Update(t *testing.T) {
 		},
 		{
 			name: "roles are immutable - update is always no-op",
-			initialState: models.Role{
+			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("viewer"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolNull(),
 				ID:            types.StringValue("viewer"),
 			},
-			plan: models.Role{
+			plan: rolemodel.ResourceModel{
 				Name:          types.StringValue("viewer"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolNull(),
@@ -499,14 +499,14 @@ func TestRole_Update(t *testing.T) {
 func TestRole_Delete(t *testing.T) {
 	tests := []struct {
 		name         string
-		initialState models.Role
+		initialState rolemodel.ResourceModel
 		mockSetup    func(*mocks.MockSecurityServiceClient)
 		wantErr      bool
 		errorMsg     string
 	}{
 		{
 			name: "successful deletion with allow_deletion=true",
-			initialState: models.Role{
+			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("developer"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(true),
@@ -521,7 +521,7 @@ func TestRole_Delete(t *testing.T) {
 		},
 		{
 			name: "deletion blocked with allow_deletion=false",
-			initialState: models.Role{
+			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("admin"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(false),
@@ -535,7 +535,7 @@ func TestRole_Delete(t *testing.T) {
 		},
 		{
 			name: "deletion blocked with allow_deletion unset (defaults to false)",
-			initialState: models.Role{
+			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("viewer"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolNull(),
@@ -549,7 +549,7 @@ func TestRole_Delete(t *testing.T) {
 		},
 		{
 			name: "deletion fails due to API error",
-			initialState: models.Role{
+			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("failing-role"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(true),
@@ -565,7 +565,7 @@ func TestRole_Delete(t *testing.T) {
 		},
 		{
 			name: "deletion with explicit allow_deletion check",
-			initialState: models.Role{
+			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("test-role"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(true),
@@ -583,7 +583,7 @@ func TestRole_Delete(t *testing.T) {
 		},
 		{
 			name: "deletion of non-existent role (should succeed silently)",
-			initialState: models.Role{
+			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("non-existent"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(true),
@@ -736,11 +736,11 @@ func TestImportIDFormat(t *testing.T) {
 func TestRole_CreateAndRead(t *testing.T) {
 	tests := []struct {
 		name  string
-		input models.Role
+		input rolemodel.ResourceModel
 	}{
 		{
 			name: "create then read - basic role",
-			input: models.Role{
+			input: rolemodel.ResourceModel{
 				Name:          types.StringValue("developer"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(true),
@@ -748,7 +748,7 @@ func TestRole_CreateAndRead(t *testing.T) {
 		},
 		{
 			name: "create then read - with allow_deletion=false",
-			input: models.Role{
+			input: rolemodel.ResourceModel{
 				Name:          types.StringValue("admin"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(false),
@@ -756,7 +756,7 @@ func TestRole_CreateAndRead(t *testing.T) {
 		},
 		{
 			name: "create then read - validate state consistency",
-			input: models.Role{
+			input: rolemodel.ResourceModel{
 				Name:          types.StringValue("operator"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolNull(),
@@ -764,7 +764,7 @@ func TestRole_CreateAndRead(t *testing.T) {
 		},
 		{
 			name: "create then read - no field drift",
-			input: models.Role{
+			input: rolemodel.ResourceModel{
 				Name:          types.StringValue("test-role-123"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(true),
@@ -817,7 +817,7 @@ func TestRole_CreateAndRead(t *testing.T) {
 			r.Create(ctx, createReq, &createResp)
 			require.False(t, createResp.Diagnostics.HasError(), "Create should not error: %v", createResp.Diagnostics)
 
-			var stateAfterCreate models.Role
+			var stateAfterCreate rolemodel.ResourceModel
 			diags = createResp.State.Get(ctx, &stateAfterCreate)
 			require.False(t, diags.HasError(), "State.Get after Create should not error")
 
@@ -832,7 +832,7 @@ func TestRole_CreateAndRead(t *testing.T) {
 			r.Read(ctx, readReq, &readResp)
 			require.False(t, readResp.Diagnostics.HasError(), "Read should not error: %v", readResp.Diagnostics)
 
-			var stateAfterRead models.Role
+			var stateAfterRead rolemodel.ResourceModel
 			diags = readResp.State.Get(ctx, &stateAfterRead)
 			require.False(t, diags.HasError(), "State.Get after Read should not error")
 
@@ -848,13 +848,13 @@ func TestRole_CreateAndRead(t *testing.T) {
 func TestRole_CreateReadDelete(t *testing.T) {
 	tests := []struct {
 		name          string
-		input         models.Role
+		input         rolemodel.ResourceModel
 		allowDeletion bool
 		expectError   bool
 	}{
 		{
 			name: "full lifecycle with allow_deletion=true",
-			input: models.Role{
+			input: rolemodel.ResourceModel{
 				Name:          types.StringValue("lifecycle-test"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(true),
@@ -864,7 +864,7 @@ func TestRole_CreateReadDelete(t *testing.T) {
 		},
 		{
 			name: "delete blocked with allow_deletion=false",
-			input: models.Role{
+			input: rolemodel.ResourceModel{
 				Name:          types.StringValue("protected-role"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(false),
@@ -874,7 +874,7 @@ func TestRole_CreateReadDelete(t *testing.T) {
 		},
 		{
 			name: "complete lifecycle validation",
-			input: models.Role{
+			input: rolemodel.ResourceModel{
 				Name:          types.StringValue("full-test"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(true),
@@ -931,7 +931,7 @@ func TestRole_CreateReadDelete(t *testing.T) {
 			r.Create(ctx, createReq, &createResp)
 			require.False(t, createResp.Diagnostics.HasError())
 
-			var state models.Role
+			var state rolemodel.ResourceModel
 			diags = createResp.State.Get(ctx, &state)
 			require.False(t, diags.HasError())
 
@@ -962,11 +962,11 @@ func TestRole_CreateReadDelete(t *testing.T) {
 func TestRole_CreateReadUpdate(t *testing.T) {
 	tests := []struct {
 		name  string
-		input models.Role
+		input rolemodel.ResourceModel
 	}{
 		{
 			name: "create-read-update-read validates immutability",
-			input: models.Role{
+			input: rolemodel.ResourceModel{
 				Name:          types.StringValue("immutable-test"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(true),
@@ -974,7 +974,7 @@ func TestRole_CreateReadUpdate(t *testing.T) {
 		},
 		{
 			name: "update doesnt corrupt state",
-			input: models.Role{
+			input: rolemodel.ResourceModel{
 				Name:          types.StringValue("state-test"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolValue(false),
@@ -982,7 +982,7 @@ func TestRole_CreateReadUpdate(t *testing.T) {
 		},
 		{
 			name: "read after update returns identical state",
-			input: models.Role{
+			input: rolemodel.ResourceModel{
 				Name:          types.StringValue("consistency-test"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolNull(),
@@ -1028,7 +1028,7 @@ func TestRole_CreateReadUpdate(t *testing.T) {
 			r.Create(ctx, createReq, &createResp)
 			require.False(t, createResp.Diagnostics.HasError(), "Create should not error: %v", createResp.Diagnostics)
 
-			var stateAfterCreate models.Role
+			var stateAfterCreate rolemodel.ResourceModel
 			diags = createResp.State.Get(ctx, &stateAfterCreate)
 			require.False(t, diags.HasError(), "State.Get after Create should not error")
 
@@ -1040,7 +1040,7 @@ func TestRole_CreateReadUpdate(t *testing.T) {
 			r.Read(ctx, readReq1, &readResp1)
 			require.False(t, readResp1.Diagnostics.HasError(), "Read after Create should not error: %v", readResp1.Diagnostics)
 
-			var stateAfterFirstRead models.Role
+			var stateAfterFirstRead rolemodel.ResourceModel
 			diags = readResp1.State.Get(ctx, &stateAfterFirstRead)
 			require.False(t, diags.HasError(), "State.Get after first Read should not error")
 
@@ -1071,7 +1071,7 @@ func TestRole_CreateReadUpdate(t *testing.T) {
 			r.Read(ctx, readReq2, &readResp2)
 			require.False(t, readResp2.Diagnostics.HasError(), "Read after Update should not error: %v", readResp2.Diagnostics)
 
-			var stateAfterSecondRead models.Role
+			var stateAfterSecondRead rolemodel.ResourceModel
 			diags = readResp2.State.Get(ctx, &stateAfterSecondRead)
 			require.False(t, diags.HasError(), "State.Get after second Read should not error")
 

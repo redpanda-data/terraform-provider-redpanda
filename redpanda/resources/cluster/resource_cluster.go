@@ -71,7 +71,7 @@ func (c *Cluster) Configure(_ context.Context, req resource.ConfigureRequest, re
 
 // Schema returns the schema for the Cluster resource
 func (*Cluster) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = resourceClusterSchema(ctx)
+	resp.Schema = ResourceClusterSchema(ctx)
 }
 
 // Create creates a new Cluster resource. It updates the state if the resource is successfully created

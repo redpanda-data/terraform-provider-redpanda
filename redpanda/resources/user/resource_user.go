@@ -29,7 +29,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	usermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/user"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"google.golang.org/grpc"
 )
@@ -72,12 +72,12 @@ func (u *User) Configure(_ context.Context, req resource.ConfigureRequest, resp 
 
 // Schema returns the schema for the User resource.
 func (*User) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = resourceUserSchema()
+	resp.Schema = ResourceUserSchema()
 }
 
 // Create creates a User resource.
 func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var model models.User
+	var model usermodel.ResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 
 	err := u.createUserClient(model.ClusterAPIURL.ValueString())
@@ -98,7 +98,7 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 		return
 	}
 
-	persist := model.GetUpdatedModel(user.User, models.ContingentFields{
+	persist := model.GetUpdatedModel(user.User, usermodel.ContingentFields{
 		AllowDeletion: model.AllowDeletion,
 	})
 	// Preserve password and cluster URL from plan (not returned by API)
@@ -110,7 +110,7 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 
 // Read reads the state of the User resource.
 func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var model models.User
+	var model usermodel.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 	err := u.createUserClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
@@ -163,8 +163,8 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 		return
 	}
 
-	persist := &models.User{}
-	persist.GetUpdatedModel(user, models.ContingentFields{})
+	persist := &usermodel.ResourceModel{}
+	persist.GetUpdatedModel(user, usermodel.ContingentFields{})
 
 	// Preserve fields not returned by API from existing state
 	persist.Password = model.Password
@@ -181,8 +181,8 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 
 // Update updates the state of the User resource.
 func (u *User) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan models.User
-	var state models.User
+	var plan usermodel.ResourceModel
+	var state usermodel.ResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
@@ -214,7 +214,7 @@ func (u *User) Update(ctx context.Context, req resource.UpdateRequest, resp *res
 			return
 		}
 
-		persist := plan.GetUpdatedModel(updateResp.User, models.ContingentFields{
+		persist := plan.GetUpdatedModel(updateResp.User, usermodel.ContingentFields{
 			AllowDeletion: plan.AllowDeletion,
 		})
 		persist.Password = plan.Password
@@ -231,7 +231,7 @@ func (u *User) Update(ctx context.Context, req resource.UpdateRequest, resp *res
 
 // Delete deletes the User resource.
 func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var model models.User
+	var model usermodel.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
 	if !model.AllowDeletion.ValueBool() {

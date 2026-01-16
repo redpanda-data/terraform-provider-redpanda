@@ -28,7 +28,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/kclients"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	schemaregistryaclmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/schema_registry_acl"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
@@ -80,12 +80,12 @@ func (s *SchemaRegistryACL) Configure(_ context.Context, request resource.Config
 
 // Schema returns the schema for the resource.
 func (*SchemaRegistryACL) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
-	response.Schema = resourceSchemaRegistryACLSchema()
+	response.Schema = ResourceSchemaRegistryACLSchema()
 }
 
 // Create creates a new Schema Registry ACL resource.
 func (s *SchemaRegistryACL) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
-	var model models.SchemaRegistryACL
+	var model schemaregistryaclmodel.ResourceModel
 	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
 	if response.Diagnostics.HasError() {
 		return
@@ -117,7 +117,7 @@ func (s *SchemaRegistryACL) Create(ctx context.Context, request resource.CreateR
 
 // Read checks for the existence of a Schema Registry ACL resource
 func (s *SchemaRegistryACL) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
-	var model models.SchemaRegistryACL
+	var model schemaregistryaclmodel.ResourceModel
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 	if response.Diagnostics.HasError() {
 		return
@@ -189,7 +189,7 @@ func (s *SchemaRegistryACL) Read(ctx context.Context, request resource.ReadReque
 
 // Update updates a Schema Registry ACL resource
 func (*SchemaRegistryACL) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
-	var model models.SchemaRegistryACL
+	var model schemaregistryaclmodel.ResourceModel
 	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
 	if response.Diagnostics.HasError() {
 		return
@@ -200,7 +200,7 @@ func (*SchemaRegistryACL) Update(ctx context.Context, request resource.UpdateReq
 
 // Delete deletes a Schema Registry ACL resource
 func (s *SchemaRegistryACL) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
-	var model models.SchemaRegistryACL
+	var model schemaregistryaclmodel.ResourceModel
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 	if response.Diagnostics.HasError() {
 		return
@@ -311,13 +311,13 @@ func (*SchemaRegistryACL) ImportState(ctx context.Context, request resource.Impo
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
 }
 
-func (s *SchemaRegistryACL) getSchemaRegistryClient(ctx context.Context, model *models.SchemaRegistryACL) (kclients.SchemaRegistryACLClientInterface, error) {
+func (s *SchemaRegistryACL) getSchemaRegistryClient(ctx context.Context, model *schemaregistryaclmodel.ResourceModel) (kclients.SchemaRegistryACLClientInterface, error) {
 	return s.clientFactory(ctx, s.CpCl, model.ClusterID.ValueString(), model.Username.ValueString(), model.Password.ValueString())
 }
 
 // verifyACLPropagation verifies that the ACL has been propagated and is ready for use.
 // ACLs can report as created but not be immediately usable due to eventual consistency.
-func (*SchemaRegistryACL) verifyACLPropagation(ctx context.Context, client kclients.SchemaRegistryACLClientInterface, model *models.SchemaRegistryACL) error {
+func (*SchemaRegistryACL) verifyACLPropagation(ctx context.Context, client kclients.SchemaRegistryACLClientInterface, model *schemaregistryaclmodel.ResourceModel) error {
 	timeout := 30 * time.Second
 	startTime := time.Now()
 	attempt := 0

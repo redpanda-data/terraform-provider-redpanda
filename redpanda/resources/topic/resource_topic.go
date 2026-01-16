@@ -27,7 +27,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	topicmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/topic"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"google.golang.org/grpc"
 )
@@ -70,12 +70,12 @@ func (*Topic) Metadata(_ context.Context, _ resource.MetadataRequest, response *
 
 // Schema returns the schema for the Topic resource.
 func (*Topic) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
-	response.Schema = resourceTopicSchema()
+	response.Schema = ResourceTopicSchema()
 }
 
 // Create creates a Topic resource.
 func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
-	var model models.Topic
+	var model topicmodel.ResourceModel
 	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
 
 	cfg, err := utils.MapToCreateTopicConfiguration(model.Configuration)
@@ -127,7 +127,7 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		response.Diagnostics.AddError("unable to parse the topic configuration", utils.DeserializeGrpcError(err))
 		return
 	}
-	response.Diagnostics.Append(response.State.Set(ctx, models.Topic{
+	response.Diagnostics.Append(response.State.Set(ctx, topicmodel.ResourceModel{
 		Name:              types.StringValue(topic.GetTopicName()),
 		PartitionCount:    utils.Int32ToNumber(topic.GetPartitionCount()),
 		ReplicationFactor: utils.Int32ToNumber(topic.GetReplicationFactor()),
@@ -140,7 +140,7 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 
 // Read reads the state of the Topic resource.
 func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
-	var model models.Topic
+	var model topicmodel.ResourceModel
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 
 	if model.ClusterAPIURL.IsNull() || model.ClusterAPIURL.IsUnknown() || model.ClusterAPIURL.ValueString() == "" {
@@ -186,7 +186,7 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 		response.Diagnostics.AddError("unable to parse the topic configuration", utils.DeserializeGrpcError(err))
 		return
 	}
-	response.Diagnostics.Append(response.State.Set(ctx, models.Topic{
+	response.Diagnostics.Append(response.State.Set(ctx, topicmodel.ResourceModel{
 		Name:              types.StringValue(tp.Name),
 		PartitionCount:    utils.Int32ToNumber(tp.PartitionCount),
 		ReplicationFactor: utils.Int32ToNumber(tp.ReplicationFactor),
@@ -199,7 +199,7 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 
 // Update updates the state of the Topic resource.
 func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
-	var plan, state models.Topic
+	var plan, state topicmodel.ResourceModel
 	response.Diagnostics.Append(request.Plan.Get(ctx, &plan)...)
 	response.Diagnostics.Append(request.State.Get(ctx, &state)...)
 	err := t.createTopicClient(plan.ClusterAPIURL.ValueString())
@@ -243,7 +243,7 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 
 // Delete deletes the Topic resource.
 func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
-	var model models.Topic
+	var model topicmodel.ResourceModel
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 	if !model.AllowDeletion.ValueBool() {
 		response.Diagnostics.AddError(fmt.Sprintf("topic %s does not allow deletion", model.Name), "")

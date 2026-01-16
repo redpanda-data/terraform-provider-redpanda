@@ -25,7 +25,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/kclients"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/mocks"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	schemaregistryaclmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/schema_registry_acl"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -34,13 +34,13 @@ import (
 func TestSchemaRegistryACL_Create(t *testing.T) {
 	tests := []struct {
 		name         string
-		input        models.SchemaRegistryACL
+		input        schemaregistryaclmodel.ResourceModel
 		mockResponse []kclients.SchemaRegistryACLResponse
 		wantErr      bool
 	}{
 		{
 			name: "basic subject ACL with READ permission",
-			input: models.SchemaRegistryACL{
+			input: schemaregistryaclmodel.ResourceModel{
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:alice"),
 				ResourceType: types.StringValue("SUBJECT"),
@@ -64,7 +64,7 @@ func TestSchemaRegistryACL_Create(t *testing.T) {
 		},
 		{
 			name: "registry-level ACL with ALL operation",
-			input: models.SchemaRegistryACL{
+			input: schemaregistryaclmodel.ResourceModel{
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:admin"),
 				ResourceType: types.StringValue("REGISTRY"),
@@ -88,7 +88,7 @@ func TestSchemaRegistryACL_Create(t *testing.T) {
 		},
 		{
 			name: "prefixed pattern ACL",
-			input: models.SchemaRegistryACL{
+			input: schemaregistryaclmodel.ResourceModel{
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:bob"),
 				ResourceType: types.StringValue("SUBJECT"),
@@ -112,7 +112,7 @@ func TestSchemaRegistryACL_Create(t *testing.T) {
 		},
 		{
 			name: "ACL with username and password",
-			input: models.SchemaRegistryACL{
+			input: schemaregistryaclmodel.ResourceModel{
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:carol"),
 				ResourceType: types.StringValue("SUBJECT"),
@@ -138,7 +138,7 @@ func TestSchemaRegistryACL_Create(t *testing.T) {
 		},
 		{
 			name: "ACL with allow_deletion set to true",
-			input: models.SchemaRegistryACL{
+			input: schemaregistryaclmodel.ResourceModel{
 				ClusterID:     types.StringValue("cluster-1"),
 				Principal:     types.StringValue("User:dave"),
 				ResourceType:  types.StringValue("SUBJECT"),
@@ -163,7 +163,7 @@ func TestSchemaRegistryACL_Create(t *testing.T) {
 		},
 		{
 			name: "DENY permission ACL",
-			input: models.SchemaRegistryACL{
+			input: schemaregistryaclmodel.ResourceModel{
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:eve"),
 				ResourceType: types.StringValue("SUBJECT"),
@@ -187,7 +187,7 @@ func TestSchemaRegistryACL_Create(t *testing.T) {
 		},
 		{
 			name: "DESCRIBE operation ACL",
-			input: models.SchemaRegistryACL{
+			input: schemaregistryaclmodel.ResourceModel{
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:frank"),
 				ResourceType: types.StringValue("SUBJECT"),
@@ -254,7 +254,7 @@ func TestSchemaRegistryACL_Create(t *testing.T) {
 			}
 			require.False(t, resp.Diagnostics.HasError(), "Create should not error: %v", resp.Diagnostics)
 
-			var state models.SchemaRegistryACL
+			var state schemaregistryaclmodel.ResourceModel
 			diags = resp.State.Get(ctx, &state)
 			require.False(t, diags.HasError(), "State.Get should not error")
 			assert.Equal(t, tt.input.ClusterID, state.ClusterID, "ClusterID should match plan")
@@ -277,7 +277,7 @@ func TestSchemaRegistryACL_Create(t *testing.T) {
 func TestSchemaRegistryACL_Read(t *testing.T) {
 	tests := []struct {
 		name          string
-		initialState  models.SchemaRegistryACL
+		initialState  schemaregistryaclmodel.ResourceModel
 		mockResponse  []kclients.SchemaRegistryACLResponse
 		mockError     error
 		expectRemoved bool
@@ -285,7 +285,7 @@ func TestSchemaRegistryACL_Read(t *testing.T) {
 	}{
 		{
 			name: "ACL exists and matches",
-			initialState: models.SchemaRegistryACL{
+			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:           types.StringValue("cluster-1:User:alice:SUBJECT:test-subject:LITERAL:*:READ:ALLOW"),
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:alice"),
@@ -313,7 +313,7 @@ func TestSchemaRegistryACL_Read(t *testing.T) {
 		},
 		{
 			name: "ACL with all optional fields set",
-			initialState: models.SchemaRegistryACL{
+			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:            types.StringValue("cluster-1:User:bob:REGISTRY:*:LITERAL:*:ALL:ALLOW"),
 				ClusterID:     types.StringValue("cluster-1"),
 				Principal:     types.StringValue("User:bob"),
@@ -342,7 +342,7 @@ func TestSchemaRegistryACL_Read(t *testing.T) {
 		},
 		{
 			name: "ACL not found - should remove from state",
-			initialState: models.SchemaRegistryACL{
+			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:           types.StringValue("cluster-1:User:carol:SUBJECT:missing:LITERAL:*:READ:ALLOW"),
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:carol"),
@@ -358,7 +358,7 @@ func TestSchemaRegistryACL_Read(t *testing.T) {
 		},
 		{
 			name: "multiple ACLs returned - finds correct one",
-			initialState: models.SchemaRegistryACL{
+			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:           types.StringValue("cluster-1:User:dave:SUBJECT:target:LITERAL:*:WRITE:ALLOW"),
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:dave"),
@@ -439,14 +439,14 @@ func TestSchemaRegistryACL_Read(t *testing.T) {
 			require.False(t, resp.Diagnostics.HasError(), "Read should not error: %v", resp.Diagnostics)
 
 			if tt.expectRemoved {
-				var state *models.SchemaRegistryACL
+				var state *schemaregistryaclmodel.ResourceModel
 				diags = resp.State.Get(ctx, &state)
 				require.False(t, diags.HasError(), "State.Get should not error")
 				assert.Nil(t, state, "State should be removed")
 				return
 			}
 
-			var state models.SchemaRegistryACL
+			var state schemaregistryaclmodel.ResourceModel
 			diags = resp.State.Get(ctx, &state)
 			require.False(t, diags.HasError(), "State.Get should not error")
 
@@ -469,13 +469,13 @@ func TestSchemaRegistryACL_Read(t *testing.T) {
 func TestSchemaRegistryACL_Update(t *testing.T) {
 	tests := []struct {
 		name         string
-		initialState models.SchemaRegistryACL
-		plan         models.SchemaRegistryACL
+		initialState schemaregistryaclmodel.ResourceModel
+		plan         schemaregistryaclmodel.ResourceModel
 		wantErr      bool
 	}{
 		{
 			name: "update username only",
-			initialState: models.SchemaRegistryACL{
+			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:           types.StringValue("cluster-1:User:alice:SUBJECT:test:LITERAL:*:READ:ALLOW"),
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:alice"),
@@ -488,7 +488,7 @@ func TestSchemaRegistryACL_Update(t *testing.T) {
 				Username:     types.StringValue("olduser"),
 				Password:     types.StringValue("password"),
 			},
-			plan: models.SchemaRegistryACL{
+			plan: schemaregistryaclmodel.ResourceModel{
 				ID:           types.StringValue("cluster-1:User:alice:SUBJECT:test:LITERAL:*:READ:ALLOW"),
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:alice"),
@@ -504,7 +504,7 @@ func TestSchemaRegistryACL_Update(t *testing.T) {
 		},
 		{
 			name: "update password only",
-			initialState: models.SchemaRegistryACL{
+			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:           types.StringValue("cluster-1:User:bob:SUBJECT:test:LITERAL:*:WRITE:ALLOW"),
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:bob"),
@@ -517,7 +517,7 @@ func TestSchemaRegistryACL_Update(t *testing.T) {
 				Username:     types.StringValue("user"),
 				Password:     types.StringValue("oldpass"),
 			},
-			plan: models.SchemaRegistryACL{
+			plan: schemaregistryaclmodel.ResourceModel{
 				ID:           types.StringValue("cluster-1:User:bob:SUBJECT:test:LITERAL:*:WRITE:ALLOW"),
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:bob"),
@@ -533,7 +533,7 @@ func TestSchemaRegistryACL_Update(t *testing.T) {
 		},
 		{
 			name: "update allow_deletion only",
-			initialState: models.SchemaRegistryACL{
+			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:            types.StringValue("cluster-1:User:carol:SUBJECT:test:LITERAL:*:DELETE:ALLOW"),
 				ClusterID:     types.StringValue("cluster-1"),
 				Principal:     types.StringValue("User:carol"),
@@ -545,7 +545,7 @@ func TestSchemaRegistryACL_Update(t *testing.T) {
 				Permission:    types.StringValue("ALLOW"),
 				AllowDeletion: types.BoolValue(false),
 			},
-			plan: models.SchemaRegistryACL{
+			plan: schemaregistryaclmodel.ResourceModel{
 				ID:            types.StringValue("cluster-1:User:carol:SUBJECT:test:LITERAL:*:DELETE:ALLOW"),
 				ClusterID:     types.StringValue("cluster-1"),
 				Principal:     types.StringValue("User:carol"),
@@ -560,7 +560,7 @@ func TestSchemaRegistryACL_Update(t *testing.T) {
 		},
 		{
 			name: "update username and password together",
-			initialState: models.SchemaRegistryACL{
+			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:           types.StringValue("cluster-1:User:dave:REGISTRY:*:LITERAL:*:ALL:ALLOW"),
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:dave"),
@@ -573,7 +573,7 @@ func TestSchemaRegistryACL_Update(t *testing.T) {
 				Username:     types.StringValue("olduser"),
 				Password:     types.StringValue("oldpass"),
 			},
-			plan: models.SchemaRegistryACL{
+			plan: schemaregistryaclmodel.ResourceModel{
 				ID:           types.StringValue("cluster-1:User:dave:REGISTRY:*:LITERAL:*:ALL:ALLOW"),
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:dave"),
@@ -589,7 +589,7 @@ func TestSchemaRegistryACL_Update(t *testing.T) {
 		},
 		{
 			name: "update all updatable fields",
-			initialState: models.SchemaRegistryACL{
+			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:            types.StringValue("cluster-1:User:eve:SUBJECT:test:LITERAL:*:READ:ALLOW"),
 				ClusterID:     types.StringValue("cluster-1"),
 				Principal:     types.StringValue("User:eve"),
@@ -603,7 +603,7 @@ func TestSchemaRegistryACL_Update(t *testing.T) {
 				Password:      types.StringValue("pass1"),
 				AllowDeletion: types.BoolValue(false),
 			},
-			plan: models.SchemaRegistryACL{
+			plan: schemaregistryaclmodel.ResourceModel{
 				ID:            types.StringValue("cluster-1:User:eve:SUBJECT:test:LITERAL:*:READ:ALLOW"),
 				ClusterID:     types.StringValue("cluster-1"),
 				Principal:     types.StringValue("User:eve"),
@@ -620,7 +620,7 @@ func TestSchemaRegistryACL_Update(t *testing.T) {
 		},
 		{
 			name: "set username from null to value",
-			initialState: models.SchemaRegistryACL{
+			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:           types.StringValue("cluster-1:User:frank:SUBJECT:test:LITERAL:*:WRITE:ALLOW"),
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:frank"),
@@ -633,7 +633,7 @@ func TestSchemaRegistryACL_Update(t *testing.T) {
 				Username:     types.StringNull(),
 				Password:     types.StringValue("pass"),
 			},
-			plan: models.SchemaRegistryACL{
+			plan: schemaregistryaclmodel.ResourceModel{
 				ID:           types.StringValue("cluster-1:User:frank:SUBJECT:test:LITERAL:*:WRITE:ALLOW"),
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:frank"),
@@ -649,7 +649,7 @@ func TestSchemaRegistryACL_Update(t *testing.T) {
 		},
 		{
 			name: "set password from value to null",
-			initialState: models.SchemaRegistryACL{
+			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:           types.StringValue("cluster-1:User:grace:SUBJECT:test:LITERAL:*:READ:ALLOW"),
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:grace"),
@@ -662,7 +662,7 @@ func TestSchemaRegistryACL_Update(t *testing.T) {
 				Username:     types.StringValue("user"),
 				Password:     types.StringValue("oldpass"),
 			},
-			plan: models.SchemaRegistryACL{
+			plan: schemaregistryaclmodel.ResourceModel{
 				ID:           types.StringValue("cluster-1:User:grace:SUBJECT:test:LITERAL:*:READ:ALLOW"),
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:grace"),
@@ -678,7 +678,7 @@ func TestSchemaRegistryACL_Update(t *testing.T) {
 		},
 		{
 			name: "no changes - update with same values",
-			initialState: models.SchemaRegistryACL{
+			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:            types.StringValue("cluster-1:User:henry:SUBJECT:test:LITERAL:*:ALL:ALLOW"),
 				ClusterID:     types.StringValue("cluster-1"),
 				Principal:     types.StringValue("User:henry"),
@@ -692,7 +692,7 @@ func TestSchemaRegistryACL_Update(t *testing.T) {
 				Password:      types.StringValue("pass"),
 				AllowDeletion: types.BoolValue(true),
 			},
-			plan: models.SchemaRegistryACL{
+			plan: schemaregistryaclmodel.ResourceModel{
 				ID:            types.StringValue("cluster-1:User:henry:SUBJECT:test:LITERAL:*:ALL:ALLOW"),
 				ClusterID:     types.StringValue("cluster-1"),
 				Principal:     types.StringValue("User:henry"),
@@ -739,7 +739,7 @@ func TestSchemaRegistryACL_Update(t *testing.T) {
 			}
 			require.False(t, resp.Diagnostics.HasError(), "Update should not error: %v", resp.Diagnostics)
 
-			var state models.SchemaRegistryACL
+			var state schemaregistryaclmodel.ResourceModel
 			diags = resp.State.Get(ctx, &state)
 			require.False(t, diags.HasError(), "State.Get should not error")
 
@@ -763,13 +763,13 @@ func TestSchemaRegistryACL_Update(t *testing.T) {
 func TestSchemaRegistryACL_Delete(t *testing.T) {
 	tests := []struct {
 		name         string
-		initialState models.SchemaRegistryACL
+		initialState schemaregistryaclmodel.ResourceModel
 		mockError    error
 		wantErr      bool
 	}{
 		{
 			name: "successful deletion",
-			initialState: models.SchemaRegistryACL{
+			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:           types.StringValue("cluster-1:User:alice:SUBJECT:test:LITERAL:*:READ:ALLOW"),
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:alice"),
@@ -783,7 +783,7 @@ func TestSchemaRegistryACL_Delete(t *testing.T) {
 		},
 		{
 			name: "deletion with allow_deletion=true",
-			initialState: models.SchemaRegistryACL{
+			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:            types.StringValue("cluster-1:User:bob:SUBJECT:test:LITERAL:*:WRITE:ALLOW"),
 				ClusterID:     types.StringValue("cluster-1"),
 				Principal:     types.StringValue("User:bob"),
@@ -798,7 +798,7 @@ func TestSchemaRegistryACL_Delete(t *testing.T) {
 		},
 		{
 			name: "deletion with allow_deletion=false",
-			initialState: models.SchemaRegistryACL{
+			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:            types.StringValue("cluster-1:User:carol:SUBJECT:test:LITERAL:*:DELETE:ALLOW"),
 				ClusterID:     types.StringValue("cluster-1"),
 				Principal:     types.StringValue("User:carol"),
@@ -813,7 +813,7 @@ func TestSchemaRegistryACL_Delete(t *testing.T) {
 		},
 		{
 			name: "deletion with allow_deletion unset (null)",
-			initialState: models.SchemaRegistryACL{
+			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:           types.StringValue("cluster-1:User:dave:REGISTRY:*:LITERAL:*:ALL:ALLOW"),
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:dave"),
@@ -827,7 +827,7 @@ func TestSchemaRegistryACL_Delete(t *testing.T) {
 		},
 		{
 			name: "deletion with username and password",
-			initialState: models.SchemaRegistryACL{
+			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:           types.StringValue("cluster-1:User:eve:SUBJECT:test:LITERAL:*:READ:ALLOW"),
 				ClusterID:    types.StringValue("cluster-1"),
 				Principal:    types.StringValue("User:eve"),
@@ -888,7 +888,7 @@ func TestSchemaRegistryACL_Delete(t *testing.T) {
 			}
 			require.False(t, resp.Diagnostics.HasError(), "Delete should not error: %v", resp.Diagnostics)
 
-			var state *models.SchemaRegistryACL
+			var state *schemaregistryaclmodel.ResourceModel
 			diags = resp.State.Get(ctx, &state)
 			require.False(t, diags.HasError(), "State.Get should not error")
 			assert.Nil(t, state, "State should be removed after delete")

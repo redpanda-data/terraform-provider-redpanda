@@ -23,8 +23,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 )
 
-// resourceUserSchema returns the schema for the User resource.
-func resourceUserSchema() schema.Schema {
+// ResourceUserSchema returns the schema for the User resource.
+func ResourceUserSchema() schema.Schema {
 	return schema.Schema{
 		Description: "User is a user that can be created in Redpanda",
 		Attributes: map[string]schema.Attribute{

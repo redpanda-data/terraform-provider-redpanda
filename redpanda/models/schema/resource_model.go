@@ -26,21 +26,6 @@ import (
 	"github.com/twmb/franz-go/pkg/sr"
 )
 
-// ResourceModel represents the Terraform schema for the schema resource.
-type ResourceModel struct {
-	Subject       types.String `tfsdk:"subject"`
-	Schema        types.String `tfsdk:"schema"`
-	SchemaType    types.String `tfsdk:"schema_type"`
-	Version       types.Int64  `tfsdk:"version"`
-	ID            types.Int64  `tfsdk:"id"`
-	ClusterID     types.String `tfsdk:"cluster_id"`
-	References    types.List   `tfsdk:"references"`
-	Compatibility types.String `tfsdk:"compatibility"`
-	Username      types.String `tfsdk:"username"`
-	Password      types.String `tfsdk:"password"`
-	AllowDeletion types.Bool   `tfsdk:"allow_deletion"`
-}
-
 // GetID returns the schema ID.
 func (r *ResourceModel) GetID() string {
 	return r.ID.String()

@@ -27,7 +27,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	regionmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/region"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
@@ -77,7 +77,7 @@ func (*DataSourceRegion) Schema(_ context.Context, _ datasource.SchemaRequest, r
 
 // Read reads the Region data source's values and updates the state.
 func (r *DataSourceRegion) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var model models.Region
+	var model regionmodel.DataModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -102,10 +102,16 @@ func (r *DataSourceRegion) Read(ctx context.Context, req datasource.ReadRequest,
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, models.Region{
+	zones, diags := types.ListValueFrom(ctx, types.StringType, region.Region.Zones)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, regionmodel.DataModel{
 		CloudProvider: types.StringValue(utils.CloudProviderToString(region.Region.CloudProvider)),
 		Name:          types.StringValue(region.Region.Name),
-		Zones:         region.Region.Zones,
+		Zones:         zones,
 	})...)
 }
 

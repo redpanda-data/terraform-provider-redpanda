@@ -19,7 +19,7 @@ func TestResourceGroupSchema(t *testing.T) {
 }
 
 func TestValidateSchema(t *testing.T) {
-	if d := resourceGroupSchema().ValidateImplementation(context.Background()); d.HasError() {
+	if d := ResourceGroupSchema().ValidateImplementation(context.Background()); d.HasError() {
 		t.Errorf("Unexpected error in schema: %s", d)
 	}
 }
