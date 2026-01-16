@@ -1,0 +1,23 @@
+version: '3'
+
+vars:
+  MODELS_DIR: "redpanda/models"
+
+tasks:
+  # Generate models
+  models:
+    desc: "Generate model structs from schemas"
+    cmds:
+      - go generate ./{{.MODELS_DIR}}/...
+
+  # Main entry point
+  default:
+    desc: "Generate all models"
+    cmds:
+      - task: models
+
+  # Clean generated model files
+  clean:
+    desc: "Remove generated model files"
+    cmds:
+      - find {{.MODELS_DIR}} -name '*_gen.go' -delete
