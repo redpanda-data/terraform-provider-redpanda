@@ -23,6 +23,7 @@ includes:
   build: .tasks/build.yml
   cleanup: .tasks/cleanup.yml
   docs: .tasks/docs.yml
+  generate: .tasks/generate.yml
   lint: .tasks/lint.yml
   local: .tasks/local.yml
   mock: .tasks/mock.yml
