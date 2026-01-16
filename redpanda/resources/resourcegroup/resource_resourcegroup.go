@@ -78,6 +78,8 @@ func (*ResourceGroup) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 }
 
 // ResourceGroupSchema defines the schema for a resource group.
+//
+//nolint:revive // ResourceGroupSchema follows the naming convention used by other resources
 func ResourceGroupSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{

@@ -28,6 +28,8 @@ type ContingentFields struct {
 }
 
 // UserResponse is an interface that CreateUserResponse_User, ListUsersResponse_User, and UpdateUserResponse_User all satisfy
+//
+//nolint:revive // UserResponse is intentionally named to match the API response types it abstracts
 type UserResponse interface {
 	GetName() string
 	GetMechanism() dataplanev1.SASLMechanism
