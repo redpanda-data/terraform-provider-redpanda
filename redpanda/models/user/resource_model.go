@@ -13,23 +13,13 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-package models
+package user
 
 import (
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
-
-// User defines the structure for configuration settings parsed from HCL.
-type User struct {
-	Name          types.String `tfsdk:"name"`
-	Password      types.String `tfsdk:"password"`
-	Mechanism     types.String `tfsdk:"mechanism"`
-	ID            types.String `tfsdk:"id"`
-	ClusterAPIURL types.String `tfsdk:"cluster_api_url"`
-	AllowDeletion types.Bool   `tfsdk:"allow_deletion"`
-}
 
 // ContingentFields contains fields that are not returned by the User API
 // but need to be preserved in Terraform state.
@@ -46,7 +36,7 @@ type UserResponse interface {
 
 // GetUpdatedModel populates the User model from a dataplane User response
 // and contingent fields that are managed by Terraform only.
-func (u *User) GetUpdatedModel(user UserResponse, contingent ContingentFields) *User {
+func (u *ResourceModel) GetUpdatedModel(user UserResponse, contingent ContingentFields) *ResourceModel {
 	u.Name = types.StringValue(user.GetName())
 	u.ID = types.StringValue(user.GetName())
 

@@ -8,7 +8,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func datasourceClusterSchema(ctx context.Context) schema.Schema {
+// DatasourceClusterSchema returns the schema for the cluster datasource.
+func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

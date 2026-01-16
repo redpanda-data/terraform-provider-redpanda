@@ -21,7 +21,8 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
-func resourceClusterSchema(ctx context.Context) schema.Schema {
+// ResourceClusterSchema returns the schema for the cluster resource.
+func ResourceClusterSchema(ctx context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{

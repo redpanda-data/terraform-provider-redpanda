@@ -28,7 +28,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	aclmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/acl"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"google.golang.org/grpc"
 )
@@ -71,10 +71,11 @@ func (a *ACL) Configure(_ context.Context, request resource.ConfigureRequest, re
 
 // Schema returns the schema for the resource.
 func (*ACL) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
-	response.Schema = resourceACLSchema()
+	response.Schema = ResourceACLSchema()
 }
 
-func resourceACLSchema() schema.Schema {
+// ResourceACLSchema returns the schema for the ACL resource.
+func ResourceACLSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"resource_type": schema.StringAttribute{
@@ -137,7 +138,7 @@ func resourceACLSchema() schema.Schema {
 
 // Create creates a new ACL resource.
 func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
-	var model models.ACL
+	var model aclmodel.ResourceModel
 	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
 
 	resourceType, err := stringToACLResourceType(model.ResourceType.ValueString())
@@ -183,7 +184,7 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		return
 	}
 
-	acl := &models.ACL{
+	acl := &aclmodel.ResourceModel{
 		ResourceType:        model.ResourceType,
 		ResourceName:        model.ResourceName,
 		ResourcePatternType: model.ResourcePatternType,
@@ -200,7 +201,7 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 
 // Read checks for the existence of an ACL resource
 func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
-	var model models.ACL
+	var model aclmodel.ResourceModel
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 
 	if model.ClusterAPIURL.IsNull() || model.ClusterAPIURL.IsUnknown() || model.ClusterAPIURL.ValueString() == "" {
@@ -268,7 +269,7 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 
 	for _, res := range aclList.Resources {
 		if res.ResourceName == model.ResourceName.ValueString() && res.ResourceType == resourceType && res.ResourcePatternType == resourcePatternType {
-			acl := &models.ACL{
+			acl := &aclmodel.ResourceModel{
 				ResourceType:        types.StringValue(aclResourceTypeToString(res.ResourceType)),
 				ResourceName:        types.StringValue(res.ResourceName),
 				ResourcePatternType: types.StringValue(aclResourcePatternTypeToString(res.ResourcePatternType)),
@@ -294,8 +295,8 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 
 // Update updates an ACL resource
 func (*ACL) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
-	var plan models.ACL
-	var state models.ACL
+	var plan aclmodel.ResourceModel
+	var state aclmodel.ResourceModel
 
 	response.Diagnostics.Append(request.Plan.Get(ctx, &plan)...)
 	response.Diagnostics.Append(request.State.Get(ctx, &state)...)
@@ -311,7 +312,7 @@ func (*ACL) Update(ctx context.Context, request resource.UpdateRequest, response
 
 // Delete deletes an ACL resource
 func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
-	var model models.ACL
+	var model aclmodel.ResourceModel
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 	if response.Diagnostics.HasError() {
 		return

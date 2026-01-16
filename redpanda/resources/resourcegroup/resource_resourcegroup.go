@@ -74,11 +74,11 @@ func (n *ResourceGroup) Configure(_ context.Context, request resource.ConfigureR
 
 // Schema returns the schema for the ResourceGroup resource.
 func (*ResourceGroup) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = resourceGroupSchema()
+	resp.Schema = ResourceGroupSchema()
 }
 
-// resourceGroupSchema defines the schema for a resource group.
-func resourceGroupSchema() schema.Schema {
+// ResourceGroupSchema defines the schema for a resource group.
+func ResourceGroupSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{

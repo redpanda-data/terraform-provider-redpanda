@@ -31,7 +31,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	serverlessclustermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/serverlesscluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
@@ -72,10 +72,11 @@ func (c *ServerlessCluster) Configure(_ context.Context, req resource.ConfigureR
 
 // Schema returns the schema for the ServerlessCluster resource.
 func (*ServerlessCluster) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = resourceServerlessClusterSchema()
+	resp.Schema = ResourceServerlessClusterSchema()
 }
 
-func resourceServerlessClusterSchema() schema.Schema {
+// ResourceServerlessClusterSchema returns the schema for the ServerlessCluster resource.
+func ResourceServerlessClusterSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
@@ -111,7 +112,7 @@ func resourceServerlessClusterSchema() schema.Schema {
 // Create creates a new ServerlessCluster resource. It updates the state if the resource
 // is successfully created.
 func (c *ServerlessCluster) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var model models.ServerlessCluster
+	var model serverlessclustermodel.ResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 
 	clusterReq, err := GenerateServerlessClusterRequest(model)
@@ -147,7 +148,7 @@ func (c *ServerlessCluster) Create(ctx context.Context, req resource.CreateReque
 
 // Read reads ServerlessCluster resource's values and updates the state.
 func (c *ServerlessCluster) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var model models.ServerlessCluster
+	var model serverlessclustermodel.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
 	cluster, err := c.CpCl.ServerlessClusterForID(ctx, model.ID.ValueString())
@@ -168,7 +169,7 @@ func (c *ServerlessCluster) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, models.ServerlessCluster{
+	resp.Diagnostics.Append(resp.State.Set(ctx, serverlessclustermodel.ResourceModel{
 		Name:             types.StringValue(cluster.Name),
 		ServerlessRegion: types.StringValue(cluster.ServerlessRegion),
 		ResourceGroupID:  types.StringValue(cluster.ResourceGroupId),
@@ -179,7 +180,7 @@ func (c *ServerlessCluster) Read(ctx context.Context, req resource.ReadRequest, 
 
 // Update all serverless cluster updates are currently delete and recreate.
 func (*ServerlessCluster) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan models.ServerlessCluster
+	var plan serverlessclustermodel.ResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	// We pass through the plan to state. Currently, every serverless cluster change needs
 	// a resource replacement.
@@ -188,7 +189,7 @@ func (*ServerlessCluster) Update(ctx context.Context, req resource.UpdateRequest
 
 // Delete deletes the ServerlessCluster resource.
 func (c *ServerlessCluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var model models.ServerlessCluster
+	var model serverlessclustermodel.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
 	clResp, err := c.CpCl.ServerlessCluster.DeleteServerlessCluster(ctx, &controlplanev1.DeleteServerlessClusterRequest{
@@ -211,7 +212,7 @@ func (*ServerlessCluster) ImportState(ctx context.Context, req resource.ImportSt
 }
 
 // GenerateServerlessClusterRequest was pulled out to enable unit testing
-func GenerateServerlessClusterRequest(model models.ServerlessCluster) (*controlplanev1.ServerlessClusterCreate, error) {
+func GenerateServerlessClusterRequest(model serverlessclustermodel.ResourceModel) (*controlplanev1.ServerlessClusterCreate, error) {
 	return &controlplanev1.ServerlessClusterCreate{
 		Name:             model.Name.ValueString(),
 		ServerlessRegion: model.ServerlessRegion.ValueString(),

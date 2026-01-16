@@ -12,7 +12,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func resourceTopicSchema() schema.Schema {
+// ResourceTopicSchema returns the schema for the Topic resource.
+func ResourceTopicSchema() schema.Schema {
 	return schema.Schema{
 		Description: "Topic represents a Kafka topic configuration",
 		Attributes: map[string]schema.Attribute{

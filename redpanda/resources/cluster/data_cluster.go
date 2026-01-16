@@ -113,5 +113,5 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 
 // Schema returns the schema for the Cluster data source.
 func (*DataSourceCluster) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	resp.Schema = datasourceClusterSchema(ctx) // Reuse the schema from the resource
+	resp.Schema = DatasourceClusterSchema(ctx) // Reuse the schema from the resource
 }

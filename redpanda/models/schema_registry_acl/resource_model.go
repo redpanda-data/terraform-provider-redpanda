@@ -13,33 +13,16 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-package models
+package schema_registry_acl
 
 import (
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/kclients"
 )
 
-// SchemaRegistryACL represents the Terraform resource model for a Schema Registry ACL
-type SchemaRegistryACL struct {
-	ID            types.String `tfsdk:"id"`
-	ClusterID     types.String `tfsdk:"cluster_id"`
-	Principal     types.String `tfsdk:"principal"`
-	ResourceType  types.String `tfsdk:"resource_type"`
-	ResourceName  types.String `tfsdk:"resource_name"`
-	PatternType   types.String `tfsdk:"pattern_type"`
-	Host          types.String `tfsdk:"host"`
-	Operation     types.String `tfsdk:"operation"`
-	Permission    types.String `tfsdk:"permission"`
-	Username      types.String `tfsdk:"username"`
-	Password      types.String `tfsdk:"password"`
-	AllowDeletion types.Bool   `tfsdk:"allow_deletion"`
-}
-
 // ToSchemaRegistryACLRequest converts the model to a SchemaRegistryACLRequest for API calls
-func (s *SchemaRegistryACL) ToSchemaRegistryACLRequest() kclients.SchemaRegistryACLRequest {
+func (s *ResourceModel) ToSchemaRegistryACLRequest() kclients.SchemaRegistryACLRequest {
 	return kclients.SchemaRegistryACLRequest{
 		Principal:    s.Principal.ValueString(),
 		Resource:     s.ResourceName.ValueString(),
@@ -52,7 +35,7 @@ func (s *SchemaRegistryACL) ToSchemaRegistryACLRequest() kclients.SchemaRegistry
 }
 
 // ToSchemaRegistryACLFilter converts the model to a SchemaRegistryACLFilter for API calls
-func (s *SchemaRegistryACL) ToSchemaRegistryACLFilter() kclients.SchemaRegistryACLFilter {
+func (s *ResourceModel) ToSchemaRegistryACLFilter() kclients.SchemaRegistryACLFilter {
 	return kclients.SchemaRegistryACLFilter{
 		Principal:    s.Principal.ValueString(),
 		Resource:     s.ResourceName.ValueString(),
@@ -65,7 +48,7 @@ func (s *SchemaRegistryACL) ToSchemaRegistryACLFilter() kclients.SchemaRegistryA
 }
 
 // GenerateID generates the unique ID for the Schema Registry ACL
-func (s *SchemaRegistryACL) GenerateID() string {
+func (s *ResourceModel) GenerateID() string {
 	return fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s:%s",
 		s.ClusterID.ValueString(),
 		s.Principal.ValueString(),
@@ -78,7 +61,7 @@ func (s *SchemaRegistryACL) GenerateID() string {
 }
 
 // MatchesACLResponse checks if the model matches the given ACL response
-func (s *SchemaRegistryACL) MatchesACLResponse(acl *kclients.SchemaRegistryACLResponse) bool {
+func (s *ResourceModel) MatchesACLResponse(acl *kclients.SchemaRegistryACLResponse) bool {
 	return acl.Principal == s.Principal.ValueString() &&
 		acl.Resource == s.ResourceName.ValueString() &&
 		acl.ResourceType == s.ResourceType.ValueString() &&

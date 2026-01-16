@@ -13,7 +13,6 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-// Package network contains the model for the network datasource.
 package network
 
 import (
@@ -26,18 +25,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
-
-// DataModel represents the Terraform schema for the network datasource.
-type DataModel struct {
-	Name                     types.String `tfsdk:"name"`
-	ResourceGroupID          types.String `tfsdk:"resource_group_id"`
-	CloudProvider            types.String `tfsdk:"cloud_provider"`
-	Region                   types.String `tfsdk:"region"`
-	CidrBlock                types.String `tfsdk:"cidr_block"`
-	ID                       types.String `tfsdk:"id"`
-	ClusterType              types.String `tfsdk:"cluster_type"`
-	CustomerManagedResources types.Object `tfsdk:"customer_managed_resources"`
-}
 
 // GetID returns the ID of the Network DataModel
 func (r *DataModel) GetID() string {

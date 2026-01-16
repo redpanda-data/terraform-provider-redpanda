@@ -121,7 +121,7 @@ func (*Schema) Metadata(_ context.Context, _ resource.MetadataRequest, response 
 
 // Schema returns the resource schema definition.
 func (*Schema) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
-	response.Schema = resourceSchemaSchema()
+	response.Schema = ResourceSchemaSchema()
 }
 
 // Create creates a new schema in the Schema Registry.

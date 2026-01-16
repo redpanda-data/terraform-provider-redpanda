@@ -9,7 +9,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func datasourceNetworkSchema() schema.Schema {
+// DatasourceNetworkSchema returns the schema for the network data source.
+func DatasourceNetworkSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

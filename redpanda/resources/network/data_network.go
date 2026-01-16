@@ -40,7 +40,7 @@ func (*DataSourceNetwork) Metadata(_ context.Context, _ datasource.MetadataReque
 
 // Schema returns the schema for the Network data source.
 func (*DataSourceNetwork) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	resp.Schema = datasourceNetworkSchema()
+	resp.Schema = DatasourceNetworkSchema()
 }
 
 // Read reads the Network data source's values and updates the state.

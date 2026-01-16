@@ -15,7 +15,8 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
-func resourceNetworkSchema(ctx context.Context) schema.Schema {
+// ResourceNetworkSchema returns the schema for the network resource.
+func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{

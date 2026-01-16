@@ -26,48 +26,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"google.golang.org/genproto/googleapis/type/dayofweek"
 	"google.golang.org/protobuf/types/known/structpb"
 )
-
-// ResourceModel represents the Terraform schema for the cluster resource.
-type ResourceModel struct {
-	Name                     types.String        `tfsdk:"name"`
-	ID                       types.String        `tfsdk:"id"`
-	ConnectionType           types.String        `tfsdk:"connection_type"`
-	CloudProvider            types.String        `tfsdk:"cloud_provider"`
-	ClusterType              types.String        `tfsdk:"cluster_type"`
-	RedpandaVersion          types.String        `tfsdk:"redpanda_version"`
-	ThroughputTier           types.String        `tfsdk:"throughput_tier"`
-	RedpandaNodeCount        types.Int32         `tfsdk:"redpanda_node_count"`
-	Region                   types.String        `tfsdk:"region"`
-	Zones                    types.List          `tfsdk:"zones"`
-	AllowDeletion            types.Bool          `tfsdk:"allow_deletion"`
-	CreatedAt                types.String        `tfsdk:"created_at"`
-	State                    types.String        `tfsdk:"state"`
-	StateDescription         types.Object        `tfsdk:"state_description"`
-	Tags                     types.Map           `tfsdk:"tags"`
-	ResourceGroupID          types.String        `tfsdk:"resource_group_id"`
-	NetworkID                types.String        `tfsdk:"network_id"`
-	ClusterAPIURL            types.String        `tfsdk:"cluster_api_url"`
-	AwsPrivateLink           types.Object        `tfsdk:"aws_private_link"`
-	GcpPrivateServiceConnect types.Object        `tfsdk:"gcp_private_service_connect"`
-	AzurePrivateLink         types.Object        `tfsdk:"azure_private_link"`
-	KafkaAPI                 types.Object        `tfsdk:"kafka_api"`
-	HTTPProxy                types.Object        `tfsdk:"http_proxy"`
-	SchemaRegistry           types.Object        `tfsdk:"schema_registry"`
-	KafkaConnect             types.Object        `tfsdk:"kafka_connect"`
-	ReadReplicaClusterIDs    types.List          `tfsdk:"read_replica_cluster_ids"`
-	CustomerManagedResources types.Object        `tfsdk:"customer_managed_resources"`
-	Prometheus               types.Object        `tfsdk:"prometheus"`
-	RedpandaConsole          types.Object        `tfsdk:"redpanda_console"`
-	MaintenanceWindowConfig  types.Object        `tfsdk:"maintenance_window_config"`
-	GCPGlobalAccessEnabled   basetypes.BoolValue `tfsdk:"gcp_global_access_enabled"`
-	ClusterConfiguration     types.Object        `tfsdk:"cluster_configuration"`
-	Timeouts                 timeouts.Value      `tfsdk:"timeouts"`
-}
 
 // GetID returns the cluster ID.
 func (r *ResourceModel) GetID() string {
@@ -96,15 +58,15 @@ func GenerateMinimalResourceModel(clusterID string, timeout timeouts.Value) *Res
 		CreatedAt:                types.StringNull(),
 		GCPGlobalAccessEnabled:   types.BoolNull(),
 		AllowDeletion:            types.BoolValue(true),
-		ReadReplicaClusterIDs:    types.ListNull(types.StringType),
+		ReadReplicaClusterIds:    types.ListNull(types.StringType),
 		Zones:                    types.ListNull(types.StringType),
 		Prometheus:               types.ObjectNull(getPrometheusType()),
 		CustomerManagedResources: types.ObjectNull(getCustomerManagedResourcesType()),
 		KafkaAPI:                 types.ObjectNull(getKafkaAPIType()),
 		HTTPProxy:                types.ObjectNull(getHTTPProxyType()),
 		SchemaRegistry:           types.ObjectNull(getSchemaRegistryType()),
-		AwsPrivateLink:           types.ObjectNull(getAwsPrivateLinkType()),
-		GcpPrivateServiceConnect: types.ObjectNull(getGcpPrivateServiceConnectType()),
+		AWSPrivateLink:           types.ObjectNull(getAwsPrivateLinkType()),
+		GCPPrivateServiceConnect: types.ObjectNull(getGcpPrivateServiceConnectType()),
 		AzurePrivateLink:         types.ObjectNull(getAzurePrivateLinkType()),
 		RedpandaConsole:          types.ObjectNull(getRedpandaConsoleType()),
 		StateDescription:         types.ObjectNull(getStateDescriptionType()),
@@ -132,7 +94,7 @@ func (r *ResourceModel) GetUpdatedModel(ctx context.Context, cluster *controlpla
 	r.State = types.StringValue(cluster.GetState().String())
 
 	r.Zones = utils.StringSliceToTypeList(cluster.GetZones())
-	r.ReadReplicaClusterIDs = utils.StringSliceToTypeList(cluster.GetReadReplicaClusterIds())
+	r.ReadReplicaClusterIds = utils.StringSliceToTypeList(cluster.GetReadReplicaClusterIds())
 
 	// Set contingent fields from either model or API
 	r.RedpandaVersion = contingent.RedpandaVersion
@@ -169,13 +131,13 @@ func (r *ResourceModel) GetUpdatedModel(ctx context.Context, cluster *controlpla
 	if awsPrivateLink, d := r.generateModelAwsPrivateLink(cluster); d.HasError() {
 		diags.Append(d...)
 	} else {
-		r.AwsPrivateLink = awsPrivateLink
+		r.AWSPrivateLink = awsPrivateLink
 	}
 
 	if gcpPsc, d := r.generateModelGcpPrivateServiceConnect(cluster); d.HasError() {
 		diags.Append(d...)
 	} else {
-		r.GcpPrivateServiceConnect = gcpPsc
+		r.GCPPrivateServiceConnect = gcpPsc
 	}
 
 	if azurePrivateLink, d := r.generateModelAzurePrivateLink(cluster); d.HasError() {
@@ -324,7 +286,7 @@ func (r *ResourceModel) GetClusterCreate(ctx context.Context) (*controlplanev1.C
 		output.CustomerManagedResources = cmr
 	}
 
-	if !r.AwsPrivateLink.IsNull() {
+	if !r.AWSPrivateLink.IsNull() {
 		awsSpec, d := r.generateClusterAwsPrivateLinkSpec(ctx)
 		if d.HasError() {
 			diags.Append(d...)
@@ -332,7 +294,7 @@ func (r *ResourceModel) GetClusterCreate(ctx context.Context) (*controlplanev1.C
 		output.AwsPrivateLink = awsSpec
 	}
 
-	if !r.GcpPrivateServiceConnect.IsNull() {
+	if !r.GCPPrivateServiceConnect.IsNull() {
 		gcpSpec, d := r.generateClusterGcpPrivateServiceConnectSpec(ctx)
 		if d.HasError() {
 			diags.Append(d...)
@@ -380,8 +342,8 @@ func (r *ResourceModel) getClusterUpdate(ctx context.Context) (*controlplanev1.C
 		Name: r.Name.ValueString(),
 	}
 
-	if !r.ReadReplicaClusterIDs.IsNull() {
-		update.ReadReplicaClusterIds = utils.TypeListToStringSlice(r.ReadReplicaClusterIDs)
+	if !r.ReadReplicaClusterIds.IsNull() {
+		update.ReadReplicaClusterIds = utils.TypeListToStringSlice(r.ReadReplicaClusterIds)
 	}
 
 	if !r.Tags.IsNull() {
@@ -428,7 +390,7 @@ func (r *ResourceModel) getClusterUpdate(ctx context.Context) (*controlplanev1.C
 		update.KafkaConnect = connectSpec //nolint:staticcheck // Field is deprecated but still supported
 	}
 
-	if !r.AwsPrivateLink.IsNull() {
+	if !r.AWSPrivateLink.IsNull() {
 		awsSpec, d := r.generateClusterAwsPrivateLinkSpec(ctx)
 		if d.HasError() {
 			diags.Append(d...)
@@ -436,7 +398,7 @@ func (r *ResourceModel) getClusterUpdate(ctx context.Context) (*controlplanev1.C
 		update.AwsPrivateLink = awsSpec
 	}
 
-	if !r.GcpPrivateServiceConnect.IsNull() {
+	if !r.GCPPrivateServiceConnect.IsNull() {
 		gcpSpec, d := r.generateClusterGcpPrivateServiceConnectSpec(ctx)
 		if d.HasError() {
 			diags.Append(d...)
@@ -654,11 +616,11 @@ func (r *ResourceModel) generateClusterCMR(ctx context.Context) (*controlplanev1
 func (r *ResourceModel) generateClusterAwsPrivateLinkSpec(_ context.Context) (*controlplanev1.AWSPrivateLinkSpec, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
-	if r.AwsPrivateLink.IsNull() {
+	if r.AWSPrivateLink.IsNull() {
 		return nil, nil
 	}
 
-	attrs := r.AwsPrivateLink.Attributes()
+	attrs := r.AWSPrivateLink.Attributes()
 	spec := &controlplanev1.AWSPrivateLinkSpec{}
 
 	if enabledVal, ok := attrs["enabled"].(types.Bool); ok && !enabledVal.IsNull() {
@@ -680,11 +642,11 @@ func (r *ResourceModel) generateClusterAwsPrivateLinkSpec(_ context.Context) (*c
 func (r *ResourceModel) generateClusterGcpPrivateServiceConnectSpec(_ context.Context) (*controlplanev1.GCPPrivateServiceConnectSpec, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
-	if r.GcpPrivateServiceConnect.IsNull() {
+	if r.GCPPrivateServiceConnect.IsNull() {
 		return nil, nil
 	}
 
-	attrs := r.GcpPrivateServiceConnect.Attributes()
+	attrs := r.GCPPrivateServiceConnect.Attributes()
 
 	spec := &controlplanev1.GCPPrivateServiceConnectSpec{}
 

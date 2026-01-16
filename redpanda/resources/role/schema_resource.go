@@ -21,8 +21,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 )
 
-// resourceRoleSchema returns the schema for the Role resource.
-func resourceRoleSchema() schema.Schema {
+// ResourceRoleSchema returns the schema for the Role resource.
+func ResourceRoleSchema() schema.Schema {
 	return schema.Schema{
 		Description: "Role is a role that can be created in Redpanda for RBAC management",
 		Attributes: map[string]schema.Attribute{

@@ -29,7 +29,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	rolemodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/role"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"google.golang.org/grpc"
 )
@@ -89,12 +89,12 @@ func (r *Role) Configure(_ context.Context, req resource.ConfigureRequest, resp 
 
 // Schema returns the schema for the Role resource.
 func (*Role) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = resourceRoleSchema()
+	resp.Schema = ResourceRoleSchema()
 }
 
 // Create creates a Role resource.
 func (r *Role) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var model models.Role
+	var model rolemodel.ResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -130,7 +130,7 @@ func (r *Role) Create(ctx context.Context, req resource.CreateRequest, resp *res
 
 // Read reads the state of the Role resource.
 func (r *Role) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var model models.Role
+	var model rolemodel.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -214,7 +214,7 @@ func (*Role) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.Upd
 
 // Delete deletes the Role resource.
 func (r *Role) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var model models.Role
+	var model rolemodel.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 	if resp.Diagnostics.HasError() {
 		return
