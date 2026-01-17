@@ -16,6 +16,20 @@ steps:
           image: "golang:1.24"
           environment:
             - BUILDKITE=true
+  - label: generate
+    key: generate
+    command: |
+      git config --global --add safe.directory /workdir
+      ./taskw generate
+      if ! git diff --exit-code; then
+        echo "Generated code is out of date. Run './taskw generate' locally and commit the changes."
+        exit 1
+      fi
+    plugins:
+      - docker#v5.11.0:
+          image: "golang:1.24"
+          environment:
+            - BUILDKITE=true
   - label: lint
     key: lint
     command: |
@@ -34,6 +48,7 @@ steps:
           image: "golang:1.24"
     depends_on:
       - docs
+      - generate
       - lint
 
   - label: test_network

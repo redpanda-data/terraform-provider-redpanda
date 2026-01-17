@@ -54,6 +54,10 @@ const (
 	roleAssignmentResourceName         = "redpanda_role_assignment.developer_assignment"
 	pipelineResourceName               = "redpanda_pipeline.test"
 	allowDeletionFalseValue            = "false"
+
+	// skipPipelineTests disables pipeline acceptance tests.
+	// TODO: Re-enable when pipeline API is working.
+	skipPipelineTests = true
 )
 
 var (
@@ -561,7 +565,7 @@ func buildTestCheckFuncs(testDir, name string) ([]resource.TestCheckFunc, error)
 		)
 	}
 
-	if strings.Contains(testFileStr, `resource "redpanda_pipeline" "test"`) {
+	if !skipPipelineTests && strings.Contains(testFileStr, `resource "redpanda_pipeline" "test"`) {
 		checkFuncs = append(checkFuncs,
 			resource.TestCheckResourceAttrSet(pipelineResourceName, "id"),
 			resource.TestCheckResourceAttr(pipelineResourceName, "display_name", "test-pipeline"),
@@ -656,7 +660,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	hasSchema := strings.Contains(string(testFileContent), `resource "redpanda_schema" "user_schema"`)
 	hasRole := strings.Contains(string(testFileContent), `resource "redpanda_role" "developer"`)
 	hasTopic := strings.Contains(string(testFileContent), `resource "redpanda_topic" "test"`)
-	hasPipeline := strings.Contains(string(testFileContent), `resource "redpanda_pipeline" "test"`)
+	hasPipeline := !skipPipelineTests && strings.Contains(string(testFileContent), `resource "redpanda_pipeline" "test"`)
 
 	steps := []resource.TestStep{
 		{
