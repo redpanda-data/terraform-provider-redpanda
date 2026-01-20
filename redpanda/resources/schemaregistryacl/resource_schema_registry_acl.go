@@ -13,7 +13,7 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-package schema_registry_acl
+package schemaregistryacl
 
 import (
 	"context"
@@ -28,11 +28,13 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/kclients"
-	schemaregistryaclmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/schema_registry_acl"
+	schemaregistryaclmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/schemaregistryacl"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 // SchemaRegistryACLClientFactory is a function type for creating Schema Registry ACL clients
+//
+//nolint:revive // intentional naming for clarity
 type SchemaRegistryACLClientFactory func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, username, password string) (kclients.SchemaRegistryACLClientInterface, error)
 
 // SchemaRegistryACL represents the Schema Registry ACL Terraform resource.

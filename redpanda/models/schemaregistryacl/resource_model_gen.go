@@ -15,14 +15,14 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-// Package schema_registry_acl contains the model for the schema_registry_acl resource.
-package schema_registry_acl
+// Package schemaregistryacl contains the model for the schemaregistryacl resource.
+package schemaregistryacl
 
 import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// ResourceModel represents the Terraform schema for the schema_registry_acl resource.
+// ResourceModel represents the Terraform schema for the schemaregistryacl resource.
 type ResourceModel struct {
 	AllowDeletion types.Bool   `tfsdk:"allow_deletion"`
 	ClusterID     types.String `tfsdk:"cluster_id"`

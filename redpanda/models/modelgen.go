@@ -46,7 +46,7 @@ package models
 //go:generate go run ../../pkg/generate/modelgen -pkg=github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/acl -func=ResourceACLSchema -type=resource -output=acl/resource_model_gen.go
 
 // SchemaRegistryACL models
-//go:generate go run ../../pkg/generate/modelgen -pkg=github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/schema_registry_acl -func=ResourceSchemaRegistryACLSchema -type=resource -output=schema_registry_acl/resource_model_gen.go
+//go:generate go run ../../pkg/generate/modelgen -pkg=github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/schemaregistryacl -func=ResourceSchemaRegistryACLSchema -type=resource -output=schemaregistryacl/resource_model_gen.go
 
 // Schema models
 //go:generate go run ../../pkg/generate/modelgen -pkg=github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/schema -func=ResourceSchemaSchema -type=resource -output=schema/resource_model_gen.go
