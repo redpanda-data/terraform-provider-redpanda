@@ -111,6 +111,8 @@ resource "redpanda_topic" "test" {
   replication_factor = var.replication_factor
   cluster_api_url    = redpanda_cluster.test.cluster_api_url
   allow_deletion     = true
+
+  depends_on = [redpanda_user.test]
 }
 
 resource "redpanda_schema" "user_schema" {
@@ -498,6 +500,8 @@ resource "redpanda_topic" "test" {
   replication_factor = var.replication_factor
   cluster_api_url    = redpanda_cluster.test.cluster_api_url
   allow_deletion     = true
+
+  depends_on = [redpanda_user.test]
 }
 
 
