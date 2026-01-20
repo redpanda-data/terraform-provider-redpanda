@@ -1,4 +1,4 @@
-package schema_registry_acl
+package schemaregistryacl
 
 import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"

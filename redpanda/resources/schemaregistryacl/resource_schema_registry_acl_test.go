@@ -13,7 +13,7 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-package schema_registry_acl
+package schemaregistryacl
 
 import (
 	"context"
@@ -25,7 +25,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/kclients"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/mocks"
-	schemaregistryaclmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/schema_registry_acl"
+	schemaregistryaclmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/schemaregistryacl"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
