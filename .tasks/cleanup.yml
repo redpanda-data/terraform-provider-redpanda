@@ -23,7 +23,7 @@ tasks:
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
-        "{{.PATH_PREFIX}} go run ./scripts/cleanup_test_resources.go --status"
+        {{.PATH_PREFIX}} go run ./scripts/cleanup_test_resources.go --status
 
   redpanda:
     desc: "Delete test resources with 'tfrp-' prefix from Redpanda Cloud"
@@ -32,7 +32,7 @@ tasks:
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
-        "{{.PATH_PREFIX}} go run ./scripts/cleanup_test_resources.go"
+        {{.PATH_PREFIX}} go run ./scripts/cleanup_test_resources.go
 
   redpanda:dry:
     desc: "Dry run - show what test resources would be deleted (does not actually delete)"
@@ -41,7 +41,7 @@ tasks:
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
-        "{{.PATH_PREFIX}} go run ./scripts/cleanup_test_resources.go --dry-run"
+        {{.PATH_PREFIX}} go run ./scripts/cleanup_test_resources.go --dry-run
 
   aws:
     desc: "Delete AWS resources created by terraform-aws-redpanda-byovpc module"
