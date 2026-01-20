@@ -219,6 +219,7 @@ func main() {
 		fmt.Printf("\nTotal deleted: %d, failed: %d\n", totalDeleted, totalFailed)
 		if totalFailed > 0 {
 			fmt.Println("\n⚠ Some resources failed to delete. Review errors above.")
+			os.Exit(1)
 		}
 		if totalDeleted > 0 {
 			fmt.Println("\nNote: Deleted resources may take time to fully remove.")
