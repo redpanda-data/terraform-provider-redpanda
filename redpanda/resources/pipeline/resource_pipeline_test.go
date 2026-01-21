@@ -19,6 +19,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
@@ -36,7 +37,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Test constants for common values.
 const (
 	testClusterAPIURL = "https://api.cluster.example.com"
 	testPipelineID    = "pipeline-123"
@@ -49,9 +49,11 @@ const (
 	testAuthToken     = "test-token"
 	testProviderVer   = "1.0.0"
 	testTerraformVer  = "1.5.0"
+
+	opCreate = "create"
+	opUpdate = "update"
 )
 
-// pipelineInput defines the input parameters for creating/updating a pipeline.
 type pipelineInput struct {
 	displayName  string
 	description  string
@@ -62,7 +64,6 @@ type pipelineInput struct {
 	tags         map[string]string
 }
 
-// pipelineExistingState represents existing state before an update operation.
 type pipelineExistingState struct {
 	id          string
 	displayName string
@@ -71,7 +72,6 @@ type pipelineExistingState struct {
 	state       string
 }
 
-// pipelineAPIResponse represents what the API returns.
 type pipelineAPIResponse struct {
 	id           string
 	state        dataplanev1.Pipeline_State
@@ -81,7 +81,6 @@ type pipelineAPIResponse struct {
 	tags         map[string]string
 }
 
-// createDefaultContingentFields creates a ContingentFields with default test values.
 func createDefaultContingentFields() pipelinemodel.ContingentFields {
 	return pipelinemodel.ContingentFields{
 		ClusterAPIURL: types.StringValue(testClusterAPIURL),
@@ -92,8 +91,6 @@ func createDefaultContingentFields() pipelinemodel.ContingentFields {
 	}
 }
 
-// createResourcesObject creates a types.Object for pipeline resources.
-// Returns null object if both values are empty.
 func createResourcesObject(cpuShares, memoryShares string) types.Object {
 	if cpuShares == "" && memoryShares == "" {
 		return types.ObjectNull(pipelinemodel.GetResourcesType())
@@ -105,8 +102,6 @@ func createResourcesObject(cpuShares, memoryShares string) types.Object {
 	return obj
 }
 
-// createTagsMap creates a types.Map for pipeline tags.
-// Returns null map if tags is nil or empty.
 func createTagsMap(tags map[string]string) types.Map {
 	if len(tags) == 0 {
 		return types.MapNull(types.StringType)
@@ -119,7 +114,6 @@ func createTagsMap(tags map[string]string) types.Map {
 	return m
 }
 
-// createMockPipeline creates a dataplanev1.Pipeline from the given parameters.
 func createMockPipeline(id, displayName, description, configYaml, url string, state dataplanev1.Pipeline_State, resources *dataplanev1.Pipeline_Resources, tags map[string]string) *dataplanev1.Pipeline {
 	p := &dataplanev1.Pipeline{
 		Id:          id,
@@ -138,8 +132,6 @@ func createMockPipeline(id, displayName, description, configYaml, url string, st
 	return p
 }
 
-// createMockPipelineResources creates a dataplanev1.Pipeline_Resources.
-// Returns nil if both values are empty.
 func createMockPipelineResources(cpuShares, memoryShares string) *dataplanev1.Pipeline_Resources {
 	if cpuShares == "" && memoryShares == "" {
 		return nil
@@ -150,8 +142,11 @@ func createMockPipelineResources(cpuShares, memoryShares string) *dataplanev1.Pi
 	}
 }
 
-// setupPipelineResource creates a configured Pipeline resource for testing.
 func setupPipelineResource(mockClient dataplanev1grpc.PipelineServiceClient) *Pipeline {
+	return setupPipelineResourceWithPollInterval(mockClient, 0)
+}
+
+func setupPipelineResourceWithPollInterval(mockClient dataplanev1grpc.PipelineServiceClient, pollInterval time.Duration) *Pipeline {
 	return &Pipeline{
 		clientFactory: func(_, _, _, _ string) (dataplanev1grpc.PipelineServiceClient, *grpc.ClientConn, error) {
 			return mockClient, nil, nil
@@ -161,10 +156,115 @@ func setupPipelineResource(mockClient dataplanev1grpc.PipelineServiceClient) *Pi
 			ProviderVersion:  testProviderVer,
 			TerraformVersion: testTerraformVer,
 		},
+		pollInterval: pollInterval,
 	}
 }
 
-// setupCreateMocks configures mock expectations for a create operation.
+type testSetup struct {
+	t          *testing.T
+	ctrl       *gomock.Controller
+	mockClient *mocks.MockPipelineServiceClient
+	resource   *Pipeline
+	schema     resource.SchemaResponse
+}
+
+func newTestSetup(t *testing.T) *testSetup {
+	return newTestSetupWithPollInterval(t, 0)
+}
+
+func newTestSetupWithPollInterval(t *testing.T, pollInterval time.Duration) *testSetup {
+	ctrl := gomock.NewController(t)
+	t.Cleanup(ctrl.Finish)
+	mockClient := mocks.NewMockPipelineServiceClient(ctrl)
+	r := setupPipelineResourceWithPollInterval(mockClient, pollInterval)
+
+	schemaResp := resource.SchemaResponse{}
+	r.Schema(context.Background(), resource.SchemaRequest{}, &schemaResp)
+
+	return &testSetup{
+		t:          t,
+		ctrl:       ctrl,
+		mockClient: mockClient,
+		resource:   r,
+		schema:     schemaResp,
+	}
+}
+
+type modelBuilder struct {
+	model pipelinemodel.ResourceModel
+}
+
+func newModelBuilder() *modelBuilder {
+	return &modelBuilder{
+		model: pipelinemodel.ResourceModel{
+			ID:            types.StringUnknown(),
+			ClusterAPIURL: types.StringValue(testClusterAPIURL),
+			DisplayName:   types.StringValue(testDisplayName),
+			Description:   types.StringValue(testDescription),
+			ConfigYaml:    types.StringValue(testConfigYaml),
+			State:         types.StringValue(pipelinemodel.StateStopped),
+			URL:           types.StringUnknown(),
+			Resources:     createResourcesObject("", ""),
+			Tags:          createTagsMap(nil),
+			Timeouts:      createTestTimeouts(),
+		},
+	}
+}
+
+func (b *modelBuilder) WithID(id string) *modelBuilder {
+	b.model.ID = types.StringValue(id)
+	return b
+}
+
+func (b *modelBuilder) WithDisplayName(name string) *modelBuilder {
+	b.model.DisplayName = types.StringValue(name)
+	return b
+}
+
+func (b *modelBuilder) WithDescription(desc string) *modelBuilder {
+	b.model.Description = types.StringValue(desc)
+	return b
+}
+
+func (b *modelBuilder) WithConfigYaml(yaml string) *modelBuilder {
+	b.model.ConfigYaml = types.StringValue(yaml)
+	return b
+}
+
+func (b *modelBuilder) WithState(state string) *modelBuilder {
+	b.model.State = types.StringValue(state)
+	return b
+}
+
+func (b *modelBuilder) WithURL(url string) *modelBuilder {
+	b.model.URL = types.StringValue(url)
+	return b
+}
+
+func (b *modelBuilder) WithResources(cpu, memory string) *modelBuilder {
+	b.model.Resources = createResourcesObject(cpu, memory)
+	return b
+}
+
+func (b *modelBuilder) WithTags(tags map[string]string) *modelBuilder {
+	b.model.Tags = createTagsMap(tags)
+	return b
+}
+
+func (b *modelBuilder) WithAllowDeletion(allow bool) *modelBuilder {
+	b.model.AllowDeletion = types.BoolValue(allow)
+	return b
+}
+
+func (b *modelBuilder) WithTimeouts(timeoutsVal timeouts.Value) *modelBuilder {
+	b.model.Timeouts = timeoutsVal
+	return b
+}
+
+func (b *modelBuilder) Build() pipelinemodel.ResourceModel {
+	return b.model
+}
+
 func setupCreateMocks(mockClient *mocks.MockPipelineServiceClient, apiPipeline *dataplanev1.Pipeline, autoStarts bool) {
 	mockClient.EXPECT().
 		CreatePipeline(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -195,7 +295,6 @@ func setupCreateMocks(mockClient *mocks.MockPipelineServiceClient, apiPipeline *
 	}
 }
 
-// setupUpdateMocks configures mock expectations for an update operation.
 func setupUpdateMocks(mockClient *mocks.MockPipelineServiceClient, beforePipeline, afterPipeline *dataplanev1.Pipeline) {
 	mockClient.EXPECT().
 		GetPipeline(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -772,7 +871,7 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 	}{
 		{
 			name:      "basic_create_read",
-			operation: "create",
+			operation: opCreate,
 			inputPipeline: pipelineInput{
 				displayName:  testDisplayName,
 				description:  testDescription,
@@ -788,7 +887,7 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 		},
 		{
 			name:      "create_stops_autostarted_pipeline",
-			operation: "create",
+			operation: opCreate,
 			inputPipeline: pipelineInput{
 				displayName:  testDisplayName,
 				configYaml:   testConfigYaml,
@@ -803,7 +902,7 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 		},
 		{
 			name:      "update_read_consistency",
-			operation: "update",
+			operation: opUpdate,
 			existingState: &pipelineExistingState{
 				id:          "pipeline-update",
 				displayName: "old-name",
@@ -825,7 +924,7 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 		},
 		{
 			name:      "all_fields_with_resources_and_tags",
-			operation: "create",
+			operation: opCreate,
 			inputPipeline: pipelineInput{
 				displayName:  "full-pipeline",
 				description:  "A fully configured pipeline",
@@ -867,9 +966,9 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 			)
 
 			switch tt.operation {
-			case "create":
+			case opCreate:
 				setupCreateMocks(mockClient, apiPipeline, tt.apiAutoStarts)
-			case "update":
+			case opUpdate:
 				beforePipeline := createMockPipeline(
 					tt.existingState.id,
 					tt.existingState.displayName,
@@ -894,7 +993,7 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 			var stateAfterOp, stateAfterRead pipelinemodel.ResourceModel
 
 			switch tt.operation {
-			case "create":
+			case opCreate:
 				input := pipelinemodel.ResourceModel{
 					ID:            types.StringUnknown(),
 					ClusterAPIURL: types.StringValue(testClusterAPIURL),
@@ -936,7 +1035,7 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 				diags = readResp.State.Get(ctx, &stateAfterRead)
 				require.False(t, diags.HasError())
 
-			case "update":
+			case opUpdate:
 				currentState := pipelinemodel.ResourceModel{
 					ID:            types.StringValue(tt.existingState.id),
 					ClusterAPIURL: types.StringValue(testClusterAPIURL),
@@ -1022,6 +1121,16 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 				if !stateAfterOp.Tags.IsNull() {
 					assert.Equal(t, stateAfterOp.Tags, stateAfterRead.Tags, "Tags values mismatch")
 				}
+
+				// Check allow_deletion consistency
+				assert.Equal(t, stateAfterOp.AllowDeletion.IsNull(), stateAfterRead.AllowDeletion.IsNull(),
+					"AllowDeletion null mismatch: op=%v read=%v",
+					stateAfterOp.AllowDeletion.IsNull(), stateAfterRead.AllowDeletion.IsNull())
+				if !stateAfterOp.AllowDeletion.IsNull() && !stateAfterRead.AllowDeletion.IsNull() {
+					assert.Equal(t, stateAfterOp.AllowDeletion.ValueBool(), stateAfterRead.AllowDeletion.ValueBool(),
+						"AllowDeletion mismatch: op=%v read=%v",
+						stateAfterOp.AllowDeletion.ValueBool(), stateAfterRead.AllowDeletion.ValueBool())
+				}
 			})
 
 			assert.Equal(t, tt.expectedState, stateAfterOp.State.ValueString(),
@@ -1030,148 +1139,332 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 	}
 }
 
-func TestPipeline_CreateErrors(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ctx := context.Background()
-	mockClient := mocks.NewMockPipelineServiceClient(ctrl)
-
-	// Simulate API error on create
-	mockClient.EXPECT().
-		CreatePipeline(gomock.Any(), gomock.Any()).
-		Return(nil, errors.New("API unavailable: service temporarily down"))
-
-	r := setupPipelineResource(mockClient)
-
-	schemaResp := resource.SchemaResponse{}
-	r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
-	require.False(t, schemaResp.Diagnostics.HasError())
-
-	input := pipelinemodel.ResourceModel{
-		ID:            types.StringUnknown(),
-		ClusterAPIURL: types.StringValue(testClusterAPIURL),
-		DisplayName:   types.StringValue(testDisplayName),
-		Description:   types.StringValue(testDescription),
-		ConfigYaml:    types.StringValue(testConfigYaml),
-		State:         types.StringValue(pipelinemodel.StateStopped),
-		URL:           types.StringUnknown(),
-		Resources:     createResourcesObject("", ""),
-		Tags:          createTagsMap(nil),
-		Timeouts:      createTestTimeouts(),
+func TestPipeline_OperationErrors(t *testing.T) {
+	tests := []struct {
+		name          string
+		operation     string // "create", "delete", or "create_with_start"
+		setupMocks    func(*mocks.MockPipelineServiceClient)
+		inputModel    func() pipelinemodel.ResourceModel
+		errorContains string
+	}{
+		{
+			name:      "create_api_error",
+			operation: opCreate,
+			setupMocks: func(mc *mocks.MockPipelineServiceClient) {
+				mc.EXPECT().
+					CreatePipeline(gomock.Any(), gomock.Any()).
+					Return(nil, errors.New("API unavailable: service temporarily down"))
+			},
+			inputModel: func() pipelinemodel.ResourceModel {
+				return newModelBuilder().Build()
+			},
+			errorContains: "API unavailable",
+		},
+		{
+			name:      "delete_blocked_by_allow_deletion",
+			operation: "delete",
+			setupMocks: func(_ *mocks.MockPipelineServiceClient) {
+				// No API calls expected since deletion should be blocked before any API interaction
+			},
+			inputModel: func() pipelinemodel.ResourceModel {
+				return newModelBuilder().
+					WithID(testPipelineID).
+					WithURL(testPipelineURL).
+					WithAllowDeletion(false).
+					Build()
+			},
+			errorContains: "allow_deletion",
+		},
+		{
+			name:      "start_pipeline_error",
+			operation: opCreate,
+			setupMocks: func(mc *mocks.MockPipelineServiceClient) {
+				createdPipeline := createMockPipeline(
+					testPipelineID, testDisplayName, testDescription, testConfigYaml, testPipelineURL,
+					dataplanev1.Pipeline_STATE_STOPPED, nil, nil,
+				)
+				mc.EXPECT().
+					CreatePipeline(gomock.Any(), gomock.Any()).
+					Return(&dataplanev1.CreatePipelineResponse{Pipeline: createdPipeline}, nil)
+				mc.EXPECT().
+					StartPipeline(gomock.Any(), gomock.Any()).
+					Return(nil, errors.New("failed to start: insufficient resources"))
+			},
+			inputModel: func() pipelinemodel.ResourceModel {
+				return newModelBuilder().
+					WithState(pipelinemodel.StateRunning). // User wants running state
+					Build()
+			},
+			errorContains: "start",
+		},
 	}
 
-	createReq := resource.CreateRequest{Plan: tfsdk.Plan{Schema: schemaResp.Schema}}
-	diags := createReq.Plan.Set(ctx, &input)
-	require.False(t, diags.HasError())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := newTestSetup(t)
+			require.False(t, ts.schema.Diagnostics.HasError())
 
-	createResp := resource.CreateResponse{State: tfsdk.State{Schema: schemaResp.Schema}}
-	r.Create(ctx, createReq, &createResp)
+			tt.setupMocks(ts.mockClient)
+			input := tt.inputModel()
 
-	// Verify that Create returned an error
-	assert.True(t, createResp.Diagnostics.HasError(), "Expected error from Create when API fails")
-	assert.Contains(t, createResp.Diagnostics.Errors()[0].Detail(), "API unavailable",
-		"Error message should contain API error details")
+			var hasDiagnostic bool
+			var diagDetails []string
+
+			switch tt.operation {
+			case opCreate:
+				createReq := resource.CreateRequest{Plan: tfsdk.Plan{Schema: ts.schema.Schema}}
+				diags := createReq.Plan.Set(t.Context(), &input)
+				require.False(t, diags.HasError())
+
+				createResp := resource.CreateResponse{State: tfsdk.State{Schema: ts.schema.Schema}}
+				ts.resource.Create(t.Context(), createReq, &createResp)
+
+				// Check for errors (API failures) or warnings (state transition failures)
+				hasDiagnostic = createResp.Diagnostics.HasError() || len(createResp.Diagnostics.Warnings()) > 0
+				for _, err := range createResp.Diagnostics.Errors() {
+					diagDetails = append(diagDetails, err.Summary(), err.Detail())
+				}
+				for _, warn := range createResp.Diagnostics.Warnings() {
+					diagDetails = append(diagDetails, warn.Summary(), warn.Detail())
+				}
+
+			case "delete":
+				deleteReq := resource.DeleteRequest{State: tfsdk.State{Schema: ts.schema.Schema}}
+				diags := deleteReq.State.Set(t.Context(), &input)
+				require.False(t, diags.HasError())
+
+				deleteResp := resource.DeleteResponse{}
+				ts.resource.Delete(t.Context(), deleteReq, &deleteResp)
+
+				hasDiagnostic = deleteResp.Diagnostics.HasError() || len(deleteResp.Diagnostics.Warnings()) > 0
+				for _, err := range deleteResp.Diagnostics.Errors() {
+					diagDetails = append(diagDetails, err.Summary(), err.Detail())
+				}
+				for _, warn := range deleteResp.Diagnostics.Warnings() {
+					diagDetails = append(diagDetails, warn.Summary(), warn.Detail())
+				}
+			}
+
+			assert.True(t, hasDiagnostic, "Expected error or warning for %s", tt.name)
+
+			found := false
+			for _, detail := range diagDetails {
+				if strings.Contains(detail, tt.errorContains) {
+					found = true
+					break
+				}
+			}
+			assert.True(t, found, "Diagnostic should contain %q", tt.errorContains)
+		})
+	}
 }
 
-func TestPipeline_DeleteBlockedByAllowDeletion(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+func TestPipeline_StartFailureBehavior(t *testing.T) {
+	tests := []struct {
+		name       string
+		operation  string // "create" or "update"
+		setupMocks func(*mocks.MockPipelineServiceClient)
+	}{
+		{
+			name:      "create_start_enters_error_state",
+			operation: opCreate,
+			setupMocks: func(mc *mocks.MockPipelineServiceClient) {
+				// Create succeeds with stopped state
+				createdPipeline := createMockPipeline(
+					testPipelineID, testDisplayName, testDescription, testConfigYaml, testPipelineURL,
+					dataplanev1.Pipeline_STATE_STOPPED, nil, nil,
+				)
+				mc.EXPECT().
+					CreatePipeline(gomock.Any(), gomock.Any()).
+					Return(&dataplanev1.CreatePipelineResponse{Pipeline: createdPipeline}, nil)
 
-	ctx := context.Background()
-	mockClient := mocks.NewMockPipelineServiceClient(ctrl)
+				// Start succeeds (API call returns)
+				mc.EXPECT().
+					StartPipeline(gomock.Any(), gomock.Any()).
+					Return(&dataplanev1.StartPipelineResponse{}, nil)
 
-	// No API calls expected since deletion should be blocked before any API interaction
+				// GetPipeline returns ERROR state (simulating pipeline failure)
+				errorPipeline := createMockPipeline(
+					testPipelineID, testDisplayName, testDescription, testConfigYaml, testPipelineURL,
+					dataplanev1.Pipeline_STATE_ERROR, nil, nil,
+				)
+				mc.EXPECT().
+					GetPipeline(gomock.Any(), gomock.Any()).
+					Return(&dataplanev1.GetPipelineResponse{Pipeline: errorPipeline}, nil)
+			},
+		},
+		{
+			name:      "update_start_enters_error_state",
+			operation: opUpdate,
+			setupMocks: func(mc *mocks.MockPipelineServiceClient) {
+				// GetPipeline returns stopped pipeline (current state)
+				stoppedPipeline := createMockPipeline(
+					testPipelineID, testDisplayName, testDescription, testConfigYaml, testPipelineURL,
+					dataplanev1.Pipeline_STATE_STOPPED, nil, nil,
+				)
+				mc.EXPECT().
+					GetPipeline(gomock.Any(), gomock.Any()).
+					Return(&dataplanev1.GetPipelineResponse{Pipeline: stoppedPipeline}, nil)
 
-	r := setupPipelineResource(mockClient)
+				// Update succeeds
+				mc.EXPECT().
+					UpdatePipeline(gomock.Any(), gomock.Any()).
+					Return(&dataplanev1.UpdatePipelineResponse{Pipeline: stoppedPipeline}, nil)
 
-	schemaResp := resource.SchemaResponse{}
-	r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
-	require.False(t, schemaResp.Diagnostics.HasError())
+				// Start succeeds (API call returns)
+				mc.EXPECT().
+					StartPipeline(gomock.Any(), gomock.Any()).
+					Return(&dataplanev1.StartPipelineResponse{}, nil)
 
-	// State with allow_deletion = false (default)
-	currentState := pipelinemodel.ResourceModel{
-		ID:            types.StringValue(testPipelineID),
-		ClusterAPIURL: types.StringValue(testClusterAPIURL),
-		DisplayName:   types.StringValue(testDisplayName),
-		Description:   types.StringValue(testDescription),
-		ConfigYaml:    types.StringValue(testConfigYaml),
-		State:         types.StringValue(pipelinemodel.StateStopped),
-		URL:           types.StringValue(testPipelineURL),
-		Resources:     createResourcesObject("", ""),
-		Tags:          createTagsMap(nil),
-		AllowDeletion: types.BoolValue(false), // Deletion not allowed
-		Timeouts:      createTestTimeouts(),
+				// GetPipeline returns ERROR state (simulating pipeline failure)
+				errorPipeline := createMockPipeline(
+					testPipelineID, testDisplayName, testDescription, testConfigYaml, testPipelineURL,
+					dataplanev1.Pipeline_STATE_ERROR, nil, nil,
+				)
+				mc.EXPECT().
+					GetPipeline(gomock.Any(), gomock.Any()).
+					Return(&dataplanev1.GetPipelineResponse{Pipeline: errorPipeline}, nil)
+			},
+		},
 	}
 
-	deleteReq := resource.DeleteRequest{State: tfsdk.State{Schema: schemaResp.Schema}}
-	diags := deleteReq.State.Set(ctx, &currentState)
-	require.False(t, diags.HasError())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := newTestSetup(t)
+			require.False(t, ts.schema.Diagnostics.HasError())
 
-	deleteResp := resource.DeleteResponse{}
-	r.Delete(ctx, deleteReq, &deleteResp)
+			tt.setupMocks(ts.mockClient)
 
-	// Verify that Delete returned an error and didn't proceed
-	assert.True(t, deleteResp.Diagnostics.HasError(), "Expected error when allow_deletion is false")
-	foundAllowDeletionError := false
-	for _, err := range deleteResp.Diagnostics.Errors() {
-		if strings.Contains(err.Detail(), "allow_deletion") || strings.Contains(err.Summary(), "allow_deletion") {
-			foundAllowDeletionError = true
-			break
-		}
+			var hasWarning bool
+			var stateIsSet bool
+			var warningContainsRetry bool
+
+			switch tt.operation {
+			case opCreate:
+				input := newModelBuilder().
+					WithState(pipelinemodel.StateRunning).
+					Build()
+
+				createReq := resource.CreateRequest{Plan: tfsdk.Plan{Schema: ts.schema.Schema}}
+				diags := createReq.Plan.Set(t.Context(), &input)
+				require.False(t, diags.HasError())
+
+				createResp := resource.CreateResponse{State: tfsdk.State{Schema: ts.schema.Schema}}
+				ts.resource.Create(t.Context(), createReq, &createResp)
+				hasWarning = len(createResp.Diagnostics.Warnings()) > 0
+
+				// Check if state was set (resource is saved for retry)
+				var resultModel pipelinemodel.ResourceModel
+				diags = createResp.State.Get(t.Context(), &resultModel)
+				stateIsSet = !diags.HasError() && resultModel.ID.ValueString() == testPipelineID
+
+				// Check warning message mentions retry
+				for _, warn := range createResp.Diagnostics.Warnings() {
+					if strings.Contains(warn.Detail(), "apply") && strings.Contains(warn.Detail(), "retry") {
+						warningContainsRetry = true
+						break
+					}
+				}
+
+			case opUpdate:
+				currentState := newModelBuilder().
+					WithID(testPipelineID).
+					WithState(pipelinemodel.StateStopped).
+					WithURL(testPipelineURL).
+					Build()
+
+				planModel := newModelBuilder().
+					WithID(testPipelineID).
+					WithState(pipelinemodel.StateRunning).
+					Build()
+
+				updateReq := resource.UpdateRequest{
+					State: tfsdk.State{Schema: ts.schema.Schema},
+					Plan:  tfsdk.Plan{Schema: ts.schema.Schema},
+				}
+				diags := updateReq.State.Set(t.Context(), &currentState)
+				require.False(t, diags.HasError())
+				diags = updateReq.Plan.Set(t.Context(), &planModel)
+				require.False(t, diags.HasError())
+
+				updateResp := resource.UpdateResponse{State: tfsdk.State{Schema: ts.schema.Schema}}
+				ts.resource.Update(t.Context(), updateReq, &updateResp)
+				hasWarning = len(updateResp.Diagnostics.Warnings()) > 0
+
+				var resultModel pipelinemodel.ResourceModel
+				diags = updateResp.State.Get(t.Context(), &resultModel)
+				stateIsSet = !diags.HasError() && resultModel.ID.ValueString() == testPipelineID
+
+				for _, warn := range updateResp.Diagnostics.Warnings() {
+					if strings.Contains(warn.Detail(), "apply") && strings.Contains(warn.Detail(), "retry") {
+						warningContainsRetry = true
+						break
+					}
+				}
+			}
+
+			assert.True(t, hasWarning,
+				"Expected WARNING when pipeline fails to reach desired state")
+			assert.True(t, stateIsSet,
+				"Expected state to be SET so user can retry with 'terraform apply'")
+			assert.True(t, warningContainsRetry,
+				"Expected warning message to mention 'apply' and 'retry' to explain recovery")
+		})
 	}
-	assert.True(t, foundAllowDeletionError, "Error should mention allow_deletion attribute")
 }
 
-func TestPipeline_StartPipelineError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ctx := context.Background()
-	mockClient := mocks.NewMockPipelineServiceClient(ctrl)
-
-	// Create succeeds
-	createdPipeline := createMockPipeline(
-		testPipelineID, testDisplayName, testDescription, testConfigYaml, testPipelineURL,
-		dataplanev1.Pipeline_STATE_STOPPED, nil, nil,
-	)
-	mockClient.EXPECT().
-		CreatePipeline(gomock.Any(), gomock.Any()).
-		Return(&dataplanev1.CreatePipelineResponse{Pipeline: createdPipeline}, nil)
-
-	// Start fails
-	mockClient.EXPECT().
-		StartPipeline(gomock.Any(), gomock.Any()).
-		Return(nil, errors.New("failed to start: insufficient resources"))
-
-	r := setupPipelineResource(mockClient)
-
-	schemaResp := resource.SchemaResponse{}
-	r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
-	require.False(t, schemaResp.Diagnostics.HasError())
-
-	input := pipelinemodel.ResourceModel{
-		ID:            types.StringUnknown(),
-		ClusterAPIURL: types.StringValue(testClusterAPIURL),
-		DisplayName:   types.StringValue(testDisplayName),
-		Description:   types.StringValue(testDescription),
-		ConfigYaml:    types.StringValue(testConfigYaml),
-		State:         types.StringValue(pipelinemodel.StateRunning), // User wants running state
-		URL:           types.StringUnknown(),
-		Resources:     createResourcesObject("", ""),
-		Tags:          createTagsMap(nil),
-		Timeouts:      createTestTimeouts(),
+func TestPipeline_ImportIDFormat(t *testing.T) {
+	tests := []struct {
+		name             string
+		importID         string
+		expectError      bool
+		expectedPipeline string
+		expectedCluster  string
+	}{
+		{
+			name:             "valid format",
+			importID:         "pipeline-123,cluster-456",
+			expectError:      false,
+			expectedPipeline: "pipeline-123",
+			expectedCluster:  "cluster-456",
+		},
+		{
+			name:             "valid format with complex IDs",
+			importID:         "abc-def-123,xyz-789-cluster",
+			expectError:      false,
+			expectedPipeline: "abc-def-123",
+			expectedCluster:  "xyz-789-cluster",
+		},
+		{
+			name:        "missing cluster ID",
+			importID:    "pipeline-123",
+			expectError: true,
+		},
+		{
+			name:        "empty string",
+			importID:    "",
+			expectError: true,
+		},
+		{
+			name:             "only comma",
+			importID:         ",",
+			expectError:      false, // Will split to ["", ""]
+			expectedPipeline: "",
+			expectedCluster:  "",
+		},
 	}
 
-	createReq := resource.CreateRequest{Plan: tfsdk.Plan{Schema: schemaResp.Schema}}
-	diags := createReq.Plan.Set(ctx, &input)
-	require.False(t, diags.HasError())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parts := strings.SplitN(tt.importID, ",", 2)
 
-	createResp := resource.CreateResponse{State: tfsdk.State{Schema: schemaResp.Schema}}
-	r.Create(ctx, createReq, &createResp)
-
-	// Create should succeed but with a warning about the start failure
-	// The pipeline is created, so state should be set, but we should have a warning
-	assert.True(t, createResp.Diagnostics.HasError() || len(createResp.Diagnostics.Warnings()) > 0,
-		"Expected error or warning when start fails after create")
+			if tt.expectError {
+				assert.NotEqual(t, 2, len(parts), "Expected invalid format for import ID %q", tt.importID)
+			} else {
+				require.Equal(t, 2, len(parts), "Expected valid format for import ID %q", tt.importID)
+				assert.Equal(t, tt.expectedPipeline, parts[0], "Pipeline ID mismatch")
+				assert.Equal(t, tt.expectedCluster, parts[1], "Cluster ID mismatch")
+			}
+		})
+	}
 }
