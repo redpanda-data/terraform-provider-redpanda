@@ -57,6 +57,16 @@ type Pipeline struct {
 	resData       config.Resource
 	dataplaneConn *grpc.ClientConn
 	clientFactory ClientFactory
+	pollInterval  time.Duration // For testing; if zero, uses default
+}
+
+// getPollInterval returns the poll interval for waiting on state changes.
+// Uses the configured interval if set, otherwise returns the default of 1 second.
+func (p *Pipeline) getPollInterval() time.Duration {
+	if p.pollInterval > 0 {
+		return p.pollInterval
+	}
+	return 1 * time.Second
 }
 
 // Metadata returns the full name of the Pipeline resource
@@ -149,6 +159,15 @@ func (p *Pipeline) Create(ctx context.Context, req resource.CreateRequest, resp 
 		return
 	}
 
+	// contingent holds the fields that are not returned by the API but need to be preserved in state.
+	contingent := pipelinemodel.ContingentFields{
+		ClusterAPIURL: model.ClusterAPIURL,
+		AllowDeletion: model.AllowDeletion,
+		Resources:     model.Resources,
+		State:         model.State,
+		Timeouts:      model.Timeouts,
+	}
+
 	desiredState := model.State.ValueString()
 	if desiredState == "" {
 		desiredState = pipelinemodel.StateStopped
@@ -160,29 +179,23 @@ func (p *Pipeline) Create(ctx context.Context, req resource.CreateRequest, resp 
 	if desiredState == pipelinemodel.StateRunning && !isCurrentlyRunning {
 		updatedPipeline, warning, ok := p.startPipeline(ctx, pipeline.GetId(), createTimeout)
 		if !ok {
-			resp.Diagnostics.AddWarning("pipeline created but failed to start",
-				fmt.Sprintf("Pipeline %s was created successfully but %s", pipeline.GetId(), warning))
+			resp.Diagnostics.AddWarning("pipeline failed to reach desired state",
+				fmt.Sprintf("Pipeline %s was created but failed to start within the timeout. Run 'terraform apply' again to retry: %s", pipeline.GetId(), warning))
 		} else if updatedPipeline != nil {
 			pipeline = updatedPipeline
 		}
 	} else if desiredState == pipelinemodel.StateStopped && isCurrentlyRunning {
 		updatedPipeline, warning, ok := p.stopPipeline(ctx, pipeline.GetId(), createTimeout)
 		if !ok {
-			resp.Diagnostics.AddWarning("pipeline created but failed to stop",
-				fmt.Sprintf("Pipeline %s was created successfully but %s", pipeline.GetId(), warning))
+			resp.Diagnostics.AddWarning("pipeline failed to reach desired state",
+				fmt.Sprintf("Pipeline %s was created but failed to stop within the timeout. Run 'terraform apply' again to retry: %s", pipeline.GetId(), warning))
 		} else if updatedPipeline != nil {
 			pipeline = updatedPipeline
 		}
 	}
 
 	state := &pipelinemodel.ResourceModel{}
-	state, diags = state.GetUpdatedModel(ctx, pipeline, pipelinemodel.ContingentFields{
-		ClusterAPIURL: model.ClusterAPIURL,
-		AllowDeletion: model.AllowDeletion,
-		Resources:     model.Resources,
-		State:         model.State,
-		Timeouts:      model.Timeouts,
-	})
+	state, diags = state.GetUpdatedModel(ctx, pipeline, contingent)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -379,24 +392,27 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 
 	pipeline := updateResp.GetPipeline()
 
+	// contingent holds the fields that are not returned by the API but need to be preserved in state.
+	contingent := pipelinemodel.ContingentFields{
+		ClusterAPIURL: plan.ClusterAPIURL,
+		AllowDeletion: plan.AllowDeletion,
+		Resources:     plan.Resources,
+		State:         plan.State,
+		Timeouts:      plan.Timeouts,
+	}
+
 	if desiredState == pipelinemodel.StateRunning {
 		updatedPipeline, warning, ok := p.startPipeline(ctx, pipelineID, updateTimeout)
 		if !ok {
-			resp.Diagnostics.AddWarning("pipeline updated but failed to start",
-				fmt.Sprintf("Pipeline %s was updated successfully but %s", pipelineID, warning))
+			resp.Diagnostics.AddWarning("pipeline failed to reach desired state",
+				fmt.Sprintf("Pipeline %s was updated but failed to start within the timeout. Run 'terraform apply' again to retry: %s", pipelineID, warning))
 		} else if updatedPipeline != nil {
 			pipeline = updatedPipeline
 		}
 	}
 
 	newState := &pipelinemodel.ResourceModel{}
-	newState, diags = newState.GetUpdatedModel(ctx, pipeline, pipelinemodel.ContingentFields{
-		ClusterAPIURL: plan.ClusterAPIURL,
-		AllowDeletion: plan.AllowDeletion,
-		Resources:     plan.Resources,
-		State:         plan.State,
-		Timeouts:      plan.Timeouts,
-	})
+	newState, diags = newState.GetUpdatedModel(ctx, pipeline, contingent)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -514,6 +530,7 @@ func (p *Pipeline) ImportState(ctx context.Context, req resource.ImportStateRequ
 
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(pipelineID))...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_api_url"), types.StringValue(dataplaneURL))...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
 }
 
 // startPipeline starts the pipeline and waits for it to reach running state.
@@ -597,8 +614,9 @@ func (p *Pipeline) createPipelineClient(clusterURL string) error {
 
 func (p *Pipeline) waitForPipelineState(ctx context.Context, pipelineID string, targetState dataplanev1.Pipeline_State, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
-	interval := 1 * time.Second
-	maxInterval := 10 * time.Second
+	baseInterval := p.getPollInterval()
+	interval := baseInterval
+	maxInterval := baseInterval * 10
 
 	for time.Now().Before(deadline) {
 		select {
