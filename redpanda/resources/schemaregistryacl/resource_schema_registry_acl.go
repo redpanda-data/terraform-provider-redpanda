@@ -159,7 +159,11 @@ func (s *SchemaRegistryACL) Read(ctx context.Context, request resource.ReadReque
 	}
 
 	if !found {
-		response.State.RemoveResource(ctx)
+		action, diags := utils.HandleGracefulRemoval(ctx, "schema registry ACL", model.GenerateID(), model.AllowDeletion, utils.NotFoundError{Message: "schema registry ACL not found"}, "find schema registry ACL")
+		response.Diagnostics.Append(diags...)
+		if action == utils.RemoveFromState {
+			response.State.RemoveResource(ctx)
+		}
 		return
 	}
 
