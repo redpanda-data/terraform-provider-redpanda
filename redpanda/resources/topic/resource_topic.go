@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
@@ -96,13 +97,29 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 	if !model.ReplicationFactor.IsUnknown() {
 		rf = utils.NumberToInt32(model.ReplicationFactor)
 	}
-	topic, err := t.TopicClient.CreateTopic(ctx, &dataplanev1.CreateTopicRequest{
-		Topic: &dataplanev1.CreateTopicRequest_Topic{
-			Name:              model.Name.ValueString(),
-			PartitionCount:    p,
-			ReplicationFactor: rf,
-			Configs:           cfg,
-		},
+
+	var topic *dataplanev1.CreateTopicResponse
+	err = utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+		var createErr error
+		topic, createErr = t.TopicClient.CreateTopic(ctx, &dataplanev1.CreateTopicRequest{
+			Topic: &dataplanev1.CreateTopicRequest_Topic{
+				Name:              model.Name.ValueString(),
+				PartitionCount:    p,
+				ReplicationFactor: rf,
+				Configs:           cfg,
+			},
+		})
+		if createErr != nil {
+			if isAlreadyExistsError(createErr) {
+				// Not retryable - topic already exists
+				return utils.NonRetryableError(createErr)
+			}
+			if utils.IsPermissionDenied(createErr) {
+				return utils.RetryableError(fmt.Errorf("topic authorization not ready, retrying: %w", createErr))
+			}
+			return utils.NonRetryableError(createErr)
+		}
+		return nil
 	})
 	if err != nil {
 		if isAlreadyExistsError(err) {
