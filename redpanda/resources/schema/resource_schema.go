@@ -183,39 +183,32 @@ func (s *Schema) Read(ctx context.Context, request resource.ReadRequest, respons
 		return
 	}
 
+	subject := state.GetSubject()
+
 	client, err := s.getClient(ctx, state.ClusterID.ValueString(), state.Username.ValueString(), state.Password.ValueString())
 	if err != nil {
-		if utils.IsClusterUnreachable(err) || utils.IsPermissionDenied(err) {
-			if state.AllowDeletion.IsNull() || state.AllowDeletion.ValueBool() {
-				response.State.RemoveResource(ctx)
-				return
-			}
+		action, diags := utils.HandleGracefulRemoval(ctx, "schema", subject, state.AllowDeletion, err, "create schema registry client")
+		response.Diagnostics.Append(diags...)
+		if action == utils.RemoveFromState {
+			response.State.RemoveResource(ctx)
 		}
-		response.Diagnostics.AddError(
-			"Failed to create Schema Registry client",
-			fmt.Sprintf("Unable to create client for cluster %s: %v", state.ClusterID.ValueString(), err),
-		)
 		return
 	}
 
-	schemaResp, err := fetchSchema(ctx, client, state.GetSubject(), state.GetVersion())
+	schemaResp, err := fetchSchema(ctx, client, subject, state.GetVersion())
 	if err != nil {
 		tflog.Debug(ctx, "Schema read error encountered", map[string]any{
-			"subject":              state.GetSubject(),
+			"subject":              subject,
 			"error":                err.Error(),
 			"is_not_found":         utils.IsNotFound(err),
 			"is_permission_denied": utils.IsPermissionDenied(err),
 		})
 
-		if utils.IsNotFound(err) {
-			tflog.Debug(ctx, "Schema read failed due to not found, removing from state")
+		action, diags := utils.HandleGracefulRemoval(ctx, "schema", subject, state.AllowDeletion, err, "read schema")
+		response.Diagnostics.Append(diags...)
+		if action == utils.RemoveFromState {
 			response.State.RemoveResource(ctx)
-			return
 		}
-		response.Diagnostics.AddError(
-			"Failed to read schema",
-			fmt.Sprintf("Unable to read schema for subject %s: %v", state.GetSubject(), err),
-		)
 		return
 	}
 

@@ -248,25 +248,21 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 
 	err = a.createACLClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
-		if utils.IsClusterUnreachable(err) {
-			if model.AllowDeletion.IsNull() || model.AllowDeletion.ValueBool() {
-				response.State.RemoveResource(ctx)
-				return
-			}
+		action, diags := utils.HandleGracefulRemoval(ctx, "ACL", model.GenerateID(), model.AllowDeletion, err, "create ACL client")
+		response.Diagnostics.Append(diags...)
+		if action == utils.RemoveFromState {
+			response.State.RemoveResource(ctx)
 		}
-		response.Diagnostics.AddError("failed to create ACL client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer a.dataplaneConn.Close()
 	aclList, err := a.ACLClient.ListACLs(ctx, &dataplanev1.ListACLsRequest{Filter: filter})
 	if err != nil {
-		if utils.IsClusterUnreachable(err) {
-			if model.AllowDeletion.IsNull() || model.AllowDeletion.ValueBool() {
-				response.State.RemoveResource(ctx)
-				return
-			}
+		action, diags := utils.HandleGracefulRemoval(ctx, "ACL", model.GenerateID(), model.AllowDeletion, err, "list ACLs")
+		response.Diagnostics.Append(diags...)
+		if action == utils.RemoveFromState {
+			response.State.RemoveResource(ctx)
 		}
-		response.Diagnostics.AddError("Failed to list ACLs", utils.DeserializeGrpcError(err))
 		return
 	}
 
@@ -293,7 +289,12 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 		}
 	}
 
-	response.State.RemoveResource(ctx)
+	// ACL not found - use helper for proper handling
+	action, diags := utils.HandleGracefulRemoval(ctx, "ACL", model.GenerateID(), model.AllowDeletion, utils.NotFoundError{Message: "ACL not found in cluster"}, "find ACL")
+	response.Diagnostics.Append(diags...)
+	if action == utils.RemoveFromState {
+		response.State.RemoveResource(ctx)
+	}
 }
 
 // Update updates an ACL resource
@@ -321,8 +322,10 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 		return
 	}
 
-	// Check if deletion is allowed
-	if model.AllowDeletion.IsNull() || !model.AllowDeletion.ValueBool() {
+	aclID := model.GenerateID()
+
+	// Block deletion only if allow_deletion is explicitly set to false
+	if !model.AllowDeletion.IsNull() && !model.AllowDeletion.ValueBool() {
 		response.Diagnostics.AddError(
 			"Cannot delete ACL",
 			fmt.Sprintf("Deletion of ACL for principal %s on resource %s is not allowed. Set allow_deletion=true to allow deletion of this resource.", model.Principal.ValueString(), model.ResourceName.ValueString()),
@@ -365,13 +368,15 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 	}
 	err = a.createACLClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("failed to create ACL client", utils.DeserializeGrpcError(err))
+		_, diags := utils.HandleGracefulRemoval(ctx, "ACL", aclID, model.AllowDeletion, err, "create ACL client")
+		response.Diagnostics.Append(diags...)
 		return
 	}
 	defer a.dataplaneConn.Close()
 	deleteResponse, err := a.ACLClient.DeleteACLs(ctx, &dataplanev1.DeleteACLsRequest{Filter: filter})
 	if err != nil {
-		response.Diagnostics.AddError("Failed to delete ACL", utils.DeserializeGrpcError(err))
+		_, diags := utils.HandleGracefulRemoval(ctx, "ACL", aclID, model.AllowDeletion, err, "delete ACL")
+		response.Diagnostics.Append(diags...)
 		return
 	}
 
@@ -381,8 +386,6 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 			return
 		}
 	}
-
-	response.State.RemoveResource(ctx)
 }
 
 func (a *ACL) createACLClient(clusterURL string) error {

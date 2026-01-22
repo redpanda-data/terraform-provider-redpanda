@@ -132,40 +132,21 @@ func (s *SchemaRegistryACL) Read(ctx context.Context, request resource.ReadReque
 
 	client, err := s.getSchemaRegistryClient(ctx, &model)
 	if err != nil {
-		if utils.IsClusterUnreachable(err) || utils.IsPermissionDenied(err) {
-			if model.AllowDeletion.IsNull() || model.AllowDeletion.ValueBool() {
-				response.State.RemoveResource(ctx)
-				return
-			}
+		action, diags := utils.HandleGracefulRemoval(ctx, "schema registry ACL", model.GenerateID(), model.AllowDeletion, err, "create schema registry client")
+		response.Diagnostics.Append(diags...)
+		if action == utils.RemoveFromState {
+			response.State.RemoveResource(ctx)
 		}
-		response.Diagnostics.AddError("Failed to create Schema Registry client", utils.DeserializeGrpcError(err))
 		return
 	}
 
 	acls, err := client.ListACLs(ctx, model.ToSchemaRegistryACLFilter())
 	if err != nil {
-		if utils.IsClusterUnreachable(err) {
-			tflog.Warn(ctx, "Schema Registry ACL read failed due to cluster unreachable, removing from state", map[string]any{
-				"principal": model.Principal.ValueString(),
-				"resource":  model.ResourceName.ValueString(),
-				"error":     err.Error(),
-			})
+		action, diags := utils.HandleGracefulRemoval(ctx, "schema registry ACL", model.GenerateID(), model.AllowDeletion, err, "list schema registry ACLs")
+		response.Diagnostics.Append(diags...)
+		if action == utils.RemoveFromState {
 			response.State.RemoveResource(ctx)
-			return
 		}
-		if utils.IsPermissionDenied(err) {
-			if !model.AllowDeletion.IsNull() && model.AllowDeletion.ValueBool() {
-				tflog.Warn(ctx, "Schema Registry ACL read failed due to permission denied, removing from state", map[string]any{
-					"principal":      model.Principal.ValueString(),
-					"resource":       model.ResourceName.ValueString(),
-					"allow_deletion": model.AllowDeletion.ValueBool(),
-					"error":          err.Error(),
-				})
-				response.State.RemoveResource(ctx)
-				return
-			}
-		}
-		response.Diagnostics.AddError("Failed to list Schema Registry ACLs", utils.DeserializeGrpcError(err))
 		return
 	}
 
@@ -210,52 +191,16 @@ func (s *SchemaRegistryACL) Delete(ctx context.Context, request resource.DeleteR
 
 	client, err := s.getSchemaRegistryClient(ctx, &model)
 	if err != nil {
-		if utils.IsPermissionDenied(err) || utils.IsClusterUnreachable(err) {
-			if !model.AllowDeletion.IsNull() && !model.AllowDeletion.ValueBool() {
-				response.Diagnostics.AddError(
-					"Cannot delete Schema Registry ACL - permission denied or cluster unreachable",
-					fmt.Sprintf("Unable to delete Schema Registry ACL because of permission error or cluster is unreachable. Set allow_deletion=true to force removal from state. Error: %v", err),
-				)
-				return
-			}
-			tflog.Warn(ctx, "Schema Registry ACL deletion failed due to permission/cluster error during client creation, removing from state", map[string]any{
-				"principal":      model.Principal.ValueString(),
-				"resource":       model.ResourceName.ValueString(),
-				"allow_deletion": model.AllowDeletion.ValueBool(),
-				"error":          err.Error(),
-			})
-			response.State.RemoveResource(ctx)
-			return
-		}
-		response.Diagnostics.AddError("Failed to create Schema Registry client", utils.DeserializeGrpcError(err))
+		_, diags := utils.HandleGracefulRemoval(ctx, "schema registry ACL", model.GenerateID(), model.AllowDeletion, err, "create schema registry client")
+		response.Diagnostics.Append(diags...)
 		return
 	}
 
 	if err := client.DeleteACL(ctx, model.ToSchemaRegistryACLRequest()); err != nil {
-		if utils.IsPermissionDenied(err) || utils.IsNotFound(err) {
-			if !model.AllowDeletion.IsNull() && !model.AllowDeletion.ValueBool() {
-				response.Diagnostics.AddError(
-					"Cannot delete Schema Registry ACL - permission denied",
-					fmt.Sprintf("Unable to delete Schema Registry ACL due to permission error. Set allow_deletion=true to force removal from state. Error: %v", err),
-				)
-				return
-			}
-			// This is relevant in situations where the cluster isn't present as otherwise we enter a hung state where we can't
-			// delete the SRs (because there's no cluster on which to delete them) so can't ever successfully conclude the terraform operation
-			tflog.Warn(ctx, "Schema Registry ACL deletion failed due to missing cluster but removing from state as allow_deletion is true", map[string]any{
-				"principal":      model.Principal.ValueString(),
-				"resource":       model.ResourceName.ValueString(),
-				"allow_deletion": model.AllowDeletion.ValueBool(),
-				"error":          err.Error(),
-			})
-			response.State.RemoveResource(ctx)
-			return
-		}
-		response.Diagnostics.AddError("Failed to delete Schema Registry ACL", utils.DeserializeGrpcError(err))
+		_, diags := utils.HandleGracefulRemoval(ctx, "schema registry ACL", model.GenerateID(), model.AllowDeletion, err, "delete schema registry ACL")
+		response.Diagnostics.Append(diags...)
 		return
 	}
-
-	response.State.RemoveResource(ctx)
 }
 
 type importIDComponents struct {

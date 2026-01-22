@@ -439,11 +439,8 @@ func (p *Pipeline) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 
 	err := p.createPipelineClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
-		if utils.IsClusterUnreachable(err) {
-			tflog.Warn(ctx, fmt.Sprintf("cluster unreachable for pipeline %s, considering deleted", model.ID.ValueString()))
-			return
-		}
-		resp.Diagnostics.AddError("failed to create pipeline client", utils.DeserializeGrpcError(err))
+		_, diags := utils.HandleGracefulRemoval(ctx, "pipeline", model.ID.ValueString(), model.AllowDeletion, err, "create pipeline client")
+		resp.Diagnostics.Append(diags...)
 		return
 	}
 	defer func() {

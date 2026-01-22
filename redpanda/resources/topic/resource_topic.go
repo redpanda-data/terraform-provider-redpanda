@@ -148,31 +148,25 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 		return
 	}
 
+	topicName := model.Name.ValueString()
+
 	err := t.createTopicClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
-		if utils.IsClusterUnreachable(err) {
-			if model.AllowDeletion.IsNull() || model.AllowDeletion.ValueBool() {
-				response.State.RemoveResource(ctx)
-				return
-			}
+		action, diags := utils.HandleGracefulRemoval(ctx, "topic", topicName, model.AllowDeletion, err, "create topic client")
+		response.Diagnostics.Append(diags...)
+		if action == utils.RemoveFromState {
+			response.State.RemoveResource(ctx)
 		}
-		response.Diagnostics.AddError("failed to create topic client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer t.dataplaneConn.Close()
-	tp, err := utils.FindTopicByName(ctx, model.Name.ValueString(), t.TopicClient)
+	tp, err := utils.FindTopicByName(ctx, topicName, t.TopicClient)
 	if err != nil {
-		if utils.IsNotFound(err) {
+		action, diags := utils.HandleGracefulRemoval(ctx, "topic", topicName, model.AllowDeletion, err, "find topic")
+		response.Diagnostics.Append(diags...)
+		if action == utils.RemoveFromState {
 			response.State.RemoveResource(ctx)
-			return
 		}
-		if utils.IsClusterUnreachable(err) {
-			if model.AllowDeletion.IsNull() || model.AllowDeletion.ValueBool() {
-				response.State.RemoveResource(ctx)
-				return
-			}
-		}
-		response.Diagnostics.AddError(fmt.Sprintf("failed receive response from topic api for topic %s", model.Name), utils.DeserializeGrpcError(err))
 		return
 	}
 	tpCfgRes, err := t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: tp.Name})
@@ -245,21 +239,28 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
 	var model topicmodel.ResourceModel
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
-	if !model.AllowDeletion.ValueBool() {
-		response.Diagnostics.AddError(fmt.Sprintf("topic %s does not allow deletion", model.Name), "")
+
+	topicName := model.Name.ValueString()
+
+	// Block deletion only if allow_deletion is explicitly set to false
+	if !model.AllowDeletion.IsNull() && !model.AllowDeletion.ValueBool() {
+		response.Diagnostics.AddError(fmt.Sprintf("topic %s does not allow deletion", topicName), "allow_deletion is set to false")
 		return
 	}
 	err := t.createTopicClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("failed to create topic client", utils.DeserializeGrpcError(err))
+		_, diags := utils.HandleGracefulRemoval(ctx, "topic", topicName, model.AllowDeletion, err, "create topic client")
+		response.Diagnostics.Append(diags...)
 		return
 	}
 	defer t.dataplaneConn.Close()
 	_, err = t.TopicClient.DeleteTopic(ctx, &dataplanev1.DeleteTopicRequest{
-		TopicName: model.Name.ValueString(),
+		TopicName: topicName,
 	})
 	if err != nil {
-		response.Diagnostics.AddError(fmt.Sprintf("failed to delete topic %s", model.Name), utils.DeserializeGrpcError(err))
+		_, diags := utils.HandleGracefulRemoval(ctx, "topic", topicName, model.AllowDeletion, err, "delete topic")
+		response.Diagnostics.Append(diags...)
+		return
 	}
 }
 

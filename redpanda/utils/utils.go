@@ -57,13 +57,13 @@ func (e NotFoundError) Error() string {
 
 // IsNotFound checks if the passed error is a NotFoundError or a GRPC NotFound error
 func IsNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
 	if errors.As(err, &NotFoundError{}) {
 		return true
 	}
 	if e, ok := grpcstatus.FromError(err); ok && e.Code() == grpccodes.NotFound {
-		return true
-	}
-	if e, ok := grpcstatus.FromError(err); ok && e.Code() == grpccodes.PermissionDenied {
 		return true
 	}
 	errStr := err.Error()
