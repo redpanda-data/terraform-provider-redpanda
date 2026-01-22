@@ -357,6 +357,24 @@ func TestSchemaRegistryACL_Read(t *testing.T) {
 			expectRemoved: true,
 		},
 		{
+			name: "ACL not found with allow_deletion=false - should keep in state and error",
+			initialState: schemaregistryaclmodel.ResourceModel{
+				ID:            types.StringValue("cluster-1:User:carol:SUBJECT:missing:LITERAL:*:READ:ALLOW"),
+				ClusterID:     types.StringValue("cluster-1"),
+				Principal:     types.StringValue("User:carol"),
+				ResourceType:  types.StringValue("SUBJECT"),
+				ResourceName:  types.StringValue("missing"),
+				PatternType:   types.StringValue("LITERAL"),
+				Host:          types.StringValue("*"),
+				Operation:     types.StringValue("READ"),
+				Permission:    types.StringValue("ALLOW"),
+				AllowDeletion: types.BoolValue(false),
+			},
+			mockResponse:  []kclients.SchemaRegistryACLResponse{},
+			expectRemoved: false,
+			wantErr:       true,
+		},
+		{
 			name: "multiple ACLs returned - finds correct one",
 			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:           types.StringValue("cluster-1:User:dave:SUBJECT:target:LITERAL:*:WRITE:ALLOW"),
