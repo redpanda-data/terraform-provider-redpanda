@@ -233,7 +233,7 @@ func TestRole_Read(t *testing.T) {
 			expectRemoved: true,
 		},
 		{
-			name: "role not found + allow_deletion=false - keep in state with warning",
+			name: "role not found + allow_deletion=false - keep in state with error",
 			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("missing-role"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
@@ -246,10 +246,10 @@ func TestRole_Read(t *testing.T) {
 					Return(nil, errors.New("role not found"))
 			},
 			expectRemoved: false,
-			expectWarning: true,
+			wantErr:       true,
 		},
 		{
-			name: "role not found + allow_deletion=null - keep in state with warning",
+			name: "role not found + allow_deletion=null - remove from state cleanly",
 			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("missing-role"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
@@ -261,8 +261,7 @@ func TestRole_Read(t *testing.T) {
 					GetRole(gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(nil, errors.New("role not found"))
 			},
-			expectRemoved: false,
-			expectWarning: true,
+			expectRemoved: true,
 		},
 		{
 			name: "cluster unreachable + allow_deletion=true - remove from state",
@@ -280,7 +279,7 @@ func TestRole_Read(t *testing.T) {
 			expectRemoved: true,
 		},
 		{
-			name: "cluster unreachable + allow_deletion=false - keep in state with warning",
+			name: "cluster unreachable + allow_deletion=false - keep in state with error",
 			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("unreachable-role"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
@@ -293,7 +292,7 @@ func TestRole_Read(t *testing.T) {
 					Return(nil, status.Error(codes.Unavailable, "name resolver error: produced zero addresses"))
 			},
 			expectRemoved: false,
-			expectWarning: true,
+			wantErr:       true,
 		},
 		{
 			name: "empty cluster_api_url - should fail with error",
@@ -534,18 +533,19 @@ func TestRole_Delete(t *testing.T) {
 			errorMsg: "role deletion not allowed",
 		},
 		{
-			name: "deletion blocked with allow_deletion unset (defaults to false)",
+			name: "deletion allowed with allow_deletion unset (null treated as allowed)",
 			initialState: rolemodel.ResourceModel{
 				Name:          types.StringValue("viewer"),
 				ClusterAPIURL: types.StringValue("https://api-test.cluster.redpanda.com"),
 				AllowDeletion: types.BoolNull(),
 				ID:            types.StringValue("viewer"),
 			},
-			mockSetup: func(_ *mocks.MockSecurityServiceClient) {
-				// No expectations - should not reach API call
+			mockSetup: func(m *mocks.MockSecurityServiceClient) {
+				m.EXPECT().
+					DeleteRole(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(&consolev1alpha1.DeleteRoleResponse{}, nil)
 			},
-			wantErr:  true,
-			errorMsg: "role deletion not allowed",
+			wantErr: false,
 		},
 		{
 			name: "deletion fails due to API error",
@@ -561,7 +561,7 @@ func TestRole_Delete(t *testing.T) {
 					Return(nil, errors.New("API error: deletion failed"))
 			},
 			wantErr:  true,
-			errorMsg: "Failed to delete role failing-role",
+			errorMsg: "failed to delete role",
 		},
 		{
 			name: "deletion with explicit allow_deletion check",
