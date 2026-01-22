@@ -26,7 +26,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	usermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/user"
@@ -112,54 +111,26 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var model usermodel.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
+
+	userName := model.Name.ValueString()
+
 	err := u.createUserClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
-		// Check if cluster is unreachable (DNS resolution failed)
-		if utils.IsClusterUnreachable(err) {
-			// Only remove from state if deletion is allowed
-			if model.AllowDeletion.IsNull() || model.AllowDeletion.ValueBool() {
-				tflog.Info(ctx, fmt.Sprintf("cluster unreachable for user %s, removing from state since allow_deletion is true", model.Name.ValueString()))
-				resp.State.RemoveResource(ctx)
-				return
-			}
-			// If deletion is not allowed, keep the resource in state but report the error
-			tflog.Warn(ctx, fmt.Sprintf("cluster unreachable for user %s, keeping in state since allow_deletion is false", model.Name.ValueString()))
-			resp.Diagnostics.AddWarning(
-				"Cluster Unreachable",
-				fmt.Sprintf("Unable to reach cluster for user %s. Resource will remain in state because allow_deletion is false. Error: %s", model.Name.ValueString(), utils.DeserializeGrpcError(err)),
-			)
-			return
+		action, diags := utils.HandleGracefulRemoval(ctx, "user", userName, model.AllowDeletion, err, "create user client")
+		resp.Diagnostics.Append(diags...)
+		if action == utils.RemoveFromState {
+			resp.State.RemoveResource(ctx)
 		}
-		resp.Diagnostics.AddError("failed to create user client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer u.dataplaneConn.Close()
-	user, err := utils.FindUserByName(ctx, model.Name.ValueString(), u.UserClient)
+	user, err := utils.FindUserByName(ctx, userName, u.UserClient)
 	if err != nil {
-		// Check if this is a not found error or cluster unreachable error
-		if utils.IsNotFound(err) || utils.IsClusterUnreachable(err) {
-			// Only remove from state if deletion is allowed
-			if model.AllowDeletion.IsNull() || model.AllowDeletion.ValueBool() {
-				tflog.Info(ctx, fmt.Sprintf("user %s not found or cluster unreachable, removing from state since allow_deletion is true", model.Name.ValueString()))
-				resp.State.RemoveResource(ctx)
-				return
-			}
-			// If deletion is not allowed, keep the resource in state but report the error
-			tflog.Warn(ctx, fmt.Sprintf("user %s not found or cluster unreachable, keeping in state since allow_deletion is false", model.Name.ValueString()))
-			if utils.IsNotFound(err) {
-				resp.Diagnostics.AddWarning(
-					"User Not Found",
-					fmt.Sprintf("User %s not found but will remain in state because allow_deletion is false", model.Name.ValueString()),
-				)
-			} else {
-				resp.Diagnostics.AddWarning(
-					"Cluster Unreachable",
-					fmt.Sprintf("Unable to reach cluster for user %s. Resource will remain in state because allow_deletion is false. Error: %s", model.Name.ValueString(), utils.DeserializeGrpcError(err)),
-				)
-			}
-			return
+		action, diags := utils.HandleGracefulRemoval(ctx, "user", userName, model.AllowDeletion, err, "find user")
+		resp.Diagnostics.Append(diags...)
+		if action == utils.RemoveFromState {
+			resp.State.RemoveResource(ctx)
 		}
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to find user %s", model.Name), utils.DeserializeGrpcError(err))
 		return
 	}
 
@@ -234,22 +205,27 @@ func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 	var model usermodel.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
-	if !model.AllowDeletion.ValueBool() {
+	userName := model.Name.ValueString()
+
+	// Block deletion only if allow_deletion is explicitly set to false
+	if !model.AllowDeletion.IsNull() && !model.AllowDeletion.ValueBool() {
 		resp.Diagnostics.AddError("user deletion not allowed", "allow_deletion is set to false")
 		return
 	}
 
 	err := u.createUserClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("failed to create user client", utils.DeserializeGrpcError(err))
+		_, diags := utils.HandleGracefulRemoval(ctx, "user", userName, model.AllowDeletion, err, "create user client")
+		resp.Diagnostics.Append(diags...)
 		return
 	}
 	defer u.dataplaneConn.Close()
 	_, err = u.UserClient.DeleteUser(ctx, &dataplanev1.DeleteUserRequest{
-		Name: model.Name.ValueString(),
+		Name: userName,
 	})
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to delete user %s", model.Name), utils.DeserializeGrpcError(err))
+		_, diags := utils.HandleGracefulRemoval(ctx, "user", userName, model.AllowDeletion, err, "delete user")
+		resp.Diagnostics.Append(diags...)
 		return
 	}
 }

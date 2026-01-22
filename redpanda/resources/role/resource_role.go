@@ -26,7 +26,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	rolemodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/role"
@@ -148,60 +147,31 @@ func (r *Role) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 	}
 
 	if err := r.createSecurityClient(ctx, clusterAPIURL); err != nil {
-		if utils.IsClusterUnreachable(err) {
-			if !model.AllowDeletion.IsNull() && model.AllowDeletion.ValueBool() {
-				tflog.Info(ctx, fmt.Sprintf("cluster unreachable for role %s, removing from state since allow_deletion is true", roleName))
-				resp.State.RemoveResource(ctx)
-				return
-			}
-			tflog.Warn(ctx, fmt.Sprintf("cluster unreachable for role %s, keeping in state since allow_deletion is false", roleName))
-			resp.Diagnostics.AddWarning(
-				"Cluster Unreachable",
-				fmt.Sprintf("Unable to reach cluster for role %s. Resource will remain in state because allow_deletion is false. Error: %s", roleName, utils.DeserializeGrpcError(err)),
-			)
-			resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
-			return
+		action, diags := utils.HandleGracefulRemoval(ctx, "role", roleName, model.AllowDeletion, err, "create security client")
+		resp.Diagnostics.Append(diags...)
+		if action == utils.RemoveFromState {
+			resp.State.RemoveResource(ctx)
 		}
-		resp.Diagnostics.AddError("Failed to create SecurityService client", utils.DeserializeGrpcError(err))
 		return
 	}
 	defer r.closeDataplaneConn()
 
 	exists, err := r.roleExists(ctx, roleName)
 	if err != nil {
-		if utils.IsClusterUnreachable(err) {
-			if !model.AllowDeletion.IsNull() && model.AllowDeletion.ValueBool() {
-				tflog.Info(ctx, fmt.Sprintf("cluster unreachable for role %s, removing from state since allow_deletion is true", roleName))
-				resp.State.RemoveResource(ctx)
-				return
-			}
-			tflog.Warn(ctx, fmt.Sprintf("cluster unreachable for role %s, keeping in state since allow_deletion is false", roleName))
-			resp.Diagnostics.AddWarning(
-				"Cluster Unreachable",
-				fmt.Sprintf("Unable to reach cluster for role %s. Resource will remain in state because allow_deletion is false. Error: %s", roleName, utils.DeserializeGrpcError(err)),
-			)
-			resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
-			return
+		action, diags := utils.HandleGracefulRemoval(ctx, "role", roleName, model.AllowDeletion, err, "verify role exists")
+		resp.Diagnostics.Append(diags...)
+		if action == utils.RemoveFromState {
+			resp.State.RemoveResource(ctx)
 		}
-		resp.Diagnostics.AddError(
-			"Failed to verify role",
-			fmt.Sprintf("Could not check if role %s exists: %s", roleName, utils.DeserializeGrpcError(err)),
-		)
 		return
 	}
 
 	if !exists {
-		if !model.AllowDeletion.IsNull() && model.AllowDeletion.ValueBool() {
-			tflog.Warn(ctx, fmt.Sprintf("Role %s not found, removing from state since allow_deletion is true", roleName))
+		action, diags := utils.HandleGracefulRemoval(ctx, "role", roleName, model.AllowDeletion, utils.NotFoundError{Message: fmt.Sprintf("role %s not found", roleName)}, "find role")
+		resp.Diagnostics.Append(diags...)
+		if action == utils.RemoveFromState {
 			resp.State.RemoveResource(ctx)
-			return
 		}
-		tflog.Warn(ctx, fmt.Sprintf("Role %s not found, keeping in state since allow_deletion is false", roleName))
-		resp.Diagnostics.AddWarning(
-			"Role Not Found",
-			fmt.Sprintf("Role %s not found but will remain in state because allow_deletion is false", roleName),
-		)
-		resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
 		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
@@ -220,7 +190,7 @@ func (r *Role) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 		return
 	}
 
-	if !model.AllowDeletion.ValueBool() {
+	if !model.AllowDeletion.IsNull() && !model.AllowDeletion.ValueBool() {
 		resp.Diagnostics.AddError("role deletion not allowed", "allow_deletion is set to false")
 		return
 	}
@@ -229,7 +199,8 @@ func (r *Role) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 	clusterAPIURL := model.ClusterAPIURL.ValueString()
 
 	if err := r.createSecurityClient(ctx, clusterAPIURL); err != nil {
-		resp.Diagnostics.AddError("Failed to create SecurityService client", utils.DeserializeGrpcError(err))
+		_, diags := utils.HandleGracefulRemoval(ctx, "role", roleName, model.AllowDeletion, err, "create security client")
+		resp.Diagnostics.Append(diags...)
 		return
 	}
 	defer r.closeDataplaneConn()
@@ -243,11 +214,10 @@ func (r *Role) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 
 	_, err := r.SecurityClient.DeleteRole(ctx, consoleReq)
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("Failed to delete role %s", roleName), utils.DeserializeGrpcError(err))
+		_, diags := utils.HandleGracefulRemoval(ctx, "role", roleName, model.AllowDeletion, err, "delete role")
+		resp.Diagnostics.Append(diags...)
 		return
 	}
-
-	resp.State.RemoveResource(ctx)
 }
 
 // ImportState imports the state of the Role resource.
