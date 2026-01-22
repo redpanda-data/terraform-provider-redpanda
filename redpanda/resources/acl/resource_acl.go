@@ -23,6 +23,7 @@ import (
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -126,6 +127,8 @@ func ResourceACLSchema() schema.Schema {
 			},
 			"allow_deletion": schema.BoolAttribute{
 				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
 				Description: "When set to true, allows the resource to be removed from state even if the cluster is unreachable",
 			},
 			"id": schema.StringAttribute{
