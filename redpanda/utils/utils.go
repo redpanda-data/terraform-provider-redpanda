@@ -543,14 +543,14 @@ func StringMapToTypesMap(m map[string]string) (types.Map, error) {
 func GetObjectFromAttributes(ctx context.Context, key string, att map[string]attr.Value) (types.Object, error) {
 	attVal, ok := att[key].(basetypes.ObjectValue)
 	if !ok {
-		return types.ObjectNull(map[string]attr.Type{}), fmt.Errorf(fmt.Sprintf("%s not found", key), "object is missing or malformed for network resource")
+		return types.ObjectNull(map[string]attr.Type{}), fmt.Errorf("%s not found: object is missing or malformed for network resource", key)
 	}
 	var keyVal types.Object
 	if err := attVal.As(ctx, &keyVal, basetypes.ObjectAsOptions{
 		UnhandledNullAsEmpty:    true,
 		UnhandledUnknownAsEmpty: true,
 	}); err != nil {
-		return types.ObjectNull(map[string]attr.Type{}), fmt.Errorf(fmt.Sprintf("%s not found", key), "value is missing or malformed for network resource")
+		return types.ObjectNull(map[string]attr.Type{}), fmt.Errorf("%s not found: value is missing or malformed for network resource", key)
 	}
 	return keyVal, nil
 }
@@ -560,7 +560,7 @@ func GetStringFromAttributes(key string, attributes map[string]attr.Value) (stri
 	if val, ok := attributes[key].(types.String); ok {
 		return val.ValueString(), nil
 	}
-	return "", fmt.Errorf(fmt.Sprintf("%s not found", key), "string value is missing or malformed")
+	return "", fmt.Errorf("%s not found: string value is missing or malformed", key)
 }
 
 // GetARNListFromAttributes is used to pull a Terraform List out of a Terraform attribute map using the name
