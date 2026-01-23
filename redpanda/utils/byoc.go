@@ -88,25 +88,25 @@ func (cl *ByocClient) RunByoc(ctx context.Context, clusterID, verb string) error
 		return fmt.Errorf("unable to request cluster details for %q: %w", clusterID, err)
 	}
 
-	byocArgs, byocEnv, err := cl.generateByocArgsAndEnv(cluster, verb)
+	byocArgs, byocEnv, argsCleanup, err := cl.generateByocArgsAndEnv(ctx, cluster, verb)
 	if err != nil {
 		return err
+	}
+	if argsCleanup != nil {
+		defer argsCleanup()
 	}
 
-	byocPath, err := cl.getByocExecutable(ctx, cluster)
+	byocPath, execCleanup, err := cl.getByocExecutable(ctx, cluster)
 	if err != nil {
 		return err
 	}
+	defer execCleanup()
 
 	return runSubprocess(ctx, byocEnv, byocPath, byocArgs...)
 }
 
 func (*ByocClient) generateAwsArgsAndEnv() (args, env []string, err error) {
-	awsArgs := []string{
-		// TODO: clean this up after patch from cloud, not a good lasting solution
-		"--no-validate",
-	}
-	return awsArgs, []string{}, nil
+	return []string{}, []string{}, nil
 }
 
 func getEnvBoolean(name string) (bool, error) {
@@ -208,9 +208,9 @@ func (cl *ByocClient) generateAzureArgsAndEnv() (args, env []string, err error) 
 	return azureArgs, azureEnv, nil
 }
 
-func (cl *ByocClient) generateGcpArgsAndEnv() (args, env []string, err error) {
+func (cl *ByocClient) generateGcpArgsAndEnv(ctx context.Context) (args, env []string, cleanup func(), err error) {
 	if cl.gcpProject == "" {
-		return nil, nil, errors.New("value must be set for GCP Project")
+		return nil, nil, nil, errors.New("value must be set for GCP Project")
 	}
 	gcpArgs := []string{
 		"--project-id", cl.gcpProject,
@@ -221,22 +221,31 @@ func (cl *ByocClient) generateGcpArgsAndEnv() (args, env []string, err error) {
 	// variable, but rpk byoc does some pre-flight validation using a different library that
 	// only allows credential paths passed in GOOGLE_APPLICATION_CREDENTIALS.
 	gcpEnv := []string{}
+	cleanup = func() {} // no-op by default
 	if cl.googleCredentials != "" {
 		tempDir, err := os.MkdirTemp("", "terraform-provider-redpanda-gcp")
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
-		// TODO: delete temp directory after running?
+		cleanup = func() {
+			if err := os.RemoveAll(tempDir); err != nil {
+				tflog.Warn(ctx, "failed to clean up GCP credentials temp directory", map[string]any{
+					"path":  tempDir,
+					"error": err.Error(),
+				})
+			}
+		}
 		if err := os.WriteFile(path.Join(tempDir, "creds.json"), []byte(cl.googleCredentials), 0o600); err != nil {
-			return nil, nil, err
+			cleanup() // Clean up on error
+			return nil, nil, nil, err
 		}
 		gcpEnv = append(gcpEnv, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", path.Join(tempDir, "creds.json")))
 	}
 
-	return gcpArgs, gcpEnv, nil
+	return gcpArgs, gcpEnv, cleanup, nil
 }
 
-func (cl *ByocClient) generateByocArgsAndEnv(cluster cloudapi.Cluster, verb string) (args, env []string, err error) {
+func (cl *ByocClient) generateByocArgsAndEnv(ctx context.Context, cluster cloudapi.Cluster, verb string) (args, env []string, cleanup func(), err error) {
 	cloudProvider := strings.ToLower(cluster.Spec.Provider)
 	byocArgs := []string{
 		cloudProvider, verb,
@@ -257,50 +266,57 @@ func (cl *ByocClient) generateByocArgsAndEnv(cluster cloudapi.Cluster, verb stri
 		}
 	}
 
-	providerArgs, providerEnv, err := func() ([]string, []string, error) {
-		switch cloudProvider {
-		case CloudProviderStringAws:
-			return cl.generateAwsArgsAndEnv()
-		case CloudProviderStringAzure:
-			return cl.generateAzureArgsAndEnv()
-		case CloudProviderStringGcp:
-			return cl.generateGcpArgsAndEnv()
-		default:
-			return nil, nil, fmt.Errorf(
-				"unimplemented cloud provider %v. please report this issue to the provider developers",
-				cloudProvider,
-			)
-		}
-	}()
+	var providerArgs, providerEnv []string
+	var providerCleanup func()
+	switch cloudProvider {
+	case CloudProviderStringAws:
+		providerArgs, providerEnv, err = cl.generateAwsArgsAndEnv()
+	case CloudProviderStringAzure:
+		providerArgs, providerEnv, err = cl.generateAzureArgsAndEnv()
+	case CloudProviderStringGcp:
+		providerArgs, providerEnv, providerCleanup, err = cl.generateGcpArgsAndEnv(ctx)
+	default:
+		err = fmt.Errorf(
+			"unimplemented cloud provider %v. please report this issue to the provider developers",
+			cloudProvider,
+		)
+	}
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	byocArgs = append(byocArgs, providerArgs...)
 	byocEnv = append(byocEnv, providerEnv...)
 
-	return byocArgs, byocEnv, nil
+	return byocArgs, byocEnv, providerCleanup, nil
 }
 
-func (cl *ByocClient) getByocExecutable(ctx context.Context, cluster cloudapi.Cluster) (string, error) {
+func (cl *ByocClient) getByocExecutable(ctx context.Context, cluster cloudapi.Cluster) (byocPath string, cleanup func(), err error) {
 	// TODO: try to cache this in local directory somewhere. beware race conditions.
 	// TODO: grab the existing one from rpk if it has the correct checksum?
 
 	pack, err := cl.api.InstallPack(ctx, cluster.Spec.InstallPackVersion)
 	if err != nil {
-		return "", fmt.Errorf("unable to request install pack details for %q: %v",
+		return "", nil, fmt.Errorf("unable to request install pack details for %q: %v",
 			cluster.Spec.InstallPackVersion, err)
 	}
 	name := fmt.Sprintf("byoc-%s-%s", runtime.GOOS, runtime.GOARCH)
 	artifact, found := pack.Artifacts.Find(name)
 	if !found {
-		return "", fmt.Errorf("unable to find byoc plugin %s in install pack", name)
+		return "", nil, fmt.Errorf("unable to find byoc plugin %s in install pack", name)
 	}
 
 	tempDir, err := os.MkdirTemp("", "terraform-provider-redpanda")
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	// TODO: delete temp directory after running?
+	cleanup = func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			tflog.Warn(ctx, "failed to clean up temp directory", map[string]any{
+				"path":  tempDir,
+				"error": err.Error(),
+			})
+		}
+	}
 
 	// I'm reluctant to use more code from rpk since it's not meant as a public API, but let's
 	// use this because it presumably will handle any new compression types if they're added
@@ -308,15 +324,17 @@ func (cl *ByocClient) getByocExecutable(ctx context.Context, cluster cloudapi.Cl
 	tflog.Info(ctx, fmt.Sprintf("downloading byoc plugin from: %v", artifact.Location))
 	raw, err := plugin.Download(ctx, artifact.Location, false, "")
 	if err != nil {
-		return "", err
+		cleanup() // Clean up on error
+		return "", nil, err
 	}
-	byocPath := path.Join(tempDir, "byoc")
+	byocPath = path.Join(tempDir, "byoc")
 	tflog.Info(ctx, fmt.Sprintf("writing byoc plugin to: %v", byocPath))
 	err = os.WriteFile(byocPath, raw, 0o500) // #nosec G306 -- yes we want it to be executable
 	if err != nil {
-		return "", fmt.Errorf("error writing byoc executable: %w", err)
+		cleanup() // Clean up on error
+		return "", nil, fmt.Errorf("error writing byoc executable: %w", err)
 	}
-	return byocPath, nil
+	return byocPath, cleanup, nil
 }
 
 func runSubprocess(ctx context.Context, env []string, executable string, args ...string) error {
