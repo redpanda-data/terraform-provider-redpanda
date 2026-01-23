@@ -143,11 +143,11 @@ func (c *ControlPlaneClientSet) ResourceGroupForIDOrName(ctx context.Context, id
 
 	request := &controlplanev1.ListResourceGroupsRequest{}
 	listResp, err := c.ResourceGroup.ListResourceGroups(ctx, request)
-	if listResp.ResourceGroups == nil {
-		err = errors.New("provider response was empty. Please report this issue to the provider developers")
-	}
 	if err != nil {
 		return nil, fmt.Errorf("unable to find resource groups: %w", err)
+	}
+	if listResp.ResourceGroups == nil {
+		return nil, errors.New("provider response was empty. Please report this issue to the provider developers")
 	}
 	if len(listResp.ResourceGroups) > 1 {
 		return nil, errors.New("found more than one resource group matching filters")
@@ -166,7 +166,7 @@ func (c *ControlPlaneClientSet) NetworkForID(ctx context.Context, id string) (*c
 	if err != nil {
 		return nil, fmt.Errorf("unable to request network %q information: %w", id, err)
 	}
-	if c.Network == nil {
+	if gnr.Network == nil {
 		return nil, fmt.Errorf("unable to find network %q; please report this bug to Redpanda Support", id)
 	}
 	return gnr.Network, nil
@@ -201,7 +201,7 @@ func (c *ControlPlaneClientSet) ClusterForID(ctx context.Context, id string) (*c
 	if err != nil {
 		return nil, fmt.Errorf("unable to request cluster %q information: %w", id, err)
 	}
-	if c.Cluster == nil {
+	if cl.Cluster == nil {
 		return nil, fmt.Errorf("unable to find cluster %q; please report this bug to Redpanda Support", id)
 	}
 	return cl.Cluster, nil
@@ -233,7 +233,7 @@ func (c *ControlPlaneClientSet) ServerlessClusterForID(ctx context.Context, id s
 	if err != nil {
 		return nil, fmt.Errorf("unable to request serverless cluster %q information: %w", id, err)
 	}
-	if c.ServerlessCluster == nil {
+	if cl.ServerlessCluster == nil {
 		return nil, fmt.Errorf("unable to find serverless cluster %q; please report this bug to Redpanda Support", id)
 	}
 	return cl.ServerlessCluster, nil
