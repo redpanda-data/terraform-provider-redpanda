@@ -214,16 +214,17 @@ type modelBuilder struct {
 func newModelBuilder() *modelBuilder {
 	return &modelBuilder{
 		model: pipelinemodel.ResourceModel{
-			ID:            types.StringUnknown(),
-			ClusterAPIURL: types.StringValue(testClusterAPIURL),
-			DisplayName:   types.StringValue(testDisplayName),
-			Description:   types.StringValue(testDescription),
-			ConfigYaml:    types.StringValue(testConfigYaml),
-			State:         types.StringValue(pipelinemodel.StateStopped),
-			URL:           types.StringUnknown(),
-			Resources:     createResourcesObject("", ""),
-			Tags:          createTagsMap(nil),
-			Timeouts:      createTestTimeouts(),
+			ID:             types.StringUnknown(),
+			ClusterAPIURL:  types.StringValue(testClusterAPIURL),
+			DisplayName:    types.StringValue(testDisplayName),
+			Description:    types.StringValue(testDescription),
+			ConfigYaml:     types.StringValue(testConfigYaml),
+			State:          types.StringValue(pipelinemodel.StateStopped),
+			URL:            types.StringUnknown(),
+			Resources:      createResourcesObject("", ""),
+			ServiceAccount: types.ObjectNull(pipelinemodel.GetServiceAccountType()),
+			Tags:           createTagsMap(nil),
+			Timeouts:       createTestTimeouts(),
 		},
 	}
 }
