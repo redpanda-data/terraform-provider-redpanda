@@ -48,7 +48,7 @@ Optional:
 Required:
 
 - `client_id` (String) The client ID for the service account.
-- `client_secret` (String) The client secret for the service account (write-only, not stored in state). Requires Terraform 1.11+.
+- `client_secret` (String, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) The client secret for the service account (write-only, not stored in state). Requires Terraform 1.11+.
 
 Optional:
 

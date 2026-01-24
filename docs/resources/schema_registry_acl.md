@@ -27,9 +27,11 @@ Creates Access Control Lists (ACLs) for Redpanda Schema Registry resources. Sche
 
 ### Optional
 
+> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
+
 - `allow_deletion` (Boolean) When set to true, allows the resource to be removed from state even if deletion fails due to permission errors
 - `password` (String, Sensitive, Deprecated) Password for authentication. Deprecated: use password_wo instead. Can be set via REDPANDA_SR_PASSWORD environment variable
-- `password_wo` (String) Password for authentication (write-only, not stored in state). Requires Terraform 1.11+. Can be set via REDPANDA_SR_PASSWORD environment variable
+- `password_wo` (String, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Password for authentication (write-only, not stored in state). Requires Terraform 1.11+. Can be set via REDPANDA_SR_PASSWORD environment variable
 - `password_wo_version` (Number) Version number for password_wo. Increment this value to trigger a password update when using password_wo.
 - `username` (String, Sensitive) Username for authentication. Can be set via REDPANDA_SR_USERNAME environment variable
 
