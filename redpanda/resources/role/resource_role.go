@@ -106,7 +106,11 @@ func (r *Role) Create(ctx context.Context, req resource.CreateRequest, resp *res
 		resp.Diagnostics.AddError("Failed to create SecurityService client", utils.DeserializeGrpcError(err))
 		return
 	}
-	defer r.closeDataplaneConn()
+	defer func() {
+		if r.dataplaneConn != nil {
+			_ = r.dataplaneConn.Close()
+		}
+	}()
 
 	dataplaneReq := &dataplanev1.CreateRoleRequest{
 		Role: &dataplanev1.Role{
@@ -154,7 +158,11 @@ func (r *Role) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 		}
 		return
 	}
-	defer r.closeDataplaneConn()
+	defer func() {
+		if r.dataplaneConn != nil {
+			_ = r.dataplaneConn.Close()
+		}
+	}()
 
 	exists, err := r.roleExists(ctx, roleName)
 	if err != nil {
@@ -203,7 +211,11 @@ func (r *Role) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 		resp.Diagnostics.Append(diags...)
 		return
 	}
-	defer r.closeDataplaneConn()
+	defer func() {
+		if r.dataplaneConn != nil {
+			_ = r.dataplaneConn.Close()
+		}
+	}()
 
 	dataplaneReq := &dataplanev1.DeleteRoleRequest{
 		RoleName: roleName,
@@ -297,11 +309,4 @@ func (r *Role) createSecurityClient(ctx context.Context, clusterURL string) erro
 	r.SecurityClient = client
 	r.dataplaneConn = conn
 	return nil
-}
-
-// closeDataplaneConn closes the dataplane connection if it exists
-func (r *Role) closeDataplaneConn() {
-	if r.dataplaneConn != nil {
-		_ = r.dataplaneConn.Close()
-	}
 }

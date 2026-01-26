@@ -173,7 +173,15 @@ func (s *Schema) Create(ctx context.Context, request resource.CreateRequest, res
 		}
 	} else {
 		// If compatibility is not specified, get the current compatibility level
-		plan.Compatibility = s.getOrDefaultCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility)
+		compat, err := getCompatibility(ctx, client, plan.Subject.ValueString())
+		if err != nil {
+			response.Diagnostics.AddError(
+				"Failed to get compatibility level",
+				fmt.Sprintf("Unable to get compatibility level for subject %s: %v", plan.Subject.ValueString(), err),
+			)
+			return
+		}
+		plan.Compatibility = compat
 	}
 
 	response.Diagnostics.Append(response.State.Set(ctx, &plan)...)
@@ -226,7 +234,15 @@ func (s *Schema) Read(ctx context.Context, request resource.ReadRequest, respons
 	state.PasswordWOVersion = passwordWOVersion
 
 	// Get compatibility level for the subject
-	state.Compatibility = s.getOrDefaultCompatibility(ctx, client, state.Subject.ValueString(), state.Compatibility)
+	compat, err := getCompatibility(ctx, client, state.Subject.ValueString())
+	if err != nil {
+		response.Diagnostics.AddError(
+			"Failed to get compatibility level",
+			fmt.Sprintf("Unable to get compatibility level for subject %s: %v", state.Subject.ValueString(), err),
+		)
+		return
+	}
+	state.Compatibility = compat
 
 	response.Diagnostics.Append(response.State.Set(ctx, &state)...)
 }
@@ -289,11 +305,17 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 					)
 					return
 				}
-				plan.Compatibility = s.getOrDefaultCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility)
-			} else {
-				// Even if compatibility didn't change, retrieve the current value for consistency
-				plan.Compatibility = s.getOrDefaultCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility)
 			}
+			// Retrieve the current compatibility value
+			compat, err := getCompatibility(ctx, client, plan.Subject.ValueString())
+			if err != nil {
+				response.Diagnostics.AddError(
+					"Failed to get compatibility level",
+					fmt.Sprintf("Unable to get compatibility level for subject %s: %v", plan.Subject.ValueString(), err),
+				)
+				return
+			}
+			plan.Compatibility = compat
 
 			response.Diagnostics.Append(response.State.Set(ctx, &plan)...)
 			return
@@ -322,12 +344,17 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 			)
 			return
 		}
-		// Verify the change was applied
-		plan.Compatibility = s.getOrDefaultCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility)
-	} else {
-		// Even if compatibility didn't change, retrieve the current value
-		plan.Compatibility = s.getOrDefaultCompatibility(ctx, client, plan.Subject.ValueString(), plan.Compatibility)
 	}
+	// Retrieve the current compatibility value
+	compat, err := getCompatibility(ctx, client, plan.Subject.ValueString())
+	if err != nil {
+		response.Diagnostics.AddError(
+			"Failed to get compatibility level",
+			fmt.Sprintf("Unable to get compatibility level for subject %s: %v", plan.Subject.ValueString(), err),
+		)
+		return
+	}
+	plan.Compatibility = compat
 
 	response.Diagnostics.Append(response.State.Set(ctx, &plan)...)
 }
@@ -448,60 +475,32 @@ func setSubjectCompatibility(ctx context.Context, client SRClienter, subject, co
 	return nil
 }
 
-// getSubjectCompatibility gets the compatibility level for a subject
+// getSubjectCompatibility gets the compatibility level for a subject.
+// With DefaultToGlobal set in the wrapper, this returns either the subject-level
+// compatibility or the global default.
 func getSubjectCompatibility(ctx context.Context, client SRClienter, subject string) (string, error) {
 	results := client.Compatibility(ctx, subject)
 
-	// Check results for the subject
-	for _, result := range results {
-		if result.Err != nil {
-			return "", fmt.Errorf("failed to get compatibility for subject %s: %w", subject, result.Err)
-		}
-		if result.Subject == subject {
-			return result.Level.String(), nil
-		}
+	if len(results) == 0 {
+		return "", fmt.Errorf("no compatibility results returned for subject %s", subject)
 	}
 
-	// If no specific result found, check if we have any results
-	if len(results) > 0 && results[0].Err == nil {
-		return results[0].Level.String(), nil
+	// With DefaultToGlobal, we should get exactly one result for the subject
+	// containing either subject-level or global compatibility
+	result := results[0]
+	if result.Err != nil {
+		return "", fmt.Errorf("failed to get compatibility for subject %s: %w", subject, result.Err)
 	}
 
-	// No compatibility level found for the subject
-	return "", fmt.Errorf("no compatibility level found for subject %s", subject)
+	return result.Level.String(), nil
 }
 
-// getOrDefaultCompatibility attempts to retrieve the compatibility level from the Schema Registry.
-// If retrieval fails and there's an existing value, it preserves that value.
-// If retrieval fails and there's no existing value, it returns the default "BACKWARD".
-// This ensures consistent error handling across Create, Read, and Update operations.
-//
-//nolint:revive,staticcheck // receiver needed for method call pattern
-func (_ *Schema) getOrDefaultCompatibility(ctx context.Context, client SRClienter, subject string, currentValue types.String) types.String {
+// getCompatibility retrieves the compatibility level from the Schema Registry.
+// Returns an error if the API call fails.
+func getCompatibility(ctx context.Context, client SRClienter, subject string) (types.String, error) {
 	compatibility, err := getSubjectCompatibility(ctx, client, subject)
 	if err != nil {
-		tflog.Warn(ctx, "Failed to get compatibility level", map[string]any{
-			"subject": subject,
-			"error":   err.Error(),
-		})
-
-		// If we have a current value (from plan or state), preserve it on error
-		if !currentValue.IsNull() && !currentValue.IsUnknown() {
-			tflog.Debug(ctx, "Preserving existing compatibility value due to API error", map[string]any{
-				"subject":       subject,
-				"current_value": currentValue.ValueString(),
-			})
-			return currentValue
-		}
-
-		// No existing value, use default
-		tflog.Debug(ctx, "Using default compatibility level due to API error", map[string]any{
-			"subject": subject,
-			"default": kclients.DefaultCompatibilityLevel,
-		})
-		return types.StringValue(kclients.DefaultCompatibilityLevel)
+		return types.StringNull(), err
 	}
-
-	// Successfully retrieved from API
-	return types.StringValue(compatibility)
+	return types.StringValue(compatibility), nil
 }
