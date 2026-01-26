@@ -26,6 +26,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -124,9 +126,89 @@ func ResourceServerlessClusterSchema() schema.Schema {
 			},
 			"cluster_api_url": schema.StringAttribute{
 				Computed:           true,
-				DeprecationMessage: "This field is deprecated and will be removed in a future version. Use the dataplane API URL from the cluster details instead.",
+				DeprecationMessage: "This field is deprecated and will be removed in a future version. Use dataplane_api.url instead.",
 				Description:        "The URL of the dataplane API for the serverless cluster",
 				PlanModifiers:      []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"kafka_api": schema.SingleNestedAttribute{
+				Computed:      true,
+				Description:   "Kafka API endpoints for the serverless cluster",
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Attributes: map[string]schema.Attribute{
+					"seed_brokers": schema.ListAttribute{
+						Computed:      true,
+						ElementType:   types.StringType,
+						Description:   "Public Kafka API seed brokers (bootstrap servers)",
+						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+					},
+					"private_seed_brokers": schema.ListAttribute{
+						Computed:      true,
+						ElementType:   types.StringType,
+						Description:   "Private Kafka API seed brokers (bootstrap servers)",
+						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+					},
+				},
+			},
+			"schema_registry": schema.SingleNestedAttribute{
+				Computed:      true,
+				Description:   "Schema Registry endpoints for the serverless cluster",
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Attributes: map[string]schema.Attribute{
+					"url": schema.StringAttribute{
+						Computed:      true,
+						Description:   "Public Schema Registry URL",
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+					},
+					"private_url": schema.StringAttribute{
+						Computed:      true,
+						Description:   "Private Schema Registry URL",
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+					},
+				},
+			},
+			"dataplane_api": schema.SingleNestedAttribute{
+				Computed:      true,
+				Description:   "Dataplane API endpoints for the serverless cluster",
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Attributes: map[string]schema.Attribute{
+					"url": schema.StringAttribute{
+						Computed:      true,
+						Description:   "Public Dataplane API URL",
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+					},
+					"private_url": schema.StringAttribute{
+						Computed:      true,
+						Description:   "Private Dataplane API URL",
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+					},
+				},
+			},
+			"console_url": schema.StringAttribute{
+				Computed:      true,
+				Description:   "Public Console URL for the serverless cluster",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"console_private_url": schema.StringAttribute{
+				Computed:      true,
+				Description:   "Private Console URL for the serverless cluster",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"prometheus": schema.SingleNestedAttribute{
+				Computed:      true,
+				Description:   "Prometheus metrics endpoints for the serverless cluster",
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Attributes: map[string]schema.Attribute{
+					"url": schema.StringAttribute{
+						Computed:      true,
+						Description:   "Public Prometheus metrics URL",
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+					},
+					"private_url": schema.StringAttribute{
+						Computed:      true,
+						Description:   "Private Prometheus metrics URL",
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+					},
+				},
 			},
 		},
 	}
