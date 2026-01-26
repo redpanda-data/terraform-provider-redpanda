@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/serverlessprivatelink"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
@@ -18,8 +18,8 @@ const (
 )
 
 // generateModel populates the ServerlessPrivateLink model to be persisted to state for Create, Read and Update operations.
-func generateModel(ctx context.Context, spl *controlplanev1.ServerlessPrivateLink, allowDeletion types.Bool) (*models.ServerlessPrivateLink, error) {
-	output := &models.ServerlessPrivateLink{
+func generateModel(ctx context.Context, spl *controlplanev1.ServerlessPrivateLink, allowDeletion types.Bool) (*serverlessprivatelink.ResourceModel, error) {
+	output := &serverlessprivatelink.ResourceModel{
 		Name:             types.StringValue(spl.Name),
 		ResourceGroupID:  types.StringValue(spl.ResourceGroupId),
 		CloudProvider:    types.StringValue(utils.CloudProviderToString(spl.Cloudprovider)),
@@ -164,7 +164,7 @@ func generateModelAWSStatus(status *controlplanev1.ServerlessPrivateLinkStatus_A
 }
 
 // GenerateServerlessPrivateLinkRequest converts Terraform model to protobuf for create operation
-func GenerateServerlessPrivateLinkRequest(ctx context.Context, model models.ServerlessPrivateLink) (*controlplanev1.ServerlessPrivateLinkCreate, error) {
+func GenerateServerlessPrivateLinkRequest(ctx context.Context, model serverlessprivatelink.ResourceModel) (*controlplanev1.ServerlessPrivateLinkCreate, error) {
 	req := &controlplanev1.ServerlessPrivateLinkCreate{
 		Name:             model.Name.ValueString(),
 		ResourceGroupId:  model.ResourceGroupID.ValueString(),
@@ -202,7 +202,7 @@ func GenerateServerlessPrivateLinkRequest(ctx context.Context, model models.Serv
 }
 
 // GenerateServerlessPrivateLinkUpdateRequest converts Terraform model to protobuf for update operation
-func GenerateServerlessPrivateLinkUpdateRequest(ctx context.Context, model models.ServerlessPrivateLink) (*controlplanev1.UpdateServerlessPrivateLinkRequest, error) {
+func GenerateServerlessPrivateLinkUpdateRequest(ctx context.Context, model serverlessprivatelink.ResourceModel) (*controlplanev1.UpdateServerlessPrivateLinkRequest, error) {
 	req := &controlplanev1.UpdateServerlessPrivateLinkRequest{
 		Id: model.ID.ValueString(),
 	}

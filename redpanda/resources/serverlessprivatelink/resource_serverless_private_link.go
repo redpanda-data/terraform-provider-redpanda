@@ -36,7 +36,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/serverlessprivatelink"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
@@ -78,10 +78,11 @@ func (s *ServerlessPrivateLink) Configure(_ context.Context, req resource.Config
 
 // Schema returns the schema for the ServerlessPrivateLink resource.
 func (*ServerlessPrivateLink) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = resourceServerlessPrivateLinkSchema()
+	resp.Schema = ResourceServerlessPrivateLinkSchema()
 }
 
-func resourceServerlessPrivateLinkSchema() schema.Schema {
+// ResourceServerlessPrivateLinkSchema returns the schema for the ServerlessPrivateLink resource.
+func ResourceServerlessPrivateLinkSchema() schema.Schema {
 	return schema.Schema{
 		Description: "Manages a Redpanda Serverless Private Link",
 		Attributes: map[string]schema.Attribute{
@@ -192,7 +193,7 @@ func resourceServerlessPrivateLinkSchema() schema.Schema {
 // Create creates a new ServerlessPrivateLink resource. It updates the state if the resource
 // is successfully created.
 func (s *ServerlessPrivateLink) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var model models.ServerlessPrivateLink
+	var model serverlessprivatelink.ResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -242,7 +243,7 @@ func (s *ServerlessPrivateLink) Create(ctx context.Context, req resource.CreateR
 
 // Read reads ServerlessPrivateLink resource's values and updates the state.
 func (s *ServerlessPrivateLink) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var model models.ServerlessPrivateLink
+	var model serverlessprivatelink.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -278,7 +279,7 @@ func (s *ServerlessPrivateLink) Read(ctx context.Context, req resource.ReadReque
 
 // Update updates the ServerlessPrivateLink resource. Currently supports updating allowed_principals for AWS.
 func (s *ServerlessPrivateLink) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var model models.ServerlessPrivateLink
+	var model serverlessprivatelink.ResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -320,7 +321,7 @@ func (s *ServerlessPrivateLink) Update(ctx context.Context, req resource.UpdateR
 
 // Delete deletes the ServerlessPrivateLink resource.
 func (s *ServerlessPrivateLink) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var model models.ServerlessPrivateLink
+	var model serverlessprivatelink.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 	if resp.Diagnostics.HasError() {
 		return

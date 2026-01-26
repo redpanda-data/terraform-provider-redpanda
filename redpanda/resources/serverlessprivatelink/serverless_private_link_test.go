@@ -10,7 +10,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/serverlessprivatelink"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,7 +38,7 @@ func TestGenerateServerlessPrivateLinkRequest(t *testing.T) {
 	)
 
 	type args struct {
-		model models.ServerlessPrivateLink
+		model serverlessprivatelink.ResourceModel
 	}
 	tests := []struct {
 		name    string
@@ -49,7 +49,7 @@ func TestGenerateServerlessPrivateLinkRequest(t *testing.T) {
 		{
 			name: "valid_aws_config",
 			args: args{
-				model: models.ServerlessPrivateLink{
+				model: serverlessprivatelink.ResourceModel{
 					Name:                types.StringValue("test-private-link"),
 					ResourceGroupID:     types.StringValue("test-rg-id"),
 					CloudProvider:       types.StringValue("aws"),
@@ -76,7 +76,7 @@ func TestGenerateServerlessPrivateLinkRequest(t *testing.T) {
 		{
 			name: "missing_aws_config",
 			args: args{
-				model: models.ServerlessPrivateLink{
+				model: serverlessprivatelink.ResourceModel{
 					Name:                types.StringValue("test-private-link"),
 					ResourceGroupID:     types.StringValue("test-rg-id"),
 					CloudProvider:       types.StringValue("aws"),
