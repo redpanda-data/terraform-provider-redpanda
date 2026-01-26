@@ -24,11 +24,17 @@ import (
 
 // ResourceModel represents the Terraform schema for the serverlesscluster resource.
 type ResourceModel struct {
-	ClusterAPIURL    types.String `tfsdk:"cluster_api_url"`
-	ID               types.String `tfsdk:"id"`
-	Name             types.String `tfsdk:"name"`
-	NetworkingConfig types.Object `tfsdk:"networking_config"`
-	PrivateLinkID    types.String `tfsdk:"private_link_id"`
-	ResourceGroupID  types.String `tfsdk:"resource_group_id"`
-	ServerlessRegion types.String `tfsdk:"serverless_region"`
+	ClusterAPIURL     types.String `tfsdk:"cluster_api_url"`
+	ConsolePrivateURL types.String `tfsdk:"console_private_url"`
+	ConsoleURL        types.String `tfsdk:"console_url"`
+	DataplaneAPI      types.Object `tfsdk:"dataplane_api"`
+	ID                types.String `tfsdk:"id"`
+	KafkaAPI          types.Object `tfsdk:"kafka_api"`
+	Name              types.String `tfsdk:"name"`
+	NetworkingConfig  types.Object `tfsdk:"networking_config"`
+	PrivateLinkID     types.String `tfsdk:"private_link_id"`
+	Prometheus        types.Object `tfsdk:"prometheus"`
+	ResourceGroupID   types.String `tfsdk:"resource_group_id"`
+	SchemaRegistry    types.Object `tfsdk:"schema_registry"`
+	ServerlessRegion  types.String `tfsdk:"serverless_region"`
 }

@@ -408,7 +408,7 @@ func TestAccResourcesByoVpcGCP(t *testing.T) {
 }
 
 // buildTestCheckFuncs reads the test file and returns appropriate check functions based on resources present
-func buildTestCheckFuncs(testDir, name string) ([]resource.TestCheckFunc, error) {
+func buildTestCheckFuncs(testDir, name string, hasPrivateNetworking ...bool) ([]resource.TestCheckFunc, error) {
 	testFileContent, err := os.ReadFile(testDir + "/main.tf") // #nosec G304 -- testDir is controlled by test constants
 	if err != nil {
 		return nil, fmt.Errorf("failed to read test file: %w", err)
@@ -434,7 +434,41 @@ func buildTestCheckFuncs(testDir, name string) ([]resource.TestCheckFunc, error)
 			resource.TestCheckResourceAttr(serverlessResourceName, "name", name),
 			resource.TestCheckResourceAttrSet(serverlessResourceName, "id"),
 			resource.TestCheckResourceAttrSet(serverlessResourceName, "cluster_api_url"),
+			// Kafka API
+			resource.TestCheckResourceAttrSet(serverlessResourceName, "kafka_api.seed_brokers.#"),
+			resource.TestCheckResourceAttrSet(serverlessResourceName, "kafka_api.seed_brokers.0"),
+			// Schema Registry
+			resource.TestCheckResourceAttrSet(serverlessResourceName, "schema_registry.url"),
+			// Dataplane API
+			resource.TestCheckResourceAttrSet(serverlessResourceName, "dataplane_api.url"),
+			// Console URL
+			resource.TestCheckResourceAttrSet(serverlessResourceName, "console_url"),
+			// Prometheus
+			resource.TestCheckResourceAttrSet(serverlessResourceName, "prometheus.url"),
 		)
+
+		// Check for private networking fields if private networking is enabled
+		// Use explicit parameter if provided, otherwise fall back to string detection
+		privateNetworkingEnabled := false
+		if len(hasPrivateNetworking) > 0 {
+			privateNetworkingEnabled = hasPrivateNetworking[0]
+		}
+
+		if privateNetworkingEnabled {
+			checkFuncs = append(checkFuncs,
+				// Kafka API private
+				resource.TestCheckResourceAttrSet(serverlessResourceName, "kafka_api.private_seed_brokers.#"),
+				resource.TestCheckResourceAttrSet(serverlessResourceName, "kafka_api.private_seed_brokers.0"),
+				// Schema Registry private
+				resource.TestCheckResourceAttrSet(serverlessResourceName, "schema_registry.private_url"),
+				// Dataplane API private
+				resource.TestCheckResourceAttrSet(serverlessResourceName, "dataplane_api.private_url"),
+				// Console private URL
+				resource.TestCheckResourceAttrSet(serverlessResourceName, "console_private_url"),
+				// Prometheus private
+				resource.TestCheckResourceAttrSet(serverlessResourceName, "prometheus.private_url"),
+			)
+		}
 	}
 
 	if strings.Contains(testFileStr, `resource "redpanda_user" "test"`) {
@@ -1130,12 +1164,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 					resource.TestCheckResourceAttr(pipelineResourceName, "state", "running"),
 				),
 			},
-		)
-	}
-
-	// Enable deletion for cleanup - pipeline defaults to allow_deletion=false
-	if hasPipeline {
-		steps = append(steps,
+			// Enable deletion for cleanup - pipeline defaults to allow_deletion=false
 			resource.TestStep{
 				ConfigDirectory:          config.StaticDirectory(testFile),
 				ConfigVariables:          pipelineAllowDeletionTrueVars,
@@ -1409,7 +1438,7 @@ func runServerlessClusterVariantTest(t *testing.T, testSuffix, region string, pu
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
 
-	checkFuncs, err := buildTestCheckFuncs(serverlessClusterDir, name)
+	checkFuncs, err := buildTestCheckFuncs(serverlessClusterDir, name, privateNetworking)
 	if err != nil {
 		t.Fatal(err)
 	}
