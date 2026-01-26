@@ -123,9 +123,10 @@ func ResourceServerlessClusterSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"cluster_api_url": schema.StringAttribute{
-				Computed:      true,
-				Description:   "The URL of the dataplane API for the serverless cluster",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Computed:           true,
+				DeprecationMessage: "This field is deprecated and will be removed in a future version. Use the dataplane API URL from the cluster details instead.",
+				Description:        "The URL of the dataplane API for the serverless cluster",
+				PlanModifiers:      []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 		},
 	}
