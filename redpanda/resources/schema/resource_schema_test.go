@@ -677,7 +677,7 @@ func TestSchema_Create(t *testing.T) {
 			errorContains:  "Failed to set compatibility level",
 		},
 		{
-			name: "create success - compatibility retrieval fails, uses default",
+			name: "create fails when compatibility retrieval fails",
 			input: schemamodel.ResourceModel{
 				ClusterID:  types.StringValue("cluster-1"),
 				Subject:    types.StringValue("test-subject"),
@@ -706,7 +706,8 @@ func TestSchema_Create(t *testing.T) {
 					Err: errors.New("failed to retrieve compatibility"),
 				},
 			},
-			wantErr: false,
+			wantErr:       true,
+			errorContains: "Failed to get compatibility level",
 		},
 		{
 			name: "create success - schema with references",
@@ -1582,7 +1583,7 @@ func TestSchema_Read(t *testing.T) {
 			wantErr:       true,
 		},
 		{
-			name: "compatibility retrieval fails, uses existing value",
+			name: "read fails when compatibility retrieval fails",
 			initialState: schemamodel.ResourceModel{
 				ID:            types.Int64Value(1),
 				ClusterID:     types.StringValue("cluster-1"),
@@ -1608,7 +1609,7 @@ func TestSchema_Read(t *testing.T) {
 			},
 			compatErr:     errors.New("failed to get compatibility"),
 			expectRemoved: false,
-			wantErr:       false,
+			wantErr:       true,
 		},
 	}
 

@@ -52,5 +52,8 @@ func (w *schemaRegistryClientWrapper) SetCompatibility(ctx context.Context, c sr
 }
 
 func (w *schemaRegistryClientWrapper) Compatibility(ctx context.Context, subjects ...string) []sr.CompatibilityResult {
+	// Use DefaultToGlobal so subjects without explicit compatibility return the global default
+	// instead of erroring
+	ctx = sr.WithParams(ctx, sr.DefaultToGlobal)
 	return w.client.Compatibility(ctx, subjects...)
 }
