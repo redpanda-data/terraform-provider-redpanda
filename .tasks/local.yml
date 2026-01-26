@@ -372,6 +372,9 @@ tasks:
       RESOURCE_GROUP_NAME: 'tfrp-local-serverless-aws-{{.LOCAL_NAME_POSTPEND}}'
       NETWORK_NAME: 'tfrp-local-serverless-aws-{{.LOCAL_NAME_POSTPEND}}'
       REGION: '{{.REGION | default "eu-west-1"}}'
+      PUBLIC_NETWORKING: '{{.PUBLIC_NETWORKING | default "STATE_ENABLED"}}'
+      PRIVATE_NETWORKING: '{{.PRIVATE_NETWORKING | default "STATE_DISABLED"}}'
+      ALLOWED_PRINCIPALS: '{{.ALLOWED_PRINCIPALS | default "arn:aws:iam::123456789012:root"}}'
     env:
       REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
       REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
@@ -394,7 +397,11 @@ tasks:
         terraform apply -auto-approve \
           -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
           -var="cluster_name={{.CLUSTER_NAME}}" \
-          -var="region={{.REGION}}"
+          -var="region={{.REGION}}" \
+          -var="public_networking={{.PUBLIC_NETWORKING}}" \
+          -var="private_networking={{.PRIVATE_NETWORKING}}" \
+          -var='allowed_principals=["{{.ALLOWED_PRINCIPALS}}"]' \
+          -var="allow_private_link_deletion=true"
       - echo "AWS vcluster created successfully"
 
   serverless:destroy:
@@ -405,6 +412,9 @@ tasks:
       RESOURCE_GROUP_NAME: 'tfrp-local-serverless-aws-{{.LOCAL_NAME_POSTPEND}}'
       NETWORK_NAME: 'tfrp-local-serverless-aws-{{.LOCAL_NAME_POSTPEND}}'
       REGION: '{{.REGION | default "eu-west-1"}}'
+      PUBLIC_NETWORKING: '{{.PUBLIC_NETWORKING | default "STATE_ENABLED"}}'
+      PRIVATE_NETWORKING: '{{.PRIVATE_NETWORKING | default "STATE_DISABLED"}}'
+      ALLOWED_PRINCIPALS: '{{.ALLOWED_PRINCIPALS | default "arn:aws:iam::123456789012:root"}}'
     env:
       REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
       REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
@@ -428,7 +438,10 @@ tasks:
         terraform destroy -auto-approve \
           -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
           -var="cluster_name={{.CLUSTER_NAME}}" \
-          -var="region={{.REGION}}"
+          -var="region={{.REGION}}" \
+          -var="public_networking={{.PUBLIC_NETWORKING}}" \
+          -var="private_networking={{.PRIVATE_NETWORKING}}" \
+          -var='allowed_principals=["{{.ALLOWED_PRINCIPALS}}"]'
       - echo "AWS vcluster destroyed successfully"
 
   serverless-private-link:aws:apply:

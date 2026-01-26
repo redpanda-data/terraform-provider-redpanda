@@ -27,6 +27,8 @@ type ResourceModel struct {
 	ClusterAPIURL    types.String `tfsdk:"cluster_api_url"`
 	ID               types.String `tfsdk:"id"`
 	Name             types.String `tfsdk:"name"`
+	NetworkingConfig types.Object `tfsdk:"networking_config"`
+	PrivateLinkID    types.String `tfsdk:"private_link_id"`
 	ResourceGroupID  types.String `tfsdk:"resource_group_id"`
 	ServerlessRegion types.String `tfsdk:"serverless_region"`
 }

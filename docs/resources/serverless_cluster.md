@@ -20,10 +20,23 @@ Enables the provisioning and management of Redpanda Serverless clusters. A Serve
 - `resource_group_id` (String) The ID of the Resource Group in which to create the serverless cluster
 - `serverless_region` (String) Redpanda specific region of the serverless cluster
 
+### Optional
+
+- `networking_config` (Attributes) Network configuration controlling public/private access to the cluster (see [below for nested schema](#nestedatt--networking_config))
+- `private_link_id` (String) Private link ID for the serverless cluster. Must be set if private networking is enabled.
+
 ### Read-Only
 
 - `cluster_api_url` (String) The URL of the dataplane API for the serverless cluster
 - `id` (String) The ID of the serverless cluster
+
+<a id="nestedatt--networking_config"></a>
+### Nested Schema for `networking_config`
+
+Optional:
+
+- `private` (String) Private network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED
+- `public` (String) Public network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED
 
 ## Example Usage
 
@@ -55,10 +68,32 @@ resource "redpanda_resource_group" "test" {
   name = var.resource_group_name
 }
 
+resource "redpanda_serverless_private_link" "test" {
+  count = var.private_networking == "STATE_ENABLED" ? 1 : 0
+  name               = "${var.cluster_name}-private-link"
+  resource_group_id  = redpanda_resource_group.test.id
+  cloud_provider     = "aws"
+  serverless_region  = var.region
+  allow_deletion = var.allow_private_link_deletion
+
+  cloud_provider_config = {
+    aws = {
+      allowed_principals = var.allowed_principals
+    }
+  }
+}
+
 resource "redpanda_serverless_cluster" "test" {
   name              = var.cluster_name
   resource_group_id = redpanda_resource_group.test.id
   serverless_region = var.region
+
+  private_link_id = var.private_networking == "STATE_ENABLED" ? redpanda_serverless_private_link.test[0].id : null
+
+  networking_config = {
+    public = var.public_networking
+    private  = var.private_networking
+  }
 }
 
 resource "redpanda_topic" "test" {

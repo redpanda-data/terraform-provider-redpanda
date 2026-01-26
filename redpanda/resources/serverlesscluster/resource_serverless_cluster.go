@@ -95,6 +95,28 @@ func ResourceServerlessClusterSchema() schema.Schema {
 				Description:   "The ID of the Resource Group in which to create the serverless cluster",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
+			"private_link_id": schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Private link ID for the serverless cluster. Must be set if private networking is enabled.",
+			},
+			"networking_config": schema.SingleNestedAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Network configuration controlling public/private access to the cluster",
+				Attributes: map[string]schema.Attribute{
+					"private": schema.StringAttribute{
+						Optional:    true,
+						Computed:    true,
+						Description: "Private network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED",
+					},
+					"public": schema.StringAttribute{
+						Optional:    true,
+						Computed:    true,
+						Description: "Public network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED",
+					},
+				},
+			},
 			"id": schema.StringAttribute{
 				Computed:      true,
 				Description:   "The ID of the serverless cluster",
@@ -169,22 +191,46 @@ func (c *ServerlessCluster) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, serverlessclustermodel.ResourceModel{
-		Name:             types.StringValue(cluster.Name),
-		ServerlessRegion: types.StringValue(cluster.ServerlessRegion),
-		ResourceGroupID:  types.StringValue(cluster.ResourceGroupId),
-		ID:               types.StringValue(cluster.Id),
-		ClusterAPIURL:    types.StringValue(cluster.DataplaneApi.Url),
-	})...)
+	persist := generateModel(cluster)
+	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
-// Update all serverless cluster updates are currently delete and recreate.
-func (*ServerlessCluster) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+// Update updates the ServerlessCluster resource. Supports updating private_link_id and networking_config.
+func (c *ServerlessCluster) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var plan serverlessclustermodel.ResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	// We pass through the plan to state. Currently, every serverless cluster change needs
-	// a resource replacement.
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	updateReq, err := GenerateServerlessClusterUpdateRequest(plan)
+	if err != nil {
+		resp.Diagnostics.AddError("unable to parse UpdateServerlessCluster request", err.Error())
+		return
+	}
+
+	clResp, err := c.CpCl.ServerlessCluster.UpdateServerlessCluster(ctx, updateReq)
+	if err != nil {
+		resp.Diagnostics.AddError("failed to update serverless cluster", utils.DeserializeGrpcError(err))
+		return
+	}
+
+	op := clResp.Operation
+	if err := utils.AreWeDoneYet(ctx, op, 30*time.Minute, c.CpCl.Operation); err != nil {
+		resp.Diagnostics.AddError("operation error while updating serverless cluster", utils.DeserializeGrpcError(err))
+		return
+	}
+
+	cluster, err := c.CpCl.ServerlessClusterForID(ctx, plan.ID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("successfully updated the serverless cluster with ID %q, but failed to read the configuration: %v", plan.ID.ValueString(), err),
+			utils.DeserializeGrpcError(err))
+		return
+	}
+
+	persist := generateModel(cluster)
+	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
 // Delete deletes the ServerlessCluster resource.
@@ -213,9 +259,95 @@ func (*ServerlessCluster) ImportState(ctx context.Context, req resource.ImportSt
 
 // GenerateServerlessClusterRequest was pulled out to enable unit testing
 func GenerateServerlessClusterRequest(model serverlessclustermodel.ResourceModel) (*controlplanev1.ServerlessClusterCreate, error) {
-	return &controlplanev1.ServerlessClusterCreate{
+	req := &controlplanev1.ServerlessClusterCreate{
 		Name:             model.Name.ValueString(),
 		ServerlessRegion: model.ServerlessRegion.ValueString(),
 		ResourceGroupId:  model.ResourceGroupID.ValueString(),
-	}, nil
+	}
+
+	// Set private_link_id if provided
+	if !model.PrivateLinkID.IsNull() && !model.PrivateLinkID.IsUnknown() {
+		privateLinkID := model.PrivateLinkID.ValueString()
+		req.PrivateLinkId = &privateLinkID
+	}
+
+	// Set networking_config if provided
+	if !model.NetworkingConfig.IsNull() && !model.NetworkingConfig.IsUnknown() {
+		networkingConfig, err := extractNetworkingConfig(model.NetworkingConfig)
+		if err != nil {
+			return nil, err
+		}
+		req.NetworkingConfig = networkingConfig
+	}
+
+	return req, nil
+}
+
+// GenerateServerlessClusterUpdateRequest converts Terraform model to protobuf for update operation
+func GenerateServerlessClusterUpdateRequest(model serverlessclustermodel.ResourceModel) (*controlplanev1.UpdateServerlessClusterRequest, error) {
+	req := &controlplanev1.UpdateServerlessClusterRequest{
+		Id: model.ID.ValueString(),
+	}
+
+	// Set private_link_id if provided
+	if !model.PrivateLinkID.IsNull() && !model.PrivateLinkID.IsUnknown() {
+		privateLinkID := model.PrivateLinkID.ValueString()
+		req.PrivateLinkId = &privateLinkID
+	}
+
+	// Set networking_config if provided
+	if !model.NetworkingConfig.IsNull() && !model.NetworkingConfig.IsUnknown() {
+		networkingConfig, err := extractNetworkingConfig(model.NetworkingConfig)
+		if err != nil {
+			return nil, err
+		}
+		req.NetworkingConfig = networkingConfig
+	}
+
+	return req, nil
+}
+
+// extractNetworkingConfig extracts networking configuration from the Terraform model
+func extractNetworkingConfig(configObj types.Object) (*controlplanev1.ServerlessNetworkingConfig, error) {
+	attrs := configObj.Attributes()
+
+	netConfig := &controlplanev1.ServerlessNetworkingConfig{}
+
+	// Extract private state
+	if privateAttr, ok := attrs["private"]; ok {
+		if privateStr, ok := privateAttr.(types.String); ok && !privateStr.IsNull() {
+			state, err := stringToNetworkingState(privateStr.ValueString())
+			if err != nil {
+				return nil, err
+			}
+			netConfig.Private = state
+		}
+	}
+
+	// Extract public state
+	if publicAttr, ok := attrs["public"]; ok {
+		if publicStr, ok := publicAttr.(types.String); ok && !publicStr.IsNull() {
+			state, err := stringToNetworkingState(publicStr.ValueString())
+			if err != nil {
+				return nil, err
+			}
+			netConfig.Public = state
+		}
+	}
+
+	return netConfig, nil
+}
+
+// stringToNetworkingState converts a string to ServerlessNetworkingConfig_State
+func stringToNetworkingState(s string) (controlplanev1.ServerlessNetworkingConfig_State, error) {
+	switch s {
+	case "STATE_UNSPECIFIED":
+		return controlplanev1.ServerlessNetworkingConfig_STATE_UNSPECIFIED, nil
+	case "STATE_DISABLED":
+		return controlplanev1.ServerlessNetworkingConfig_STATE_DISABLED, nil
+	case "STATE_ENABLED":
+		return controlplanev1.ServerlessNetworkingConfig_STATE_ENABLED, nil
+	default:
+		return controlplanev1.ServerlessNetworkingConfig_STATE_UNSPECIFIED, fmt.Errorf("invalid networking state: %s", s)
+	}
 }

@@ -145,10 +145,10 @@ tasks:
         {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesByocGCP
       - echo "GCP BYOC tests completed successfully"
 
-  serverless:
-    desc: "Run serverless cluster tests"
+  serverless:aws:public:
+    desc: "Run serverless cluster tests (AWS, public only)"
     cmds:
-      - echo "Running TestAccResourcesStrippedDownServerlessCluster..."
+      - echo "Running TestAccResourcesServerlessClusterAWSPublic..."
       - |
         DEBUG=true \
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
@@ -157,8 +157,53 @@ tasks:
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesStrippedDownServerlessCluster
-      - echo "Serverless cluster tests completed successfully"
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesServerlessClusterAWSPublic
+      - echo "Serverless cluster AWS public tests completed successfully"
+
+  serverless:gcp:
+    desc: "Run serverless cluster tests (GCP, public only)"
+    cmds:
+      - echo "Running TestAccResourcesServerlessClusterGCP..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        RUN_SERVERLESS_TESTS=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesServerlessClusterGCP
+      - echo "Serverless cluster GCP tests completed successfully"
+
+  serverless:aws:private:
+    desc: "Run serverless cluster tests (AWS, private only)"
+    cmds:
+      - echo "Running TestAccResourcesServerlessClusterAWSPrivate..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        RUN_SERVERLESS_TESTS=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesServerlessClusterAWSPrivate
+      - echo "Serverless cluster AWS private tests completed successfully"
+
+  serverless:aws:both:
+    desc: "Run serverless cluster tests (AWS, public and private)"
+    cmds:
+      - echo "Running TestAccResourcesServerlessClusterAWSBoth..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        RUN_SERVERLESS_TESTS=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesServerlessClusterAWSBoth
+      - echo "Serverless cluster AWS both tests completed successfully"
 
   serverless:regions:
     desc: "Run serverless regions data source tests"

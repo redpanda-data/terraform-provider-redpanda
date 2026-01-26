@@ -145,11 +145,68 @@ steps:
       - lint
       - unit
       - test_network
-  - label: test_serverless_cluster
-    key: test_serverless_cluster
+  - label: test_serverless_cluster_aws_public
+    key: test_serverless_cluster_aws_public
     if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-serverless')
     command: |
-      ./taskw test:serverless
+      ./taskw test:serverless:aws:public
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.11.0:
+          image: "golang:1.24"
+          environment:
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
+            - TF_LOG=DEBUG
+    depends_on:
+      - lint
+      - unit
+      - test_network
+  - label: test_serverless_cluster_gcp
+    key: test_serverless_cluster_gcp
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-serverless')
+    command: |
+      ./taskw test:serverless:gcp
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.11.0:
+          image: "golang:1.24"
+          environment:
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
+            - TF_LOG=DEBUG
+    depends_on:
+      - lint
+      - unit
+      - test_network
+  - label: test_serverless_cluster_aws_private
+    key: test_serverless_cluster_aws_private
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-serverless')
+    command: |
+      ./taskw test:serverless:aws:private
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.11.0:
+          image: "golang:1.24"
+          environment:
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
+            - TF_LOG=DEBUG
+    depends_on:
+      - lint
+      - unit
+      - test_network
+  - label: test_serverless_cluster_aws_both
+    key: test_serverless_cluster_aws_both
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-serverless')
+    command: |
+      ./taskw test:serverless:aws:both
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -330,7 +387,10 @@ steps:
       - test_cluster_aws
       - test_cluster_azure
       - test_cluster_gcp
-      - test_serverless_cluster
+      - test_serverless_cluster_aws_public
+      - test_serverless_cluster_gcp
+      - test_serverless_cluster_aws_private
+      - test_serverless_cluster_aws_both
       - test_serverless_private_link
       - test_byoc_aws
       - test_byoc_gcp
