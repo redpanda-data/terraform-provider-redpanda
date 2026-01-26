@@ -1364,21 +1364,47 @@ func TestAccResourcesDataSource(t *testing.T) {
 	)
 }
 
-func TestAccResourcesStrippedDownServerlessCluster(t *testing.T) {
+// runServerlessClusterVariantTest is a helper that runs a serverless cluster test with specific configuration
+func runServerlessClusterVariantTest(t *testing.T, testSuffix, region string, publicNetworking, privateNetworking bool) {
 	if !strings.Contains(runServerlessTests, "true") {
 		t.Skip("skipping serverless tests")
 	}
 	ctx := context.Background()
 
-	name := generateRandomName(accNamePrepend + testaws)
+	name := generateRandomName(accNamePrepend + testSuffix)
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
 	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
 	origTestCaseVars["topic_name"] = config.StringVariable(name)
 	origTestCaseVars["user_name"] = config.StringVariable(name)
+	origTestCaseVars["region"] = config.StringVariable(region)
 
-	rename := generateRandomName(accNamePrepend + testawsRename)
+	// Convert booleans to state strings
+	publicState := "STATE_DISABLED"
+	if publicNetworking {
+		publicState = "STATE_ENABLED"
+	}
+	privateState := "STATE_DISABLED"
+	if privateNetworking {
+		privateState = "STATE_ENABLED"
+	}
+
+	// Add networking config if not using defaults (public enabled, private disabled)
+	if !publicNetworking || privateNetworking {
+		origTestCaseVars["public_networking"] = config.StringVariable(publicState)
+		origTestCaseVars["private_networking"] = config.StringVariable(privateState)
+	}
+
+	// Add private link config if private networking is enabled
+	if privateNetworking {
+		origTestCaseVars["allowed_principals"] = config.ListVariable(
+			config.StringVariable("arn:aws:iam::123456789012:root"),
+		)
+		origTestCaseVars["allow_private_link_deletion"] = config.BoolVariable(true)
+	}
+
+	rename := generateRandomName(accNamePrepend + testSuffix + "-rename")
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
@@ -1392,6 +1418,7 @@ func TestAccResourcesStrippedDownServerlessCluster(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
@@ -1408,8 +1435,8 @@ func TestAccResourcesStrippedDownServerlessCluster(t *testing.T) {
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 		},
-	},
-	)
+	})
+
 	resource.AddTestSweepers(generateRandomName("renameClusterSweeper"), &resource.Sweeper{
 		Name: rename,
 		F: sweepCluster{
@@ -1424,6 +1451,15 @@ func TestAccResourcesStrippedDownServerlessCluster(t *testing.T) {
 			Client:      c,
 		}.SweepServerlessCluster,
 	})
+	if privateNetworking {
+		resource.AddTestSweepers(generateRandomName("privateLinkSweeper"), &resource.Sweeper{
+			Name: name,
+			F: sweepServerlessPrivateLink{
+				PrivateLinkName: name + "-private-link",
+				Client:          c,
+			}.SweepServerlessPrivateLink,
+		})
+	}
 	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
 		Name: name,
 		F: sweepResourceGroup{
@@ -1431,6 +1467,22 @@ func TestAccResourcesStrippedDownServerlessCluster(t *testing.T) {
 			Client:            c,
 		}.SweepResourceGroup,
 	})
+}
+
+func TestAccResourcesServerlessClusterAWSPublic(t *testing.T) {
+	runServerlessClusterVariantTest(t, testaws, "eu-west-1", true, false)
+}
+
+func TestAccResourcesServerlessClusterGCP(t *testing.T) {
+	runServerlessClusterVariantTest(t, "testgcp", "us-central1", true, false)
+}
+
+func TestAccResourcesServerlessClusterAWSPrivate(t *testing.T) {
+	runServerlessClusterVariantTest(t, "testprivate", "eu-west-1", false, true)
+}
+
+func TestAccResourcesServerlessClusterAWSBoth(t *testing.T) {
+	runServerlessClusterVariantTest(t, "testboth", "eu-west-1", true, true)
 }
 
 func TestAccServerlessPrivateLink(t *testing.T) {

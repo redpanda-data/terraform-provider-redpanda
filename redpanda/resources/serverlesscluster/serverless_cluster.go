@@ -2,6 +2,7 @@ package serverlesscluster
 
 import (
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	serverlessclustermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/serverlesscluster"
 )
@@ -17,6 +18,34 @@ func generateModel(cluster *controlplanev1.ServerlessCluster) *serverlesscluster
 	if cluster.DataplaneApi != nil {
 		output.ClusterAPIURL = types.StringValue(cluster.DataplaneApi.Url)
 	}
+
+	// Set private_link_id if present
+	if cluster.PrivateLinkId != nil {
+		output.PrivateLinkID = types.StringValue(*cluster.PrivateLinkId)
+	} else {
+		output.PrivateLinkID = types.StringNull()
+	}
+
+	// Set networking_config if present
+	if cluster.NetworkingConfig != nil {
+		networkingConfigObj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"private": types.StringType,
+				"public":  types.StringType,
+			},
+			map[string]attr.Value{
+				"private": types.StringValue(cluster.NetworkingConfig.Private.String()),
+				"public":  types.StringValue(cluster.NetworkingConfig.Public.String()),
+			},
+		)
+		output.NetworkingConfig = networkingConfigObj
+	} else {
+		output.NetworkingConfig = types.ObjectNull(map[string]attr.Type{
+			"private": types.StringType,
+			"public":  types.StringType,
+		})
+	}
+
 	return output
 }
 
@@ -32,13 +61,4 @@ func generateDataModel(cluster *controlplanev1.ServerlessCluster) *serverlessclu
 		output.ClusterAPIURL = types.StringValue(cluster.DataplaneApi.Url)
 	}
 	return output
-}
-
-// generateServerlessClusterRequest was pulled out to enable unit testing
-func generateServerlessClusterRequest(model serverlessclustermodel.ResourceModel) (*controlplanev1.ServerlessClusterCreate, error) {
-	return &controlplanev1.ServerlessClusterCreate{
-		Name:             model.Name.ValueString(),
-		ServerlessRegion: model.ServerlessRegion.ValueString(),
-		ResourceGroupId:  model.ResourceGroupID.ValueString(),
-	}, nil
 }

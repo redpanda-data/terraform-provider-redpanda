@@ -41,10 +41,32 @@ resource "redpanda_resource_group" "test" {
   name = var.resource_group_name
 }
 
+resource "redpanda_serverless_private_link" "test" {
+  count = var.private_networking == "STATE_ENABLED" ? 1 : 0
+  name               = "${var.cluster_name}-private-link"
+  resource_group_id  = redpanda_resource_group.test.id
+  cloud_provider     = "aws"
+  serverless_region  = var.region
+  allow_deletion = var.allow_private_link_deletion
+
+  cloud_provider_config = {
+    aws = {
+      allowed_principals = var.allowed_principals
+    }
+  }
+}
+
 resource "redpanda_serverless_cluster" "test" {
   name              = var.cluster_name
   resource_group_id = redpanda_resource_group.test.id
   serverless_region = var.region
+
+  private_link_id = var.private_networking == "STATE_ENABLED" ? redpanda_serverless_private_link.test[0].id : null
+
+  networking_config = {
+    public = var.public_networking
+    private  = var.private_networking
+  }
 }
 
 resource "redpanda_topic" "test" {
