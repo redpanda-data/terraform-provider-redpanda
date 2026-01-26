@@ -54,3 +54,6 @@ package models
 // Cluster models
 //go:generate go run ../../pkg/generate/modelgen -pkg=github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/cluster -func=ResourceClusterSchema -type=resource -ctx -output=cluster/resource_model_gen.go
 //go:generate go run ../../pkg/generate/modelgen -pkg=github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/cluster -func=DatasourceClusterSchema -type=datasource -ctx -output=cluster/data_model_gen.go
+
+// Serverless Private Link models
+//go:generate go run ../../pkg/generate/modelgen -pkg=github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlessprivatelink -func=ResourceServerlessPrivateLinkSchema -type=resource -output=serverlessprivatelink/resource_model_gen.go
