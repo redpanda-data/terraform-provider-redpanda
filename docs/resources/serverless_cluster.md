@@ -27,7 +27,7 @@ Enables the provisioning and management of Redpanda Serverless clusters. A Serve
 
 ### Read-Only
 
-- `cluster_api_url` (String) The URL of the dataplane API for the serverless cluster
+- `cluster_api_url` (String, Deprecated) The URL of the dataplane API for the serverless cluster
 - `id` (String) The ID of the serverless cluster
 
 <a id="nestedatt--networking_config"></a>
