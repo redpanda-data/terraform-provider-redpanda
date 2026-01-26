@@ -28,7 +28,13 @@ Enables the provisioning and management of Redpanda Serverless clusters. A Serve
 ### Read-Only
 
 - `cluster_api_url` (String, Deprecated) The URL of the dataplane API for the serverless cluster
+- `console_private_url` (String) Private Console URL for the serverless cluster
+- `console_url` (String) Public Console URL for the serverless cluster
+- `dataplane_api` (Attributes) Dataplane API endpoints for the serverless cluster (see [below for nested schema](#nestedatt--dataplane_api))
 - `id` (String) The ID of the serverless cluster
+- `kafka_api` (Attributes) Kafka API endpoints for the serverless cluster (see [below for nested schema](#nestedatt--kafka_api))
+- `prometheus` (Attributes) Prometheus metrics endpoints for the serverless cluster (see [below for nested schema](#nestedatt--prometheus))
+- `schema_registry` (Attributes) Schema Registry endpoints for the serverless cluster (see [below for nested schema](#nestedatt--schema_registry))
 
 <a id="nestedatt--networking_config"></a>
 ### Nested Schema for `networking_config`
@@ -37,6 +43,42 @@ Optional:
 
 - `private` (String) Private network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED
 - `public` (String) Public network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED
+
+
+<a id="nestedatt--dataplane_api"></a>
+### Nested Schema for `dataplane_api`
+
+Read-Only:
+
+- `private_url` (String) Private Dataplane API URL
+- `url` (String) Public Dataplane API URL
+
+
+<a id="nestedatt--kafka_api"></a>
+### Nested Schema for `kafka_api`
+
+Read-Only:
+
+- `private_seed_brokers` (List of String) Private Kafka API seed brokers (bootstrap servers)
+- `seed_brokers` (List of String) Public Kafka API seed brokers (bootstrap servers)
+
+
+<a id="nestedatt--prometheus"></a>
+### Nested Schema for `prometheus`
+
+Read-Only:
+
+- `private_url` (String) Private Prometheus metrics URL
+- `url` (String) Public Prometheus metrics URL
+
+
+<a id="nestedatt--schema_registry"></a>
+### Nested Schema for `schema_registry`
+
+Read-Only:
+
+- `private_url` (String) Private Schema Registry URL
+- `url` (String) Public Schema Registry URL
 
 ## Example Usage
 
