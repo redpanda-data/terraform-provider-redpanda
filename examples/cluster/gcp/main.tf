@@ -49,6 +49,9 @@ resource "redpanda_cluster" "test" {
   #       }
   #     ]
   #   }
+  kafka_connect = {
+    enabled = true
+  }
 
   timeouts = {
     create = "90m"
