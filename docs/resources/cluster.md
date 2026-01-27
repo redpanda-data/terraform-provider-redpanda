@@ -650,10 +650,6 @@ resource "redpanda_cluster" "test" {
   tags = {
     "key" = "value"
   }
-  kafka_connect = {
-    enabled = true
-  }
-
   timeouts = {
     create = "90m"
   }
@@ -948,35 +944,6 @@ resource "redpanda_role_assignment" "developer_assignment" {
   depends_on = [redpanda_user.test]
 }
 
-resource "redpanda_pipeline" "test" {
-  cluster_api_url = redpanda_cluster.test.cluster_api_url
-  display_name    = var.pipeline_name
-  description     = var.pipeline_description
-  config_yaml     = var.pipeline_config_yaml
-  state           = var.pipeline_state
-  allow_deletion  = var.pipeline_allow_deletion
-
-  resources = {
-    memory_shares = var.pipeline_memory_shares
-    cpu_shares    = var.pipeline_cpu_shares
-  }
-
-  tags = {
-    "environment" = "test"
-    "managed-by"  = "terraform"
-  }
-}
-
-output "pipeline_info" {
-  description = "Information about the created pipeline"
-  value = {
-    id    = redpanda_pipeline.test.id
-    name  = redpanda_pipeline.test.display_name
-    state = redpanda_pipeline.test.state
-    url   = redpanda_pipeline.test.url
-  }
-}
-
 output "user_schema_info" {
   description = "Information about the created user schema"
   value = {
@@ -1064,10 +1031,6 @@ resource "redpanda_cluster" "test" {
   #       }
   #     ]
   #   }
-  kafka_connect = {
-    enabled = true
-  }
-
   timeouts = {
     create = "90m"
   }
@@ -1355,35 +1318,6 @@ resource "redpanda_role_assignment" "developer_assignment" {
   cluster_api_url = redpanda_cluster.test.cluster_api_url
 
   depends_on = [redpanda_user.test]
-}
-
-resource "redpanda_pipeline" "test" {
-  cluster_api_url = redpanda_cluster.test.cluster_api_url
-  display_name    = var.pipeline_name
-  description     = var.pipeline_description
-  config_yaml     = var.pipeline_config_yaml
-  state           = var.pipeline_state
-  allow_deletion  = var.pipeline_allow_deletion
-
-  resources = {
-    memory_shares = var.pipeline_memory_shares
-    cpu_shares    = var.pipeline_cpu_shares
-  }
-
-  tags = {
-    "environment" = "test"
-    "managed-by"  = "terraform"
-  }
-}
-
-output "pipeline_info" {
-  description = "Information about the created pipeline"
-  value = {
-    id    = redpanda_pipeline.test.id
-    name  = redpanda_pipeline.test.display_name
-    state = redpanda_pipeline.test.state
-    url   = redpanda_pipeline.test.url
-  }
 }
 
 output "user_schema_info" {
