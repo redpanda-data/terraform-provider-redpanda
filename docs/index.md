@@ -91,6 +91,9 @@ resource "redpanda_cluster" "test" {
   tags = {
     "key" = "value"
   }
+  kafka_connect = {
+    enabled = true
+  }
 
   timeouts = {
     create = "90m"
@@ -502,6 +505,9 @@ resource "redpanda_cluster" "test" {
   #       }
   #     ]
   #   }
+  kafka_connect = {
+    enabled = true
+  }
 
   timeouts = {
     create = "90m"
