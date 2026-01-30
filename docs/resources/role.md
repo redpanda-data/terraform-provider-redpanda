@@ -2,14 +2,14 @@
 page_title: "redpanda_role Resource - terraform-provider-redpanda"
 subcategory: ""
 description: |-
-  Role is a role that can be created in Redpanda for RBAC management
+  Redpanda Cloud RBAC role
 ---
 
 # redpanda_role (Resource)
 
-Role is a role that can be created in Redpanda for RBAC management
+Redpanda Cloud RBAC role
 
-Creates a role in a Redpanda Cluster for RBAC (Role-Based Access Control) management. Roles can be assigned to principals using the `redpanda_role_assignment` resource.
+Creates a role in Redpanda Cloud for role-based access control (RBAC). Assign roles to principals using the redpanda_role_assignment resource.
 
 ## Availability
 
