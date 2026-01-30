@@ -39,7 +39,7 @@ tasks:
 
   default:
     desc: "Create a new release using goreleaser"
-    deps: [import-gpg, check-gpg-fingerprint]
+    deps: [import-gpg, check-gpg-fingerprint, ":tools:install:goreleaser"]
     cmds:
       - echo "Creating release with goreleaser..."
       - "{{.GORELEASER_INSTALL_DIR}}/goreleaser release --clean --verbose"
@@ -54,7 +54,7 @@ tasks:
 
   build:
     desc: "Build release artifacts locally without publishing"
-    deps: [import-gpg, check-gpg-fingerprint]
+    deps: [import-gpg, check-gpg-fingerprint, ":tools:install:goreleaser"]
     cmds:
       - echo "Building release artifacts locally..."
       - "{{.GORELEASER_INSTALL_DIR}}/goreleaser build --snapshot --clean"
@@ -62,7 +62,7 @@ tasks:
 
   snapshot:
     desc: "Create a snapshot release for testing"
-    deps: [import-gpg, check-gpg-fingerprint]
+    deps: [import-gpg, check-gpg-fingerprint, ":tools:install:goreleaser"]
     cmds:
       - echo "Creating snapshot release..."
       - "{{.GORELEASER_INSTALL_DIR}}/goreleaser release --snapshot --clean"

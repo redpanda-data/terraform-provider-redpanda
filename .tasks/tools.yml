@@ -9,7 +9,7 @@ vars:
   GOLANGCI_LINT_VERSION: "2.2.1"
   MOCKGEN_VERSION: "v0.5.0"
   TFPLUGINDOCS_VERSION: "latest"
-  GORELEASER_VERSION: 1.9.2-pro
+  GORELEASER_VERSION: latest
 
   GORELEASER_INSTALL_DIR: '{{ .BUILD_ROOT }}/tools/goreleaser/{{.GORELEASER_VERSION}}'
 
@@ -83,7 +83,7 @@ tasks:
     run: once
     cmds:
       - mkdir -p {{ .GORELEASER_INSTALL_DIR }}
-      - curl -sSLf --retry 3 --retry-connrefused --retry-delay 2 "https://github.com/goreleaser/goreleaser-pro/releases/download/v{{.GORELEASER_VERSION}}/goreleaser-pro_$(uname -s)_$(uname -m).tar.gz" | tar -xz -C '{{.GORELEASER_INSTALL_DIR}}'
+      - curl -sSLf --retry 3 --retry-connrefused --retry-delay 2 "https://github.com/goreleaser/goreleaser/releases/latest/download/goreleaser_$(uname -s)_$(uname -m).tar.gz" | tar -xz -C '{{.GORELEASER_INSTALL_DIR}}'
     status:
       - test -f {{ .GORELEASER_INSTALL_DIR }}/goreleaser
 
