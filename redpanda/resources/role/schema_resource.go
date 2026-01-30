@@ -24,7 +24,7 @@ import (
 // ResourceRoleSchema returns the schema for the Role resource.
 func ResourceRoleSchema() schema.Schema {
 	return schema.Schema{
-		Description: "Role is a role that can be created in Redpanda for RBAC management",
+		Description: "Redpanda Cloud RBAC role",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
 				Description:   "Name of the role, must be unique",
