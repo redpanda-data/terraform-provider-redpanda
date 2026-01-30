@@ -31,4 +31,7 @@ type Redpanda struct {
 	AzureTenantID           types.String `tfsdk:"azure_tenant_id"`
 	GoogleCredentials       types.String `tfsdk:"google_credentials"`
 	GoogleCredentialsBase64 types.String `tfsdk:"google_credentials_base64"`
+	AwsAccessKeyID          types.String `tfsdk:"aws_access_key_id"`
+	AwsSecretAccessKey      types.String `tfsdk:"aws_secret_access_key"`
+	AwsSessionToken         types.String `tfsdk:"aws_session_token"`
 }

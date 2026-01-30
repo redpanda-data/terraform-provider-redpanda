@@ -164,6 +164,27 @@ func providerSchema() schema.Schema {
 				Sensitive:   true,
 				Description: ("Used for creating and managing BYOC and BYOVPC clusters. Is a convenience passthrough for base64 encoded credentials intended for use in CI/CD. Can also be specified in the environment as GOOGLE_CREDENTIALS_BASE64"),
 			},
+			"aws_access_key_id": schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				Description: "AWS access key ID for BYOC clusters. Can also be set via AWS_ACCESS_KEY_ID.",
+				Validators: []validator.String{
+					stringvalidator.AlsoRequires(path.MatchRoot("aws_secret_access_key")),
+				},
+			},
+			"aws_secret_access_key": schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				Description: "AWS secret access key for BYOC clusters. Can also be set via AWS_SECRET_ACCESS_KEY.",
+				Validators: []validator.String{
+					stringvalidator.AlsoRequires(path.MatchRoot("aws_access_key_id")),
+				},
+			},
+			"aws_session_token": schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				Description: "AWS session token for BYOC clusters (for temporary credentials). Can also be set via AWS_SESSION_TOKEN.",
+			},
 		},
 		Description:         "Redpanda Data terraform provider",
 		MarkdownDescription: "Provider configuration",
@@ -342,6 +363,18 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 			googleCredentials = string(decodedBytes)
 		}
 	}
+	awsAccessKeyID := firstNonEmptyString(
+		conf.AwsAccessKeyID.ValueString(),
+		os.Getenv("AWS_ACCESS_KEY_ID"),
+	)
+	awsSecretAccessKey := firstNonEmptyString(
+		conf.AwsSecretAccessKey.ValueString(),
+		os.Getenv("AWS_SECRET_ACCESS_KEY"),
+	)
+	awsSessionToken := firstNonEmptyString(
+		conf.AwsSessionToken.ValueString(),
+		os.Getenv("AWS_SESSION_TOKEN"),
+	)
 	if r.byoc == nil {
 		r.byoc = utils.NewByocClient(utils.ByocClientConfig{
 			AuthToken:           creds.Token,
@@ -353,6 +386,9 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 			AzureClientSecret:   azureClientSecret,
 			AzureTenantID:       azureTenantID,
 			GoogleCredentials:   googleCredentials,
+			AwsAccessKeyID:      awsAccessKeyID,
+			AwsSecretAccessKey:  awsSecretAccessKey,
+			AwsSessionToken:     awsSessionToken,
 		})
 	}
 
