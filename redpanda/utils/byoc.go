@@ -47,6 +47,9 @@ type ByocClientConfig struct {
 	AzureTenantID       string
 	GoogleCredentials   string
 	PublicAPIURL        string
+	AwsAccessKeyID      string
+	AwsSecretAccessKey  string
+	AwsSessionToken     string
 }
 
 // ByocClient holds the information and clients needed to download and interact
@@ -62,6 +65,9 @@ type ByocClient struct {
 	azureTenantID       string
 	googleCredentials   string
 	publicAPIURL        string
+	awsAccessKeyID      string
+	awsSecretAccessKey  string
+	awsSessionToken     string
 }
 
 // NewByocClient creates a new ByocClient.
@@ -77,6 +83,9 @@ func NewByocClient(conf ByocClientConfig) *ByocClient {
 		azureTenantID:       conf.AzureTenantID,
 		googleCredentials:   conf.GoogleCredentials,
 		publicAPIURL:        conf.PublicAPIURL,
+		awsAccessKeyID:      conf.AwsAccessKeyID,
+		awsSecretAccessKey:  conf.AwsSecretAccessKey,
+		awsSessionToken:     conf.AwsSessionToken,
 	}
 }
 
@@ -105,8 +114,18 @@ func (cl *ByocClient) RunByoc(ctx context.Context, clusterID, verb string) error
 	return runSubprocess(ctx, byocEnv, byocPath, byocArgs...)
 }
 
-func (*ByocClient) generateAwsArgsAndEnv() (args, env []string, err error) {
-	return []string{}, []string{}, nil
+func (cl *ByocClient) generateAwsArgsAndEnv() (args, env []string, err error) {
+	var awsEnv []string
+	if cl.awsAccessKeyID != "" {
+		awsEnv = append(awsEnv, fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", cl.awsAccessKeyID))
+	}
+	if cl.awsSecretAccessKey != "" {
+		awsEnv = append(awsEnv, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", cl.awsSecretAccessKey))
+	}
+	if cl.awsSessionToken != "" {
+		awsEnv = append(awsEnv, fmt.Sprintf("AWS_SESSION_TOKEN=%s", cl.awsSessionToken))
+	}
+	return nil, awsEnv, nil
 }
 
 func getEnvBoolean(name string) (bool, error) {

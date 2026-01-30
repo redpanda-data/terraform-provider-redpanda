@@ -14,6 +14,9 @@ The Redpanda provider is designed for managing Redpanda clusters and Kafka resou
 ### Optional
 
 - `access_token` (String, Sensitive) Redpanda client token. You need either `access_token`, or both `client_id` and `client_secret` to use this provider. Can also be set with the `REDPANDA_ACCESS_TOKEN` environment variable.
+- `aws_access_key_id` (String, Sensitive) AWS access key ID for BYOC clusters. Can also be set via AWS_ACCESS_KEY_ID.
+- `aws_secret_access_key` (String, Sensitive) AWS secret access key for BYOC clusters. Can also be set via AWS_SECRET_ACCESS_KEY.
+- `aws_session_token` (String, Sensitive) AWS session token for BYOC clusters (for temporary credentials). Can also be set via AWS_SESSION_TOKEN.
 - `azure_client_id` (String) Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_CLIENT_ID or ARM_CLIENT_ID
 - `azure_client_secret` (String, Sensitive) Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_CLIENT_SECRET or ARM_CLIENT_SECRET
 - `azure_subscription_id` (String) The default Azure Subscription ID which should be used for Redpanda BYOC clusters. If another subscription is specified on a resource, it will take precedence. This can also be sourced from the `ARM_SUBSCRIPTION_ID` environment variable.
