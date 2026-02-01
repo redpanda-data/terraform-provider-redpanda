@@ -7,7 +7,7 @@ toolchain go1.24.4
 require (
 	buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.0-20260109172505-478c671758fa.1
 	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20260109172505-478c671758fa.1
-	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.6.0-20260112104406-88d0531cfa06.1
+	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.6.0-20260130155643-cdcfe23def41.1
 	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.11-20260112104406-88d0531cfa06.1
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
