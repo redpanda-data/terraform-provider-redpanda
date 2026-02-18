@@ -2009,6 +2009,7 @@ module "redpanda_byovpc" {
   ]
 }
 
+
 resource "redpanda_resource_group" "test" {
   name = var.resource_group_name
 }
@@ -2330,3 +2331,4 @@ terraform import redpanda_cluster.example clusterId
 ## API Reference
 
 For more information, see the [Redpanda Cloud Control Plane API documentation](https://docs.redpanda.com/api/cloud-controlplane-api/).
+
