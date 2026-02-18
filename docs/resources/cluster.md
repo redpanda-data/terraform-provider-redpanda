@@ -2009,7 +2009,6 @@ module "redpanda_byovpc" {
   ]
 }
 
-
 resource "redpanda_resource_group" "test" {
   name = var.resource_group_name
 }
@@ -2036,6 +2035,9 @@ resource "redpanda_network" "test" {
       }
     }
   }
+  depends_on = [
+    module.redpanda_byovpc
+  ]
 }
 
 resource "redpanda_cluster" "test" {
@@ -2098,6 +2100,9 @@ resource "redpanda_cluster" "test" {
       }
     }
   }
+  depends_on = [
+    redpanda_network.test
+  ]
 }
 
 resource "redpanda_user" "test" {
@@ -2229,7 +2234,7 @@ resource "redpanda_cluster" "test" {
       }
     }
   }
-  depends_on = [module.redpanda_gcp]
+  depends_on = [redpanda_network.test]
 }
 
 # Create Kafka user for the cluster
@@ -2325,4 +2330,3 @@ terraform import redpanda_cluster.example clusterId
 ## API Reference
 
 For more information, see the [Redpanda Cloud Control Plane API documentation](https://docs.redpanda.com/api/cloud-controlplane-api/).
-
