@@ -2036,6 +2036,9 @@ resource "redpanda_network" "test" {
       }
     }
   }
+  depends_on = [
+    module.redpanda_byovpc
+  ]
 }
 
 resource "redpanda_cluster" "test" {
@@ -2098,6 +2101,9 @@ resource "redpanda_cluster" "test" {
       }
     }
   }
+  depends_on = [
+    redpanda_network.test
+  ]
 }
 
 resource "redpanda_user" "test" {
@@ -2229,7 +2235,7 @@ resource "redpanda_cluster" "test" {
       }
     }
   }
-  depends_on = [module.redpanda_gcp]
+  depends_on = [redpanda_network.test]
 }
 
 # Create Kafka user for the cluster
