@@ -90,9 +90,13 @@ func (*SchemaRegistryACL) Schema(_ context.Context, _ resource.SchemaRequest, re
 func (s *SchemaRegistryACL) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
 	var model schemaregistryaclmodel.ResourceModel
 	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
+
+	var cfg schemaregistryaclmodel.ResourceModel
+	response.Diagnostics.Append(request.Config.Get(ctx, &cfg)...)
 	if response.Diagnostics.HasError() {
 		return
 	}
+	model.PasswordWO = cfg.PasswordWO
 
 	client, err := s.getSchemaRegistryClient(ctx, &model)
 	if err != nil {

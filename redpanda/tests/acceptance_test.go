@@ -18,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/tfversion"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/kclients"
 )
 
 const (
@@ -1643,6 +1644,32 @@ func TestAccDataSourceServerlessRegions(t *testing.T) {
 	})
 }
 
+// verifySRAuth verifies that the user's password was correctly set by attempting
+// to authenticate against Schema Registry. If password_wo was silently null (the
+// bug), the SR will reject the request with 401.
+func verifySRAuth(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterName, username, password string) error {
+	cluster, err := cpCl.ClusterForName(ctx, clusterName)
+	if err != nil {
+		return fmt.Errorf("failed to look up cluster by name: %w", err)
+	}
+
+	srClient, err := kclients.GetSchemaRegistryClientForCluster(ctx, cpCl, cluster.GetId(), username, password)
+	if err != nil {
+		return fmt.Errorf("failed to create SR client: %w", err)
+	}
+
+	// SupportedTypes hits GET /schemas/types — lightweight, read-only,
+	// requires only DESCRIBE on REGISTRY (already granted by test config).
+	types, err := srClient.SupportedTypes(ctx)
+	if err != nil {
+		return fmt.Errorf("SR auth failed — password_wo was likely not delivered to the API: %w", err)
+	}
+	if len(types) == 0 {
+		return errors.New("SR should report at least one supported type, got none")
+	}
+	return nil
+}
+
 // TestAccUserWriteOnlyPassword tests the write-only password field for the user resource.
 // Tests create/update with password_wo and bidirectional migration between password and password_wo.
 func TestAccUserWriteOnlyPassword(t *testing.T) {
@@ -1708,6 +1735,9 @@ func TestAccUserWriteOnlyPassword(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(userResourceName, "name", name),
 					resource.TestCheckResourceAttr(userResourceName, "password_wo_version", "1"),
+					func(_ *terraform.State) error {
+						return verifySRAuth(ctx, c, name, name, "initial-secret-123")
+					},
 				),
 			},
 			// Step 2: Update via version bump
@@ -1717,6 +1747,9 @@ func TestAccUserWriteOnlyPassword(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(userResourceName, "name", name),
 					resource.TestCheckResourceAttr(userResourceName, "password_wo_version", "2"),
+					func(_ *terraform.State) error {
+						return verifySRAuth(ctx, c, name, name, "updated-secret-456")
+					},
 				),
 			},
 			// Step 3: Migrate to legacy password
@@ -1726,6 +1759,9 @@ func TestAccUserWriteOnlyPassword(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(userResourceName, "name", name),
 					resource.TestCheckResourceAttr(userResourceName, "password", "legacy-secret-789"),
+					func(_ *terraform.State) error {
+						return verifySRAuth(ctx, c, name, name, "legacy-secret-789")
+					},
 				),
 			},
 			// Step 4: Migrate back to password_wo
@@ -1735,6 +1771,9 @@ func TestAccUserWriteOnlyPassword(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(userResourceName, "name", name),
 					resource.TestCheckResourceAttr(userResourceName, "password_wo_version", "3"),
+					func(_ *terraform.State) error {
+						return verifySRAuth(ctx, c, name, name, "final-secret-000")
+					},
 				),
 			},
 		},
