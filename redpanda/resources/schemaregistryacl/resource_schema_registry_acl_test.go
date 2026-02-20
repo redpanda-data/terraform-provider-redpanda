@@ -19,7 +19,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	rsschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
@@ -31,10 +33,18 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+// setConfig populates a tfsdk.Config using a temporary State (since Config has no Set method).
+func setConfig(ctx context.Context, s rsschema.Schema, val any) (tfsdk.Config, diag.Diagnostics) {
+	tmp := tfsdk.State{Schema: s}
+	diags := tmp.Set(ctx, val)
+	return tfsdk.Config{Schema: s, Raw: tmp.Raw}, diags
+}
+
 func TestSchemaRegistryACL_Create(t *testing.T) {
 	tests := []struct {
 		name         string
 		input        schemaregistryaclmodel.ResourceModel
+		config       *schemaregistryaclmodel.ResourceModel // if non-nil, used as req.Config (for write-only attrs)
 		mockResponse []kclients.SchemaRegistryACLResponse
 		wantErr      bool
 	}{
@@ -148,7 +158,20 @@ func TestSchemaRegistryACL_Create(t *testing.T) {
 				Operation:         types.StringValue("READ"),
 				Permission:        types.StringValue("ALLOW"),
 				Username:          types.StringValue("testuser"),
-				PasswordWO:        types.StringValue("testpass-wo"),
+				PasswordWO:        types.StringNull(), // write-only attrs are null in Plan
+				PasswordWOVersion: types.Int64Value(1),
+			},
+			config: &schemaregistryaclmodel.ResourceModel{
+				ClusterID:         types.StringValue("cluster-1"),
+				Principal:         types.StringValue("User:carol-wo"),
+				ResourceType:      types.StringValue("SUBJECT"),
+				ResourceName:      types.StringValue("private-subject-wo"),
+				PatternType:       types.StringValue("LITERAL"),
+				Host:              types.StringValue("*"),
+				Operation:         types.StringValue("READ"),
+				Permission:        types.StringValue("ALLOW"),
+				Username:          types.StringValue("testuser"),
+				PasswordWO:        types.StringValue("testpass-wo"), // actual value in Config
 				PasswordWOVersion: types.Int64Value(1),
 			},
 			mockResponse: []kclients.SchemaRegistryACLResponse{
@@ -268,6 +291,12 @@ func TestSchemaRegistryACL_Create(t *testing.T) {
 			}
 			diags := req.Plan.Set(ctx, &tt.input)
 			require.False(t, diags.HasError(), "Plan.Set should not error")
+			if tt.config != nil {
+				req.Config, diags = setConfig(ctx, schemaResp.Schema, tt.config)
+			} else {
+				req.Config, diags = setConfig(ctx, schemaResp.Schema, &tt.input)
+			}
+			require.False(t, diags.HasError(), "Config set should not error")
 
 			resp := resource.CreateResponse{
 				State: tfsdk.State{Schema: schemaResp.Schema},

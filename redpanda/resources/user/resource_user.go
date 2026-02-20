@@ -80,6 +80,13 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 	var model usermodel.ResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
 
+	var cfg usermodel.ResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	model.PasswordWO = cfg.PasswordWO
+
 	err := u.createUserClient(model.ClusterAPIURL.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create user client", utils.DeserializeGrpcError(err))
@@ -156,9 +163,12 @@ func (u *User) Update(ctx context.Context, req resource.UpdateRequest, resp *res
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
+	var cfg usermodel.ResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	plan.PasswordWO = cfg.PasswordWO
 
 	passwordChanged := !plan.Password.Equal(state.Password)
 	passwordWOVersionChanged := !plan.PasswordWOVersion.Equal(state.PasswordWOVersion)

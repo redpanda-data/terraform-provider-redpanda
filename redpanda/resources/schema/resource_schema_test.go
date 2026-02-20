@@ -22,7 +22,9 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	rsschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
@@ -33,6 +35,13 @@ import (
 	"github.com/twmb/franz-go/pkg/sr"
 	"go.uber.org/mock/gomock"
 )
+
+// setConfig populates a tfsdk.Config using a temporary State (since Config has no Set method).
+func setConfig(ctx context.Context, s rsschema.Schema, val any) (tfsdk.Config, diag.Diagnostics) {
+	tmp := tfsdk.State{Schema: s}
+	diags := tmp.Set(ctx, val)
+	return tfsdk.Config{Schema: s, Raw: tmp.Raw}, diags
+}
 
 func Test_parseImportID(t *testing.T) {
 	tests := []struct {
@@ -507,6 +516,7 @@ func TestSchema_Create(t *testing.T) {
 	tests := []struct {
 		name               string
 		input              schemamodel.ResourceModel
+		config             *schemamodel.ResourceModel // if non-nil, used as req.Config (for write-only attrs)
 		clientFactoryError error
 		createSchemaError  error
 		setCompatError     error
@@ -609,6 +619,53 @@ func TestSchema_Create(t *testing.T) {
 				{
 					Level:   sr.CompatBackward,
 					Subject: "proto-subject",
+				},
+			},
+		},
+		{
+			name: "AVRO schema with password_wo (write-only)",
+			input: schemamodel.ResourceModel{
+				ClusterID:  types.StringValue("cluster-1"),
+				Subject:    types.StringValue("wo-subject"),
+				Schema:     types.StringValue(`{"type": "string"}`),
+				SchemaType: types.StringValue("AVRO"),
+				Username:   types.StringValue("user"),
+				PasswordWO: types.StringNull(), // write-only attrs are null in Plan
+				References: types.ListNull(types.ObjectType{
+					AttrTypes: map[string]attr.Type{
+						"name":    types.StringType,
+						"subject": types.StringType,
+						"version": types.Int64Type,
+					},
+				}),
+			},
+			config: &schemamodel.ResourceModel{
+				ClusterID:  types.StringValue("cluster-1"),
+				Subject:    types.StringValue("wo-subject"),
+				Schema:     types.StringValue(`{"type": "string"}`),
+				SchemaType: types.StringValue("AVRO"),
+				Username:   types.StringValue("user"),
+				PasswordWO: types.StringValue("wo-secret"), // actual value in Config
+				References: types.ListNull(types.ObjectType{
+					AttrTypes: map[string]attr.Type{
+						"name":    types.StringType,
+						"subject": types.StringType,
+						"version": types.Int64Type,
+					},
+				}),
+			},
+			mockResponse: sr.SubjectSchema{
+				ID:      10,
+				Version: 1,
+				Schema: sr.Schema{
+					Schema: `{"type": "string"}`,
+					Type:   sr.TypeAvro,
+				},
+			},
+			compatResults: []sr.CompatibilityResult{
+				{
+					Level:   sr.CompatBackward,
+					Subject: "wo-subject",
 				},
 			},
 		},
@@ -806,6 +863,12 @@ func TestSchema_Create(t *testing.T) {
 			}
 			diags := req.Plan.Set(ctx, &tt.input)
 			require.False(t, diags.HasError(), "Plan.Set should not error")
+			if tt.config != nil {
+				req.Config, diags = setConfig(ctx, schemaResp.Schema, tt.config)
+			} else {
+				req.Config, diags = setConfig(ctx, schemaResp.Schema, &tt.input)
+			}
+			require.False(t, diags.HasError(), "Config set should not error")
 
 			resp := resource.CreateResponse{
 				State: tfsdk.State{Schema: schemaResp.Schema},
@@ -1281,6 +1344,8 @@ func TestSchema_CreateReadConsistency(t *testing.T) {
 			}
 			diags := createReq.Plan.Set(ctx, &tt.input)
 			require.False(t, diags.HasError(), "Plan.Set should not error")
+			createReq.Config, diags = setConfig(ctx, schemaResp.Schema, &tt.input)
+			require.False(t, diags.HasError(), "Config set should not error")
 
 			createResp := resource.CreateResponse{
 				State: tfsdk.State{Schema: schemaResp.Schema},
@@ -1863,6 +1928,8 @@ func TestSchema_Update(t *testing.T) {
 			require.False(t, diags.HasError(), "State.Set should not error")
 			diags = req.Plan.Set(ctx, &tt.plan)
 			require.False(t, diags.HasError(), "Plan.Set should not error")
+			req.Config, diags = setConfig(ctx, schemaResp.Schema, &tt.plan)
+			require.False(t, diags.HasError(), "Config set should not error")
 
 			resp := resource.UpdateResponse{
 				State: tfsdk.State{Schema: schemaResp.Schema},
@@ -2383,6 +2450,8 @@ func TestSchema_UpdateReadConsistency(t *testing.T) {
 			require.False(t, diags.HasError(), "State.Set should not error")
 			diags = updateReq.Plan.Set(ctx, &tt.plan)
 			require.False(t, diags.HasError(), "Plan.Set should not error")
+			updateReq.Config, diags = setConfig(ctx, schemaResp.Schema, &tt.plan)
+			require.False(t, diags.HasError(), "Config set should not error")
 
 			updateResp := resource.UpdateResponse{
 				State: tfsdk.State{Schema: schemaResp.Schema},

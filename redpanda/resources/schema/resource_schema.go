@@ -136,9 +136,13 @@ func (*Schema) Schema(_ context.Context, _ resource.SchemaRequest, response *res
 func (s *Schema) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
 	var plan schemamodel.ResourceModel
 	response.Diagnostics.Append(request.Plan.Get(ctx, &plan)...)
+
+	var cfg schemamodel.ResourceModel
+	response.Diagnostics.Append(request.Config.Get(ctx, &cfg)...)
 	if response.Diagnostics.HasError() {
 		return
 	}
+	plan.PasswordWO = cfg.PasswordWO
 
 	client, err := s.getClient(ctx, plan.ClusterID.ValueString(), plan.Username.ValueString(), plan.GetEffectivePassword())
 	if err != nil {
@@ -253,9 +257,13 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 	var state schemamodel.ResourceModel
 	response.Diagnostics.Append(request.Plan.Get(ctx, &plan)...)
 	response.Diagnostics.Append(request.State.Get(ctx, &state)...)
+
+	var cfg schemamodel.ResourceModel
+	response.Diagnostics.Append(request.Config.Get(ctx, &cfg)...)
 	if response.Diagnostics.HasError() {
 		return
 	}
+	plan.PasswordWO = cfg.PasswordWO
 
 	client, err := s.getClient(ctx, plan.ClusterID.ValueString(), plan.Username.ValueString(), plan.GetEffectivePassword())
 	if err != nil {
