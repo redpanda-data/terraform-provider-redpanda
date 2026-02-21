@@ -25,9 +25,19 @@ func (CIDRBlockValidator) MarkdownDescription(_ context.Context) string {
 
 // ValidateString validates the cidr_block attribute
 func (CIDRBlockValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	// Skip validation when cidr_block is unknown (e.g. variable interpolation during plan)
+	if req.ConfigValue.IsUnknown() {
+		return
+	}
+
 	var cmr types.Object
 	if diags := req.Config.GetAttribute(ctx, req.Path.ParentPath().AtName("customer_managed_resources"), &cmr); diags.HasError() {
 		resp.Diagnostics.Append(diags...)
+		return
+	}
+
+	// Skip cross-field validation when customer_managed_resources is unknown
+	if cmr.IsUnknown() {
 		return
 	}
 
@@ -52,7 +62,7 @@ func (CIDRBlockValidator) ValidateString(ctx context.Context, req validator.Stri
 	}
 
 	// Validate CIDR block format if a value is provided
-	if !req.ConfigValue.IsUnknown() && !req.ConfigValue.IsNull() {
+	if !req.ConfigValue.IsNull() {
 		cidrRegex := regexp.MustCompile(`^(\d{1,3}\.){3}\d{1,3}/(\d{1,2})$`)
 		if !cidrRegex.MatchString(req.ConfigValue.ValueString()) {
 			resp.Diagnostics.AddAttributeError(
