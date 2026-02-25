@@ -238,7 +238,7 @@ resource "redpanda_acl" "cluster_action" {
 
 resource "redpanda_acl" "topic_access" {
   resource_type         = "TOPIC"
-  resource_name         = var.topic_name
+  resource_name         = redpanda_topic.test.name
   resource_pattern_type = "LITERAL"
   principal             = "User:${redpanda_user.test.name}"
   host                  = "*"
@@ -613,7 +613,7 @@ resource "redpanda_acl" "cluster_action" {
 
 resource "redpanda_acl" "topic_access" {
   resource_type         = "TOPIC"
-  resource_name         = var.topic_name
+  resource_name         = redpanda_topic.test.name
   resource_pattern_type = "LITERAL"
   principal             = "User:${redpanda_user.test.name}"
   host                  = "*"
