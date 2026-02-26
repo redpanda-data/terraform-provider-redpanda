@@ -71,6 +71,17 @@ func resourcePipelineSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "Desired state of the pipeline: 'running' or 'stopped'. The provider will ensure the pipeline reaches this state after create/update operations.",
 				Validators:          []validator.String{stringvalidator.OneOf(pipelinemodel.StateRunning, pipelinemodel.StateStopped)},
 			},
+			"status": schema.SingleNestedAttribute{
+				Computed:            true,
+				MarkdownDescription: "Pipeline status information.",
+				PlanModifiers:       []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Attributes: map[string]schema.Attribute{
+					"error": schema.StringAttribute{
+						Computed:            true,
+						MarkdownDescription: "Error message if the pipeline is in an error state.",
+					},
+				},
+			},
 			"url": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "URL to connect to the pipeline's HTTP server, if applicable.",

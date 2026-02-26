@@ -98,15 +98,44 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		rf = utils.NumberToInt32(model.ReplicationFactor)
 	}
 
+	// Parse replica_assignments if provided
+	var replicaAssignments []*dataplanev1.CreateTopicRequest_Topic_ReplicaAssignment
+	if !model.ReplicaAssignments.IsNull() && !model.ReplicaAssignments.IsUnknown() {
+		for _, elem := range model.ReplicaAssignments.Elements() {
+			obj, ok := elem.(types.Object)
+			if !ok {
+				continue
+			}
+			attrs := obj.Attributes()
+			partitionID := int32(0)
+			if pid, ok := attrs["partition_id"].(types.Int32); ok {
+				partitionID = pid.ValueInt32()
+			}
+			var replicaIDs []int32
+			if rids, ok := attrs["replica_ids"].(types.List); ok && !rids.IsNull() {
+				for _, rid := range rids.Elements() {
+					if ridVal, ok := rid.(types.Int32); ok {
+						replicaIDs = append(replicaIDs, ridVal.ValueInt32())
+					}
+				}
+			}
+			replicaAssignments = append(replicaAssignments, &dataplanev1.CreateTopicRequest_Topic_ReplicaAssignment{
+				PartitionId: partitionID,
+				ReplicaIds:  replicaIDs,
+			})
+		}
+	}
+
 	var topic *dataplanev1.CreateTopicResponse
 	err = utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
 		var createErr error
 		topic, createErr = t.TopicClient.CreateTopic(ctx, &dataplanev1.CreateTopicRequest{
 			Topic: &dataplanev1.CreateTopicRequest_Topic{
-				Name:              model.Name.ValueString(),
-				PartitionCount:    p,
-				ReplicationFactor: rf,
-				Configs:           cfg,
+				Name:               model.Name.ValueString(),
+				PartitionCount:     p,
+				ReplicationFactor:  rf,
+				Configs:            cfg,
+				ReplicaAssignments: replicaAssignments,
 			},
 		})
 		if createErr != nil {
@@ -145,13 +174,14 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		return
 	}
 	response.Diagnostics.Append(response.State.Set(ctx, topicmodel.ResourceModel{
-		Name:              types.StringValue(topic.GetTopicName()),
-		PartitionCount:    utils.Int32ToNumber(topic.GetPartitionCount()),
-		ReplicationFactor: utils.Int32ToNumber(topic.GetReplicationFactor()),
-		Configuration:     tpCfgMap,
-		AllowDeletion:     model.AllowDeletion,
-		ClusterAPIURL:     model.ClusterAPIURL,
-		ID:                types.StringValue(topic.GetTopicName()),
+		Name:               types.StringValue(topic.GetTopicName()),
+		PartitionCount:     utils.Int32ToNumber(topic.GetPartitionCount()),
+		ReplicationFactor:  utils.Int32ToNumber(topic.GetReplicationFactor()),
+		Configuration:      tpCfgMap,
+		AllowDeletion:      model.AllowDeletion,
+		ClusterAPIURL:      model.ClusterAPIURL,
+		ReplicaAssignments: model.ReplicaAssignments,
+		ID:                 types.StringValue(topic.GetTopicName()),
 	})...)
 }
 
@@ -198,13 +228,14 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 		return
 	}
 	response.Diagnostics.Append(response.State.Set(ctx, topicmodel.ResourceModel{
-		Name:              types.StringValue(tp.Name),
-		PartitionCount:    utils.Int32ToNumber(tp.PartitionCount),
-		ReplicationFactor: utils.Int32ToNumber(tp.ReplicationFactor),
-		Configuration:     topicCfg,
-		AllowDeletion:     model.AllowDeletion,
-		ClusterAPIURL:     model.ClusterAPIURL,
-		ID:                types.StringValue(tp.Name),
+		Name:               types.StringValue(tp.Name),
+		PartitionCount:     utils.Int32ToNumber(tp.PartitionCount),
+		ReplicationFactor:  utils.Int32ToNumber(tp.ReplicationFactor),
+		Configuration:      topicCfg,
+		AllowDeletion:      model.AllowDeletion,
+		ClusterAPIURL:      model.ClusterAPIURL,
+		ReplicaAssignments: model.ReplicaAssignments,
+		ID:                 types.StringValue(tp.Name),
 	})...)
 }
 

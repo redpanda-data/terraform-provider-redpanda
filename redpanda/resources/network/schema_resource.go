@@ -144,6 +144,15 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 					},
 				},
 			},
+			"state": schema.StringAttribute{
+				Computed:    true,
+				Description: "Current state of the network.",
+			},
+			"zones": schema.ListAttribute{
+				Computed:    true,
+				ElementType: types.StringType,
+				Description: "Network availability zones.",
+			},
 			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
 				Create: true,
 				Delete: true,

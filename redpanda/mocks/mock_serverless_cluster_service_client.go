@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	v1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	gomock "go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
 )
@@ -43,14 +43,14 @@ func (m *MockServerlessClusterServiceClient) EXPECT() *MockServerlessClusterServ
 }
 
 // CreateServerlessCluster mocks base method.
-func (m *MockServerlessClusterServiceClient) CreateServerlessCluster(ctx context.Context, in *v1.CreateServerlessClusterRequest, opts ...grpc.CallOption) (*v1.CreateServerlessClusterOperation, error) {
+func (m *MockServerlessClusterServiceClient) CreateServerlessCluster(ctx context.Context, in *controlplanev1.CreateServerlessClusterRequest, opts ...grpc.CallOption) (*controlplanev1.CreateServerlessClusterOperation, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "CreateServerlessCluster", varargs...)
-	ret0, _ := ret[0].(*v1.CreateServerlessClusterOperation)
+	ret0, _ := ret[0].(*controlplanev1.CreateServerlessClusterOperation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -63,14 +63,14 @@ func (mr *MockServerlessClusterServiceClientMockRecorder) CreateServerlessCluste
 }
 
 // DeleteServerlessCluster mocks base method.
-func (m *MockServerlessClusterServiceClient) DeleteServerlessCluster(ctx context.Context, in *v1.DeleteServerlessClusterRequest, opts ...grpc.CallOption) (*v1.DeleteServerlessClusterOperation, error) {
+func (m *MockServerlessClusterServiceClient) DeleteServerlessCluster(ctx context.Context, in *controlplanev1.DeleteServerlessClusterRequest, opts ...grpc.CallOption) (*controlplanev1.DeleteServerlessClusterOperation, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "DeleteServerlessCluster", varargs...)
-	ret0, _ := ret[0].(*v1.DeleteServerlessClusterOperation)
+	ret0, _ := ret[0].(*controlplanev1.DeleteServerlessClusterOperation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -83,14 +83,14 @@ func (mr *MockServerlessClusterServiceClientMockRecorder) DeleteServerlessCluste
 }
 
 // DummyCreateMetadata mocks base method.
-func (m *MockServerlessClusterServiceClient) DummyCreateMetadata(ctx context.Context, in *v1.CreateServerlessClusterRequest, opts ...grpc.CallOption) (*v1.CreateServerlessClusterMetadata, error) {
+func (m *MockServerlessClusterServiceClient) DummyCreateMetadata(ctx context.Context, in *controlplanev1.CreateServerlessClusterRequest, opts ...grpc.CallOption) (*controlplanev1.CreateServerlessClusterMetadata, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "DummyCreateMetadata", varargs...)
-	ret0, _ := ret[0].(*v1.CreateServerlessClusterMetadata)
+	ret0, _ := ret[0].(*controlplanev1.CreateServerlessClusterMetadata)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -103,14 +103,14 @@ func (mr *MockServerlessClusterServiceClientMockRecorder) DummyCreateMetadata(ct
 }
 
 // DummyDeleteMetadata mocks base method.
-func (m *MockServerlessClusterServiceClient) DummyDeleteMetadata(ctx context.Context, in *v1.DeleteServerlessClusterRequest, opts ...grpc.CallOption) (*v1.DeleteServerlessClusterMetadata, error) {
+func (m *MockServerlessClusterServiceClient) DummyDeleteMetadata(ctx context.Context, in *controlplanev1.DeleteServerlessClusterRequest, opts ...grpc.CallOption) (*controlplanev1.DeleteServerlessClusterMetadata, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "DummyDeleteMetadata", varargs...)
-	ret0, _ := ret[0].(*v1.DeleteServerlessClusterMetadata)
+	ret0, _ := ret[0].(*controlplanev1.DeleteServerlessClusterMetadata)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -123,14 +123,14 @@ func (mr *MockServerlessClusterServiceClientMockRecorder) DummyDeleteMetadata(ct
 }
 
 // GetPrometheusCredentials mocks base method.
-func (m *MockServerlessClusterServiceClient) GetPrometheusCredentials(ctx context.Context, in *v1.GetPrometheusCredentialsRequest, opts ...grpc.CallOption) (*v1.GetPrometheusCredentialsResponse, error) {
+func (m *MockServerlessClusterServiceClient) GetPrometheusCredentials(ctx context.Context, in *controlplanev1.GetPrometheusCredentialsRequest, opts ...grpc.CallOption) (*controlplanev1.GetPrometheusCredentialsResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetPrometheusCredentials", varargs...)
-	ret0, _ := ret[0].(*v1.GetPrometheusCredentialsResponse)
+	ret0, _ := ret[0].(*controlplanev1.GetPrometheusCredentialsResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -143,14 +143,14 @@ func (mr *MockServerlessClusterServiceClientMockRecorder) GetPrometheusCredentia
 }
 
 // GetServerlessCluster mocks base method.
-func (m *MockServerlessClusterServiceClient) GetServerlessCluster(ctx context.Context, in *v1.GetServerlessClusterRequest, opts ...grpc.CallOption) (*v1.GetServerlessClusterResponse, error) {
+func (m *MockServerlessClusterServiceClient) GetServerlessCluster(ctx context.Context, in *controlplanev1.GetServerlessClusterRequest, opts ...grpc.CallOption) (*controlplanev1.GetServerlessClusterResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetServerlessCluster", varargs...)
-	ret0, _ := ret[0].(*v1.GetServerlessClusterResponse)
+	ret0, _ := ret[0].(*controlplanev1.GetServerlessClusterResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -163,14 +163,14 @@ func (mr *MockServerlessClusterServiceClientMockRecorder) GetServerlessCluster(c
 }
 
 // ListServerlessClusters mocks base method.
-func (m *MockServerlessClusterServiceClient) ListServerlessClusters(ctx context.Context, in *v1.ListServerlessClustersRequest, opts ...grpc.CallOption) (*v1.ListServerlessClustersResponse, error) {
+func (m *MockServerlessClusterServiceClient) ListServerlessClusters(ctx context.Context, in *controlplanev1.ListServerlessClustersRequest, opts ...grpc.CallOption) (*controlplanev1.ListServerlessClustersResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "ListServerlessClusters", varargs...)
-	ret0, _ := ret[0].(*v1.ListServerlessClustersResponse)
+	ret0, _ := ret[0].(*controlplanev1.ListServerlessClustersResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -183,14 +183,14 @@ func (mr *MockServerlessClusterServiceClientMockRecorder) ListServerlessClusters
 }
 
 // UpdateServerlessCluster mocks base method.
-func (m *MockServerlessClusterServiceClient) UpdateServerlessCluster(ctx context.Context, in *v1.UpdateServerlessClusterRequest, opts ...grpc.CallOption) (*v1.UpdateServerlessClusterOperation, error) {
+func (m *MockServerlessClusterServiceClient) UpdateServerlessCluster(ctx context.Context, in *controlplanev1.UpdateServerlessClusterRequest, opts ...grpc.CallOption) (*controlplanev1.UpdateServerlessClusterOperation, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "UpdateServerlessCluster", varargs...)
-	ret0, _ := ret[0].(*v1.UpdateServerlessClusterOperation)
+	ret0, _ := ret[0].(*controlplanev1.UpdateServerlessClusterOperation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -1,10 +1,13 @@
 package serverlesscluster
 
 import (
+	"time"
+
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	serverlessclustermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/serverlesscluster"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 // generateModel populates the Cluster model to be persisted to state for Create, Read and Update operations. It is also indirectly used by Import
@@ -115,6 +118,36 @@ func generateModel(cluster *controlplanev1.ServerlessCluster) *serverlesscluster
 			"url":         types.StringType,
 			"private_url": types.StringType,
 		})
+	}
+
+	// Set state
+	output.State = types.StringValue(cluster.GetState().String())
+
+	// Set tags
+	if tags := cluster.GetTags(); len(tags) > 0 {
+		output.Tags = utils.StringMapToTypeMap(tags)
+	} else {
+		output.Tags = types.MapNull(types.StringType)
+	}
+
+	// Set planned_deletion
+	plannedDeletionType := map[string]attr.Type{
+		"delete_after": types.StringType,
+		"reason":       types.StringType,
+	}
+	if cluster.HasPlannedDeletion() {
+		pd := cluster.GetPlannedDeletion()
+		deleteAfter := types.StringNull()
+		if pd.GetDeleteAfter() != nil {
+			deleteAfter = types.StringValue(pd.GetDeleteAfter().AsTime().Format(time.RFC3339))
+		}
+		pdObj, _ := types.ObjectValue(plannedDeletionType, map[string]attr.Value{
+			"delete_after": deleteAfter,
+			"reason":       types.StringValue(pd.GetReason()),
+		})
+		output.PlannedDeletion = pdObj
+	} else {
+		output.PlannedDeletion = types.ObjectNull(plannedDeletionType)
 	}
 
 	// Set console URLs

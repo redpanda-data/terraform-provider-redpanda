@@ -33,6 +33,7 @@ func getAwsPrivateLinkType() map[string]attr.Type {
 		"connect_console":    types.BoolType,
 		"allowed_principals": types.ListType{ElemType: types.StringType},
 		"status":             types.ObjectType{AttrTypes: getAwsPrivateLinkStatusType()},
+		"supported_regions":  types.ListType{ElemType: types.StringType},
 	}
 }
 
@@ -144,10 +145,64 @@ func getAzureEndpointConnectionType() map[string]attr.Type {
 	}
 }
 
+func getSASLType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"enabled": types.BoolType,
+	}
+}
+
+func getSeedBrokersType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"sasl":              types.StringType,
+		"mtls":              types.StringType,
+		"private_link_sasl": types.StringType,
+		"private_link_mtls": types.StringType,
+	}
+}
+
+func getEndpointsType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"sasl":              types.StringType,
+		"mtls":              types.StringType,
+		"private_link_sasl": types.StringType,
+		"private_link_mtls": types.StringType,
+	}
+}
+
+func getCloudStorageType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"aws":          types.ObjectType{AttrTypes: getCloudStorageAwsType()},
+		"gcp":          types.ObjectType{AttrTypes: getCloudStorageGcpType()},
+		"azure":        types.ObjectType{AttrTypes: getCloudStorageAzureType()},
+		"skip_destroy": types.BoolType,
+	}
+}
+
+func getCloudStorageAwsType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"arn": types.StringType,
+	}
+}
+
+func getCloudStorageGcpType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+func getCloudStorageAzureType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"container_name":       types.StringType,
+		"storage_account_name": types.StringType,
+	}
+}
+
 func getKafkaAPIType() map[string]attr.Type {
 	return map[string]attr.Type{
-		"seed_brokers": types.ListType{ElemType: types.StringType},
-		"mtls":         types.ObjectType{AttrTypes: getMtlsType()},
+		"seed_brokers":     types.ListType{ElemType: types.StringType},
+		"mtls":             types.ObjectType{AttrTypes: getMtlsType()},
+		"sasl":             types.ObjectType{AttrTypes: getSASLType()},
+		"all_seed_brokers": types.ObjectType{AttrTypes: getSeedBrokersType()},
 	}
 }
 
@@ -167,15 +222,18 @@ func getClusterConfigurationType() map[string]attr.Type {
 
 func getHTTPProxyType() map[string]attr.Type {
 	return map[string]attr.Type{
-		"mtls": types.ObjectType{AttrTypes: getMtlsType()},
-		"url":  types.StringType,
+		"mtls":     types.ObjectType{AttrTypes: getMtlsType()},
+		"url":      types.StringType,
+		"sasl":     types.ObjectType{AttrTypes: getSASLType()},
+		"all_urls": types.ObjectType{AttrTypes: getEndpointsType()},
 	}
 }
 
 func getSchemaRegistryType() map[string]attr.Type {
 	return map[string]attr.Type{
-		"mtls": types.ObjectType{AttrTypes: getMtlsType()},
-		"url":  types.StringType,
+		"mtls":     types.ObjectType{AttrTypes: getMtlsType()},
+		"url":      types.StringType,
+		"all_urls": types.ObjectType{AttrTypes: getEndpointsType()},
 	}
 }
 

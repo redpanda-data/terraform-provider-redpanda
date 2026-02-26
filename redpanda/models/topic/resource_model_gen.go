@@ -24,11 +24,12 @@ import (
 
 // ResourceModel represents the Terraform schema for the topic resource.
 type ResourceModel struct {
-	AllowDeletion     types.Bool   `tfsdk:"allow_deletion"`
-	ClusterAPIURL     types.String `tfsdk:"cluster_api_url"`
-	Configuration     types.Map    `tfsdk:"configuration"`
-	ID                types.String `tfsdk:"id"`
-	Name              types.String `tfsdk:"name"`
-	PartitionCount    types.Number `tfsdk:"partition_count"`
-	ReplicationFactor types.Number `tfsdk:"replication_factor"`
+	AllowDeletion      types.Bool   `tfsdk:"allow_deletion"`
+	ClusterAPIURL      types.String `tfsdk:"cluster_api_url"`
+	Configuration      types.Map    `tfsdk:"configuration"`
+	ID                 types.String `tfsdk:"id"`
+	Name               types.String `tfsdk:"name"`
+	PartitionCount     types.Number `tfsdk:"partition_count"`
+	ReplicaAssignments types.List   `tfsdk:"replica_assignments"`
+	ReplicationFactor  types.Number `tfsdk:"replication_factor"`
 }

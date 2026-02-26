@@ -31,6 +31,8 @@ Creates a network in the Redpanda Cloud.
 ### Read-Only
 
 - `id` (String) The ID of the network
+- `state` (String) Current state of the network.
+- `zones` (List of String) Network availability zones.
 
 <a id="nestedatt--customer_managed_resources"></a>
 ### Nested Schema for `customer_managed_resources`

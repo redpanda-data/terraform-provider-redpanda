@@ -32,9 +32,12 @@ type ResourceModel struct {
 	KafkaAPI          types.Object `tfsdk:"kafka_api"`
 	Name              types.String `tfsdk:"name"`
 	NetworkingConfig  types.Object `tfsdk:"networking_config"`
+	PlannedDeletion   types.Object `tfsdk:"planned_deletion"`
 	PrivateLinkID     types.String `tfsdk:"private_link_id"`
 	Prometheus        types.Object `tfsdk:"prometheus"`
 	ResourceGroupID   types.String `tfsdk:"resource_group_id"`
 	SchemaRegistry    types.Object `tfsdk:"schema_registry"`
 	ServerlessRegion  types.String `tfsdk:"serverless_region"`
+	State             types.String `tfsdk:"state"`
+	Tags              types.Map    `tfsdk:"tags"`
 }

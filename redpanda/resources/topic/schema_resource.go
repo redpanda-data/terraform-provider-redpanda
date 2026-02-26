@@ -5,6 +5,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/numberplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -42,6 +43,26 @@ func ResourceTopicSchema() schema.Schema {
 				PlanModifiers: []planmodifier.Number{
 					numberplanmodifier.RequiresReplace(),
 					numberplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"replica_assignments": schema.ListNestedAttribute{
+				Optional:    true,
+				Description: "Manually specify broker ID assignments for partition replicas. If manually assigning replicas, both replication_factor and partition_count must be -1. Mutually exclusive with partition_count and replication_factor.",
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.RequiresReplace(),
+				},
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"partition_id": schema.Int32Attribute{
+							Required:    true,
+							Description: "A partition to create.",
+						},
+						"replica_ids": schema.ListAttribute{
+							Required:    true,
+							ElementType: types.Int32Type,
+							Description: "The broker IDs the partition replicas are assigned to.",
+						},
+					},
 				},
 			},
 			"allow_deletion": schema.BoolAttribute{

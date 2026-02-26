@@ -134,6 +134,7 @@ func TestAccResourcesNetwork(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
 					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttrSet(networkResourceName, "state"),
 					func(_ *terraform.State) error {
 						n, err := c.NetworkForName(ctx, name)
 						if err != nil {
@@ -421,15 +422,24 @@ func buildTestCheckFuncs(testDir, name string, hasPrivateNetworking ...bool) ([]
 	var checkFuncs []resource.TestCheckFunc
 
 	if strings.Contains(testFileStr, `resource "redpanda_resource_group" "test"`) {
-		checkFuncs = append(checkFuncs, resource.TestCheckResourceAttr(resourceGroupName, "name", name))
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+		)
 	}
 
 	if strings.Contains(testFileStr, `resource "redpanda_network" "test"`) {
-		checkFuncs = append(checkFuncs, resource.TestCheckResourceAttr(networkResourceName, "name", name))
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttr(networkResourceName, "name", name),
+			resource.TestCheckResourceAttrSet(networkResourceName, "state"),
+		)
 	}
 
 	if strings.Contains(testFileStr, `resource "redpanda_cluster" "test"`) {
-		checkFuncs = append(checkFuncs, resource.TestCheckResourceAttr(clusterResourceName, "name", name))
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttr(clusterResourceName, "name", name),
+			resource.TestCheckResourceAttrSet(clusterResourceName, "current_redpanda_version"),
+			resource.TestCheckResourceAttrSet(clusterResourceName, "api_gateway_access"),
+		)
 	}
 
 	if strings.Contains(testFileStr, `resource "redpanda_serverless_cluster" "test"`) {
@@ -437,6 +447,7 @@ func buildTestCheckFuncs(testDir, name string, hasPrivateNetworking ...bool) ([]
 			resource.TestCheckResourceAttr(serverlessResourceName, "name", name),
 			resource.TestCheckResourceAttrSet(serverlessResourceName, "id"),
 			resource.TestCheckResourceAttrSet(serverlessResourceName, "cluster_api_url"),
+			resource.TestCheckResourceAttrSet(serverlessResourceName, "state"),
 			// Kafka API
 			resource.TestCheckResourceAttrSet(serverlessResourceName, "kafka_api.seed_brokers.#"),
 			resource.TestCheckResourceAttrSet(serverlessResourceName, "kafka_api.seed_brokers.0"),

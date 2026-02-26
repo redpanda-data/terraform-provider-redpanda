@@ -33,5 +33,7 @@ type ResourceModel struct {
 	Name                     types.String   `tfsdk:"name"`
 	Region                   types.String   `tfsdk:"region"`
 	ResourceGroupID          types.String   `tfsdk:"resource_group_id"`
+	State                    types.String   `tfsdk:"state"`
 	Timeouts                 timeouts.Value `tfsdk:"timeouts"`
+	Zones                    types.List     `tfsdk:"zones"`
 }

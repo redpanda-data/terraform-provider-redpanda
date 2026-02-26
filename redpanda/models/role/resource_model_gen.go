@@ -26,6 +26,7 @@ import (
 type ResourceModel struct {
 	AllowDeletion types.Bool   `tfsdk:"allow_deletion"`
 	ClusterAPIURL types.String `tfsdk:"cluster_api_url"`
+	DeleteAcls    types.Bool   `tfsdk:"delete_acls"`
 	ID            types.String `tfsdk:"id"`
 	Name          types.String `tfsdk:"name"`
 }

@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	v1alpha1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/console/v1alpha1"
+	consolev1alpha1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/console/v1alpha1"
 	gomock "go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
 )
@@ -43,14 +43,14 @@ func (m *MockSecurityServiceClient) EXPECT() *MockSecurityServiceClientMockRecor
 }
 
 // CreateRole mocks base method.
-func (m *MockSecurityServiceClient) CreateRole(ctx context.Context, in *v1alpha1.CreateRoleRequest, opts ...grpc.CallOption) (*v1alpha1.CreateRoleResponse, error) {
+func (m *MockSecurityServiceClient) CreateRole(ctx context.Context, in *consolev1alpha1.CreateRoleRequest, opts ...grpc.CallOption) (*consolev1alpha1.CreateRoleResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "CreateRole", varargs...)
-	ret0, _ := ret[0].(*v1alpha1.CreateRoleResponse)
+	ret0, _ := ret[0].(*consolev1alpha1.CreateRoleResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -63,14 +63,14 @@ func (mr *MockSecurityServiceClientMockRecorder) CreateRole(ctx, in any, opts ..
 }
 
 // DeleteRole mocks base method.
-func (m *MockSecurityServiceClient) DeleteRole(ctx context.Context, in *v1alpha1.DeleteRoleRequest, opts ...grpc.CallOption) (*v1alpha1.DeleteRoleResponse, error) {
+func (m *MockSecurityServiceClient) DeleteRole(ctx context.Context, in *consolev1alpha1.DeleteRoleRequest, opts ...grpc.CallOption) (*consolev1alpha1.DeleteRoleResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "DeleteRole", varargs...)
-	ret0, _ := ret[0].(*v1alpha1.DeleteRoleResponse)
+	ret0, _ := ret[0].(*consolev1alpha1.DeleteRoleResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -83,14 +83,14 @@ func (mr *MockSecurityServiceClientMockRecorder) DeleteRole(ctx, in any, opts ..
 }
 
 // GetRole mocks base method.
-func (m *MockSecurityServiceClient) GetRole(ctx context.Context, in *v1alpha1.GetRoleRequest, opts ...grpc.CallOption) (*v1alpha1.GetRoleResponse, error) {
+func (m *MockSecurityServiceClient) GetRole(ctx context.Context, in *consolev1alpha1.GetRoleRequest, opts ...grpc.CallOption) (*consolev1alpha1.GetRoleResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetRole", varargs...)
-	ret0, _ := ret[0].(*v1alpha1.GetRoleResponse)
+	ret0, _ := ret[0].(*consolev1alpha1.GetRoleResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -103,14 +103,14 @@ func (mr *MockSecurityServiceClientMockRecorder) GetRole(ctx, in any, opts ...an
 }
 
 // ListRoleMembers mocks base method.
-func (m *MockSecurityServiceClient) ListRoleMembers(ctx context.Context, in *v1alpha1.ListRoleMembersRequest, opts ...grpc.CallOption) (*v1alpha1.ListRoleMembersResponse, error) {
+func (m *MockSecurityServiceClient) ListRoleMembers(ctx context.Context, in *consolev1alpha1.ListRoleMembersRequest, opts ...grpc.CallOption) (*consolev1alpha1.ListRoleMembersResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "ListRoleMembers", varargs...)
-	ret0, _ := ret[0].(*v1alpha1.ListRoleMembersResponse)
+	ret0, _ := ret[0].(*consolev1alpha1.ListRoleMembersResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -123,14 +123,14 @@ func (mr *MockSecurityServiceClientMockRecorder) ListRoleMembers(ctx, in any, op
 }
 
 // ListRoles mocks base method.
-func (m *MockSecurityServiceClient) ListRoles(ctx context.Context, in *v1alpha1.ListRolesRequest, opts ...grpc.CallOption) (*v1alpha1.ListRolesResponse, error) {
+func (m *MockSecurityServiceClient) ListRoles(ctx context.Context, in *consolev1alpha1.ListRolesRequest, opts ...grpc.CallOption) (*consolev1alpha1.ListRolesResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "ListRoles", varargs...)
-	ret0, _ := ret[0].(*v1alpha1.ListRolesResponse)
+	ret0, _ := ret[0].(*consolev1alpha1.ListRolesResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -143,14 +143,14 @@ func (mr *MockSecurityServiceClientMockRecorder) ListRoles(ctx, in any, opts ...
 }
 
 // UpdateRoleMembership mocks base method.
-func (m *MockSecurityServiceClient) UpdateRoleMembership(ctx context.Context, in *v1alpha1.UpdateRoleMembershipRequest, opts ...grpc.CallOption) (*v1alpha1.UpdateRoleMembershipResponse, error) {
+func (m *MockSecurityServiceClient) UpdateRoleMembership(ctx context.Context, in *consolev1alpha1.UpdateRoleMembershipRequest, opts ...grpc.CallOption) (*consolev1alpha1.UpdateRoleMembershipResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "UpdateRoleMembership", varargs...)
-	ret0, _ := ret[0].(*v1alpha1.UpdateRoleMembershipResponse)
+	ret0, _ := ret[0].(*consolev1alpha1.UpdateRoleMembershipResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -34,6 +34,7 @@ type ResourceModel struct {
 	Description    types.String   `tfsdk:"description"`
 	ConfigYaml     types.String   `tfsdk:"config_yaml"`
 	State          types.String   `tfsdk:"state"`
+	Status         types.Object   `tfsdk:"status"`
 	URL            types.String   `tfsdk:"url"`
 	Resources      types.Object   `tfsdk:"resources"`
 	ServiceAccount types.Object   `tfsdk:"service_account"`
@@ -102,12 +103,33 @@ func (r *ResourceModel) GetUpdatedModel(ctx context.Context, pipeline *dataplane
 	diags.Append(d...)
 	r.ServiceAccount = serviceAccountObj
 
+	// Handle status
+	statusObj, d := r.generateModelStatus(pipeline)
+	diags.Append(d...)
+	r.Status = statusObj
+
 	// Handle tags
 	tagsMap, d := r.generateModelTags(ctx, pipeline)
 	diags.Append(d...)
 	r.Tags = tagsMap
 
 	return r, diags
+}
+
+// generateModelStatus converts pipeline status from API to Terraform types.
+func (*ResourceModel) generateModelStatus(pipeline *dataplanev1.Pipeline) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	if pipeline.HasStatus() {
+		status := pipeline.GetStatus()
+		statusObj, d := types.ObjectValue(GetStatusType(), map[string]attr.Value{
+			FieldError: types.StringValue(status.GetError()),
+		})
+		diags.Append(d...)
+		return statusObj, diags
+	}
+
+	return types.ObjectNull(GetStatusType()), diags
 }
 
 // generateModelResources converts pipeline resources from API to Terraform types.

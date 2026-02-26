@@ -297,6 +297,14 @@ func ConnectionTypeToString(t controlplanev1.Cluster_ConnectionType) string {
 	}
 }
 
+// StringToNetworkAccessMode converts a string to the controlplanev1 NetworkAccessMode enum.
+func StringToNetworkAccessMode(s string) controlplanev1.NetworkAccessMode {
+	if v, ok := controlplanev1.NetworkAccessMode_value[s]; ok {
+		return controlplanev1.NetworkAccessMode(v)
+	}
+	return controlplanev1.NetworkAccessMode_NETWORK_ACCESS_MODE_UNSPECIFIED
+}
+
 // TypeListToStringSlice converts a types.List to a []string, stripping
 // surrounding quotes for each element.
 func TypeListToStringSlice(t types.List) []string {
@@ -563,6 +571,16 @@ func TypeMapToStringMap(tags types.Map) map[string]string {
 		return nil
 	}
 	return tagsMap
+}
+
+// StringMapToTypeMap converts a map[string]string to a types.Map.
+func StringMapToTypeMap(m map[string]string) types.Map {
+	elements := make(map[string]attr.Value, len(m))
+	for k, v := range m {
+		elements[k] = types.StringValue(v)
+	}
+	result, _ := types.MapValue(types.StringType, elements)
+	return result
 }
 
 // DeserializeGrpcError returns a formatted error string with gRPC status code, message, and details.
