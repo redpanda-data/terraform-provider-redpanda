@@ -34,9 +34,21 @@ func (r *ResourceModel) GetUpdatedModel(ctx context.Context, nw *controlplanev1.
 	r.Name = types.StringValue(nw.GetName())
 	r.Region = types.StringValue(nw.GetRegion())
 	r.ResourceGroupID = types.StringValue(nw.GetResourceGroupId())
+	r.State = types.StringValue(nw.GetState().String())
 
 	if nw.GetCidrBlock() != "" && nw.CidrBlock != "0.0.0.0/0" {
 		r.CidrBlock = types.StringValue(nw.GetCidrBlock())
+	}
+
+	zones := nw.GetZones()
+	if len(zones) > 0 {
+		zoneValues := make([]attr.Value, len(zones))
+		for i, z := range zones {
+			zoneValues[i] = types.StringValue(z)
+		}
+		r.Zones, _ = types.ListValue(types.StringType, zoneValues)
+	} else {
+		r.Zones = types.ListNull(types.StringType)
 	}
 
 	r.CustomerManagedResources = getCMRNull()

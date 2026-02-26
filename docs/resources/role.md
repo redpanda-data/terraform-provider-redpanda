@@ -29,6 +29,7 @@ RBAC is available for:
 ### Optional
 
 - `allow_deletion` (Boolean) Allows deletion of the role. If false, the role cannot be deleted and the resource will be removed from the state on destruction. Defaults to false.
+- `delete_acls` (Boolean) Whether to delete the ACLs bound to the role when the role is deleted. Defaults to false.
 
 ### Read-Only
 

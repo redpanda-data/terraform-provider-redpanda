@@ -56,9 +56,13 @@ func GenerateMinimalResourceModel(clusterID string, timeout timeouts.Value) *Res
 		ClusterAPIURL:            types.StringNull(),
 		State:                    types.StringNull(),
 		CreatedAt:                types.StringNull(),
+		CurrentRedpandaVersion:   types.StringNull(),
+		DesiredRedpandaVersion:   types.StringNull(),
+		APIGatewayAccess:         types.StringNull(),
 		GCPGlobalAccessEnabled:   types.BoolNull(),
 		AllowDeletion:            types.BoolValue(true),
 		ReadReplicaClusterIds:    types.ListNull(types.StringType),
+		NatGateways:              types.ListNull(types.StringType),
 		Zones:                    types.ListNull(types.StringType),
 		Prometheus:               types.ObjectNull(getPrometheusType()),
 		CustomerManagedResources: types.ObjectNull(getCustomerManagedResourcesType()),
@@ -73,6 +77,7 @@ func GenerateMinimalResourceModel(clusterID string, timeout timeouts.Value) *Res
 		MaintenanceWindowConfig:  types.ObjectNull(getMaintenanceWindowConfigType()),
 		KafkaConnect:             types.ObjectNull(getKafkaConnectType()),
 		ClusterConfiguration:     types.ObjectNull(getClusterConfigurationType()),
+		CloudStorage:             types.ObjectNull(getCloudStorageType()),
 		Timeouts:                 timeout,
 	}
 }
@@ -117,6 +122,11 @@ func (r *ResourceModel) GetUpdatedModel(ctx context.Context, cluster *controlpla
 	if cluster.GetCreatedAt() != nil {
 		r.CreatedAt = types.StringValue(cluster.GetCreatedAt().AsTime().Format(time.RFC3339))
 	}
+
+	r.CurrentRedpandaVersion = types.StringValue(cluster.GetCurrentRedpandaVersion())
+	r.DesiredRedpandaVersion = types.StringValue(cluster.GetDesiredRedpandaVersion())
+	r.NatGateways = utils.StringSliceToTypeList(cluster.GetNatGateways())
+	r.APIGatewayAccess = types.StringValue(cluster.GetApiGatewayAccess().String())
 
 	if cluster.HasDataplaneApi() {
 		r.ClusterAPIURL = types.StringValue(cluster.DataplaneApi.Url)
@@ -198,6 +208,12 @@ func (r *ResourceModel) GetUpdatedModel(ctx context.Context, cluster *controlpla
 		diags.Append(d...)
 	} else {
 		r.ClusterConfiguration = clusterConfiguration
+	}
+
+	if cloudStorage, d := r.generateModelCloudStorage(cluster); d.HasError() {
+		diags.Append(d...)
+	} else {
+		r.CloudStorage = cloudStorage
 	}
 
 	return r, diags
@@ -331,6 +347,18 @@ func (r *ResourceModel) GetClusterCreate(ctx context.Context) (*controlplanev1.C
 		}
 	}
 
+	if !r.APIGatewayAccess.IsNull() && !r.APIGatewayAccess.IsUnknown() {
+		output.ApiGatewayAccess = utils.StringToNetworkAccessMode(r.APIGatewayAccess.ValueString())
+	}
+
+	if !r.CloudStorage.IsNull() {
+		cs, d := r.generateClusterCloudStorageCreate()
+		if d.HasError() {
+			diags.Append(d...)
+		}
+		output.CloudStorage = cs
+	}
+
 	return output, diags
 }
 
@@ -438,6 +466,10 @@ func (r *ResourceModel) getClusterUpdate(ctx context.Context) (*controlplanev1.C
 		update.ClusterConfiguration = &controlplanev1.ClusterUpdate_ClusterConfiguration{
 			CustomProperties: ccUp,
 		}
+	}
+
+	if !r.APIGatewayAccess.IsNull() && !r.APIGatewayAccess.IsUnknown() {
+		update.ApiGatewayAccess = utils.StringToNetworkAccessMode(r.APIGatewayAccess.ValueString())
 	}
 
 	return update, diags
@@ -807,6 +839,36 @@ func (r *ResourceModel) generateClusterClusterConfiguration() (*structpb.Struct,
 	return customPropsStruct, diags
 }
 
+func (r *ResourceModel) generateClusterCloudStorageCreate() (*controlplanev1.ClusterCreate_CloudStorage, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if r.CloudStorage.IsNull() {
+		return nil, nil
+	}
+
+	attrs := r.CloudStorage.Attributes()
+	cs := &controlplanev1.ClusterCreate_CloudStorage{}
+
+	if skipDestroy, ok := attrs["skip_destroy"].(types.Bool); ok && !skipDestroy.IsNull() {
+		cs.SkipDestroy = skipDestroy.ValueBool()
+	}
+
+	if awsObj, ok := attrs["aws"].(types.Object); ok && !awsObj.IsNull() {
+		cs.CloudProvider = &controlplanev1.ClusterCreate_CloudStorage_Aws{
+			Aws: &controlplanev1.ClusterCreate_CloudStorage_AWS{},
+		}
+	} else if gcpObj, ok := attrs["gcp"].(types.Object); ok && !gcpObj.IsNull() {
+		cs.CloudProvider = &controlplanev1.ClusterCreate_CloudStorage_Gcp{
+			Gcp: &controlplanev1.ClusterCreate_CloudStorage_GCP{},
+		}
+	} else if azureObj, ok := attrs["azure"].(types.Object); ok && !azureObj.IsNull() {
+		cs.CloudProvider = &controlplanev1.ClusterCreate_CloudStorage_Azure_{
+			Azure: &controlplanev1.ClusterCreate_CloudStorage_Azure{},
+		}
+	}
+
+	return cs, diags
+}
+
 func (*ResourceModel) generateModelStateDescription(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if !cluster.HasStateDescription() {
@@ -934,6 +996,7 @@ func (*ResourceModel) generateModelAwsPrivateLink(cluster *controlplanev1.Cluste
 			"connect_console":    types.BoolValue(awsPrivateLink.GetConnectConsole()),
 			"allowed_principals": allowedPrincipals,
 			"status":             statusObj,
+			"supported_regions":  utils.StringSliceToTypeList(awsPrivateLink.GetSupportedRegions()),
 		})
 		if d.HasError() {
 			diags.Append(d...)
@@ -948,6 +1011,7 @@ func (*ResourceModel) generateModelAwsPrivateLink(cluster *controlplanev1.Cluste
 		"connect_console":    types.BoolValue(awsPrivateLink.GetConnectConsole()),
 		"allowed_principals": allowedPrincipals,
 		"status":             types.ObjectNull(getAwsPrivateLinkStatusType()),
+		"supported_regions":  utils.StringSliceToTypeList(awsPrivateLink.GetSupportedRegions()),
 	})
 	if d.HasError() {
 		diags.Append(d...)
@@ -1203,9 +1267,39 @@ func (r *ResourceModel) generateModelKafkaAPI(cluster *controlplanev1.Cluster) (
 		return types.ObjectNull(getKafkaAPIType()), diags
 	}
 
+	saslObj := types.ObjectNull(getSASLType())
+	if kafkaAPI.HasSasl() {
+		s, d := types.ObjectValue(getSASLType(), map[string]attr.Value{
+			"enabled": types.BoolValue(kafkaAPI.GetSasl().GetEnabled()),
+		})
+		if d.HasError() {
+			diags.Append(d...)
+		} else {
+			saslObj = s
+		}
+	}
+
+	allSeedBrokersObj := types.ObjectNull(getSeedBrokersType())
+	if kafkaAPI.HasAllSeedBrokers() {
+		asb := kafkaAPI.GetAllSeedBrokers()
+		s, d := types.ObjectValue(getSeedBrokersType(), map[string]attr.Value{
+			"sasl":              types.StringValue(asb.GetSasl()),
+			"mtls":              types.StringValue(asb.GetMtls()),
+			"private_link_sasl": types.StringValue(asb.GetPrivateLinkSasl()),
+			"private_link_mtls": types.StringValue(asb.GetPrivateLinkMtls()),
+		})
+		if d.HasError() {
+			diags.Append(d...)
+		} else {
+			allSeedBrokersObj = s
+		}
+	}
+
 	obj, d := types.ObjectValue(getKafkaAPIType(), map[string]attr.Value{
-		"seed_brokers": utils.StringSliceToTypeList(kafkaAPI.GetSeedBrokers()),
-		"mtls":         mtls,
+		"seed_brokers":     utils.StringSliceToTypeList(kafkaAPI.GetSeedBrokers()),
+		"mtls":             mtls,
+		"sasl":             saslObj,
+		"all_seed_brokers": allSeedBrokersObj,
 	})
 	if d.HasError() {
 		diags.Append(d...)
@@ -1230,9 +1324,39 @@ func (r *ResourceModel) generateModelHTTPProxy(cluster *controlplanev1.Cluster) 
 		return types.ObjectNull(getHTTPProxyType()), diags
 	}
 
+	saslObj := types.ObjectNull(getSASLType())
+	if httpProxy.HasSasl() {
+		s, d := types.ObjectValue(getSASLType(), map[string]attr.Value{
+			"enabled": types.BoolValue(httpProxy.GetSasl().GetEnabled()),
+		})
+		if d.HasError() {
+			diags.Append(d...)
+		} else {
+			saslObj = s
+		}
+	}
+
+	allUrlsObj := types.ObjectNull(getEndpointsType())
+	if httpProxy.HasAllUrls() {
+		au := httpProxy.GetAllUrls()
+		s, d := types.ObjectValue(getEndpointsType(), map[string]attr.Value{
+			"sasl":              types.StringValue(au.GetSasl()),
+			"mtls":              types.StringValue(au.GetMtls()),
+			"private_link_sasl": types.StringValue(au.GetPrivateLinkSasl()),
+			"private_link_mtls": types.StringValue(au.GetPrivateLinkMtls()),
+		})
+		if d.HasError() {
+			diags.Append(d...)
+		} else {
+			allUrlsObj = s
+		}
+	}
+
 	obj, d := types.ObjectValue(getHTTPProxyType(), map[string]attr.Value{
-		"mtls": mtls,
-		"url":  types.StringValue(httpProxy.GetUrl()),
+		"mtls":     mtls,
+		"url":      types.StringValue(httpProxy.GetUrl()),
+		"sasl":     saslObj,
+		"all_urls": allUrlsObj,
 	})
 	if d.HasError() {
 		diags.Append(d...)
@@ -1257,9 +1381,26 @@ func (r *ResourceModel) generateModelSchemaRegistry(cluster *controlplanev1.Clus
 		return types.ObjectNull(getSchemaRegistryType()), diags
 	}
 
+	allUrlsObj := types.ObjectNull(getEndpointsType())
+	if schemaRegistry.HasAllUrls() {
+		au := schemaRegistry.GetAllUrls()
+		s, d := types.ObjectValue(getEndpointsType(), map[string]attr.Value{
+			"sasl":              types.StringValue(au.GetSasl()),
+			"mtls":              types.StringValue(au.GetMtls()),
+			"private_link_sasl": types.StringValue(au.GetPrivateLinkSasl()),
+			"private_link_mtls": types.StringValue(au.GetPrivateLinkMtls()),
+		})
+		if d.HasError() {
+			diags.Append(d...)
+		} else {
+			allUrlsObj = s
+		}
+	}
+
 	obj, d := types.ObjectValue(getSchemaRegistryType(), map[string]attr.Value{
-		"mtls": mtls,
-		"url":  types.StringValue(schemaRegistry.GetUrl()),
+		"mtls":     mtls,
+		"url":      types.StringValue(schemaRegistry.GetUrl()),
+		"all_urls": allUrlsObj,
 	})
 	if d.HasError() {
 		diags.Append(d...)
@@ -1487,5 +1628,58 @@ func (*ResourceModel) generateModelClusterConfiguration(cluster *controlplanev1.
 		return types.ObjectNull(getClusterConfigurationType()), diags
 	}
 
+	return obj, diags
+}
+
+func (*ResourceModel) generateModelCloudStorage(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if !cluster.HasCloudStorage() {
+		return types.ObjectNull(getCloudStorageType()), diags
+	}
+
+	cs := cluster.GetCloudStorage()
+	values := map[string]attr.Value{
+		"aws":          types.ObjectNull(getCloudStorageAwsType()),
+		"gcp":          types.ObjectNull(getCloudStorageGcpType()),
+		"azure":        types.ObjectNull(getCloudStorageAzureType()),
+		"skip_destroy": types.BoolValue(cs.GetSkipDestroy()),
+	}
+
+	switch v := cs.GetCloudProvider().(type) {
+	case *controlplanev1.Cluster_CloudStorage_Aws:
+		awsObj, d := types.ObjectValue(getCloudStorageAwsType(), map[string]attr.Value{
+			"arn": types.StringValue(v.Aws.GetArn()),
+		})
+		if d.HasError() {
+			diags.Append(d...)
+			return types.ObjectNull(getCloudStorageType()), diags
+		}
+		values["aws"] = awsObj
+	case *controlplanev1.Cluster_CloudStorage_Gcp:
+		gcpObj, d := types.ObjectValue(getCloudStorageGcpType(), map[string]attr.Value{
+			"name": types.StringValue(v.Gcp.GetName()),
+		})
+		if d.HasError() {
+			diags.Append(d...)
+			return types.ObjectNull(getCloudStorageType()), diags
+		}
+		values["gcp"] = gcpObj
+	case *controlplanev1.Cluster_CloudStorage_Azure_:
+		azureObj, d := types.ObjectValue(getCloudStorageAzureType(), map[string]attr.Value{
+			"container_name":       types.StringValue(v.Azure.GetContainerName()),
+			"storage_account_name": types.StringValue(v.Azure.GetStorageAccountName()),
+		})
+		if d.HasError() {
+			diags.Append(d...)
+			return types.ObjectNull(getCloudStorageType()), diags
+		}
+		values["azure"] = azureObj
+	}
+
+	obj, d := types.ObjectValue(getCloudStorageType(), values)
+	if d.HasError() {
+		diags.Append(d...)
+		return types.ObjectNull(getCloudStorageType()), diags
+	}
 	return obj, diags
 }

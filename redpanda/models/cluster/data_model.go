@@ -257,9 +257,26 @@ func (r *DataModel) generateModelSchemaRegistry(cluster *controlplanev1.Cluster)
 		return types.ObjectNull(getSchemaRegistryType()), diags
 	}
 
+	allUrlsObj := types.ObjectNull(getEndpointsType())
+	if schemaRegistry.HasAllUrls() {
+		au := schemaRegistry.GetAllUrls()
+		s, d := types.ObjectValue(getEndpointsType(), map[string]attr.Value{
+			"sasl":              types.StringValue(au.GetSasl()),
+			"mtls":              types.StringValue(au.GetMtls()),
+			"private_link_sasl": types.StringValue(au.GetPrivateLinkSasl()),
+			"private_link_mtls": types.StringValue(au.GetPrivateLinkMtls()),
+		})
+		if d.HasError() {
+			diags.Append(d...)
+		} else {
+			allUrlsObj = s
+		}
+	}
+
 	obj, d := types.ObjectValue(getSchemaRegistryType(), map[string]attr.Value{
-		"mtls": mtls,
-		"url":  types.StringValue(schemaRegistry.GetUrl()),
+		"mtls":     mtls,
+		"url":      types.StringValue(schemaRegistry.GetUrl()),
+		"all_urls": allUrlsObj,
 	})
 	if d.HasError() {
 		diags.Append(d...)
@@ -284,9 +301,39 @@ func (r *DataModel) generateModelHTTPProxy(cluster *controlplanev1.Cluster) (typ
 		return types.ObjectNull(getHTTPProxyType()), diags
 	}
 
+	saslObj := types.ObjectNull(getSASLType())
+	if httpProxy.HasSasl() {
+		s, d := types.ObjectValue(getSASLType(), map[string]attr.Value{
+			"enabled": types.BoolValue(httpProxy.GetSasl().GetEnabled()),
+		})
+		if d.HasError() {
+			diags.Append(d...)
+		} else {
+			saslObj = s
+		}
+	}
+
+	allUrlsObj := types.ObjectNull(getEndpointsType())
+	if httpProxy.HasAllUrls() {
+		au := httpProxy.GetAllUrls()
+		s, d := types.ObjectValue(getEndpointsType(), map[string]attr.Value{
+			"sasl":              types.StringValue(au.GetSasl()),
+			"mtls":              types.StringValue(au.GetMtls()),
+			"private_link_sasl": types.StringValue(au.GetPrivateLinkSasl()),
+			"private_link_mtls": types.StringValue(au.GetPrivateLinkMtls()),
+		})
+		if d.HasError() {
+			diags.Append(d...)
+		} else {
+			allUrlsObj = s
+		}
+	}
+
 	obj, d := types.ObjectValue(getHTTPProxyType(), map[string]attr.Value{
-		"mtls": mtls,
-		"url":  types.StringValue(httpProxy.GetUrl()),
+		"mtls":     mtls,
+		"url":      types.StringValue(httpProxy.GetUrl()),
+		"sasl":     saslObj,
+		"all_urls": allUrlsObj,
 	})
 	if d.HasError() {
 		diags.Append(d...)
@@ -311,9 +358,39 @@ func (r *DataModel) generateModelKafkaAPI(cluster *controlplanev1.Cluster) (type
 		return types.ObjectNull(getKafkaAPIType()), diags
 	}
 
+	saslObj := types.ObjectNull(getSASLType())
+	if kafkaAPI.HasSasl() {
+		s, d := types.ObjectValue(getSASLType(), map[string]attr.Value{
+			"enabled": types.BoolValue(kafkaAPI.GetSasl().GetEnabled()),
+		})
+		if d.HasError() {
+			diags.Append(d...)
+		} else {
+			saslObj = s
+		}
+	}
+
+	allSeedBrokersObj := types.ObjectNull(getSeedBrokersType())
+	if kafkaAPI.HasAllSeedBrokers() {
+		asb := kafkaAPI.GetAllSeedBrokers()
+		s, d := types.ObjectValue(getSeedBrokersType(), map[string]attr.Value{
+			"sasl":              types.StringValue(asb.GetSasl()),
+			"mtls":              types.StringValue(asb.GetMtls()),
+			"private_link_sasl": types.StringValue(asb.GetPrivateLinkSasl()),
+			"private_link_mtls": types.StringValue(asb.GetPrivateLinkMtls()),
+		})
+		if d.HasError() {
+			diags.Append(d...)
+		} else {
+			allSeedBrokersObj = s
+		}
+	}
+
 	obj, d := types.ObjectValue(getKafkaAPIType(), map[string]attr.Value{
-		"seed_brokers": utils.StringSliceToTypeList(kafkaAPI.GetSeedBrokers()),
-		"mtls":         mtls,
+		"seed_brokers":     utils.StringSliceToTypeList(kafkaAPI.GetSeedBrokers()),
+		"mtls":             mtls,
+		"sasl":             saslObj,
+		"all_seed_brokers": allSeedBrokersObj,
 	})
 	if d.HasError() {
 		diags.Append(d...)
@@ -495,6 +572,7 @@ func (*DataModel) generateModelAWSPrivateLink(cluster *controlplanev1.Cluster) (
 		"connect_console":    types.BoolValue(awsPrivateLink.GetConnectConsole()),
 		"allowed_principals": allowedPrincipals,
 		"status":             statusObj,
+		"supported_regions":  utils.StringSliceToTypeList(awsPrivateLink.GetSupportedRegions()),
 	})
 	if d.HasError() {
 		diags.Append(d...)

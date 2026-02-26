@@ -24,11 +24,20 @@ Creates a topic in a Redpanda Cluster
 - `allow_deletion` (Boolean) Indicates whether the topic can be deleted.
 - `configuration` (Map of String) A map of string key/value pairs of topic configurations.
 - `partition_count` (Number) The number of partitions for the topic. This determines how the data is distributed across brokers. Increases are fully supported without data loss. Decreases will destroy and recreate the topic if allow_deletion is set to true (defaults to false).
+- `replica_assignments` (Attributes List) Manually specify broker ID assignments for partition replicas. If manually assigning replicas, both replication_factor and partition_count must be -1. Mutually exclusive with partition_count and replication_factor. (see [below for nested schema](#nestedatt--replica_assignments))
 - `replication_factor` (Number) The replication factor for the topic, which defines how many copies of the data are kept across different brokers for fault tolerance.
 
 ### Read-Only
 
 - `id` (String) The ID of this resource.
+
+<a id="nestedatt--replica_assignments"></a>
+### Nested Schema for `replica_assignments`
+
+Required:
+
+- `partition_id` (Number) A partition to create.
+- `replica_ids` (List of Number) The broker IDs the partition replicas are assigned to.
 
 ## Example Usage
 

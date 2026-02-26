@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	v1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
+	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	gomock "go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
 )
@@ -43,14 +43,14 @@ func (m *MockPipelineServiceClient) EXPECT() *MockPipelineServiceClientMockRecor
 }
 
 // CreatePipeline mocks base method.
-func (m *MockPipelineServiceClient) CreatePipeline(ctx context.Context, in *v1.CreatePipelineRequest, opts ...grpc.CallOption) (*v1.CreatePipelineResponse, error) {
+func (m *MockPipelineServiceClient) CreatePipeline(ctx context.Context, in *dataplanev1.CreatePipelineRequest, opts ...grpc.CallOption) (*dataplanev1.CreatePipelineResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "CreatePipeline", varargs...)
-	ret0, _ := ret[0].(*v1.CreatePipelineResponse)
+	ret0, _ := ret[0].(*dataplanev1.CreatePipelineResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -63,14 +63,14 @@ func (mr *MockPipelineServiceClientMockRecorder) CreatePipeline(ctx, in any, opt
 }
 
 // DeletePipeline mocks base method.
-func (m *MockPipelineServiceClient) DeletePipeline(ctx context.Context, in *v1.DeletePipelineRequest, opts ...grpc.CallOption) (*v1.DeletePipelineResponse, error) {
+func (m *MockPipelineServiceClient) DeletePipeline(ctx context.Context, in *dataplanev1.DeletePipelineRequest, opts ...grpc.CallOption) (*dataplanev1.DeletePipelineResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "DeletePipeline", varargs...)
-	ret0, _ := ret[0].(*v1.DeletePipelineResponse)
+	ret0, _ := ret[0].(*dataplanev1.DeletePipelineResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -83,14 +83,14 @@ func (mr *MockPipelineServiceClientMockRecorder) DeletePipeline(ctx, in any, opt
 }
 
 // GetPipeline mocks base method.
-func (m *MockPipelineServiceClient) GetPipeline(ctx context.Context, in *v1.GetPipelineRequest, opts ...grpc.CallOption) (*v1.GetPipelineResponse, error) {
+func (m *MockPipelineServiceClient) GetPipeline(ctx context.Context, in *dataplanev1.GetPipelineRequest, opts ...grpc.CallOption) (*dataplanev1.GetPipelineResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetPipeline", varargs...)
-	ret0, _ := ret[0].(*v1.GetPipelineResponse)
+	ret0, _ := ret[0].(*dataplanev1.GetPipelineResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -103,14 +103,14 @@ func (mr *MockPipelineServiceClientMockRecorder) GetPipeline(ctx, in any, opts .
 }
 
 // GetPipelineServiceConfigSchema mocks base method.
-func (m *MockPipelineServiceClient) GetPipelineServiceConfigSchema(ctx context.Context, in *v1.GetPipelineServiceConfigSchemaRequest, opts ...grpc.CallOption) (*v1.GetPipelineServiceConfigSchemaResponse, error) {
+func (m *MockPipelineServiceClient) GetPipelineServiceConfigSchema(ctx context.Context, in *dataplanev1.GetPipelineServiceConfigSchemaRequest, opts ...grpc.CallOption) (*dataplanev1.GetPipelineServiceConfigSchemaResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetPipelineServiceConfigSchema", varargs...)
-	ret0, _ := ret[0].(*v1.GetPipelineServiceConfigSchemaResponse)
+	ret0, _ := ret[0].(*dataplanev1.GetPipelineServiceConfigSchemaResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -123,14 +123,14 @@ func (mr *MockPipelineServiceClientMockRecorder) GetPipelineServiceConfigSchema(
 }
 
 // GetPipelinesBySecrets mocks base method.
-func (m *MockPipelineServiceClient) GetPipelinesBySecrets(ctx context.Context, in *v1.GetPipelinesBySecretsRequest, opts ...grpc.CallOption) (*v1.GetPipelinesBySecretsResponse, error) {
+func (m *MockPipelineServiceClient) GetPipelinesBySecrets(ctx context.Context, in *dataplanev1.GetPipelinesBySecretsRequest, opts ...grpc.CallOption) (*dataplanev1.GetPipelinesBySecretsResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetPipelinesBySecrets", varargs...)
-	ret0, _ := ret[0].(*v1.GetPipelinesBySecretsResponse)
+	ret0, _ := ret[0].(*dataplanev1.GetPipelinesBySecretsResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -143,14 +143,14 @@ func (mr *MockPipelineServiceClientMockRecorder) GetPipelinesBySecrets(ctx, in a
 }
 
 // GetPipelinesForSecret mocks base method.
-func (m *MockPipelineServiceClient) GetPipelinesForSecret(ctx context.Context, in *v1.GetPipelinesForSecretRequest, opts ...grpc.CallOption) (*v1.GetPipelinesForSecretResponse, error) {
+func (m *MockPipelineServiceClient) GetPipelinesForSecret(ctx context.Context, in *dataplanev1.GetPipelinesForSecretRequest, opts ...grpc.CallOption) (*dataplanev1.GetPipelinesForSecretResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetPipelinesForSecret", varargs...)
-	ret0, _ := ret[0].(*v1.GetPipelinesForSecretResponse)
+	ret0, _ := ret[0].(*dataplanev1.GetPipelinesForSecretResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -163,14 +163,14 @@ func (mr *MockPipelineServiceClientMockRecorder) GetPipelinesForSecret(ctx, in a
 }
 
 // LintPipelineConfig mocks base method.
-func (m *MockPipelineServiceClient) LintPipelineConfig(ctx context.Context, in *v1.LintPipelineConfigRequest, opts ...grpc.CallOption) (*v1.LintPipelineConfigResponse, error) {
+func (m *MockPipelineServiceClient) LintPipelineConfig(ctx context.Context, in *dataplanev1.LintPipelineConfigRequest, opts ...grpc.CallOption) (*dataplanev1.LintPipelineConfigResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "LintPipelineConfig", varargs...)
-	ret0, _ := ret[0].(*v1.LintPipelineConfigResponse)
+	ret0, _ := ret[0].(*dataplanev1.LintPipelineConfigResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -183,34 +183,34 @@ func (mr *MockPipelineServiceClientMockRecorder) LintPipelineConfig(ctx, in any,
 }
 
 // ListComponents mocks base method.
-func (m *MockPipelineServiceClient) ListComponents(arg0 context.Context, arg1 *v1.ListComponentsRequest, arg2 ...grpc.CallOption) (*v1.ListComponentsResponse, error) {
+func (m *MockPipelineServiceClient) ListComponents(ctx context.Context, in *dataplanev1.ListComponentsRequest, opts ...grpc.CallOption) (*dataplanev1.ListComponentsResponse, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []any{ctx, in}
+	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "ListComponents", varargs...)
-	ret0, _ := ret[0].(*v1.ListComponentsResponse)
+	ret0, _ := ret[0].(*dataplanev1.ListComponentsResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListComponents indicates an expected call of ListComponents.
-func (mr *MockPipelineServiceClientMockRecorder) ListComponents(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockPipelineServiceClientMockRecorder) ListComponents(ctx, in any, opts ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	varargs := append([]any{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListComponents", reflect.TypeOf((*MockPipelineServiceClient)(nil).ListComponents), varargs...)
 }
 
 // ListPipelines mocks base method.
-func (m *MockPipelineServiceClient) ListPipelines(ctx context.Context, in *v1.ListPipelinesRequest, opts ...grpc.CallOption) (*v1.ListPipelinesResponse, error) {
+func (m *MockPipelineServiceClient) ListPipelines(ctx context.Context, in *dataplanev1.ListPipelinesRequest, opts ...grpc.CallOption) (*dataplanev1.ListPipelinesResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "ListPipelines", varargs...)
-	ret0, _ := ret[0].(*v1.ListPipelinesResponse)
+	ret0, _ := ret[0].(*dataplanev1.ListPipelinesResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -223,14 +223,14 @@ func (mr *MockPipelineServiceClientMockRecorder) ListPipelines(ctx, in any, opts
 }
 
 // StartPipeline mocks base method.
-func (m *MockPipelineServiceClient) StartPipeline(ctx context.Context, in *v1.StartPipelineRequest, opts ...grpc.CallOption) (*v1.StartPipelineResponse, error) {
+func (m *MockPipelineServiceClient) StartPipeline(ctx context.Context, in *dataplanev1.StartPipelineRequest, opts ...grpc.CallOption) (*dataplanev1.StartPipelineResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "StartPipeline", varargs...)
-	ret0, _ := ret[0].(*v1.StartPipelineResponse)
+	ret0, _ := ret[0].(*dataplanev1.StartPipelineResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -243,14 +243,14 @@ func (mr *MockPipelineServiceClientMockRecorder) StartPipeline(ctx, in any, opts
 }
 
 // StopPipeline mocks base method.
-func (m *MockPipelineServiceClient) StopPipeline(ctx context.Context, in *v1.StopPipelineRequest, opts ...grpc.CallOption) (*v1.StopPipelineResponse, error) {
+func (m *MockPipelineServiceClient) StopPipeline(ctx context.Context, in *dataplanev1.StopPipelineRequest, opts ...grpc.CallOption) (*dataplanev1.StopPipelineResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "StopPipeline", varargs...)
-	ret0, _ := ret[0].(*v1.StopPipelineResponse)
+	ret0, _ := ret[0].(*dataplanev1.StopPipelineResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -263,14 +263,14 @@ func (mr *MockPipelineServiceClientMockRecorder) StopPipeline(ctx, in any, opts 
 }
 
 // UpdatePipeline mocks base method.
-func (m *MockPipelineServiceClient) UpdatePipeline(ctx context.Context, in *v1.UpdatePipelineRequest, opts ...grpc.CallOption) (*v1.UpdatePipelineResponse, error) {
+func (m *MockPipelineServiceClient) UpdatePipeline(ctx context.Context, in *dataplanev1.UpdatePipelineRequest, opts ...grpc.CallOption) (*dataplanev1.UpdatePipelineResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "UpdatePipeline", varargs...)
-	ret0, _ := ret[0].(*v1.UpdatePipelineResponse)
+	ret0, _ := ret[0].(*dataplanev1.UpdatePipelineResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

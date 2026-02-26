@@ -218,7 +218,8 @@ func (r *Role) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 	}()
 
 	dataplaneReq := &dataplanev1.DeleteRoleRequest{
-		RoleName: roleName,
+		RoleName:   roleName,
+		DeleteAcls: model.DeleteAcls.ValueBool(),
 	}
 	consoleReq := &consolev1alpha1.DeleteRoleRequest{
 		Request: dataplaneReq,

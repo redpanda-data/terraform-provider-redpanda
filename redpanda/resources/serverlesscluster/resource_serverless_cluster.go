@@ -193,6 +193,29 @@ func ResourceServerlessClusterSchema() schema.Schema {
 				Description:   "Private Console URL for the serverless cluster",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
+			"tags": schema.MapAttribute{
+				Optional:    true,
+				Description: "Tags placed on cloud resources.",
+				ElementType: types.StringType,
+			},
+			"state": schema.StringAttribute{
+				Computed:    true,
+				Description: "Current state of the serverless cluster.",
+			},
+			"planned_deletion": schema.SingleNestedAttribute{
+				Computed:    true,
+				Description: "Planned deletion information for the serverless cluster.",
+				Attributes: map[string]schema.Attribute{
+					"delete_after": schema.StringAttribute{
+						Computed:    true,
+						Description: "Timestamp after which the cluster will be deleted.",
+					},
+					"reason": schema.StringAttribute{
+						Computed:    true,
+						Description: "Reason for the planned deletion.",
+					},
+				},
+			},
 			"prometheus": schema.SingleNestedAttribute{
 				Computed:      true,
 				Description:   "Prometheus metrics endpoints for the serverless cluster",
@@ -361,6 +384,11 @@ func GenerateServerlessClusterRequest(model serverlessclustermodel.ResourceModel
 			return nil, err
 		}
 		req.NetworkingConfig = networkingConfig
+	}
+
+	// Set tags if provided
+	if !model.Tags.IsNull() {
+		req.Tags = utils.TypeMapToStringMap(model.Tags)
 	}
 
 	return req, nil

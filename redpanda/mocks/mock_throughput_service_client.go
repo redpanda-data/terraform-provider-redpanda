@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	v1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
+	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
 	gomock "go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
 )
@@ -43,14 +43,14 @@ func (m *MockThroughputTierServiceClient) EXPECT() *MockThroughputTierServiceCli
 }
 
 // GetThroughputTier mocks base method.
-func (m *MockThroughputTierServiceClient) GetThroughputTier(ctx context.Context, in *v1beta2.GetThroughputTierRequest, opts ...grpc.CallOption) (*v1beta2.GetThroughputTierResponse, error) {
+func (m *MockThroughputTierServiceClient) GetThroughputTier(ctx context.Context, in *controlplanev1beta2.GetThroughputTierRequest, opts ...grpc.CallOption) (*controlplanev1beta2.GetThroughputTierResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetThroughputTier", varargs...)
-	ret0, _ := ret[0].(*v1beta2.GetThroughputTierResponse)
+	ret0, _ := ret[0].(*controlplanev1beta2.GetThroughputTierResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -63,14 +63,14 @@ func (mr *MockThroughputTierServiceClientMockRecorder) GetThroughputTier(ctx, in
 }
 
 // ListThroughputTiers mocks base method.
-func (m *MockThroughputTierServiceClient) ListThroughputTiers(ctx context.Context, in *v1beta2.ListThroughputTiersRequest, opts ...grpc.CallOption) (*v1beta2.ListThroughputTiersResponse, error) {
+func (m *MockThroughputTierServiceClient) ListThroughputTiers(ctx context.Context, in *controlplanev1beta2.ListThroughputTiersRequest, opts ...grpc.CallOption) (*controlplanev1beta2.ListThroughputTiersResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "ListThroughputTiers", varargs...)
-	ret0, _ := ret[0].(*v1beta2.ListThroughputTiersResponse)
+	ret0, _ := ret[0].(*controlplanev1beta2.ListThroughputTiersResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

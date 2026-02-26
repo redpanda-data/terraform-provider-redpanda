@@ -5,10 +5,10 @@ go 1.24.3
 toolchain go1.24.4
 
 require (
-	buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.0-20260109172505-478c671758fa.1
-	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20260109172505-478c671758fa.1
-	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.6.0-20260112104406-88d0531cfa06.1
-	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.11-20260112104406-88d0531cfa06.1
+	buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.1-20260206121607-b7882624f6ea.1
+	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20260206121607-b7882624f6ea.1
+	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.6.1-20260220173743-e06364c55f98.1
+	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.11-20260220173743-e06364c55f98.1
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/hashicorp/go-version v1.7.0
@@ -27,17 +27,17 @@ require (
 	go.uber.org/mock v0.5.0
 	golang.org/x/time v0.11.0
 	google.golang.org/genproto v0.0.0-20250313205543-e70fdf4c4cb4
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7
-	google.golang.org/grpc v1.75.1
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251029180050-ab9386a59fda
+	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11
 	k8s.io/apimachinery v0.34.3
 )
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20250912141014-52f32327d4b0.1 // indirect
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20251209175733-2a1774d88802.1 // indirect
 	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.11-20240617172850-a48fcebcf8f1.1 // indirect
-	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.11-20251106193941-bb850a944663.1 // indirect
-	buf.build/gen/go/redpandadata/core/protocolbuffers/go v1.36.11-20251125205739-05aa34b3829a.1 // indirect
+	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.11-20251216164002-601698cfe71d.1 // indirect
+	buf.build/gen/go/redpandadata/core/protocolbuffers/go v1.36.11-20251218215858-19149a4a2435.1 // indirect
 	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c // indirect
 	github.com/Kunde21/markdownfmt/v3 v3.1.0 // indirect
@@ -115,17 +115,17 @@ require (
 	go.abhg.dev/goldmark/frontmatter v0.2.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/crypto v0.41.0 // indirect
+	golang.org/x/crypto v0.44.0 // indirect
 	golang.org/x/exp v0.0.0-20250207012021-f9890c6ad9f3 // indirect
-	golang.org/x/mod v0.26.0 // indirect
-	golang.org/x/net v0.43.0 // indirect
-	golang.org/x/sync v0.16.0 // indirect
-	golang.org/x/sys v0.35.0 // indirect
-	golang.org/x/term v0.34.0 // indirect
-	golang.org/x/text v0.28.0 // indirect
-	golang.org/x/tools v0.35.0 // indirect
+	golang.org/x/mod v0.29.0 // indirect
+	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/sync v0.18.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/term v0.37.0 // indirect
+	golang.org/x/text v0.31.0 // indirect
+	golang.org/x/tools v0.38.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20251029180050-ab9386a59fda // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

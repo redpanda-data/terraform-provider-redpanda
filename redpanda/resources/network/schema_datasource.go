@@ -53,6 +53,15 @@ func DatasourceNetworkSchema() schema.Schema {
 					stringvalidator.OneOf("dedicated", "cloud"),
 				},
 			},
+			"state": schema.StringAttribute{
+				Computed:    true,
+				Description: "Current state of the network.",
+			},
+			"zones": schema.ListAttribute{
+				Computed:    true,
+				ElementType: types.StringType,
+				Description: "Network availability zones.",
+			},
 			"customer_managed_resources": schema.SingleNestedAttribute{
 				Computed: true,
 				Attributes: map[string]schema.Attribute{

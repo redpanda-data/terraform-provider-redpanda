@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	v1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
+	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	gomock "go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
 )
@@ -43,14 +43,14 @@ func (m *MockUserServiceClient) EXPECT() *MockUserServiceClientMockRecorder {
 }
 
 // CreateUser mocks base method.
-func (m *MockUserServiceClient) CreateUser(ctx context.Context, in *v1.CreateUserRequest, opts ...grpc.CallOption) (*v1.CreateUserResponse, error) {
+func (m *MockUserServiceClient) CreateUser(ctx context.Context, in *dataplanev1.CreateUserRequest, opts ...grpc.CallOption) (*dataplanev1.CreateUserResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "CreateUser", varargs...)
-	ret0, _ := ret[0].(*v1.CreateUserResponse)
+	ret0, _ := ret[0].(*dataplanev1.CreateUserResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -63,14 +63,14 @@ func (mr *MockUserServiceClientMockRecorder) CreateUser(ctx, in any, opts ...any
 }
 
 // DeleteUser mocks base method.
-func (m *MockUserServiceClient) DeleteUser(ctx context.Context, in *v1.DeleteUserRequest, opts ...grpc.CallOption) (*v1.DeleteUserResponse, error) {
+func (m *MockUserServiceClient) DeleteUser(ctx context.Context, in *dataplanev1.DeleteUserRequest, opts ...grpc.CallOption) (*dataplanev1.DeleteUserResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "DeleteUser", varargs...)
-	ret0, _ := ret[0].(*v1.DeleteUserResponse)
+	ret0, _ := ret[0].(*dataplanev1.DeleteUserResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -83,14 +83,14 @@ func (mr *MockUserServiceClientMockRecorder) DeleteUser(ctx, in any, opts ...any
 }
 
 // ListUsers mocks base method.
-func (m *MockUserServiceClient) ListUsers(ctx context.Context, in *v1.ListUsersRequest, opts ...grpc.CallOption) (*v1.ListUsersResponse, error) {
+func (m *MockUserServiceClient) ListUsers(ctx context.Context, in *dataplanev1.ListUsersRequest, opts ...grpc.CallOption) (*dataplanev1.ListUsersResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "ListUsers", varargs...)
-	ret0, _ := ret[0].(*v1.ListUsersResponse)
+	ret0, _ := ret[0].(*dataplanev1.ListUsersResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -103,14 +103,14 @@ func (mr *MockUserServiceClientMockRecorder) ListUsers(ctx, in any, opts ...any)
 }
 
 // UpdateUser mocks base method.
-func (m *MockUserServiceClient) UpdateUser(ctx context.Context, in *v1.UpdateUserRequest, opts ...grpc.CallOption) (*v1.UpdateUserResponse, error) {
+func (m *MockUserServiceClient) UpdateUser(ctx context.Context, in *dataplanev1.UpdateUserRequest, opts ...grpc.CallOption) (*dataplanev1.UpdateUserResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "UpdateUser", varargs...)
-	ret0, _ := ret[0].(*v1.UpdateUserResponse)
+	ret0, _ := ret[0].(*dataplanev1.UpdateUserResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

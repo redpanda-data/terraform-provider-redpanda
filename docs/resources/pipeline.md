@@ -31,6 +31,7 @@ Manages a Redpanda Connect pipeline. Redpanda Connect is a declarative data stre
 ### Read-Only
 
 - `id` (String) The unique identifier of the pipeline.
+- `status` (Attributes) Pipeline status information. (see [below for nested schema](#nestedatt--status))
 - `url` (String) URL to connect to the pipeline's HTTP server, if applicable.
 
 <a id="nestedatt--resources"></a>
@@ -63,6 +64,14 @@ Optional:
 - `create` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 - `delete` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 - `update` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+
+
+<a id="nestedatt--status"></a>
+### Nested Schema for `status`
+
+Read-Only:
+
+- `error` (String) Error message if the pipeline is in an error state.
 
 ## Example Usage
 

@@ -118,6 +118,73 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Description:   "Timestamp when the cluster was created.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
+			"current_redpanda_version": schema.StringAttribute{
+				Computed:    true,
+				Description: "The actual running Redpanda version of the cluster.",
+			},
+			"desired_redpanda_version": schema.StringAttribute{
+				Computed:    true,
+				Description: "The target Redpanda version during an upgrade.",
+			},
+			"nat_gateways": schema.ListAttribute{
+				Computed:    true,
+				ElementType: types.StringType,
+				Description: "NAT gateway IP addresses for the cluster.",
+			},
+			"api_gateway_access": schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "API gateway access mode. Can be NETWORK_ACCESS_MODE_PRIVATE or NETWORK_ACCESS_MODE_PUBLIC.",
+			},
+			"cloud_storage": schema.SingleNestedAttribute{
+				Optional:      true,
+				Computed:      true,
+				Description:   "Cloud storage configuration for tiered storage.",
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
+				Attributes: map[string]schema.Attribute{
+					"aws": schema.SingleNestedAttribute{
+						Optional:    true,
+						Computed:    true,
+						Description: "AWS cloud storage configuration.",
+						Attributes: map[string]schema.Attribute{
+							"arn": schema.StringAttribute{
+								Computed:    true,
+								Description: "ARN of the AWS S3 bucket.",
+							},
+						},
+					},
+					"gcp": schema.SingleNestedAttribute{
+						Optional:    true,
+						Computed:    true,
+						Description: "GCP cloud storage configuration.",
+						Attributes: map[string]schema.Attribute{
+							"name": schema.StringAttribute{
+								Computed:    true,
+								Description: "Name of the GCP storage bucket.",
+							},
+						},
+					},
+					"azure": schema.SingleNestedAttribute{
+						Optional:    true,
+						Computed:    true,
+						Description: "Azure cloud storage configuration.",
+						Attributes: map[string]schema.Attribute{
+							"container_name": schema.StringAttribute{
+								Computed:    true,
+								Description: "Name of the Azure storage container.",
+							},
+							"storage_account_name": schema.StringAttribute{
+								Computed:    true,
+								Description: "Name of the Azure storage account.",
+							},
+						},
+					},
+					"skip_destroy": schema.BoolAttribute{
+						Optional:    true,
+						Description: "If true, cloud storage is not deleted when the cluster is destroyed.",
+					},
+				},
+			},
 			"cluster_api_url": schema.StringAttribute{
 				Computed:      true,
 				Description:   "The URL of the cluster API.",
@@ -175,6 +242,42 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						Description:   "List of Kafka broker addresses.",
 						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
 					},
+					"sasl": schema.SingleNestedAttribute{
+						Optional:      true,
+						Computed:      true,
+						Description:   "SASL configuration.",
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+						Attributes: map[string]schema.Attribute{
+							"enabled": schema.BoolAttribute{
+								Optional:      true,
+								Computed:      true,
+								Description:   "Whether SASL is enabled.",
+								PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+							},
+						},
+					},
+					"all_seed_brokers": schema.SingleNestedAttribute{
+						Computed:    true,
+						Description: "All seed broker endpoint variants.",
+						Attributes: map[string]schema.Attribute{
+							"sasl": schema.StringAttribute{
+								Computed:    true,
+								Description: "SASL endpoint.",
+							},
+							"mtls": schema.StringAttribute{
+								Computed:    true,
+								Description: "mTLS endpoint.",
+							},
+							"private_link_sasl": schema.StringAttribute{
+								Computed:    true,
+								Description: "Private link SASL endpoint.",
+							},
+							"private_link_mtls": schema.StringAttribute{
+								Computed:    true,
+								Description: "Private link mTLS endpoint.",
+							},
+						},
+					},
 				},
 			},
 			"http_proxy": schema.SingleNestedAttribute{
@@ -215,6 +318,42 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						Description:   "The HTTP Proxy URL.",
 						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
+					"sasl": schema.SingleNestedAttribute{
+						Optional:      true,
+						Computed:      true,
+						Description:   "SASL configuration.",
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+						Attributes: map[string]schema.Attribute{
+							"enabled": schema.BoolAttribute{
+								Optional:      true,
+								Computed:      true,
+								Description:   "Whether SASL is enabled.",
+								PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+							},
+						},
+					},
+					"all_urls": schema.SingleNestedAttribute{
+						Computed:    true,
+						Description: "All HTTP proxy endpoint variants.",
+						Attributes: map[string]schema.Attribute{
+							"sasl": schema.StringAttribute{
+								Computed:    true,
+								Description: "SASL endpoint.",
+							},
+							"mtls": schema.StringAttribute{
+								Computed:    true,
+								Description: "mTLS endpoint.",
+							},
+							"private_link_sasl": schema.StringAttribute{
+								Computed:    true,
+								Description: "Private link SASL endpoint.",
+							},
+							"private_link_mtls": schema.StringAttribute{
+								Computed:    true,
+								Description: "Private link mTLS endpoint.",
+							},
+						},
+					},
 				},
 			},
 			"schema_registry": schema.SingleNestedAttribute{
@@ -253,6 +392,28 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						Computed:      true,
 						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 						Description:   "The Schema Registry URL.",
+					},
+					"all_urls": schema.SingleNestedAttribute{
+						Computed:    true,
+						Description: "All schema registry endpoint variants.",
+						Attributes: map[string]schema.Attribute{
+							"sasl": schema.StringAttribute{
+								Computed:    true,
+								Description: "SASL endpoint.",
+							},
+							"mtls": schema.StringAttribute{
+								Computed:    true,
+								Description: "mTLS endpoint.",
+							},
+							"private_link_sasl": schema.StringAttribute{
+								Computed:    true,
+								Description: "Private link SASL endpoint.",
+							},
+							"private_link_mtls": schema.StringAttribute{
+								Computed:    true,
+								Description: "Private link mTLS endpoint.",
+							},
+						},
 					},
 				},
 			},
@@ -481,6 +642,11 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Description: "Port for Redpanda Console.",
 							},
 						},
+					},
+					"supported_regions": schema.ListAttribute{
+						Computed:    true,
+						ElementType: types.StringType,
+						Description: "Supported regions for AWS PrivateLink.",
 					},
 				},
 				Validators: []validator.Object{

@@ -44,6 +44,11 @@ const (
 	FieldSecretVersion = "secret_version"
 )
 
+// Field name constants for pipeline status.
+const (
+	FieldError = "error"
+)
+
 // State equivalence maps for pipeline lifecycle.
 // Running states: pipeline is either starting up or actively running.
 // Stopped states: pipeline is stopping, fully stopped, or completed its work.
@@ -66,6 +71,13 @@ func GetServiceAccountType() map[string]attr.Type {
 		FieldClientID:      types.StringType,
 		FieldClientSecret:  types.StringType,
 		FieldSecretVersion: types.Int64Type,
+	}
+}
+
+// GetStatusType returns the attribute types for the status nested object.
+func GetStatusType() map[string]attr.Type {
+	return map[string]attr.Type{
+		FieldError: types.StringType,
 	}
 }
 

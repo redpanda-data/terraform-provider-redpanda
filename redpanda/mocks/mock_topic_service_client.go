@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	v1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
+	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	gomock "go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
 )
@@ -43,14 +43,14 @@ func (m *MockTopicServiceClient) EXPECT() *MockTopicServiceClientMockRecorder {
 }
 
 // AddPartitionsToTopics mocks base method.
-func (m *MockTopicServiceClient) AddPartitionsToTopics(ctx context.Context, in *v1.AddPartitionsToTopicsRequest, opts ...grpc.CallOption) (*v1.AddPartitionsToTopicsResponse, error) {
+func (m *MockTopicServiceClient) AddPartitionsToTopics(ctx context.Context, in *dataplanev1.AddPartitionsToTopicsRequest, opts ...grpc.CallOption) (*dataplanev1.AddPartitionsToTopicsResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "AddPartitionsToTopics", varargs...)
-	ret0, _ := ret[0].(*v1.AddPartitionsToTopicsResponse)
+	ret0, _ := ret[0].(*dataplanev1.AddPartitionsToTopicsResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -63,14 +63,14 @@ func (mr *MockTopicServiceClientMockRecorder) AddPartitionsToTopics(ctx, in any,
 }
 
 // AddTopicPartitions mocks base method.
-func (m *MockTopicServiceClient) AddTopicPartitions(ctx context.Context, in *v1.AddTopicPartitionsRequest, opts ...grpc.CallOption) (*v1.AddTopicPartitionsResponse, error) {
+func (m *MockTopicServiceClient) AddTopicPartitions(ctx context.Context, in *dataplanev1.AddTopicPartitionsRequest, opts ...grpc.CallOption) (*dataplanev1.AddTopicPartitionsResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "AddTopicPartitions", varargs...)
-	ret0, _ := ret[0].(*v1.AddTopicPartitionsResponse)
+	ret0, _ := ret[0].(*dataplanev1.AddTopicPartitionsResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -83,14 +83,14 @@ func (mr *MockTopicServiceClientMockRecorder) AddTopicPartitions(ctx, in any, op
 }
 
 // CreateTopic mocks base method.
-func (m *MockTopicServiceClient) CreateTopic(ctx context.Context, in *v1.CreateTopicRequest, opts ...grpc.CallOption) (*v1.CreateTopicResponse, error) {
+func (m *MockTopicServiceClient) CreateTopic(ctx context.Context, in *dataplanev1.CreateTopicRequest, opts ...grpc.CallOption) (*dataplanev1.CreateTopicResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "CreateTopic", varargs...)
-	ret0, _ := ret[0].(*v1.CreateTopicResponse)
+	ret0, _ := ret[0].(*dataplanev1.CreateTopicResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -103,14 +103,14 @@ func (mr *MockTopicServiceClientMockRecorder) CreateTopic(ctx, in any, opts ...a
 }
 
 // DeleteTopic mocks base method.
-func (m *MockTopicServiceClient) DeleteTopic(ctx context.Context, in *v1.DeleteTopicRequest, opts ...grpc.CallOption) (*v1.DeleteTopicResponse, error) {
+func (m *MockTopicServiceClient) DeleteTopic(ctx context.Context, in *dataplanev1.DeleteTopicRequest, opts ...grpc.CallOption) (*dataplanev1.DeleteTopicResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "DeleteTopic", varargs...)
-	ret0, _ := ret[0].(*v1.DeleteTopicResponse)
+	ret0, _ := ret[0].(*dataplanev1.DeleteTopicResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -123,14 +123,14 @@ func (mr *MockTopicServiceClientMockRecorder) DeleteTopic(ctx, in any, opts ...a
 }
 
 // GetTopicConfigurations mocks base method.
-func (m *MockTopicServiceClient) GetTopicConfigurations(ctx context.Context, in *v1.GetTopicConfigurationsRequest, opts ...grpc.CallOption) (*v1.GetTopicConfigurationsResponse, error) {
+func (m *MockTopicServiceClient) GetTopicConfigurations(ctx context.Context, in *dataplanev1.GetTopicConfigurationsRequest, opts ...grpc.CallOption) (*dataplanev1.GetTopicConfigurationsResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetTopicConfigurations", varargs...)
-	ret0, _ := ret[0].(*v1.GetTopicConfigurationsResponse)
+	ret0, _ := ret[0].(*dataplanev1.GetTopicConfigurationsResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -143,14 +143,14 @@ func (mr *MockTopicServiceClientMockRecorder) GetTopicConfigurations(ctx, in any
 }
 
 // ListTopics mocks base method.
-func (m *MockTopicServiceClient) ListTopics(ctx context.Context, in *v1.ListTopicsRequest, opts ...grpc.CallOption) (*v1.ListTopicsResponse, error) {
+func (m *MockTopicServiceClient) ListTopics(ctx context.Context, in *dataplanev1.ListTopicsRequest, opts ...grpc.CallOption) (*dataplanev1.ListTopicsResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "ListTopics", varargs...)
-	ret0, _ := ret[0].(*v1.ListTopicsResponse)
+	ret0, _ := ret[0].(*dataplanev1.ListTopicsResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -163,14 +163,14 @@ func (mr *MockTopicServiceClientMockRecorder) ListTopics(ctx, in any, opts ...an
 }
 
 // SetPartitionsToTopics mocks base method.
-func (m *MockTopicServiceClient) SetPartitionsToTopics(ctx context.Context, in *v1.SetPartitionsToTopicsRequest, opts ...grpc.CallOption) (*v1.SetPartitionsToTopicsResponse, error) {
+func (m *MockTopicServiceClient) SetPartitionsToTopics(ctx context.Context, in *dataplanev1.SetPartitionsToTopicsRequest, opts ...grpc.CallOption) (*dataplanev1.SetPartitionsToTopicsResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "SetPartitionsToTopics", varargs...)
-	ret0, _ := ret[0].(*v1.SetPartitionsToTopicsResponse)
+	ret0, _ := ret[0].(*dataplanev1.SetPartitionsToTopicsResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -183,14 +183,14 @@ func (mr *MockTopicServiceClientMockRecorder) SetPartitionsToTopics(ctx, in any,
 }
 
 // SetTopicConfigurations mocks base method.
-func (m *MockTopicServiceClient) SetTopicConfigurations(ctx context.Context, in *v1.SetTopicConfigurationsRequest, opts ...grpc.CallOption) (*v1.SetTopicConfigurationsResponse, error) {
+func (m *MockTopicServiceClient) SetTopicConfigurations(ctx context.Context, in *dataplanev1.SetTopicConfigurationsRequest, opts ...grpc.CallOption) (*dataplanev1.SetTopicConfigurationsResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "SetTopicConfigurations", varargs...)
-	ret0, _ := ret[0].(*v1.SetTopicConfigurationsResponse)
+	ret0, _ := ret[0].(*dataplanev1.SetTopicConfigurationsResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -203,14 +203,14 @@ func (mr *MockTopicServiceClientMockRecorder) SetTopicConfigurations(ctx, in any
 }
 
 // SetTopicPartitions mocks base method.
-func (m *MockTopicServiceClient) SetTopicPartitions(ctx context.Context, in *v1.SetTopicPartitionsRequest, opts ...grpc.CallOption) (*v1.SetTopicPartitionsResponse, error) {
+func (m *MockTopicServiceClient) SetTopicPartitions(ctx context.Context, in *dataplanev1.SetTopicPartitionsRequest, opts ...grpc.CallOption) (*dataplanev1.SetTopicPartitionsResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "SetTopicPartitions", varargs...)
-	ret0, _ := ret[0].(*v1.SetTopicPartitionsResponse)
+	ret0, _ := ret[0].(*dataplanev1.SetTopicPartitionsResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -223,14 +223,14 @@ func (mr *MockTopicServiceClientMockRecorder) SetTopicPartitions(ctx, in any, op
 }
 
 // UpdateTopicConfigurations mocks base method.
-func (m *MockTopicServiceClient) UpdateTopicConfigurations(ctx context.Context, in *v1.UpdateTopicConfigurationsRequest, opts ...grpc.CallOption) (*v1.UpdateTopicConfigurationsResponse, error) {
+func (m *MockTopicServiceClient) UpdateTopicConfigurations(ctx context.Context, in *dataplanev1.UpdateTopicConfigurationsRequest, opts ...grpc.CallOption) (*dataplanev1.UpdateTopicConfigurationsResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "UpdateTopicConfigurations", varargs...)
-	ret0, _ := ret[0].(*v1.UpdateTopicConfigurationsResponse)
+	ret0, _ := ret[0].(*dataplanev1.UpdateTopicConfigurationsResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -24,6 +24,7 @@ Enables the provisioning and management of Redpanda Serverless clusters. A Serve
 
 - `networking_config` (Attributes) Network configuration controlling public/private access to the cluster (see [below for nested schema](#nestedatt--networking_config))
 - `private_link_id` (String) Private link ID for the serverless cluster. Must be set if private networking is enabled.
+- `tags` (Map of String) Tags placed on cloud resources.
 
 ### Read-Only
 
@@ -33,8 +34,10 @@ Enables the provisioning and management of Redpanda Serverless clusters. A Serve
 - `dataplane_api` (Attributes) Dataplane API endpoints for the serverless cluster (see [below for nested schema](#nestedatt--dataplane_api))
 - `id` (String) The ID of the serverless cluster
 - `kafka_api` (Attributes) Kafka API endpoints for the serverless cluster (see [below for nested schema](#nestedatt--kafka_api))
+- `planned_deletion` (Attributes) Planned deletion information for the serverless cluster. (see [below for nested schema](#nestedatt--planned_deletion))
 - `prometheus` (Attributes) Prometheus metrics endpoints for the serverless cluster (see [below for nested schema](#nestedatt--prometheus))
 - `schema_registry` (Attributes) Schema Registry endpoints for the serverless cluster (see [below for nested schema](#nestedatt--schema_registry))
+- `state` (String) Current state of the serverless cluster.
 
 <a id="nestedatt--networking_config"></a>
 ### Nested Schema for `networking_config`
@@ -61,6 +64,15 @@ Read-Only:
 
 - `private_seed_brokers` (List of String) Private Kafka API seed brokers (bootstrap servers)
 - `seed_brokers` (List of String) Public Kafka API seed brokers (bootstrap servers)
+
+
+<a id="nestedatt--planned_deletion"></a>
+### Nested Schema for `planned_deletion`
+
+Read-Only:
+
+- `delete_after` (String) Timestamp after which the cluster will be deleted.
+- `reason` (String) Reason for the planned deletion.
 
 
 <a id="nestedatt--prometheus"></a>

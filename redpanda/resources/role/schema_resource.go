@@ -48,6 +48,12 @@ func ResourceRoleSchema() schema.Schema {
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 			},
+			"delete_acls": schema.BoolAttribute{
+				Description: "Whether to delete the ACLs bound to the role when the role is deleted. Defaults to false.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+			},
 		},
 	}
 }

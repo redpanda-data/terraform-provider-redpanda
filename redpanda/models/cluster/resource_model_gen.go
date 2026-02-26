@@ -25,16 +25,20 @@ import (
 
 // ResourceModel represents the Terraform schema for the cluster resource.
 type ResourceModel struct {
+	APIGatewayAccess         types.String   `tfsdk:"api_gateway_access"`
 	AWSPrivateLink           types.Object   `tfsdk:"aws_private_link"`
 	AllowDeletion            types.Bool     `tfsdk:"allow_deletion"`
 	AzurePrivateLink         types.Object   `tfsdk:"azure_private_link"`
 	CloudProvider            types.String   `tfsdk:"cloud_provider"`
+	CloudStorage             types.Object   `tfsdk:"cloud_storage"`
 	ClusterAPIURL            types.String   `tfsdk:"cluster_api_url"`
 	ClusterConfiguration     types.Object   `tfsdk:"cluster_configuration"`
 	ClusterType              types.String   `tfsdk:"cluster_type"`
 	ConnectionType           types.String   `tfsdk:"connection_type"`
 	CreatedAt                types.String   `tfsdk:"created_at"`
+	CurrentRedpandaVersion   types.String   `tfsdk:"current_redpanda_version"`
 	CustomerManagedResources types.Object   `tfsdk:"customer_managed_resources"`
+	DesiredRedpandaVersion   types.String   `tfsdk:"desired_redpanda_version"`
 	GCPGlobalAccessEnabled   types.Bool     `tfsdk:"gcp_global_access_enabled"`
 	GCPPrivateServiceConnect types.Object   `tfsdk:"gcp_private_service_connect"`
 	HTTPProxy                types.Object   `tfsdk:"http_proxy"`
@@ -43,6 +47,7 @@ type ResourceModel struct {
 	KafkaConnect             types.Object   `tfsdk:"kafka_connect"`
 	MaintenanceWindowConfig  types.Object   `tfsdk:"maintenance_window_config"`
 	Name                     types.String   `tfsdk:"name"`
+	NatGateways              types.List     `tfsdk:"nat_gateways"`
 	NetworkID                types.String   `tfsdk:"network_id"`
 	Prometheus               types.Object   `tfsdk:"prometheus"`
 	ReadReplicaClusterIds    types.List     `tfsdk:"read_replica_cluster_ids"`

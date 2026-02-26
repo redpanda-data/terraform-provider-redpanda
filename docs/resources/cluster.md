@@ -29,8 +29,10 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 ### Optional
 
 - `allow_deletion` (Boolean) Allows deletion of the cluster. Defaults to false.
+- `api_gateway_access` (String) API gateway access mode. Can be NETWORK_ACCESS_MODE_PRIVATE or NETWORK_ACCESS_MODE_PUBLIC.
 - `aws_private_link` (Attributes) AWS PrivateLink configuration. (see [below for nested schema](#nestedatt--aws_private_link))
 - `azure_private_link` (Attributes) Azure Private Link configuration. (see [below for nested schema](#nestedatt--azure_private_link))
+- `cloud_storage` (Attributes) Cloud storage configuration for tiered storage. (see [below for nested schema](#nestedatt--cloud_storage))
 - `cluster_configuration` (Attributes) Configuration for the cluster. (see [below for nested schema](#nestedatt--cluster_configuration))
 - `customer_managed_resources` (Attributes) Customer managed resources configuration for the cluster. (see [below for nested schema](#nestedatt--customer_managed_resources))
 - `gcp_global_access_enabled` (Boolean) If true, GCP global access is enabled.
@@ -50,7 +52,10 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 
 - `cluster_api_url` (String) The URL of the cluster API.
 - `created_at` (String) Timestamp when the cluster was created.
+- `current_redpanda_version` (String) The actual running Redpanda version of the cluster.
+- `desired_redpanda_version` (String) The target Redpanda version during an upgrade.
 - `id` (String) ID of the cluster. ID is an output from the Create Cluster endpoint and cannot be set by the caller.
+- `nat_gateways` (List of String) NAT gateway IP addresses for the cluster.
 - `prometheus` (Attributes) Prometheus metrics endpoint properties. (see [below for nested schema](#nestedatt--prometheus))
 - `redpanda_console` (Attributes) Redpanda Console properties. (see [below for nested schema](#nestedatt--redpanda_console))
 - `state` (String) Current state of the cluster.
@@ -68,6 +73,7 @@ Required:
 Read-Only:
 
 - `status` (Attributes) Current status of the PrivateLink configuration. (see [below for nested schema](#nestedatt--aws_private_link--status))
+- `supported_regions` (List of String) Supported regions for AWS PrivateLink.
 
 <a id="nestedatt--aws_private_link--status"></a>
 ### Nested Schema for `aws_private_link.status`
@@ -156,6 +162,42 @@ Read-Only:
 - `private_endpoint_name` (String) Name of the private endpoint.
 - `status` (String) Status of the endpoint connection.
 
+
+
+
+<a id="nestedatt--cloud_storage"></a>
+### Nested Schema for `cloud_storage`
+
+Optional:
+
+- `aws` (Attributes) AWS cloud storage configuration. (see [below for nested schema](#nestedatt--cloud_storage--aws))
+- `azure` (Attributes) Azure cloud storage configuration. (see [below for nested schema](#nestedatt--cloud_storage--azure))
+- `gcp` (Attributes) GCP cloud storage configuration. (see [below for nested schema](#nestedatt--cloud_storage--gcp))
+- `skip_destroy` (Boolean) If true, cloud storage is not deleted when the cluster is destroyed.
+
+<a id="nestedatt--cloud_storage--aws"></a>
+### Nested Schema for `cloud_storage.aws`
+
+Read-Only:
+
+- `arn` (String) ARN of the AWS S3 bucket.
+
+
+<a id="nestedatt--cloud_storage--azure"></a>
+### Nested Schema for `cloud_storage.azure`
+
+Read-Only:
+
+- `container_name` (String) Name of the Azure storage container.
+- `storage_account_name` (String) Name of the Azure storage account.
+
+
+<a id="nestedatt--cloud_storage--gcp"></a>
+### Nested Schema for `cloud_storage.gcp`
+
+Read-Only:
+
+- `name` (String) Name of the GCP storage bucket.
 
 
 
@@ -450,9 +492,11 @@ Read-Only:
 Optional:
 
 - `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--http_proxy--mtls))
+- `sasl` (Attributes) SASL configuration. (see [below for nested schema](#nestedatt--http_proxy--sasl))
 
 Read-Only:
 
+- `all_urls` (Attributes) All HTTP proxy endpoint variants. (see [below for nested schema](#nestedatt--http_proxy--all_urls))
 - `url` (String) The HTTP Proxy URL.
 
 <a id="nestedatt--http_proxy--mtls"></a>
@@ -465,6 +509,25 @@ Optional:
 - `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.
 
 
+<a id="nestedatt--http_proxy--sasl"></a>
+### Nested Schema for `http_proxy.sasl`
+
+Optional:
+
+- `enabled` (Boolean) Whether SASL is enabled.
+
+
+<a id="nestedatt--http_proxy--all_urls"></a>
+### Nested Schema for `http_proxy.all_urls`
+
+Read-Only:
+
+- `mtls` (String) mTLS endpoint.
+- `private_link_mtls` (String) Private link mTLS endpoint.
+- `private_link_sasl` (String) Private link SASL endpoint.
+- `sasl` (String) SASL endpoint.
+
+
 
 <a id="nestedatt--kafka_api"></a>
 ### Nested Schema for `kafka_api`
@@ -472,9 +535,11 @@ Optional:
 Optional:
 
 - `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--kafka_api--mtls))
+- `sasl` (Attributes) SASL configuration. (see [below for nested schema](#nestedatt--kafka_api--sasl))
 
 Read-Only:
 
+- `all_seed_brokers` (Attributes) All seed broker endpoint variants. (see [below for nested schema](#nestedatt--kafka_api--all_seed_brokers))
 - `seed_brokers` (List of String) List of Kafka broker addresses.
 
 <a id="nestedatt--kafka_api--mtls"></a>
@@ -485,6 +550,25 @@ Optional:
 - `ca_certificates_pem` (List of String) CA certificate in PEM format.
 - `enabled` (Boolean) Whether mTLS is enabled.
 - `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.
+
+
+<a id="nestedatt--kafka_api--sasl"></a>
+### Nested Schema for `kafka_api.sasl`
+
+Optional:
+
+- `enabled` (Boolean) Whether SASL is enabled.
+
+
+<a id="nestedatt--kafka_api--all_seed_brokers"></a>
+### Nested Schema for `kafka_api.all_seed_brokers`
+
+Read-Only:
+
+- `mtls` (String) mTLS endpoint.
+- `private_link_mtls` (String) Private link mTLS endpoint.
+- `private_link_sasl` (String) Private link SASL endpoint.
+- `sasl` (String) SASL endpoint.
 
 
 
@@ -527,6 +611,7 @@ Optional:
 
 Read-Only:
 
+- `all_urls` (Attributes) All schema registry endpoint variants. (see [below for nested schema](#nestedatt--schema_registry--all_urls))
 - `url` (String) The Schema Registry URL.
 
 <a id="nestedatt--schema_registry--mtls"></a>
@@ -537,6 +622,17 @@ Optional:
 - `ca_certificates_pem` (List of String) CA certificate in PEM format.
 - `enabled` (Boolean) Whether mTLS is enabled.
 - `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.
+
+
+<a id="nestedatt--schema_registry--all_urls"></a>
+### Nested Schema for `schema_registry.all_urls`
+
+Read-Only:
+
+- `mtls` (String) mTLS endpoint.
+- `private_link_mtls` (String) Private link mTLS endpoint.
+- `private_link_sasl` (String) Private link SASL endpoint.
+- `sasl` (String) SASL endpoint.
 
 
 

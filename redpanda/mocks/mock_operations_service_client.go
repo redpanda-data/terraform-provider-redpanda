@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	v1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	gomock "go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
 )
@@ -43,14 +43,14 @@ func (m *MockOperationServiceClient) EXPECT() *MockOperationServiceClientMockRec
 }
 
 // GetOperation mocks base method.
-func (m *MockOperationServiceClient) GetOperation(ctx context.Context, in *v1.GetOperationRequest, opts ...grpc.CallOption) (*v1.GetOperationResponse, error) {
+func (m *MockOperationServiceClient) GetOperation(ctx context.Context, in *controlplanev1.GetOperationRequest, opts ...grpc.CallOption) (*controlplanev1.GetOperationResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetOperation", varargs...)
-	ret0, _ := ret[0].(*v1.GetOperationResponse)
+	ret0, _ := ret[0].(*controlplanev1.GetOperationResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -63,14 +63,14 @@ func (mr *MockOperationServiceClientMockRecorder) GetOperation(ctx, in any, opts
 }
 
 // ListOperations mocks base method.
-func (m *MockOperationServiceClient) ListOperations(ctx context.Context, in *v1.ListOperationsRequest, opts ...grpc.CallOption) (*v1.ListOperationsResponse, error) {
+func (m *MockOperationServiceClient) ListOperations(ctx context.Context, in *controlplanev1.ListOperationsRequest, opts ...grpc.CallOption) (*controlplanev1.ListOperationsResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "ListOperations", varargs...)
-	ret0, _ := ret[0].(*v1.ListOperationsResponse)
+	ret0, _ := ret[0].(*controlplanev1.ListOperationsResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
