@@ -140,7 +140,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Optional:      true,
 				Computed:      true,
 				Description:   "Cloud storage configuration for tiered storage.",
-				PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"aws": schema.SingleNestedAttribute{
 						Optional:    true,
