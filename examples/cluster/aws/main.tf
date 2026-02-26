@@ -206,7 +206,7 @@ resource "redpanda_schema_registry_acl" "read_product" {
   password_wo         = var.sr_acl_password_wo
   password_wo_version = var.sr_acl_password_wo_version
   allow_deletion      = var.sr_acl_allow_deletion
-  depends_on          = [redpanda_acl.schema_registry_admin]
+  depends_on          = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_schema_registry_acl" "write_orders" {
@@ -224,7 +224,7 @@ resource "redpanda_schema_registry_acl" "write_orders" {
   password_wo_version = var.sr_acl_password_wo_version
   allow_deletion      = true
 
-  depends_on = [redpanda_acl.schema_registry_admin]
+  depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_schema_registry_acl" "all_test_topic" {
@@ -242,7 +242,7 @@ resource "redpanda_schema_registry_acl" "all_test_topic" {
   password_wo_version = var.sr_acl_password_wo_version
   allow_deletion      = true
 
-  depends_on = [redpanda_acl.schema_registry_admin]
+  depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 
@@ -261,7 +261,7 @@ resource "redpanda_schema_registry_acl" "describe_registry" {
   password_wo_version = var.sr_acl_password_wo_version
   allow_deletion      = true
 
-  depends_on = [redpanda_acl.schema_registry_admin]
+  depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_schema_registry_acl" "alter_configs_registry" {
@@ -279,7 +279,7 @@ resource "redpanda_schema_registry_acl" "alter_configs_registry" {
   password_wo_version = var.sr_acl_password_wo_version
   allow_deletion      = true
 
-  depends_on = [redpanda_acl.schema_registry_admin]
+  depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_schema_registry_acl" "read_registry" {
@@ -297,7 +297,7 @@ resource "redpanda_schema_registry_acl" "read_registry" {
   password_wo_version = var.sr_acl_password_wo_version
   allow_deletion      = true
 
-  depends_on = [redpanda_acl.schema_registry_admin]
+  depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_schema_registry_acl" "write_registry" {
@@ -315,7 +315,7 @@ resource "redpanda_schema_registry_acl" "write_registry" {
   password_wo_version = var.sr_acl_password_wo_version
   allow_deletion      = true
 
-  depends_on = [redpanda_acl.schema_registry_admin]
+  depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_role" "developer" {
