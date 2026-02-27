@@ -70,6 +70,7 @@ Read-Only:
 - `connect_console` (Boolean) Whether Console is connected via PrivateLink.
 - `enabled` (Boolean) Whether AWS PrivateLink is enabled.
 - `status` (Attributes) Current status of the PrivateLink configuration. (see [below for nested schema](#nestedatt--aws_private_link--status))
+- `supported_regions` (List of String) Supported regions for AWS PrivateLink.
 
 <a id="nestedatt--aws_private_link--status"></a>
 ### Nested Schema for `aws_private_link.status`
@@ -442,8 +443,21 @@ Read-Only:
 
 Read-Only:
 
+- `all_urls` (Attributes) All HTTP proxy endpoint variants. (see [below for nested schema](#nestedatt--http_proxy--all_urls))
 - `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--http_proxy--mtls))
+- `sasl` (Attributes) SASL configuration. (see [below for nested schema](#nestedatt--http_proxy--sasl))
 - `url` (String) The HTTP Proxy URL.
+
+<a id="nestedatt--http_proxy--all_urls"></a>
+### Nested Schema for `http_proxy.all_urls`
+
+Read-Only:
+
+- `mtls` (String) mTLS endpoint.
+- `private_link_mtls` (String) Private link mTLS endpoint.
+- `private_link_sasl` (String) Private link SASL endpoint.
+- `sasl` (String) SASL endpoint.
+
 
 <a id="nestedatt--http_proxy--mtls"></a>
 ### Nested Schema for `http_proxy.mtls`
@@ -455,14 +469,35 @@ Read-Only:
 - `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication.
 
 
+<a id="nestedatt--http_proxy--sasl"></a>
+### Nested Schema for `http_proxy.sasl`
+
+Read-Only:
+
+- `enabled` (Boolean) Whether SASL is enabled.
+
+
 
 <a id="nestedatt--kafka_api"></a>
 ### Nested Schema for `kafka_api`
 
 Read-Only:
 
+- `all_seed_brokers` (Attributes) All seed broker endpoint variants. (see [below for nested schema](#nestedatt--kafka_api--all_seed_brokers))
 - `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--kafka_api--mtls))
+- `sasl` (Attributes) SASL configuration. (see [below for nested schema](#nestedatt--kafka_api--sasl))
 - `seed_brokers` (List of String) List of Kafka broker addresses.
+
+<a id="nestedatt--kafka_api--all_seed_brokers"></a>
+### Nested Schema for `kafka_api.all_seed_brokers`
+
+Read-Only:
+
+- `mtls` (String) mTLS endpoint.
+- `private_link_mtls` (String) Private link mTLS endpoint.
+- `private_link_sasl` (String) Private link SASL endpoint.
+- `sasl` (String) SASL endpoint.
+
 
 <a id="nestedatt--kafka_api--mtls"></a>
 ### Nested Schema for `kafka_api.mtls`
@@ -472,6 +507,14 @@ Read-Only:
 - `ca_certificates_pem` (List of String) CA certificate in PEM format.
 - `enabled` (Boolean) Whether mTLS is enabled.
 - `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication.
+
+
+<a id="nestedatt--kafka_api--sasl"></a>
+### Nested Schema for `kafka_api.sasl`
+
+Read-Only:
+
+- `enabled` (Boolean) Whether SASL is enabled.
 
 
 
@@ -523,8 +566,20 @@ Read-Only:
 
 Read-Only:
 
+- `all_urls` (Attributes) All schema registry endpoint variants. (see [below for nested schema](#nestedatt--schema_registry--all_urls))
 - `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--schema_registry--mtls))
 - `url` (String) The Schema Registry URL.
+
+<a id="nestedatt--schema_registry--all_urls"></a>
+### Nested Schema for `schema_registry.all_urls`
+
+Read-Only:
+
+- `mtls` (String) mTLS endpoint.
+- `private_link_mtls` (String) Private link mTLS endpoint.
+- `private_link_sasl` (String) Private link SASL endpoint.
+- `sasl` (String) SASL endpoint.
+
 
 <a id="nestedatt--schema_registry--mtls"></a>
 ### Nested Schema for `schema_registry.mtls`
