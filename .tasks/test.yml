@@ -55,6 +55,21 @@ tasks:
         {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT_SHORT}} ./redpanda/tests -run TestAccResourcesDataSource
       - echo "Datasource tests completed successfully"
 
+  datasource:cluster:
+    desc: "Run cluster datasource acceptance test (creates cluster + reads via datasource)"
+    cmds:
+      - echo "Running TestAccDataSourceCluster..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        RUN_CLUSTER_TESTS=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccDataSourceCluster
+      - echo "Cluster datasource tests completed successfully"
+
   cluster:aws:
     desc: "Run AWS cluster acceptance tests"
     cmds:
