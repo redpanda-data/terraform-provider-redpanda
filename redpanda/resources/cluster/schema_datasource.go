@@ -117,6 +117,38 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 						ElementType: types.StringType,
 						Description: "List of Kafka broker addresses.",
 					},
+					"sasl": schema.SingleNestedAttribute{
+						Computed:    true,
+						Description: "SASL configuration.",
+						Attributes: map[string]schema.Attribute{
+							"enabled": schema.BoolAttribute{
+								Computed:    true,
+								Description: "Whether SASL is enabled.",
+							},
+						},
+					},
+					"all_seed_brokers": schema.SingleNestedAttribute{
+						Computed:    true,
+						Description: "All seed broker endpoint variants.",
+						Attributes: map[string]schema.Attribute{
+							"sasl": schema.StringAttribute{
+								Computed:    true,
+								Description: "SASL endpoint.",
+							},
+							"mtls": schema.StringAttribute{
+								Computed:    true,
+								Description: "mTLS endpoint.",
+							},
+							"private_link_sasl": schema.StringAttribute{
+								Computed:    true,
+								Description: "Private link SASL endpoint.",
+							},
+							"private_link_mtls": schema.StringAttribute{
+								Computed:    true,
+								Description: "Private link mTLS endpoint.",
+							},
+						},
+					},
 				},
 			},
 			"http_proxy": schema.SingleNestedAttribute{
@@ -147,6 +179,38 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 						Computed:    true,
 						Description: "The HTTP Proxy URL.",
 					},
+					"sasl": schema.SingleNestedAttribute{
+						Computed:    true,
+						Description: "SASL configuration.",
+						Attributes: map[string]schema.Attribute{
+							"enabled": schema.BoolAttribute{
+								Computed:    true,
+								Description: "Whether SASL is enabled.",
+							},
+						},
+					},
+					"all_urls": schema.SingleNestedAttribute{
+						Computed:    true,
+						Description: "All HTTP proxy endpoint variants.",
+						Attributes: map[string]schema.Attribute{
+							"sasl": schema.StringAttribute{
+								Computed:    true,
+								Description: "SASL endpoint.",
+							},
+							"mtls": schema.StringAttribute{
+								Computed:    true,
+								Description: "mTLS endpoint.",
+							},
+							"private_link_sasl": schema.StringAttribute{
+								Computed:    true,
+								Description: "Private link SASL endpoint.",
+							},
+							"private_link_mtls": schema.StringAttribute{
+								Computed:    true,
+								Description: "Private link mTLS endpoint.",
+							},
+						},
+					},
 				},
 			},
 			"schema_registry": schema.SingleNestedAttribute{
@@ -176,6 +240,28 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 					"url": schema.StringAttribute{
 						Computed:    true,
 						Description: "The Schema Registry URL.",
+					},
+					"all_urls": schema.SingleNestedAttribute{
+						Computed:    true,
+						Description: "All schema registry endpoint variants.",
+						Attributes: map[string]schema.Attribute{
+							"sasl": schema.StringAttribute{
+								Computed:    true,
+								Description: "SASL endpoint.",
+							},
+							"mtls": schema.StringAttribute{
+								Computed:    true,
+								Description: "mTLS endpoint.",
+							},
+							"private_link_sasl": schema.StringAttribute{
+								Computed:    true,
+								Description: "Private link SASL endpoint.",
+							},
+							"private_link_mtls": schema.StringAttribute{
+								Computed:    true,
+								Description: "Private link mTLS endpoint.",
+							},
+						},
 					},
 				},
 			},
@@ -360,6 +446,11 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 								Description: "Port for Redpanda Console.",
 							},
 						},
+					},
+					"supported_regions": schema.ListAttribute{
+						Computed:    true,
+						ElementType: types.StringType,
+						Description: "Supported regions for AWS PrivateLink.",
 					},
 				},
 			},
