@@ -69,11 +69,11 @@ steps:
     depends_on:
       - lint
       - unit
-  - label: test_datasource
-    key: test_datasource
+  - label: test_datasource_cluster
+    key: test_datasource_cluster
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
     command: |
-      ./taskw test:datasource
+      ./taskw test:datasource:cluster
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
@@ -84,10 +84,10 @@ steps:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
             - TF_LOG=DEBUG
-            - DATASOURCE_CLUSTER_ID
     depends_on:
       - lint
       - unit
+      - test_network
   - label: test_cluster_aws
     key: test_cluster_aws
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
@@ -384,6 +384,7 @@ steps:
             - REDPANDA_CLOUD_ENVIRONMENT=pre
             - CI=true
     depends_on:
+      - test_datasource_cluster
       - test_cluster_aws
       - test_cluster_azure
       - test_cluster_gcp

@@ -38,6 +38,7 @@ const (
 	bulkDataCreateDir                  = "../../examples/datasource/bulk"
 	networkDataSourceDir               = "../../examples/datasource/network"
 	serverlessRegionsDataSourceDir     = "../../examples/datasource/serverless_regions"
+	clusterDatasourceInfraDir          = "infra/datasource/cluster"
 	resourceGroupName                  = "redpanda_resource_group.test"
 	networkResourceName                = "redpanda_network.test"
 	clusterResourceName                = "redpanda_cluster.test"
@@ -47,6 +48,7 @@ const (
 	serverlessResourceName             = "redpanda_serverless_cluster.test"
 	serverlessPrivateLinkResourceName  = "redpanda_serverless_private_link.example"
 	networkDataSourceName              = "data.redpanda_network.test"
+	clusterDataSourceName              = "data.redpanda_cluster.test"
 	serverlessRegionsAWSDataSourceName = "data.redpanda_serverless_regions.aws"
 	serverlessRegionsGCPDataSourceName = "data.redpanda_serverless_regions.gcp"
 	schemaResourceName                 = "redpanda_schema.user_schema"
@@ -1315,6 +1317,66 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 		Name: rename,
 		F: sweepCluster{
 			ClusterName: rename,
+			Client:      c,
+		}.SweepCluster,
+	})
+}
+
+func TestAccDataSourceCluster(t *testing.T) {
+	if !strings.Contains(runClusterTests, "true") {
+		t.Skip("skipping cluster datasource test")
+	}
+	ctx := context.Background()
+	name := generateRandomName(accNamePrepend + "ds-cluster")
+
+	origTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
+	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
+	origTestCaseVars["network_name"] = config.StringVariable(name)
+	origTestCaseVars["cluster_name"] = config.StringVariable(name)
+	if throughputTier != "" {
+		origTestCaseVars["throughput_tier"] = config.StringVariable(throughputTier)
+	}
+
+	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				ConfigDirectory:          config.StaticDirectory(clusterDatasourceInfraDir),
+				ConfigVariables:          origTestCaseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
+					resource.TestCheckResourceAttrSet(clusterDataSourceName, "id"),
+					resource.TestCheckResourceAttr(clusterDataSourceName, "name", name),
+					resource.TestCheckResourceAttrSet(clusterDataSourceName, "cluster_type"),
+					resource.TestCheckResourceAttrSet(clusterDataSourceName, "cloud_provider"),
+					resource.TestCheckResourceAttrSet(clusterDataSourceName, "region"),
+					resource.TestCheckResourceAttrSet(clusterDataSourceName, "state"),
+					resource.TestCheckResourceAttrSet(clusterDataSourceName, "cluster_api_url"),
+					resource.TestCheckResourceAttrSet(clusterDataSourceName, "kafka_api.seed_brokers.#"),
+					resource.TestCheckResourceAttrSet(clusterDataSourceName, "schema_registry.url"),
+					resource.TestCheckResourceAttrSet(clusterDataSourceName, "http_proxy.url"),
+				),
+			},
+		},
+	})
+	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepResourceGroup{
+			ResourceGroupName: name,
+			Client:            c,
+		}.SweepResourceGroup,
+	})
+	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepCluster{
+			ClusterName: name,
 			Client:      c,
 		}.SweepCluster,
 	})
