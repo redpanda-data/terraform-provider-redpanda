@@ -26,6 +26,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/cluster"
@@ -111,6 +112,11 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 			if cluster.Type == controlplanev1.Cluster_TYPE_BYOC && !ranByoc {
 				err = c.Byoc.RunByoc(ctx, clusterID, "apply")
 				if err != nil {
+					// Check if this is a transient error that should be retried
+					if utils.IsRetryableByocError(err) {
+						tflog.Info(ctx, fmt.Sprintf("Retryable byoc error during apply: %v", err))
+						return utils.RetryableError(err)
+					}
 					return utils.NonRetryableError(err)
 				}
 				ranByoc = true
@@ -300,6 +306,11 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 			if cluster.Type == controlplanev1.Cluster_TYPE_BYOC && !ranByoc {
 				err = c.Byoc.RunByoc(ctx, clusterID, "destroy")
 				if err != nil {
+					// Check if this is a transient error that should be retried
+					if utils.IsRetryableByocError(err) {
+						tflog.Info(ctx, fmt.Sprintf("Retryable byoc error during destroy: %v", err))
+						return utils.RetryableError(err)
+					}
 					return utils.NonRetryableError(err)
 				}
 				ranByoc = true
