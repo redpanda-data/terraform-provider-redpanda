@@ -131,6 +131,23 @@ func IsUnavailable(err error) bool {
 		strings.Contains(strings.ToLower(errStr), "unavailable")
 }
 
+// IsRetryableByocError checks if an error from rpk byoc should be retried.
+// Some byoc errors are transient and explicitly ask to retry.
+func IsRetryableByocError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := strings.ToLower(err.Error())
+
+	// Check for explicit retry instructions
+	if strings.Contains(errStr, "please retry later") {
+		return true
+	}
+
+	return false
+}
+
 // CloudProviderStringAws is the string representation of the CLOUD_PROVIDER_AWS enum
 const CloudProviderStringAws = "aws"
 
