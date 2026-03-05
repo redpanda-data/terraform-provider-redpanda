@@ -252,21 +252,21 @@ func getCustomerManagedResourcesType() map[string]attr.Type {
 
 func getAwsCmrType() map[string]attr.Type {
 	return map[string]attr.Type{
-		"agent_instance_profile":                 types.ObjectType{AttrTypes: getArnContainerType()},
-		"connectors_node_group_instance_profile": types.ObjectType{AttrTypes: getArnContainerType()},
-		"utility_node_group_instance_profile":    types.ObjectType{AttrTypes: getArnContainerType()},
-		"redpanda_node_group_instance_profile":   types.ObjectType{AttrTypes: getArnContainerType()},
-		"k8s_cluster_role":                       types.ObjectType{AttrTypes: getArnContainerType()},
-		"redpanda_agent_security_group":          types.ObjectType{AttrTypes: getArnContainerType()},
-		"connectors_security_group":              types.ObjectType{AttrTypes: getArnContainerType()},
-		"redpanda_node_group_security_group":     types.ObjectType{AttrTypes: getArnContainerType()},
-		"utility_security_group":                 types.ObjectType{AttrTypes: getArnContainerType()},
-		"cluster_security_group":                 types.ObjectType{AttrTypes: getArnContainerType()},
-		"node_security_group":                    types.ObjectType{AttrTypes: getArnContainerType()},
-		"cloud_storage_bucket":                            types.ObjectType{AttrTypes: getArnContainerType()},
-		"permissions_boundary_policy":                     types.ObjectType{AttrTypes: getArnContainerType()},
-		"redpanda_connect_node_group_instance_profile":    types.ObjectType{AttrTypes: getArnContainerType()},
-		"redpanda_connect_security_group":                 types.ObjectType{AttrTypes: getArnContainerType()},
+		"agent_instance_profile":                       types.ObjectType{AttrTypes: getArnContainerType()},
+		"connectors_node_group_instance_profile":       types.ObjectType{AttrTypes: getArnContainerType()},
+		"utility_node_group_instance_profile":          types.ObjectType{AttrTypes: getArnContainerType()},
+		"redpanda_node_group_instance_profile":         types.ObjectType{AttrTypes: getArnContainerType()},
+		"k8s_cluster_role":                             types.ObjectType{AttrTypes: getArnContainerType()},
+		"redpanda_agent_security_group":                types.ObjectType{AttrTypes: getArnContainerType()},
+		"connectors_security_group":                    types.ObjectType{AttrTypes: getArnContainerType()},
+		"redpanda_node_group_security_group":           types.ObjectType{AttrTypes: getArnContainerType()},
+		"utility_security_group":                       types.ObjectType{AttrTypes: getArnContainerType()},
+		"cluster_security_group":                       types.ObjectType{AttrTypes: getArnContainerType()},
+		"node_security_group":                          types.ObjectType{AttrTypes: getArnContainerType()},
+		"cloud_storage_bucket":                         types.ObjectType{AttrTypes: getArnContainerType()},
+		"permissions_boundary_policy":                  types.ObjectType{AttrTypes: getArnContainerType()},
+		"redpanda_connect_node_group_instance_profile": types.ObjectType{AttrTypes: getArnContainerType()},
+		"redpanda_connect_security_group":              types.ObjectType{AttrTypes: getArnContainerType()},
 	}
 }
 
@@ -345,21 +345,21 @@ func getDayHourType() map[string]attr.Type {
 
 func getAwsCmrNullAttributes() map[string]attr.Value {
 	return map[string]attr.Value{
-		"agent_instance_profile":                 types.ObjectNull(getArnContainerType()),
-		"connectors_node_group_instance_profile": types.ObjectNull(getArnContainerType()),
-		"utility_node_group_instance_profile":    types.ObjectNull(getArnContainerType()),
-		"redpanda_node_group_instance_profile":   types.ObjectNull(getArnContainerType()),
-		"k8s_cluster_role":                       types.ObjectNull(getArnContainerType()),
-		"redpanda_agent_security_group":          types.ObjectNull(getArnContainerType()),
-		"connectors_security_group":              types.ObjectNull(getArnContainerType()),
-		"redpanda_node_group_security_group":     types.ObjectNull(getArnContainerType()),
-		"utility_security_group":                 types.ObjectNull(getArnContainerType()),
-		"cluster_security_group":                 types.ObjectNull(getArnContainerType()),
-		"node_security_group":                    types.ObjectNull(getArnContainerType()),
-		"cloud_storage_bucket":                            types.ObjectNull(getArnContainerType()),
-		"permissions_boundary_policy":                     types.ObjectNull(getArnContainerType()),
-		"redpanda_connect_node_group_instance_profile":    types.ObjectNull(getArnContainerType()),
-		"redpanda_connect_security_group":                 types.ObjectNull(getArnContainerType()),
+		"agent_instance_profile":                       types.ObjectNull(getArnContainerType()),
+		"connectors_node_group_instance_profile":       types.ObjectNull(getArnContainerType()),
+		"utility_node_group_instance_profile":          types.ObjectNull(getArnContainerType()),
+		"redpanda_node_group_instance_profile":         types.ObjectNull(getArnContainerType()),
+		"k8s_cluster_role":                             types.ObjectNull(getArnContainerType()),
+		"redpanda_agent_security_group":                types.ObjectNull(getArnContainerType()),
+		"connectors_security_group":                    types.ObjectNull(getArnContainerType()),
+		"redpanda_node_group_security_group":           types.ObjectNull(getArnContainerType()),
+		"utility_security_group":                       types.ObjectNull(getArnContainerType()),
+		"cluster_security_group":                       types.ObjectNull(getArnContainerType()),
+		"node_security_group":                          types.ObjectNull(getArnContainerType()),
+		"cloud_storage_bucket":                         types.ObjectNull(getArnContainerType()),
+		"permissions_boundary_policy":                  types.ObjectNull(getArnContainerType()),
+		"redpanda_connect_node_group_instance_profile": types.ObjectNull(getArnContainerType()),
+		"redpanda_connect_security_group":              types.ObjectNull(getArnContainerType()),
 	}
 }
 

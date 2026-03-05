@@ -847,21 +847,21 @@ func (*DataModel) generateModelAWSCMR(awsData *controlplanev1.CustomerManagedRes
 	var diags diag.Diagnostics
 
 	awsVal := map[string]attr.Value{
-		"agent_instance_profile":                 types.ObjectNull(getArnContainerType()),
-		"connectors_node_group_instance_profile": types.ObjectNull(getArnContainerType()),
-		"utility_node_group_instance_profile":    types.ObjectNull(getArnContainerType()),
-		"redpanda_node_group_instance_profile":   types.ObjectNull(getArnContainerType()),
-		"k8s_cluster_role":                       types.ObjectNull(getArnContainerType()),
-		"redpanda_agent_security_group":          types.ObjectNull(getArnContainerType()),
-		"connectors_security_group":              types.ObjectNull(getArnContainerType()),
-		"redpanda_node_group_security_group":     types.ObjectNull(getArnContainerType()),
-		"utility_security_group":                 types.ObjectNull(getArnContainerType()),
-		"cluster_security_group":                 types.ObjectNull(getArnContainerType()),
-		"node_security_group":                    types.ObjectNull(getArnContainerType()),
-		"cloud_storage_bucket":                            types.ObjectNull(getArnContainerType()),
-		"permissions_boundary_policy":                     types.ObjectNull(getArnContainerType()),
-		"redpanda_connect_node_group_instance_profile":    types.ObjectNull(getArnContainerType()),
-		"redpanda_connect_security_group":                 types.ObjectNull(getArnContainerType()),
+		"agent_instance_profile":                       types.ObjectNull(getArnContainerType()),
+		"connectors_node_group_instance_profile":       types.ObjectNull(getArnContainerType()),
+		"utility_node_group_instance_profile":          types.ObjectNull(getArnContainerType()),
+		"redpanda_node_group_instance_profile":         types.ObjectNull(getArnContainerType()),
+		"k8s_cluster_role":                             types.ObjectNull(getArnContainerType()),
+		"redpanda_agent_security_group":                types.ObjectNull(getArnContainerType()),
+		"connectors_security_group":                    types.ObjectNull(getArnContainerType()),
+		"redpanda_node_group_security_group":           types.ObjectNull(getArnContainerType()),
+		"utility_security_group":                       types.ObjectNull(getArnContainerType()),
+		"cluster_security_group":                       types.ObjectNull(getArnContainerType()),
+		"node_security_group":                          types.ObjectNull(getArnContainerType()),
+		"cloud_storage_bucket":                         types.ObjectNull(getArnContainerType()),
+		"permissions_boundary_policy":                  types.ObjectNull(getArnContainerType()),
+		"redpanda_connect_node_group_instance_profile": types.ObjectNull(getArnContainerType()),
+		"redpanda_connect_security_group":              types.ObjectNull(getArnContainerType()),
 	}
 
 	createArnObject := func(arn string) types.Object {
