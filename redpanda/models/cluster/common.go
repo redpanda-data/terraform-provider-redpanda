@@ -74,6 +74,12 @@ func generateClusterAWSCMR(ctx context.Context, cmrObj types.Object) (*controlpl
 	if permissionsBoundaryArn, err := getArnFromAttributes(ctx, "permissions_boundary_policy", aws.Attributes()); err == nil {
 		awsRet.PermissionsBoundaryPolicy = &controlplanev1.CustomerManagedResources_AWS_Policy{Arn: permissionsBoundaryArn}
 	}
+	if rpConnectProfileArn, err := getArnFromAttributes(ctx, "redpanda_connect_node_group_instance_profile", aws.Attributes()); err == nil {
+		awsRet.RedpandaConnectNodeGroupInstanceProfile = &controlplanev1.AWSInstanceProfile{Arn: rpConnectProfileArn}
+	}
+	if rpConnectSgArn, err := getArnFromAttributes(ctx, "redpanda_connect_security_group", aws.Attributes()); err == nil {
+		awsRet.RedpandaConnectSecurityGroup = &controlplanev1.AWSSecurityGroup{Arn: rpConnectSgArn}
+	}
 
 	return awsRet, nil
 }
@@ -276,6 +282,22 @@ func generateModelClusterAWSCMR(_ context.Context, awsData *controlplanev1.Custo
 	if awsData.HasPermissionsBoundaryPolicy() {
 		if obj, d := createArnObject(awsData.GetPermissionsBoundaryPolicy().GetArn()); !d.HasError() {
 			awsVal["permissions_boundary_policy"] = obj
+		} else {
+			diags.Append(d...)
+		}
+	}
+
+	if awsData.HasRedpandaConnectNodeGroupInstanceProfile() {
+		if obj, d := createArnObject(awsData.GetRedpandaConnectNodeGroupInstanceProfile().GetArn()); !d.HasError() {
+			awsVal["redpanda_connect_node_group_instance_profile"] = obj
+		} else {
+			diags.Append(d...)
+		}
+	}
+
+	if awsData.HasRedpandaConnectSecurityGroup() {
+		if obj, d := createArnObject(awsData.GetRedpandaConnectSecurityGroup().GetArn()); !d.HasError() {
+			awsVal["redpanda_connect_security_group"] = obj
 		} else {
 			diags.Append(d...)
 		}

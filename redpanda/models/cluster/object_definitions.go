@@ -263,8 +263,10 @@ func getAwsCmrType() map[string]attr.Type {
 		"utility_security_group":                 types.ObjectType{AttrTypes: getArnContainerType()},
 		"cluster_security_group":                 types.ObjectType{AttrTypes: getArnContainerType()},
 		"node_security_group":                    types.ObjectType{AttrTypes: getArnContainerType()},
-		"cloud_storage_bucket":                   types.ObjectType{AttrTypes: getArnContainerType()},
-		"permissions_boundary_policy":            types.ObjectType{AttrTypes: getArnContainerType()},
+		"cloud_storage_bucket":                            types.ObjectType{AttrTypes: getArnContainerType()},
+		"permissions_boundary_policy":                     types.ObjectType{AttrTypes: getArnContainerType()},
+		"redpanda_connect_node_group_instance_profile":    types.ObjectType{AttrTypes: getArnContainerType()},
+		"redpanda_connect_security_group":                 types.ObjectType{AttrTypes: getArnContainerType()},
 	}
 }
 
@@ -354,8 +356,10 @@ func getAwsCmrNullAttributes() map[string]attr.Value {
 		"utility_security_group":                 types.ObjectNull(getArnContainerType()),
 		"cluster_security_group":                 types.ObjectNull(getArnContainerType()),
 		"node_security_group":                    types.ObjectNull(getArnContainerType()),
-		"cloud_storage_bucket":                   types.ObjectNull(getArnContainerType()),
-		"permissions_boundary_policy":            types.ObjectNull(getArnContainerType()),
+		"cloud_storage_bucket":                            types.ObjectNull(getArnContainerType()),
+		"permissions_boundary_policy":                     types.ObjectNull(getArnContainerType()),
+		"redpanda_connect_node_group_instance_profile":    types.ObjectNull(getArnContainerType()),
+		"redpanda_connect_security_group":                 types.ObjectNull(getArnContainerType()),
 	}
 }
 

@@ -858,8 +858,10 @@ func (*DataModel) generateModelAWSCMR(awsData *controlplanev1.CustomerManagedRes
 		"utility_security_group":                 types.ObjectNull(getArnContainerType()),
 		"cluster_security_group":                 types.ObjectNull(getArnContainerType()),
 		"node_security_group":                    types.ObjectNull(getArnContainerType()),
-		"cloud_storage_bucket":                   types.ObjectNull(getArnContainerType()),
-		"permissions_boundary_policy":            types.ObjectNull(getArnContainerType()),
+		"cloud_storage_bucket":                            types.ObjectNull(getArnContainerType()),
+		"permissions_boundary_policy":                     types.ObjectNull(getArnContainerType()),
+		"redpanda_connect_node_group_instance_profile":    types.ObjectNull(getArnContainerType()),
+		"redpanda_connect_security_group":                 types.ObjectNull(getArnContainerType()),
 	}
 
 	createArnObject := func(arn string) types.Object {
@@ -907,6 +909,12 @@ func (*DataModel) generateModelAWSCMR(awsData *controlplanev1.CustomerManagedRes
 	}
 	if awsData.HasPermissionsBoundaryPolicy() {
 		awsVal["permissions_boundary_policy"] = createArnObject(awsData.GetPermissionsBoundaryPolicy().GetArn())
+	}
+	if awsData.HasRedpandaConnectNodeGroupInstanceProfile() {
+		awsVal["redpanda_connect_node_group_instance_profile"] = createArnObject(awsData.GetRedpandaConnectNodeGroupInstanceProfile().GetArn())
+	}
+	if awsData.HasRedpandaConnectSecurityGroup() {
+		awsVal["redpanda_connect_security_group"] = createArnObject(awsData.GetRedpandaConnectSecurityGroup().GetArn())
 	}
 
 	awsObj, d := types.ObjectValue(getAwsCmrType(), awsVal)
