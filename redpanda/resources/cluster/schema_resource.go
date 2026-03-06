@@ -1001,7 +1001,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								},
 							},
 							"redpanda_connect_node_group_instance_profile": schema.SingleNestedAttribute{
-								Required: true,
+								Optional: true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
 										Required:    true,
@@ -1013,7 +1013,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required: true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Required:    true,
+										Optional:    true,
 										Description: "ARN for the Redpanda Connect security group",
 									},
 								},
