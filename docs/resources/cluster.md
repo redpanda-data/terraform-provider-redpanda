@@ -231,7 +231,6 @@ Required:
 - `node_security_group` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--node_security_group))
 - `permissions_boundary_policy` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--permissions_boundary_policy))
 - `redpanda_agent_security_group` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_agent_security_group))
-- `redpanda_connect_security_group` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_connect_security_group))
 - `redpanda_node_group_instance_profile` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_node_group_instance_profile))
 - `redpanda_node_group_security_group` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_node_group_security_group))
 - `utility_node_group_instance_profile` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--utility_node_group_instance_profile))
@@ -240,6 +239,7 @@ Required:
 Optional:
 
 - `redpanda_connect_node_group_instance_profile` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_connect_node_group_instance_profile))
+- `redpanda_connect_security_group` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_connect_security_group))
 
 <a id="nestedatt--customer_managed_resources--aws--agent_instance_profile"></a>
 ### Nested Schema for `customer_managed_resources.aws.agent_instance_profile`
@@ -313,14 +313,6 @@ Required:
 - `arn` (String) ARN for the redpanda agent security group
 
 
-<a id="nestedatt--customer_managed_resources--aws--redpanda_connect_security_group"></a>
-### Nested Schema for `customer_managed_resources.aws.redpanda_connect_security_group`
-
-Optional:
-
-- `arn` (String) ARN for the Redpanda Connect security group
-
-
 <a id="nestedatt--customer_managed_resources--aws--redpanda_node_group_instance_profile"></a>
 ### Nested Schema for `customer_managed_resources.aws.redpanda_node_group_instance_profile`
 
@@ -359,6 +351,14 @@ Required:
 Required:
 
 - `arn` (String) ARN for the Redpanda Connect node group instance profile
+
+
+<a id="nestedatt--customer_managed_resources--aws--redpanda_connect_security_group"></a>
+### Nested Schema for `customer_managed_resources.aws.redpanda_connect_security_group`
+
+Required:
+
+- `arn` (String) ARN for the Redpanda Connect security group
 
 
 
