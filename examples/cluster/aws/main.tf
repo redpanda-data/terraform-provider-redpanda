@@ -192,6 +192,18 @@ resource "redpanda_acl" "topic_access" {
   allow_deletion        = var.acl_allow_deletion
 }
 
+resource "redpanda_acl" "role_topic_read" {
+  resource_type         = "TOPIC"
+  resource_name         = redpanda_topic.test.name
+  resource_pattern_type = "LITERAL"
+  principal             = "RedpandaRole:${redpanda_role.developer.name}"
+  host                  = "*"
+  operation             = "READ"
+  permission_type       = "ALLOW"
+  cluster_api_url       = redpanda_cluster.test.cluster_api_url
+  allow_deletion        = var.acl_allow_deletion
+}
+
 resource "redpanda_schema_registry_acl" "read_product" {
   cluster_id          = redpanda_cluster.test.id
   principal           = "User:${redpanda_user.test.name}"

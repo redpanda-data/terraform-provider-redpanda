@@ -98,7 +98,7 @@ func ResourceACLSchema() schema.Schema {
 			},
 			"principal": schema.StringAttribute{
 				Required:      true,
-				Description:   "The principal to apply this ACL for",
+				Description:   "The principal to apply this ACL for (e.g., User:alice or RedpandaRole:admin)",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"host": schema.StringAttribute{

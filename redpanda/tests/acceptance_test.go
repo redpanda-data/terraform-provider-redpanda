@@ -56,6 +56,7 @@ const (
 	schemaProductResourceName          = "redpanda_schema.product_schema"
 	clusterAdminACLResourceName        = "redpanda_acl.cluster_admin"
 	topicAccessACLResourceName         = "redpanda_acl.topic_access"
+	roleTopicReadACLResourceName       = "redpanda_acl.role_topic_read"
 	schemaRegistryACLReadProductName   = "redpanda_schema_registry_acl.read_product"
 	roleResourceName                   = "redpanda_role.developer"
 	roleAssignmentResourceName         = "redpanda_role_assignment.developer_assignment"
@@ -601,6 +602,18 @@ func buildTestCheckFuncs(testDir, name string, hasPrivateNetworking ...bool) ([]
 			resource.TestCheckResourceAttrSet(roleResourceName, "id"),
 			resource.TestCheckResourceAttr(roleResourceName, "name", "developer"),
 			resource.TestCheckResourceAttrSet(roleResourceName, "cluster_api_url"),
+		)
+	}
+
+	if strings.Contains(testFileStr, `resource "redpanda_acl" "role_topic_read"`) {
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttrSet(roleTopicReadACLResourceName, "id"),
+			resource.TestCheckResourceAttr(roleTopicReadACLResourceName, "principal", "RedpandaRole:developer"),
+			resource.TestCheckResourceAttr(roleTopicReadACLResourceName, "resource_type", "TOPIC"),
+			resource.TestCheckResourceAttr(roleTopicReadACLResourceName, "resource_name", name),
+			resource.TestCheckResourceAttr(roleTopicReadACLResourceName, "resource_pattern_type", "LITERAL"),
+			resource.TestCheckResourceAttr(roleTopicReadACLResourceName, "operation", "READ"),
+			resource.TestCheckResourceAttr(roleTopicReadACLResourceName, "permission_type", "ALLOW"),
 		)
 	}
 

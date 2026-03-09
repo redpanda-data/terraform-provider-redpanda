@@ -235,6 +235,28 @@ func Test_generateACLCompositeID(t *testing.T) {
 			permissionType: "ALLOW",
 			expected:       "CLUSTER:my:cluster:name:MATCH:ServiceAccount:service:*:CLUSTER_ACTION:ALLOW",
 		},
+		{
+			name:           "topic ACL with RedpandaRole principal",
+			resourceType:   "TOPIC",
+			resourceName:   "test-topic",
+			patternType:    "LITERAL",
+			principal:      "RedpandaRole:admin",
+			host:           "*",
+			operation:      "READ",
+			permissionType: "ALLOW",
+			expected:       "TOPIC:test-topic:LITERAL:RedpandaRole:admin:*:READ:ALLOW",
+		},
+		{
+			name:           "group ACL with RedpandaRole multi-colon principal",
+			resourceType:   "GROUP",
+			resourceName:   "test-group",
+			patternType:    "PREFIXED",
+			principal:      "RedpandaRole:admin:extra",
+			host:           "*",
+			operation:      "WRITE",
+			permissionType: "ALLOW",
+			expected:       "GROUP:test-group:PREFIXED:RedpandaRole:admin:extra:*:WRITE:ALLOW",
+		},
 	}
 
 	for _, tt := range tests {
@@ -289,6 +311,28 @@ func Test_ACLCompositeIDFormat(t *testing.T) {
 			operation:      "DESCRIBE",
 			permissionType: "DENY",
 			expectedFormat: "GROUP:my-consumer-group:PREFIXED:ServiceAccount:my-service:192.168.1.100:DESCRIBE:DENY",
+		},
+		{
+			name:           "format with RedpandaRole principal",
+			resourceType:   "TOPIC",
+			resourceName:   "events",
+			patternType:    "LITERAL",
+			principal:      "RedpandaRole:admin",
+			host:           "*",
+			operation:      "ALL",
+			permissionType: "ALLOW",
+			expectedFormat: "TOPIC:events:LITERAL:RedpandaRole:admin:*:ALL:ALLOW",
+		},
+		{
+			name:           "format with RedpandaRole multi-colon principal",
+			resourceType:   "CLUSTER",
+			resourceName:   "kafka-cluster",
+			patternType:    "LITERAL",
+			principal:      "RedpandaRole:admin:extra",
+			host:           "*",
+			operation:      "ALTER",
+			permissionType: "ALLOW",
+			expectedFormat: "CLUSTER:kafka-cluster:LITERAL:RedpandaRole:admin:extra:*:ALTER:ALLOW",
 		},
 	}
 
