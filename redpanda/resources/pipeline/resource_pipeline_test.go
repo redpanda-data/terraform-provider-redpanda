@@ -1048,7 +1048,6 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 				}
 
 				r.PipelineClient = nil
-				r.dataplaneConn = nil
 
 				readReq := resource.ReadRequest{State: createResp.State}
 				readResp := resource.ReadResponse{State: tfsdk.State{Schema: schemaResp.Schema}}
@@ -1106,7 +1105,6 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 				require.False(t, diags.HasError())
 
 				r.PipelineClient = nil
-				r.dataplaneConn = nil
 
 				readReq := resource.ReadRequest{State: updateResp.State}
 				readResp := resource.ReadResponse{State: tfsdk.State{Schema: schemaResp.Schema}}

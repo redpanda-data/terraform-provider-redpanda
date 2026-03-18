@@ -56,7 +56,6 @@ type Pipeline struct {
 	PipelineClient dataplanev1grpc.PipelineServiceClient
 
 	resData       config.Resource
-	dataplaneConn *grpc.ClientConn
 	clientFactory ClientFactory
 	pollInterval  time.Duration // For testing; if zero, uses default
 }
@@ -109,11 +108,6 @@ func (p *Pipeline) Create(ctx context.Context, req resource.CreateRequest, resp 
 		resp.Diagnostics.AddError("failed to create pipeline client", utils.DeserializeGrpcError(err))
 		return
 	}
-	defer func() {
-		if p.dataplaneConn != nil {
-			_ = p.dataplaneConn.Close()
-		}
-	}()
 
 	pipelineCreate := &dataplanev1.PipelineCreate{
 		DisplayName: model.DisplayName.ValueString(),
@@ -254,11 +248,6 @@ func (p *Pipeline) Read(ctx context.Context, req resource.ReadRequest, resp *res
 		resp.Diagnostics.AddError("failed to create pipeline client", utils.DeserializeGrpcError(err))
 		return
 	}
-	defer func() {
-		if p.dataplaneConn != nil {
-			_ = p.dataplaneConn.Close()
-		}
-	}()
 
 	getResp, err := p.PipelineClient.GetPipeline(ctx, &dataplanev1.GetPipelineRequest{
 		Id: model.ID.ValueString(),
@@ -319,11 +308,6 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 		resp.Diagnostics.AddError("failed to create pipeline client", utils.DeserializeGrpcError(err))
 		return
 	}
-	defer func() {
-		if p.dataplaneConn != nil {
-			_ = p.dataplaneConn.Close()
-		}
-	}()
 
 	pipelineID := state.ID.ValueString()
 
@@ -487,11 +471,6 @@ func (p *Pipeline) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 		resp.Diagnostics.Append(diags...)
 		return
 	}
-	defer func() {
-		if p.dataplaneConn != nil {
-			_ = p.dataplaneConn.Close()
-		}
-	}()
 
 	pipelineID := model.ID.ValueString()
 
@@ -633,23 +612,22 @@ func (p *Pipeline) createPipelineClient(clusterURL string) error {
 	}
 
 	if p.clientFactory != nil {
-		client, conn, err := p.clientFactory(clusterURL, p.resData.AuthToken, p.resData.ProviderVersion, p.resData.TerraformVersion)
+		client, _, err := p.clientFactory(clusterURL, p.resData.AuthToken, p.resData.ProviderVersion, p.resData.TerraformVersion)
 		if err != nil {
 			return err
 		}
 		p.PipelineClient = client
-		p.dataplaneConn = conn
 		return nil
 	}
 
-	if p.dataplaneConn == nil {
-		conn, err := cloud.SpawnConn(clusterURL, p.resData.AuthToken, p.resData.ProviderVersion, p.resData.TerraformVersion)
-		if err != nil {
-			return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
-		}
-		p.dataplaneConn = conn
+	if p.resData.DataplaneConnPool == nil {
+		return errors.New("provider not configured: dataplane connection pool is nil")
 	}
-	p.PipelineClient = dataplanev1grpc.NewPipelineServiceClient(p.dataplaneConn)
+	conn, err := p.resData.DataplaneConnPool.GetConnection(clusterURL)
+	if err != nil {
+		return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
+	}
+	p.PipelineClient = dataplanev1grpc.NewPipelineServiceClient(conn)
 	return nil
 }
 

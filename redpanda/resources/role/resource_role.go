@@ -17,6 +17,7 @@ package role
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -48,7 +49,6 @@ type SecurityServiceClientFactory func(ctx context.Context, clusterURL, authToke
 type Role struct {
 	SecurityClient consolev1alpha1grpc.SecurityServiceClient
 	resData        config.Resource
-	dataplaneConn  *grpc.ClientConn
 	clientFactory  SecurityServiceClientFactory
 }
 
@@ -74,9 +74,12 @@ func (r *Role) Configure(_ context.Context, req resource.ConfigureRequest, resp 
 	r.resData = resData
 
 	if r.clientFactory == nil {
-		r.clientFactory = func(_ context.Context, clusterURL, authToken, providerVersion, terraformVersion string) (consolev1alpha1grpc.SecurityServiceClient, *grpc.ClientConn, error) {
+		r.clientFactory = func(_ context.Context, clusterURL, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, *grpc.ClientConn, error) {
+			if r.resData.DataplaneConnPool == nil {
+				return nil, nil, errors.New("provider not configured: dataplane connection pool is nil")
+			}
 			consoleURL := utils.ConvertToConsoleURL(clusterURL)
-			conn, err := cloud.SpawnConn(consoleURL, authToken, providerVersion, terraformVersion)
+			conn, err := r.resData.DataplaneConnPool.GetConnection(consoleURL)
 			if err != nil {
 				return nil, nil, fmt.Errorf("unable to open a connection with the console API at %s: %v", consoleURL, err)
 			}
@@ -106,11 +109,6 @@ func (r *Role) Create(ctx context.Context, req resource.CreateRequest, resp *res
 		resp.Diagnostics.AddError("Failed to create SecurityService client", utils.DeserializeGrpcError(err))
 		return
 	}
-	defer func() {
-		if r.dataplaneConn != nil {
-			_ = r.dataplaneConn.Close()
-		}
-	}()
 
 	dataplaneReq := &dataplanev1.CreateRoleRequest{
 		Role: &dataplanev1.Role{
@@ -158,11 +156,6 @@ func (r *Role) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 		}
 		return
 	}
-	defer func() {
-		if r.dataplaneConn != nil {
-			_ = r.dataplaneConn.Close()
-		}
-	}()
 
 	exists, err := r.roleExists(ctx, roleName)
 	if err != nil {
@@ -211,11 +204,6 @@ func (r *Role) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 		resp.Diagnostics.Append(diags...)
 		return
 	}
-	defer func() {
-		if r.dataplaneConn != nil {
-			_ = r.dataplaneConn.Close()
-		}
-	}()
 
 	dataplaneReq := &dataplanev1.DeleteRoleRequest{
 		RoleName:   roleName,
@@ -299,15 +287,14 @@ func (r *Role) roleExists(ctx context.Context, roleName string) (bool, error) {
 // createSecurityClient creates a SecurityService client using the configured factory
 func (r *Role) createSecurityClient(ctx context.Context, clusterURL string) error {
 	if r.SecurityClient != nil {
-		return nil // Client already exists
+		return nil
 	}
 
-	client, conn, err := r.clientFactory(ctx, clusterURL, r.resData.AuthToken, r.resData.ProviderVersion, r.resData.TerraformVersion)
+	client, _, err := r.clientFactory(ctx, clusterURL, r.resData.AuthToken, r.resData.ProviderVersion, r.resData.TerraformVersion)
 	if err != nil {
 		return err
 	}
 
 	r.SecurityClient = client
-	r.dataplaneConn = conn
 	return nil
 }

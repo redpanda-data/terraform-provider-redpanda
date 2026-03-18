@@ -69,6 +69,8 @@ type Redpanda struct {
 	version string
 	// conn is the connection to the control plane API.
 	conn *grpc.ClientConn
+	// dataplanePool is the shared pool of dataplane gRPC connections.
+	dataplanePool *cloud.ConnPool
 	// byoc is the client for managing byoc executions.
 	byoc *utils.ByocClient
 }
@@ -392,16 +394,21 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		})
 	}
 
+	if r.dataplanePool == nil {
+		r.dataplanePool = cloud.NewConnPool(creds.Token, r.version, request.TerraformVersion)
+	}
 	response.ResourceData = config.Resource{
 		AuthToken:              creds.Token,
 		ByocClient:             r.byoc,
 		ControlPlaneConnection: r.conn,
+		DataplaneConnPool:      r.dataplanePool,
 		TerraformVersion:       request.TerraformVersion,
 		ProviderVersion:        r.version,
 	}
 	response.DataSourceData = config.Datasource{
 		AuthToken:              creds.Token,
 		ControlPlaneConnection: r.conn,
+		DataplaneConnPool:      r.dataplanePool,
 		TerraformVersion:       request.TerraformVersion,
 		ProviderVersion:        r.version,
 	}

@@ -15,8 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 // setConfig populates a tfsdk.Config using a temporary State (since Config has no Set method).
@@ -44,12 +42,8 @@ func TestUser_Create_WriteOnlyPassword(t *testing.T) {
 			}, nil
 		})
 
-	conn, err := grpc.NewClient("passthrough:///localhost:9644", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	require.NoError(t, err)
-
 	u := &User{
-		UserClient:    mockClient,
-		dataplaneConn: conn,
+		UserClient: mockClient,
 	}
 
 	schemaResp := resource.SchemaResponse{}
@@ -112,12 +106,8 @@ func TestUser_Update_WriteOnlyPassword(t *testing.T) {
 			}, nil
 		})
 
-	conn, err := grpc.NewClient("passthrough:///localhost:9644", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	require.NoError(t, err)
-
 	u := &User{
-		UserClient:    mockClient,
-		dataplaneConn: conn,
+		UserClient: mockClient,
 	}
 
 	schemaResp := resource.SchemaResponse{}
