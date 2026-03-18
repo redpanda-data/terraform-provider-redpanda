@@ -31,7 +31,6 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	usermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/user"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
-	"google.golang.org/grpc"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -45,8 +44,7 @@ var (
 type User struct {
 	UserClient dataplanev1grpc.UserServiceClient
 
-	resData       config.Resource
-	dataplaneConn *grpc.ClientConn
+	resData config.Resource
 }
 
 // Metadata returns the metadata for the User resource.
@@ -92,7 +90,7 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 		resp.Diagnostics.AddError("failed to create user client", utils.DeserializeGrpcError(err))
 		return
 	}
-	defer u.dataplaneConn.Close()
+
 	user, err := u.UserClient.CreateUser(ctx, &dataplanev1.CreateUserRequest{
 		User: &dataplanev1.CreateUserRequest_User{
 			Name:      model.Name.ValueString(),
@@ -131,7 +129,7 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 		}
 		return
 	}
-	defer u.dataplaneConn.Close()
+
 	user, err := utils.FindUserByName(ctx, userName, u.UserClient)
 	if err != nil {
 		action, diags := utils.HandleGracefulRemoval(ctx, "user", userName, model.AllowDeletion, err, "find user")
@@ -180,7 +178,6 @@ func (u *User) Update(ctx context.Context, req resource.UpdateRequest, resp *res
 			resp.Diagnostics.AddError("failed to create user client", utils.DeserializeGrpcError(err))
 			return
 		}
-		defer u.dataplaneConn.Close()
 
 		updateResp, err := u.UserClient.UpdateUser(ctx, &dataplanev1.UpdateUserRequest{
 			User: &dataplanev1.UpdateUserRequest_User{
@@ -229,7 +226,7 @@ func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 		resp.Diagnostics.Append(diags...)
 		return
 	}
-	defer u.dataplaneConn.Close()
+
 	_, err = u.UserClient.DeleteUser(ctx, &dataplanev1.DeleteUserRequest{
 		Name: userName,
 	})
@@ -298,19 +295,19 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 }
 
 func (u *User) createUserClient(clusterURL string) error {
-	if u.UserClient != nil { // Client already started, no need to create another one.
+	if u.UserClient != nil {
 		return nil
 	}
 	if clusterURL == "" {
 		return errors.New("unable to create client with empty target cluster API URL")
 	}
-	if u.dataplaneConn == nil {
-		conn, err := cloud.SpawnConn(clusterURL, u.resData.AuthToken, u.resData.ProviderVersion, u.resData.TerraformVersion)
-		if err != nil {
-			return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
-		}
-		u.dataplaneConn = conn
+	if u.resData.DataplaneConnPool == nil {
+		return errors.New("provider not configured: dataplane connection pool is nil")
 	}
-	u.UserClient = dataplanev1grpc.NewUserServiceClient(u.dataplaneConn)
+	conn, err := u.resData.DataplaneConnPool.GetConnection(clusterURL)
+	if err != nil {
+		return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
+	}
+	u.UserClient = dataplanev1grpc.NewUserServiceClient(conn)
 	return nil
 }

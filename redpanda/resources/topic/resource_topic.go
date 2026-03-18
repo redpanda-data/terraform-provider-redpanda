@@ -17,6 +17,7 @@ package topic
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -30,7 +31,6 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	topicmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/topic"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
-	"google.golang.org/grpc"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -42,14 +42,13 @@ var (
 
 // TopicServiceClientFactory is a function type for creating topic service clients.
 // This allows dependency injection for testing.
-type TopicServiceClientFactory func(clusterURL, authToken, providerVersion, terraformVersion string) (dataplanev1grpc.TopicServiceClient, *grpc.ClientConn, error)
+type TopicServiceClientFactory func(clusterURL, authToken, providerVersion, terraformVersion string) (dataplanev1grpc.TopicServiceClient, error)
 
 // Topic represents the Topic Terraform resource.
 type Topic struct {
 	TopicClient dataplanev1grpc.TopicServiceClient
 
 	resData       config.Resource
-	dataplaneConn *grpc.ClientConn
 	clientFactory TopicServiceClientFactory
 }
 
@@ -94,11 +93,7 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		response.Diagnostics.AddError("failed to create topic client", utils.DeserializeGrpcError(err))
 		return
 	}
-	defer func() {
-		if t.dataplaneConn != nil {
-			_ = t.dataplaneConn.Close()
-		}
-	}()
+
 	var p, rf *int32
 	if !model.PartitionCount.IsUnknown() {
 		p = utils.NumberToInt32(model.PartitionCount)
@@ -228,11 +223,7 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 		}
 		return
 	}
-	defer func() {
-		if t.dataplaneConn != nil {
-			_ = t.dataplaneConn.Close()
-		}
-	}()
+
 	tp, err := utils.FindTopicByName(ctx, topicName, t.TopicClient)
 	if err != nil {
 		action, diags := utils.HandleGracefulRemoval(ctx, "topic", topicName, model.AllowDeletion, err, "find topic")
@@ -275,11 +266,7 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 		response.Diagnostics.AddError("failed to create topic client", utils.DeserializeGrpcError(err))
 		return
 	}
-	defer func() {
-		if t.dataplaneConn != nil {
-			_ = t.dataplaneConn.Close()
-		}
-	}()
+
 	if !plan.Configuration.Equal(state.Configuration) {
 		cfgToSet, err := utils.MapToSetTopicConfiguration(plan.Configuration)
 		if err != nil {
@@ -346,11 +333,7 @@ func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, resp
 		response.Diagnostics.Append(diags...)
 		return
 	}
-	defer func() {
-		if t.dataplaneConn != nil {
-			_ = t.dataplaneConn.Close()
-		}
-	}()
+
 	_, err = t.TopicClient.DeleteTopic(ctx, &dataplanev1.DeleteTopicRequest{
 		TopicName: topicName,
 	})
@@ -391,26 +374,25 @@ func (t *Topic) ImportState(ctx context.Context, req resource.ImportStateRequest
 }
 
 func (t *Topic) createTopicClient(clusterURL string) error {
-	if t.TopicClient != nil { // Client already started, no need to create another one.
+	if t.TopicClient != nil {
 		return nil
 	}
 	if t.clientFactory != nil {
-		client, conn, err := t.clientFactory(clusterURL, t.resData.AuthToken, t.resData.ProviderVersion, t.resData.TerraformVersion)
+		client, err := t.clientFactory(clusterURL, t.resData.AuthToken, t.resData.ProviderVersion, t.resData.TerraformVersion)
 		if err != nil {
 			return fmt.Errorf("unable to open a connection with the cluster API: %v", utils.DeserializeGrpcError(err))
 		}
 		t.TopicClient = client
-		t.dataplaneConn = conn
 		return nil
 	}
-	if t.dataplaneConn == nil {
-		conn, err := cloud.SpawnConn(clusterURL, t.resData.AuthToken, t.resData.ProviderVersion, t.resData.TerraformVersion)
-		if err != nil {
-			return fmt.Errorf("unable to open a connection with the cluster API: %v", utils.DeserializeGrpcError(err))
-		}
-		t.dataplaneConn = conn
+	if t.resData.DataplaneConnPool == nil {
+		return errors.New("provider not configured: dataplane connection pool is nil")
 	}
-	t.TopicClient = dataplanev1grpc.NewTopicServiceClient(t.dataplaneConn)
+	conn, err := t.resData.DataplaneConnPool.GetConnection(clusterURL)
+	if err != nil {
+		return fmt.Errorf("unable to open a connection with the cluster API: %v", utils.DeserializeGrpcError(err))
+	}
+	t.TopicClient = dataplanev1grpc.NewTopicServiceClient(conn)
 	return nil
 }
 

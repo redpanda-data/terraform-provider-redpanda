@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
-	"google.golang.org/grpc"
 )
 
 func TestTopic_Create(t *testing.T) {
@@ -162,8 +161,8 @@ func TestTopic_Create(t *testing.T) {
 			tt.setup(mockClient)
 
 			topic := &Topic{
-				clientFactory: func(_, _, _, _ string) (dataplanev1grpc.TopicServiceClient, *grpc.ClientConn, error) {
-					return mockClient, nil, nil
+				clientFactory: func(_, _, _, _ string) (dataplanev1grpc.TopicServiceClient, error) {
+					return mockClient, nil
 				},
 				resData: config.Resource{
 					AuthToken:        "test-token",
@@ -241,8 +240,8 @@ func TestTopic_CreateStatePersistence(t *testing.T) {
 		Return(nil, errors.New("context deadline exceeded"))
 
 	topic := &Topic{
-		clientFactory: func(_, _, _, _ string) (dataplanev1grpc.TopicServiceClient, *grpc.ClientConn, error) {
-			return mockClient, nil, nil
+		clientFactory: func(_, _, _, _ string) (dataplanev1grpc.TopicServiceClient, error) {
+			return mockClient, nil
 		},
 		resData: config.Resource{
 			AuthToken:        "test-token",
@@ -321,8 +320,8 @@ func TestTopic_UpdateStatePersistence(t *testing.T) {
 		Return(nil, errors.New("context deadline exceeded"))
 
 	topic := &Topic{
-		clientFactory: func(_, _, _, _ string) (dataplanev1grpc.TopicServiceClient, *grpc.ClientConn, error) {
-			return mockClient, nil, nil
+		clientFactory: func(_, _, _, _ string) (dataplanev1grpc.TopicServiceClient, error) {
+			return mockClient, nil
 		},
 		resData: config.Resource{
 			AuthToken:        "test-token",
