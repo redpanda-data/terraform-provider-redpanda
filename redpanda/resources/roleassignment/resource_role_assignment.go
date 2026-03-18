@@ -2,6 +2,7 @@ package roleassignment
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -14,18 +15,15 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
-	"google.golang.org/grpc"
 )
 
 // RoleAssignment implements the resource interface for role assignments.
 type RoleAssignment struct {
 	resData        config.Resource
 	SecurityClient consolev1alpha1grpc.SecurityServiceClient
-	dataplaneConn  *grpc.ClientConn
 }
 
 // NewRoleAssignment creates a new instance of the role assignment resource.
@@ -105,7 +103,6 @@ func (r *RoleAssignment) Create(ctx context.Context, req resource.CreateRequest,
 		resp.Diagnostics.AddError("Failed to create SecurityService client", utils.DeserializeGrpcError(err))
 		return
 	}
-	defer r.dataplaneConn.Close()
 
 	// Add the principal to the role
 	dataplaneReq := &dataplanev1.UpdateRoleMembershipRequest{
@@ -162,7 +159,6 @@ func (r *RoleAssignment) Read(ctx context.Context, req resource.ReadRequest, res
 		resp.Diagnostics.AddError("Failed to create SecurityService client", utils.DeserializeGrpcError(err))
 		return
 	}
-	defer r.dataplaneConn.Close()
 
 	exists, err := r.roleAssignmentExists(ctx, roleName, principal)
 	if err != nil {
@@ -208,7 +204,6 @@ func (r *RoleAssignment) Delete(ctx context.Context, req resource.DeleteRequest,
 		resp.Diagnostics.AddError("Failed to create SecurityService client", utils.DeserializeGrpcError(err))
 		return
 	}
-	defer r.dataplaneConn.Close()
 
 	// Remove the principal from the role
 	dataplaneReq := &dataplanev1.UpdateRoleMembershipRequest{
@@ -302,20 +297,18 @@ func (r *RoleAssignment) roleAssignmentExists(ctx context.Context, roleName, pri
 // createSecurityClient creates a SecurityService client
 func (r *RoleAssignment) createSecurityClient(_ context.Context, clusterURL string) error {
 	if r.SecurityClient != nil {
-		return nil // Client already exists
+		return nil
 	}
 
-	if r.dataplaneConn == nil {
-		// Convert cluster API URL to console URL for SecurityService
-		consoleURL := utils.ConvertToConsoleURL(clusterURL)
-
-		conn, err := cloud.SpawnConn(consoleURL, r.resData.AuthToken, r.resData.ProviderVersion, r.resData.TerraformVersion)
-		if err != nil {
-			return fmt.Errorf("unable to open a connection with the console API at %s: %v", consoleURL, err)
-		}
-		r.dataplaneConn = conn
+	if r.resData.DataplaneConnPool == nil {
+		return errors.New("provider not configured: dataplane connection pool is nil")
+	}
+	consoleURL := utils.ConvertToConsoleURL(clusterURL)
+	conn, err := r.resData.DataplaneConnPool.GetConnection(consoleURL)
+	if err != nil {
+		return fmt.Errorf("unable to open a connection with the console API at %s: %v", consoleURL, err)
 	}
 
-	r.SecurityClient = consolev1alpha1grpc.NewSecurityServiceClient(r.dataplaneConn)
+	r.SecurityClient = consolev1alpha1grpc.NewSecurityServiceClient(conn)
 	return nil
 }

@@ -17,6 +17,7 @@ package acl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
@@ -27,19 +28,16 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	aclmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/acl"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
-	"google.golang.org/grpc"
 )
 
 // ACL represents the ACL Terraform resource.
 type ACL struct {
 	ACLClient dataplanev1grpc.ACLServiceClient
 
-	resData       config.Resource
-	dataplaneConn *grpc.ClientConn
+	resData config.Resource
 }
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -172,7 +170,7 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		response.Diagnostics.AddError("failed to create ACL client", utils.DeserializeGrpcError(err))
 		return
 	}
-	defer a.dataplaneConn.Close()
+
 	_, err = a.ACLClient.CreateACL(ctx, &dataplanev1.CreateACLRequest{
 		ResourceType:        resourceType,
 		ResourceName:        model.ResourceName.ValueString(),
@@ -255,7 +253,7 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 		}
 		return
 	}
-	defer a.dataplaneConn.Close()
+
 	aclList, err := a.ACLClient.ListACLs(ctx, &dataplanev1.ListACLsRequest{Filter: filter})
 	if err != nil {
 		action, diags := utils.HandleGracefulRemoval(ctx, "ACL", model.GenerateID(), model.AllowDeletion, err, "list ACLs")
@@ -372,7 +370,7 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 		response.Diagnostics.Append(diags...)
 		return
 	}
-	defer a.dataplaneConn.Close()
+
 	deleteResponse, err := a.ACLClient.DeleteACLs(ctx, &dataplanev1.DeleteACLsRequest{Filter: filter})
 	if err != nil {
 		_, diags := utils.HandleGracefulRemoval(ctx, "ACL", aclID, model.AllowDeletion, err, "delete ACL")
@@ -389,16 +387,16 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 }
 
 func (a *ACL) createACLClient(clusterURL string) error {
-	if a.ACLClient != nil { // Client already started, no need to create another one.
+	if a.ACLClient != nil {
 		return nil
 	}
-	if a.dataplaneConn == nil {
-		conn, err := cloud.SpawnConn(clusterURL, a.resData.AuthToken, a.resData.ProviderVersion, a.resData.TerraformVersion)
-		if err != nil {
-			return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
-		}
-		a.dataplaneConn = conn
+	if a.resData.DataplaneConnPool == nil {
+		return errors.New("provider not configured: dataplane connection pool is nil")
 	}
-	a.ACLClient = dataplanev1grpc.NewACLServiceClient(a.dataplaneConn)
+	conn, err := a.resData.DataplaneConnPool.GetConnection(clusterURL)
+	if err != nil {
+		return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
+	}
+	a.ACLClient = dataplanev1grpc.NewACLServiceClient(conn)
 	return nil
 }

@@ -18,6 +18,7 @@
 package config
 
 import (
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"google.golang.org/grpc"
 )
@@ -28,6 +29,7 @@ type Resource struct {
 	AuthToken              string
 	ByocClient             *utils.ByocClient
 	ControlPlaneConnection *grpc.ClientConn
+	DataplaneConnPool      *cloud.ConnPool
 	TerraformVersion       string
 	ProviderVersion        string
 }
@@ -37,6 +39,7 @@ type Resource struct {
 type Datasource struct {
 	AuthToken              string
 	ControlPlaneConnection *grpc.ClientConn
+	DataplaneConnPool      *cloud.ConnPool
 	TerraformVersion       string
 	ProviderVersion        string
 }
