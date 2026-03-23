@@ -31,7 +31,6 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	rolemodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/role"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
-	"google.golang.org/grpc"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -43,7 +42,7 @@ var (
 
 // SecurityServiceClientFactory is a function type for creating security service clients.
 // This allows dependency injection for testing.
-type SecurityServiceClientFactory func(ctx context.Context, clusterURL, authToken, providerVersion, terraformVersion string) (consolev1alpha1grpc.SecurityServiceClient, *grpc.ClientConn, error)
+type SecurityServiceClientFactory func(ctx context.Context, clusterURL, authToken, providerVersion, terraformVersion string) (consolev1alpha1grpc.SecurityServiceClient, error)
 
 // Role represents the Role Terraform resource.
 type Role struct {
@@ -74,17 +73,16 @@ func (r *Role) Configure(_ context.Context, req resource.ConfigureRequest, resp 
 	r.resData = resData
 
 	if r.clientFactory == nil {
-		r.clientFactory = func(_ context.Context, clusterURL, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, *grpc.ClientConn, error) {
+		r.clientFactory = func(_ context.Context, clusterURL, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
 			if r.resData.DataplaneConnPool == nil {
-				return nil, nil, errors.New("provider not configured: dataplane connection pool is nil")
+				return nil, errors.New("provider not configured: dataplane connection pool is nil")
 			}
 			consoleURL := utils.ConvertToConsoleURL(clusterURL)
 			conn, err := r.resData.DataplaneConnPool.GetConnection(consoleURL)
 			if err != nil {
-				return nil, nil, fmt.Errorf("unable to open a connection with the console API at %s: %v", consoleURL, err)
+				return nil, fmt.Errorf("unable to open a connection with the console API at %s: %v", consoleURL, err)
 			}
-			client := consolev1alpha1grpc.NewSecurityServiceClient(conn)
-			return client, conn, nil
+			return consolev1alpha1grpc.NewSecurityServiceClient(conn), nil
 		}
 	}
 }
@@ -290,7 +288,7 @@ func (r *Role) createSecurityClient(ctx context.Context, clusterURL string) erro
 		return nil
 	}
 
-	client, _, err := r.clientFactory(ctx, clusterURL, r.resData.AuthToken, r.resData.ProviderVersion, r.resData.TerraformVersion)
+	client, err := r.clientFactory(ctx, clusterURL, r.resData.AuthToken, r.resData.ProviderVersion, r.resData.TerraformVersion)
 	if err != nil {
 		return err
 	}

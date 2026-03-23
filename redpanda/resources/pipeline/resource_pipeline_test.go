@@ -34,7 +34,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
-	"google.golang.org/grpc"
 )
 
 const (
@@ -165,8 +164,8 @@ func setupPipelineResource(mockClient dataplanev1grpc.PipelineServiceClient) *Pi
 
 func setupPipelineResourceWithPollInterval(mockClient dataplanev1grpc.PipelineServiceClient, pollInterval time.Duration) *Pipeline {
 	return &Pipeline{
-		clientFactory: func(_, _, _, _ string) (dataplanev1grpc.PipelineServiceClient, *grpc.ClientConn, error) {
-			return mockClient, nil, nil
+		clientFactory: func(_, _, _, _ string) (dataplanev1grpc.PipelineServiceClient, error) {
+			return mockClient, nil
 		},
 		resData: config.Resource{
 			AuthToken:        testAuthToken,

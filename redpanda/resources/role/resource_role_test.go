@@ -124,8 +124,8 @@ func TestRole_Create(t *testing.T) {
 
 			// Create role resource with mock factory
 			r := &Role{
-				clientFactory: func(_ context.Context, _, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, *grpc.ClientConn, error) {
-					return mockClient, nil, nil
+				clientFactory: func(_ context.Context, _, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
+					return mockClient, nil
 				},
 				resData: config.Resource{
 					AuthToken:        "test-token",
@@ -322,12 +322,12 @@ func TestRole_Read(t *testing.T) {
 
 			// Create role resource with mock factory
 			r := &Role{
-				clientFactory: func(_ context.Context, clusterURL, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, *grpc.ClientConn, error) {
+				clientFactory: func(_ context.Context, clusterURL, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
 					// Simulate real behavior: empty clusterURL should error
 					if clusterURL == "" {
-						return nil, nil, errors.New("unable to create client with empty target cluster API URL")
+						return nil, errors.New("unable to create client with empty target cluster API URL")
 					}
-					return mockClient, nil, nil
+					return mockClient, nil
 				},
 				resData: config.Resource{
 					AuthToken:        "test-token",
@@ -454,8 +454,8 @@ func TestRole_Update(t *testing.T) {
 			// If any API calls are made, the test will fail
 
 			r := &Role{
-				clientFactory: func(_ context.Context, _, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, *grpc.ClientConn, error) {
-					return mockClient, nil, nil
+				clientFactory: func(_ context.Context, _, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
+					return mockClient, nil
 				},
 				resData: config.Resource{
 					AuthToken:        "test-token",
@@ -610,8 +610,8 @@ func TestRole_Delete(t *testing.T) {
 			tt.mockSetup(mockClient)
 
 			r := &Role{
-				clientFactory: func(_ context.Context, _, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, *grpc.ClientConn, error) {
-					return mockClient, nil, nil
+				clientFactory: func(_ context.Context, _, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
+					return mockClient, nil
 				},
 				resData: config.Resource{
 					AuthToken:        "test-token",
@@ -791,8 +791,8 @@ func TestRole_CreateAndRead(t *testing.T) {
 				Return(&consolev1alpha1.GetRoleResponse{}, nil)
 
 			r := &Role{
-				clientFactory: func(_ context.Context, _, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, *grpc.ClientConn, error) {
-					return mockClient, nil, nil
+				clientFactory: func(_ context.Context, _, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
+					return mockClient, nil
 				},
 				resData: config.Resource{
 					AuthToken:        "test-token",
@@ -910,8 +910,8 @@ func TestRole_CreateReadDelete(t *testing.T) {
 			}
 
 			r := &Role{
-				clientFactory: func(_ context.Context, _, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, *grpc.ClientConn, error) {
-					return mockClient, nil, nil
+				clientFactory: func(_ context.Context, _, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
+					return mockClient, nil
 				},
 				resData: config.Resource{
 					AuthToken:        "test-token",
@@ -1007,8 +1007,8 @@ func TestRole_CreateReadUpdate(t *testing.T) {
 				Return(&consolev1alpha1.GetRoleResponse{}, nil).Times(2)
 
 			r := &Role{
-				clientFactory: func(_ context.Context, _, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, *grpc.ClientConn, error) {
-					return mockClient, nil, nil
+				clientFactory: func(_ context.Context, _, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
+					return mockClient, nil
 				},
 				resData: config.Resource{
 					AuthToken:        "test-token",

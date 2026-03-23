@@ -37,6 +37,7 @@ import (
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -143,19 +144,42 @@ func parseHTTPSURLAsGrpc(url string) (string, error) {
 	return match[1], nil
 }
 
-// SpawnConn returns a grpc connection to the given URL, it adds a bearer token
-// to each request with the given 'authToken'.
+// DefaultMaxConcurrentRPCs is the maximum number of concurrent RPCs per
+// cluster connection. This prevents overwhelming a single broker when
+// Terraform creates many resources in parallel.
+const DefaultMaxConcurrentRPCs = 5
+
+// SpawnConn returns a gRPC connection to the given URL with a bearer token
+// added to each request using the given authToken.
 func SpawnConn(url, authToken, providerVersion, terraformVersion string) (*grpc.ClientConn, error) {
+	return SpawnConnWithConcurrency(url, authToken, providerVersion, terraformVersion, DefaultMaxConcurrentRPCs)
+}
+
+// SpawnConnWithConcurrency creates a new gRPC connection with a per-connection
+// concurrency limit on in-flight RPCs.
+func SpawnConnWithConcurrency(url, authToken, providerVersion, terraformVersion string, maxConcurrent int) (*grpc.ClientConn, error) {
 	// we need a GRPC URL, but it's likely that we'll be given an HTTPS URL instead
 	grpcURL, err := parseHTTPSURLAsGrpc(url)
 	if err != nil {
 		return nil, err
 	}
 
+	sem := make(chan struct{}, maxConcurrent)
+
 	return grpc.NewClient(
 		grpcURL,
 		// Chain the interceptors using grpc_middleware.ChainUnaryClient
 		grpc.WithUnaryInterceptor(grpcmiddleware.ChainUnaryClient(
+			// Concurrency limiter: at most maxConcurrent in-flight RPCs per connection.
+			func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+				select {
+				case sem <- struct{}{}:
+					defer func() { <-sem }()
+					return invoker(ctx, method, req, reply, cc, opts...)
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			},
 			// Interceptor to add the Bearer token
 			func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 				return invoker(metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", authToken)), method, req, reply, cc, opts...)
@@ -173,7 +197,7 @@ func SpawnConn(url, authToken, providerVersion, terraformVersion string) (*grpc.
 			rl.Limiter,
 			// Retry interceptor
 			grpcretry.UnaryClientInterceptor(
-				grpcretry.WithCodes(codes.Unavailable, codes.Unknown, codes.Internal, codes.Unauthenticated),
+				grpcretry.WithCodes(codes.Unavailable, codes.Unknown, codes.Unauthenticated),
 				grpcretry.WithMax(5),
 				grpcretry.WithBackoff(grpcretry.BackoffExponential(time.Millisecond*100)),
 			),
@@ -188,6 +212,11 @@ func SpawnConn(url, authToken, providerVersion, terraformVersion string) (*grpc.
 		),
 		grpc.WithConnectParams(grpc.ConnectParams{
 			Backoff: backoff.DefaultConfig,
+		}),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                30 * time.Second,
+			Timeout:             10 * time.Second,
+			PermitWithoutStream: true,
 		}),
 		grpc.WithUserAgent(
 			fmt.Sprintf("Terraform/%s %s_%s terraform-provider-redpanda/%s", terraformVersion, runtime.GOOS, runtime.GOARCH, providerVersion),

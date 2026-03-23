@@ -40,16 +40,16 @@ var (
 	_ resource.ResourceWithImportState = &Topic{}
 )
 
-// TopicServiceClientFactory is a function type for creating topic service clients.
+// ServiceClientFactory is a function type for creating topic service clients.
 // This allows dependency injection for testing.
-type TopicServiceClientFactory func(clusterURL, authToken, providerVersion, terraformVersion string) (dataplanev1grpc.TopicServiceClient, error)
+type ServiceClientFactory func(clusterURL, authToken, providerVersion, terraformVersion string) (dataplanev1grpc.TopicServiceClient, error)
 
 // Topic represents the Topic Terraform resource.
 type Topic struct {
 	TopicClient dataplanev1grpc.TopicServiceClient
 
 	resData       config.Resource
-	clientFactory TopicServiceClientFactory
+	clientFactory ServiceClientFactory
 }
 
 // Configure configures the Topic resource.
@@ -130,12 +130,13 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		}
 	}
 
+	topicName := model.Name.ValueString()
 	var topic *dataplanev1.CreateTopicResponse
 	err = utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
 		var createErr error
 		topic, createErr = t.TopicClient.CreateTopic(ctx, &dataplanev1.CreateTopicRequest{
 			Topic: &dataplanev1.CreateTopicRequest_Topic{
-				Name:               model.Name.ValueString(),
+				Name:               topicName,
 				PartitionCount:     p,
 				ReplicationFactor:  rf,
 				Configs:            cfg,
@@ -148,6 +149,14 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 			}
 			if utils.IsPermissionDenied(createErr) {
 				return utils.RetryableError(fmt.Errorf("topic authorization not ready, retrying: %w", createErr))
+			}
+			if isTransientBrokerError(createErr) {
+				// The broker may have created the topic before the error.
+				// Check before retrying to avoid orphans.
+				if _, findErr := utils.FindTopicByName(ctx, topicName, t.TopicClient); findErr == nil {
+					return nil
+				}
+				return utils.RetryableError(fmt.Errorf("transient broker error, retrying: %w", createErr))
 			}
 			return utils.NonRetryableError(createErr)
 		}
@@ -165,23 +174,44 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		return
 	}
 
+	// topic may be nil if the create succeeded on a retry after a transient
+	// broker error — FindTopicByName confirmed it exists but CreateTopic
+	// didn't return a response. Read it back to get partition/replication info.
+	var partitionCount, replicationFactor *int32
+	if topic != nil {
+		topicName = topic.GetTopicName()
+		partitionCount = &[]int32{topic.GetPartitionCount()}[0]
+		replicationFactor = &[]int32{topic.GetReplicationFactor()}[0]
+	} else {
+		tp, findErr := utils.FindTopicByName(ctx, topicName, t.TopicClient)
+		if findErr != nil {
+			response.Diagnostics.AddError(
+				fmt.Sprintf("failed to read topic %q after create", topicName),
+				fmt.Sprintf("The topic may or may not have been created. Use 'terraform import' if it exists. Error: %s", utils.DeserializeGrpcError(findErr)),
+			)
+			return
+		}
+		partitionCount = &tp.PartitionCount
+		replicationFactor = &tp.ReplicationFactor
+	}
+
 	response.Diagnostics.Append(response.State.Set(ctx, topicmodel.ResourceModel{
-		Name:               types.StringValue(topic.GetTopicName()),
-		PartitionCount:     utils.Int32ToNumber(topic.GetPartitionCount()),
-		ReplicationFactor:  utils.Int32ToNumber(topic.GetReplicationFactor()),
+		Name:               types.StringValue(topicName),
+		PartitionCount:     utils.Int32ToNumber(*partitionCount),
+		ReplicationFactor:  utils.Int32ToNumber(*replicationFactor),
 		Configuration:      model.Configuration,
 		AllowDeletion:      model.AllowDeletion,
 		ClusterAPIURL:      model.ClusterAPIURL,
 		ReplicaAssignments: model.ReplicaAssignments,
-		ID:                 types.StringValue(topic.GetTopicName()),
+		ID:                 types.StringValue(topicName),
 	})...)
 	if response.Diagnostics.HasError() {
 		return
 	}
 
-	tpCfgRes, err := t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: topic.GetTopicName()})
+	tpCfgRes, err := t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: topicName})
 	if err != nil {
-		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration", topic.GetTopicName()), utils.DeserializeGrpcError(err))
+		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration", topicName), utils.DeserializeGrpcError(err))
 		return
 	}
 	tpCfg := mergeWithPlannedConfig(filterDynamicConfig(tpCfgRes.Configurations), tpCfgRes.Configurations, model.Configuration)
@@ -191,14 +221,14 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		return
 	}
 	response.Diagnostics.Append(response.State.Set(ctx, topicmodel.ResourceModel{
-		Name:               types.StringValue(topic.GetTopicName()),
-		PartitionCount:     utils.Int32ToNumber(topic.GetPartitionCount()),
-		ReplicationFactor:  utils.Int32ToNumber(topic.GetReplicationFactor()),
+		Name:               types.StringValue(topicName),
+		PartitionCount:     utils.Int32ToNumber(*partitionCount),
+		ReplicationFactor:  utils.Int32ToNumber(*replicationFactor),
 		Configuration:      tpCfgMap,
 		AllowDeletion:      model.AllowDeletion,
 		ClusterAPIURL:      model.ClusterAPIURL,
 		ReplicaAssignments: model.ReplicaAssignments,
-		ID:                 types.StringValue(topic.GetTopicName()),
+		ID:                 types.StringValue(topicName),
 	})...)
 }
 
@@ -444,4 +474,10 @@ func mergeWithPlannedConfig(dynamicConfigs, allConfigs []*dataplanev1.Topic_Conf
 
 func isAlreadyExistsError(err error) bool {
 	return strings.Contains(utils.DeserializeGrpcError(err), "TOPIC_ALREADY_EXISTS") || strings.Contains(utils.DeserializeGrpcError(err), "The topic has already been created")
+}
+
+func isTransientBrokerError(err error) bool {
+	msg := utils.DeserializeGrpcError(err)
+	return strings.Contains(msg, "broker struct chosen to issue this request has died") ||
+		strings.Contains(msg, "client closed")
 }
