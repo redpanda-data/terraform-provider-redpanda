@@ -100,7 +100,7 @@ func (c *GroupClient) CreateGroup(ctx context.Context, name, description string)
 
 // GetGroup retrieves a group by ID.
 func (c *GroupClient) GetGroup(ctx context.Context, id string) (*Group, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/v1/groups/"+id, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/v1/groups/"+id, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -128,7 +128,7 @@ func (c *GroupClient) GetGroup(ctx context.Context, id string) (*Group, error) {
 
 // DeleteGroup deletes a group by ID.
 func (c *GroupClient) DeleteGroup(ctx context.Context, id string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+"/v1/groups/"+id, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+"/v1/groups/"+id, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
