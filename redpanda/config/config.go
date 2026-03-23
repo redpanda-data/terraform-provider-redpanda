@@ -28,6 +28,7 @@ type Resource struct {
 	AuthToken              string
 	ByocClient             *utils.ByocClient
 	ControlPlaneConnection *grpc.ClientConn
+	CloudAPIURL            string
 	TerraformVersion       string
 	ProviderVersion        string
 }
