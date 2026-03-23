@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -92,7 +93,7 @@ func (c *GroupClient) CreateGroup(ctx context.Context, name, description string)
 		return nil, fmt.Errorf("failed to decode create group response: %w", err)
 	}
 	if result.Group == nil {
-		return nil, fmt.Errorf("create group response was empty")
+		return nil, errors.New("create group response was empty")
 	}
 	return result.Group, nil
 }
@@ -120,7 +121,7 @@ func (c *GroupClient) GetGroup(ctx context.Context, id string) (*Group, error) {
 		return nil, fmt.Errorf("failed to decode get group response: %w", err)
 	}
 	if result.Group == nil {
-		return nil, fmt.Errorf("get group response was empty")
+		return nil, errors.New("get group response was empty")
 	}
 	return result.Group, nil
 }
@@ -152,11 +153,11 @@ func (c *GroupClient) setHeaders(req *http.Request) {
 
 // IsHTTPNotFound returns true if the error wraps a 404 HTTP status.
 func IsHTTPNotFound(err error) bool {
-	if err == nil {
-		return false
+	var httpErr *HTTPError
+	if errors.As(err, &httpErr) {
+		return httpErr.StatusCode == http.StatusNotFound
 	}
-	httpErr, ok := err.(*HTTPError)
-	return ok && httpErr.StatusCode == http.StatusNotFound
+	return false
 }
 
 // HTTPError represents an HTTP error response.
