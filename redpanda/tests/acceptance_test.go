@@ -35,7 +35,6 @@ const (
 	dedicatedNetworkDir                = "../../examples/network"
 	dataplaneDir                       = "../../examples/dataplane"
 	dataSourcesTestDir                 = "../../examples/datasource/standard"
-	bulkDataCreateDir                  = "../../examples/datasource/bulk"
 	networkDataSourceDir               = "../../examples/datasource/network"
 	serverlessRegionsDataSourceDir     = "../../examples/datasource/serverless_regions"
 	clusterDatasourceInfraDir          = "infra/datasource/cluster"
@@ -70,7 +69,6 @@ var (
 	runByocTests               = os.Getenv("RUN_BYOC_TESTS")
 	runByocVpcTests            = os.Getenv("RUN_BYOVPC_TESTS")
 	runServerlessTests         = os.Getenv("RUN_SERVERLESS_TESTS")
-	runBulkTests               = os.Getenv("RUN_BULK_TESTS")
 	clientID                   = os.Getenv(redpanda.ClientIDEnv)
 	clientSecret               = os.Getenv(redpanda.ClientSecretEnv)
 	testAgainstExistingCluster = os.Getenv("TEST_AGAINST_EXISTING_CLUSTER")
@@ -186,67 +184,6 @@ func TestAccResourcesNetwork(t *testing.T) {
 			NetworkName: rename,
 			Client:      c,
 		}.SweepNetworks,
-	})
-	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepNetwork{
-			NetworkName: name,
-			Client:      c,
-		}.SweepNetworks,
-	})
-	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepResourceGroup{
-			ResourceGroupName: name,
-			Client:            c,
-		}.SweepResourceGroup,
-	})
-}
-
-func TestAccResourcesBulk(t *testing.T) {
-	if !strings.Contains(runBulkTests, "true") {
-		t.Skip("skipping cluster tests")
-	}
-	ctx := context.Background()
-
-	name := generateRandomName(accNamePrepend + "testbulk")
-	origTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
-	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
-	origTestCaseVars["network_name"] = config.StringVariable(name)
-	origTestCaseVars["cluster_name"] = config.StringVariable(name)
-	origTestCaseVars["cluster_id"] = config.StringVariable(os.Getenv("BULK_CLUSTER_ID"))
-	if throughputTier != "" {
-		origTestCaseVars["throughput_tier"] = config.StringVariable(throughputTier)
-	}
-
-	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resource.ParallelTest(t, resource.TestCase{
-		PreCheck: func() { testAccPreCheck(t) },
-		Steps: []resource.TestStep{
-			{
-				ConfigDirectory:          config.StaticDirectory(bulkDataCreateDir),
-				ConfigVariables:          origTestCaseVars,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-			{
-				ConfigDirectory:          config.StaticDirectory(bulkDataCreateDir),
-				ConfigVariables:          origTestCaseVars,
-				Destroy:                  true,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-		},
-	},
-	)
-	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepCluster{
-			ClusterName: name,
-			Client:      c,
-		}.SweepCluster,
 	})
 	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
 		Name: name,
@@ -1350,9 +1287,7 @@ func TestAccDataSourceCluster(t *testing.T) {
 
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
-	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
-	origTestCaseVars["network_name"] = config.StringVariable(name)
-	origTestCaseVars["cluster_name"] = config.StringVariable(name)
+	origTestCaseVars["name_prefix"] = config.StringVariable(name)
 	if throughputTier != "" {
 		origTestCaseVars["throughput_tier"] = config.StringVariable(throughputTier)
 	}
@@ -1362,6 +1297,27 @@ func TestAccDataSourceCluster(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Build check functions for all 3 cluster datasources
+	var checkFuncs []resource.TestCheckFunc
+	for i := range 3 {
+		dsName := fmt.Sprintf("data.redpanda_cluster.test.%d", i)
+		clusterName := fmt.Sprintf("redpanda_cluster.test.%d", i)
+		expectedName := fmt.Sprintf("%s-%d", name, i+1)
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttr(clusterName, "name", expectedName),
+			resource.TestCheckResourceAttrSet(dsName, "id"),
+			resource.TestCheckResourceAttr(dsName, "name", expectedName),
+			resource.TestCheckResourceAttrSet(dsName, "cluster_type"),
+			resource.TestCheckResourceAttrSet(dsName, "cloud_provider"),
+			resource.TestCheckResourceAttrSet(dsName, "region"),
+			resource.TestCheckResourceAttrSet(dsName, "state"),
+			resource.TestCheckResourceAttrSet(dsName, "cluster_api_url"),
+			resource.TestCheckResourceAttrSet(dsName, "kafka_api.seed_brokers.#"),
+			resource.TestCheckResourceAttrSet(dsName, "schema_registry.url"),
+			resource.TestCheckResourceAttrSet(dsName, "http_proxy.url"),
+		)
+	}
+
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
@@ -1369,36 +1325,34 @@ func TestAccDataSourceCluster(t *testing.T) {
 				ConfigDirectory:          config.StaticDirectory(clusterDatasourceInfraDir),
 				ConfigVariables:          origTestCaseVars,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
-					resource.TestCheckResourceAttrSet(clusterDataSourceName, "id"),
-					resource.TestCheckResourceAttr(clusterDataSourceName, "name", name),
-					resource.TestCheckResourceAttrSet(clusterDataSourceName, "cluster_type"),
-					resource.TestCheckResourceAttrSet(clusterDataSourceName, "cloud_provider"),
-					resource.TestCheckResourceAttrSet(clusterDataSourceName, "region"),
-					resource.TestCheckResourceAttrSet(clusterDataSourceName, "state"),
-					resource.TestCheckResourceAttrSet(clusterDataSourceName, "cluster_api_url"),
-					resource.TestCheckResourceAttrSet(clusterDataSourceName, "kafka_api.seed_brokers.#"),
-					resource.TestCheckResourceAttrSet(clusterDataSourceName, "schema_registry.url"),
-					resource.TestCheckResourceAttrSet(clusterDataSourceName, "http_proxy.url"),
-				),
+				Check:                    resource.ComposeAggregateTestCheckFunc(checkFuncs...),
 			},
 		},
 	})
-	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepResourceGroup{
-			ResourceGroupName: name,
-			Client:            c,
-		}.SweepResourceGroup,
-	})
-	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepCluster{
-			ClusterName: name,
-			Client:      c,
-		}.SweepCluster,
-	})
+	for i := range 3 {
+		clusterName := fmt.Sprintf("%s-%d", name, i+1)
+		resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
+			Name: clusterName,
+			F: sweepCluster{
+				ClusterName: clusterName,
+				Client:      c,
+			}.SweepCluster,
+		})
+		resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
+			Name: clusterName,
+			F: sweepNetwork{
+				NetworkName: clusterName,
+				Client:      c,
+			}.SweepNetworks,
+		})
+		resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
+			Name: clusterName,
+			F: sweepResourceGroup{
+				ResourceGroupName: clusterName,
+				Client:            c,
+			}.SweepResourceGroup,
+		})
+	}
 }
 
 func TestAccDataSourceNetwork(t *testing.T) {

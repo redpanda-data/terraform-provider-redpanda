@@ -33,7 +33,6 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	pipelinemodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/pipeline"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
-	"google.golang.org/grpc"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -49,7 +48,7 @@ var (
 const DefaultPipelineOperationTimeout = 2 * time.Minute
 
 // ClientFactory creates a PipelineServiceClient for the given cluster URL
-type ClientFactory func(clusterURL, authToken, providerVersion, terraformVersion string) (dataplanev1grpc.PipelineServiceClient, *grpc.ClientConn, error)
+type ClientFactory func(clusterURL, authToken, providerVersion, terraformVersion string) (dataplanev1grpc.PipelineServiceClient, error)
 
 // Pipeline represents a pipeline managed resource
 type Pipeline struct {
@@ -612,7 +611,7 @@ func (p *Pipeline) createPipelineClient(clusterURL string) error {
 	}
 
 	if p.clientFactory != nil {
-		client, _, err := p.clientFactory(clusterURL, p.resData.AuthToken, p.resData.ProviderVersion, p.resData.TerraformVersion)
+		client, err := p.clientFactory(clusterURL, p.resData.AuthToken, p.resData.ProviderVersion, p.resData.TerraformVersion)
 		if err != nil {
 			return err
 		}

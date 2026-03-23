@@ -560,6 +560,11 @@ func RetryGetCluster(ctx context.Context, timeout time.Duration, clusterID strin
 				cluster = nil
 				return nil
 			}
+			if IsPermissionDenied(err) {
+				tflog.Warn(ctx, fmt.Sprintf("cluster %q returned PermissionDenied — cluster may have been deleted", clusterID))
+				cluster = nil
+				return nil
+			}
 			if IsUnavailable(err) {
 				transientRetryCount++
 				if transientRetryCount >= maxTransientRetries {

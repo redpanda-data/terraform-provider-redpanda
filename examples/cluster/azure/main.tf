@@ -31,6 +31,7 @@ resource "redpanda_cluster" "test" {
   allow_deletion    = var.cluster_allow_deletion
   cluster_configuration = {
     custom_properties_json = jsonencode({
+      "auto.create.topics.enable"           = false
       "schema_registry_enable_authorization" = true
     })
   }

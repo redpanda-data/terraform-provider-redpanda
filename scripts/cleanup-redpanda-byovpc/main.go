@@ -336,6 +336,11 @@ func main() {
 		fmt.Printf("%s Completed cleanup for VPC: %s\n", cyan("═══"), vpcID)
 	}
 
+	if err := deleteUnattachedElasticIPs(ctx, clients, cfg); err != nil {
+		fmt.Printf("%s Failed to delete unattached Elastic IPs: %v\n", red("ERROR:"), err)
+		errorCount++
+	}
+
 	if err := deleteStorageResources(ctx, clients, cfg); err != nil {
 		fmt.Printf("%s Failed to delete storage resources: %v\n", red("ERROR:"), err)
 		errorCount++
@@ -1456,6 +1461,46 @@ func deleteElasticIPs(ctx context.Context, clients *AWSClients, cfg *CleanupConf
 		}
 	}
 
+	return nil
+}
+
+// deleteUnattachedElasticIPs releases any EIPs that are not associated with a
+// network interface. These are orphans from failed provisioning runs where the
+// NAT gateway or instance was cleaned up but the EIP was left behind.
+func deleteUnattachedElasticIPs(ctx context.Context, clients *AWSClients, cfg *CleanupConfig) error {
+	fmt.Printf("%s Checking for unattached Elastic IPs...\n", cyan("INFO:"))
+
+	addressResult, err := clients.EC2.DescribeAddresses(ctx, &ec2.DescribeAddressesInput{})
+	if err != nil {
+		return err
+	}
+
+	released := 0
+	for _, addr := range addressResult.Addresses {
+		if addr.AssociationId != nil {
+			continue // attached to something, skip
+		}
+		allocationID := aws.ToString(addr.AllocationId)
+		if cfg.DryRun {
+			fmt.Printf("  [DRY RUN] Would release unattached Elastic IP: %s\n", allocationID)
+		} else {
+			_, err := clients.EC2.ReleaseAddress(ctx, &ec2.ReleaseAddressInput{
+				AllocationId: aws.String(allocationID),
+			})
+			if err != nil {
+				fmt.Printf("%s Failed to release unattached Elastic IP %s: %v\n", yellow("WARNING:"), allocationID, err)
+			} else {
+				fmt.Printf("  %s Released unattached Elastic IP: %s\n", green("✓"), allocationID)
+				released++
+			}
+		}
+	}
+
+	if released == 0 {
+		fmt.Printf("  %s No unattached Elastic IPs found\n", cyan("INFO:"))
+	} else {
+		fmt.Printf("  %s Released %d unattached Elastic IPs\n", green("✓"), released)
+	}
 	return nil
 }
 
