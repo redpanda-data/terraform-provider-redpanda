@@ -30,6 +30,7 @@ type Resource struct {
 	ByocClient             *utils.ByocClient
 	ControlPlaneConnection *grpc.ClientConn
 	DataplaneConnPool      *cloud.ConnPool
+	CloudAPIURL            string
 	TerraformVersion       string
 	ProviderVersion        string
 }
