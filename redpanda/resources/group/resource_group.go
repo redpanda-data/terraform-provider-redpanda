@@ -142,7 +142,7 @@ func (g *Group) Read(ctx context.Context, req resource.ReadRequest, resp *resour
 }
 
 // Update updates the Group resource. Only description can be updated.
-func (g *Group) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (*Group) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
 	resp.Diagnostics.AddError("update not supported", "group name changes require replacement; description updates are not yet supported by the API")
 }
 

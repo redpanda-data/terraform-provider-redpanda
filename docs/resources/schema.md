@@ -23,10 +23,12 @@ Creates a schema in the Redpanda Schema Registry.
 
 ### Optional
 
+> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
+
 - `allow_deletion` (Boolean) When enabled, prevents the resource from being deleted if the cluster is unreachable. When disabled (default), the resource will be removed from state without attempting deletion when the cluster is unreachable.
 - `compatibility` (String) The compatibility level for schema evolution (BACKWARD, BACKWARD_TRANSITIVE, FORWARD, FORWARD_TRANSITIVE, FULL, FULL_TRANSITIVE, NONE). Defaults to BACKWARD.
 - `password` (String, Sensitive, Deprecated) The SASL password for Schema Registry authentication. Deprecated: use password_wo instead.
-- `password_wo` (String) The SASL password for Schema Registry authentication (write-only, not stored in state). Requires Terraform 1.11+.
+- `password_wo` (String, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) The SASL password for Schema Registry authentication (write-only, not stored in state). Requires Terraform 1.11+.
 - `password_wo_version` (Number) Version number for password_wo. Increment this value to trigger a password update when using password_wo.
 - `references` (Attributes List) List of schema references. (see [below for nested schema](#nestedatt--references))
 - `schema_type` (String) The type of schema (AVRO, JSON, PROTOBUF).
