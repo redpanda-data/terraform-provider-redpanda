@@ -760,8 +760,7 @@ resource "redpanda_cluster" "test" {
   allow_deletion    = var.cluster_allow_deletion
   cluster_configuration = {
     custom_properties_json = jsonencode({
-      "enable_shadow_linking"                = var.cluster_enable_shadow_linking
-      "schema_registry_enable_authorization" = true
+      "enable_shadow_linking" = var.cluster_enable_shadow_linking
     })
   }
   tags = {
@@ -1142,8 +1141,7 @@ resource "redpanda_cluster" "test" {
   allow_deletion    = var.cluster_allow_deletion
   cluster_configuration = {
     custom_properties_json = jsonencode({
-      "enable_shadow_linking"                = var.cluster_enable_shadow_linking
-      "schema_registry_enable_authorization" = true
+      "enable_shadow_linking" = var.cluster_enable_shadow_linking
     })
   }
   ## This is a reference for GCP tags
@@ -1530,7 +1528,7 @@ resource "redpanda_cluster" "test" {
   allow_deletion    = var.cluster_allow_deletion
   cluster_configuration = {
     custom_properties_json = jsonencode({
-      "schema_registry_enable_authorization" = true
+      "auto.create.topics.enable" = false
     })
   }
   tags = {

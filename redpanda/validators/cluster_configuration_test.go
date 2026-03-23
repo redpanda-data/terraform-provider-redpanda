@@ -45,7 +45,7 @@ func TestClusterConfigurationValidator(t *testing.T) {
 					"custom_properties_json": types.StringType,
 				},
 				map[string]attr.Value{
-					"custom_properties_json": types.StringValue(`{"schema_registry_enable_authorization":true}`),
+					"custom_properties_json": types.StringValue(`{"auto.create.topics.enable":false}`),
 				},
 			),
 			expectError: false,
@@ -172,7 +172,6 @@ func TestClusterConfigurationValidator_EdgeCases(t *testing.T) {
 			},
 			map[string]attr.Value{
 				"custom_properties_json": types.StringValue(`{
-					"schema_registry_enable_authorization": true,
 					"auto.create.topics.enable": false,
 					"log.retention.ms": "604800000"
 				}`),
