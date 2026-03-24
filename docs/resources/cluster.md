@@ -788,6 +788,10 @@ resource "redpanda_topic" "test" {
   replication_factor = var.replication_factor
   cluster_api_url    = redpanda_cluster.test.cluster_api_url
   allow_deletion     = true
+  configuration = {
+    "cleanup.policy" = "delete"
+    "retention.ms"   = "604800000"
+  }
 
   depends_on = [redpanda_user.test]
 }
