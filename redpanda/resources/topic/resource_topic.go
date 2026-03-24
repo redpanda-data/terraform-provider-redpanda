@@ -167,7 +167,7 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration", topic.GetTopicName()), utils.DeserializeGrpcError(err))
 		return
 	}
-	tpCfg := filterDynamicConfig(tpCfgRes.Configurations)
+	tpCfg := mergeWithPlannedConfig(filterDynamicConfig(tpCfgRes.Configurations), tpCfgRes.Configurations, model.Configuration)
 	tpCfgMap, err := utils.TopicConfigurationToMap(tpCfg)
 	if err != nil {
 		response.Diagnostics.AddError("unable to parse the topic configuration", utils.DeserializeGrpcError(err))
@@ -221,7 +221,7 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration", tp.Name), utils.DeserializeGrpcError(err))
 		return
 	}
-	tpCfg := filterDynamicConfig(tpCfgRes.Configurations)
+	tpCfg := mergeWithPlannedConfig(filterDynamicConfig(tpCfgRes.Configurations), tpCfgRes.Configurations, model.Configuration)
 	topicCfg, err := utils.TopicConfigurationToMap(tpCfg)
 	if err != nil {
 		response.Diagnostics.AddError("unable to parse the topic configuration", utils.DeserializeGrpcError(err))
@@ -280,6 +280,20 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 			return
 		}
 	}
+
+	// Re-read configuration from server to ensure state is consistent.
+	tpCfgRes, err := t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: plan.Name.ValueString()})
+	if err != nil {
+		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration after update", plan.Name.ValueString()), utils.DeserializeGrpcError(err))
+		return
+	}
+	tpCfg := mergeWithPlannedConfig(filterDynamicConfig(tpCfgRes.Configurations), tpCfgRes.Configurations, plan.Configuration)
+	tpCfgMap, err := utils.TopicConfigurationToMap(tpCfg)
+	if err != nil {
+		response.Diagnostics.AddError("unable to parse the topic configuration", utils.DeserializeGrpcError(err))
+		return
+	}
+	plan.Configuration = tpCfgMap
 	response.Diagnostics.Append(response.State.Set(ctx, &plan)...)
 }
 
@@ -368,6 +382,38 @@ func filterDynamicConfig(configs []*dataplanev1.Topic_Configuration) []*dataplan
 		}
 	}
 	return filtered
+}
+
+// mergeWithPlannedConfig ensures that any configuration keys the user
+// explicitly set in their Terraform config are preserved in the result, even
+// if the server reports them with a non-dynamic source (e.g. when the user-set
+// value matches the server default). Without this, Terraform sees the key
+// "vanish" and reports an inconsistent result after apply.
+func mergeWithPlannedConfig(dynamicConfigs, allConfigs []*dataplanev1.Topic_Configuration, planned types.Map) []*dataplanev1.Topic_Configuration {
+	if planned.IsNull() || planned.IsUnknown() || len(planned.Elements()) == 0 {
+		return dynamicConfigs
+	}
+
+	present := make(map[string]bool, len(dynamicConfigs))
+	for _, cfg := range dynamicConfigs {
+		if cfg != nil {
+			present[cfg.Name] = true
+		}
+	}
+
+	for key := range planned.Elements() {
+		if present[key] {
+			continue
+		}
+		for _, cfg := range allConfigs {
+			if cfg != nil && cfg.Name == key {
+				dynamicConfigs = append(dynamicConfigs, cfg)
+				present[key] = true
+				break
+			}
+		}
+	}
+	return dynamicConfigs
 }
 
 func isAlreadyExistsError(err error) bool {
