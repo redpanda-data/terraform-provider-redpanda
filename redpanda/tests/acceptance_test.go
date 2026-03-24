@@ -498,6 +498,12 @@ func buildTestCheckFuncs(testDir, name string, hasPrivateNetworking ...bool) ([]
 
 	if strings.Contains(testFileStr, `resource "redpanda_topic" "test"`) {
 		checkFuncs = append(checkFuncs, resource.TestCheckResourceAttr(topicResourceName, "name", name))
+		if strings.Contains(testFileStr, `"cleanup.policy"`) {
+			checkFuncs = append(checkFuncs,
+				resource.TestCheckResourceAttr(topicResourceName, "configuration.cleanup.policy", "delete"),
+				resource.TestCheckResourceAttr(topicResourceName, "configuration.retention.ms", "604800000"),
+			)
+		}
 	}
 
 	if strings.Contains(testFileStr, `resource "redpanda_schema" "user_schema"`) {
@@ -790,8 +796,8 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				if attr["password"] != "test-password" {
 					return fmt.Errorf("expected password 'test-password'; got %q", attr["password"])
 				}
-				if attr["mechanism"] != "SCRAM-SHA-256" {
-					return fmt.Errorf("expected mechanism 'SCRAM-SHA-256'; got %q", attr["mechanism"])
+				if !strings.EqualFold(attr["mechanism"], "SCRAM-SHA-256") {
+					return fmt.Errorf("expected mechanism 'scram-sha-256' (case-insensitive); got %q", attr["mechanism"])
 				}
 				if cloudURL := attr["cluster_api_url"]; cloudURL == "" {
 					return errors.New("unexpected empty cloud URL")
