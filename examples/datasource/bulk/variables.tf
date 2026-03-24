@@ -2,30 +2,6 @@ variable "cluster_id" {
   default = "testname"
 }
 
-variable "resource_group_name" {
-  default = "tfrp-acc-testbulk-aKtA"
-}
-
-variable "network_name" {
-  default = "public-network-rate-limit-test"
-}
-
-variable "cluster_name" {
-  default = "rate-limit-test"
-}
-
-variable "region" {
-  default = "us-east-2"
-}
-
-variable "zones" {
-  default = ["use1-az2", "use1-az4", "use1-az6"]
-}
-
-variable "cloud_provider" {
-  default = "aws"
-}
-
 variable "user_name" {
   default = "test-username"
 }

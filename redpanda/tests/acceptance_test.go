@@ -70,7 +70,6 @@ var (
 	runByocTests               = os.Getenv("RUN_BYOC_TESTS")
 	runByocVpcTests            = os.Getenv("RUN_BYOVPC_TESTS")
 	runServerlessTests         = os.Getenv("RUN_SERVERLESS_TESTS")
-	runBulkTests               = os.Getenv("RUN_BULK_TESTS")
 	clientID                   = os.Getenv(redpanda.ClientIDEnv)
 	clientSecret               = os.Getenv(redpanda.ClientSecretEnv)
 	testAgainstExistingCluster = os.Getenv("TEST_AGAINST_EXISTING_CLUSTER")
@@ -204,26 +203,17 @@ func TestAccResourcesNetwork(t *testing.T) {
 }
 
 func TestAccResourcesBulk(t *testing.T) {
-	if !strings.Contains(runBulkTests, "true") {
-		t.Skip("skipping cluster tests")
+	if !strings.Contains(testAgainstExistingCluster, "true") {
+		t.Skip("skipping bulk resource test")
 	}
-	ctx := context.Background()
 
 	name := generateRandomName(accNamePrepend + "testbulk")
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
-	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
-	origTestCaseVars["network_name"] = config.StringVariable(name)
-	origTestCaseVars["cluster_name"] = config.StringVariable(name)
-	origTestCaseVars["cluster_id"] = config.StringVariable(os.Getenv("BULK_CLUSTER_ID"))
-	if throughputTier != "" {
-		origTestCaseVars["throughput_tier"] = config.StringVariable(throughputTier)
-	}
+	origTestCaseVars["cluster_id"] = config.StringVariable(os.Getenv("CLUSTER_ID"))
+	origTestCaseVars["user_name"] = config.StringVariable(name)
+	origTestCaseVars["topic_name"] = config.StringVariable(name)
 
-	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
-	if err != nil {
-		t.Fatal(err)
-	}
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
@@ -239,28 +229,6 @@ func TestAccResourcesBulk(t *testing.T) {
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 		},
-	},
-	)
-	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepCluster{
-			ClusterName: name,
-			Client:      c,
-		}.SweepCluster,
-	})
-	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepNetwork{
-			NetworkName: name,
-			Client:      c,
-		}.SweepNetworks,
-	})
-	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
-		Name: name,
-		F: sweepResourceGroup{
-			ResourceGroupName: name,
-			Client:            c,
-		}.SweepResourceGroup,
 	})
 }
 

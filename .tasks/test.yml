@@ -55,6 +55,22 @@ tasks:
         {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT_SHORT}} ./redpanda/tests -run TestAccResourcesDataSource
       - echo "Datasource tests completed successfully"
 
+  bulk:
+    desc: "Run bulk resource tests (200 topics + 200 ACLs) against existing cluster"
+    cmds:
+      - echo "Running TestAccResourcesBulk..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        TEST_AGAINST_EXISTING_CLUSTER=true \
+        CLUSTER_ID="{{.DATASOURCE_CLUSTER_ID}}" \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT_SHORT}} ./redpanda/tests -run TestAccResourcesBulk
+      - echo "Bulk resource tests completed successfully"
+
   datasource:cluster:
     desc: "Run cluster datasource acceptance test (creates cluster + reads via datasource)"
     cmds:

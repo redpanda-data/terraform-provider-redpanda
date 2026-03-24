@@ -88,6 +88,26 @@ steps:
       - lint
       - unit
       - test_network
+  - label: test_bulk
+    key: test_bulk
+    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
+    command: |
+      ./taskw test:bulk
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.11.0:
+          image: "golang:1.24"
+          environment:
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
+            - DATASOURCE_CLUSTER_ID
+            - TF_LOG=DEBUG
+    depends_on:
+      - lint
+      - unit
+      - test_network
   - label: test_cluster_aws
     key: test_cluster_aws
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
@@ -385,6 +405,7 @@ steps:
             - CI=true
     depends_on:
       - test_datasource_cluster
+      - test_bulk
       - test_cluster_aws
       - test_cluster_azure
       - test_cluster_gcp
