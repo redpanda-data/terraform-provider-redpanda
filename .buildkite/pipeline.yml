@@ -1,5 +1,5 @@
 agents:
-  queue: k8s-builders
+  queue: cloud-m4xlarge
 
 steps:
   - label: docs
