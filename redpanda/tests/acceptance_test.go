@@ -35,7 +35,6 @@ const (
 	dedicatedNetworkDir                = "../../examples/network"
 	dataplaneDir                       = "../../examples/dataplane"
 	dataSourcesTestDir                 = "../../examples/datasource/standard"
-	bulkDataCreateDir                  = "../../examples/datasource/bulk"
 	networkDataSourceDir               = "../../examples/datasource/network"
 	serverlessRegionsDataSourceDir     = "../../examples/datasource/serverless_regions"
 	clusterDatasourceInfraDir          = "infra/datasource/cluster"
@@ -199,36 +198,6 @@ func TestAccResourcesNetwork(t *testing.T) {
 			ResourceGroupName: name,
 			Client:            c,
 		}.SweepResourceGroup,
-	})
-}
-
-func TestAccResourcesBulk(t *testing.T) {
-	if !strings.Contains(testAgainstExistingCluster, "true") {
-		t.Skip("skipping bulk resource test")
-	}
-
-	name := generateRandomName(accNamePrepend + "testbulk")
-	origTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
-	origTestCaseVars["cluster_id"] = config.StringVariable(os.Getenv("CLUSTER_ID"))
-	origTestCaseVars["user_name"] = config.StringVariable(name)
-	origTestCaseVars["topic_name"] = config.StringVariable(name)
-
-	resource.ParallelTest(t, resource.TestCase{
-		PreCheck: func() { testAccPreCheck(t) },
-		Steps: []resource.TestStep{
-			{
-				ConfigDirectory:          config.StaticDirectory(bulkDataCreateDir),
-				ConfigVariables:          origTestCaseVars,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-			{
-				ConfigDirectory:          config.StaticDirectory(bulkDataCreateDir),
-				ConfigVariables:          origTestCaseVars,
-				Destroy:                  true,
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			},
-		},
 	})
 }
 
@@ -1315,6 +1284,8 @@ func TestAccDataSourceCluster(t *testing.T) {
 	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
 	origTestCaseVars["network_name"] = config.StringVariable(name)
 	origTestCaseVars["cluster_name"] = config.StringVariable(name)
+	origTestCaseVars["user_name"] = config.StringVariable(name)
+	origTestCaseVars["topic_name"] = config.StringVariable(name)
 	if throughputTier != "" {
 		origTestCaseVars["throughput_tier"] = config.StringVariable(throughputTier)
 	}

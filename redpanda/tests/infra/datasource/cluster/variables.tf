@@ -25,3 +25,27 @@ variable "cloud_provider" {
 variable "throughput_tier" {
   default = "tier-1-aws-v2-arm"
 }
+
+variable "user_name" {
+  default = "test-username"
+}
+
+variable "user_pw" {
+  default = "password"
+}
+
+variable "mechanism" {
+  default = "scram-sha-256"
+}
+
+variable "topic_name" {
+  default = "test-topic"
+}
+
+variable "partition_count" {
+  default = 3
+}
+
+variable "replication_factor" {
+  default = 3
+}
