@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -37,6 +38,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/acl"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/cluster"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/group"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/network"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/pipeline"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/region"
@@ -44,6 +46,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/resourcegroup"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/role"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/roleassignment"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/rolebinding"
 	schemaresource "github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/schema"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/schemaregistryacl"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlesscluster"
@@ -396,6 +399,7 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		AuthToken:              creds.Token,
 		ByocClient:             r.byoc,
 		ControlPlaneConnection: r.conn,
+		CloudAPIURL:            "https://" + strings.TrimSuffix(creds.EndpointAPIURL, ":443"),
 		TerraformVersion:       request.TerraformVersion,
 		ProviderVersion:        r.version,
 	}
@@ -471,6 +475,8 @@ func (*Redpanda) Resources(_ context.Context) []func() resource.Resource {
 		func() resource.Resource { return &topic.Topic{} },
 		func() resource.Resource { return &role.Role{} },
 		func() resource.Resource { return &roleassignment.RoleAssignment{} },
+		func() resource.Resource { return &rolebinding.RoleBinding{} },
+		func() resource.Resource { return &group.Group{} },
 		func() resource.Resource { return &schemaresource.Schema{} },
 		func() resource.Resource { return &schemaregistryacl.SchemaRegistryACL{} },
 		func() resource.Resource { return &pipeline.Pipeline{} },
