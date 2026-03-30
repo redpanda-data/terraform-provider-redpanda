@@ -39,3 +39,20 @@ func newTestClients(ctx context.Context, clientID, clientSecret, cloudEnv string
 	}
 	return cloud.NewControlPlaneClientSet(conn), nil
 }
+
+func newTestIAMClients(ctx context.Context, clientID, clientSecret, cloudEnv string) (*cloud.IAMClientSet, error) {
+	endpoint, err := cloud.EndpointForEnv(cloudEnv)
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := cloud.RequestToken(ctx, endpoint, clientID, clientSecret)
+	if err != nil {
+		return nil, fmt.Errorf("unable to request auth token: %v", err)
+	}
+	conn, err := cloud.SpawnConn(endpoint.APIURL, token, "dev", os.Getenv("TF_ACC_TERRAFORM_VERSION"))
+	if err != nil {
+		return nil, fmt.Errorf("unable to spawn connection with IAM API: %v", err)
+	}
+	return cloud.NewIAMClientSet(conn), nil
+}

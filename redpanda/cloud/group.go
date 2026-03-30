@@ -16,167 +16,68 @@
 package cloud
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
+
+	iamv1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/iam/v1"
 )
 
-// Group represents a Redpanda Cloud group from the REST API.
-type Group struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-}
-
-type createGroupRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-}
-
-type createGroupResponse struct {
-	Group *Group `json:"group"`
-}
-
-type getGroupResponse struct {
-	Group *Group `json:"group"`
-}
-
-// GroupClient provides methods to interact with the Redpanda Cloud groups REST API.
-type GroupClient struct {
-	baseURL   string
-	authToken string
-	client    *http.Client
-}
-
-// NewGroupClient creates a new REST client for the groups API.
-func NewGroupClient(apiURL, authToken string) *GroupClient {
-	return &GroupClient{
-		baseURL:   apiURL,
-		authToken: authToken,
-		client:    &http.Client{},
-	}
-}
-
 // CreateGroup creates a new group.
-func (c *GroupClient) CreateGroup(ctx context.Context, name, description string) (*Group, error) {
-	body := createGroupRequest{
-		Name:        name,
-		Description: description,
+func (c *IAMClientSet) CreateGroup(ctx context.Context, name, description string) (*iamv1.Group, error) {
+	gc := &iamv1.GroupCreate{
+		Name: name,
 	}
-	data, err := json.Marshal(body)
+	gc.SetDescription(description)
+
+	resp, err := c.Group.CreateGroup(ctx, &iamv1.CreateGroupRequest{
+		Group: gc,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal create group request: %w", err)
+		return nil, err
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/v1/groups", bytes.NewReader(data))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+	if resp.GetGroup() == nil {
+		return nil, errors.New("error after creating group; provider response was empty. Please report this issue to the provider developers")
 	}
-	c.setHeaders(req)
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create group: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if err := checkResponse(resp); err != nil {
-		return nil, fmt.Errorf("failed to create group: %w", err)
-	}
-
-	var result createGroupResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode create group response: %w", err)
-	}
-	if result.Group == nil {
-		return nil, errors.New("create group response was empty")
-	}
-	return result.Group, nil
+	return resp.GetGroup(), nil
 }
 
-// GetGroup retrieves a group by ID.
-func (c *GroupClient) GetGroup(ctx context.Context, id string) (*Group, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/v1/groups/"+id, http.NoBody)
+// GroupForID retrieves a group by ID.
+func (c *IAMClientSet) GroupForID(ctx context.Context, id string) (*iamv1.Group, error) {
+	resp, err := c.Group.GetGroup(ctx, &iamv1.GetGroupRequest{
+		Id: id,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("unable to request group with ID %q: %w", id, err)
 	}
-	c.setHeaders(req)
+	if resp.GetGroup() == nil {
+		return nil, fmt.Errorf("unable to request group with ID %q. Please report this issue to the provider developers", id)
+	}
+	return resp.GetGroup(), nil
+}
 
-	resp, err := c.client.Do(req)
+// GroupForName retrieves a group by name using the list API with a name filter.
+func (c *IAMClientSet) GroupForName(ctx context.Context, name string) (*iamv1.Group, error) {
+	resp, err := c.Group.ListGroups(ctx, &iamv1.ListGroupsRequest{
+		Filter: &iamv1.ListGroupsRequest_Filter{
+			Name: name,
+		},
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get group: %w", err)
+		return nil, fmt.Errorf("unable to list groups with name %q: %w", name, err)
 	}
-	defer resp.Body.Close()
-
-	if err := checkResponse(resp); err != nil {
-		return nil, fmt.Errorf("failed to get group %q: %w", id, err)
+	for _, g := range resp.GetGroups() {
+		if g.GetName() == name {
+			return g, nil
+		}
 	}
-
-	var result getGroupResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode get group response: %w", err)
-	}
-	if result.Group == nil {
-		return nil, errors.New("get group response was empty")
-	}
-	return result.Group, nil
+	return nil, fmt.Errorf("unable to find group with name %q", name)
 }
 
 // DeleteGroup deletes a group by ID.
-func (c *GroupClient) DeleteGroup(ctx context.Context, id string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+"/v1/groups/"+id, http.NoBody)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-	c.setHeaders(req)
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to delete group: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if err := checkResponse(resp); err != nil {
-		return fmt.Errorf("failed to delete group %q: %w", id, err)
-	}
-	return nil
-}
-
-func (c *GroupClient) setHeaders(req *http.Request) {
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.authToken)
-}
-
-// IsHTTPNotFound returns true if the error wraps a 404 HTTP status.
-func IsHTTPNotFound(err error) bool {
-	var httpErr *HTTPError
-	if errors.As(err, &httpErr) {
-		return httpErr.StatusCode == http.StatusNotFound
-	}
-	return false
-}
-
-// HTTPError represents an HTTP error response.
-type HTTPError struct {
-	StatusCode int
-	Body       string
-}
-
-func (e *HTTPError) Error() string {
-	return fmt.Sprintf("HTTP %d: %s", e.StatusCode, e.Body)
-}
-
-func checkResponse(resp *http.Response) error {
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return nil
-	}
-	body, _ := io.ReadAll(resp.Body)
-	return &HTTPError{
-		StatusCode: resp.StatusCode,
-		Body:       string(body),
-	}
+func (c *IAMClientSet) DeleteGroup(ctx context.Context, id string) error {
+	_, err := c.Group.DeleteGroup(ctx, &iamv1.DeleteGroupRequest{
+		Id: id,
+	})
+	return err
 }

@@ -60,6 +60,10 @@ const (
 	roleResourceName                   = "redpanda_role.developer"
 	roleAssignmentResourceName         = "redpanda_role_assignment.developer_assignment"
 	pipelineResourceName               = "redpanda_pipeline.test"
+	iamDir                             = "../../examples/iam"
+	groupResourceName                  = "redpanda_group.test"
+	roleBindingResourceName            = "redpanda_role_binding.test"
+	serviceAccountResourceName         = "redpanda_service_account.test"
 	allowDeletionFalseValue            = "false"
 )
 
@@ -2087,5 +2091,147 @@ func TestAccSchemaRegistryACLWriteOnlyPassword(t *testing.T) {
 			ResourceGroupName: name,
 			Client:            c,
 		}.SweepResourceGroup,
+	})
+}
+
+func TestAccResourcesIAM(t *testing.T) {
+	ctx := context.Background()
+	groupName := generateRandomName(accNamePrepend + "grp")
+	groupDesc := "acceptance test group"
+	saName := generateRandomName(accNamePrepend + "sa")
+	saDesc := "acceptance test service account"
+	roleName := "admin"
+
+	testCaseVars := make(map[string]config.Variable)
+	maps.Copy(testCaseVars, providerCfgIDSecretVars)
+	testCaseVars["group_name"] = config.StringVariable(groupName)
+	testCaseVars["group_description"] = config.StringVariable(groupDesc)
+	testCaseVars["service_account_name"] = config.StringVariable(saName)
+	testCaseVars["service_account_description"] = config.StringVariable(saDesc)
+	testCaseVars["role_name"] = config.StringVariable(roleName)
+
+	var iamCl *cloud.IAMClientSet
+	var rbID string
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+			if iamCl == nil {
+				var err error
+				iamCl, err = newTestIAMClients(ctx, clientID, clientSecret, cloudEnv)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+		},
+		Steps: []resource.TestStep{
+			{
+				ConfigDirectory:          config.StaticDirectory(iamDir),
+				ConfigVariables:          testCaseVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					// Group checks
+					resource.TestCheckResourceAttr(groupResourceName, "name", groupName),
+					resource.TestCheckResourceAttr(groupResourceName, "description", groupDesc),
+					resource.TestCheckResourceAttrSet(groupResourceName, "id"),
+					// Service account checks
+					resource.TestCheckResourceAttr(serviceAccountResourceName, "name", saName),
+					resource.TestCheckResourceAttr(serviceAccountResourceName, "description", saDesc),
+					resource.TestCheckResourceAttrSet(serviceAccountResourceName, "id"),
+					// Role binding checks
+					resource.TestCheckResourceAttr(roleBindingResourceName, "role_name", roleName),
+					resource.TestCheckResourceAttrSet(roleBindingResourceName, "account_id"),
+					resource.TestCheckResourceAttrSet(roleBindingResourceName, "id"),
+					// Verify via API
+					func(s *terraform.State) error {
+						grp, err := iamCl.GroupForName(ctx, groupName)
+						if err != nil {
+							return err
+						}
+						if grp.GetName() != groupName {
+							return fmt.Errorf("expected group name %q, got %q", groupName, grp.GetName())
+						}
+						t.Logf("Successfully created group %v", groupName)
+
+						sa, err := iamCl.ServiceAccountForName(ctx, saName)
+						if err != nil {
+							return err
+						}
+						if sa.GetName() != saName {
+							return fmt.Errorf("expected service account name %q, got %q", saName, sa.GetName())
+						}
+						t.Logf("Successfully created service account %v", saName)
+
+						rs, ok := s.RootModule().Resources[roleBindingResourceName]
+						if !ok {
+							return fmt.Errorf("resource %s not found in state", roleBindingResourceName)
+						}
+						rbID = rs.Primary.ID
+						rb, err := iamCl.RoleBindingForID(ctx, rbID)
+						if err != nil {
+							return err
+						}
+						if rb.GetRoleName() != roleName {
+							return fmt.Errorf("expected role_name %q, got %q", roleName, rb.GetRoleName())
+						}
+						t.Logf("Successfully created role binding %v", rbID)
+
+						return nil
+					},
+				),
+			},
+			{
+				ResourceName:             groupResourceName,
+				ConfigDirectory:          config.StaticDirectory(iamDir),
+				ConfigVariables:          testCaseVars,
+				ImportState:              true,
+				ImportStateVerify:        true,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			{
+				ResourceName:             serviceAccountResourceName,
+				ConfigDirectory:          config.StaticDirectory(iamDir),
+				ConfigVariables:          testCaseVars,
+				ImportState:              true,
+				ImportStateVerify:        true,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			{
+				ResourceName:             roleBindingResourceName,
+				ConfigDirectory:          config.StaticDirectory(iamDir),
+				ConfigVariables:          testCaseVars,
+				ImportState:              true,
+				ImportStateVerify:        true,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			{
+				ConfigDirectory:          config.StaticDirectory(iamDir),
+				ConfigVariables:          testCaseVars,
+				Destroy:                  true,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+		},
+	})
+
+	resource.AddTestSweepers(generateRandomName("iam-groupSweeper"), &resource.Sweeper{
+		Name: groupName,
+		F: sweepGroup{
+			GroupName: groupName,
+			Client:    iamCl,
+		}.SweepGroup,
+	})
+	resource.AddTestSweepers(generateRandomName("iam-roleBindingSweeper"), &resource.Sweeper{
+		Name: roleName,
+		F: sweepRoleBinding{
+			RoleBindingID: &rbID,
+			Client:        iamCl,
+		}.SweepRoleBinding,
+	})
+	resource.AddTestSweepers(generateRandomName("iam-serviceAccountSweeper"), &resource.Sweeper{
+		Name: saName,
+		F: sweepServiceAccount{
+			ServiceAccountName: saName,
+			Client:             iamCl,
+		}.SweepServiceAccount,
 	})
 }

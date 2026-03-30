@@ -30,6 +30,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -41,7 +42,7 @@ var (
 
 // Group represents a Redpanda Cloud group managed resource.
 type Group struct {
-	GroupCl *cloud.GroupClient
+	IAMCl *cloud.IAMClientSet
 }
 
 // Metadata returns the full name of the Group resource.
@@ -63,7 +64,7 @@ func (g *Group) Configure(_ context.Context, request resource.ConfigureRequest, 
 		)
 		return
 	}
-	g.GroupCl = cloud.NewGroupClient(p.CloudAPIURL, p.AuthToken)
+	g.IAMCl = cloud.NewIAMClientSet(p.ControlPlaneConnection)
 }
 
 // Schema returns the schema for the Group resource.
@@ -103,16 +104,16 @@ func (g *Group) Create(ctx context.Context, req resource.CreateRequest, resp *re
 		return
 	}
 
-	grp, err := g.GroupCl.CreateGroup(ctx, model.Name.ValueString(), model.Description.ValueString())
+	grp, err := g.IAMCl.CreateGroup(ctx, model.Name.ValueString(), model.Description.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("failed to create group", err.Error())
+		resp.Diagnostics.AddError("failed to create group", utils.DeserializeGrpcError(err))
 		return
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, models.Group{
-		ID:          types.StringValue(grp.ID),
-		Name:        types.StringValue(grp.Name),
-		Description: types.StringValue(grp.Description),
+		ID:          types.StringValue(grp.GetId()),
+		Name:        types.StringValue(grp.GetName()),
+		Description: types.StringValue(grp.GetDescription()),
 	})...)
 }
 
@@ -124,20 +125,20 @@ func (g *Group) Read(ctx context.Context, req resource.ReadRequest, resp *resour
 		return
 	}
 
-	grp, err := g.GroupCl.GetGroup(ctx, model.ID.ValueString())
+	grp, err := g.IAMCl.GroupForID(ctx, model.ID.ValueString())
 	if err != nil {
-		if cloud.IsHTTPNotFound(err) {
+		if utils.IsNotFound(err) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("failed to read group", err.Error())
+		resp.Diagnostics.AddError("failed to read group", utils.DeserializeGrpcError(err))
 		return
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, models.Group{
-		ID:          types.StringValue(grp.ID),
-		Name:        types.StringValue(grp.Name),
-		Description: types.StringValue(grp.Description),
+		ID:          types.StringValue(grp.GetId()),
+		Name:        types.StringValue(grp.GetName()),
+		Description: types.StringValue(grp.GetDescription()),
 	})...)
 }
 
@@ -154,13 +155,13 @@ func (g *Group) Delete(ctx context.Context, req resource.DeleteRequest, resp *re
 		return
 	}
 
-	err := g.GroupCl.DeleteGroup(ctx, model.ID.ValueString())
+	err := g.IAMCl.DeleteGroup(ctx, model.ID.ValueString())
 	if err != nil {
-		if cloud.IsHTTPNotFound(err) {
+		if utils.IsNotFound(err) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("failed to delete group", err.Error())
+		resp.Diagnostics.AddError("failed to delete group", utils.DeserializeGrpcError(err))
 		return
 	}
 }

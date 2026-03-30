@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	iamv1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/iam/v1"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -153,7 +154,18 @@ func (r *RoleBinding) Create(ctx context.Context, req resource.CreateRequest, re
 
 	scope := buildScope(model)
 
-	rb, err := r.IAMCl.CreateRoleBinding(ctx, model.RoleName.ValueString(), model.AccountID.ValueString(), scope)
+	var rb *iamv1.RoleBinding
+	err := utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+		var createErr error
+		rb, createErr = r.IAMCl.CreateRoleBinding(ctx, model.RoleName.ValueString(), model.AccountID.ValueString(), scope)
+		if createErr != nil {
+			if utils.IsUnavailable(createErr) {
+				return utils.RetryableError(fmt.Errorf("role binding service not ready, retrying: %w", createErr))
+			}
+			return utils.NonRetryableError(createErr)
+		}
+		return nil
+	})
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create role binding", utils.DeserializeGrpcError(err))
 		return

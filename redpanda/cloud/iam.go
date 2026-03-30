@@ -28,13 +28,17 @@ import (
 // IAMClientSet holds the respective service clients to interact with
 // the IAM endpoints of the Public API.
 type IAMClientSet struct {
-	RoleBinding iamv1grpc.RoleBindingServiceClient
+	Group          iamv1grpc.GroupServiceClient
+	RoleBinding    iamv1grpc.RoleBindingServiceClient
+	ServiceAccount iamv1grpc.ServiceAccountServiceClient
 }
 
 // NewIAMClientSet uses the passed grpc connection to create an IAM client set.
 func NewIAMClientSet(conn *grpc.ClientConn) *IAMClientSet {
 	return &IAMClientSet{
-		RoleBinding: iamv1grpc.NewRoleBindingServiceClient(conn),
+		Group:          iamv1grpc.NewGroupServiceClient(conn),
+		RoleBinding:    iamv1grpc.NewRoleBindingServiceClient(conn),
+		ServiceAccount: iamv1grpc.NewServiceAccountServiceClient(conn),
 	}
 }
 

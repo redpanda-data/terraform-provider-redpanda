@@ -22,7 +22,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -52,6 +51,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlesscluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlessprivatelink"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlessregions"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serviceaccount"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/throughputtiers"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/topic"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/user"
@@ -405,7 +405,6 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		ByocClient:             r.byoc,
 		ControlPlaneConnection: r.conn,
 		DataplaneConnPool:      r.dataplanePool,
-		CloudAPIURL:            "https://" + strings.TrimSuffix(creds.EndpointAPIURL, ":443"),
 		TerraformVersion:       request.TerraformVersion,
 		ProviderVersion:        r.version,
 	}
@@ -484,6 +483,7 @@ func (*Redpanda) Resources(_ context.Context) []func() resource.Resource {
 		func() resource.Resource { return &roleassignment.RoleAssignment{} },
 		func() resource.Resource { return &rolebinding.RoleBinding{} },
 		func() resource.Resource { return &group.Group{} },
+		func() resource.Resource { return &serviceaccount.ServiceAccount{} },
 		func() resource.Resource { return &schemaresource.Schema{} },
 		func() resource.Resource { return &schemaregistryacl.SchemaRegistryACL{} },
 		func() resource.Resource { return &pipeline.Pipeline{} },
