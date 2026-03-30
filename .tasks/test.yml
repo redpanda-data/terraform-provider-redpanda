@@ -39,6 +39,20 @@ tasks:
         {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT_SHORT}} ./redpanda/tests -run TestAccResourcesNetwork
       - echo "Network tests completed successfully"
 
+  iam:
+    desc: "Run IAM resource tests (group, service account, role binding)"
+    cmds:
+      - echo "Running TestAccResourcesIAM..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT_SHORT}} ./redpanda/tests -run TestAccResourcesIAM
+      - echo "IAM tests completed successfully"
+
   datasource:
     desc: "Run datasource tests against existing cluster"
     cmds:
