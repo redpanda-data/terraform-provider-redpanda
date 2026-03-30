@@ -9,6 +9,7 @@ import (
 	"time"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
+	iamv1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/iam/v1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -61,6 +62,7 @@ func main() {
 	}
 
 	client := cloud.NewControlPlaneClientSet(conn)
+	iamClient := cloud.NewIAMClientSet(conn)
 
 	// Parse arguments
 	prefix := "tfrp-"
@@ -182,6 +184,105 @@ func main() {
 		},
 	}
 
+	// IAM: Group handler (list all, filter by prefix client-side)
+	groupHandler := resourceHandler[iamv1.Group]{
+		name:       "group",
+		pluralName: "Groups",
+		list: func() ([]*iamv1.Group, error) {
+			resp, err := iamClient.Group.ListGroups(ctx, &iamv1.ListGroupsRequest{})
+			if err != nil {
+				return nil, err
+			}
+			var matched []*iamv1.Group
+			for _, g := range resp.GetGroups() {
+				if strings.HasPrefix(g.GetName(), prefix) {
+					matched = append(matched, g)
+				}
+			}
+			return matched, nil
+		},
+		delete: func(id string) error {
+			return iamClient.DeleteGroup(ctx, id)
+		},
+		getID:   func(g *iamv1.Group) string { return g.GetId() },
+		getName: func(g *iamv1.Group) string { return g.GetName() },
+		display: func(g *iamv1.Group) {
+			fmt.Printf("Group: %s\n  ID: %s\n  Description: %s\n", g.GetName(), g.GetId(), g.GetDescription())
+			if g.GetCreatedAt() != nil {
+				fmt.Printf("  Created: %s\n", g.GetCreatedAt().AsTime().Format(time.RFC3339))
+			}
+		},
+	}
+
+	// IAM: Collect service accounts matching prefix (needed for role binding cleanup)
+	saResp, err := iamClient.ServiceAccount.ListServiceAccounts(ctx, &iamv1.ListServiceAccountsRequest{})
+	if err != nil {
+		log.Fatalf("Failed to list service accounts: %v", err)
+	}
+	var testSAs []*iamv1.ServiceAccount
+	var testSAIDs []string
+	for _, sa := range saResp.GetServiceAccounts() {
+		if strings.HasPrefix(sa.GetName(), prefix) {
+			testSAs = append(testSAs, sa)
+			testSAIDs = append(testSAIDs, sa.GetId())
+		}
+	}
+
+	// IAM: Role binding handler (find bindings for test service accounts)
+	roleBindingHandler := resourceHandler[iamv1.RoleBinding]{
+		name:       "role binding",
+		pluralName: "Role Bindings",
+		list: func() ([]*iamv1.RoleBinding, error) {
+			if len(testSAIDs) == 0 {
+				return nil, nil
+			}
+			resp, err := iamClient.RoleBinding.ListRoleBindings(ctx, &iamv1.ListRoleBindingsRequest{
+				Filter: &iamv1.ListRoleBindingsRequest_Filter{
+					AccountIds: testSAIDs,
+				},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return resp.GetRoleBindings(), nil
+		},
+		delete: func(id string) error {
+			return iamClient.DeleteRoleBinding(ctx, id)
+		},
+		getID: func(rb *iamv1.RoleBinding) string { return rb.GetId() },
+		getName: func(rb *iamv1.RoleBinding) string {
+			return fmt.Sprintf("%s -> %s", rb.GetRoleName(), rb.GetAccountId())
+		},
+		display: func(rb *iamv1.RoleBinding) {
+			fmt.Printf("Role Binding: %s\n  ID: %s\n  Role: %s\n  Account: %s\n",
+				rb.GetId(), rb.GetId(), rb.GetRoleName(), rb.GetAccountId())
+			if rb.GetCreatedAt() != nil {
+				fmt.Printf("  Created: %s\n", rb.GetCreatedAt().AsTime().Format(time.RFC3339))
+			}
+		},
+	}
+
+	// IAM: Service account handler (uses pre-collected list)
+	serviceAccountHandler := resourceHandler[iamv1.ServiceAccount]{
+		name:       "service account",
+		pluralName: "Service Accounts",
+		list: func() ([]*iamv1.ServiceAccount, error) {
+			return testSAs, nil
+		},
+		delete: func(id string) error {
+			return iamClient.DeleteServiceAccount(ctx, id)
+		},
+		getID:   func(sa *iamv1.ServiceAccount) string { return sa.GetId() },
+		getName: func(sa *iamv1.ServiceAccount) string { return sa.GetName() },
+		display: func(sa *iamv1.ServiceAccount) {
+			fmt.Printf("Service Account: %s\n  ID: %s\n  Description: %s\n",
+				sa.GetName(), sa.GetId(), sa.GetDescription())
+			if sa.GetCreatedAt() != nil {
+				fmt.Printf("  Created: %s\n", sa.GetCreatedAt().AsTime().Format(time.RFC3339))
+			}
+		},
+	}
+
 	clusterStats, err := processResources(clusterHandler, statusOnly, dryRun)
 	if err != nil {
 		log.Fatalf("Failed to process clusters: %v", err)
@@ -193,6 +294,18 @@ func main() {
 	rgStats, err := processResources(rgHandler, statusOnly, dryRun)
 	if err != nil {
 		log.Fatalf("Failed to process resource groups: %v", err)
+	}
+	groupStats, err := processResources(groupHandler, statusOnly, dryRun)
+	if err != nil {
+		log.Fatalf("Failed to process groups: %v", err)
+	}
+	rbStats, err := processResources(roleBindingHandler, statusOnly, dryRun)
+	if err != nil {
+		log.Fatalf("Failed to process role bindings: %v", err)
+	}
+	saStats, err := processResources(serviceAccountHandler, statusOnly, dryRun)
+	if err != nil {
+		log.Fatalf("Failed to process service accounts: %v", err)
 	}
 
 	fmt.Println("\n=== Summary ===")
@@ -214,6 +327,9 @@ func main() {
 	printStat(clusterHandler.pluralName, clusterStats)
 	printStat(networkHandler.pluralName, networkStats)
 	printStat(rgHandler.pluralName, rgStats)
+	printStat(groupHandler.pluralName, groupStats)
+	printStat(roleBindingHandler.pluralName, rbStats)
+	printStat(serviceAccountHandler.pluralName, saStats)
 
 	if !statusOnly && !dryRun {
 		fmt.Printf("\nTotal deleted: %d, failed: %d\n", totalDeleted, totalFailed)
