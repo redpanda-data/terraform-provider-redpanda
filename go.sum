@@ -2,10 +2,10 @@ buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-202512091757
 buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20251209175733-2a1774d88802.1/go.mod h1:tvtbpgaVXZX4g6Pn+AnzFycuRK3MOz5HJfEGeEllXYM=
 buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.11-20240617172850-a48fcebcf8f1.1 h1:I/+CIC0+e6nj7PP7Jwyh5I0qczMmb6r6rL8sjYu3WcE=
 buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.11-20240617172850-a48fcebcf8f1.1/go.mod h1:KAAU6zfI4aGOR/SiWil31PiNwdpo1SlqZidcB3z+sL0=
-buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.1-20260206121607-b7882624f6ea.1 h1:PBB/gegeFIk0CPlwtCn8qr6ZeDMKF6Qq820tUaoquMQ=
-buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.1-20260206121607-b7882624f6ea.1/go.mod h1:iy1q3hSJ8BcpgyQg6qVFAvspBAG4PXX6GdbqStzTlq4=
-buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20260206121607-b7882624f6ea.1 h1:HlKCsh9cdlRlXhiVJzuW2CtO0yOTRSu+3mEa6wHFcfk=
-buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20260206121607-b7882624f6ea.1/go.mod h1:j1RqrOUwJtvY22i3Bikxc/i3zY+K0oqCiduDNurlQSI=
+buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.1-20260326135617-949938b9bfd4.1 h1:utquV3+s7NQ7dxec9riYRbb8ZQpUMkwG4npogXwacc8=
+buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.1-20260326135617-949938b9bfd4.1/go.mod h1:gPUicg6f6lpbHBEGHm838nSzU6Qsgqrw2LWv2cpnnj4=
+buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20260326135617-949938b9bfd4.1 h1:QOqMRnMQCyucJJ43Vt/3nEHTT4lTZGg2eHRfXRH14xY=
+buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20260326135617-949938b9bfd4.1/go.mod h1:j1RqrOUwJtvY22i3Bikxc/i3zY+K0oqCiduDNurlQSI=
 buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.11-20251216164002-601698cfe71d.1 h1:0KH3IndUZDFYFcYdcBa+bZziomFsBzlksAzTbmd5QQY=
 buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.11-20251216164002-601698cfe71d.1/go.mod h1:3w7EzexwlL6PIFGbbeKZ0yHfUlAmI0aBVzF/QoFb8Cg=
 buf.build/gen/go/redpandadata/core/protocolbuffers/go v1.36.11-20251218215858-19149a4a2435.1 h1:LLKPTO8tKmB4nIB2WlMWavkVhRV0rWwXluy6mJfdqUM=

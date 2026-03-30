@@ -5,8 +5,8 @@ go 1.24.3
 toolchain go1.24.4
 
 require (
-	buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.1-20260206121607-b7882624f6ea.1
-	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20260206121607-b7882624f6ea.1
+	buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.1-20260326135617-949938b9bfd4.1
+	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20260326135617-949938b9bfd4.1
 	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.6.1-20260220173743-e06364c55f98.1
 	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.11-20260220173743-e06364c55f98.1
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
@@ -25,6 +25,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/twmb/franz-go/pkg/sr v1.4.1-0.20250711145744-a849b8be17b7
 	go.uber.org/mock v0.5.0
+	golang.org/x/sync v0.18.0
 	golang.org/x/time v0.11.0
 	google.golang.org/genproto v0.0.0-20250313205543-e70fdf4c4cb4
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251029180050-ab9386a59fda
@@ -119,7 +120,6 @@ require (
 	golang.org/x/exp v0.0.0-20250207012021-f9890c6ad9f3 // indirect
 	golang.org/x/mod v0.29.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
-	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/term v0.37.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
