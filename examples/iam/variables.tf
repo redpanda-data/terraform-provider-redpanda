@@ -15,5 +15,5 @@ variable "service_account_description" {
 }
 
 variable "role_name" {
-  default = "admin"
+  default = "Admin"
 }

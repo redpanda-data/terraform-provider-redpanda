@@ -2100,7 +2100,7 @@ func TestAccResourcesIAM(t *testing.T) {
 	groupDesc := "acceptance test group"
 	saName := generateRandomName(accNamePrepend + "sa")
 	saDesc := "acceptance test service account"
-	roleName := "admin"
+	roleName := "Admin"
 
 	testCaseVars := make(map[string]config.Variable)
 	maps.Copy(testCaseVars, providerCfgIDSecretVars)
