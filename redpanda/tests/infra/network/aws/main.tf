@@ -5,6 +5,14 @@ provider aws {
   region = var.region
 }
 
+data "aws_availability_zones" "available" {
+  state = "available"
+  filter {
+    name   = "opt-in-status"
+    values = ["opt-in-not-required"]
+  }
+}
+
 module "redpanda_byovpc" {
   source = "redpanda-data/redpanda-byovpc/aws"
 
@@ -12,8 +20,11 @@ module "redpanda_byovpc" {
   public_subnet_cidrs = [
     "10.0.16.0/20", "10.0.32.0/20", "10.0.48.0/20"
   ]
-  enable_private_link = true
+  enable_private_link    = true
   enable_redpanda_connect = true
+  default_tags = {
+    Name = "redpanda-byovpc-test"
+  }
 }
 
 # Capture all ARN outputs from the module
@@ -23,6 +34,7 @@ locals {
     dynamodb_table_arn                           = module.redpanda_byovpc.dynamodb_table_arn
     vpc_arn                                      = module.redpanda_byovpc.vpc_arn
     private_subnet_arns                          = jsonencode(module.redpanda_byovpc.private_subnet_arns)
+    zones                                        = jsonencode(slice(data.aws_availability_zones.available.zone_ids, 0, 3))
     permissions_boundary_policy_arn              = module.redpanda_byovpc.permissions_boundary_policy_arn
     agent_instance_profile_arn                   = module.redpanda_byovpc.agent_instance_profile_arn
     connectors_node_group_instance_profile_arn   = module.redpanda_byovpc.connectors_node_group_instance_profile_arn
