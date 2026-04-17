@@ -19,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
@@ -32,6 +33,7 @@ type CleanupConfig struct {
 	DryRun        bool
 	AutoApprove   bool
 	AutoDetectVPC bool
+	NukeAllVPCs   bool
 	AccountID     string
 	ListVPCs      bool
 }
@@ -106,6 +108,61 @@ func main() {
 			os.Exit(1)
 		}
 		cfg.AccountID = accountID
+	}
+
+	// Handle --nuke-all-vpcs: skip prefix scanning, just find and destroy all non-default VPCs
+	if cfg.NukeAllVPCs {
+		fmt.Printf("\n%s Detecting ALL non-default VPCs in %s...\n", red("WARNING:"), cfg.Region)
+		vpcs, err := getAllNonDefaultVPCs(ctx, clients.EC2)
+		if err != nil {
+			fmt.Printf("%s Failed to list VPCs: %v\n", red("ERROR:"), err)
+			os.Exit(1)
+		}
+		if len(vpcs) == 0 {
+			fmt.Printf("%s No non-default VPCs found\n", yellow("INFO:"))
+			os.Exit(0)
+		}
+		fmt.Printf("\n%s Deleting %d VPC(s)...\n", red("NUKE:"), len(vpcs))
+		var errorCount int
+		for _, vpcID := range vpcs {
+			vpcCfg := *cfg
+			vpcCfg.VpcID = vpcID
+
+			fmt.Printf("\n%s Nuking VPC: %s\n", red("═══"), vpcID)
+
+			for _, step := range []struct {
+				name string
+				fn   func(context.Context, *AWSClients, *CleanupConfig) error
+			}{
+				{"VPC endpoints", deleteVPCEndpoints},
+				{"load balancers", deleteVPCLoadBalancers},
+				{"classic load balancers", deleteVPCClassicLoadBalancers},
+				{"target groups", deleteVPCTargetGroups},
+				{"network interfaces", deleteNetworkInterfaces},
+				{"security groups", deleteSecurityGroups},
+				{"NAT gateways", deleteNATGateways},
+				{"Elastic IPs", deleteElasticIPs},
+				{"route tables", deleteRouteTables},
+				{"subnets", deleteSubnets},
+				{"network interfaces (retry)", deleteNetworkInterfaces},
+				{"unattached EIPs", deleteUnattachedElasticIPs},
+				{"internet gateways", deleteInternetGatewaysWithRetry},
+				{"VPC", deleteVPC},
+			} {
+				if err := step.fn(ctx, clients, &vpcCfg); err != nil {
+					fmt.Printf("%s Failed to delete %s for VPC %s: %v\n", red("ERROR:"), step.name, vpcID, err)
+					errorCount++
+				}
+			}
+
+			fmt.Printf("%s Completed nuke for VPC: %s\n", red("═══"), vpcID)
+		}
+		if errorCount > 0 {
+			fmt.Printf("\n%s Completed with %d error(s)\n", yellow("WARNING:"), errorCount)
+			os.Exit(1)
+		}
+		fmt.Printf("\n%s All non-default VPCs destroyed\n", green("SUCCESS:"))
+		os.Exit(0)
 	}
 
 	// Handle --list-vpcs flag
@@ -242,8 +299,19 @@ func main() {
 	if cfg.VpcID != "" {
 		// Single VPC specified explicitly
 		vpcsToClean = []string{cfg.VpcID}
+	} else if cfg.NukeAllVPCs {
+		fmt.Printf("%s Detecting ALL non-default VPCs in %s...\n", red("WARNING:"), cfg.Region)
+		detectedVPCs, err := getAllNonDefaultVPCs(ctx, clients.EC2)
+		if err != nil {
+			fmt.Printf("%s Failed to list VPCs: %v\n", red("ERROR:"), err)
+			errorCount++
+		} else if len(detectedVPCs) == 0 {
+			fmt.Printf("%s No non-default VPCs found\n", yellow("INFO:"), )
+		} else {
+			fmt.Printf("%s Found %d non-default VPC(s) to destroy\n", red("WARNING:"), len(detectedVPCs))
+			vpcsToClean = detectedVPCs
+		}
 	} else if cfg.AutoDetectVPC {
-		// Auto-detect VPCs matching prefix
 		fmt.Printf("%s Auto-detecting VPCs with prefix '%s'...\n", cyan("INFO:"), cfg.CommonPrefix)
 		detectedVPCs, err := detectVPCsByPrefix(ctx, clients.EC2, cfg.CommonPrefix)
 		if err != nil {
@@ -323,6 +391,14 @@ func main() {
 			errorCount++
 		}
 
+		// Release any remaining orphan EIPs before IGW detach. The IGW
+		// detach error "has some mapped public address(es)" is triggered
+		// by unassociated EIPs lingering in the VPC from partially-torn-down
+		// NAT gateways; releasing them here unblocks the retry.
+		if err := deleteUnattachedElasticIPs(ctx, clients, &vpcCfg); err != nil {
+			fmt.Printf("%s Failed pre-IGW EIP sweep for VPC %s: %v\n", yellow("WARNING:"), vpcID, err)
+		}
+
 		if err := deleteInternetGatewaysWithRetry(ctx, clients, &vpcCfg); err != nil {
 			fmt.Printf("%s Failed to delete internet gateways for VPC %s: %v\n", red("ERROR:"), vpcID, err)
 			errorCount++
@@ -361,6 +437,7 @@ func parseFlags() *CleanupConfig {
 	flag.BoolVar(&cfg.DryRun, "dry-run", false, "Preview actions without deleting")
 	flag.BoolVar(&cfg.AutoApprove, "auto-approve", false, "Skip confirmation prompt (use with caution)")
 	flag.BoolVar(&cfg.AutoDetectVPC, "auto-detect-vpc", false, "Auto-detect and cleanup all VPCs matching common prefix")
+	flag.BoolVar(&cfg.NukeAllVPCs, "nuke-all-vpcs", false, "Delete ALL non-default VPCs in the region (manual use only)")
 	flag.StringVar(&cfg.AccountID, "account-id", "", "AWS account ID (auto-detected if not provided)")
 	flag.BoolVar(&cfg.ListVPCs, "list-vpcs", false, "List non-default VPCs with 'network-' prefix and exit")
 
@@ -1149,12 +1226,14 @@ func deleteLaunchTemplates(ctx context.Context, clients *AWSClients, cfg *Cleanu
 func deleteIAMResources(ctx context.Context, clients *AWSClients, cfg *CleanupConfig) error {
 	fmt.Printf("%s Deleting IAM resources...\n", cyan("INFO:"))
 
-	// List and delete instance profiles
+	// Prefixes match the redpanda-data/redpanda-byovpc/aws module's
+	// name_prefix patterns: "${var.common_prefix}-{component}-".
 	instanceProfiles := []string{
-		fmt.Sprintf("%s-connectors-node-group-", cfg.CommonPrefix),
-		fmt.Sprintf("%s-utility-node-group-", cfg.CommonPrefix),
-		fmt.Sprintf("%s-redpanda-node-group-", cfg.CommonPrefix),
 		fmt.Sprintf("%s-agent-", cfg.CommonPrefix),
+		fmt.Sprintf("%s-connect-", cfg.CommonPrefix),
+		fmt.Sprintf("%s-rp-", cfg.CommonPrefix),
+		fmt.Sprintf("%s-rpcn-", cfg.CommonPrefix),
+		fmt.Sprintf("%s-util-", cfg.CommonPrefix),
 	}
 
 	for _, profilePrefix := range instanceProfiles {
@@ -1163,15 +1242,13 @@ func deleteIAMResources(ctx context.Context, clients *AWSClients, cfg *CleanupCo
 		}
 	}
 
-	// List and delete IAM roles
 	rolePrefixes := []string{
-		fmt.Sprintf("%s-cluster-", cfg.CommonPrefix),
-		fmt.Sprintf("%s-redpanda-agent-", cfg.CommonPrefix),
-		fmt.Sprintf("%s-redpanda-node-group-", cfg.CommonPrefix),
-		fmt.Sprintf("%s-rpk-user-", cfg.CommonPrefix),
-		fmt.Sprintf("%s-connectors-node-group-", cfg.CommonPrefix),
-		fmt.Sprintf("%s-utility-node-group-", cfg.CommonPrefix),
-		fmt.Sprintf("%s-redpanda-connect-node-group-", cfg.CommonPrefix),
+		fmt.Sprintf("%s-cluster-", cfg.CommonPrefix), // k8s_cluster
+		fmt.Sprintf("%s-agent-", cfg.CommonPrefix),   // redpanda_agent
+		fmt.Sprintf("%s-rp-", cfg.CommonPrefix),      // redpanda_node_group
+		fmt.Sprintf("%s-rpcn-", cfg.CommonPrefix),    // redpanda_connect_node_group
+		fmt.Sprintf("%s-connect-", cfg.CommonPrefix), // connectors_node_group
+		fmt.Sprintf("%s-util-", cfg.CommonPrefix),    // redpanda_utility_node_group
 	}
 
 	for _, rolePrefix := range rolePrefixes {
@@ -1180,99 +1257,251 @@ func deleteIAMResources(ctx context.Context, clients *AWSClients, cfg *CleanupCo
 		}
 	}
 
+	// Delete the customer-managed policies the module creates as standalone
+	// aws_iam_policy resources. deleteRolesByPrefix only detaches managed
+	// policies from roles; the policies themselves need explicit deletion or
+	// they accumulate across runs.
+	policyPrefixes := []string{
+		fmt.Sprintf("%s-agent-", cfg.CommonPrefix),
+		fmt.Sprintf("%s-rp-autoscaler-", cfg.CommonPrefix),
+		fmt.Sprintf("%s-aws_ebs_csi_driver-", cfg.CommonPrefix),
+		fmt.Sprintf("%s-cert_manager_policy-", cfg.CommonPrefix),
+		fmt.Sprintf("%s-external_dns_policy-", cfg.CommonPrefix),
+		fmt.Sprintf("%s-load_balancer_controller_", cfg.CommonPrefix),
+		fmt.Sprintf("%s-rpk-user-1_", cfg.CommonPrefix),
+		fmt.Sprintf("%s-rpk-user-2_", cfg.CommonPrefix),
+	}
+	// Surface policy-sweep failures as a returned error so the caller's
+	// errorCount catches them. Per project memory: don't swallow failures
+	// — leaking customer-managed policies across runs accumulates IAM debt
+	// and eventually trips the IAM policy quota.
+	if err := deletePoliciesMatchingAnyPrefix(ctx, clients.IAM, policyPrefixes, cfg.DryRun); err != nil {
+		fmt.Printf("%s Failed to delete policies: %v\n", yellow("WARNING:"), err)
+		return fmt.Errorf("delete policies by prefix: %w", err)
+	}
+
 	return nil
 }
 
 func deleteInstanceProfilesByPrefix(ctx context.Context, iamClient *iam.Client, prefix string, dryRun bool) error {
-	result, err := iamClient.ListInstanceProfiles(ctx, &iam.ListInstanceProfilesInput{})
-	if err != nil {
-		return err
-	}
-
-	for _, profile := range result.InstanceProfiles {
-		if strings.HasPrefix(aws.ToString(profile.InstanceProfileName), prefix) {
+	// Paginated to avoid silently dropping the tail when the account
+	// crosses ListInstanceProfiles' default 100-per-page limit.
+	paginator := iam.NewListInstanceProfilesPaginator(iamClient, &iam.ListInstanceProfilesInput{})
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return err
+		}
+		for _, profile := range page.InstanceProfiles {
+			if !strings.HasPrefix(aws.ToString(profile.InstanceProfileName), prefix) {
+				continue
+			}
 			if dryRun {
 				fmt.Printf("  [DRY RUN] Would delete instance profile: %s\n", aws.ToString(profile.InstanceProfileName))
-			} else {
-				// Remove roles from instance profile first
-				for _, role := range profile.Roles {
-					_, err := iamClient.RemoveRoleFromInstanceProfile(ctx, &iam.RemoveRoleFromInstanceProfileInput{
-						InstanceProfileName: profile.InstanceProfileName,
-						RoleName:            role.RoleName,
-					})
-					if err != nil {
-						fmt.Printf("%s Failed to remove role from instance profile: %v\n", yellow("WARNING:"), err)
-					}
-				}
-
-				_, err := iamClient.DeleteInstanceProfile(ctx, &iam.DeleteInstanceProfileInput{
+				continue
+			}
+			// Remove roles from instance profile first
+			for _, role := range profile.Roles {
+				_, err := iamClient.RemoveRoleFromInstanceProfile(ctx, &iam.RemoveRoleFromInstanceProfileInput{
 					InstanceProfileName: profile.InstanceProfileName,
+					RoleName:            role.RoleName,
 				})
 				if err != nil {
-					return err
+					fmt.Printf("%s Failed to remove role from instance profile: %v\n", yellow("WARNING:"), err)
 				}
-				fmt.Printf("  %s Deleted instance profile: %s\n", green("✓"), aws.ToString(profile.InstanceProfileName))
 			}
+
+			_, err := iamClient.DeleteInstanceProfile(ctx, &iam.DeleteInstanceProfileInput{
+				InstanceProfileName: profile.InstanceProfileName,
+			})
+			if err != nil {
+				return err
+			}
+			fmt.Printf("  %s Deleted instance profile: %s\n", green("✓"), aws.ToString(profile.InstanceProfileName))
 		}
 	}
-
 	return nil
 }
 
 func deleteRolesByPrefix(ctx context.Context, iamClient *iam.Client, prefix string, dryRun bool) error {
-	result, err := iamClient.ListRoles(ctx, &iam.ListRolesInput{})
+	// Paginated for the same reason as deleteInstanceProfilesByPrefix:
+	// roles in busy accounts blow past the default page size.
+	paginator := iam.NewListRolesPaginator(iamClient, &iam.ListRolesInput{})
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return err
+		}
+		for _, role := range page.Roles {
+			if !strings.HasPrefix(aws.ToString(role.RoleName), prefix) {
+				continue
+			}
+			if dryRun {
+				fmt.Printf("  [DRY RUN] Would delete role: %s\n", aws.ToString(role.RoleName))
+				continue
+			}
+			// Detach all managed policies
+			policies, err := iamClient.ListAttachedRolePolicies(ctx, &iam.ListAttachedRolePoliciesInput{
+				RoleName: role.RoleName,
+			})
+			if err == nil {
+				for _, policy := range policies.AttachedPolicies {
+					_, err := iamClient.DetachRolePolicy(ctx, &iam.DetachRolePolicyInput{
+						RoleName:  role.RoleName,
+						PolicyArn: policy.PolicyArn,
+					})
+					if err != nil {
+						fmt.Printf("%s Failed to detach policy: %v\n", yellow("WARNING:"), err)
+					}
+				}
+			}
+
+			// Delete inline policies
+			inlinePolicies, err := iamClient.ListRolePolicies(ctx, &iam.ListRolePoliciesInput{
+				RoleName: role.RoleName,
+			})
+			if err == nil {
+				for _, policyName := range inlinePolicies.PolicyNames {
+					_, err := iamClient.DeleteRolePolicy(ctx, &iam.DeleteRolePolicyInput{
+						RoleName:   role.RoleName,
+						PolicyName: aws.String(policyName),
+					})
+					if err != nil {
+						fmt.Printf("%s Failed to delete inline policy: %v\n", yellow("WARNING:"), err)
+					}
+				}
+			}
+
+			_, err = iamClient.DeleteRole(ctx, &iam.DeleteRoleInput{
+				RoleName: role.RoleName,
+			})
+			if err != nil {
+				return err
+			}
+			fmt.Printf("  %s Deleted role: %s\n", green("✓"), aws.ToString(role.RoleName))
+		}
+	}
+	return nil
+}
+
+// deletePoliciesMatchingAnyPrefix walks the account's customer-managed
+// policies once and deletes every policy whose name matches any of the
+// supplied prefixes. Single-pass avoids N × pagination for N prefixes.
+func deletePoliciesMatchingAnyPrefix(ctx context.Context, iamClient *iam.Client, prefixes []string, dryRun bool) error {
+	var marker *string
+	for {
+		result, err := iamClient.ListPolicies(ctx, &iam.ListPoliciesInput{
+			Scope:  iamtypes.PolicyScopeTypeLocal,
+			Marker: marker,
+		})
+		if err != nil {
+			return err
+		}
+
+		for _, policy := range result.Policies {
+			name := aws.ToString(policy.PolicyName)
+			matched := false
+			for _, p := range prefixes {
+				if strings.HasPrefix(name, p) {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+
+			arn := aws.ToString(policy.Arn)
+			if dryRun {
+				fmt.Printf("  [DRY RUN] Would delete policy: %s\n", name)
+				continue
+			}
+
+			if err := detachPolicyFromAllEntities(ctx, iamClient, arn); err != nil {
+				fmt.Printf("%s Failed to detach policy %s: %v\n", yellow("WARNING:"), arn, err)
+			}
+			if err := deleteNonDefaultPolicyVersions(ctx, iamClient, arn); err != nil {
+				fmt.Printf("%s Failed to delete non-default versions of %s: %v\n", yellow("WARNING:"), arn, err)
+			}
+			if _, err := iamClient.DeletePolicy(ctx, &iam.DeletePolicyInput{PolicyArn: aws.String(arn)}); err != nil {
+				fmt.Printf("%s Failed to delete policy %s: %v\n", yellow("WARNING:"), arn, err)
+				continue
+			}
+			fmt.Printf("  %s Deleted policy: %s\n", green("✓"), name)
+		}
+
+		if !result.IsTruncated {
+			break
+		}
+		marker = result.Marker
+	}
+	return nil
+}
+
+// detachPolicyFromAllEntities detaches the given customer-managed policy
+// from every role, user, and group that has it attached.
+func detachPolicyFromAllEntities(ctx context.Context, iamClient *iam.Client, policyArn string) error {
+	var marker *string
+	for {
+		entities, err := iamClient.ListEntitiesForPolicy(ctx, &iam.ListEntitiesForPolicyInput{
+			PolicyArn: aws.String(policyArn),
+			Marker:    marker,
+		})
+		if err != nil {
+			return err
+		}
+		for _, role := range entities.PolicyRoles {
+			if _, err := iamClient.DetachRolePolicy(ctx, &iam.DetachRolePolicyInput{
+				RoleName:  role.RoleName,
+				PolicyArn: aws.String(policyArn),
+			}); err != nil {
+				fmt.Printf("%s Failed to detach policy %s from role %s: %v\n", yellow("WARNING:"), policyArn, aws.ToString(role.RoleName), err)
+			}
+		}
+		for _, user := range entities.PolicyUsers {
+			if _, err := iamClient.DetachUserPolicy(ctx, &iam.DetachUserPolicyInput{
+				UserName:  user.UserName,
+				PolicyArn: aws.String(policyArn),
+			}); err != nil {
+				fmt.Printf("%s Failed to detach policy %s from user %s: %v\n", yellow("WARNING:"), policyArn, aws.ToString(user.UserName), err)
+			}
+		}
+		for _, group := range entities.PolicyGroups {
+			if _, err := iamClient.DetachGroupPolicy(ctx, &iam.DetachGroupPolicyInput{
+				GroupName: group.GroupName,
+				PolicyArn: aws.String(policyArn),
+			}); err != nil {
+				fmt.Printf("%s Failed to detach policy %s from group %s: %v\n", yellow("WARNING:"), policyArn, aws.ToString(group.GroupName), err)
+			}
+		}
+		if !entities.IsTruncated {
+			return nil
+		}
+		marker = entities.Marker
+	}
+}
+
+// deleteNonDefaultPolicyVersions deletes every non-default version of the
+// given customer-managed policy. The default version cannot be deleted
+// standalone — it goes when the policy itself is deleted.
+func deleteNonDefaultPolicyVersions(ctx context.Context, iamClient *iam.Client, policyArn string) error {
+	versions, err := iamClient.ListPolicyVersions(ctx, &iam.ListPolicyVersionsInput{
+		PolicyArn: aws.String(policyArn),
+	})
 	if err != nil {
 		return err
 	}
-
-	for _, role := range result.Roles {
-		if strings.HasPrefix(aws.ToString(role.RoleName), prefix) {
-			if dryRun {
-				fmt.Printf("  [DRY RUN] Would delete role: %s\n", aws.ToString(role.RoleName))
-			} else {
-				// Detach all managed policies
-				policies, err := iamClient.ListAttachedRolePolicies(ctx, &iam.ListAttachedRolePoliciesInput{
-					RoleName: role.RoleName,
-				})
-				if err == nil {
-					for _, policy := range policies.AttachedPolicies {
-						_, err := iamClient.DetachRolePolicy(ctx, &iam.DetachRolePolicyInput{
-							RoleName:  role.RoleName,
-							PolicyArn: policy.PolicyArn,
-						})
-						if err != nil {
-							fmt.Printf("%s Failed to detach policy: %v\n", yellow("WARNING:"), err)
-						}
-					}
-				}
-
-				// Delete inline policies
-				inlinePolicies, err := iamClient.ListRolePolicies(ctx, &iam.ListRolePoliciesInput{
-					RoleName: role.RoleName,
-				})
-				if err == nil {
-					for _, policyName := range inlinePolicies.PolicyNames {
-						_, err := iamClient.DeleteRolePolicy(ctx, &iam.DeleteRolePolicyInput{
-							RoleName:   role.RoleName,
-							PolicyName: aws.String(policyName),
-						})
-						if err != nil {
-							fmt.Printf("%s Failed to delete inline policy: %v\n", yellow("WARNING:"), err)
-						}
-					}
-				}
-
-				_, err = iamClient.DeleteRole(ctx, &iam.DeleteRoleInput{
-					RoleName: role.RoleName,
-				})
-				if err != nil {
-					return err
-				}
-				fmt.Printf("  %s Deleted role: %s\n", green("✓"), aws.ToString(role.RoleName))
-			}
+	for _, v := range versions.Versions {
+		if v.IsDefaultVersion {
+			continue
+		}
+		if _, err := iamClient.DeletePolicyVersion(ctx, &iam.DeletePolicyVersionInput{
+			PolicyArn: aws.String(policyArn),
+			VersionId: v.VersionId,
+		}); err != nil {
+			fmt.Printf("%s Failed to delete policy version %s of %s: %v\n", yellow("WARNING:"), aws.ToString(v.VersionId), policyArn, err)
 		}
 	}
-
 	return nil
 }
 
@@ -1554,10 +1783,18 @@ func deleteNATGateways(ctx context.Context, clients *AWSClients, cfg *CleanupCon
 		}
 	}
 
-	// Wait for NAT gateways to be deleted before releasing EIPs
+	// Wait for NAT gateways to be deleted before releasing EIPs. A fixed
+	// sleep isn't enough — NAT gateway deletion can take several minutes,
+	// and until it reaches "deleted" state the associated EIP stays mapped
+	// and blocks downstream IGW detach.
 	if !cfg.DryRun && len(result.NatGateways) > 0 {
-		fmt.Printf("  %s Waiting for NAT gateways to be deleted...\n", yellow("WAIT:"))
-		time.Sleep(10 * time.Second)
+		var natIDs []string
+		for _, natGw := range result.NatGateways {
+			natIDs = append(natIDs, aws.ToString(natGw.NatGatewayId))
+		}
+		if err := waitForNatGatewaysDeleted(ctx, clients.EC2, natIDs, 10*time.Minute); err != nil {
+			fmt.Printf("%s NAT gateway wait: %v\n", yellow("WARNING:"), err)
+		}
 	}
 
 	// Release Elastic IPs
@@ -1577,6 +1814,46 @@ func deleteNATGateways(ctx context.Context, clients *AWSClients, cfg *CleanupCon
 	}
 
 	return nil
+}
+
+// waitForNatGatewaysDeleted polls DescribeNatGateways until every listed
+// gateway is in state "deleted" or timeout elapses. Until a NAT gateway
+// reaches "deleted", its EIPs stay mapped and block IGW detach.
+func waitForNatGatewaysDeleted(ctx context.Context, ec2Client *ec2.Client, natIDs []string, timeout time.Duration) error {
+	if len(natIDs) == 0 {
+		return nil
+	}
+	fmt.Printf("  %s Waiting for %d NAT gateway(s) to reach deleted state...\n", yellow("WAIT:"), len(natIDs))
+
+	deadline := time.Now().Add(timeout)
+	for {
+		result, err := ec2Client.DescribeNatGateways(ctx, &ec2.DescribeNatGatewaysInput{
+			NatGatewayIds: natIDs,
+		})
+		if err != nil {
+			return err
+		}
+		pending := 0
+		for _, ng := range result.NatGateways {
+			if ng.State != types.NatGatewayStateDeleted {
+				pending++
+			}
+		}
+		if pending == 0 {
+			fmt.Printf("  %s All NAT gateways deleted\n", green("✓"))
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("%d NAT gateway(s) still deleting after %v", pending, timeout)
+		}
+		// ctx-aware sleep: a cancelled CI job must interrupt the wait
+		// instead of burning the full 15s tick before noticing.
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(15 * time.Second):
+		}
+	}
 }
 
 // deleteNetworkInterfaces deletes orphaned network interfaces in the VPC
@@ -1776,6 +2053,14 @@ func deleteInternetGatewaysWithRetry(ctx context.Context, clients *AWSClients, c
 
 		lastErr = err
 		if attempt < maxRetries {
+			// "has some mapped public address(es)" almost always means an
+			// orphan EIP is blocking detach. Release them between retries.
+			if strings.Contains(err.Error(), "mapped public address") ||
+				strings.Contains(err.Error(), "DependencyViolation") {
+				if sweepErr := deleteUnattachedElasticIPs(ctx, clients, cfg); sweepErr != nil {
+					fmt.Printf("  %s EIP sweep during IGW retry failed: %v\n", yellow("WARNING:"), sweepErr)
+				}
+			}
 			fmt.Printf("  %s Internet Gateway deletion failed (attempt %d/%d), retrying in %v...\n",
 				yellow("RETRY:"), attempt, maxRetries, retryDelay)
 			time.Sleep(retryDelay)
@@ -1812,35 +2097,38 @@ func deleteInternetGateways(ctx context.Context, clients *AWSClients, cfg *Clean
 		return err
 	}
 
+	var lastErr error
 	for _, igw := range result.InternetGateways {
 		if cfg.DryRun {
 			fmt.Printf("  [DRY RUN] Would delete internet gateway: %s\n", aws.ToString(igw.InternetGatewayId))
-		} else {
-			// Detach from VPC first
-			_, err := clients.EC2.DetachInternetGateway(ctx, &ec2.DetachInternetGatewayInput{
-				InternetGatewayId: igw.InternetGatewayId,
-				VpcId:             aws.String(cfg.VpcID),
-			})
-			if err != nil && !isNotFoundError(err) {
-				fmt.Printf("%s Failed to detach internet gateway: %v\n", yellow("WARNING:"), err)
-			}
+			continue
+		}
+		// Detach from VPC first
+		_, err := clients.EC2.DetachInternetGateway(ctx, &ec2.DetachInternetGatewayInput{
+			InternetGatewayId: igw.InternetGatewayId,
+			VpcId:             aws.String(cfg.VpcID),
+		})
+		if err != nil && !isNotFoundError(err) {
+			fmt.Printf("%s Failed to detach internet gateway: %v\n", yellow("WARNING:"), err)
+			lastErr = err
+		}
 
-			_, err = clients.EC2.DeleteInternetGateway(ctx, &ec2.DeleteInternetGatewayInput{
-				InternetGatewayId: igw.InternetGatewayId,
-			})
-			if err != nil {
-				if isNotFoundError(err) {
-					fmt.Printf("  %s Internet gateway already deleted: %s\n", green("✓"), aws.ToString(igw.InternetGatewayId))
-				} else {
-					fmt.Printf("%s Failed to delete internet gateway %s: %v\n", yellow("WARNING:"), aws.ToString(igw.InternetGatewayId), err)
-				}
+		_, err = clients.EC2.DeleteInternetGateway(ctx, &ec2.DeleteInternetGatewayInput{
+			InternetGatewayId: igw.InternetGatewayId,
+		})
+		if err != nil {
+			if isNotFoundError(err) {
+				fmt.Printf("  %s Internet gateway already deleted: %s\n", green("✓"), aws.ToString(igw.InternetGatewayId))
 			} else {
-				fmt.Printf("  %s Deleted internet gateway: %s\n", green("✓"), aws.ToString(igw.InternetGatewayId))
+				fmt.Printf("%s Failed to delete internet gateway %s: %v\n", yellow("WARNING:"), aws.ToString(igw.InternetGatewayId), err)
+				lastErr = err
 			}
+		} else {
+			fmt.Printf("  %s Deleted internet gateway: %s\n", green("✓"), aws.ToString(igw.InternetGatewayId))
 		}
 	}
 
-	return nil
+	return lastErr
 }
 
 // deleteVPC deletes the VPC
@@ -2099,8 +2387,59 @@ func detectVPCsByPrefix(ctx context.Context, ec2Client *ec2.Client, commonPrefix
 	}
 
 	var vpcIDs []string
+	seen := map[string]bool{}
+	add := func(vpcID, reason string) {
+		if seen[vpcID] {
+			return
+		}
+		seen[vpcID] = true
+		vpcIDs = append(vpcIDs, vpcID)
+		fmt.Printf("  %s Detected VPC: %s (%s)\n", cyan("INFO:"), vpcID, reason)
+	}
+
 	for _, vpc := range result.Vpcs {
-		// Extract Name tag
+		var name string
+		var cloudNukeTagged bool
+		for _, tag := range vpc.Tags {
+			switch aws.ToString(tag.Key) {
+			case "Name":
+				name = aws.ToString(tag.Value)
+			case "cloud-nuke-first-seen":
+				cloudNukeTagged = true
+			}
+		}
+
+		if name != "" && strings.HasPrefix(name, commonPrefix) {
+			add(aws.ToString(vpc.VpcId), fmt.Sprintf("Name: %s", name))
+			continue
+		}
+		// Pick up orphans left by failed runs: non-default VPCs tagged by the
+		// cloud-nuke sweeper are already marked for deletion but often stuck
+		// behind dependency failures that our cleanup can resolve.
+		if cloudNukeTagged {
+			add(aws.ToString(vpc.VpcId), "tagged cloud-nuke-first-seen")
+		}
+	}
+
+	return vpcIDs, nil
+}
+
+func getAllNonDefaultVPCs(ctx context.Context, ec2Client *ec2.Client) ([]string, error) {
+	result, err := ec2Client.DescribeVpcs(ctx, &ec2.DescribeVpcsInput{
+		Filters: []types.Filter{
+			{
+				Name:   aws.String("isDefault"),
+				Values: []string{"false"},
+			},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe VPCs: %w", err)
+	}
+
+	var vpcIDs []string
+	for _, vpc := range result.Vpcs {
+		vpcID := aws.ToString(vpc.VpcId)
 		var name string
 		for _, tag := range vpc.Tags {
 			if aws.ToString(tag.Key) == "Name" {
@@ -2108,13 +2447,12 @@ func detectVPCsByPrefix(ctx context.Context, ec2Client *ec2.Client, commonPrefix
 				break
 			}
 		}
-
-		// Check if name starts with common prefix
-		if strings.HasPrefix(name, commonPrefix) {
-			vpcIDs = append(vpcIDs, aws.ToString(vpc.VpcId))
-			fmt.Printf("  %s Detected VPC: %s (Name: %s)\n", cyan("INFO:"), aws.ToString(vpc.VpcId), name)
+		label := vpcID
+		if name != "" {
+			label = fmt.Sprintf("%s (Name: %s)", vpcID, name)
 		}
+		fmt.Printf("  %s VPC: %s\n", red("NUKE:"), label)
+		vpcIDs = append(vpcIDs, vpcID)
 	}
-
 	return vpcIDs, nil
 }

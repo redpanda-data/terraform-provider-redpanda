@@ -72,6 +72,18 @@ tasks:
           --auto-detect-vpc \
           --auto-approve
 
+  aws:nuke:
+    desc: "Delete ALL non-default VPCs in regions where we create infra (manual use only, for clearing orphans)"
+    dir: scripts/cleanup-redpanda-byovpc
+    cmds:
+      - |
+        for region in us-east-2; do
+          echo "Nuking all non-default VPCs in $region..."
+          {{.PATH_PREFIX}} go run main.go \
+            --nuke-all-vpcs \
+            --region "$region"
+        done
+
   aws:dry:
     desc: "Dry run - show what AWS resources would be deleted (does not actually delete)"
     dir: scripts/cleanup-redpanda-byovpc
