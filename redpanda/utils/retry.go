@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -40,6 +41,7 @@ func Retry(ctx context.Context, timeout time.Duration, f func() *RetryError) err
 	endTime := startTime.Add(timeout)
 	waitUnit := initialWaitUnit
 	lastErrorMessage := ""
+	attempt := 0
 	for {
 		// Get the latest result
 		err := f()
@@ -55,14 +57,11 @@ func Retry(ctx context.Context, timeout time.Duration, f func() *RetryError) err
 			return &TimeoutError{Timeout: timeout, Wrapped: err.Err}
 		}
 
-		// Wait between checks using exponential backoff. If the error message has
-		// changed, reset to the initial value
-		if err.Err.Error() != lastErrorMessage {
-			tflog.Info(ctx, fmt.Sprintf(
-				"Resetting retry wait time because current error %q is different from last error %q",
-				err.Err.Error(),
-				lastErrorMessage,
-			))
+		// Exponential backoff between retries. Reset to the initial wait whenever
+		// the error message changes, so a new failure mode doesn't inherit the
+		// previous one's long backoff.
+		reset := err.Err.Error() != lastErrorMessage
+		if reset {
 			lastErrorMessage = err.Err.Error()
 			waitUnit = initialWaitUnit
 		} else {
@@ -71,7 +70,17 @@ func Retry(ctx context.Context, timeout time.Duration, f func() *RetryError) err
 		if waitUnit > maxWaitUnit {
 			waitUnit = maxWaitUnit
 		}
-		sleeper := time.NewTimer(waitUnit)
+		// Jitter [0.5x, 1.5x] so concurrent callers desynchronize.
+		jittered := waitUnit/2 + time.Duration(rand.Int64N(int64(waitUnit))) //nolint:gosec // desync jitter, not a secret
+		attempt++
+		tflog.Info(ctx, "retrying after transient error", map[string]any{
+			"attempt": attempt,
+			"wait":    jittered.String(),
+			"elapsed": time.Since(startTime).String(),
+			"reset":   reset,
+			"error":   err.Err.Error(),
+		})
+		sleeper := time.NewTimer(jittered)
 		select {
 		case <-ctx.Done():
 			if !sleeper.Stop() {

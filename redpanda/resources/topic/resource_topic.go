@@ -183,7 +183,18 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		partitionCount = &[]int32{topic.GetPartitionCount()}[0]
 		replicationFactor = &[]int32{topic.GetReplicationFactor()}[0]
 	} else {
-		tp, findErr := utils.FindTopicByName(ctx, topicName, t.TopicClient)
+		var tp *dataplanev1.ListTopicsResponse_Topic
+		findErr := utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+			var e error
+			tp, e = utils.FindTopicByName(ctx, topicName, t.TopicClient)
+			if e != nil {
+				if isTransientBrokerError(e) {
+					return utils.RetryableError(e)
+				}
+				return utils.NonRetryableError(e)
+			}
+			return nil
+		})
 		if findErr != nil {
 			response.Diagnostics.AddError(
 				fmt.Sprintf("failed to read topic %q after create", topicName),
@@ -209,7 +220,18 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		return
 	}
 
-	tpCfgRes, err := t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: topicName})
+	var tpCfgRes *dataplanev1.GetTopicConfigurationsResponse
+	err = utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+		var cfgErr error
+		tpCfgRes, cfgErr = t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: topicName})
+		if cfgErr != nil {
+			if isTransientBrokerError(cfgErr) {
+				return utils.RetryableError(cfgErr)
+			}
+			return utils.NonRetryableError(cfgErr)
+		}
+		return nil
+	})
 	if err != nil {
 		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration", topicName), utils.DeserializeGrpcError(err))
 		return
@@ -254,7 +276,18 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 		return
 	}
 
-	tp, err := utils.FindTopicByName(ctx, topicName, t.TopicClient)
+	var tp *dataplanev1.ListTopicsResponse_Topic
+	err = utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+		var findErr error
+		tp, findErr = utils.FindTopicByName(ctx, topicName, t.TopicClient)
+		if findErr != nil {
+			if isTransientBrokerError(findErr) {
+				return utils.RetryableError(findErr)
+			}
+			return utils.NonRetryableError(findErr)
+		}
+		return nil
+	})
 	if err != nil {
 		action, diags := utils.HandleGracefulRemoval(ctx, "topic", topicName, model.AllowDeletion, err, "find topic")
 		response.Diagnostics.Append(diags...)
@@ -263,7 +296,18 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 		}
 		return
 	}
-	tpCfgRes, err := t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: tp.Name})
+	var tpCfgRes *dataplanev1.GetTopicConfigurationsResponse
+	err = utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+		var cfgErr error
+		tpCfgRes, cfgErr = t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: tp.Name})
+		if cfgErr != nil {
+			if isTransientBrokerError(cfgErr) {
+				return utils.RetryableError(cfgErr)
+			}
+			return utils.NonRetryableError(cfgErr)
+		}
+		return nil
+	})
 	if err != nil {
 		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration", tp.Name), utils.DeserializeGrpcError(err))
 		return
@@ -303,9 +347,18 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 			response.Diagnostics.AddError("unable to parse the plan topic configuration", utils.DeserializeGrpcError(err))
 			return
 		}
-		_, err = t.TopicClient.SetTopicConfigurations(ctx, &dataplanev1.SetTopicConfigurationsRequest{
-			TopicName:      plan.Name.ValueString(),
-			Configurations: cfgToSet,
+		err = utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+			_, setErr := t.TopicClient.SetTopicConfigurations(ctx, &dataplanev1.SetTopicConfigurationsRequest{
+				TopicName:      plan.Name.ValueString(),
+				Configurations: cfgToSet,
+			})
+			if setErr != nil {
+				if isTransientBrokerError(setErr) {
+					return utils.RetryableError(setErr)
+				}
+				return utils.NonRetryableError(setErr)
+			}
+			return nil
 		})
 		if err != nil {
 			response.Diagnostics.AddError("failed to update topic configuration", utils.DeserializeGrpcError(err))
@@ -316,9 +369,18 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 	from := state.PartitionCount.ValueBigFloat()
 
 	if to.Cmp(from) > 0 {
-		_, err := t.TopicClient.SetTopicPartitions(ctx, &dataplanev1.SetTopicPartitionsRequest{
-			TopicName:      plan.Name.ValueString(),
-			PartitionCount: *utils.NumberToInt32(plan.PartitionCount),
+		err := utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+			_, setErr := t.TopicClient.SetTopicPartitions(ctx, &dataplanev1.SetTopicPartitionsRequest{
+				TopicName:      plan.Name.ValueString(),
+				PartitionCount: *utils.NumberToInt32(plan.PartitionCount),
+			})
+			if setErr != nil {
+				if isTransientBrokerError(setErr) {
+					return utils.RetryableError(setErr)
+				}
+				return utils.NonRetryableError(setErr)
+			}
+			return nil
 		})
 		if err != nil {
 			response.Diagnostics.AddError("failed to update partition count", utils.DeserializeGrpcError(err))
@@ -331,7 +393,18 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 		return
 	}
 
-	tpCfgRes, err := t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: plan.Name.ValueString()})
+	var tpCfgRes *dataplanev1.GetTopicConfigurationsResponse
+	err = utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+		var cfgErr error
+		tpCfgRes, cfgErr = t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: plan.Name.ValueString()})
+		if cfgErr != nil {
+			if isTransientBrokerError(cfgErr) {
+				return utils.RetryableError(cfgErr)
+			}
+			return utils.NonRetryableError(cfgErr)
+		}
+		return nil
+	})
 	if err != nil {
 		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration after update", plan.Name.ValueString()), utils.DeserializeGrpcError(err))
 		return
@@ -364,8 +437,22 @@ func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, resp
 		return
 	}
 
-	_, err = t.TopicClient.DeleteTopic(ctx, &dataplanev1.DeleteTopicRequest{
-		TopicName: topicName,
+	err = utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+		_, delErr := t.TopicClient.DeleteTopic(ctx, &dataplanev1.DeleteTopicRequest{
+			TopicName: topicName,
+		})
+		if delErr != nil {
+			// A retry after a transient broker error may see the topic as
+			// already gone; that means the earlier attempt succeeded.
+			if isNotFoundError(delErr) {
+				return nil
+			}
+			if isTransientBrokerError(delErr) {
+				return utils.RetryableError(delErr)
+			}
+			return utils.NonRetryableError(delErr)
+		}
+		return nil
 	})
 	if err != nil {
 		_, diags := utils.HandleGracefulRemoval(ctx, "topic", topicName, model.AllowDeletion, err, "delete topic")
@@ -479,5 +566,13 @@ func isAlreadyExistsError(err error) bool {
 func isTransientBrokerError(err error) bool {
 	msg := utils.DeserializeGrpcError(err)
 	return strings.Contains(msg, "broker struct chosen to issue this request has died") ||
-		strings.Contains(msg, "client closed")
+		strings.Contains(msg, "client closed") ||
+		strings.Contains(msg, "context canceled")
+}
+
+func isNotFoundError(err error) bool {
+	msg := utils.DeserializeGrpcError(err)
+	return strings.Contains(msg, "NOT_FOUND") ||
+		strings.Contains(msg, "TOPIC_DOES_NOT_EXIST") ||
+		strings.Contains(msg, "does not exist")
 }
