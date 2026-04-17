@@ -13,7 +13,7 @@ vars:
 
 tasks:
   unit:
-    desc: "Run unit tests with coverage"
+    desc: "Run unit tests with race detector"
     cmds:
       - echo "Running unit tests..."
       - |
@@ -22,7 +22,7 @@ tasks:
         REDPANDA_CLIENT_SECRET="dummy_secret" \
         RUN_CLUSTER_TESTS=false \
         RUN_BYOC_TESTS=false \
-        {{.PATH_PREFIX}} go test -short ./...
+        {{.PATH_PREFIX}} go test -race -short -timeout 10m ./...
       - echo "Unit tests completed successfully"
 
   network:
@@ -129,6 +129,53 @@ tasks:
         VERSION={{.VERSION}} \
         {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesByocAWS
       - echo "AWS BYOC tests completed successfully"
+
+  byovpc:aws:
+    desc: "Provision BYOVPC AWS infra, run TestAccResourcesByoVpcAWS, tear down infra (always)"
+    vars:
+      AWS_REGION: '{{.AWS_REGION | default "us-east-2"}}'
+    cmds:
+      - echo "Provisioning BYOVPC AWS test infra..."
+      - |
+        cd redpanda/tests/infra/network/aws
+        terraform init
+        terraform apply -auto-approve -var "region={{.AWS_REGION}}"
+      - echo "Running TestAccResourcesByoVpcAWS..."
+      - |
+        set -euo pipefail
+        INPUTS=$(cat redpanda/tests/infra/network/aws/inputs.json)
+        DEBUG=true \
+        RUN_BYOVPC_TESTS=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        AWS_REGION="{{.AWS_REGION}}" \
+        AWS_ZONES="$(echo "$INPUTS" | jq -r '.zones')" \
+        RP_MANAGEMENT_BUCKET_ARN="$(echo "$INPUTS" | jq -r '.management_bucket_arn')" \
+        RP_DYNAMODB_TABLE_ARN="$(echo "$INPUTS" | jq -r '.dynamodb_table_arn')" \
+        RP_VPC_ARN="$(echo "$INPUTS" | jq -r '.vpc_arn')" \
+        RP_PRIVATE_SUBNET_ARNS="$(echo "$INPUTS" | jq -r '.private_subnet_arns')" \
+        RP_PERMISSIONS_BOUNDARY_POLICY_ARN="$(echo "$INPUTS" | jq -r '.permissions_boundary_policy_arn')" \
+        RP_AGENT_INSTANCE_PROFILE_ARN="$(echo "$INPUTS" | jq -r '.agent_instance_profile_arn')" \
+        RP_CONNECTORS_NODE_GROUP_INSTANCE_PROFILE_ARN="$(echo "$INPUTS" | jq -r '.connectors_node_group_instance_profile_arn')" \
+        RP_UTILITY_NODE_GROUP_INSTANCE_PROFILE_ARN="$(echo "$INPUTS" | jq -r '.utility_node_group_instance_profile_arn')" \
+        RP_REDPANDA_NODE_GROUP_INSTANCE_PROFILE_ARN="$(echo "$INPUTS" | jq -r '.redpanda_node_group_instance_profile_arn')" \
+        RP_K8S_CLUSTER_ROLE_ARN="$(echo "$INPUTS" | jq -r '.k8s_cluster_role_arn')" \
+        RP_REDPANDA_AGENT_SECURITY_GROUP_ARN="$(echo "$INPUTS" | jq -r '.redpanda_agent_security_group_arn')" \
+        RP_CONNECTORS_SECURITY_GROUP_ARN="$(echo "$INPUTS" | jq -r '.connectors_security_group_arn')" \
+        RP_REDPANDA_NODE_GROUP_SECURITY_GROUP_ARN="$(echo "$INPUTS" | jq -r '.redpanda_node_group_security_group_arn')" \
+        RP_UTILITY_SECURITY_GROUP_ARN="$(echo "$INPUTS" | jq -r '.utility_security_group_arn')" \
+        RP_CLUSTER_SECURITY_GROUP_ARN="$(echo "$INPUTS" | jq -r '.cluster_security_group_arn')" \
+        RP_NODE_SECURITY_GROUP_ARN="$(echo "$INPUTS" | jq -r '.node_security_group_arn')" \
+        RP_CLOUD_STORAGE_BUCKET_ARN="$(echo "$INPUTS" | jq -r '.cloud_storage_bucket_arn')" \
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesByoVpcAWS
+      - echo "BYOVPC AWS tests completed successfully"
+    defer:
+      - task: cleanup:aws:ci
+        vars:
+          AWS_REGION: '{{.AWS_REGION}}'
 
   byoc:azure:
     desc: "Run Azure BYOC acceptance tests"

@@ -211,13 +211,13 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Optional:      true,
 				Computed:      true,
 				Description:   "Cluster's Kafka API properties.",
-				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"mtls": schema.SingleNestedAttribute{
 						Optional:      true,
 						Computed:      true,
 						Description:   "mTLS configuration.",
-						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
 						Attributes: map[string]schema.Attribute{
 							"enabled": schema.BoolAttribute{
 								Optional:      true,
@@ -244,13 +244,13 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						ElementType:   types.StringType,
 						Computed:      true,
 						Description:   "List of Kafka broker addresses.",
-						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.List{listplanmodifier.UseNonNullStateForUnknown()},
 					},
 					"sasl": schema.SingleNestedAttribute{
 						Optional:      true,
 						Computed:      true,
 						Description:   "SASL configuration.",
-						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
 						Attributes: map[string]schema.Attribute{
 							"enabled": schema.BoolAttribute{
 								Optional:      true,
@@ -261,24 +261,29 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						},
 					},
 					"all_seed_brokers": schema.SingleNestedAttribute{
-						Computed:    true,
-						Description: "All seed broker endpoint variants.",
+						Computed:      true,
+						Description:   "All seed broker endpoint variants.",
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
 						Attributes: map[string]schema.Attribute{
 							"sasl": schema.StringAttribute{
-								Computed:    true,
-								Description: "SASL endpoint.",
+								Computed:      true,
+								Description:   "SASL endpoint.",
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 							"mtls": schema.StringAttribute{
-								Computed:    true,
-								Description: "mTLS endpoint.",
+								Computed:      true,
+								Description:   "mTLS endpoint.",
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 							"private_link_sasl": schema.StringAttribute{
-								Computed:    true,
-								Description: "Private link SASL endpoint.",
+								Computed:      true,
+								Description:   "Private link SASL endpoint.",
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 							"private_link_mtls": schema.StringAttribute{
-								Computed:    true,
-								Description: "Private link mTLS endpoint.",
+								Computed:      true,
+								Description:   "Private link mTLS endpoint.",
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 						},
 					},
@@ -288,13 +293,13 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Optional:      true,
 				Computed:      true,
 				Description:   "HTTP Proxy properties.",
-				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"mtls": schema.SingleNestedAttribute{
 						Optional:      true,
 						Computed:      true,
 						Description:   "mTLS configuration.",
-						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
 						Attributes: map[string]schema.Attribute{
 							"enabled": schema.BoolAttribute{
 								Optional:      true,
@@ -320,13 +325,13 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 					"url": schema.StringAttribute{
 						Computed:      true,
 						Description:   "The HTTP Proxy URL.",
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 					},
 					"sasl": schema.SingleNestedAttribute{
 						Optional:      true,
 						Computed:      true,
 						Description:   "SASL configuration.",
-						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
 						Attributes: map[string]schema.Attribute{
 							"enabled": schema.BoolAttribute{
 								Optional:      true,
@@ -337,24 +342,29 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						},
 					},
 					"all_urls": schema.SingleNestedAttribute{
-						Computed:    true,
-						Description: "All HTTP proxy endpoint variants.",
+						Computed:      true,
+						Description:   "All HTTP proxy endpoint variants.",
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
 						Attributes: map[string]schema.Attribute{
 							"sasl": schema.StringAttribute{
-								Computed:    true,
-								Description: "SASL endpoint.",
+								Computed:      true,
+								Description:   "SASL endpoint.",
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 							"mtls": schema.StringAttribute{
-								Computed:    true,
-								Description: "mTLS endpoint.",
+								Computed:      true,
+								Description:   "mTLS endpoint.",
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 							"private_link_sasl": schema.StringAttribute{
-								Computed:    true,
-								Description: "Private link SASL endpoint.",
+								Computed:      true,
+								Description:   "Private link SASL endpoint.",
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 							"private_link_mtls": schema.StringAttribute{
-								Computed:    true,
-								Description: "Private link mTLS endpoint.",
+								Computed:      true,
+								Description:   "Private link mTLS endpoint.",
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 						},
 					},
@@ -364,11 +374,11 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Optional:      true,
 				Computed:      true,
 				Description:   "Schema Registry properties.",
-				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"mtls": schema.SingleNestedAttribute{
 						Optional:      true,
-						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
 						Description:   "mTLS configuration.",
 						Attributes: map[string]schema.Attribute{
 							"enabled": schema.BoolAttribute{
@@ -394,28 +404,33 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 					},
 					"url": schema.StringAttribute{
 						Computed:      true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 						Description:   "The Schema Registry URL.",
 					},
 					"all_urls": schema.SingleNestedAttribute{
-						Computed:    true,
-						Description: "All schema registry endpoint variants.",
+						Computed:      true,
+						Description:   "All schema registry endpoint variants.",
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
 						Attributes: map[string]schema.Attribute{
 							"sasl": schema.StringAttribute{
-								Computed:    true,
-								Description: "SASL endpoint.",
+								Computed:      true,
+								Description:   "SASL endpoint.",
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 							"mtls": schema.StringAttribute{
-								Computed:    true,
-								Description: "mTLS endpoint.",
+								Computed:      true,
+								Description:   "mTLS endpoint.",
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 							"private_link_sasl": schema.StringAttribute{
-								Computed:    true,
-								Description: "Private link SASL endpoint.",
+								Computed:      true,
+								Description:   "Private link SASL endpoint.",
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 							"private_link_mtls": schema.StringAttribute{
-								Computed:    true,
-								Description: "Private link mTLS endpoint.",
+								Computed:      true,
+								Description:   "Private link mTLS endpoint.",
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 						},
 					},
@@ -424,11 +439,11 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			"redpanda_console": schema.SingleNestedAttribute{
 				Computed:      true,
 				Description:   "Redpanda Console properties.",
-				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"url": schema.StringAttribute{
 						Computed:      true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 						Description:   "The Redpanda Console URL.",
 					},
 				},
@@ -436,18 +451,22 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			"prometheus": schema.SingleNestedAttribute{
 				Computed:      true,
 				Description:   "Prometheus metrics endpoint properties.",
-				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"url": schema.StringAttribute{
 						Computed:      true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 						Description:   "The Prometheus metrics endpoint URL.",
 					},
 				},
 			},
 			"state_description": schema.SingleNestedAttribute{
-				Computed:      true,
-				Description:   "Detailed state description when cluster is in a non-ready state.",
+				Computed:    true,
+				Description: "Detailed state description when cluster is in a non-ready state.",
+				// Backend returns null for READY clusters (proto uses
+				// google.rpc.Status with omitempty). UseStateForUnknown
+				// copies null forward; UseNonNullStateForUnknown would
+				// leave the plan Unknown and trigger drift.
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"code": schema.Int32Attribute{
@@ -468,9 +487,13 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Description: "IDs of clusters that can create read-only topics from this cluster.",
 			},
 			"maintenance_window_config": schema.SingleNestedAttribute{
-				Optional:      true,
-				Computed:      true,
-				Description:   "Maintenance window configuration for the cluster.",
+				Optional:    true,
+				Computed:    true,
+				Description: "Maintenance window configuration for the cluster.",
+				// UseStateForUnknown is null-safe regardless of whether
+				// the backend returns a default; UseNonNullStateForUnknown
+				// would require state to be guaranteed non-null and the
+				// cloudtest fake doesn't currently echo a default.
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"day_hour": schema.SingleNestedAttribute{
@@ -514,7 +537,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			"kafka_connect": schema.SingleNestedAttribute{
 				Optional:      true,
 				Computed:      true,
-				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
 				Description:   "Kafka Connect configuration.",
 				Attributes: map[string]schema.Attribute{
 					"enabled": schema.BoolAttribute{
@@ -549,8 +572,9 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						},
 					},
 					"status": schema.SingleNestedAttribute{
-						Computed:    true,
-						Description: "Current status of the PrivateLink configuration.",
+						Computed:      true,
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+						Description:   "Current status of the PrivateLink configuration.",
 						Attributes: map[string]schema.Attribute{
 							"service_id": schema.StringAttribute{
 								Computed:    true,
@@ -563,14 +587,6 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 							"service_state": schema.StringAttribute{
 								Computed:    true,
 								Description: "Current state of the PrivateLink service.",
-							},
-							"created_at": schema.StringAttribute{
-								Computed:    true,
-								Description: "When the PrivateLink service was created.",
-							},
-							"deleted_at": schema.StringAttribute{
-								Computed:    true,
-								Description: "When the PrivateLink service was deleted.",
 							},
 							"vpc_endpoint_connections": schema.ListNestedAttribute{
 								Computed:    true,
@@ -588,10 +604,6 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 										"state": schema.StringAttribute{
 											Computed:    true,
 											Description: "State of the endpoint connection.",
-										},
-										"created_at": schema.StringAttribute{
-											Computed:    true,
-											Description: "When the endpoint connection was created.",
 										},
 										"connection_id": schema.StringAttribute{
 											Computed:    true,
@@ -648,9 +660,10 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						},
 					},
 					"supported_regions": schema.ListAttribute{
-						Computed:    true,
-						ElementType: types.StringType,
-						Description: "Supported regions for AWS PrivateLink.",
+						Computed:      true,
+						ElementType:   types.StringType,
+						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+						Description:   "Supported regions for AWS PrivateLink.",
 					},
 				},
 				Validators: []validator.Object{
@@ -685,20 +698,13 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						},
 					},
 					"status": schema.SingleNestedAttribute{
-						Computed:    true,
-						Description: "Current status of the Private Service Connect configuration.",
+						Computed:      true,
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+						Description:   "Current status of the Private Service Connect configuration.",
 						Attributes: map[string]schema.Attribute{
 							"service_attachment": schema.StringAttribute{
 								Computed:    true,
 								Description: "The service attachment identifier.",
-							},
-							"created_at": schema.StringAttribute{
-								Computed:    true,
-								Description: "When the Private Service Connect service was created.",
-							},
-							"deleted_at": schema.StringAttribute{
-								Computed:    true,
-								Description: "When the Private Service Connect service was deleted.",
 							},
 							"kafka_api_seed_port": schema.Int32Attribute{
 								Computed:    true,
@@ -781,8 +787,9 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						Description: "The subscriptions that can access the Redpanda Azure PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).",
 					},
 					"status": schema.SingleNestedAttribute{
-						Computed:    true,
-						Description: "Current status of the Private Link configuration.",
+						Computed:      true,
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+						Description:   "Current status of the Private Link configuration.",
 						Attributes: map[string]schema.Attribute{
 							"service_id": schema.StringAttribute{
 								Computed:    true,
@@ -791,14 +798,6 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 							"service_name": schema.StringAttribute{
 								Computed:    true,
 								Description: "The Private Link service name.",
-							},
-							"created_at": schema.StringAttribute{
-								Computed:    true,
-								Description: "When the Private Link service was created.",
-							},
-							"deleted_at": schema.StringAttribute{
-								Computed:    true,
-								Description: "When the Private Link service was deleted.",
 							},
 							"private_endpoint_connections": schema.ListNestedAttribute{
 								Computed:    true,
@@ -824,10 +823,6 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 										"status": schema.StringAttribute{
 											Computed:    true,
 											Description: "Status of the endpoint connection.",
-										},
-										"created_at": schema.StringAttribute{
-											Computed:    true,
-											Description: "When the endpoint connection was created.",
 										},
 									},
 								},

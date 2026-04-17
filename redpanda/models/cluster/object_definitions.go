@@ -42,8 +42,6 @@ func getAwsPrivateLinkStatusType() map[string]attr.Type {
 		"service_id":                    types.StringType,
 		"service_name":                  types.StringType,
 		"service_state":                 types.StringType,
-		"created_at":                    types.StringType,
-		"deleted_at":                    types.StringType,
 		"vpc_endpoint_connections":      types.ListType{ElemType: types.ObjectType{AttrTypes: getVpcEndpointConnectionType()}},
 		"kafka_api_seed_port":           types.Int32Type,
 		"schema_registry_seed_port":     types.Int32Type,
@@ -59,7 +57,6 @@ func getVpcEndpointConnectionType() map[string]attr.Type {
 		"id":                 types.StringType,
 		"owner":              types.StringType,
 		"state":              types.StringType,
-		"created_at":         types.StringType,
 		"connection_id":      types.StringType,
 		"load_balancer_arns": types.ListType{ElemType: types.StringType},
 		"dns_entries":        types.ListType{ElemType: types.ObjectType{AttrTypes: getDNSEntryType()}},
@@ -85,8 +82,6 @@ func getGcpPrivateServiceConnectType() map[string]attr.Type {
 func getGcpPrivateServiceConnectStatusType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"service_attachment":            types.StringType,
-		"created_at":                    types.StringType,
-		"deleted_at":                    types.StringType,
 		"kafka_api_seed_port":           types.Int32Type,
 		"schema_registry_seed_port":     types.Int32Type,
 		"redpanda_proxy_seed_port":      types.Int32Type,
@@ -120,8 +115,6 @@ func getAzurePrivateLinkStatusType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"service_id":                    types.StringType,
 		"service_name":                  types.StringType,
-		"created_at":                    types.StringType,
-		"deleted_at":                    types.StringType,
 		"private_endpoint_connections":  types.ListType{ElemType: types.ObjectType{AttrTypes: getAzureEndpointConnectionType()}},
 		"dns_a_record":                  types.StringType,
 		"approved_subscriptions":        types.ListType{ElemType: types.StringType},
@@ -141,7 +134,6 @@ func getAzureEndpointConnectionType() map[string]attr.Type {
 		"connection_name":       types.StringType,
 		"connection_id":         types.StringType,
 		"status":                types.StringType,
-		"created_at":            types.StringType,
 	}
 }
 
@@ -160,6 +152,9 @@ func getSeedBrokersType() map[string]attr.Type {
 	}
 }
 
+// GetSeedBrokersType is the exported form of getSeedBrokersType.
+func GetSeedBrokersType() map[string]attr.Type { return getSeedBrokersType() }
+
 func getEndpointsType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"sasl":              types.StringType,
@@ -167,6 +162,24 @@ func getEndpointsType() map[string]attr.Type {
 		"private_link_sasl": types.StringType,
 		"private_link_mtls": types.StringType,
 	}
+}
+
+// GetEndpointsType is the exported form of getEndpointsType.
+func GetEndpointsType() map[string]attr.Type { return getEndpointsType() }
+
+// GetAwsPrivateLinkStatusType is the exported form of getAwsPrivateLinkStatusType.
+func GetAwsPrivateLinkStatusType() map[string]attr.Type {
+	return getAwsPrivateLinkStatusType()
+}
+
+// GetGcpPrivateServiceConnectStatusType is the exported form of getGcpPrivateServiceConnectStatusType.
+func GetGcpPrivateServiceConnectStatusType() map[string]attr.Type {
+	return getGcpPrivateServiceConnectStatusType()
+}
+
+// GetAzurePrivateLinkStatusType is the exported form of getAzurePrivateLinkStatusType.
+func GetAzurePrivateLinkStatusType() map[string]attr.Type {
+	return getAzurePrivateLinkStatusType()
 }
 
 func getCloudStorageType() map[string]attr.Type {

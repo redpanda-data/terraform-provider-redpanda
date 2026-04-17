@@ -174,13 +174,13 @@ func ResourceServerlessPrivateLinkSchema() schema.Schema {
 							"vpc_endpoint_service_name": schema.StringAttribute{
 								Computed:      true,
 								Description:   "VPC endpoint service name for connecting to the private link",
-								PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 							"availability_zones": schema.ListAttribute{
 								Computed:      true,
 								ElementType:   types.StringType,
 								Description:   "Availability zones where the private link endpoint service is available",
-								PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+								PlanModifiers: []planmodifier.List{listplanmodifier.UseNonNullStateForUnknown()},
 							},
 						},
 					},

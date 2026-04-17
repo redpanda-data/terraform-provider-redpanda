@@ -56,6 +56,17 @@ func NewConnPool(authToken, providerVersion, terraformVersion string) *ConnPool 
 	}
 }
 
+// NewConnPoolWithSpawnFunc returns a pool that uses the supplied spawn
+// function instead of SpawnConn. Test-only — cloudtest uses this to
+// route dataplane dials to an in-process bufconn regardless of the
+// cluster URL the provider requests.
+func NewConnPoolWithSpawnFunc(spawnFunc func(url, authToken, providerVersion, terraformVersion string) (*grpc.ClientConn, error)) *ConnPool {
+	return &ConnPool{
+		conns:     make(map[string]*grpc.ClientConn),
+		spawnFunc: spawnFunc,
+	}
+}
+
 // isHealthy returns true if the connection is in a usable state.
 func isHealthy(conn *grpc.ClientConn) bool {
 	state := conn.GetState()

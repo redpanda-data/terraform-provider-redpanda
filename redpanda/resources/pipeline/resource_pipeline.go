@@ -56,16 +56,6 @@ type Pipeline struct {
 
 	resData       config.Resource
 	clientFactory ClientFactory
-	pollInterval  time.Duration // For testing; if zero, uses default
-}
-
-// getPollInterval returns the poll interval for waiting on state changes.
-// Uses the configured interval if set, otherwise returns the default of 1 second.
-func (p *Pipeline) getPollInterval() time.Duration {
-	if p.pollInterval > 0 {
-		return p.pollInterval
-	}
-	return 1 * time.Second
 }
 
 // Metadata returns the full name of the Pipeline resource
@@ -631,35 +621,20 @@ func (p *Pipeline) createPipelineClient(clusterURL string) error {
 }
 
 func (p *Pipeline) waitForPipelineState(ctx context.Context, pipelineID string, targetState dataplanev1.Pipeline_State, timeout time.Duration) error {
-	deadline := time.Now().Add(timeout)
-	baseInterval := p.getPollInterval()
-	interval := baseInterval
-	maxInterval := baseInterval * 10
-
-	for time.Now().Before(deadline) {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
+	return utils.Retry(ctx, timeout, func() *utils.RetryError {
 		getResp, err := p.PipelineClient.GetPipeline(ctx, &dataplanev1.GetPipelineRequest{
 			Id: pipelineID,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to get pipeline state: %w", err)
+			return utils.NonRetryableError(fmt.Errorf("failed to get pipeline state: %w", err))
 		}
-
 		state := getResp.GetPipeline().GetState()
 		if state == targetState {
 			return nil
 		}
 		if state == dataplanev1.Pipeline_STATE_ERROR {
-			return errors.New("pipeline entered error state")
+			return utils.NonRetryableError(errors.New("pipeline entered error state"))
 		}
-
-		time.Sleep(interval)
-		interval = min(interval*2, maxInterval)
-	}
-	return fmt.Errorf("timeout waiting for pipeline to reach state %s", targetState.String())
+		return utils.RetryableError(fmt.Errorf("pipeline in state %s, waiting for %s", state, targetState))
+	})
 }

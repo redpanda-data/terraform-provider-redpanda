@@ -521,7 +521,6 @@ func (*DataModel) generateModelAWSPrivateLink(cluster *controlplanev1.Cluster) (
 				"id":                 types.StringValue(conn.GetId()),
 				"owner":              types.StringValue(conn.GetOwner()),
 				"state":              types.StringValue(conn.GetState()),
-				"created_at":         types.StringValue(conn.GetCreatedAt().AsTime().Format(time.RFC3339)),
 				"connection_id":      types.StringValue(conn.GetConnectionId()),
 				"load_balancer_arns": utils.StringSliceToTypeList(conn.GetLoadBalancerArns()),
 				"dns_entries":        dnsEntriesList,
@@ -548,8 +547,6 @@ func (*DataModel) generateModelAWSPrivateLink(cluster *controlplanev1.Cluster) (
 			"service_id":                    types.StringValue(status.GetServiceId()),
 			"service_name":                  types.StringValue(status.GetServiceName()),
 			"service_state":                 types.StringValue(status.GetServiceState()),
-			"created_at":                    types.StringValue(status.GetCreatedAt().AsTime().Format(time.RFC3339)),
-			"deleted_at":                    types.StringValue(status.GetDeletedAt().AsTime().Format(time.RFC3339)),
 			"vpc_endpoint_connections":      vpcConnsList,
 			"kafka_api_seed_port":           types.Int32Value(status.GetKafkaApiSeedPort()),
 			"schema_registry_seed_port":     types.Int32Value(status.GetSchemaRegistrySeedPort()),
@@ -649,8 +646,6 @@ func (*DataModel) generateModelGCPPrivateServiceConnect(cluster *controlplanev1.
 
 		statusObj, d = types.ObjectValue(getGcpPrivateServiceConnectStatusType(), map[string]attr.Value{
 			"service_attachment":            types.StringValue(status.GetServiceAttachment()),
-			"created_at":                    types.StringValue(status.GetCreatedAt().AsTime().Format(time.RFC3339)),
-			"deleted_at":                    types.StringValue(status.GetDeletedAt().AsTime().Format(time.RFC3339)),
 			"kafka_api_seed_port":           types.Int32Value(status.GetKafkaApiSeedPort()),
 			"schema_registry_seed_port":     types.Int32Value(status.GetSchemaRegistrySeedPort()),
 			"redpanda_proxy_seed_port":      types.Int32Value(status.GetRedpandaProxySeedPort()),
@@ -713,7 +708,6 @@ func (*DataModel) generateModelAzurePrivateLink(cluster *controlplanev1.Cluster)
 				"connection_name":       types.StringValue(conn.GetConnectionName()),
 				"connection_id":         types.StringValue(conn.GetConnectionId()),
 				"status":                types.StringValue(conn.GetStatus()),
-				"created_at":            types.StringValue(conn.GetCreatedAt().AsTime().Format(time.RFC3339)),
 			})
 			if d.HasError() {
 				diags.Append(d...)
@@ -736,8 +730,6 @@ func (*DataModel) generateModelAzurePrivateLink(cluster *controlplanev1.Cluster)
 		statusObj, d = types.ObjectValue(getAzurePrivateLinkStatusType(), map[string]attr.Value{
 			"service_id":                    types.StringValue(status.GetServiceId()),
 			"service_name":                  types.StringValue(status.GetServiceName()),
-			"created_at":                    types.StringValue(status.GetCreatedAt().AsTime().Format(time.RFC3339)),
-			"deleted_at":                    types.StringValue(status.GetDeletedAt().AsTime().Format(time.RFC3339)),
 			"private_endpoint_connections":  privateEndpointConnsList,
 			"dns_a_record":                  types.StringValue(status.GetDnsARecord()),
 			"approved_subscriptions":        utils.StringSliceToTypeList(status.GetApprovedSubscriptions()),

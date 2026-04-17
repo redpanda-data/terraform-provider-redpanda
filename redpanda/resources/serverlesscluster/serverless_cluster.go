@@ -21,7 +21,7 @@ func generateModel(cluster *controlplanev1.ServerlessCluster) *serverlesscluster
 
 	// Deprecated cluster_api_url (kept for backward compatibility)
 	if cluster.DataplaneApi != nil {
-		output.ClusterAPIURL = types.StringValue(cluster.DataplaneApi.Url)
+		output.ClusterAPIURL = utils.StringValueOrNull(cluster.DataplaneApi.Url)
 	}
 
 	// Set private_link_id if present
@@ -53,23 +53,14 @@ func generateModel(cluster *controlplanev1.ServerlessCluster) *serverlesscluster
 
 	// Set kafka_api
 	if cluster.KafkaApi != nil {
-		seedBrokers := make([]attr.Value, len(cluster.KafkaApi.SeedBrokers))
-		for i, broker := range cluster.KafkaApi.SeedBrokers {
-			seedBrokers[i] = types.StringValue(broker)
-		}
-		privateSeedBrokers := make([]attr.Value, len(cluster.KafkaApi.PrivateSeedBrokers))
-		for i, broker := range cluster.KafkaApi.PrivateSeedBrokers {
-			privateSeedBrokers[i] = types.StringValue(broker)
-		}
-
 		kafkaAPIObj, _ := types.ObjectValue(
 			map[string]attr.Type{
 				"seed_brokers":         types.ListType{ElemType: types.StringType},
 				"private_seed_brokers": types.ListType{ElemType: types.StringType},
 			},
 			map[string]attr.Value{
-				"seed_brokers":         types.ListValueMust(types.StringType, seedBrokers),
-				"private_seed_brokers": types.ListValueMust(types.StringType, privateSeedBrokers),
+				"seed_brokers":         utils.StringSliceToTypeListOrNull(cluster.KafkaApi.SeedBrokers),
+				"private_seed_brokers": utils.StringSliceToTypeListOrNull(cluster.KafkaApi.PrivateSeedBrokers),
 			},
 		)
 		output.KafkaAPI = kafkaAPIObj
@@ -88,8 +79,8 @@ func generateModel(cluster *controlplanev1.ServerlessCluster) *serverlesscluster
 				"private_url": types.StringType,
 			},
 			map[string]attr.Value{
-				"url":         types.StringValue(cluster.SchemaRegistry.Url),
-				"private_url": types.StringValue(cluster.SchemaRegistry.PrivateUrl),
+				"url":         utils.StringValueOrNull(cluster.SchemaRegistry.Url),
+				"private_url": utils.StringValueOrNull(cluster.SchemaRegistry.PrivateUrl),
 			},
 		)
 		output.SchemaRegistry = schemaRegistryObj
@@ -108,8 +99,8 @@ func generateModel(cluster *controlplanev1.ServerlessCluster) *serverlesscluster
 				"private_url": types.StringType,
 			},
 			map[string]attr.Value{
-				"url":         types.StringValue(cluster.DataplaneApi.Url),
-				"private_url": types.StringValue(cluster.DataplaneApi.PrivateUrl),
+				"url":         utils.StringValueOrNull(cluster.DataplaneApi.Url),
+				"private_url": utils.StringValueOrNull(cluster.DataplaneApi.PrivateUrl),
 			},
 		)
 		output.DataplaneAPI = dataplaneAPIObj
@@ -151,8 +142,8 @@ func generateModel(cluster *controlplanev1.ServerlessCluster) *serverlesscluster
 	}
 
 	// Set console URLs
-	output.ConsoleURL = types.StringValue(cluster.ConsoleUrl)
-	output.ConsolePrivateURL = types.StringValue(cluster.ConsolePrivateUrl)
+	output.ConsoleURL = utils.StringValueOrNull(cluster.ConsoleUrl)
+	output.ConsolePrivateURL = utils.StringValueOrNull(cluster.ConsolePrivateUrl)
 
 	// Set prometheus
 	if cluster.Prometheus != nil {
@@ -162,8 +153,8 @@ func generateModel(cluster *controlplanev1.ServerlessCluster) *serverlesscluster
 				"private_url": types.StringType,
 			},
 			map[string]attr.Value{
-				"url":         types.StringValue(cluster.Prometheus.Url),
-				"private_url": types.StringValue(cluster.Prometheus.PrivateUrl),
+				"url":         utils.StringValueOrNull(cluster.Prometheus.Url),
+				"private_url": utils.StringValueOrNull(cluster.Prometheus.PrivateUrl),
 			},
 		)
 		output.Prometheus = prometheusObj
@@ -186,7 +177,7 @@ func generateDataModel(cluster *controlplanev1.ServerlessCluster) *serverlessclu
 		ID:               types.StringValue(cluster.Id),
 	}
 	if cluster.DataplaneApi != nil {
-		output.ClusterAPIURL = types.StringValue(cluster.DataplaneApi.Url)
+		output.ClusterAPIURL = utils.StringValueOrNull(cluster.DataplaneApi.Url)
 	}
 	return output
 }

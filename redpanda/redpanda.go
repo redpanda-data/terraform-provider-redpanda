@@ -73,6 +73,16 @@ type Redpanda struct {
 	dataplanePool *cloud.ConnPool
 	// byoc is the client for managing byoc executions.
 	byoc *utils.ByocClient
+
+	// testControlPlaneConn, if non-nil, short-circuits Configure: the
+	// supplied connection replaces what cloud.SpawnConn would build, and
+	// credential retrieval is skipped. Test-only; set by NewWithTestConn.
+	testControlPlaneConn *grpc.ClientConn
+
+	// testDataplaneConn, if non-nil, is wired into r.dataplanePool via a
+	// spawnFunc that returns it for any URL the pool is asked to dial.
+	// Test-only; set by NewWithTestConnAndDataplane.
+	testDataplaneConn *grpc.ClientConn
 }
 
 const (
@@ -91,6 +101,33 @@ func New(_ context.Context, cloudEnv, version string) func() provider.Provider {
 		return &Redpanda{
 			cloudEnv: cloudEnv,
 			version:  version,
+		}
+	}
+}
+
+// NewWithTestConn returns a provider preconfigured to dial the supplied
+// gRPC connection — typically an in-process fake from the cloudtest
+// package. Test-only.
+func NewWithTestConn(_ context.Context, cloudEnv, version string, conn *grpc.ClientConn) func() provider.Provider {
+	return func() provider.Provider {
+		return &Redpanda{
+			cloudEnv:             cloudEnv,
+			version:              version,
+			testControlPlaneConn: conn,
+		}
+	}
+}
+
+// NewWithTestConnAndDataplane is like NewWithTestConn but also wires a
+// dataplane connection into the provider's ConnPool via an override
+// spawnFunc that returns dpConn for any URL. Test-only.
+func NewWithTestConnAndDataplane(_ context.Context, cloudEnv, version string, cpConn, dpConn *grpc.ClientConn) func() provider.Provider {
+	return func() provider.Provider {
+		return &Redpanda{
+			cloudEnv:             cloudEnv,
+			version:              version,
+			testControlPlaneConn: cpConn,
+			testDataplaneConn:    dpConn,
 		}
 	}
 }
@@ -300,6 +337,35 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	var conf models.Redpanda
 	response.Diagnostics.Append(request.Config.Get(ctx, &conf)...)
 	if response.Diagnostics.HasError() {
+		return
+	}
+
+	// Test seam: a pre-built connection bypasses credential retrieval.
+	// BYOC client is left nil — callers using this path must avoid BYOC
+	// cluster operations. Dataplane pool is wired only when
+	// testDataplaneConn is supplied via NewWithTestConnAndDataplane.
+	if r.testControlPlaneConn != nil {
+		r.conn = r.testControlPlaneConn
+		var dpPool *cloud.ConnPool
+		if r.testDataplaneConn != nil {
+			dpConn := r.testDataplaneConn
+			dpPool = cloud.NewConnPoolWithSpawnFunc(func(string, string, string, string) (*grpc.ClientConn, error) {
+				return dpConn, nil
+			})
+		}
+		r.dataplanePool = dpPool
+		response.ResourceData = config.Resource{
+			ControlPlaneConnection: r.conn,
+			DataplaneConnPool:      dpPool,
+			TerraformVersion:       request.TerraformVersion,
+			ProviderVersion:        r.version,
+		}
+		response.DataSourceData = config.Datasource{
+			ControlPlaneConnection: r.conn,
+			DataplaneConnPool:      dpPool,
+			TerraformVersion:       request.TerraformVersion,
+			ProviderVersion:        r.version,
+		}
 		return
 	}
 

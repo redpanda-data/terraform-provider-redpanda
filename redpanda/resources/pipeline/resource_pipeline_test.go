@@ -19,7 +19,6 @@ import (
 	"errors"
 	"strings"
 	"testing"
-	"time"
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
@@ -159,10 +158,6 @@ func createMockPipelineResources(cpuShares, memoryShares string) *dataplanev1.Pi
 }
 
 func setupPipelineResource(mockClient dataplanev1grpc.PipelineServiceClient) *Pipeline {
-	return setupPipelineResourceWithPollInterval(mockClient, 0)
-}
-
-func setupPipelineResourceWithPollInterval(mockClient dataplanev1grpc.PipelineServiceClient, pollInterval time.Duration) *Pipeline {
 	return &Pipeline{
 		clientFactory: func(_, _, _, _ string) (dataplanev1grpc.PipelineServiceClient, error) {
 			return mockClient, nil
@@ -172,7 +167,6 @@ func setupPipelineResourceWithPollInterval(mockClient dataplanev1grpc.PipelineSe
 			ProviderVersion:  testProviderVer,
 			TerraformVersion: testTerraformVer,
 		},
-		pollInterval: pollInterval,
 	}
 }
 
@@ -185,14 +179,10 @@ type testSetup struct {
 }
 
 func newTestSetup(t *testing.T) *testSetup {
-	return newTestSetupWithPollInterval(t, 0)
-}
-
-func newTestSetupWithPollInterval(t *testing.T, pollInterval time.Duration) *testSetup {
 	ctrl := gomock.NewController(t)
 	t.Cleanup(ctrl.Finish)
 	mockClient := mocks.NewMockPipelineServiceClient(ctrl)
-	r := setupPipelineResourceWithPollInterval(mockClient, pollInterval)
+	r := setupPipelineResource(mockClient)
 
 	schemaResp := resource.SchemaResponse{}
 	r.Schema(context.Background(), resource.SchemaRequest{}, &schemaResp)

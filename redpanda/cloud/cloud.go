@@ -199,7 +199,7 @@ func SpawnConnWithConcurrency(url, authToken, providerVersion, terraformVersion 
 			grpcretry.UnaryClientInterceptor(
 				grpcretry.WithCodes(codes.Unavailable, codes.Unknown, codes.Unauthenticated),
 				grpcretry.WithMax(5),
-				grpcretry.WithBackoff(grpcretry.BackoffExponential(time.Millisecond*100)),
+				grpcretry.WithBackoff(grpcretry.BackoffExponentialWithJitter(time.Millisecond*100, 0.2)),
 			),
 		)),
 		// And provide TLS config.

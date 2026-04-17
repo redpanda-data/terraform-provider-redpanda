@@ -354,6 +354,22 @@ func StringSliceToTypeList(elements []string) types.List {
 	return types.ListValueMust(types.StringType, values)
 }
 
+// StringValueOrNull returns StringNull for "" and StringValue otherwise.
+func StringValueOrNull(s string) types.String {
+	if s == "" {
+		return types.StringNull()
+	}
+	return types.StringValue(s)
+}
+
+// StringSliceToTypeListOrNull is StringSliceToTypeList but also maps empty slices to ListNull.
+func StringSliceToTypeListOrNull(elements []string) types.List {
+	if len(elements) == 0 {
+		return types.ListNull(types.StringType)
+	}
+	return StringSliceToTypeList(elements)
+}
+
 // TrimmedStringValue returns the string value of a types.String with the quotes removed.
 // This is necessary as terraform has a tendency to slap these bad boys in at random which causes the API to fail
 func TrimmedStringValue(s string) types.String {

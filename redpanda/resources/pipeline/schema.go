@@ -74,18 +74,19 @@ func resourcePipelineSchema(ctx context.Context) schema.Schema {
 			"status": schema.SingleNestedAttribute{
 				Computed:            true,
 				MarkdownDescription: "Pipeline status information.",
-				PlanModifiers:       []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				PlanModifiers:       []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"error": schema.StringAttribute{
 						Computed:            true,
 						MarkdownDescription: "Error message if the pipeline is in an error state.",
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 					},
 				},
 			},
 			"url": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "URL to connect to the pipeline's HTTP server, if applicable.",
-				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 			},
 			"tags": schema.MapAttribute{
 				Optional:            true,
