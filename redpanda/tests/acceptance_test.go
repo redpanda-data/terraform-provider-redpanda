@@ -320,7 +320,7 @@ func TestAccResourcesByoVpcAWS(t *testing.T) {
 		customVars["zones"] = config.ListVariable(zonesVars...)
 	}
 
-	testRunnerCluster(ctx, name, rename, redpandaVersion, awsByocVpcClusterDir, customVars, t)
+	testRunnerClusterWithAwsPrivateLinkToggle(ctx, name, rename, redpandaVersion, awsByocVpcClusterDir, customVars, t)
 }
 
 func TestAccResourcesByoVpcGCP(t *testing.T) {
@@ -1227,6 +1227,17 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 			{
+				// Replan after create must be a no-op. Catches any
+				// "Provider produced inconsistent result after apply"
+				// bug class where the Read mapping diverges from the
+				// Create apply result.
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          origTestCaseVars,
+				PlanOnly:                 true,
+				ExpectNonEmptyPlan:       false,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			{
 				ResourceName:             clusterResourceName,
 				ConfigDirectory:          config.StaticDirectory(testFile),
 				ConfigVariables:          origTestCaseVars,
@@ -1243,6 +1254,137 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 					resource.TestCheckResourceAttr(networkResourceName, "name", name),
 					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
 				),
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			{
+				// Replan after the rename-update must be a no-op.
+				// Catches Read-after-Update mapper drift.
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          updateTestCaseVars,
+				PlanOnly:                 true,
+				ExpectNonEmptyPlan:       false,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+		},
+	},
+	)
+	resource.AddTestSweepers(generateRandomName("resourcegroupSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepResourceGroup{
+			ResourceGroupName: name,
+			Client:            c,
+		}.SweepResourceGroup,
+	})
+	resource.AddTestSweepers(generateRandomName("networkSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepNetwork{
+			NetworkName: name,
+			Client:      c,
+		}.SweepNetworks,
+	})
+	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
+		Name: name,
+		F: sweepCluster{
+			ClusterName: name,
+			Client:      c,
+		}.SweepCluster,
+	})
+	resource.AddTestSweepers(generateRandomName("clusterSweeper"), &resource.Sweeper{
+		Name: rename,
+		F: sweepCluster{
+			ClusterName: rename,
+			Client:      c,
+		}.SweepCluster,
+	})
+}
+
+// testRunnerClusterWithAwsPrivateLinkToggle runs the standard lifecycle then
+// toggles PL from true to false — regression guard for
+// terraform-plugin-framework#1211.
+func testRunnerClusterWithAwsPrivateLinkToggle(ctx context.Context, name, rename, version, testFile string, customVars map[string]config.Variable, t *testing.T) {
+	origTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(origTestCaseVars, providerCfgIDSecretVars)
+	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
+	origTestCaseVars["network_name"] = config.StringVariable(name)
+	origTestCaseVars["cluster_name"] = config.StringVariable(name)
+	if throughputTier != "" {
+		origTestCaseVars["throughput_tier"] = config.StringVariable(throughputTier)
+	}
+
+	if len(customVars) > 0 {
+		for k, v := range customVars {
+			origTestCaseVars[k] = v
+		}
+	}
+	if version != "" {
+		origTestCaseVars["version"] = config.StringVariable(version)
+	}
+
+	updateTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(updateTestCaseVars, origTestCaseVars)
+	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
+	updateTestCaseVars["cluster_allow_deletion"] = config.BoolVariable(true)
+
+	toggleTestCaseVars := make(map[string]config.Variable)
+	maps.Copy(toggleTestCaseVars, updateTestCaseVars)
+	toggleTestCaseVars["aws_private_link_enabled"] = config.BoolVariable(false)
+
+	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				ConfigDirectory: config.StaticDirectory(testFile),
+				ConfigVariables: origTestCaseVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", name),
+				),
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			{
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          origTestCaseVars,
+				PlanOnly:                 true,
+				ExpectNonEmptyPlan:       false,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			{
+				ResourceName:             clusterResourceName,
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          origTestCaseVars,
+				ImportState:              true,
+				ImportStateVerify:        true,
+				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			{
+				ConfigDirectory: config.StaticDirectory(testFile),
+				ConfigVariables: updateTestCaseVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceGroupName, "name", name),
+					resource.TestCheckResourceAttr(networkResourceName, "name", name),
+					resource.TestCheckResourceAttr(clusterResourceName, "name", rename),
+				),
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			{
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          updateTestCaseVars,
+				PlanOnly:                 true,
+				ExpectNonEmptyPlan:       false,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			{
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          toggleTestCaseVars,
+				PlanOnly:                 true,
+				ExpectNonEmptyPlan:       true,
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			},
 		},
