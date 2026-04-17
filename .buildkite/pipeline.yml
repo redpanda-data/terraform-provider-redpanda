@@ -12,7 +12,7 @@ steps:
         exit 1
       fi
     plugins:
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.24"
           environment:
             - BUILDKITE=true
@@ -26,7 +26,7 @@ steps:
         exit 1
       fi
     plugins:
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.24"
           environment:
             - BUILDKITE=true
@@ -35,7 +35,7 @@ steps:
     command: |
       ./taskw lint
     plugins:
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.24"
           environment:
             - BUILDKITE=true
@@ -44,31 +44,13 @@ steps:
     command: |
       ./taskw test:unit
     plugins:
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.24"
     depends_on:
       - docs
       - generate
       - lint
 
-  - label: test_network
-    key: test_network
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
-    command: |
-      ./taskw test:network
-    plugins:
-      - seek-oss/aws-sm#v2.3.2:
-          json-to-env:
-            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.11.0:
-          image: "golang:1.24"
-          environment:
-            - REDPANDA_CLIENT_ID
-            - REDPANDA_CLIENT_SECRET
-            - TF_LOG=DEBUG
-    depends_on:
-      - lint
-      - unit
   - label: test_datasource_cluster
     key: test_datasource_cluster
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
@@ -78,7 +60,7 @@ steps:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.24"
           environment:
             - REDPANDA_CLIENT_ID
@@ -87,7 +69,6 @@ steps:
     depends_on:
       - lint
       - unit
-      - test_network
   - label: test_cluster_aws
     key: test_cluster_aws
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
@@ -97,7 +78,7 @@ steps:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.24"
           environment:
             - REDPANDA_CLIENT_ID
@@ -106,7 +87,6 @@ steps:
     depends_on:
       - lint
       - unit
-      - test_network
   - label: test_cluster_azure
     key: test_cluster_azure
     if: build.tag == null &&  build.pull_request.labels includes 'ci-ready'
@@ -116,7 +96,7 @@ steps:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.24"
           environment:
             - REDPANDA_CLIENT_ID
@@ -125,7 +105,6 @@ steps:
     depends_on:
       - lint
       - unit
-      - test_network
   - label: test_cluster_gcp
     key: test_cluster_gcp
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
@@ -135,7 +114,7 @@ steps:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.24"
           environment:
             - REDPANDA_CLIENT_ID
@@ -144,7 +123,6 @@ steps:
     depends_on:
       - lint
       - unit
-      - test_network
   - label: test_serverless_cluster_aws_public
     key: test_serverless_cluster_aws_public
     if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-serverless')
@@ -154,7 +132,7 @@ steps:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.24"
           environment:
             - REDPANDA_CLIENT_ID
@@ -163,7 +141,6 @@ steps:
     depends_on:
       - lint
       - unit
-      - test_network
   - label: test_serverless_cluster_gcp
     key: test_serverless_cluster_gcp
     if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-serverless')
@@ -173,7 +150,7 @@ steps:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.24"
           environment:
             - REDPANDA_CLIENT_ID
@@ -182,7 +159,6 @@ steps:
     depends_on:
       - lint
       - unit
-      - test_network
   - label: test_serverless_cluster_aws_private
     key: test_serverless_cluster_aws_private
     if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-serverless')
@@ -192,7 +168,7 @@ steps:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.24"
           environment:
             - REDPANDA_CLIENT_ID
@@ -201,7 +177,6 @@ steps:
     depends_on:
       - lint
       - unit
-      - test_network
   - label: test_serverless_cluster_aws_both
     key: test_serverless_cluster_aws_both
     if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-serverless')
@@ -211,7 +186,7 @@ steps:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.24"
           environment:
             - REDPANDA_CLIENT_ID
@@ -220,7 +195,6 @@ steps:
     depends_on:
       - lint
       - unit
-      - test_network
   - label: test_serverless_regions
     key: test_serverless_regions
     if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-serverless')
@@ -230,7 +204,7 @@ steps:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.24"
           environment:
             - REDPANDA_CLIENT_ID
@@ -249,7 +223,7 @@ steps:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.24"
           environment:
             - REDPANDA_CLIENT_ID
@@ -258,7 +232,6 @@ steps:
     depends_on:
       - lint
       - unit
-      - test_network
   - label: test_byoc_aws
     key: test_byoc_aws
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
@@ -279,7 +252,31 @@ steps:
     depends_on:
       - lint
       - unit
-      - test_network
+  - label: test_byovpc_aws
+    key: test_byovpc_aws
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'byovpc')
+    command: |
+      apt-get update && apt-get install -y --no-install-recommends curl unzip jq python3 pip
+      pip install --break-system-packages awscli
+      curl -fsSL https://releases.hashicorp.com/terraform/1.14.8/terraform_1.14.8_linux_amd64.zip -o /tmp/tf.zip
+      unzip -o /tmp/tf.zip -d /usr/local/bin/
+      ./taskw test:byovpc:aws
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.12.0:
+          image: "golang:1.24"
+          environment:
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
+            - TF_LOG=DEBUG
+            - AWS_ACCESS_KEY_ID
+            - AWS_SECRET_ACCESS_KEY
+            - AWS_REGION=us-east-2
+    depends_on:
+      - lint
+      - unit
   - label: test_byoc_gcp
     key: test_byoc_gcp
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
@@ -289,7 +286,7 @@ steps:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.24"
           environment:
             - REDPANDA_CLIENT_ID
@@ -300,7 +297,6 @@ steps:
     depends_on:
       - lint
       - unit
-      - test_network
   - label: test_byoc_azure
     key: test_byoc_azure
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
@@ -310,7 +306,7 @@ steps:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.24"
           environment:
             - REDPANDA_CLIENT_ID
@@ -323,11 +319,10 @@ steps:
     depends_on:
       - lint
       - unit
-      - test_network
 
-  - label: cleanup_byoc_aws
-    key: cleanup_byoc_aws
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
+  - label: cleanup_aws
+    key: cleanup_aws
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'byovpc')
     command: |
       ./taskw cleanup:aws:ci || echo "AWS cleanup completed with errors (non-blocking)"
     plugins:
@@ -342,7 +337,9 @@ steps:
             - AWS_REGION=us-east-2
             - CI=true
     depends_on:
+      - test_datasource_cluster
       - test_byoc_aws
+      - test_byovpc_aws
     allow_dependency_failure: true
     soft_fail: true
 
@@ -355,7 +352,7 @@ steps:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.24"
           environment:
             - GOOGLE_CREDENTIALS_BASE64
@@ -369,14 +366,14 @@ steps:
 
   - label: cleanup_redpanda_cloud
     key: cleanup_redpanda_cloud
-    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-serverless')
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-serverless' || build.pull_request.labels includes 'byovpc')
     command: |
       ./taskw cleanup:redpanda || echo "Redpanda Cloud cleanup completed with errors (non-blocking)"
     plugins:
       - seek-oss/aws-sm#v2.3.2:
           json-to-env:
             - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "golang:1.24"
           environment:
             - REDPANDA_CLIENT_ID
@@ -394,6 +391,7 @@ steps:
       - test_serverless_cluster_aws_both
       - test_serverless_private_link
       - test_byoc_aws
+      - test_byovpc_aws
       - test_byoc_gcp
       - test_byoc_azure
     allow_dependency_failure: true
@@ -415,5 +413,5 @@ steps:
       echo "Tag pipeline completed successfully."
       echo "=========================================="
     plugins:
-      - docker#v5.11.0:
+      - docker#v5.12.0:
           image: "alpine:latest"
