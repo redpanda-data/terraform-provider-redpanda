@@ -394,6 +394,226 @@ func TestTopic_UpdateStatePersistence(t *testing.T) {
 	assert.Equal(t, "172800000", configMap["retention.ms"], "updated config should be in state")
 }
 
+func TestIsTransientBrokerError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"broker died", errors.New("the internal broker struct chosen to issue this request has died--either the broker id is migrating or no longer exists"), true},
+		{"client closed", errors.New("rpc error: code = Internal desc = client closed"), true},
+		{"context canceled", errors.New("rpc error: code = Internal desc = context canceled"), true},
+		{"unrelated internal", errors.New("rpc error: code = Internal desc = something else"), false},
+		{"not found", errors.New("rpc error: code = NotFound desc = topic not found"), false},
+		{"nil-like empty", errors.New(""), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isTransientBrokerError(tt.err))
+		})
+	}
+}
+
+func TestIsNotFoundError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"NOT_FOUND", errors.New("rpc error: code = NotFound desc = NOT_FOUND"), true},
+		{"topic does not exist", errors.New("TOPIC_DOES_NOT_EXIST: no topic"), true},
+		{"does not exist phrase", errors.New("topic does not exist"), true},
+		{"other error", errors.New("permission denied"), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isNotFoundError(tt.err))
+		})
+	}
+}
+
+// TestTopic_Read_RetriesTransient verifies Read's FindTopicByName retries on
+// a transient broker error and succeeds on the subsequent attempt.
+func TestTopic_Read_RetriesTransient(t *testing.T) {
+	partitionCount := int32(3)
+	replicationFactor := int32(1)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	ctx := context.Background()
+	mockClient := mocks.NewMockTopicServiceClient(ctrl)
+
+	gomock.InOrder(
+		mockClient.EXPECT().
+			ListTopics(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, errors.New("rpc error: code = Internal desc = context canceled")),
+		mockClient.EXPECT().
+			ListTopics(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&dataplanev1.ListTopicsResponse{
+				Topics: []*dataplanev1.ListTopicsResponse_Topic{{
+					Name:              "retry-topic",
+					PartitionCount:    partitionCount,
+					ReplicationFactor: replicationFactor,
+				}},
+			}, nil),
+	)
+	mockClient.EXPECT().
+		GetTopicConfigurations(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&dataplanev1.GetTopicConfigurationsResponse{
+			Configurations: []*dataplanev1.Topic_Configuration{},
+		}, nil)
+
+	topic := &Topic{
+		clientFactory: func(_, _, _, _ string) (dataplanev1grpc.TopicServiceClient, error) {
+			return mockClient, nil
+		},
+		resData: config.Resource{AuthToken: "test-token", ProviderVersion: "1.0.0", TerraformVersion: "1.5.0"},
+	}
+	schemaResp := resource.SchemaResponse{}
+	topic.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+
+	state := topicmodel.ResourceModel{
+		Name:              types.StringValue("retry-topic"),
+		PartitionCount:    utils.Int32ToNumber(partitionCount),
+		ReplicationFactor: utils.Int32ToNumber(replicationFactor),
+		Configuration:     types.MapNull(types.StringType),
+		ClusterAPIURL:     types.StringValue("https://api-test.cluster.redpanda.com"),
+		AllowDeletion:     types.BoolValue(true),
+		ID:                types.StringValue("retry-topic"),
+		ReplicaAssignments: types.ListNull(types.ObjectType{
+			AttrTypes: replicaAssignmentAttrTypes(),
+		}),
+	}
+	req := resource.ReadRequest{State: tfsdk.State{Schema: schemaResp.Schema}}
+	diags := req.State.Set(ctx, &state)
+	require.False(t, diags.HasError())
+	resp := resource.ReadResponse{State: tfsdk.State{Schema: schemaResp.Schema}}
+
+	topic.Read(ctx, req, &resp)
+
+	require.False(t, resp.Diagnostics.HasError(), "Read should succeed after retry: %v", resp.Diagnostics)
+}
+
+// TestTopic_Update_RetriesTransient verifies SetTopicConfigurations retries
+// on a transient broker error and succeeds on the subsequent attempt.
+func TestTopic_Update_RetriesTransient(t *testing.T) {
+	partitionCount := int32(3)
+	replicationFactor := int32(1)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	ctx := context.Background()
+	mockClient := mocks.NewMockTopicServiceClient(ctrl)
+
+	gomock.InOrder(
+		mockClient.EXPECT().
+			SetTopicConfigurations(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, errors.New("rpc error: code = Internal desc = client closed")),
+		mockClient.EXPECT().
+			SetTopicConfigurations(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&dataplanev1.SetTopicConfigurationsResponse{}, nil),
+	)
+	mockClient.EXPECT().
+		GetTopicConfigurations(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&dataplanev1.GetTopicConfigurationsResponse{
+			Configurations: []*dataplanev1.Topic_Configuration{},
+		}, nil)
+
+	topic := &Topic{
+		clientFactory: func(_, _, _, _ string) (dataplanev1grpc.TopicServiceClient, error) {
+			return mockClient, nil
+		},
+		resData: config.Resource{AuthToken: "test-token", ProviderVersion: "1.0.0", TerraformVersion: "1.5.0"},
+	}
+	schemaResp := resource.SchemaResponse{}
+	topic.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+
+	base := topicmodel.ResourceModel{
+		Name:              types.StringValue("update-topic"),
+		PartitionCount:    utils.Int32ToNumber(partitionCount),
+		ReplicationFactor: utils.Int32ToNumber(replicationFactor),
+		ClusterAPIURL:     types.StringValue("https://api-test.cluster.redpanda.com"),
+		AllowDeletion:     types.BoolValue(true),
+		ID:                types.StringValue("update-topic"),
+		ReplicaAssignments: types.ListNull(types.ObjectType{
+			AttrTypes: replicaAssignmentAttrTypes(),
+		}),
+	}
+	state := base
+	state.Configuration = types.MapValueMust(types.StringType, map[string]attr.Value{
+		"retention.ms": types.StringValue("86400000"),
+	})
+	plan := base
+	plan.Configuration = types.MapValueMust(types.StringType, map[string]attr.Value{
+		"retention.ms": types.StringValue("172800000"),
+	})
+
+	req := resource.UpdateRequest{
+		State: tfsdk.State{Schema: schemaResp.Schema},
+		Plan:  tfsdk.Plan{Schema: schemaResp.Schema},
+	}
+	diags := req.State.Set(ctx, &state)
+	require.False(t, diags.HasError())
+	diags = req.Plan.Set(ctx, &plan)
+	require.False(t, diags.HasError())
+	resp := resource.UpdateResponse{State: tfsdk.State{Schema: schemaResp.Schema}}
+
+	topic.Update(ctx, req, &resp)
+
+	require.False(t, resp.Diagnostics.HasError(), "Update should succeed after retry: %v", resp.Diagnostics)
+}
+
+// TestTopic_Delete_NotFoundAfterRetryIsSuccess verifies Delete treats a
+// NOT_FOUND response after an initial transient error as a successful delete.
+func TestTopic_Delete_NotFoundAfterRetryIsSuccess(t *testing.T) {
+	partitionCount := int32(3)
+	replicationFactor := int32(1)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	ctx := context.Background()
+	mockClient := mocks.NewMockTopicServiceClient(ctrl)
+
+	gomock.InOrder(
+		mockClient.EXPECT().
+			DeleteTopic(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, errors.New("rpc error: code = Internal desc = client closed")),
+		mockClient.EXPECT().
+			DeleteTopic(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, errors.New("rpc error: code = NotFound desc = TOPIC_DOES_NOT_EXIST")),
+	)
+
+	topic := &Topic{
+		clientFactory: func(_, _, _, _ string) (dataplanev1grpc.TopicServiceClient, error) {
+			return mockClient, nil
+		},
+		resData: config.Resource{AuthToken: "test-token", ProviderVersion: "1.0.0", TerraformVersion: "1.5.0"},
+	}
+	schemaResp := resource.SchemaResponse{}
+	topic.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+
+	state := topicmodel.ResourceModel{
+		Name:              types.StringValue("delete-topic"),
+		PartitionCount:    utils.Int32ToNumber(partitionCount),
+		ReplicationFactor: utils.Int32ToNumber(replicationFactor),
+		Configuration:     types.MapNull(types.StringType),
+		ClusterAPIURL:     types.StringValue("https://api-test.cluster.redpanda.com"),
+		AllowDeletion:     types.BoolValue(true),
+		ID:                types.StringValue("delete-topic"),
+		ReplicaAssignments: types.ListNull(types.ObjectType{
+			AttrTypes: replicaAssignmentAttrTypes(),
+		}),
+	}
+	req := resource.DeleteRequest{State: tfsdk.State{Schema: schemaResp.Schema}}
+	diags := req.State.Set(ctx, &state)
+	require.False(t, diags.HasError())
+	resp := resource.DeleteResponse{State: tfsdk.State{Schema: schemaResp.Schema}}
+
+	topic.Delete(ctx, req, &resp)
+
+	require.False(t, resp.Diagnostics.HasError(), "Delete should succeed: %v", resp.Diagnostics)
+}
+
 func strPtr(s string) *string {
 	return &s
 }
