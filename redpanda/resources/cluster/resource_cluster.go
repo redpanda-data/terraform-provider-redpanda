@@ -23,8 +23,11 @@ import (
 	"time"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
@@ -38,6 +41,7 @@ var (
 	_ resource.Resource                = &Cluster{}
 	_ resource.ResourceWithConfigure   = &Cluster{}
 	_ resource.ResourceWithImportState = &Cluster{}
+	_ resource.ResourceWithModifyPlan  = &Cluster{}
 )
 
 // Cluster represents a cluster managed resource
@@ -176,6 +180,8 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), utils.DeserializeGrpcError(err))
 		return
 	}
+
+	logPrivateLinkResponse(ctx, cl)
 
 	if cl.GetState() == controlplanev1.Cluster_STATE_DELETING || cl.GetState() == controlplanev1.Cluster_STATE_DELETING_AGENT {
 		// null out the state, force it to be destroyed and recreated
@@ -333,4 +339,114 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 func (*Cluster) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
+}
+
+// ModifyPlan marks endpoint and private-link.status objects Unknown when
+// private-link config changes, so populated→null transitions don't trip
+// "inconsistent result after apply" (terraform-plugin-framework#1211).
+// Pairs with the parent objectplanmodifier.UseNonNullStateForUnknown
+// migration in schema_resource.go: that handles null→populated; this
+// handles populated→null.
+func (*Cluster) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+		return
+	}
+	plChanged, d := privateLinkConfigChanged(ctx, req.State, req.Plan)
+	resp.Diagnostics.Append(d...)
+	if resp.Diagnostics.HasError() || !plChanged {
+		return
+	}
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("kafka_api").AtName("all_seed_brokers"), types.ObjectUnknown(cluster.GetSeedBrokersType()))...)
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("http_proxy").AtName("all_urls"), types.ObjectUnknown(cluster.GetEndpointsType()))...)
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("schema_registry").AtName("all_urls"), types.ObjectUnknown(cluster.GetEndpointsType()))...)
+	for _, pl := range []struct {
+		blockPath  path.Path
+		statusType map[string]attr.Type
+	}{
+		{path.Root("aws_private_link"), cluster.GetAwsPrivateLinkStatusType()},
+		{path.Root("gcp_private_service_connect"), cluster.GetGcpPrivateServiceConnectStatusType()},
+		{path.Root("azure_private_link"), cluster.GetAzurePrivateLinkStatusType()},
+	} {
+		var planVal types.Object
+		resp.Diagnostics.Append(resp.Plan.GetAttribute(ctx, pl.blockPath, &planVal)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		// Skip when the parent block is null/unknown — SetAttribute on a
+		// nested path under a null parent fails with "non-computed attribute".
+		if planVal.IsNull() || planVal.IsUnknown() {
+			continue
+		}
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, pl.blockPath.AtName("status"), types.ObjectUnknown(pl.statusType))...)
+	}
+}
+
+func privateLinkConfigChanged(ctx context.Context, state tfsdk.State, plan tfsdk.Plan) (bool, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	for _, pc := range []struct {
+		path      path.Path
+		userAttrs []string
+	}{
+		{path.Root("aws_private_link"), []string{"enabled", "connect_console", "allowed_principals"}},
+		{path.Root("gcp_private_service_connect"), []string{"enabled", "global_access_enabled", "consumer_accept_list"}},
+		{path.Root("azure_private_link"), []string{"enabled", "connect_console", "allowed_subscriptions"}},
+	} {
+		var stateVal, planVal types.Object
+		diags.Append(state.GetAttribute(ctx, pc.path, &stateVal)...)
+		diags.Append(plan.GetAttribute(ctx, pc.path, &planVal)...)
+		if diags.HasError() {
+			return false, diags
+		}
+		if stateVal.IsNull() != planVal.IsNull() {
+			return true, diags
+		}
+		if stateVal.IsNull() {
+			continue
+		}
+		sa := stateVal.Attributes()
+		pa := planVal.Attributes()
+		for _, a := range pc.userAttrs {
+			if !sa[a].Equal(pa[a]) {
+				return true, diags
+			}
+		}
+	}
+	return false, diags
+}
+
+func logPrivateLinkResponse(ctx context.Context, cl *controlplanev1.Cluster) {
+	if pl := cl.GetAwsPrivateLink(); pl != nil {
+		fields := map[string]any{
+			"enabled":         pl.GetEnabled(),
+			"connect_console": pl.GetConnectConsole(),
+			"has_status":      pl.HasStatus(),
+		}
+		if pl.HasStatus() {
+			s := pl.GetStatus()
+			fields["status_service_id"] = s.GetServiceId()
+			fields["status_service_name"] = s.GetServiceName()
+			fields["status_service_state"] = s.GetServiceState()
+		}
+		tflog.Info(ctx, "cluster API response: aws_private_link", fields)
+	}
+	for _, ep := range []struct {
+		name string
+		has  bool
+		sasl string
+		mtls string
+		plS  string
+		plM  string
+	}{
+		{"kafka_api.all_seed_brokers", cl.GetKafkaApi().HasAllSeedBrokers(), cl.GetKafkaApi().GetAllSeedBrokers().GetSasl(), cl.GetKafkaApi().GetAllSeedBrokers().GetMtls(), cl.GetKafkaApi().GetAllSeedBrokers().GetPrivateLinkSasl(), cl.GetKafkaApi().GetAllSeedBrokers().GetPrivateLinkMtls()},
+		{"http_proxy.all_urls", cl.GetHttpProxy().HasAllUrls(), cl.GetHttpProxy().GetAllUrls().GetSasl(), cl.GetHttpProxy().GetAllUrls().GetMtls(), cl.GetHttpProxy().GetAllUrls().GetPrivateLinkSasl(), cl.GetHttpProxy().GetAllUrls().GetPrivateLinkMtls()},
+		{"schema_registry.all_urls", cl.GetSchemaRegistry().HasAllUrls(), cl.GetSchemaRegistry().GetAllUrls().GetSasl(), cl.GetSchemaRegistry().GetAllUrls().GetMtls(), cl.GetSchemaRegistry().GetAllUrls().GetPrivateLinkSasl(), cl.GetSchemaRegistry().GetAllUrls().GetPrivateLinkMtls()},
+	} {
+		tflog.Info(ctx, "cluster API response: "+ep.name, map[string]any{
+			"present":           ep.has,
+			"sasl":              ep.sasl,
+			"mtls":              ep.mtls,
+			"private_link_sasl": ep.plS,
+			"private_link_mtls": ep.plM,
+		})
+	}
 }

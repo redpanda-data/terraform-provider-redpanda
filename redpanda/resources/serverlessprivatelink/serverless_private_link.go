@@ -7,7 +7,6 @@ import (
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/serverlessprivatelink"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -133,27 +132,11 @@ func generateModelAWSConfig(config *controlplanev1.ServerlessPrivateLink_AWS) (t
 
 // generateModelAWSStatus converts protobuf AWS status to Terraform object
 func generateModelAWSStatus(status *controlplanev1.ServerlessPrivateLinkStatus_AWS) (types.Object, error) {
-	// Convert availability zones from proto to Terraform list
-	var azList types.List
-	if len(status.AvailabilityZones) > 0 {
-		zones := make([]attr.Value, len(status.AvailabilityZones))
-		for i, zone := range status.AvailabilityZones {
-			zones[i] = types.StringValue(zone)
-		}
-		var diags diag.Diagnostics
-		azList, diags = types.ListValue(types.StringType, zones)
-		if diags.HasError() {
-			return types.ObjectNull(getAWSStatusType()), fmt.Errorf("failed to create availability zones list: %s", diags.Errors()[0].Summary())
-		}
-	} else {
-		azList = types.ListNull(types.StringType)
-	}
-
 	obj, diags := types.ObjectValue(
 		getAWSStatusType(),
 		map[string]attr.Value{
-			"vpc_endpoint_service_name": types.StringValue(status.VpcEndpointServiceName),
-			"availability_zones":        azList,
+			"vpc_endpoint_service_name": utils.StringValueOrNull(status.VpcEndpointServiceName),
+			"availability_zones":        utils.StringSliceToTypeListOrNull(status.AvailabilityZones),
 		},
 	)
 	if diags.HasError() {

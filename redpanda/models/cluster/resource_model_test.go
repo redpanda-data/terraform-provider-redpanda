@@ -1000,17 +1000,23 @@ func TestResourceModel_ComprehensiveConsistencyTest(t *testing.T) {
 				}
 			}
 		case "AWSPrivateLink":
-			require.Equal(t, planModel.AWSPrivateLink.IsNull(), applyModel.AWSPrivateLink.IsNull(), "AWSPrivateLink null status should be consistent")
+			require.True(t, planModel.AWSPrivateLink.Equal(applyModel.AWSPrivateLink),
+				"AWSPrivateLink should be consistent\nplan:  %v\napply: %v", planModel.AWSPrivateLink, applyModel.AWSPrivateLink)
 		case "GCPPrivateServiceConnect":
-			require.Equal(t, planModel.GCPPrivateServiceConnect.IsNull(), applyModel.GCPPrivateServiceConnect.IsNull(), "GCPPrivateServiceConnect null status should be consistent")
+			require.True(t, planModel.GCPPrivateServiceConnect.Equal(applyModel.GCPPrivateServiceConnect),
+				"GCPPrivateServiceConnect should be consistent\nplan:  %v\napply: %v", planModel.GCPPrivateServiceConnect, applyModel.GCPPrivateServiceConnect)
 		case "AzurePrivateLink":
-			require.Equal(t, planModel.AzurePrivateLink.IsNull(), applyModel.AzurePrivateLink.IsNull(), "AzurePrivateLink null status should be consistent")
+			require.True(t, planModel.AzurePrivateLink.Equal(applyModel.AzurePrivateLink),
+				"AzurePrivateLink should be consistent\nplan:  %v\napply: %v", planModel.AzurePrivateLink, applyModel.AzurePrivateLink)
 		case "KafkaAPI":
-			require.Equal(t, planModel.KafkaAPI.IsNull(), applyModel.KafkaAPI.IsNull(), "KafkaAPI null status should be consistent")
+			require.True(t, planModel.KafkaAPI.Equal(applyModel.KafkaAPI),
+				"KafkaAPI should be consistent\nplan:  %v\napply: %v", planModel.KafkaAPI, applyModel.KafkaAPI)
 		case "HTTPProxy":
-			require.Equal(t, planModel.HTTPProxy.IsNull(), applyModel.HTTPProxy.IsNull(), "HTTPProxy null status should be consistent")
+			require.True(t, planModel.HTTPProxy.Equal(applyModel.HTTPProxy),
+				"HTTPProxy should be consistent\nplan:  %v\napply: %v", planModel.HTTPProxy, applyModel.HTTPProxy)
 		case "SchemaRegistry":
-			require.Equal(t, planModel.SchemaRegistry.IsNull(), applyModel.SchemaRegistry.IsNull(), "SchemaRegistry null status should be consistent")
+			require.True(t, planModel.SchemaRegistry.Equal(applyModel.SchemaRegistry),
+				"SchemaRegistry should be consistent\nplan:  %v\napply: %v", planModel.SchemaRegistry, applyModel.SchemaRegistry)
 		case "KafkaConnect":
 			require.Equal(t, planModel.KafkaConnect.IsNull(), applyModel.KafkaConnect.IsNull(), "KafkaConnect null status should be consistent")
 		case "ReadReplicaClusterIds":
@@ -1100,12 +1106,6 @@ func TestResourceModel_ComprehensiveConsistencyTest(t *testing.T) {
 				Region:         "us-central1",
 				State:          controlplanev1.Cluster_STATE_READY,
 				CreatedAt:      timestamppb.New(time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)),
-				KafkaConnect: &controlplanev1.KafkaConnect{
-					Enabled: false,
-				},
-				AwsPrivateLink: &controlplanev1.Cluster_AWSPrivateLink{
-					Enabled: false,
-				},
 			},
 			contingentPlan: ContingentFields{
 				RedpandaVersion: types.StringValue("v24.1.1"),
@@ -1174,6 +1174,110 @@ func TestResourceModel_ComprehensiveConsistencyTest(t *testing.T) {
 				Tags:            types.MapNull(types.StringType),
 			},
 		},
+		{
+			// Regression for "Provider produced inconsistent result after apply"
+			// against private_link_sasl endpoints on kafka_api.all_seed_brokers,
+			// http_proxy.all_urls, and schema_registry.all_urls. The state mapper
+			// must faithfully round-trip populated private-link URL variants as
+			// well as disabled-but-present aws_private_link objects.
+			name: "cluster_with_populated_private_link_endpoints",
+			planCluster: &controlplanev1.Cluster{
+				Id:             "rp-pltest",
+				Name:           "test-cluster-pl",
+				ConnectionType: controlplanev1.Cluster_CONNECTION_TYPE_PRIVATE,
+				CloudProvider:  controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS,
+				Type:           controlplanev1.Cluster_TYPE_BYOC,
+				ThroughputTier: "tier-1-aws-v3-arm",
+				Region:         "us-west-2",
+				State:          controlplanev1.Cluster_STATE_READY,
+				CreatedAt:      timestamppb.New(time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)),
+				AwsPrivateLink: &controlplanev1.Cluster_AWSPrivateLink{
+					Enabled:           false,
+					ConnectConsole:    false,
+					AllowedPrincipals: []string{},
+				},
+				KafkaApi: &controlplanev1.Cluster_KafkaAPI{
+					SeedBrokers: []string{"broker1:9092"},
+					AllSeedBrokers: &controlplanev1.SeedBrokers{
+						Sasl:            "seed.example.com:9092",
+						Mtls:            "seed.example.com:9094",
+						PrivateLinkSasl: "seed-abc.byoc.prd.cloud.redpanda.com:30292",
+						PrivateLinkMtls: "seed-abc.byoc.prd.cloud.redpanda.com:30294",
+					},
+				},
+				HttpProxy: &controlplanev1.Cluster_HTTPProxyStatus{
+					Url: "https://pandaproxy.example.com",
+					AllUrls: &controlplanev1.Endpoints{
+						Sasl:            "https://pandaproxy.example.com:443",
+						Mtls:            "https://pandaproxy.example.com:8082",
+						PrivateLinkSasl: "https://pandaproxy-abc.byoc.prd.cloud.redpanda.com:30282",
+						PrivateLinkMtls: "https://pandaproxy-abc.byoc.prd.cloud.redpanda.com:30284",
+					},
+				},
+				SchemaRegistry: &controlplanev1.Cluster_SchemaRegistryStatus{
+					Url: "https://schema-registry.example.com",
+					AllUrls: &controlplanev1.Endpoints{
+						Sasl:            "https://schema-registry.example.com:443",
+						Mtls:            "https://schema-registry.example.com:8081",
+						PrivateLinkSasl: "https://schema-registry-abc.byoc.prd.cloud.redpanda.com:30081",
+						PrivateLinkMtls: "https://schema-registry-abc.byoc.prd.cloud.redpanda.com:30083",
+					},
+				},
+			},
+			applyCluster: &controlplanev1.Cluster{
+				Id:             "rp-pltest",
+				Name:           "test-cluster-pl",
+				ConnectionType: controlplanev1.Cluster_CONNECTION_TYPE_PRIVATE,
+				CloudProvider:  controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS,
+				Type:           controlplanev1.Cluster_TYPE_BYOC,
+				ThroughputTier: "tier-1-aws-v3-arm",
+				Region:         "us-west-2",
+				State:          controlplanev1.Cluster_STATE_READY,
+				CreatedAt:      timestamppb.New(time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)),
+				AwsPrivateLink: &controlplanev1.Cluster_AWSPrivateLink{
+					Enabled:           false,
+					ConnectConsole:    false,
+					AllowedPrincipals: []string{},
+				},
+				KafkaApi: &controlplanev1.Cluster_KafkaAPI{
+					SeedBrokers: []string{"broker1:9092"},
+					AllSeedBrokers: &controlplanev1.SeedBrokers{
+						Sasl:            "seed.example.com:9092",
+						Mtls:            "seed.example.com:9094",
+						PrivateLinkSasl: "seed-abc.byoc.prd.cloud.redpanda.com:30292",
+						PrivateLinkMtls: "seed-abc.byoc.prd.cloud.redpanda.com:30294",
+					},
+				},
+				HttpProxy: &controlplanev1.Cluster_HTTPProxyStatus{
+					Url: "https://pandaproxy.example.com",
+					AllUrls: &controlplanev1.Endpoints{
+						Sasl:            "https://pandaproxy.example.com:443",
+						Mtls:            "https://pandaproxy.example.com:8082",
+						PrivateLinkSasl: "https://pandaproxy-abc.byoc.prd.cloud.redpanda.com:30282",
+						PrivateLinkMtls: "https://pandaproxy-abc.byoc.prd.cloud.redpanda.com:30284",
+					},
+				},
+				SchemaRegistry: &controlplanev1.Cluster_SchemaRegistryStatus{
+					Url: "https://schema-registry.example.com",
+					AllUrls: &controlplanev1.Endpoints{
+						Sasl:            "https://schema-registry.example.com:443",
+						Mtls:            "https://schema-registry.example.com:8081",
+						PrivateLinkSasl: "https://schema-registry-abc.byoc.prd.cloud.redpanda.com:30081",
+						PrivateLinkMtls: "https://schema-registry-abc.byoc.prd.cloud.redpanda.com:30083",
+					},
+				},
+			},
+			contingentPlan: ContingentFields{
+				RedpandaVersion: types.StringValue("v24.1.1"),
+				AllowDeletion:   types.BoolValue(true),
+				Tags:            types.MapNull(types.StringType),
+			},
+			contingentApply: ContingentFields{
+				RedpandaVersion: types.StringValue("v24.1.1"),
+				AllowDeletion:   types.BoolValue(true),
+				Tags:            types.MapNull(types.StringType),
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1191,9 +1295,9 @@ func TestResourceModel_ComprehensiveConsistencyTest(t *testing.T) {
 				"Name", "ID", "ConnectionType", "CloudProvider", "ClusterType",
 				"RedpandaVersion", "ThroughputTier", "Region", "Zones", "AllowDeletion",
 				"CreatedAt", "State", "StateDescription", "Tags", "ResourceGroupID",
-				"NetworkID", "ClusterAPIURL", "AwsPrivateLink", "GcpPrivateServiceConnect",
+				"NetworkID", "ClusterAPIURL", "AWSPrivateLink", "GCPPrivateServiceConnect",
 				"AzurePrivateLink", "KafkaAPI", "HTTPProxy", "SchemaRegistry",
-				"KafkaConnect", "ReadReplicaClusterIDs", "CustomerManagedResources",
+				"KafkaConnect", "ReadReplicaClusterIds", "CustomerManagedResources",
 				"Prometheus", "RedpandaConsole", "MaintenanceWindowConfig",
 				"GCPGlobalAccessEnabled", "ClusterConfiguration",
 			}
@@ -1202,6 +1306,488 @@ func TestResourceModel_ComprehensiveConsistencyTest(t *testing.T) {
 				t.Run(field, func(t *testing.T) {
 					compareModels(t, planResult, applyResult, field)
 				})
+			}
+		})
+	}
+}
+
+// attrBool / attrString / attrList / attrObject are small typed accessors
+// that fail the test with a clear message instead of panicking when a
+// Terraform framework attribute map entry has the wrong underlying type.
+// They keep the assertion-heavy mapper tests readable while satisfying the
+// unchecked-type-assertion lint rule.
+func attrBool(t *testing.T, attrs map[string]attr.Value, key string) types.Bool {
+	t.Helper()
+	v, ok := attrs[key].(types.Bool)
+	require.True(t, ok, "attr %q is not types.Bool: %T", key, attrs[key])
+	return v
+}
+
+func attrString(t *testing.T, attrs map[string]attr.Value, key string) types.String {
+	t.Helper()
+	v, ok := attrs[key].(types.String)
+	require.True(t, ok, "attr %q is not types.String: %T", key, attrs[key])
+	return v
+}
+
+func attrInt32(t *testing.T, attrs map[string]attr.Value, key string) types.Int32 {
+	t.Helper()
+	v, ok := attrs[key].(types.Int32)
+	require.True(t, ok, "attr %q is not types.Int32: %T", key, attrs[key])
+	return v
+}
+
+func attrList(t *testing.T, attrs map[string]attr.Value, key string) types.List {
+	t.Helper()
+	v, ok := attrs[key].(types.List)
+	require.True(t, ok, "attr %q is not types.List: %T", key, attrs[key])
+	return v
+}
+
+func attrObject(t *testing.T, attrs map[string]attr.Value, key string) types.Object {
+	t.Helper()
+	v, ok := attrs[key].(types.Object)
+	require.True(t, ok, "attr %q is not types.Object: %T", key, attrs[key])
+	return v
+}
+
+// TestGenerateModelAwsPrivateLink_DisabledIsNotNull is a regression test for
+// the "Provider produced inconsistent result after apply" error on
+// .aws_private_link: the state mapper used to collapse a non-nil
+// AWSPrivateLink proto with Enabled=false into a null Terraform object, which
+// diverged from the user-provided config object. The mapper must now preserve
+// a disabled-but-present block faithfully.
+func TestGenerateModelAwsPrivateLink_DisabledIsNotNull(t *testing.T) {
+	r := &ResourceModel{}
+	result, diags := r.generateModelAwsPrivateLink(&controlplanev1.Cluster{
+		AwsPrivateLink: &controlplanev1.Cluster_AWSPrivateLink{
+			Enabled:           false,
+			ConnectConsole:    false,
+			AllowedPrincipals: []string{},
+		},
+	})
+	require.False(t, diags.HasError(), "unexpected diags: %v", diags)
+	require.False(t, result.IsNull(), "disabled aws_private_link should not collapse to null")
+
+	attrs := result.Attributes()
+	require.False(t, attrBool(t, attrs, "enabled").ValueBool(), "enabled should be false")
+	require.False(t, attrBool(t, attrs, "connect_console").ValueBool(), "connect_console should be false")
+
+	allowed := attrList(t, attrs, "allowed_principals")
+	require.False(t, allowed.IsNull(), "allowed_principals must be an empty list, not null")
+	require.Empty(t, allowed.Elements(), "allowed_principals should be empty")
+
+	supported := attrList(t, attrs, "supported_regions")
+	require.False(t, supported.IsNull(), "supported_regions must be an empty list, not null")
+	require.Empty(t, supported.Elements(), "supported_regions should be empty")
+}
+
+// TestGenerateModelAwsPrivateLink_NilListsCoerceToEmpty covers the case where
+// the server returns a present AwsPrivateLink proto with nil repeated fields
+// (proto3 cannot distinguish "unset" from "empty"). The mapper must coerce
+// those to empty non-null Terraform lists so they round-trip against a config
+// that sets allowed_principals = [].
+func TestGenerateModelAwsPrivateLink_NilListsCoerceToEmpty(t *testing.T) {
+	r := &ResourceModel{}
+	result, diags := r.generateModelAwsPrivateLink(&controlplanev1.Cluster{
+		AwsPrivateLink: &controlplanev1.Cluster_AWSPrivateLink{
+			Enabled:        true,
+			ConnectConsole: true,
+			// AllowedPrincipals and SupportedRegions intentionally nil.
+		},
+	})
+	require.False(t, diags.HasError())
+	require.False(t, result.IsNull())
+
+	attrs := result.Attributes()
+	require.False(t, attrList(t, attrs, "allowed_principals").IsNull(),
+		"nil AllowedPrincipals should map to empty list, not null")
+	require.False(t, attrList(t, attrs, "supported_regions").IsNull(),
+		"nil SupportedRegions should map to empty list, not null")
+}
+
+// Regression: API omits aws_private_link when disabled; plan had a non-null block.
+func TestGenerateModelAwsPrivateLink_ApiOmitsWhenPlanHasDisabledBlock(t *testing.T) {
+	plannedDisabled, d := types.ObjectValue(getAwsPrivateLinkType(), map[string]attr.Value{
+		"enabled":            types.BoolValue(false),
+		"connect_console":    types.BoolValue(false),
+		"allowed_principals": types.ListValueMust(types.StringType, []attr.Value{}),
+		"status":             types.ObjectNull(getAwsPrivateLinkStatusType()),
+		"supported_regions":  types.ListValueMust(types.StringType, []attr.Value{}),
+	})
+	require.False(t, d.HasError(), "failed to build planned object: %v", d)
+	r := &ResourceModel{AWSPrivateLink: plannedDisabled}
+
+	result, diags := r.generateModelAwsPrivateLink(&controlplanev1.Cluster{
+		// AwsPrivateLink intentionally nil — matches real CP behavior when
+		// the block is disabled.
+	})
+	require.False(t, diags.HasError(), "unexpected diags: %v", diags)
+	require.False(t, result.IsNull(),
+		"plan had a non-null disabled block; state must not collapse to null")
+
+	attrs := result.Attributes()
+	require.False(t, attrBool(t, attrs, "enabled").ValueBool())
+	require.False(t, attrBool(t, attrs, "connect_console").ValueBool())
+	require.False(t, attrList(t, attrs, "allowed_principals").IsNull())
+	require.Empty(t, attrList(t, attrs, "allowed_principals").Elements())
+	require.False(t, attrList(t, attrs, "supported_regions").IsNull())
+	require.Empty(t, attrList(t, attrs, "supported_regions").Elements())
+	require.True(t, attrObject(t, attrs, "status").IsNull())
+}
+
+// Null plan + API omission must stay null.
+func TestGenerateModelAwsPrivateLink_ApiOmitsAndPlanIsNull(t *testing.T) {
+	r := &ResourceModel{AWSPrivateLink: types.ObjectNull(getAwsPrivateLinkType())}
+	result, diags := r.generateModelAwsPrivateLink(&controlplanev1.Cluster{})
+	require.False(t, diags.HasError())
+	require.True(t, result.IsNull(),
+		"plan was null and API omitted the field; state must stay null")
+}
+
+// GCP parity for the AWS disabled-is-not-null fix.
+func TestGenerateModelGcpPrivateServiceConnect_DisabledIsNotNull(t *testing.T) {
+	r := &ResourceModel{}
+	result, diags := r.generateModelGcpPrivateServiceConnect(&controlplanev1.Cluster{
+		GcpPrivateServiceConnect: &controlplanev1.Cluster_GCPPrivateServiceConnect{
+			Enabled:             false,
+			GlobalAccessEnabled: false,
+			ConsumerAcceptList:  []*controlplanev1.GCPPrivateServiceConnectConsumer{},
+		},
+	})
+	require.False(t, diags.HasError(), "unexpected diags: %v", diags)
+	require.False(t, result.IsNull(), "disabled gcp_private_service_connect should not collapse to null")
+
+	attrs := result.Attributes()
+	require.False(t, attrBool(t, attrs, "enabled").ValueBool(), "enabled should be false")
+	require.False(t, attrBool(t, attrs, "global_access_enabled").ValueBool(), "global_access_enabled should be false")
+
+	list := attrList(t, attrs, "consumer_accept_list")
+	require.False(t, list.IsNull(), "consumer_accept_list must not be null")
+	require.Empty(t, list.Elements(), "consumer_accept_list should be empty")
+}
+
+// Azure parity for the AWS disabled-is-not-null fix.
+func TestGenerateModelAzurePrivateLink_DisabledIsNotNull(t *testing.T) {
+	r := &ResourceModel{}
+	result, diags := r.generateModelAzurePrivateLink(&controlplanev1.Cluster{
+		AzurePrivateLink: &controlplanev1.Cluster_AzurePrivateLink{
+			Enabled:              false,
+			ConnectConsole:       false,
+			AllowedSubscriptions: []string{},
+		},
+	})
+	require.False(t, diags.HasError(), "unexpected diags: %v", diags)
+	require.False(t, result.IsNull(), "disabled azure_private_link should not collapse to null")
+
+	attrs := result.Attributes()
+	require.False(t, attrBool(t, attrs, "enabled").ValueBool(), "enabled should be false")
+	require.False(t, attrBool(t, attrs, "connect_console").ValueBool(), "connect_console should be false")
+
+	subs := attrList(t, attrs, "allowed_subscriptions")
+	require.False(t, subs.IsNull(), "allowed_subscriptions must be an empty list, not null")
+	require.Empty(t, subs.Elements(), "allowed_subscriptions should be empty")
+}
+
+// Required allowed_subscriptions: nil slice must map to empty list, not null.
+func TestGenerateModelAzurePrivateLink_NilAllowedSubscriptionsCoerceToEmpty(t *testing.T) {
+	r := &ResourceModel{}
+	result, diags := r.generateModelAzurePrivateLink(&controlplanev1.Cluster{
+		AzurePrivateLink: &controlplanev1.Cluster_AzurePrivateLink{
+			Enabled:        true,
+			ConnectConsole: true,
+			// AllowedSubscriptions intentionally nil.
+		},
+	})
+	require.False(t, diags.HasError())
+	require.False(t, result.IsNull())
+
+	attrs := result.Attributes()
+	require.False(t, attrList(t, attrs, "allowed_subscriptions").IsNull(),
+		"nil AllowedSubscriptions should map to empty list, not null")
+}
+
+// TestGenerateModelEndpoints_PrivateLinkURLsRoundTrip is the direct regression
+// for the three private_link_sasl inconsistency errors from the BYOVPC apply
+// failure. It feeds populated AllSeedBrokers / AllUrls structures into the
+// three endpoint mappers and asserts the URL strings survive intact into the
+// resulting Terraform state objects.
+func TestGenerateModelEndpoints_PrivateLinkURLsRoundTrip(t *testing.T) {
+	const (
+		kafkaPLSasl    = "seed-abc.byoc.prd.cloud.redpanda.com:30292"
+		kafkaPLMtls    = "seed-abc.byoc.prd.cloud.redpanda.com:30294"
+		proxyPLSasl    = "https://pandaproxy-abc.byoc.prd.cloud.redpanda.com:30282"
+		proxyPLMtls    = "https://pandaproxy-abc.byoc.prd.cloud.redpanda.com:30284"
+		registryPLSasl = "https://schema-registry-abc.byoc.prd.cloud.redpanda.com:30081"
+		registryPLMtls = "https://schema-registry-abc.byoc.prd.cloud.redpanda.com:30083"
+	)
+
+	cluster := &controlplanev1.Cluster{
+		KafkaApi: &controlplanev1.Cluster_KafkaAPI{
+			SeedBrokers: []string{"broker1:9092"},
+			AllSeedBrokers: &controlplanev1.SeedBrokers{
+				Sasl:            "seed.example.com:9092",
+				Mtls:            "seed.example.com:9094",
+				PrivateLinkSasl: kafkaPLSasl,
+				PrivateLinkMtls: kafkaPLMtls,
+			},
+		},
+		HttpProxy: &controlplanev1.Cluster_HTTPProxyStatus{
+			Url: "https://pandaproxy.example.com",
+			AllUrls: &controlplanev1.Endpoints{
+				Sasl:            "https://pandaproxy.example.com:443",
+				Mtls:            "https://pandaproxy.example.com:8082",
+				PrivateLinkSasl: proxyPLSasl,
+				PrivateLinkMtls: proxyPLMtls,
+			},
+		},
+		SchemaRegistry: &controlplanev1.Cluster_SchemaRegistryStatus{
+			Url: "https://schema-registry.example.com",
+			AllUrls: &controlplanev1.Endpoints{
+				Sasl:            "https://schema-registry.example.com:443",
+				Mtls:            "https://schema-registry.example.com:8081",
+				PrivateLinkSasl: registryPLSasl,
+				PrivateLinkMtls: registryPLMtls,
+			},
+		},
+	}
+
+	r := &ResourceModel{}
+
+	readEndpointsURL := func(t *testing.T, parent types.Object, parentKey, urlAttr string) string {
+		t.Helper()
+		require.False(t, parent.IsNull(), "%s parent is null", parentKey)
+		nested := attrObject(t, parent.Attributes(), parentKey)
+		require.False(t, nested.IsNull(), "%s is null", parentKey)
+		val := attrString(t, nested.Attributes(), urlAttr)
+		require.False(t, val.IsNull(), "%s.%s is null", parentKey, urlAttr)
+		return val.ValueString()
+	}
+
+	kafkaAPI, diags := r.generateModelKafkaAPI(cluster)
+	require.False(t, diags.HasError(), "kafka api diags: %v", diags)
+	require.Equal(t, kafkaPLSasl, readEndpointsURL(t, kafkaAPI, "all_seed_brokers", "private_link_sasl"))
+	require.Equal(t, kafkaPLMtls, readEndpointsURL(t, kafkaAPI, "all_seed_brokers", "private_link_mtls"))
+
+	httpProxy, diags := r.generateModelHTTPProxy(cluster)
+	require.False(t, diags.HasError(), "http proxy diags: %v", diags)
+	require.Equal(t, proxyPLSasl, readEndpointsURL(t, httpProxy, "all_urls", "private_link_sasl"))
+	require.Equal(t, proxyPLMtls, readEndpointsURL(t, httpProxy, "all_urls", "private_link_mtls"))
+
+	schemaRegistry, diags := r.generateModelSchemaRegistry(cluster)
+	require.False(t, diags.HasError(), "schema registry diags: %v", diags)
+	require.Equal(t, registryPLSasl, readEndpointsURL(t, schemaRegistry, "all_urls", "private_link_sasl"))
+	require.Equal(t, registryPLMtls, readEndpointsURL(t, schemaRegistry, "all_urls", "private_link_mtls"))
+}
+
+// TestGenerateModelEndpoints_EmptyProtoYieldsStringNull: empty proto scalars
+// must map to StringNull so UseNonNullStateForUnknown can mark the plan Unknown
+// (terraform-plugin-framework#1211).
+func TestGenerateModelEndpoints_EmptyProtoYieldsStringNull(t *testing.T) {
+	cluster := &controlplanev1.Cluster{
+		KafkaApi: &controlplanev1.Cluster_KafkaAPI{
+			AllSeedBrokers: &controlplanev1.SeedBrokers{},
+		},
+		HttpProxy: &controlplanev1.Cluster_HTTPProxyStatus{
+			AllUrls: &controlplanev1.Endpoints{},
+		},
+		SchemaRegistry: &controlplanev1.Cluster_SchemaRegistryStatus{
+			AllUrls: &controlplanev1.Endpoints{},
+		},
+	}
+
+	r := &ResourceModel{}
+
+	assertLeafNull := func(t *testing.T, parent types.Object, parentKey, urlAttr string) {
+		t.Helper()
+		nested := attrObject(t, parent.Attributes(), parentKey)
+		val := attrString(t, nested.Attributes(), urlAttr)
+		require.True(t, val.IsNull(), "%s.%s should be Null when proto returns \"\"", parentKey, urlAttr)
+	}
+
+	kafkaAPI, diags := r.generateModelKafkaAPI(cluster)
+	require.False(t, diags.HasError(), "kafka api diags: %v", diags)
+	for _, attr := range []string{"sasl", "mtls", "private_link_sasl", "private_link_mtls"} {
+		assertLeafNull(t, kafkaAPI, "all_seed_brokers", attr)
+	}
+
+	httpProxy, diags := r.generateModelHTTPProxy(cluster)
+	require.False(t, diags.HasError(), "http proxy diags: %v", diags)
+	for _, attr := range []string{"sasl", "mtls", "private_link_sasl", "private_link_mtls"} {
+		assertLeafNull(t, httpProxy, "all_urls", attr)
+	}
+	require.True(t, attrString(t, httpProxy.Attributes(), "url").IsNull(), "http_proxy.url should be Null when proto returns \"\"")
+
+	schemaRegistry, diags := r.generateModelSchemaRegistry(cluster)
+	require.False(t, diags.HasError(), "schema registry diags: %v", diags)
+	for _, attr := range []string{"sasl", "mtls", "private_link_sasl", "private_link_mtls"} {
+		assertLeafNull(t, schemaRegistry, "all_urls", attr)
+	}
+	require.True(t, attrString(t, schemaRegistry.Attributes(), "url").IsNull(), "schema_registry.url should be Null when proto returns \"\"")
+}
+
+// TestGenerateModelAwsPrivateLink_EnabledFullRoundTrip asserts that a fully
+// populated enabled AWS PrivateLink block — including nested status fields
+// and VPC endpoint connections — survives the state mapper intact.
+func TestGenerateModelAwsPrivateLink_EnabledFullRoundTrip(t *testing.T) {
+	createdAt := time.Date(2024, 6, 1, 10, 0, 0, 0, time.UTC)
+	r := &ResourceModel{}
+	result, diags := r.generateModelAwsPrivateLink(&controlplanev1.Cluster{
+		AwsPrivateLink: &controlplanev1.Cluster_AWSPrivateLink{
+			Enabled:           true,
+			ConnectConsole:    true,
+			AllowedPrincipals: []string{"arn:aws:iam::123456789012:root"},
+			SupportedRegions:  []string{"us-west-2", "us-east-1"},
+			Status: &controlplanev1.Cluster_AWSPrivateLink_Status{
+				ServiceId:                 "vpce-svc-abc",
+				ServiceName:               "com.amazonaws.vpce.us-west-2.svc-abc",
+				ServiceState:              "Available",
+				KafkaApiSeedPort:          30292,
+				SchemaRegistrySeedPort:    30081,
+				RedpandaProxySeedPort:     30282,
+				KafkaApiNodeBasePort:      31092,
+				RedpandaProxyNodeBasePort: 31282,
+				ConsolePort:               30090,
+				CreatedAt:                 timestamppb.New(createdAt),
+				VpcEndpointConnections: []*controlplanev1.Cluster_AWSPrivateLink_Status_VPCEndpointConnection{
+					{
+						Id:               "vpce-conn-1",
+						Owner:            "123456789012",
+						State:            "available",
+						ConnectionId:     "conn-abc",
+						LoadBalancerArns: []string{"arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/rp/abc"},
+						DnsEntries: []*controlplanev1.Cluster_AWSPrivateLink_Status_VPCEndpointConnection_DNSEntry{
+							{DnsName: "vpce-abc.vpce-svc-abc.us-west-2.vpce.amazonaws.com", HostedZoneId: "Z1234567890"},
+						},
+					},
+				},
+			},
+		},
+	})
+	require.False(t, diags.HasError(), "unexpected diags: %v", diags)
+	require.False(t, result.IsNull())
+
+	attrs := result.Attributes()
+	require.True(t, attrBool(t, attrs, "enabled").ValueBool())
+	require.True(t, attrBool(t, attrs, "connect_console").ValueBool())
+
+	allowed := attrList(t, attrs, "allowed_principals")
+	require.Len(t, allowed.Elements(), 1)
+	firstPrincipal, ok := allowed.Elements()[0].(types.String)
+	require.True(t, ok)
+	require.Equal(t, "arn:aws:iam::123456789012:root", firstPrincipal.ValueString())
+
+	require.Len(t, attrList(t, attrs, "supported_regions").Elements(), 2)
+
+	status := attrObject(t, attrs, "status")
+	require.False(t, status.IsNull())
+	statusAttrs := status.Attributes()
+	require.Equal(t, "vpce-svc-abc", attrString(t, statusAttrs, "service_id").ValueString())
+	require.Equal(t, int32(30292), attrInt32(t, statusAttrs, "kafka_api_seed_port").ValueInt32())
+	require.Equal(t, int32(30081), attrInt32(t, statusAttrs, "schema_registry_seed_port").ValueInt32())
+	require.Equal(t, int32(30282), attrInt32(t, statusAttrs, "redpanda_proxy_seed_port").ValueInt32())
+
+	conns := attrList(t, statusAttrs, "vpc_endpoint_connections")
+	require.Len(t, conns.Elements(), 1)
+	connObj, ok := conns.Elements()[0].(types.Object)
+	require.True(t, ok)
+	conn := connObj.Attributes()
+	require.Equal(t, "vpce-conn-1", attrString(t, conn, "id").ValueString())
+	require.Equal(t, "available", attrString(t, conn, "state").ValueString())
+	require.Len(t, attrList(t, conn, "dns_entries").Elements(), 1)
+}
+
+// kafka_connect={enabled:false} is wire-equivalent to unset, so the
+// update mask is empty and the API is never called. The mapper must
+// preserve the user's declared block instead of collapsing to null.
+func TestGenerateModelKafkaConnect_PreservesPlanPresenceWhenAPIOmits(t *testing.T) {
+	t.Run("plan declares block, API omits it -> preserved", func(t *testing.T) {
+		declared, d := types.ObjectValue(getKafkaConnectType(), map[string]attr.Value{
+			"enabled": types.BoolValue(false),
+		})
+		require.False(t, d.HasError())
+
+		r := &ResourceModel{KafkaConnect: declared}
+		result, diags := r.generateModelKafkaConnect(&controlplanev1.Cluster{})
+		require.False(t, diags.HasError(), "unexpected diags: %v", diags)
+		require.False(t, result.IsNull(), "plan-declared kafka_connect must survive API omission")
+
+		attrs := result.Attributes()
+		require.False(t, attrBool(t, attrs, "enabled").ValueBool(), "enabled should be false")
+	})
+
+	t.Run("plan omits block, API omits it -> null", func(t *testing.T) {
+		r := &ResourceModel{KafkaConnect: types.ObjectNull(getKafkaConnectType())}
+		result, diags := r.generateModelKafkaConnect(&controlplanev1.Cluster{})
+		require.False(t, diags.HasError())
+		require.True(t, result.IsNull(), "unset-on-both-sides should be null")
+	})
+
+	t.Run("API populates block -> mapped regardless of plan", func(t *testing.T) {
+		r := &ResourceModel{KafkaConnect: types.ObjectNull(getKafkaConnectType())}
+		result, diags := r.generateModelKafkaConnect(&controlplanev1.Cluster{
+			KafkaConnect: &controlplanev1.KafkaConnect{Enabled: true},
+		})
+		require.False(t, diags.HasError())
+		require.False(t, result.IsNull())
+		require.True(t, attrBool(t, result.Attributes(), "enabled").ValueBool())
+	})
+}
+
+// local variable for each oneof branch, so a cluster with `Anytime`
+// maintenance was reported in state as `unspecified=true` (and vice versa).
+// The DataModel version of the same function at data_model.go:453-456 is
+// correct and has its own test coverage; only the ResourceModel path was
+// untested. Catches any future regression.
+func TestGenerateModelMaintenanceWindow_AnytimeUnspecifiedLabels(t *testing.T) {
+	cases := []struct {
+		name                  string
+		window                *controlplanev1.MaintenanceWindowConfig
+		expectAnytimeTrue     bool
+		expectUnspecifiedTrue bool
+	}{
+		{
+			name: "anytime",
+			window: &controlplanev1.MaintenanceWindowConfig{
+				Window: &controlplanev1.MaintenanceWindowConfig_Anytime_{
+					Anytime: &controlplanev1.MaintenanceWindowConfig_Anytime{},
+				},
+			},
+			expectAnytimeTrue: true,
+		},
+		{
+			name: "unspecified",
+			window: &controlplanev1.MaintenanceWindowConfig{
+				Window: &controlplanev1.MaintenanceWindowConfig_Unspecified_{
+					Unspecified: &controlplanev1.MaintenanceWindowConfig_Unspecified{},
+				},
+			},
+			expectUnspecifiedTrue: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := &ResourceModel{}
+			result, diags := r.generateModelMaintenanceWindow(&controlplanev1.Cluster{
+				MaintenanceWindowConfig: tc.window,
+			})
+			require.False(t, diags.HasError(), "unexpected diags: %v", diags)
+			require.False(t, result.IsNull())
+
+			attrs := result.Attributes()
+			anytime := attrBool(t, attrs, "anytime")
+			unspec := attrBool(t, attrs, "unspecified")
+
+			if tc.expectAnytimeTrue {
+				require.False(t, anytime.IsNull(), "anytime attr should be set when HasAnytime()")
+				require.True(t, anytime.ValueBool(), "anytime should be true")
+				require.True(t, unspec.IsNull(), "unspecified should be null when HasAnytime()")
+			}
+			if tc.expectUnspecifiedTrue {
+				require.False(t, unspec.IsNull(), "unspecified attr should be set when HasUnspecified()")
+				require.True(t, unspec.ValueBool(), "unspecified should be true")
+				require.True(t, anytime.IsNull(), "anytime should be null when HasUnspecified()")
 			}
 		})
 	}

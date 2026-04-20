@@ -79,6 +79,14 @@ variable "node_security_group_arn" {
 }
 variable "cloud_storage_bucket_arn" {
 }
+variable "aws_private_link_enabled" {
+  type    = bool
+  default = true
+}
+variable "aws_private_link_allowed_principals" {
+  type    = list(string)
+  default = ["arn:aws:iam::879326078624:root"]
+}
 resource "redpanda_cluster" "test" {
   name              = var.cluster_name
   resource_group_id = redpanda_resource_group.test.id
@@ -93,16 +101,13 @@ resource "redpanda_cluster" "test" {
   tags = {
     "key" = "value"
   }
+  aws_private_link = {
+    enabled            = var.aws_private_link_enabled
+    connect_console    = var.aws_private_link_enabled
+    allowed_principals = var.aws_private_link_enabled ? var.aws_private_link_allowed_principals : []
+  }
   customer_managed_resources = {
     aws = {
-      aws_private_link = {
-        enabled         = true
-        connect_console = true
-        allowed_principals = ["arn:aws:iam::879326078624:root"]
-      }
-      aws_permissions_boundary_policy_arn = {
-        arn = var.permissions_boundary_policy_arn
-      }
       agent_instance_profile = {
         arn = var.agent_instance_profile_arn
       }

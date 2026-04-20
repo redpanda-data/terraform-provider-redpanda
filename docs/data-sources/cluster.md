@@ -78,8 +78,6 @@ Read-Only:
 Read-Only:
 
 - `console_port` (Number) Port for Redpanda Console.
-- `created_at` (String) When the PrivateLink service was created.
-- `deleted_at` (String) When the PrivateLink service was deleted.
 - `kafka_api_node_base_port` (Number) Base port for Kafka API nodes.
 - `kafka_api_seed_port` (Number) Port for Kafka API seed brokers.
 - `redpanda_proxy_node_base_port` (Number) Base port for HTTP proxy nodes.
@@ -96,7 +94,6 @@ Read-Only:
 Read-Only:
 
 - `connection_id` (String) The connection ID.
-- `created_at` (String) When the endpoint connection was created.
 - `dns_entries` (Attributes List) DNS entries for the endpoint. (see [below for nested schema](#nestedatt--aws_private_link--status--vpc_endpoint_connections--dns_entries))
 - `id` (String) The endpoint connection ID.
 - `load_balancer_arns` (List of String) ARNs of associated load balancers.
@@ -132,8 +129,6 @@ Read-Only:
 
 - `approved_subscriptions` (List of String) List of approved Azure subscription IDs.
 - `console_port` (Number) Port for Redpanda Console.
-- `created_at` (String) When the Private Link service was created.
-- `deleted_at` (String) When the Private Link service was deleted.
 - `dns_a_record` (String) DNS A record for the service.
 - `kafka_api_node_base_port` (Number) Base port for Kafka API nodes.
 - `kafka_api_seed_port` (Number) Port for Kafka API seed brokers.
@@ -151,7 +146,6 @@ Read-Only:
 
 - `connection_id` (String) ID of the connection.
 - `connection_name` (String) Name of the connection.
-- `created_at` (String) When the endpoint connection was created.
 - `private_endpoint_id` (String) ID of the private endpoint.
 - `private_endpoint_name` (String) Name of the private endpoint.
 - `status` (String) Status of the endpoint connection.
@@ -432,8 +426,6 @@ Read-Only:
 Read-Only:
 
 - `connected_endpoints` (Attributes List) List of connected endpoints. (see [below for nested schema](#nestedatt--gcp_private_service_connect--status--connected_endpoints))
-- `created_at` (String) When the Private Service Connect service was created.
-- `deleted_at` (String) When the Private Service Connect service was deleted.
 - `dns_a_records` (List of String) DNS A records for the service.
 - `kafka_api_node_base_port` (Number) Base port for Kafka API nodes.
 - `kafka_api_seed_port` (Number) Port for Kafka API seed brokers.

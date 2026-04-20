@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 // ResourceModel represents the Terraform schema for the pipeline resource.
@@ -89,7 +90,7 @@ func (r *ResourceModel) GetUpdatedModel(ctx context.Context, pipeline *dataplane
 	r.Description = types.StringValue(pipeline.GetDescription())
 	r.ConfigYaml = types.StringValue(pipeline.GetConfigYaml())
 	r.State = types.StringValue(stateToStore)
-	r.URL = types.StringValue(pipeline.GetUrl())
+	r.URL = utils.StringValueOrNull(pipeline.GetUrl())
 	r.AllowDeletion = contingent.AllowDeletion
 	r.Timeouts = contingent.Timeouts
 
@@ -123,7 +124,7 @@ func (*ResourceModel) generateModelStatus(pipeline *dataplanev1.Pipeline) (types
 	if pipeline.HasStatus() {
 		status := pipeline.GetStatus()
 		statusObj, d := types.ObjectValue(GetStatusType(), map[string]attr.Value{
-			FieldError: types.StringValue(status.GetError()),
+			FieldError: utils.StringValueOrNull(status.GetError()),
 		})
 		diags.Append(d...)
 		return statusObj, diags
