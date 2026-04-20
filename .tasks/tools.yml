@@ -9,6 +9,7 @@ vars:
   GOLANGCI_LINT_VERSION: "2.2.1"
   MOCKGEN_VERSION: "v0.5.0"
   TFPLUGINDOCS_VERSION: "v0.24.0"
+  TERRAFORM_VERSION: "1.14.8"
   GORELEASER_VERSION: latest
 
   GORELEASER_INSTALL_DIR: '{{ .BUILD_ROOT }}/tools/goreleaser/{{.GORELEASER_VERSION}}'
@@ -77,6 +78,38 @@ tasks:
       - echo "tfplugindocs installed successfully"
     status:
       - test -f {{.BUILD_ROOT}}/bin/go/tfplugindocs
+
+  install:terraform:
+    desc: "Install Terraform CLI (pinned) so tfplugindocs uses PATH and skips hc-install's PGP verification"
+    run: once
+    vars:
+      TF_ARCH:
+        sh: 'case "$(uname -m)" in x86_64) echo amd64 ;; aarch64|arm64) echo arm64 ;; *) echo "$(uname -m)" ;; esac'
+      TF_OS:
+        sh: uname -s | tr '[:upper:]' '[:lower:]'
+    cmds:
+      - mkdir -p '{{.BUILD_ROOT}}/bin'
+      - echo "Installing Terraform {{.TERRAFORM_VERSION}}..."
+      - |
+        if ! command -v unzip >/dev/null 2>&1; then
+          if command -v apt-get >/dev/null 2>&1; then
+            apt-get update -qq && apt-get install -y -qq unzip
+          else
+            echo "unzip not found and no apt-get available; install unzip and retry" >&2
+            exit 1
+          fi
+        fi
+      - |
+        tmp=$(mktemp -d)
+        curl -sSLf --retry 3 --retry-connrefused --retry-delay 2 \
+          "https://releases.hashicorp.com/terraform/{{.TERRAFORM_VERSION}}/terraform_{{.TERRAFORM_VERSION}}_{{.TF_OS}}_{{.TF_ARCH}}.zip" \
+          -o "$tmp/terraform.zip"
+        unzip -q -o "$tmp/terraform.zip" -d "{{.BUILD_ROOT}}/bin"
+        rm -rf "$tmp"
+      - echo "Terraform installed successfully"
+    status:
+      - test -x '{{.BUILD_ROOT}}/bin/terraform'
+      - '[[ $({{.BUILD_ROOT}}/bin/terraform version | head -n1) == "Terraform v{{.TERRAFORM_VERSION}}" ]]'
 
   install:goreleaser:
     desc: install goreleaser
