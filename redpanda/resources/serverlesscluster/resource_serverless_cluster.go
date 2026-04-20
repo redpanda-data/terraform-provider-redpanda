@@ -128,7 +128,7 @@ func ResourceServerlessClusterSchema() schema.Schema {
 				Computed:           true,
 				DeprecationMessage: "This field is deprecated and will be removed in a future version. Use dataplane_api.url instead.",
 				Description:        "The URL of the dataplane API for the serverless cluster",
-				PlanModifiers:      []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				PlanModifiers:      []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 			},
 			"kafka_api": schema.SingleNestedAttribute{
 				Computed:      true,
@@ -139,13 +139,13 @@ func ResourceServerlessClusterSchema() schema.Schema {
 						Computed:      true,
 						ElementType:   types.StringType,
 						Description:   "Public Kafka API seed brokers (bootstrap servers)",
-						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.List{listplanmodifier.UseNonNullStateForUnknown()},
 					},
 					"private_seed_brokers": schema.ListAttribute{
 						Computed:      true,
 						ElementType:   types.StringType,
 						Description:   "Private Kafka API seed brokers (bootstrap servers)",
-						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.List{listplanmodifier.UseNonNullStateForUnknown()},
 					},
 				},
 			},
@@ -157,12 +157,12 @@ func ResourceServerlessClusterSchema() schema.Schema {
 					"url": schema.StringAttribute{
 						Computed:      true,
 						Description:   "Public Schema Registry URL",
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 					},
 					"private_url": schema.StringAttribute{
 						Computed:      true,
 						Description:   "Private Schema Registry URL",
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 					},
 				},
 			},
@@ -174,24 +174,24 @@ func ResourceServerlessClusterSchema() schema.Schema {
 					"url": schema.StringAttribute{
 						Computed:      true,
 						Description:   "Public Dataplane API URL",
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 					},
 					"private_url": schema.StringAttribute{
 						Computed:      true,
 						Description:   "Private Dataplane API URL",
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 					},
 				},
 			},
 			"console_url": schema.StringAttribute{
 				Computed:      true,
 				Description:   "Public Console URL for the serverless cluster",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 			},
 			"console_private_url": schema.StringAttribute{
 				Computed:      true,
 				Description:   "Private Console URL for the serverless cluster",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 			},
 			"tags": schema.MapAttribute{
 				Optional:    true,
@@ -224,12 +224,12 @@ func ResourceServerlessClusterSchema() schema.Schema {
 					"url": schema.StringAttribute{
 						Computed:      true,
 						Description:   "Public Prometheus metrics URL",
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 					},
 					"private_url": schema.StringAttribute{
 						Computed:      true,
 						Description:   "Private Prometheus metrics URL",
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 					},
 				},
 			},

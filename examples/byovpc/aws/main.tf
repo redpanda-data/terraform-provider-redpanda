@@ -61,9 +61,6 @@ resource "redpanda_cluster" "test" {
   }
   customer_managed_resources = {
     aws = {
-      aws_permissions_boundary_policy_arn = {
-        arn = module.redpanda_byovpc.permissions_boundary_policy_arn
-      }
       agent_instance_profile = {
         arn = module.redpanda_byovpc.agent_instance_profile_arn
       }

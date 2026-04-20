@@ -364,14 +364,6 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 								Computed:    true,
 								Description: "Current state of the PrivateLink service.",
 							},
-							"created_at": schema.StringAttribute{
-								Computed:    true,
-								Description: "When the PrivateLink service was created.",
-							},
-							"deleted_at": schema.StringAttribute{
-								Computed:    true,
-								Description: "When the PrivateLink service was deleted.",
-							},
 							"vpc_endpoint_connections": schema.ListNestedAttribute{
 								Computed:    true,
 								Description: "List of VPC endpoint connections.",
@@ -388,10 +380,6 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 										"state": schema.StringAttribute{
 											Computed:    true,
 											Description: "State of the endpoint connection.",
-										},
-										"created_at": schema.StringAttribute{
-											Computed:    true,
-											Description: "When the endpoint connection was created.",
 										},
 										"connection_id": schema.StringAttribute{
 											Computed:    true,
@@ -490,14 +478,6 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 								Computed:    true,
 								Description: "The service attachment identifier.",
 							},
-							"created_at": schema.StringAttribute{
-								Computed:    true,
-								Description: "When the Private Service Connect service was created.",
-							},
-							"deleted_at": schema.StringAttribute{
-								Computed:    true,
-								Description: "When the Private Service Connect service was deleted.",
-							},
 							"kafka_api_seed_port": schema.Int32Attribute{
 								Computed:    true,
 								Description: "Port for Kafka API seed brokers.",
@@ -584,14 +564,6 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 								Computed:    true,
 								Description: "The Private Link service name.",
 							},
-							"created_at": schema.StringAttribute{
-								Computed:    true,
-								Description: "When the Private Link service was created.",
-							},
-							"deleted_at": schema.StringAttribute{
-								Computed:    true,
-								Description: "When the Private Link service was deleted.",
-							},
 							"private_endpoint_connections": schema.ListNestedAttribute{
 								Computed:    true,
 								Description: "List of private endpoint connections.",
@@ -616,10 +588,6 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 										"status": schema.StringAttribute{
 											Computed:    true,
 											Description: "Status of the endpoint connection.",
-										},
-										"created_at": schema.StringAttribute{
-											Computed:    true,
-											Description: "When the endpoint connection was created.",
 										},
 									},
 								},

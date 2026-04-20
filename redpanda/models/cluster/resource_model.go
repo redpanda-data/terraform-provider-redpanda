@@ -123,9 +123,9 @@ func (r *ResourceModel) GetUpdatedModel(ctx context.Context, cluster *controlpla
 		r.CreatedAt = types.StringValue(cluster.GetCreatedAt().AsTime().Format(time.RFC3339))
 	}
 
-	r.CurrentRedpandaVersion = types.StringValue(cluster.GetCurrentRedpandaVersion())
-	r.DesiredRedpandaVersion = types.StringValue(cluster.GetDesiredRedpandaVersion())
-	r.NatGateways = utils.StringSliceToTypeList(cluster.GetNatGateways())
+	r.CurrentRedpandaVersion = utils.StringValueOrNull(cluster.GetCurrentRedpandaVersion())
+	r.DesiredRedpandaVersion = utils.StringValueOrNull(cluster.GetDesiredRedpandaVersion())
+	r.NatGateways = utils.StringSliceToTypeListOrNull(cluster.GetNatGateways())
 	r.APIGatewayAccess = types.StringValue(cluster.GetApiGatewayAccess().String())
 
 	if cluster.HasDataplaneApi() {
@@ -876,7 +876,7 @@ func (*ResourceModel) generateModelStateDescription(cluster *controlplanev1.Clus
 	}
 	sd := cluster.GetStateDescription()
 	obj, d := types.ObjectValue(getStateDescriptionType(), map[string]attr.Value{
-		"message": types.StringValue(sd.GetMessage()),
+		"message": utils.StringValueOrNull(sd.GetMessage()),
 		"code":    types.Int32Value(sd.GetCode()),
 	})
 	if d.HasError() {
@@ -887,23 +887,33 @@ func (*ResourceModel) generateModelStateDescription(cluster *controlplanev1.Clus
 	return obj, diags
 }
 
-func (*ResourceModel) generateModelAwsPrivateLink(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
+// nonNilStrings coerces a nil slice to an empty slice. Used to avoid
+// mapping a proto3 repeated field (where nil and empty are wire-equivalent)
+// to a null Terraform list when the schema needs a non-null empty list.
+func nonNilStrings(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
+}
+
+func (r *ResourceModel) generateModelAwsPrivateLink(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if !cluster.HasAwsPrivateLink() {
+		// Preserve planned disabled block when API omits the field.
+		if r != nil && !r.AWSPrivateLink.IsNull() && !r.AWSPrivateLink.IsUnknown() {
+			return synthesizeDisabledAwsPrivateLink(r.AWSPrivateLink)
+		}
 		return types.ObjectNull(getAwsPrivateLinkType()), diags
 	}
 
 	awsPrivateLink := cluster.GetAwsPrivateLink()
-	if !awsPrivateLink.GetEnabled() {
-		return types.ObjectNull(getAwsPrivateLinkType()), diags
-	}
 
-	var allowedPrincipals types.List
-	if ap := awsPrivateLink.GetAllowedPrincipals(); ap != nil {
-		allowedPrincipals = utils.StringSliceToTypeList(ap)
-	} else {
-		allowedPrincipals = types.ListNull(types.StringType)
-	}
+	// Both lists must be non-null in state: allowed_principals is Required
+	// in the schema, supported_regions is Computed, and neither can coherently
+	// be null when aws_private_link itself is non-null.
+	allowedPrincipals := utils.StringSliceToTypeList(nonNilStrings(awsPrivateLink.GetAllowedPrincipals()))
+	supportedRegions := utils.StringSliceToTypeList(nonNilStrings(awsPrivateLink.GetSupportedRegions()))
 
 	status := awsPrivateLink.GetStatus()
 	if status != nil {
@@ -912,8 +922,8 @@ func (*ResourceModel) generateModelAwsPrivateLink(cluster *controlplanev1.Cluste
 			var dnsEntries []attr.Value
 			for _, dns := range conn.GetDnsEntries() {
 				dnsEntry, d := types.ObjectValue(getDNSEntryType(), map[string]attr.Value{
-					"dns_name":       types.StringValue(dns.GetDnsName()),
-					"hosted_zone_id": types.StringValue(dns.GetHostedZoneId()),
+					"dns_name":       utils.StringValueOrNull(dns.GetDnsName()),
+					"hosted_zone_id": utils.StringValueOrNull(dns.GetHostedZoneId()),
 				})
 				if d.HasError() {
 					diags.Append(d...)
@@ -931,17 +941,11 @@ func (*ResourceModel) generateModelAwsPrivateLink(cluster *controlplanev1.Cluste
 			}
 
 			connObj, d := types.ObjectValue(getVpcEndpointConnectionType(), map[string]attr.Value{
-				"id":    types.StringValue(conn.GetId()),
-				"owner": types.StringValue(conn.GetOwner()),
-				"state": types.StringValue(conn.GetState()),
-				"created_at": func() types.String {
-					if conn.CreatedAt != nil {
-						return types.StringValue(conn.GetCreatedAt().AsTime().Format(time.RFC3339))
-					}
-					return types.StringNull()
-				}(),
-				"connection_id":      types.StringValue(conn.GetConnectionId()),
-				"load_balancer_arns": utils.StringSliceToTypeList(conn.GetLoadBalancerArns()),
+				"id":                 utils.StringValueOrNull(conn.GetId()),
+				"owner":              utils.StringValueOrNull(conn.GetOwner()),
+				"state":              utils.StringValueOrNull(conn.GetState()),
+				"connection_id":      utils.StringValueOrNull(conn.GetConnectionId()),
+				"load_balancer_arns": utils.StringSliceToTypeList(nonNilStrings(conn.GetLoadBalancerArns())),
 				"dns_entries":        dnsEntriesList,
 			})
 			if d.HasError() {
@@ -960,9 +964,9 @@ func (*ResourceModel) generateModelAwsPrivateLink(cluster *controlplanev1.Cluste
 		}
 
 		statusValues := map[string]attr.Value{
-			"service_id":                    types.StringValue(status.GetServiceId()),
-			"service_name":                  types.StringValue(status.GetServiceName()),
-			"service_state":                 types.StringValue(status.GetServiceState()),
+			"service_id":                    utils.StringValueOrNull(status.GetServiceId()),
+			"service_name":                  utils.StringValueOrNull(status.GetServiceName()),
+			"service_state":                 utils.StringValueOrNull(status.GetServiceState()),
 			"kafka_api_seed_port":           types.Int32Value(status.GetKafkaApiSeedPort()),
 			"schema_registry_seed_port":     types.Int32Value(status.GetSchemaRegistrySeedPort()),
 			"redpanda_proxy_seed_port":      types.Int32Value(status.GetRedpandaProxySeedPort()),
@@ -970,18 +974,6 @@ func (*ResourceModel) generateModelAwsPrivateLink(cluster *controlplanev1.Cluste
 			"redpanda_proxy_node_base_port": types.Int32Value(status.GetRedpandaProxyNodeBasePort()),
 			"console_port":                  types.Int32Value(status.GetConsolePort()),
 			"vpc_endpoint_connections":      vpcEndpointConnsList,
-			"created_at": func() types.String {
-				if status.CreatedAt != nil {
-					return types.StringValue(status.GetCreatedAt().AsTime().Format(time.RFC3339))
-				}
-				return types.StringNull()
-			}(),
-			"deleted_at": func() types.String {
-				if status.DeletedAt != nil {
-					return types.StringValue(status.GetDeletedAt().AsTime().Format(time.RFC3339))
-				}
-				return types.StringNull()
-			}(),
 		}
 
 		statusObj, d := types.ObjectValue(getAwsPrivateLinkStatusType(), statusValues)
@@ -996,7 +988,7 @@ func (*ResourceModel) generateModelAwsPrivateLink(cluster *controlplanev1.Cluste
 			"connect_console":    types.BoolValue(awsPrivateLink.GetConnectConsole()),
 			"allowed_principals": allowedPrincipals,
 			"status":             statusObj,
-			"supported_regions":  utils.StringSliceToTypeList(awsPrivateLink.GetSupportedRegions()),
+			"supported_regions":  supportedRegions,
 		})
 		if d.HasError() {
 			diags.Append(d...)
@@ -1011,11 +1003,44 @@ func (*ResourceModel) generateModelAwsPrivateLink(cluster *controlplanev1.Cluste
 		"connect_console":    types.BoolValue(awsPrivateLink.GetConnectConsole()),
 		"allowed_principals": allowedPrincipals,
 		"status":             types.ObjectNull(getAwsPrivateLinkStatusType()),
-		"supported_regions":  utils.StringSliceToTypeList(awsPrivateLink.GetSupportedRegions()),
+		"supported_regions":  supportedRegions,
 	})
 	if d.HasError() {
 		diags.Append(d...)
 		diags.AddError("failed to generate AWS Private Link object", "could not create AWS Private Link object without status")
+		return types.ObjectNull(getAwsPrivateLinkType()), diags
+	}
+	return obj, diags
+}
+
+// synthesizeDisabledAwsPrivateLink rebuilds the object from plan knowns when the API omits the field.
+func synthesizeDisabledAwsPrivateLink(planned types.Object) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	attrs := planned.Attributes()
+
+	enabled := types.BoolValue(false)
+	if v, ok := attrs["enabled"].(types.Bool); ok && !v.IsNull() && !v.IsUnknown() {
+		enabled = v
+	}
+	connectConsole := types.BoolValue(false)
+	if v, ok := attrs["connect_console"].(types.Bool); ok && !v.IsNull() && !v.IsUnknown() {
+		connectConsole = v
+	}
+	allowedPrincipals := types.ListValueMust(types.StringType, []attr.Value{})
+	if v, ok := attrs["allowed_principals"].(types.List); ok && !v.IsNull() && !v.IsUnknown() {
+		allowedPrincipals = v
+	}
+
+	obj, d := types.ObjectValue(getAwsPrivateLinkType(), map[string]attr.Value{
+		"enabled":            enabled,
+		"connect_console":    connectConsole,
+		"allowed_principals": allowedPrincipals,
+		"status":             types.ObjectNull(getAwsPrivateLinkStatusType()),
+		"supported_regions":  types.ListValueMust(types.StringType, []attr.Value{}),
+	})
+	if d.HasError() {
+		diags.Append(d...)
+		diags.AddError("failed to synthesize AWS Private Link object", "could not rebuild disabled AWS Private Link object from plan")
 		return types.ObjectNull(getAwsPrivateLinkType()), diags
 	}
 	return obj, diags
@@ -1028,15 +1053,12 @@ func (*ResourceModel) generateModelGcpPrivateServiceConnect(cluster *controlplan
 	}
 
 	gcpPsc := cluster.GetGcpPrivateServiceConnect()
-	if !gcpPsc.GetEnabled() {
-		return types.ObjectNull(getGcpPrivateServiceConnectType()), diags
-	}
 
 	var consumerAcceptList []attr.Value
 	for _, consumer := range gcpPsc.GetConsumerAcceptList() {
 		consumerObj, d := types.ObjectValue(
 			map[string]attr.Type{"source": types.StringType},
-			map[string]attr.Value{"source": types.StringValue(consumer.GetSource())},
+			map[string]attr.Value{"source": utils.StringValueOrNull(consumer.GetSource())},
 		)
 		if d.HasError() {
 			diags.Append(d...)
@@ -1063,10 +1085,10 @@ func (*ResourceModel) generateModelGcpPrivateServiceConnect(cluster *controlplan
 			endpointObj, d := types.ObjectValue(
 				getConnectedEndpointType(),
 				map[string]attr.Value{
-					"connection_id":    types.StringValue(endpoint.GetConnectionId()),
-					"consumer_network": types.StringValue(endpoint.GetConsumerNetwork()),
-					"endpoint":         types.StringValue(endpoint.GetEndpoint()),
-					"status":           types.StringValue(endpoint.GetStatus()),
+					"connection_id":    utils.StringValueOrNull(endpoint.GetConnectionId()),
+					"consumer_network": utils.StringValueOrNull(endpoint.GetConsumerNetwork()),
+					"endpoint":         utils.StringValueOrNull(endpoint.GetEndpoint()),
+					"status":           utils.StringValueOrNull(endpoint.GetStatus()),
 				},
 			)
 			if d.HasError() {
@@ -1085,27 +1107,15 @@ func (*ResourceModel) generateModelGcpPrivateServiceConnect(cluster *controlplan
 		}
 
 		statusValues := map[string]attr.Value{
-			"service_attachment":            types.StringValue(status.GetServiceAttachment()),
+			"service_attachment":            utils.StringValueOrNull(status.GetServiceAttachment()),
 			"kafka_api_seed_port":           types.Int32Value(status.GetKafkaApiSeedPort()),
 			"schema_registry_seed_port":     types.Int32Value(status.GetSchemaRegistrySeedPort()),
 			"redpanda_proxy_seed_port":      types.Int32Value(status.GetRedpandaProxySeedPort()),
 			"kafka_api_node_base_port":      types.Int32Value(status.GetKafkaApiNodeBasePort()),
 			"redpanda_proxy_node_base_port": types.Int32Value(status.GetRedpandaProxyNodeBasePort()),
 			"connected_endpoints":           endpointList,
-			"dns_a_records":                 utils.StringSliceToTypeList(status.GetDnsARecords()),
-			"seed_hostname":                 types.StringValue(status.GetSeedHostname()),
-			"created_at": func() types.String {
-				if status.CreatedAt != nil {
-					return types.StringValue(status.GetCreatedAt().AsTime().Format(time.RFC3339))
-				}
-				return types.StringNull()
-			}(),
-			"deleted_at": func() types.String {
-				if status.DeletedAt != nil {
-					return types.StringValue(status.GetDeletedAt().AsTime().Format(time.RFC3339))
-				}
-				return types.StringNull()
-			}(),
+			"dns_a_records":                 utils.StringSliceToTypeList(nonNilStrings(status.GetDnsARecords())),
+			"seed_hostname":                 utils.StringValueOrNull(status.GetSeedHostname()),
 		}
 
 		statusObj, d := types.ObjectValue(getGcpPrivateServiceConnectStatusType(), statusValues)
@@ -1149,33 +1159,22 @@ func (*ResourceModel) generateModelAzurePrivateLink(cluster *controlplanev1.Clus
 	}
 
 	azurePrivateLink := cluster.GetAzurePrivateLink()
-	if !azurePrivateLink.GetEnabled() {
-		return types.ObjectNull(getAzurePrivateLinkType()), diags
-	}
 
-	var allowedSubscriptions types.List
-	if as := azurePrivateLink.GetAllowedSubscriptions(); as != nil {
-		allowedSubscriptions = utils.StringSliceToTypeList(as)
-	} else {
-		allowedSubscriptions = types.ListNull(types.StringType)
-	}
+	// allowed_subscriptions is Required in the schema; it can never be null
+	// when azure_private_link is non-null. Coerce proto3 nil to empty-list
+	// so the Terraform state always has a non-null value.
+	allowedSubscriptions := utils.StringSliceToTypeList(nonNilStrings(azurePrivateLink.GetAllowedSubscriptions()))
 
 	status := azurePrivateLink.GetStatus()
 	if status != nil {
 		var privateEndpointConns []attr.Value
 		for _, conn := range status.GetPrivateEndpointConnections() {
 			connObj, d := types.ObjectValue(getAzureEndpointConnectionType(), map[string]attr.Value{
-				"private_endpoint_name": types.StringValue(conn.GetPrivateEndpointName()),
-				"private_endpoint_id":   types.StringValue(conn.GetPrivateEndpointId()),
-				"connection_name":       types.StringValue(conn.GetConnectionName()),
-				"connection_id":         types.StringValue(conn.GetConnectionId()),
-				"status":                types.StringValue(conn.GetStatus()),
-				"created_at": func() types.String {
-					if conn.CreatedAt != nil {
-						return types.StringValue(conn.GetCreatedAt().AsTime().Format(time.RFC3339))
-					}
-					return types.StringNull()
-				}(),
+				"private_endpoint_name": utils.StringValueOrNull(conn.GetPrivateEndpointName()),
+				"private_endpoint_id":   utils.StringValueOrNull(conn.GetPrivateEndpointId()),
+				"connection_name":       utils.StringValueOrNull(conn.GetConnectionName()),
+				"connection_id":         utils.StringValueOrNull(conn.GetConnectionId()),
+				"status":                utils.StringValueOrNull(conn.GetStatus()),
 			})
 			if d.HasError() {
 				diags.Append(d...)
@@ -1193,8 +1192,8 @@ func (*ResourceModel) generateModelAzurePrivateLink(cluster *controlplanev1.Clus
 		}
 
 		statusValues := map[string]attr.Value{
-			"service_id":                    types.StringValue(status.GetServiceId()),
-			"service_name":                  types.StringValue(status.GetServiceName()),
+			"service_id":                    utils.StringValueOrNull(status.GetServiceId()),
+			"service_name":                  utils.StringValueOrNull(status.GetServiceName()),
 			"kafka_api_seed_port":           types.Int32Value(status.GetKafkaApiSeedPort()),
 			"schema_registry_seed_port":     types.Int32Value(status.GetSchemaRegistrySeedPort()),
 			"redpanda_proxy_seed_port":      types.Int32Value(status.GetRedpandaProxySeedPort()),
@@ -1202,20 +1201,8 @@ func (*ResourceModel) generateModelAzurePrivateLink(cluster *controlplanev1.Clus
 			"redpanda_proxy_node_base_port": types.Int32Value(status.GetRedpandaProxyNodeBasePort()),
 			"console_port":                  types.Int32Value(status.GetConsolePort()),
 			"private_endpoint_connections":  endpointConnsList,
-			"created_at": func() types.String {
-				if status.CreatedAt != nil {
-					return types.StringValue(status.GetCreatedAt().AsTime().Format(time.RFC3339))
-				}
-				return types.StringNull()
-			}(),
-			"deleted_at": func() types.String {
-				if status.DeletedAt != nil {
-					return types.StringValue(status.GetDeletedAt().AsTime().Format(time.RFC3339))
-				}
-				return types.StringNull()
-			}(),
-			"dns_a_record":           types.StringValue(status.GetDnsARecord()),
-			"approved_subscriptions": utils.StringSliceToTypeList(status.GetApprovedSubscriptions()),
+			"dns_a_record":                  utils.StringValueOrNull(status.GetDnsARecord()),
+			"approved_subscriptions":        utils.StringSliceToTypeList(nonNilStrings(status.GetApprovedSubscriptions())),
 		}
 
 		statusObj, d := types.ObjectValue(getAzurePrivateLinkStatusType(), statusValues)
@@ -1283,10 +1270,10 @@ func (r *ResourceModel) generateModelKafkaAPI(cluster *controlplanev1.Cluster) (
 	if kafkaAPI.HasAllSeedBrokers() {
 		asb := kafkaAPI.GetAllSeedBrokers()
 		s, d := types.ObjectValue(getSeedBrokersType(), map[string]attr.Value{
-			"sasl":              types.StringValue(asb.GetSasl()),
-			"mtls":              types.StringValue(asb.GetMtls()),
-			"private_link_sasl": types.StringValue(asb.GetPrivateLinkSasl()),
-			"private_link_mtls": types.StringValue(asb.GetPrivateLinkMtls()),
+			"sasl":              utils.StringValueOrNull(asb.GetSasl()),
+			"mtls":              utils.StringValueOrNull(asb.GetMtls()),
+			"private_link_sasl": utils.StringValueOrNull(asb.GetPrivateLinkSasl()),
+			"private_link_mtls": utils.StringValueOrNull(asb.GetPrivateLinkMtls()),
 		})
 		if d.HasError() {
 			diags.Append(d...)
@@ -1296,7 +1283,7 @@ func (r *ResourceModel) generateModelKafkaAPI(cluster *controlplanev1.Cluster) (
 	}
 
 	obj, d := types.ObjectValue(getKafkaAPIType(), map[string]attr.Value{
-		"seed_brokers":     utils.StringSliceToTypeList(kafkaAPI.GetSeedBrokers()),
+		"seed_brokers":     utils.StringSliceToTypeListOrNull(kafkaAPI.GetSeedBrokers()),
 		"mtls":             mtls,
 		"sasl":             saslObj,
 		"all_seed_brokers": allSeedBrokersObj,
@@ -1340,10 +1327,10 @@ func (r *ResourceModel) generateModelHTTPProxy(cluster *controlplanev1.Cluster) 
 	if httpProxy.HasAllUrls() {
 		au := httpProxy.GetAllUrls()
 		s, d := types.ObjectValue(getEndpointsType(), map[string]attr.Value{
-			"sasl":              types.StringValue(au.GetSasl()),
-			"mtls":              types.StringValue(au.GetMtls()),
-			"private_link_sasl": types.StringValue(au.GetPrivateLinkSasl()),
-			"private_link_mtls": types.StringValue(au.GetPrivateLinkMtls()),
+			"sasl":              utils.StringValueOrNull(au.GetSasl()),
+			"mtls":              utils.StringValueOrNull(au.GetMtls()),
+			"private_link_sasl": utils.StringValueOrNull(au.GetPrivateLinkSasl()),
+			"private_link_mtls": utils.StringValueOrNull(au.GetPrivateLinkMtls()),
 		})
 		if d.HasError() {
 			diags.Append(d...)
@@ -1354,7 +1341,7 @@ func (r *ResourceModel) generateModelHTTPProxy(cluster *controlplanev1.Cluster) 
 
 	obj, d := types.ObjectValue(getHTTPProxyType(), map[string]attr.Value{
 		"mtls":     mtls,
-		"url":      types.StringValue(httpProxy.GetUrl()),
+		"url":      utils.StringValueOrNull(httpProxy.GetUrl()),
 		"sasl":     saslObj,
 		"all_urls": allUrlsObj,
 	})
@@ -1385,10 +1372,10 @@ func (r *ResourceModel) generateModelSchemaRegistry(cluster *controlplanev1.Clus
 	if schemaRegistry.HasAllUrls() {
 		au := schemaRegistry.GetAllUrls()
 		s, d := types.ObjectValue(getEndpointsType(), map[string]attr.Value{
-			"sasl":              types.StringValue(au.GetSasl()),
-			"mtls":              types.StringValue(au.GetMtls()),
-			"private_link_sasl": types.StringValue(au.GetPrivateLinkSasl()),
-			"private_link_mtls": types.StringValue(au.GetPrivateLinkMtls()),
+			"sasl":              utils.StringValueOrNull(au.GetSasl()),
+			"mtls":              utils.StringValueOrNull(au.GetMtls()),
+			"private_link_sasl": utils.StringValueOrNull(au.GetPrivateLinkSasl()),
+			"private_link_mtls": utils.StringValueOrNull(au.GetPrivateLinkMtls()),
 		})
 		if d.HasError() {
 			diags.Append(d...)
@@ -1399,7 +1386,7 @@ func (r *ResourceModel) generateModelSchemaRegistry(cluster *controlplanev1.Clus
 
 	obj, d := types.ObjectValue(getSchemaRegistryType(), map[string]attr.Value{
 		"mtls":     mtls,
-		"url":      types.StringValue(schemaRegistry.GetUrl()),
+		"url":      utils.StringValueOrNull(schemaRegistry.GetUrl()),
 		"all_urls": allUrlsObj,
 	})
 	if d.HasError() {
@@ -1411,19 +1398,21 @@ func (r *ResourceModel) generateModelSchemaRegistry(cluster *controlplanev1.Clus
 	return obj, diags
 }
 
-func (*ResourceModel) generateModelKafkaConnect(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
+func (r *ResourceModel) generateModelKafkaConnect(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
 	var diags diag.Diagnostics
-	if !cluster.HasKafkaConnect() {
-		return types.ObjectNull(getKafkaConnectType()), diags
-	}
 
-	kafkaConnect := cluster.GetKafkaConnect()
-	if !kafkaConnect.GetEnabled() {
+	// kafka_connect.enabled defaults to false at the proto3 layer, so the
+	// reflection-based update-mask diff treats `{enabled:false}` as
+	// wire-equivalent to "unset" — Update produces an empty mask, the API
+	// is never called, and the subsequent GetCluster returns no
+	// kafka_connect block. Preserve the user's plan presence so state
+	// stays non-null when the block was configured.
+	if r.KafkaConnect.IsNull() && !cluster.HasKafkaConnect() {
 		return types.ObjectNull(getKafkaConnectType()), diags
 	}
 
 	obj, d := types.ObjectValue(getKafkaConnectType(), map[string]attr.Value{
-		"enabled": types.BoolValue(kafkaConnect.GetEnabled()),
+		"enabled": types.BoolValue(cluster.GetKafkaConnect().GetEnabled()),
 	})
 	if d.HasError() {
 		diags.Append(d...)
@@ -1494,7 +1483,7 @@ func (*ResourceModel) generateModelPrometheus(cluster *controlplanev1.Cluster) (
 	prometheus := cluster.GetPrometheus()
 
 	obj, d := types.ObjectValue(getPrometheusType(), map[string]attr.Value{
-		"url": types.StringValue(prometheus.GetUrl()),
+		"url": utils.StringValueOrNull(prometheus.GetUrl()),
 	})
 	if d.HasError() {
 		diags.Append(d...)
@@ -1514,7 +1503,7 @@ func (*ResourceModel) generateModelRedpandaConsole(cluster *controlplanev1.Clust
 	console := cluster.GetRedpandaConsole()
 
 	obj, d := types.ObjectValue(getRedpandaConsoleType(), map[string]attr.Value{
-		"url": types.StringValue(console.GetUrl()),
+		"url": utils.StringValueOrNull(console.GetUrl()),
 	})
 	if d.HasError() {
 		diags.Append(d...)
@@ -1554,9 +1543,9 @@ func (*ResourceModel) generateModelMaintenanceWindow(cluster *controlplanev1.Clu
 		}
 		windowObj = obj
 	case maintenance.HasAnytime():
-		unspec = types.BoolValue(true)
-	case maintenance.HasUnspecified():
 		anytime = types.BoolValue(true)
+	case maintenance.HasUnspecified():
+		unspec = types.BoolValue(true)
 	}
 
 	obj, d := types.ObjectValue(getMaintenanceWindowConfigType(), map[string]attr.Value{
@@ -1648,7 +1637,7 @@ func (*ResourceModel) generateModelCloudStorage(cluster *controlplanev1.Cluster)
 	switch v := cs.GetCloudProvider().(type) {
 	case *controlplanev1.Cluster_CloudStorage_Aws:
 		awsObj, d := types.ObjectValue(getCloudStorageAwsType(), map[string]attr.Value{
-			"arn": types.StringValue(v.Aws.GetArn()),
+			"arn": utils.StringValueOrNull(v.Aws.GetArn()),
 		})
 		if d.HasError() {
 			diags.Append(d...)
@@ -1657,7 +1646,7 @@ func (*ResourceModel) generateModelCloudStorage(cluster *controlplanev1.Cluster)
 		values["aws"] = awsObj
 	case *controlplanev1.Cluster_CloudStorage_Gcp:
 		gcpObj, d := types.ObjectValue(getCloudStorageGcpType(), map[string]attr.Value{
-			"name": types.StringValue(v.Gcp.GetName()),
+			"name": utils.StringValueOrNull(v.Gcp.GetName()),
 		})
 		if d.HasError() {
 			diags.Append(d...)
@@ -1666,8 +1655,8 @@ func (*ResourceModel) generateModelCloudStorage(cluster *controlplanev1.Cluster)
 		values["gcp"] = gcpObj
 	case *controlplanev1.Cluster_CloudStorage_Azure_:
 		azureObj, d := types.ObjectValue(getCloudStorageAzureType(), map[string]attr.Value{
-			"container_name":       types.StringValue(v.Azure.GetContainerName()),
-			"storage_account_name": types.StringValue(v.Azure.GetStorageAccountName()),
+			"container_name":       utils.StringValueOrNull(v.Azure.GetContainerName()),
+			"storage_account_name": utils.StringValueOrNull(v.Azure.GetStorageAccountName()),
 		})
 		if d.HasError() {
 			diags.Append(d...)

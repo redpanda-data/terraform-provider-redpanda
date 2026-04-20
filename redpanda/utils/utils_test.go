@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/genproto/googleapis/rpc/status"
@@ -899,6 +902,61 @@ func TestRetryGetCluster(t *testing.T) {
 	}
 }
 
+// TestRetry_NoThunderingHerd
+func TestRetry_NoThunderingHerd(t *testing.T) {
+	const (
+		workers      = 50
+		serverCap    = 5
+		serviceTime  = 20 * time.Millisecond
+		totalTimeout = 20 * time.Second
+	)
+
+	sem := make(chan struct{}, serverCap)
+	var (
+		inFlight     atomic.Int64
+		peakInFlight atomic.Int64
+		successes    atomic.Int64
+	)
+
+	work := func() *RetryError {
+		select {
+		case sem <- struct{}{}:
+		default:
+			return RetryableError(errors.New("transient broker error: client closed"))
+		}
+		defer func() { <-sem }()
+
+		cur := inFlight.Add(1)
+		defer inFlight.Add(-1)
+		for {
+			prev := peakInFlight.Load()
+			if cur <= prev || peakInFlight.CompareAndSwap(prev, cur) {
+				break
+			}
+		}
+		time.Sleep(serviceTime)
+		successes.Add(1)
+		return nil
+	}
+
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	for range workers {
+		go func() {
+			defer wg.Done()
+			<-start
+			_ = Retry(context.Background(), totalTimeout, work)
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	require.Equal(t, int64(workers), successes.Load(),
+		"all workers should finish within %s; peak in-flight = %d",
+		totalTimeout, peakInFlight.Load())
+}
+
 func TestIsNil(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1335,6 +1393,49 @@ func TestGetEffectivePassword(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GetEffectivePassword(tt.password, tt.passwordWO)
 			assert.Equal(t, tt.expected, result, "GetEffectivePassword() = %q, expected %q", result, tt.expected)
+		})
+	}
+}
+
+func TestStringValueOrNull(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		isNull bool
+		want   string
+	}{
+		{name: "empty string yields null", input: "", isNull: true},
+		{name: "non-empty string yields value", input: "foo", want: "foo"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := StringValueOrNull(tt.input)
+			assert.Equal(t, tt.isNull, got.IsNull())
+			if !tt.isNull {
+				assert.Equal(t, tt.want, got.ValueString())
+			}
+		})
+	}
+}
+
+func TestStringSliceToTypeListOrNull(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  []string
+		isNull bool
+		want   []string
+	}{
+		{name: "nil yields null", input: nil, isNull: true},
+		{name: "empty slice yields null", input: []string{}, isNull: true},
+		{name: "non-empty slice yields list", input: []string{"a", "b"}, want: []string{"a", "b"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := StringSliceToTypeListOrNull(tt.input)
+			assert.Equal(t, tt.isNull, got.IsNull())
+			if !tt.isNull {
+				assert.Equal(t, tt.want, TypeListToStringSlice(got))
+			}
 		})
 	}
 }
