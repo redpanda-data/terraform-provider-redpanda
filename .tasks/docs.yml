@@ -5,6 +5,7 @@ tasks:
     desc: "Generate provider documentation"
     deps:
       - :tools:install:tfplugindocs
+      - :tools:install:terraform
     cmds:
       - echo "Generating provider documentation..."
       - |
