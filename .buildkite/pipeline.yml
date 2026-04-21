@@ -51,6 +51,45 @@ steps:
       - generate
       - lint
 
+  - label: release:check
+    key: release_check
+    if: build.tag == null
+    command: |
+      git config --global --add safe.directory /workdir
+      ./taskw release:check
+    plugins:
+      - docker#v5.12.0:
+          image: "golang:1.24"
+          environment:
+            - BUILDKITE=true
+    depends_on:
+      - lint
+
+  - label: "release:snapshot (dry run)"
+    key: release_snapshot
+    if: build.branch == "add-tagged-release"
+    command: |
+      set -euo pipefail
+      git config --global --add safe.directory /workdir
+      if ! command -v gpg >/dev/null 2>&1; then
+        apt-get update -qq && apt-get install -y -qq gnupg
+      fi
+      ./taskw release:snapshot
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.12.0:
+          image: "golang:1.24"
+          propagate-environment: true
+          environment:
+            - BUILDKITE=true
+            - GPG_PRIVATE_KEY
+            - PASSPHRASE
+            - GPG_FINGERPRINT
+    depends_on:
+      - lint
+
   - label: test_datasource_cluster
     key: test_datasource_cluster
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
@@ -395,21 +434,35 @@ steps:
     allow_dependency_failure: true
     soft_fail: true
 
-  - label: "Release Success"
-    key: tag_success
-    if: build.tag != null
+  - label: "Release"
+    key: release
+    if: build.tag =~ /^v[0-9]+\.[0-9]+\.[0-9]+(-.*)?$/
+    concurrency: 1
+    concurrency_group: "terraform-provider-redpanda/release"
     command: |
-      echo "=========================================="
-      echo "Tag Created Successfully!"
-      echo "=========================================="
-      echo ""
-      echo "Tag: $${BUILDKITE_TAG}"
-      echo "Commit: $${BUILDKITE_COMMIT}"
-      echo "Branch: $${BUILDKITE_BRANCH}"
-      echo "Build URL: $${BUILDKITE_BUILD_URL}"
-      echo ""
-      echo "Tag pipeline completed successfully."
-      echo "=========================================="
+      set -euo pipefail
+      git config --global --add safe.directory /workdir
+      if ! command -v gpg >/dev/null 2>&1; then
+        apt-get update -qq && apt-get install -y -qq gnupg
+      fi
+      ./taskw release
     plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
       - docker#v5.12.0:
-          image: "alpine:latest"
+          image: "golang:1.24"
+          propagate-environment: true
+          environment:
+            - BUILDKITE=true
+            - BUILDKITE_TAG
+            - BUILDKITE_COMMIT
+            - GPG_PRIVATE_KEY
+            - PASSPHRASE
+            - GPG_FINGERPRINT
+            - GITHUB_TOKEN
+    depends_on:
+      - docs
+      - generate
+      - lint
+      - unit

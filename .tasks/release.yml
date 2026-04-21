@@ -1,8 +1,6 @@
 version: '3'
 
 vars:
-  GPG_PRIVATE_KEY: '{{.GPG_PRIVATE_KEY | default ""}}'
-  PASSPHRASE: '{{.PASSPHRASE | default ""}}'
   GPG_FINGERPRINT: '{{.GPG_FINGERPRINT | default ""}}'
 
 tasks:
@@ -10,14 +8,14 @@ tasks:
     desc: "Check if GPG_PRIVATE_KEY is set"
     internal: true
     preconditions:
-      - sh: '[ -n "{{.GPG_PRIVATE_KEY}}" ]'
+      - sh: '[ -n "$GPG_PRIVATE_KEY" ]'
         msg: "GPG_PRIVATE_KEY environment variable is required"
 
   check-passphrase:
     desc: "Check if PASSPHRASE is set"
     internal: true
     preconditions:
-      - sh: '[ -n "{{.PASSPHRASE}}" ]'
+      - sh: '[ -n "$PASSPHRASE" ]'
         msg: "PASSPHRASE environment variable is required"
 
   check-gpg-fingerprint:
@@ -31,39 +29,42 @@ tasks:
     desc: "Import GPG private key for signing releases"
     deps: [check-gpg-key, check-passphrase]
     cmds:
-      - echo "Importing GPG private key..."
-      - echo "{{.GPG_PRIVATE_KEY}}" | base64 -d | gpg --batch --pinentry-mode loopback --passphrase "{{.PASSPHRASE}}" --import
-      - echo "GPG key imported successfully"
+      - cmd: |
+          printf '%s' "$GPG_PRIVATE_KEY" | gpg --batch --pinentry-mode loopback --passphrase "$PASSPHRASE" --import
+        silent: true
     status:
       - gpg --list-secret-keys "{{.GPG_FINGERPRINT}}" 2>/dev/null
 
+  goreleaser:
+    internal: true
+    deps: [":tools:install:goreleaser"]
+    requires:
+      vars: [GORELEASER_ARGS]
+    cmds:
+      - "{{.GORELEASER_INSTALL_DIR}}/goreleaser {{.GORELEASER_ARGS}}"
+
   default:
     desc: "Create a new release using goreleaser"
-    deps: [import-gpg, check-gpg-fingerprint, ":tools:install:goreleaser"]
+    deps: [import-gpg, check-gpg-fingerprint]
     cmds:
-      - echo "Creating release with goreleaser..."
-      - "{{.GORELEASER_INSTALL_DIR}}/goreleaser release --clean --verbose"
-      - echo "Release created successfully"
+      - task: goreleaser
+        vars: { GORELEASER_ARGS: "release --clean" }
 
   check:
     desc: "Check goreleaser configuration without creating a release"
     cmds:
-      - echo "Checking goreleaser configuration..."
-      - "{{.GORELEASER_INSTALL_DIR}}/goreleaser check"
-      - echo "Configuration is valid"
+      - task: goreleaser
+        vars: { GORELEASER_ARGS: "check" }
 
   build:
     desc: "Build release artifacts locally without publishing"
-    deps: [import-gpg, check-gpg-fingerprint, ":tools:install:goreleaser"]
     cmds:
-      - echo "Building release artifacts locally..."
-      - "{{.GORELEASER_INSTALL_DIR}}/goreleaser build --snapshot --clean"
-      - echo "Local build completed"
+      - task: goreleaser
+        vars: { GORELEASER_ARGS: "build --snapshot --clean" }
 
   snapshot:
     desc: "Create a snapshot release for testing"
-    deps: [import-gpg, check-gpg-fingerprint, ":tools:install:goreleaser"]
+    deps: [import-gpg, check-gpg-fingerprint]
     cmds:
-      - echo "Creating snapshot release..."
-      - "{{.GORELEASER_INSTALL_DIR}}/goreleaser release --snapshot --clean"
-      - echo "Snapshot created successfully"
+      - task: goreleaser
+        vars: { GORELEASER_ARGS: "release --snapshot --clean" }
