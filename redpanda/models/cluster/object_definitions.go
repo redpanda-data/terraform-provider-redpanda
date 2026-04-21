@@ -37,6 +37,8 @@ func getAwsPrivateLinkType() map[string]attr.Type {
 	}
 }
 
+// GetAwsPrivateLinkStatusType returns the attr.Type map for the AWS
+// PrivateLink status nested object.
 func GetAwsPrivateLinkStatusType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"service_id":                    types.StringType,
@@ -79,6 +81,8 @@ func getGcpPrivateServiceConnectType() map[string]attr.Type {
 	}
 }
 
+// GetGcpPrivateServiceConnectStatusType returns the attr.Type map for
+// the GCP Private Service Connect status nested object.
 func GetGcpPrivateServiceConnectStatusType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"service_attachment":            types.StringType,
@@ -111,6 +115,8 @@ func getAzurePrivateLinkType() map[string]attr.Type {
 	}
 }
 
+// GetAzurePrivateLinkStatusType returns the attr.Type map for the
+// Azure PrivateLink status nested object.
 func GetAzurePrivateLinkStatusType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"service_id":                    types.StringType,
@@ -143,6 +149,8 @@ func getSASLType() map[string]attr.Type {
 	}
 }
 
+// GetSeedBrokersType returns the attr.Type map for the
+// kafka_api.all_seed_brokers nested object.
 func GetSeedBrokersType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"sasl":              types.StringType,
@@ -152,6 +160,8 @@ func GetSeedBrokersType() map[string]attr.Type {
 	}
 }
 
+// GetEndpointsType returns the attr.Type map for the
+// http_proxy.all_urls / schema_registry.all_urls nested object.
 func GetEndpointsType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"sasl":              types.StringType,
