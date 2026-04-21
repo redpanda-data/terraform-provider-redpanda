@@ -258,8 +258,6 @@ steps:
     command: |
       apt-get update && apt-get install -y --no-install-recommends curl unzip jq python3 pip
       pip install --break-system-packages awscli
-      curl -fsSL https://releases.hashicorp.com/terraform/1.14.8/terraform_1.14.8_linux_amd64.zip -o /tmp/tf.zip
-      unzip -o /tmp/tf.zip -d /usr/local/bin/
       ./taskw test:byovpc:aws
     plugins:
       - seek-oss/aws-sm#v2.3.2:
