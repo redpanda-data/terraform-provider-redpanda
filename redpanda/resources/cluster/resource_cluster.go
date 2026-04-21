@@ -414,39 +414,21 @@ func privateLinkConfigChanged(ctx context.Context, state tfsdk.State, plan tfsdk
 	return false, diags
 }
 
+// logPrivateLinkResponse emits DEBUG-level presence flags for the
+// PrivateLink-adjacent fields on a cluster response. URL values are
+// intentionally omitted — endpoint FQDNs identify the customer's
+// PrivateLink service.
 func logPrivateLinkResponse(ctx context.Context, cl *controlplanev1.Cluster) {
 	if pl := cl.GetAwsPrivateLink(); pl != nil {
-		fields := map[string]any{
+		tflog.Debug(ctx, "cluster API response: aws_private_link", map[string]any{
 			"enabled":         pl.GetEnabled(),
 			"connect_console": pl.GetConnectConsole(),
 			"has_status":      pl.HasStatus(),
-		}
-		if pl.HasStatus() {
-			s := pl.GetStatus()
-			fields["status_service_id"] = s.GetServiceId()
-			fields["status_service_name"] = s.GetServiceName()
-			fields["status_service_state"] = s.GetServiceState()
-		}
-		tflog.Info(ctx, "cluster API response: aws_private_link", fields)
-	}
-	for _, ep := range []struct {
-		name string
-		has  bool
-		sasl string
-		mtls string
-		plS  string
-		plM  string
-	}{
-		{"kafka_api.all_seed_brokers", cl.GetKafkaApi().HasAllSeedBrokers(), cl.GetKafkaApi().GetAllSeedBrokers().GetSasl(), cl.GetKafkaApi().GetAllSeedBrokers().GetMtls(), cl.GetKafkaApi().GetAllSeedBrokers().GetPrivateLinkSasl(), cl.GetKafkaApi().GetAllSeedBrokers().GetPrivateLinkMtls()},
-		{"http_proxy.all_urls", cl.GetHttpProxy().HasAllUrls(), cl.GetHttpProxy().GetAllUrls().GetSasl(), cl.GetHttpProxy().GetAllUrls().GetMtls(), cl.GetHttpProxy().GetAllUrls().GetPrivateLinkSasl(), cl.GetHttpProxy().GetAllUrls().GetPrivateLinkMtls()},
-		{"schema_registry.all_urls", cl.GetSchemaRegistry().HasAllUrls(), cl.GetSchemaRegistry().GetAllUrls().GetSasl(), cl.GetSchemaRegistry().GetAllUrls().GetMtls(), cl.GetSchemaRegistry().GetAllUrls().GetPrivateLinkSasl(), cl.GetSchemaRegistry().GetAllUrls().GetPrivateLinkMtls()},
-	} {
-		tflog.Info(ctx, "cluster API response: "+ep.name, map[string]any{
-			"present":           ep.has,
-			"sasl":              ep.sasl,
-			"mtls":              ep.mtls,
-			"private_link_sasl": ep.plS,
-			"private_link_mtls": ep.plM,
 		})
 	}
+	tflog.Debug(ctx, "cluster API response: endpoint presence", map[string]any{
+		"kafka_api.all_seed_brokers": cl.GetKafkaApi().HasAllSeedBrokers(),
+		"http_proxy.all_urls":        cl.GetHttpProxy().HasAllUrls(),
+		"schema_registry.all_urls":   cl.GetSchemaRegistry().HasAllUrls(),
+	})
 }

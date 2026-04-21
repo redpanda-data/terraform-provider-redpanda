@@ -257,10 +257,10 @@ func (r *DataModel) generateModelSchemaRegistry(cluster *controlplanev1.Cluster)
 		return types.ObjectNull(getSchemaRegistryType()), diags
 	}
 
-	allUrlsObj := types.ObjectNull(getEndpointsType())
+	allUrlsObj := types.ObjectNull(GetEndpointsType())
 	if schemaRegistry.HasAllUrls() {
 		au := schemaRegistry.GetAllUrls()
-		s, d := types.ObjectValue(getEndpointsType(), map[string]attr.Value{
+		s, d := types.ObjectValue(GetEndpointsType(), map[string]attr.Value{
 			"sasl":              types.StringValue(au.GetSasl()),
 			"mtls":              types.StringValue(au.GetMtls()),
 			"private_link_sasl": types.StringValue(au.GetPrivateLinkSasl()),
@@ -313,10 +313,10 @@ func (r *DataModel) generateModelHTTPProxy(cluster *controlplanev1.Cluster) (typ
 		}
 	}
 
-	allUrlsObj := types.ObjectNull(getEndpointsType())
+	allUrlsObj := types.ObjectNull(GetEndpointsType())
 	if httpProxy.HasAllUrls() {
 		au := httpProxy.GetAllUrls()
-		s, d := types.ObjectValue(getEndpointsType(), map[string]attr.Value{
+		s, d := types.ObjectValue(GetEndpointsType(), map[string]attr.Value{
 			"sasl":              types.StringValue(au.GetSasl()),
 			"mtls":              types.StringValue(au.GetMtls()),
 			"private_link_sasl": types.StringValue(au.GetPrivateLinkSasl()),
@@ -370,10 +370,10 @@ func (r *DataModel) generateModelKafkaAPI(cluster *controlplanev1.Cluster) (type
 		}
 	}
 
-	allSeedBrokersObj := types.ObjectNull(getSeedBrokersType())
+	allSeedBrokersObj := types.ObjectNull(GetSeedBrokersType())
 	if kafkaAPI.HasAllSeedBrokers() {
 		asb := kafkaAPI.GetAllSeedBrokers()
-		s, d := types.ObjectValue(getSeedBrokersType(), map[string]attr.Value{
+		s, d := types.ObjectValue(GetSeedBrokersType(), map[string]attr.Value{
 			"sasl":              types.StringValue(asb.GetSasl()),
 			"mtls":              types.StringValue(asb.GetMtls()),
 			"private_link_sasl": types.StringValue(asb.GetPrivateLinkSasl()),
@@ -543,7 +543,7 @@ func (*DataModel) generateModelAWSPrivateLink(cluster *controlplanev1.Cluster) (
 			return types.ObjectNull(getAwsPrivateLinkType()), diags
 		}
 
-		statusObj, d = types.ObjectValue(getAwsPrivateLinkStatusType(), map[string]attr.Value{
+		statusObj, d = types.ObjectValue(GetAwsPrivateLinkStatusType(), map[string]attr.Value{
 			"service_id":                    types.StringValue(status.GetServiceId()),
 			"service_name":                  types.StringValue(status.GetServiceName()),
 			"service_state":                 types.StringValue(status.GetServiceState()),
@@ -561,7 +561,7 @@ func (*DataModel) generateModelAWSPrivateLink(cluster *controlplanev1.Cluster) (
 			return types.ObjectNull(getAwsPrivateLinkType()), diags
 		}
 	} else {
-		statusObj = types.ObjectNull(getAwsPrivateLinkStatusType())
+		statusObj = types.ObjectNull(GetAwsPrivateLinkStatusType())
 	}
 
 	obj, d := types.ObjectValue(getAwsPrivateLinkType(), map[string]attr.Value{
@@ -644,7 +644,7 @@ func (*DataModel) generateModelGCPPrivateServiceConnect(cluster *controlplanev1.
 			return types.ObjectNull(getGcpPrivateServiceConnectType()), diags
 		}
 
-		statusObj, d = types.ObjectValue(getGcpPrivateServiceConnectStatusType(), map[string]attr.Value{
+		statusObj, d = types.ObjectValue(GetGcpPrivateServiceConnectStatusType(), map[string]attr.Value{
 			"service_attachment":            types.StringValue(status.GetServiceAttachment()),
 			"kafka_api_seed_port":           types.Int32Value(status.GetKafkaApiSeedPort()),
 			"schema_registry_seed_port":     types.Int32Value(status.GetSchemaRegistrySeedPort()),
@@ -661,7 +661,7 @@ func (*DataModel) generateModelGCPPrivateServiceConnect(cluster *controlplanev1.
 			return types.ObjectNull(getGcpPrivateServiceConnectType()), diags
 		}
 	} else {
-		statusObj = types.ObjectNull(getGcpPrivateServiceConnectStatusType())
+		statusObj = types.ObjectNull(GetGcpPrivateServiceConnectStatusType())
 	}
 
 	obj, d := types.ObjectValue(getGcpPrivateServiceConnectType(), map[string]attr.Value{
@@ -727,7 +727,7 @@ func (*DataModel) generateModelAzurePrivateLink(cluster *controlplanev1.Cluster)
 			return types.ObjectNull(getAzurePrivateLinkType()), diags
 		}
 
-		statusObj, d = types.ObjectValue(getAzurePrivateLinkStatusType(), map[string]attr.Value{
+		statusObj, d = types.ObjectValue(GetAzurePrivateLinkStatusType(), map[string]attr.Value{
 			"service_id":                    types.StringValue(status.GetServiceId()),
 			"service_name":                  types.StringValue(status.GetServiceName()),
 			"private_endpoint_connections":  privateEndpointConnsList,
@@ -746,7 +746,7 @@ func (*DataModel) generateModelAzurePrivateLink(cluster *controlplanev1.Cluster)
 			return types.ObjectNull(getAzurePrivateLinkType()), diags
 		}
 	} else {
-		statusObj = types.ObjectNull(getAzurePrivateLinkStatusType())
+		statusObj = types.ObjectNull(GetAzurePrivateLinkStatusType())
 	}
 
 	obj, d := types.ObjectValue(getAzurePrivateLinkType(), map[string]attr.Value{

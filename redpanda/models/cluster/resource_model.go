@@ -976,7 +976,7 @@ func (r *ResourceModel) generateModelAwsPrivateLink(cluster *controlplanev1.Clus
 			"vpc_endpoint_connections":      vpcEndpointConnsList,
 		}
 
-		statusObj, d := types.ObjectValue(getAwsPrivateLinkStatusType(), statusValues)
+		statusObj, d := types.ObjectValue(GetAwsPrivateLinkStatusType(), statusValues)
 		if d.HasError() {
 			diags.Append(d...)
 			diags.AddError("failed to generate status object", "could not create status object")
@@ -1002,7 +1002,7 @@ func (r *ResourceModel) generateModelAwsPrivateLink(cluster *controlplanev1.Clus
 		"enabled":            types.BoolValue(awsPrivateLink.GetEnabled()),
 		"connect_console":    types.BoolValue(awsPrivateLink.GetConnectConsole()),
 		"allowed_principals": allowedPrincipals,
-		"status":             types.ObjectNull(getAwsPrivateLinkStatusType()),
+		"status":             types.ObjectNull(GetAwsPrivateLinkStatusType()),
 		"supported_regions":  supportedRegions,
 	})
 	if d.HasError() {
@@ -1035,7 +1035,7 @@ func synthesizeDisabledAwsPrivateLink(planned types.Object) (types.Object, diag.
 		"enabled":            enabled,
 		"connect_console":    connectConsole,
 		"allowed_principals": allowedPrincipals,
-		"status":             types.ObjectNull(getAwsPrivateLinkStatusType()),
+		"status":             types.ObjectNull(GetAwsPrivateLinkStatusType()),
 		"supported_regions":  types.ListValueMust(types.StringType, []attr.Value{}),
 	})
 	if d.HasError() {
@@ -1118,7 +1118,7 @@ func (*ResourceModel) generateModelGcpPrivateServiceConnect(cluster *controlplan
 			"seed_hostname":                 utils.StringValueOrNull(status.GetSeedHostname()),
 		}
 
-		statusObj, d := types.ObjectValue(getGcpPrivateServiceConnectStatusType(), statusValues)
+		statusObj, d := types.ObjectValue(GetGcpPrivateServiceConnectStatusType(), statusValues)
 		if d.HasError() {
 			diags.Append(d...)
 			diags.AddError("failed to generate status object", "could not create status object")
@@ -1143,7 +1143,7 @@ func (*ResourceModel) generateModelGcpPrivateServiceConnect(cluster *controlplan
 		"enabled":               types.BoolValue(gcpPsc.GetEnabled()),
 		"global_access_enabled": types.BoolValue(gcpPsc.GetGlobalAccessEnabled()),
 		"consumer_accept_list":  consumerList,
-		"status":                types.ObjectNull(getGcpPrivateServiceConnectStatusType()),
+		"status":                types.ObjectNull(GetGcpPrivateServiceConnectStatusType()),
 	})
 	if d.HasError() {
 		diags.Append(d...)
@@ -1205,7 +1205,7 @@ func (*ResourceModel) generateModelAzurePrivateLink(cluster *controlplanev1.Clus
 			"approved_subscriptions":        utils.StringSliceToTypeList(nonNilStrings(status.GetApprovedSubscriptions())),
 		}
 
-		statusObj, d := types.ObjectValue(getAzurePrivateLinkStatusType(), statusValues)
+		statusObj, d := types.ObjectValue(GetAzurePrivateLinkStatusType(), statusValues)
 		if d.HasError() {
 			diags.Append(d...)
 			diags.AddError("failed to generate status object", "could not create status object")
@@ -1230,7 +1230,7 @@ func (*ResourceModel) generateModelAzurePrivateLink(cluster *controlplanev1.Clus
 		"enabled":               types.BoolValue(azurePrivateLink.GetEnabled()),
 		"connect_console":       types.BoolValue(azurePrivateLink.GetConnectConsole()),
 		"allowed_subscriptions": allowedSubscriptions,
-		"status":                types.ObjectNull(getAzurePrivateLinkStatusType()),
+		"status":                types.ObjectNull(GetAzurePrivateLinkStatusType()),
 	})
 	if d.HasError() {
 		diags.Append(d...)
@@ -1266,10 +1266,10 @@ func (r *ResourceModel) generateModelKafkaAPI(cluster *controlplanev1.Cluster) (
 		}
 	}
 
-	allSeedBrokersObj := types.ObjectNull(getSeedBrokersType())
+	allSeedBrokersObj := types.ObjectNull(GetSeedBrokersType())
 	if kafkaAPI.HasAllSeedBrokers() {
 		asb := kafkaAPI.GetAllSeedBrokers()
-		s, d := types.ObjectValue(getSeedBrokersType(), map[string]attr.Value{
+		s, d := types.ObjectValue(GetSeedBrokersType(), map[string]attr.Value{
 			"sasl":              utils.StringValueOrNull(asb.GetSasl()),
 			"mtls":              utils.StringValueOrNull(asb.GetMtls()),
 			"private_link_sasl": utils.StringValueOrNull(asb.GetPrivateLinkSasl()),
@@ -1323,10 +1323,10 @@ func (r *ResourceModel) generateModelHTTPProxy(cluster *controlplanev1.Cluster) 
 		}
 	}
 
-	allUrlsObj := types.ObjectNull(getEndpointsType())
+	allUrlsObj := types.ObjectNull(GetEndpointsType())
 	if httpProxy.HasAllUrls() {
 		au := httpProxy.GetAllUrls()
-		s, d := types.ObjectValue(getEndpointsType(), map[string]attr.Value{
+		s, d := types.ObjectValue(GetEndpointsType(), map[string]attr.Value{
 			"sasl":              utils.StringValueOrNull(au.GetSasl()),
 			"mtls":              utils.StringValueOrNull(au.GetMtls()),
 			"private_link_sasl": utils.StringValueOrNull(au.GetPrivateLinkSasl()),
@@ -1368,10 +1368,10 @@ func (r *ResourceModel) generateModelSchemaRegistry(cluster *controlplanev1.Clus
 		return types.ObjectNull(getSchemaRegistryType()), diags
 	}
 
-	allUrlsObj := types.ObjectNull(getEndpointsType())
+	allUrlsObj := types.ObjectNull(GetEndpointsType())
 	if schemaRegistry.HasAllUrls() {
 		au := schemaRegistry.GetAllUrls()
-		s, d := types.ObjectValue(getEndpointsType(), map[string]attr.Value{
+		s, d := types.ObjectValue(GetEndpointsType(), map[string]attr.Value{
 			"sasl":              utils.StringValueOrNull(au.GetSasl()),
 			"mtls":              utils.StringValueOrNull(au.GetMtls()),
 			"private_link_sasl": utils.StringValueOrNull(au.GetPrivateLinkSasl()),
