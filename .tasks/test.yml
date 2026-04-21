@@ -153,6 +153,7 @@ tasks:
     cmds:
       - echo "Provisioning BYOVPC AWS test infra..."
       - |
+        export PATH="{{.BUILD_ROOT}}/bin:$PATH"
         cd redpanda/tests/infra/network/aws
         terraform init
         terraform apply -auto-approve -var "region={{.AWS_REGION}}"
