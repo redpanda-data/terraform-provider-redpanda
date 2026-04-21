@@ -56,10 +56,6 @@ func Retry(ctx context.Context, timeout time.Duration, f func() *RetryError) err
 		if time.Now().After(endTime) {
 			return &TimeoutError{Timeout: timeout, Wrapped: err.Err}
 		}
-
-		// Exponential backoff between retries. Reset to the initial wait whenever
-		// the error message changes, so a new failure mode doesn't inherit the
-		// previous one's long backoff.
 		reset := err.Err.Error() != lastErrorMessage
 		if reset {
 			lastErrorMessage = err.Err.Error()
@@ -70,8 +66,7 @@ func Retry(ctx context.Context, timeout time.Duration, f func() *RetryError) err
 		if waitUnit > maxWaitUnit {
 			waitUnit = maxWaitUnit
 		}
-		// Jitter [0.5x, 1.5x] so concurrent callers desynchronize.
-		jittered := waitUnit/2 + time.Duration(rand.Int64N(int64(waitUnit))) //nolint:gosec // desync jitter, not a secret
+		jittered := waitUnit/2 + time.Duration(rand.Int64N(int64(waitUnit)))
 		attempt++
 		tflog.Info(ctx, "retrying after transient error", map[string]any{
 			"attempt": attempt,

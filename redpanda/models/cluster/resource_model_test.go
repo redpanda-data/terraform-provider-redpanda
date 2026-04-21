@@ -1412,7 +1412,7 @@ func TestGenerateModelAwsPrivateLink_ApiOmitsWhenPlanHasDisabledBlock(t *testing
 		"enabled":            types.BoolValue(false),
 		"connect_console":    types.BoolValue(false),
 		"allowed_principals": types.ListValueMust(types.StringType, []attr.Value{}),
-		"status":             types.ObjectNull(getAwsPrivateLinkStatusType()),
+		"status":             types.ObjectNull(GetAwsPrivateLinkStatusType()),
 		"supported_regions":  types.ListValueMust(types.StringType, []attr.Value{}),
 	})
 	require.False(t, d.HasError(), "failed to build planned object: %v", d)

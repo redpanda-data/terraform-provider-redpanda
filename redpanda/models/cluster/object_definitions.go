@@ -32,12 +32,12 @@ func getAwsPrivateLinkType() map[string]attr.Type {
 		"enabled":            types.BoolType,
 		"connect_console":    types.BoolType,
 		"allowed_principals": types.ListType{ElemType: types.StringType},
-		"status":             types.ObjectType{AttrTypes: getAwsPrivateLinkStatusType()},
+		"status":             types.ObjectType{AttrTypes: GetAwsPrivateLinkStatusType()},
 		"supported_regions":  types.ListType{ElemType: types.StringType},
 	}
 }
 
-func getAwsPrivateLinkStatusType() map[string]attr.Type {
+func GetAwsPrivateLinkStatusType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"service_id":                    types.StringType,
 		"service_name":                  types.StringType,
@@ -75,11 +75,11 @@ func getGcpPrivateServiceConnectType() map[string]attr.Type {
 		"enabled":               types.BoolType,
 		"global_access_enabled": types.BoolType,
 		"consumer_accept_list":  types.ListType{ElemType: types.ObjectType{AttrTypes: map[string]attr.Type{"source": types.StringType}}},
-		"status":                types.ObjectType{AttrTypes: getGcpPrivateServiceConnectStatusType()},
+		"status":                types.ObjectType{AttrTypes: GetGcpPrivateServiceConnectStatusType()},
 	}
 }
 
-func getGcpPrivateServiceConnectStatusType() map[string]attr.Type {
+func GetGcpPrivateServiceConnectStatusType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"service_attachment":            types.StringType,
 		"kafka_api_seed_port":           types.Int32Type,
@@ -107,11 +107,11 @@ func getAzurePrivateLinkType() map[string]attr.Type {
 		"enabled":               types.BoolType,
 		"connect_console":       types.BoolType,
 		"allowed_subscriptions": types.ListType{ElemType: types.StringType},
-		"status":                types.ObjectType{AttrTypes: getAzurePrivateLinkStatusType()},
+		"status":                types.ObjectType{AttrTypes: GetAzurePrivateLinkStatusType()},
 	}
 }
 
-func getAzurePrivateLinkStatusType() map[string]attr.Type {
+func GetAzurePrivateLinkStatusType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"service_id":                    types.StringType,
 		"service_name":                  types.StringType,
@@ -143,7 +143,7 @@ func getSASLType() map[string]attr.Type {
 	}
 }
 
-func getSeedBrokersType() map[string]attr.Type {
+func GetSeedBrokersType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"sasl":              types.StringType,
 		"mtls":              types.StringType,
@@ -152,34 +152,13 @@ func getSeedBrokersType() map[string]attr.Type {
 	}
 }
 
-// GetSeedBrokersType is the exported form of getSeedBrokersType.
-func GetSeedBrokersType() map[string]attr.Type { return getSeedBrokersType() }
-
-func getEndpointsType() map[string]attr.Type {
+func GetEndpointsType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"sasl":              types.StringType,
 		"mtls":              types.StringType,
 		"private_link_sasl": types.StringType,
 		"private_link_mtls": types.StringType,
 	}
-}
-
-// GetEndpointsType is the exported form of getEndpointsType.
-func GetEndpointsType() map[string]attr.Type { return getEndpointsType() }
-
-// GetAwsPrivateLinkStatusType is the exported form of getAwsPrivateLinkStatusType.
-func GetAwsPrivateLinkStatusType() map[string]attr.Type {
-	return getAwsPrivateLinkStatusType()
-}
-
-// GetGcpPrivateServiceConnectStatusType is the exported form of getGcpPrivateServiceConnectStatusType.
-func GetGcpPrivateServiceConnectStatusType() map[string]attr.Type {
-	return getGcpPrivateServiceConnectStatusType()
-}
-
-// GetAzurePrivateLinkStatusType is the exported form of getAzurePrivateLinkStatusType.
-func GetAzurePrivateLinkStatusType() map[string]attr.Type {
-	return getAzurePrivateLinkStatusType()
 }
 
 func getCloudStorageType() map[string]attr.Type {
@@ -215,7 +194,7 @@ func getKafkaAPIType() map[string]attr.Type {
 		"seed_brokers":     types.ListType{ElemType: types.StringType},
 		"mtls":             types.ObjectType{AttrTypes: getMtlsType()},
 		"sasl":             types.ObjectType{AttrTypes: getSASLType()},
-		"all_seed_brokers": types.ObjectType{AttrTypes: getSeedBrokersType()},
+		"all_seed_brokers": types.ObjectType{AttrTypes: GetSeedBrokersType()},
 	}
 }
 
@@ -238,7 +217,7 @@ func getHTTPProxyType() map[string]attr.Type {
 		"mtls":     types.ObjectType{AttrTypes: getMtlsType()},
 		"url":      types.StringType,
 		"sasl":     types.ObjectType{AttrTypes: getSASLType()},
-		"all_urls": types.ObjectType{AttrTypes: getEndpointsType()},
+		"all_urls": types.ObjectType{AttrTypes: GetEndpointsType()},
 	}
 }
 
@@ -246,7 +225,7 @@ func getSchemaRegistryType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"mtls":     types.ObjectType{AttrTypes: getMtlsType()},
 		"url":      types.StringType,
-		"all_urls": types.ObjectType{AttrTypes: getEndpointsType()},
+		"all_urls": types.ObjectType{AttrTypes: GetEndpointsType()},
 	}
 }
 
