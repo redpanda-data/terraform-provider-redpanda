@@ -84,6 +84,8 @@ If you change a schema `Description` field, run `task docs` and commit the diff 
 
 Never use `git checkout`, `git restore`, or `git reset --hard` to discard files without explicit user instruction. The user may have intentional in-progress work.
 
+Never `git push` (including `--force` / `--force-with-lease`) without explicit approval for that specific push. Approval for one push does not carry forward — ask again before every subsequent push. Batch-committing is fine; batch-pushing is not.
+
 Before every commit: `task ready` (or at minimum `task lint`).
 
 ### GitHub PR comments
