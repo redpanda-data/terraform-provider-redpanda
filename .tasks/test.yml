@@ -27,6 +27,8 @@ tasks:
 
   network:
     desc: "Run network resource tests"
+    deps:
+      - :tools:install:terraform
     cmds:
       - echo "Running TestAccResourcesNetwork..."
       - |
@@ -41,6 +43,8 @@ tasks:
 
   datasource:
     desc: "Run datasource tests against existing cluster"
+    deps:
+      - :tools:install:terraform
     cmds:
       - echo "Running TestAccResourcesDataSource..."
       - |
@@ -57,6 +61,8 @@ tasks:
 
   datasource:cluster:
     desc: "Run cluster datasource acceptance test (creates cluster + reads via datasource)"
+    deps:
+      - :tools:install:terraform
     cmds:
       - echo "Running TestAccDataSourceCluster..."
       - |
@@ -72,6 +78,8 @@ tasks:
 
   cluster:aws:
     desc: "Run AWS cluster acceptance tests"
+    deps:
+      - :tools:install:terraform
     cmds:
       - echo "Running TestAccResourcesClusterAWS..."
       - |
@@ -87,6 +95,8 @@ tasks:
 
   cluster:azure:
     desc: "Run Azure cluster acceptance tests"
+    deps:
+      - :tools:install:terraform
     cmds:
       - echo "Running TestAccResourcesClusterAzure..."
       - |
@@ -102,6 +112,8 @@ tasks:
 
   cluster:gcp:
     desc: "Run GCP cluster acceptance tests"
+    deps:
+      - :tools:install:terraform
     cmds:
       - echo "Running TestAccResourcesClusterGCP..."
       - |
@@ -117,6 +129,8 @@ tasks:
 
   byoc:aws:
     desc: "Run AWS BYOC acceptance tests"
+    deps:
+      - :tools:install:terraform
     cmds:
       - echo "Running TestAccResourcesByocAWS..."
       - |
@@ -132,6 +146,8 @@ tasks:
 
   byovpc:aws:
     desc: "Provision BYOVPC AWS infra, run TestAccResourcesByoVpcAWS, tear down infra (always)"
+    deps:
+      - :tools:install:terraform
     vars:
       AWS_REGION: '{{.AWS_REGION | default "us-east-2"}}'
     cmds:
@@ -179,6 +195,8 @@ tasks:
 
   byoc:azure:
     desc: "Run Azure BYOC acceptance tests"
+    deps:
+      - :tools:install:terraform
     cmds:
       - echo "Running TestAccResourcesByocAzure..."
       - |
@@ -194,6 +212,8 @@ tasks:
 
   byoc:gcp:
     desc: "Run GCP BYOC acceptance tests"
+    deps:
+      - :tools:install:terraform
     cmds:
       - echo "Running TestAccResourcesByocGCP..."
       - |
@@ -209,6 +229,8 @@ tasks:
 
   serverless:aws:public:
     desc: "Run serverless cluster tests (AWS, public only)"
+    deps:
+      - :tools:install:terraform
     cmds:
       - echo "Running TestAccResourcesServerlessClusterAWSPublic..."
       - |
@@ -224,6 +246,8 @@ tasks:
 
   serverless:gcp:
     desc: "Run serverless cluster tests (GCP, public only)"
+    deps:
+      - :tools:install:terraform
     cmds:
       - echo "Running TestAccResourcesServerlessClusterGCP..."
       - |
@@ -239,6 +263,8 @@ tasks:
 
   serverless:aws:private:
     desc: "Run serverless cluster tests (AWS, private only)"
+    deps:
+      - :tools:install:terraform
     cmds:
       - echo "Running TestAccResourcesServerlessClusterAWSPrivate..."
       - |
@@ -254,6 +280,8 @@ tasks:
 
   serverless:aws:both:
     desc: "Run serverless cluster tests (AWS, public and private)"
+    deps:
+      - :tools:install:terraform
     cmds:
       - echo "Running TestAccResourcesServerlessClusterAWSBoth..."
       - |
@@ -269,6 +297,8 @@ tasks:
 
   serverless:regions:
     desc: "Run serverless regions data source tests"
+    deps:
+      - :tools:install:terraform
     cmds:
       - echo "Running TestAccDataSourceServerlessRegions..."
       - |
@@ -284,6 +314,8 @@ tasks:
 
   serverless:privatelink:
     desc: "Run serverless private link tests"
+    deps:
+      - :tools:install:terraform
     cmds:
       - echo "Running TestAccServerlessPrivateLink..."
       - |
