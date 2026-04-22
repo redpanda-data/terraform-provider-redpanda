@@ -65,9 +65,9 @@ steps:
     depends_on:
       - lint
 
-  - label: "release:snapshot (dry run)"
+  - label: "release:snapshot"
     key: release_snapshot
-    if: build.branch == "add-tagged-release"
+    if: build.tag == null && (build.branch == "main" || build.pull_request.labels includes 'ci-ready-release')
     command: |
       set -euo pipefail
       git config --global --add safe.directory /workdir
