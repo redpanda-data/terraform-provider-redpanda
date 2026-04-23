@@ -23,7 +23,7 @@ variable "cloud_provider" {
 }
 
 variable "throughput_tier" {
-  default = "tier-1-gcp-um4g"
+  default = "tier-1-gcp-v2-x86"
 }
 
 variable "user_name" {

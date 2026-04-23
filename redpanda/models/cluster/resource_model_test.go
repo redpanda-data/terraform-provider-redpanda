@@ -72,7 +72,7 @@ func TestResourceModel_GetUpdatedModel(t *testing.T) {
 				ConnectionType:  controlplanev1.Cluster_CONNECTION_TYPE_PRIVATE,
 				CloudProvider:   controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP,
 				Type:            controlplanev1.Cluster_TYPE_BYOC,
-				ThroughputTier:  "tier-1-gcp-um4g",
+				ThroughputTier:  "tier-1-gcp-v2-x86",
 				Region:          "us-central1",
 				Zones:           []string{"us-central1-a", "us-central1-b", "us-central1-c"},
 				ResourceGroupId: "rg-456789",
@@ -128,7 +128,7 @@ func TestResourceModel_GetUpdatedModel(t *testing.T) {
 				require.Equal(t, "private", result.ConnectionType.ValueString())
 				require.Equal(t, "gcp", result.CloudProvider.ValueString())
 				require.Equal(t, "byoc", result.ClusterType.ValueString())
-				require.Equal(t, "tier-1-gcp-um4g", result.ThroughputTier.ValueString())
+				require.Equal(t, "tier-1-gcp-v2-x86", result.ThroughputTier.ValueString())
 				require.Equal(t, "us-central1", result.Region.ValueString())
 				require.True(t, result.AllowDeletion.ValueBool())
 				// BYOC clusters with private connection should have CustomerManagedResources
@@ -214,7 +214,7 @@ func TestResourceModel_GetUpdatedModel(t *testing.T) {
 				ConnectionType:  controlplanev1.Cluster_CONNECTION_TYPE_PUBLIC,
 				CloudProvider:   controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP,
 				Type:            controlplanev1.Cluster_TYPE_DEDICATED,
-				ThroughputTier:  "tier-1-gcp-um4g",
+				ThroughputTier:  "tier-1-gcp-v2-x86",
 				Region:          "us-central1",
 				Zones:           []string{"us-central1-a", "us-central1-b", "us-central1-c"},
 				ResourceGroupId: "rg-gcpdedicated",
@@ -236,7 +236,7 @@ func TestResourceModel_GetUpdatedModel(t *testing.T) {
 				require.Equal(t, "public", result.ConnectionType.ValueString())
 				require.Equal(t, "gcp", result.CloudProvider.ValueString())
 				require.Equal(t, "dedicated", result.ClusterType.ValueString())
-				require.Equal(t, "tier-1-gcp-um4g", result.ThroughputTier.ValueString())
+				require.Equal(t, "tier-1-gcp-v2-x86", result.ThroughputTier.ValueString())
 				require.Equal(t, "us-central1", result.Region.ValueString())
 				require.True(t, result.AllowDeletion.ValueBool())
 				// Dedicated clusters should not have CustomerManagedResources
@@ -366,7 +366,7 @@ func TestResourceModel_GetClusterCreate(t *testing.T) {
 				ConnectionType:  types.StringValue("private"),
 				CloudProvider:   types.StringValue("gcp"),
 				ClusterType:     types.StringValue("byoc"),
-				ThroughputTier:  types.StringValue("tier-1-gcp-um4g"),
+				ThroughputTier:  types.StringValue("tier-1-gcp-v2-x86"),
 				Region:          types.StringValue("us-central1"),
 				Zones:           types.ListValueMust(types.StringType, []attr.Value{types.StringValue("us-central1-a"), types.StringValue("us-central1-b"), types.StringValue("us-central1-c")}),
 				ResourceGroupID: types.StringValue("rg-456789"),
@@ -450,7 +450,7 @@ func TestResourceModel_GetClusterCreate(t *testing.T) {
 				require.Equal(t, controlplanev1.Cluster_CONNECTION_TYPE_PRIVATE, result.GetConnectionType())
 				require.Equal(t, controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP, result.GetCloudProvider())
 				require.Equal(t, controlplanev1.Cluster_TYPE_BYOC, result.GetType())
-				require.Equal(t, "tier-1-gcp-um4g", result.GetThroughputTier())
+				require.Equal(t, "tier-1-gcp-v2-x86", result.GetThroughputTier())
 				require.Equal(t, "us-central1", result.GetRegion())
 				require.True(t, result.HasCustomerManagedResources())
 				require.True(t, result.GetCustomerManagedResources().HasGcp())
@@ -520,7 +520,7 @@ func TestResourceModel_GetClusterCreate(t *testing.T) {
 				ConnectionType:  types.StringValue("public"),
 				CloudProvider:   types.StringValue("gcp"),
 				ClusterType:     types.StringValue("dedicated"),
-				ThroughputTier:  types.StringValue("tier-1-gcp-um4g"),
+				ThroughputTier:  types.StringValue("tier-1-gcp-v2-x86"),
 				Region:          types.StringValue("us-central1"),
 				Zones:           types.ListValueMust(types.StringType, []attr.Value{types.StringValue("us-central1-a"), types.StringValue("us-central1-b"), types.StringValue("us-central1-c")}),
 				ResourceGroupID: types.StringValue("rg-gcp-dedicated"),
@@ -537,7 +537,7 @@ func TestResourceModel_GetClusterCreate(t *testing.T) {
 				require.Equal(t, controlplanev1.Cluster_CONNECTION_TYPE_PUBLIC, result.GetConnectionType())
 				require.Equal(t, controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP, result.GetCloudProvider())
 				require.Equal(t, controlplanev1.Cluster_TYPE_DEDICATED, result.GetType())
-				require.Equal(t, "tier-1-gcp-um4g", result.GetThroughputTier())
+				require.Equal(t, "tier-1-gcp-v2-x86", result.GetThroughputTier())
 				require.Equal(t, "us-central1", result.GetRegion())
 				// Dedicated clusters should not have CustomerManagedResources
 				require.False(t, result.HasCustomerManagedResources())

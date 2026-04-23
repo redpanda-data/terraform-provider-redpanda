@@ -36,7 +36,7 @@ variable "cluster_name" {
 variable "throughput_tier" {
   description = "Throughput tier for the Redpanda cluster"
   type        = string
-  default     = "tier-1-gcp-um4g"
+  default     = "tier-1-gcp-v2-x86"
 }
 
 variable "zones" {
