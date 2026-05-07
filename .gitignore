@@ -50,3 +50,4 @@ redpanda/tests/infra/network/aws/inputs.json
 
 # Tools install directory
 .build
+manual-tests/

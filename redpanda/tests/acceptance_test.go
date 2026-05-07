@@ -60,6 +60,9 @@ const (
 	roleResourceName                   = "redpanda_role.developer"
 	roleAssignmentResourceName         = "redpanda_role_assignment.developer_assignment"
 	pipelineResourceName               = "redpanda_pipeline.test"
+	shadowLinkResourceName             = "redpanda_shadow_link.test"
+	shadowLinkSecretResourceName       = "redpanda_secret.source_password"
+	shadowLinkDir                      = "../../examples/shadow_link"
 	allowDeletionFalseValue            = "false"
 )
 
@@ -69,6 +72,7 @@ var (
 	runByocTests               = os.Getenv("RUN_BYOC_TESTS")
 	runByocVpcTests            = os.Getenv("RUN_BYOVPC_TESTS")
 	runServerlessTests         = os.Getenv("RUN_SERVERLESS_TESTS")
+	runShadowLinkTests         = os.Getenv("RUN_SHADOWLINK_TESTS")
 	clientID                   = os.Getenv(redpanda.ClientIDEnv)
 	clientSecret               = os.Getenv(redpanda.ClientSecretEnv)
 	testAgainstExistingCluster = os.Getenv("TEST_AGAINST_EXISTING_CLUSTER")
@@ -2230,4 +2234,248 @@ func TestAccSchemaRegistryACLWriteOnlyPassword(t *testing.T) {
 			Client:            c,
 		}.SweepResourceGroup,
 	})
+}
+
+// TestAccResourcesShadowLink provisions two dedicated AWS clusters and exercises redpanda_secret + redpanda_shadow_link end-to-end.
+func TestAccResourcesShadowLink(t *testing.T) {
+	if !strings.Contains(runShadowLinkTests, "true") {
+		t.Skip("skipping shadow link tests; set RUN_SHADOWLINK_TESTS=true")
+	}
+	ctx := context.Background()
+
+	c, err := newTestClients(ctx, clientID, clientSecret, cloudEnv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Resource group and network names share the test prefix. Cluster names
+	// must be distinct (source + shadow). Shadow link name is DNS-1123
+	// (lowercase). Secret name is ^[A-Z][A-Z0-9_]*$.
+	prefix := strings.ToLower(generateRandomName(accNamePrepend + "shadowlink"))
+	resourceGroup := prefix
+	sourceName := prefix + "-src"
+	shadowName := prefix + "-shd"
+	linkName := prefix
+	secretName := strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(prefix, "-", "_"), ".", "_"))
+	password := "Tfrp-Test-Password-" + prefix
+
+	origVars := make(map[string]config.Variable)
+	maps.Copy(origVars, providerCfgIDSecretVars)
+	origVars["resource_group_name"] = config.StringVariable(resourceGroup)
+	origVars["source_network_name"] = config.StringVariable(sourceName)
+	origVars["shadow_network_name"] = config.StringVariable(shadowName)
+	origVars["source_cluster_name"] = config.StringVariable(sourceName)
+	origVars["shadow_cluster_name"] = config.StringVariable(shadowName)
+	origVars["user_name"] = config.StringVariable(prefix + "-user")
+	origVars["user_password"] = config.StringVariable(password)
+	origVars["secret_name"] = config.StringVariable(secretName)
+	origVars["link_name"] = config.StringVariable(linkName)
+	if throughputTier != "" {
+		origVars["throughput_tier"] = config.StringVariable(throughputTier)
+	}
+
+	// Partial-update vars: bump only client_options.metadata_max_age_ms. Used by the
+	// new partial-update step to verify the field-mask diff fix sends ONLY the changed
+	// top-level block — the other 4 sync-options blocks (which the user never set in
+	// HCL) must not be re-sent and clobber server-managed defaults.
+	partialUpdateVars := make(map[string]config.Variable)
+	maps.Copy(partialUpdateVars, origVars)
+	partialUpdateVars["metadata_max_age_ms"] = config.IntegerVariable(15000)
+
+	// Shadow-link rename triggers RequiresReplace (delete + create) since
+	// `name` is immutable on the proto.
+	linkRename := strings.ToLower(generateRandomName(accNamePrepend + "shadowlink-rename"))
+	renameVars := make(map[string]config.Variable)
+	maps.Copy(renameVars, partialUpdateVars)
+	renameVars["link_name"] = config.StringVariable(linkRename)
+
+	// Final destroy step needs cluster_allow_deletion=true. allow_deletion=false
+	// on the cluster is the canary per CLAUDE.md.
+	destroyVars := make(map[string]config.Variable)
+	maps.Copy(destroyVars, renameVars)
+	destroyVars["cluster_allow_deletion"] = config.BoolVariable(true)
+
+	// Captured server-managed values from Step 1 used by the partial-update step
+	// to assert that untouched blocks were not clobbered.
+	var initialEffectiveInterval string
+	var initialPaused bool
+
+	// Sweepers cover both clusters, networks, resource group, and link names (orig + rename).
+	resource.AddTestSweepers(generateRandomName("shadowLinkSweeper"), &resource.Sweeper{
+		Name: linkName,
+		F:    sweepShadowLink{LinkName: linkName, Client: c}.SweepShadowLinks,
+	})
+	resource.AddTestSweepers(generateRandomName("renameShadowLinkSweeper"), &resource.Sweeper{
+		Name: linkRename,
+		F:    sweepShadowLink{LinkName: linkRename, Client: c}.SweepShadowLinks,
+	})
+	resource.AddTestSweepers(generateRandomName("sourceClusterSweeper"), &resource.Sweeper{
+		Name: sourceName,
+		F:    sweepCluster{ClusterName: sourceName, Client: c}.SweepCluster,
+	})
+	resource.AddTestSweepers(generateRandomName("shadowClusterSweeper"), &resource.Sweeper{
+		Name: shadowName,
+		F:    sweepCluster{ClusterName: shadowName, Client: c}.SweepCluster,
+	})
+	resource.AddTestSweepers(generateRandomName("sourceNetworkSweeper"), &resource.Sweeper{
+		Name: sourceName,
+		F:    sweepNetwork{NetworkName: sourceName, Client: c}.SweepNetworks,
+	})
+	resource.AddTestSweepers(generateRandomName("shadowNetworkSweeper"), &resource.Sweeper{
+		Name: shadowName,
+		F:    sweepNetwork{NetworkName: shadowName, Client: c}.SweepNetworks,
+	})
+	resource.AddTestSweepers(generateRandomName("resourceGroupSweeper"), &resource.Sweeper{
+		Name: resourceGroup,
+		F:    sweepResourceGroup{ResourceGroupName: resourceGroup, Client: c}.SweepResourceGroup,
+	})
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			// Step 1: Apply, with out-of-band verification of both clusters and the link.
+			{
+				ConfigDirectory:          config.StaticDirectory(shadowLinkDir),
+				ConfigVariables:          origVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("redpanda_cluster.source", "name", sourceName),
+					resource.TestCheckResourceAttr("redpanda_cluster.shadow", "name", shadowName),
+					resource.TestCheckResourceAttr(shadowLinkResourceName, "name", linkName),
+					resource.TestCheckResourceAttrSet(shadowLinkResourceName, "id"),
+					resource.TestCheckResourceAttrSet(shadowLinkResourceName, "state"),
+					resource.TestCheckResourceAttr(shadowLinkSecretResourceName, "name", secretName),
+					func(s *terraform.State) error {
+						sourceID, err := resourceID(s, "redpanda_cluster.source")
+						if err != nil {
+							return err
+						}
+						shadowID, err := resourceID(s, "redpanda_cluster.shadow")
+						if err != nil {
+							return err
+						}
+						linkID, err := resourceID(s, shadowLinkResourceName)
+						if err != nil {
+							return err
+						}
+						if _, err := c.ClusterForID(ctx, sourceID); err != nil {
+							return fmt.Errorf("source cluster %q not found via API: %v", sourceID, err)
+						}
+						if _, err := c.ClusterForID(ctx, shadowID); err != nil {
+							return fmt.Errorf("shadow cluster %q not found via API: %v", shadowID, err)
+						}
+						sl, err := c.ShadowLinkForID(ctx, linkID)
+						if err != nil {
+							return fmt.Errorf("shadow link %q not found via API: %v", linkID, err)
+						}
+						if sl.GetName() != linkName {
+							return fmt.Errorf("expected shadow link name %q, got %q", linkName, sl.GetName())
+						}
+						if sl.GetShadowRedpandaId() != shadowID {
+							return fmt.Errorf("expected shadow_redpanda_id %q, got %q", shadowID, sl.GetShadowRedpandaId())
+						}
+						// Capture server-managed defaults from blocks the user never set in HCL.
+						// The partial-update step asserts these are unchanged after the update.
+						initialEffectiveInterval = sl.GetTopicMetadataSyncOptions().GetEffectiveInterval().AsDuration().String()
+						initialPaused = sl.GetTopicMetadataSyncOptions().GetPaused()
+						t.Logf("Shadow link %s active. source=%s shadow=%s state=%s tms.effective_interval=%s tms.paused=%v",
+							sl.GetId(), sourceID, shadowID, sl.GetState(), initialEffectiveInterval, initialPaused)
+						return nil
+					},
+				),
+			},
+			// Step 2: No-op plan to catch drift after apply.
+			{
+				ConfigDirectory:          config.StaticDirectory(shadowLinkDir),
+				ConfigVariables:          origVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				PlanOnly:                 true,
+				ExpectNonEmptyPlan:       false,
+			},
+			// Step 3 (partial update): change ONLY client_options.metadata_max_age_ms.
+			// Verifies the field-mask diff fix in BuildUpdateRequest:
+			//   * client_options is in the mask (changed),
+			//   * the other 4 sync-options blocks (which the user never set in HCL)
+			//     are NOT in the mask, so server-managed defaults like
+			//     topic_metadata_sync_options.effective_interval / .paused stay intact.
+			// If the always-on field-mask bug regresses, those defaults would be
+			// re-sent as zero/false and clobber server state.
+			{
+				ConfigDirectory:          config.StaticDirectory(shadowLinkDir),
+				ConfigVariables:          partialUpdateVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(shadowLinkResourceName, "client_options.metadata_max_age_ms", "15000"),
+					func(s *terraform.State) error {
+						linkID, err := resourceID(s, shadowLinkResourceName)
+						if err != nil {
+							return err
+						}
+						sl, err := c.ShadowLinkForID(ctx, linkID)
+						if err != nil {
+							return fmt.Errorf("shadow link %q not found via API: %v", linkID, err)
+						}
+						if got := sl.GetClientOptions().GetMetadataMaxAgeMs(); got != 15000 {
+							return fmt.Errorf("expected client_options.metadata_max_age_ms=15000 server-side, got %d", got)
+						}
+						if got := sl.GetTopicMetadataSyncOptions().GetEffectiveInterval().AsDuration().String(); got != initialEffectiveInterval {
+							return fmt.Errorf("topic_metadata_sync_options.effective_interval was clobbered by partial update: before=%s after=%s", initialEffectiveInterval, got)
+						}
+						if got := sl.GetTopicMetadataSyncOptions().GetPaused(); got != initialPaused {
+							return fmt.Errorf("topic_metadata_sync_options.paused was clobbered by partial update: before=%v after=%v", initialPaused, got)
+						}
+						return nil
+					},
+				),
+			},
+			// Step 4: Rename the link to exercise RequiresReplace without rebuilding clusters.
+			{
+				ConfigDirectory:          config.StaticDirectory(shadowLinkDir),
+				ConfigVariables:          renameVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(shadowLinkResourceName, "name", linkRename),
+				),
+			},
+			// Step 5: Import the renamed link; ignore input-only and write-only attrs.
+			{
+				ResourceName:             shadowLinkResourceName,
+				ImportState:              true,
+				ImportStateVerify:        true,
+				ImportStateVerifyIgnore:  []string{"allow_deletion", "client_options", "source_redpanda_id"},
+				ConfigDirectory:          config.StaticDirectory(shadowLinkDir),
+				ConfigVariables:          renameVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			},
+			// Step 6: Flip cluster_allow_deletion=true so step 7 can tear down.
+			{
+				ConfigDirectory:          config.StaticDirectory(shadowLinkDir),
+				ConfigVariables:          destroyVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("redpanda_cluster.source", "allow_deletion", "true"),
+					resource.TestCheckResourceAttr("redpanda_cluster.shadow", "allow_deletion", "true"),
+				),
+			},
+			// Step 7: Destroy.
+			{
+				ConfigDirectory:          config.StaticDirectory(shadowLinkDir),
+				ConfigVariables:          destroyVars,
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Destroy:                  true,
+			},
+		},
+	})
+}
+
+// resourceID returns the primary instance ID for a named resource from state.
+func resourceID(s *terraform.State, addr string) (string, error) {
+	rs, ok := s.RootModule().Resources[addr]
+	if !ok {
+		return "", fmt.Errorf("not found in state: %s", addr)
+	}
+	if rs.Primary.ID == "" {
+		return "", fmt.Errorf("empty primary ID in state for %s", addr)
+	}
+	return rs.Primary.ID, nil
 }
