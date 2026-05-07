@@ -147,9 +147,6 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 			if isAlreadyExistsError(createErr) {
 				return utils.NonRetryableError(createErr)
 			}
-			if utils.IsPermissionDenied(createErr) {
-				return utils.RetryableError(fmt.Errorf("topic authorization not ready, retrying: %w", createErr))
-			}
 			if isTransientBrokerError(createErr) {
 				// The broker may have created the topic before the error.
 				// Check before retrying to avoid orphans.

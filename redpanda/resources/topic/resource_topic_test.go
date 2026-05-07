@@ -18,6 +18,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 func TestTopic_Create(t *testing.T) {
@@ -117,6 +119,29 @@ func TestTopic_Create(t *testing.T) {
 				m.EXPECT().
 					CreateTopic(gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(nil, errors.New("API error"))
+			},
+			wantErr: true,
+		},
+		{
+			// Server says "no" with retriable: false metadata; provider must not retry.
+			// Regression guard for the dropped "topic authorization not ready" retry.
+			name: "PermissionDenied fails fast, no retry",
+			input: topicmodel.ResourceModel{
+				Name:              types.StringValue("denied-topic"),
+				PartitionCount:    utils.Int32ToNumber(partitionCount),
+				ReplicationFactor: utils.Int32ToNumber(replicationFactor),
+				Configuration:     types.MapNull(types.StringType),
+				ClusterAPIURL:     types.StringValue("https://api-test.cluster.redpanda.com"),
+				AllowDeletion:     types.BoolValue(true),
+				ReplicaAssignments: types.ListNull(types.ObjectType{
+					AttrTypes: replicaAssignmentAttrTypes(),
+				}),
+			},
+			setup: func(m *mocks.MockTopicServiceClient) {
+				// Times(1) is implicit — gomock fails the test if Create retries.
+				m.EXPECT().
+					CreateTopic(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(nil, grpcstatus.Error(codes.PermissionDenied, "Unauthorized"))
 			},
 			wantErr: true,
 		},
