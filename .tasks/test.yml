@@ -41,6 +41,23 @@ tasks:
         {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT_SHORT}} ./redpanda/tests -run TestAccResourcesNetwork
       - echo "Network tests completed successfully"
 
+  shadowlink:
+    desc: "Run shadow link acceptance test (provisions two dedicated AWS clusters + link)"
+    deps:
+      - :tools:install:terraform
+    cmds:
+      - echo "Running TestAccResourcesShadowLink..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        RUN_SHADOWLINK_TESTS=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesShadowLink
+      - echo "Shadow link tests completed successfully"
+
   datasource:
     desc: "Run datasource tests against existing cluster"
     deps:
