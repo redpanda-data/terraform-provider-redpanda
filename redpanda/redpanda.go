@@ -46,6 +46,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/roleassignment"
 	schemaresource "github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/schema"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/schemaregistryacl"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/secret"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlesscluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlessprivatelink"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlessregions"
@@ -481,5 +482,6 @@ func (*Redpanda) Resources(_ context.Context) []func() resource.Resource {
 		func() resource.Resource { return &schemaresource.Schema{} },
 		func() resource.Resource { return &schemaregistryacl.SchemaRegistryACL{} },
 		func() resource.Resource { return &pipeline.Pipeline{} },
+		func() resource.Resource { return &secret.Secret{} },
 	}
 }
