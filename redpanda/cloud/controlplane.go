@@ -38,6 +38,7 @@ type CpClientSet interface {
 	ServerlessClusterForName(ctx context.Context, name string) (*controlplanev1.ServerlessCluster, error)
 	GetCluster(ctx context.Context, in *controlplanev1.GetClusterRequest, opts ...grpc.CallOption) (*controlplanev1.GetClusterResponse, error)
 	ClusterForID(ctx context.Context, id string) (*controlplanev1.Cluster, error)
+	ShadowLinkForID(ctx context.Context, id string) (*controlplanev1.ShadowLink, error)
 }
 
 // ControlPlaneClientSet holds the respective service clients to interact with
@@ -51,6 +52,7 @@ type ControlPlaneClientSet struct {
 	ServerlessRegion      controlplanev1grpc.ServerlessRegionServiceClient
 	Operation             controlplanev1grpc.OperationServiceClient
 	Region                controlplanev1grpc.RegionServiceClient
+	ShadowLink            controlplanev1grpc.ShadowLinkServiceClient
 	ThroughputTier        controlplanev1beta2grpc.ThroughputTierServiceClient
 }
 
@@ -66,8 +68,21 @@ func NewControlPlaneClientSet(conn *grpc.ClientConn) *ControlPlaneClientSet {
 		ServerlessRegion:      controlplanev1grpc.NewServerlessRegionServiceClient(conn),
 		Operation:             controlplanev1grpc.NewOperationServiceClient(conn),
 		Region:                controlplanev1grpc.NewRegionServiceClient(conn),
+		ShadowLink:            controlplanev1grpc.NewShadowLinkServiceClient(conn),
 		ThroughputTier:        controlplanev1beta2grpc.NewThroughputTierServiceClient(conn),
 	}
+}
+
+// ShadowLinkForID gets the shadow link for a given ID.
+func (c *ControlPlaneClientSet) ShadowLinkForID(ctx context.Context, id string) (*controlplanev1.ShadowLink, error) {
+	resp, err := c.ShadowLink.GetShadowLink(ctx, &controlplanev1.GetShadowLinkRequest{Id: id})
+	if err != nil {
+		return nil, fmt.Errorf("unable to request shadow link with ID %q: %w", id, err)
+	}
+	if resp.GetShadowLink() == nil {
+		return nil, fmt.Errorf("unable to request shadow link with ID %q. Please report this issue to the provider developers", id)
+	}
+	return resp.GetShadowLink(), nil
 }
 
 // CreateResourceGroup creates the resource group with the given name

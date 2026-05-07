@@ -196,3 +196,18 @@ func (mr *MockCpClientSetMockRecorder) ServerlessClusterForName(ctx, name any) *
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerlessClusterForName", reflect.TypeOf((*MockCpClientSet)(nil).ServerlessClusterForName), ctx, name)
 }
+
+// ShadowLinkForID mocks base method.
+func (m *MockCpClientSet) ShadowLinkForID(ctx context.Context, id string) (*controlplanev1.ShadowLink, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ShadowLinkForID", ctx, id)
+	ret0, _ := ret[0].(*controlplanev1.ShadowLink)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ShadowLinkForID indicates an expected call of ShadowLinkForID.
+func (mr *MockCpClientSetMockRecorder) ShadowLinkForID(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShadowLinkForID", reflect.TypeOf((*MockCpClientSet)(nil).ShadowLinkForID), ctx, id)
+}

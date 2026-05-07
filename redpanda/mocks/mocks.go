@@ -30,3 +30,4 @@ package mocks
 //go:generate mockgen -destination=./mock_security_service_client.go -package=mocks buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/console/v1alpha1/consolev1alpha1grpc SecurityServiceClient
 //go:generate mockgen -destination=./mock_pipeline_service_client.go -package=mocks buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc PipelineServiceClient
 //go:generate mockgen -destination=./mock_secret_service_client.go -package=mocks buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc SecretServiceClient
+//go:generate mockgen -destination=./mock_shadow_link_service_client.go -package=mocks buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1/controlplanev1grpc ShadowLinkServiceClient

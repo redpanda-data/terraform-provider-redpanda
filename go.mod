@@ -7,6 +7,7 @@ toolchain go1.24.4
 require (
 	buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.1-20260206121607-b7882624f6ea.1
 	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20260206121607-b7882624f6ea.1
+	buf.build/gen/go/redpandadata/core/protocolbuffers/go v1.36.11-20251218215858-19149a4a2435.1
 	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.6.1-20260220173743-e06364c55f98.1
 	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.11-20260220173743-e06364c55f98.1
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
@@ -38,7 +39,6 @@ require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20251209175733-2a1774d88802.1 // indirect
 	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.11-20240617172850-a48fcebcf8f1.1 // indirect
 	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.11-20251216164002-601698cfe71d.1 // indirect
-	buf.build/gen/go/redpandadata/core/protocolbuffers/go v1.36.11-20251218215858-19149a4a2435.1 // indirect
 	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c // indirect
 	github.com/Kunde21/markdownfmt/v3 v3.1.0 // indirect
