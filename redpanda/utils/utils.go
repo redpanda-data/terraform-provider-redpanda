@@ -89,6 +89,21 @@ func IsPermissionDenied(err error) bool {
 		strings.Contains(errStr, "403")
 }
 
+// IsAlreadyExists matches gRPC AlreadyExists; used by Create paths to recover from a prior retry's lost response.
+func IsAlreadyExists(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if e, ok := grpcstatus.FromError(err); ok && e.Code() == grpccodes.AlreadyExists {
+		return true
+	}
+
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "already exists") ||
+		strings.Contains(errStr, "alreadyexists")
+}
+
 // IsClusterUnreachable checks if the error indicates the cluster is unreachable
 // This typically happens when the cluster is down or DNS cannot resolve the addresses.
 //

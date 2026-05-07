@@ -57,3 +57,6 @@ package models
 
 // Serverless Private Link models
 //go:generate go run ../../pkg/generate/modelgen -pkg=github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlessprivatelink -func=ResourceServerlessPrivateLinkSchema -type=resource -output=serverlessprivatelink/resource_model_gen.go
+
+// Secret models
+//go:generate go run ../../pkg/generate/modelgen -pkg=github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/secret -func=ResourceSecretSchema -type=resource -output=secret/resource_model_gen.go
