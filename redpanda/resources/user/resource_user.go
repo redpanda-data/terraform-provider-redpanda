@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
@@ -32,6 +33,10 @@ import (
 	usermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/user"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
+
+// Per-RPC retry budget for dataplane calls (e.g., the freshly-provisioned-cluster
+// DNS-propagation window). Sized to fit ~5 attempts under Retry's 1s→60s cap.
+const dataplaneRetryTimeout = 2 * time.Minute
 
 // Ensure provider defined types fully satisfy framework interfaces.
 var (
@@ -91,19 +96,43 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 		return
 	}
 
-	user, err := u.UserClient.CreateUser(ctx, &dataplanev1.CreateUserRequest{
-		User: &dataplanev1.CreateUserRequest_User{
-			Name:      model.Name.ValueString(),
-			Password:  model.GetEffectivePassword(),
-			Mechanism: utils.StringToUserMechanism(model.Mechanism.ValueString()),
-		},
+	var createdUser usermodel.UserResponse
+	err = utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+		created, rpcErr := u.UserClient.CreateUser(ctx, &dataplanev1.CreateUserRequest{
+			User: &dataplanev1.CreateUserRequest_User{
+				Name:      model.Name.ValueString(),
+				Password:  model.GetEffectivePassword(),
+				Mechanism: utils.StringToUserMechanism(model.Mechanism.ValueString()),
+			},
+		})
+		if rpcErr == nil {
+			createdUser = created.GetUser()
+			return nil
+		}
+		// Adopt the existing user on AlreadyExists from a prior retry's lost response.
+		if utils.IsAlreadyExists(rpcErr) {
+			if existing, findErr := utils.FindUserByName(ctx, model.Name.ValueString(), u.UserClient); findErr == nil {
+				createdUser = existing
+				return nil
+			}
+			return utils.NonRetryableError(rpcErr)
+		}
+		// Probe before retrying so the next attempt doesn't trip AlreadyExists.
+		if utils.IsUnavailable(rpcErr) {
+			if existing, findErr := utils.FindUserByName(ctx, model.Name.ValueString(), u.UserClient); findErr == nil {
+				createdUser = existing
+				return nil
+			}
+			return utils.RetryableError(rpcErr)
+		}
+		return utils.NonRetryableError(rpcErr)
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create user", utils.DeserializeGrpcError(err))
 		return
 	}
 
-	persist := model.GetUpdatedModel(user.User, usermodel.ContingentFields{
+	persist := model.GetUpdatedModel(createdUser, usermodel.ContingentFields{
 		AllowDeletion: model.AllowDeletion,
 	})
 	persist.Password = model.Password
@@ -130,7 +159,18 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 		return
 	}
 
-	user, err := utils.FindUserByName(ctx, userName, u.UserClient)
+	var user *dataplanev1.ListUsersResponse_User
+	err = utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+		var rpcErr error
+		user, rpcErr = utils.FindUserByName(ctx, userName, u.UserClient)
+		if rpcErr != nil {
+			if utils.IsUnavailable(rpcErr) {
+				return utils.RetryableError(rpcErr)
+			}
+			return utils.NonRetryableError(rpcErr)
+		}
+		return nil
+	})
 	if err != nil {
 		action, diags := utils.HandleGracefulRemoval(ctx, "user", userName, model.AllowDeletion, err, "find user")
 		resp.Diagnostics.Append(diags...)
@@ -179,12 +219,23 @@ func (u *User) Update(ctx context.Context, req resource.UpdateRequest, resp *res
 			return
 		}
 
-		updateResp, err := u.UserClient.UpdateUser(ctx, &dataplanev1.UpdateUserRequest{
-			User: &dataplanev1.UpdateUserRequest_User{
-				Name:      plan.Name.ValueString(),
-				Password:  plan.GetEffectivePassword(),
-				Mechanism: utils.StringToUserMechanism(plan.Mechanism.ValueString()),
-			},
+		var updateResp *dataplanev1.UpdateUserResponse
+		err = utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+			var rpcErr error
+			updateResp, rpcErr = u.UserClient.UpdateUser(ctx, &dataplanev1.UpdateUserRequest{
+				User: &dataplanev1.UpdateUserRequest_User{
+					Name:      plan.Name.ValueString(),
+					Password:  plan.GetEffectivePassword(),
+					Mechanism: utils.StringToUserMechanism(plan.Mechanism.ValueString()),
+				},
+			})
+			if rpcErr != nil {
+				if utils.IsUnavailable(rpcErr) {
+					return utils.RetryableError(rpcErr)
+				}
+				return utils.NonRetryableError(rpcErr)
+			}
+			return nil
 		})
 		if err != nil {
 			resp.Diagnostics.AddError("failed to update user", utils.DeserializeGrpcError(err))
@@ -227,8 +278,17 @@ func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 		return
 	}
 
-	_, err = u.UserClient.DeleteUser(ctx, &dataplanev1.DeleteUserRequest{
-		Name: userName,
+	err = utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+		_, rpcErr := u.UserClient.DeleteUser(ctx, &dataplanev1.DeleteUserRequest{
+			Name: userName,
+		})
+		if rpcErr != nil {
+			if utils.IsUnavailable(rpcErr) {
+				return utils.RetryableError(rpcErr)
+			}
+			return utils.NonRetryableError(rpcErr)
+		}
+		return nil
 	})
 	if err != nil {
 		_, diags := utils.HandleGracefulRemoval(ctx, "user", userName, model.AllowDeletion, err, "delete user")
