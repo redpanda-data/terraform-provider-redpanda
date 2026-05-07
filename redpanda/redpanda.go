@@ -50,6 +50,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlesscluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlessprivatelink"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlessregions"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/shadowlink"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/throughputtiers"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/topic"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/user"
@@ -483,5 +484,6 @@ func (*Redpanda) Resources(_ context.Context) []func() resource.Resource {
 		func() resource.Resource { return &schemaregistryacl.SchemaRegistryACL{} },
 		func() resource.Resource { return &pipeline.Pipeline{} },
 		func() resource.Resource { return &secret.Secret{} },
+		func() resource.Resource { return &shadowlink.ShadowLink{} },
 	}
 }

@@ -60,3 +60,6 @@ package models
 
 // Secret models
 //go:generate go run ../../pkg/generate/modelgen -pkg=github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/secret -func=ResourceSecretSchema -type=resource -output=secret/resource_model_gen.go
+
+// ShadowLink models
+//go:generate go run ../../pkg/generate/modelgen -pkg=github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/shadowlink -func=ResourceShadowLinkSchema -type=resource -ctx -output=shadowlink/resource_model_gen.go

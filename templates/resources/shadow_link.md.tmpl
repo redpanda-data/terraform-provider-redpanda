@@ -1,0 +1,101 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+A shadow link is configuration on the destination ("shadow") cluster — no infrastructure is provisioned. Each broker in the shadow cluster runs internal replication tasks that pull from the source over the standard Kafka API. The source cluster is unaware of the link aside from increased fetch traffic.
+
+`enable_shadow_linking=true` must be set on the shadow cluster before this resource can be created. Set it via `redpanda_cluster.cluster_configuration.custom_properties_json`.
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+{{ tffile "examples/docs/shadow_link/main.tf" }}
+
+## Source Connection
+
+Exactly one of the following must be set (enforced at plan time):
+
+- `source_redpanda_id` — when both source and shadow are Redpanda Cloud clusters. The controlplane resolves bootstrap servers from the source cluster's metadata.
+- `client_options.bootstrap_servers` — explicit list of broker addresses for non-Redpanda Kafka or self-managed Redpanda sources.
+
+Both options are immutable after creation; changing them forces the shadow link to be destroyed and recreated. The clusters themselves are not affected.
+
+## Authentication and TLS
+
+SASL credentials and the TLS private key (for mTLS) must reference dataplane secrets stored on the **shadow** cluster, using the form `${secrets.<NAME>}`. Provision the secrets with [`redpanda_secret`](secret) in the same plan, scoped at minimum to `SCOPE_REDPANDA_CLUSTER`.
+
+The provider validates the secret-reference format at plan time; the controlplane validates that the referenced secret exists when the shadow link is created. The plaintext value never leaves the shadow cluster's secret store.
+
+For Redpanda Cloud public Kafka endpoints set `client_options.tls.enabled = true` — the broker rejects plaintext connections.
+
+## Source Cluster ACLs
+
+The SASL principal must have at least these ACLs on the source cluster:
+
+- `CLUSTER:DESCRIBE` — fetch broker metadata
+- `TOPIC:DESCRIBE` (`*`) — discover topics
+- `TOPIC:READ` (matching the topics to be shadowed) — fetch records
+
+## Lifecycle
+
+Create returns a long-running operation that resolves to one of the [`state`](#state) values. After the link reaches `STATE_ACTIVE`, broker tasks begin replicating. If the source connection cannot be established (auth, network, TLS) the link transitions to `STATE_CREATION_FAILED` and `reason` describes the cause; the resource is left in state as tainted so that the next apply re-creates it.
+
+Updates other than `name`, `shadow_redpanda_id`, and `source_redpanda_id` are applied in place via the controlplane Update RPC.
+
+## Sync Options
+
+The four sync option blocks control what gets replicated and at what cadence. All four are optional — server defaults apply when omitted. The provider exposes 1:1 parity with the controlplane API.
+
+### `topic_metadata_sync_options`
+
+Controls topic discovery and property replication.
+
+- **`auto_create_shadow_topic_filters`** — list of `NameFilter` ({`pattern_type`, `filter_type`, `name`}) selecting which source topics get auto-created as shadow topics. Required to populate this block to actually shadow any topics; an empty/absent block creates the link but ships no data.
+  - Server-side denylist: literal filters for `__consumer_offsets`, `_redpanda.audit_log`, and `_schemas` are rejected; prefix filters for `_redpanda` / `__redpanda` are rejected. Use a literal filter for those topics if needed.
+  - Wildcard `*` is only permitted with `pattern_type = PATTERN_TYPE_LITERAL` and won't match `_redpanda*` topics.
+- **`synced_shadow_topic_properties`** — extra topic properties to replicate beyond the always-synced set (`partition_count`, `max.message.bytes`, `cleanup.policy`, `timestamp.type`). Server rejects `redpanda.remote.readreplica`, `redpanda.remote.recovery`, `redpanda.remote.allowgaps`, `redpanda.virtual.cluster.id`, `redpanda.leaders.preference`, `redpanda.storage.mode`.
+- **`exclude_default`** — when `true`, only properties in `synced_shadow_topic_properties` are synced (the default replicated set is skipped).
+- **`start_offset`** — starting offset for new shadow topic partitions: exactly one of `at_earliest`, `at_latest`, `at_timestamp` (RFC3339).
+- **`interval`** / **`paused`** — sync cadence and pause toggle.
+
+### `consumer_offset_sync_options`
+
+Mirrors consumer group commit positions.
+
+- **`group_filters`** — list of `NameFilter` selecting which consumer groups have offsets synced.
+- **`interval`** / **`paused`** — same as above.
+
+### `security_sync_options`
+
+Mirrors source ACLs to the shadow cluster.
+
+- **`acl_filters`** — list of `ACLFilter` ({`resource_filter`, `access_filter`}). `resource_filter` matches by `resource_type` (e.g. `ACL_RESOURCE_TOPIC`), `pattern_type` (e.g. `ACL_PATTERN_LITERAL`), `name`. `access_filter` matches by `principal`, `operation` (e.g. `ACL_OPERATION_READ`), `permission_type`, `host`.
+- **`interval`** / **`paused`** — same as above.
+
+### `schema_registry_sync_options`
+
+- **`shadow_schema_registry_topic`** — when `true`, the shadow link will add the `_schemas` topic to its shadow set if (a) it exists on the source AND (b) it is absent or empty on the shadow. Toggling off after enablement does not undo the shadowing — fail it over or delete it explicitly.
+
+## Kafka Client Tuning
+
+`client_options` exposes the full set of Kafka client tuning fields (`metadata_max_age_ms`, `connection_timeout_ms`, `retry_backoff_ms`, `fetch_wait_max_ms`, `fetch_min_bytes`, `fetch_max_bytes`, `fetch_partition_max_bytes`). Each has a sibling `effective_*` Computed-only attribute reflecting the value the controlplane resolved (defaults applied when 0/unset). All are mutable via Update.
+
+## Import
+
+```shell
+terraform import {{.Name}}.example shadowLinkId
+```
+
+After import, sensitive fields (`client_options.authentication.password`, `client_options.tls.key`) and `source_redpanda_id` are unset — the API does not echo any of these on Read. Re-supply them via the next `terraform apply`.
+
+## API Reference
+
+For more information, see the [Redpanda Cloud Control Plane API – Shadow Links](https://docs.redpanda.com/api/doc/cloud-controlplane/tag/Shadow-Links/) documentation. The dataplane operations (failover, list shadow topics, metrics) are documented under [Shadow Links (Data Plane)](https://docs.redpanda.com/api/doc/cloud-dataplane/tag/Shadow-Links-Data-Plane/) but are not yet exposed by this provider.
