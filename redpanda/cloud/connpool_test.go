@@ -127,26 +127,23 @@ func TestGetConnection_CrossURLNonBlocking(t *testing.T) {
 	var fastDone atomic.Bool
 	var fastElapsed time.Duration
 	var wg sync.WaitGroup
-	wg.Add(2)
 
 	// Start slow URL first.
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		_, _ = pool.GetConnection("https://slow-cluster:443")
-	}()
+	})
 
 	// Give the slow goroutine a moment to enter singleflight.
 	time.Sleep(10 * time.Millisecond)
 
 	// Fast URL should not be blocked by slow URL.
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		start := time.Now()
 		_, err := pool.GetConnection("https://fast-cluster:443")
 		fastElapsed = time.Since(start)
 		require.NoError(t, err)
 		fastDone.Store(true)
-	}()
+	})
 
 	wg.Wait()
 	assert.True(t, fastDone.Load())

@@ -120,8 +120,6 @@ func DesiredStateFromAPIState(apiState string) string {
 	switch apiState {
 	case StateStarting, StateRunning:
 		return StateRunning
-	case StateStopping, StateStopped, StateCompleted:
-		return StateStopped
 	default:
 		return StateStopped
 	}

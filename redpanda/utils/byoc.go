@@ -362,6 +362,7 @@ func runSubprocess(ctx context.Context, env []string, executable string, args ..
 		return err
 	}
 
+	// #nosec G204 -- executable path is the byoc binary written by getByocExecutable into a private temp dir; the caller controls the bytes.
 	cmd := exec.CommandContext(ctx, executable, args...)
 	cmd.Env = env
 

@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
+	"fmt"
 	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
@@ -38,6 +38,7 @@ func main() {
 			Debug:   debug,
 		})
 	if err != nil {
-		log.Fatal(err.Error())
+		fmt.Fprintln(os.Stderr, "provider server failed:", err)
+		os.Exit(1)
 	}
 }

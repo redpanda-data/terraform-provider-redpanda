@@ -17,6 +17,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -193,14 +194,15 @@ replace github.com/redpanda-data/terraform-provider-redpanda => %s
 		return nil, fmt.Errorf("failed to write go.mod: %w", err)
 	}
 
-	tidyCmd := exec.Command("go", "mod", "tidy")
+	ctx := context.Background()
+	tidyCmd := exec.CommandContext(ctx, "go", "mod", "tidy")
 	tidyCmd.Dir = tmpDir
 	tidyCmd.Stderr = os.Stderr
 	if err := tidyCmd.Run(); err != nil {
 		return nil, fmt.Errorf("failed to run go mod tidy: %w", err)
 	}
 
-	runCmd := exec.Command("go", "run", ".")
+	runCmd := exec.CommandContext(ctx, "go", "run", ".")
 	runCmd.Dir = tmpDir
 	var stdout, stderr bytes.Buffer
 	runCmd.Stdout = &stdout

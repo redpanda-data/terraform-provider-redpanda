@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -465,12 +465,12 @@ func TestMapToCreateTopicConfiguration(t *testing.T) {
 				t.Errorf("Unexpected error: %v", err)
 			}
 
-			sort.Slice(tc.expected, func(i, j int) bool {
-				return tc.expected[i].Name < tc.expected[j].Name
+			slices.SortFunc(tc.expected, func(a, b *dataplanev1.CreateTopicRequest_Topic_Config) int {
+				return strings.Compare(a.Name, b.Name)
 			})
 
-			sort.Slice(result, func(i, j int) bool {
-				return result[i].Name < result[j].Name
+			slices.SortFunc(result, func(a, b *dataplanev1.CreateTopicRequest_Topic_Config) int {
+				return strings.Compare(a.Name, b.Name)
 			})
 
 			if !reflect.DeepEqual(result, tc.expected) {

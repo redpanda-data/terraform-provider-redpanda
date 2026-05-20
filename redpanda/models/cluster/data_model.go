@@ -454,6 +454,8 @@ func (*DataModel) generateModelMaintenanceWindow(cluster *controlplanev1.Cluster
 		anytime = types.BoolValue(true)
 	case maintenance.HasUnspecified():
 		unspec = types.BoolValue(true)
+	default:
+		// no window variant set
 	}
 
 	obj, d := types.ObjectValue(getMaintenanceWindowConfigType(), map[string]attr.Value{

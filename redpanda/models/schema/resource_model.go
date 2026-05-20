@@ -129,8 +129,6 @@ func (r *ResourceModel) ToSchemaRequest() sr.Schema {
 func (r *ResourceModel) convertSchemaType() sr.SchemaType {
 	schemaType := r.SchemaType.ValueString()
 	switch strings.ToUpper(schemaType) {
-	case "AVRO":
-		return sr.TypeAvro
 	case "JSON":
 		return sr.TypeJSON
 	case "PROTOBUF":

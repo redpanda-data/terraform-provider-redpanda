@@ -19,7 +19,7 @@ import (
 	"bytes"
 	"fmt"
 	"go/format"
-	"sort"
+	"slices"
 	"strings"
 	"text/template"
 	"unicode"
@@ -113,15 +113,13 @@ func generate(info *SchemaInfo, schemaType, pkgName string) ([]byte, error) {
 		}
 	}
 
-	sort.Slice(fields, func(i, j int) bool {
-		return fields[i].Name < fields[j].Name
-	})
+	slices.SortFunc(fields, func(a, b FieldData) int { return strings.Compare(a.Name, b.Name) })
 
 	importList := make([]string, 0, len(imports))
 	for imp := range imports {
 		importList = append(importList, imp)
 	}
-	sort.Strings(importList)
+	slices.Sort(importList)
 
 	data := ModelData{
 		License:      licenseHeader,

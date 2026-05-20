@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"sort"
+	"slices"
 	"testing"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
@@ -114,9 +114,9 @@ func TestGenerateProtobufDiffAndUpdateMask(t *testing.T) {
 			var resultPaths []string
 			if resultMask != nil {
 				resultPaths = resultMask.Paths
-				sort.Strings(resultPaths)
+				slices.Sort(resultPaths)
 			}
-			sort.Strings(tc.expectedMask)
+			slices.Sort(tc.expectedMask)
 			assert.Equal(t, tc.expectedMask, resultPaths)
 		})
 	}

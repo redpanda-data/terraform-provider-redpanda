@@ -1036,6 +1036,8 @@ func TestResourceModel_ComprehensiveConsistencyTest(t *testing.T) {
 			}
 		case "ClusterConfiguration":
 			require.Equal(t, planModel.ClusterConfiguration.IsNull(), applyModel.ClusterConfiguration.IsNull(), "ClusterConfiguration null status should be consistent")
+		default:
+			t.Fatalf("unexpected field %q in consistency check", fieldName)
 		}
 	}
 

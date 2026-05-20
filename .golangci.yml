@@ -18,7 +18,6 @@ linters:
     - errorlint
     - exhaustive
     - gocheckcompilerdirectives
-    - goconst
     - gocritic
     - goprintffuncname
     - gosec
@@ -100,6 +99,8 @@ linters:
         - name: nested-structs
           disabled: true
         - name: package-comments
+          disabled: true
+        - name: package-naming
           disabled: true
         - name: redefines-builtin-id
           disabled: true

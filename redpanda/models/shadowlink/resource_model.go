@@ -501,6 +501,8 @@ func buildTopicMetadataSyncOptions(ctx context.Context, obj types.Object) (*core
 			} else {
 				out.StartOffset = &corev2.TopicMetadataSyncOptions_StartAtTimestamp{StartAtTimestamp: timestamppb.New(t)}
 			}
+		default:
+			// no start-offset variant set
 		}
 	}
 	return out, diags
@@ -777,12 +779,15 @@ func buildClientOptionsObject(ctx context.Context, co *controlplanev1.ShadowLink
 				mechanism = "scram-sha-256"
 			case corev2.ScramMechanism_SCRAM_MECHANISM_SCRAM_SHA_512:
 				mechanism = "scram-sha-512"
-			case corev2.ScramMechanism_SCRAM_MECHANISM_UNSPECIFIED:
+			default:
+				// SCRAM_MECHANISM_UNSPECIFIED or unknown
 			}
 		case a.GetPlainConfiguration() != nil:
 			plain := a.GetPlainConfiguration()
 			username = plain.GetUsername()
 			mechanism = "plain"
+		default:
+			// no auth variant set
 		}
 		var priorAuth AuthModel
 		hasPriorAuth := hasPrior && !priorCO.Authentication.IsNull() && !priorCO.Authentication.IsUnknown()

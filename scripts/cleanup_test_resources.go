@@ -85,6 +85,8 @@ func main() {
 		fmt.Println("STATUS MODE: Showing current resources")
 	case dryRun:
 		fmt.Println("DRY RUN MODE: No resources will be deleted")
+	default:
+		// live mode — no banner
 	}
 	fmt.Printf("Resources with prefix: %s\n", prefix)
 

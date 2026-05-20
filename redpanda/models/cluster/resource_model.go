@@ -1629,6 +1629,8 @@ func (*ResourceModel) generateModelMaintenanceWindow(cluster *controlplanev1.Clu
 		anytime = types.BoolValue(true)
 	case maintenance.HasUnspecified():
 		unspec = types.BoolValue(true)
+	default:
+		// no window variant set
 	}
 
 	obj, d := types.ObjectValue(getMaintenanceWindowConfigType(), map[string]attr.Value{
@@ -1746,6 +1748,8 @@ func (*ResourceModel) generateModelCloudStorage(cluster *controlplanev1.Cluster)
 			return types.ObjectNull(getCloudStorageType()), diags
 		}
 		values["azure"] = azureObj
+	default:
+		// no cloud-storage provider variant set
 	}
 
 	obj, d := types.ObjectValue(getCloudStorageType(), values)

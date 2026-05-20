@@ -989,6 +989,8 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 					nil, nil,
 				)
 				setupUpdateMocks(mockClient, beforePipeline, apiPipeline)
+			default:
+				t.Fatalf("unexpected operation: %q", tt.operation)
 			}
 
 			r := setupPipelineResource(mockClient)
@@ -1102,6 +1104,8 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 
 				diags = readResp.State.Get(ctx, &stateAfterRead)
 				require.False(t, diags.HasError())
+			default:
+				t.Fatalf("unexpected operation: %q", tt.operation)
 			}
 
 			t.Run("field_consistency", func(t *testing.T) {
@@ -1257,6 +1261,8 @@ func TestPipeline_OperationErrors(t *testing.T) {
 				for _, warn := range deleteResp.Diagnostics.Warnings() {
 					diagDetails = append(diagDetails, warn.Summary(), warn.Detail())
 				}
+			default:
+				t.Fatalf("unexpected operation: %q", tt.operation)
 			}
 
 			assert.True(t, hasDiagnostic, "Expected error or warning for %s", tt.name)
@@ -1415,6 +1421,8 @@ func TestPipeline_StartFailureBehavior(t *testing.T) {
 						break
 					}
 				}
+			default:
+				t.Fatalf("unexpected operation: %q", tt.operation)
 			}
 
 			assert.True(t, hasWarning,
