@@ -56,6 +56,7 @@ type ResourceModel struct {
 	RedpandaVersion          types.String   `tfsdk:"redpanda_version"`
 	Region                   types.String   `tfsdk:"region"`
 	ResourceGroupID          types.String   `tfsdk:"resource_group_id"`
+	Rpsql                    types.Object   `tfsdk:"rpsql"`
 	SchemaRegistry           types.Object   `tfsdk:"schema_registry"`
 	State                    types.String   `tfsdk:"state"`
 	StateDescription         types.Object   `tfsdk:"state_description"`

@@ -28,6 +28,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"google.golang.org/genproto/googleapis/type/dayofweek"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -76,6 +77,7 @@ func GenerateMinimalResourceModel(clusterID string, timeout timeouts.Value) *Res
 		StateDescription:         types.ObjectNull(getStateDescriptionType()),
 		MaintenanceWindowConfig:  types.ObjectNull(getMaintenanceWindowConfigType()),
 		KafkaConnect:             types.ObjectNull(getKafkaConnectType()),
+		Rpsql:                    types.ObjectNull(getRpsqlType()),
 		ClusterConfiguration:     types.ObjectNull(getClusterConfigurationType()),
 		CloudStorage:             types.ObjectNull(getCloudStorageType()),
 		Timeouts:                 timeout,
@@ -178,6 +180,12 @@ func (r *ResourceModel) GetUpdatedModel(ctx context.Context, cluster *controlpla
 		diags.Append(d...)
 	} else {
 		r.KafkaConnect = kafkaConnect
+	}
+
+	if rpsql, d := r.generateModelRpsql(cluster); d.HasError() {
+		diags.Append(d...)
+	} else {
+		r.Rpsql = rpsql
 	}
 
 	if cmr, d := r.generateModelCustomerManagedResources(ctx, cluster); d.HasError() {
@@ -291,6 +299,14 @@ func (r *ResourceModel) GetClusterCreate(ctx context.Context) (*controlplanev1.C
 			diags.Append(d...)
 		}
 		output.KafkaConnect = connectSpec //nolint:staticcheck // Field is deprecated but still supported
+	}
+
+	if !r.Rpsql.IsNull() {
+		rpsqlSpec, d := r.generateClusterRpsqlSpec(ctx)
+		if d.HasError() {
+			diags.Append(d...)
+		}
+		output.Rpsql = rpsqlSpec
 	}
 
 	if !r.CustomerManagedResources.IsNull() {
@@ -418,6 +434,14 @@ func (r *ResourceModel) getClusterUpdate(ctx context.Context) (*controlplanev1.C
 		update.KafkaConnect = connectSpec //nolint:staticcheck // Field is deprecated but still supported
 	}
 
+	if !r.Rpsql.IsNull() {
+		rpsqlSpec, d := r.generateClusterRpsqlSpec(ctx)
+		if d.HasError() {
+			diags.Append(d...)
+		}
+		update.Rpsql = rpsqlSpec
+	}
+
 	if !r.AWSPrivateLink.IsNull() {
 		awsSpec, d := r.generateClusterAwsPrivateLinkSpec(ctx)
 		if d.HasError() {
@@ -495,10 +519,29 @@ func (r *ResourceModel) GetClusterUpdateRequest(ctx context.Context, previousSta
 
 	update.Id = planUpdate.Id
 
+	// Public API mapper recognizes rpsql.enabled / rpsql.replicas but not the
+	// top-level "rpsql" path, so expand it before the request goes out.
+	expandRpsqlPath(fieldMask)
+
 	return &controlplanev1.UpdateClusterRequest{
 		Cluster:    update,
 		UpdateMask: fieldMask,
 	}, diags
+}
+
+func expandRpsqlPath(fm *fieldmaskpb.FieldMask) {
+	if fm == nil {
+		return
+	}
+	out := make([]string, 0, len(fm.Paths)+1)
+	for _, p := range fm.Paths {
+		if p == "rpsql" {
+			out = append(out, "rpsql.enabled", "rpsql.replicas")
+			continue
+		}
+		out = append(out, p)
+	}
+	fm.Paths = out
 }
 
 func (r *ResourceModel) generateClusterCMRUpdate(ctx context.Context) (*controlplanev1.CustomerManagedResourcesUpdate, diag.Diagnostics) {
@@ -609,6 +652,46 @@ func (r *ResourceModel) generateClusterKafkaConnectSpec(_ context.Context) (*con
 		}, diags
 	}
 	return &controlplanev1.KafkaConnect{}, diags
+}
+
+func (r *ResourceModel) generateClusterRpsqlSpec(_ context.Context) (*controlplanev1.RPSql, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	if r.Rpsql.IsNull() {
+		return nil, nil
+	}
+
+	attrs := r.Rpsql.Attributes()
+	rp := &controlplanev1.RPSql{}
+
+	if enabledVal, ok := attrs["enabled"].(types.Bool); ok && !enabledVal.IsNull() {
+		rp.Enabled = enabledVal.ValueBool()
+	}
+	if replicasVal, ok := attrs["replicas"].(types.Int32); ok && !replicasVal.IsNull() {
+		rp.Replicas = replicasVal.ValueInt32()
+	}
+	return rp, diags
+}
+
+func (*ResourceModel) generateModelRpsql(cluster *controlplanev1.Cluster) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if !cluster.HasRpsql() {
+		return types.ObjectNull(getRpsqlType()), diags
+	}
+
+	rp := cluster.GetRpsql()
+	obj, d := types.ObjectValue(getRpsqlType(), map[string]attr.Value{
+		"enabled":  types.BoolValue(rp.GetEnabled()),
+		"replicas": types.Int32Value(rp.GetReplicas()),
+		"url":      types.StringValue(rp.GetUrl()),
+	})
+	if d.HasError() {
+		diags.Append(d...)
+		diags.AddError("failed to generate Redpanda SQL object", "could not create Redpanda SQL object")
+		return types.ObjectNull(getRpsqlType()), diags
+	}
+
+	return obj, diags
 }
 
 func (r *ResourceModel) generateClusterCMR(ctx context.Context) (*controlplanev1.CustomerManagedResources, diag.Diagnostics) {

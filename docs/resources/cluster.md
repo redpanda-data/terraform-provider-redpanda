@@ -44,6 +44,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `read_replica_cluster_ids` (List of String) IDs of clusters that can create read-only topics from this cluster.
 - `redpanda_node_count` (Number) Number of Redpanda nodes in the cluster. NOTE: This feature is not available for all customers by default. Contact your Redpanda account team to enable this feature.
 - `redpanda_version` (String) Current Redpanda version of the cluster.
+- `rpsql` (Attributes) Redpanda SQL configuration. (see [below for nested schema](#nestedatt--rpsql))
 - `schema_registry` (Attributes) Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
 - `tags` (Map of String) Tags placed on cloud resources. If the cloud provider is GCP and the name of a tag has the prefix "gcp.network-tag.", the tag is a network tag that will be added to the Redpanda cluster GKE nodes. Otherwise, the tag is a normal tag. For example, if the name of a tag is "gcp.network-tag.network-tag-foo", the network tag named "network-tag-foo" will be added to the Redpanda cluster GKE nodes. Note: The value of a network tag will be ignored. See the details on network tags at https://cloud.google.com/vpc/docs/add-remove-network-tags.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
@@ -613,6 +614,19 @@ Optional:
 - `day_of_week` (String) Day of week.
 - `hour_of_day` (Number) Hour of day.
 
+
+
+<a id="nestedatt--rpsql"></a>
+### Nested Schema for `rpsql`
+
+Optional:
+
+- `enabled` (Boolean) Whether Redpanda SQL is enabled.
+- `replicas` (Number) Number of Redpanda SQL replicas to deploy.
+
+Read-Only:
+
+- `url` (String) Redpanda SQL endpoint URL.
 
 
 <a id="nestedatt--schema_registry"></a>

@@ -245,6 +245,14 @@ func getKafkaConnectType() map[string]attr.Type {
 	}
 }
 
+func getRpsqlType() map[string]attr.Type {
+	return map[string]attr.Type{
+		"enabled":  types.BoolType,
+		"replicas": types.Int32Type,
+		"url":      types.StringType,
+	}
+}
+
 func getCustomerManagedResourcesType() map[string]attr.Type {
 	return map[string]attr.Type{
 		"aws": types.ObjectType{AttrTypes: getAwsCmrType()},

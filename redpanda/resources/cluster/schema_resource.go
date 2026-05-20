@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
@@ -544,6 +545,32 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
 						Default:       booldefault.StaticBool(false),
 						Description:   "Whether Kafka Connect is enabled.",
+					},
+				},
+			},
+			"rpsql": schema.SingleNestedAttribute{
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Description:   "Redpanda SQL configuration.",
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						Optional:      true,
+						Computed:      true,
+						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+						Default:       booldefault.StaticBool(false),
+						Description:   "Whether Redpanda SQL is enabled.",
+					},
+					"replicas": schema.Int32Attribute{
+						Optional:      true,
+						Computed:      true,
+						PlanModifiers: []planmodifier.Int32{int32planmodifier.UseStateForUnknown()},
+						Default:       int32default.StaticInt32(1),
+						Description:   "Number of Redpanda SQL replicas to deploy.",
+					},
+					"url": schema.StringAttribute{
+						Computed:    true,
+						Description: "Redpanda SQL endpoint URL.",
 					},
 				},
 			},
