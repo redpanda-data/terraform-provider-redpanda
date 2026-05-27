@@ -16,11 +16,11 @@ Creates a Resource Group in the Redpanda Cloud.
 
 ### Required
 
-- `name` (String) Name of the resource group. Changing the name of a resource group will result in a new resource group being created and the old one being destroyed
+- `name` (String) Name of the resource group. Changing the name of a resource group will result in a new resource group being created and the old one being destroyed. Length must be at most 253. Must match pattern `^[a-zA-Z0-9-]+$`.
 
 ### Read-Only
 
-- `id` (String) UUID of the resource group
+- `id` (String) UUID of the resource group. Must be a valid UUID.
 
 ## Example Usage
 

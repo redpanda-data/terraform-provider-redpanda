@@ -49,7 +49,7 @@ resource "redpanda_user" "example" {
 
 resource "redpanda_role_assignment" "example" {
   role_name       = "test-role"
-  principal       = redpanda_user.example.name
+  principal       = "User:${redpanda_user.example.name}"
   cluster_api_url = redpanda_cluster.example.cluster_api_url
 }
 ```
@@ -60,7 +60,7 @@ resource "redpanda_role_assignment" "example" {
 ### Required
 
 - `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster
-- `principal` (String) The principal to assign the role to. Specify just the username (e.g., `"john.doe"`)
+- `principal` (String) The principal to assign the role to. Use the Kafka-style prefixed form: `"User:<name>"` for an end user or `"Group:<name>"` for an IdP group. The value is preserved verbatim in state.
 - `role_name` (String) The name of the role to assign
 
 ### Read-Only
@@ -69,18 +69,18 @@ resource "redpanda_role_assignment" "example" {
 
 ## Import
 
-Role assignments can be imported using the format `role_name:principal`:
+Role assignments can be imported using the format `<role_name>:<principal>[|<cluster_api_url>]`. The optional `|<cluster_api_url>` suffix populates `cluster_api_url` at import time so the next `terraform plan` is clean; without it, the field stays null in state and the next plan will force a destroy+create cycle (`cluster_api_url` is `RequiresReplace`).
 
 ```shell
-terraform import redpanda_role_assignment.test "test-role:test-user"
+terraform import redpanda_role_assignment.example "developer:User:alice|https://api.region.redpanda.com"
 ```
 
-Note: The `cluster_api_url` must be specified in your Terraform configuration. The import will validate the role assignment exists during the next `terraform plan` or `terraform apply`.
+The principal must already be in the canonical `User:<name>` or `Group:<name>` form. Legacy state files containing a bare principal will self-heal to the canonical form on the next refresh.
 
 ## Notes
 
 - The role must already exist before it can be assigned. Create roles using the `redpanda_role` resource, or import existing roles created via `rpk` or Redpanda Console.
-- The principal should be specified as just the username (e.g., `"john.doe"`). While Redpanda's native format is `User:username`, this resource automatically handles the `User:` prefix for you. The prefix will be automatically stripped if provided.
+- The principal must be specified in the Kafka-style prefixed form: `"User:<name>"` for an end user or `"Group:<name>"` for an IdP group. The value is preserved verbatim in state — no prefix stripping or normalization is performed. Bare names (without a prefix) are rejected at plan time.
 - A user can have multiple role assignments simultaneously. Permissions from all assigned roles are combined.
 - Role assignments are atomic operations - you cannot update an existing assignment. To change a role assignment, delete and recreate the resource.
 - The resource uses the Redpanda gRPC SecurityService (via console endpoint) for role management operations.

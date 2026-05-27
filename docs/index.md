@@ -95,9 +95,7 @@ resource "redpanda_cluster" "test" {
       "schema_registry_enable_authorization" = true
     })
   }
-  tags = {
-    "key" = "value"
-  }
+  tags = var.cluster_tags
   timeouts = {
     create = "90m"
   }
@@ -119,30 +117,60 @@ resource "redpanda_topic" "test" {
   replication_factor = var.replication_factor
   cluster_api_url    = redpanda_cluster.test.cluster_api_url
   allow_deletion     = true
-  configuration = {
+  configuration = var.topic_configuration != null ? var.topic_configuration : {
     "cleanup.policy" = "delete"
-    "retention.ms"   = "604800000"
+    "retention.ms"   = var.topic_retention_ms
   }
 
   depends_on = [redpanda_user.test]
 }
 
+# Bootstrap SR ACL grants for the provider's own Bearer-token principal.
+# Two grants are required: the SUBJECT-scope grant authorizes
+# POST /subjects/<subj>/versions; the REGISTRY-scope grant authorizes the
+# follow-up GET /schemas/ids/<id>/versions that the SR client (franz-go) makes
+# to fetch the full schema metadata after create. Without the REGISTRY grant,
+# the schema is created but the follow-up GET 403s and the resource fails.
+# User:* is broader than necessary; tighten once the exact principal is
+# documented as discoverable.
+resource "redpanda_schema_registry_acl" "provider_bootstrap_subject" {
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:*"
+  resource_type  = "SUBJECT"
+  resource_name  = var.topic_name
+  pattern_type   = "PREFIXED"
+  host           = "*"
+  operation      = "ALL"
+  permission     = "ALLOW"
+  allow_deletion = true
+}
+
+resource "redpanda_schema_registry_acl" "provider_bootstrap_registry" {
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:*"
+  resource_type  = "REGISTRY"
+  resource_name  = "*"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "ALL"
+  permission     = "ALLOW"
+  allow_deletion = true
+}
+
 resource "redpanda_schema" "user_schema" {
-  cluster_id          = redpanda_cluster.test.id
-  subject             = "${var.topic_name}-value"
-  schema_type         = var.schema_type
-  schema              = var.user_schema_definition
-  username            = redpanda_user.test.name
-  password            = var.schema_password_wo != null ? null : var.user_pw
-  password_wo         = var.schema_password_wo
-  password_wo_version = var.schema_password_wo_version
-  allow_deletion      = true
+  cluster_id     = redpanda_cluster.test.id
+  subject        = "${var.topic_name}-value"
+  schema_type    = var.schema_type
+  schema         = var.user_schema_definition
+  allow_deletion = true
 
   depends_on = [
     redpanda_acl.cluster_admin,
     redpanda_acl.schema_registry_admin,
     redpanda_acl.cluster_action,
     redpanda_acl.topic_access,
+    redpanda_schema_registry_acl.provider_bootstrap_subject,
+    redpanda_schema_registry_acl.provider_bootstrap_registry,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry,
@@ -152,15 +180,11 @@ resource "redpanda_schema" "user_schema" {
 }
 
 resource "redpanda_schema" "user_event_schema" {
-  cluster_id          = redpanda_cluster.test.id
-  subject             = "${var.topic_name}-events-value"
-  schema_type         = var.schema_type
-  schema              = var.user_event_schema_definition
-  username            = redpanda_user.test.name
-  password            = var.schema_password_wo != null ? null : var.user_pw
-  password_wo         = var.schema_password_wo
-  password_wo_version = var.schema_password_wo_version
-  allow_deletion      = true
+  cluster_id     = redpanda_cluster.test.id
+  subject        = "${var.topic_name}-events-value"
+  schema_type    = var.schema_type
+  schema         = var.user_event_schema_definition
+  allow_deletion = true
 
   references = [
     {
@@ -175,6 +199,8 @@ resource "redpanda_schema" "user_event_schema" {
     redpanda_acl.schema_registry_admin,
     redpanda_acl.cluster_action,
     redpanda_acl.topic_access,
+    redpanda_schema_registry_acl.provider_bootstrap_subject,
+    redpanda_schema_registry_acl.provider_bootstrap_registry,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry,
@@ -184,22 +210,20 @@ resource "redpanda_schema" "user_event_schema" {
 }
 
 resource "redpanda_schema" "product_schema" {
-  cluster_id          = redpanda_cluster.test.id
-  subject             = "${var.topic_name}-product-value"
-  schema_type         = var.schema_type
-  schema              = var.product_schema_definition
-  compatibility       = var.compatibility_level
-  username            = redpanda_user.test.name
-  password            = var.schema_password_wo != null ? null : var.user_pw
-  password_wo         = var.schema_password_wo
-  password_wo_version = var.schema_password_wo_version
-  allow_deletion      = true
+  cluster_id     = redpanda_cluster.test.id
+  subject        = "${var.topic_name}-product-value"
+  schema_type    = var.schema_type
+  schema         = var.product_schema_definition
+  compatibility  = var.compatibility_level
+  allow_deletion = true
 
   depends_on = [
     redpanda_acl.cluster_admin,
     redpanda_acl.schema_registry_admin,
     redpanda_acl.cluster_action,
     redpanda_acl.topic_access,
+    redpanda_schema_registry_acl.provider_bootstrap_subject,
+    redpanda_schema_registry_acl.provider_bootstrap_registry,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry,
@@ -269,127 +293,99 @@ resource "redpanda_acl" "role_topic_read" {
 }
 
 resource "redpanda_schema_registry_acl" "read_product" {
-  cluster_id          = redpanda_cluster.test.id
-  principal           = "User:${redpanda_user.test.name}"
-  resource_type       = "SUBJECT"
-  resource_name       = "product-"
-  pattern_type        = "PREFIXED"
-  host                = "*"
-  operation           = "READ"
-  permission          = "ALLOW"
-  username            = redpanda_user.test.name
-  password            = var.sr_acl_password_wo != null ? null : var.user_pw
-  password_wo         = var.sr_acl_password_wo
-  password_wo_version = var.sr_acl_password_wo_version
-  allow_deletion      = var.sr_acl_allow_deletion
-  depends_on          = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "SUBJECT"
+  resource_name  = "product-"
+  pattern_type   = "PREFIXED"
+  host           = "*"
+  operation      = "READ"
+  permission     = "ALLOW"
+  allow_deletion = var.sr_acl_allow_deletion
+  depends_on     = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_schema_registry_acl" "write_orders" {
-  cluster_id          = redpanda_cluster.test.id
-  principal           = "User:${redpanda_user.test.name}"
-  resource_type       = "SUBJECT"
-  resource_name       = "orders-value"
-  pattern_type        = "LITERAL"
-  host                = "*"
-  operation           = "WRITE"
-  permission          = "ALLOW"
-  username            = redpanda_user.test.name
-  password            = var.sr_acl_password_wo != null ? null : var.user_pw
-  password_wo         = var.sr_acl_password_wo
-  password_wo_version = var.sr_acl_password_wo_version
-  allow_deletion      = true
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "SUBJECT"
+  resource_name  = "orders-value"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "WRITE"
+  permission     = "ALLOW"
+  allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_schema_registry_acl" "all_test_topic" {
-  cluster_id          = redpanda_cluster.test.id
-  principal           = "User:${redpanda_user.test.name}"
-  resource_type       = "SUBJECT"
-  resource_name       = "${var.topic_name}-"
-  pattern_type        = "PREFIXED"
-  host                = "*"
-  operation           = "ALL"
-  permission          = "ALLOW"
-  username            = redpanda_user.test.name
-  password            = var.sr_acl_password_wo != null ? null : var.user_pw
-  password_wo         = var.sr_acl_password_wo
-  password_wo_version = var.sr_acl_password_wo_version
-  allow_deletion      = true
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "SUBJECT"
+  resource_name  = "${var.topic_name}-"
+  pattern_type   = "PREFIXED"
+  host           = "*"
+  operation      = "ALL"
+  permission     = "ALLOW"
+  allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 
 resource "redpanda_schema_registry_acl" "describe_registry" {
-  cluster_id          = redpanda_cluster.test.id
-  principal           = "User:${redpanda_user.test.name}"
-  resource_type       = "REGISTRY"
-  resource_name       = "*"
-  pattern_type        = "LITERAL"
-  host                = "*"
-  operation           = "DESCRIBE"
-  permission          = "ALLOW"
-  username            = redpanda_user.test.name
-  password            = var.sr_acl_password_wo != null ? null : var.user_pw
-  password_wo         = var.sr_acl_password_wo
-  password_wo_version = var.sr_acl_password_wo_version
-  allow_deletion      = true
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "REGISTRY"
+  resource_name  = "*"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "DESCRIBE"
+  permission     = "ALLOW"
+  allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_schema_registry_acl" "alter_configs_registry" {
-  cluster_id          = redpanda_cluster.test.id
-  principal           = "User:${redpanda_user.test.name}"
-  resource_type       = "REGISTRY"
-  resource_name       = "*"
-  pattern_type        = "LITERAL"
-  host                = "*"
-  operation           = "ALTER_CONFIGS"
-  permission          = "ALLOW"
-  username            = redpanda_user.test.name
-  password            = var.sr_acl_password_wo != null ? null : var.user_pw
-  password_wo         = var.sr_acl_password_wo
-  password_wo_version = var.sr_acl_password_wo_version
-  allow_deletion      = true
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "REGISTRY"
+  resource_name  = "*"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "ALTER_CONFIGS"
+  permission     = "ALLOW"
+  allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_schema_registry_acl" "read_registry" {
-  cluster_id          = redpanda_cluster.test.id
-  principal           = "User:${redpanda_user.test.name}"
-  resource_type       = "REGISTRY"
-  resource_name       = "*"
-  pattern_type        = "LITERAL"
-  host                = "*"
-  operation           = "READ"
-  permission          = "ALLOW"
-  username            = redpanda_user.test.name
-  password            = var.sr_acl_password_wo != null ? null : var.user_pw
-  password_wo         = var.sr_acl_password_wo
-  password_wo_version = var.sr_acl_password_wo_version
-  allow_deletion      = true
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "REGISTRY"
+  resource_name  = "*"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "READ"
+  permission     = "ALLOW"
+  allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_schema_registry_acl" "write_registry" {
-  cluster_id          = redpanda_cluster.test.id
-  principal           = "User:${redpanda_user.test.name}"
-  resource_type       = "REGISTRY"
-  resource_name       = "*"
-  pattern_type        = "LITERAL"
-  host                = "*"
-  operation           = "WRITE"
-  permission          = "ALLOW"
-  username            = redpanda_user.test.name
-  password            = var.sr_acl_password_wo != null ? null : var.user_pw
-  password_wo         = var.sr_acl_password_wo
-  password_wo_version = var.sr_acl_password_wo_version
-  allow_deletion      = true
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "REGISTRY"
+  resource_name  = "*"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "WRITE"
+  permission     = "ALLOW"
+  allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
@@ -402,7 +398,7 @@ resource "redpanda_role" "developer" {
 
 resource "redpanda_role_assignment" "developer_assignment" {
   role_name       = redpanda_role.developer.name
-  principal       = redpanda_user.test.name
+  principal       = "User:${redpanda_user.test.name}"
   cluster_api_url = redpanda_cluster.test.cluster_api_url
 
   depends_on = [redpanda_user.test]
@@ -481,10 +477,7 @@ resource "redpanda_cluster" "test" {
       "schema_registry_enable_authorization" = true
     })
   }
-  ## This is a reference for GCP tags
-  #   tags = {
-  #     "key" = "value"
-  #   }
+  tags = var.cluster_tags
   ## This is a reference for GCP Private Service Connect
   #   gcp_private_service_connect = {
   #     enabled               = true
@@ -514,18 +507,46 @@ resource "redpanda_topic" "test" {
   replication_factor = var.replication_factor
   cluster_api_url    = redpanda_cluster.test.cluster_api_url
   allow_deletion     = true
+  configuration = var.topic_configuration != null ? var.topic_configuration : {
+    "cleanup.policy" = "delete"
+    "retention.ms"   = var.topic_retention_ms
+  }
 
   depends_on = [redpanda_user.test]
 }
 
+# Bootstrap SR ACL grants for the provider's own Bearer-token principal.
+# SUBJECT grant authorizes POST /subjects/<subj>/versions; REGISTRY grant
+# authorizes the franz-go follow-up GET /schemas/ids/<id>/versions.
+resource "redpanda_schema_registry_acl" "provider_bootstrap_subject" {
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:*"
+  resource_type  = "SUBJECT"
+  resource_name  = var.topic_name
+  pattern_type   = "PREFIXED"
+  host           = "*"
+  operation      = "ALL"
+  permission     = "ALLOW"
+  allow_deletion = true
+}
+
+resource "redpanda_schema_registry_acl" "provider_bootstrap_registry" {
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:*"
+  resource_type  = "REGISTRY"
+  resource_name  = "*"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "ALL"
+  permission     = "ALLOW"
+  allow_deletion = true
+}
 
 resource "redpanda_schema" "user_schema" {
   cluster_id     = redpanda_cluster.test.id
   subject        = "${var.topic_name}-value"
   schema_type    = var.schema_type
   schema         = var.user_schema_definition
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [
@@ -533,6 +554,8 @@ resource "redpanda_schema" "user_schema" {
     redpanda_acl.schema_registry_admin,
     redpanda_acl.cluster_action,
     redpanda_acl.topic_access,
+    redpanda_schema_registry_acl.provider_bootstrap_subject,
+    redpanda_schema_registry_acl.provider_bootstrap_registry,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry,
@@ -546,8 +569,6 @@ resource "redpanda_schema" "user_event_schema" {
   subject        = "${var.topic_name}-events-value"
   schema_type    = var.schema_type
   schema         = var.user_event_schema_definition
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   references = [
@@ -563,6 +584,8 @@ resource "redpanda_schema" "user_event_schema" {
     redpanda_acl.schema_registry_admin,
     redpanda_acl.cluster_action,
     redpanda_acl.topic_access,
+    redpanda_schema_registry_acl.provider_bootstrap_subject,
+    redpanda_schema_registry_acl.provider_bootstrap_registry,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry,
@@ -577,8 +600,6 @@ resource "redpanda_schema" "product_schema" {
   schema_type    = var.schema_type
   schema         = var.product_schema_definition
   compatibility  = var.compatibility_level
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [
@@ -586,6 +607,8 @@ resource "redpanda_schema" "product_schema" {
     redpanda_acl.schema_registry_admin,
     redpanda_acl.cluster_action,
     redpanda_acl.topic_access,
+    redpanda_schema_registry_acl.provider_bootstrap_subject,
+    redpanda_schema_registry_acl.provider_bootstrap_registry,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry,
@@ -664,8 +687,6 @@ resource "redpanda_schema_registry_acl" "read_product" {
   host           = "*"
   operation      = "READ"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = var.sr_acl_allow_deletion
   depends_on     = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
@@ -679,8 +700,6 @@ resource "redpanda_schema_registry_acl" "write_orders" {
   host           = "*"
   operation      = "WRITE"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -695,8 +714,6 @@ resource "redpanda_schema_registry_acl" "all_test_topic" {
   host           = "*"
   operation      = "ALL"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -711,8 +728,6 @@ resource "redpanda_schema_registry_acl" "describe_test_topic" {
   host           = "*"
   operation      = "DESCRIBE"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -727,8 +742,6 @@ resource "redpanda_schema_registry_acl" "describe_registry" {
   host           = "*"
   operation      = "DESCRIBE"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -743,8 +756,6 @@ resource "redpanda_schema_registry_acl" "alter_configs_registry" {
   host           = "*"
   operation      = "ALTER_CONFIGS"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -759,8 +770,6 @@ resource "redpanda_schema_registry_acl" "read_registry" {
   host           = "*"
   operation      = "READ"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -775,8 +784,6 @@ resource "redpanda_schema_registry_acl" "write_registry" {
   host           = "*"
   operation      = "WRITE"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -790,7 +797,7 @@ resource "redpanda_role" "developer" {
 
 resource "redpanda_role_assignment" "developer_assignment" {
   role_name       = redpanda_role.developer.name
-  principal       = redpanda_user.test.name
+  principal       = "User:${redpanda_user.test.name}"
   cluster_api_url = redpanda_cluster.test.cluster_api_url
 
   depends_on = [redpanda_user.test]
@@ -886,10 +893,8 @@ resource "redpanda_serverless_private_link" "test" {
   serverless_region  = var.region
   allow_deletion = var.allow_private_link_deletion
 
-  cloud_provider_config = {
-    aws = {
-      allowed_principals = var.allowed_principals
-    }
+  aws_config = {
+    allowed_principals = var.allowed_principals
   }
 }
 

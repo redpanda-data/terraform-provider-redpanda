@@ -30,10 +30,10 @@ Creates Access Control Lists (ACLs) for Redpanda Schema Registry resources. Sche
 > **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
 
 - `allow_deletion` (Boolean) When set to true, allows the resource to be removed from state even if deletion fails due to permission errors
-- `password` (String, Sensitive, Deprecated) Password for authentication. Deprecated: use password_wo instead. Can be set via REDPANDA_SR_PASSWORD environment variable
-- `password_wo` (String, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Password for authentication (write-only, not stored in state). Requires Terraform 1.11+. Can be set via REDPANDA_SR_PASSWORD environment variable
-- `password_wo_version` (Number) Version number for password_wo. Increment this value to trigger a password update when using password_wo.
-- `username` (String, Sensitive) Username for authentication. Can be set via REDPANDA_SR_USERNAME environment variable
+- `password` (String, Sensitive) SASL password for Schema Registry HTTP Basic authentication. Pair with username when you need writes attributed to a specific SASL identity instead of the provider's cloud Bearer token. Stored in Terraform state.
+- `password_wo` (String, Deprecated, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Deprecated. The Terraform Plugin Framework does not persist write-only attributes to state, leaving the provider unable to authenticate to Schema Registry during refresh — this attribute cannot reliably manage ACLs. Use the default cloud Bearer authentication (omit username and password) or the regular `password` attribute.
+- `password_wo_version` (Number, Deprecated) Deprecated. Version counter for password_wo, which is itself deprecated for this resource.
+- `username` (String, Sensitive) SASL username for Schema Registry HTTP Basic authentication. Optional: when omitted (together with password) the provider authenticates to Schema Registry using its cloud Bearer token. Supply username + password only when you need writes to be attributed to a specific SASL identity (e.g., audit / least-privilege).
 
 ### Read-Only
 
@@ -95,18 +95,17 @@ resource "redpanda_acl" "schema_registry_admin" {
   cluster_api_url       = redpanda_cluster.example.cluster_api_url
 }
 
+# The provider authenticates to Schema Registry using its cloud Bearer token.
+# No per-resource username/password is required for SR ACL management.
 resource "redpanda_schema_registry_acl" "example" {
-  cluster_id          = redpanda_cluster.example.id
-  principal           = "User:${redpanda_user.example.name}"
-  resource_type       = "SUBJECT"
-  resource_name       = "user-value"
-  pattern_type        = "LITERAL"
-  host                = "*"
-  operation           = "READ"
-  permission          = "ALLOW"
-  username            = redpanda_user.example.name
-  password_wo         = var.user_password # Write-only, not stored in state
-  password_wo_version = 1                 # Increment to trigger password update
+  cluster_id    = redpanda_cluster.example.id
+  principal     = "User:${redpanda_user.example.name}"
+  resource_type = "SUBJECT"
+  resource_name = "user-value"
+  pattern_type  = "LITERAL"
+  host          = "*"
+  operation     = "READ"
+  permission    = "ALLOW"
 
   depends_on = [redpanda_acl.schema_registry_admin]
 }
@@ -146,59 +145,44 @@ To manage Schema Registry ACLs, the user must have cluster-level ALTER permissio
 
 For more details about Schema Registry ACLs, see the [Redpanda Schema Registry API documentation](https://docs.redpanda.com/current/manage/schema-reg/schema-reg-api/).
 
-## Security Considerations
+## Authentication
 
-We recommend storing Schema Registry credentials in environment variables or a secret store:
+By default, the provider authenticates to Schema Registry using its cloud-issued Bearer token — the same token used for the rest of the Redpanda control plane. No `username` or `password` need to be set on the resource.
 
-- `REDPANDA_SR_USERNAME` for the username
-- `REDPANDA_SR_PASSWORD` for the password
+Supply `username` + `password` only when you need writes to be attributed to a specific SASL identity (e.g., for audit or least-privilege requirements). Both fields are Optional, Sensitive, and stored in state.
 
-### Write-Only Password (Recommended)
-
-For Terraform 1.11+, we recommend using the `password_wo` attribute instead of `password`. Write-only attributes are never stored in Terraform state, providing enhanced security:
-
-```hcl
-resource "redpanda_schema_registry_acl" "example" {
-  cluster_id          = redpanda_cluster.example.id
-  principal           = "User:alice"
-  resource_type       = "SUBJECT"
-  resource_name       = "user-value"
-  pattern_type        = "LITERAL"
-  host                = "*"
-  operation           = "READ"
-  permission          = "ALLOW"
-  username            = "admin-user"
-  password_wo         = var.sr_password  # Not stored in state
-  password_wo_version = 1                # Increment to trigger password update
-}
-```
-
-To update the password, change the `password_wo` value and increment `password_wo_version`. The version field signals Terraform that the password has changed since write-only values cannot be compared between plan and apply.
-
-~> **Note:** The `password` attribute is deprecated and will be removed in a future version. Migrate to `password_wo` when using Terraform 1.11+.
+The `password_wo` attribute is deprecated for this resource: the Terraform Plugin Framework does not persist write-only attributes to state, leaving the provider unable to authenticate to Schema Registry during refresh. Use the default Bearer authentication, or set `password` directly.
 
 ## Import
 
-Schema Registry ACLs can be imported using a colon-separated string with the following format:
+Schema Registry ACLs can be imported using a comma-separated string. Two forms are supported:
+
+**Bearer auth (default):**
 
 ```
-cluster_id:principal:resource_type:resource_name:pattern_type:host:operation:permission:username:password
+cluster_id,principal,resource_type,resource_name,pattern_type,host,operation,permission
+```
+
+**Basic auth (optional, when explicit SASL credentials are needed):**
+
+```
+cluster_id,principal,resource_type,resource_name,pattern_type,host,operation,permission,username,password
 ```
 
 Example imports:
 
 ```shell
-# Import a subject-level READ ACL for user alice
-terraform import redpanda_schema_registry_acl.example "cluster-123:User:alice:SUBJECT:user-value:LITERAL:*:READ:ALLOW:alice:mypassword"
+# Import via Bearer auth (default) — no username or password required
+terraform import redpanda_schema_registry_acl.example "cluster-123,User:alice,SUBJECT,user-value,LITERAL,*,READ,ALLOW"
 
-# Import a registry-level ALL ACL for a role
-terraform import redpanda_schema_registry_acl.admin "cluster-123:RedpandaRole:admin:REGISTRY:*:LITERAL:*:ALL:ALLOW:admin:secret"
+# Import via Bearer auth with a role principal containing colons
+terraform import redpanda_schema_registry_acl.admin "cluster-123,RedpandaRole:admin,REGISTRY,*,LITERAL,*,ALL,ALLOW"
 
-# Import a prefixed pattern ACL
-terraform import redpanda_schema_registry_acl.prefix "cluster-123:User:bob:SUBJECT:orders-:PREFIXED:*:WRITE:ALLOW:bob:pass123"
+# Import via Basic auth with explicit SASL credentials
+terraform import redpanda_schema_registry_acl.prefix "cluster-123,User:bob,SUBJECT,orders-,PREFIXED,*,WRITE,ALLOW,bob,pass123"
 ```
 
-**Note:** Principals containing colons (e.g., `RedpandaRole:admin:extra`) are supported in the import format. Credentials (username and password) are required for import to verify the ACL exists.
+For Basic auth, the password can also be supplied via the `REDPANDA_IMPORT_PASSWORD` environment variable instead of placing it in the import ID.
 
 ## API Reference
 

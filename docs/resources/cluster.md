@@ -2,12 +2,12 @@
 page_title: "redpanda_cluster Resource - terraform-provider-redpanda"
 subcategory: ""
 description: |-
-  
+  Cluster resource
 ---
 
 # redpanda_cluster (Resource)
 
-
+Cluster resource
 
 Enables the provisioning and management of Redpanda clusters on AWS and GCP. A cluster must always have a network and resource group.
 
@@ -17,99 +17,98 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 ### Required
 
 - `cloud_provider` (String) Cloud provider where resources are created.
-- `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated.
-- `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, private is best-practice.
+- `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, private is best-practice
 - `name` (String) Unique name of the cluster.
 - `network_id` (String) Network ID where cluster is placed.
-- `region` (String) Cloud provider region. Region represents the name of the region where the cluster will be provisioned.
+- `region` (String) Region represents the name of the region where the cluster will be provisioned.
 - `resource_group_id` (String) Resource group ID of the cluster.
-- `throughput_tier` (String) Usage tier of the cluster.
+- `throughput_tier` (String) Throughput tier of the cluster.
 - `zones` (List of String) Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster.
 
 ### Optional
 
-- `allow_deletion` (Boolean) Allows deletion of the cluster. Defaults to false.
-- `api_gateway_access` (String) API gateway access mode. Can be NETWORK_ACCESS_MODE_PRIVATE or NETWORK_ACCESS_MODE_PUBLIC.
-- `aws_private_link` (Attributes) AWS PrivateLink configuration. (see [below for nested schema](#nestedatt--aws_private_link))
-- `azure_private_link` (Attributes) Azure Private Link configuration. (see [below for nested schema](#nestedatt--azure_private_link))
-- `cloud_storage` (Attributes) Cloud storage configuration for tiered storage. (see [below for nested schema](#nestedatt--cloud_storage))
-- `cluster_configuration` (Attributes) Configuration for the cluster. (see [below for nested schema](#nestedatt--cluster_configuration))
-- `customer_managed_resources` (Attributes) Customer managed resources configuration for the cluster. (see [below for nested schema](#nestedatt--customer_managed_resources))
-- `gcp_global_access_enabled` (Boolean) If true, GCP global access is enabled.
-- `gcp_private_service_connect` (Attributes) GCP Private Service Connect configuration. (see [below for nested schema](#nestedatt--gcp_private_service_connect))
+- `allow_deletion` (Boolean) Resource will only be deleted when allow_deletion is set to true. Otherwise deletion will fail with a related error.
+- `api_gateway_access` (String) Network access mode for an endpoint.
+- `aws_private_link` (Attributes) AWS Private Link configuration (see [below for nested schema](#nestedatt--aws_private_link))
+- `azure_private_link` (Attributes) Azure Private Link configuration (see [below for nested schema](#nestedatt--azure_private_link))
+- `cloud_storage` (Attributes) Cloud Storage configuration (see [below for nested schema](#nestedatt--cloud_storage))
+- `cluster_configuration` (Attributes) Cluster Configuration configuration (see [below for nested schema](#nestedatt--cluster_configuration))
+- `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated.
+- `customer_managed_resources` (Attributes) The cloud resources created by user. (see [below for nested schema](#nestedatt--customer_managed_resources))
+- `gcp_private_service_connect` (Attributes) GCP Private Service Connect configuration (see [below for nested schema](#nestedatt--gcp_private_service_connect))
 - `http_proxy` (Attributes) HTTP Proxy properties. (see [below for nested schema](#nestedatt--http_proxy))
 - `kafka_api` (Attributes) Cluster's Kafka API properties. (see [below for nested schema](#nestedatt--kafka_api))
-- `kafka_connect` (Attributes) Kafka Connect configuration. (see [below for nested schema](#nestedatt--kafka_connect))
-- `maintenance_window_config` (Attributes) Maintenance window configuration for the cluster. (see [below for nested schema](#nestedatt--maintenance_window_config))
-- `read_replica_cluster_ids` (List of String) IDs of clusters that can create read-only topics from this cluster.
-- `redpanda_node_count` (Number) Number of Redpanda nodes in the cluster. NOTE: This feature is not available for all customers by default. Contact your Redpanda account team to enable this feature.
-- `redpanda_version` (String) Current Redpanda version of the cluster.
-- `schema_registry` (Attributes) Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
-- `tags` (Map of String) Tags placed on cloud resources. If the cloud provider is GCP and the name of a tag has the prefix "gcp.network-tag.", the tag is a network tag that will be added to the Redpanda cluster GKE nodes. Otherwise, the tag is a normal tag. For example, if the name of a tag is "gcp.network-tag.network-tag-foo", the network tag named "network-tag-foo" will be added to the Redpanda cluster GKE nodes. Note: The value of a network tag will be ignored. See the details on network tags at https://cloud.google.com/vpc/docs/add-remove-network-tags.
+- `kafka_connect` (Attributes) Kafka Connect configuration (see [below for nested schema](#nestedatt--kafka_connect))
+- `maintenance_window_config` (Attributes) Resource describing the maintenance window configuration of a cluster. (see [below for nested schema](#nestedatt--maintenance_window_config))
+- `read_replica_cluster_ids` (List of String) IDs of clusters that can create read-only topics from this cluster
+- `redpanda_node_count` (Number) Number of Redpanda broker nodes
+- `redpanda_version` (String) Redpanda Version
+- `schema_registry` (Attributes) Cluster's Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
+- `tags` (Map of String) Tags placed on cloud resources. Server-managed keys (prefixed with `redpanda-`) are filtered out of state.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
 
-- `cluster_api_url` (String) The URL of the cluster API.
-- `created_at` (String) Timestamp when the cluster was created.
-- `current_redpanda_version` (String) The actual running Redpanda version of the cluster.
-- `desired_redpanda_version` (String) The target Redpanda version during an upgrade.
+- `cluster_api_url` (String) The URL of the cluster's data plane API
+- `current_redpanda_version` (String) Current Redpanda version of the cluster.
+- `desired_redpanda_version` (String) Desired Redpanda version of the cluster.
+- `gcp_global_access_enabled` (Boolean) gcp_enable_global_access control if global access is enabled on the seed load balancer, applicable only for GCP. Default is false
 - `id` (String) ID of the cluster. ID is an output from the Create Cluster endpoint and cannot be set by the caller.
-- `nat_gateways` (List of String) NAT gateway IP addresses for the cluster.
+- `nat_gateways` (List of String) NAT gateway information for the cluster.
 - `prometheus` (Attributes) Prometheus metrics endpoint properties. (see [below for nested schema](#nestedatt--prometheus))
-- `redpanda_console` (Attributes) Redpanda Console properties. (see [below for nested schema](#nestedatt--redpanda_console))
-- `state` (String) Current state of the cluster.
-- `state_description` (Attributes) Detailed state description when cluster is in a non-ready state. (see [below for nested schema](#nestedatt--state_description))
+- `redpanda_console` (Attributes) Cluster's Redpanda Console properties. (see [below for nested schema](#nestedatt--redpanda_console))
+- `state` (String) State describes the state of the cluster.
+- `state_description` (Attributes) Describes errors (see [below for nested schema](#nestedatt--state_description))
 
 <a id="nestedatt--aws_private_link"></a>
 ### Nested Schema for `aws_private_link`
 
 Required:
 
-- `allowed_principals` (List of String) The ARN of the principals that can access the Redpanda AWS PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).
-- `connect_console` (Boolean) Whether Console is connected via PrivateLink.
-- `enabled` (Boolean) Whether AWS PrivateLink is enabled.
+- `allowed_principals` (List of String) ARN of the principals that can access the Redpanda AWS PrivateLink Endpoint Service
+- `connect_console` (Boolean) Whether Console is connected in Redpanda AWS Private Link Service.
+- `enabled` (Boolean) Whether Redpanda AWS Private Link Endpoint Service is enabled.
 
 Read-Only:
 
-- `status` (Attributes) Current status of the PrivateLink configuration. (see [below for nested schema](#nestedatt--aws_private_link--status))
-- `supported_regions` (List of String) Supported regions for AWS PrivateLink.
+- `status` (Attributes) Status configuration (see [below for nested schema](#nestedatt--aws_private_link--status))
+- `supported_regions` (List of String) List of supported regions in cross-region AWS PrivateLink.
 
 <a id="nestedatt--aws_private_link--status"></a>
 ### Nested Schema for `aws_private_link.status`
 
 Read-Only:
 
-- `console_port` (Number) Port for Redpanda Console.
-- `kafka_api_node_base_port` (Number) Base port for Kafka API nodes.
-- `kafka_api_seed_port` (Number) Port for Kafka API seed brokers.
-- `redpanda_proxy_node_base_port` (Number) Base port for HTTP proxy nodes.
-- `redpanda_proxy_seed_port` (Number) Port for HTTP proxy.
-- `schema_registry_seed_port` (Number) Port for Schema Registry.
-- `service_id` (String) The PrivateLink service ID.
-- `service_name` (String) The PrivateLink service name.
-- `service_state` (String) Current state of the PrivateLink service.
-- `vpc_endpoint_connections` (Attributes List) List of VPC endpoint connections. (see [below for nested schema](#nestedatt--aws_private_link--status--vpc_endpoint_connections))
+- `console_port` (Number) The port of Redpanda Console.
+- `kafka_api_node_base_port` (Number) Kafka API node service base port. The port for node `i` (0 .. node_count-1) is kafka_api_node_base_port + `i`.
+- `kafka_api_seed_port` (Number) Kafka API seed service port.
+- `redpanda_proxy_node_base_port` (Number) HTTP Proxy node service base port. The port for node `i` (0 .. node_count-1) is redpanda_proxy_node_base_port + i.
+- `redpanda_proxy_seed_port` (Number) HTTP Proxy seed service port.
+- `schema_registry_seed_port` (Number) Schema Registry seed service port.
+- `service_id` (String) ID of Redpanda AWS PrivateLink Endpoint Service.
+- `service_name` (String) Name of Redpanda AWS PrivateLink Endpoint Service.
+- `service_state` (String) State of Redpanda AWS PrivateLink Endpoint Service.
+- `vpc_endpoint_connections` (Attributes List) List of VPC endpoints with established connections to Redpanda AWS PrivateLink Endpoint Service. (see [below for nested schema](#nestedatt--aws_private_link--status--vpc_endpoint_connections))
 
 <a id="nestedatt--aws_private_link--status--vpc_endpoint_connections"></a>
 ### Nested Schema for `aws_private_link.status.vpc_endpoint_connections`
 
 Read-Only:
 
-- `connection_id` (String) The connection ID.
-- `dns_entries` (Attributes List) DNS entries for the endpoint. (see [below for nested schema](#nestedatt--aws_private_link--status--vpc_endpoint_connections--dns_entries))
-- `id` (String) The endpoint connection ID.
-- `load_balancer_arns` (List of String) ARNs of associated load balancers.
-- `owner` (String) Owner of the endpoint connection.
-- `state` (String) State of the endpoint connection.
+- `connection_id` (String) Connection ID of VPC endpoint connected to Redpanda AWS PrivateLink Endpoint Service.
+- `dns_entries` (Attributes List) The list of DNS entries associated with VPC endpoint. (see [below for nested schema](#nestedatt--aws_private_link--status--vpc_endpoint_connections--dns_entries))
+- `id` (String) The ID of VPC endpoint.
+- `load_balancer_arns` (List of String) List of load balancer ARNs.
+- `owner` (String) The owner of VPC endpoint.
+- `state` (String) The state of VPC endpoint connected to Redpanda AWS PrivateLink Endpoint Service.
 
 <a id="nestedatt--aws_private_link--status--vpc_endpoint_connections--dns_entries"></a>
 ### Nested Schema for `aws_private_link.status.vpc_endpoint_connections.dns_entries`
 
 Read-Only:
 
-- `dns_name` (String) The DNS name.
-- `hosted_zone_id` (String) The hosted zone ID.
+- `dns_name` (String) DNS entry of VPC endpoint connected to Redpanda AWS PrivateLink Endpoint Service.
+- `hosted_zone_id` (String) The ID of Route53 DNS zone.
 
 
 
@@ -120,41 +119,41 @@ Read-Only:
 
 Required:
 
-- `allowed_subscriptions` (List of String) The subscriptions that can access the Redpanda Azure PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).
+- `allowed_subscriptions` (List of String) Azure subscription IDs allowed to access the Redpanda Private Link Endpoint Service
 - `connect_console` (Boolean) Whether Console is connected in Redpanda Azure Private Link Service.
-- `enabled` (Boolean) Whether Redpanda Azure Private Link Endpoint Service is enabled.
+- `enabled` (Boolean) Whether Redpanda AWS Private Link Endpoint Service is enabled.
 
 Read-Only:
 
-- `status` (Attributes) Current status of the Private Link configuration. (see [below for nested schema](#nestedatt--azure_private_link--status))
+- `status` (Attributes) Status configuration (see [below for nested schema](#nestedatt--azure_private_link--status))
 
 <a id="nestedatt--azure_private_link--status"></a>
 ### Nested Schema for `azure_private_link.status`
 
 Read-Only:
 
-- `approved_subscriptions` (List of String) List of approved Azure subscription IDs.
-- `console_port` (Number) Port for Redpanda Console.
-- `dns_a_record` (String) DNS A record for the service.
-- `kafka_api_node_base_port` (Number) Base port for Kafka API nodes.
-- `kafka_api_seed_port` (Number) Port for Kafka API seed brokers.
-- `private_endpoint_connections` (Attributes List) List of private endpoint connections. (see [below for nested schema](#nestedatt--azure_private_link--status--private_endpoint_connections))
-- `redpanda_proxy_node_base_port` (Number) Base port for HTTP proxy nodes.
-- `redpanda_proxy_seed_port` (Number) Port for HTTP proxy.
-- `schema_registry_seed_port` (Number) Port for Schema Registry.
-- `service_id` (String) The Private Link service ID.
-- `service_name` (String) The Private Link service name.
+- `approved_subscriptions` (List of String) These are the approved subscriptions on the private link
+- `console_port` (Number) The port of Redpanda Console.
+- `dns_a_record` (String) dns_a_dns_a_recordrecord is the DNS A record the customer will create pointing at the their PE
+- `kafka_api_node_base_port` (Number) Kafka API node service base port. The port for node `i` (0 .. node_count-1) is kafka_api_node_base_port + `i`.
+- `kafka_api_seed_port` (Number) Kafka API seed service port.
+- `private_endpoint_connections` (Attributes List) List of private endpoint connections to Redpanda Azure Private Link Service. (see [below for nested schema](#nestedatt--azure_private_link--status--private_endpoint_connections))
+- `redpanda_proxy_node_base_port` (Number) HTTP Proxy node service base port. The port for node `i` (0 .. node_count-1) is redpanda_proxy_node_base_port + i.
+- `redpanda_proxy_seed_port` (Number) HTTP Proxy seed service port.
+- `schema_registry_seed_port` (Number) Schema Registry seed service port.
+- `service_id` (String) ID of Redpanda Azure PrivateLink Endpoint Service.
+- `service_name` (String) Name of Redpanda Azure PrivateLink Endpoint Service.
 
 <a id="nestedatt--azure_private_link--status--private_endpoint_connections"></a>
 ### Nested Schema for `azure_private_link.status.private_endpoint_connections`
 
 Read-Only:
 
-- `connection_id` (String) ID of the connection.
-- `connection_name` (String) Name of the connection.
-- `private_endpoint_id` (String) ID of the private endpoint.
-- `private_endpoint_name` (String) Name of the private endpoint.
-- `status` (String) Status of the endpoint connection.
+- `connection_id` (String) ConnectionID is the id of the connection between the private endpoint and the private link service
+- `connection_name` (String) ConnectionName is the name of the connection between the private endpoint and the private link service
+- `private_endpoint_id` (String) Resource ID of Private Endpoint to Redpanda Azure PrivateLink Endpoint Service.
+- `private_endpoint_name` (String) The name of the PrivateEndpointConnection.
+- `status` (String) The status of private endpoint connected to Redpanda Azure PrivateLink Endpoint Service.
 
 
 
@@ -164,17 +163,17 @@ Read-Only:
 
 Optional:
 
-- `aws` (Attributes) AWS cloud storage configuration. (see [below for nested schema](#nestedatt--cloud_storage--aws))
-- `azure` (Attributes) Azure cloud storage configuration. (see [below for nested schema](#nestedatt--cloud_storage--azure))
-- `gcp` (Attributes) GCP cloud storage configuration. (see [below for nested schema](#nestedatt--cloud_storage--gcp))
-- `skip_destroy` (Boolean) If true, cloud storage is not deleted when the cluster is destroyed.
+- `aws` (Attributes) AWS configuration (see [below for nested schema](#nestedatt--cloud_storage--aws))
+- `azure` (Attributes) Azure configuration (see [below for nested schema](#nestedatt--cloud_storage--azure))
+- `gcp` (Attributes) GCP configuration (see [below for nested schema](#nestedatt--cloud_storage--gcp))
+- `skip_destroy` (Boolean) If true, cloud storage is not deleted when the cluster is destroyed
 
 <a id="nestedatt--cloud_storage--aws"></a>
 ### Nested Schema for `cloud_storage.aws`
 
 Read-Only:
 
-- `arn` (String) ARN of the AWS S3 bucket.
+- `arn` (String) ARN for the AWS
 
 
 <a id="nestedatt--cloud_storage--azure"></a>
@@ -182,8 +181,8 @@ Read-Only:
 
 Read-Only:
 
-- `container_name` (String) Name of the Azure storage container.
-- `storage_account_name` (String) Name of the Azure storage account.
+- `container_name` (String) Name of the Azure storage container
+- `storage_account_name` (String) Name of the Azure storage account
 
 
 <a id="nestedatt--cloud_storage--gcp"></a>
@@ -191,7 +190,7 @@ Read-Only:
 
 Read-Only:
 
-- `name` (String) Name of the GCP storage bucket.
+- `name` (String) Name of the GCP storage bucket
 
 
 
@@ -200,7 +199,7 @@ Read-Only:
 
 Optional:
 
-- `custom_properties_json` (String) Custom properties for the cluster in JSON format.
+- `custom_properties_json` (String) Custom cluster configuration properties in JSON format
 
 
 <a id="nestedatt--customer_managed_resources"></a>
@@ -208,39 +207,39 @@ Optional:
 
 Optional:
 
-- `aws` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws))
-- `gcp` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--gcp))
+- `aws` (Attributes) AWS resources created and managed by user, and required to deploy the Redpanda cluster. (see [below for nested schema](#nestedatt--customer_managed_resources--aws))
+- `gcp` (Attributes) GCP resources created and managed by user, and required to deploy the Redpanda cluster. See [Create a BYOVPC Cluster on GCP](https://docs.redpanda.com/redpanda-cloud/get-started/cluster-types/byoc/gcp/vpc-byo-gcp/). (see [below for nested schema](#nestedatt--customer_managed_resources--gcp))
 
 <a id="nestedatt--customer_managed_resources--aws"></a>
 ### Nested Schema for `customer_managed_resources.aws`
 
 Required:
 
-- `agent_instance_profile` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--agent_instance_profile))
-- `cloud_storage_bucket` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--cloud_storage_bucket))
-- `cluster_security_group` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--cluster_security_group))
-- `connectors_node_group_instance_profile` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--connectors_node_group_instance_profile))
-- `connectors_security_group` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--connectors_security_group))
-- `k8s_cluster_role` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--k8s_cluster_role))
-- `node_security_group` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--node_security_group))
-- `permissions_boundary_policy` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--permissions_boundary_policy))
-- `redpanda_agent_security_group` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_agent_security_group))
-- `redpanda_node_group_instance_profile` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_node_group_instance_profile))
-- `redpanda_node_group_security_group` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_node_group_security_group))
-- `utility_node_group_instance_profile` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--utility_node_group_instance_profile))
-- `utility_security_group` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--utility_security_group))
+- `agent_instance_profile` (Attributes) AWS instance profile. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--agent_instance_profile))
+- `cloud_storage_bucket` (Attributes) AWS storage bucket properties by ARN. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--cloud_storage_bucket))
+- `cluster_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--cluster_security_group))
+- `connectors_node_group_instance_profile` (Attributes) AWS instance profile. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--connectors_node_group_instance_profile))
+- `connectors_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--connectors_security_group))
+- `k8s_cluster_role` (Attributes) Role identifies AWS role. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--k8s_cluster_role))
+- `node_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--node_security_group))
+- `permissions_boundary_policy` (Attributes) Policy identifies an AWS policy. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--permissions_boundary_policy))
+- `redpanda_agent_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_agent_security_group))
+- `redpanda_node_group_instance_profile` (Attributes) AWS instance profile. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_node_group_instance_profile))
+- `redpanda_node_group_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_node_group_security_group))
+- `utility_node_group_instance_profile` (Attributes) AWS instance profile. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--utility_node_group_instance_profile))
+- `utility_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--utility_security_group))
 
 Optional:
 
-- `redpanda_connect_node_group_instance_profile` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_connect_node_group_instance_profile))
-- `redpanda_connect_security_group` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_connect_security_group))
+- `redpanda_connect_node_group_instance_profile` (Attributes) AWS instance profile. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_connect_node_group_instance_profile))
+- `redpanda_connect_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_connect_security_group))
 
 <a id="nestedatt--customer_managed_resources--aws--agent_instance_profile"></a>
 ### Nested Schema for `customer_managed_resources.aws.agent_instance_profile`
 
 Required:
 
-- `arn` (String) ARN for the agent instance profile
+- `arn` (String) AWS instance profile ARN.
 
 
 <a id="nestedatt--customer_managed_resources--aws--cloud_storage_bucket"></a>
@@ -248,7 +247,7 @@ Required:
 
 Required:
 
-- `arn` (String) ARN for the cloud storage bucket
+- `arn` (String) AWS storage bucket identifier.
 
 
 <a id="nestedatt--customer_managed_resources--aws--cluster_security_group"></a>
@@ -256,7 +255,7 @@ Required:
 
 Required:
 
-- `arn` (String) ARN for the cluster security group
+- `arn` (String) AWS security group ARN.
 
 
 <a id="nestedatt--customer_managed_resources--aws--connectors_node_group_instance_profile"></a>
@@ -264,7 +263,7 @@ Required:
 
 Required:
 
-- `arn` (String) ARN for the connectors node group instance profile
+- `arn` (String) AWS instance profile ARN.
 
 
 <a id="nestedatt--customer_managed_resources--aws--connectors_security_group"></a>
@@ -272,7 +271,7 @@ Required:
 
 Required:
 
-- `arn` (String) ARN for the connectors security group
+- `arn` (String) AWS security group ARN.
 
 
 <a id="nestedatt--customer_managed_resources--aws--k8s_cluster_role"></a>
@@ -280,7 +279,7 @@ Required:
 
 Required:
 
-- `arn` (String) ARN for the Kubernetes cluster role
+- `arn` (String) AWS role ARN.
 
 
 <a id="nestedatt--customer_managed_resources--aws--node_security_group"></a>
@@ -288,7 +287,7 @@ Required:
 
 Required:
 
-- `arn` (String) ARN for the node security group
+- `arn` (String) AWS security group ARN.
 
 
 <a id="nestedatt--customer_managed_resources--aws--permissions_boundary_policy"></a>
@@ -296,7 +295,7 @@ Required:
 
 Required:
 
-- `arn` (String) ARN for the permissions boundary policy
+- `arn` (String) AWS policy ARN.
 
 
 <a id="nestedatt--customer_managed_resources--aws--redpanda_agent_security_group"></a>
@@ -304,7 +303,7 @@ Required:
 
 Required:
 
-- `arn` (String) ARN for the redpanda agent security group
+- `arn` (String) AWS security group ARN.
 
 
 <a id="nestedatt--customer_managed_resources--aws--redpanda_node_group_instance_profile"></a>
@@ -312,7 +311,7 @@ Required:
 
 Required:
 
-- `arn` (String) ARN for the redpanda node group instance profile
+- `arn` (String) AWS instance profile ARN.
 
 
 <a id="nestedatt--customer_managed_resources--aws--redpanda_node_group_security_group"></a>
@@ -320,7 +319,7 @@ Required:
 
 Required:
 
-- `arn` (String) ARN for the redpanda node group security group
+- `arn` (String) AWS security group ARN.
 
 
 <a id="nestedatt--customer_managed_resources--aws--utility_node_group_instance_profile"></a>
@@ -328,7 +327,7 @@ Required:
 
 Required:
 
-- `arn` (String) ARN for the utility node group instance profile
+- `arn` (String) AWS instance profile ARN.
 
 
 <a id="nestedatt--customer_managed_resources--aws--utility_security_group"></a>
@@ -336,7 +335,7 @@ Required:
 
 Required:
 
-- `arn` (String) ARN for the utility security group
+- `arn` (String) AWS security group ARN.
 
 
 <a id="nestedatt--customer_managed_resources--aws--redpanda_connect_node_group_instance_profile"></a>
@@ -344,7 +343,7 @@ Required:
 
 Required:
 
-- `arn` (String) ARN for the Redpanda Connect node group instance profile
+- `arn` (String) AWS instance profile ARN.
 
 
 <a id="nestedatt--customer_managed_resources--aws--redpanda_connect_security_group"></a>
@@ -352,7 +351,7 @@ Required:
 
 Required:
 
-- `arn` (String) ARN for the Redpanda Connect security group
+- `arn` (String) AWS security group ARN.
 
 
 
@@ -361,24 +360,24 @@ Required:
 
 Required:
 
-- `agent_service_account` (Attributes) GCP service account for the agent. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--agent_service_account))
-- `connector_service_account` (Attributes) GCP service account for managed connectors. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--connector_service_account))
-- `console_service_account` (Attributes) GCP service account for Redpanda Console. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--console_service_account))
-- `gke_service_account` (Attributes) GCP service account for GCP Kubernetes Engine (GKE). (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--gke_service_account))
-- `redpanda_cluster_service_account` (Attributes) GCP service account for the Redpanda cluster. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--redpanda_cluster_service_account))
-- `subnet` (Attributes) GCP subnet where Redpanda cluster is deployed. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--subnet))
-- `tiered_storage_bucket` (Attributes) GCP storage bucket for Tiered storage. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--tiered_storage_bucket))
+- `agent_service_account` (Attributes) GCP service account. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--agent_service_account))
+- `connector_service_account` (Attributes) GCP service account. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--connector_service_account))
+- `console_service_account` (Attributes) GCP service account. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--console_service_account))
+- `gke_service_account` (Attributes) GCP service account. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--gke_service_account))
+- `redpanda_cluster_service_account` (Attributes) GCP service account. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--redpanda_cluster_service_account))
+- `subnet` (Attributes) GCP subnet properties. See the official [GCP API reference](https://cloud.google.com/compute/docs/reference/rest/v1/subnetworks). (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--subnet))
+- `tiered_storage_bucket` (Attributes) GCP storage bucket properties. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--tiered_storage_bucket))
 
 Optional:
 
-- `psc_nat_subnet_name` (String) NAT subnet name if GCP Private Service Connect is enabled.
+- `psc_nat_subnet_name` (String) NAT subnet name if GCP Private Service Connect (a.k.a Private Link) is enabled. If it is used for PSC v1, use psc_v2_nat_subnet_name to set NAT subnet name for PSC v2.
 
 <a id="nestedatt--customer_managed_resources--gcp--agent_service_account"></a>
 ### Nested Schema for `customer_managed_resources.gcp.agent_service_account`
 
 Required:
 
-- `email` (String) GCP service account email.
+- `email` (String) GCP service account email. Must be a valid email address.
 
 
 <a id="nestedatt--customer_managed_resources--gcp--connector_service_account"></a>
@@ -386,7 +385,7 @@ Required:
 
 Required:
 
-- `email` (String) GCP service account email.
+- `email` (String) GCP service account email. Must be a valid email address.
 
 
 <a id="nestedatt--customer_managed_resources--gcp--console_service_account"></a>
@@ -394,7 +393,7 @@ Required:
 
 Required:
 
-- `email` (String) GCP service account email.
+- `email` (String) GCP service account email. Must be a valid email address.
 
 
 <a id="nestedatt--customer_managed_resources--gcp--gke_service_account"></a>
@@ -402,7 +401,7 @@ Required:
 
 Required:
 
-- `email` (String) GCP service account email.
+- `email` (String) GCP service account email. Must be a valid email address.
 
 
 <a id="nestedatt--customer_managed_resources--gcp--redpanda_cluster_service_account"></a>
@@ -410,7 +409,7 @@ Required:
 
 Required:
 
-- `email` (String) GCP service account email.
+- `email` (String) GCP service account email. Must be a valid email address.
 
 
 <a id="nestedatt--customer_managed_resources--gcp--subnet"></a>
@@ -419,16 +418,16 @@ Required:
 Required:
 
 - `k8s_master_ipv4_range` (String) Kubernetes Master IPv4 range, e.g. 10.0.0.0/24.
-- `name` (String) Subnet name.
-- `secondary_ipv4_range_pods` (Attributes) Secondary IPv4 range for pods. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_pods))
-- `secondary_ipv4_range_services` (Attributes) Secondary IPv4 range for services. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_services))
+- `name` (String) Subnet name. Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`.
+- `secondary_ipv4_range_pods` (Attributes) Secondary IPv4 range. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_pods))
+- `secondary_ipv4_range_services` (Attributes) Secondary IPv4 range. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_services))
 
 <a id="nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_pods"></a>
 ### Nested Schema for `customer_managed_resources.gcp.subnet.secondary_ipv4_range_pods`
 
 Required:
 
-- `name` (String) Secondary IPv4 range name for pods.
+- `name` (String) Name of the secondary IPv4 Range Pods. Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`.
 
 
 <a id="nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_services"></a>
@@ -436,7 +435,7 @@ Required:
 
 Required:
 
-- `name` (String) Secondary IPv4 range name for services.
+- `name` (String) Name of the secondary IPv4 Range Services. Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`.
 
 
 
@@ -445,7 +444,7 @@ Required:
 
 Required:
 
-- `name` (String) GCP storage bucket name.
+- `name` (String) Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.
 
 
 
@@ -461,14 +460,14 @@ Required:
 
 Read-Only:
 
-- `status` (Attributes) Current status of the Private Service Connect configuration. (see [below for nested schema](#nestedatt--gcp_private_service_connect--status))
+- `status` (Attributes) Status configuration (see [below for nested schema](#nestedatt--gcp_private_service_connect--status))
 
 <a id="nestedatt--gcp_private_service_connect--consumer_accept_list"></a>
 ### Nested Schema for `gcp_private_service_connect.consumer_accept_list`
 
 Required:
 
-- `source` (String) Either the GCP project number or its alphanumeric ID.
+- `source` (String) GCP project ID from which connections are accepted
 
 
 <a id="nestedatt--gcp_private_service_connect--status"></a>
@@ -476,25 +475,25 @@ Required:
 
 Read-Only:
 
-- `connected_endpoints` (Attributes List) List of connected endpoints. (see [below for nested schema](#nestedatt--gcp_private_service_connect--status--connected_endpoints))
-- `dns_a_records` (List of String) DNS A records for the service.
-- `kafka_api_node_base_port` (Number) Base port for Kafka API nodes.
-- `kafka_api_seed_port` (Number) Port for Kafka API seed brokers.
-- `redpanda_proxy_node_base_port` (Number) Base port for HTTP proxy nodes.
-- `redpanda_proxy_seed_port` (Number) Port for HTTP proxy.
-- `schema_registry_seed_port` (Number) Port for Schema Registry.
-- `seed_hostname` (String) Hostname for the seed brokers.
-- `service_attachment` (String) The service attachment identifier.
+- `connected_endpoints` (Attributes List) List of VPC endpoints with established connections to GCP Private Service Connect. (see [below for nested schema](#nestedatt--gcp_private_service_connect--status--connected_endpoints))
+- `dns_a_records` (List of String) Customer-created DNS A records that point at the PSC endpoint on the consumer side.
+- `kafka_api_node_base_port` (Number) Kafka API node service base port. The port for node `i` (0 .. node_count-1) is kafka_api_node_base_port + `i`.
+- `kafka_api_seed_port` (Number) Kafka API seed service port.
+- `redpanda_proxy_node_base_port` (Number) HTTP Proxy node service base port. The port for node `i` (0 .. node_count-1) is redpanda_proxy_node_base_port + `i`.
+- `redpanda_proxy_seed_port` (Number) HTTP Proxy seed service port.
+- `schema_registry_seed_port` (Number) Schema Registry seed service port.
+- `seed_hostname` (String) Hostname for clients to initiate connections to the APIs exposed through Private Service Connect.
+- `service_attachment` (String) Service attachment used by consumers to create endpoint connections to Redpanda GCP Private Service Connect service.
 
 <a id="nestedatt--gcp_private_service_connect--status--connected_endpoints"></a>
 ### Nested Schema for `gcp_private_service_connect.status.connected_endpoints`
 
 Read-Only:
 
-- `connection_id` (String) The connection ID.
-- `consumer_network` (String) The consumer network.
-- `endpoint` (String) The endpoint address.
-- `status` (String) Status of the endpoint connection.
+- `connection_id` (String) Connection ID of the endpoint.
+- `consumer_network` (String) Network of the consumer connecting to Redpanda GCP Private Service Connect service. See the official [GCP documentation](https://www.googleapis.com/compute/v1/projects/my-project/global/networks/vpc-consumer-psc) for Private Service Connect.
+- `endpoint` (String) Connection endpoint. See the official [GCP API reference](https://www.googleapis.com/compute/v1/projects/my-project/regions/us-west2/forwardingRules/vpc-consumer-psc) for Private Service Connect.
+- `status` (String) Endpoint status (ACCEPTED | REJECTED). The ServiceAttachment API resource (https://cloud.google.com/compute/docs/reference/rest/v1/serviceAttachments) does have more fields, such as connection ID & consumer network, but the Terraform provider (https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_service_attachment#nested_connected_endpoints) doesn't return them as outputs.
 
 
 
@@ -505,12 +504,12 @@ Read-Only:
 Optional:
 
 - `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--http_proxy--mtls))
-- `sasl` (Attributes) SASL configuration. (see [below for nested schema](#nestedatt--http_proxy--sasl))
+- `sasl` (Attributes) SASL configuration (see [below for nested schema](#nestedatt--http_proxy--sasl))
 
 Read-Only:
 
-- `all_urls` (Attributes) All HTTP proxy endpoint variants. (see [below for nested schema](#nestedatt--http_proxy--all_urls))
-- `url` (String) The HTTP Proxy URL.
+- `all_urls` (Attributes) The endpoints of Redpanda HTTP Proxy or Schema Registry. (see [below for nested schema](#nestedatt--http_proxy--all_urls))
+- `url` (String) HTTP Proxy URL of cluster.
 
 <a id="nestedatt--http_proxy--mtls"></a>
 ### Nested Schema for `http_proxy.mtls`
@@ -519,7 +518,7 @@ Optional:
 
 - `ca_certificates_pem` (List of String) CA certificate in PEM format.
 - `enabled` (Boolean) Whether mTLS is enabled.
-- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.
+- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. See Redpanda documentation for details
 
 
 <a id="nestedatt--http_proxy--sasl"></a>
@@ -535,10 +534,10 @@ Optional:
 
 Read-Only:
 
-- `mtls` (String) mTLS endpoint.
-- `private_link_mtls` (String) Private link mTLS endpoint.
-- `private_link_sasl` (String) Private link SASL endpoint.
-- `sasl` (String) SASL endpoint.
+- `mtls` (String) URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty.
+- `private_link_mtls` (String) URL of the seed broker for private link with mTLS. If private link with mTLS is not enabled, the field is empty.
+- `private_link_sasl` (String) URL of the seed broker for private link with SASL. If private link with SASL is not enabled, the field is empty.
+- `sasl` (String) URL of the seed broker for SASL. If SASL is not enabled, the field is empty.
 
 
 
@@ -548,12 +547,12 @@ Read-Only:
 Optional:
 
 - `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--kafka_api--mtls))
-- `sasl` (Attributes) SASL configuration. (see [below for nested schema](#nestedatt--kafka_api--sasl))
+- `sasl` (Attributes) SASL configuration (see [below for nested schema](#nestedatt--kafka_api--sasl))
 
 Read-Only:
 
-- `all_seed_brokers` (Attributes) All seed broker endpoint variants. (see [below for nested schema](#nestedatt--kafka_api--all_seed_brokers))
-- `seed_brokers` (List of String) List of Kafka broker addresses.
+- `all_seed_brokers` (Attributes) Seed brokers of Redpanda Kafka API. (see [below for nested schema](#nestedatt--kafka_api--all_seed_brokers))
+- `seed_brokers` (List of String) Kafka API Seed Brokers (also known as Bootstrap servers).
 
 <a id="nestedatt--kafka_api--mtls"></a>
 ### Nested Schema for `kafka_api.mtls`
@@ -562,7 +561,7 @@ Optional:
 
 - `ca_certificates_pem` (List of String) CA certificate in PEM format.
 - `enabled` (Boolean) Whether mTLS is enabled.
-- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.
+- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. See Redpanda documentation for details
 
 
 <a id="nestedatt--kafka_api--sasl"></a>
@@ -578,10 +577,10 @@ Optional:
 
 Read-Only:
 
-- `mtls` (String) mTLS endpoint.
-- `private_link_mtls` (String) Private link mTLS endpoint.
-- `private_link_sasl` (String) Private link SASL endpoint.
-- `sasl` (String) SASL endpoint.
+- `mtls` (String) URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty.
+- `private_link_mtls` (String) URL of the seed broker for private link with mTLS. If private link with mTLS is not enabled, the field is empty.
+- `private_link_sasl` (String) URL of the seed broker for private link with SASL. If private link with SASL is not enabled, the field is empty.
+- `sasl` (String) URL of the seed broker for SASL. If SASL is not enabled, the field is empty.
 
 
 
@@ -590,7 +589,7 @@ Read-Only:
 
 Optional:
 
-- `enabled` (Boolean) Whether Kafka Connect is enabled.
+- `enabled` (Boolean) Whether Kafka Connect is enabled
 
 
 <a id="nestedatt--maintenance_window_config"></a>
@@ -598,20 +597,20 @@ Optional:
 
 Optional:
 
-- `anytime` (Boolean) If true, maintenance can occur at any time.
-- `day_hour` (Attributes) (see [below for nested schema](#nestedatt--maintenance_window_config--day_hour))
+- `anytime` (Boolean) If true, maintenance can occur at any time
+- `day_hour` (Attributes) Day Hour configuration (see [below for nested schema](#nestedatt--maintenance_window_config--day_hour))
 
 Read-Only:
 
-- `unspecified` (Boolean) If true, maintenance window is unspecified.
+- `unspecified` (Boolean) If true, maintenance window is unspecified
 
 <a id="nestedatt--maintenance_window_config--day_hour"></a>
 ### Nested Schema for `maintenance_window_config.day_hour`
 
 Optional:
 
-- `day_of_week` (String) Day of week.
-- `hour_of_day` (Number) Hour of day.
+- `day_of_week` (String) Represents a day of the week. - MONDAY: Monday - TUESDAY: Tuesday - WEDNESDAY: Wednesday - THURSDAY: Thursday - FRIDAY: Friday - SATURDAY: Saturday - SUNDAY: Sunday
+- `hour_of_day` (Number) always UTC. Must be between 0 and 23 (inclusive).
 
 
 
@@ -624,8 +623,8 @@ Optional:
 
 Read-Only:
 
-- `all_urls` (Attributes) All schema registry endpoint variants. (see [below for nested schema](#nestedatt--schema_registry--all_urls))
-- `url` (String) The Schema Registry URL.
+- `all_urls` (Attributes) The endpoints of Redpanda HTTP Proxy or Schema Registry. (see [below for nested schema](#nestedatt--schema_registry--all_urls))
+- `url` (String) Schema Registry URL.
 
 <a id="nestedatt--schema_registry--mtls"></a>
 ### Nested Schema for `schema_registry.mtls`
@@ -634,7 +633,7 @@ Optional:
 
 - `ca_certificates_pem` (List of String) CA certificate in PEM format.
 - `enabled` (Boolean) Whether mTLS is enabled.
-- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. See the Redpanda documentation on configuring authentication.
+- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. See Redpanda documentation for details
 
 
 <a id="nestedatt--schema_registry--all_urls"></a>
@@ -642,10 +641,10 @@ Optional:
 
 Read-Only:
 
-- `mtls` (String) mTLS endpoint.
-- `private_link_mtls` (String) Private link mTLS endpoint.
-- `private_link_sasl` (String) Private link SASL endpoint.
-- `sasl` (String) SASL endpoint.
+- `mtls` (String) URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty.
+- `private_link_mtls` (String) URL of the seed broker for private link with mTLS. If private link with mTLS is not enabled, the field is empty.
+- `private_link_sasl` (String) URL of the seed broker for private link with SASL. If private link with SASL is not enabled, the field is empty.
+- `sasl` (String) URL of the seed broker for SASL. If SASL is not enabled, the field is empty.
 
 
 
@@ -664,7 +663,7 @@ Optional:
 
 Read-Only:
 
-- `url` (String) The Prometheus metrics endpoint URL.
+- `url` (String) Prometheus API URL.
 
 
 <a id="nestedatt--redpanda_console"></a>
@@ -672,7 +671,7 @@ Read-Only:
 
 Read-Only:
 
-- `url` (String) The Redpanda Console URL.
+- `url` (String) Redpanda Console API URL.
 
 
 <a id="nestedatt--state_description"></a>
@@ -680,8 +679,8 @@ Read-Only:
 
 Read-Only:
 
-- `code` (Number) Error code if cluster is in error state.
-- `message` (String) Detailed error message if cluster is in error state.
+- `code` (Number) RPC status code, as described [here](https://github.com/googleapis/googleapis/blob/b4c238feaa1097c53798ed77035bbfeb7fc72e96/google/rpc/code.proto#L32).
+- `message` (String) Detailed error message. No compatibility guarantees are given for the text contained in this message.
 
 ## Example Usage
 
@@ -756,9 +755,7 @@ resource "redpanda_cluster" "test" {
       "schema_registry_enable_authorization" = true
     })
   }
-  tags = {
-    "key" = "value"
-  }
+  tags = var.cluster_tags
   timeouts = {
     create = "90m"
   }
@@ -780,30 +777,60 @@ resource "redpanda_topic" "test" {
   replication_factor = var.replication_factor
   cluster_api_url    = redpanda_cluster.test.cluster_api_url
   allow_deletion     = true
-  configuration = {
+  configuration = var.topic_configuration != null ? var.topic_configuration : {
     "cleanup.policy" = "delete"
-    "retention.ms"   = "604800000"
+    "retention.ms"   = var.topic_retention_ms
   }
 
   depends_on = [redpanda_user.test]
 }
 
+# Bootstrap SR ACL grants for the provider's own Bearer-token principal.
+# Two grants are required: the SUBJECT-scope grant authorizes
+# POST /subjects/<subj>/versions; the REGISTRY-scope grant authorizes the
+# follow-up GET /schemas/ids/<id>/versions that the SR client (franz-go) makes
+# to fetch the full schema metadata after create. Without the REGISTRY grant,
+# the schema is created but the follow-up GET 403s and the resource fails.
+# User:* is broader than necessary; tighten once the exact principal is
+# documented as discoverable.
+resource "redpanda_schema_registry_acl" "provider_bootstrap_subject" {
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:*"
+  resource_type  = "SUBJECT"
+  resource_name  = var.topic_name
+  pattern_type   = "PREFIXED"
+  host           = "*"
+  operation      = "ALL"
+  permission     = "ALLOW"
+  allow_deletion = true
+}
+
+resource "redpanda_schema_registry_acl" "provider_bootstrap_registry" {
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:*"
+  resource_type  = "REGISTRY"
+  resource_name  = "*"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "ALL"
+  permission     = "ALLOW"
+  allow_deletion = true
+}
+
 resource "redpanda_schema" "user_schema" {
-  cluster_id          = redpanda_cluster.test.id
-  subject             = "${var.topic_name}-value"
-  schema_type         = var.schema_type
-  schema              = var.user_schema_definition
-  username            = redpanda_user.test.name
-  password            = var.schema_password_wo != null ? null : var.user_pw
-  password_wo         = var.schema_password_wo
-  password_wo_version = var.schema_password_wo_version
-  allow_deletion      = true
+  cluster_id     = redpanda_cluster.test.id
+  subject        = "${var.topic_name}-value"
+  schema_type    = var.schema_type
+  schema         = var.user_schema_definition
+  allow_deletion = true
 
   depends_on = [
     redpanda_acl.cluster_admin,
     redpanda_acl.schema_registry_admin,
     redpanda_acl.cluster_action,
     redpanda_acl.topic_access,
+    redpanda_schema_registry_acl.provider_bootstrap_subject,
+    redpanda_schema_registry_acl.provider_bootstrap_registry,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry,
@@ -813,15 +840,11 @@ resource "redpanda_schema" "user_schema" {
 }
 
 resource "redpanda_schema" "user_event_schema" {
-  cluster_id          = redpanda_cluster.test.id
-  subject             = "${var.topic_name}-events-value"
-  schema_type         = var.schema_type
-  schema              = var.user_event_schema_definition
-  username            = redpanda_user.test.name
-  password            = var.schema_password_wo != null ? null : var.user_pw
-  password_wo         = var.schema_password_wo
-  password_wo_version = var.schema_password_wo_version
-  allow_deletion      = true
+  cluster_id     = redpanda_cluster.test.id
+  subject        = "${var.topic_name}-events-value"
+  schema_type    = var.schema_type
+  schema         = var.user_event_schema_definition
+  allow_deletion = true
 
   references = [
     {
@@ -836,6 +859,8 @@ resource "redpanda_schema" "user_event_schema" {
     redpanda_acl.schema_registry_admin,
     redpanda_acl.cluster_action,
     redpanda_acl.topic_access,
+    redpanda_schema_registry_acl.provider_bootstrap_subject,
+    redpanda_schema_registry_acl.provider_bootstrap_registry,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry,
@@ -845,22 +870,20 @@ resource "redpanda_schema" "user_event_schema" {
 }
 
 resource "redpanda_schema" "product_schema" {
-  cluster_id          = redpanda_cluster.test.id
-  subject             = "${var.topic_name}-product-value"
-  schema_type         = var.schema_type
-  schema              = var.product_schema_definition
-  compatibility       = var.compatibility_level
-  username            = redpanda_user.test.name
-  password            = var.schema_password_wo != null ? null : var.user_pw
-  password_wo         = var.schema_password_wo
-  password_wo_version = var.schema_password_wo_version
-  allow_deletion      = true
+  cluster_id     = redpanda_cluster.test.id
+  subject        = "${var.topic_name}-product-value"
+  schema_type    = var.schema_type
+  schema         = var.product_schema_definition
+  compatibility  = var.compatibility_level
+  allow_deletion = true
 
   depends_on = [
     redpanda_acl.cluster_admin,
     redpanda_acl.schema_registry_admin,
     redpanda_acl.cluster_action,
     redpanda_acl.topic_access,
+    redpanda_schema_registry_acl.provider_bootstrap_subject,
+    redpanda_schema_registry_acl.provider_bootstrap_registry,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry,
@@ -930,127 +953,99 @@ resource "redpanda_acl" "role_topic_read" {
 }
 
 resource "redpanda_schema_registry_acl" "read_product" {
-  cluster_id          = redpanda_cluster.test.id
-  principal           = "User:${redpanda_user.test.name}"
-  resource_type       = "SUBJECT"
-  resource_name       = "product-"
-  pattern_type        = "PREFIXED"
-  host                = "*"
-  operation           = "READ"
-  permission          = "ALLOW"
-  username            = redpanda_user.test.name
-  password            = var.sr_acl_password_wo != null ? null : var.user_pw
-  password_wo         = var.sr_acl_password_wo
-  password_wo_version = var.sr_acl_password_wo_version
-  allow_deletion      = var.sr_acl_allow_deletion
-  depends_on          = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "SUBJECT"
+  resource_name  = "product-"
+  pattern_type   = "PREFIXED"
+  host           = "*"
+  operation      = "READ"
+  permission     = "ALLOW"
+  allow_deletion = var.sr_acl_allow_deletion
+  depends_on     = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_schema_registry_acl" "write_orders" {
-  cluster_id          = redpanda_cluster.test.id
-  principal           = "User:${redpanda_user.test.name}"
-  resource_type       = "SUBJECT"
-  resource_name       = "orders-value"
-  pattern_type        = "LITERAL"
-  host                = "*"
-  operation           = "WRITE"
-  permission          = "ALLOW"
-  username            = redpanda_user.test.name
-  password            = var.sr_acl_password_wo != null ? null : var.user_pw
-  password_wo         = var.sr_acl_password_wo
-  password_wo_version = var.sr_acl_password_wo_version
-  allow_deletion      = true
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "SUBJECT"
+  resource_name  = "orders-value"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "WRITE"
+  permission     = "ALLOW"
+  allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_schema_registry_acl" "all_test_topic" {
-  cluster_id          = redpanda_cluster.test.id
-  principal           = "User:${redpanda_user.test.name}"
-  resource_type       = "SUBJECT"
-  resource_name       = "${var.topic_name}-"
-  pattern_type        = "PREFIXED"
-  host                = "*"
-  operation           = "ALL"
-  permission          = "ALLOW"
-  username            = redpanda_user.test.name
-  password            = var.sr_acl_password_wo != null ? null : var.user_pw
-  password_wo         = var.sr_acl_password_wo
-  password_wo_version = var.sr_acl_password_wo_version
-  allow_deletion      = true
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "SUBJECT"
+  resource_name  = "${var.topic_name}-"
+  pattern_type   = "PREFIXED"
+  host           = "*"
+  operation      = "ALL"
+  permission     = "ALLOW"
+  allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 
 resource "redpanda_schema_registry_acl" "describe_registry" {
-  cluster_id          = redpanda_cluster.test.id
-  principal           = "User:${redpanda_user.test.name}"
-  resource_type       = "REGISTRY"
-  resource_name       = "*"
-  pattern_type        = "LITERAL"
-  host                = "*"
-  operation           = "DESCRIBE"
-  permission          = "ALLOW"
-  username            = redpanda_user.test.name
-  password            = var.sr_acl_password_wo != null ? null : var.user_pw
-  password_wo         = var.sr_acl_password_wo
-  password_wo_version = var.sr_acl_password_wo_version
-  allow_deletion      = true
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "REGISTRY"
+  resource_name  = "*"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "DESCRIBE"
+  permission     = "ALLOW"
+  allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_schema_registry_acl" "alter_configs_registry" {
-  cluster_id          = redpanda_cluster.test.id
-  principal           = "User:${redpanda_user.test.name}"
-  resource_type       = "REGISTRY"
-  resource_name       = "*"
-  pattern_type        = "LITERAL"
-  host                = "*"
-  operation           = "ALTER_CONFIGS"
-  permission          = "ALLOW"
-  username            = redpanda_user.test.name
-  password            = var.sr_acl_password_wo != null ? null : var.user_pw
-  password_wo         = var.sr_acl_password_wo
-  password_wo_version = var.sr_acl_password_wo_version
-  allow_deletion      = true
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "REGISTRY"
+  resource_name  = "*"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "ALTER_CONFIGS"
+  permission     = "ALLOW"
+  allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_schema_registry_acl" "read_registry" {
-  cluster_id          = redpanda_cluster.test.id
-  principal           = "User:${redpanda_user.test.name}"
-  resource_type       = "REGISTRY"
-  resource_name       = "*"
-  pattern_type        = "LITERAL"
-  host                = "*"
-  operation           = "READ"
-  permission          = "ALLOW"
-  username            = redpanda_user.test.name
-  password            = var.sr_acl_password_wo != null ? null : var.user_pw
-  password_wo         = var.sr_acl_password_wo
-  password_wo_version = var.sr_acl_password_wo_version
-  allow_deletion      = true
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "REGISTRY"
+  resource_name  = "*"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "READ"
+  permission     = "ALLOW"
+  allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
 
 resource "redpanda_schema_registry_acl" "write_registry" {
-  cluster_id          = redpanda_cluster.test.id
-  principal           = "User:${redpanda_user.test.name}"
-  resource_type       = "REGISTRY"
-  resource_name       = "*"
-  pattern_type        = "LITERAL"
-  host                = "*"
-  operation           = "WRITE"
-  permission          = "ALLOW"
-  username            = redpanda_user.test.name
-  password            = var.sr_acl_password_wo != null ? null : var.user_pw
-  password_wo         = var.sr_acl_password_wo
-  password_wo_version = var.sr_acl_password_wo_version
-  allow_deletion      = true
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:${redpanda_user.test.name}"
+  resource_type  = "REGISTRY"
+  resource_name  = "*"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "WRITE"
+  permission     = "ALLOW"
+  allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
@@ -1063,7 +1058,7 @@ resource "redpanda_role" "developer" {
 
 resource "redpanda_role_assignment" "developer_assignment" {
   role_name       = redpanda_role.developer.name
-  principal       = redpanda_user.test.name
+  principal       = "User:${redpanda_user.test.name}"
   cluster_api_url = redpanda_cluster.test.cluster_api_url
 
   depends_on = [redpanda_user.test]
@@ -1142,10 +1137,7 @@ resource "redpanda_cluster" "test" {
       "schema_registry_enable_authorization" = true
     })
   }
-  ## This is a reference for GCP tags
-  #   tags = {
-  #     "key" = "value"
-  #   }
+  tags = var.cluster_tags
   ## This is a reference for GCP Private Service Connect
   #   gcp_private_service_connect = {
   #     enabled               = true
@@ -1175,18 +1167,46 @@ resource "redpanda_topic" "test" {
   replication_factor = var.replication_factor
   cluster_api_url    = redpanda_cluster.test.cluster_api_url
   allow_deletion     = true
+  configuration = var.topic_configuration != null ? var.topic_configuration : {
+    "cleanup.policy" = "delete"
+    "retention.ms"   = var.topic_retention_ms
+  }
 
   depends_on = [redpanda_user.test]
 }
 
+# Bootstrap SR ACL grants for the provider's own Bearer-token principal.
+# SUBJECT grant authorizes POST /subjects/<subj>/versions; REGISTRY grant
+# authorizes the franz-go follow-up GET /schemas/ids/<id>/versions.
+resource "redpanda_schema_registry_acl" "provider_bootstrap_subject" {
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:*"
+  resource_type  = "SUBJECT"
+  resource_name  = var.topic_name
+  pattern_type   = "PREFIXED"
+  host           = "*"
+  operation      = "ALL"
+  permission     = "ALLOW"
+  allow_deletion = true
+}
+
+resource "redpanda_schema_registry_acl" "provider_bootstrap_registry" {
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:*"
+  resource_type  = "REGISTRY"
+  resource_name  = "*"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "ALL"
+  permission     = "ALLOW"
+  allow_deletion = true
+}
 
 resource "redpanda_schema" "user_schema" {
   cluster_id     = redpanda_cluster.test.id
   subject        = "${var.topic_name}-value"
   schema_type    = var.schema_type
   schema         = var.user_schema_definition
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [
@@ -1194,6 +1214,8 @@ resource "redpanda_schema" "user_schema" {
     redpanda_acl.schema_registry_admin,
     redpanda_acl.cluster_action,
     redpanda_acl.topic_access,
+    redpanda_schema_registry_acl.provider_bootstrap_subject,
+    redpanda_schema_registry_acl.provider_bootstrap_registry,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry,
@@ -1207,8 +1229,6 @@ resource "redpanda_schema" "user_event_schema" {
   subject        = "${var.topic_name}-events-value"
   schema_type    = var.schema_type
   schema         = var.user_event_schema_definition
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   references = [
@@ -1224,6 +1244,8 @@ resource "redpanda_schema" "user_event_schema" {
     redpanda_acl.schema_registry_admin,
     redpanda_acl.cluster_action,
     redpanda_acl.topic_access,
+    redpanda_schema_registry_acl.provider_bootstrap_subject,
+    redpanda_schema_registry_acl.provider_bootstrap_registry,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry,
@@ -1238,8 +1260,6 @@ resource "redpanda_schema" "product_schema" {
   schema_type    = var.schema_type
   schema         = var.product_schema_definition
   compatibility  = var.compatibility_level
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [
@@ -1247,6 +1267,8 @@ resource "redpanda_schema" "product_schema" {
     redpanda_acl.schema_registry_admin,
     redpanda_acl.cluster_action,
     redpanda_acl.topic_access,
+    redpanda_schema_registry_acl.provider_bootstrap_subject,
+    redpanda_schema_registry_acl.provider_bootstrap_registry,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry,
@@ -1325,8 +1347,6 @@ resource "redpanda_schema_registry_acl" "read_product" {
   host           = "*"
   operation      = "READ"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = var.sr_acl_allow_deletion
   depends_on     = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
@@ -1340,8 +1360,6 @@ resource "redpanda_schema_registry_acl" "write_orders" {
   host           = "*"
   operation      = "WRITE"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -1356,8 +1374,6 @@ resource "redpanda_schema_registry_acl" "all_test_topic" {
   host           = "*"
   operation      = "ALL"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -1372,8 +1388,6 @@ resource "redpanda_schema_registry_acl" "describe_test_topic" {
   host           = "*"
   operation      = "DESCRIBE"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -1388,8 +1402,6 @@ resource "redpanda_schema_registry_acl" "describe_registry" {
   host           = "*"
   operation      = "DESCRIBE"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -1404,8 +1416,6 @@ resource "redpanda_schema_registry_acl" "alter_configs_registry" {
   host           = "*"
   operation      = "ALTER_CONFIGS"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -1420,8 +1430,6 @@ resource "redpanda_schema_registry_acl" "read_registry" {
   host           = "*"
   operation      = "READ"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -1436,8 +1444,6 @@ resource "redpanda_schema_registry_acl" "write_registry" {
   host           = "*"
   operation      = "WRITE"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -1451,7 +1457,7 @@ resource "redpanda_role" "developer" {
 
 resource "redpanda_role_assignment" "developer_assignment" {
   role_name       = redpanda_role.developer.name
-  principal       = redpanda_user.test.name
+  principal       = "User:${redpanda_user.test.name}"
   cluster_api_url = redpanda_cluster.test.cluster_api_url
 
   depends_on = [redpanda_user.test]
@@ -1526,13 +1532,11 @@ resource "redpanda_cluster" "test" {
   allow_deletion    = var.cluster_allow_deletion
   cluster_configuration = {
     custom_properties_json = jsonencode({
-      "auto.create.topics.enable"           = false
+      "auto.create.topics.enable"            = false
       "schema_registry_enable_authorization" = true
     })
   }
-  tags = {
-    "key" = "value"
-  }
+  tags = var.cluster_tags
   #   azure_private_link = {
   #     enabled         = true
   #     connect_console = true
@@ -1558,16 +1562,44 @@ resource "redpanda_topic" "test" {
   replication_factor = var.replication_factor
   cluster_api_url    = redpanda_cluster.test.cluster_api_url
   allow_deletion     = true
+  configuration = {
+    "cleanup.policy" = "delete"
+    "retention.ms"   = var.topic_retention_ms
+  }
 }
 
+# Bootstrap SR ACL grants for the provider's own Bearer-token principal.
+# SUBJECT grant authorizes POST /subjects/<subj>/versions; REGISTRY grant
+# authorizes the franz-go follow-up GET /schemas/ids/<id>/versions.
+resource "redpanda_schema_registry_acl" "provider_bootstrap_subject" {
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:*"
+  resource_type  = "SUBJECT"
+  resource_name  = var.topic_name
+  pattern_type   = "PREFIXED"
+  host           = "*"
+  operation      = "ALL"
+  permission     = "ALLOW"
+  allow_deletion = true
+}
+
+resource "redpanda_schema_registry_acl" "provider_bootstrap_registry" {
+  cluster_id     = redpanda_cluster.test.id
+  principal      = "User:*"
+  resource_type  = "REGISTRY"
+  resource_name  = "*"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "ALL"
+  permission     = "ALLOW"
+  allow_deletion = true
+}
 
 resource "redpanda_schema" "user_schema" {
   cluster_id     = redpanda_cluster.test.id
   subject        = "${var.topic_name}-value"
   schema_type    = var.schema_type
   schema         = var.user_schema_definition
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [
@@ -1575,6 +1607,8 @@ resource "redpanda_schema" "user_schema" {
     redpanda_acl.schema_registry_admin,
     redpanda_acl.cluster_action,
     redpanda_acl.topic_access,
+    redpanda_schema_registry_acl.provider_bootstrap_subject,
+    redpanda_schema_registry_acl.provider_bootstrap_registry,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry,
@@ -1588,8 +1622,6 @@ resource "redpanda_schema" "user_event_schema" {
   subject        = "${var.topic_name}-events-value"
   schema_type    = var.schema_type
   schema         = var.user_event_schema_definition
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   references = [
@@ -1605,6 +1637,8 @@ resource "redpanda_schema" "user_event_schema" {
     redpanda_acl.schema_registry_admin,
     redpanda_acl.cluster_action,
     redpanda_acl.topic_access,
+    redpanda_schema_registry_acl.provider_bootstrap_subject,
+    redpanda_schema_registry_acl.provider_bootstrap_registry,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry,
@@ -1619,8 +1653,6 @@ resource "redpanda_schema" "product_schema" {
   schema_type    = var.schema_type
   schema         = var.product_schema_definition
   compatibility  = var.compatibility_level
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [
@@ -1628,6 +1660,8 @@ resource "redpanda_schema" "product_schema" {
     redpanda_acl.schema_registry_admin,
     redpanda_acl.cluster_action,
     redpanda_acl.topic_access,
+    redpanda_schema_registry_acl.provider_bootstrap_subject,
+    redpanda_schema_registry_acl.provider_bootstrap_registry,
     redpanda_schema_registry_acl.all_test_topic,
     redpanda_schema_registry_acl.describe_registry,
     redpanda_schema_registry_acl.alter_configs_registry,
@@ -1706,8 +1740,6 @@ resource "redpanda_schema_registry_acl" "read_product" {
   host           = "*"
   operation      = "READ"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = var.sr_acl_allow_deletion
   depends_on     = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
 }
@@ -1721,8 +1753,6 @@ resource "redpanda_schema_registry_acl" "write_orders" {
   host           = "*"
   operation      = "WRITE"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -1737,8 +1767,6 @@ resource "redpanda_schema_registry_acl" "all_test_topic" {
   host           = "*"
   operation      = "ALL"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -1753,8 +1781,6 @@ resource "redpanda_schema_registry_acl" "describe_test_topic" {
   host           = "*"
   operation      = "DESCRIBE"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -1769,8 +1795,6 @@ resource "redpanda_schema_registry_acl" "describe_registry" {
   host           = "*"
   operation      = "DESCRIBE"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -1785,8 +1809,6 @@ resource "redpanda_schema_registry_acl" "alter_configs_registry" {
   host           = "*"
   operation      = "ALTER_CONFIGS"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -1801,8 +1823,6 @@ resource "redpanda_schema_registry_acl" "read_registry" {
   host           = "*"
   operation      = "READ"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -1817,8 +1837,6 @@ resource "redpanda_schema_registry_acl" "write_registry" {
   host           = "*"
   operation      = "WRITE"
   permission     = "ALLOW"
-  username       = redpanda_user.test.name
-  password       = var.user_pw
   allow_deletion = true
 
   depends_on = [redpanda_acl.cluster_admin, redpanda_acl.schema_registry_admin]
@@ -1832,7 +1850,7 @@ resource "redpanda_role" "developer" {
 
 resource "redpanda_role_assignment" "developer_assignment" {
   role_name       = redpanda_role.developer.name
-  principal       = redpanda_user.test.name
+  principal       = "User:${redpanda_user.test.name}"
   cluster_api_url = redpanda_cluster.test.cluster_api_url
 
   depends_on = [redpanda_user.test]
@@ -1939,9 +1957,7 @@ resource "redpanda_cluster" "test" {
   throughput_tier   = var.throughput_tier
   zones             = var.zones
   allow_deletion    = var.cluster_allow_deletion
-  tags = {
-    "key" = "value"
-  }
+  tags = var.cluster_tags
   # aws_private_link = {
   #   enabled         = true
   #   connect_console = true
@@ -1967,6 +1983,10 @@ resource "redpanda_topic" "test" {
   replication_factor = var.replication_factor
   cluster_api_url    = redpanda_cluster.test.cluster_api_url
   allow_deletion     = true
+  configuration = var.topic_configuration != null ? var.topic_configuration : {
+    "cleanup.policy" = "delete"
+    "retention.ms"   = var.topic_retention_ms
+  }
 }
 
 
@@ -2014,10 +2034,7 @@ resource "redpanda_cluster" "test" {
   throughput_tier   = var.throughput_tier
   zones             = var.zones
   allow_deletion    = var.cluster_allow_deletion
-  ## This is a reference for GCP tags
-  #   tags = {
-  #     "key" = "value"
-  #   }
+  tags = var.cluster_tags
   ## This is a reference for GCP Private Service Connect
   #   gcp_private_service_connect = {
   #     enabled               = true
@@ -2044,6 +2061,10 @@ resource "redpanda_topic" "test" {
   replication_factor = var.replication_factor
   cluster_api_url    = redpanda_cluster.test.cluster_api_url
   allow_deletion     = true
+  configuration = var.topic_configuration != null ? var.topic_configuration : {
+    "cleanup.policy" = "delete"
+    "retention.ms"   = var.topic_retention_ms
+  }
 }
 
 
@@ -2093,9 +2114,7 @@ resource "redpanda_cluster" "test" {
   throughput_tier   = var.throughput_tier
   zones             = var.zones
   allow_deletion    = var.cluster_allow_deletion
-  tags = {
-    "key" = "value"
-  }
+  tags = var.cluster_tags
   # azure_private_link = {
   #   enabled         = true
   #   connect_console = true
@@ -2117,6 +2136,10 @@ resource "redpanda_topic" "test" {
   replication_factor = var.replication_factor
   cluster_api_url    = redpanda_cluster.test.cluster_api_url
   allow_deletion     = true
+  configuration = {
+    "cleanup.policy" = "delete"
+    "retention.ms"   = var.topic_retention_ms
+  }
 }
 
 
