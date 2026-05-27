@@ -1,0 +1,28 @@
+description: Resource for managing Redpanda Schema Registry ACLs (Access Control Lists). This resource allows you to configure fine-grained access control for Schema Registry resources.
+attributes:
+    - name: allow_deletion
+      description: When set to true, allows the resource to be removed from state even if deletion fails due to permission errors
+    - name: cluster_id
+      description: The ID of the cluster where the Schema Registry ACL will be created
+    - name: host
+      description: The host address to use for this ACL. Use '*' for wildcard
+    - name: operation
+      description: 'The operation type that shall be allowed or denied: ALL, READ, WRITE, DELETE, DESCRIBE, DESCRIBE_CONFIGS, ALTER, ALTER_CONFIGS'
+    - name: password
+      description: SASL password for Schema Registry HTTP Basic authentication. Pair with username when you need writes attributed to a specific SASL identity instead of the provider's cloud Bearer token. Stored in Terraform state.
+    - name: password_wo
+      description: Deprecated. The Terraform Plugin Framework does not persist write-only attributes to state, leaving the provider unable to authenticate to Schema Registry during refresh — this attribute cannot reliably manage ACLs. Use the default cloud Bearer authentication (omit username and password) or the regular `password` attribute.
+    - name: password_wo_version
+      description: Deprecated. Version counter for password_wo, which is itself deprecated for this resource.
+    - name: pattern_type
+      description: 'The pattern type of the resource: LITERAL or PREFIXED'
+    - name: permission
+      description: 'The permission type: ALLOW or DENY'
+    - name: principal
+      description: The principal to apply this ACL for (e.g., User:alice or RedpandaRole:admin)
+    - name: resource_name
+      description: The name of the resource this ACL entry will be on. Use '*' for wildcard
+    - name: resource_type
+      description: 'The type of the resource: SUBJECT or REGISTRY'
+    - name: username
+      description: 'SASL username for Schema Registry HTTP Basic authentication. Optional: when omitted (together with password) the provider authenticates to Schema Registry using its cloud Bearer token. Supply username + password only when you need writes to be attributed to a specific SASL identity (e.g., audit / least-privilege).'

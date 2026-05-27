@@ -1,0 +1,78 @@
+attributes:
+    - name: allow_deletion
+      type: BoolAttribute
+      optional: true
+      computed: true
+      default: booldefault.staticBoolDefault
+    - name: cluster_id
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: host
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: id
+      type: StringAttribute
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: operation
+      type: StringAttribute
+      required: true
+      validators:
+        - validators.SchemaRegistryOperationValidator
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: password
+      type: StringAttribute
+      optional: true
+      sensitive: true
+    - name: password_wo
+      type: StringAttribute
+      optional: true
+      write_only: true
+      deprecation_message: 'password_wo cannot be used reliably with redpanda_schema_registry_acl: write-only attributes are not available at refresh time, so the provider cannot authenticate to Schema Registry during plan. Use cloud Bearer authentication (omit username + password) or the `password` attribute instead.'
+    - name: password_wo_version
+      type: Int64Attribute
+      optional: true
+      deprecation_message: password_wo_version is paired with password_wo, which is deprecated. See the password_wo deprecation message for migration guidance.
+      plan_modifiers:
+        - int64planmodifier.useStateForUnknownModifier
+    - name: pattern_type
+      type: StringAttribute
+      required: true
+      validators:
+        - validators.SchemaRegistryPatternTypeValidator
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: permission
+      type: StringAttribute
+      required: true
+      validators:
+        - validators.SchemaRegistryPermissionValidator
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: principal
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: resource_name
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: resource_type
+      type: StringAttribute
+      required: true
+      validators:
+        - validators.SchemaRegistryResourceTypeValidator
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: username
+      type: StringAttribute
+      optional: true
+      sensitive: true
