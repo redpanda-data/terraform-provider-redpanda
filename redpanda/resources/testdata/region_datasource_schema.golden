@@ -1,0 +1,13 @@
+attributes:
+    - name: cloud_provider
+      type: StringAttribute
+      required: true
+      validators:
+        - stringvalidator.oneOfValidator
+    - name: name
+      type: StringAttribute
+      required: true
+    - name: zones
+      type: ListAttribute
+      computed: true
+      element_type: basetypes.StringType

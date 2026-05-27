@@ -1,0 +1,19 @@
+attributes:
+    - name: cloud_provider
+      type: StringAttribute
+      optional: true
+      validators:
+        - stringvalidator.oneOfValidator
+    - name: throughput_tiers
+      type: ListNestedAttribute
+      computed: true
+      attributes:
+        - name: cloud_provider
+          type: StringAttribute
+          computed: true
+        - name: display_name
+          type: StringAttribute
+          computed: true
+        - name: name
+          type: StringAttribute
+          computed: true
