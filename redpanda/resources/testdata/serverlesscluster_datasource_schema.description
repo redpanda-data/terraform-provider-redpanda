@@ -1,0 +1,64 @@
+description: Data source for a Redpanda Cloud serverless cluster
+attributes:
+    - name: cluster_api_url
+      description: Deprecated alias for `dataplane_api.url`.
+    - name: console_private_url
+      description: Private Console URL
+    - name: console_url
+      description: Public Console URL
+    - name: dataplane_api
+      description: Cluster's Data Plane API properties.
+      attributes:
+        - name: private_url
+          description: Private Dataplane API URL
+        - name: url
+          description: Public Dataplane API URL
+    - name: id
+      description: The ID of the serverless cluster
+    - name: kafka_api
+      description: Cluster's Kafka API properties.
+      attributes:
+        - name: private_seed_brokers
+          description: Private Kafka API seed brokers
+        - name: seed_brokers
+          description: Public Kafka API seed brokers
+    - name: name
+      description: Name of the serverless cluster
+    - name: networking_config
+      description: Networking Config configuration
+      attributes:
+        - name: private
+          description: Private network state
+        - name: public
+          description: Public network state
+    - name: planned_deletion
+      description: Planned deletion information
+      attributes:
+        - name: delete_after
+          description: Delete After
+        - name: reason
+          description: Reason
+    - name: private_link_id
+      description: Private link ID for the serverless cluster, if any
+    - name: prometheus
+      description: Prometheus metrics endpoint properties.
+      attributes:
+        - name: private_url
+          description: Private Prometheus metrics URL
+        - name: url
+          description: Public Prometheus metrics URL
+    - name: resource_group_id
+      description: The ID of the resource group in which to create the serverless cluster
+    - name: schema_registry
+      description: Cluster's Schema Registry properties.
+      attributes:
+        - name: private_url
+          description: Private Schema Registry URL
+        - name: url
+          description: Public Schema Registry URL
+    - name: serverless_region
+      description: Redpanda specific region for the serverless cluster
+    - name: state
+      description: Current state of the serverless cluster.
+    - name: tags
+      description: User-defined tags on the cluster

@@ -1,0 +1,154 @@
+has_timeouts: true
+attributes:
+    - name: cluster_api_url
+      type: StringAttribute
+      computed: true
+      deprecation_message: This field is deprecated and will be removed in a future version. Use dataplane_api.url instead.
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: console_private_url
+      type: StringAttribute
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: console_url
+      type: StringAttribute
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: dataplane_api
+      type: SingleNestedAttribute
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: private_url
+          type: StringAttribute
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useStateForUnknownModifier
+        - name: url
+          type: StringAttribute
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useStateForUnknownModifier
+    - name: id
+      type: StringAttribute
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: kafka_api
+      type: SingleNestedAttribute
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: private_seed_brokers
+          type: ListAttribute
+          computed: true
+          plan_modifiers:
+            - listplanmodifier.useStateForUnknownModifier
+          element_type: basetypes.StringType
+        - name: seed_brokers
+          type: ListAttribute
+          computed: true
+          plan_modifiers:
+            - listplanmodifier.useStateForUnknownModifier
+          element_type: basetypes.StringType
+    - name: name
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: networking_config
+      type: SingleNestedAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: private
+          type: StringAttribute
+          optional: true
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useStateForUnknownModifier
+        - name: public
+          type: StringAttribute
+          optional: true
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useStateForUnknownModifier
+    - name: planned_deletion
+      type: SingleNestedAttribute
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: delete_after
+          type: StringAttribute
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useStateForUnknownModifier
+        - name: reason
+          type: StringAttribute
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useStateForUnknownModifier
+    - name: private_link_id
+      type: StringAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: prometheus
+      type: SingleNestedAttribute
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: private_url
+          type: StringAttribute
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useStateForUnknownModifier
+        - name: url
+          type: StringAttribute
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useStateForUnknownModifier
+    - name: resource_group_id
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: schema_registry
+      type: SingleNestedAttribute
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: private_url
+          type: StringAttribute
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useStateForUnknownModifier
+        - name: url
+          type: StringAttribute
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useStateForUnknownModifier
+    - name: serverless_region
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: state
+      type: StringAttribute
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: tags
+      type: MapAttribute
+      optional: true
+      element_type: basetypes.StringType
