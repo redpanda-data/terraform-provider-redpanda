@@ -20,9 +20,8 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/network"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
+	networkmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/network"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
@@ -30,49 +29,29 @@ var _ datasource.DataSource = &DataSourceNetwork{}
 
 // DataSourceNetwork represents a data source for a Redpanda Cloud network.
 type DataSourceNetwork struct {
-	CpCl *cloud.ControlPlaneClientSet
+	base.DataSourceBase
 }
 
-// Metadata returns the metadata for the Network data source.
-func (*DataSourceNetwork) Metadata(_ context.Context, _ datasource.MetadataRequest, response *datasource.MetadataResponse) {
-	response.TypeName = "redpanda_network"
-}
-
-// Schema returns the schema for the Network data source.
-func (*DataSourceNetwork) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	resp.Schema = DatasourceNetworkSchema()
+// NewDataSourceNetwork constructs a Network datasource.
+func NewDataSourceNetwork() *DataSourceNetwork {
+	d := &DataSourceNetwork{}
+	d.DataSourceBase = base.NewDataSourceBase("redpanda_network", DatasourceNetworkSchema, nil)
+	return d
 }
 
 // Read reads the Network data source's values and updates the state.
 func (n *DataSourceNetwork) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var model network.DataModel
+	var model networkmodel.DataModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 	nw, err := n.CpCl.NetworkForID(ctx, model.ID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.ID.ValueString()), utils.DeserializeGrpcError(err))
 		return
 	}
-	m, d := model.GetUpdatedModel(ctx, nw)
-	if d.HasError() {
-		resp.Diagnostics = append(resp.Diagnostics, d...)
+	state, flatDiags := networkmodel.FlattenData(ctx, nw, &model)
+	resp.Diagnostics.Append(flatDiags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, m)...)
-}
-
-// Configure uses provider level data to configure DataSourceNetwork's client.
-func (n *DataSourceNetwork) Configure(_ context.Context, request datasource.ConfigureRequest, response *datasource.ConfigureResponse) {
-	if request.ProviderData == nil {
-		return
-	}
-
-	p, ok := request.ProviderData.(config.Datasource)
-	if !ok {
-		response.Diagnostics.AddError(
-			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", request.ProviderData),
-		)
-		return
-	}
-	n.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
