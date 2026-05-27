@@ -3,51 +3,46 @@ package schema
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/kclients"
 	schemamodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/schema"
+	"github.com/twmb/franz-go/pkg/sr"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
 var (
 	_ datasource.DataSource              = &SchemaDataSource{}
 	_ datasource.DataSourceWithConfigure = &SchemaDataSource{}
 )
 
-//nolint:revive // SchemaDataSource is the correct name for this type
+// SchemaDataSource reads schema information from the Schema Registry.
+//
+//nolint:revive // SchemaDataSource stutters (schema.SchemaDataSource) but matches the resource naming convention (schema.Schema).
 type SchemaDataSource struct {
-	CpCl *cloud.ControlPlaneClientSet
+	base.DataSourceBase
+	dsData        config.Datasource
+	clientFactory func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, authToken, username, password string) (SRClienter, error)
 }
 
-// Configure configures the schema data source.
-func (d *SchemaDataSource) Configure(_ context.Context, request datasource.ConfigureRequest, response *datasource.ConfigureResponse) {
-	if request.ProviderData == nil {
-		return
-	}
-
-	p, ok := request.ProviderData.(config.Datasource)
-	if !ok {
-		response.Diagnostics.AddError(
-			"Unexpected DataSource Configure Type",
-			fmt.Sprintf("Expected config.Datasource, got: %T. Please report this issue to the provider developers.", request.ProviderData),
-		)
-		return
-	}
-
-	d.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
+// NewSchemaDataSource constructs a Schema datasource.
+func NewSchemaDataSource() *SchemaDataSource {
+	d := &SchemaDataSource{}
+	d.DataSourceBase = base.NewDataSourceBase("redpanda_schema", DatasourceSchemaSchema, func(p config.Datasource) {
+		d.dsData = p
+	})
+	return d
 }
 
-// Metadata returns the data source metadata.
-func (*SchemaDataSource) Metadata(_ context.Context, request datasource.MetadataRequest, response *datasource.MetadataResponse) {
-	response.TypeName = request.ProviderTypeName + "_schema"
-}
-
-// Schema returns the data source schema.
-func (*SchemaDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, response *datasource.SchemaResponse) {
-	response.Schema = schema.Schema{
+// DatasourceSchemaSchema returns the schema for the Schema datasource.
+func DatasourceSchemaSchema(_ context.Context) schema.Schema {
+	return schema.Schema{
 		Description: "Schema data source allows you to retrieve information about a Schema Registry schema",
 		Attributes: map[string]schema.Attribute{
 			"cluster_id": schema.StringAttribute{
@@ -95,21 +90,95 @@ func (*SchemaDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 					},
 				},
 			},
+			"username": schema.StringAttribute{
+				Description: "SASL username for Schema Registry HTTP Basic authentication. Optional: when omitted (together with password) the provider authenticates using its cloud Bearer token.",
+				Optional:    true,
+				Sensitive:   true,
+			},
+			"password": schema.StringAttribute{
+				Description: "SASL password for Schema Registry HTTP Basic authentication. Pair with username when Basic auth is required instead of the cloud Bearer token.",
+				Optional:    true,
+				Sensitive:   true,
+			},
 		},
 	}
 }
 
-// Read reads the schema data.
-func (*SchemaDataSource) Read(ctx context.Context, request datasource.ReadRequest, response *datasource.ReadResponse) {
-	var config schemamodel.DataModel
-	response.Diagnostics.Append(request.Config.Get(ctx, &config)...)
+// getClient returns an SR client using the factory when set, else the default implementation.
+func (d *SchemaDataSource) getClient(ctx context.Context, clusterID, username, password string) (SRClienter, error) {
+	if d.clientFactory != nil {
+		return d.clientFactory(ctx, d.CpCl, clusterID, d.dsData.AuthToken, username, password)
+	}
+	client, err := kclients.GetSchemaRegistryClientForCluster(ctx, d.CpCl, clusterID, d.dsData.AuthToken, username, password)
+	if err != nil {
+		return nil, err
+	}
+	return newSchemaRegistryClientWrapper(client), nil
+}
+
+// Read fetches schema data from the Schema Registry.
+func (d *SchemaDataSource) Read(ctx context.Context, request datasource.ReadRequest, response *datasource.ReadResponse) {
+	var cfg schemamodel.DataModel
+	response.Diagnostics.Append(request.Config.Get(ctx, &cfg)...)
 	if response.Diagnostics.HasError() {
 		return
 	}
 
-	// TODO: Implement schema reading via Schema Registry API
-	response.Diagnostics.AddError(
-		"Schema data source not yet implemented",
-		"The schema data source requires integration with Schema Registry which is not yet implemented.",
-	)
+	clusterID := cfg.ClusterID.ValueString()
+	subject := cfg.Subject.ValueString()
+
+	client, err := d.getClient(ctx, clusterID, cfg.Username.ValueString(), cfg.Password.ValueString())
+	if err != nil {
+		response.Diagnostics.AddError(
+			"Failed to create Schema Registry client",
+			fmt.Sprintf("Unable to create client for cluster %s: %v", clusterID, err),
+		)
+		return
+	}
+
+	var version *int
+	if !cfg.Version.IsNull() && !cfg.Version.IsUnknown() {
+		v := int(cfg.Version.ValueInt64())
+		version = &v
+	}
+
+	sub, err := fetchSchema(ctx, client, subject, version)
+	if err != nil {
+		response.Diagnostics.AddError(
+			"Failed to read schema",
+			fmt.Sprintf("Unable to read schema for subject %s: %v", subject, err),
+		)
+		return
+	}
+
+	cfg.ID = types.Int64Value(int64(sub.ID))
+	cfg.Version = types.Int64Value(int64(sub.Version))
+	cfg.Schema = types.StringValue(sub.Schema.Schema)
+	cfg.SchemaType = types.StringValue(strings.ToUpper(sub.Type.String()))
+	cfg.References = convertRefsToList(sub.References)
+
+	response.Diagnostics.Append(response.State.Set(ctx, &cfg)...)
+}
+
+// convertRefsToList converts sr.SchemaReference slice to a Terraform types.List.
+func convertRefsToList(refs []sr.SchemaReference) types.List {
+	attrTypes := map[string]attr.Type{
+		"name":    types.StringType,
+		"subject": types.StringType,
+		"version": types.Int64Type,
+	}
+	if len(refs) == 0 {
+		return types.ListNull(types.ObjectType{AttrTypes: attrTypes})
+	}
+	elems := make([]attr.Value, 0, len(refs))
+	for _, ref := range refs {
+		obj, _ := types.ObjectValue(attrTypes, map[string]attr.Value{
+			"name":    types.StringValue(ref.Name),
+			"subject": types.StringValue(ref.Subject),
+			"version": types.Int64Value(int64(ref.Version)),
+		})
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(types.ObjectType{AttrTypes: attrTypes}, elems)
+	return list
 }

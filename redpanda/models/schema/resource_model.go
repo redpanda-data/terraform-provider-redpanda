@@ -27,6 +27,23 @@ import (
 	"github.com/twmb/franz-go/pkg/sr"
 )
 
+// ResourceModel represents the Terraform schema for the schema resource.
+type ResourceModel struct {
+	AllowDeletion     types.Bool   `tfsdk:"allow_deletion"`
+	ClusterID         types.String `tfsdk:"cluster_id"`
+	Compatibility     types.String `tfsdk:"compatibility"`
+	ID                types.Int64  `tfsdk:"id"`
+	Password          types.String `tfsdk:"password"`
+	PasswordWO        types.String `tfsdk:"password_wo"`
+	PasswordWOVersion types.Int64  `tfsdk:"password_wo_version"`
+	References        types.List   `tfsdk:"references"`
+	Schema            types.String `tfsdk:"schema"`
+	SchemaType        types.String `tfsdk:"schema_type"`
+	Subject           types.String `tfsdk:"subject"`
+	Username          types.String `tfsdk:"username"`
+	Version           types.Int64  `tfsdk:"version"`
+}
+
 // GetEffectivePassword returns the password to use, preferring password_wo over password.
 func (r *ResourceModel) GetEffectivePassword() string {
 	return utils.GetEffectivePassword(r.Password, r.PasswordWO)
@@ -125,15 +142,18 @@ func (r *ResourceModel) ToSchemaRequest() sr.Schema {
 	}
 }
 
-// convertSchemaType converts string schema type to sr.SchemaType
+// convertSchemaType converts a string schema type to sr.SchemaType. Accepts
+// both the friendly form ("AVRO"/"JSON"/"PROTOBUF") and the proto-style
+// form ("SCHEMA_TYPE_AVRO"/...) — state written by earlier provider
+// versions, or configs that pasted the proto-form value, must round-trip
+// cleanly. Unknown input falls back to Avro for backward compatibility.
 func (r *ResourceModel) convertSchemaType() sr.SchemaType {
-	schemaType := r.SchemaType.ValueString()
-	switch strings.ToUpper(schemaType) {
-	case "AVRO":
+	switch strings.ToUpper(r.SchemaType.ValueString()) {
+	case "AVRO", "SCHEMA_TYPE_AVRO":
 		return sr.TypeAvro
-	case "JSON":
+	case "JSON", "SCHEMA_TYPE_JSON":
 		return sr.TypeJSON
-	case "PROTOBUF":
+	case "PROTOBUF", "SCHEMA_TYPE_PROTOBUF":
 		return sr.TypeProtobuf
 	default:
 		return sr.TypeAvro
@@ -173,9 +193,20 @@ func (r *ResourceModel) parseSchemaReferences() []sr.SchemaReference {
 	return references
 }
 
-// normalizeJSON attempts to preserve the original JSON formatting when the content is semantically equivalent.
-// If the current schema and registry schema are equivalent, returns the current schema formatting.
-// If they differ or normalization fails, returns empty string to use registry response as-is.
+// normalizeJSON attempts to preserve the original JSON formatting when the
+// content is semantically equivalent. Two layers of equivalence:
+//
+//  1. JSON-level: same parsed-then-canonical-encoding (whitespace +
+//     key-order tolerant).
+//  2. Avro-level (only when r.SchemaType is AVRO): same Avro schema
+//     modulo namespace-relative vs FQN type references and non-essential
+//     metadata — the case Schema Registry creates when storing a body
+//     whose field types are written in FQN but reside in the enclosing
+//     record's namespace.
+//
+// If either layer matches, returns the current schema formatting so the
+// user's input is preserved in state. Otherwise returns empty string to
+// signal the caller should use the registry response as-is.
 func (r *ResourceModel) normalizeJSON(registrySchema string) string {
 	if r.Schema.IsNull() || r.Schema.IsUnknown() {
 		return ""
@@ -204,6 +235,14 @@ func (r *ResourceModel) normalizeJSON(registrySchema string) string {
 	}
 
 	if bytes.Equal(currentBytes, registryBytes) {
+		return currentSchema
+	}
+
+	// JSON-level not equal — for Avro, the registry may have canonicalized
+	// FQN type references to their namespace-relative form. Compare under
+	// our Avro canonicalizer.
+	if strings.EqualFold(r.SchemaType.ValueString(), "AVRO") &&
+		AvroBodiesEquivalent(currentSchema, registrySchema) {
 		return currentSchema
 	}
 
