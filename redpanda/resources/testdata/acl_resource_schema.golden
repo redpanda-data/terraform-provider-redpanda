@@ -1,0 +1,59 @@
+attributes:
+    - name: allow_deletion
+      type: BoolAttribute
+      optional: true
+      computed: true
+      default: booldefault.staticBoolDefault
+    - name: cluster_api_url
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: host
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: id
+      type: StringAttribute
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: operation
+      type: StringAttribute
+      required: true
+      validators:
+        - stringvalidator.oneOfValidator
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: permission_type
+      type: StringAttribute
+      required: true
+      validators:
+        - stringvalidator.oneOfValidator
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: principal
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: resource_name
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: resource_pattern_type
+      type: StringAttribute
+      required: true
+      validators:
+        - stringvalidator.oneOfValidator
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: resource_type
+      type: StringAttribute
+      required: true
+      validators:
+        - stringvalidator.oneOfValidator
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
