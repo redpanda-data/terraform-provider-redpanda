@@ -1,0 +1,1000 @@
+has_timeouts: true
+attributes:
+    - name: allow_deletion
+      type: BoolAttribute
+      optional: true
+      computed: true
+      default: booldefault.staticBoolDefault
+    - name: api_gateway_access
+      type: StringAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: aws_private_link
+      type: SingleNestedAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: allowed_principals
+          type: ListAttribute
+          required: true
+          validators:
+            - listvalidator.valueStringsAreValidator
+          element_type: basetypes.StringType
+        - name: connect_console
+          type: BoolAttribute
+          required: true
+        - name: enabled
+          type: BoolAttribute
+          required: true
+        - name: status
+          type: SingleNestedAttribute
+          computed: true
+          plan_modifiers:
+            - objectplanmodifier.useNonNullStateForUnknown
+          attributes:
+            - name: console_port
+              type: Int32Attribute
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useNonNullStateForUnknown
+            - name: kafka_api_node_base_port
+              type: Int32Attribute
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useNonNullStateForUnknown
+            - name: kafka_api_seed_port
+              type: Int32Attribute
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useNonNullStateForUnknown
+            - name: redpanda_proxy_node_base_port
+              type: Int32Attribute
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useNonNullStateForUnknown
+            - name: redpanda_proxy_seed_port
+              type: Int32Attribute
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useNonNullStateForUnknown
+            - name: schema_registry_seed_port
+              type: Int32Attribute
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useNonNullStateForUnknown
+            - name: service_id
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+            - name: service_name
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+            - name: service_state
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+            - name: vpc_endpoint_connections
+              type: ListNestedAttribute
+              computed: true
+              plan_modifiers:
+                - listplanmodifier.useNonNullStateForUnknown
+              attributes:
+                - name: connection_id
+                  type: StringAttribute
+                  computed: true
+                  plan_modifiers:
+                    - stringplanmodifier.useNonNullStateForUnknown
+                - name: dns_entries
+                  type: ListNestedAttribute
+                  computed: true
+                  plan_modifiers:
+                    - listplanmodifier.useNonNullStateForUnknown
+                  attributes:
+                    - name: dns_name
+                      type: StringAttribute
+                      computed: true
+                      plan_modifiers:
+                        - stringplanmodifier.useNonNullStateForUnknown
+                    - name: hosted_zone_id
+                      type: StringAttribute
+                      computed: true
+                      plan_modifiers:
+                        - stringplanmodifier.useNonNullStateForUnknown
+                - name: id
+                  type: StringAttribute
+                  computed: true
+                  plan_modifiers:
+                    - stringplanmodifier.useNonNullStateForUnknown
+                - name: load_balancer_arns
+                  type: ListAttribute
+                  computed: true
+                  plan_modifiers:
+                    - listplanmodifier.useNonNullStateForUnknown
+                  element_type: basetypes.StringType
+                - name: owner
+                  type: StringAttribute
+                  computed: true
+                  plan_modifiers:
+                    - stringplanmodifier.useNonNullStateForUnknown
+                - name: state
+                  type: StringAttribute
+                  computed: true
+                  plan_modifiers:
+                    - stringplanmodifier.useNonNullStateForUnknown
+        - name: supported_regions
+          type: ListAttribute
+          computed: true
+          plan_modifiers:
+            - listplanmodifier.useStateForUnknownModifier
+          element_type: basetypes.StringType
+    - name: azure_private_link
+      type: SingleNestedAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: allowed_subscriptions
+          type: ListAttribute
+          required: true
+          element_type: basetypes.StringType
+        - name: connect_console
+          type: BoolAttribute
+          required: true
+        - name: enabled
+          type: BoolAttribute
+          required: true
+        - name: status
+          type: SingleNestedAttribute
+          computed: true
+          plan_modifiers:
+            - objectplanmodifier.useNonNullStateForUnknown
+          attributes:
+            - name: approved_subscriptions
+              type: ListAttribute
+              computed: true
+              plan_modifiers:
+                - listplanmodifier.useNonNullStateForUnknown
+              element_type: basetypes.StringType
+            - name: console_port
+              type: Int32Attribute
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useNonNullStateForUnknown
+            - name: dns_a_record
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+            - name: kafka_api_node_base_port
+              type: Int32Attribute
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useNonNullStateForUnknown
+            - name: kafka_api_seed_port
+              type: Int32Attribute
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useNonNullStateForUnknown
+            - name: private_endpoint_connections
+              type: ListNestedAttribute
+              computed: true
+              plan_modifiers:
+                - listplanmodifier.useNonNullStateForUnknown
+              attributes:
+                - name: connection_id
+                  type: StringAttribute
+                  computed: true
+                  plan_modifiers:
+                    - stringplanmodifier.useNonNullStateForUnknown
+                - name: connection_name
+                  type: StringAttribute
+                  computed: true
+                  plan_modifiers:
+                    - stringplanmodifier.useNonNullStateForUnknown
+                - name: private_endpoint_id
+                  type: StringAttribute
+                  computed: true
+                  plan_modifiers:
+                    - stringplanmodifier.useNonNullStateForUnknown
+                - name: private_endpoint_name
+                  type: StringAttribute
+                  computed: true
+                  plan_modifiers:
+                    - stringplanmodifier.useNonNullStateForUnknown
+                - name: status
+                  type: StringAttribute
+                  computed: true
+                  plan_modifiers:
+                    - stringplanmodifier.useNonNullStateForUnknown
+            - name: redpanda_proxy_node_base_port
+              type: Int32Attribute
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useNonNullStateForUnknown
+            - name: redpanda_proxy_seed_port
+              type: Int32Attribute
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useNonNullStateForUnknown
+            - name: schema_registry_seed_port
+              type: Int32Attribute
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useNonNullStateForUnknown
+            - name: service_id
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+            - name: service_name
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+    - name: cloud_provider
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: cloud_storage
+      type: SingleNestedAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: aws
+          type: SingleNestedAttribute
+          optional: true
+          computed: true
+          plan_modifiers:
+            - objectplanmodifier.useStateForUnknownModifier
+          attributes:
+            - name: arn
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+        - name: azure
+          type: SingleNestedAttribute
+          optional: true
+          computed: true
+          plan_modifiers:
+            - objectplanmodifier.useStateForUnknownModifier
+          attributes:
+            - name: container_name
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+            - name: storage_account_name
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+        - name: gcp
+          type: SingleNestedAttribute
+          optional: true
+          computed: true
+          plan_modifiers:
+            - objectplanmodifier.useStateForUnknownModifier
+          attributes:
+            - name: name
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+        - name: skip_destroy
+          type: BoolAttribute
+          optional: true
+    - name: cluster_api_url
+      type: StringAttribute
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: cluster_configuration
+      type: SingleNestedAttribute
+      optional: true
+      computed: true
+      validators:
+        - validators.ClusterConfigurationValidator
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: custom_properties_json
+          type: StringAttribute
+          optional: true
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useStateForUnknownModifier
+    - name: cluster_type
+      type: StringAttribute
+      optional: true
+      computed: true
+      validators:
+        - stringvalidator.oneOfValidator
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: connection_type
+      type: StringAttribute
+      required: true
+      validators:
+        - validators.RequirePrivateConnectionValidator
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: current_redpanda_version
+      type: StringAttribute
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: customer_managed_resources
+      type: SingleNestedAttribute
+      optional: true
+      attributes:
+        - name: aws
+          type: SingleNestedAttribute
+          optional: true
+          plan_modifiers:
+            - objectplanmodifier.requiresReplaceIfModifier
+          attributes:
+            - name: agent_instance_profile
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: cloud_storage_bucket
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: cluster_security_group
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: connectors_node_group_instance_profile
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: connectors_security_group
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: k8s_cluster_role
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: node_security_group
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: permissions_boundary_policy
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: redpanda_agent_security_group
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: redpanda_connect_node_group_instance_profile
+              type: SingleNestedAttribute
+              optional: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: redpanda_connect_security_group
+              type: SingleNestedAttribute
+              optional: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: redpanda_node_group_instance_profile
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: redpanda_node_group_security_group
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: utility_node_group_instance_profile
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: utility_security_group
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+        - name: gcp
+          type: SingleNestedAttribute
+          optional: true
+          plan_modifiers:
+            - objectplanmodifier.requiresReplaceIfModifier
+          attributes:
+            - name: agent_service_account
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
+            - name: connector_service_account
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
+            - name: console_service_account
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
+            - name: gke_service_account
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
+            - name: psc_nat_subnet_name
+              type: StringAttribute
+              optional: true
+              plan_modifiers:
+                - stringplanmodifier.requiresReplaceIfModifier
+            - name: redpanda_cluster_service_account
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
+            - name: subnet
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: k8s_master_ipv4_range
+                  type: StringAttribute
+                  required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
+                - name: name
+                  type: StringAttribute
+                  required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
+                - name: secondary_ipv4_range_pods
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: secondary_ipv4_range_services
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+            - name: tiered_storage_bucket
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: name
+                  type: StringAttribute
+                  required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
+    - name: desired_redpanda_version
+      type: StringAttribute
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: gcp_global_access_api_gateway_enabled
+      type: BoolAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - boolplanmodifier.useStateForUnknownModifier
+    - name: gcp_global_access_enabled
+      type: BoolAttribute
+      computed: true
+      plan_modifiers:
+        - boolplanmodifier.useStateForUnknownModifier
+    - name: gcp_private_service_connect
+      type: SingleNestedAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: consumer_accept_list
+          type: ListNestedAttribute
+          required: true
+          attributes:
+            - name: source
+              type: StringAttribute
+              required: true
+        - name: enabled
+          type: BoolAttribute
+          required: true
+        - name: global_access_enabled
+          type: BoolAttribute
+          required: true
+        - name: status
+          type: SingleNestedAttribute
+          computed: true
+          plan_modifiers:
+            - objectplanmodifier.useNonNullStateForUnknown
+          attributes:
+            - name: connected_endpoints
+              type: ListNestedAttribute
+              computed: true
+              plan_modifiers:
+                - listplanmodifier.useNonNullStateForUnknown
+              attributes:
+                - name: connection_id
+                  type: StringAttribute
+                  computed: true
+                  plan_modifiers:
+                    - stringplanmodifier.useNonNullStateForUnknown
+                - name: consumer_network
+                  type: StringAttribute
+                  computed: true
+                  plan_modifiers:
+                    - stringplanmodifier.useNonNullStateForUnknown
+                - name: endpoint
+                  type: StringAttribute
+                  computed: true
+                  plan_modifiers:
+                    - stringplanmodifier.useNonNullStateForUnknown
+                - name: status
+                  type: StringAttribute
+                  computed: true
+                  plan_modifiers:
+                    - stringplanmodifier.useNonNullStateForUnknown
+            - name: dns_a_records
+              type: ListAttribute
+              computed: true
+              plan_modifiers:
+                - listplanmodifier.useNonNullStateForUnknown
+              element_type: basetypes.StringType
+            - name: kafka_api_node_base_port
+              type: Int32Attribute
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useNonNullStateForUnknown
+            - name: kafka_api_seed_port
+              type: Int32Attribute
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useNonNullStateForUnknown
+            - name: redpanda_proxy_node_base_port
+              type: Int32Attribute
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useNonNullStateForUnknown
+            - name: redpanda_proxy_seed_port
+              type: Int32Attribute
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useNonNullStateForUnknown
+            - name: schema_registry_seed_port
+              type: Int32Attribute
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useNonNullStateForUnknown
+            - name: seed_hostname
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+            - name: service_attachment
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+    - name: http_proxy
+      type: SingleNestedAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: all_urls
+          type: SingleNestedAttribute
+          computed: true
+          plan_modifiers:
+            - objectplanmodifier.useNonNullStateForUnknown
+          attributes:
+            - name: mtls
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+            - name: private_link_mtls
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+            - name: private_link_sasl
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+            - name: sasl
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+        - name: mtls
+          type: SingleNestedAttribute
+          optional: true
+          computed: true
+          plan_modifiers:
+            - objectplanmodifier.useStateForUnknownModifier
+          attributes:
+            - name: ca_certificates_pem
+              type: ListAttribute
+              optional: true
+              element_type: basetypes.StringType
+            - name: enabled
+              type: BoolAttribute
+              optional: true
+              computed: true
+              default: booldefault.staticBoolDefault
+            - name: principal_mapping_rules
+              type: ListAttribute
+              optional: true
+              element_type: basetypes.StringType
+        - name: sasl
+          type: SingleNestedAttribute
+          optional: true
+          computed: true
+          plan_modifiers:
+            - objectplanmodifier.useStateForUnknownModifier
+          attributes:
+            - name: enabled
+              type: BoolAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - boolplanmodifier.useStateForUnknownModifier
+        - name: url
+          type: StringAttribute
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useNonNullStateForUnknown
+    - name: id
+      type: StringAttribute
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: kafka_api
+      type: SingleNestedAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: all_seed_brokers
+          type: SingleNestedAttribute
+          computed: true
+          plan_modifiers:
+            - objectplanmodifier.useNonNullStateForUnknown
+          attributes:
+            - name: mtls
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+            - name: private_link_mtls
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+            - name: private_link_sasl
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+            - name: sasl
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+        - name: mtls
+          type: SingleNestedAttribute
+          optional: true
+          computed: true
+          plan_modifiers:
+            - objectplanmodifier.useStateForUnknownModifier
+          attributes:
+            - name: ca_certificates_pem
+              type: ListAttribute
+              optional: true
+              element_type: basetypes.StringType
+            - name: enabled
+              type: BoolAttribute
+              optional: true
+              computed: true
+              default: booldefault.staticBoolDefault
+            - name: principal_mapping_rules
+              type: ListAttribute
+              optional: true
+              element_type: basetypes.StringType
+        - name: sasl
+          type: SingleNestedAttribute
+          optional: true
+          computed: true
+          plan_modifiers:
+            - objectplanmodifier.useStateForUnknownModifier
+          attributes:
+            - name: enabled
+              type: BoolAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - boolplanmodifier.useStateForUnknownModifier
+        - name: seed_brokers
+          type: ListAttribute
+          computed: true
+          plan_modifiers:
+            - listplanmodifier.useNonNullStateForUnknown
+          element_type: basetypes.StringType
+    - name: kafka_connect
+      type: SingleNestedAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: enabled
+          type: BoolAttribute
+          optional: true
+          computed: true
+          default: booldefault.staticBoolDefault
+    - name: maintenance_window_config
+      type: SingleNestedAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: anytime
+          type: BoolAttribute
+          optional: true
+        - name: day_hour
+          type: SingleNestedAttribute
+          optional: true
+          attributes:
+            - name: day_of_week
+              type: StringAttribute
+              optional: true
+            - name: hour_of_day
+              type: Int32Attribute
+              optional: true
+        - name: unspecified
+          type: BoolAttribute
+          computed: true
+          plan_modifiers:
+            - boolplanmodifier.useStateForUnknownModifier
+    - name: name
+      type: StringAttribute
+      required: true
+    - name: nat_gateways
+      type: ListAttribute
+      computed: true
+      plan_modifiers:
+        - listplanmodifier.useStateForUnknownModifier
+      element_type: basetypes.StringType
+    - name: network_id
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: prometheus
+      type: SingleNestedAttribute
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: url
+          type: StringAttribute
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useStateForUnknownModifier
+    - name: read_replica_cluster_ids
+      type: ListAttribute
+      optional: true
+      element_type: basetypes.StringType
+    - name: redpanda_console
+      type: SingleNestedAttribute
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: url
+          type: StringAttribute
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useStateForUnknownModifier
+    - name: redpanda_node_count
+      type: Int32Attribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - int32planmodifier.useStateForUnknownModifier
+    - name: redpanda_version
+      type: StringAttribute
+      optional: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: region
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: resource_group_id
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: schema_registry
+      type: SingleNestedAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: all_urls
+          type: SingleNestedAttribute
+          computed: true
+          plan_modifiers:
+            - objectplanmodifier.useNonNullStateForUnknown
+          attributes:
+            - name: mtls
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+            - name: private_link_mtls
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+            - name: private_link_sasl
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+            - name: sasl
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useNonNullStateForUnknown
+        - name: mtls
+          type: SingleNestedAttribute
+          optional: true
+          attributes:
+            - name: ca_certificates_pem
+              type: ListAttribute
+              optional: true
+              element_type: basetypes.StringType
+            - name: enabled
+              type: BoolAttribute
+              optional: true
+              computed: true
+              default: booldefault.staticBoolDefault
+            - name: principal_mapping_rules
+              type: ListAttribute
+              optional: true
+              element_type: basetypes.StringType
+        - name: url
+          type: StringAttribute
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useNonNullStateForUnknown
+    - name: state
+      type: StringAttribute
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: state_description
+      type: SingleNestedAttribute
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: code
+          type: Int32Attribute
+          computed: true
+          plan_modifiers:
+            - int32planmodifier.useStateForUnknownModifier
+        - name: message
+          type: StringAttribute
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useStateForUnknownModifier
+    - name: tags
+      type: MapAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - mapplanmodifier.useStateForUnknownModifier
+      element_type: basetypes.StringType
+    - name: throughput_tier
+      type: StringAttribute
+      required: true
+    - name: zones
+      type: ListAttribute
+      required: true
+      validators:
+        - validators.AWSZoneIDValidator
+      plan_modifiers:
+        - listplanmodifier.requiresReplaceIfModifier
+      element_type: basetypes.StringType

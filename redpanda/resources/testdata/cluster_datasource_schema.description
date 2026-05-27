@@ -1,0 +1,445 @@
+description: Cluster data source
+attributes:
+    - name: allow_deletion
+      description: Resource will only be deleted when allow_deletion is set to true. Otherwise deletion will fail with a related error.
+    - name: aws_private_link
+      description: AWS Private Link configuration
+      attributes:
+        - name: allowed_principals
+          description: The ARN of the principals that can access the Redpanda AWS PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).
+        - name: connect_console
+          description: Whether Console is connected in Redpanda AWS Private Link Service.
+        - name: enabled
+          description: Whether Redpanda AWS Private Link Endpoint Service is enabled.
+        - name: status
+          description: Status configuration
+          attributes:
+            - name: console_port
+              description: The port of Redpanda Console.
+            - name: kafka_api_node_base_port
+              description: Kafka API node service base port. The port for node `i` (0 .. node_count-1) is kafka_api_node_base_port + `i`.
+            - name: kafka_api_seed_port
+              description: Kafka API seed service port.
+            - name: redpanda_proxy_node_base_port
+              description: HTTP Proxy node service base port. The port for node `i` (0 .. node_count-1) is redpanda_proxy_node_base_port + i.
+            - name: redpanda_proxy_seed_port
+              description: HTTP Proxy seed service port.
+            - name: schema_registry_seed_port
+              description: Schema Registry seed service port.
+            - name: service_id
+              description: ID of Redpanda AWS PrivateLink Endpoint Service.
+            - name: service_name
+              description: Name of Redpanda AWS PrivateLink Endpoint Service.
+            - name: service_state
+              description: State of Redpanda AWS PrivateLink Endpoint Service.
+            - name: vpc_endpoint_connections
+              description: List of VPC endpoints with established connections to Redpanda AWS PrivateLink Endpoint Service.
+              attributes:
+                - name: connection_id
+                  description: Connection ID of VPC endpoint connected to Redpanda AWS PrivateLink Endpoint Service.
+                - name: dns_entries
+                  description: The list of DNS entries associated with VPC endpoint.
+                  attributes:
+                    - name: dns_name
+                      description: DNS entry of VPC endpoint connected to Redpanda AWS PrivateLink Endpoint Service.
+                    - name: hosted_zone_id
+                      description: The ID of Route53 DNS zone.
+                - name: id
+                  description: The ID of VPC endpoint.
+                - name: load_balancer_arns
+                  description: List of load balancer ARNs.
+                - name: owner
+                  description: The owner of VPC endpoint.
+                - name: state
+                  description: The state of VPC endpoint connected to Redpanda AWS PrivateLink Endpoint Service.
+        - name: supported_regions
+          description: List of supported regions in cross-region AWS PrivateLink.
+    - name: azure_private_link
+      description: Azure Private Link configuration
+      attributes:
+        - name: allowed_subscriptions
+          description: The subscriptions that can access the Redpanda Azure PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).
+        - name: connect_console
+          description: Whether Console is connected in Redpanda Azure Private Link Service.
+        - name: enabled
+          description: Whether Redpanda AWS Private Link Endpoint Service is enabled.
+        - name: status
+          description: Status configuration
+          attributes:
+            - name: approved_subscriptions
+              description: These are the approved subscriptions on the private link
+            - name: console_port
+              description: The port of Redpanda Console.
+            - name: dns_a_record
+              description: dns_a_dns_a_recordrecord is the DNS A record the customer will create pointing at the their PE
+            - name: kafka_api_node_base_port
+              description: Kafka API node service base port. The port for node `i` (0 .. node_count-1) is kafka_api_node_base_port + `i`.
+            - name: kafka_api_seed_port
+              description: Kafka API seed service port.
+            - name: private_endpoint_connections
+              description: List of private endpoint connections to Redpanda Azure Private Link Service.
+              attributes:
+                - name: connection_id
+                  description: ConnectionID is the id of the connection between the private endpoint and the private link service
+                - name: connection_name
+                  description: ConnectionName is the name of the connection between the private endpoint and the private link service
+                - name: private_endpoint_id
+                  description: Resource ID of Private Endpoint to Redpanda Azure PrivateLink Endpoint Service.
+                - name: private_endpoint_name
+                  description: The name of the PrivateEndpointConnection.
+                - name: status
+                  description: The status of private endpoint connected to Redpanda Azure PrivateLink Endpoint Service.
+            - name: redpanda_proxy_node_base_port
+              description: HTTP Proxy node service base port. The port for node `i` (0 .. node_count-1) is redpanda_proxy_node_base_port + i.
+            - name: redpanda_proxy_seed_port
+              description: HTTP Proxy seed service port.
+            - name: schema_registry_seed_port
+              description: Schema Registry seed service port.
+            - name: service_id
+              description: ID of Redpanda Azure PrivateLink Endpoint Service.
+            - name: service_name
+              description: Name of Redpanda Azure PrivateLink Endpoint Service.
+    - name: cloud_provider
+      description: Cloud provider where resources are created.
+    - name: cloud_provider_tags
+      description: 'Tags placed on cloud resources. If the cloud provider is GCP and the name of a tag has the prefix "gcp.network-tag.", the tag is a network tag that will be added to the Redpanda cluster GKE nodes. Otherwise, the tag is a normal tag. For example, if the name of a tag is "gcp.network-tag.network-tag-foo", the network tag named "network-tag-foo" will be added to the Redpanda cluster GKE nodes. Note: The value of a network tag will be ignored. See the official [GCP VPC](https://cloud.google.com/vpc/docs/add-remove-network-tags) for more details on network tags.'
+    - name: cluster_api_url
+      description: Deprecated alias for `dataplane_api.url`.
+    - name: cluster_configuration
+      description: Cluster Configuration configuration
+      attributes:
+        - name: custom_properties
+          description: Custom Properties
+        - name: custom_properties_json
+          description: Deprecated alias for `custom_properties`.
+    - name: cluster_type
+      description: Deprecated alias for `type`.
+    - name: connection_type
+      description: Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, **Private** is best-practice.
+    - name: customer_managed_resources
+      description: The cloud resources created by user.
+      attributes:
+        - name: aws
+          description: AWS resources created and managed by user, and required to deploy the Redpanda cluster.
+          attributes:
+            - name: agent_instance_profile
+              description: AWS instance profile.
+              attributes:
+                - name: arn
+                  description: AWS instance profile ARN.
+            - name: cloud_storage_bucket
+              description: AWS storage bucket properties by ARN.
+              attributes:
+                - name: arn
+                  description: AWS storage bucket identifier.
+            - name: cluster_security_group
+              description: Security Group identifies AWS security group.
+              attributes:
+                - name: arn
+                  description: AWS security group ARN.
+            - name: connectors_node_group_instance_profile
+              description: AWS instance profile.
+              attributes:
+                - name: arn
+                  description: AWS instance profile ARN.
+            - name: connectors_security_group
+              description: Security Group identifies AWS security group.
+              attributes:
+                - name: arn
+                  description: AWS security group ARN.
+            - name: k8s_cluster_role
+              description: Role identifies AWS role.
+              attributes:
+                - name: arn
+                  description: AWS role ARN.
+            - name: node_security_group
+              description: Security Group identifies AWS security group.
+              attributes:
+                - name: arn
+                  description: AWS security group ARN.
+            - name: permissions_boundary_policy
+              description: Policy identifies an AWS policy.
+              attributes:
+                - name: arn
+                  description: AWS policy ARN.
+            - name: redpanda_agent_security_group
+              description: Security Group identifies AWS security group.
+              attributes:
+                - name: arn
+                  description: AWS security group ARN.
+            - name: redpanda_connect_node_group_instance_profile
+              description: AWS instance profile.
+              attributes:
+                - name: arn
+                  description: AWS instance profile ARN.
+            - name: redpanda_connect_security_group
+              description: Security Group identifies AWS security group.
+              attributes:
+                - name: arn
+                  description: AWS security group ARN.
+            - name: redpanda_node_group_instance_profile
+              description: AWS instance profile.
+              attributes:
+                - name: arn
+                  description: AWS instance profile ARN.
+            - name: redpanda_node_group_security_group
+              description: Security Group identifies AWS security group.
+              attributes:
+                - name: arn
+                  description: AWS security group ARN.
+            - name: utility_node_group_instance_profile
+              description: AWS instance profile.
+              attributes:
+                - name: arn
+                  description: AWS instance profile ARN.
+            - name: utility_security_group
+              description: Security Group identifies AWS security group.
+              attributes:
+                - name: arn
+                  description: AWS security group ARN.
+        - name: gcp
+          description: GCP resources created and managed by user, and required to deploy the Redpanda cluster. See [Create a BYOVPC Cluster on GCP](https://docs.redpanda.com/redpanda-cloud/get-started/cluster-types/byoc/gcp/vpc-byo-gcp/).
+          attributes:
+            - name: agent_service_account
+              description: GCP service account.
+              attributes:
+                - name: email
+                  description: GCP service account email.
+            - name: connector_service_account
+              description: GCP service account.
+              attributes:
+                - name: email
+                  description: GCP service account email.
+            - name: console_service_account
+              description: GCP service account.
+              attributes:
+                - name: email
+                  description: GCP service account email.
+            - name: gke_service_account
+              description: GCP service account.
+              attributes:
+                - name: email
+                  description: GCP service account email.
+            - name: psc_nat_subnet_name
+              description: NAT subnet name if GCP Private Service Connect (a.k.a Private Link) is enabled. If it is used for PSC v1, use psc_v2_nat_subnet_name to set NAT subnet name for PSC v2.
+            - name: redpanda_cluster_service_account
+              description: GCP service account.
+              attributes:
+                - name: email
+                  description: GCP service account email.
+            - name: subnet
+              description: GCP subnet properties. See the official [GCP API reference](https://cloud.google.com/compute/docs/reference/rest/v1/subnetworks).
+              attributes:
+                - name: k8s_master_ipv4_range
+                  description: Kubernetes Master IPv4 range, e.g. 10.0.0.0/24.
+                - name: name
+                  description: Subnet name.
+                - name: secondary_ipv4_range_pods
+                  description: Secondary IPv4 range.
+                  attributes:
+                    - name: name
+                      description: Name of the secondary IPv4 Range Pods
+                - name: secondary_ipv4_range_services
+                  description: Secondary IPv4 range.
+                  attributes:
+                    - name: name
+                      description: Name of the secondary IPv4 Range Services
+            - name: tiered_storage_bucket
+              description: GCP storage bucket properties.
+              attributes:
+                - name: name
+                  description: Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions.
+    - name: dataplane_api
+      description: Cluster's Data Plane API properties.
+      attributes:
+        - name: url
+          description: Data Plane API URL.
+    - name: gcp_global_access_enabled
+      description: gcp_enable_global_access control if global access is enabled on the seed load balancer, applicable only for GCP. Default is false
+    - name: gcp_private_service_connect
+      description: GCP Private Service Connect configuration
+      attributes:
+        - name: consumer_accept_list
+          description: List of consumers that are allowed to connect to Redpanda GCP PSC (Private Service Connect) service attachment.
+          attributes:
+            - name: source
+              description: Either the GCP project number or its alphanumeric ID.
+        - name: enabled
+          description: Whether Redpanda GCP Private Service Connect is enabled.
+        - name: global_access_enabled
+          description: Whether global access is enabled.
+        - name: status
+          description: Status configuration
+          attributes:
+            - name: connected_endpoints
+              description: List of VPC endpoints with established connections to GCP Private Service Connect.
+              attributes:
+                - name: connection_id
+                  description: Connection ID of the endpoint.
+                - name: consumer_network
+                  description: Network of the consumer connecting to Redpanda GCP Private Service Connect service. See the official [GCP documentation](https://www.googleapis.com/compute/v1/projects/my-project/global/networks/vpc-consumer-psc) for Private Service Connect.
+                - name: endpoint
+                  description: Connection endpoint. See the official [GCP API reference](https://www.googleapis.com/compute/v1/projects/my-project/regions/us-west2/forwardingRules/vpc-consumer-psc) for Private Service Connect.
+                - name: status
+                  description: Endpoint status (ACCEPTED | REJECTED). The ServiceAttachment API resource (https://cloud.google.com/compute/docs/reference/rest/v1/serviceAttachments) does have more fields, such as connection ID & consumer network, but the Terraform provider (https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_service_attachment#nested_connected_endpoints) doesn't return them as outputs.
+            - name: dns_a_records
+              description: Customer-created DNS A records that point at the PSC endpoint on the consumer side.
+            - name: kafka_api_node_base_port
+              description: Kafka API node service base port. The port for node `i` (0 .. node_count-1) is kafka_api_node_base_port + `i`.
+            - name: kafka_api_seed_port
+              description: Kafka API seed service port.
+            - name: redpanda_proxy_node_base_port
+              description: HTTP Proxy node service base port. The port for node `i` (0 .. node_count-1) is redpanda_proxy_node_base_port + `i`.
+            - name: redpanda_proxy_seed_port
+              description: HTTP Proxy seed service port.
+            - name: schema_registry_seed_port
+              description: Schema Registry seed service port.
+            - name: seed_hostname
+              description: Hostname for clients to initiate connections to the APIs exposed through Private Service Connect.
+            - name: service_attachment
+              description: Service attachment used by consumers to create endpoint connections to Redpanda GCP Private Service Connect service.
+    - name: http_proxy
+      description: HTTP Proxy properties.
+      attributes:
+        - name: all_urls
+          description: The endpoints of Redpanda HTTP Proxy or Schema Registry.
+          attributes:
+            - name: mtls
+              description: URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty.
+            - name: private_link_mtls
+              description: URL of the seed broker for private link with mTLS. If private link with mTLS is not enabled, the field is empty.
+            - name: private_link_sasl
+              description: URL of the seed broker for private link with SASL. If private link with SASL is not enabled, the field is empty.
+            - name: sasl
+              description: URL of the seed broker for SASL. If SASL is not enabled, the field is empty.
+        - name: mtls
+          description: mTLS configuration.
+          attributes:
+            - name: ca_certificates_pem
+              description: CA certificate in PEM format.
+            - name: enabled
+              description: Whether mTLS is enabled.
+            - name: principal_mapping_rules
+              description: Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on [configuring authentication](https://docs.redpanda.com/redpanda-cloud/security/cloud-authentication/#mtls).
+        - name: sasl
+          description: SASL configuration
+          attributes:
+            - name: enabled
+              description: Whether SASL is enabled.
+        - name: url
+          description: HTTP Proxy URL of cluster.
+    - name: id
+      description: ID of the cluster. ID is an output from the Create Cluster endpoint and cannot be set by the caller.
+    - name: kafka_api
+      description: Cluster's Kafka API properties.
+      attributes:
+        - name: all_seed_brokers
+          description: Seed brokers of Redpanda Kafka API.
+          attributes:
+            - name: mtls
+              description: URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty.
+            - name: private_link_mtls
+              description: URL of the seed broker for private link with mTLS. If private link with mTLS is not enabled, the field is empty.
+            - name: private_link_sasl
+              description: URL of the seed broker for private link with SASL. If private link with SASL is not enabled, the field is empty.
+            - name: sasl
+              description: URL of the seed broker for SASL. If SASL is not enabled, the field is empty.
+        - name: mtls
+          description: mTLS configuration.
+          attributes:
+            - name: ca_certificates_pem
+              description: CA certificate in PEM format.
+            - name: enabled
+              description: Whether mTLS is enabled.
+            - name: principal_mapping_rules
+              description: Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on [configuring authentication](https://docs.redpanda.com/redpanda-cloud/security/cloud-authentication/#mtls).
+        - name: sasl
+          description: SASL configuration
+          attributes:
+            - name: enabled
+              description: Whether SASL is enabled.
+        - name: seed_brokers
+          description: Kafka API Seed Brokers (also known as Bootstrap servers).
+    - name: kafka_connect
+      description: Kafka Connect configuration
+      attributes:
+        - name: enabled
+          description: Whether Kafka Connect is enabled
+    - name: maintenance_window_config
+      description: Resource describing the maintenance window configuration of a cluster.
+      attributes:
+        - name: anytime
+          description: Anytime configuration
+        - name: day_hour
+          description: Day Hour configuration
+          attributes:
+            - name: day_of_week
+              description: 'Represents a day of the week. - MONDAY: Monday - TUESDAY: Tuesday - WEDNESDAY: Wednesday - THURSDAY: Thursday - FRIDAY: Friday - SATURDAY: Saturday - SUNDAY: Sunday'
+            - name: hour_of_day
+              description: always UTC
+        - name: unspecified
+          description: Unspecified configuration
+    - name: name
+      description: Unique name of the cluster.
+    - name: network_id
+      description: Network ID where cluster is placed.
+    - name: prometheus
+      description: Prometheus metrics endpoint properties.
+      attributes:
+        - name: url
+          description: Prometheus API URL.
+    - name: read_replica_cluster_ids
+      description: IDs of clusters which may create read-only topics from this cluster.
+    - name: redpanda_console
+      description: Cluster's Redpanda Console properties.
+      attributes:
+        - name: url
+          description: Redpanda Console API URL.
+    - name: redpanda_version
+      description: Redpanda Version
+    - name: region
+      description: Region represents the name of the region where the cluster will be provisioned.
+    - name: resource_group_id
+      description: Resource group ID of the cluster.
+    - name: schema_registry
+      description: Cluster's Schema Registry properties.
+      attributes:
+        - name: all_urls
+          description: The endpoints of Redpanda HTTP Proxy or Schema Registry.
+          attributes:
+            - name: mtls
+              description: URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty.
+            - name: private_link_mtls
+              description: URL of the seed broker for private link with mTLS. If private link with mTLS is not enabled, the field is empty.
+            - name: private_link_sasl
+              description: URL of the seed broker for private link with SASL. If private link with SASL is not enabled, the field is empty.
+            - name: sasl
+              description: URL of the seed broker for SASL. If SASL is not enabled, the field is empty.
+        - name: mtls
+          description: mTLS configuration.
+          attributes:
+            - name: ca_certificates_pem
+              description: CA certificate in PEM format.
+            - name: enabled
+              description: Whether mTLS is enabled.
+            - name: principal_mapping_rules
+              description: Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on [configuring authentication](https://docs.redpanda.com/redpanda-cloud/security/cloud-authentication/#mtls).
+        - name: url
+          description: Schema Registry URL.
+    - name: state
+      description: State describes the state of the cluster.
+    - name: state_description
+      description: Describes errors
+      attributes:
+        - name: code
+          description: RPC status code, as described [here](https://github.com/googleapis/googleapis/blob/b4c238feaa1097c53798ed77035bbfeb7fc72e96/google/rpc/code.proto#L32).
+        - name: message
+          description: Detailed error message. No compatibility guarantees are given for the text contained in this message.
+    - name: tags
+      description: Deprecated alias for `cloud_provider_tags`.
+    - name: throughput_tier
+      description: Throughput tier of the cluster.
+    - name: type
+      description: Cluster type. Type is immutable and can only be set on cluster creation.
+    - name: zones
+      description: Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster.

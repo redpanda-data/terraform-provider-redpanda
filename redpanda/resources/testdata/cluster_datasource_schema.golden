@@ -1,0 +1,641 @@
+has_timeouts: true
+attributes:
+    - name: allow_deletion
+      type: BoolAttribute
+      computed: true
+    - name: aws_private_link
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: allowed_principals
+          type: ListAttribute
+          computed: true
+          element_type: basetypes.StringType
+        - name: connect_console
+          type: BoolAttribute
+          computed: true
+        - name: enabled
+          type: BoolAttribute
+          computed: true
+        - name: status
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: console_port
+              type: Int32Attribute
+              computed: true
+            - name: kafka_api_node_base_port
+              type: Int32Attribute
+              computed: true
+            - name: kafka_api_seed_port
+              type: Int32Attribute
+              computed: true
+            - name: redpanda_proxy_node_base_port
+              type: Int32Attribute
+              computed: true
+            - name: redpanda_proxy_seed_port
+              type: Int32Attribute
+              computed: true
+            - name: schema_registry_seed_port
+              type: Int32Attribute
+              computed: true
+            - name: service_id
+              type: StringAttribute
+              computed: true
+            - name: service_name
+              type: StringAttribute
+              computed: true
+            - name: service_state
+              type: StringAttribute
+              computed: true
+            - name: vpc_endpoint_connections
+              type: ListNestedAttribute
+              computed: true
+              attributes:
+                - name: connection_id
+                  type: StringAttribute
+                  computed: true
+                - name: dns_entries
+                  type: ListNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: dns_name
+                      type: StringAttribute
+                      computed: true
+                    - name: hosted_zone_id
+                      type: StringAttribute
+                      computed: true
+                - name: id
+                  type: StringAttribute
+                  computed: true
+                - name: load_balancer_arns
+                  type: ListAttribute
+                  computed: true
+                  element_type: basetypes.StringType
+                - name: owner
+                  type: StringAttribute
+                  computed: true
+                - name: state
+                  type: StringAttribute
+                  computed: true
+        - name: supported_regions
+          type: ListAttribute
+          computed: true
+          element_type: basetypes.StringType
+    - name: azure_private_link
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: allowed_subscriptions
+          type: ListAttribute
+          computed: true
+          element_type: basetypes.StringType
+        - name: connect_console
+          type: BoolAttribute
+          computed: true
+        - name: enabled
+          type: BoolAttribute
+          computed: true
+        - name: status
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: approved_subscriptions
+              type: ListAttribute
+              computed: true
+              element_type: basetypes.StringType
+            - name: console_port
+              type: Int32Attribute
+              computed: true
+            - name: dns_a_record
+              type: StringAttribute
+              computed: true
+            - name: kafka_api_node_base_port
+              type: Int32Attribute
+              computed: true
+            - name: kafka_api_seed_port
+              type: Int32Attribute
+              computed: true
+            - name: private_endpoint_connections
+              type: ListNestedAttribute
+              computed: true
+              attributes:
+                - name: connection_id
+                  type: StringAttribute
+                  computed: true
+                - name: connection_name
+                  type: StringAttribute
+                  computed: true
+                - name: private_endpoint_id
+                  type: StringAttribute
+                  computed: true
+                - name: private_endpoint_name
+                  type: StringAttribute
+                  computed: true
+                - name: status
+                  type: StringAttribute
+                  computed: true
+            - name: redpanda_proxy_node_base_port
+              type: Int32Attribute
+              computed: true
+            - name: redpanda_proxy_seed_port
+              type: Int32Attribute
+              computed: true
+            - name: schema_registry_seed_port
+              type: Int32Attribute
+              computed: true
+            - name: service_id
+              type: StringAttribute
+              computed: true
+            - name: service_name
+              type: StringAttribute
+              computed: true
+    - name: cloud_provider
+      type: StringAttribute
+      computed: true
+    - name: cluster_api_url
+      type: StringAttribute
+      computed: true
+    - name: cluster_configuration
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: custom_properties_json
+          type: StringAttribute
+          computed: true
+    - name: cluster_type
+      type: StringAttribute
+      computed: true
+    - name: connection_type
+      type: StringAttribute
+      computed: true
+    - name: customer_managed_resources
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: aws
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: agent_instance_profile
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  computed: true
+            - name: cloud_storage_bucket
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  computed: true
+            - name: cluster_security_group
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  computed: true
+            - name: connectors_node_group_instance_profile
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  computed: true
+            - name: connectors_security_group
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  computed: true
+            - name: k8s_cluster_role
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  computed: true
+            - name: node_security_group
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  computed: true
+            - name: permissions_boundary_policy
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  computed: true
+            - name: redpanda_agent_security_group
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  computed: true
+            - name: redpanda_connect_node_group_instance_profile
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  computed: true
+            - name: redpanda_connect_security_group
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  computed: true
+            - name: redpanda_node_group_instance_profile
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  computed: true
+            - name: redpanda_node_group_security_group
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  computed: true
+            - name: utility_node_group_instance_profile
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  computed: true
+            - name: utility_security_group
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  computed: true
+        - name: gcp
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: agent_service_account
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  computed: true
+            - name: connector_service_account
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  computed: true
+            - name: console_service_account
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  computed: true
+            - name: gke_service_account
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  computed: true
+            - name: psc_nat_subnet_name
+              type: StringAttribute
+              computed: true
+            - name: redpanda_cluster_service_account
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  computed: true
+            - name: subnet
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: k8s_master_ipv4_range
+                  type: StringAttribute
+                  computed: true
+                - name: name
+                  type: StringAttribute
+                  computed: true
+                - name: secondary_ipv4_range_pods
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: secondary_ipv4_range_services
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+            - name: tiered_storage_bucket
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: name
+                  type: StringAttribute
+                  computed: true
+    - name: gcp_global_access_api_gateway_enabled
+      type: BoolAttribute
+      computed: true
+    - name: gcp_global_access_enabled
+      type: BoolAttribute
+      computed: true
+    - name: gcp_private_service_connect
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: consumer_accept_list
+          type: ListNestedAttribute
+          computed: true
+          attributes:
+            - name: source
+              type: StringAttribute
+              computed: true
+        - name: enabled
+          type: BoolAttribute
+          computed: true
+        - name: global_access_enabled
+          type: BoolAttribute
+          computed: true
+        - name: status
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: connected_endpoints
+              type: ListNestedAttribute
+              computed: true
+              attributes:
+                - name: connection_id
+                  type: StringAttribute
+                  computed: true
+                - name: consumer_network
+                  type: StringAttribute
+                  computed: true
+                - name: endpoint
+                  type: StringAttribute
+                  computed: true
+                - name: status
+                  type: StringAttribute
+                  computed: true
+            - name: dns_a_records
+              type: ListAttribute
+              computed: true
+              element_type: basetypes.StringType
+            - name: kafka_api_node_base_port
+              type: Int32Attribute
+              computed: true
+            - name: kafka_api_seed_port
+              type: Int32Attribute
+              computed: true
+            - name: redpanda_proxy_node_base_port
+              type: Int32Attribute
+              computed: true
+            - name: redpanda_proxy_seed_port
+              type: Int32Attribute
+              computed: true
+            - name: schema_registry_seed_port
+              type: Int32Attribute
+              computed: true
+            - name: seed_hostname
+              type: StringAttribute
+              computed: true
+            - name: service_attachment
+              type: StringAttribute
+              computed: true
+    - name: http_proxy
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: all_urls
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: mtls
+              type: StringAttribute
+              computed: true
+            - name: private_link_mtls
+              type: StringAttribute
+              computed: true
+            - name: private_link_sasl
+              type: StringAttribute
+              computed: true
+            - name: sasl
+              type: StringAttribute
+              computed: true
+        - name: mtls
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: ca_certificates_pem
+              type: ListAttribute
+              computed: true
+              element_type: basetypes.StringType
+            - name: enabled
+              type: BoolAttribute
+              computed: true
+            - name: principal_mapping_rules
+              type: ListAttribute
+              computed: true
+              element_type: basetypes.StringType
+        - name: sasl
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: enabled
+              type: BoolAttribute
+              computed: true
+        - name: url
+          type: StringAttribute
+          computed: true
+    - name: id
+      type: StringAttribute
+      required: true
+    - name: kafka_api
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: all_seed_brokers
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: mtls
+              type: StringAttribute
+              computed: true
+            - name: private_link_mtls
+              type: StringAttribute
+              computed: true
+            - name: private_link_sasl
+              type: StringAttribute
+              computed: true
+            - name: sasl
+              type: StringAttribute
+              computed: true
+        - name: mtls
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: ca_certificates_pem
+              type: ListAttribute
+              computed: true
+              element_type: basetypes.StringType
+            - name: enabled
+              type: BoolAttribute
+              computed: true
+            - name: principal_mapping_rules
+              type: ListAttribute
+              computed: true
+              element_type: basetypes.StringType
+        - name: sasl
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: enabled
+              type: BoolAttribute
+              computed: true
+        - name: seed_brokers
+          type: ListAttribute
+          computed: true
+          element_type: basetypes.StringType
+    - name: kafka_connect
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: enabled
+          type: BoolAttribute
+          computed: true
+    - name: maintenance_window_config
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: anytime
+          type: BoolAttribute
+          computed: true
+        - name: day_hour
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: day_of_week
+              type: StringAttribute
+              computed: true
+            - name: hour_of_day
+              type: Int32Attribute
+              computed: true
+        - name: unspecified
+          type: BoolAttribute
+          computed: true
+    - name: name
+      type: StringAttribute
+      computed: true
+    - name: network_id
+      type: StringAttribute
+      computed: true
+    - name: prometheus
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: url
+          type: StringAttribute
+          computed: true
+    - name: read_replica_cluster_ids
+      type: ListAttribute
+      computed: true
+      element_type: basetypes.StringType
+    - name: redpanda_console
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: url
+          type: StringAttribute
+          computed: true
+    - name: redpanda_version
+      type: StringAttribute
+      computed: true
+    - name: region
+      type: StringAttribute
+      computed: true
+    - name: resource_group_id
+      type: StringAttribute
+      computed: true
+    - name: schema_registry
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: all_urls
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: mtls
+              type: StringAttribute
+              computed: true
+            - name: private_link_mtls
+              type: StringAttribute
+              computed: true
+            - name: private_link_sasl
+              type: StringAttribute
+              computed: true
+            - name: sasl
+              type: StringAttribute
+              computed: true
+        - name: mtls
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: ca_certificates_pem
+              type: ListAttribute
+              computed: true
+              element_type: basetypes.StringType
+            - name: enabled
+              type: BoolAttribute
+              computed: true
+            - name: principal_mapping_rules
+              type: ListAttribute
+              computed: true
+              element_type: basetypes.StringType
+        - name: url
+          type: StringAttribute
+          computed: true
+    - name: state
+      type: StringAttribute
+      computed: true
+    - name: state_description
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: code
+          type: Int32Attribute
+          computed: true
+        - name: message
+          type: StringAttribute
+          computed: true
+    - name: tags
+      type: MapAttribute
+      computed: true
+      element_type: basetypes.StringType
+    - name: throughput_tier
+      type: StringAttribute
+      computed: true
+    - name: zones
+      type: ListAttribute
+      computed: true
+      element_type: basetypes.StringType
