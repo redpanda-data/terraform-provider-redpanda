@@ -19,19 +19,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	aclmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/acl"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils/enums"
 )
 
 // Per-RPC retry budget for dataplane calls (e.g., the freshly-provisioned-cluster
@@ -40,134 +41,37 @@ const dataplaneRetryTimeout = 2 * time.Minute
 
 // ACL represents the ACL Terraform resource.
 type ACL struct {
+	base.ResourceBase
+
 	ACLClient dataplanev1grpc.ACLServiceClient
 
 	resData config.Resource
 }
 
-// Ensure provider defined types fully satisfy framework interfaces.
+// NewACL constructs an ACL resource.
+func NewACL() *ACL {
+	a := &ACL{}
+	a.ResourceBase = base.NewResourceBase(
+		"redpanda_acl",
+		ResourceACLSchema,
+		func(p config.Resource) { a.resData = p },
+	)
+	return a
+}
+
 var (
-	_ resource.Resource              = &ACL{}
-	_ resource.ResourceWithConfigure = &ACL{}
+	_ resource.Resource                = &ACL{}
+	_ resource.ResourceWithConfigure   = &ACL{}
+	_ resource.ResourceWithImportState = &ACL{}
 )
 
-// Metadata returns the metadata for the resource.
-func (*ACL) Metadata(_ context.Context, _ resource.MetadataRequest, response *resource.MetadataResponse) {
-	response.TypeName = "redpanda_acl"
-}
-
-// Configure configures the ACL resource clients
-func (a *ACL) Configure(_ context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
-	if request.ProviderData == nil {
-		return
-	}
-
-	p, ok := request.ProviderData.(config.Resource)
-
-	if !ok {
-		response.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", request.ProviderData))
-		return
-	}
-	a.resData = p
-}
-
-// Schema returns the schema for the resource.
-func (*ACL) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
-	response.Schema = ResourceACLSchema()
-}
-
-// ResourceACLSchema returns the schema for the ACL resource.
-func ResourceACLSchema() schema.Schema {
-	return schema.Schema{
-		Attributes: map[string]schema.Attribute{
-			"resource_type": schema.StringAttribute{
-				Required:      true,
-				Description:   "The type of the resource (TOPIC, GROUP, etc...) this ACL shall target",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Validators:    aclResourceTypeValidator(),
-			},
-			"resource_name": schema.StringAttribute{
-				Required:      true,
-				Description:   "The name of the resource this ACL entry will be on",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"resource_pattern_type": schema.StringAttribute{
-				Required:      true,
-				Description:   "The pattern type of the resource. It determines the strategy how the provided resource name is matched (LITERAL, MATCH, PREFIXED, etc ...) against the actual resource names",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Validators:    aclResourcePatternTypeValidator(),
-			},
-			"principal": schema.StringAttribute{
-				Required:      true,
-				Description:   "The principal to apply this ACL for (e.g., User:alice or RedpandaRole:admin)",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"host": schema.StringAttribute{
-				Required:      true,
-				Description:   "The host address to use for this ACL",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"operation": schema.StringAttribute{
-				Required:      true,
-				Description:   "The operation type that shall be allowed or denied (e.g READ)",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Validators:    aclOperationValidator(),
-			},
-			"permission_type": schema.StringAttribute{
-				Required:      true,
-				Description:   "The permission type. It determines whether the operation should be ALLOWED or DENIED",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Validators:    aclPermissionTypeValidator(),
-			},
-			"cluster_api_url": schema.StringAttribute{
-				Required: true,
-				Description: "The cluster API URL. Changing this will prevent deletion of the resource on the existing " +
-					"cluster. It is generally a better idea to delete an existing resource and create a new one than to " +
-					"change this value unless you are planning to do state imports",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"allow_deletion": schema.BoolAttribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(false),
-				Description: "When set to true, allows the resource to be removed from state even if the cluster is unreachable",
-			},
-			"id": schema.StringAttribute{
-				Computed:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-			},
-		},
-	}
-}
-
-// Create creates a new ACL resource.
+// Create creates a new ACL resource. CreateACL has no useful response payload,
+// so the model is persisted from plan input with the ID computed via
+// GenerateID.
 func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
 	var model aclmodel.ResourceModel
 	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
-
-	resourceType, err := stringToACLResourceType(model.ResourceType.ValueString())
-	if err != nil {
-		response.Diagnostics.AddError("Error converting resource type", utils.DeserializeGrpcError(err))
-		return
-	}
-
-	resourcePatternType, err := stringToACLResourcePatternType(model.ResourcePatternType.ValueString())
-	if err != nil {
-		response.Diagnostics.AddError("Error converting resource pattern type", utils.DeserializeGrpcError(err))
-		return
-	}
-
-	operation, err := stringToACLOperation(model.Operation.ValueString())
-	if err != nil {
-		response.Diagnostics.AddError("Error converting operation", utils.DeserializeGrpcError(err))
-		return
-	}
-
-	permissionType, err := stringToACLPermissionType(model.PermissionType.ValueString())
-	if err != nil {
-		response.Diagnostics.AddError("Error converting permission type", utils.DeserializeGrpcError(err))
+	if response.Diagnostics.HasError() {
 		return
 	}
 
@@ -176,15 +80,13 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		return
 	}
 
-	listFilter := &dataplanev1.ListACLsRequest_Filter{
-		ResourceType:        resourceType,
-		ResourceName:        utils.StringToStringPointer(model.ResourceName.ValueString()),
-		ResourcePatternType: resourcePatternType,
-		Principal:           utils.StringToStringPointer(model.Principal.ValueString()),
-		Host:                utils.StringToStringPointer(model.Host.ValueString()),
-		Operation:           operation,
-		PermissionType:      permissionType,
+	pbReq, diags := aclmodel.ExpandCreate(ctx, &model)
+	response.Diagnostics.Append(diags...)
+	if response.Diagnostics.HasError() {
+		return
 	}
+
+	listFilter := buildACLFilter(&model)
 	probeACLExists := func() bool {
 		listResp, listErr := a.ACLClient.ListACLs(ctx, &dataplanev1.ListACLsRequest{Filter: listFilter})
 		if listErr != nil {
@@ -192,24 +94,16 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		}
 		for _, res := range listResp.GetResources() {
 			if res.GetResourceName() == model.ResourceName.ValueString() &&
-				res.GetResourceType() == resourceType &&
-				res.GetResourcePatternType() == resourcePatternType {
+				res.GetResourceType() == pbReq.GetResourceType() &&
+				res.GetResourcePatternType() == pbReq.GetResourcePatternType() {
 				return true
 			}
 		}
 		return false
 	}
 
-	err = utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
-		_, rpcErr := a.ACLClient.CreateACL(ctx, &dataplanev1.CreateACLRequest{
-			ResourceType:        resourceType,
-			ResourceName:        model.ResourceName.ValueString(),
-			ResourcePatternType: resourcePatternType,
-			Principal:           model.Principal.ValueString(),
-			Host:                model.Host.ValueString(),
-			Operation:           operation,
-			PermissionType:      permissionType,
-		})
+	err := utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+		_, rpcErr := a.ACLClient.CreateACL(ctx, pbReq)
 		if rpcErr == nil {
 			return nil
 		}
@@ -234,22 +128,15 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		return
 	}
 
-	acl := &aclmodel.ResourceModel{
-		ResourceType:        model.ResourceType,
-		ResourceName:        model.ResourceName,
-		ResourcePatternType: model.ResourcePatternType,
-		Principal:           model.Principal,
-		Host:                model.Host,
-		Operation:           model.Operation,
-		PermissionType:      model.PermissionType,
-		ClusterAPIURL:       model.ClusterAPIURL,
-		AllowDeletion:       model.AllowDeletion,
-	}
-	acl.ID = types.StringValue(acl.GenerateID())
-	response.Diagnostics.Append(response.State.Set(ctx, acl)...)
+	model.ID = types.StringValue(model.GenerateID())
+	response.Diagnostics.Append(response.State.Set(ctx, &model)...)
 }
 
-// Read checks for the existence of an ACL resource
+// Read confirms the ACL exists in the cluster by listing matching records
+// against a filter built from the model. The matched ListACLsResponse_Resource
+// is fed to the generated Flatten, which keeps user-supplied identifying
+// fields (principal, host, operation, permission_type) preserved from prev
+// rather than echoed from the API.
 func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
 	var model aclmodel.ResourceModel
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
@@ -259,42 +146,7 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 		return
 	}
 
-	resourceType, err := stringToACLResourceType(model.ResourceType.ValueString())
-	if err != nil {
-		response.Diagnostics.AddError("Error converting resource type", utils.DeserializeGrpcError(err))
-		return
-	}
-
-	resourcePatternType, err := stringToACLResourcePatternType(model.ResourcePatternType.ValueString())
-	if err != nil {
-		response.Diagnostics.AddError("Error converting resource pattern type", utils.DeserializeGrpcError(err))
-		return
-	}
-
-	operation, err := stringToACLOperation(model.Operation.ValueString())
-	if err != nil {
-		response.Diagnostics.AddError("Error converting operation", utils.DeserializeGrpcError(err))
-		return
-	}
-
-	permissionType, err := stringToACLPermissionType(model.PermissionType.ValueString())
-	if err != nil {
-		response.Diagnostics.AddError("Error converting permission type", utils.DeserializeGrpcError(err))
-		return
-	}
-
-	filter := &dataplanev1.ListACLsRequest_Filter{
-		ResourceType:        resourceType,
-		ResourceName:        utils.StringToStringPointer(model.ResourceName.ValueString()),
-		ResourcePatternType: resourcePatternType,
-		Principal:           utils.StringToStringPointer(model.Principal.ValueString()),
-		Host:                utils.StringToStringPointer(model.Host.ValueString()),
-		Operation:           operation,
-		PermissionType:      permissionType,
-	}
-
-	err = a.createACLClient(model.ClusterAPIURL.ValueString())
-	if err != nil {
+	if err := a.createACLClient(model.ClusterAPIURL.ValueString()); err != nil {
 		action, diags := utils.HandleGracefulRemoval(ctx, "ACL", model.GenerateID(), model.AllowDeletion, err, "create ACL client")
 		response.Diagnostics.Append(diags...)
 		if action == utils.RemoveFromState {
@@ -303,8 +155,9 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 		return
 	}
 
+	filter := buildACLFilter(&model)
 	var aclList *dataplanev1.ListACLsResponse
-	err = utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+	err := utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
 		var rpcErr error
 		aclList, rpcErr = a.ACLClient.ListACLs(ctx, &dataplanev1.ListACLsRequest{Filter: filter})
 		if rpcErr != nil {
@@ -324,30 +177,24 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 		return
 	}
 
+	wantType := enums.StringToACLResourceType(model.ResourceType.ValueString())
+	wantPattern := enums.StringToACLResourcePatternType(model.ResourcePatternType.ValueString())
 	for _, res := range aclList.Resources {
-		if res.ResourceName == model.ResourceName.ValueString() && res.ResourceType == resourceType && res.ResourcePatternType == resourcePatternType {
-			acl := &aclmodel.ResourceModel{
-				ResourceType:        types.StringValue(aclResourceTypeToString(res.ResourceType)),
-				ResourceName:        types.StringValue(res.ResourceName),
-				ResourcePatternType: types.StringValue(aclResourcePatternTypeToString(res.ResourcePatternType)),
-				Principal:           model.Principal,
-				Host:                model.Host,
-				Operation:           model.Operation,
-				PermissionType:      model.PermissionType,
-				ClusterAPIURL:       model.ClusterAPIURL,
-				AllowDeletion:       model.AllowDeletion,
-			}
-			if model.ID.IsNull() || model.ID.IsUnknown() {
-				acl.ID = types.StringValue(acl.GenerateID())
-			} else {
-				acl.ID = model.ID
-			}
-			response.Diagnostics.Append(response.State.Set(ctx, acl)...)
+		if res.ResourceName != model.ResourceName.ValueString() ||
+			res.ResourceType != wantType ||
+			res.ResourcePatternType != wantPattern {
+			continue
+		}
+		persist, diags := aclmodel.Flatten(ctx, res, &model)
+		response.Diagnostics.Append(diags...)
+		if response.Diagnostics.HasError() {
 			return
 		}
+		response.Diagnostics.Append(response.State.Set(ctx, persist)...)
+		return
 	}
 
-	// ACL not found - use helper for proper handling
+	// ACL not found
 	action, diags := utils.HandleGracefulRemoval(ctx, "ACL", model.GenerateID(), model.AllowDeletion, utils.NotFoundError{Message: "ACL not found in cluster"}, "find ACL")
 	response.Diagnostics.Append(diags...)
 	if action == utils.RemoveFromState {
@@ -355,24 +202,20 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 	}
 }
 
-// Update updates an ACL resource
+// Update is a no-op: ACL fields are all RequiresReplace except for
+// allow_deletion, which is reflected back into state from plan.
 func (*ACL) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
-	var plan aclmodel.ResourceModel
-	var state aclmodel.ResourceModel
-
+	var plan, state aclmodel.ResourceModel
 	response.Diagnostics.Append(request.Plan.Get(ctx, &plan)...)
 	response.Diagnostics.Append(request.State.Get(ctx, &state)...)
-
 	if response.Diagnostics.HasError() {
 		return
 	}
-
 	state.AllowDeletion = plan.AllowDeletion
-
 	response.Diagnostics.Append(response.State.Set(ctx, &state)...)
 }
 
-// Delete deletes an ACL resource
+// Delete deletes an ACL resource via the matching filter.
 func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
 	var model aclmodel.ResourceModel
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
@@ -382,7 +225,6 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 
 	aclID := model.GenerateID()
 
-	// Block deletion only if allow_deletion is explicitly set to false
 	if !model.AllowDeletion.IsNull() && !model.AllowDeletion.ValueBool() {
 		response.Diagnostics.AddError(
 			"Cannot delete ACL",
@@ -391,50 +233,22 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 		return
 	}
 
-	resourceType, err := stringToACLResourceType(model.ResourceType.ValueString())
-	if err != nil {
-		response.Diagnostics.AddError("Error converting resource type", utils.DeserializeGrpcError(err))
-		return
-	}
-
-	resourcePatternType, err := stringToACLResourcePatternType(model.ResourcePatternType.ValueString())
-	if err != nil {
-		response.Diagnostics.AddError("Error converting resource pattern type", utils.DeserializeGrpcError(err))
-		return
-	}
-
-	operation, err := stringToACLOperation(model.Operation.ValueString())
-	if err != nil {
-		response.Diagnostics.AddError("Error converting operation", utils.DeserializeGrpcError(err))
-		return
-	}
-
-	permissionType, err := stringToACLPermissionType(model.PermissionType.ValueString())
-	if err != nil {
-		response.Diagnostics.AddError("Error converting permission type", utils.DeserializeGrpcError(err))
-		return
-	}
-
-	filter := &dataplanev1.DeleteACLsRequest_Filter{
-		ResourceType:        resourceType,
-		ResourceName:        utils.StringToStringPointer(model.ResourceName.ValueString()),
-		ResourcePatternType: resourcePatternType,
-		Principal:           utils.StringToStringPointer(model.Principal.ValueString()),
-		Host:                utils.StringToStringPointer(model.Host.ValueString()),
-		Operation:           operation,
-		PermissionType:      permissionType,
-	}
-	err = a.createACLClient(model.ClusterAPIURL.ValueString())
-	if err != nil {
+	if err := a.createACLClient(model.ClusterAPIURL.ValueString()); err != nil {
 		_, diags := utils.HandleGracefulRemoval(ctx, "ACL", aclID, model.AllowDeletion, err, "create ACL client")
 		response.Diagnostics.Append(diags...)
 		return
 	}
 
+	pbReq, diags := aclmodel.ExpandDelete(ctx, &model)
+	response.Diagnostics.Append(diags...)
+	if response.Diagnostics.HasError() {
+		return
+	}
+
 	var deleteResponse *dataplanev1.DeleteACLsResponse
-	err = utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+	err := utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
 		var rpcErr error
-		deleteResponse, rpcErr = a.ACLClient.DeleteACLs(ctx, &dataplanev1.DeleteACLsRequest{Filter: filter})
+		deleteResponse, rpcErr = a.ACLClient.DeleteACLs(ctx, pbReq)
 		if rpcErr != nil {
 			if utils.IsUnavailable(rpcErr) {
 				return utils.RetryableError(rpcErr)
@@ -444,8 +258,8 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 		return nil
 	})
 	if err != nil {
-		_, diags := utils.HandleGracefulRemoval(ctx, "ACL", aclID, model.AllowDeletion, err, "delete ACL")
-		response.Diagnostics.Append(diags...)
+		_, ddiags := utils.HandleGracefulRemoval(ctx, "ACL", aclID, model.AllowDeletion, err, "delete ACL")
+		response.Diagnostics.Append(ddiags...)
 		return
 	}
 
@@ -454,6 +268,21 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 			response.Diagnostics.AddError("Error deleting ACL", matchingACL.Error.Message)
 			return
 		}
+	}
+}
+
+// buildACLFilter constructs a ListACLsRequest_Filter populated from the
+// model, mirroring the same field-shape the generated ExpandDelete builds
+// for DeleteACLsRequest_Filter (separate proto types, same semantics).
+func buildACLFilter(m *aclmodel.ResourceModel) *dataplanev1.ListACLsRequest_Filter {
+	return &dataplanev1.ListACLsRequest_Filter{
+		ResourceType:        enums.StringToACLResourceType(m.ResourceType.ValueString()),
+		ResourceName:        utils.PointerOrNil(m.ResourceName, types.String.ValueString),
+		ResourcePatternType: enums.StringToACLResourcePatternType(m.ResourcePatternType.ValueString()),
+		Principal:           utils.PointerOrNil(m.Principal, types.String.ValueString),
+		Host:                utils.PointerOrNil(m.Host, types.String.ValueString),
+		Operation:           enums.StringToACLOperation(m.Operation.ValueString()),
+		PermissionType:      enums.StringToACLPermissionType(m.PermissionType.ValueString()),
 	}
 }
 
@@ -470,4 +299,59 @@ func (a *ACL) createACLClient(clusterURL string) error {
 	}
 	a.ACLClient = dataplanev1grpc.NewACLServiceClient(conn)
 	return nil
+}
+
+// ImportState imports an ACL identified by the comma-separated tuple
+// <cluster_id>,<resource_type>,<resource_name>,<resource_pattern_type>,<principal>,<host>,<operation>,<permission_type>.
+// The cluster_id is resolved to a dataplane URL via the control-plane
+// client, then written into cluster_api_url; the rest seed the seven ACL
+// identity attrs. allow_deletion + id are left for the next Read to
+// populate (id is computed from the identity tuple).
+func (a *ACL) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	const expectedFields = 8
+	parts := strings.Split(req.ID, ",")
+	if len(parts) != expectedFields {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("wrong ACL import ID format: %q", req.ID),
+			"format is <cluster_id>,<resource_type>,<resource_name>,<resource_pattern_type>,<principal>,<host>,<operation>,<permission_type>",
+		)
+		return
+	}
+	clusterID := parts[0]
+
+	cp := cloud.NewControlPlaneClientSet(a.resData.ControlPlaneConnection)
+	var dataplaneURL string
+	if cl, err := cp.ClusterForID(ctx, clusterID); err == nil && cl != nil {
+		dataplaneURL = cl.DataplaneApi.Url
+	} else if sl, serr := cp.ServerlessClusterForID(ctx, clusterID); serr == nil && sl != nil {
+		dataplaneURL = sl.DataplaneApi.Url
+	} else {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("failed to resolve dataplane URL for cluster %q", clusterID),
+			utils.DeserializeGrpcError(err)+utils.DeserializeGrpcError(serr),
+		)
+		return
+	}
+
+	for _, f := range []struct {
+		path  path.Path
+		value string
+	}{
+		{path.Root("cluster_api_url"), dataplaneURL},
+		{path.Root("resource_type"), parts[1]},
+		{path.Root("resource_name"), parts[2]},
+		{path.Root("resource_pattern_type"), parts[3]},
+		{path.Root("principal"), parts[4]},
+		{path.Root("host"), parts[5]},
+		{path.Root("operation"), parts[6]},
+		{path.Root("permission_type"), parts[7]},
+	} {
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, f.path, types.StringValue(f.value))...)
+	}
+	// Compute id from the identity tuple so ImportStateVerify matches the
+	// post-Create id (which uses the same GenerateID() shape).
+	id := fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s",
+		parts[1], parts[2], parts[3], parts[4], parts[5], parts[6], parts[7])
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(id))...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/kclients"
@@ -33,58 +34,49 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
-// SchemaRegistryACLClientFactory is a function type for creating Schema Registry ACL clients
+// SchemaRegistryACLClientFactory is a function type for creating Schema Registry
+// ACL clients. authToken is the provider's cloud-issued Bearer token, used when
+// explicit Basic creds (username+password) are absent.
 //
 //nolint:revive // intentional naming for clarity
-type SchemaRegistryACLClientFactory func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, username, password string) (kclients.SchemaRegistryACLClientInterface, error)
+type SchemaRegistryACLClientFactory func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, authToken, username, password string) (kclients.SchemaRegistryACLClientInterface, error)
 
 // SchemaRegistryACL represents the Schema Registry ACL Terraform resource.
 type SchemaRegistryACL struct {
-	CpCl          *cloud.ControlPlaneClientSet
+	base.ResourceBase
+
 	resData       config.Resource
 	clientFactory SchemaRegistryACLClientFactory
 }
 
-// Ensure provider defined types fully satisfy framework interfaces.
+// Schema returns the schema for the resource.
+func (*SchemaRegistryACL) Schema(ctx context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
+	response.Schema = ResourceSchemaRegistryACLSchema(ctx)
+}
+
+// NewSchemaRegistryACL constructs a SchemaRegistryACL resource.
+func NewSchemaRegistryACL() *SchemaRegistryACL {
+	s := &SchemaRegistryACL{}
+	s.ResourceBase = base.NewResourceBase(
+		"redpanda_schema_registry_acl",
+		ResourceSchemaRegistryACLSchema,
+		func(p config.Resource) {
+			s.resData = p
+			if s.clientFactory == nil {
+				s.clientFactory = func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, authToken, username, password string) (kclients.SchemaRegistryACLClientInterface, error) {
+					return kclients.NewSchemaRegistryACLClient(ctx, cpCl, clusterID, authToken, username, password)
+				}
+			}
+		},
+	)
+	return s
+}
+
 var (
 	_ resource.Resource                = &SchemaRegistryACL{}
 	_ resource.ResourceWithConfigure   = &SchemaRegistryACL{}
 	_ resource.ResourceWithImportState = &SchemaRegistryACL{}
 )
-
-// Metadata returns the metadata for the resource.
-func (*SchemaRegistryACL) Metadata(_ context.Context, _ resource.MetadataRequest, response *resource.MetadataResponse) {
-	response.TypeName = "redpanda_schema_registry_acl"
-}
-
-// Configure configures the Schema Registry ACL resource clients
-func (s *SchemaRegistryACL) Configure(_ context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
-	if request.ProviderData == nil {
-		return
-	}
-
-	p, ok := request.ProviderData.(config.Resource)
-
-	if !ok {
-		response.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", request.ProviderData))
-		return
-	}
-	s.resData = p
-	s.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
-
-	if s.clientFactory == nil {
-		s.clientFactory = func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, username, password string) (kclients.SchemaRegistryACLClientInterface, error) {
-			return kclients.NewSchemaRegistryACLClient(ctx, cpCl, clusterID, username, password)
-		}
-	}
-}
-
-// Schema returns the schema for the resource.
-func (*SchemaRegistryACL) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
-	response.Schema = ResourceSchemaRegistryACLSchema()
-}
 
 // Create creates a new Schema Registry ACL resource.
 func (s *SchemaRegistryACL) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
@@ -226,28 +218,39 @@ type importIDComponents struct {
 }
 
 func parseImportID(importID string) (*importIDComponents, error) {
-	parts := strings.Split(importID, ":")
-	if len(parts) < 10 {
-		return nil, fmt.Errorf("expected format: cluster_id:principal:resource_type:resource_name:pattern_type:host:operation:permission:username:password, got %d parts (expected at least 10)", len(parts))
+	parts := strings.Split(importID, ",")
+	if len(parts) != 8 && len(parts) != 10 {
+		return nil, fmt.Errorf(
+			"expected one of:\n"+
+				"  Bearer auth (default): cluster_id,principal,resource_type,resource_name,pattern_type,host,operation,permission\n"+
+				"  Basic auth (optional): cluster_id,principal,resource_type,resource_name,pattern_type,host,operation,permission,username,password\n"+
+				"got %d parts",
+			len(parts),
+		)
 	}
-
-	return &importIDComponents{
+	ret := &importIDComponents{
 		clusterID:    parts[0],
-		principal:    strings.Join(parts[1:len(parts)-8], ":"),
-		resourceType: parts[len(parts)-8],
-		resourceName: parts[len(parts)-7],
-		patternType:  parts[len(parts)-6],
-		host:         parts[len(parts)-5],
-		operation:    parts[len(parts)-4],
-		permission:   parts[len(parts)-3],
-		username:     parts[len(parts)-2],
-		password:     parts[len(parts)-1],
-	}, nil
+		principal:    parts[1],
+		resourceType: parts[2],
+		resourceName: parts[3],
+		patternType:  parts[4],
+		host:         parts[5],
+		operation:    parts[6],
+		permission:   parts[7],
+	}
+	if len(parts) == 10 {
+		ret.username = parts[8]
+		ret.password = parts[9]
+	}
+	return ret, nil
 }
 
 // ImportState imports a Schema Registry ACL resource.
-// Format: cluster_id:principal:resource_type:resource_name:pattern_type:host:operation:permission:username:password
-// Password can also be set via REDPANDA_IMPORT_PASSWORD env var.
+//
+// Bearer auth (default): cluster_id,principal,resource_type,resource_name,pattern_type,host,operation,permission
+// Basic auth (optional): same 8 fields + ,username,password
+//
+// For Basic auth, password can also be set via REDPANDA_IMPORT_PASSWORD env var.
 func (*SchemaRegistryACL) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
 	components, err := parseImportID(request.ID)
 	if err != nil {
@@ -268,14 +271,31 @@ func (*SchemaRegistryACL) ImportState(ctx context.Context, request resource.Impo
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("host"), components.host)...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("operation"), components.operation)...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("permission"), components.permission)...)
-	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("username"), components.username)...)
-	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("password"), password)...)
-	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("id"), request.ID)...)
+	// Bearer-default: username and password stay null in state when the
+	// import ID didn't include them. Only write to state when supplied
+	// (Basic auth path).
+	if components.username != "" {
+		response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("username"), components.username)...)
+	}
+	if password != "" {
+		response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("password"), password)...)
+	}
+	id := fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s:%s",
+		components.clusterID,
+		components.principal,
+		components.resourceType,
+		components.resourceName,
+		components.patternType,
+		components.host,
+		components.operation,
+		components.permission,
+	)
+	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("id"), id)...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
 }
 
 func (s *SchemaRegistryACL) getSchemaRegistryClient(ctx context.Context, model *schemaregistryaclmodel.ResourceModel) (kclients.SchemaRegistryACLClientInterface, error) {
-	return s.clientFactory(ctx, s.CpCl, model.ClusterID.ValueString(), model.Username.ValueString(), model.GetEffectivePassword())
+	return s.clientFactory(ctx, s.CpCl, model.ClusterID.ValueString(), s.resData.AuthToken, model.Username.ValueString(), model.GetEffectivePassword())
 }
 
 // verifyACLPropagation verifies that the ACL has been propagated and is ready for use.

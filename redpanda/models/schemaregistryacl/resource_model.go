@@ -18,9 +18,28 @@ package schemaregistryacl
 import (
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/kclients"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
+
+// ResourceModel represents the Terraform schema for the schemaregistryacl resource.
+type ResourceModel struct {
+	AllowDeletion     types.Bool   `tfsdk:"allow_deletion"`
+	ClusterID         types.String `tfsdk:"cluster_id"`
+	Host              types.String `tfsdk:"host"`
+	ID                types.String `tfsdk:"id"`
+	Operation         types.String `tfsdk:"operation"`
+	Password          types.String `tfsdk:"password"`
+	PasswordWO        types.String `tfsdk:"password_wo"`
+	PasswordWOVersion types.Int64  `tfsdk:"password_wo_version"`
+	PatternType       types.String `tfsdk:"pattern_type"`
+	Permission        types.String `tfsdk:"permission"`
+	Principal         types.String `tfsdk:"principal"`
+	ResourceName      types.String `tfsdk:"resource_name"`
+	ResourceType      types.String `tfsdk:"resource_type"`
+	Username          types.String `tfsdk:"username"`
+}
 
 // GetEffectivePassword returns the password to use, preferring password_wo over password.
 func (s *ResourceModel) GetEffectivePassword() string {

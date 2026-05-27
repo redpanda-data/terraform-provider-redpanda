@@ -1,7 +1,8 @@
 package schemaregistryacl
 
 import (
-	"github.com/hashicorp/terraform-plugin-framework/path"
+	"context"
+
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
@@ -12,7 +13,7 @@ import (
 )
 
 // ResourceSchemaRegistryACLSchema returns the schema for the SchemaRegistryACL resource.
-func ResourceSchemaRegistryACLSchema() schema.Schema {
+func ResourceSchemaRegistryACLSchema(_ context.Context) schema.Schema {
 	return schema.Schema{
 		Description: "Resource for managing Redpanda Schema Registry ACLs (Access Control Lists). " +
 			"This resource allows you to configure fine-grained access control for Schema Registry resources.",
@@ -92,29 +93,24 @@ func ResourceSchemaRegistryACLSchema() schema.Schema {
 			"username": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
-				Description: "Username for authentication. Can be set via REDPANDA_SR_USERNAME environment variable",
+				Description: "SASL username for Schema Registry HTTP Basic authentication. Optional: when omitted (together with password) the provider authenticates to Schema Registry using its cloud Bearer token. Supply username + password only when you need writes to be attributed to a specific SASL identity (e.g., audit / least-privilege).",
 			},
 			"password": schema.StringAttribute{
-				Optional:           true,
-				Sensitive:          true,
-				Description:        "Password for authentication. Deprecated: use password_wo instead. Can be set via REDPANDA_SR_PASSWORD environment variable",
-				DeprecationMessage: "Use password_wo instead to avoid storing password in Terraform state",
-				Validators: []validator.String{
-					validators.Password(
-						path.MatchRoot("password"),
-						path.MatchRoot("password_wo"),
-					),
-				},
+				Optional:    true,
+				Sensitive:   true,
+				Description: "SASL password for Schema Registry HTTP Basic authentication. Pair with username when you need writes attributed to a specific SASL identity instead of the provider's cloud Bearer token. Stored in Terraform state.",
 			},
 			"password_wo": schema.StringAttribute{
-				Optional:    true,
-				WriteOnly:   true,
-				Description: "Password for authentication (write-only, not stored in state). Requires Terraform 1.11+. Can be set via REDPANDA_SR_PASSWORD environment variable",
+				Optional:           true,
+				WriteOnly:          true,
+				Description:        "Deprecated. The Terraform Plugin Framework does not persist write-only attributes to state, leaving the provider unable to authenticate to Schema Registry during refresh — this attribute cannot reliably manage ACLs. Use the default cloud Bearer authentication (omit username and password) or the regular `password` attribute.",
+				DeprecationMessage: "password_wo cannot be used reliably with redpanda_schema_registry_acl: write-only attributes are not available at refresh time, so the provider cannot authenticate to Schema Registry during plan. Use cloud Bearer authentication (omit username + password) or the `password` attribute instead.",
 			},
 			"password_wo_version": schema.Int64Attribute{
-				Optional:      true,
-				Description:   "Version number for password_wo. Increment this value to trigger a password update when using password_wo.",
-				PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+				Optional:           true,
+				Description:        "Deprecated. Version counter for password_wo, which is itself deprecated for this resource.",
+				PlanModifiers:      []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+				DeprecationMessage: "password_wo_version is paired with password_wo, which is deprecated. See the password_wo deprecation message for migration guidance.",
 			},
 			"allow_deletion": schema.BoolAttribute{
 				Optional:    true,
