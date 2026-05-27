@@ -1,0 +1,89 @@
+attributes:
+    - name: cidr_block
+      type: StringAttribute
+      computed: true
+      validators:
+        - stringvalidator.regexMatchesValidator
+    - name: cloud_provider
+      type: StringAttribute
+      computed: true
+      validators:
+        - stringvalidator.oneOfValidator
+    - name: cluster_type
+      type: StringAttribute
+      computed: true
+      validators:
+        - stringvalidator.oneOfValidator
+    - name: customer_managed_resources
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: aws
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: dynamodb_table
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: management_bucket
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: private_subnets
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arns
+                  type: ListAttribute
+                  required: true
+                  element_type: basetypes.StringType
+            - name: vpc
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+        - name: gcp
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: management_bucket
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: name
+                  type: StringAttribute
+                  required: true
+            - name: network_name
+              type: StringAttribute
+              computed: true
+            - name: network_project_id
+              type: StringAttribute
+              computed: true
+    - name: id
+      type: StringAttribute
+      required: true
+    - name: name
+      type: StringAttribute
+      computed: true
+    - name: region
+      type: StringAttribute
+      computed: true
+    - name: resource_group_id
+      type: StringAttribute
+      computed: true
+    - name: state
+      type: StringAttribute
+      computed: true
+    - name: zones
+      type: ListAttribute
+      computed: true
+      element_type: basetypes.StringType
