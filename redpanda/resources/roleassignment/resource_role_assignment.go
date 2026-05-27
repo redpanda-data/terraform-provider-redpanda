@@ -13,32 +13,38 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
 // RoleAssignment implements the resource interface for role assignments.
 type RoleAssignment struct {
+	base.ResourceBase
+
 	resData        config.Resource
 	SecurityClient consolev1alpha1grpc.SecurityServiceClient
 }
 
 // NewRoleAssignment creates a new instance of the role assignment resource.
-func NewRoleAssignment() resource.Resource {
-	return &RoleAssignment{}
+func NewRoleAssignment() *RoleAssignment {
+	r := &RoleAssignment{}
+	r.ResourceBase = base.NewResourceBase(
+		"redpanda_role_assignment",
+		ResourceRoleAssignmentSchema,
+		func(p config.Resource) { r.resData = p },
+	)
+	return r
 }
 
-// Metadata returns the metadata for the role assignment resource.
-func (*RoleAssignment) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_role_assignment"
-}
-
-// Schema returns the schema for the role assignment resource.
-func (*RoleAssignment) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = schema.Schema{
+// ResourceRoleAssignmentSchema returns the schema for the role assignment resource.
+func ResourceRoleAssignmentSchema(_ context.Context) schema.Schema {
+	return schema.Schema{
 		MarkdownDescription: "Assigns existing Redpanda roles to principals. Requires an existing role and user.",
 		Attributes: map[string]schema.Attribute{
 			"role_name": schema.StringAttribute{
@@ -49,10 +55,13 @@ func (*RoleAssignment) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				},
 			},
 			"principal": schema.StringAttribute{
-				MarkdownDescription: "The principal to assign the role to. Specify just the username (e.g., `\"john.doe\"`)",
+				MarkdownDescription: "The principal to assign the role to. Use the Kafka-style prefixed form: `\"User:<name>\"` for an end user or `\"Group:<name>\"` for an IdP group. The value is preserved verbatim in state.",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					validators.PrincipalPrefix(),
 				},
 			},
 			"cluster_api_url": schema.StringAttribute{
@@ -73,20 +82,6 @@ func (*RoleAssignment) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 	}
 }
 
-// Configure configures the role assignment resource.
-func (r *RoleAssignment) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	if req.ProviderData == nil {
-		return
-	}
-
-	resData, ok := req.ProviderData.(config.Resource)
-	if !ok {
-		resp.Diagnostics.AddError("Unexpected Resource Configure Type", fmt.Sprintf("Expected config.Resource, got: %T.", req.ProviderData))
-		return
-	}
-	r.resData = resData
-}
-
 // Create creates a new role assignment.
 func (r *RoleAssignment) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var model models.RoleAssignment
@@ -96,7 +91,7 @@ func (r *RoleAssignment) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	roleName := model.RoleName.ValueString()
-	principal := normalizePrincipal(model.Principal.ValueString())
+	principal := model.Principal.ValueString()
 	clusterAPIURL := model.ClusterAPIURL.ValueString()
 
 	if err := r.createSecurityClient(ctx, clusterAPIURL); err != nil {
@@ -119,8 +114,8 @@ func (r *RoleAssignment) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	// Store the normalized principal and set the ID
-	model.Principal = types.StringValue(principal)
+	// Principal is preserved as the user supplied it (the API accepts the
+	// "User:" and "Group:" prefixed forms verbatim).
 	model.ID = types.StringValue(fmt.Sprintf("%s:%s", roleName, principal))
 	resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
 }
@@ -134,7 +129,7 @@ func (r *RoleAssignment) Read(ctx context.Context, req resource.ReadRequest, res
 	}
 
 	roleName := model.RoleName.ValueString()
-	principal := model.Principal.ValueString() // Already normalized when stored
+	principal := model.Principal.ValueString()
 	clusterAPIURL := model.ClusterAPIURL.ValueString()
 
 	// Validate required fields
@@ -146,10 +141,21 @@ func (r *RoleAssignment) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
+	// Self-heal legacy state: a pre-validator provider may have written a
+	// bare principal (e.g. "alice") into state. The backend canonicalizes
+	// to "User:alice", so verbatim comparison would falsely report the
+	// membership missing. Canonicalize once here, use it for both lookup
+	// and the state writeback so the next refresh sees a canonical value.
+	canonical := validators.CanonicalizePrincipal(principal)
+
 	// If cluster_api_url is empty (e.g., during import), skip the API check
 	// The next plan/apply will validate the resource exists
 	if clusterAPIURL == "" {
 		tflog.Info(ctx, "Skipping API check due to empty cluster_api_url (likely during import)")
+		if canonical != principal {
+			model.Principal = types.StringValue(canonical)
+			model.ID = types.StringValue(fmt.Sprintf("%s:%s", roleName, canonical))
+		}
 		resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
 		return
 	}
@@ -160,12 +166,12 @@ func (r *RoleAssignment) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
-	exists, err := r.roleAssignmentExists(ctx, roleName, principal)
+	exists, err := r.roleAssignmentExists(ctx, roleName, canonical)
 	if err != nil {
 		// Don't remove from state on API errors - just fail the read
 		resp.Diagnostics.AddError(
 			"Failed to verify role assignment",
-			fmt.Sprintf("Could not check if role assignment %s:%s exists: %s", roleName, principal, utils.DeserializeGrpcError(err)),
+			fmt.Sprintf("Could not check if role assignment %s:%s exists: %s", roleName, canonical, utils.DeserializeGrpcError(err)),
 		)
 		return
 	}
@@ -173,13 +179,16 @@ func (r *RoleAssignment) Read(ctx context.Context, req resource.ReadRequest, res
 	if !exists {
 		tflog.Warn(ctx, "Role assignment not found, removing from state", map[string]any{
 			"role_name": roleName,
-			"principal": principal,
+			"principal": canonical,
 		})
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
-	// Role assignment exists, keep current state
+	if canonical != principal {
+		model.Principal = types.StringValue(canonical)
+		model.ID = types.StringValue(fmt.Sprintf("%s:%s", roleName, canonical))
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
 }
 
@@ -197,7 +206,11 @@ func (r *RoleAssignment) Delete(ctx context.Context, req resource.DeleteRequest,
 	}
 
 	roleName := model.RoleName.ValueString()
-	principal := model.Principal.ValueString() // Already normalized when stored
+	// Canonicalize for the same reason as Read: legacy bare-form state
+	// would send a bare principal to UpdateRoleMembership.Remove, which
+	// the backend may reject because membership is keyed by the canonical
+	// "User:<name>" form.
+	principal := validators.CanonicalizePrincipal(model.Principal.ValueString())
 	clusterAPIURL := model.ClusterAPIURL.ValueString()
 
 	if err := r.createSecurityClient(ctx, clusterAPIURL); err != nil {
@@ -224,37 +237,35 @@ func (r *RoleAssignment) Delete(ctx context.Context, req resource.DeleteRequest,
 	resp.State.RemoveResource(ctx)
 }
 
-// ImportState imports the role assignment state
+// ImportState parses a composite import ID of the form
+// "<role_name>:<principal>[|<cluster_api_url>]". The trailing |URL is optional
+// but recommended: cluster_api_url is RequiresReplace and is not recoverable
+// from the server-side membership response. "|" avoids collision with ":" in
+// prefixed principals (e.g. "User:alice").
 func (*RoleAssignment) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	// Expected format: role_name:principal
-	parts := strings.SplitN(req.ID, ":", 2)
-	if len(parts) != 2 {
+	rest, clusterAPIURL, _ := strings.Cut(req.ID, "|")
+	parts := strings.SplitN(rest, ":", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		resp.Diagnostics.AddError(
 			"Invalid import ID format",
-			"Expected format: role_name:principal",
+			"Expected format: <role_name>:<principal>[|<cluster_api_url>] — e.g. developer:User:alice|https://api.region.redpanda.com",
 		)
 		return
 	}
 
 	roleName := parts[0]
-	principal := normalizePrincipal(parts[1])
+	principal := parts[1]
 
-	// Set the imported state (cluster_api_url will be set from the resource configuration)
 	model := models.RoleAssignment{
 		RoleName:  types.StringValue(roleName),
-		Principal: types.StringValue(principal), // Store normalized principal
+		Principal: types.StringValue(principal),
 		ID:        types.StringValue(fmt.Sprintf("%s:%s", roleName, principal)),
-		// ClusterAPIURL will be set from the resource configuration
+	}
+	if clusterAPIURL != "" {
+		model.ClusterAPIURL = types.StringValue(clusterAPIURL)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
-}
-
-// normalizePrincipal ensures the principal has the correct format for the API
-func normalizePrincipal(principal string) string {
-	// The gRPC API expects just the username, not "User:username"
-	// Remove "User:" prefix if present
-	return strings.TrimPrefix(principal, "User:")
 }
 
 // roleAssignmentExists checks if a role assignment exists
@@ -282,10 +293,12 @@ func (r *RoleAssignment) roleAssignmentExists(ctx context.Context, roleName, pri
 		return false, fmt.Errorf("failed to list role members for role '%s': %w", roleName, err)
 	}
 
-	// Check if the principal is in the role members
+	// Check if the principal is in the role members.
+	// Principal comparison is verbatim — both client and server use the same
+	// "User:" / "Group:" prefixed form.
 	if resp.Response != nil && resp.Response.Members != nil {
 		for _, member := range resp.Response.Members {
-			if normalizePrincipal(member.Principal) == principal {
+			if member.Principal == principal {
 				return true, nil
 			}
 		}

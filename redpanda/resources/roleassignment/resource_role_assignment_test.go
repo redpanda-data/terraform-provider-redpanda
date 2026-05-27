@@ -16,48 +16,11 @@
 package roleassignment
 
 import (
+	"strings"
 	"testing"
 )
 
-func TestNormalizePrincipal(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "principal without User prefix",
-			input:    "testuser",
-			expected: "testuser",
-		},
-		{
-			name:     "principal with User prefix",
-			input:    "User:testuser",
-			expected: "testuser",
-		},
-		{
-			name:     "principal with email",
-			input:    "user@example.com",
-			expected: "user@example.com",
-		},
-		{
-			name:     "principal with User prefix and email",
-			input:    "User:user@example.com",
-			expected: "user@example.com",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := normalizePrincipal(tt.input)
-			if result != tt.expected {
-				t.Errorf("normalizePrincipal(%q) = %q, expected %q", tt.input, result, tt.expected)
-			}
-		})
-	}
-}
-
-func TestImportIDFormat(t *testing.T) {
+func TestUnit_RoleAssignment_ImportIDFormat(t *testing.T) {
 	tests := []struct {
 		name              string
 		importID          string
@@ -73,11 +36,18 @@ func TestImportIDFormat(t *testing.T) {
 			expectedPrincipal: "testuser",
 		},
 		{
-			name:              "valid import format with User prefix",
+			name:              "valid import format with User: prefix preserved",
 			importID:          "admin:User:testuser",
 			expectError:       false,
 			expectedRole:      "admin",
-			expectedPrincipal: "testuser",
+			expectedPrincipal: "User:testuser",
+		},
+		{
+			name:              "valid import format with Group: prefix preserved",
+			importID:          "developer:Group:engineers",
+			expectError:       false,
+			expectedRole:      "developer",
+			expectedPrincipal: "Group:engineers",
 		},
 		{
 			name:        "invalid format - missing principal",
@@ -115,7 +85,7 @@ func TestImportIDFormat(t *testing.T) {
 				}
 
 				role := parts[0]
-				principal := normalizePrincipal(parts[1])
+				principal := parts[1]
 
 				if role != tt.expectedRole {
 					t.Errorf("Expected role %q, got %q", tt.expectedRole, role)
@@ -155,4 +125,100 @@ func splitImportID(importID string) []string {
 	}
 
 	return parts
+}
+
+// TestUnit_RoleAssignment_ImportIDFormat_WithURL exercises the optional
+// |cluster_api_url suffix added so a single `terraform import` produces a
+// state file usable without a follow-up destroy+create cycle.
+// Format: <role>:<principal>[|<cluster_api_url>]
+func TestUnit_RoleAssignment_ImportIDFormat_WithURL(t *testing.T) {
+	tests := []struct {
+		name              string
+		importID          string
+		expectError       bool
+		expectedRole      string
+		expectedPrincipal string
+		expectedURL       string
+	}{
+		{
+			name:              "role:bare without url",
+			importID:          "developer:alice",
+			expectedRole:      "developer",
+			expectedPrincipal: "alice",
+			expectedURL:       "",
+		},
+		{
+			name:              "role:User:name with url",
+			importID:          "developer:User:alice|https://api.example.com",
+			expectedRole:      "developer",
+			expectedPrincipal: "User:alice",
+			expectedURL:       "https://api.example.com",
+		},
+		{
+			name:              "role:Group:name with url",
+			importID:          "admin:Group:engineers|bufnet",
+			expectedRole:      "admin",
+			expectedPrincipal: "Group:engineers",
+			expectedURL:       "bufnet",
+		},
+		{
+			name:              "url with embedded colon survives pipe-split",
+			importID:          "developer:User:alice|https://host:8080/path",
+			expectedRole:      "developer",
+			expectedPrincipal: "User:alice",
+			expectedURL:       "https://host:8080/path",
+		},
+		{
+			name:        "missing principal",
+			importID:    "developer|bufnet",
+			expectError: true,
+		},
+		{
+			name:        "empty role",
+			importID:    ":User:alice|bufnet",
+			expectError: true,
+		},
+		{
+			name:        "empty principal",
+			importID:    "developer:|bufnet",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			role, principal, url, ok := parseImportIDSim(tt.importID)
+			if tt.expectError {
+				if ok {
+					t.Errorf("expected parse error for %q, got role=%q principal=%q url=%q", tt.importID, role, principal, url)
+				}
+				return
+			}
+			if !ok {
+				t.Fatalf("expected successful parse for %q, got error", tt.importID)
+			}
+			if role != tt.expectedRole {
+				t.Errorf("role: want %q, got %q", tt.expectedRole, role)
+			}
+			if principal != tt.expectedPrincipal {
+				t.Errorf("principal: want %q, got %q", tt.expectedPrincipal, principal)
+			}
+			if url != tt.expectedURL {
+				t.Errorf("url: want %q, got %q", tt.expectedURL, url)
+			}
+		})
+	}
+}
+
+// parseImportIDSim mirrors the parse logic in ImportState — kept here so
+// the unit test pins the parser shape without needing to construct a full
+// resource.ImportStateRequest/Response pair. Drift between this helper and
+// ImportState is caught by the integration test's Import subtests.
+func parseImportIDSim(id string) (role, principal, url string, ok bool) {
+	rest, urlPart, _ := strings.Cut(id, "|")
+	parts := strings.SplitN(rest, ":", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", "", false
+	}
+	return parts[0], parts[1], urlPart, true
 }
