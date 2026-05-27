@@ -26,14 +26,16 @@ import (
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/numberplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	topicmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/topic"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
 var (
 	_ resource.Resource                = &Topic{}
 	_ resource.ResourceWithConfigure   = &Topic{}
@@ -46,103 +48,59 @@ type ServiceClientFactory func(clusterURL, authToken, providerVersion, terraform
 
 // Topic represents the Topic Terraform resource.
 type Topic struct {
+	base.ResourceBase
+
 	TopicClient dataplanev1grpc.TopicServiceClient
 
 	resData       config.Resource
 	clientFactory ServiceClientFactory
 }
 
-// Configure configures the Topic resource.
-func (t *Topic) Configure(_ context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
-	if request.ProviderData == nil {
-		return
-	}
-	p, ok := request.ProviderData.(config.Resource)
-	if !ok {
-		response.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", request.ProviderData),
-		)
-		return
-	}
-	t.resData = p
-}
-
-// Metadata returns the metadata for the Topic resource.
-func (*Topic) Metadata(_ context.Context, _ resource.MetadataRequest, response *resource.MetadataResponse) {
-	response.TypeName = "redpanda_topic"
-}
-
-// Schema returns the schema for the Topic resource.
-func (*Topic) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
-	response.Schema = ResourceTopicSchema()
+// NewTopic constructs a Topic resource.
+func NewTopic() *Topic {
+	t := &Topic{}
+	t.ResourceBase = base.NewResourceBase(
+		"redpanda_topic",
+		ResourceTopicSchema,
+		func(p config.Resource) { t.resData = p },
+	)
+	return t
 }
 
 // Create creates a Topic resource.
 func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
-	var model topicmodel.ResourceModel
-	response.Diagnostics.Append(request.Plan.Get(ctx, &model)...)
-
-	cfg, err := utils.MapToCreateTopicConfiguration(model.Configuration)
-	if err != nil {
-		response.Diagnostics.AddError(fmt.Sprintf("failed to parse topic configuration for %s", model.Name), utils.DeserializeGrpcError(err))
+	var plan topicmodel.ResourceModel
+	response.Diagnostics.Append(request.Plan.Get(ctx, &plan)...)
+	if response.Diagnostics.HasError() {
 		return
 	}
-	err = t.createTopicClient(model.ClusterAPIURL.ValueString())
+
+	cfg, err := utils.MapToCreateTopicConfiguration(plan.Configuration)
 	if err != nil {
+		response.Diagnostics.AddError(fmt.Sprintf("failed to parse topic configuration for %s", plan.Name), utils.DeserializeGrpcError(err))
+		return
+	}
+	if err := t.createTopicClient(plan.ClusterAPIURL.ValueString()); err != nil {
 		response.Diagnostics.AddError("failed to create topic client", utils.DeserializeGrpcError(err))
 		return
 	}
 
-	var p, rf *int32
-	if !model.PartitionCount.IsUnknown() {
-		p = utils.NumberToInt32(model.PartitionCount)
+	// Generator-emitted Expand builds the request envelope from the plan.
+	// `configs` is excluded from the schema (config CRUD goes through the
+	// separate SetTopicConfigurations / GetTopicConfigurations RPCs), so we
+	// splice in the parsed configs after Expand.
+	req, expandDiags := topicmodel.ExpandCreate(ctx, &plan)
+	response.Diagnostics.Append(expandDiags...)
+	if response.Diagnostics.HasError() {
+		return
 	}
-	if !model.ReplicationFactor.IsUnknown() {
-		rf = utils.NumberToInt32(model.ReplicationFactor)
-	}
+	req.Topic.Configs = cfg
 
-	// Parse replica_assignments if provided
-	var replicaAssignments []*dataplanev1.CreateTopicRequest_Topic_ReplicaAssignment
-	if !model.ReplicaAssignments.IsNull() && !model.ReplicaAssignments.IsUnknown() {
-		for _, elem := range model.ReplicaAssignments.Elements() {
-			obj, ok := elem.(types.Object)
-			if !ok {
-				continue
-			}
-			attrs := obj.Attributes()
-			partitionID := int32(0)
-			if pid, ok := attrs["partition_id"].(types.Int32); ok {
-				partitionID = pid.ValueInt32()
-			}
-			var replicaIDs []int32
-			if rids, ok := attrs["replica_ids"].(types.List); ok && !rids.IsNull() {
-				for _, rid := range rids.Elements() {
-					if ridVal, ok := rid.(types.Int32); ok {
-						replicaIDs = append(replicaIDs, ridVal.ValueInt32())
-					}
-				}
-			}
-			replicaAssignments = append(replicaAssignments, &dataplanev1.CreateTopicRequest_Topic_ReplicaAssignment{
-				PartitionId: partitionID,
-				ReplicaIds:  replicaIDs,
-			})
-		}
-	}
-
-	topicName := model.Name.ValueString()
+	topicName := plan.Name.ValueString()
 	var topic *dataplanev1.CreateTopicResponse
 	err = utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
 		var createErr error
-		topic, createErr = t.TopicClient.CreateTopic(ctx, &dataplanev1.CreateTopicRequest{
-			Topic: &dataplanev1.CreateTopicRequest_Topic{
-				Name:               topicName,
-				PartitionCount:     p,
-				ReplicationFactor:  rf,
-				Configs:            cfg,
-				ReplicaAssignments: replicaAssignments,
-			},
-		})
+		topic, createErr = t.TopicClient.CreateTopic(ctx, req)
 		if createErr != nil {
 			if isAlreadyExistsError(createErr) {
 				return utils.NonRetryableError(createErr)
@@ -162,65 +120,38 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 	if err != nil {
 		if isAlreadyExistsError(err) {
 			response.Diagnostics.AddError(
-				fmt.Sprintf("Failed to create topic; topic %q already exists", model.Name.ValueString()),
+				fmt.Sprintf("Failed to create topic; topic %q already exists", plan.Name.ValueString()),
 				"Topic resource can be imported using 'terraform import redpanda_topic.<resource_name> <topic_name>,<cluster_id>'",
 			)
 			return
 		}
-		response.Diagnostics.AddError(fmt.Sprintf("failed to create topic %q", model.Name.ValueString()), utils.DeserializeGrpcError(err))
+		response.Diagnostics.AddError(fmt.Sprintf("failed to create topic %q", plan.Name.ValueString()), utils.DeserializeGrpcError(err))
 		return
 	}
 
-	// topic may be nil if the create succeeded on a retry after a transient
-	// broker error — FindTopicByName confirmed it exists but CreateTopic
-	// didn't return a response. Read it back to get partition/replication info.
-	var partitionCount, replicationFactor *int32
-	if topic != nil {
-		topicName = topic.GetTopicName()
-		partitionCount = &[]int32{topic.GetPartitionCount()}[0]
-		replicationFactor = &[]int32{topic.GetReplicationFactor()}[0]
-	} else {
-		var tp *dataplanev1.ListTopicsResponse_Topic
-		findErr := utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
-			var e error
-			tp, e = utils.FindTopicByName(ctx, topicName, t.TopicClient)
-			if e != nil {
-				if isTransientBrokerError(e) {
-					return utils.RetryableError(e)
-				}
-				return utils.NonRetryableError(e)
-			}
-			return nil
-		})
-		if findErr != nil {
-			response.Diagnostics.AddError(
-				fmt.Sprintf("failed to read topic %q after create", topicName),
-				fmt.Sprintf("The topic may or may not have been created. Use 'terraform import' if it exists. Error: %s", utils.DeserializeGrpcError(findErr)),
-			)
-			return
-		}
-		partitionCount = &tp.PartitionCount
-		replicationFactor = &tp.ReplicationFactor
+	// Resolve final partition/replication numbers. CreateTopic returns them
+	// directly on success; on a retry after a transient broker error topic
+	// is nil but FindTopicByName confirmed the topic exists, so read it back.
+	flat, err := t.flattenInputAfterCreate(ctx, topic, topicName)
+	if err != nil {
+		response.Diagnostics.AddError(fmt.Sprintf("failed to read topic %q after create", topicName), utils.DeserializeGrpcError(err))
+		return
 	}
-
-	response.Diagnostics.Append(response.State.Set(ctx, topicmodel.ResourceModel{
-		Name:               types.StringValue(topicName),
-		PartitionCount:     utils.Int32ToNumber(*partitionCount),
-		ReplicationFactor:  utils.Int32ToNumber(*replicationFactor),
-		Configuration:      model.Configuration,
-		AllowDeletion:      model.AllowDeletion,
-		ClusterAPIURL:      model.ClusterAPIURL,
-		ReplicaAssignments: model.ReplicaAssignments,
-		ID:                 types.StringValue(topicName),
-	})...)
+	state, flatDiags := topicmodel.Flatten(ctx, flat, &plan)
+	response.Diagnostics.Append(flatDiags...)
+	if response.Diagnostics.HasError() {
+		return
+	}
+	response.Diagnostics.Append(response.State.Set(ctx, state)...)
 	if response.Diagnostics.HasError() {
 		return
 	}
 
+	// Configuration sync — separate Get-after-Create RPC, then update state.
 	var tpCfgRes *dataplanev1.GetTopicConfigurationsResponse
 	err = utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
 		var cfgErr error
-		tpCfgRes, cfgErr = t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: topicName})
+		tpCfgRes, cfgErr = t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: state.Name.ValueString()})
 		if cfgErr != nil {
 			if isTransientBrokerError(cfgErr) {
 				return utils.RetryableError(cfgErr)
@@ -230,25 +161,17 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		return nil
 	})
 	if err != nil {
-		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration", topicName), utils.DeserializeGrpcError(err))
+		response.Diagnostics.AddError(fmt.Sprintf("failed to retrieve %q topic configuration", state.Name.ValueString()), utils.DeserializeGrpcError(err))
 		return
 	}
-	tpCfg := mergeWithPlannedConfig(filterDynamicConfig(tpCfgRes.Configurations), tpCfgRes.Configurations, model.Configuration)
+	tpCfg := mergeWithPlannedConfig(filterDynamicConfig(tpCfgRes.Configurations), tpCfgRes.Configurations, plan.Configuration)
 	tpCfgMap, err := utils.TopicConfigurationToMap(tpCfg)
 	if err != nil {
 		response.Diagnostics.AddError("unable to parse the topic configuration", utils.DeserializeGrpcError(err))
 		return
 	}
-	response.Diagnostics.Append(response.State.Set(ctx, topicmodel.ResourceModel{
-		Name:               types.StringValue(topicName),
-		PartitionCount:     utils.Int32ToNumber(*partitionCount),
-		ReplicationFactor:  utils.Int32ToNumber(*replicationFactor),
-		Configuration:      tpCfgMap,
-		AllowDeletion:      model.AllowDeletion,
-		ClusterAPIURL:      model.ClusterAPIURL,
-		ReplicaAssignments: model.ReplicaAssignments,
-		ID:                 types.StringValue(topicName),
-	})...)
+	state.Configuration = tpCfgMap
+	response.Diagnostics.Append(response.State.Set(ctx, state)...)
 }
 
 // Read reads the state of the Topic resource.
@@ -263,8 +186,7 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 
 	topicName := model.Name.ValueString()
 
-	err := t.createTopicClient(model.ClusterAPIURL.ValueString())
-	if err != nil {
+	if err := t.createTopicClient(model.ClusterAPIURL.ValueString()); err != nil {
 		action, diags := utils.HandleGracefulRemoval(ctx, "topic", topicName, model.AllowDeletion, err, "create topic client")
 		response.Diagnostics.Append(diags...)
 		if action == utils.RemoveFromState {
@@ -274,7 +196,7 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 	}
 
 	var tp *dataplanev1.ListTopicsResponse_Topic
-	err = utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+	err := utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
 		var findErr error
 		tp, findErr = utils.FindTopicByName(ctx, topicName, t.TopicClient)
 		if findErr != nil {
@@ -315,16 +237,13 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 		response.Diagnostics.AddError("unable to parse the topic configuration", utils.DeserializeGrpcError(err))
 		return
 	}
-	response.Diagnostics.Append(response.State.Set(ctx, topicmodel.ResourceModel{
-		Name:               types.StringValue(tp.Name),
-		PartitionCount:     utils.Int32ToNumber(tp.PartitionCount),
-		ReplicationFactor:  utils.Int32ToNumber(tp.ReplicationFactor),
-		Configuration:      topicCfg,
-		AllowDeletion:      model.AllowDeletion,
-		ClusterAPIURL:      model.ClusterAPIURL,
-		ReplicaAssignments: model.ReplicaAssignments,
-		ID:                 types.StringValue(tp.Name),
-	})...)
+	state, flatDiags := topicmodel.Flatten(ctx, listTopicToFlattenInput(tp), &model)
+	response.Diagnostics.Append(flatDiags...)
+	if response.Diagnostics.HasError() {
+		return
+	}
+	state.Configuration = topicCfg
+	response.Diagnostics.Append(response.State.Set(ctx, state)...)
 }
 
 // Update updates the state of the Topic resource.
@@ -427,17 +346,20 @@ func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, resp
 		response.Diagnostics.AddError(fmt.Sprintf("topic %s does not allow deletion", topicName), "allow_deletion is set to false")
 		return
 	}
-	err := t.createTopicClient(model.ClusterAPIURL.ValueString())
-	if err != nil {
+	if err := t.createTopicClient(model.ClusterAPIURL.ValueString()); err != nil {
 		_, diags := utils.HandleGracefulRemoval(ctx, "topic", topicName, model.AllowDeletion, err, "create topic client")
 		response.Diagnostics.Append(diags...)
 		return
 	}
 
-	err = utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
-		_, delErr := t.TopicClient.DeleteTopic(ctx, &dataplanev1.DeleteTopicRequest{
-			TopicName: topicName,
-		})
+	delReq, expandDiags := topicmodel.ExpandDelete(ctx, &model)
+	response.Diagnostics.Append(expandDiags...)
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	err := utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+		_, delErr := t.TopicClient.DeleteTopic(ctx, delReq)
 		if delErr != nil {
 			// A retry after a transient broker error may see the topic as
 			// already gone; that means the earlier attempt succeeded.
@@ -462,7 +384,7 @@ func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, resp
 func (t *Topic) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	split := strings.SplitN(req.ID, ",", 2)
 	if len(split) != 2 {
-		resp.Diagnostics.AddError(fmt.Sprintf("wrong ADDR ID format: %v", req.ID), "ADDR ID format is <topic_name>,<cluster_id>")
+		resp.Diagnostics.AddError(fmt.Sprintf("wrong ID format: %v", req.ID), "ID format is <topic_name>,<cluster_id>")
 		return
 	}
 	topicName, clusterID := split[0], split[1]
@@ -475,7 +397,7 @@ func (t *Topic) ImportState(ctx context.Context, req resource.ImportStateRequest
 	} else {
 		serverlessCluster, serr := client.ServerlessClusterForID(ctx, clusterID)
 		if serr != nil || serverlessCluster == nil {
-			resp.Diagnostics.AddError(fmt.Sprintf("failed to find cluster with ID %q; make sure ADDR ID format is <topic_name>,<cluster_id>", clusterID), utils.DeserializeGrpcError(err)+utils.DeserializeGrpcError(serr))
+			resp.Diagnostics.AddError(fmt.Sprintf("failed to find cluster with ID %q; make sure ID format is <topic_name>,<cluster_id>", clusterID), utils.DeserializeGrpcError(err)+utils.DeserializeGrpcError(serr))
 			return
 		}
 		dataplaneURL = serverlessCluster.DataplaneApi.Url
@@ -484,7 +406,7 @@ func (t *Topic) ImportState(ctx context.Context, req resource.ImportStateRequest
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(topicName))...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(topicName))...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_api_url"), types.StringValue(dataplaneURL))...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
+	resp.Diagnostics.Append(utils.ImportStateBoolFromSchemaDefault(ctx, ResourceTopicSchema(ctx), &resp.State, "allow_deletion")...)
 }
 
 func (t *Topic) createTopicClient(clusterURL string) error {
@@ -510,6 +432,53 @@ func (t *Topic) createTopicClient(clusterURL string) error {
 	return nil
 }
 
+// flattenInputAfterCreate normalizes the post-create proto state into a
+// *CreateTopicRequest_Topic — the type the generated Flatten consumes.
+// Uses the CreateTopic response when available; otherwise re-reads the
+// topic via FindTopicByName (the CreateTopic call may have succeeded on
+// the server but failed the client retry).
+func (t *Topic) flattenInputAfterCreate(ctx context.Context, topic *dataplanev1.CreateTopicResponse, topicName string) (*dataplanev1.CreateTopicRequest_Topic, error) {
+	if topic != nil {
+		pc := topic.GetPartitionCount()
+		rf := topic.GetReplicationFactor()
+		return &dataplanev1.CreateTopicRequest_Topic{
+			Name:              topic.GetTopicName(),
+			PartitionCount:    &pc,
+			ReplicationFactor: &rf,
+		}, nil
+	}
+	var tp *dataplanev1.ListTopicsResponse_Topic
+	if err := utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+		var e error
+		tp, e = utils.FindTopicByName(ctx, topicName, t.TopicClient)
+		if e != nil {
+			if isTransientBrokerError(e) {
+				return utils.RetryableError(e)
+			}
+			return utils.NonRetryableError(e)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return listTopicToFlattenInput(tp), nil
+}
+
+// listTopicToFlattenInput bridges ListTopicsResponse_Topic (what
+// FindTopicByName returns) into the *CreateTopicRequest_Topic shape that
+// the generated Flatten expects. The two types share Name +
+// PartitionCount + ReplicationFactor; replica_assignments is preserved
+// from prev via flatten_skip in schema.yaml.
+func listTopicToFlattenInput(tp *dataplanev1.ListTopicsResponse_Topic) *dataplanev1.CreateTopicRequest_Topic {
+	pc := tp.GetPartitionCount()
+	rf := tp.GetReplicationFactor()
+	return &dataplanev1.CreateTopicRequest_Topic{
+		Name:              tp.GetName(),
+		PartitionCount:    &pc,
+		ReplicationFactor: &rf,
+	}
+}
+
 // filterDynamicConfig filters the configs and returns only the one with a
 // DYNAMIC_TOPIC_CONFIG source.
 func filterDynamicConfig(configs []*dataplanev1.Topic_Configuration) []*dataplanev1.Topic_Configuration {
@@ -529,31 +498,75 @@ func filterDynamicConfig(configs []*dataplanev1.Topic_Configuration) []*dataplan
 // if the server reports them with a non-dynamic source (e.g. when the user-set
 // value matches the server default). Without this, Terraform sees the key
 // "vanish" and reports an inconsistent result after apply.
+//
+// Also strips server-injected `redpanda.*` config keys the user did not name
+// in their plan. After v26.1.1, the broker injects redpanda.storage.mode =
+// "unset" on every topic; left in state, plan-twice would try to remove the
+// key and the server rejects (the property has no null representation, only
+// local/tiered/cloud/unset). Same shape as tagsFromProto in
+// redpanda/models/cluster/conv.go.
 func mergeWithPlannedConfig(dynamicConfigs, allConfigs []*dataplanev1.Topic_Configuration, planned types.Map) []*dataplanev1.Topic_Configuration {
-	if planned.IsNull() || planned.IsUnknown() || len(planned.Elements()) == 0 {
-		return dynamicConfigs
-	}
-
-	present := make(map[string]bool, len(dynamicConfigs))
-	for _, cfg := range dynamicConfigs {
-		if cfg != nil {
-			present[cfg.Name] = true
+	plannedKeys := make(map[string]bool, len(planned.Elements()))
+	if !planned.IsNull() && !planned.IsUnknown() {
+		for key := range planned.Elements() {
+			plannedKeys[key] = true
 		}
 	}
 
-	for key := range planned.Elements() {
+	filtered := make([]*dataplanev1.Topic_Configuration, 0, len(dynamicConfigs))
+	for _, cfg := range dynamicConfigs {
+		if cfg == nil {
+			continue
+		}
+		if strings.HasPrefix(cfg.Name, "redpanda.") && !plannedKeys[cfg.Name] {
+			continue
+		}
+		filtered = append(filtered, cfg)
+	}
+
+	if len(plannedKeys) == 0 {
+		return filtered
+	}
+
+	present := make(map[string]bool, len(filtered))
+	for _, cfg := range filtered {
+		present[cfg.Name] = true
+	}
+
+	for key, planVal := range planned.Elements() {
 		if present[key] {
 			continue
 		}
+		var matched bool
 		for _, cfg := range allConfigs {
 			if cfg != nil && cfg.Name == key {
-				dynamicConfigs = append(dynamicConfigs, cfg)
+				filtered = append(filtered, cfg)
 				present[key] = true
+				matched = true
 				break
 			}
 		}
+		if matched {
+			continue
+		}
+		// Broker didn't echo the key in either the dynamic or full config
+		// response (some keys like min.insync.replicas are server-silent on
+		// reflection). Synthesize a topic-config entry from the plan so the
+		// state contains what the user asked for — without this Terraform
+		// reports "element has vanished from configurations".
+		planString, ok := planVal.(types.String)
+		if !ok || planString.IsNull() || planString.IsUnknown() {
+			continue
+		}
+		val := planString.ValueString()
+		filtered = append(filtered, &dataplanev1.Topic_Configuration{
+			Name:   key,
+			Value:  &val,
+			Source: dataplanev1.ConfigSource_CONFIG_SOURCE_DYNAMIC_TOPIC_CONFIG,
+		})
+		present[key] = true
 	}
-	return dynamicConfigs
+	return filtered
 }
 
 func isAlreadyExistsError(err error) bool {
@@ -572,4 +585,19 @@ func isNotFoundError(err error) bool {
 	return strings.Contains(msg, "NOT_FOUND") ||
 		strings.Contains(msg, "TOPIC_DOES_NOT_EXIST") ||
 		strings.Contains(msg, "does not exist")
+}
+
+// partitionRequiresReplaceWhenShrinking is the RequiresReplaceIf predicate
+// referenced by the generated schema's partition_count plan modifier.
+// Recreating the topic is the only way to reduce its partition count in
+// Kafka, so a plan-time decrease triggers replacement (and a warning).
+func partitionRequiresReplaceWhenShrinking(_ context.Context, req planmodifier.NumberRequest, resp *numberplanmodifier.RequiresReplaceIfFuncResponse) {
+	if !req.PlanValue.IsNull() && !req.StateValue.IsNull() {
+		to := req.PlanValue.ValueBigFloat()
+		from := req.StateValue.ValueBigFloat()
+		if to.Cmp(from) < 0 {
+			resp.RequiresReplace = true
+			resp.Diagnostics.AddWarning("Partition count decrease detected", "Decreasing partition count requires recreating the topic")
+		}
+	}
 }
