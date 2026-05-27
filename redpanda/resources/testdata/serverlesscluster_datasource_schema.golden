@@ -1,0 +1,94 @@
+attributes:
+    - name: cluster_api_url
+      type: StringAttribute
+      computed: true
+    - name: console_private_url
+      type: StringAttribute
+      computed: true
+    - name: console_url
+      type: StringAttribute
+      computed: true
+    - name: dataplane_api
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: private_url
+          type: StringAttribute
+          computed: true
+        - name: url
+          type: StringAttribute
+          computed: true
+    - name: id
+      type: StringAttribute
+      required: true
+    - name: kafka_api
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: private_seed_brokers
+          type: ListAttribute
+          computed: true
+          element_type: basetypes.StringType
+        - name: seed_brokers
+          type: ListAttribute
+          computed: true
+          element_type: basetypes.StringType
+    - name: name
+      type: StringAttribute
+      computed: true
+    - name: networking_config
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: private
+          type: StringAttribute
+          computed: true
+        - name: public
+          type: StringAttribute
+          computed: true
+    - name: planned_deletion
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: delete_after
+          type: StringAttribute
+          computed: true
+        - name: reason
+          type: StringAttribute
+          computed: true
+    - name: private_link_id
+      type: StringAttribute
+      computed: true
+    - name: prometheus
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: private_url
+          type: StringAttribute
+          computed: true
+        - name: url
+          type: StringAttribute
+          computed: true
+    - name: resource_group_id
+      type: StringAttribute
+      computed: true
+    - name: schema_registry
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: private_url
+          type: StringAttribute
+          computed: true
+        - name: url
+          type: StringAttribute
+          computed: true
+    - name: serverless_region
+      type: StringAttribute
+      computed: true
+    - name: state
+      type: StringAttribute
+      computed: true
+    - name: tags
+      type: MapAttribute
+      computed: true
+      element_type: basetypes.StringType
