@@ -23,25 +23,14 @@ import (
 	"time"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
-	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/serverlessprivatelink"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
+	splmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/serverlessprivatelink"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
 var (
 	_ resource.Resource                = &ServerlessPrivateLink{}
 	_ resource.ResourceWithConfigure   = &ServerlessPrivateLink{}
@@ -50,177 +39,48 @@ var (
 
 // ServerlessPrivateLink represents a serverless private link managed resource.
 type ServerlessPrivateLink struct {
-	CpCl *cloud.ControlPlaneClientSet
+	base.ResourceBase
 }
 
-// Metadata returns the full name of the ServerlessPrivateLink resource.
-func (*ServerlessPrivateLink) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "redpanda_serverless_private_link"
+// NewServerlessPrivateLink constructs a ServerlessPrivateLink resource.
+func NewServerlessPrivateLink() *ServerlessPrivateLink {
+	s := &ServerlessPrivateLink{}
+	s.ResourceBase = base.NewResourceBase("redpanda_serverless_private_link", ResourceServerlessPrivateLinkSchema, nil)
+	return s
 }
 
-// Configure uses provider level data to configure ServerlessPrivateLink's clients.
-func (s *ServerlessPrivateLink) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	if req.ProviderData == nil {
-		return
-	}
-
-	p, ok := req.ProviderData.(config.Resource)
-
-	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", req.ProviderData))
-		return
-	}
-
-	s.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
-}
-
-// Schema returns the schema for the ServerlessPrivateLink resource.
-func (*ServerlessPrivateLink) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = ResourceServerlessPrivateLinkSchema()
-}
-
-// ResourceServerlessPrivateLinkSchema returns the schema for the ServerlessPrivateLink resource.
-func ResourceServerlessPrivateLinkSchema() schema.Schema {
-	return schema.Schema{
-		Description: "Manages a Redpanda Serverless Private Link",
-		Attributes: map[string]schema.Attribute{
-			// Required fields
-			"name": schema.StringAttribute{
-				Required:      true,
-				Description:   "Name of the serverless private link",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"resource_group_id": schema.StringAttribute{
-				Required:      true,
-				Description:   "The ID of the Resource Group in which to create the serverless private link",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"cloud_provider": schema.StringAttribute{
-				Required:      true,
-				Description:   "Cloud provider (aws)",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Validators:    validators.CloudProviders(),
-			},
-			"serverless_region": schema.StringAttribute{
-				Required:      true,
-				Description:   "Redpanda serverless region",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-
-			// Cloud provider config (oneof)
-			"cloud_provider_config": schema.SingleNestedAttribute{
-				Required:    true,
-				Description: "Cloud provider specific configuration",
-				Attributes: map[string]schema.Attribute{
-					"aws": schema.SingleNestedAttribute{
-						Optional:    true,
-						Description: "AWS-specific configuration. Required when cloud_provider is 'aws'.",
-						Attributes: map[string]schema.Attribute{
-							"allowed_principals": schema.ListAttribute{
-								Required:    true,
-								ElementType: types.StringType,
-								Description: "AWS principals (ARNs) allowed to connect to the private link endpoint",
-								Validators: []validator.List{
-									listvalidator.SizeAtLeast(1),
-								},
-							},
-						},
-					},
-				},
-			},
-
-			// Optional fields
-			"allow_deletion": schema.BoolAttribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(false),
-				Description: "Allows deletion of the serverless private link. Defaults to false.",
-			},
-
-			// Computed fields
-			"id": schema.StringAttribute{
-				Computed:      true,
-				Description:   "The ID of the serverless private link",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-			},
-			"state": schema.StringAttribute{
-				Computed:      true,
-				Description:   "Current state of the serverless private link (STATE_CREATING, STATE_READY, STATE_DELETING, STATE_FAILED, STATE_UPDATING)",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-			},
-			"created_at": schema.StringAttribute{
-				Computed:      true,
-				Description:   "Timestamp when the serverless private link was created",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-			},
-			"updated_at": schema.StringAttribute{
-				Computed: true,
-				Description: "Timestamp when the serverless private link was last updated. " +
-					"This value changes on every update operation.",
-			},
-
-			// Status (cloud-specific, read-only)
-			"status": schema.SingleNestedAttribute{
-				Computed:      true,
-				Description:   "Cloud provider specific status information",
-				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
-				Attributes: map[string]schema.Attribute{
-					"aws": schema.SingleNestedAttribute{
-						Computed:    true,
-						Description: "AWS-specific status information",
-						Attributes: map[string]schema.Attribute{
-							"vpc_endpoint_service_name": schema.StringAttribute{
-								Computed:      true,
-								Description:   "VPC endpoint service name for connecting to the private link",
-								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
-							},
-							"availability_zones": schema.ListAttribute{
-								Computed:      true,
-								ElementType:   types.StringType,
-								Description:   "Availability zones where the private link endpoint service is available",
-								PlanModifiers: []planmodifier.List{listplanmodifier.UseNonNullStateForUnknown()},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-// Create creates a new ServerlessPrivateLink resource. It updates the state if the resource
-// is successfully created.
+// Create creates a new ServerlessPrivateLink resource.
 func (s *ServerlessPrivateLink) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var model serverlessprivatelink.ResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
+	var plan splmodel.ResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	privateLinkReq, err := GenerateServerlessPrivateLinkRequest(ctx, model)
-	if err != nil {
-		resp.Diagnostics.AddError("unable to parse CreateServerlessPrivateLink request", err.Error())
+	createReq, expandDiags := splmodel.ExpandCreate(ctx, &plan)
+	resp.Diagnostics.Append(expandDiags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	plResp, err := s.CpCl.ServerlessPrivateLink.CreateServerlessPrivateLink(ctx, &controlplanev1.CreateServerlessPrivateLinkRequest{
-		ServerlessPrivateLink: privateLinkReq,
-	})
+	plResp, err := s.CpCl.ServerlessPrivateLink.CreateServerlessPrivateLink(ctx, createReq)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create serverless private link", utils.DeserializeGrpcError(err))
 		return
 	}
 
 	op := plResp.Operation
-	// Write initial state so that if creation fails, we can still track and delete it
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), op.GetResourceId())...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	if err := utils.AreWeDoneYet(ctx, op, 30*time.Minute, s.CpCl.Operation); err != nil {
+	createTimeout, tdiags := plan.Timeouts.Create(ctx, 30*time.Minute)
+	resp.Diagnostics.Append(tdiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if err := utils.AreWeDoneYet(ctx, op, createTimeout, s.CpCl.Operation); err != nil {
 		resp.Diagnostics.AddError("operation error while creating serverless private link", utils.DeserializeGrpcError(err))
 		return
 	}
@@ -233,17 +93,17 @@ func (s *ServerlessPrivateLink) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 
-	persist, err := generateModel(ctx, privateLink, model.AllowDeletion)
-	if err != nil {
-		resp.Diagnostics.AddError("failed to generate serverless private link model", err.Error())
+	state, flatDiags := splmodel.Flatten(ctx, privateLink, &plan)
+	resp.Diagnostics.Append(flatDiags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
 // Read reads ServerlessPrivateLink resource's values and updates the state.
 func (s *ServerlessPrivateLink) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var model serverlessprivatelink.ResourceModel
+	var model splmodel.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -252,7 +112,6 @@ func (s *ServerlessPrivateLink) Read(ctx context.Context, req resource.ReadReque
 	privateLink, err := s.CpCl.ServerlessPrivateLinkForID(ctx, model.ID.ValueString())
 	if err != nil {
 		if utils.IsNotFound(err) {
-			// Treat HTTP 404 Not Found status as a signal to recreate resource and return early
 			resp.State.RemoveResource(ctx)
 			return
 		}
@@ -261,7 +120,6 @@ func (s *ServerlessPrivateLink) Read(ctx context.Context, req resource.ReadReque
 	}
 
 	if privateLink.GetState() == controlplanev1.ServerlessPrivateLink_STATE_DELETING {
-		// Remove from state to force recreation if needed
 		resp.State.RemoveResource(ctx)
 		resp.Diagnostics.AddWarning(
 			fmt.Sprintf("serverless private link %s is in state %s", privateLink.Id, privateLink.GetState()),
@@ -269,25 +127,25 @@ func (s *ServerlessPrivateLink) Read(ctx context.Context, req resource.ReadReque
 		return
 	}
 
-	persist, err := generateModel(ctx, privateLink, model.AllowDeletion)
-	if err != nil {
-		resp.Diagnostics.AddError("failed to generate serverless private link model", err.Error())
+	state, flatDiags := splmodel.Flatten(ctx, privateLink, &model)
+	resp.Diagnostics.Append(flatDiags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
 // Update updates the ServerlessPrivateLink resource. Currently supports updating allowed_principals for AWS.
 func (s *ServerlessPrivateLink) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var model serverlessprivatelink.ResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
+	var plan splmodel.ResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	updateReq, err := GenerateServerlessPrivateLinkUpdateRequest(ctx, model)
-	if err != nil {
-		resp.Diagnostics.AddError("unable to parse UpdateServerlessPrivateLink request", err.Error())
+	updateReq, expandDiags := splmodel.ExpandUpdate(ctx, &plan)
+	resp.Diagnostics.Append(expandDiags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
@@ -298,30 +156,35 @@ func (s *ServerlessPrivateLink) Update(ctx context.Context, req resource.UpdateR
 	}
 
 	op := plResp.Operation
-	if err := utils.AreWeDoneYet(ctx, op, 30*time.Minute, s.CpCl.Operation); err != nil {
+	updateTimeout, tdiags := plan.Timeouts.Update(ctx, 30*time.Minute)
+	resp.Diagnostics.Append(tdiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if err := utils.AreWeDoneYet(ctx, op, updateTimeout, s.CpCl.Operation); err != nil {
 		resp.Diagnostics.AddError("operation error while updating serverless private link", utils.DeserializeGrpcError(err))
 		return
 	}
 
-	privateLink, err := s.CpCl.ServerlessPrivateLinkForID(ctx, model.ID.ValueString())
+	privateLink, err := s.CpCl.ServerlessPrivateLinkForID(ctx, plan.ID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
-			fmt.Sprintf("successfully updated the serverless private link with ID %q, but failed to read the configuration: %v", model.ID.ValueString(), err),
+			fmt.Sprintf("successfully updated the serverless private link with ID %q, but failed to read the configuration: %v", plan.ID.ValueString(), err),
 			utils.DeserializeGrpcError(err))
 		return
 	}
 
-	persist, err := generateModel(ctx, privateLink, model.AllowDeletion)
-	if err != nil {
-		resp.Diagnostics.AddError("failed to generate serverless private link model", err.Error())
+	state, flatDiags := splmodel.Flatten(ctx, privateLink, &plan)
+	resp.Diagnostics.Append(flatDiags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
 // Delete deletes the ServerlessPrivateLink resource.
 func (s *ServerlessPrivateLink) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var model serverlessprivatelink.ResourceModel
+	var model splmodel.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -332,19 +195,27 @@ func (s *ServerlessPrivateLink) Delete(ctx context.Context, req resource.DeleteR
 		return
 	}
 
-	plResp, err := s.CpCl.ServerlessPrivateLink.DeleteServerlessPrivateLink(ctx, &controlplanev1.DeleteServerlessPrivateLinkRequest{
-		Id: model.ID.ValueString(),
-	})
+	delReq, expandDiags := splmodel.ExpandDelete(ctx, &model)
+	resp.Diagnostics.Append(expandDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	plResp, err := s.CpCl.ServerlessPrivateLink.DeleteServerlessPrivateLink(ctx, delReq)
 	if err != nil {
 		if utils.IsNotFound(err) {
-			// Resource already deleted, treat as success
 			return
 		}
 		resp.Diagnostics.AddError("failed to delete serverless private link", utils.DeserializeGrpcError(err))
 		return
 	}
 
-	if err := utils.AreWeDoneYet(ctx, plResp.Operation, 30*time.Minute, s.CpCl.Operation); err != nil {
+	deleteTimeout, tdiags := model.Timeouts.Delete(ctx, 30*time.Minute)
+	resp.Diagnostics.Append(tdiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if err := utils.AreWeDoneYet(ctx, plResp.Operation, deleteTimeout, s.CpCl.Operation); err != nil {
 		resp.Diagnostics.AddError("failed to delete serverless private link", utils.DeserializeGrpcError(err))
 		return
 	}
