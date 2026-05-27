@@ -85,8 +85,42 @@ func main() {
 		fmt.Println("STATUS MODE: Showing current resources")
 	case dryRun:
 		fmt.Println("DRY RUN MODE: No resources will be deleted")
+	default:
+		// default mode: no banner
 	}
 	fmt.Printf("Resources with prefix: %s\n", prefix)
+
+	// Shadow Link handler. Run BEFORE clusters — `REASON_SHADOW_LINK_PREVENTS_DELETION`
+	// blocks shadow cluster deletes while any shadow_link exists against them.
+	// ListShadowLinks doesn't filter by name (only by shadow_redpanda_id /
+	// resource_group_id), so filter the prefix client-side.
+	shadowLinkHandler := resourceHandler[controlplanev1.ShadowLinkListItem]{
+		name:       "shadow link",
+		pluralName: "Shadow Links",
+		list: func() ([]*controlplanev1.ShadowLinkListItem, error) {
+			resp, err := client.ShadowLink.ListShadowLinks(ctx, &controlplanev1.ListShadowLinksRequest{})
+			if err != nil {
+				return nil, err
+			}
+			var filtered []*controlplanev1.ShadowLinkListItem
+			for _, sl := range resp.ShadowLinks {
+				if strings.Contains(sl.Name, prefix) {
+					filtered = append(filtered, sl)
+				}
+			}
+			return filtered, nil
+		},
+		delete: func(id string) error {
+			_, err := client.ShadowLink.DeleteShadowLink(ctx, &controlplanev1.DeleteShadowLinkRequest{Id: id})
+			return err
+		},
+		getID:   func(sl *controlplanev1.ShadowLinkListItem) string { return sl.Id },
+		getName: func(sl *controlplanev1.ShadowLinkListItem) string { return sl.Name },
+		display: func(sl *controlplanev1.ShadowLinkListItem) {
+			fmt.Printf("Shadow Link: %s\n  ID: %s\n  State: %s\n  Shadow Cluster: %s\n",
+				sl.Name, sl.Id, sl.State, sl.ShadowRedpandaId)
+		},
+	}
 
 	// Cluster handler
 	clusterHandler := resourceHandler[controlplanev1.Cluster]{
@@ -114,6 +148,35 @@ func main() {
 		display: func(c *controlplanev1.Cluster) {
 			fmt.Printf("Cluster: %s\n  ID: %s\n  State: %s\n  Cloud: %s\n  Region: %s\n",
 				c.Name, c.Id, c.State, c.CloudProvider, c.Region)
+			if c.CreatedAt != nil {
+				fmt.Printf("  Created: %s\n", c.CreatedAt.AsTime().Format(time.RFC3339))
+			}
+		},
+	}
+
+	// Serverless cluster handler. Run BEFORE resource groups — serverless
+	// clusters live inside resource groups.
+	serverlessHandler := resourceHandler[controlplanev1.ServerlessCluster]{
+		name:       "serverless cluster",
+		pluralName: "Serverless Clusters",
+		list: func() ([]*controlplanev1.ServerlessCluster, error) {
+			resp, err := client.ServerlessCluster.ListServerlessClusters(ctx, &controlplanev1.ListServerlessClustersRequest{
+				Filter: &controlplanev1.ListServerlessClustersRequest_Filter{NameContains: prefix},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return resp.ServerlessClusters, nil
+		},
+		delete: func(id string) error {
+			_, err := client.ServerlessCluster.DeleteServerlessCluster(ctx, &controlplanev1.DeleteServerlessClusterRequest{Id: id})
+			return err
+		},
+		getID:   func(c *controlplanev1.ServerlessCluster) string { return c.Id },
+		getName: func(c *controlplanev1.ServerlessCluster) string { return c.Name },
+		display: func(c *controlplanev1.ServerlessCluster) {
+			fmt.Printf("Serverless Cluster: %s\n  ID: %s\n  State: %s\n  Region: %s\n",
+				c.Name, c.Id, c.State, c.ServerlessRegion)
 			if c.CreatedAt != nil {
 				fmt.Printf("  Created: %s\n", c.CreatedAt.AsTime().Format(time.RFC3339))
 			}
@@ -182,9 +245,17 @@ func main() {
 		},
 	}
 
+	shadowLinkStats, err := processResources(shadowLinkHandler, statusOnly, dryRun)
+	if err != nil {
+		log.Fatalf("Failed to process shadow links: %v", err)
+	}
 	clusterStats, err := processResources(clusterHandler, statusOnly, dryRun)
 	if err != nil {
 		log.Fatalf("Failed to process clusters: %v", err)
+	}
+	serverlessStats, err := processResources(serverlessHandler, statusOnly, dryRun)
+	if err != nil {
+		log.Fatalf("Failed to process serverless clusters: %v", err)
 	}
 	networkStats, err := processResources(networkHandler, statusOnly, dryRun)
 	if err != nil {
@@ -211,7 +282,9 @@ func main() {
 		}
 	}
 
+	printStat(shadowLinkHandler.pluralName, shadowLinkStats)
 	printStat(clusterHandler.pluralName, clusterStats)
+	printStat(serverlessHandler.pluralName, serverlessStats)
 	printStat(networkHandler.pluralName, networkStats)
 	printStat(rgHandler.pluralName, rgStats)
 

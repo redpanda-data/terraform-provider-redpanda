@@ -98,8 +98,9 @@ resource "redpanda_cluster" "test" {
   throughput_tier   = var.throughput_tier
   zones             = var.zones
   allow_deletion    = true
-  tags = {
-    "key" = "value"
+  tags = var.cluster_tags
+  cluster_configuration = {
+    custom_properties_json = jsonencode({})
   }
   aws_private_link = {
     enabled            = var.aws_private_link_enabled
@@ -203,3 +204,11 @@ resource "redpanda_cluster" "test" {
 # variable "replication_factor" {
 #   default = 3
 # }
+
+variable "cluster_tags" {
+  description = "Tags applied to the redpanda_cluster resource. Mutated by acceptance tests to exercise the Update path on tags."
+  type        = map(string)
+  default = {
+    "key" = "value"
+  }
+}

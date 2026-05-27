@@ -18,10 +18,6 @@ variable "throughput_tier" {
   default = "tier-1-aws-v2-arm"
 }
 
-variable "resources_per_cluster" {
-  default = 200
-}
-
 variable "user_pw" {
   default = "password"
 }

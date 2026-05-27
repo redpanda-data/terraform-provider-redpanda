@@ -1,8 +1,6 @@
 module github.com/redpanda-data/terraform-provider-redpanda/scripts/cleanup-gcp-redpanda-byovpc
 
-go 1.24.0
-
-toolchain go1.24.4
+go 1.25.10
 
 require (
 	cloud.google.com/go/compute v1.38.0

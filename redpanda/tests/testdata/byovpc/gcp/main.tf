@@ -38,10 +38,7 @@ resource "redpanda_cluster" "test" {
   zones             = var.zones
   allow_deletion    = true
 
-  tags = {
-    "environment" = var.environment
-    "managed-by"  = "terraform"
-  }
+  tags = var.cluster_tags
 
   # Customer managed resources for GCP
   customer_managed_resources = {
@@ -251,4 +248,12 @@ variable "gke_service_account_email" {
 variable "tiered_storage_bucket_name" {
   description = "Tiered storage bucket name"
   type        = string
+}
+
+variable "cluster_tags" {
+  description = "Tags applied to the redpanda_cluster resource. Mutated by acceptance tests to exercise the Update path on tags."
+  type        = map(string)
+  default = {
+    "key" = "value"
+  }
 }
