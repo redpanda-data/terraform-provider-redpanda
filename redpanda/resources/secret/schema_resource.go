@@ -17,8 +17,8 @@ package secret
 import (
 	"regexp"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/mapvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -62,14 +62,13 @@ func ResourceSecretSchema() schema.Schema {
 				Computed:      true,
 				PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
 			},
-			"scopes": schema.ListAttribute{
-				Description: "Secret scopes",
+			"scopes": schema.SetAttribute{
+				Description: "Secret scopes. Order does not matter — the server may return scopes in a different order than you supplied; the set semantics make plan-twice stable regardless.",
 				Required:    true,
 				ElementType: types.StringType,
-				Validators: []validator.List{
-					listvalidator.SizeAtLeast(1),
-					listvalidator.UniqueValues(),
-					listvalidator.ValueStringsAre(stringvalidator.OneOf(
+				Validators: []validator.Set{
+					setvalidator.SizeAtLeast(1),
+					setvalidator.ValueStringsAre(stringvalidator.OneOf(
 						"SCOPE_REDPANDA_CONNECT",
 						"SCOPE_REDPANDA_CLUSTER",
 						"SCOPE_MCP_SERVER",

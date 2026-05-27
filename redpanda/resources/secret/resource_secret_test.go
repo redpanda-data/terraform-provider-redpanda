@@ -38,14 +38,14 @@ func setConfig(ctx context.Context, s schema.Schema, val any) (tfsdk.Config, dia
 	return tfsdk.Config{Schema: s, Raw: tmp.Raw}, diags
 }
 
-func scopesList(ctx context.Context, t *testing.T, vals ...string) types.List {
+func scopesList(ctx context.Context, t *testing.T, vals ...string) types.Set {
 	t.Helper()
-	l, diags := types.ListValueFrom(ctx, types.StringType, vals)
+	s, diags := types.SetValueFrom(ctx, types.StringType, vals)
 	require.False(t, diags.HasError(), "scopesList: %v", diags)
-	return l
+	return s
 }
 
-func TestSecret_Create_WriteOnlySecretData(t *testing.T) {
+func TestUnit_Secret_Create_WriteOnlySecretData(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	ctx := context.Background()
@@ -97,7 +97,7 @@ func TestSecret_Create_WriteOnlySecretData(t *testing.T) {
 	assert.Equal(t, int64(1), state.SecretDataVersion.ValueInt64())
 }
 
-func TestSecret_Create_APIError(t *testing.T) {
+func TestUnit_Secret_Create_APIError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	ctx := context.Background()
@@ -131,7 +131,7 @@ func TestSecret_Create_APIError(t *testing.T) {
 	assert.Contains(t, resp.Diagnostics.Errors()[0].Summary(), "failed to create secret")
 }
 
-func TestSecret_Update_VersionTriggersWrite(t *testing.T) {
+func TestUnit_Secret_Update_VersionTriggersWrite(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	ctx := context.Background()
@@ -184,7 +184,7 @@ func TestSecret_Update_VersionTriggersWrite(t *testing.T) {
 	assert.Equal(t, int64(2), got.SecretDataVersion.ValueInt64())
 }
 
-func TestSecret_Update_NoChange_Skips_API(t *testing.T) {
+func TestUnit_Secret_Update_NoChange_Skips_API(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	ctx := context.Background()
@@ -221,7 +221,7 @@ func TestSecret_Update_NoChange_Skips_API(t *testing.T) {
 	require.False(t, resp.Diagnostics.HasError())
 }
 
-func TestSecret_Read_RoundTripsScopesAndLabels(t *testing.T) {
+func TestUnit_Secret_Read_RoundTripsScopesAndLabels(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	ctx := context.Background()
@@ -262,7 +262,7 @@ func TestSecret_Read_RoundTripsScopesAndLabels(t *testing.T) {
 	assert.False(t, got.Labels.IsNull())
 }
 
-func TestSecret_Delete_RespectsAllowDeletion(t *testing.T) {
+func TestUnit_Secret_Delete_RespectsAllowDeletion(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	ctx := context.Background()

@@ -22,6 +22,38 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
+// ResourceModel represents the Terraform schema for the secret resource.
+type ResourceModel struct {
+	AllowDeletion     types.Bool   `tfsdk:"allow_deletion"`
+	ClusterAPIURL     types.String `tfsdk:"cluster_api_url"`
+	ID                types.String `tfsdk:"id"`
+	Labels            types.Map    `tfsdk:"labels"`
+	Name              types.String `tfsdk:"name"`
+	Scopes            types.Set    `tfsdk:"scopes"`
+	SecretData        types.String `tfsdk:"secret_data"`
+	SecretDataVersion types.Int64  `tfsdk:"secret_data_version"`
+}
+
+// serverManagedLabelKeys names label keys that the Cloud API auto-injects
+// on Create. The provider strips them in Flatten so the user's planned
+// `labels` map round-trips cleanly through Refresh — otherwise the
+// framework reports `Provider produced inconsistent result after apply`.
+var serverManagedLabelKeys = map[string]bool{"owner": true}
+
+func stripServerManagedLabels(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return in
+	}
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		if serverManagedLabelKeys[k] {
+			continue
+		}
+		out[k] = v
+	}
+	return out
+}
+
 // GetUpdatedModel populates a Secret resource model from the dataplane Secret response.
 func GetUpdatedModel(ctx context.Context, s *dataplanev1.Secret) *ResourceModel {
 	out := &ResourceModel{
@@ -34,10 +66,10 @@ func GetUpdatedModel(ctx context.Context, s *dataplanev1.Secret) *ResourceModel 
 	for _, sc := range scopes {
 		scopeStrs = append(scopeStrs, sc.String())
 	}
-	scopesVal, _ := types.ListValueFrom(ctx, types.StringType, scopeStrs)
+	scopesVal, _ := types.SetValueFrom(ctx, types.StringType, scopeStrs)
 	out.Scopes = scopesVal
 
-	labels := s.GetLabels()
+	labels := stripServerManagedLabels(s.GetLabels())
 	if len(labels) == 0 {
 		out.Labels = types.MapNull(types.StringType)
 	} else {
@@ -47,8 +79,8 @@ func GetUpdatedModel(ctx context.Context, s *dataplanev1.Secret) *ResourceModel 
 	return out
 }
 
-// StringsToScopes converts a Terraform list of scope-name strings to proto Scope enum values.
-func StringsToScopes(ctx context.Context, l types.List) ([]dataplanev1.Scope, diag.Diagnostics) {
+// StringsToScopes converts a Terraform set of scope-name strings to proto Scope enum values.
+func StringsToScopes(ctx context.Context, l types.Set) ([]dataplanev1.Scope, diag.Diagnostics) {
 	if l.IsNull() || l.IsUnknown() {
 		return nil, nil
 	}
@@ -66,15 +98,5 @@ func StringsToScopes(ctx context.Context, l types.List) ([]dataplanev1.Scope, di
 		}
 		out = append(out, dataplanev1.Scope(v))
 	}
-	return out, diags
-}
-
-// MapToStringMap converts a Terraform map of strings to a Go map[string]string.
-func MapToStringMap(ctx context.Context, m types.Map) (map[string]string, diag.Diagnostics) {
-	if m.IsNull() || m.IsUnknown() {
-		return nil, nil
-	}
-	out := make(map[string]string)
-	diags := m.ElementsAs(ctx, &out, false)
 	return out, diags
 }
