@@ -196,32 +196,6 @@ variable "compatibility_level" {
   default     = "FULL"
 }
 
-variable "schema_password_wo" {
-  description = "Write-only password for schema resources (not stored in state)"
-  type        = string
-  default     = null
-  sensitive   = true
-}
-
-variable "schema_password_wo_version" {
-  description = "Version number to trigger password update when using password_wo for schema resources"
-  type        = number
-  default     = null
-}
-
-variable "sr_acl_password_wo" {
-  description = "Write-only password for schema registry ACL resources (not stored in state)"
-  type        = string
-  default     = null
-  sensitive   = true
-}
-
-variable "sr_acl_password_wo_version" {
-  description = "Version number to trigger password update when using password_wo for schema registry ACL resources"
-  type        = number
-  default     = null
-}
-
 variable "cluster_allow_deletion" {
   description = "Allow deletion of cluster resource"
   type        = bool
@@ -255,5 +229,25 @@ variable "role_allow_deletion" {
   description = "Allow deletion of role resource"
   type        = bool
   default     = true
+}
+
+variable "cluster_tags" {
+  description = "Tags applied to the redpanda_cluster resource. Mutated by acceptance tests to exercise the Update path on tags."
+  type        = map(string)
+  default = {
+    "key" = "value"
+  }
+}
+
+variable "topic_retention_ms" {
+  description = "retention.ms entry on the redpanda_topic configuration map. Mutated by acceptance tests to exercise the Update path on topic configuration."
+  type        = string
+  default     = "604800000"
+}
+
+variable "topic_configuration" {
+  description = "Full override of the redpanda_topic configuration map. When non-null, replaces the default {cleanup.policy, retention.ms} pair."
+  type        = map(string)
+  default     = null
 }
 

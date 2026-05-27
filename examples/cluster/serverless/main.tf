@@ -13,10 +13,8 @@ resource "redpanda_serverless_private_link" "test" {
   serverless_region  = var.region
   allow_deletion = var.allow_private_link_deletion
 
-  cloud_provider_config = {
-    aws = {
-      allowed_principals = var.allowed_principals
-    }
+  aws_config = {
+    allowed_principals = var.allowed_principals
   }
 }
 

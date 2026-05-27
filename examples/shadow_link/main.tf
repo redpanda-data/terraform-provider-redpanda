@@ -133,13 +133,15 @@ resource "redpanda_shadow_link" "test" {
   source_redpanda_id = redpanda_cluster.source.id
 
   client_options = {
-    tls = {
+    tls_settings = {
       enabled = true
     }
-    authentication = {
-      mechanism = "scram-sha-256"
-      username  = redpanda_user.shadow_link_user.name
-      password  = "$${secrets.${redpanda_secret.source_password.name}}"
+    authentication_configuration = {
+      scram_configuration = {
+        scram_mechanism = "SCRAM_SHA_256"
+        username        = redpanda_user.shadow_link_user.name
+        password        = "$${secrets.${redpanda_secret.source_password.name}}"
+      }
     }
     metadata_max_age_ms = var.metadata_max_age_ms
   }

@@ -51,18 +51,17 @@ resource "redpanda_acl" "schema_registry_admin" {
   cluster_api_url       = redpanda_cluster.example.cluster_api_url
 }
 
+# The provider authenticates to Schema Registry using its cloud Bearer token.
+# No per-resource username/password is required for SR ACL management.
 resource "redpanda_schema_registry_acl" "example" {
-  cluster_id          = redpanda_cluster.example.id
-  principal           = "User:${redpanda_user.example.name}"
-  resource_type       = "SUBJECT"
-  resource_name       = "user-value"
-  pattern_type        = "LITERAL"
-  host                = "*"
-  operation           = "READ"
-  permission          = "ALLOW"
-  username            = redpanda_user.example.name
-  password_wo         = var.user_password # Write-only, not stored in state
-  password_wo_version = 1                 # Increment to trigger password update
+  cluster_id    = redpanda_cluster.example.id
+  principal     = "User:${redpanda_user.example.name}"
+  resource_type = "SUBJECT"
+  resource_name = "user-value"
+  pattern_type  = "LITERAL"
+  host          = "*"
+  operation     = "READ"
+  permission    = "ALLOW"
 
   depends_on = [redpanda_acl.schema_registry_admin]
 }

@@ -81,14 +81,15 @@ resource "redpanda_role" "developer" {
 # Assign the role to the Terraform-managed user
 resource "redpanda_role_assignment" "created_user" {
   role_name       = redpanda_role.developer.name
-  principal       = redpanda_user.example.name
+  principal       = "User:${redpanda_user.example.name}"
   cluster_api_url = redpanda_cluster.example.cluster_api_url
 
   depends_on = [redpanda_user.example]
 }
 
-# Assign the role to an existing OIDC user (not managed by Terraform).
-# This principal comes from your identity provider (e.g. SSO email).
+# Assign the role to an existing OIDC user or IdP group (not managed by Terraform).
+# The principal must be prefixed: "User:<name>" for an end user (e.g. SSO email) or
+# "Group:<name>" for an IdP group.
 resource "redpanda_role_assignment" "existing_user" {
   role_name       = redpanda_role.developer.name
   principal       = var.existing_user_principal

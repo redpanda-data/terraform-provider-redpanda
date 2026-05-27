@@ -24,10 +24,7 @@ resource "redpanda_cluster" "test" {
   throughput_tier   = var.throughput_tier
   zones             = var.zones
   allow_deletion    = var.cluster_allow_deletion
-  ## This is a reference for GCP tags
-  #   tags = {
-  #     "key" = "value"
-  #   }
+  tags = var.cluster_tags
   ## This is a reference for GCP Private Service Connect
   #   gcp_private_service_connect = {
   #     enabled               = true
@@ -54,6 +51,10 @@ resource "redpanda_topic" "test" {
   replication_factor = var.replication_factor
   cluster_api_url    = redpanda_cluster.test.cluster_api_url
   allow_deletion     = true
+  configuration = {
+    "cleanup.policy" = "delete"
+    "retention.ms"   = var.topic_retention_ms
+  }
 }
 
 

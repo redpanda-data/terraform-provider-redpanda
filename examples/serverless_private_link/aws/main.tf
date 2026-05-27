@@ -5,16 +5,14 @@ resource "redpanda_resource_group" "example" {
 }
 
 resource "redpanda_serverless_private_link" "example" {
-  name               = var.private_link_name
-  resource_group_id  = redpanda_resource_group.example.id
-  cloud_provider     = "aws"
-  serverless_region  = var.serverless_region
-  allow_deletion     = var.allow_deletion
+  name              = var.private_link_name
+  resource_group_id = redpanda_resource_group.example.id
+  cloud_provider    = "aws"
+  serverless_region = var.serverless_region
+  allow_deletion    = var.allow_deletion
 
-  cloud_provider_config = {
-    aws = {
-      allowed_principals = var.allowed_principals
-    }
+  aws_config = {
+    allowed_principals = var.allowed_principals
   }
 }
 

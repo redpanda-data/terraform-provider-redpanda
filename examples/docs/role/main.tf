@@ -42,6 +42,6 @@ resource "redpanda_user" "example" {
 
 resource "redpanda_role_assignment" "example" {
   role_name       = redpanda_role.example.name
-  principal       = redpanda_user.example.name
+  principal       = "User:${redpanda_user.example.name}"
   cluster_api_url = redpanda_cluster.example.cluster_api_url
 }

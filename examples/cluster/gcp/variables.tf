@@ -218,3 +218,23 @@ variable "role_allow_deletion" {
   default     = true
 }
 
+variable "cluster_tags" {
+  description = "Tags applied to the redpanda_cluster resource. Mutated by acceptance tests to exercise the Update path on tags."
+  type        = map(string)
+  default = {
+    "key" = "value"
+  }
+}
+
+variable "topic_retention_ms" {
+  description = "retention.ms entry on the redpanda_topic configuration map. Mutated by acceptance tests to exercise the Update path on topic configuration."
+  type        = string
+  default     = "604800000"
+}
+
+variable "topic_configuration" {
+  description = "Full override of the redpanda_topic configuration map. When non-null, replaces the default {cleanup.policy, retention.ms} pair."
+  type        = map(string)
+  default     = null
+}
+
