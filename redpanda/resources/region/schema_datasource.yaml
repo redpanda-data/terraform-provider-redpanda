@@ -1,0 +1,19 @@
+message: "Data source for a Redpanda Cloud region"
+api_schema: Region
+tf_name: Region
+computed_default: true
+
+cloud_provider:
+  required: true
+  description: "Cloud provider where the region exists"
+  validator: CloudProviders
+
+name:
+  required: true
+  description: "Name of the region"
+
+zones:
+  description: "Zones available in the region"
+
+default_timezone:
+  exclude: true

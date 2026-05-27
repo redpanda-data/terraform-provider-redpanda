@@ -24,25 +24,29 @@ import (
 	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils/enums"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
-var (
-	_ datasource.DataSource = &DataSourceThroughputTiers{}
-)
+var _ datasource.DataSource = &DataSourceThroughputTiers{}
 
 // DataSourceThroughputTiers represents a data source for a list of Redpanda Cloud throughput tiers.
 type DataSourceThroughputTiers struct {
-	CpCl *cloud.ControlPlaneClientSet
+	base.DataSourceBase
+}
+
+// NewDataSourceThroughputTiers constructs a ThroughputTiers datasource.
+func NewDataSourceThroughputTiers() *DataSourceThroughputTiers {
+	d := &DataSourceThroughputTiers{}
+	d.DataSourceBase = base.NewDataSourceBase("redpanda_throughput_tiers", DataSourceThroughputTiersSchema, nil)
+	return d
 }
 
 // DataSourceThroughputTiersSchema defines the schema for a Throughput Tiers data source.
-func DataSourceThroughputTiersSchema() schema.Schema {
+func DataSourceThroughputTiersSchema(_ context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"cloud_provider": schema.StringAttribute{
@@ -75,16 +79,6 @@ func DataSourceThroughputTiersSchema() schema.Schema {
 	}
 }
 
-// Metadata returns the metadata for the Throughput Tiers data source.
-func (*DataSourceThroughputTiers) Metadata(_ context.Context, _ datasource.MetadataRequest, response *datasource.MetadataResponse) {
-	response.TypeName = "redpanda_throughput_tiers"
-}
-
-// Schema returns the schema for the Throughput Tiers data source.
-func (*DataSourceThroughputTiers) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	resp.Schema = DataSourceThroughputTiersSchema()
-}
-
 // Read reads the Throughput Tiers data source's values and updates the state.
 func (r *DataSourceThroughputTiers) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var model models.ThroughputTiers
@@ -95,9 +89,9 @@ func (r *DataSourceThroughputTiers) Read(ctx context.Context, req datasource.Rea
 
 	listReq := &controlplanev1beta2.ListThroughputTiersRequest{}
 	if !model.CloudProvider.IsNull() {
-		cloudProvider, err := utils.StringToCloudProviderBeta(model.CloudProvider.ValueString())
-		if err != nil {
-			resp.Diagnostics.AddError("unsupported cloud provider", utils.DeserializeGrpcError(err))
+		cloudProvider := enums.StringToCloudProviderBeta(model.CloudProvider.ValueString())
+		if cloudProvider == controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_UNSPECIFIED {
+			resp.Diagnostics.AddError("unsupported cloud provider", fmt.Sprintf("unknown cloud provider %q", model.CloudProvider.ValueString()))
 			return
 		}
 
@@ -119,28 +113,11 @@ func (r *DataSourceThroughputTiers) Read(ctx context.Context, req datasource.Rea
 	model.ThroughputTiers = []models.ThroughputTiersItem{}
 	for _, v := range tiers.ThroughputTiers {
 		item := models.ThroughputTiersItem{
-			CloudProvider: utils.CloudProviderToStringBeta(v.CloudProvider),
+			CloudProvider: enums.CloudProviderBetaToString(v.CloudProvider),
 			DisplayName:   v.DisplayName,
 			Name:          v.Name,
 		}
 		model.ThroughputTiers = append(model.ThroughputTiers, item)
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, model)...)
-}
-
-// Configure uses provider level data to configure DataSourceThroughputTiers client.
-func (r *DataSourceThroughputTiers) Configure(_ context.Context, request datasource.ConfigureRequest, response *datasource.ConfigureResponse) {
-	if request.ProviderData == nil {
-		return
-	}
-
-	p, ok := request.ProviderData.(config.Datasource)
-	if !ok {
-		response.Diagnostics.AddError(
-			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", request.ProviderData),
-		)
-		return
-	}
-	r.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
 }
