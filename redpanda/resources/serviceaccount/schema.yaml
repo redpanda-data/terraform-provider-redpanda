@@ -1,0 +1,44 @@
+message: "A Redpanda Cloud service account (machine identity)"
+api_schema: ServiceAccount
+tf_name: ServiceAccount
+
+timeouts: [create, update, delete]
+
+api:
+  update:
+    # Resource code computes a FieldMask diff between plan and prev state
+    # and wraps the returned payload, so the generator returns the
+    # ServiceAccountUpdate payload type instead of the full request envelope.
+    return_payload: true
+
+id:
+  computed_only: true
+
+name:
+  required: true
+
+description:
+  required: true
+
+# auth0_client_credentials is server-generated. client_id is returned on every
+# Get/List; client_secret is proto3-optional and returned only in the Create
+# response (debug_redact omits it from subsequent reads). The generator's
+# three-arm nested Flatten handles the lifecycle: HasClientSecret() → use
+# proto's value (Create path); else if prev not unknown → carry prev (Read /
+# Update path, where the server omits the field); else → null (fresh Import
+# with no prior state). sensitive masks it in state.
+auth0_client_credentials:
+  computed_only: true
+  fields:
+    client_id:
+      computed_only: true
+    client_secret:
+      computed_only: true
+      sensitive: true
+
+# role_bindings is Create-only on the proto side (ServiceAccountCreate carries
+# it; the canonical ServiceAccount and ServiceAccountUpdate do not). Exclude
+# it here — bindings are managed separately via the role / role-assignment
+# resources to keep this resource's Update/Read shape clean.
+role_bindings:
+  exclude: true
