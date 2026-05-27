@@ -1,0 +1,9 @@
+attributes:
+    - name: id
+      type: StringAttribute
+      optional: true
+      computed: true
+    - name: name
+      type: StringAttribute
+      optional: true
+      computed: true

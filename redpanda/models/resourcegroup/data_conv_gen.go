@@ -15,26 +15,27 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-// Package resourcegroup contains the model for the resourcegroup resource.
 package resourcegroup
 
 import (
+	"context"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// ResourceModel represents the Terraform schema for the resourcegroup resource.
-type ResourceModel struct {
-	ID   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+type DataResourceGroupResponse interface {
+	GetId() string
+	GetName() string
 }
 
-// GenerateMinimalResourceModel returns a *ResourceModel populated only with
-// the supplied id; every other field is at its typed null (or its
-// declared minimal_default). Used by resources that need to persist a
-// partial state when Create / Read returns mid-flight.
-func GenerateMinimalResourceModel(id types.String) *ResourceModel {
-	return &ResourceModel{
-		ID:   id,
-		Name: types.StringNull(),
-	}
+// FlattenData populates a *DataModel from the API response payload.
+// The prev *DataModel arg carries forward TF-only / sensitive / write-only
+// fields that the response cannot supply; pass nil when no prior state exists
+// (e.g., during ImportState).
+func FlattenData(_ context.Context, proto DataResourceGroupResponse, prev *DataModel) (*DataModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	m := &DataModel{}
+	m.ID = types.StringValue(proto.GetId())
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
 }

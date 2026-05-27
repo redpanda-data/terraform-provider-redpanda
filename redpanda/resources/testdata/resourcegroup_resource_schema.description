@@ -1,0 +1,6 @@
+description: A Redpanda Cloud resource group
+attributes:
+    - name: id
+      description: UUID of the resource group
+    - name: name
+      description: Name of the resource group. Changing the name of a resource group will result in a new resource group being created and the old one being destroyed
