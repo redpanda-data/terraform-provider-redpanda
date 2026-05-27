@@ -34,6 +34,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/redpanda/src/go/rpk/pkg/cloudapi"
 	"github.com/redpanda-data/redpanda/src/go/rpk/pkg/plugin"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils/enums"
 )
 
 // ByocClientConfig represents the options that must be passed to NewByocClient.
@@ -196,7 +197,7 @@ func (cl *ByocClient) generateAzureArgsAndEnv() (args, env []string, err error) 
 				// up automatically and it will be fine, but if AZURE_CLIENT_ID and AZURE_CLIENT_SECRET
 				// are being used instead they won't get picked up and the Terraform backend will fail.
 				// TODO: can change this to --identity=none after removing support for AZURE_ variables
-				"--identity", "oidc",
+				// "--identity", "oidc",
 			)
 		}
 	}
@@ -288,11 +289,11 @@ func (cl *ByocClient) generateByocArgsAndEnv(ctx context.Context, cluster clouda
 	var providerArgs, providerEnv []string
 	var providerCleanup func()
 	switch cloudProvider {
-	case CloudProviderStringAws:
+	case enums.CloudProviderStringAws:
 		providerArgs, providerEnv, err = cl.generateAwsArgsAndEnv()
-	case CloudProviderStringAzure:
+	case enums.CloudProviderStringAzure:
 		providerArgs, providerEnv, err = cl.generateAzureArgsAndEnv()
-	case CloudProviderStringGcp:
+	case enums.CloudProviderStringGcp:
 		providerArgs, providerEnv, providerCleanup, err = cl.generateGcpArgsAndEnv(ctx)
 	default:
 		err = fmt.Errorf(

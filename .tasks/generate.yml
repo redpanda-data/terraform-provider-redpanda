@@ -2,22 +2,79 @@ version: '3'
 
 vars:
   MODELS_DIR: "redpanda/models"
+  RESOURCES_DIR: "redpanda/resources"
+  CONSOLE_REPO: '{{.CONSOLE_REPO | default "../console"}}'
+  CONSOLE_PROTO_EXPORT_DIR: ".build/console-protos"
 
 tasks:
-  # Generate models
+  # Materialize console protos via `buf export`. Necessary because some
+  # dataplane protos (e.g. pipeline.proto) import buf-registry-only types
+  # (e.g. redpanda/api/common/v1/linthint.proto from buf.build/redpandadata/common)
+  # that aren't checked into console's working tree. `buf export` resolves
+  # the dep closure into a flat protoc-compatible tree.
+  console-protos:
+    desc: "Materialize console protos (resolves buf-registry deps via `buf export`)"
+    deps:
+      - :tools:install:buf
+    preconditions:
+      - sh: 'test -d "{{.CONSOLE_REPO}}/proto"'
+        msg: 'console proto tree not found at {{.CONSOLE_REPO}}/proto. Set CONSOLE_REPO or check out console as a sibling repo.'
+    cmds:
+      - mkdir -p .build
+      - rm -rf {{.CONSOLE_PROTO_EXPORT_DIR}}
+      - "{{.PATH_PREFIX}} buf export {{.CONSOLE_REPO}} -o {{.CONSOLE_PROTO_EXPORT_DIR}}"
+
+  # Generate schemas from proto definitions + YAML configs
+  schemas:
+    desc: "Generate Terraform schemas from protobuf definitions"
+    deps: [console-protos]
+    cmds:
+      - go generate ./{{.RESOURCES_DIR}}/...
+
+  # Generate models from schemas (depends on schemas)
   models:
     desc: "Generate model structs from schemas"
+    deps: [schemas]
     cmds:
       - go generate ./{{.MODELS_DIR}}/...
 
   # Main entry point
   default:
-    desc: "Generate all models"
+    desc: "Generate all schemas and models"
     cmds:
       - task: models
 
-  # Clean generated model files
-  clean:
-    desc: "Remove generated model files"
+  # Import OpenAPI field descriptions from local cloudv2 and console
+  # checkouts. Not wired into `default` — developer workflow step, usually
+  # run when proto comments change. Produces
+  # internal/schemagen/data/apidescriptions.yaml. Console is optional;
+  # when absent the import proceeds with cloudv2 only.
+  apidescriptions:
+    desc: "Import OpenAPI field descriptions from cloudv2 + console checkouts"
+    vars:
+      CLOUDV2_REPO: '{{.CLOUDV2_REPO | default "../cloudv2"}}'
+      CONSOLE_REPO: '{{.CONSOLE_REPO | default "../console"}}'
     cmds:
+      - go run ./cmd/apidesc-import -repo={{.CLOUDV2_REPO}} -console-repo={{.CONSOLE_REPO}}
+
+  # Update golden files after intentional schema changes
+  golden:
+    desc: "Regenerate golden test files from current schemas"
+    cmds:
+      - go test ./{{.RESOURCES_DIR}}/ -run TestSchemaGolden -update
+
+  # Add new proto fields as todo entries in YAML configs.
+  # Reuses the normal go:generate directives so no per-resource registration is needed.
+  todo:
+    desc: "Detect new proto fields and add as todo: true in YAML configs"
+    env:
+      SCHEMAGEN_TODO: "1"
+    cmds:
+      - go generate ./{{.RESOURCES_DIR}}/...
+
+  # Clean generated files
+  clean:
+    desc: "Remove generated schema and model files"
+    cmds:
+      - find {{.RESOURCES_DIR}} -name '*_gen.go' -delete
       - find {{.MODELS_DIR}} -name '*_gen.go' -delete

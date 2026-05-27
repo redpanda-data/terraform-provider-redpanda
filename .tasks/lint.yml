@@ -8,6 +8,7 @@ tasks:
   default:
     desc: "Run all code quality checks"
     deps:
+      - :tools:install:go
       - :tools:install:golangci-lint
     cmds:
       - echo "Running linting..."
