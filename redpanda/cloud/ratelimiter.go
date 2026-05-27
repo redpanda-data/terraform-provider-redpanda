@@ -73,6 +73,8 @@ func parseRateLimit(header string) (limit, remaining int, reset time.Duration, e
 		case "reset":
 			reset = time.Duration(intValue) * time.Second
 			resetSet = true
+		default:
+			// ignore unrecognised rate-limit headers; required keys validated post-loop
 		}
 	}
 

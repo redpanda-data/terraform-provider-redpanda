@@ -22,10 +22,33 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"sync/atomic"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
+
+// retryInitialWait and retryMaxWait are package-level atomics (not const) so
+// tests can shrink the backoff floor + ceiling to sub-millisecond without
+// changing production timing. Atomic int64 nanoseconds; production callers
+// keep the 1s/60s defaults. Reads happen from Retry which runs in resource
+// CRUD flows under t.Parallel; writes happen from SetTestModeWaits when
+// REDPANDA_TF_ACCEPTANCE_TEST_MODE=1 is observed in provider Configure().
+var (
+	retryInitialWait atomic.Int64
+	retryMaxWait     atomic.Int64
+)
+
+func init() {
+	retryInitialWait.Store(int64(time.Second))
+	retryMaxWait.Store(int64(time.Minute))
+}
+
+// SetTestModeWaits collapses retry backoff to microseconds for integration tests.
+func SetTestModeWaits() {
+	retryInitialWait.Store(int64(time.Microsecond))
+	retryMaxWait.Store(int64(10 * time.Microsecond))
+}
 
 // Retry will retry a function with a delay between each invocation until it no longer returns
 // an error, the timeout is reached, or the context is cancelled.
@@ -33,10 +56,8 @@ import (
 // resets the delay whenever the function returns an error with a different string.
 // Similar to https://pkg.go.dev/github.com/hashicorp/terraform-plugin-sdk/v2@v2.34.0/helper/retry#RetryContext
 func Retry(ctx context.Context, timeout time.Duration, f func() *RetryError) error {
-	const (
-		initialWaitUnit = time.Second
-		maxWaitUnit     = time.Minute
-	)
+	initialWaitUnit := time.Duration(retryInitialWait.Load())
+	maxWaitUnit := time.Duration(retryMaxWait.Load())
 	startTime := time.Now()
 	endTime := startTime.Add(timeout)
 	waitUnit := initialWaitUnit

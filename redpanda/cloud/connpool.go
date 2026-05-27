@@ -56,6 +56,21 @@ func NewConnPool(authToken, providerVersion, terraformVersion string) *ConnPool 
 	}
 }
 
+// NewConnPoolWithOpts is NewConnPool plus integration hooks. The supplied
+// opts are threaded into every spawn so dataplane dials route through the
+// same bufconn dialer as the controlplane.
+func NewConnPoolWithOpts(authToken, providerVersion, terraformVersion string, opts SpawnConnOpts) *ConnPool {
+	return &ConnPool{
+		authToken:        authToken,
+		providerVersion:  providerVersion,
+		terraformVersion: terraformVersion,
+		conns:            make(map[string]*grpc.ClientConn),
+		spawnFunc: func(url, authToken, providerVersion, terraformVersion string) (*grpc.ClientConn, error) {
+			return SpawnConnWithOpts(url, authToken, providerVersion, terraformVersion, opts)
+		},
+	}
+}
+
 // isHealthy returns true if the connection is in a usable state.
 func isHealthy(conn *grpc.ClientConn) bool {
 	state := conn.GetState()

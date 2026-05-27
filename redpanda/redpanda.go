@@ -50,6 +50,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlesscluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlessprivatelink"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serverlessregions"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/serviceaccount"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/shadowlink"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/throughputtiers"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/topic"
@@ -75,6 +76,32 @@ type Redpanda struct {
 	dataplanePool *cloud.ConnPool
 	// byoc is the client for managing byoc executions.
 	byoc *utils.ByocClient
+
+	// Test-only seams populated by Option-functional builders. Zero-value in
+	// production.
+	dialOptions  []grpc.DialOption
+	insecureDial bool
+	skipAuth     bool
+}
+
+// Option mutates a Redpanda provider for test wiring. Production callers pass
+// no Options.
+type Option func(*Redpanda)
+
+// WithDialer injects extra gRPC dial options into SpawnConn. Used by the
+// integration tier to route through a bufconn listener; setting any
+// dialer also flips the transport credentials to insecure.
+func WithDialer(opts ...grpc.DialOption) Option {
+	return func(r *Redpanda) {
+		r.dialOptions = opts
+		r.insecureDial = true
+	}
+}
+
+// WithSkipAuth bypasses the Auth0 token request. Used by the integration
+// tier where the bufconn fake answers without checking the bearer token.
+func WithSkipAuth() Option {
+	return func(r *Redpanda) { r.skipAuth = true }
 }
 
 const (
@@ -87,13 +114,18 @@ const (
 )
 
 // New spawns a basic provider struct, no client. Configure must be called for a
-// working client.
-func New(_ context.Context, cloudEnv, version string) func() provider.Provider {
+// working client. Options apply test-time configuration; production callers
+// pass none.
+func New(_ context.Context, cloudEnv, version string, opts ...Option) func() provider.Provider {
 	return func() provider.Provider {
-		return &Redpanda{
+		r := &Redpanda{
 			cloudEnv: cloudEnv,
 			version:  version,
 		}
+		for _, o := range opts {
+			o(r)
+		}
+		return r
 	}
 }
 
@@ -305,15 +337,38 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		return
 	}
 
+	if os.Getenv("REDPANDA_TF_ACCEPTANCE_TEST_MODE") == "1" {
+		utils.SetTestModeWaits()
+		tflog.Debug(ctx, "REDPANDA_TF_ACCEPTANCE_TEST_MODE=1: retry waits collapsed to microseconds")
+	}
+
 	// Clients are passed through to downstream resources through the response
 	// struct.
-	creds, diags := getCredentials(ctx, r.cloudEnv, conf)
-	response.Diagnostics.Append(diags...)
-	if response.Diagnostics.HasError() {
-		return
+	var creds credentials
+	if r.skipAuth {
+		endpoint, err := cloud.EndpointForEnv(r.cloudEnv)
+		if err != nil {
+			response.Diagnostics.AddError("invalid cloud environment", err.Error())
+			return
+		}
+		creds = credentials{
+			EndpointAPIURL: endpoint.APIURL,
+			InternalAPIURL: endpoint.InternalAPIURL,
+			Token:          "mock-token",
+		}
+	} else {
+		c, diags := getCredentials(ctx, r.cloudEnv, conf)
+		response.Diagnostics.Append(diags...)
+		if response.Diagnostics.HasError() {
+			return
+		}
+		creds = c
 	}
 	if r.conn == nil {
-		conn, err := cloud.SpawnConn(creds.EndpointAPIURL, creds.Token, r.version, request.TerraformVersion)
+		conn, err := cloud.SpawnConnWithOpts(creds.EndpointAPIURL, creds.Token, r.version, request.TerraformVersion, cloud.SpawnConnOpts{
+			ExtraDialOptions: r.dialOptions,
+			InsecureCreds:    r.insecureDial,
+		})
 		if err != nil {
 			response.Diagnostics.AddError("failed to open a connection with the Redpanda Cloud API", utils.DeserializeGrpcError(err))
 			return
@@ -397,7 +452,14 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	}
 
 	if r.dataplanePool == nil {
-		r.dataplanePool = cloud.NewConnPool(creds.Token, r.version, request.TerraformVersion)
+		if len(r.dialOptions) > 0 || r.insecureDial {
+			r.dataplanePool = cloud.NewConnPoolWithOpts(creds.Token, r.version, request.TerraformVersion, cloud.SpawnConnOpts{
+				ExtraDialOptions: r.dialOptions,
+				InsecureCreds:    r.insecureDial,
+			})
+		} else {
+			r.dataplanePool = cloud.NewConnPool(creds.Token, r.version, request.TerraformVersion)
+		}
 	}
 	response.ResourceData = config.Resource{
 		AuthToken:              creds.Token,
@@ -431,33 +493,15 @@ func (*Redpanda) Schema(_ context.Context, _ provider.SchemaRequest, response *p
 // DataSource.
 func (*Redpanda) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		func() datasource.DataSource {
-			return &serverlesscluster.DataSourceServerlessCluster{}
-		},
-		func() datasource.DataSource {
-			return &serverlessregions.DataSourceServerlessRegions{}
-		},
-		func() datasource.DataSource {
-			return &cluster.DataSourceCluster{}
-		},
-		func() datasource.DataSource {
-			return &resourcegroup.DataSourceResourceGroup{}
-		},
-		func() datasource.DataSource {
-			return &network.DataSourceNetwork{}
-		},
-		func() datasource.DataSource {
-			return &region.DataSourceRegion{}
-		},
-		func() datasource.DataSource {
-			return &regions.DataSourceRegions{}
-		},
-		func() datasource.DataSource {
-			return &throughputtiers.DataSourceThroughputTiers{}
-		},
-		func() datasource.DataSource {
-			return &schemaresource.SchemaDataSource{}
-		},
+		func() datasource.DataSource { return serverlesscluster.NewDataSourceServerlessCluster() },
+		func() datasource.DataSource { return serverlessregions.NewDataSourceServerlessRegions() },
+		func() datasource.DataSource { return cluster.NewDataSourceCluster() },
+		func() datasource.DataSource { return resourcegroup.NewDataSourceResourceGroup() },
+		func() datasource.DataSource { return network.NewDataSourceNetwork() },
+		func() datasource.DataSource { return region.NewDataSourceRegion() },
+		func() datasource.DataSource { return regions.NewDataSourceRegions() },
+		func() datasource.DataSource { return throughputtiers.NewDataSourceThroughputTiers() },
+		func() datasource.DataSource { return schemaresource.NewSchemaDataSource() },
 	}
 }
 
@@ -465,25 +509,22 @@ func (*Redpanda) DataSources(_ context.Context) []func() datasource.DataSource {
 func (*Redpanda) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		func() resource.Resource {
-			return &resourcegroup.ResourceGroup{}
+			return resourcegroup.NewResourceGroup()
 		},
-		func() resource.Resource {
-			return &network.Network{}
-		},
-		func() resource.Resource { return &serverlesscluster.ServerlessCluster{} },
-		func() resource.Resource { return &serverlessprivatelink.ServerlessPrivateLink{} },
-		func() resource.Resource {
-			return &cluster.Cluster{}
-		},
-		func() resource.Resource { return &acl.ACL{} },
-		func() resource.Resource { return &user.User{} },
-		func() resource.Resource { return &topic.Topic{} },
-		func() resource.Resource { return &role.Role{} },
-		func() resource.Resource { return &roleassignment.RoleAssignment{} },
-		func() resource.Resource { return &schemaresource.Schema{} },
-		func() resource.Resource { return &schemaregistryacl.SchemaRegistryACL{} },
-		func() resource.Resource { return &pipeline.Pipeline{} },
-		func() resource.Resource { return &secret.Secret{} },
-		func() resource.Resource { return &shadowlink.ShadowLink{} },
+		func() resource.Resource { return network.NewNetwork() },
+		func() resource.Resource { return serverlesscluster.NewServerlessCluster() },
+		func() resource.Resource { return serverlessprivatelink.NewServerlessPrivateLink() },
+		func() resource.Resource { return cluster.NewCluster() },
+		func() resource.Resource { return acl.NewACL() },
+		func() resource.Resource { return user.NewUser() },
+		func() resource.Resource { return topic.NewTopic() },
+		func() resource.Resource { return role.NewRole() },
+		func() resource.Resource { return roleassignment.NewRoleAssignment() },
+		func() resource.Resource { return schemaresource.NewSchema() },
+		func() resource.Resource { return schemaregistryacl.NewSchemaRegistryACL() },
+		func() resource.Resource { return pipeline.NewPipeline() },
+		func() resource.Resource { return secret.NewSecret() },
+		func() resource.Resource { return shadowlink.NewShadowLink() },
+		func() resource.Resource { return serviceaccount.NewServiceAccount() },
 	}
 }

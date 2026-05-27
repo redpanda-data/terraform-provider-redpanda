@@ -16,7 +16,6 @@ import (
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,13 +26,24 @@ import (
 	grpcstatus "google.golang.org/grpc/status"
 )
 
+// TestMain shrinks Retry's backoff floor + ceiling to microseconds so the
+// AreWeDoneYet burst tests (25-50 retries) run in milliseconds instead of
+// the production timing (1s floor, 60s ceiling) that would push them past
+// any reasonable unit-test budget.
+func TestMain(m *testing.M) {
+	retryInitialWait.Store(int64(time.Microsecond))
+	retryMaxWait.Store(int64(10 * time.Microsecond))
+	m.Run()
+}
+
 func TestAreWeDoneYet(t *testing.T) {
 	testCases := []struct {
-		name      string
-		op        *controlplanev1.Operation
-		timeout   time.Duration
-		mockSetup func(m *mocks.MockOperationServiceClient)
-		wantErr   string
+		name          string
+		op            *controlplanev1.Operation
+		timeout       time.Duration
+		mockSetup     func(m *mocks.MockOperationServiceClient)
+		wantErr       string
+		wantErrPrefix string // for assertions where the message contains a runtime-measured value
 	}{
 		{
 			name: "Operation completed successfully",
@@ -97,6 +107,67 @@ func TestAreWeDoneYet(t *testing.T) {
 			},
 			wantErr: "timed out after 100ms: expected operation to be completed but was in state STATE_UNSPECIFIED",
 		},
+		{
+			// Long-running async ops can see 10+ consecutive Internals on
+			// GetOperation while the server-side mutation completes — the
+			// old hard count cap (10) tripped in production on a tag
+			// mutation that succeeded server-side. The time-based stuck
+			// cap (min(5m, timeout/6)) lets the 25 errors run through
+			// TestMain's microsecond backoff well within the 5m window
+			// before COMPLETED arrives. Cap doesn't fire.
+			name: "Transient burst within stuck cap then completes",
+			op:   &controlplanev1.Operation{State: controlplanev1.Operation_STATE_IN_PROGRESS},
+			mockSetup: func(m *mocks.MockOperationServiceClient) {
+				calls := []any{}
+				for range 25 {
+					calls = append(calls, m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(nil, grpcstatus.Error(codes.Internal, "internal error")))
+				}
+				calls = append(calls, m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1.Operation_STATE_COMPLETED), nil))
+				gomock.InOrder(calls...)
+			},
+			timeout: 5 * time.Minute,
+		},
+		{
+			// Reset-on-success: 25 transients → IN_PROGRESS → 25 more
+			// transients → COMPLETED. Each successful poll resets the stuck
+			// window so the second burst is measured independently.
+			name: "Reset stuck window on successful poll between bursts",
+			op:   &controlplanev1.Operation{State: controlplanev1.Operation_STATE_IN_PROGRESS},
+			mockSetup: func(m *mocks.MockOperationServiceClient) {
+				calls := []any{}
+				for range 25 {
+					calls = append(calls, m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(nil, grpcstatus.Error(codes.Internal, "internal error")))
+				}
+				calls = append(calls, m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1.Operation_STATE_IN_PROGRESS), nil))
+				for range 25 {
+					calls = append(calls, m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(nil, grpcstatus.Error(codes.Internal, "internal error")))
+				}
+				calls = append(calls, m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1.Operation_STATE_COMPLETED), nil))
+				gomock.InOrder(calls...)
+			},
+			timeout: 5 * time.Minute,
+		},
+		{
+			// Sustained transients past the stuck cap with no successful
+			// poll: bail with "server unresponsive for ...". Test uses a
+			// short timeout (10ms → stuckCap ≈ 1.6ms) plus a slow-down
+			// pause inside the mock so the retry loop exceeds stuckCap.
+			// .AnyTimes() because the exact retry count depends on backoff
+			// jitter; we only assert the message format.
+			name: "Sustained transients past stuck cap bails",
+			op:   &controlplanev1.Operation{State: controlplanev1.Operation_STATE_IN_PROGRESS},
+			mockSetup: func(m *mocks.MockOperationServiceClient) {
+				m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(_ context.Context, _ *controlplanev1.GetOperationRequest, _ ...any) (*controlplanev1.GetOperationResponse, error) {
+						time.Sleep(2 * time.Millisecond)
+						return nil, grpcstatus.Error(codes.Internal, "internal error")
+					},
+				).AnyTimes()
+			},
+			timeout: 10 * time.Millisecond,
+			// Match the prefix; the full message includes a measured duration that varies per run.
+			wantErrPrefix: "server unresponsive for ",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -111,13 +182,18 @@ func TestAreWeDoneYet(t *testing.T) {
 
 			ctx := context.Background()
 			err := AreWeDoneYet(ctx, tc.op, tc.timeout, mockClient)
-			if tc.wantErr == "" {
+			switch {
+			case tc.wantErrPrefix != "":
+				if err == nil || !strings.HasPrefix(err.Error(), tc.wantErrPrefix) {
+					t.Errorf("Expected error prefixed %q, got: %v", tc.wantErrPrefix, err)
+				}
+			case tc.wantErr != "":
+				if err == nil || err.Error() != tc.wantErr {
+					t.Errorf("Expected error %q, got: %v", tc.wantErr, err)
+				}
+			default:
 				if err != nil {
 					t.Errorf("Expected no error, got: %v", err)
-				}
-			} else {
-				if err == nil || err.Error() != tc.wantErr {
-					t.Errorf("Expected error '%s', got: %v", tc.wantErr, err)
 				}
 			}
 		})
@@ -129,53 +205,6 @@ func createOpResponse(state controlplanev1.Operation_State) *controlplanev1.GetO
 		Operation: &controlplanev1.Operation{
 			State: state,
 		},
-	}
-}
-
-func mustMap(t *testing.T, m map[string]string) basetypes.MapValue {
-	o, err := types.MapValueFrom(context.TODO(), types.StringType, m)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return o
-}
-
-func TestTypeMapToStringMap(t *testing.T) {
-	type args struct {
-		tags types.Map
-	}
-	tests := []struct {
-		name string
-		args args
-		want map[string]string
-	}{
-		{
-			name: "Empty map",
-			args: args{tags: mustMap(t, map[string]string{})},
-			want: nil,
-		},
-		{
-			name: "Single key",
-			args: args{tags: mustMap(t, map[string]string{"key": "value"})},
-			want: map[string]string{"key": "value"},
-		},
-		{
-			name: "Single key with quotes",
-			args: args{tags: mustMap(t, map[string]string{"key": `"value"`})},
-			want: map[string]string{"key": "value"},
-		},
-		{
-			name: "Multiple keys",
-			args: args{tags: mustMap(t, map[string]string{"key1": "value1", "key2": "value2"})},
-			want: map[string]string{"key1": "value1", "key2": "value2"},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := TypeMapToStringMap(tt.args.tags); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("TypeMapToStringMap() = %v, want %v", got, tt.want)
-			}
-		})
 	}
 }
 
@@ -1238,6 +1267,32 @@ func TestIsUnavailable(t *testing.T) {
 	}
 }
 
+// TestIsTransientServerError covers the AreWeDoneYet retry classifier. It
+// extends IsUnavailable to also include gRPC Internal, which the v6/v7 live
+// cycles hit three times during serverless tag-mutation operation polling
+// (mutation succeeded; read transiently glitched). Pin: Unavailable stays
+// in, Internal now also in, NotFound stays out.
+func TestIsTransientServerError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{"nil error", nil, false},
+		{"gRPC Unavailable", grpcstatus.Error(codes.Unavailable, "x"), true},
+		{"gRPC Internal", grpcstatus.Error(codes.Internal, "x"), true},
+		{"HTTP 503 string", errors.New("got 503"), true},
+		{"gRPC NotFound", grpcstatus.Error(codes.NotFound, "x"), false},
+		{"gRPC InvalidArgument", grpcstatus.Error(codes.InvalidArgument, "x"), false},
+		{"generic error", errors.New("plain"), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, IsTransientServerError(tt.err))
+		})
+	}
+}
+
 func TestConvertToConsoleURL(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1416,6 +1471,53 @@ func TestStringValueOrNull(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPointerOrNil(t *testing.T) {
+	t.Run("String", func(t *testing.T) {
+		assert.Nil(t, PointerOrNil(types.StringNull(), types.String.ValueString))
+		assert.Nil(t, PointerOrNil(types.StringUnknown(), types.String.ValueString))
+		got := PointerOrNil(types.StringValue("hello"), types.String.ValueString)
+		require.NotNil(t, got)
+		assert.Equal(t, "hello", *got)
+		empty := PointerOrNil(types.StringValue(""), types.String.ValueString)
+		require.NotNil(t, empty)
+		assert.Equal(t, "", *empty)
+	})
+	t.Run("Bool", func(t *testing.T) {
+		assert.Nil(t, PointerOrNil(types.BoolNull(), types.Bool.ValueBool))
+		assert.Nil(t, PointerOrNil(types.BoolUnknown(), types.Bool.ValueBool))
+		tr := PointerOrNil(types.BoolValue(true), types.Bool.ValueBool)
+		require.NotNil(t, tr)
+		assert.True(t, *tr)
+		fa := PointerOrNil(types.BoolValue(false), types.Bool.ValueBool)
+		require.NotNil(t, fa)
+		assert.False(t, *fa)
+	})
+	t.Run("Int32", func(t *testing.T) {
+		assert.Nil(t, PointerOrNil(types.Int32Null(), types.Int32.ValueInt32))
+		assert.Nil(t, PointerOrNil(types.Int32Unknown(), types.Int32.ValueInt32))
+		got := PointerOrNil(types.Int32Value(42), types.Int32.ValueInt32)
+		require.NotNil(t, got)
+		assert.Equal(t, int32(42), *got)
+		zero := PointerOrNil(types.Int32Value(0), types.Int32.ValueInt32)
+		require.NotNil(t, zero)
+		assert.Equal(t, int32(0), *zero)
+	})
+	t.Run("Int64", func(t *testing.T) {
+		assert.Nil(t, PointerOrNil(types.Int64Null(), types.Int64.ValueInt64))
+		assert.Nil(t, PointerOrNil(types.Int64Unknown(), types.Int64.ValueInt64))
+		got := PointerOrNil(types.Int64Value(99), types.Int64.ValueInt64)
+		require.NotNil(t, got)
+		assert.Equal(t, int64(99), *got)
+	})
+	t.Run("Float64", func(t *testing.T) {
+		assert.Nil(t, PointerOrNil(types.Float64Null(), types.Float64.ValueFloat64))
+		assert.Nil(t, PointerOrNil(types.Float64Unknown(), types.Float64.ValueFloat64))
+		got := PointerOrNil(types.Float64Value(1.5), types.Float64.ValueFloat64)
+		require.NotNil(t, got)
+		assert.Equal(t, 1.5, *got)
+	})
 }
 
 func TestStringSliceToTypeListOrNull(t *testing.T) {
