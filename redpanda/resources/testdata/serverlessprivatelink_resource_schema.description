@@ -1,0 +1,39 @@
+description: Manages a Redpanda Serverless Private Link
+attributes:
+    - name: allow_deletion
+      description: Allows deletion of the serverless private link. Defaults to false.
+    - name: aws_config
+      description: AWS-specific configuration. Required when cloud_provider is 'aws'.
+      attributes:
+        - name: allowed_principals
+          description: AWS principals (ARNs) allowed to connect to the private link endpoint
+    - name: cloud_provider
+      description: Cloud provider (aws)
+    - name: cloud_provider_config
+      description: Cloud provider specific configuration
+      attributes:
+        - name: aws
+          description: AWS-specific configuration. Required when cloud_provider is 'aws'.
+          attributes:
+            - name: allowed_principals
+              description: AWS principals (ARNs) allowed to connect to the private link endpoint
+    - name: id
+      description: The ID of the serverless private link
+    - name: name
+      description: Name of the serverless private link
+    - name: resource_group_id
+      description: The ID of the Resource Group in which to create the serverless private link
+    - name: serverless_region
+      description: Redpanda serverless region
+    - name: state
+      description: Current state of the serverless private link (STATE_CREATING, STATE_READY, STATE_DELETING, STATE_FAILED, STATE_UPDATING)
+    - name: status
+      description: Cloud provider specific status information
+      attributes:
+        - name: aws
+          description: AWS-specific status information
+          attributes:
+            - name: availability_zones
+              description: Availability zones where the private link endpoint service is available
+            - name: vpc_endpoint_service_name
+              description: VPC endpoint service name for connecting to the private link
