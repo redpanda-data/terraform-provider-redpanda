@@ -16,7 +16,6 @@ resources on [Redpanda Cloud](https://redpanda.com/redpanda-cloud).
     - [Development Commands](#development-commands)
     - [Release Commands](#release-commands)
     - [Best Practices](#best-practices)
-- [Contributing](#contributing)
 - [Releasing a Version](#releasing-a-version)
 - [Support](#support)
 
@@ -37,7 +36,7 @@ request. If you've added new functionality, consider adding appropriate unit and
 
 ## Development Guide
 
-This guide provides an overview of the development workflow using [Task](https://taskfile.dev/) for building, testing, and managing the Redpanda Terraform Provider. Task replaces our previous Makefile-based workflow with a more modern, cross-platform solution.
+This guide provides an overview of the development workflow using [Task](https://taskfile.dev/) for building, testing, and managing the Redpanda Terraform Provider.
 
 ### Prerequisites
 
@@ -61,7 +60,11 @@ cp .env.example .env
 Required variables:
 - `REDPANDA_CLIENT_ID`: Redpanda Cloud client ID
 - `REDPANDA_CLIENT_SECRET`: Redpanda Cloud client secret
-- `REDPANDA_CLOUD_ENVIRONMENT`: Redpanda Cloud environment (pre/prod)
+
+Optional:
+- `REDPANDA_CLOUD_ENVIRONMENT`: Redpanda Cloud environment (`pre` for preprod, defaults to `prod`)
+
+See [TESTING.md](TESTING.md) for the full testing strategy (unit, colocated integration, and live acceptance tiers).
 
 ### Task Commands Overview
 
@@ -74,15 +77,19 @@ task --list-all
 The task system is organized into domains:
 
 - **build**: Provider compilation and installation
-- **test**: Unit and integration testing
+- **test**: Unit, upgrade, and live acceptance testing
+- **generate**: Code generation (schemas, models, golden files, API descriptions)
 - **docs**: Documentation generation
 - **lint**: Code quality and formatting
-- **local**: Local development cluster management
+- **mock**: gomock generation
+- **tools**: Install/check developer tooling (golangci-lint, tfplugindocs, terraform, etc.)
+- **cleanup**: Sweep stuck/leaked cloud resources (AWS, GCP, Redpanda Cloud)
+- **local**: Local-build provider testing against live clusters
 - **release**: Release preparation and publishing
 
 ### Local Development & Testing
 
-The local task domain provides commands for testing your locally-built provider against live Redpanda Cloud clusters. Note that "local" refers to using a locally-built version of the provider rather than the published version from the Terraform Registry - the clusters themselves are still created in Redpanda Cloud.
+The local task domain provides commands for testing your locally-built provider against live Redpanda Cloud clusters. "local" refers to using a locally-built version of the provider rather than the published version from the Terraform Registry — the clusters themselves are still created in Redpanda Cloud.
 
 #### Local Provider Testing
 
@@ -109,7 +116,6 @@ These commands:
 - Install the local build to the specific example directory (not globally)
 - Run `terraform init` and `terraform apply/destroy` using your local provider build
 - Create real clusters in Redpanda Cloud for testing your changes
-- Handle different cluster types automatically (cluster, serverless, data sources)
 
 Example workflow:
 
@@ -137,6 +143,10 @@ For CI/CD and integration testing, use the test domain commands:
 # Run unit tests (no credentials needed)
 task test:unit
 
+# Provider-upgrade regression tests (no cluster required)
+task test:upgrade:smoke
+task test:upgrade
+
 # Run network tests (requires credentials)
 task test:network
 
@@ -145,20 +155,25 @@ task test:datasource
 
 # Run full cluster tests (creates real resources)
 task test:cluster:aws
-task test:cluster:azure
 task test:cluster:gcp
 
 # Run BYOC tests
 task test:byoc:aws
-task test:byoc:azure
 task test:byoc:gcp
 
+# Run BYOVPC tests (provisions infra, runs test, tears down)
+task test:byovpc:aws
+
 # Run serverless tests
-task test:serverless
+task test:serverless:aws:public
+task test:serverless:aws:private
+task test:serverless:aws:both
+task test:serverless:gcp
+task test:serverless:privatelink
 task test:serverless:regions
 ```
 
-**Important:** Integration tests create real cloud resources and require valid credentials.
+**Important:** Integration tests create real cloud resources and require valid credentials. If a run leaks resources, use `task cleanup:aws:ci` / `task cleanup:gcp:ci` / `task cleanup:redpanda` to sweep them.
 
 ### Development Commands
 
@@ -189,8 +204,8 @@ task lint
 # Run linting with auto-fix
 task lint:fix
 
-# Install linting tools
-task lint:install
+# Install developer tooling (golangci-lint, tfplugindocs, terraform, etc.)
+task tools:install:all
 ```
 
 #### Documentation
@@ -198,9 +213,22 @@ task lint:install
 ```bash
 # Generate provider documentation
 task docs
+```
 
-# Install documentation tools
-task docs:install
+#### Code Generation
+
+Schemas and models are generated from `schema.yaml` / `schema_datasource.yaml` files
+under `redpanda/resources/<resource>/`. Regenerate after editing any schema YAML:
+
+```bash
+# Regenerate all schemas and models
+task generate:models
+
+# Regenerate golden test files
+task generate:golden
+
+# Delete generated *_gen.go files
+task generate:clean
 ```
 
 #### Testing & Mocks
