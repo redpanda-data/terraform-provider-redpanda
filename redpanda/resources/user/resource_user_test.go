@@ -24,7 +24,7 @@ func setConfig(ctx context.Context, s schema.Schema, val any) (tfsdk.Config, dia
 	return tfsdk.Config{Schema: s, Raw: tmp.Raw}, diags
 }
 
-func TestUser_Create_WriteOnlyPassword(t *testing.T) {
+func TestUnit_User_Create_WriteOnlyPassword(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -88,7 +88,7 @@ func TestUser_Create_WriteOnlyPassword(t *testing.T) {
 	assert.Equal(t, "testuser", state.Name.ValueString())
 }
 
-func TestUser_Update_WriteOnlyPassword(t *testing.T) {
+func TestUnit_User_Update_WriteOnlyPassword(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 

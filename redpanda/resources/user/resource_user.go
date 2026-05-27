@@ -28,6 +28,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	usermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/user"
@@ -38,7 +39,6 @@ import (
 // DNS-propagation window). Sized to fit ~5 attempts under Retry's 1s→60s cap.
 const dataplaneRetryTimeout = 2 * time.Minute
 
-// Ensure provider defined types fully satisfy framework interfaces.
 var (
 	_ resource.Resource                = &User{}
 	_ resource.ResourceWithConfigure   = &User{}
@@ -47,35 +47,27 @@ var (
 
 // User represents the User Terraform resource.
 type User struct {
+	base.ResourceBase
+
 	UserClient dataplanev1grpc.UserServiceClient
 
 	resData config.Resource
 }
 
-// Metadata returns the metadata for the User resource.
-func (*User) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "redpanda_user"
-}
-
-// Configure configures the User resource.
-func (u *User) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	if req.ProviderData == nil {
-		return
-	}
-	p, ok := req.ProviderData.(config.Resource)
-	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", req.ProviderData),
-		)
-		return
-	}
-	u.resData = p
+// NewUser constructs a User resource.
+func NewUser() *User {
+	u := &User{}
+	u.ResourceBase = base.NewResourceBase(
+		"redpanda_user",
+		ResourceUserSchema,
+		func(p config.Resource) { u.resData = p },
+	)
+	return u
 }
 
 // Schema returns the schema for the User resource.
-func (*User) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = ResourceUserSchema()
+func (*User) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = ResourceUserSchema(ctx)
 }
 
 // Create creates a User resource.
@@ -90,21 +82,20 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 	}
 	model.PasswordWO = cfg.PasswordWO
 
-	err := u.createUserClient(model.ClusterAPIURL.ValueString())
-	if err != nil {
+	if err := u.createUserClient(model.ClusterAPIURL.ValueString()); err != nil {
 		resp.Diagnostics.AddError("failed to create user client", utils.DeserializeGrpcError(err))
 		return
 	}
 
+	pbReq, diags := usermodel.ExpandCreate(ctx, &model)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	var createdUser usermodel.UserResponse
-	err = utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
-		created, rpcErr := u.UserClient.CreateUser(ctx, &dataplanev1.CreateUserRequest{
-			User: &dataplanev1.CreateUserRequest_User{
-				Name:      model.Name.ValueString(),
-				Password:  model.GetEffectivePassword(),
-				Mechanism: utils.StringToUserMechanism(model.Mechanism.ValueString()),
-			},
-		})
+	err := utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+		created, rpcErr := u.UserClient.CreateUser(ctx, pbReq)
 		if rpcErr == nil {
 			createdUser = created.GetUser()
 			return nil
@@ -132,13 +123,11 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 		return
 	}
 
-	persist := model.GetUpdatedModel(createdUser, usermodel.ContingentFields{
-		AllowDeletion: model.AllowDeletion,
-	})
-	persist.Password = model.Password
-	persist.PasswordWOVersion = model.PasswordWOVersion
-	persist.ClusterAPIURL = model.ClusterAPIURL
-
+	persist, fdiags := usermodel.Flatten(ctx, createdUser, &model)
+	resp.Diagnostics.Append(fdiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
@@ -149,8 +138,7 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 
 	userName := model.Name.ValueString()
 
-	err := u.createUserClient(model.ClusterAPIURL.ValueString())
-	if err != nil {
+	if err := u.createUserClient(model.ClusterAPIURL.ValueString()); err != nil {
 		action, diags := utils.HandleGracefulRemoval(ctx, "user", userName, model.AllowDeletion, err, "create user client")
 		resp.Diagnostics.Append(diags...)
 		if action == utils.RemoveFromState {
@@ -160,7 +148,7 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 	}
 
 	var user *dataplanev1.ListUsersResponse_User
-	err = utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+	err := utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
 		var rpcErr error
 		user, rpcErr = utils.FindUserByName(ctx, userName, u.UserClient)
 		if rpcErr != nil {
@@ -180,24 +168,17 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 		return
 	}
 
-	persist := &usermodel.ResourceModel{}
-	persist.GetUpdatedModel(user, usermodel.ContingentFields{})
-	persist.Password = model.Password
-	persist.PasswordWOVersion = model.PasswordWOVersion
-	persist.ClusterAPIURL = model.ClusterAPIURL
-	persist.AllowDeletion = model.AllowDeletion
-	if persist.Mechanism.IsNull() || persist.Mechanism.IsUnknown() {
-		persist.Mechanism = model.Mechanism
+	persist, diags := usermodel.Flatten(ctx, user, &model)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
 // Update updates the state of the User resource.
 func (u *User) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan usermodel.ResourceModel
-	var state usermodel.ResourceModel
-
+	var plan, state usermodel.ResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
@@ -212,76 +193,28 @@ func (u *User) Update(ctx context.Context, req resource.UpdateRequest, resp *res
 	passwordWOVersionChanged := !plan.PasswordWOVersion.Equal(state.PasswordWOVersion)
 	mechanismChanged := !plan.Mechanism.Equal(state.Mechanism)
 
-	if passwordChanged || passwordWOVersionChanged || mechanismChanged {
-		err := u.createUserClient(plan.ClusterAPIURL.ValueString())
-		if err != nil {
-			resp.Diagnostics.AddError("failed to create user client", utils.DeserializeGrpcError(err))
-			return
-		}
-
-		var updateResp *dataplanev1.UpdateUserResponse
-		err = utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
-			var rpcErr error
-			updateResp, rpcErr = u.UserClient.UpdateUser(ctx, &dataplanev1.UpdateUserRequest{
-				User: &dataplanev1.UpdateUserRequest_User{
-					Name:      plan.Name.ValueString(),
-					Password:  plan.GetEffectivePassword(),
-					Mechanism: utils.StringToUserMechanism(plan.Mechanism.ValueString()),
-				},
-			})
-			if rpcErr != nil {
-				if utils.IsUnavailable(rpcErr) {
-					return utils.RetryableError(rpcErr)
-				}
-				return utils.NonRetryableError(rpcErr)
-			}
-			return nil
-		})
-		if err != nil {
-			resp.Diagnostics.AddError("failed to update user", utils.DeserializeGrpcError(err))
-			return
-		}
-
-		persist := plan.GetUpdatedModel(updateResp.User, usermodel.ContingentFields{
-			AllowDeletion: plan.AllowDeletion,
-		})
-		persist.Password = plan.Password
-		persist.PasswordWOVersion = plan.PasswordWOVersion
-		persist.ClusterAPIURL = plan.ClusterAPIURL
-
-		resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
+	if !passwordChanged && !passwordWOVersionChanged && !mechanismChanged {
+		state.AllowDeletion = plan.AllowDeletion
+		state.PasswordWOVersion = plan.PasswordWOVersion
+		resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 		return
 	}
 
-	state.AllowDeletion = plan.AllowDeletion
-	state.PasswordWOVersion = plan.PasswordWOVersion
-	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
-}
-
-// Delete deletes the User resource.
-func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var model usermodel.ResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
-
-	userName := model.Name.ValueString()
-
-	// Block deletion only if allow_deletion is explicitly set to false
-	if !model.AllowDeletion.IsNull() && !model.AllowDeletion.ValueBool() {
-		resp.Diagnostics.AddError("user deletion not allowed", "allow_deletion is set to false")
+	if err := u.createUserClient(plan.ClusterAPIURL.ValueString()); err != nil {
+		resp.Diagnostics.AddError("failed to create user client", utils.DeserializeGrpcError(err))
 		return
 	}
 
-	err := u.createUserClient(model.ClusterAPIURL.ValueString())
-	if err != nil {
-		_, diags := utils.HandleGracefulRemoval(ctx, "user", userName, model.AllowDeletion, err, "create user client")
-		resp.Diagnostics.Append(diags...)
+	pbReq, diags := usermodel.ExpandUpdate(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	err = utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
-		_, rpcErr := u.UserClient.DeleteUser(ctx, &dataplanev1.DeleteUserRequest{
-			Name: userName,
-		})
+	var updateResp *dataplanev1.UpdateUserResponse
+	err := utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+		var rpcErr error
+		updateResp, rpcErr = u.UserClient.UpdateUser(ctx, pbReq)
 		if rpcErr != nil {
 			if utils.IsUnavailable(rpcErr) {
 				return utils.RetryableError(rpcErr)
@@ -291,8 +224,54 @@ func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 		return nil
 	})
 	if err != nil {
-		_, diags := utils.HandleGracefulRemoval(ctx, "user", userName, model.AllowDeletion, err, "delete user")
+		resp.Diagnostics.AddError("failed to update user", utils.DeserializeGrpcError(err))
+		return
+	}
+
+	persist, fdiags := usermodel.Flatten(ctx, updateResp.User, &plan)
+	resp.Diagnostics.Append(fdiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
+}
+
+// Delete deletes the User resource.
+func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var model usermodel.ResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
+
+	userName := model.Name.ValueString()
+
+	if !model.AllowDeletion.IsNull() && !model.AllowDeletion.ValueBool() {
+		resp.Diagnostics.AddError("user deletion not allowed", "allow_deletion is set to false")
+		return
+	}
+
+	if err := u.createUserClient(model.ClusterAPIURL.ValueString()); err != nil {
+		_, diags := utils.HandleGracefulRemoval(ctx, "user", userName, model.AllowDeletion, err, "create user client")
 		resp.Diagnostics.Append(diags...)
+		return
+	}
+
+	pbReq, diags := usermodel.ExpandDelete(ctx, &model)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	err := utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+		_, rpcErr := u.UserClient.DeleteUser(ctx, pbReq)
+		if rpcErr != nil {
+			if utils.IsUnavailable(rpcErr) {
+				return utils.RetryableError(rpcErr)
+			}
+			return utils.NonRetryableError(rpcErr)
+		}
+		return nil
+	})
+	if err != nil {
+		_, ddiags := utils.HandleGracefulRemoval(ctx, "user", userName, model.AllowDeletion, err, "delete user")
+		resp.Diagnostics.Append(ddiags...)
 		return
 	}
 }
@@ -345,7 +324,7 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(user))...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(user))...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_api_url"), dataplaneURL)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
+	resp.Diagnostics.Append(utils.ImportStateBoolFromSchemaDefault(ctx, ResourceUserSchema(ctx), &resp.State, "allow_deletion")...)
 	if password != "" {
 		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("password"), types.StringValue(password))...)
 	}

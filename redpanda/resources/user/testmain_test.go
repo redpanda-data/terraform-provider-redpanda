@@ -1,4 +1,6 @@
-// Copyright 2023 Redpanda Data, Inc.
+//go:build live_test && (all || cluster_aws)
+
+// Copyright 2026 Redpanda Data, Inc.
 //
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,12 +15,18 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-package user
+package user_test
 
-import "github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+import (
+	"context"
+	"os"
+	"testing"
 
-// GetEffectivePassword returns the password to use, preferring password_wo over password.
-// Referenced by the generated ExpandCreate/ExpandUpdate via expand_via in schema.yaml.
-func (u *ResourceModel) GetEffectivePassword() string {
-	return utils.GetEffectivePassword(u.Password, u.PasswordWO)
+	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/acc"
+)
+
+func TestMain(m *testing.M) {
+	code := m.Run()
+	acc.Cleanup(context.Background())
+	os.Exit(code)
 }
