@@ -1,0 +1,47 @@
+# Global codegen config for the schemagen driver (cmd/schemagen drive).
+#
+# The driver walks redpanda/resources/*/ for any subdir with a
+# schema.yaml (resource) and/or schema_datasource.yaml (datasource) and
+# runs codegen for each. Subdirs listed in `exclude:` below are skipped.
+#
+# Enum carve-outs live in `enum_carveouts:` below. Carve-outs stay
+# hand-written in redpanda/utils/enums/handrolled.go because their
+# user-facing string forms aren't derivable from protoc's `_value` map.
+# The driver parity-checks `enum_carveouts:` against handrolled.go's
+# exported functions at generation time.
+
+# Subdirectories of redpanda/resources/ to skip during auto-discovery.
+# Used for resources that don't go through schemagen (e.g., data-only
+# resources without a schema*.yaml).
+exclude: []
+
+# Enums kept hand-written because their friendly string forms aren't
+# derivable from protoc's `_value` map. Every entry here MUST have a
+# matching exported `<Enum>ToString` + `StringTo<Enum>` pair in
+# redpanda/utils/enums/handrolled.go, and vice versa — extras on either
+# side fail codegen.
+enum_carveouts:
+  - enum: CloudProvider
+    reason: lowercase friendly forms (aws/gcp/azure) instead of stripped-prefix uppercase
+  - enum: CloudProviderBeta
+    reason: v1beta2 parallel of CloudProvider; same case-fold issue
+  - enum: Cluster_Type
+    reason: lowercase friendly forms (dedicated/byoc)
+  - enum: Cluster_ConnectionType
+    reason: lowercase trimmed (public/private/vpc_peering); v1.9.0 state convention, default uppercase forces replace on upgrade
+  - enum: Cluster_State
+    reason: with-prefix (STATE_READY/STATE_CREATING/etc.); v1.9.0 state convention, default trim-prefix forces churn on upgrade
+  - enum: Network_State
+    reason: with-prefix STATE_* form; same v1.9.0 convention as Cluster_State
+  - enum: NetworkAccessMode
+    reason: with-prefix NETWORK_ACCESS_MODE_* form for api_gateway_access; v1.9.0 state convention
+  - enum: ServerlessCluster_State
+    reason: with-prefix STATE_* form; v1.9.0 state convention
+  - enum: ServerlessNetworkingConfig_State
+    reason: with-prefix STATE_* form; docs spec STATE_UNSPECIFIED/STATE_DISABLED/STATE_ENABLED
+  - enum: ServerlessPrivateLink_State
+    reason: with-prefix STATE_* form; docs spec STATE_CREATING/STATE_READY/STATE_DELETING/STATE_FAILED/STATE_UPDATING
+  - enum: SASLMechanism
+    reason: lowercase dashed form (scram-sha-256/scram-sha-512); v1.9.0 state convention, default trim-prefix-only emits SCRAM_SHA_256
+  - enum: DayOfWeek
+    reason: lives in google.type proto package where each enum is in its own Go package (dayofweek, month, etc.); enumgen's per-proto-package goImports map doesn't model that
