@@ -28,6 +28,7 @@ import (
 	"strings"
 
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/apidesc"
+	"github.com/redpanda-data/terraform-provider-redpanda/internal/bufdeps"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/fileutil"
 	"gopkg.in/yaml.v3"
 )
@@ -87,6 +88,10 @@ func run(cloudRepo, cloudSpecDir, consoleRepo, consoleSpecDir, output, resourceD
 	repoRoot, err := findRepoRoot()
 	if err != nil {
 		return fmt.Errorf("resolve repo root: %w", err)
+	}
+
+	if err := assertPinnedSHAs(repoRoot, cloud, console); err != nil {
+		return err
 	}
 
 	outPath := output
@@ -365,6 +370,37 @@ func countNode(node *apidesc.Node) int {
 		n += countNode(child)
 	}
 	return n
+}
+
+// assertPinnedSHAs fails the run when local cloudv2 / console checkouts diverge
+// from the SHAs recorded in internal/buf_dependencies.yaml. It also warns when
+// go.mod's buf-gen module BSR commit IDs diverge from the pinned set.
+// apidesc-import is a pure consumer of the pin file; bumps go through
+// `task generate:bump-deps`.
+func assertPinnedSHAs(repoRoot string, cloud, console *source) error {
+	deps, err := bufdeps.Read(bufdeps.DefaultPath(repoRoot))
+	if err != nil {
+		return fmt.Errorf("read pin file: %w", err)
+	}
+	if cloud.repo != "" {
+		if err := bufdeps.AssertCheckoutAt(cloud.repo, deps.Cloudv2.SHA, "cloudv2"); err != nil {
+			return err
+		}
+	}
+	if console != nil && console.repo != "" {
+		if err := bufdeps.AssertCheckoutAt(console.repo, deps.Console.SHA, "console"); err != nil {
+			return err
+		}
+	}
+	current, err := bufdeps.LoadBufModulesFromGoMod(filepath.Join(repoRoot, "go.mod"))
+	if err != nil {
+		log.Printf("WARNING: could not read buf-gen modules from go.mod: %v", err)
+		return nil
+	}
+	for _, msg := range bufdeps.CompareBufModules(deps.BufModules, current) {
+		log.Printf("WARNING: %s", msg)
+	}
+	return nil
 }
 
 func gitRevParse(repo string) string {
