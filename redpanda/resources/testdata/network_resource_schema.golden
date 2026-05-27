@@ -1,0 +1,118 @@
+has_timeouts: true
+attributes:
+    - name: cidr_block
+      type: StringAttribute
+      optional: true
+      validators:
+        - validators.CIDRBlockValidator
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: cloud_provider
+      type: StringAttribute
+      required: true
+      validators:
+        - stringvalidator.oneOfValidator
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: cluster_type
+      type: StringAttribute
+      required: true
+      validators:
+        - stringvalidator.oneOfValidator
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: customer_managed_resources
+      type: SingleNestedAttribute
+      optional: true
+      attributes:
+        - name: aws
+          type: SingleNestedAttribute
+          optional: true
+          plan_modifiers:
+            - objectplanmodifier.requiresReplaceIfModifier
+          attributes:
+            - name: dynamodb_table
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: management_bucket
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: private_subnets
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: arns
+                  type: ListAttribute
+                  required: true
+                  element_type: basetypes.StringType
+            - name: vpc
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+        - name: gcp
+          type: SingleNestedAttribute
+          optional: true
+          plan_modifiers:
+            - objectplanmodifier.requiresReplaceIfModifier
+          attributes:
+            - name: management_bucket
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: name
+                  type: StringAttribute
+                  required: true
+            - name: network_name
+              type: StringAttribute
+              required: true
+              validators:
+                - stringvalidator.regexMatchesValidator
+                - stringvalidator.lengthAtMostValidator
+            - name: network_project_id
+              type: StringAttribute
+              required: true
+              validators:
+                - stringvalidator.regexMatchesValidator
+                - stringvalidator.lengthAtMostValidator
+    - name: id
+      type: StringAttribute
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: name
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: region
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: resource_group_id
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: state
+      type: StringAttribute
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: zones
+      type: ListAttribute
+      computed: true
+      plan_modifiers:
+        - listplanmodifier.useStateForUnknownModifier
+      element_type: basetypes.StringType
