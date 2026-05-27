@@ -24,6 +24,7 @@ import (
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -79,12 +80,12 @@ type pipelineAPIResponse struct {
 	tags         map[string]string
 }
 
-func createDefaultContingentFields() pipelinemodel.ContingentFields {
-	return pipelinemodel.ContingentFields{
+func createDefaultPrevModel() *pipelinemodel.ResourceModel {
+	return &pipelinemodel.ResourceModel{
 		ClusterAPIURL:  types.StringValue(testClusterAPIURL),
 		AllowDeletion:  types.BoolNull(),
-		Resources:      types.ObjectNull(pipelinemodel.GetResourcesType()),
-		ServiceAccount: types.ObjectNull(pipelinemodel.GetServiceAccountType()),
+		Resources:      types.ObjectNull(pipelinemodel.ResourcesAttrTypes()),
+		ServiceAccount: types.ObjectNull(pipelinemodel.ServiceAccountAttrTypes()),
 		State:          types.StringNull(),
 		Timeouts:       timeouts.Value{},
 	}
@@ -92,27 +93,27 @@ func createDefaultContingentFields() pipelinemodel.ContingentFields {
 
 func createResourcesObject(cpuShares, memoryShares string) types.Object {
 	if cpuShares == "" && memoryShares == "" {
-		return types.ObjectNull(pipelinemodel.GetResourcesType())
+		return types.ObjectNull(pipelinemodel.ResourcesAttrTypes())
 	}
-	obj, _ := types.ObjectValue(pipelinemodel.GetResourcesType(), map[string]attr.Value{
-		pipelinemodel.FieldCPUShares:    types.StringValue(cpuShares),
-		pipelinemodel.FieldMemoryShares: types.StringValue(memoryShares),
+	obj, _ := types.ObjectValue(pipelinemodel.ResourcesAttrTypes(), map[string]attr.Value{
+		"cpu_shares":    types.StringValue(cpuShares),
+		"memory_shares": types.StringValue(memoryShares),
 	})
 	return obj
 }
 
 func createServiceAccountObject(clientID, clientSecret string, secretVersion int64) types.Object {
 	if clientID == "" {
-		return types.ObjectNull(pipelinemodel.GetServiceAccountType())
+		return types.ObjectNull(pipelinemodel.ServiceAccountAttrTypes())
 	}
 	secretVersionAttr := types.Int64Null()
 	if secretVersion > 0 {
 		secretVersionAttr = types.Int64Value(secretVersion)
 	}
-	obj, _ := types.ObjectValue(pipelinemodel.GetServiceAccountType(), map[string]attr.Value{
-		pipelinemodel.FieldClientID:      types.StringValue(clientID),
-		pipelinemodel.FieldClientSecret:  types.StringValue(clientSecret),
-		pipelinemodel.FieldSecretVersion: secretVersionAttr,
+	obj, _ := types.ObjectValue(pipelinemodel.ServiceAccountAttrTypes(), map[string]attr.Value{
+		"client_id":      types.StringValue(clientID),
+		"client_secret":  types.StringValue(clientSecret),
+		"secret_version": secretVersionAttr,
 	})
 	return obj
 }
@@ -209,10 +210,10 @@ func newModelBuilder() *modelBuilder {
 			Description:    types.StringValue(testDescription),
 			ConfigYaml:     types.StringValue(testConfigYaml),
 			State:          types.StringValue(pipelinemodel.StateStopped),
-			Status:         types.ObjectUnknown(pipelinemodel.GetStatusType()),
+			Status:         types.ObjectUnknown(pipelinemodel.StatusAttrTypes()),
 			URL:            types.StringUnknown(),
 			Resources:      createResourcesObject("", ""),
-			ServiceAccount: types.ObjectNull(pipelinemodel.GetServiceAccountType()),
+			ServiceAccount: types.ObjectNull(pipelinemodel.ServiceAccountAttrTypes()),
 			Tags:           createTagsMap(nil),
 			Timeouts:       createTestTimeouts(),
 		},
@@ -331,31 +332,7 @@ func createTestTimeouts() timeouts.Value {
 	return timeouts.Value{Object: timeoutsObj}
 }
 
-func TestPipelineStateToString(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    dataplanev1.Pipeline_State
-		expected string
-	}{
-		{"starting", dataplanev1.Pipeline_STATE_STARTING, pipelinemodel.StateStarting},
-		{"running", dataplanev1.Pipeline_STATE_RUNNING, pipelinemodel.StateRunning},
-		{"stopping", dataplanev1.Pipeline_STATE_STOPPING, pipelinemodel.StateStopping},
-		{"stopped", dataplanev1.Pipeline_STATE_STOPPED, pipelinemodel.StateStopped},
-		{"error", dataplanev1.Pipeline_STATE_ERROR, pipelinemodel.StateError},
-		{"completed", dataplanev1.Pipeline_STATE_COMPLETED, pipelinemodel.StateCompleted},
-		{"unspecified", dataplanev1.Pipeline_STATE_UNSPECIFIED, pipelinemodel.StateUnknown},
-		{"invalid", dataplanev1.Pipeline_State(999), pipelinemodel.StateUnknown},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := pipelinemodel.StateToString(tt.input)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestPipelineToModel(t *testing.T) {
+func TestUnit_Pipeline_ToModel(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
@@ -412,8 +389,8 @@ func TestPipelineToModel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			model := &pipelinemodel.ResourceModel{}
-			model, diags := model.GetUpdatedModel(ctx, tt.pipeline, createDefaultContingentFields())
+			prev := createDefaultPrevModel()
+			model, diags := pipelinemodel.Flatten(ctx, tt.pipeline, prev)
 			require.False(t, diags.HasError())
 
 			assert.Equal(t, tt.wantID, model.ID.ValueString())
@@ -431,7 +408,7 @@ func TestPipelineToModel(t *testing.T) {
 	}
 }
 
-func TestPipelineSchema(t *testing.T) {
+func TestUnit_Pipeline_Schema(t *testing.T) {
 	ctx := context.Background()
 	p := &Pipeline{}
 
@@ -467,59 +444,9 @@ func TestPipelineSchema(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestStatesEquivalent(t *testing.T) {
-	tests := []struct {
-		name     string
-		prior    string
-		current  string
-		expected bool
-	}{
-		{"running to running", "running", "running", true},
-		{"running to starting", "running", "starting", true},
-		{"starting to running", "starting", "running", true},
-		{"stopped to stopped", "stopped", "stopped", true},
-		{"stopped to stopping", "stopped", "stopping", true},
-		{"stopped to completed", "stopped", "completed", true},
-		{"running to stopped", "running", "stopped", false},
-		{"stopped to running", "stopped", "running", false},
-		{"running to error", "running", "error", false},
-		{"stopped to error", "stopped", "error", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := pipelinemodel.StatesEquivalent(tt.prior, tt.current)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestDesiredStateFromAPIState(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{"starting", pipelinemodel.StateStarting, pipelinemodel.StateRunning},
-		{"running", pipelinemodel.StateRunning, pipelinemodel.StateRunning},
-		{"stopping", pipelinemodel.StateStopping, pipelinemodel.StateStopped},
-		{"stopped", pipelinemodel.StateStopped, pipelinemodel.StateStopped},
-		{"completed", pipelinemodel.StateCompleted, pipelinemodel.StateStopped},
-		{"error", pipelinemodel.StateError, pipelinemodel.StateStopped},
-		{"unknown", pipelinemodel.StateUnknown, pipelinemodel.StateStopped},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := pipelinemodel.DesiredStateFromAPIState(tt.input)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestPipelineMetadata(t *testing.T) {
+func TestUnit_Pipeline_Metadata(t *testing.T) {
 	ctx := context.Background()
-	p := &Pipeline{}
+	p := NewPipeline()
 
 	metaResp := resource.MetadataResponse{}
 	p.Metadata(ctx, resource.MetadataRequest{}, &metaResp)
@@ -527,13 +454,13 @@ func TestPipelineMetadata(t *testing.T) {
 	assert.Equal(t, "redpanda_pipeline", metaResp.TypeName)
 }
 
-func TestGetUpdatedModel_EdgeCases(t *testing.T) {
+func TestUnit_Pipeline_GetUpdatedModel_EdgeCases(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
 		name          string
 		pipeline      *dataplanev1.Pipeline
-		contingent    pipelinemodel.ContingentFields
+		prev          *pipelinemodel.ResourceModel
 		expectedState string
 		expectedID    string
 		resourcesNull bool
@@ -545,7 +472,7 @@ func TestGetUpdatedModel_EdgeCases(t *testing.T) {
 				"pipeline-error", "error-pipeline", "", "", "",
 				dataplanev1.Pipeline_STATE_ERROR, nil, nil,
 			),
-			contingent:    createDefaultContingentFields(),
+			prev:          createDefaultPrevModel(),
 			expectedState: pipelinemodel.StateStopped, // error state normalizes to stopped
 			expectedID:    "pipeline-error",
 			resourcesNull: true,
@@ -557,7 +484,7 @@ func TestGetUpdatedModel_EdgeCases(t *testing.T) {
 				"pipeline-unspec", "unspecified-pipeline", "", "", "",
 				dataplanev1.Pipeline_STATE_UNSPECIFIED, nil, nil,
 			),
-			contingent:    createDefaultContingentFields(),
+			prev:          createDefaultPrevModel(),
 			expectedState: pipelinemodel.StateStopped, // unknown state normalizes to stopped
 			expectedID:    "pipeline-unspec",
 			resourcesNull: true,
@@ -569,7 +496,7 @@ func TestGetUpdatedModel_EdgeCases(t *testing.T) {
 				"pipeline-empty", "", "", "", "",
 				dataplanev1.Pipeline_STATE_STOPPED, nil, nil,
 			),
-			contingent:    createDefaultContingentFields(),
+			prev:          createDefaultPrevModel(),
 			expectedState: pipelinemodel.StateStopped,
 			expectedID:    "pipeline-empty",
 			resourcesNull: true,
@@ -581,7 +508,7 @@ func TestGetUpdatedModel_EdgeCases(t *testing.T) {
 				"pipeline-empty-tags", "test", "", "", "",
 				dataplanev1.Pipeline_STATE_STOPPED, nil, map[string]string{},
 			),
-			contingent:    createDefaultContingentFields(),
+			prev:          createDefaultPrevModel(),
 			expectedState: pipelinemodel.StateStopped,
 			expectedID:    "pipeline-empty-tags",
 			resourcesNull: true,
@@ -593,7 +520,7 @@ func TestGetUpdatedModel_EdgeCases(t *testing.T) {
 				"pipeline-nil-resources", "test", "", "", "",
 				dataplanev1.Pipeline_STATE_RUNNING, nil, nil,
 			),
-			contingent:    createDefaultContingentFields(),
+			prev:          createDefaultPrevModel(),
 			expectedState: pipelinemodel.StateRunning,
 			expectedID:    "pipeline-nil-resources",
 			resourcesNull: true,
@@ -605,11 +532,11 @@ func TestGetUpdatedModel_EdgeCases(t *testing.T) {
 				"pipeline-mismatch", "test", "", "", "",
 				dataplanev1.Pipeline_STATE_STOPPED, nil, nil,
 			),
-			contingent: pipelinemodel.ContingentFields{
+			prev: &pipelinemodel.ResourceModel{
 				ClusterAPIURL:  types.StringValue(testClusterAPIURL),
 				AllowDeletion:  types.BoolNull(),
-				Resources:      types.ObjectNull(pipelinemodel.GetResourcesType()),
-				ServiceAccount: types.ObjectNull(pipelinemodel.GetServiceAccountType()),
+				Resources:      types.ObjectNull(pipelinemodel.ResourcesAttrTypes()),
+				ServiceAccount: types.ObjectNull(pipelinemodel.ServiceAccountAttrTypes()),
 				State:          types.StringValue(pipelinemodel.StateRunning), // prior was running, now stopped
 				Timeouts:       timeouts.Value{},
 			},
@@ -622,8 +549,7 @@ func TestGetUpdatedModel_EdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			model := &pipelinemodel.ResourceModel{}
-			model, diags := model.GetUpdatedModel(ctx, tt.pipeline, tt.contingent)
+			model, diags := pipelinemodel.Flatten(ctx, tt.pipeline, tt.prev)
 			require.False(t, diags.HasError(), "unexpected error: %v", diags)
 
 			assert.Equal(t, tt.expectedID, model.ID.ValueString())
@@ -634,7 +560,7 @@ func TestGetUpdatedModel_EdgeCases(t *testing.T) {
 	}
 }
 
-func TestExtractResources_EdgeCases(t *testing.T) {
+func TestUnit_Pipeline_ExtractResources_EdgeCases(t *testing.T) {
 	ctx := context.Background()
 
 	// Helper to create object with null values for specific fields.
@@ -647,9 +573,9 @@ func TestExtractResources_EdgeCases(t *testing.T) {
 		if memNull {
 			memAttr = types.StringNull()
 		}
-		obj, _ := types.ObjectValue(pipelinemodel.GetResourcesType(), map[string]attr.Value{
-			pipelinemodel.FieldCPUShares:    cpuAttr,
-			pipelinemodel.FieldMemoryShares: memAttr,
+		obj, _ := types.ObjectValue(pipelinemodel.ResourcesAttrTypes(), map[string]attr.Value{
+			"cpu_shares":    cpuAttr,
+			"memory_shares": memAttr,
 		})
 		return obj
 	}
@@ -668,7 +594,7 @@ func TestExtractResources_EdgeCases(t *testing.T) {
 		},
 		{
 			name:      "unknown resources returns nil",
-			resources: types.ObjectUnknown(pipelinemodel.GetResourcesType()),
+			resources: types.ObjectUnknown(pipelinemodel.ResourcesAttrTypes()),
 			expectNil: true,
 		},
 		{
@@ -706,7 +632,14 @@ func TestExtractResources_EdgeCases(t *testing.T) {
 			model := &pipelinemodel.ResourceModel{
 				Resources: tt.resources,
 			}
-			result, diags := model.ExtractResources(ctx)
+			var result *dataplanev1.Pipeline_Resources
+			var diags diag.Diagnostics
+			if !model.Resources.IsNull() && !model.Resources.IsUnknown() {
+				if res, d := model.AsResources(ctx); !d.HasError() && res != nil {
+					result, d = pipelinemodel.ExpandResources(ctx, res)
+					diags.Append(d...)
+				}
+			}
 			require.False(t, diags.HasError(), "unexpected error: %v", diags)
 
 			if tt.expectNil {
@@ -720,7 +653,7 @@ func TestExtractResources_EdgeCases(t *testing.T) {
 	}
 }
 
-func TestExtractTags_EdgeCases(t *testing.T) {
+func TestUnit_Pipeline_ExtractTags_EdgeCases(t *testing.T) {
 	ctx := context.Background()
 
 	// Helper to create non-null empty map (createTagsMap returns null for empty).
@@ -776,7 +709,15 @@ func TestExtractTags_EdgeCases(t *testing.T) {
 			model := &pipelinemodel.ResourceModel{
 				Tags: tt.tags,
 			}
-			result, diags := model.ExtractTags(ctx)
+			var result map[string]string
+			var diags diag.Diagnostics
+			if !model.Tags.IsNull() && !model.Tags.IsUnknown() {
+				out := map[string]string{}
+				diags = model.Tags.ElementsAs(ctx, &out, false)
+				if !diags.HasError() {
+					result = out
+				}
+			}
 			require.False(t, diags.HasError(), "unexpected error: %v", diags)
 
 			if tt.expectNil {
@@ -789,7 +730,7 @@ func TestExtractTags_EdgeCases(t *testing.T) {
 	}
 }
 
-func TestPipelineToModelPreservesPlannedValues(t *testing.T) {
+func TestUnit_Pipeline_ToModelPreservesPlannedValues(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
@@ -847,19 +788,15 @@ func TestPipelineToModelPreservesPlannedValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			model := &pipelinemodel.ResourceModel{}
-			model, diags := model.GetUpdatedModel(
-				ctx,
-				tt.pipeline,
-				pipelinemodel.ContingentFields{
-					ClusterAPIURL:  types.StringValue(testClusterAPIURL),
-					AllowDeletion:  types.BoolNull(),
-					Resources:      tt.plannedResources,
-					ServiceAccount: types.ObjectNull(pipelinemodel.GetServiceAccountType()),
-					State:          tt.plannedState,
-					Timeouts:       timeouts.Value{},
-				},
-			)
+			prev := &pipelinemodel.ResourceModel{
+				ClusterAPIURL:  types.StringValue(testClusterAPIURL),
+				AllowDeletion:  types.BoolNull(),
+				Resources:      tt.plannedResources,
+				ServiceAccount: types.ObjectNull(pipelinemodel.ServiceAccountAttrTypes()),
+				State:          tt.plannedState,
+				Timeouts:       timeouts.Value{},
+			}
+			model, diags := pipelinemodel.Flatten(ctx, tt.pipeline, prev)
 			require.False(t, diags.HasError())
 			assert.Equal(t, tt.expectedState, model.State.ValueString())
 			if tt.expectedResources && !tt.plannedResources.IsNull() {
@@ -869,7 +806,7 @@ func TestPipelineToModelPreservesPlannedValues(t *testing.T) {
 	}
 }
 
-func TestPipeline_PlanApplyConsistency(t *testing.T) {
+func TestUnit_Pipeline_PlanApplyConsistency(t *testing.T) {
 	tests := []struct {
 		name          string
 		operation     string
@@ -989,6 +926,8 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 					nil, nil,
 				)
 				setupUpdateMocks(mockClient, beforePipeline, apiPipeline)
+			default:
+				t.Fatalf("unexpected operation: %q", tt.operation)
 			}
 
 			r := setupPipelineResource(mockClient)
@@ -1011,16 +950,21 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 					Description:    types.StringValue(tt.inputPipeline.description),
 					ConfigYaml:     types.StringValue(tt.inputPipeline.configYaml),
 					State:          types.StringValue(tt.inputPipeline.desiredState),
-					Status:         types.ObjectUnknown(pipelinemodel.GetStatusType()),
+					Status:         types.ObjectUnknown(pipelinemodel.StatusAttrTypes()),
 					URL:            types.StringUnknown(),
 					Resources:      resourcesObj,
-					ServiceAccount: types.ObjectNull(pipelinemodel.GetServiceAccountType()),
+					ServiceAccount: types.ObjectNull(pipelinemodel.ServiceAccountAttrTypes()),
 					Tags:           tagsMap,
 					Timeouts:       createTestTimeouts(),
 				}
 
-				createReq := resource.CreateRequest{Plan: tfsdk.Plan{Schema: schemaResp.Schema}}
+				createReq := resource.CreateRequest{
+					Plan:   tfsdk.Plan{Schema: schemaResp.Schema},
+					Config: tfsdk.Config{Schema: schemaResp.Schema},
+				}
 				diags := createReq.Plan.Set(ctx, &input)
+				require.False(t, diags.HasError(), "Plan.Set error: %v", diags)
+				createReq.Config.Raw = createReq.Plan.Raw
 				require.False(t, diags.HasError(), "Plan.Set error: %v", diags)
 
 				createResp := resource.CreateResponse{State: tfsdk.State{Schema: schemaResp.Schema}}
@@ -1054,10 +998,10 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 					Description:    types.StringValue(tt.existingState.description),
 					ConfigYaml:     types.StringValue(tt.existingState.configYaml),
 					State:          types.StringValue(tt.existingState.state),
-					Status:         types.ObjectNull(pipelinemodel.GetStatusType()),
+					Status:         types.ObjectNull(pipelinemodel.StatusAttrTypes()),
 					URL:            types.StringValue(""),
 					Resources:      createResourcesObject("", ""),
-					ServiceAccount: types.ObjectNull(pipelinemodel.GetServiceAccountType()),
+					ServiceAccount: types.ObjectNull(pipelinemodel.ServiceAccountAttrTypes()),
 					Tags:           createTagsMap(nil),
 					Timeouts:       createTestTimeouts(),
 				}
@@ -1070,21 +1014,23 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 					ConfigYaml:     types.StringValue(tt.inputPipeline.configYaml),
 					State:          types.StringValue(tt.inputPipeline.desiredState),
 					URL:            types.StringUnknown(),
-					Status:         types.ObjectUnknown(pipelinemodel.GetStatusType()),
+					Status:         types.ObjectUnknown(pipelinemodel.StatusAttrTypes()),
 					Resources:      resourcesObj,
-					ServiceAccount: types.ObjectNull(pipelinemodel.GetServiceAccountType()),
+					ServiceAccount: types.ObjectNull(pipelinemodel.ServiceAccountAttrTypes()),
 					Tags:           tagsMap,
 					Timeouts:       createTestTimeouts(),
 				}
 
 				updateReq := resource.UpdateRequest{
-					State: tfsdk.State{Schema: schemaResp.Schema},
-					Plan:  tfsdk.Plan{Schema: schemaResp.Schema},
+					State:  tfsdk.State{Schema: schemaResp.Schema},
+					Plan:   tfsdk.Plan{Schema: schemaResp.Schema},
+					Config: tfsdk.Config{Schema: schemaResp.Schema},
 				}
 				diags := updateReq.State.Set(ctx, &currentState)
 				require.False(t, diags.HasError())
 				diags = updateReq.Plan.Set(ctx, &planModel)
 				require.False(t, diags.HasError())
+				updateReq.Config.Raw = updateReq.Plan.Raw
 
 				updateResp := resource.UpdateResponse{State: tfsdk.State{Schema: schemaResp.Schema}}
 				r.Update(ctx, updateReq, &updateResp)
@@ -1102,6 +1048,8 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 
 				diags = readResp.State.Get(ctx, &stateAfterRead)
 				require.False(t, diags.HasError())
+			default:
+				t.Fatalf("unexpected operation: %q", tt.operation)
 			}
 
 			t.Run("field_consistency", func(t *testing.T) {
@@ -1153,7 +1101,7 @@ func TestPipeline_PlanApplyConsistency(t *testing.T) {
 	}
 }
 
-func TestPipeline_OperationErrors(t *testing.T) {
+func TestUnit_Pipeline_OperationErrors(t *testing.T) {
 	tests := []struct {
 		name          string
 		operation     string // "create", "delete", or "create_with_start"
@@ -1226,8 +1174,13 @@ func TestPipeline_OperationErrors(t *testing.T) {
 
 			switch tt.operation {
 			case opCreate:
-				createReq := resource.CreateRequest{Plan: tfsdk.Plan{Schema: ts.schema.Schema}}
+				createReq := resource.CreateRequest{
+					Plan:   tfsdk.Plan{Schema: ts.schema.Schema},
+					Config: tfsdk.Config{Schema: ts.schema.Schema},
+				}
 				diags := createReq.Plan.Set(t.Context(), &input)
+				require.False(t, diags.HasError(), "Plan.Set error: %v", diags)
+				createReq.Config.Raw = createReq.Plan.Raw
 				require.False(t, diags.HasError())
 
 				createResp := resource.CreateResponse{State: tfsdk.State{Schema: ts.schema.Schema}}
@@ -1257,6 +1210,8 @@ func TestPipeline_OperationErrors(t *testing.T) {
 				for _, warn := range deleteResp.Diagnostics.Warnings() {
 					diagDetails = append(diagDetails, warn.Summary(), warn.Detail())
 				}
+			default:
+				t.Fatalf("unexpected operation: %q", tt.operation)
 			}
 
 			assert.True(t, hasDiagnostic, "Expected error or warning for %s", tt.name)
@@ -1273,7 +1228,7 @@ func TestPipeline_OperationErrors(t *testing.T) {
 	}
 }
 
-func TestPipeline_StartFailureBehavior(t *testing.T) {
+func TestUnit_Pipeline_StartFailureBehavior(t *testing.T) {
 	tests := []struct {
 		name       string
 		operation  string // "create" or "update"
@@ -1359,8 +1314,13 @@ func TestPipeline_StartFailureBehavior(t *testing.T) {
 					WithState(pipelinemodel.StateRunning).
 					Build()
 
-				createReq := resource.CreateRequest{Plan: tfsdk.Plan{Schema: ts.schema.Schema}}
+				createReq := resource.CreateRequest{
+					Plan:   tfsdk.Plan{Schema: ts.schema.Schema},
+					Config: tfsdk.Config{Schema: ts.schema.Schema},
+				}
 				diags := createReq.Plan.Set(t.Context(), &input)
+				require.False(t, diags.HasError(), "Plan.Set error: %v", diags)
+				createReq.Config.Raw = createReq.Plan.Raw
 				require.False(t, diags.HasError())
 
 				createResp := resource.CreateResponse{State: tfsdk.State{Schema: ts.schema.Schema}}
@@ -1393,13 +1353,15 @@ func TestPipeline_StartFailureBehavior(t *testing.T) {
 					Build()
 
 				updateReq := resource.UpdateRequest{
-					State: tfsdk.State{Schema: ts.schema.Schema},
-					Plan:  tfsdk.Plan{Schema: ts.schema.Schema},
+					State:  tfsdk.State{Schema: ts.schema.Schema},
+					Plan:   tfsdk.Plan{Schema: ts.schema.Schema},
+					Config: tfsdk.Config{Schema: ts.schema.Schema},
 				}
 				diags := updateReq.State.Set(t.Context(), &currentState)
 				require.False(t, diags.HasError())
 				diags = updateReq.Plan.Set(t.Context(), &planModel)
 				require.False(t, diags.HasError())
+				updateReq.Config.Raw = updateReq.Plan.Raw
 
 				updateResp := resource.UpdateResponse{State: tfsdk.State{Schema: ts.schema.Schema}}
 				ts.resource.Update(t.Context(), updateReq, &updateResp)
@@ -1415,6 +1377,8 @@ func TestPipeline_StartFailureBehavior(t *testing.T) {
 						break
 					}
 				}
+			default:
+				t.Fatalf("unexpected operation: %q", tt.operation)
 			}
 
 			assert.True(t, hasWarning,
@@ -1427,7 +1391,7 @@ func TestPipeline_StartFailureBehavior(t *testing.T) {
 	}
 }
 
-func TestPipeline_ServiceAccountSecretVersionUpdate(t *testing.T) {
+func TestUnit_Pipeline_ServiceAccountSecretVersionUpdate(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1471,7 +1435,7 @@ func TestPipeline_ServiceAccountSecretVersionUpdate(t *testing.T) {
 		Description:    types.StringValue(testDescription),
 		ConfigYaml:     types.StringValue(testConfigYaml),
 		State:          types.StringValue(pipelinemodel.StateStopped),
-		Status:         types.ObjectNull(pipelinemodel.GetStatusType()),
+		Status:         types.ObjectNull(pipelinemodel.StatusAttrTypes()),
 		URL:            types.StringValue(testPipelineURL),
 		Resources:      createResourcesObject("", ""),
 		ServiceAccount: createServiceAccountObject("client-123", "secret-abc", 1),
@@ -1488,7 +1452,7 @@ func TestPipeline_ServiceAccountSecretVersionUpdate(t *testing.T) {
 		ConfigYaml:     types.StringValue(testConfigYaml),
 		State:          types.StringValue(pipelinemodel.StateStopped),
 		URL:            types.StringUnknown(),
-		Status:         types.ObjectUnknown(pipelinemodel.GetStatusType()),
+		Status:         types.ObjectUnknown(pipelinemodel.StatusAttrTypes()),
 		Resources:      createResourcesObject("", ""),
 		ServiceAccount: createServiceAccountObject("client-123", "new-secret-xyz", 2),
 		Tags:           createTagsMap(nil),
@@ -1496,13 +1460,15 @@ func TestPipeline_ServiceAccountSecretVersionUpdate(t *testing.T) {
 	}
 
 	updateReq := resource.UpdateRequest{
-		State: tfsdk.State{Schema: schemaResp.Schema},
-		Plan:  tfsdk.Plan{Schema: schemaResp.Schema},
+		State:  tfsdk.State{Schema: schemaResp.Schema},
+		Plan:   tfsdk.Plan{Schema: schemaResp.Schema},
+		Config: tfsdk.Config{Schema: schemaResp.Schema},
 	}
 	diags := updateReq.State.Set(ctx, &currentState)
 	require.False(t, diags.HasError())
 	diags = updateReq.Plan.Set(ctx, &planModel)
 	require.False(t, diags.HasError())
+	updateReq.Config.Raw = updateReq.Plan.Raw
 
 	updateResp := resource.UpdateResponse{State: tfsdk.State{Schema: schemaResp.Schema}}
 	r.Update(ctx, updateReq, &updateResp)
@@ -1510,7 +1476,7 @@ func TestPipeline_ServiceAccountSecretVersionUpdate(t *testing.T) {
 	require.False(t, updateResp.Diagnostics.HasError(), "Update error: %v", updateResp.Diagnostics)
 }
 
-func TestPipeline_ServiceAccountNoUpdateWhenVersionUnchanged(t *testing.T) {
+func TestUnit_Pipeline_ServiceAccountNoUpdateWhenVersionUnchanged(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1536,6 +1502,8 @@ func TestPipeline_ServiceAccountNoUpdateWhenVersionUnchanged(t *testing.T) {
 		DoAndReturn(func(_ context.Context, req *dataplanev1.UpdatePipelineRequest, _ ...any) (*dataplanev1.UpdatePipelineResponse, error) {
 			// Verify service_account is NOT included when secret_version unchanged
 			assert.Nil(t, req.Pipeline.ServiceAccount, "ServiceAccount should NOT be included when secret_version unchanged")
+			// afterPipeline (server response) has SA=nil because no SA was sent.
+			// Assertions below check that Update doesn't drop the wrapper from state.
 			return &dataplanev1.UpdatePipelineResponse{Pipeline: afterPipeline}, nil
 		})
 
@@ -1553,7 +1521,7 @@ func TestPipeline_ServiceAccountNoUpdateWhenVersionUnchanged(t *testing.T) {
 		Description:    types.StringValue(testDescription),
 		ConfigYaml:     types.StringValue(testConfigYaml),
 		State:          types.StringValue(pipelinemodel.StateStopped),
-		Status:         types.ObjectNull(pipelinemodel.GetStatusType()),
+		Status:         types.ObjectNull(pipelinemodel.StatusAttrTypes()),
 		URL:            types.StringValue(testPipelineURL),
 		Resources:      createResourcesObject("", ""),
 		ServiceAccount: createServiceAccountObject("client-123", "secret-abc", 1),
@@ -1569,7 +1537,7 @@ func TestPipeline_ServiceAccountNoUpdateWhenVersionUnchanged(t *testing.T) {
 		Description:    types.StringValue(testDescription),
 		ConfigYaml:     types.StringValue(testConfigYaml),
 		State:          types.StringValue(pipelinemodel.StateStopped),
-		Status:         types.ObjectUnknown(pipelinemodel.GetStatusType()),
+		Status:         types.ObjectUnknown(pipelinemodel.StatusAttrTypes()),
 		URL:            types.StringUnknown(),
 		Resources:      createResourcesObject("", ""),
 		ServiceAccount: createServiceAccountObject("client-123", "secret-abc", 1),
@@ -1578,16 +1546,88 @@ func TestPipeline_ServiceAccountNoUpdateWhenVersionUnchanged(t *testing.T) {
 	}
 
 	updateReq := resource.UpdateRequest{
-		State: tfsdk.State{Schema: schemaResp.Schema},
-		Plan:  tfsdk.Plan{Schema: schemaResp.Schema},
+		State:  tfsdk.State{Schema: schemaResp.Schema},
+		Plan:   tfsdk.Plan{Schema: schemaResp.Schema},
+		Config: tfsdk.Config{Schema: schemaResp.Schema},
 	}
 	diags := updateReq.State.Set(ctx, &currentState)
 	require.False(t, diags.HasError())
 	diags = updateReq.Plan.Set(ctx, &planModel)
 	require.False(t, diags.HasError())
+	updateReq.Config.Raw = updateReq.Plan.Raw
 
 	updateResp := resource.UpdateResponse{State: tfsdk.State{Schema: schemaResp.Schema}}
 	r.Update(ctx, updateReq, &updateResp)
 
 	require.False(t, updateResp.Diagnostics.HasError(), "Update error: %v", updateResp.Diagnostics)
+
+	// When Update omits ServiceAccount (to protect write-only client_secret),
+	// the server echoes SA=nil. Post-apply state must still carry the prior
+	// SA block — otherwise the consistency check rejects with `... but now null`.
+	var resultState pipelinemodel.ResourceModel
+	diags = updateResp.State.Get(ctx, &resultState)
+	require.False(t, diags.HasError(), "State.Get: %v", diags)
+	require.False(t, resultState.ServiceAccount.IsNull(),
+		"service_account block was dropped from state after an SA-unchanged Update")
+	assert.Equal(t, currentState.ServiceAccount, resultState.ServiceAccount,
+		"service_account must round-trip from prior state when the request omitted it")
+}
+
+// While a pipeline is in state=running, GetPipeline returns
+// ServiceAccount=nil even when one was set on Create. Without preservation,
+// Flatten drops the wrapper and the next plan reports `+ service_account`
+// even though nothing changed.
+func TestUnit_Pipeline_ReadPreservesServiceAccountWhenServerOmits(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+	mockClient := mocks.NewMockPipelineServiceClient(ctrl)
+
+	// Server response with SA=nil — exactly what the running-pipeline RPC returns.
+	runningPipeline := createMockPipeline(
+		testPipelineID, testDisplayName, testDescription, testConfigYaml, testPipelineURL,
+		dataplanev1.Pipeline_STATE_RUNNING, nil, nil,
+	)
+	mockClient.EXPECT().
+		GetPipeline(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&dataplanev1.GetPipelineResponse{Pipeline: runningPipeline}, nil)
+
+	r := setupPipelineResource(mockClient)
+
+	schemaResp := resource.SchemaResponse{}
+	r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	require.False(t, schemaResp.Diagnostics.HasError())
+
+	priorState := pipelinemodel.ResourceModel{
+		ID:             types.StringValue(testPipelineID),
+		ClusterAPIURL:  types.StringValue(testClusterAPIURL),
+		DisplayName:    types.StringValue(testDisplayName),
+		Description:    types.StringValue(testDescription),
+		ConfigYaml:     types.StringValue(testConfigYaml),
+		State:          types.StringValue(pipelinemodel.StateRunning),
+		Status:         types.ObjectNull(pipelinemodel.StatusAttrTypes()),
+		URL:            types.StringValue(testPipelineURL),
+		Resources:      createResourcesObject("", ""),
+		ServiceAccount: createServiceAccountObject("client-123", "secret-abc", 1),
+		Tags:           createTagsMap(nil),
+		Timeouts:       createTestTimeouts(),
+	}
+
+	readReq := resource.ReadRequest{State: tfsdk.State{Schema: schemaResp.Schema}}
+	diags := readReq.State.Set(ctx, &priorState)
+	require.False(t, diags.HasError())
+
+	readResp := resource.ReadResponse{State: tfsdk.State{Schema: schemaResp.Schema}}
+	r.Read(ctx, readReq, &readResp)
+
+	require.False(t, readResp.Diagnostics.HasError(), "Read error: %v", readResp.Diagnostics)
+
+	var resultState pipelinemodel.ResourceModel
+	diags = readResp.State.Get(ctx, &resultState)
+	require.False(t, diags.HasError(), "State.Get: %v", diags)
+	require.False(t, resultState.ServiceAccount.IsNull(),
+		"service_account block was dropped from state on Read when server returned SA=nil")
+	assert.Equal(t, priorState.ServiceAccount, resultState.ServiceAccount,
+		"service_account must round-trip from prior state when the server omits it from GetPipeline")
 }
