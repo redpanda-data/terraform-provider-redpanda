@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
+	iamv1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/iam/v1"
 	gomock "go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
 )
@@ -195,6 +196,36 @@ func (m *MockCpClientSet) ServerlessClusterForName(ctx context.Context, name str
 func (mr *MockCpClientSetMockRecorder) ServerlessClusterForName(ctx, name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerlessClusterForName", reflect.TypeOf((*MockCpClientSet)(nil).ServerlessClusterForName), ctx, name)
+}
+
+// ServiceAccountForID mocks base method.
+func (m *MockCpClientSet) ServiceAccountForID(ctx context.Context, id string) (*iamv1.ServiceAccount, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ServiceAccountForID", ctx, id)
+	ret0, _ := ret[0].(*iamv1.ServiceAccount)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ServiceAccountForID indicates an expected call of ServiceAccountForID.
+func (mr *MockCpClientSetMockRecorder) ServiceAccountForID(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServiceAccountForID", reflect.TypeOf((*MockCpClientSet)(nil).ServiceAccountForID), ctx, id)
+}
+
+// ServiceAccountForName mocks base method.
+func (m *MockCpClientSet) ServiceAccountForName(ctx context.Context, name string) (*iamv1.ServiceAccount, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ServiceAccountForName", ctx, name)
+	ret0, _ := ret[0].(*iamv1.ServiceAccount)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ServiceAccountForName indicates an expected call of ServiceAccountForName.
+func (mr *MockCpClientSetMockRecorder) ServiceAccountForName(ctx, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServiceAccountForName", reflect.TypeOf((*MockCpClientSet)(nil).ServiceAccountForName), ctx, name)
 }
 
 // ShadowLinkForID mocks base method.
