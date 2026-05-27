@@ -26,7 +26,9 @@ import (
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	rschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	secretmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/secret"
@@ -45,30 +47,22 @@ var (
 
 // Secret represents the Secret Terraform resource.
 type Secret struct {
+	base.ResourceBase
+
 	SecretClient dataplanev1grpc.SecretServiceClient
 
 	resData config.Resource
 }
 
-// Metadata returns the metadata for the Secret resource.
-func (*Secret) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "redpanda_secret"
-}
-
-// Configure stores provider-supplied data on the resource.
-func (s *Secret) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	if req.ProviderData == nil {
-		return
-	}
-	p, ok := req.ProviderData.(config.Resource)
-	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", req.ProviderData),
-		)
-		return
-	}
-	s.resData = p
+// NewSecret constructs a Secret resource.
+func NewSecret() *Secret {
+	s := &Secret{}
+	s.ResourceBase = base.NewResourceBase(
+		"redpanda_secret",
+		func(context.Context) rschema.Schema { return ResourceSecretSchema() },
+		func(p config.Resource) { s.resData = p },
+	)
+	return s
 }
 
 // Schema returns the schema for the Secret resource.
