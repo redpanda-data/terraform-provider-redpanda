@@ -27,13 +27,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	rolemodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/role"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
 var (
 	_ resource.Resource                = &Role{}
 	_ resource.ResourceWithConfigure   = &Role{}
@@ -46,50 +46,42 @@ type SecurityServiceClientFactory func(ctx context.Context, clusterURL, authToke
 
 // Role represents the Role Terraform resource.
 type Role struct {
+	base.ResourceBase
+
 	SecurityClient consolev1alpha1grpc.SecurityServiceClient
 	resData        config.Resource
 	clientFactory  SecurityServiceClientFactory
 }
 
-// Metadata returns the metadata for the Role resource.
-func (*Role) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_role"
-}
-
-// Configure configures the Role resource.
-func (r *Role) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	if req.ProviderData == nil {
-		return
-	}
-
-	resData, ok := req.ProviderData.(config.Resource)
-	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected config.Resource, got: %T. Please report this issue to the provider developers.", req.ProviderData),
-		)
-		return
-	}
-	r.resData = resData
-
-	if r.clientFactory == nil {
-		r.clientFactory = func(_ context.Context, clusterURL, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
-			if r.resData.DataplaneConnPool == nil {
-				return nil, errors.New("provider not configured: dataplane connection pool is nil")
-			}
-			consoleURL := utils.ConvertToConsoleURL(clusterURL)
-			conn, err := r.resData.DataplaneConnPool.GetConnection(consoleURL)
-			if err != nil {
-				return nil, fmt.Errorf("unable to open a connection with the console API at %s: %v", consoleURL, err)
-			}
-			return consolev1alpha1grpc.NewSecurityServiceClient(conn), nil
-		}
-	}
-}
-
 // Schema returns the schema for the Role resource.
-func (*Role) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = ResourceRoleSchema()
+func (*Role) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = ResourceRoleSchema(ctx)
+}
+
+// NewRole constructs a Role resource.
+func NewRole() *Role {
+	r := &Role{}
+	r.ResourceBase = base.NewResourceBase(
+		"redpanda_role",
+		ResourceRoleSchema,
+		func(p config.Resource) {
+			r.resData = p
+			if r.clientFactory == nil {
+				r.clientFactory = func(_ context.Context, clusterURL, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
+					if r.resData.DataplaneConnPool == nil {
+						return nil, errors.New("provider not configured: dataplane connection pool is nil")
+					}
+					consoleURL := utils.ConvertToConsoleURL(clusterURL)
+					conn, err := r.resData.DataplaneConnPool.GetConnection(consoleURL)
+					if err != nil {
+						return nil, fmt.Errorf("unable to open a connection with the console API at %s: %v", consoleURL, err)
+					}
+					return consolev1alpha1grpc.NewSecurityServiceClient(conn), nil
+				}
+			}
+		},
+	)
+	return r
 }
 
 // Create creates a Role resource.
@@ -100,30 +92,22 @@ func (r *Role) Create(ctx context.Context, req resource.CreateRequest, resp *res
 		return
 	}
 
-	roleName := model.Name.ValueString()
-	clusterAPIURL := model.ClusterAPIURL.ValueString()
-
-	if err := r.createSecurityClient(ctx, clusterAPIURL); err != nil {
+	if err := r.createSecurityClient(ctx, model.ClusterAPIURL.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Failed to create SecurityService client", utils.DeserializeGrpcError(err))
 		return
 	}
 
-	dataplaneReq := &dataplanev1.CreateRoleRequest{
-		Role: &dataplanev1.Role{
-			Name: roleName,
-		},
+	innerReq, diags := rolemodel.ExpandCreate(ctx, &model)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
-	consoleReq := &consolev1alpha1.CreateRoleRequest{
-		Request: dataplaneReq,
-	}
-
-	_, err := r.SecurityClient.CreateRole(ctx, consoleReq)
-	if err != nil {
+	if _, err := r.SecurityClient.CreateRole(ctx, &consolev1alpha1.CreateRoleRequest{Request: innerReq}); err != nil {
 		resp.Diagnostics.AddError("Failed to create role", utils.DeserializeGrpcError(err))
 		return
 	}
 
-	model.ID = types.StringValue(roleName)
+	model.ID = types.StringValue(model.Name.ValueString())
 	resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
 }
 
@@ -176,9 +160,18 @@ func (r *Role) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 	resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
 }
 
-// Update updates the state of the Role resource (not supported - requires replace).
-func (*Role) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
-	// Roles are immutable - updates require replacement
+// Update is a no-op for the proto-derived attrs (roles are immutable;
+// every mutable schema attr is RequiresReplace). The TF-only extras
+// allow_deletion and delete_acls can flip without recreation, so the
+// plan is written to state directly — without this, the framework
+// raises "provider produced inconsistent result after apply".
+func (*Role) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan rolemodel.ResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 // Delete deletes the Role resource.
@@ -203,18 +196,14 @@ func (r *Role) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 		return
 	}
 
-	dataplaneReq := &dataplanev1.DeleteRoleRequest{
-		RoleName:   roleName,
-		DeleteAcls: model.DeleteAcls.ValueBool(),
+	innerReq, diags := rolemodel.ExpandDelete(ctx, &model)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
-	consoleReq := &consolev1alpha1.DeleteRoleRequest{
-		Request: dataplaneReq,
-	}
-
-	_, err := r.SecurityClient.DeleteRole(ctx, consoleReq)
-	if err != nil {
-		_, diags := utils.HandleGracefulRemoval(ctx, "role", roleName, model.AllowDeletion, err, "delete role")
-		resp.Diagnostics.Append(diags...)
+	if _, err := r.SecurityClient.DeleteRole(ctx, &consolev1alpha1.DeleteRoleRequest{Request: innerReq}); err != nil {
+		_, ddiags := utils.HandleGracefulRemoval(ctx, "role", roleName, model.AllowDeletion, err, "delete role")
+		resp.Diagnostics.Append(ddiags...)
 		return
 	}
 }
@@ -255,7 +244,7 @@ func (r *Role) ImportState(ctx context.Context, req resource.ImportStateRequest,
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(roleName))...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(roleName))...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_api_url"), dataplaneURL)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
+	resp.Diagnostics.Append(utils.ImportStateBoolFromSchemaDefault(ctx, ResourceRoleSchema(ctx), &resp.State, "allow_deletion")...)
 }
 
 // roleExists checks if a role exists

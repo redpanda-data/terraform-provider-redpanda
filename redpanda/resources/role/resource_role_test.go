@@ -36,7 +36,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestRole_Create(t *testing.T) {
+func TestUnit_Role_Create(t *testing.T) {
 	tests := []struct {
 		name      string
 		input     rolemodel.ResourceModel
@@ -178,7 +178,7 @@ func TestRole_Create(t *testing.T) {
 	}
 }
 
-func TestRole_Read(t *testing.T) {
+func TestUnit_Role_Read(t *testing.T) {
 	tests := []struct {
 		name          string
 		initialState  rolemodel.ResourceModel
@@ -389,7 +389,7 @@ func TestRole_Read(t *testing.T) {
 	}
 }
 
-func TestRole_Update(t *testing.T) {
+func TestUnit_Role_Update(t *testing.T) {
 	tests := []struct {
 		name         string
 		initialState rolemodel.ResourceModel
@@ -495,7 +495,7 @@ func TestRole_Update(t *testing.T) {
 	}
 }
 
-func TestRole_Delete(t *testing.T) {
+func TestUnit_Role_Delete(t *testing.T) {
 	tests := []struct {
 		name         string
 		initialState rolemodel.ResourceModel
@@ -659,7 +659,7 @@ func TestRole_Delete(t *testing.T) {
 	}
 }
 
-func TestImportIDFormat(t *testing.T) {
+func TestUnit_Role_ImportIDFormat(t *testing.T) {
 	tests := []struct {
 		name            string
 		importID        string
@@ -733,7 +733,7 @@ func TestImportIDFormat(t *testing.T) {
 
 // Integration-style tests that validate lifecycle operations
 
-func TestRole_CreateAndRead(t *testing.T) {
+func TestUnit_Role_CreateAndRead(t *testing.T) {
 	tests := []struct {
 		name  string
 		input rolemodel.ResourceModel
@@ -845,7 +845,7 @@ func TestRole_CreateAndRead(t *testing.T) {
 	}
 }
 
-func TestRole_CreateReadDelete(t *testing.T) {
+func TestUnit_Role_CreateReadDelete(t *testing.T) {
 	tests := []struct {
 		name          string
 		input         rolemodel.ResourceModel
@@ -959,7 +959,7 @@ func TestRole_CreateReadDelete(t *testing.T) {
 	}
 }
 
-func TestRole_CreateReadUpdate(t *testing.T) {
+func TestUnit_Role_CreateReadUpdate(t *testing.T) {
 	tests := []struct {
 		name  string
 		input rolemodel.ResourceModel
