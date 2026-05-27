@@ -40,7 +40,7 @@ func setConfig(ctx context.Context, s rsschema.Schema, val any) (tfsdk.Config, d
 	return tfsdk.Config{Schema: s, Raw: tmp.Raw}, diags
 }
 
-func TestSchemaRegistryACL_Create(t *testing.T) {
+func TestUnit_SchemaRegistryACL_Create(t *testing.T) {
 	tests := []struct {
 		name         string
 		input        schemaregistryaclmodel.ResourceModel
@@ -278,7 +278,7 @@ func TestSchemaRegistryACL_Create(t *testing.T) {
 				Return(tt.mockResponse, nil)
 
 			sr := &SchemaRegistryACL{
-				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _ string) (kclients.SchemaRegistryACLClientInterface, error) {
+				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (kclients.SchemaRegistryACLClientInterface, error) {
 					return mockClient, nil
 				},
 			}
@@ -330,7 +330,7 @@ func TestSchemaRegistryACL_Create(t *testing.T) {
 	}
 }
 
-func TestSchemaRegistryACL_Read(t *testing.T) {
+func TestUnit_SchemaRegistryACL_Read(t *testing.T) {
 	tests := []struct {
 		name          string
 		initialState  schemaregistryaclmodel.ResourceModel
@@ -486,7 +486,7 @@ func TestSchemaRegistryACL_Read(t *testing.T) {
 			}
 
 			sr := &SchemaRegistryACL{
-				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _ string) (kclients.SchemaRegistryACLClientInterface, error) {
+				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (kclients.SchemaRegistryACLClientInterface, error) {
 					return mockClient, nil
 				},
 			}
@@ -540,7 +540,7 @@ func TestSchemaRegistryACL_Read(t *testing.T) {
 	}
 }
 
-func TestSchemaRegistryACL_Update(t *testing.T) {
+func TestUnit_SchemaRegistryACL_Update(t *testing.T) {
 	tests := []struct {
 		name         string
 		initialState schemaregistryaclmodel.ResourceModel
@@ -834,7 +834,7 @@ func TestSchemaRegistryACL_Update(t *testing.T) {
 	}
 }
 
-func TestSchemaRegistryACL_Delete(t *testing.T) {
+func TestUnit_SchemaRegistryACL_Delete(t *testing.T) {
 	tests := []struct {
 		name         string
 		initialState schemaregistryaclmodel.ResourceModel
@@ -936,7 +936,7 @@ func TestSchemaRegistryACL_Delete(t *testing.T) {
 			}
 
 			sr := &SchemaRegistryACL{
-				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _ string) (kclients.SchemaRegistryACLClientInterface, error) {
+				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (kclients.SchemaRegistryACLClientInterface, error) {
 					return mockClient, nil
 				},
 			}
@@ -970,7 +970,7 @@ func TestSchemaRegistryACL_Delete(t *testing.T) {
 	}
 }
 
-func Test_parseImportID(t *testing.T) {
+func TestUnit_SchemaRegistryACL_ParseImportID(t *testing.T) {
 	tests := []struct {
 		name      string
 		importID  string
@@ -979,8 +979,8 @@ func Test_parseImportID(t *testing.T) {
 		errString string
 	}{
 		{
-			name:     "valid import - basic subject ACL",
-			importID: "cluster-1:User:alice:SUBJECT:test-subject:LITERAL:*:READ:ALLOW:myuser:mypass",
+			name:     "valid Basic - basic subject ACL",
+			importID: "cluster-1,User:alice,SUBJECT,test-subject,LITERAL,*,READ,ALLOW,myuser,mypass",
 			want: &importIDComponents{
 				clusterID:    "cluster-1",
 				principal:    "User:alice",
@@ -996,8 +996,8 @@ func Test_parseImportID(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:     "valid import - registry ACL",
-			importID: "cluster-2:User:admin:REGISTRY:*:LITERAL:*:ALL:ALLOW:admin:secret",
+			name:     "valid Basic - registry ACL",
+			importID: "cluster-2,User:admin,REGISTRY,*,LITERAL,*,ALL,ALLOW,admin,secret",
 			want: &importIDComponents{
 				clusterID:    "cluster-2",
 				principal:    "User:admin",
@@ -1013,8 +1013,8 @@ func Test_parseImportID(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:     "valid import - prefixed pattern",
-			importID: "cluster-1:User:bob:SUBJECT:prod-:PREFIXED:192.168.1.1:WRITE:ALLOW:bob:pass123",
+			name:     "valid Basic - prefixed pattern",
+			importID: "cluster-1,User:bob,SUBJECT,prod-,PREFIXED,192.168.1.1,WRITE,ALLOW,bob,pass123",
 			want: &importIDComponents{
 				clusterID:    "cluster-1",
 				principal:    "User:bob",
@@ -1030,8 +1030,8 @@ func Test_parseImportID(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:     "valid import - DENY permission",
-			importID: "cluster-1:User:eve:SUBJECT:restricted:LITERAL:*:DELETE:DENY:eve:secret",
+			name:     "valid Basic - DENY permission",
+			importID: "cluster-1,User:eve,SUBJECT,restricted,LITERAL,*,DELETE,DENY,eve,secret",
 			want: &importIDComponents{
 				clusterID:    "cluster-1",
 				principal:    "User:eve",
@@ -1047,8 +1047,8 @@ func Test_parseImportID(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:     "valid import - principal with multiple colons",
-			importID: "cluster-1:RedpandaRole:admin:extra:REGISTRY:*:LITERAL:*:ALL:ALLOW:rpuser:rppass",
+			name:     "valid Basic - principal with multiple colons",
+			importID: "cluster-1,RedpandaRole:admin:extra,REGISTRY,*,LITERAL,*,ALL,ALLOW,rpuser,rppass",
 			want: &importIDComponents{
 				clusterID:    "cluster-1",
 				principal:    "RedpandaRole:admin:extra",
@@ -1064,29 +1064,63 @@ func Test_parseImportID(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:      "invalid - missing parts (only 9 parts)",
-			importID:  "cluster-1:User:alice:SUBJECT:test:LITERAL:*:READ:ALLOW",
-			want:      nil,
-			wantErr:   true,
-			errString: "got 9 parts (expected at least 10)",
+			name:     "valid Bearer - subject ACL (8 parts, no username/password)",
+			importID: "cluster-1,User:alice,SUBJECT,test-subject,LITERAL,*,READ,ALLOW",
+			want: &importIDComponents{
+				clusterID:    "cluster-1",
+				principal:    "User:alice",
+				resourceType: "SUBJECT",
+				resourceName: "test-subject",
+				patternType:  "LITERAL",
+				host:         "*",
+				operation:    "READ",
+				permission:   "ALLOW",
+				username:     "",
+				password:     "",
+			},
+			wantErr: false,
 		},
 		{
-			name:      "invalid - missing parts (only 8 parts)",
-			importID:  "cluster-1:User:alice:SUBJECT:test:LITERAL:*:READ",
+			name:     "valid Bearer - principal with multiple colons",
+			importID: "cluster-1,RedpandaRole:admin:extra,REGISTRY,*,LITERAL,*,ALL,ALLOW",
+			want: &importIDComponents{
+				clusterID:    "cluster-1",
+				principal:    "RedpandaRole:admin:extra",
+				resourceType: "REGISTRY",
+				resourceName: "*",
+				patternType:  "LITERAL",
+				host:         "*",
+				operation:    "ALL",
+				permission:   "ALLOW",
+				username:     "",
+				password:     "",
+			},
+			wantErr: false,
+		},
+		{
+			name:      "invalid - 9 parts (neither Bearer nor Basic)",
+			importID:  "cluster-1,User:alice,SUBJECT,test,LITERAL,*,READ,ALLOW,extra",
 			want:      nil,
 			wantErr:   true,
-			errString: "got 8 parts (expected at least 10)",
+			errString: "got 9 parts",
+		},
+		{
+			name:      "invalid - 7 parts (too few for Bearer)",
+			importID:  "cluster-1,User:alice,SUBJECT,test,LITERAL,*,READ",
+			want:      nil,
+			wantErr:   true,
+			errString: "got 7 parts",
 		},
 		{
 			name:      "invalid - empty import ID",
 			importID:  "",
 			want:      nil,
 			wantErr:   true,
-			errString: "got 1 parts (expected at least 10)",
+			errString: "got 1 parts",
 		},
 		{
-			name:     "valid - only colons (10 parts)",
-			importID: ":::::::::",
+			name:     "valid - only commas (10 parts)",
+			importID: ",,,,,,,,,",
 			want: &importIDComponents{
 				clusterID:    "",
 				principal:    "",
@@ -1103,7 +1137,7 @@ func Test_parseImportID(t *testing.T) {
 		},
 		{
 			name:     "valid - exact 10 parts",
-			importID: "c:p:t:n:pt:h:o:perm:u:pass",
+			importID: "c,p,t,n,pt,h,o,perm,u,pass",
 			want: &importIDComponents{
 				clusterID:    "c",
 				principal:    "p",
