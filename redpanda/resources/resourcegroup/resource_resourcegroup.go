@@ -19,22 +19,14 @@ package resourcegroup
 
 import (
 	"context"
-	"fmt"
 
-	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/resourcegroup"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
+	resourcegroupmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/resourcegroup"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
 var (
 	_ resource.Resource                = &ResourceGroup{}
 	_ resource.ResourceWithConfigure   = &ResourceGroup{}
@@ -43,83 +35,50 @@ var (
 
 // ResourceGroup represents a cluster managed resource.
 type ResourceGroup struct {
-	CpCl *cloud.ControlPlaneClientSet
+	base.ResourceBase
 }
 
-// Metadata returns the full name of the ResourceGroup resource.
-func (*ResourceGroup) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "redpanda_resource_group"
-}
-
-// Configure uses provider level data to configure ResourceGroup client.
-func (n *ResourceGroup) Configure(_ context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
-	if request.ProviderData == nil {
-		// We can't add a diagnostic for an unset ProviderData here because
-		// during the early part of the terraform lifecycle, the provider data
-		// is not set and this is valid, but we also can't do anything until it
-		// is set.
-		return
-	}
-
-	p, ok := request.ProviderData.(config.Resource)
-	if !ok {
-		response.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", request.ProviderData),
-		)
-		return
-	}
-	n.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
-}
-
-// Schema returns the schema for the ResourceGroup resource.
-func (*ResourceGroup) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = ResourceGroupSchema()
-}
-
-// ResourceGroupSchema defines the schema for a resource group.
-//
-//nolint:revive // ResourceGroupSchema follows the naming convention used by other resources
-func ResourceGroupSchema() schema.Schema {
-	return schema.Schema{
-		Attributes: map[string]schema.Attribute{
-			"name": schema.StringAttribute{
-				Required:      true,
-				Description:   "Name of the resource group. Changing the name of a resource group will result in a new resource group being created and the old one being destroyed",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"id": schema.StringAttribute{
-				Computed:      true,
-				Description:   "UUID of the resource group",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-		},
-		Description: "A Redpanda Cloud resource group",
-		Version:     1,
-	}
+// NewResourceGroup constructs a ResourceGroup resource.
+func NewResourceGroup() *ResourceGroup {
+	r := &ResourceGroup{}
+	r.ResourceBase = base.NewResourceBase("redpanda_resource_group", ResourceGroupSchema, nil)
+	return r
 }
 
 // Create creates a new ResourceGroup resource. It updates the state if the
 // resource is successfully created.
 func (n *ResourceGroup) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var model resourcegroup.ResourceModel
+	var model resourcegroupmodel.ResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	rg, err := n.CpCl.CreateResourceGroup(ctx, model.Name.ValueString())
+	pbReq, diags := resourcegroupmodel.ExpandCreate(ctx, &model)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	apiResp, err := n.CpCl.ResourceGroup.CreateResourceGroup(ctx, pbReq)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create resource group", utils.DeserializeGrpcError(err))
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, resourcegroup.ResourceModel{
-		Name: types.StringValue(rg.Name),
-		ID:   types.StringValue(rg.Id),
-	})...)
+
+	persist, diags := resourcegroupmodel.Flatten(ctx, apiResp.ResourceGroup, &model)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
 // Read reads ResourceGroup resource's values and updates the state.
 func (n *ResourceGroup) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var model resourcegroup.ResourceModel
+	var model resourcegroupmodel.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
+
 	rg, err := n.CpCl.ResourceGroupForID(ctx, model.ID.ValueString())
 	if err != nil {
 		if utils.IsNotFound(err) {
@@ -130,42 +89,51 @@ func (n *ResourceGroup) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, resourcegroup.ResourceModel{
-		Name: types.StringValue(rg.Name),
-		ID:   types.StringValue(rg.Id),
-	})...)
+	persist, diags := resourcegroupmodel.Flatten(ctx, rg, &model)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
 // Update updates the state of the ResourceGroup resource.
 func (n *ResourceGroup) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var model resourcegroup.ResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
-	name, id := model.Name.ValueString(), model.ID.ValueString()
-	_, err := n.CpCl.ResourceGroup.UpdateResourceGroup(ctx, &controlplanev1.UpdateResourceGroupRequest{
-		ResourceGroup: &controlplanev1.ResourceGroupUpdate{
-			Name: name,
-			Id:   id,
-		},
-	})
-	if err != nil {
+	var plan resourcegroupmodel.ResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	pbReq, diags := resourcegroupmodel.ExpandUpdate(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if _, err := n.CpCl.ResourceGroup.UpdateResourceGroup(ctx, pbReq); err != nil {
 		resp.Diagnostics.AddError("failed to update resource group", utils.DeserializeGrpcError(err))
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, resourcegroup.ResourceModel{
-		Name: types.StringValue(name),
-		ID:   types.StringValue(id),
-	})...)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 // Delete deletes the ResourceGroup resource.
 func (n *ResourceGroup) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var model resourcegroup.ResourceModel
+	var model resourcegroupmodel.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	_, err := n.CpCl.ResourceGroup.DeleteResourceGroup(ctx, &controlplanev1.DeleteResourceGroupRequest{
-		Id: model.ID.ValueString(),
-	})
-	if err != nil {
+	pbReq, diags := resourcegroupmodel.ExpandDelete(ctx, &model)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if _, err := n.CpCl.ResourceGroup.DeleteResourceGroup(ctx, pbReq); err != nil {
 		if utils.IsNotFound(err) {
 			resp.State.RemoveResource(ctx)
 			return

@@ -1,0 +1,16 @@
+message: "A Redpanda Cloud resource group"
+api_schema: ResourceGroup
+tf_name: ResourceGroup
+version: 1
+
+name:
+  required: true
+  description: "Name of the resource group. Changing the name of a resource group will result in a new resource group being created and the old one being destroyed"
+  plan_modifiers: [RequiresReplace]
+
+id:
+  computed_only: true
+  description: "UUID of the resource group"
+
+# created_at / updated_at are auto-excluded by the generator's global
+# timestamp deny, so no explicit exclude entries are needed here.

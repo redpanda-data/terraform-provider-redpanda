@@ -7,8 +7,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 )
 
-func TestResourceGroupSchema(t *testing.T) {
-	n := &ResourceGroup{}
+func TestUnit_ResourceGroup_Schema(t *testing.T) {
+	n := NewResourceGroup()
 	req := resource.SchemaRequest{}
 	resp := &resource.SchemaResponse{}
 	n.Schema(context.Background(), req, resp)
@@ -18,8 +18,8 @@ func TestResourceGroupSchema(t *testing.T) {
 	}
 }
 
-func TestValidateSchema(t *testing.T) {
-	if d := ResourceGroupSchema().ValidateImplementation(context.Background()); d.HasError() {
+func TestUnit_ResourceGroup_ValidateSchema(t *testing.T) {
+	if d := ResourceGroupSchema(context.Background()).ValidateImplementation(context.Background()); d.HasError() {
 		t.Errorf("Unexpected error in schema: %s", d)
 	}
 }
