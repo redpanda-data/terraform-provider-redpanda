@@ -1,0 +1,23 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Usage
+
+```hcl
+data "redpanda_schema" "example" {
+    cluster_id = "cluster_id"
+    subject    = "my-subject"
+}
+```
+
+{{ tffile "examples/datasource/schema/main.tf" }}

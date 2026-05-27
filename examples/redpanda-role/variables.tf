@@ -49,6 +49,6 @@ variable "role_name" {
 }
 
 variable "existing_user_principal" {
-  description = "OIDC principal of an existing external user to assign the role to (e.g. an email from your identity provider). This user is not managed by Terraform."
-  default     = "fulano@redpanda.com"
+  description = "Kafka-style principal of an existing external entity to assign the role to. Must be prefixed with \"User:\" for an end user (e.g. an OIDC email from your identity provider) or \"Group:\" for an IdP group. This entity is not managed by Terraform."
+  default     = "User:fulano@redpanda.com"
 }

@@ -12,7 +12,7 @@ variable "private_link_name" {
 
 variable "serverless_region" {
   type        = string
-  description = "Redpanda serverless region"
+  description = "Redpanda serverless region. Valid values vary by environment — query `data \"redpanda_serverless_regions\" { cloud_provider = \"aws\" }` for the current list. The default works in production; in preprod use `eu-west-1`."
   default     = "pro-us-east-1"
 }
 

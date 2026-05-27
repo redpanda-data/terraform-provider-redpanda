@@ -53,10 +53,12 @@ resource "redpanda_shadow_link" "example" {
   source_redpanda_id = "redpanda-id-of-source-cluster"
 
   client_options = {
-    authentication = {
-      mechanism = "scram-sha-256"
-      username  = "shadow-link-user"
-      password  = "$${secrets.${redpanda_secret.source_password.name}}"
+    authentication_configuration = {
+      scram_configuration = {
+        scram_mechanism = "SCRAM_SHA_256"
+        username        = "shadow-link-user"
+        password        = "$${secrets.${redpanda_secret.source_password.name}}"
+      }
     }
   }
 
