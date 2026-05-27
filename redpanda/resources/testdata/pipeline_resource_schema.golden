@@ -1,0 +1,91 @@
+has_timeouts: true
+attributes:
+    - name: allow_deletion
+      type: BoolAttribute
+      optional: true
+      computed: true
+      default: booldefault.staticBoolDefault
+    - name: cluster_api_url
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: config_yaml
+      type: StringAttribute
+      required: true
+      sensitive: true
+    - name: description
+      type: StringAttribute
+      optional: true
+    - name: display_name
+      type: StringAttribute
+      required: true
+      validators:
+        - stringvalidator.lengthAtLeastValidator
+    - name: id
+      type: StringAttribute
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: resources
+      type: SingleNestedAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: cpu_shares
+          type: StringAttribute
+          optional: true
+          validators:
+            - validators.CPUSharesValidator
+        - name: memory_shares
+          type: StringAttribute
+          optional: true
+          validators:
+            - validators.MemorySharesValidator
+    - name: service_account
+      type: SingleNestedAttribute
+      optional: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: client_id
+          type: StringAttribute
+          required: true
+        - name: client_secret
+          type: StringAttribute
+          required: true
+          write_only: true
+        - name: secret_version
+          type: Int64Attribute
+          optional: true
+          plan_modifiers:
+            - int64planmodifier.useStateForUnknownModifier
+    - name: state
+      type: StringAttribute
+      optional: true
+      computed: true
+      validators:
+        - stringvalidator.oneOfValidator
+      default: stringdefault.staticStringDefault
+    - name: status
+      type: SingleNestedAttribute
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: error
+          type: StringAttribute
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useStateForUnknownModifier
+    - name: tags
+      type: MapAttribute
+      optional: true
+      element_type: basetypes.StringType
+    - name: url
+      type: StringAttribute
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
