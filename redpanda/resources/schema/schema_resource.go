@@ -1,7 +1,9 @@
 package schema
 
 import (
-	"github.com/hashicorp/terraform-plugin-framework/path"
+	"context"
+
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
@@ -9,11 +11,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
 // ResourceSchemaSchema returns the schema for the schema resource.
-func ResourceSchemaSchema() schema.Schema {
+func ResourceSchemaSchema(_ context.Context) schema.Schema {
 	return schema.Schema{
 		Description: "Schema represents a Schema Registry schema",
 		Attributes: map[string]schema.Attribute{
@@ -71,31 +72,26 @@ func ResourceSchemaSchema() schema.Schema {
 				},
 			},
 			"username": schema.StringAttribute{
-				Description: "The SASL username for Schema Registry authentication.",
-				Required:    true,
+				Description: "SASL username for Schema Registry HTTP Basic authentication. Optional: when omitted (together with password) the provider authenticates to Schema Registry using its cloud Bearer token. Supply username + password only when you need writes to be attributed to a specific SASL identity (e.g., audit / least-privilege).",
+				Optional:    true,
 				Sensitive:   true,
 			},
 			"password": schema.StringAttribute{
-				Description:        "The SASL password for Schema Registry authentication. Deprecated: use password_wo instead.",
-				Optional:           true,
-				Sensitive:          true,
-				DeprecationMessage: "Use password_wo instead to avoid storing password in Terraform state",
-				Validators: []validator.String{
-					validators.Password(
-						path.MatchRoot("password"),
-						path.MatchRoot("password_wo"),
-					),
-				},
+				Description: "SASL password for Schema Registry HTTP Basic authentication. Pair with username when you need writes attributed to a specific SASL identity instead of the provider's cloud Bearer token. Stored in Terraform state.",
+				Optional:    true,
+				Sensitive:   true,
 			},
 			"password_wo": schema.StringAttribute{
-				Description: "The SASL password for Schema Registry authentication (write-only, not stored in state). Requires Terraform 1.11+.",
-				Optional:    true,
-				WriteOnly:   true,
+				Description:        "Deprecated. The Terraform Plugin Framework does not persist write-only attributes to state, leaving the provider unable to authenticate to Schema Registry during refresh — this attribute cannot reliably manage schemas. Use the default cloud Bearer authentication (omit username and password) or the regular `password` attribute.",
+				Optional:           true,
+				WriteOnly:          true,
+				DeprecationMessage: "password_wo cannot be used reliably with redpanda_schema: write-only attributes are not available at refresh time, so the provider cannot authenticate to Schema Registry during plan. Use cloud Bearer authentication (omit username + password) or the `password` attribute instead.",
 			},
 			"password_wo_version": schema.Int64Attribute{
-				Description:   "Version number for password_wo. Increment this value to trigger a password update when using password_wo.",
-				Optional:      true,
-				PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+				Description:        "Deprecated. Version counter for password_wo, which is itself deprecated for this resource.",
+				Optional:           true,
+				PlanModifiers:      []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+				DeprecationMessage: "password_wo_version is paired with password_wo, which is deprecated. See the password_wo deprecation message for migration guidance.",
 			},
 			"compatibility": schema.StringAttribute{
 				Description: "The compatibility level for schema evolution (BACKWARD, BACKWARD_TRANSITIVE, FORWARD, FORWARD_TRANSITIVE, FULL, FULL_TRANSITIVE, NONE). Defaults to BACKWARD.",
@@ -103,6 +99,14 @@ func ResourceSchemaSchema() schema.Schema {
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+				},
+				Validators: []validator.String{
+					stringvalidator.OneOfCaseInsensitive(
+						"BACKWARD", "BACKWARD_TRANSITIVE",
+						"FORWARD", "FORWARD_TRANSITIVE",
+						"FULL", "FULL_TRANSITIVE",
+						"NONE",
+					),
 				},
 			},
 			"allow_deletion": schema.BoolAttribute{

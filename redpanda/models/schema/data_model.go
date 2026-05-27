@@ -29,6 +29,8 @@ type DataModel struct {
 	ID         types.Int64  `tfsdk:"id"`
 	ClusterID  types.String `tfsdk:"cluster_id"`
 	References types.List   `tfsdk:"references"`
+	Username   types.String `tfsdk:"username"`
+	Password   types.String `tfsdk:"password"`
 }
 
 // GetID returns the schema ID.

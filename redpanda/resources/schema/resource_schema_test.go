@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	rsschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -43,7 +44,7 @@ func setConfig(ctx context.Context, s rsschema.Schema, val any) (tfsdk.Config, d
 	return tfsdk.Config{Schema: s, Raw: tmp.Raw}, diags
 }
 
-func Test_parseImportID(t *testing.T) {
+func TestUnit_Schema_ParseImportID(t *testing.T) {
 	tests := []struct {
 		name        string
 		importID    string
@@ -148,53 +149,70 @@ func Test_parseImportID(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:        "invalid import - missing password",
+			name:     "valid import - Bearer (3 parts, no credentials)",
+			importID: "cluster-1:my-subject:1",
+			want: &importIDComponents{
+				clusterID: "cluster-1",
+				subject:   "my-subject",
+				version:   1,
+				username:  "",
+				password:  "",
+			},
+			wantErr: false,
+		},
+		{
+			name:     "valid import - Bearer (3 parts) with complex subject",
+			importID: "prod-cluster:com.example.avro.User-v2:42",
+			want: &importIDComponents{
+				clusterID: "prod-cluster",
+				subject:   "com.example.avro.User-v2",
+				version:   42,
+				username:  "",
+				password:  "",
+			},
+			wantErr: false,
+		},
+		{
+			name:        "invalid import - missing password (4 parts)",
 			importID:    "cluster-1:my-subject:1:myuser",
 			want:        nil,
 			wantErr:     true,
-			errContains: "got 4 parts (expected 5)",
+			errContains: "got 4 parts",
 		},
 		{
-			name:        "invalid import - missing username and password",
-			importID:    "cluster-1:my-subject:1",
-			want:        nil,
-			wantErr:     true,
-			errContains: "got 3 parts (expected 5)",
-		},
-		{
-			name:        "invalid import - missing version, username, and password",
+			name:        "invalid import - missing version, username, and password (2 parts)",
 			importID:    "cluster-1:my-subject",
 			want:        nil,
 			wantErr:     true,
-			errContains: "got 2 parts (expected 5)",
+			errContains: "got 2 parts",
 		},
 		{
-			name:        "invalid import - only cluster_id",
+			name:        "invalid import - only cluster_id (1 part)",
 			importID:    "cluster-1",
 			want:        nil,
 			wantErr:     true,
-			errContains: "got 1 parts (expected 5)",
+			errContains: "got 1 parts",
 		},
 		{
-			name:        "invalid import - empty string",
+			name:        "invalid import - empty string (1 part)",
 			importID:    "",
 			want:        nil,
 			wantErr:     true,
-			errContains: "got 1 parts (expected 5)",
+			errContains: "got 1 parts",
 		},
 		{
-			name:        "invalid import - too many parts",
+			name:        "invalid import - too many parts (6)",
 			importID:    "cluster-1:subject:1:user:pass:extra",
 			want:        nil,
 			wantErr:     true,
-			errContains: "got 6 parts (expected 5)",
+			errContains: "got 6 parts",
 		},
 		{
-			name:        "invalid import - too many colons",
+			name:        "invalid import - too many colons (7)",
 			importID:    "cluster-1:subject:1:user:pass:extra:more",
 			want:        nil,
 			wantErr:     true,
-			errContains: "got 7 parts (expected 5)",
+			errContains: "got 7 parts",
 		},
 		{
 			name:     "valid import - empty cluster_id",
@@ -318,7 +336,7 @@ func Test_parseImportID(t *testing.T) {
 			importID:    "cluster-1:subject:1:user:pass:with:colons",
 			want:        nil,
 			wantErr:     true,
-			errContains: "got 7 parts (expected 5)",
+			errContains: "got 7 parts",
 		},
 		{
 			name:     "valid import - UUID cluster ID",
@@ -371,9 +389,9 @@ func Test_parseImportID(t *testing.T) {
 	}
 }
 
-// TestImportTypeConversions validates that parseImportID returns correct types
+// TestUnit_Schema_ImportTypeConversions validates that parseImportID returns correct types
 // and that they convert properly to Terraform types (types.StringValue(), types.Int64Value()).
-func TestImportTypeConversions(t *testing.T) {
+func TestUnit_Schema_ImportTypeConversions(t *testing.T) {
 	tests := []struct {
 		name            string
 		importID        string
@@ -512,7 +530,7 @@ func TestImportTypeConversions(t *testing.T) {
 	}
 }
 
-func TestSchema_Create(t *testing.T) {
+func TestUnit_Schema_Create(t *testing.T) {
 	tests := []struct {
 		name               string
 		input              schemamodel.ResourceModel
@@ -812,7 +830,7 @@ func TestSchema_Create(t *testing.T) {
 			var s *Schema
 			if tt.clientFactoryError != nil {
 				s = &Schema{
-					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _ string) (SRClienter, error) {
+					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
 						return nil, tt.clientFactoryError
 					},
 				}
@@ -849,7 +867,7 @@ func TestSchema_Create(t *testing.T) {
 				}
 
 				s = &Schema{
-					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _ string) (SRClienter, error) {
+					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
 						return mockClient, nil
 					},
 				}
@@ -911,7 +929,7 @@ func TestSchema_Create(t *testing.T) {
 	}
 }
 
-func TestSchema_CreateReadConsistency(t *testing.T) {
+func TestUnit_Schema_CreateReadConsistency(t *testing.T) {
 	tests := []struct {
 		name           string
 		input          schemamodel.ResourceModel
@@ -1330,7 +1348,7 @@ func TestSchema_CreateReadConsistency(t *testing.T) {
 				Return(tt.compatResults)
 
 			s := &Schema{
-				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _ string) (SRClienter, error) {
+				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
 					return mockClient, nil
 				},
 			}
@@ -1389,7 +1407,7 @@ func TestSchema_CreateReadConsistency(t *testing.T) {
 	}
 }
 
-func TestSchema_Read(t *testing.T) {
+func TestUnit_Schema_Read(t *testing.T) {
 	tests := []struct {
 		name               string
 		initialState       schemamodel.ResourceModel
@@ -1690,14 +1708,14 @@ func TestSchema_Read(t *testing.T) {
 			//nolint:gocritic // if-else chain is clearer than switch for this test setup logic
 			if tt.clientFactoryError != nil {
 				s = &Schema{
-					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _ string) (SRClienter, error) {
+					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
 						return nil, tt.clientFactoryError
 					},
 				}
 			} else if tt.initialState.ClusterID.IsNull() || tt.initialState.ClusterID.ValueString() == "" {
 				// Don't set up mock client for null/empty cluster ID
 				s = &Schema{
-					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _ string) (SRClienter, error) {
+					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
 						return mockClient, nil
 					},
 				}
@@ -1744,7 +1762,7 @@ func TestSchema_Read(t *testing.T) {
 				}
 
 				s = &Schema{
-					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _ string) (SRClienter, error) {
+					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
 						return mockClient, nil
 					},
 				}
@@ -1798,7 +1816,7 @@ func TestSchema_Read(t *testing.T) {
 	}
 }
 
-func TestSchema_Update(t *testing.T) {
+func TestUnit_Schema_Update(t *testing.T) {
 	tests := []struct {
 		name           string
 		initialState   schemamodel.ResourceModel
@@ -1912,7 +1930,7 @@ func TestSchema_Update(t *testing.T) {
 			}
 
 			s := &Schema{
-				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _ string) (SRClienter, error) {
+				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
 					return mockClient, nil
 				},
 			}
@@ -1974,7 +1992,7 @@ func TestSchema_Update(t *testing.T) {
 	}
 }
 
-func TestSchema_UpdateReadConsistency(t *testing.T) {
+func TestUnit_Schema_UpdateReadConsistency(t *testing.T) {
 	tests := []struct {
 		name             string
 		initialState     schemamodel.ResourceModel
@@ -2433,7 +2451,7 @@ func TestSchema_UpdateReadConsistency(t *testing.T) {
 				Return(tt.compatResults)
 
 			s := &Schema{
-				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _ string) (SRClienter, error) {
+				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
 					return mockClient, nil
 				},
 			}
@@ -2501,7 +2519,7 @@ func TestSchema_UpdateReadConsistency(t *testing.T) {
 	}
 }
 
-func TestSchema_Delete(t *testing.T) {
+func TestUnit_Schema_Delete(t *testing.T) {
 	tests := []struct {
 		name         string
 		initialState schemamodel.ResourceModel
@@ -2560,7 +2578,7 @@ func TestSchema_Delete(t *testing.T) {
 				Return([]int{int(tt.initialState.Version.ValueInt64())}, nil)
 
 			s := &Schema{
-				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _ string) (SRClienter, error) {
+				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
 					return mockClient, nil
 				},
 			}
@@ -2590,6 +2608,265 @@ func TestSchema_Delete(t *testing.T) {
 			diags = resp.State.Get(ctx, &state)
 			require.False(t, diags.HasError(), "State.Get should not error")
 			assert.Nil(t, state, "State should be removed after delete")
+		})
+	}
+}
+
+func TestUnit_SchemaDataSource_Read(t *testing.T) {
+	refAttrTypes := map[string]attr.Type{
+		"name":    types.StringType,
+		"subject": types.StringType,
+		"version": types.Int64Type,
+	}
+
+	tests := []struct {
+		name               string
+		inputCfg           schemamodel.DataModel
+		clientFactoryError error
+		fetchError         error
+		mockSchemas        []sr.SubjectSchema
+		mockByVersion      *sr.SubjectSchema
+		wantErr            bool
+		errorContains      string
+		wantID             int64
+		wantVersion        int64
+		wantSchema         string
+		wantSchemaType     string
+		wantRefs           int
+		wantUsername       string
+		wantPassword       string
+	}{
+		{
+			name: "latest version fetched when version not set",
+			inputCfg: schemamodel.DataModel{
+				ClusterID:  types.StringValue("cluster-1"),
+				Subject:    types.StringValue("test-subject"),
+				Version:    types.Int64Null(),
+				References: types.ListNull(types.ObjectType{AttrTypes: refAttrTypes}),
+			},
+			mockSchemas: []sr.SubjectSchema{
+				{
+					ID:      42,
+					Version: 3,
+					Schema:  sr.Schema{Schema: `{"type":"string"}`, Type: sr.TypeAvro},
+					Subject: "test-subject",
+				},
+			},
+			wantID:         42,
+			wantVersion:    3,
+			wantSchema:     `{"type":"string"}`,
+			wantSchemaType: "AVRO",
+		},
+		{
+			name: "specific version fetched when version set",
+			inputCfg: schemamodel.DataModel{
+				ClusterID:  types.StringValue("cluster-1"),
+				Subject:    types.StringValue("test-subject"),
+				Version:    types.Int64Value(2),
+				References: types.ListNull(types.ObjectType{AttrTypes: refAttrTypes}),
+			},
+			mockByVersion: &sr.SubjectSchema{
+				ID:      7,
+				Version: 2,
+				Schema:  sr.Schema{Schema: `{"type":"int"}`, Type: sr.TypeAvro},
+				Subject: "test-subject",
+			},
+			wantID:         7,
+			wantVersion:    2,
+			wantSchema:     `{"type":"int"}`,
+			wantSchemaType: "AVRO",
+		},
+		{
+			name: "schema with references",
+			inputCfg: schemamodel.DataModel{
+				ClusterID:  types.StringValue("cluster-1"),
+				Subject:    types.StringValue("event-subject"),
+				Version:    types.Int64Null(),
+				References: types.ListNull(types.ObjectType{AttrTypes: refAttrTypes}),
+			},
+			mockSchemas: []sr.SubjectSchema{
+				{
+					ID:      5,
+					Version: 1,
+					Schema: sr.Schema{
+						Schema: `{"type":"record","name":"Event"}`,
+						Type:   sr.TypeAvro,
+						References: []sr.SchemaReference{
+							{Name: "Base", Subject: "base-subject", Version: 1},
+						},
+					},
+					Subject: "event-subject",
+				},
+			},
+			wantID:         5,
+			wantVersion:    1,
+			wantSchema:     `{"type":"record","name":"Event"}`,
+			wantSchemaType: "AVRO",
+			wantRefs:       1,
+		},
+		{
+			name: "client factory error surfaced",
+			inputCfg: schemamodel.DataModel{
+				ClusterID:  types.StringValue("cluster-1"),
+				Subject:    types.StringValue("test-subject"),
+				Version:    types.Int64Null(),
+				References: types.ListNull(types.ObjectType{AttrTypes: refAttrTypes}),
+			},
+			clientFactoryError: errors.New("cannot reach cluster"),
+			wantErr:            true,
+			errorContains:      "Failed to create Schema Registry client",
+		},
+		{
+			name: "fetch error surfaced",
+			inputCfg: schemamodel.DataModel{
+				ClusterID:  types.StringValue("cluster-1"),
+				Subject:    types.StringValue("test-subject"),
+				Version:    types.Int64Null(),
+				References: types.ListNull(types.ObjectType{AttrTypes: refAttrTypes}),
+			},
+			fetchError:    errors.New("subject not found"),
+			wantErr:       true,
+			errorContains: "Failed to read schema",
+		},
+		{
+			name: "JSON schema type uppercased",
+			inputCfg: schemamodel.DataModel{
+				ClusterID:  types.StringValue("cluster-1"),
+				Subject:    types.StringValue("json-subject"),
+				Version:    types.Int64Null(),
+				References: types.ListNull(types.ObjectType{AttrTypes: refAttrTypes}),
+			},
+			mockSchemas: []sr.SubjectSchema{
+				{
+					ID:      9,
+					Version: 1,
+					Schema:  sr.Schema{Schema: `{"type":"object"}`, Type: sr.TypeJSON},
+					Subject: "json-subject",
+				},
+			},
+			wantID:         9,
+			wantVersion:    1,
+			wantSchema:     `{"type":"object"}`,
+			wantSchemaType: "JSON",
+		},
+		{
+			name: "Basic auth credentials flow through to client factory",
+			inputCfg: schemamodel.DataModel{
+				ClusterID:  types.StringValue("cluster-1"),
+				Subject:    types.StringValue("basic-subject"),
+				Version:    types.Int64Null(),
+				References: types.ListNull(types.ObjectType{AttrTypes: refAttrTypes}),
+				Username:   types.StringValue("sruser"),
+				Password:   types.StringValue("srpass"),
+			},
+			mockSchemas: []sr.SubjectSchema{
+				{
+					ID:      11,
+					Version: 1,
+					Schema:  sr.Schema{Schema: `{"type":"string"}`, Type: sr.TypeAvro},
+					Subject: "basic-subject",
+				},
+			},
+			wantID:         11,
+			wantVersion:    1,
+			wantSchema:     `{"type":"string"}`,
+			wantSchemaType: "AVRO",
+			wantUsername:   "sruser",
+			wantPassword:   "srpass",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			ctx := context.Background()
+			mockClient := mocks.NewMockSRClienter(ctrl)
+
+			var capturedUsername, capturedPassword string
+
+			d := NewSchemaDataSource()
+			if tt.clientFactoryError != nil {
+				d.clientFactory = func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
+					return nil, tt.clientFactoryError
+				}
+			} else {
+				subject := tt.inputCfg.Subject.ValueString()
+				if tt.inputCfg.Version.IsNull() {
+					if tt.fetchError != nil {
+						mockClient.EXPECT().Schemas(ctx, subject).Return(nil, tt.fetchError)
+					} else {
+						mockClient.EXPECT().Schemas(ctx, subject).Return(tt.mockSchemas, nil)
+					}
+				} else {
+					v := int(tt.inputCfg.Version.ValueInt64())
+					if tt.fetchError != nil {
+						mockClient.EXPECT().SchemaByVersion(ctx, subject, v).Return(sr.SubjectSchema{}, tt.fetchError)
+					} else {
+						mockClient.EXPECT().SchemaByVersion(ctx, subject, v).Return(*tt.mockByVersion, nil)
+					}
+				}
+				d.clientFactory = func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, u, p string) (SRClienter, error) {
+					capturedUsername = u
+					capturedPassword = p
+					return mockClient, nil
+				}
+			}
+
+			dsResp := datasource.SchemaResponse{}
+			d.Schema(ctx, datasource.SchemaRequest{}, &dsResp)
+
+			cfgState := tfsdk.State{Schema: dsResp.Schema}
+			diags := cfgState.Set(ctx, &tt.inputCfg)
+			require.False(t, diags.HasError(), "Config.Set should not error: %v", diags)
+
+			req := datasource.ReadRequest{
+				Config: tfsdk.Config{Schema: dsResp.Schema, Raw: cfgState.Raw},
+			}
+
+			resp := datasource.ReadResponse{
+				State: tfsdk.State{Schema: dsResp.Schema},
+			}
+
+			d.Read(ctx, req, &resp)
+
+			if tt.wantErr {
+				require.True(t, resp.Diagnostics.HasError(), "expected error but got none")
+				if tt.errorContains != "" {
+					found := false
+					for _, diag := range resp.Diagnostics {
+						if strings.Contains(diag.Summary(), tt.errorContains) {
+							found = true
+							break
+						}
+					}
+					assert.True(t, found, "expected error containing %q", tt.errorContains)
+				}
+				return
+			}
+
+			require.False(t, resp.Diagnostics.HasError(), "Read should not error: %v", resp.Diagnostics)
+
+			var state schemamodel.DataModel
+			diags = resp.State.Get(ctx, &state)
+			require.False(t, diags.HasError(), "State.Get should not error")
+
+			assert.Equal(t, types.Int64Value(tt.wantID), state.ID)
+			assert.Equal(t, types.Int64Value(tt.wantVersion), state.Version)
+			assert.Equal(t, types.StringValue(tt.wantSchema), state.Schema)
+			assert.Equal(t, types.StringValue(tt.wantSchemaType), state.SchemaType)
+			assert.Equal(t, tt.inputCfg.ClusterID, state.ClusterID)
+			assert.Equal(t, tt.inputCfg.Subject, state.Subject)
+			if tt.wantRefs == 0 {
+				assert.True(t, state.References.IsNull(), "expected null references list")
+			} else {
+				assert.Equal(t, tt.wantRefs, len(state.References.Elements()))
+			}
+			if tt.wantUsername != "" || tt.wantPassword != "" {
+				assert.Equal(t, tt.wantUsername, capturedUsername, "username should flow to client factory")
+				assert.Equal(t, tt.wantPassword, capturedPassword, "password should flow to client factory")
+			}
 		})
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/kclients"
@@ -20,7 +21,6 @@ import (
 	"github.com/twmb/franz-go/pkg/sr"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
 var (
 	_ resource.Resource                = &Schema{}
 	_ resource.ResourceWithConfigure   = &Schema{}
@@ -39,26 +39,26 @@ type SRClienter interface {
 
 // Schema represents a schema managed resource
 type Schema struct {
-	CpCl          *cloud.ControlPlaneClientSet
+	base.ResourceBase
+
 	resData       config.Resource
-	clientFactory func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, username, password string) (SRClienter, error)
+	clientFactory func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, authToken, username, password string) (SRClienter, error)
 }
 
-// Configure configures the schema resource with provider data.
-func (s *Schema) Configure(_ context.Context, request resource.ConfigureRequest, response *resource.ConfigureResponse) {
-	if request.ProviderData == nil {
-		return
-	}
-	cc, ok := request.ProviderData.(config.Resource)
-	if !ok {
-		response.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", request.ProviderData),
-		)
-		return
-	}
-	s.resData = cc
-	s.CpCl = cloud.NewControlPlaneClientSet(cc.ControlPlaneConnection)
+// Schema returns the resource schema definition.
+func (*Schema) Schema(ctx context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
+	response.Schema = ResourceSchemaSchema(ctx)
+}
+
+// NewSchema constructs a Schema resource.
+func NewSchema() *Schema {
+	s := &Schema{}
+	s.ResourceBase = base.NewResourceBase(
+		"redpanda_schema",
+		ResourceSchemaSchema,
+		func(p config.Resource) { s.resData = p },
+	)
+	return s
 }
 
 // importIDComponents holds the parsed components from an import ID string
@@ -70,38 +70,45 @@ type importIDComponents struct {
 	password  string
 }
 
-// parseImportID parses the import ID string into its components
-// Expected format: "cluster_id:subject:version:username:password"
+// parseImportID parses the import ID string into its components. Two forms:
+//
+//	Bearer auth (default): cluster_id:subject:version
+//	Basic auth (optional): cluster_id:subject:version:username:password
 func parseImportID(importID string) (*importIDComponents, error) {
 	parts := strings.Split(importID, ":")
-	if len(parts) != 5 {
-		return nil, fmt.Errorf("invalid import ID format: expected cluster_id:subject:version:username:password, got %d parts (expected 5)", len(parts))
+	if len(parts) != 3 && len(parts) != 5 {
+		return nil, fmt.Errorf(
+			"expected one of:\n"+
+				"  Bearer auth (default): cluster_id:subject:version\n"+
+				"  Basic auth (optional): cluster_id:subject:version:username:password\n"+
+				"got %d parts",
+			len(parts),
+		)
 	}
 
-	clusterID := parts[0]
-	subject := parts[1]
-	versionStr := parts[2]
-	username := parts[3]
-	password := parts[4]
-
-	// Parse version to int64
-	version, err := strconv.ParseInt(versionStr, 10, 64)
+	version, err := strconv.ParseInt(parts[2], 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("version must be a valid integer: %w", err)
 	}
 
-	return &importIDComponents{
-		clusterID: clusterID,
-		subject:   subject,
+	ret := &importIDComponents{
+		clusterID: parts[0],
+		subject:   parts[1],
 		version:   version,
-		username:  username,
-		password:  password,
-	}, nil
+	}
+	if len(parts) == 5 {
+		ret.username = parts[3]
+		ret.password = parts[4]
+	}
+	return ret, nil
 }
 
 // ImportState imports an existing schema resource.
-// Format: cluster_id:subject:version:username:password
-// Password can also be set via REDPANDA_IMPORT_PASSWORD env var.
+//
+// Bearer auth (default): cluster_id:subject:version
+// Basic auth (optional): same 3 fields + :username:password
+//
+// For Basic auth, password can also be set via REDPANDA_IMPORT_PASSWORD env var.
 func (*Schema) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {
 	components, err := parseImportID(request.ID)
 	if err != nil {
@@ -117,19 +124,13 @@ func (*Schema) ImportState(ctx context.Context, request resource.ImportStateRequ
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("cluster_id"), types.StringValue(components.clusterID))...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("subject"), types.StringValue(components.subject))...)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("version"), types.Int64Value(components.version))...)
-	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("username"), types.StringValue(components.username))...)
-	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("password"), types.StringValue(password))...)
+	if components.username != "" {
+		response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("username"), types.StringValue(components.username))...)
+	}
+	if password != "" {
+		response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("password"), types.StringValue(password))...)
+	}
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
-}
-
-// Metadata returns the resource metadata.
-func (*Schema) Metadata(_ context.Context, _ resource.MetadataRequest, response *resource.MetadataResponse) {
-	response.TypeName = "redpanda_schema"
-}
-
-// Schema returns the resource schema definition.
-func (*Schema) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
-	response.Schema = ResourceSchemaSchema()
 }
 
 // Create creates a new schema in the Schema Registry.
@@ -144,7 +145,7 @@ func (s *Schema) Create(ctx context.Context, request resource.CreateRequest, res
 	}
 	plan.PasswordWO = cfg.PasswordWO
 
-	client, err := s.getClient(ctx, plan.ClusterID.ValueString(), plan.Username.ValueString(), plan.GetEffectivePassword())
+	client, err := s.getClient(ctx, plan.ClusterID.ValueString(), s.resData.AuthToken, plan.Username.ValueString(), plan.GetEffectivePassword())
 	if err != nil {
 		response.Diagnostics.AddError(
 			"Failed to create Schema Registry client",
@@ -204,7 +205,7 @@ func (s *Schema) Read(ctx context.Context, request resource.ReadRequest, respons
 	}
 
 	subject := state.GetSubject()
-	client, err := s.getClient(ctx, state.ClusterID.ValueString(), state.Username.ValueString(), state.GetEffectivePassword())
+	client, err := s.getClient(ctx, state.ClusterID.ValueString(), s.resData.AuthToken, state.Username.ValueString(), state.GetEffectivePassword())
 	if err != nil {
 		action, diags := utils.HandleGracefulRemoval(ctx, "schema", subject, state.AllowDeletion, err, "create schema registry client")
 		response.Diagnostics.Append(diags...)
@@ -265,7 +266,7 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 	}
 	plan.PasswordWO = cfg.PasswordWO
 
-	client, err := s.getClient(ctx, plan.ClusterID.ValueString(), plan.Username.ValueString(), plan.GetEffectivePassword())
+	client, err := s.getClient(ctx, plan.ClusterID.ValueString(), s.resData.AuthToken, plan.Username.ValueString(), plan.GetEffectivePassword())
 	if err != nil {
 		response.Diagnostics.AddError(
 			"Failed to create Schema Registry client",
@@ -278,8 +279,19 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 	planReq := plan.ToSchemaRequest()
 	stateReq := state.ToSchemaRequest()
 
+	// Body equivalence: strict-equal first, then Avro-canonical for the
+	// FQN-vs-namespace-relative case (Schema Registry collapses
+	// in-namespace type references on write; user's FQN form persists in
+	// plan). Without the Avro fallback, every plan after the first apply
+	// sees plan.Schema != state.Schema and Update fires unnecessarily —
+	// eventually tripping the framework's post-apply consistency check.
+	bodiesEqual := planReq.Schema == stateReq.Schema
+	if !bodiesEqual && strings.EqualFold(plan.SchemaType.ValueString(), "AVRO") {
+		bodiesEqual = schemamodel.AvroBodiesEquivalent(planReq.Schema, stateReq.Schema)
+	}
+
 	// Compare schema content, type, and references
-	if planReq.Schema == stateReq.Schema &&
+	if bodiesEqual &&
 		planReq.Type == stateReq.Type &&
 		len(planReq.References) == len(stateReq.References) {
 		// Check if references are identical
@@ -375,7 +387,7 @@ func (s *Schema) Delete(ctx context.Context, request resource.DeleteRequest, res
 		return
 	}
 
-	client, err := s.getClient(ctx, state.ClusterID.ValueString(), state.Username.ValueString(), state.GetEffectivePassword())
+	client, err := s.getClient(ctx, state.ClusterID.ValueString(), s.resData.AuthToken, state.Username.ValueString(), state.GetEffectivePassword())
 	if err != nil {
 		if utils.IsPermissionDenied(err) || utils.IsClusterUnreachable(err) {
 			if !state.AllowDeletion.IsNull() && !state.AllowDeletion.ValueBool() {
@@ -429,12 +441,14 @@ func (s *Schema) Delete(ctx context.Context, request resource.DeleteRequest, res
 	response.State.RemoveResource(ctx)
 }
 
-// getClient returns a Schema Registry client, using the factory if available or the default implementation
-func (s *Schema) getClient(ctx context.Context, clusterID, username, password string) (SRClienter, error) {
+// getClient returns a Schema Registry client, using the factory if available or
+// the default implementation. authToken is the provider's cloud-issued Bearer
+// token used when explicit Basic creds (username+password) are absent.
+func (s *Schema) getClient(ctx context.Context, clusterID, authToken, username, password string) (SRClienter, error) {
 	if s.clientFactory != nil {
-		return s.clientFactory(ctx, s.CpCl, clusterID, username, password)
+		return s.clientFactory(ctx, s.CpCl, clusterID, authToken, username, password)
 	}
-	client, err := kclients.GetSchemaRegistryClientForCluster(ctx, s.CpCl, clusterID, username, password)
+	client, err := kclients.GetSchemaRegistryClientForCluster(ctx, s.CpCl, clusterID, authToken, username, password)
 	if err != nil {
 		return nil, err
 	}
@@ -503,8 +517,6 @@ func getSubjectCompatibility(ctx context.Context, client SRClienter, subject str
 	return result.Level.String(), nil
 }
 
-// getCompatibility retrieves the compatibility level from the Schema Registry.
-// Returns an error if the API call fails.
 func getCompatibility(ctx context.Context, client SRClienter, subject string) (types.String, error) {
 	compatibility, err := getSubjectCompatibility(ctx, client, subject)
 	if err != nil {
