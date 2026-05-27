@@ -1,0 +1,537 @@
+message: ""
+
+api_schema: Cluster
+tf_name: Cluster
+
+timeouts: [create, update, delete]
+
+api:
+  update:
+    # Resource code computes a FieldMask diff between plan and prev state
+    # and wraps the returned payload itself, so the generator returns the
+    # payload type instead of the full request envelope.
+    return_payload: true
+
+allow_deletion:
+  computed: true
+  default: false
+  extra: true
+  optional: true
+  type: bool
+  # GenerateMinimalResourceModel uses true so a half-created cluster can
+  # still be destroyed by the next apply. Distinct from the apply-time
+  # default of false.
+  minimal_default: true
+
+api_gateway_access:
+
+aws_private_link:
+  optional: true
+  computed: true
+  plan_modifiers: [UseStateForUnknown]
+  fields:
+    allowed_principals:
+      required: true
+      description: "ARN of the principals that can access the Redpanda AWS PrivateLink Endpoint Service"
+      validator: "LengthAtLeast{n: 1}"
+    connect_console:
+      required: true
+    enabled:
+      required: true
+    status:
+      computed_only: true
+    supported_regions:
+      computed_only: true
+      # Server returns null for this tier — verified empirically that
+      # targeted heal apply doesn't populate it. Override the classifier's
+      # UseNonNullStateForUnknown default so plan doesn't churn benignly.
+      plan_modifiers: [UseStateForUnknown]
+    http_proxy_auth_mode:
+      todo: true
+    kafka_api_auth_mode:
+      todo: true
+    schema_registry_auth_mode:
+      todo: true
+azure_private_link:
+  optional: true
+  computed: true
+  plan_modifiers: [UseStateForUnknown]
+  fields:
+    allowed_subscriptions:
+      required: true
+      description: "Azure subscription IDs allowed to access the Redpanda Private Link Endpoint Service"
+    connect_console:
+      required: true
+    enabled:
+      required: true
+    status:
+      computed_only: true
+
+    http_proxy_auth_mode:
+      todo: true
+    kafka_api_auth_mode:
+      todo: true
+    schema_registry_auth_mode:
+      todo: true
+cloud_provider:
+  plan_modifiers: [RequiresReplace]
+  required: true
+
+cloud_provider_tags:
+  proto_only: true
+
+tags:
+  extra: true
+  type: map
+  element_type: string
+  computed: true
+  optional: true
+  from_proto: cloud_provider_tags
+  flatten_via: tagsFromProto
+  expand_via: TagsForProto
+  description: "Tags placed on cloud resources. Server-managed keys (prefixed with `redpanda-`) are filtered out of state."
+
+cloud_storage:
+  fields:
+    aws:
+      fields:
+        arn:
+          computed_only: true
+    azure:
+      fields:
+        container_name:
+          computed_only: true
+          description: "Name of the Azure storage container"
+        storage_account_name:
+          computed_only: true
+          description: "Name of the Azure storage account"
+        allowed_ips:
+          todo: true
+        allowed_subnet_ids:
+          todo: true
+        resource_group_name:
+          todo: true
+        subscription_id:
+          todo: true
+    gcp:
+      fields:
+        name:
+          computed_only: true
+          description: "Name of the GCP storage bucket"
+    skip_destroy:
+      computed: false
+      optional: true
+      description: "If true, cloud storage is not deleted when the cluster is destroyed"
+
+cluster_api_url:
+  computed_only: true
+  extra: true
+  type: string
+  flatten_via: clusterAPIURLFromProto
+  description: "The URL of the cluster's data plane API"
+
+cluster_configuration:
+  validator: ClusterConfiguration
+  fields:
+    custom_properties:
+      todo: true
+    custom_properties_json:
+      extra: true
+      type: string
+      computed: true
+      optional: true
+      from_proto: custom_properties
+      description: "Custom cluster configuration properties in JSON format"
+
+    computed_properties:
+      todo: true
+connection_type:
+  plan_modifiers: [RequiresReplace]
+  required: true
+  description: "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, private is best-practice"
+  # RequirePrivateConnectionValidator stays — it enforces a cross-field rule
+  # (connection_type == private when customer_managed_resources is set) that
+  # cloudv2 does not declare via buf.validate CEL.
+  validator: RequirePrivateConnectionValidator
+
+current_redpanda_version:
+  computed_only: true
+
+customer_managed_resources:
+  computed: false
+  optional: true
+  fields:
+    aws:
+      computed: false
+      plan_modifiers: [RequiresReplace]
+      optional: true
+      fields:
+        agent_instance_profile:
+          required: true
+          fields:
+            arn:
+              required: true
+        cloud_storage_bucket:
+          required: true
+          fields:
+            arn:
+              required: true
+        cluster_security_group:
+          required: true
+          fields:
+            arn:
+              required: true
+        connectors_node_group_instance_profile:
+          required: true
+          fields:
+            arn:
+              required: true
+        connectors_security_group:
+          required: true
+          fields:
+            arn:
+              required: true
+        k8s_cluster_role:
+          required: true
+          fields:
+            arn:
+              required: true
+        node_security_group:
+          required: true
+          fields:
+            arn:
+              required: true
+        permissions_boundary_policy:
+          required: true
+          fields:
+            arn:
+              required: true
+        redpanda_agent_security_group:
+          required: true
+          fields:
+            arn:
+              required: true
+        redpanda_connect_node_group_instance_profile:
+          computed: false
+          optional: true
+          fields:
+            arn:
+              required: true
+        redpanda_connect_security_group:
+          computed: false
+          optional: true
+          fields:
+            arn:
+              required: true
+        redpanda_node_group_instance_profile:
+          required: true
+          fields:
+            arn:
+              required: true
+        redpanda_node_group_security_group:
+          required: true
+          fields:
+            arn:
+              required: true
+        utility_node_group_instance_profile:
+          required: true
+          fields:
+            arn:
+              required: true
+        utility_security_group:
+          required: true
+          fields:
+            arn:
+              required: true
+        oxla_node_group_instance_profile:
+          todo: true
+        rpsql_security_group:
+          todo: true
+    gcp:
+      computed: false
+      plan_modifiers: [RequiresReplace]
+      optional: true
+      fields:
+        agent_service_account:
+          required: true
+          fields:
+            email:
+              plan_modifiers: [RequiresReplace]
+              required: true
+        connector_service_account:
+          required: true
+          fields:
+            email:
+              plan_modifiers: [RequiresReplace]
+              required: true
+        console_service_account:
+          required: true
+          fields:
+            email:
+              plan_modifiers: [RequiresReplace]
+              required: true
+        gke_service_account:
+          required: true
+          fields:
+            email:
+              plan_modifiers: [RequiresReplace]
+              required: true
+        psc_nat_subnet_name:
+          computed: false
+          plan_modifiers: [RequiresReplace]
+          optional: true
+        redpanda_cluster_service_account:
+          required: true
+          fields:
+            email:
+              plan_modifiers: [RequiresReplace]
+              required: true
+        subnet:
+          required: true
+          fields:
+            k8s_master_ipv4_range:
+              plan_modifiers: [RequiresReplace]
+              required: true
+            name:
+              plan_modifiers: [RequiresReplace]
+              required: true
+            secondary_ipv4_range_pods:
+              required: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+            secondary_ipv4_range_services:
+              required: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+        tiered_storage_bucket:
+          required: true
+          fields:
+            name:
+              plan_modifiers: [RequiresReplace]
+              required: true
+
+        psc_v2_nat_subnet_name:
+          todo: true
+        redpanda_connect_api_service_account:
+          todo: true
+        redpanda_connect_service_account:
+          todo: true
+        redpanda_operator_service_account:
+          todo: true
+    azure:
+      todo: true
+dataplane_api:
+  proto_only: true
+
+desired_redpanda_version:
+  computed_only: true
+
+gcp_global_access_enabled:
+  # Server-controlled, read-only: present on the Cluster read shape but NOT on
+  # ClusterCreate or ClusterUpdate. The user has no way to set this; the cloud
+  # platform owns the value.
+  computed_only: true
+
+gcp_private_service_connect:
+  optional: true
+  computed: true
+  plan_modifiers: [UseStateForUnknown]
+  fields:
+    consumer_accept_list:
+      required: true
+      fields:
+        source:
+          required: true
+          description: "GCP project ID from which connections are accepted"
+    enabled:
+      required: true
+    global_access_enabled:
+      required: true
+    status:
+      computed_only: true
+
+    http_proxy_auth_mode:
+      todo: true
+    kafka_api_auth_mode:
+      todo: true
+    schema_registry_auth_mode:
+      todo: true
+http_proxy:
+  fields:
+    all_urls:
+      computed_only: true
+    mtls:
+      fields:
+        ca_certificates_pem:
+          computed: false
+          optional: true
+        enabled:
+          default: false
+        principal_mapping_rules:
+          computed: false
+          optional: true
+          description: "Principal mapping rules for mTLS authentication. See Redpanda documentation for details"
+    sasl:
+      fields:
+        enabled:
+    url:
+      computed_only: true
+
+id:
+  computed_only: true
+
+kafka_api:
+  fields:
+    all_seed_brokers:
+      computed_only: true
+    mtls:
+      fields:
+        ca_certificates_pem:
+          computed: false
+          optional: true
+        enabled:
+          default: false
+        principal_mapping_rules:
+          computed: false
+          optional: true
+          description: "Principal mapping rules for mTLS authentication. See Redpanda documentation for details"
+    sasl:
+      fields:
+        enabled:
+    seed_brokers:
+      computed_only: true
+
+kafka_connect:
+  fields:
+    enabled:
+      default: false
+
+maintenance_window_config:
+  fields:
+    anytime:
+      computed: false
+      force_type: BoolAttribute
+      optional: true
+      description: "If true, maintenance can occur at any time"
+    day_hour:
+      computed: false
+      optional: true
+      fields:
+        day_of_week:
+          computed: false
+          optional: true
+        hour_of_day:
+          computed: false
+          optional: true
+    unspecified:
+      computed_only: true
+      force_type: BoolAttribute
+      description: "If true, maintenance window is unspecified"
+      # Oneof variant of maintenance_window_config — terminal-null whenever
+      # day_hour or anytime is selected. Classifier's UseNonNullStateForUnknown
+      # default would churn perpetually; override to preserve state-null.
+      plan_modifiers: [UseStateForUnknown]
+
+name:
+  required: true
+
+nat_gateways:
+  computed_only: true
+
+network_id:
+  plan_modifiers: [RequiresReplace]
+  required: true
+
+prometheus:
+  computed_only: true
+
+read_replica_cluster_ids:
+  computed: false
+  optional: true
+  description: "IDs of clusters that can create read-only topics from this cluster"
+
+redpanda_console:
+  computed_only: true
+
+redpanda_node_count:
+
+redpanda_version:
+  extra: true
+  plan_modifiers: [RequiresReplace]
+  optional: true
+  type: string
+
+region:
+  plan_modifiers: [RequiresReplace]
+  required: true
+
+resource_group_id:
+  plan_modifiers: [RequiresReplace]
+  required: true
+
+schema_registry:
+  fields:
+    all_urls:
+      computed_only: true
+    mtls:
+      computed: false
+      optional: true
+      fields:
+        ca_certificates_pem:
+          computed: false
+          optional: true
+        enabled:
+          default: false
+        principal_mapping_rules:
+          computed: false
+          optional: true
+          description: "Principal mapping rules for mTLS authentication. See Redpanda documentation for details"
+    url:
+      computed_only: true
+
+    sasl:
+      todo: true
+state:
+  computed_only: true
+
+state_description:
+  computed_only: true
+
+throughput_tier:
+  required: true
+
+type:
+  proto_only: true
+
+cluster_type:
+  extra: true
+  type: string
+  optional: true
+  computed: true
+  plan_modifiers: [RequiresReplace]
+  from_proto: type
+  validator: ClusterTypes
+  description: "Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated."
+
+zones:
+  plan_modifiers: [RequiresReplace]
+  required: true
+  validator: AWSZoneIDValidator
+
+
+# --- New proto fields (auto-added by schemagen -todo) ---
+ai_gateway:
+  todo: true
+
+
+# --- New proto fields (auto-added by schemagen -todo) ---
+adp_api:
+  todo: true
+rpsql:
+  todo: true
+sandbox:
+  todo: true

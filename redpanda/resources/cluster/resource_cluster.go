@@ -30,13 +30,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/cluster"
+	clustermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/cluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
 var (
 	_ resource.Resource                = &Cluster{}
 	_ resource.ResourceWithConfigure   = &Cluster{}
@@ -46,52 +45,36 @@ var (
 
 // Cluster represents a cluster managed resource
 type Cluster struct {
-	CpCl *cloud.ControlPlaneClientSet
+	base.ResourceBase
 	Byoc *utils.ByocClient
 }
 
-// Metadata returns the full name of the Cluster resource
-func (*Cluster) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "redpanda_cluster"
-}
-
-// Configure uses provider level data to configure Cluster's clients
-func (c *Cluster) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	if req.ProviderData == nil {
-		return
-	}
-
-	p, ok := req.ProviderData.(config.Resource)
-
-	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", req.ProviderData))
-		return
-	}
-
-	c.Byoc = p.ByocClient
-	c.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
-}
-
-// Schema returns the schema for the Cluster resource
-func (*Cluster) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = ResourceClusterSchema(ctx)
+// NewCluster constructs a Cluster resource.
+func NewCluster() *Cluster {
+	c := &Cluster{}
+	c.ResourceBase = base.NewResourceBase(
+		"redpanda_cluster",
+		ResourceClusterSchema,
+		func(p config.Resource) { c.Byoc = p.ByocClient },
+	)
+	return c
 }
 
 // Create creates a new Cluster resource. It updates the state if the resource is successfully created
 func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var model cluster.ResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
-
-	clusterReq, d := model.GetClusterCreate(ctx)
-	if d.HasError() {
-		resp.Diagnostics.Append(d...)
-		resp.Diagnostics.AddError("unable to parse CreateCluster request", "")
+	var plan clustermodel.ResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	clResp, err := c.CpCl.Cluster.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{Cluster: clusterReq})
+	createReq, expandDiags := clustermodel.ExpandCreate(ctx, &plan)
+	resp.Diagnostics.Append(expandDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	clResp, err := c.CpCl.Cluster.CreateCluster(ctx, createReq)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create cluster", utils.DeserializeGrpcError(err))
 		return
@@ -99,24 +82,21 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	op := clResp.Operation
 	clusterID := op.GetResourceId()
 
-	// Get create timeout from configuration
-	createTimeout, diags := model.Timeouts.Create(ctx, 90*time.Minute)
+	createTimeout, diags := plan.Timeouts.Create(ctx, 90*time.Minute)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// wait for creation to complete, running "byoc apply" if we see STATE_CREATING_AGENT
 	var ranByoc bool
-	cl, err := utils.RetryGetCluster(ctx, createTimeout, clusterID, c.CpCl, func(cluster *controlplanev1.Cluster) *utils.RetryError {
-		switch cluster.GetState() {
+	cl, err := utils.RetryGetCluster(ctx, createTimeout, clusterID, c.CpCl, func(cl *controlplanev1.Cluster) *utils.RetryError {
+		switch cl.GetState() {
 		case controlplanev1.Cluster_STATE_CREATING:
-			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
+			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cl.GetState()))
 		case controlplanev1.Cluster_STATE_CREATING_AGENT:
-			if cluster.Type == controlplanev1.Cluster_TYPE_BYOC && !ranByoc {
+			if cl.Type == controlplanev1.Cluster_TYPE_BYOC && !ranByoc {
 				err = c.Byoc.RunByoc(ctx, clusterID, "apply")
 				if err != nil {
-					// Check if this is a transient error that should be retried
 					if utils.IsRetryableByocError(err) {
 						tflog.Info(ctx, fmt.Sprintf("Retryable byoc error during apply: %v", err))
 						return utils.RetryableError(err)
@@ -125,55 +105,43 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 				}
 				ranByoc = true
 			}
-			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
+			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cl.GetState()))
 		case controlplanev1.Cluster_STATE_READY:
 			return nil
 		case controlplanev1.Cluster_STATE_FAILED:
-			return utils.NonRetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cluster.GetState()))
+			return utils.NonRetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cl.GetState()))
 		case controlplanev1.Cluster_STATE_DELETING, controlplanev1.Cluster_STATE_DELETING_AGENT:
-			return utils.NonRetryableError(fmt.Errorf("cluster is being deleted (state %v), cannot complete creation", cluster.GetState()))
+			return utils.NonRetryableError(fmt.Errorf("cluster is being deleted (state %v), cannot complete creation", cl.GetState()))
 		default:
-			return utils.NonRetryableError(fmt.Errorf("unhandled state %v. please report this issue to the provider developers", cluster.GetState()))
+			return utils.NonRetryableError(fmt.Errorf("unhandled state %v. please report this issue to the provider developers", cl.GetState()))
 		}
 	})
 	if err != nil {
-		// append minimal state because we failed
-		resp.Diagnostics.Append(resp.State.Set(ctx, cluster.GenerateMinimalResourceModel(clusterID, model.Timeouts))...)
+		resp.Diagnostics.Append(resp.State.Set(ctx, clustermodel.GenerateMinimalResourceModel(types.StringValue(clusterID), plan.Timeouts))...)
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to create cluster with ID %q", clusterID), utils.DeserializeGrpcError(err))
 		return
 	}
 
-	var clusterConfig cluster.ResourceModel
-	resp.Diagnostics.Append(req.Config.Get(ctx, &clusterConfig)...)
-
-	// there are various states where cluster can be nil in which case we should default to the minimal model already persisted
 	if cl != nil {
-		p, dg := model.GetUpdatedModel(ctx, cl, cluster.ContingentFields{
-			RedpandaVersion:       model.RedpandaVersion,
-			AllowDeletion:         model.AllowDeletion,
-			Tags:                  model.Tags,
-			GcpGlobalAccessConfig: clusterConfig.GCPGlobalAccessEnabled,
-		})
-		if dg.HasError() {
-			// append minimal state because we failed
-			resp.Diagnostics.Append(resp.State.Set(ctx, cluster.GenerateMinimalResourceModel(clusterID, model.Timeouts))...)
+		state, flatDiags := clustermodel.Flatten(ctx, cl, &plan)
+		resp.Diagnostics.Append(flatDiags...)
+		if resp.Diagnostics.HasError() {
+			resp.Diagnostics.Append(resp.State.Set(ctx, clustermodel.GenerateMinimalResourceModel(types.StringValue(clusterID), plan.Timeouts))...)
 			resp.Diagnostics.AddError("failed to generate model for state during cluster.Create", "")
-			resp.Diagnostics.Append(d...)
 			return
 		}
-		resp.Diagnostics.Append(resp.State.Set(ctx, p)...)
+		resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 	}
 }
 
 // Read reads Cluster resource's values and updates the state.
 func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var model cluster.ResourceModel
+	var model clustermodel.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
 	cl, err := c.CpCl.ClusterForID(ctx, model.ID.ValueString())
 	if err != nil {
 		if utils.IsNotFound(err) {
-			// Treat HTTP 404 Not Found status as a signal to recreate resource and return early
 			resp.State.RemoveResource(ctx)
 			return
 		}
@@ -184,54 +152,61 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 	logPrivateLinkResponse(ctx, cl)
 
 	if cl.GetState() == controlplanev1.Cluster_STATE_DELETING || cl.GetState() == controlplanev1.Cluster_STATE_DELETING_AGENT {
-		// null out the state, force it to be destroyed and recreated
-		resp.Diagnostics.Append(resp.State.Set(ctx, cluster.GenerateMinimalResourceModel(cl.GetId(), model.Timeouts))...)
+		resp.Diagnostics.Append(resp.State.Set(ctx, clustermodel.GenerateMinimalResourceModel(types.StringValue(cl.GetId()), model.Timeouts))...)
 		resp.Diagnostics.AddWarning(fmt.Sprintf("cluster %s is in state %s", model.ID.ValueString(), cl.GetState()), "")
 		return
 	}
 
-	persist, d := model.GetUpdatedModel(ctx, cl, cluster.ContingentFields{
-		RedpandaVersion:       model.RedpandaVersion,
-		AllowDeletion:         model.AllowDeletion,
-		Tags:                  model.Tags,
-		GcpGlobalAccessConfig: model.GCPGlobalAccessEnabled,
-	})
-	if d.HasError() {
+	state, flatDiags := clustermodel.Flatten(ctx, cl, &model)
+	resp.Diagnostics.Append(flatDiags...)
+	if resp.Diagnostics.HasError() {
 		resp.Diagnostics.AddError("failed to generate model for state during cluster.Read", "")
-		resp.Diagnostics.Append(d...)
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
 // Update a Redpanda cluster
 func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan cluster.ResourceModel
+	var plan clustermodel.ResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-
-	var state cluster.ResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-
-	updateReq, ds := plan.GetClusterUpdateRequest(ctx, &state)
-	if ds.HasError() {
-		resp.Diagnostics.Append(ds...)
-		resp.Diagnostics.AddError("unable to parse UpdateCluster request", "")
+	if resp.Diagnostics.HasError() {
 		return
 	}
+	var state clustermodel.ResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	planPayload, expandDiags := clustermodel.ExpandUpdate(ctx, &plan)
+	resp.Diagnostics.Append(expandDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	statePayload, expandDiags := clustermodel.ExpandUpdate(ctx, &state)
+	resp.Diagnostics.Append(expandDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	diffedPayload, mask := utils.GenerateProtobufDiffAndUpdateMask(planPayload, statePayload)
+	diffedPayload.Id = planPayload.Id
+	updateReq := &controlplanev1.UpdateClusterRequest{
+		Cluster:    diffedPayload,
+		UpdateMask: mask,
+	}
+
 	if len(updateReq.UpdateMask.Paths) != 0 {
 		op, err := c.CpCl.Cluster.UpdateCluster(ctx, updateReq)
 		if err != nil {
 			resp.Diagnostics.AddError("failed to send cluster update request", utils.DeserializeGrpcError(err))
 			return
 		}
-
-		// Get update timeout from configuration
 		updateTimeout, diags := plan.Timeouts.Update(ctx, 180*time.Minute)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-
 		if err := utils.AreWeDoneYet(ctx, op.GetOperation(), updateTimeout, c.CpCl.Operation); err != nil {
 			resp.Diagnostics.AddError("failed while waiting to update cluster", utils.DeserializeGrpcError(err))
 			return
@@ -244,26 +219,18 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		return
 	}
 
-	var clusterConfig cluster.ResourceModel
-	resp.Diagnostics.Append(req.Config.Get(ctx, &clusterConfig)...)
-
-	persist, d := plan.GetUpdatedModel(ctx, cl, cluster.ContingentFields{
-		RedpandaVersion:       plan.RedpandaVersion,
-		AllowDeletion:         plan.AllowDeletion,
-		Tags:                  plan.Tags,
-		GcpGlobalAccessConfig: clusterConfig.GCPGlobalAccessEnabled,
-	})
-	if d.HasError() {
+	newState, flatDiags := clustermodel.Flatten(ctx, cl, &plan)
+	resp.Diagnostics.Append(flatDiags...)
+	if resp.Diagnostics.HasError() {
 		resp.Diagnostics.AddError("failed to generate model for state during cluster.Update", "")
-		resp.Diagnostics.Append(d...)
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, newState)...)
 }
 
 // Delete deletes the Cluster resource.
 func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var model cluster.ResourceModel
+	var model clustermodel.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
 	if !model.AllowDeletion.ValueBool() {
@@ -281,38 +248,29 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		return
 	}
 
-	// call Delete on the cluster, if it's not already in progress. calling Delete on a cluster in
-	// STATE_DELETING_AGENT seems to destroy it immediately and we don't want to do that if we haven't
-	// cleaned up yet
-
 	if cl.GetState() != controlplanev1.Cluster_STATE_DELETING && cl.GetState() != controlplanev1.Cluster_STATE_DELETING_AGENT {
-		_, err = c.CpCl.Cluster.DeleteCluster(ctx, &controlplanev1.DeleteClusterRequest{
-			Id: clusterID,
-		})
-		if err != nil {
+		delReq, _ := clustermodel.ExpandDelete(ctx, &model)
+		if _, err := c.CpCl.Cluster.DeleteCluster(ctx, delReq); err != nil {
 			resp.Diagnostics.AddError("failed to delete cluster", utils.DeserializeGrpcError(err))
 			return
 		}
 	}
 
-	// Get delete timeout from configuration
 	deleteTimeout, diags := model.Timeouts.Delete(ctx, 90*time.Minute)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// wait for deletion to complete, running "byoc destroy" if we see STATE_DELETING_AGENT
 	ranByoc := false
-	_, err = utils.RetryGetCluster(ctx, deleteTimeout, clusterID, c.CpCl, func(cluster *controlplanev1.Cluster) *utils.RetryError {
-		if cluster.GetState() == controlplanev1.Cluster_STATE_DELETING {
-			return utils.RetryableError(fmt.Errorf("expected cluster to be deleted but was in state %v", cluster.GetState()))
+	_, err = utils.RetryGetCluster(ctx, deleteTimeout, clusterID, c.CpCl, func(cl *controlplanev1.Cluster) *utils.RetryError {
+		if cl.GetState() == controlplanev1.Cluster_STATE_DELETING {
+			return utils.RetryableError(fmt.Errorf("expected cluster to be deleted but was in state %v", cl.GetState()))
 		}
-		if cluster.GetState() == controlplanev1.Cluster_STATE_DELETING_AGENT {
-			if cluster.Type == controlplanev1.Cluster_TYPE_BYOC && !ranByoc {
+		if cl.GetState() == controlplanev1.Cluster_STATE_DELETING_AGENT {
+			if cl.Type == controlplanev1.Cluster_TYPE_BYOC && !ranByoc {
 				err = c.Byoc.RunByoc(ctx, clusterID, "destroy")
 				if err != nil {
-					// Check if this is a transient error that should be retried
 					if utils.IsRetryableByocError(err) {
 						tflog.Info(ctx, fmt.Sprintf("Retryable byoc error during destroy: %v", err))
 						return utils.RetryableError(err)
@@ -321,10 +279,9 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 				}
 				ranByoc = true
 			}
-			return utils.RetryableError(fmt.Errorf("expected cluster to be deleted but was in state %v", cluster.GetState()))
+			return utils.RetryableError(fmt.Errorf("expected cluster to be deleted but was in state %v", cl.GetState()))
 		}
-
-		return utils.NonRetryableError(fmt.Errorf("unhandled state %v. please report this issue to the provider developers", cluster.GetState()))
+		return utils.NonRetryableError(fmt.Errorf("unhandled state %v. please report this issue to the provider developers", cl.GetState()))
 	})
 	if err != nil {
 		if utils.IsNotFound(err) {
@@ -338,7 +295,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 // ImportState imports and update the state of the cluster resource.
 func (*Cluster) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
+	resp.Diagnostics.Append(utils.ImportStateBoolFromSchemaDefault(ctx, ResourceClusterSchema(ctx), &resp.State, "allow_deletion")...)
 }
 
 // ModifyPlan marks endpoint and private-link.status objects Unknown when
@@ -356,24 +313,22 @@ func (*Cluster) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, 
 	if resp.Diagnostics.HasError() || !plChanged {
 		return
 	}
-	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("kafka_api").AtName("all_seed_brokers"), types.ObjectUnknown(cluster.GetSeedBrokersType()))...)
-	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("http_proxy").AtName("all_urls"), types.ObjectUnknown(cluster.GetEndpointsType()))...)
-	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("schema_registry").AtName("all_urls"), types.ObjectUnknown(cluster.GetEndpointsType()))...)
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("kafka_api").AtName("all_seed_brokers"), types.ObjectUnknown(clustermodel.KafkaAPIAllSeedBrokersAttrTypes()))...)
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("http_proxy").AtName("all_urls"), types.ObjectUnknown(clustermodel.HTTPProxyAllUrlsAttrTypes()))...)
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("schema_registry").AtName("all_urls"), types.ObjectUnknown(clustermodel.SchemaRegistryAllUrlsAttrTypes()))...)
 	for _, pl := range []struct {
 		blockPath  path.Path
 		statusType map[string]attr.Type
 	}{
-		{path.Root("aws_private_link"), cluster.GetAwsPrivateLinkStatusType()},
-		{path.Root("gcp_private_service_connect"), cluster.GetGcpPrivateServiceConnectStatusType()},
-		{path.Root("azure_private_link"), cluster.GetAzurePrivateLinkStatusType()},
+		{path.Root("aws_private_link"), clustermodel.AWSPrivateLinkStatusAttrTypes()},
+		{path.Root("gcp_private_service_connect"), clustermodel.GCPPrivateServiceConnectStatusAttrTypes()},
+		{path.Root("azure_private_link"), clustermodel.AzurePrivateLinkStatusAttrTypes()},
 	} {
 		var planVal types.Object
 		resp.Diagnostics.Append(resp.Plan.GetAttribute(ctx, pl.blockPath, &planVal)...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		// Skip when the parent block is null/unknown — SetAttribute on a
-		// nested path under a null parent fails with "non-computed attribute".
 		if planVal.IsNull() || planVal.IsUnknown() {
 			continue
 		}

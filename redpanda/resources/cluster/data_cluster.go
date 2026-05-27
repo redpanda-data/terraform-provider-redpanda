@@ -24,10 +24,8 @@ import (
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
-	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/cluster"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
+	clustermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/cluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
@@ -35,44 +33,27 @@ var _ datasource.DataSource = &DataSourceCluster{}
 
 // DataSourceCluster represents a cluster data source.
 type DataSourceCluster struct {
-	CpCl *cloud.ControlPlaneClientSet
+	base.DataSourceBase
 }
 
-// Metadata returns the metadata for the Cluster data source.
-func (*DataSourceCluster) Metadata(_ context.Context, _ datasource.MetadataRequest, response *datasource.MetadataResponse) {
-	response.TypeName = "redpanda_cluster"
-}
-
-// Configure uses provider level data to configure DataSourceCluster's client.
-func (d *DataSourceCluster) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
-	if req.ProviderData == nil {
-		return
-	}
-
-	p, ok := req.ProviderData.(config.Datasource)
-
-	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", req.ProviderData))
-		return
-	}
-	d.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
+// NewDataSourceCluster constructs a Cluster datasource.
+func NewDataSourceCluster() *DataSourceCluster {
+	d := &DataSourceCluster{}
+	d.DataSourceBase = base.NewDataSourceBase("redpanda_cluster", DatasourceClusterSchema, nil)
+	return d
 }
 
 // Read reads the Cluster data source's values and updates the state.
 func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var model cluster.DataModel
+	var model clustermodel.DataModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 
-	// Get read timeout from configuration
 	readTimeout, diags := model.Timeouts.Read(ctx, 10*time.Minute)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Create context with timeout for API call
 	timeoutCtx, cancel := context.WithTimeout(ctx, readTimeout)
 	defer cancel()
 
@@ -86,32 +67,14 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 		return
 	}
 
-	// Handle clusters in deleting states - add warning but still return the data
 	if cl.GetState() == controlplanev1.Cluster_STATE_DELETING || cl.GetState() == controlplanev1.Cluster_STATE_DELETING_AGENT {
 		resp.Diagnostics.AddWarning(fmt.Sprintf("cluster %s is in state %s", model.ID.ValueString(), cl.GetState()), "")
 	}
 
-	tags, err := utils.StringMapToTypesMap(cl.GetCloudProviderTags())
-	if err != nil {
-		resp.Diagnostics.AddError("error converting tags to MapType", err.Error())
+	state, flatDiags := clustermodel.FlattenData(ctx, cl, &model)
+	resp.Diagnostics.Append(flatDiags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	persist, dg := model.GetUpdatedModel(ctx, cl, cluster.ContingentFields{
-		RedpandaVersion:       types.StringValue(cl.GetCurrentRedpandaVersion()),
-		Tags:                  tags,
-		GcpGlobalAccessConfig: types.BoolValue(cl.GetGcpGlobalAccessEnabled()),
-	})
-	if dg.HasError() {
-		resp.Diagnostics.AddError("error generating model", "failed to generate model in cluster datasource read")
-		resp.Diagnostics.Append(dg...)
-		return
-	}
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
-}
-
-// Schema returns the schema for the Cluster data source.
-func (*DataSourceCluster) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	resp.Schema = DatasourceClusterSchema(ctx) // Reuse the schema from the resource
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
