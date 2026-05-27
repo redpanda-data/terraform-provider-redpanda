@@ -1,0 +1,55 @@
+attributes:
+    - name: allow_deletion
+      type: BoolAttribute
+      optional: true
+      computed: true
+      default: booldefault.staticBoolDefault
+    - name: cluster_api_url
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: configuration
+      type: MapAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - mapplanmodifier.useStateForUnknownModifier
+      element_type: basetypes.StringType
+    - name: id
+      type: StringAttribute
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: name
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: partition_count
+      type: NumberAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - numberplanmodifier.requiresReplaceIfModifier
+        - numberplanmodifier.useStateForUnknownModifier
+    - name: replica_assignments
+      type: ListNestedAttribute
+      optional: true
+      plan_modifiers:
+        - listplanmodifier.requiresReplaceIfModifier
+      attributes:
+        - name: partition_id
+          type: Int32Attribute
+          required: true
+        - name: replica_ids
+          type: ListAttribute
+          required: true
+          element_type: basetypes.Int32Type
+    - name: replication_factor
+      type: NumberAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - numberplanmodifier.requiresReplaceIfModifier
+        - numberplanmodifier.useStateForUnknownModifier
