@@ -4,8 +4,8 @@ go 1.25.10
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260415201107-50325440f8f2.1
-	buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.1-20260504195947-32ca5808787d.1
-	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20260504195947-32ca5808787d.1
+	buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.2-20260527154152-bea2c0f11c89.1
+	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20260527154152-bea2c0f11c89.1
 	buf.build/gen/go/redpandadata/core/protocolbuffers/go v1.36.11-20260410204044-2088239db14c.1
 	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.6.1-20260429204409-5d8d126492a6.1
 	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.11-20260429204409-5d8d126492a6.1
@@ -31,8 +31,8 @@ require (
 	golang.org/x/sync v0.20.0
 	golang.org/x/time v0.11.0
 	google.golang.org/genproto v0.0.0-20250313205543-e70fdf4c4cb4
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217
-	google.golang.org/grpc v1.79.3
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171
+	google.golang.org/grpc v1.81.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/apimachinery v0.34.3
@@ -128,7 +128,7 @@ require (
 	golang.org/x/text v0.36.0 // indirect
 	golang.org/x/tools v0.43.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20251202230838-ff82c1b0f217 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260226221140-a57be14db171 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
