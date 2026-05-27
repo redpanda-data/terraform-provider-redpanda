@@ -726,6 +726,13 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Validators:    validators.ClusterTypes(),
 			},
 
+			"gcp_global_access_api_gateway_enabled": schema.BoolAttribute{
+				Description:   "gcp_global_access_api_gateway_enabled reports whether global access is enabled on the internal load balancer serving the Console/API Gateway endpoint. Applicable only for GCP.",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+			},
+
 			"gcp_private_service_connect": schema.SingleNestedAttribute{
 				Description:   "GCP Private Service Connect configuration",
 				Optional:      true,

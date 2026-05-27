@@ -544,6 +544,11 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 				},
 			},
 
+			"gcp_global_access_api_gateway_enabled": schema.BoolAttribute{
+				Description: "gcp_global_access_api_gateway_enabled reports whether global access is enabled on the internal load balancer serving the Console/API Gateway endpoint. Applicable only for GCP.",
+				Computed:    true,
+			},
+
 			"gcp_global_access_enabled": schema.BoolAttribute{
 				Description: "gcp_enable_global_access control if global access is enabled on the seed load balancer, applicable only for GCP. Default is false",
 				Computed:    true,

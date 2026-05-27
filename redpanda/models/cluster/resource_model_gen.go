@@ -29,43 +29,44 @@ import (
 
 // ResourceModel represents the Terraform schema for the cluster resource.
 type ResourceModel struct {
-	APIGatewayAccess         types.String   `tfsdk:"api_gateway_access"`
-	AWSPrivateLink           types.Object   `tfsdk:"aws_private_link"`
-	AllowDeletion            types.Bool     `tfsdk:"allow_deletion"`
-	AzurePrivateLink         types.Object   `tfsdk:"azure_private_link"`
-	CloudProvider            types.String   `tfsdk:"cloud_provider"`
-	CloudStorage             types.Object   `tfsdk:"cloud_storage"`
-	ClusterAPIURL            types.String   `tfsdk:"cluster_api_url"`
-	ClusterConfiguration     types.Object   `tfsdk:"cluster_configuration"`
-	ClusterType              types.String   `tfsdk:"cluster_type"`
-	ConnectionType           types.String   `tfsdk:"connection_type"`
-	CurrentRedpandaVersion   types.String   `tfsdk:"current_redpanda_version"`
-	CustomerManagedResources types.Object   `tfsdk:"customer_managed_resources"`
-	DesiredRedpandaVersion   types.String   `tfsdk:"desired_redpanda_version"`
-	GCPGlobalAccessEnabled   types.Bool     `tfsdk:"gcp_global_access_enabled"`
-	GCPPrivateServiceConnect types.Object   `tfsdk:"gcp_private_service_connect"`
-	HTTPProxy                types.Object   `tfsdk:"http_proxy"`
-	ID                       types.String   `tfsdk:"id"`
-	KafkaAPI                 types.Object   `tfsdk:"kafka_api"`
-	KafkaConnect             types.Object   `tfsdk:"kafka_connect"`
-	MaintenanceWindowConfig  types.Object   `tfsdk:"maintenance_window_config"`
-	Name                     types.String   `tfsdk:"name"`
-	NatGateways              types.List     `tfsdk:"nat_gateways"`
-	NetworkID                types.String   `tfsdk:"network_id"`
-	Prometheus               types.Object   `tfsdk:"prometheus"`
-	ReadReplicaClusterIds    types.List     `tfsdk:"read_replica_cluster_ids"`
-	RedpandaConsole          types.Object   `tfsdk:"redpanda_console"`
-	RedpandaNodeCount        types.Int32    `tfsdk:"redpanda_node_count"`
-	RedpandaVersion          types.String   `tfsdk:"redpanda_version"`
-	Region                   types.String   `tfsdk:"region"`
-	ResourceGroupID          types.String   `tfsdk:"resource_group_id"`
-	SchemaRegistry           types.Object   `tfsdk:"schema_registry"`
-	State                    types.String   `tfsdk:"state"`
-	StateDescription         types.Object   `tfsdk:"state_description"`
-	Tags                     types.Map      `tfsdk:"tags"`
-	ThroughputTier           types.String   `tfsdk:"throughput_tier"`
-	Timeouts                 timeouts.Value `tfsdk:"timeouts"`
-	Zones                    types.List     `tfsdk:"zones"`
+	APIGatewayAccess                 types.String   `tfsdk:"api_gateway_access"`
+	AWSPrivateLink                   types.Object   `tfsdk:"aws_private_link"`
+	AllowDeletion                    types.Bool     `tfsdk:"allow_deletion"`
+	AzurePrivateLink                 types.Object   `tfsdk:"azure_private_link"`
+	CloudProvider                    types.String   `tfsdk:"cloud_provider"`
+	CloudStorage                     types.Object   `tfsdk:"cloud_storage"`
+	ClusterAPIURL                    types.String   `tfsdk:"cluster_api_url"`
+	ClusterConfiguration             types.Object   `tfsdk:"cluster_configuration"`
+	ClusterType                      types.String   `tfsdk:"cluster_type"`
+	ConnectionType                   types.String   `tfsdk:"connection_type"`
+	CurrentRedpandaVersion           types.String   `tfsdk:"current_redpanda_version"`
+	CustomerManagedResources         types.Object   `tfsdk:"customer_managed_resources"`
+	DesiredRedpandaVersion           types.String   `tfsdk:"desired_redpanda_version"`
+	GCPGlobalAccessAPIGatewayEnabled types.Bool     `tfsdk:"gcp_global_access_api_gateway_enabled"`
+	GCPGlobalAccessEnabled           types.Bool     `tfsdk:"gcp_global_access_enabled"`
+	GCPPrivateServiceConnect         types.Object   `tfsdk:"gcp_private_service_connect"`
+	HTTPProxy                        types.Object   `tfsdk:"http_proxy"`
+	ID                               types.String   `tfsdk:"id"`
+	KafkaAPI                         types.Object   `tfsdk:"kafka_api"`
+	KafkaConnect                     types.Object   `tfsdk:"kafka_connect"`
+	MaintenanceWindowConfig          types.Object   `tfsdk:"maintenance_window_config"`
+	Name                             types.String   `tfsdk:"name"`
+	NatGateways                      types.List     `tfsdk:"nat_gateways"`
+	NetworkID                        types.String   `tfsdk:"network_id"`
+	Prometheus                       types.Object   `tfsdk:"prometheus"`
+	ReadReplicaClusterIds            types.List     `tfsdk:"read_replica_cluster_ids"`
+	RedpandaConsole                  types.Object   `tfsdk:"redpanda_console"`
+	RedpandaNodeCount                types.Int32    `tfsdk:"redpanda_node_count"`
+	RedpandaVersion                  types.String   `tfsdk:"redpanda_version"`
+	Region                           types.String   `tfsdk:"region"`
+	ResourceGroupID                  types.String   `tfsdk:"resource_group_id"`
+	SchemaRegistry                   types.Object   `tfsdk:"schema_registry"`
+	State                            types.String   `tfsdk:"state"`
+	StateDescription                 types.Object   `tfsdk:"state_description"`
+	Tags                             types.Map      `tfsdk:"tags"`
+	ThroughputTier                   types.String   `tfsdk:"throughput_tier"`
+	Timeouts                         timeouts.Value `tfsdk:"timeouts"`
+	Zones                            types.List     `tfsdk:"zones"`
 }
 
 // --- Nested typed structs (one per nested message in the proto tree) ---
@@ -2336,42 +2337,43 @@ func SchemaRegistryAllUrlsToObject(ctx context.Context, v *SchemaRegistryAllUrls
 // partial state when Create / Read returns mid-flight.
 func GenerateMinimalResourceModel(id types.String, timeout timeouts.Value) *ResourceModel {
 	return &ResourceModel{
-		APIGatewayAccess:         types.StringNull(),
-		AWSPrivateLink:           types.ObjectNull(AWSPrivateLinkAttrTypes()),
-		AllowDeletion:            types.BoolValue(true),
-		AzurePrivateLink:         types.ObjectNull(AzurePrivateLinkAttrTypes()),
-		CloudProvider:            types.StringNull(),
-		CloudStorage:             types.ObjectNull(CloudStorageAttrTypes()),
-		ClusterAPIURL:            types.StringNull(),
-		ClusterConfiguration:     types.ObjectNull(ClusterConfigurationAttrTypes()),
-		ClusterType:              types.StringNull(),
-		ConnectionType:           types.StringNull(),
-		CurrentRedpandaVersion:   types.StringNull(),
-		CustomerManagedResources: types.ObjectNull(CustomerManagedResourcesAttrTypes()),
-		DesiredRedpandaVersion:   types.StringNull(),
-		GCPGlobalAccessEnabled:   types.BoolNull(),
-		GCPPrivateServiceConnect: types.ObjectNull(GCPPrivateServiceConnectAttrTypes()),
-		HTTPProxy:                types.ObjectNull(HTTPProxyAttrTypes()),
-		ID:                       id,
-		KafkaAPI:                 types.ObjectNull(KafkaAPIAttrTypes()),
-		KafkaConnect:             types.ObjectNull(KafkaConnectAttrTypes()),
-		MaintenanceWindowConfig:  types.ObjectNull(MaintenanceWindowConfigAttrTypes()),
-		Name:                     types.StringNull(),
-		NatGateways:              types.ListNull(types.StringType),
-		NetworkID:                types.StringNull(),
-		Prometheus:               types.ObjectNull(PrometheusAttrTypes()),
-		ReadReplicaClusterIds:    types.ListNull(types.StringType),
-		RedpandaConsole:          types.ObjectNull(RedpandaConsoleAttrTypes()),
-		RedpandaNodeCount:        types.Int32Null(),
-		RedpandaVersion:          types.StringNull(),
-		Region:                   types.StringNull(),
-		ResourceGroupID:          types.StringNull(),
-		SchemaRegistry:           types.ObjectNull(SchemaRegistryAttrTypes()),
-		State:                    types.StringNull(),
-		StateDescription:         types.ObjectNull(StateDescriptionAttrTypes()),
-		Tags:                     types.MapNull(types.StringType),
-		ThroughputTier:           types.StringNull(),
-		Timeouts:                 timeout,
-		Zones:                    types.ListNull(types.StringType),
+		APIGatewayAccess:                 types.StringNull(),
+		AWSPrivateLink:                   types.ObjectNull(AWSPrivateLinkAttrTypes()),
+		AllowDeletion:                    types.BoolValue(true),
+		AzurePrivateLink:                 types.ObjectNull(AzurePrivateLinkAttrTypes()),
+		CloudProvider:                    types.StringNull(),
+		CloudStorage:                     types.ObjectNull(CloudStorageAttrTypes()),
+		ClusterAPIURL:                    types.StringNull(),
+		ClusterConfiguration:             types.ObjectNull(ClusterConfigurationAttrTypes()),
+		ClusterType:                      types.StringNull(),
+		ConnectionType:                   types.StringNull(),
+		CurrentRedpandaVersion:           types.StringNull(),
+		CustomerManagedResources:         types.ObjectNull(CustomerManagedResourcesAttrTypes()),
+		DesiredRedpandaVersion:           types.StringNull(),
+		GCPGlobalAccessAPIGatewayEnabled: types.BoolNull(),
+		GCPGlobalAccessEnabled:           types.BoolNull(),
+		GCPPrivateServiceConnect:         types.ObjectNull(GCPPrivateServiceConnectAttrTypes()),
+		HTTPProxy:                        types.ObjectNull(HTTPProxyAttrTypes()),
+		ID:                               id,
+		KafkaAPI:                         types.ObjectNull(KafkaAPIAttrTypes()),
+		KafkaConnect:                     types.ObjectNull(KafkaConnectAttrTypes()),
+		MaintenanceWindowConfig:          types.ObjectNull(MaintenanceWindowConfigAttrTypes()),
+		Name:                             types.StringNull(),
+		NatGateways:                      types.ListNull(types.StringType),
+		NetworkID:                        types.StringNull(),
+		Prometheus:                       types.ObjectNull(PrometheusAttrTypes()),
+		ReadReplicaClusterIds:            types.ListNull(types.StringType),
+		RedpandaConsole:                  types.ObjectNull(RedpandaConsoleAttrTypes()),
+		RedpandaNodeCount:                types.Int32Null(),
+		RedpandaVersion:                  types.StringNull(),
+		Region:                           types.StringNull(),
+		ResourceGroupID:                  types.StringNull(),
+		SchemaRegistry:                   types.ObjectNull(SchemaRegistryAttrTypes()),
+		State:                            types.StringNull(),
+		StateDescription:                 types.ObjectNull(StateDescriptionAttrTypes()),
+		Tags:                             types.MapNull(types.StringType),
+		ThroughputTier:                   types.StringNull(),
+		Timeouts:                         timeout,
+		Zones:                            types.ListNull(types.StringType),
 	}
 }

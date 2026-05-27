@@ -99,11 +99,6 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 										Computed:      true,
 										PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseNonNullStateForUnknown()},
 									},
-									"password_set_at": schema.StringAttribute{
-										Description:   "Timestamp of when the password was last set - only valid if password_set is true",
-										Computed:      true,
-										PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
-									},
 								},
 							},
 							"scram_configuration": schema.SingleNestedAttribute{
@@ -135,11 +130,6 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 										Description:   "Indicates that the password has been set",
 										Computed:      true,
 										PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseNonNullStateForUnknown()},
-									},
-									"password_set_at": schema.StringAttribute{
-										Description:   "Timestamp of when the password was last set - only valid if password_set is true",
-										Computed:      true,
-										PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 									},
 								},
 							},
@@ -322,11 +312,6 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 						Computed:      true,
 						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
 					},
-					"effective_interval": schema.StringAttribute{
-						Description:   "The effective interval for the task",
-						Computed:      true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
-					},
 				},
 			},
 
@@ -420,11 +405,6 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 						Computed:      true,
 						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
 					},
-					"effective_interval": schema.StringAttribute{
-						Description:   "The effective interval for the task",
-						Computed:      true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
-					},
 				},
 			},
 
@@ -495,16 +475,11 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"synced_shadow_topic_properties": schema.ListAttribute{
-						Description:   "The following properties are not allowed to be replicated and adding them to this list will result in an error: - `redpanda.remote.readreplica` - `redpanda.remote.recovery` - `redpanda.remote.allowgaps` - `redpanda.virtual.cluster.id` - `redpanda.leaders.preference` - `redpanda.cloud_topic.enabled` This list is a list of properties in addition to the default properties that will be synced. See `exclude_default`.",
+						Description:   "The following properties are not allowed to be replicated and adding them to this list will result in an error: - `redpanda.remote.readreplica` - `redpanda.remote.recovery` - `redpanda.remote.allowgaps` - `redpanda.virtual.cluster.id` - `redpanda.leaders.preference` - `redpanda.storage.mode` This list is a list of properties in addition to the default properties that will be synced. See `exclude_default`.",
 						Optional:      true,
 						Computed:      true,
 						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
 						ElementType:   types.StringType,
-					},
-					"effective_interval": schema.StringAttribute{
-						Description:   "The effective interval for the task",
-						Computed:      true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 					},
 				},
 			},

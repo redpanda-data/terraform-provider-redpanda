@@ -221,7 +221,7 @@ Optional:
 - `start_at_earliest` (Boolean) Start at the earliest offset in the partition.
 - `start_at_latest` (Boolean) Start at the latest offset in the partition.
 - `start_at_timestamp` (String) Enables data replication from the first offset on the source topic/partition where the record's timestamp is at or after the specified timestamp.
-- `synced_shadow_topic_properties` (List of String) The following properties are not allowed to be replicated and adding them to this list will result in an error: - `redpanda.remote.readreplica` - `redpanda.remote.recovery` - `redpanda.remote.allowgaps` - `redpanda.virtual.cluster.id` - `redpanda.leaders.preference` - `redpanda.cloud_topic.enabled` This list is a list of properties in addition to the default properties that will be synced. See `exclude_default`.
+- `synced_shadow_topic_properties` (List of String) The following properties are not allowed to be replicated and adding them to this list will result in an error: - `redpanda.remote.readreplica` - `redpanda.remote.recovery` - `redpanda.remote.allowgaps` - `redpanda.virtual.cluster.id` - `redpanda.leaders.preference` - `redpanda.storage.mode` This list is a list of properties in addition to the default properties that will be synced. See `exclude_default`.
 
 Read-Only:
 

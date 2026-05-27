@@ -36,6 +36,7 @@ type DataClusterResponse interface {
 	GetConnectionType() controlplanev1.Cluster_ConnectionType
 	GetCustomerManagedResources() *controlplanev1.CustomerManagedResources
 	GetDataplaneApi() *controlplanev1.Cluster_DataplaneAPI
+	GetGcpGlobalAccessApiGatewayEnabled() bool
 	GetGcpGlobalAccessEnabled() bool
 	GetGcpPrivateServiceConnect() *controlplanev1.Cluster_GCPPrivateServiceConnect
 	GetHttpProxy() *controlplanev1.Cluster_HTTPProxyStatus
@@ -58,6 +59,7 @@ type DataClusterResponse interface {
 	GetZones() []string
 	HasAwsPrivateLink() bool
 	HasAzurePrivateLink() bool
+	HasGcpGlobalAccessApiGatewayEnabled() bool
 	HasGcpGlobalAccessEnabled() bool
 	HasGcpPrivateServiceConnect() bool
 }
@@ -90,6 +92,13 @@ func FlattenData(ctx context.Context, proto DataClusterResponse, prev *DataModel
 	m.ClusterType = types.StringValue(enums.ClusterTypeToString(proto.GetType()))
 	m.ConnectionType = types.StringValue(enums.ClusterConnectionTypeToString(proto.GetConnectionType()))
 	m.CustomerManagedResources = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetCustomerManagedResources(), func() *DataCustomerManagedResourcesModel { v, _ := prev.AsCustomerManagedResources(ctx); return v }(), DataCustomerManagedResourcesAttrTypes(), FlattenDataCustomerManagedResources, &diags)
+	if proto.HasGcpGlobalAccessApiGatewayEnabled() {
+		m.GCPGlobalAccessAPIGatewayEnabled = types.BoolValue(proto.GetGcpGlobalAccessApiGatewayEnabled())
+	} else if prev != nil && !prev.GCPGlobalAccessAPIGatewayEnabled.IsUnknown() {
+		m.GCPGlobalAccessAPIGatewayEnabled = prev.GCPGlobalAccessAPIGatewayEnabled
+	} else {
+		m.GCPGlobalAccessAPIGatewayEnabled = types.BoolNull()
+	}
 	if proto.HasGcpGlobalAccessEnabled() {
 		m.GCPGlobalAccessEnabled = types.BoolValue(proto.GetGcpGlobalAccessEnabled())
 	} else if prev != nil && !prev.GCPGlobalAccessEnabled.IsUnknown() {
