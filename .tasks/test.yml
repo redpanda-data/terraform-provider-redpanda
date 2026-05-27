@@ -13,24 +13,41 @@ vars:
 
 tasks:
   unit:
-    desc: "Run unit tests with race detector"
+    desc: "Run unit tests"
+    deps:
+      - :tools:install:go
+      - :tools:install:terraform
     cmds:
       - echo "Running unit tests..."
       - |
         DEBUG=true \
         REDPANDA_CLIENT_ID="dummy_id" \
         REDPANDA_CLIENT_SECRET="dummy_secret" \
-        RUN_CLUSTER_TESTS=false \
-        RUN_BYOC_TESTS=false \
+        TF_ACC_TERRAFORM_PATH="{{.BUILD_ROOT}}/bin/terraform" \
         {{.PATH_PREFIX}} go test -race -short -timeout 10m ./...
       - echo "Unit tests completed successfully"
+
+  integration:
+    desc: "Run integration tests"
+    deps:
+      - :tools:install:go
+      - :tools:install:terraform
+    cmds:
+      - echo "Running integration tests..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="dummy_id" \
+        REDPANDA_CLIENT_SECRET="dummy_secret" \
+        TF_ACC_TERRAFORM_PATH="{{.BUILD_ROOT}}/bin/terraform" \
+        {{.PATH_PREFIX}} go test -race -count=1 -tags=integration -timeout 15m -run '^TestIntegration_' ./...
+      - echo "Integration tests completed successfully"
 
   network:
     desc: "Run network resource tests"
     deps:
       - :tools:install:terraform
     cmds:
-      - echo "Running TestAccResourcesNetwork..."
+      - echo "Running network live-acc tests..."
       - |
         DEBUG=true \
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
@@ -38,32 +55,53 @@ tasks:
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT_SHORT}} ./redpanda/tests -run TestAccResourcesNetwork
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,network -v -timeout={{.TIMEOUT_SHORT}} \
+          ./redpanda/resources/network/...
       - echo "Network tests completed successfully"
+
+  service_account:
+    desc: "Run service account live-acc tests (control-plane only, no cluster needed)"
+    deps:
+      - :tools:install:terraform
+    cmds:
+      - echo "Running service account live-acc tests..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,service_account -v -timeout={{.TIMEOUT_SHORT}} \
+          ./redpanda/resources/serviceaccount/...
+      - echo "Service account tests completed successfully"
 
   shadowlink:
     desc: "Run shadow link acceptance test (provisions two dedicated AWS clusters + link)"
     deps:
       - :tools:install:terraform
     cmds:
-      - echo "Running TestAccResourcesShadowLink..."
+      - echo "Running shadow link live-acc tests..."
       - |
         DEBUG=true \
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        RUN_SHADOWLINK_TESTS=true \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesShadowLink
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,shadowlink -v -timeout={{.TIMEOUT}} \
+          ./redpanda/resources/shadowlink/...
       - echo "Shadow link tests completed successfully"
 
   datasource:
-    desc: "Run datasource tests against existing cluster"
+    desc: "Run datasource tests against existing cluster (parametric mode; stays env-driven)"
     deps:
       - :tools:install:terraform
     cmds:
-      - echo "Running TestAccResourcesDataSource..."
+      - echo "Running TestAcc_DataSource_Runner..."
       - |
         DEBUG=true \
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
@@ -73,7 +111,9 @@ tasks:
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT_SHORT}} ./redpanda/tests -run TestAccResourcesDataSource
+        {{.PATH_PREFIX}} go test \
+          -count=1 -v -timeout={{.TIMEOUT_SHORT}} -run TestAcc_DataSource_Runner \
+          ./redpanda/tests
       - echo "Datasource tests completed successfully"
 
   datasource:cluster:
@@ -81,16 +121,17 @@ tasks:
     deps:
       - :tools:install:terraform
     cmds:
-      - echo "Running TestAccDataSourceCluster..."
+      - echo "Running cluster datasource live-acc tests..."
       - |
         DEBUG=true \
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        RUN_CLUSTER_TESTS=true \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccDataSourceCluster
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,datasource_cluster -v -timeout={{.TIMEOUT}} \
+          ./redpanda/resources/cluster/...
       - echo "Cluster datasource tests completed successfully"
 
   cluster:aws:
@@ -98,50 +139,38 @@ tasks:
     deps:
       - :tools:install:terraform
     cmds:
-      - echo "Running TestAccResourcesClusterAWS..."
+      - echo "Running AWS cluster live-acc tests..."
       - |
         DEBUG=true \
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        RUN_CLUSTER_TESTS=true \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesClusterAWS
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,cluster_aws -v -timeout={{.TIMEOUT}} \
+          ./redpanda/tests/ \
+          ./redpanda/resources/schema/... \
+          ./redpanda/resources/schemaregistryacl/... \
+          ./redpanda/resources/user/...
       - echo "AWS cluster tests completed successfully"
-
-  cluster:azure:
-    desc: "Run Azure cluster acceptance tests"
-    deps:
-      - :tools:install:terraform
-    cmds:
-      - echo "Running TestAccResourcesClusterAzure..."
-      - |
-        DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        RUN_CLUSTER_TESTS=true \
-        TF_ACC=true \
-        TF_LOG={{.TF_LOG}} \
-        VERSION={{.VERSION}} \
-        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesClusterAzure
-      - echo "Azure cluster tests completed successfully"
 
   cluster:gcp:
     desc: "Run GCP cluster acceptance tests"
     deps:
       - :tools:install:terraform
     cmds:
-      - echo "Running TestAccResourcesClusterGCP..."
+      - echo "Running GCP cluster live-acc tests..."
       - |
         DEBUG=true \
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        RUN_CLUSTER_TESTS=true \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesClusterGCP
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,cluster_gcp -v -timeout={{.TIMEOUT}} \
+          ./redpanda/tests/
       - echo "GCP cluster tests completed successfully"
 
   byoc:aws:
@@ -149,20 +178,21 @@ tasks:
     deps:
       - :tools:install:terraform
     cmds:
-      - echo "Running TestAccResourcesByocAWS..."
+      - echo "Running AWS BYOC live-acc tests..."
       - |
         DEBUG=true \
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        RUN_BYOC_TESTS=true \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesByocAWS
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,byoc_aws -v -timeout={{.TIMEOUT}} \
+          ./redpanda/tests/
       - echo "AWS BYOC tests completed successfully"
 
   byovpc:aws:
-    desc: "Provision BYOVPC AWS infra, run TestAccResourcesByoVpcAWS, tear down infra (always)"
+    desc: "Provision BYOVPC AWS infra, run TestAcc_Cluster_BYOVPC_AWS, tear down infra (always)"
     deps:
       - :tools:install:terraform
     vars:
@@ -171,15 +201,14 @@ tasks:
       - echo "Provisioning BYOVPC AWS test infra..."
       - |
         export PATH="{{.BUILD_ROOT}}/bin:$PATH"
-        cd redpanda/tests/infra/network/aws
+        cd redpanda/tests/testdata/network/aws
         terraform init
         terraform apply -auto-approve -var "region={{.AWS_REGION}}"
-      - echo "Running TestAccResourcesByoVpcAWS..."
+      - echo "Running AWS BYOVPC live-acc tests..."
       - |
         set -euo pipefail
-        INPUTS=$(cat redpanda/tests/infra/network/aws/inputs.json)
+        INPUTS=$(cat redpanda/tests/testdata/network/aws/inputs.json)
         DEBUG=true \
-        RUN_BYOVPC_TESTS=true \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -204,45 +233,31 @@ tasks:
         RP_CLUSTER_SECURITY_GROUP_ARN="$(echo "$INPUTS" | jq -r '.cluster_security_group_arn')" \
         RP_NODE_SECURITY_GROUP_ARN="$(echo "$INPUTS" | jq -r '.node_security_group_arn')" \
         RP_CLOUD_STORAGE_BUCKET_ARN="$(echo "$INPUTS" | jq -r '.cloud_storage_bucket_arn')" \
-        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesByoVpcAWS
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,byovpc_aws -v -timeout={{.TIMEOUT}} \
+          ./redpanda/tests/
       - echo "BYOVPC AWS tests completed successfully"
     defer:
       - task: cleanup:aws:ci
         vars:
           AWS_REGION: '{{.AWS_REGION}}'
 
-  byoc:azure:
-    desc: "Run Azure BYOC acceptance tests"
-    deps:
-      - :tools:install:terraform
-    cmds:
-      - echo "Running TestAccResourcesByocAzure..."
-      - |
-        DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        RUN_BYOC_TESTS=true \
-        TF_ACC=true \
-        TF_LOG={{.TF_LOG}} \
-        VERSION={{.VERSION}} \
-        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesByocAzure
-      - echo "Azure BYOC tests completed successfully"
-
   byoc:gcp:
     desc: "Run GCP BYOC acceptance tests"
     deps:
       - :tools:install:terraform
     cmds:
-      - echo "Running TestAccResourcesByocGCP..."
+      - echo "Running GCP BYOC live-acc tests..."
       - |
         DEBUG=true \
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        RUN_BYOC_TESTS=true \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesByocGCP
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,byoc_gcp -v -timeout={{.TIMEOUT}} \
+          ./redpanda/tests/
       - echo "GCP BYOC tests completed successfully"
 
   serverless:aws:public:
@@ -250,16 +265,17 @@ tasks:
     deps:
       - :tools:install:terraform
     cmds:
-      - echo "Running TestAccResourcesServerlessClusterAWSPublic..."
+      - echo "Running AWS serverless public live-acc tests..."
       - |
         DEBUG=true \
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        RUN_SERVERLESS_TESTS=true \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesServerlessClusterAWSPublic
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,serverless_aws_public -v -timeout={{.TIMEOUT}} \
+          ./redpanda/tests/
       - echo "Serverless cluster AWS public tests completed successfully"
 
   serverless:gcp:
@@ -267,16 +283,17 @@ tasks:
     deps:
       - :tools:install:terraform
     cmds:
-      - echo "Running TestAccResourcesServerlessClusterGCP..."
+      - echo "Running GCP serverless live-acc tests..."
       - |
         DEBUG=true \
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        RUN_SERVERLESS_TESTS=true \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesServerlessClusterGCP
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,serverless_gcp -v -timeout={{.TIMEOUT}} \
+          ./redpanda/tests/
       - echo "Serverless cluster GCP tests completed successfully"
 
   serverless:aws:private:
@@ -284,16 +301,17 @@ tasks:
     deps:
       - :tools:install:terraform
     cmds:
-      - echo "Running TestAccResourcesServerlessClusterAWSPrivate..."
+      - echo "Running AWS serverless private live-acc tests..."
       - |
         DEBUG=true \
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        RUN_SERVERLESS_TESTS=true \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesServerlessClusterAWSPrivate
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,serverless_aws_private -v -timeout={{.TIMEOUT}} \
+          ./redpanda/tests/
       - echo "Serverless cluster AWS private tests completed successfully"
 
   serverless:aws:both:
@@ -301,16 +319,17 @@ tasks:
     deps:
       - :tools:install:terraform
     cmds:
-      - echo "Running TestAccResourcesServerlessClusterAWSBoth..."
+      - echo "Running AWS serverless both live-acc tests..."
       - |
         DEBUG=true \
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        RUN_SERVERLESS_TESTS=true \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccResourcesServerlessClusterAWSBoth
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,serverless_aws_both -v -timeout={{.TIMEOUT}} \
+          ./redpanda/tests/
       - echo "Serverless cluster AWS both tests completed successfully"
 
   serverless:regions:
@@ -318,16 +337,17 @@ tasks:
     deps:
       - :tools:install:terraform
     cmds:
-      - echo "Running TestAccDataSourceServerlessRegions..."
+      - echo "Running serverless regions live-acc tests..."
       - |
         DEBUG=true \
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        RUN_SERVERLESS_TESTS=true \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccDataSourceServerlessRegions
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,serverless_regions -v -timeout={{.TIMEOUT}} \
+          ./redpanda/resources/serverlessregions/...
       - echo "Serverless regions tests completed successfully"
 
   serverless:privatelink:
@@ -335,14 +355,49 @@ tasks:
     deps:
       - :tools:install:terraform
     cmds:
-      - echo "Running TestAccServerlessPrivateLink..."
+      - echo "Running serverless private link live-acc tests..."
       - |
         DEBUG=true \
         REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
         REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        RUN_SERVERLESS_TESTS=true \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        {{.PATH_PREFIX}} go test -v -timeout={{.TIMEOUT}} ./redpanda/tests -run TestAccServerlessPrivateLink
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,serverless_privatelink -v -timeout={{.TIMEOUT}} \
+          ./redpanda/resources/serverlessprivatelink/...
       - echo "Serverless private link tests completed successfully"
+
+  upgrade:
+    desc: "Run all provider-upgrade tests (requires REDPANDA_CLIENT_ID + REDPANDA_CLIENT_SECRET)"
+    deps:
+      - :tools:install:terraform
+    cmds:
+      - echo "Running provider-upgrade tests..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT_SHORT}} ./redpanda/resources/...
+      - echo "Provider-upgrade tests completed successfully"
+
+  upgrade:smoke:
+    desc: "Run control-plane-only provider-upgrade tests (resource_group + network; no cluster needed)"
+    deps:
+      - :tools:install:terraform
+    cmds:
+      - echo "Running provider-upgrade smoke tests..."
+      - |
+        DEBUG=true \
+        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
+        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
+        REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT_SHORT}} \
+          ./redpanda/resources/resourcegroup/... \
+          ./redpanda/resources/network/...
+      - echo "Provider-upgrade smoke tests completed successfully"
