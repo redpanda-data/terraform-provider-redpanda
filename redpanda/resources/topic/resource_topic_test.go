@@ -22,7 +22,7 @@ import (
 	grpcstatus "google.golang.org/grpc/status"
 )
 
-func TestTopic_Create(t *testing.T) {
+func TestUnit_Topic_Create(t *testing.T) {
 	partitionCount := int32(3)
 	replicationFactor := int32(1)
 
@@ -240,7 +240,7 @@ func TestTopic_Create(t *testing.T) {
 	}
 }
 
-func TestTopic_CreateStatePersistence(t *testing.T) {
+func TestUnit_Topic_CreateStatePersistence(t *testing.T) {
 	partitionCount := int32(3)
 	replicationFactor := int32(1)
 
@@ -324,7 +324,7 @@ func TestTopic_CreateStatePersistence(t *testing.T) {
 	assert.Equal(t, "86400000", configMap["retention.ms"], "planned config should be in state")
 }
 
-func TestTopic_UpdateStatePersistence(t *testing.T) {
+func TestUnit_Topic_UpdateStatePersistence(t *testing.T) {
 	partitionCount := int32(3)
 	replicationFactor := int32(1)
 
@@ -419,7 +419,7 @@ func TestTopic_UpdateStatePersistence(t *testing.T) {
 	assert.Equal(t, "172800000", configMap["retention.ms"], "updated config should be in state")
 }
 
-func TestIsTransientBrokerError(t *testing.T) {
+func TestUnit_Topic_IsTransientBrokerError(t *testing.T) {
 	tests := []struct {
 		name string
 		err  error
@@ -439,7 +439,7 @@ func TestIsTransientBrokerError(t *testing.T) {
 	}
 }
 
-func TestIsNotFoundError(t *testing.T) {
+func TestUnit_Topic_IsNotFoundError(t *testing.T) {
 	tests := []struct {
 		name string
 		err  error
@@ -457,9 +457,9 @@ func TestIsNotFoundError(t *testing.T) {
 	}
 }
 
-// TestTopic_Read_RetriesTransient verifies Read's FindTopicByName retries on
+// TestUnit_Topic_Read_RetriesTransient verifies Read's FindTopicByName retries on
 // a transient broker error and succeeds on the subsequent attempt.
-func TestTopic_Read_RetriesTransient(t *testing.T) {
+func TestUnit_Topic_Read_RetriesTransient(t *testing.T) {
 	partitionCount := int32(3)
 	replicationFactor := int32(1)
 
@@ -519,9 +519,9 @@ func TestTopic_Read_RetriesTransient(t *testing.T) {
 	require.False(t, resp.Diagnostics.HasError(), "Read should succeed after retry: %v", resp.Diagnostics)
 }
 
-// TestTopic_Update_RetriesTransient verifies SetTopicConfigurations retries
+// TestUnit_Topic_Update_RetriesTransient verifies SetTopicConfigurations retries
 // on a transient broker error and succeeds on the subsequent attempt.
-func TestTopic_Update_RetriesTransient(t *testing.T) {
+func TestUnit_Topic_Update_RetriesTransient(t *testing.T) {
 	partitionCount := int32(3)
 	replicationFactor := int32(1)
 
@@ -588,9 +588,9 @@ func TestTopic_Update_RetriesTransient(t *testing.T) {
 	require.False(t, resp.Diagnostics.HasError(), "Update should succeed after retry: %v", resp.Diagnostics)
 }
 
-// TestTopic_Delete_NotFoundAfterRetryIsSuccess verifies Delete treats a
+// TestUnit_Topic_Delete_NotFoundAfterRetryIsSuccess verifies Delete treats a
 // NOT_FOUND response after an initial transient error as a successful delete.
-func TestTopic_Delete_NotFoundAfterRetryIsSuccess(t *testing.T) {
+func TestUnit_Topic_Delete_NotFoundAfterRetryIsSuccess(t *testing.T) {
 	partitionCount := int32(3)
 	replicationFactor := int32(1)
 
@@ -648,4 +648,235 @@ func replicaAssignmentAttrTypes() map[string]attr.Type {
 		"partition_id": types.Int32Type,
 		"replica_ids":  types.ListType{ElemType: types.Int32Type},
 	}
+}
+
+// TestUnit_Topic_MergeWithPlannedConfig_StripsServerInjectedRedpandaKeys pins the
+// fix for the v26.1.1+ `redpanda.storage.mode` drift. The broker injects
+// the property on every topic with default value "unset"; left in state,
+// plan-twice tries to remove the key and the server rejects (it only
+// accepts local/tiered/cloud/unset, not null).
+func TestUnit_Topic_MergeWithPlannedConfig(t *testing.T) {
+	mkCfg := func(name, value string) *dataplanev1.Topic_Configuration {
+		v := value
+		return &dataplanev1.Topic_Configuration{
+			Name:   name,
+			Value:  &v,
+			Source: dataplanev1.ConfigSource_CONFIG_SOURCE_DYNAMIC_TOPIC_CONFIG,
+		}
+	}
+	mkStaticCfg := func(name, value string) *dataplanev1.Topic_Configuration {
+		v := value
+		return &dataplanev1.Topic_Configuration{
+			Name:   name,
+			Value:  &v,
+			Source: dataplanev1.ConfigSource_CONFIG_SOURCE_STATIC_BROKER_CONFIG,
+		}
+	}
+	mkPlanned := func(elems map[string]string) types.Map {
+		vals := make(map[string]attr.Value, len(elems))
+		for k, v := range elems {
+			vals[k] = types.StringValue(v)
+		}
+		return types.MapValueMust(types.StringType, vals)
+	}
+	names := func(cfgs []*dataplanev1.Topic_Configuration) []string {
+		out := make([]string, 0, len(cfgs))
+		for _, c := range cfgs {
+			out = append(out, c.Name)
+		}
+		return out
+	}
+	valueOf := func(cfgs []*dataplanev1.Topic_Configuration, name string) string {
+		for _, c := range cfgs {
+			if c != nil && c.Name == name && c.Value != nil {
+				return *c.Value
+			}
+		}
+		return ""
+	}
+
+	t.Run("user did not name redpanda.storage.mode — strip it", func(t *testing.T) {
+		dynamic := []*dataplanev1.Topic_Configuration{
+			mkCfg("compression.type", "gzip"),
+			mkCfg("redpanda.storage.mode", "unset"),
+		}
+		planned := mkPlanned(map[string]string{"compression.type": "gzip"})
+
+		got := mergeWithPlannedConfig(dynamic, dynamic, planned)
+
+		assert.ElementsMatch(t, []string{"compression.type"}, names(got),
+			"redpanda.storage.mode must be stripped when user did not name it")
+	})
+
+	t.Run("user named redpanda.storage.mode — keep it", func(t *testing.T) {
+		dynamic := []*dataplanev1.Topic_Configuration{
+			mkCfg("compression.type", "gzip"),
+			mkCfg("redpanda.storage.mode", "tiered"),
+		}
+		planned := mkPlanned(map[string]string{
+			"compression.type":      "gzip",
+			"redpanda.storage.mode": "tiered",
+		})
+
+		got := mergeWithPlannedConfig(dynamic, dynamic, planned)
+
+		assert.ElementsMatch(t, []string{"compression.type", "redpanda.storage.mode"}, names(got),
+			"user-named redpanda.* keys must be preserved")
+	})
+
+	t.Run("empty plan still strips server-injected redpanda.* keys", func(t *testing.T) {
+		dynamic := []*dataplanev1.Topic_Configuration{
+			mkCfg("compression.type", "gzip"),
+			mkCfg("redpanda.storage.mode", "unset"),
+		}
+
+		got := mergeWithPlannedConfig(dynamic, dynamic, types.MapNull(types.StringType))
+
+		assert.ElementsMatch(t, []string{"compression.type"}, names(got),
+			"redpanda.* server-injected keys must be stripped even when plan is null")
+	})
+
+	t.Run("non-redpanda server keys pass through", func(t *testing.T) {
+		dynamic := []*dataplanev1.Topic_Configuration{
+			mkCfg("compression.type", "gzip"),
+			mkCfg("retention.ms", "86400000"),
+		}
+		planned := mkPlanned(map[string]string{"compression.type": "gzip"})
+
+		got := mergeWithPlannedConfig(dynamic, dynamic, planned)
+
+		assert.ElementsMatch(t, []string{"compression.type", "retention.ms"}, names(got),
+			"non-redpanda.* keys (kafka-side configs) must pass through unchanged")
+	})
+
+	t.Run("planned key absent from dynamic but in allConfigs — pulled back from allConfigs", func(t *testing.T) {
+		dynamic := []*dataplanev1.Topic_Configuration{
+			mkCfg("compression.type", "gzip"),
+		}
+		all := []*dataplanev1.Topic_Configuration{
+			mkCfg("compression.type", "gzip"),
+			mkStaticCfg("retention.ms", "604800000"),
+		}
+		planned := mkPlanned(map[string]string{
+			"compression.type": "gzip",
+			"retention.ms":     "604800000",
+		})
+
+		got := mergeWithPlannedConfig(dynamic, all, planned)
+
+		assert.ElementsMatch(t, []string{"compression.type", "retention.ms"}, names(got),
+			"user-set keys reported with non-dynamic source must be reinstated from allConfigs")
+		assert.Equal(t, "604800000", valueOf(got, "retention.ms"),
+			"reinstated entry should carry the value the broker reported")
+	})
+
+	t.Run("planned key absent from dynamic and allConfigs — synthesized from plan value", func(t *testing.T) {
+		dynamic := []*dataplanev1.Topic_Configuration{
+			mkCfg("compression.type", "gzip"),
+		}
+		planned := mkPlanned(map[string]string{
+			"compression.type":    "gzip",
+			"min.insync.replicas": "2",
+		})
+
+		got := mergeWithPlannedConfig(dynamic, dynamic, planned)
+
+		assert.ElementsMatch(t, []string{"compression.type", "min.insync.replicas"}, names(got),
+			"server-silent keys (not echoed by the broker) must be synthesized from the plan")
+		assert.Equal(t, "2", valueOf(got, "min.insync.replicas"),
+			"synthesized entry must carry the user-provided plan value")
+	})
+
+	t.Run("planned key absent everywhere with null plan value — skipped", func(t *testing.T) {
+		dynamic := []*dataplanev1.Topic_Configuration{
+			mkCfg("compression.type", "gzip"),
+		}
+		planned := types.MapValueMust(types.StringType, map[string]attr.Value{
+			"compression.type":    types.StringValue("gzip"),
+			"min.insync.replicas": types.StringNull(),
+		})
+
+		got := mergeWithPlannedConfig(dynamic, dynamic, planned)
+
+		assert.ElementsMatch(t, []string{"compression.type"}, names(got),
+			"null plan values must not synthesize a topic-config entry")
+	})
+
+	t.Run("planned key absent everywhere with unknown plan value — skipped", func(t *testing.T) {
+		dynamic := []*dataplanev1.Topic_Configuration{
+			mkCfg("compression.type", "gzip"),
+		}
+		planned := types.MapValueMust(types.StringType, map[string]attr.Value{
+			"compression.type":    types.StringValue("gzip"),
+			"min.insync.replicas": types.StringUnknown(),
+		})
+
+		got := mergeWithPlannedConfig(dynamic, dynamic, planned)
+
+		assert.ElementsMatch(t, []string{"compression.type"}, names(got),
+			"unknown plan values must not synthesize a topic-config entry")
+	})
+
+	t.Run("nil entries in dynamicConfigs are skipped", func(t *testing.T) {
+		dynamic := []*dataplanev1.Topic_Configuration{
+			nil,
+			mkCfg("compression.type", "gzip"),
+			nil,
+		}
+		planned := mkPlanned(map[string]string{"compression.type": "gzip"})
+
+		got := mergeWithPlannedConfig(dynamic, dynamic, planned)
+
+		assert.ElementsMatch(t, []string{"compression.type"}, names(got),
+			"nil entries must not appear in the merged result")
+		for _, c := range got {
+			assert.NotNil(t, c, "merged result must not contain nil entries")
+		}
+	})
+
+	t.Run("unknown plan map behaves like empty plan", func(t *testing.T) {
+		dynamic := []*dataplanev1.Topic_Configuration{
+			mkCfg("compression.type", "gzip"),
+			mkCfg("redpanda.storage.mode", "unset"),
+		}
+
+		got := mergeWithPlannedConfig(dynamic, dynamic, types.MapUnknown(types.StringType))
+
+		assert.ElementsMatch(t, []string{"compression.type"}, names(got),
+			"unknown plan map must trigger the same redpanda.* stripping as a null plan")
+	})
+
+	t.Run("duplicate keys across dynamic and plan — not re-added from allConfigs", func(t *testing.T) {
+		dynamic := []*dataplanev1.Topic_Configuration{
+			mkCfg("compression.type", "gzip"),
+		}
+		all := []*dataplanev1.Topic_Configuration{
+			mkCfg("compression.type", "gzip"),
+			mkCfg("compression.type", "snappy"),
+		}
+		planned := mkPlanned(map[string]string{"compression.type": "gzip"})
+
+		got := mergeWithPlannedConfig(dynamic, all, planned)
+
+		assert.Equal(t, 1, len(got),
+			"a planned key already present from dynamicConfigs must not be re-added from allConfigs")
+		assert.Equal(t, "gzip", valueOf(got, "compression.type"),
+			"the dynamic-source entry should win over a duplicate in allConfigs")
+	})
+
+	t.Run("empty dynamic + planned keys present in allConfigs — all reinstated", func(t *testing.T) {
+		all := []*dataplanev1.Topic_Configuration{
+			mkStaticCfg("compression.type", "producer"),
+			mkStaticCfg("retention.ms", "604800000"),
+		}
+		planned := mkPlanned(map[string]string{
+			"compression.type": "producer",
+			"retention.ms":     "604800000",
+		})
+
+		got := mergeWithPlannedConfig(nil, all, planned)
+
+		assert.ElementsMatch(t, []string{"compression.type", "retention.ms"}, names(got),
+			"every planned key found in allConfigs must be reinstated when dynamicConfigs is empty")
+	})
 }
