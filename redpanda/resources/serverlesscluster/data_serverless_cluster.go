@@ -22,43 +22,23 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
-	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	serverlessclustermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/serverlesscluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
-var (
-	_ datasource.DataSource = &DataSourceServerlessCluster{}
-)
+var _ datasource.DataSource = &DataSourceServerlessCluster{}
 
 // DataSourceServerlessCluster represents a serverless cluster data source.
 type DataSourceServerlessCluster struct {
-	CpCl *cloud.ControlPlaneClientSet
+	base.DataSourceBase
 }
 
-// Metadata returns the metadata for the ServerlessCluster data source.
-func (*DataSourceServerlessCluster) Metadata(_ context.Context, _ datasource.MetadataRequest, response *datasource.MetadataResponse) {
-	response.TypeName = "redpanda_serverless_cluster"
-}
-
-// Configure uses provider level data to configure DataSourceServerlessCluster's client.
-func (d *DataSourceServerlessCluster) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
-	if req.ProviderData == nil {
-		return
-	}
-
-	p, ok := req.ProviderData.(config.Datasource)
-
-	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", req.ProviderData))
-		return
-	}
-	d.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
+// NewDataSourceServerlessCluster constructs a ServerlessCluster datasource.
+func NewDataSourceServerlessCluster() *DataSourceServerlessCluster {
+	d := &DataSourceServerlessCluster{}
+	d.DataSourceBase = base.NewDataSourceBase("redpanda_serverless_cluster", DatasourceServerlessClusterSchema, nil)
+	return d
 }
 
 // Read reads the ServerlessCluster data source's values and updates the state.
@@ -66,7 +46,7 @@ func (d *DataSourceServerlessCluster) Read(ctx context.Context, req datasource.R
 	var model serverlessclustermodel.DataModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 
-	serverlessCluster, err := d.CpCl.ServerlessClusterForID(ctx, model.ID.ValueString())
+	cluster, err := d.CpCl.ServerlessClusterForID(ctx, model.ID.ValueString())
 	if err != nil {
 		if utils.IsNotFound(err) {
 			resp.Diagnostics.AddError(fmt.Sprintf("unable to find serverless cluster %s", model.ID), utils.DeserializeGrpcError(err))
@@ -75,41 +55,10 @@ func (d *DataSourceServerlessCluster) Read(ctx context.Context, req datasource.R
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read serverless cluster %s", model.ID), utils.DeserializeGrpcError(err))
 		return
 	}
-	// Mapping the fields from the serverless cluster to the Terraform state
-	persist := generateDataModel(serverlessCluster)
-	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
-}
-
-// Schema returns the schema for the ServerlessCluster data source.
-func (*DataSourceServerlessCluster) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	resp.Schema = DatasourceServerlessClusterSchema() // Reuse the schema from the resource
-}
-
-// DatasourceServerlessClusterSchema returns the schema for the ServerlessCluster datasource.
-func DatasourceServerlessClusterSchema() schema.Schema {
-	return schema.Schema{
-		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				Required:    true,
-				Description: "The ID of the serverless cluster",
-			},
-			"name": schema.StringAttribute{
-				Computed:    true,
-				Description: "Name of the serverless cluster",
-			},
-			"serverless_region": schema.StringAttribute{
-				Computed:    true,
-				Description: "Redpanda specific region for the serverless cluster",
-			},
-			"resource_group_id": schema.StringAttribute{
-				Computed:    true,
-				Description: "The ID of the resource group in which to create the serverless cluster",
-			},
-			"cluster_api_url": schema.StringAttribute{
-				Computed:    true,
-				Description: "The URL of the cluster API",
-			},
-		},
-		Description: "Data source for a Redpanda Cloud serverless cluster",
+	state, flatDiags := serverlessclustermodel.FlattenData(ctx, cluster, &model)
+	resp.Diagnostics.Append(flatDiags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }

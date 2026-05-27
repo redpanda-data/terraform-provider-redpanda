@@ -1,0 +1,82 @@
+message: "Data source for a Redpanda Cloud serverless cluster"
+api_schema: ServerlessCluster
+tf_name: ServerlessCluster
+computed_default: true
+
+id:
+  required: true
+  description: "The ID of the serverless cluster"
+
+name:
+  description: "Name of the serverless cluster"
+
+resource_group_id:
+  description: "The ID of the resource group in which to create the serverless cluster"
+
+serverless_region:
+  description: "Redpanda specific region for the serverless cluster"
+
+state:
+  description: "Current state of the serverless cluster."
+
+private_link_id:
+  description: "Private link ID for the serverless cluster, if any"
+
+networking_config:
+  fields:
+    private:
+      description: "Private network state"
+    public:
+      description: "Public network state"
+
+tags:
+  description: "User-defined tags on the cluster"
+
+kafka_api:
+  fields:
+    seed_brokers:
+      description: "Public Kafka API seed brokers"
+    private_seed_brokers:
+      description: "Private Kafka API seed brokers"
+
+schema_registry:
+  fields:
+    url:
+      description: "Public Schema Registry URL"
+    private_url:
+      description: "Private Schema Registry URL"
+
+dataplane_api:
+  fields:
+    url:
+      description: "Public Dataplane API URL"
+    private_url:
+      description: "Private Dataplane API URL"
+
+prometheus:
+  fields:
+    url:
+      description: "Public Prometheus metrics URL"
+    private_url:
+      description: "Private Prometheus metrics URL"
+
+console_url:
+  description: "Public Console URL"
+
+console_private_url:
+  description: "Private Console URL"
+
+planned_deletion:
+  description: "Planned deletion information"
+
+cluster_api_url:
+  extra: true
+  type: string
+  computed: true
+  flatten_via: clusterAPIURLFromProto
+  description: "The URL of the dataplane API for the serverless cluster"
+
+
+# --- New proto fields (auto-added by schemagen -todo) ---
+ai_gateway:
+  todo: true
