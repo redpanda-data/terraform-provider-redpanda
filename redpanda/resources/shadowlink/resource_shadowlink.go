@@ -18,90 +18,162 @@ package shadowlink
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	shadowlinkmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/shadowlink"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
-	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
+var objOpts = basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true}
+
+// preserveSensitiveFromPrev copies sensitive fields (tls key, scram/plain
+// password) from prev into state after Flatten. The Read API masks these,
+// so Flatten alone would zero them and force perpetual drift.
+func preserveSensitiveFromPrev(ctx context.Context, state, prev *shadowlinkmodel.ResourceModel) diag.Diagnostics {
+	var diags diag.Diagnostics
+	if prev == nil || prev.ClientOptions.IsNull() || prev.ClientOptions.IsUnknown() {
+		return diags
+	}
+	if state.ClientOptions.IsNull() || state.ClientOptions.IsUnknown() {
+		return diags
+	}
+
+	var prevCO, stateCO shadowlinkmodel.ClientOptionsModel
+	diags.Append(prev.ClientOptions.As(ctx, &prevCO, objOpts)...)
+	diags.Append(state.ClientOptions.As(ctx, &stateCO, objOpts)...)
+	if diags.HasError() {
+		return diags
+	}
+
+	// tls_settings.key
+	if !prevCO.TLSSettings.IsNull() && !stateCO.TLSSettings.IsNull() {
+		var prevTLS, stateTLS shadowlinkmodel.ClientOptionsTLSSettingsModel
+		diags.Append(prevCO.TLSSettings.As(ctx, &prevTLS, objOpts)...)
+		diags.Append(stateCO.TLSSettings.As(ctx, &stateTLS, objOpts)...)
+		if !diags.HasError() && !prevTLS.Key.IsNull() && !prevTLS.Key.IsUnknown() {
+			stateTLS.Key = prevTLS.Key
+			obj, d := types.ObjectValueFrom(ctx, shadowlinkmodel.ClientOptionsTLSSettingsAttrTypes(), &stateTLS)
+			diags.Append(d...)
+			if !d.HasError() {
+				stateCO.TLSSettings = obj
+			}
+		}
+	}
+
+	// authentication_configuration.{scram,plain}_configuration.password
+	if !prevCO.AuthenticationConfiguration.IsNull() && !stateCO.AuthenticationConfiguration.IsNull() {
+		var prevAuth, stateAuth shadowlinkmodel.ClientOptionsAuthenticationConfigurationModel
+		diags.Append(prevCO.AuthenticationConfiguration.As(ctx, &prevAuth, objOpts)...)
+		diags.Append(stateCO.AuthenticationConfiguration.As(ctx, &stateAuth, objOpts)...)
+		if !diags.HasError() {
+			preserveAuthPassword(ctx, &stateAuth, &prevAuth, &diags)
+			obj, d := types.ObjectValueFrom(ctx, shadowlinkmodel.ClientOptionsAuthenticationConfigurationAttrTypes(), &stateAuth)
+			diags.Append(d...)
+			if !d.HasError() {
+				stateCO.AuthenticationConfiguration = obj
+			}
+		}
+	}
+
+	obj, d := types.ObjectValueFrom(ctx, shadowlinkmodel.ClientOptionsAttrTypes(), &stateCO)
+	diags.Append(d...)
+	if !d.HasError() {
+		state.ClientOptions = obj
+	}
+	return diags
+}
+
+func preserveAuthPassword(ctx context.Context, state, prev *shadowlinkmodel.ClientOptionsAuthenticationConfigurationModel, diags *diag.Diagnostics) {
+	if !prev.ScramConfiguration.IsNull() && !state.ScramConfiguration.IsNull() {
+		state.ScramConfiguration = preservePassword(ctx, state.ScramConfiguration, prev.ScramConfiguration,
+			shadowlinkmodel.ClientOptionsAuthenticationConfigurationScramConfigurationAttrTypes(), diags)
+	}
+	if !prev.PlainConfiguration.IsNull() && !state.PlainConfiguration.IsNull() {
+		state.PlainConfiguration = preservePassword(ctx, state.PlainConfiguration, prev.PlainConfiguration,
+			shadowlinkmodel.ClientOptionsAuthenticationConfigurationPlainConfigurationAttrTypes(), diags)
+	}
+}
+
+func preservePassword(_ context.Context, stateObj, prevObj types.Object, attrTypes map[string]attr.Type, diags *diag.Diagnostics) types.Object {
+	stateAttrs := stateObj.Attributes()
+	prevAttrs := prevObj.Attributes()
+	prevPW, ok := prevAttrs["password"].(types.String)
+	if !ok || prevPW.IsNull() || prevPW.IsUnknown() {
+		return stateObj
+	}
+	stateAttrs["password"] = prevPW
+	obj, d := types.ObjectValue(attrTypes, stateAttrs)
+	diags.Append(d...)
+	if d.HasError() {
+		return stateObj
+	}
+	return obj
+}
+
 var (
-	_ resource.Resource                     = &ShadowLink{}
-	_ resource.ResourceWithConfigure        = &ShadowLink{}
-	_ resource.ResourceWithImportState      = &ShadowLink{}
-	_ resource.ResourceWithConfigValidators = &ShadowLink{}
+	_ resource.Resource                = &ShadowLink{}
+	_ resource.ResourceWithConfigure   = &ShadowLink{}
+	_ resource.ResourceWithImportState = &ShadowLink{}
 )
 
 // ShadowLink represents the ShadowLink Terraform resource.
 type ShadowLink struct {
-	CpCl *cloud.ControlPlaneClientSet
+	base.ResourceBase
 }
 
-// Metadata returns the type name for the ShadowLink resource.
-func (*ShadowLink) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "redpanda_shadow_link"
-}
-
-// Configure stores provider-supplied data on the resource.
-func (s *ShadowLink) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	if req.ProviderData == nil {
-		return
-	}
-	p, ok := req.ProviderData.(config.Resource)
-	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected config.Resource, got: %T. Please report this issue to the provider developers.", req.ProviderData),
-		)
-		return
-	}
-	s.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
-}
-
-// Schema returns the schema for the ShadowLink resource.
-func (*ShadowLink) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = ResourceShadowLinkSchema(ctx)
+// NewShadowLink constructs a ShadowLink resource.
+func NewShadowLink() *ShadowLink {
+	s := &ShadowLink{}
+	s.ResourceBase = base.NewResourceBase("redpanda_shadow_link", ResourceShadowLinkSchema, nil)
+	return s
 }
 
 // Create creates a ShadowLink resource.
 func (s *ShadowLink) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var model shadowlinkmodel.ResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
+	var plan shadowlinkmodel.ResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	createTimeout, diags := model.Timeouts.Create(ctx, 30*time.Minute)
+	createTimeout, diags := plan.Timeouts.Create(ctx, 30*time.Minute)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	createReq, d := model.BuildCreateRequest(ctx)
-	resp.Diagnostics.Append(d...)
+	createReq, expandDiags := shadowlinkmodel.ExpandCreate(ctx, &plan)
+	resp.Diagnostics.Append(expandDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	// Same hook the schemagen-emitted proto-validator calls — single
+	// source of truth for payload mutations (source_redpanda_id is
+	// `extra: true` because it only exists on the Create payload, not
+	// the read ShadowLink; the hook lifts it onto the payload).
+	resp.Diagnostics.Append(shadowlinkmodel.ThreadCreateExtras(ctx, &plan, createReq)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	createResp, err := s.CpCl.ShadowLink.CreateShadowLink(ctx, &controlplanev1.CreateShadowLinkRequest{
-		ShadowLink: createReq,
-	})
+	createResp, err := s.CpCl.ShadowLink.CreateShadowLink(ctx, createReq)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create shadow link", utils.DeserializeGrpcError(err))
 		return
 	}
 
 	op := createResp.GetOperation()
-
 	if err := utils.AreWeDoneYet(ctx, op, createTimeout, s.CpCl.Operation); err != nil {
-		// Persist a known minimal state so destroy can find the resource after a mid-create failure.
-		resp.Diagnostics.Append(resp.State.Set(ctx, shadowlinkmodel.GenerateMinimalResourceModel(op.GetResourceId(), model.Timeouts))...)
+		resp.Diagnostics.Append(resp.State.Set(ctx, shadowlinkmodel.GenerateMinimalResourceModel(types.StringValue(op.GetResourceId()), plan.Timeouts))...)
 		resp.Diagnostics.AddError("failed waiting for shadow link creation", utils.DeserializeGrpcError(err))
 		return
 	}
@@ -111,16 +183,17 @@ func (s *ShadowLink) Create(ctx context.Context, req resource.CreateRequest, res
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read shadow link %s", op.GetResourceId()), utils.DeserializeGrpcError(err))
 		return
 	}
-	persist, d := model.GetUpdatedModel(ctx, sl)
-	resp.Diagnostics.Append(d...)
+	state, flatDiags := shadowlinkmodel.Flatten(ctx, sl, &plan)
+	resp.Diagnostics.Append(flatDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	persist.Timeouts = model.Timeouts
-	persist.AllowDeletion = model.AllowDeletion
-	persist.SourceRedpandaID = model.SourceRedpandaID
+	state.Timeouts = plan.Timeouts
+	state.AllowDeletion = plan.AllowDeletion
+	state.SourceRedpandaID = plan.SourceRedpandaID
+	resp.Diagnostics.Append(preserveSensitiveFromPrev(ctx, state, &plan)...)
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
 // Read reads the ShadowLink resource.
@@ -141,22 +214,22 @@ func (s *ShadowLink) Read(ctx context.Context, req resource.ReadRequest, resp *r
 		return
 	}
 	if sl.GetState() == controlplanev1.ShadowLink_STATE_DELETING {
-		// Null out state so Terraform forces destroy-and-recreate on the next plan.
-		resp.Diagnostics.Append(resp.State.Set(ctx, shadowlinkmodel.GenerateMinimalResourceModel(sl.GetId(), model.Timeouts))...)
+		resp.Diagnostics.Append(resp.State.Set(ctx, shadowlinkmodel.GenerateMinimalResourceModel(types.StringValue(sl.GetId()), model.Timeouts))...)
 		resp.Diagnostics.AddWarning(fmt.Sprintf("shadow link %s is in state %s", sl.GetId(), sl.GetState()), "")
 		return
 	}
 
-	persist, d := model.GetUpdatedModel(ctx, sl)
-	resp.Diagnostics.Append(d...)
+	state, flatDiags := shadowlinkmodel.Flatten(ctx, sl, &model)
+	resp.Diagnostics.Append(flatDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	persist.Timeouts = model.Timeouts
-	persist.AllowDeletion = model.AllowDeletion
-	persist.SourceRedpandaID = model.SourceRedpandaID
+	state.Timeouts = model.Timeouts
+	state.AllowDeletion = model.AllowDeletion
+	state.SourceRedpandaID = model.SourceRedpandaID
+	resp.Diagnostics.Append(preserveSensitiveFromPrev(ctx, state, &model)...)
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
 // Update updates the ShadowLink resource.
@@ -168,13 +241,20 @@ func (s *ShadowLink) Update(ctx context.Context, req resource.UpdateRequest, res
 		return
 	}
 
-	updateReq, paths, d := plan.BuildUpdateRequest(ctx, &state)
-	resp.Diagnostics.Append(d...)
+	planPayload, expandDiags := shadowlinkmodel.ExpandUpdate(ctx, &plan)
+	resp.Diagnostics.Append(expandDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	statePayload, expandDiags := shadowlinkmodel.ExpandUpdate(ctx, &state)
+	resp.Diagnostics.Append(expandDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	diffedPayload, mask := utils.GenerateProtobufDiffAndUpdateMask(planPayload, statePayload)
+	diffedPayload.Id = plan.ID.ValueString()
 
-	if len(paths) > 0 {
+	if len(mask.Paths) > 0 {
 		updateTimeout, diags := plan.Timeouts.Update(ctx, 30*time.Minute)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
@@ -182,16 +262,14 @@ func (s *ShadowLink) Update(ctx context.Context, req resource.UpdateRequest, res
 		}
 
 		updateResp, err := s.CpCl.ShadowLink.UpdateShadowLink(ctx, &controlplanev1.UpdateShadowLinkRequest{
-			ShadowLink: updateReq,
-			UpdateMask: &fieldmaskpb.FieldMask{Paths: paths},
+			ShadowLink: diffedPayload,
+			UpdateMask: mask,
 		})
 		if err != nil {
 			resp.Diagnostics.AddError("failed to update shadow link", utils.DeserializeGrpcError(err))
 			return
 		}
-
-		op := updateResp.GetOperation()
-		if err := utils.AreWeDoneYet(ctx, op, updateTimeout, s.CpCl.Operation); err != nil {
+		if err := utils.AreWeDoneYet(ctx, updateResp.GetOperation(), updateTimeout, s.CpCl.Operation); err != nil {
 			resp.Diagnostics.AddError("failed waiting for shadow link update", utils.DeserializeGrpcError(err))
 			return
 		}
@@ -202,16 +280,17 @@ func (s *ShadowLink) Update(ctx context.Context, req resource.UpdateRequest, res
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read shadow link %s", plan.ID.ValueString()), utils.DeserializeGrpcError(err))
 		return
 	}
-	persist, d := plan.GetUpdatedModel(ctx, sl)
-	resp.Diagnostics.Append(d...)
+	newState, flatDiags := shadowlinkmodel.Flatten(ctx, sl, &plan)
+	resp.Diagnostics.Append(flatDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	persist.Timeouts = plan.Timeouts
-	persist.AllowDeletion = plan.AllowDeletion
-	persist.SourceRedpandaID = plan.SourceRedpandaID
+	newState.Timeouts = plan.Timeouts
+	newState.AllowDeletion = plan.AllowDeletion
+	newState.SourceRedpandaID = plan.SourceRedpandaID
+	resp.Diagnostics.Append(preserveSensitiveFromPrev(ctx, newState, &plan)...)
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, newState)...)
 }
 
 // Delete deletes the ShadowLink resource.
@@ -248,9 +327,21 @@ func (s *ShadowLink) Delete(ctx context.Context, req resource.DeleteRequest, res
 	}
 }
 
-// ImportState passes the ID through. Read repopulates everything else.
+// ImportState parses a composite import ID of the form "<id>|<source_redpanda_id>".
+// The "|" separator avoids collision with xid characters ([a-v0-9]).
+// source_redpanda_id is a Create-only field absent from the read-shape proto;
+// the composite ID lets it survive a round-trip import.
+// Usage: terraform import redpanda_shadow_link.example <id>|<source_redpanda_id>
 func (*ShadowLink) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
-	// Seed allow_deletion=false on import so the user must opt in.
+	parts := strings.SplitN(req.ID, "|", 2)
+	id := parts[0]
+	sourceRedpandaID := ""
+	if len(parts) == 2 {
+		sourceRedpandaID = parts[1]
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(id))...)
+	if sourceRedpandaID != "" {
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("source_redpanda_id"), types.StringValue(sourceRedpandaID))...)
+	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
 }

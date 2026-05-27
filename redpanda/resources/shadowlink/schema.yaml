@@ -1,0 +1,269 @@
+message: "ShadowLink configures asynchronous data replication from a source Redpanda cluster to a shadow (destination) cluster. The link is configuration on the shadow cluster — no infrastructure is provisioned. Each broker in the shadow cluster runs internal replication tasks that pull from the source over the standard Kafka API. The shadow cluster must have `enable_shadow_linking=true` set in its `cluster_configuration.custom_properties_json`."
+
+api_schema: ShadowLink
+tf_name: ShadowLink
+
+# cloudv2's openapi emits this schema as v1.ShadowLink (other resources like
+# Cluster have no prefix). Strip lets apidesc-import key on the bare name.
+strip_openapi_prefix: v1.
+
+timeouts: [create, update, delete]
+
+api:
+  # source_redpanda_id is extra: true (Create-only proto field) and
+  # threaded onto the payload after ExpandCreate by the resource code.
+  # The validator needs to see the same payload shape Apply does, so
+  # the generated proto-validator calls this hook between Expand and
+  # Validate.
+  post_expand_hook: shadowlinkmodel.ThreadCreateExtras
+  update:
+    return_payload: true
+
+# TF-only convenience: trip-wire that the resource must be allow_deletion=true
+# to be destroyed. Mirrors every other cluster-scoped resource in the provider.
+allow_deletion:
+  extra: true
+  type: bool
+  optional: true
+  computed: true
+  default: false
+  description: "Allows deletion of the shadow link. Defaults to false."
+
+id:
+  computed_only: true
+
+name:
+  required: true
+  plan_modifiers: [RequiresReplace]
+
+shadow_redpanda_id:
+  required: true
+  plan_modifiers: [RequiresReplace]
+
+# Create-only on the proto (not on the read ShadowLink). schemagen carries
+# it as a TF-only `extra:` field; resource_shadowlink.go threads it onto
+# the Create payload after ExpandCreate.
+source_redpanda_id:
+  extra: true
+  type: string
+  optional: true
+  plan_modifiers: [RequiresReplace]
+
+client_options:
+  optional: true
+  computed: true
+  fields:
+    bootstrap_servers:
+      optional: true
+      computed: true
+    client_id:
+      computed_only: true
+    source_cluster_id:
+      optional: true
+      computed: true
+    tls_settings:
+      optional: true
+      fields:
+        enabled:
+          optional: true
+          computed: true
+        ca:
+          optional: true
+        cert:
+          optional: true
+        key:
+          optional: true
+          sensitive: true
+        do_not_set_sni_hostname:
+          optional: true
+          computed: true
+    authentication_configuration:
+      optional: true
+      fields:
+        scram_configuration:
+          optional: true
+          fields:
+            username:
+              optional: true
+            password:
+              optional: true
+              sensitive: true
+            scram_mechanism:
+              optional: true
+            password_set:
+              computed_only: true
+            password_set_at:
+              exclude: true
+        plain_configuration:
+          optional: true
+          fields:
+            username:
+              optional: true
+            password:
+              optional: true
+              sensitive: true
+            password_set:
+              computed_only: true
+            password_set_at:
+              exclude: true
+    metadata_max_age_ms:
+      optional: true
+      computed: true
+    effective_metadata_max_age_ms:
+      computed_only: true
+    connection_timeout_ms:
+      optional: true
+      computed: true
+    effective_connection_timeout_ms:
+      computed_only: true
+    retry_backoff_ms:
+      optional: true
+      computed: true
+    effective_retry_backoff_ms:
+      computed_only: true
+    fetch_wait_max_ms:
+      optional: true
+      computed: true
+    effective_fetch_wait_max_ms:
+      computed_only: true
+    fetch_min_bytes:
+      optional: true
+      computed: true
+    effective_fetch_min_bytes:
+      computed_only: true
+    fetch_max_bytes:
+      optional: true
+      computed: true
+    effective_fetch_max_bytes:
+      computed_only: true
+    fetch_partition_max_bytes:
+      optional: true
+      computed: true
+    effective_fetch_partition_max_bytes:
+      computed_only: true
+
+topic_metadata_sync_options:
+  optional: true
+  computed: true
+  fields:
+    interval:
+      optional: true
+      computed: true
+    effective_interval:
+      exclude: true
+    paused:
+      optional: true
+      computed: true
+    exclude_default:
+      optional: true
+      computed: true
+    synced_shadow_topic_properties:
+      optional: true
+      computed: true
+    auto_create_shadow_topic_filters:
+      optional: true
+      fields:
+        pattern_type:
+          required: true
+        filter_type:
+          required: true
+        name:
+          required: true
+    start_at_earliest:
+      optional: true
+      computed: true
+      force_type: BoolAttribute
+      # The proto backing this field is a oneof variant (presence-only). Setting
+      # it to `false` is meaningless — proto3 cannot represent "user-set false."
+      # RequireTrue rejects `= false` at config-validation time so users get a
+      # clear diagnostic ("use = true or omit this field") instead of a plan/
+      # state inconsistency error.
+      validator: [RequireTrue]
+    start_at_latest:
+      optional: true
+      computed: true
+      force_type: BoolAttribute
+      # Same proto oneof-presence semantics as start_at_earliest above.
+      validator: [RequireTrue]
+    start_at_timestamp:
+      optional: true
+      computed: true
+
+consumer_offset_sync_options:
+  optional: true
+  computed: true
+  fields:
+    interval:
+      optional: true
+      computed: true
+    effective_interval:
+      exclude: true
+    paused:
+      optional: true
+      computed: true
+    group_filters:
+      optional: true
+      fields:
+        pattern_type:
+          required: true
+        filter_type:
+          required: true
+        name:
+          required: true
+
+security_sync_options:
+  optional: true
+  computed: true
+  fields:
+    interval:
+      optional: true
+      computed: true
+    effective_interval:
+      exclude: true
+    paused:
+      optional: true
+      computed: true
+    acl_filters:
+      optional: true
+      fields:
+        resource_filter:
+          required: true
+          fields:
+            resource_type:
+              required: true
+            pattern_type:
+              required: true
+            name:
+              optional: true
+              computed: true
+        access_filter:
+          required: true
+          fields:
+            operation:
+              required: true
+            permission_type:
+              required: true
+            principal:
+              optional: true
+              computed: true
+            host:
+              optional: true
+              computed: true
+
+schema_registry_sync_options:
+  optional: true
+  computed: true
+  fields:
+    shadow_schema_registry_topic:
+      optional: true
+      computed: true
+      force_type: BoolAttribute
+      # Same proto oneof-presence semantics as start_at_earliest — `false` is
+      # not a representable value, so reject it at config-validation time.
+      validator: [RequireTrue]
+
+state:
+  computed_only: true
+
+reason:
+  computed_only: true
