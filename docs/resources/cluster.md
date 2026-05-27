@@ -35,6 +35,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `cluster_configuration` (Attributes) Cluster Configuration configuration (see [below for nested schema](#nestedatt--cluster_configuration))
 - `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated.
 - `customer_managed_resources` (Attributes) The cloud resources created by user. (see [below for nested schema](#nestedatt--customer_managed_resources))
+- `gcp_global_access_api_gateway_enabled` (Boolean) gcp_global_access_api_gateway_enabled reports whether global access is enabled on the internal load balancer serving the Console/API Gateway endpoint. Applicable only for GCP.
 - `gcp_private_service_connect` (Attributes) GCP Private Service Connect configuration (see [below for nested schema](#nestedatt--gcp_private_service_connect))
 - `http_proxy` (Attributes) HTTP Proxy properties. (see [below for nested schema](#nestedatt--http_proxy))
 - `kafka_api` (Attributes) Cluster's Kafka API properties. (see [below for nested schema](#nestedatt--kafka_api))

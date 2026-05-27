@@ -41,6 +41,7 @@ type ClusterResponse interface {
 	GetCustomerManagedResources() *controlplanev1.CustomerManagedResources
 	GetDataplaneApi() *controlplanev1.Cluster_DataplaneAPI
 	GetDesiredRedpandaVersion() string
+	GetGcpGlobalAccessApiGatewayEnabled() bool
 	GetGcpGlobalAccessEnabled() bool
 	GetGcpPrivateServiceConnect() *controlplanev1.Cluster_GCPPrivateServiceConnect
 	GetHttpProxy() *controlplanev1.Cluster_HTTPProxyStatus
@@ -65,6 +66,7 @@ type ClusterResponse interface {
 	GetZones() []string
 	HasAwsPrivateLink() bool
 	HasAzurePrivateLink() bool
+	HasGcpGlobalAccessApiGatewayEnabled() bool
 	HasGcpGlobalAccessEnabled() bool
 	HasGcpPrivateServiceConnect() bool
 }
@@ -104,6 +106,13 @@ func Flatten(ctx context.Context, proto ClusterResponse, prev *ResourceModel) (*
 	m.CloudStorage = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetCloudStorage(), func() *CloudStorageModel { v, _ := prev.AsCloudStorage(ctx); return v }(), CloudStorageAttrTypes(), FlattenCloudStorage, &diags)
 	m.ClusterConfiguration = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetClusterConfiguration(), func() *ClusterConfigurationModel { v, _ := prev.AsClusterConfiguration(ctx); return v }(), ClusterConfigurationAttrTypes(), FlattenClusterConfiguration, &diags)
 	m.ClusterType = types.StringValue(enums.ClusterTypeToString(proto.GetType()))
+	if proto.HasGcpGlobalAccessApiGatewayEnabled() {
+		m.GCPGlobalAccessAPIGatewayEnabled = types.BoolValue(proto.GetGcpGlobalAccessApiGatewayEnabled())
+	} else if prev != nil && !prev.GCPGlobalAccessAPIGatewayEnabled.IsUnknown() {
+		m.GCPGlobalAccessAPIGatewayEnabled = prev.GCPGlobalAccessAPIGatewayEnabled
+	} else {
+		m.GCPGlobalAccessAPIGatewayEnabled = types.BoolNull()
+	}
 	if proto.HasGcpPrivateServiceConnect() {
 		m.GCPPrivateServiceConnect = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetGcpPrivateServiceConnect(), func() *GCPPrivateServiceConnectModel { v, _ := prev.AsGCPPrivateServiceConnect(ctx); return v }(), GCPPrivateServiceConnectAttrTypes(), FlattenGCPPrivateServiceConnect, &diags)
 	} else if prev != nil && !prev.GCPPrivateServiceConnect.IsUnknown() {
