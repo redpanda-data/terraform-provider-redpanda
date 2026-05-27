@@ -50,7 +50,7 @@ resource "redpanda_topic" "test" {
   replication_factor = var.replication_factor
   cluster_api_url    = redpanda_cluster.test.cluster_api_url
   allow_deletion     = true
-  configuration = {
+  configuration = var.topic_configuration != null ? var.topic_configuration : {
     "cleanup.policy" = "delete"
     "retention.ms"   = var.topic_retention_ms
   }
