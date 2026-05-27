@@ -1,0 +1,15 @@
+message: "Data source for a Redpanda Cloud resource group"
+api_schema: ResourceGroup
+tf_name: ResourceGroup
+computed_default: true
+
+name:
+  optional: true
+  description: "Name of the resource group"
+
+id:
+  optional: true
+  description: "UUID of the resource group"
+
+# created_at / updated_at are auto-excluded by the generator's global
+# timestamp deny, so no explicit exclude entries are needed here.
