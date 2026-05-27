@@ -24,18 +24,19 @@ import (
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	pipelinemodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/pipeline"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
 var (
 	_ resource.Resource                = &Pipeline{}
 	_ resource.ResourceWithConfigure   = &Pipeline{}
@@ -52,42 +53,40 @@ type ClientFactory func(clusterURL, authToken, providerVersion, terraformVersion
 
 // Pipeline represents a pipeline managed resource
 type Pipeline struct {
+	base.ResourceBase
+
 	PipelineClient dataplanev1grpc.PipelineServiceClient
 
 	resData       config.Resource
 	clientFactory ClientFactory
 }
 
-// Metadata returns the full name of the Pipeline resource
-func (*Pipeline) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "redpanda_pipeline"
+// NewPipeline constructs a Pipeline resource.
+func NewPipeline() *Pipeline {
+	p := &Pipeline{}
+	p.ResourceBase = base.NewResourceBase(
+		"redpanda_pipeline",
+		ResourcePipelineSchema,
+		func(d config.Resource) { p.resData = d },
+	)
+	return p
 }
 
-// Configure uses provider level data to configure Pipeline's clients
-func (p *Pipeline) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	if req.ProviderData == nil {
-		return
-	}
-	pd, ok := req.ProviderData.(config.Resource)
-	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected config.Resource, got: %T. Please report this issue to the provider developers.", req.ProviderData),
-		)
-		return
-	}
-	p.resData = pd
-}
-
-// Schema returns the schema for the Pipeline resource
+// Schema returns the schema for the Pipeline resource.
 func (*Pipeline) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = resourcePipelineSchema(ctx)
+	resp.Schema = ResourcePipelineSchema(ctx)
 }
 
 // Create creates a new Pipeline resource
 func (p *Pipeline) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var model pipelinemodel.ResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &model)...)
+	var cfg pipelinemodel.ResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	resp.Diagnostics.Append(restoreServiceAccountClientSecret(ctx, &model, &cfg)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -98,49 +97,13 @@ func (p *Pipeline) Create(ctx context.Context, req resource.CreateRequest, resp 
 		return
 	}
 
-	pipelineCreate := &dataplanev1.PipelineCreate{
-		DisplayName: model.DisplayName.ValueString(),
-		ConfigYaml:  model.ConfigYaml.ValueString(),
+	createReq, expandDiags := pipelinemodel.ExpandCreate(ctx, &model)
+	resp.Diagnostics.Append(expandDiags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	if !model.Description.IsNull() && !model.Description.IsUnknown() {
-		pipelineCreate.Description = model.Description.ValueString()
-	}
-
-	if !model.Resources.IsNull() && !model.Resources.IsUnknown() {
-		resources, diags := model.ExtractResources(ctx)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		if resources != nil {
-			pipelineCreate.Resources = resources
-		}
-	}
-
-	if !model.Tags.IsNull() && !model.Tags.IsUnknown() {
-		tags, diags := model.ExtractTags(ctx)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		pipelineCreate.Tags = tags
-	}
-
-	if !model.ServiceAccount.IsNull() && !model.ServiceAccount.IsUnknown() {
-		serviceAccount, diags := model.ExtractServiceAccount(ctx)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		if serviceAccount != nil {
-			pipelineCreate.ServiceAccount = serviceAccount
-		}
-	}
-
-	createResp, err := p.PipelineClient.CreatePipeline(ctx, &dataplanev1.CreatePipelineRequest{
-		Pipeline: pipelineCreate,
-	})
+	createResp, err := p.PipelineClient.CreatePipeline(ctx, createReq)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create pipeline", utils.DeserializeGrpcError(err))
 		return
@@ -152,15 +115,6 @@ func (p *Pipeline) Create(ctx context.Context, req resource.CreateRequest, resp 
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
-	}
-
-	// contingent holds the fields that are not returned by the API but need to be preserved in state.
-	contingent := pipelinemodel.ContingentFields{
-		ClusterAPIURL: model.ClusterAPIURL,
-		AllowDeletion: model.AllowDeletion,
-		Resources:     model.Resources,
-		State:         model.State,
-		Timeouts:      model.Timeouts,
 	}
 
 	desiredState := model.State.ValueString()
@@ -189,8 +143,7 @@ func (p *Pipeline) Create(ctx context.Context, req resource.CreateRequest, resp 
 		}
 	}
 
-	state := &pipelinemodel.ResourceModel{}
-	state, diags = state.GetUpdatedModel(ctx, pipeline, contingent)
+	state, diags := pipelinemodel.Flatten(ctx, pipeline, &model)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -266,18 +219,19 @@ func (p *Pipeline) Read(ctx context.Context, req resource.ReadRequest, resp *res
 		return
 	}
 
-	readState := &pipelinemodel.ResourceModel{}
-	readState, diags := readState.GetUpdatedModel(ctx, getResp.GetPipeline(), pipelinemodel.ContingentFields{
-		ClusterAPIURL:  model.ClusterAPIURL,
-		AllowDeletion:  model.AllowDeletion,
-		Resources:      model.Resources,
-		ServiceAccount: model.ServiceAccount,
-		State:          model.State,
-		Timeouts:       model.Timeouts,
-	})
+	readState, diags := pipelinemodel.Flatten(ctx, getResp.GetPipeline(), &model)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// While a pipeline is in state=running, the Cloud backend's GetPipeline
+	// RPC omits ServiceAccount from its response.
+	// Without this restore, Flatten drops the wrapper from in-memory state
+	// and the next plan reports `+ service_account` even though nothing
+	// changed. Mirror the Update-path fix at the wrapper level.
+	if getResp.GetPipeline().GetServiceAccount() == nil && !model.ServiceAccount.IsNull() {
+		readState.ServiceAccount = model.ServiceAccount
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, readState)...)
@@ -288,6 +242,12 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	var plan, state pipelinemodel.ResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	var cfg pipelinemodel.ResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	resp.Diagnostics.Append(restoreServiceAccountClientSecret(ctx, &plan, &cfg)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -341,40 +301,23 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 		desiredState = pipelinemodel.StateStopped
 	}
 
-	pipelineUpdate := &dataplanev1.PipelineUpdate{
-		DisplayName: plan.DisplayName.ValueString(),
-		ConfigYaml:  plan.ConfigYaml.ValueString(),
-		Description: plan.Description.ValueString(),
+	updateReq, expandDiags := pipelinemodel.ExpandUpdate(ctx, &plan)
+	resp.Diagnostics.Append(expandDiags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
+	updateReq.Id = pipelineID
 
-	if !plan.Resources.IsNull() && !plan.Resources.IsUnknown() {
-		resources, diags := plan.ExtractResources(ctx)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		if resources != nil {
-			pipelineUpdate.Resources = resources
-		}
-	}
-
-	if !plan.Tags.IsNull() && !plan.Tags.IsUnknown() {
-		tags, diags := plan.ExtractTags(ctx)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		pipelineUpdate.Tags = tags
-	}
-
-	// Only include service_account in update when:
-	// - Adding service account for the first time (state was null)
-	// - client_id changed
-	// - secret_version changed (signals intent to update the write-only secret)
+	// Only include service_account in the update when:
+	// - Adding service account for the first time (state was null), OR
+	// - client_id changed, OR
+	// - secret_version changed (signals intent to update the write-only secret).
+	// Otherwise null it out so we don't clobber the write-only client_secret
+	// server-side with the empty value Terraform reads back from state.
 	if !plan.ServiceAccount.IsNull() && !plan.ServiceAccount.IsUnknown() {
 		shouldUpdateServiceAccount := state.ServiceAccount.IsNull()
 		if !shouldUpdateServiceAccount {
-			var planSA, stateSA pipelinemodel.ServiceAccount
+			var planSA, stateSA pipelinemodel.ServiceAccountModel
 			resp.Diagnostics.Append(plan.ServiceAccount.As(ctx, &planSA, basetypes.ObjectAsOptions{})...)
 			resp.Diagnostics.Append(state.ServiceAccount.As(ctx, &stateSA, basetypes.ObjectAsOptions{})...)
 			if resp.Diagnostics.HasError() {
@@ -385,38 +328,20 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 			secretVersionChanged := !planSA.SecretVersion.Equal(stateSA.SecretVersion)
 			shouldUpdateServiceAccount = clientIDChanged || secretVersionChanged
 		}
-
-		if shouldUpdateServiceAccount {
-			serviceAccount, diags := plan.ExtractServiceAccount(ctx)
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
-			if serviceAccount != nil {
-				pipelineUpdate.ServiceAccount = serviceAccount
-			}
+		if !shouldUpdateServiceAccount {
+			updateReq.Pipeline.ServiceAccount = nil
 		}
+	} else {
+		updateReq.Pipeline.ServiceAccount = nil
 	}
 
-	updateResp, err := p.PipelineClient.UpdatePipeline(ctx, &dataplanev1.UpdatePipelineRequest{
-		Id:       pipelineID,
-		Pipeline: pipelineUpdate,
-	})
+	updateResp, err := p.PipelineClient.UpdatePipeline(ctx, updateReq)
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to update pipeline %s", pipelineID), utils.DeserializeGrpcError(err))
 		return
 	}
 
 	pipeline := updateResp.GetPipeline()
-
-	// contingent holds the fields that are not returned by the API but need to be preserved in state.
-	contingent := pipelinemodel.ContingentFields{
-		ClusterAPIURL: plan.ClusterAPIURL,
-		AllowDeletion: plan.AllowDeletion,
-		Resources:     plan.Resources,
-		State:         plan.State,
-		Timeouts:      plan.Timeouts,
-	}
 
 	if desiredState == pipelinemodel.StateRunning {
 		updatedPipeline, warning, ok := p.startPipeline(ctx, pipelineID, updateTimeout)
@@ -428,11 +353,19 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 		}
 	}
 
-	newState := &pipelinemodel.ResourceModel{}
-	newState, diags = newState.GetUpdatedModel(ctx, pipeline, contingent)
+	newState, diags := pipelinemodel.Flatten(ctx, pipeline, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// When we omit ServiceAccount from the Update request (to protect the
+	// write-only client_secret), the server response echoes
+	// SA=nil and Flatten drops the wrapper from state — even though
+	// nothing on the SA changed. Restore the prior-state block so the
+	// framework's post-apply consistency check sees it unchanged.
+	if updateReq.Pipeline.ServiceAccount == nil && !state.ServiceAccount.IsNull() {
+		newState.ServiceAccount = state.ServiceAccount
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, newState)...)
@@ -637,4 +570,35 @@ func (p *Pipeline) waitForPipelineState(ctx context.Context, pipelineID string, 
 		}
 		return utils.RetryableError(fmt.Errorf("pipeline in state %s, waiting for %s", state, targetState))
 	})
+}
+
+// restoreServiceAccountClientSecret copies cfg.ServiceAccount.ClientSecret
+// into model.ServiceAccount.ClientSecret. client_secret is WriteOnly so the
+// framework strips it from Plan/State per its contract — but the server's
+// regex validator requires the `${secrets.NAME}` value to reach the API on
+// Create/Update. Same pattern as `redpanda_schema`'s `password_wo` handling.
+// No-op when cfg has no service_account block; safe to call unconditionally.
+func restoreServiceAccountClientSecret(ctx context.Context, model, cfg *pipelinemodel.ResourceModel) diag.Diagnostics {
+	var diags diag.Diagnostics
+	if cfg.ServiceAccount.IsNull() || cfg.ServiceAccount.IsUnknown() {
+		return diags
+	}
+	cfgSA, d := cfg.AsServiceAccount(ctx)
+	diags.Append(d...)
+	if diags.HasError() || cfgSA == nil {
+		return diags
+	}
+	modelSA, d := model.AsServiceAccount(ctx)
+	diags.Append(d...)
+	if diags.HasError() || modelSA == nil {
+		return diags
+	}
+	modelSA.ClientSecret = cfgSA.ClientSecret
+	obj, d := pipelinemodel.ServiceAccountToObject(ctx, modelSA)
+	diags.Append(d...)
+	if diags.HasError() {
+		return diags
+	}
+	model.ServiceAccount = obj
+	return diags
 }
