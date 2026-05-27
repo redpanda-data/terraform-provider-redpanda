@@ -1,0 +1,174 @@
+message: ""
+api_schema: Cluster
+tf_name: Cluster
+timeouts: [read]
+computed_default: true
+
+id:
+  required: true
+
+
+type:
+  proto_only: true
+
+cluster_type:
+  extra: true
+  type: string
+  computed_only: true
+  from_proto: type
+  description: "Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated."
+
+cloud_provider_tags:
+  proto_only: true
+
+tags:
+  extra: true
+  type: map
+  element_type: string
+  computed_only: true
+  from_proto: cloud_provider_tags
+  flatten_via: tagsFromProto
+  description: "Tags placed on cloud resources. Server-managed keys (prefixed with `redpanda-`) are filtered out of state."
+
+
+cloud_provider:
+  computed_only: true
+
+connection_type:
+  computed_only: true
+
+state:
+  computed_only: true
+
+
+api_gateway_access:
+  exclude: true
+
+cloud_storage:
+  exclude: true
+
+current_redpanda_version:
+  exclude: true
+
+desired_redpanda_version:
+  exclude: true
+
+nat_gateways:
+  exclude: true
+
+redpanda_node_count:
+  exclude: true
+
+
+
+aws_private_link:
+  fields:
+
+    http_proxy_auth_mode:
+      todo: true
+    kafka_api_auth_mode:
+      todo: true
+    schema_registry_auth_mode:
+      todo: true
+azure_private_link:
+  fields:
+
+    http_proxy_auth_mode:
+      todo: true
+    kafka_api_auth_mode:
+      todo: true
+    schema_registry_auth_mode:
+      todo: true
+gcp_private_service_connect:
+  fields:
+
+    http_proxy_auth_mode:
+      todo: true
+    kafka_api_auth_mode:
+      todo: true
+    schema_registry_auth_mode:
+      todo: true
+customer_managed_resources:
+  fields:
+    gcp:
+      fields:
+
+        psc_v2_nat_subnet_name:
+          todo: true
+        redpanda_connect_api_service_account:
+          todo: true
+        redpanda_connect_service_account:
+          todo: true
+        redpanda_operator_service_account:
+          todo: true
+    aws:
+      fields:
+        oxla_node_group_instance_profile:
+          todo: true
+        rpsql_security_group:
+          todo: true
+    azure:
+      todo: true
+cluster_configuration:
+  fields:
+    custom_properties:
+      todo: true
+    custom_properties_json:
+      extra: true
+      type: string
+      computed_only: true
+      from_proto: custom_properties
+
+    computed_properties:
+      todo: true
+schema_registry:
+  fields:
+
+    sasl:
+      todo: true
+
+
+maintenance_window_config:
+  fields:
+    anytime:
+      force_type: BoolAttribute
+    unspecified:
+      force_type: BoolAttribute
+    day_hour:
+      fields:
+        day_of_week:
+
+
+
+allow_deletion:
+  extra: true
+  type: bool
+  computed_only: true
+
+redpanda_version:
+  extra: true
+  type: string
+  computed_only: true
+
+dataplane_api:
+  proto_only: true
+
+cluster_api_url:
+  extra: true
+  type: string
+  computed_only: true
+  flatten_via: clusterAPIURLFromProto
+
+
+ai_gateway:
+  todo: true
+
+
+
+# --- New proto fields (auto-added by schemagen -todo) ---
+adp_api:
+  todo: true
+rpsql:
+  todo: true
+sandbox:
+  todo: true
