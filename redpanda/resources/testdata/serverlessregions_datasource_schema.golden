@@ -1,0 +1,26 @@
+attributes:
+    - name: cloud_provider
+      type: StringAttribute
+      required: true
+      validators:
+        - stringvalidator.oneOfValidator
+    - name: serverless_regions
+      type: ListNestedAttribute
+      computed: true
+      attributes:
+        - name: cloud_provider
+          type: StringAttribute
+          computed: true
+        - name: name
+          type: StringAttribute
+          computed: true
+        - name: placement
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: enabled
+              type: BoolAttribute
+              computed: true
+        - name: time_zone
+          type: StringAttribute
+          computed: true
