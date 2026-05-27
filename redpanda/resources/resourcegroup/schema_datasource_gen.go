@@ -15,15 +15,29 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-// Package resourcegroup contains the model for the resourcegroup datasource.
 package resourcegroup
 
 import (
-	"github.com/hashicorp/terraform-plugin-framework/types"
+	"context"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 )
 
-// DataModel represents the Terraform schema for the resourcegroup datasource.
-type DataModel struct {
-	ID   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+// DatasourceResourceGroupSchema returns the Terraform schema for the resourcegroup datasource.
+func DatasourceResourceGroupSchema(_ context.Context) schema.Schema {
+	return schema.Schema{
+		Description: "Data source for a Redpanda Cloud resource group",
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Description: "UUID of the resource group",
+				Optional:    true,
+				Computed:    true,
+			},
+
+			"name": schema.StringAttribute{
+				Description: "Name of the resource group",
+				Optional:    true,
+				Computed:    true,
+			},
+		},
+	}
 }
