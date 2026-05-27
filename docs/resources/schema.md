@@ -19,7 +19,6 @@ Creates a schema in the Redpanda Schema Registry.
 - `cluster_id` (String) The ID of the cluster where the schema is stored.
 - `schema` (String) The schema definition in JSON format.
 - `subject` (String) The subject name for the schema.
-- `username` (String, Sensitive) The SASL username for Schema Registry authentication.
 
 ### Optional
 
@@ -27,11 +26,12 @@ Creates a schema in the Redpanda Schema Registry.
 
 - `allow_deletion` (Boolean) When enabled, prevents the resource from being deleted if the cluster is unreachable. When disabled (default), the resource will be removed from state without attempting deletion when the cluster is unreachable.
 - `compatibility` (String) The compatibility level for schema evolution (BACKWARD, BACKWARD_TRANSITIVE, FORWARD, FORWARD_TRANSITIVE, FULL, FULL_TRANSITIVE, NONE). Defaults to BACKWARD.
-- `password` (String, Sensitive, Deprecated) The SASL password for Schema Registry authentication. Deprecated: use password_wo instead.
-- `password_wo` (String, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) The SASL password for Schema Registry authentication (write-only, not stored in state). Requires Terraform 1.11+.
-- `password_wo_version` (Number) Version number for password_wo. Increment this value to trigger a password update when using password_wo.
+- `password` (String, Sensitive) SASL password for Schema Registry HTTP Basic authentication. Pair with username when you need writes attributed to a specific SASL identity instead of the provider's cloud Bearer token. Stored in Terraform state.
+- `password_wo` (String, Deprecated, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Deprecated. The Terraform Plugin Framework does not persist write-only attributes to state, leaving the provider unable to authenticate to Schema Registry during refresh — this attribute cannot reliably manage schemas. Use the default cloud Bearer authentication (omit username and password) or the regular `password` attribute.
+- `password_wo_version` (Number, Deprecated) Deprecated. Version counter for password_wo, which is itself deprecated for this resource.
 - `references` (Attributes List) List of schema references. (see [below for nested schema](#nestedatt--references))
 - `schema_type` (String) The type of schema (AVRO, JSON, PROTOBUF).
+- `username` (String, Sensitive) SASL username for Schema Registry HTTP Basic authentication. Optional: when omitted (together with password) the provider authenticates to Schema Registry using its cloud Bearer token. Supply username + password only when you need writes to be attributed to a specific SASL identity (e.g., audit / least-privilege).
 
 ### Read-Only
 
@@ -55,7 +55,7 @@ provider "redpanda" {}
 variable "user_password" {
   type        = string
   sensitive   = true
-  description = "Password for the Redpanda user and schema authentication"
+  description = "Password for the Redpanda SASL user (independent of Schema Registry auth)"
 }
 
 resource "redpanda_resource_group" "example" {
@@ -85,11 +85,41 @@ resource "redpanda_cluster" "example" {
 
 resource "redpanda_user" "example" {
   name                = "schema-user"
-  password_wo         = var.user_password # Write-only, not stored in state
-  password_wo_version = 1                 # Increment to trigger password update
+  password_wo         = var.user_password
+  password_wo_version = 1
   mechanism           = "scram-sha-256"
   cluster_api_url     = redpanda_cluster.example.cluster_api_url
   allow_deletion      = true
+}
+
+# The provider authenticates to Schema Registry using its cloud Bearer token.
+# That token's effective SR principal needs explicit ACLs to manage schemas;
+# grant them via redpanda_schema_registry_acl before the schema resource runs.
+# Two grants are required: the SUBJECT grant authorizes
+# POST /subjects/<subj>/versions; the REGISTRY grant authorizes the SR client's
+# follow-up GET /schemas/ids/<id>/versions to fetch the full schema metadata.
+resource "redpanda_schema_registry_acl" "provider_bootstrap_subject" {
+  cluster_id     = redpanda_cluster.example.id
+  principal      = "User:*"
+  resource_type  = "SUBJECT"
+  resource_name  = "user"
+  pattern_type   = "PREFIXED"
+  host           = "*"
+  operation      = "ALL"
+  permission     = "ALLOW"
+  allow_deletion = true
+}
+
+resource "redpanda_schema_registry_acl" "provider_bootstrap_registry" {
+  cluster_id     = redpanda_cluster.example.id
+  principal      = "User:*"
+  resource_type  = "REGISTRY"
+  resource_name  = "*"
+  pattern_type   = "LITERAL"
+  host           = "*"
+  operation      = "ALL"
+  permission     = "ALLOW"
+  allow_deletion = true
 }
 
 resource "redpanda_schema" "example" {
@@ -114,9 +144,11 @@ resource "redpanda_schema" "example" {
       }
     ]
   })
-  username            = redpanda_user.example.name
-  password_wo         = var.user_password # Write-only, not stored in state
-  password_wo_version = 1                 # Increment to trigger password update
+
+  depends_on = [
+    redpanda_schema_registry_acl.provider_bootstrap_subject,
+    redpanda_schema_registry_acl.provider_bootstrap_registry,
+  ]
 }
 ```
 
@@ -167,7 +199,15 @@ To update the password, change the `password_wo` value and increment `password_w
 
 ## Import
 
-Schemas can be imported using a colon-separated string with the following format:
+Schemas can be imported using a colon-separated string. Two forms are supported:
+
+**Bearer auth (default):**
+
+```
+cluster_id:subject:version
+```
+
+**Basic auth (optional, when explicit SASL credentials are needed):**
 
 ```
 cluster_id:subject:version:username:password
@@ -176,17 +216,17 @@ cluster_id:subject:version:username:password
 Example imports:
 
 ```shell
-# Import a schema with version 1
-terraform import redpanda_schema.example "cluster-123:user-value:1:myuser:mypassword"
+# Import via Bearer auth (default) — no username or password required
+terraform import redpanda_schema.example "cluster-123:user-value:1"
 
-# Import a schema with a complex subject name
-terraform import redpanda_schema.product "cluster-456:com.example.Product-v2:5:admin:secret123"
+# Import via Bearer auth with a complex subject name
+terraform import redpanda_schema.product "cluster-456:com.example.Product-v2:5"
 
-# Import schema version 0
+# Import via Basic auth with explicit SASL credentials
 terraform import redpanda_schema.initial "cluster-789:test-subject:0:svc_account:p@ssw0rd"
 ```
 
-**Note:** Credentials (username and password) are required for import to authenticate with the Schema Registry and verify the schema exists
+For Basic auth, the password can also be supplied via the `REDPANDA_IMPORT_PASSWORD` environment variable instead of placing it in the import ID.
 
 ## API Reference
 

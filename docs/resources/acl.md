@@ -2,12 +2,12 @@
 page_title: "redpanda_acl Resource - terraform-provider-redpanda"
 subcategory: ""
 description: |-
-  
+  Acl resource
 ---
 
 # redpanda_acl (Resource)
 
-
+Acl resource
 
 Creates an Access Control List (ACL) in a Redpanda cluster.
 
@@ -17,12 +17,12 @@ Creates an Access Control List (ACL) in a Redpanda cluster.
 ### Required
 
 - `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports
-- `host` (String) The host address to use for this ACL
+- `host` (String) The host address to use for this ACL. To allow a principal access from multiple hosts, you must create an ACL for each host.
 - `operation` (String) The operation type that shall be allowed or denied (e.g READ)
-- `permission_type` (String) The permission type. It determines whether the operation should be ALLOWED or DENIED
+- `permission_type` (String) The permission type. It determines whether the operation should be ALLOWED or DENIED. Must be one of (enum values): 2, 3.
 - `principal` (String) The principal to apply this ACL for (e.g., User:alice or RedpandaRole:admin)
 - `resource_name` (String) The name of the resource this ACL entry will be on
-- `resource_pattern_type` (String) The pattern type of the resource. It determines the strategy how the provided resource name is matched (LITERAL, MATCH, PREFIXED, etc ...) against the actual resource names
+- `resource_pattern_type` (String) The pattern type of the resource. It determines the strategy how the provided resource name is matched (LITERAL, MATCH, PREFIXED, etc ...) against the actual resource names. Must be one of (enum values): 3, 4.
 - `resource_type` (String) The type of the resource (TOPIC, GROUP, etc...) this ACL shall target
 
 ### Optional
@@ -31,7 +31,7 @@ Creates an Access Control List (ACL) in a Redpanda cluster.
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) Unique identifier of the resource.
 
 ## Example Usage
 

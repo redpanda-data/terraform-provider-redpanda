@@ -24,7 +24,7 @@ RBAC is available for:
 ### Required
 
 - `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports
-- `name` (String) Name of the role, must be unique
+- `name` (String) Name of the role, must be unique. Length must be between 1 and 128. Must match pattern `^[^,=]+$`.
 
 ### Optional
 
@@ -33,7 +33,7 @@ RBAC is available for:
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) Unique identifier of the resource.
 
 ## Role Naming Best Practices
 
@@ -90,7 +90,7 @@ resource "redpanda_user" "example" {
 
 resource "redpanda_role_assignment" "example" {
   role_name       = redpanda_role.example.name
-  principal       = redpanda_user.example.name
+  principal       = "User:${redpanda_user.example.name}"
   cluster_api_url = redpanda_cluster.example.cluster_api_url
 }
 ```

@@ -18,10 +18,74 @@ Data source for a Redpanda Cloud serverless cluster
 
 ### Read-Only
 
-- `cluster_api_url` (String) The URL of the cluster API
+- `cluster_api_url` (String) The URL of the dataplane API for the serverless cluster
+- `console_private_url` (String) Private Console URL
+- `console_url` (String) Public Console URL
+- `dataplane_api` (Attributes) Cluster's Data Plane API properties. (see [below for nested schema](#nestedatt--dataplane_api))
+- `kafka_api` (Attributes) Cluster's Kafka API properties. (see [below for nested schema](#nestedatt--kafka_api))
 - `name` (String) Name of the serverless cluster
+- `networking_config` (Attributes) Networking Config configuration (see [below for nested schema](#nestedatt--networking_config))
+- `planned_deletion` (Attributes) Planned deletion information (see [below for nested schema](#nestedatt--planned_deletion))
+- `private_link_id` (String) Private link ID for the serverless cluster, if any
+- `prometheus` (Attributes) Prometheus metrics endpoint properties. (see [below for nested schema](#nestedatt--prometheus))
 - `resource_group_id` (String) The ID of the resource group in which to create the serverless cluster
+- `schema_registry` (Attributes) Cluster's Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
 - `serverless_region` (String) Redpanda specific region for the serverless cluster
+- `state` (String) Current state of the serverless cluster.
+- `tags` (Map of String) User-defined tags on the cluster
+
+<a id="nestedatt--dataplane_api"></a>
+### Nested Schema for `dataplane_api`
+
+Read-Only:
+
+- `private_url` (String) Private Dataplane API URL
+- `url` (String) Public Dataplane API URL
+
+
+<a id="nestedatt--kafka_api"></a>
+### Nested Schema for `kafka_api`
+
+Read-Only:
+
+- `private_seed_brokers` (List of String) Private Kafka API seed brokers
+- `seed_brokers` (List of String) Public Kafka API seed brokers
+
+
+<a id="nestedatt--networking_config"></a>
+### Nested Schema for `networking_config`
+
+Read-Only:
+
+- `private` (String) Private network state
+- `public` (String) Public network state
+
+
+<a id="nestedatt--planned_deletion"></a>
+### Nested Schema for `planned_deletion`
+
+Read-Only:
+
+- `delete_after` (String) Delete After
+- `reason` (String) Reason
+
+
+<a id="nestedatt--prometheus"></a>
+### Nested Schema for `prometheus`
+
+Read-Only:
+
+- `private_url` (String) Private Prometheus metrics URL
+- `url` (String) Public Prometheus metrics URL
+
+
+<a id="nestedatt--schema_registry"></a>
+### Nested Schema for `schema_registry`
+
+Read-Only:
+
+- `private_url` (String) Private Schema Registry URL
+- `url` (String) Public Schema Registry URL
 
 ## Usage
 
@@ -49,10 +113,8 @@ resource "redpanda_serverless_private_link" "test" {
   serverless_region  = var.region
   allow_deletion = var.allow_private_link_deletion
 
-  cloud_provider_config = {
-    aws = {
-      allowed_principals = var.allowed_principals
-    }
+  aws_config = {
+    allowed_principals = var.allowed_principals
   }
 }
 

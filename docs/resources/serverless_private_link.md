@@ -18,7 +18,6 @@ Manages a Redpanda Serverless Private Link
 ### Required
 
 - `cloud_provider` (String) Cloud provider (aws)
-- `cloud_provider_config` (Attributes) Cloud provider specific configuration (see [below for nested schema](#nestedatt--cloud_provider_config))
 - `name` (String) Name of the serverless private link
 - `resource_group_id` (String) The ID of the Resource Group in which to create the serverless private link
 - `serverless_region` (String) Redpanda serverless region
@@ -26,29 +25,31 @@ Manages a Redpanda Serverless Private Link
 ### Optional
 
 - `allow_deletion` (Boolean) Allows deletion of the serverless private link. Defaults to false.
+- `aws_config` (Attributes) AWS-specific configuration. Required when cloud_provider is 'aws'. (see [below for nested schema](#nestedatt--aws_config))
+- `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
 
-- `created_at` (String) Timestamp when the serverless private link was created
 - `id` (String) The ID of the serverless private link
 - `state` (String) Current state of the serverless private link (STATE_CREATING, STATE_READY, STATE_DELETING, STATE_FAILED, STATE_UPDATING)
 - `status` (Attributes) Cloud provider specific status information (see [below for nested schema](#nestedatt--status))
-- `updated_at` (String) Timestamp when the serverless private link was last updated. This value changes on every update operation.
 
-<a id="nestedatt--cloud_provider_config"></a>
-### Nested Schema for `cloud_provider_config`
-
-Optional:
-
-- `aws` (Attributes) AWS-specific configuration. Required when cloud_provider is 'aws'. (see [below for nested schema](#nestedatt--cloud_provider_config--aws))
-
-<a id="nestedatt--cloud_provider_config--aws"></a>
-### Nested Schema for `cloud_provider_config.aws`
+<a id="nestedatt--aws_config"></a>
+### Nested Schema for `aws_config`
 
 Required:
 
 - `allowed_principals` (List of String) AWS principals (ARNs) allowed to connect to the private link endpoint
 
+
+<a id="nestedatt--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Optional:
+
+- `create` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+- `delete` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+- `update` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
 
 <a id="nestedatt--status"></a>

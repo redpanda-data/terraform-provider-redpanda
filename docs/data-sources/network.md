@@ -21,7 +21,7 @@ Data source for a Redpanda Cloud network
 - `cidr_block` (String) The cidr_block to create the network in
 - `cloud_provider` (String) The cloud provider to create the network in. Can also be set at the provider level
 - `cluster_type` (String) The type of cluster this network is associated with, can be one of dedicated or cloud
-- `customer_managed_resources` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources))
+- `customer_managed_resources` (Attributes) Cloud resources created by user. (see [below for nested schema](#nestedatt--customer_managed_resources))
 - `name` (String) Name of the network
 - `region` (String) The region to create the network in. Can also be set at the provider level
 - `resource_group_id` (String) The ID of the resource group in which to create the network
@@ -31,27 +31,27 @@ Data source for a Redpanda Cloud network
 <a id="nestedatt--customer_managed_resources"></a>
 ### Nested Schema for `customer_managed_resources`
 
-Optional:
+Read-Only:
 
-- `aws` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws))
-- `gcp` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--gcp))
+- `aws` (Attributes) The AWS resources managed by user. (see [below for nested schema](#nestedatt--customer_managed_resources--aws))
+- `gcp` (Attributes) GCP resources created and managed by user, and required to deploy the Redpanda cluster. See [Create a BYOVPC Cluster on GCP](https://docs.redpanda.com/redpanda-cloud/get-started/cluster-types/byoc/gcp/vpc-byo-gcp/) for details. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp))
 
 <a id="nestedatt--customer_managed_resources--aws"></a>
 ### Nested Schema for `customer_managed_resources.aws`
 
 Read-Only:
 
-- `dynamodb_table` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--dynamodb_table))
-- `management_bucket` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--management_bucket))
-- `private_subnets` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--private_subnets))
-- `vpc` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--aws--vpc))
+- `dynamodb_table` (Attributes) AWS DynamoDB table specification. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--dynamodb_table))
+- `management_bucket` (Attributes) AWS storage bucket properties by ARN. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--management_bucket))
+- `private_subnets` (Attributes) AWS Subnets Specification (see [below for nested schema](#nestedatt--customer_managed_resources--aws--private_subnets))
+- `vpc` (Attributes) AWS VPC Specification (see [below for nested schema](#nestedatt--customer_managed_resources--aws--vpc))
 
 <a id="nestedatt--customer_managed_resources--aws--dynamodb_table"></a>
 ### Nested Schema for `customer_managed_resources.aws.dynamodb_table`
 
 Required:
 
-- `arn` (String) AWS DynamoDB table identifier
+- `arn` (String) AWS DynamoDB table identifier.
 
 
 <a id="nestedatt--customer_managed_resources--aws--management_bucket"></a>
@@ -59,7 +59,7 @@ Required:
 
 Required:
 
-- `arn` (String) AWS storage bucket identifier
+- `arn` (String) AWS storage bucket identifier.
 
 
 <a id="nestedatt--customer_managed_resources--aws--private_subnets"></a>
@@ -75,7 +75,7 @@ Required:
 
 Required:
 
-- `arn` (String) AWS VPC identifier
+- `arn` (String) AWS VPC identifier.
 
 
 
@@ -84,9 +84,9 @@ Required:
 
 Read-Only:
 
-- `management_bucket` (Attributes) (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--management_bucket))
-- `network_name` (String) Name of user-created network where the Redpanda cluster is deployed
-- `network_project_id` (String) GCP project ID where the network is created
+- `management_bucket` (Attributes) GCP storage bucket properties. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--management_bucket))
+- `network_name` (String) Name of user-created network where the Redpanda cluster is deployed to. See the official [GCP API reference](https://cloud.google.com/compute/docs/reference/rest/v1/networks).
+- `network_project_id` (String) GCP project ID where the network is created.
 
 <a id="nestedatt--customer_managed_resources--gcp--management_bucket"></a>
 ### Nested Schema for `customer_managed_resources.gcp.management_bucket`

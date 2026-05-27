@@ -2,12 +2,12 @@
 page_title: "redpanda_shadow_link Resource - terraform-provider-redpanda"
 subcategory: ""
 description: |-
-  ShadowLink configures asynchronous data replication from a source Redpanda cluster to a shadow (destination) cluster. The link is configuration on the shadow cluster — no infrastructure is provisioned. Each broker in the shadow cluster runs internal replication tasks that pull from the source over the standard Kafka API. The source cluster is unaware of the link aside from increased fetch traffic. The shadow cluster must have enable_shadow_linking=true set in its cluster_configuration.custom_properties_json.
+  ShadowLink configures asynchronous data replication from a source Redpanda cluster to a shadow (destination) cluster. The link is configuration on the shadow cluster — no infrastructure is provisioned. Each broker in the shadow cluster runs internal replication tasks that pull from the source over the standard Kafka API. The shadow cluster must have enable_shadow_linking=true set in its cluster_configuration.custom_properties_json.
 ---
 
 # redpanda_shadow_link (Resource)
 
-ShadowLink configures asynchronous data replication from a source Redpanda cluster to a shadow (destination) cluster. The link is configuration on the shadow cluster — no infrastructure is provisioned. Each broker in the shadow cluster runs internal replication tasks that pull from the source over the standard Kafka API. The source cluster is unaware of the link aside from increased fetch traffic. The shadow cluster must have `enable_shadow_linking=true` set in its `cluster_configuration.custom_properties_json`.
+ShadowLink configures asynchronous data replication from a source Redpanda cluster to a shadow (destination) cluster. The link is configuration on the shadow cluster — no infrastructure is provisioned. Each broker in the shadow cluster runs internal replication tasks that pull from the source over the standard Kafka API. The shadow cluster must have `enable_shadow_linking=true` set in its `cluster_configuration.custom_properties_json`.
 
 A shadow link is configuration on the destination ("shadow") cluster — no infrastructure is provisioned. Each broker in the shadow cluster runs internal replication tasks that pull from the source over the standard Kafka API. The source cluster is unaware of the link aside from increased fetch traffic.
 
@@ -18,33 +18,33 @@ A shadow link is configuration on the destination ("shadow") cluster — no infr
 
 ### Required
 
-- `name` (String) Human-readable name for the shadow link. Must be unique. Must follow Kubernetes DNS-1123 subdomain naming convention: lowercase alphanumeric characters, hyphens allowed; must start and end with alphanumeric character; maximum 63 characters. Immutable.
+- `name` (String) Human-readable name for the shadow link. Must be unique. Must follow Kubernetes DNS-1123 subdomain naming convention: - lowercase alphanumeric characters, hyphens allowed - must start and end with alphanumeric character - maximum 63 characters. Length must be at most 63. Must match pattern `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`.
 - `shadow_redpanda_id` (String) Shadow Redpanda cluster ID where the shadow link is created. This ID is immutable.
 
 ### Optional
 
 - `allow_deletion` (Boolean) Allows deletion of the shadow link. Defaults to false.
 - `client_options` (Attributes) ShadowLinkClientOptions configures the Kafka client connection settings. (see [below for nested schema](#nestedatt--client_options))
-- `consumer_offset_sync_options` (Attributes) Options for syncing consumer offsets. (see [below for nested schema](#nestedatt--consumer_offset_sync_options))
-- `schema_registry_sync_options` (Attributes) Options for how the Schema Registry is synced. The proto exposes a single oneof case (`shadow_schema_registry_topic`) modeled here as a bool. (see [below for nested schema](#nestedatt--schema_registry_sync_options))
-- `security_sync_options` (Attributes) Options for syncing security settings. (see [below for nested schema](#nestedatt--security_sync_options))
-- `source_redpanda_id` (String) Source Redpanda cluster ID. This field is optional. If provided, fetches bootstrap server information. Mutually exclusive with `client_options.bootstrap_servers` — exactly one must be set. Immutable: the proto only accepts it on `ShadowLinkCreate` and never returns it on Read, so a change forces destroy and recreate.
+- `consumer_offset_sync_options` (Attributes) Options for syncing consumer offsets (see [below for nested schema](#nestedatt--consumer_offset_sync_options))
+- `schema_registry_sync_options` (Attributes) Options for how the Schema Registry is synced. (see [below for nested schema](#nestedatt--schema_registry_sync_options))
+- `security_sync_options` (Attributes) Options for syncing security settings (see [below for nested schema](#nestedatt--security_sync_options))
+- `source_redpanda_id` (String) Source Redpanda ID
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
-- `topic_metadata_sync_options` (Attributes) Options for syncing topic metadata. (see [below for nested schema](#nestedatt--topic_metadata_sync_options))
+- `topic_metadata_sync_options` (Attributes) Options for syncing topic metadata (see [below for nested schema](#nestedatt--topic_metadata_sync_options))
 
 ### Read-Only
 
-- `id` (String) Shadow link ID. Read-only.
-- `reason` (String) Reason provides additional context for the current state. Read-only.
-- `state` (String) Current state of the shadow link. One of `STATE_CREATING`, `STATE_CREATION_FAILED`, `STATE_ACTIVE`, `STATE_PAUSED`, `STATE_DELETING`, `STATE_DELETION_FAILED`. Read-only.
+- `id` (String) Shadow link ID.
+- `reason` (String) Reason provides additional context for the current state.
+- `state` (String) State represents the lifecycle state of a shadow link.
 
 <a id="nestedatt--client_options"></a>
 ### Nested Schema for `client_options`
 
 Optional:
 
-- `authentication` (Attributes) Authentication config. Supports SASL/SCRAM and SASL/PLAIN. (see [below for nested schema](#nestedatt--client_options--authentication))
-- `bootstrap_servers` (List of String) Bootstrap servers for the source cluster. Required if source Redpanda ID is not provided (mutually exclusive with `source_redpanda_id`).
+- `authentication_configuration` (Attributes) Authentication config. Supports: * SASL/SCRAM * SASL/PLAIN (see [below for nested schema](#nestedatt--client_options--authentication_configuration))
+- `bootstrap_servers` (List of String) Bootstrap servers for the source cluster. Required if source Redpanda ID is not provided.
 - `connection_timeout_ms` (Number) Connection timeout in milliseconds (defaults to 1000ms if 0).
 - `fetch_max_bytes` (Number) Maximum bytes to fetch (defaults to 20971520 bytes / 20 MiB if 0).
 - `fetch_min_bytes` (Number) Minimum bytes to fetch (defaults to 5242880 bytes / 5 MiB if 0).
@@ -52,32 +52,60 @@ Optional:
 - `fetch_wait_max_ms` (Number) Maximum time to wait for fetch requests in milliseconds (defaults to 500ms if 0).
 - `metadata_max_age_ms` (Number) Metadata refresh interval in milliseconds (defaults to 10000ms if 0).
 - `retry_backoff_ms` (Number) Retry backoff in milliseconds (defaults to 100ms if 0).
-- `source_cluster_id` (String) Source cluster ID. If provided, this is the expected ID of the source cluster: if it does not match, the connection will be rejected. Must match the `ClusterId` field returned in the Kafka Metadata response.
-- `tls` (Attributes) TLSSettings configures TLS encryption. (see [below for nested schema](#nestedatt--client_options--tls))
+- `source_cluster_id` (String) Source cluster ID.
+- `tls_settings` (Attributes) TLSSettings configures TLS encryption. (see [below for nested schema](#nestedatt--client_options--tls_settings))
 
 Read-Only:
 
-- `client_id` (String) Client ID for the connection. Read-only.
-- `effective_connection_timeout_ms` (Number) The effective connection timeout in milliseconds. Read-only.
-- `effective_fetch_max_bytes` (Number) The effective fetch max bytes. Read-only.
-- `effective_fetch_min_bytes` (Number) The effective fetch min bytes. Read-only.
-- `effective_fetch_partition_max_bytes` (Number) The effective fetch partition max bytes. Read-only.
-- `effective_fetch_wait_max_ms` (Number) The effective fetch wait max in milliseconds. Read-only.
-- `effective_metadata_max_age_ms` (Number) The effective metadata max age in milliseconds. Read-only.
-- `effective_retry_backoff_ms` (Number) The effective retry backoff in milliseconds. Read-only.
+- `client_id` (String) Client ID for the connection.
+- `effective_connection_timeout_ms` (Number) The effective connection timeout in milliseconds
+- `effective_fetch_max_bytes` (Number) The effective fetch max bytes
+- `effective_fetch_min_bytes` (Number) The effective fetch min bytes
+- `effective_fetch_partition_max_bytes` (Number) The effective fetch partition max bytes
+- `effective_fetch_wait_max_ms` (Number) The effective fetch wait max in milliseconds
+- `effective_metadata_max_age_ms` (Number) The effective metadata max age in milliseconds
+- `effective_retry_backoff_ms` (Number) The effective retry backoff in milliseconds
 
-<a id="nestedatt--client_options--authentication"></a>
-### Nested Schema for `client_options.authentication`
+<a id="nestedatt--client_options--authentication_configuration"></a>
+### Nested Schema for `client_options.authentication_configuration`
 
-Required:
+Optional:
 
-- `mechanism` (String) SASL mechanism. One of `scram-sha-256`, `scram-sha-512`, or `plain`. The first two map to `ScramConfig` with the matching `ScramMechanism`; `plain` maps to `PlainConfig`.
-- `password` (String, Sensitive) Password. Must reference a dataplane secret on the **shadow** cluster in the form `${secrets.<NAME>}` (validated at plan time). Use `redpanda_secret` to provision the secret.
-- `username` (String) SCRAM/PLAIN username. The user must exist on the source cluster with at least `CLUSTER:DESCRIBE`, `TOPIC:DESCRIBE`, and `TOPIC:READ` ACLs for the topics being shadowed.
+- `plain_configuration` (Attributes) PLAIN settings (see [below for nested schema](#nestedatt--client_options--authentication_configuration--plain_configuration))
+- `scram_configuration` (Attributes) SCRAM settings (see [below for nested schema](#nestedatt--client_options--authentication_configuration--scram_configuration))
+
+<a id="nestedatt--client_options--authentication_configuration--plain_configuration"></a>
+### Nested Schema for `client_options.authentication_configuration.plain_configuration`
+
+Optional:
+
+- `password` (String, Sensitive) Password
+- `username` (String) PLAIN username
+
+Read-Only:
+
+- `password_set` (Boolean) Indicates that the password has been set
+- `password_set_at` (String) Timestamp of when the password was last set - only valid if password_set is true
 
 
-<a id="nestedatt--client_options--tls"></a>
-### Nested Schema for `client_options.tls`
+<a id="nestedatt--client_options--authentication_configuration--scram_configuration"></a>
+### Nested Schema for `client_options.authentication_configuration.scram_configuration`
+
+Optional:
+
+- `password` (String, Sensitive) Password
+- `scram_mechanism` (String) - SCRAM_MECHANISM_SCRAM_SHA_256: SCRAM-SHA-256 - SCRAM_MECHANISM_SCRAM_SHA_512: SCRAM-SHA-512
+- `username` (String) SCRAM username
+
+Read-Only:
+
+- `password_set` (Boolean) Indicates that the password has been set
+- `password_set_at` (String) Timestamp of when the password was last set - only valid if password_set is true
+
+
+
+<a id="nestedatt--client_options--tls_settings"></a>
+### Nested Schema for `client_options.tls_settings`
 
 Optional:
 
@@ -85,7 +113,7 @@ Optional:
 - `cert` (String) Cert is the certificate for TLS. Key and Cert are optional but if one is provided, then both must be provided.
 - `do_not_set_sni_hostname` (Boolean) Do not set SNI hostname.
 - `enabled` (Boolean) Enable TLS.
-- `key` (String, Sensitive) The private key for TLS. Key and Cert are optional but if one is provided, then both must be provided. Must reference a dataplane secret in the form `${secrets.<NAME>}` (validated at plan time).
+- `key` (String, Sensitive) The private key for TLS. Key and Cert are optional but if one is provided, then both must be provided.
 
 
 
@@ -94,22 +122,22 @@ Optional:
 
 Optional:
 
-- `group_filters` (Attributes List) The filters. (see [below for nested schema](#nestedatt--consumer_offset_sync_options--group_filters))
-- `interval` (String) Sync interval as a Go duration string (e.g. `30s`). If 0 provided, defaults to 30 seconds.
-- `paused` (Boolean) Allows user to pause the consumer offset sync task. If paused, then the task will enter the 'paused' state and not sync consumer offsets from the source cluster.
+- `group_filters` (Attributes List) The filters (see [below for nested schema](#nestedatt--consumer_offset_sync_options--group_filters))
+- `interval` (String) Sync interval If 0 provided, defaults to 30 seconds
+- `paused` (Boolean) Allows user to pause the consumer offset sync task. If paused, then the task will enter the 'paused' state and not sync consumer offsets from the source cluster
 
 Read-Only:
 
-- `effective_interval` (String) The effective interval for the task. Read-only.
+- `effective_interval` (String) The effective interval for the task
 
 <a id="nestedatt--consumer_offset_sync_options--group_filters"></a>
 ### Nested Schema for `consumer_offset_sync_options.group_filters`
 
 Required:
 
-- `filter_type` (String) What type of filter this is, include or exclude. `FILTER_TYPE_INCLUDE` includes the items that match the filter; `FILTER_TYPE_EXCLUDE` excludes them.
-- `name` (String) The resource name, or `*`. Note if `*`, must be the only character and `pattern_type` must be `PATTERN_TYPE_LITERAL`.
-- `pattern_type` (String) The matching pattern type. `PATTERN_TYPE_LITERAL` must match the filter exactly. `PATTERN_TYPE_PREFIX` matches anything that starts with filter. `PATTERN_TYPE_PREFIXED` matches anything that starts with filter (alias of `PATTERN_TYPE_PREFIX`).
+- `filter_type` (String) - FILTER_TYPE_INCLUDE: Include the items that match the filter - FILTER_TYPE_EXCLUDE: Exclude the items that match the filter
+- `name` (String) The resource name, or "*" Note if "*", must be the _only_ character and `pattern_type` must be `PATTERN_TYPE_LITERAL`
+- `pattern_type` (String) - PATTERN_TYPE_LITERAL: Must match the filter exactly - PATTERN_TYPE_PREFIX: Will match anything that starts with filter - PATTERN_TYPE_PREFIXED: Will match anything that starts with filter
 
 
 
@@ -118,7 +146,7 @@ Required:
 
 Optional:
 
-- `shadow_schema_registry_topic` (Boolean) If true, the Shadow Link will attempt to add the `_schemas` topic to the list of Shadow Topics as long as (1) the `_schemas` topic exists on the source cluster and (2) the `_schemas` topic does not exist on the shadow cluster, or it is empty. If either condition is not met, the `_schemas` topic will not be shadowed. Unsetting this flag will not remove the `_schemas` topic from shadowing if it has already been added. Once made a shadow topic, the `_schemas` topic is replicated byte-for-byte; to stop shadowing it, unset this field then either fail-over the topic or delete it.
+- `shadow_schema_registry_topic` (Boolean) Shadow the entire source cluster's Schema Registry byte-for-byte. If set, the Shadow Link will attempt to add the `_schemas` topic to the list of Shadow Topics as long as: 1. The `_schemas` topic exists on the source cluster 2. The `_schemas` topic does not exist on the shadow cluster, or it is empty. If either of the above conditions are _not_ met, then the `_schemas` topic will _not_ be shadowed by this cluster. Unsetting this flag will _not_ remove the `_schemas` topic from shadowing if it has already been added. Once made a shadow topic, the `_schemas` topic will be replicated byte-for-byte. To stop shadowing the `_schemas` topic, unset this field, then either fail-over the topic or delete it.
 
 
 <a id="nestedatt--security_sync_options"></a>
@@ -126,34 +154,34 @@ Optional:
 
 Optional:
 
-- `acl_filters` (Attributes List) ACL filters. (see [below for nested schema](#nestedatt--security_sync_options--acl_filters))
-- `interval` (String) Sync interval as a Go duration string. If 0 provided, defaults to 30 seconds.
-- `paused` (Boolean) Allows user to pause the security settings sync task. If paused, then the task will enter the 'paused' state and will not sync security settings from the source cluster.
+- `acl_filters` (Attributes List) ACL filters (see [below for nested schema](#nestedatt--security_sync_options--acl_filters))
+- `interval` (String) Sync interval If 0 provided, defaults to 30 seconds
+- `paused` (Boolean) Allows user to pause the security settings sync task. If paused, then the task will enter the 'paused' state and will not sync security settings from the source cluster
 
 Read-Only:
 
-- `effective_interval` (String) The effective interval for the task. Read-only.
+- `effective_interval` (String) The effective interval for the task
 
 <a id="nestedatt--security_sync_options--acl_filters"></a>
 ### Nested Schema for `security_sync_options.acl_filters`
 
 Required:
 
-- `access_filter` (Attributes) Filter an ACL based on its access. (see [below for nested schema](#nestedatt--security_sync_options--acl_filters--access_filter))
-- `resource_filter` (Attributes) A filter to match ACLs for resources. (see [below for nested schema](#nestedatt--security_sync_options--acl_filters--resource_filter))
+- `access_filter` (Attributes) Filter an ACL based on its access (see [below for nested schema](#nestedatt--security_sync_options--acl_filters--access_filter))
+- `resource_filter` (Attributes) A filter to match ACLs for resources (see [below for nested schema](#nestedatt--security_sync_options--acl_filters--resource_filter))
 
 <a id="nestedatt--security_sync_options--acl_filters--access_filter"></a>
 ### Nested Schema for `security_sync_options.acl_filters.access_filter`
 
 Required:
 
-- `operation` (String) The ACL operation to match. One of `ACL_OPERATION_ANY`, `ACL_OPERATION_READ`, `ACL_OPERATION_WRITE`, `ACL_OPERATION_CREATE`, `ACL_OPERATION_REMOVE`, `ACL_OPERATION_ALTER`, `ACL_OPERATION_DESCRIBE`, `ACL_OPERATION_CLUSTER_ACTION`, `ACL_OPERATION_DESCRIBE_CONFIGS`, `ACL_OPERATION_ALTER_CONFIGS`, `ACL_OPERATION_IDEMPOTENT_WRITE`.
-- `permission_type` (String) The permission type. One of `ACL_PERMISSION_TYPE_ANY`, `ACL_PERMISSION_TYPE_ALLOW`, `ACL_PERMISSION_TYPE_DENY`.
+- `operation` (String) The ACL operation to match
+- `permission_type` (String) ACL permission types
 
 Optional:
 
-- `host` (String) The host to match. If not set, will default to match all hosts with the specified `operation` and `permission_type`. Note that the asterisk `*` is literal and matches hosts that are set to `*`.
-- `principal` (String) The name of the principal. If not set, will default to match all principals with the specified `operation` and `permission_type`.
+- `host` (String) The host to match. If not set, will default to match all hosts with the specified `operation` and `permission_type`. Note that the asterisk `*` is literal and matches hosts that are set to `*`
+- `principal` (String) The name of the principal, if not set will default to match all principals with the specified `operation` and `permission_type`
 
 
 <a id="nestedatt--security_sync_options--acl_filters--resource_filter"></a>
@@ -161,12 +189,12 @@ Optional:
 
 Required:
 
-- `pattern_type` (String) The ACL pattern type. `ACL_PATTERN_ANY` matches any pattern; `ACL_PATTERN_LITERAL` matches a literal string; `ACL_PATTERN_PREFIXED` matches a prefix; `ACL_PATTERN_MATCH` serves as a catch-all for all the names of a topic the principal is authorized to access.
-- `resource_type` (String) The ACL resource type to match. `ACL_RESOURCE_ANY` is a wildcard for selecting any ACL resource; `ACL_RESOURCE_CLUSTER` is cluster-wide; `ACL_RESOURCE_GROUP`, `ACL_RESOURCE_TOPIC`, `ACL_RESOURCE_TXN_ID`, `ACL_RESOURCE_SR_SUBJECT`, `ACL_RESOURCE_SR_REGISTRY`, `ACL_RESOURCE_SR_ANY` cover the named resources.
+- `pattern_type` (String) - ACL_PATTERN_ANY: Wildcard to match any pattern - ACL_PATTERN_LITERAL: Match a literal string - ACL_PATTERN_PREFIXED: Match a prefix - ACL_PATTERN_PREFIX: Match a prefix - ACL_PATTERN_MATCH: Match serves as a catch-all for all the names of a topic the principal is authorized to access
+- `resource_type` (String) - ACL_RESOURCE_ANY: Wildcard for selecting any ACL resource - ACL_RESOURCE_CLUSTER: Cluster wide resource - ACL_RESOURCE_GROUP: Consumer group resource - ACL_RESOURCE_TOPIC: Topic resource - ACL_RESOURCE_TXN_ID: Transaction ID resource - ACL_RESOURCE_SR_SUBJECT: Schema Registry subject resource - ACL_RESOURCE_SR_REGISTRY: Schema Registry wide resource - ACL_RESOURCE_SR_ANY: Wildcard to match any SR ACL resource
 
 Optional:
 
-- `name` (String) Name. If not given, will default to match all items in `resource_type`. Note that asterisk `*` is literal and matches resource ACLs that are named `*`.
+- `name` (String) Name, if not given will default to match all items in `resource_type`. Note that asterisk `*` is literal and matches resource ACLs that are named `*`
 
 
 
@@ -186,35 +214,27 @@ Optional:
 
 Optional:
 
-- `auto_create_shadow_topic_filters` (Attributes List) List of filters that indicate which topics should be automatically created as shadow topics on the shadow cluster. This only controls automatic creation of shadow topics and does not affect the state of the mirror topic once it is created. Literal filters for `__consumer_offsets`, `_redpanda.audit_log` and `_schemas` will be rejected, as well as prefix filters to match topics prefixed with `_redpanda` or `__redpanda`. Wildcard `*` is permitted only for literal filters and will not match any topics that start with `_redpanda` or `__redpanda`. If users wish to shadow topics that start with `_redpanda` or `__redpanda`, they should provide a literal filter for those topics. (see [below for nested schema](#nestedatt--topic_metadata_sync_options--auto_create_shadow_topic_filters))
-- `exclude_default` (Boolean) If false (default), the following topic properties are synced by default: `compression.type`, `retention.bytes`, `retention.ms`, `delete.retention.ms`, replication factor, `min.compaction.lag.ms`, `max.compaction.lag.ms`. If true, only the properties listed in `synced_shadow_topic_properties` will be synced.
-- `interval` (String) How often to sync metadata, as a Go duration string (e.g. `30s`, `5m`). If 0 provided, defaults to 30 seconds.
-- `paused` (Boolean) Allows user to pause the topic sync task. If paused, then the task will enter the 'paused' state and not sync topics or their properties from the source cluster.
-- `start_offset` (Attributes) The starting offset for new shadow topic partitions. Defaults to earliest. Only applies if the shadow partition is empty. Exactly one of the three sub-fields may be set. (see [below for nested schema](#nestedatt--topic_metadata_sync_options--start_offset))
-- `synced_shadow_topic_properties` (List of String) List of topic properties that should be synced from the source topic. The following properties will always be replicated: `partition_count`, `max.message.bytes`, `cleanup.policy`, `timestamp.type`. The following properties are not allowed to be replicated and adding them to this list will result in an error: `redpanda.remote.readreplica`, `redpanda.remote.recovery`, `redpanda.remote.allowgaps`, `redpanda.virtual.cluster.id`, `redpanda.leaders.preference`, `redpanda.storage.mode`. This list is in addition to the default properties that will be synced — see `exclude_default`.
+- `auto_create_shadow_topic_filters` (Attributes List) List of filters that indicate which topics should be automatically created as shadow topics on the shadow cluster. This only controls automatic creation of shadow topics and does not effect the state of the mirror topic once it is created. Literal filters for __consumer_offsets, _redpanda.audit_log and _schemas will be rejected as well as prefix filters to match topics prefixed with _redpanda or __redpanda. Wildcard `*` is permitted only for literal filters and will _not_ match any topics that start with _redpanda or __redpanda. If users wish to shadow topics that start with _redpanda or __redpanda, they should provide a literal filter for those topics. (see [below for nested schema](#nestedatt--topic_metadata_sync_options--auto_create_shadow_topic_filters))
+- `exclude_default` (Boolean) If this is true, then only the properties listed in `synced_shadow_topic_properties` will be synced.
+- `interval` (String) How often to sync metadata If 0 provided, defaults to 30 seconds
+- `paused` (Boolean) Allows user to pause the topic sync task. If paused, then the task will enter the 'paused' state and not sync topics or their properties from the source cluster
+- `start_at_earliest` (Boolean) Start at the earliest offset in the partition.
+- `start_at_latest` (Boolean) Start at the latest offset in the partition.
+- `start_at_timestamp` (String) Enables data replication from the first offset on the source topic/partition where the record's timestamp is at or after the specified timestamp.
+- `synced_shadow_topic_properties` (List of String) The following properties are not allowed to be replicated and adding them to this list will result in an error: - `redpanda.remote.readreplica` - `redpanda.remote.recovery` - `redpanda.remote.allowgaps` - `redpanda.virtual.cluster.id` - `redpanda.leaders.preference` - `redpanda.cloud_topic.enabled` This list is a list of properties in addition to the default properties that will be synced. See `exclude_default`.
 
 Read-Only:
 
-- `effective_interval` (String) The effective interval for the task. Read-only.
+- `effective_interval` (String) The effective interval for the task
 
 <a id="nestedatt--topic_metadata_sync_options--auto_create_shadow_topic_filters"></a>
 ### Nested Schema for `topic_metadata_sync_options.auto_create_shadow_topic_filters`
 
 Required:
 
-- `filter_type` (String) What type of filter this is, include or exclude. `FILTER_TYPE_INCLUDE` includes the items that match the filter; `FILTER_TYPE_EXCLUDE` excludes them.
-- `name` (String) The resource name, or `*`. Note if `*`, must be the only character and `pattern_type` must be `PATTERN_TYPE_LITERAL`.
-- `pattern_type` (String) The matching pattern type. `PATTERN_TYPE_LITERAL` must match the filter exactly. `PATTERN_TYPE_PREFIX` matches anything that starts with filter. `PATTERN_TYPE_PREFIXED` matches anything that starts with filter (alias of `PATTERN_TYPE_PREFIX`).
-
-
-<a id="nestedatt--topic_metadata_sync_options--start_offset"></a>
-### Nested Schema for `topic_metadata_sync_options.start_offset`
-
-Optional:
-
-- `at_earliest` (Boolean) Enables data replication from the earliest offset on the source topic/partition.
-- `at_latest` (Boolean) Enables data replication from the latest offset on the source topic/partition.
-- `at_timestamp` (String) Enables data replication from the first offset on the source topic/partition where the record's timestamp is at or after the specified RFC3339 timestamp.
+- `filter_type` (String) - FILTER_TYPE_INCLUDE: Include the items that match the filter - FILTER_TYPE_EXCLUDE: Exclude the items that match the filter
+- `name` (String) The resource name, or "*" Note if "*", must be the _only_ character and `pattern_type` must be `PATTERN_TYPE_LITERAL`
+- `pattern_type` (String) - PATTERN_TYPE_LITERAL: Must match the filter exactly - PATTERN_TYPE_PREFIX: Will match anything that starts with filter - PATTERN_TYPE_PREFIXED: Will match anything that starts with filter
 
 ## Example Usage
 
@@ -274,10 +294,12 @@ resource "redpanda_shadow_link" "example" {
   source_redpanda_id = "redpanda-id-of-source-cluster"
 
   client_options = {
-    authentication = {
-      mechanism = "scram-sha-256"
-      username  = "shadow-link-user"
-      password  = "$${secrets.${redpanda_secret.source_password.name}}"
+    authentication_configuration = {
+      scram_configuration = {
+        scram_mechanism = "SCRAM_SHA_256"
+        username        = "shadow-link-user"
+        password        = "$${secrets.${redpanda_secret.source_password.name}}"
+      }
     }
   }
 

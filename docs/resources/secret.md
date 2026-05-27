@@ -20,7 +20,7 @@ Creates a secret in a Redpanda cluster's per-cluster secret store. Other resourc
 
 - `cluster_api_url` (String) Dataplane API URL of the cluster that owns this secret (`redpanda_cluster.<name>.cluster_api_url`). Immutable; changing this prevents deletion of the existing secret. Generally easier to recreate the resource than to change this.
 - `name` (String) Secret identifier.
-- `scopes` (List of String) Secret scopes
+- `scopes` (Set of String) Secret scopes. Order does not matter — the server may return scopes in a different order than you supplied; the set semantics make plan-twice stable regardless.
 - `secret_data` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) The secret data. Must be Base64-encoded.
 
 ### Optional

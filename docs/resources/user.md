@@ -17,7 +17,7 @@ Creates a user in a Redpanda Cluster.
 ### Required
 
 - `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports
-- `name` (String) Name of the user, must be unique
+- `name` (String) Name of the user, must be unique. Length must be between 1 and 128.
 
 ### Optional
 
@@ -25,13 +25,13 @@ Creates a user in a Redpanda Cluster.
 
 - `allow_deletion` (Boolean) Allows deletion of the user. If false, the user cannot be deleted and the resource will be removed from the state on destruction. Defaults to false.
 - `mechanism` (String) Which authentication method to use, see https://docs.redpanda.com/current/manage/security/authentication/ for more information
-- `password` (String, Sensitive, Deprecated) Password of the user. Deprecated: use password_wo instead to avoid storing password in state.
+- `password` (String, Sensitive, Deprecated) Password of the user. Deprecated: use password_wo instead to avoid storing password in state. Length must be between 3 and 128.
 - `password_wo` (String, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Password of the user (write-only, not stored in state). Requires Terraform 1.11+. Either password or password_wo must be set.
 - `password_wo_version` (Number) Version number for password_wo. Increment this value to trigger a password update when using password_wo.
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) Unique identifier of the resource.
 
 ## Example Usage
 

@@ -2,12 +2,12 @@
 page_title: "redpanda_serverless_cluster Resource - terraform-provider-redpanda"
 subcategory: ""
 description: |-
-  
+  ServerlessCluster represents a Redpanda Cloud serverless cluster
 ---
 
 # redpanda_serverless_cluster (Resource)
 
-
+ServerlessCluster represents a Redpanda Cloud serverless cluster
 
 Enables the provisioning and management of Redpanda Serverless clusters. A Serverless cluster requires a resource group.
 
@@ -23,8 +23,9 @@ Enables the provisioning and management of Redpanda Serverless clusters. A Serve
 ### Optional
 
 - `networking_config` (Attributes) Network configuration controlling public/private access to the cluster (see [below for nested schema](#nestedatt--networking_config))
-- `private_link_id` (String) Private link ID for the serverless cluster. Must be set if private networking is enabled.
-- `tags` (Map of String) Tags placed on cloud resources.
+- `private_link_id` (String) Private link ID for the serverless cluster. Must be set if private networking is enabled. Must match pattern `^[a-v0-9]{20}$`.
+- `tags` (Map of String) User-defined tags for the Serverless cluster
+- `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
 
@@ -46,6 +47,16 @@ Optional:
 
 - `private` (String) Private network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED
 - `public` (String) Public network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED
+
+
+<a id="nestedatt--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Optional:
+
+- `create` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+- `delete` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+- `update` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
 
 <a id="nestedatt--dataplane_api"></a>
@@ -71,8 +82,8 @@ Read-Only:
 
 Read-Only:
 
-- `delete_after` (String) Timestamp after which the cluster will be deleted.
-- `reason` (String) Reason for the planned deletion.
+- `delete_after` (String) Delete After
+- `reason` (String) Reason
 
 
 <a id="nestedatt--prometheus"></a>
@@ -130,10 +141,8 @@ resource "redpanda_serverless_private_link" "test" {
   serverless_region  = var.region
   allow_deletion = var.allow_private_link_deletion
 
-  cloud_provider_config = {
-    aws = {
-      allowed_principals = var.allowed_principals
-    }
+  aws_config = {
+    allowed_principals = var.allowed_principals
   }
 }
 
