@@ -51,3 +51,9 @@ redpanda/tests/infra/network/aws/inputs.json
 # Tools install directory
 .build
 manual-tests/
+.idea/terraform-provider-redpanda.iml
+
+.logs/
+
+# Local Claude Code scratch / per-user settings — committed: .claude/skills/, .claude/settings.json (if present)
+.claude/settings.local.json
