@@ -23,56 +23,24 @@ import (
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
-	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	regionmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/region"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils/enums"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
-var (
-	_ datasource.DataSource = &DataSourceRegion{}
-)
+var _ datasource.DataSource = &DataSourceRegion{}
 
 // DataSourceRegion represents a data source for a Redpanda Cloud region.
 type DataSourceRegion struct {
-	CpCl *cloud.ControlPlaneClientSet
+	base.DataSourceBase
 }
 
-// DataSourceRegionSchema defines the schema for a region data source.
-func DataSourceRegionSchema() schema.Schema {
-	return schema.Schema{
-		Attributes: map[string]schema.Attribute{
-			"cloud_provider": schema.StringAttribute{
-				Required:    true,
-				Description: "Cloud provider where the region exists",
-				Validators:  validators.CloudProviders(),
-			},
-			"name": schema.StringAttribute{
-				Required:    true,
-				Description: "Name of the region",
-			},
-			"zones": schema.ListAttribute{
-				ElementType: types.StringType,
-				Computed:    true,
-				Description: "Zones available in the region",
-			},
-		},
-		Description: "Data source for a Redpanda Cloud region",
-	}
-}
-
-// Metadata returns the metadata for the Region data source.
-func (*DataSourceRegion) Metadata(_ context.Context, _ datasource.MetadataRequest, response *datasource.MetadataResponse) {
-	response.TypeName = "redpanda_region"
-}
-
-// Schema returns the schema for the Region data source.
-func (*DataSourceRegion) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	resp.Schema = DataSourceRegionSchema()
+// NewDataSourceRegion constructs a Region datasource.
+func NewDataSourceRegion() *DataSourceRegion {
+	d := &DataSourceRegion{}
+	d.DataSourceBase = base.NewDataSourceBase("redpanda_region", DataSourceRegionSchema, nil)
+	return d
 }
 
 // Read reads the Region data source's values and updates the state.
@@ -83,9 +51,9 @@ func (r *DataSourceRegion) Read(ctx context.Context, req datasource.ReadRequest,
 		return
 	}
 
-	cloudProvider, err := utils.StringToCloudProvider(model.CloudProvider.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("unsupported cloud provider", utils.DeserializeGrpcError(err))
+	cloudProvider := enums.StringToCloudProvider(model.CloudProvider.ValueString())
+	if cloudProvider == controlplanev1.CloudProvider_CLOUD_PROVIDER_UNSPECIFIED {
+		resp.Diagnostics.AddError("unsupported cloud provider", fmt.Sprintf("unknown cloud provider %q", model.CloudProvider.ValueString()))
 		return
 	}
 
@@ -102,32 +70,10 @@ func (r *DataSourceRegion) Read(ctx context.Context, req datasource.ReadRequest,
 		return
 	}
 
-	zones, diags := types.ListValueFrom(ctx, types.StringType, region.Region.Zones)
+	persist, diags := regionmodel.FlattenData(ctx, region.Region, &model)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, regionmodel.DataModel{
-		CloudProvider: types.StringValue(utils.CloudProviderToString(region.Region.CloudProvider)),
-		Name:          types.StringValue(region.Region.Name),
-		Zones:         zones,
-	})...)
-}
-
-// Configure uses provider level data to configure DataSourceRegion client.
-func (r *DataSourceRegion) Configure(_ context.Context, request datasource.ConfigureRequest, response *datasource.ConfigureResponse) {
-	if request.ProviderData == nil {
-		return
-	}
-
-	p, ok := request.ProviderData.(config.Datasource)
-	if !ok {
-		response.Diagnostics.AddError(
-			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", request.ProviderData),
-		)
-		return
-	}
-	r.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
+	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }

@@ -25,27 +25,31 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils/enums"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
-var (
-	_ datasource.DataSource = &DataSourceRegions{}
-)
+var _ datasource.DataSource = &DataSourceRegions{}
 
 // DataSourceRegions represents a data source for a list of Redpanda
 // Cloud regions.
 type DataSourceRegions struct {
-	CpCl *cloud.ControlPlaneClientSet
+	base.DataSourceBase
+}
+
+// NewDataSourceRegions constructs a Regions datasource.
+func NewDataSourceRegions() *DataSourceRegions {
+	d := &DataSourceRegions{}
+	d.DataSourceBase = base.NewDataSourceBase("redpanda_regions", DataSourceRegionsSchema, nil)
+	return d
 }
 
 // DataSourceRegionsSchema defines the schema for a Regions data
 // source.
-func DataSourceRegionsSchema() schema.Schema {
+func DataSourceRegionsSchema(_ context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"cloud_provider": schema.StringAttribute{
@@ -75,16 +79,6 @@ func DataSourceRegionsSchema() schema.Schema {
 	}
 }
 
-// Metadata returns the metadata for the Regions data source.
-func (*DataSourceRegions) Metadata(_ context.Context, _ datasource.MetadataRequest, response *datasource.MetadataResponse) {
-	response.TypeName = "redpanda_regions"
-}
-
-// Schema returns the schema for the Regions data source.
-func (*DataSourceRegions) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	resp.Schema = DataSourceRegionsSchema()
-}
-
 // Read reads the Regions data source's values and updates the state.
 func (r *DataSourceRegions) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var model models.Regions
@@ -93,9 +87,9 @@ func (r *DataSourceRegions) Read(ctx context.Context, req datasource.ReadRequest
 		return
 	}
 
-	cloudProvider, err := utils.StringToCloudProvider(model.CloudProvider.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("unsupported cloud provider", utils.DeserializeGrpcError(err))
+	cloudProvider := enums.StringToCloudProvider(model.CloudProvider.ValueString())
+	if cloudProvider == controlplanev1.CloudProvider_CLOUD_PROVIDER_UNSPECIFIED {
+		resp.Diagnostics.AddError("unsupported cloud provider", fmt.Sprintf("unknown cloud provider %q", model.CloudProvider.ValueString()))
 		return
 	}
 
@@ -120,21 +114,4 @@ func (r *DataSourceRegions) Read(ctx context.Context, req datasource.ReadRequest
 		model.Regions = append(model.Regions, item)
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, model)...)
-}
-
-// Configure uses provider level data to configure DataSourceRegions client.
-func (r *DataSourceRegions) Configure(_ context.Context, request datasource.ConfigureRequest, response *datasource.ConfigureResponse) {
-	if request.ProviderData == nil {
-		return
-	}
-
-	p, ok := request.ProviderData.(config.Datasource)
-	if !ok {
-		response.Diagnostics.AddError(
-			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", request.ProviderData),
-		)
-		return
-	}
-	r.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
 }

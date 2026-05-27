@@ -25,25 +25,29 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils/enums"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
-var (
-	_ datasource.DataSource = &DataSourceServerlessRegions{}
-)
+var _ datasource.DataSource = &DataSourceServerlessRegions{}
 
 // DataSourceServerlessRegions represents a data source for a list of Redpanda Cloud serverless regions.
 type DataSourceServerlessRegions struct {
-	CpCl *cloud.ControlPlaneClientSet
+	base.DataSourceBase
+}
+
+// NewDataSourceServerlessRegions constructs a ServerlessRegions datasource.
+func NewDataSourceServerlessRegions() *DataSourceServerlessRegions {
+	d := &DataSourceServerlessRegions{}
+	d.DataSourceBase = base.NewDataSourceBase("redpanda_serverless_regions", DataSourceServerlessRegionsSchema, nil)
+	return d
 }
 
 // DataSourceServerlessRegionsSchema defines the schema for a ServerlessServerlessRegions data source.
-func DataSourceServerlessRegionsSchema() schema.Schema {
+func DataSourceServerlessRegionsSchema(_ context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"cloud_provider": schema.StringAttribute{
@@ -85,16 +89,6 @@ func DataSourceServerlessRegionsSchema() schema.Schema {
 	}
 }
 
-// Metadata returns the metadata for the ServerlessRegions data source.
-func (*DataSourceServerlessRegions) Metadata(_ context.Context, _ datasource.MetadataRequest, response *datasource.MetadataResponse) {
-	response.TypeName = "redpanda_serverless_regions"
-}
-
-// Schema returns the schema for the ServerlessRegions data source.
-func (*DataSourceServerlessRegions) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	resp.Schema = DataSourceServerlessRegionsSchema()
-}
-
 // Read reads the ServerlessRegions data source's values and updates the state.
 func (r *DataSourceServerlessRegions) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var model models.ServerlessRegions
@@ -103,9 +97,9 @@ func (r *DataSourceServerlessRegions) Read(ctx context.Context, req datasource.R
 		return
 	}
 
-	cloudProvider, err := utils.StringToCloudProvider(model.CloudProvider.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("unsupported cloud provider", utils.DeserializeGrpcError(err))
+	cloudProvider := enums.StringToCloudProvider(model.CloudProvider.ValueString())
+	if cloudProvider == controlplanev1.CloudProvider_CLOUD_PROVIDER_UNSPECIFIED {
+		resp.Diagnostics.AddError("unsupported cloud provider", fmt.Sprintf("unknown cloud provider %q", model.CloudProvider.ValueString()))
 		return
 	}
 	regions, err := r.CpCl.ServerlessRegion.ListServerlessRegions(ctx, &controlplanev1.ListServerlessRegionsRequest{
@@ -123,7 +117,7 @@ func (r *DataSourceServerlessRegions) Read(ctx context.Context, req datasource.R
 	model.ServerlessRegions = []models.ServerlessRegionsItem{}
 	for _, v := range regions.ServerlessRegions {
 		item := models.ServerlessRegionsItem{
-			CloudProvider: utils.CloudProviderToString(v.GetCloudProvider()),
+			CloudProvider: enums.CloudProviderToString(v.GetCloudProvider()),
 			Name:          v.GetName(),
 			TimeZone:      v.GetDefaultTimezone().String(),
 			Placement: models.Placement{
@@ -133,21 +127,4 @@ func (r *DataSourceServerlessRegions) Read(ctx context.Context, req datasource.R
 		model.ServerlessRegions = append(model.ServerlessRegions, item)
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, model)...)
-}
-
-// Configure uses provider level data to configure DataSourceServerlessRegions client.
-func (r *DataSourceServerlessRegions) Configure(_ context.Context, request datasource.ConfigureRequest, response *datasource.ConfigureResponse) {
-	if request.ProviderData == nil {
-		return
-	}
-
-	p, ok := request.ProviderData.(config.Datasource)
-	if !ok {
-		response.Diagnostics.AddError(
-			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *provider.Data, got: %T. Please report this issue to the provider developers.", request.ProviderData),
-		)
-		return
-	}
-	r.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
 }
