@@ -1,0 +1,35 @@
+description: Schema represents a Schema Registry schema
+attributes:
+    - name: allow_deletion
+      description: When enabled, prevents the resource from being deleted if the cluster is unreachable. When disabled (default), the resource will be removed from state without attempting deletion when the cluster is unreachable.
+    - name: cluster_id
+      description: The ID of the cluster where the schema is stored.
+    - name: compatibility
+      description: The compatibility level for schema evolution (BACKWARD, BACKWARD_TRANSITIVE, FORWARD, FORWARD_TRANSITIVE, FULL, FULL_TRANSITIVE, NONE). Defaults to BACKWARD.
+    - name: id
+      description: The unique identifier for the schema.
+    - name: password
+      description: SASL password for Schema Registry HTTP Basic authentication. Pair with username when you need writes attributed to a specific SASL identity instead of the provider's cloud Bearer token. Stored in Terraform state.
+    - name: password_wo
+      description: Deprecated. The Terraform Plugin Framework does not persist write-only attributes to state, leaving the provider unable to authenticate to Schema Registry during refresh — this attribute cannot reliably manage schemas. Use the default cloud Bearer authentication (omit username and password) or the regular `password` attribute.
+    - name: password_wo_version
+      description: Deprecated. Version counter for password_wo, which is itself deprecated for this resource.
+    - name: references
+      description: List of schema references.
+      attributes:
+        - name: name
+          description: The name of the referenced schema.
+        - name: subject
+          description: The subject of the referenced schema.
+        - name: version
+          description: The version of the referenced schema.
+    - name: schema
+      description: The schema definition in JSON format.
+    - name: schema_type
+      description: The type of schema (AVRO, JSON, PROTOBUF).
+    - name: subject
+      description: The subject name for the schema.
+    - name: username
+      description: 'SASL username for Schema Registry HTTP Basic authentication. Optional: when omitted (together with password) the provider authenticates to Schema Registry using its cloud Bearer token. Supply username + password only when you need writes to be attributed to a specific SASL identity (e.g., audit / least-privilege).'
+    - name: version
+      description: The version of the schema.
