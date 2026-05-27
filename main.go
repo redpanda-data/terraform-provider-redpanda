@@ -6,8 +6,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6/tf6server"
+	"github.com/redpanda-data/terraform-provider-redpanda/internal/provider"
 )
 
 var version = "dev"
@@ -30,13 +31,23 @@ func main() {
 		cloudEnv = defaultCloudEnv
 	}
 
-	err := providerserver.Serve(
-		context.Background(),
-		redpanda.New(context.Background(), cloudEnv, version),
-		providerserver.ServeOpts{
-			Address: "registry.terraform.io/redpanda-data/redpanda",
-			Debug:   debug,
-		})
+	ctx := context.Background()
+
+	muxed, err := provider.NewMuxedServer(ctx, cloudEnv, version)()
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	var serveOpts []tf6server.ServeOpt
+	if debug {
+		serveOpts = append(serveOpts, tf6server.WithManagedDebug())
+	}
+
+	err = tf6server.Serve(
+		"registry.terraform.io/redpanda-data/redpanda",
+		func() tfprotov6.ProviderServer { return muxed },
+		serveOpts...,
+	)
 	if err != nil {
 		log.Fatal(err.Error())
 	}

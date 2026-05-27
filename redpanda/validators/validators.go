@@ -30,8 +30,3 @@ func CloudProviders() []validator.String {
 func ClusterTypes() []validator.String {
 	return []validator.String{stringvalidator.OneOf("dedicated", "byoc")}
 }
-
-// ConnectionTypes returns a list of connection types that the Redpanda provider supports.
-func ConnectionTypes() validator.String {
-	return stringvalidator.OneOf("public", "private")
-}

@@ -29,7 +29,6 @@ import (
 
 	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1/controlplanev1grpc"
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
-	controlplanev1beta2 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1beta2"
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -42,8 +41,6 @@ import (
 	grpcstatus "google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
-
-const providerUnspecified = "unspecified"
 
 // NotFoundError represents a resource that couldn't be found
 type NotFoundError struct {
@@ -146,6 +143,36 @@ func IsUnavailable(err error) bool {
 		strings.Contains(strings.ToLower(errStr), "unavailable")
 }
 
+// IsTransientServerError returns true for gRPC error codes that we consider
+// safe to retry on the read side (GetOperation polling). Covers Unavailable
+// (load balancer / restart) plus Internal (observed three times during
+// serverless tag-mutation polling — the underlying mutation succeeded each
+// time; only the GetOperation read transiently glitched). Callers must cap
+// the retry count to avoid masking real bugs surfaced as Internal.
+func IsTransientServerError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if IsUnavailable(err) {
+		return true
+	}
+	if e, ok := grpcstatus.FromError(err); ok && e.Code() == grpccodes.Internal {
+		return true
+	}
+	return false
+}
+
+// isGRPCInternal reports whether err's underlying gRPC status code is Internal.
+// Used to differentiate the log level on transient-error retry (Warn for
+// Internal so it shows up in CI, Info for the routine Unavailable case).
+func isGRPCInternal(err error) bool {
+	if err == nil {
+		return false
+	}
+	e, ok := grpcstatus.FromError(err)
+	return ok && e.Code() == grpccodes.Internal
+}
+
 // IsRetryableByocError checks if an error from rpk byoc should be retried.
 // Some byoc errors are transient and explicitly ask to retry.
 func IsRetryableByocError(err error) bool {
@@ -163,108 +190,22 @@ func IsRetryableByocError(err error) bool {
 	return false
 }
 
-// CloudProviderStringAws is the string representation of the CLOUD_PROVIDER_AWS enum
-const CloudProviderStringAws = "aws"
-
-// CloudProviderStringAzure is the string representation of the CLOUD_PROVIDER_AZURE enum
-const CloudProviderStringAzure = "azure"
-
-// CloudProviderStringGcp is the string representation of the CLOUD_PROVIDER_GCP enum
-const CloudProviderStringGcp = "gcp"
-
-// StringToCloudProvider returns the controlplanev1's CloudProvider code based on
-// the input string.
-func StringToCloudProvider(p string) (controlplanev1.CloudProvider, error) {
-	switch strings.ToLower(p) {
-	case CloudProviderStringAws:
-		return controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS, nil
-	case CloudProviderStringGcp:
-		return controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP, nil
-	case CloudProviderStringAzure:
-		return controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE, nil
-	default:
-		return controlplanev1.CloudProvider_CLOUD_PROVIDER_UNSPECIFIED, fmt.Errorf("provider %q not supported", p)
-	}
-}
-
-// StringToCloudProviderBeta returns the controlplanev1's CloudProvider code based on
-// the input string.
-func StringToCloudProviderBeta(p string) (controlplanev1beta2.CloudProvider, error) {
-	switch strings.ToLower(p) {
-	case CloudProviderStringAws:
-		return controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_AWS, nil
-	case CloudProviderStringGcp:
-		return controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_GCP, nil
-	case CloudProviderStringAzure:
-		return controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_AZURE, nil
-	default:
-		return controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_UNSPECIFIED, fmt.Errorf("provider %q not supported", p)
-	}
-}
-
-// CloudProviderToString returns the cloud provider string based on the
-// controlplanev1's CloudProvider code.
-func CloudProviderToString(provider controlplanev1.CloudProvider) string {
-	switch provider {
-	case controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS:
-		return CloudProviderStringAws
-	case controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP:
-		return CloudProviderStringGcp
-	case controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE:
-		return CloudProviderStringAzure
-	default:
-		return providerUnspecified
-	}
-}
-
-// TODO: remove this when throughput tier is migrated
-
-// CloudProviderToStringBeta returns the cloud provider string based on the
-// controlplanev1beta2's CloudProvider code.
-func CloudProviderToStringBeta(provider controlplanev1beta2.CloudProvider) string {
-	switch provider {
-	case controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_AWS:
-		return CloudProviderStringAws
-	case controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_GCP:
-		return CloudProviderStringGcp
-	case controlplanev1beta2.CloudProvider_CLOUD_PROVIDER_AZURE:
-		return CloudProviderStringAzure
-	default:
-		return providerUnspecified
-	}
-}
-
-// StringToClusterType returns the controlplanev1's Cluster_Type code based on
-// the input string.
-func StringToClusterType(p string) (controlplanev1.Cluster_Type, error) {
-	switch strings.ToLower(p) {
-	case "dedicated":
-		return controlplanev1.Cluster_TYPE_DEDICATED, nil
-	case "byoc":
-		return controlplanev1.Cluster_TYPE_BYOC, nil
-	default:
-		return controlplanev1.Cluster_TYPE_UNSPECIFIED, fmt.Errorf("cluster type %q not supported", p)
-	}
-}
-
-// ClusterTypeToString returns the cloud cluster type string based on the
-// controlplanev1's Cluster_Type code.
-func ClusterTypeToString(provider controlplanev1.Cluster_Type) string {
-	switch provider {
-	case controlplanev1.Cluster_TYPE_DEDICATED:
-		return "dedicated"
-	case controlplanev1.Cluster_TYPE_BYOC:
-		return "byoc"
-	default:
-		return providerUnspecified
-	}
-}
-
-// AreWeDoneYet checks an operation's state until one of completion, failure or timeout is reached.
-// Transient errors (503/Unavailable) are retried up to maxTransientRetries times before failing.
+// AreWeDoneYet checks an operation's state until one of completion, failure
+// or timeout is reached. Transient errors (Unavailable/Internal) on
+// GetOperation are tolerated within a stuck-cap window derived from the
+// caller's `timeout` — the cap fires when there has been no successful
+// poll for stuckCap = min(5min, timeout/6) of wall-clock time. The window
+// resets on any successful poll, so an op with intermittent transients
+// keeps retrying within the overall timeout; only a sustained burst with
+// no progress trips it. Scales correctly across resource timeouts:
+// long-running cluster Create (90m) gets the 5-minute ceiling; a 1-minute
+// test op bails after ~10s of solid transients.
 func AreWeDoneYet(ctx context.Context, op *controlplanev1.Operation, timeout time.Duration, client controlplanev1grpc.OperationServiceClient) error {
-	const maxTransientRetries = 10
-	transientRetryCount := 0
+	stuckCap := timeout / 6
+	if stuckCap > 5*time.Minute {
+		stuckCap = 5 * time.Minute
+	}
+	lastSuccessfulPoll := time.Now()
 
 	return Retry(ctx, timeout, func() *RetryError {
 		tflog.Info(ctx, "getting operation")
@@ -273,18 +214,24 @@ func AreWeDoneYet(ctx context.Context, op *controlplanev1.Operation, timeout tim
 		})
 		tflog.Info(ctx, "got result of operation")
 		if err != nil {
-			if IsUnavailable(err) {
-				transientRetryCount++
-				if transientRetryCount >= maxTransientRetries {
-					tflog.Warn(ctx, fmt.Sprintf("max transient retries (%d) exceeded for operation %q", maxTransientRetries, op.GetId()))
-					return NonRetryableError(fmt.Errorf("max transient retries exceeded: %w", err))
+			if IsTransientServerError(err) {
+				stuckFor := time.Since(lastSuccessfulPoll)
+				if stuckFor > stuckCap {
+					tflog.Warn(ctx, fmt.Sprintf("server unresponsive for %s (stuck cap %s) on operation %q", stuckFor, stuckCap, op.GetId()))
+					return NonRetryableError(fmt.Errorf("server unresponsive for %s (stuck cap %s): %w", stuckFor, stuckCap, err))
 				}
-				tflog.Info(ctx, fmt.Sprintf("transient error for operation %q (attempt %d/%d): %v", op.GetId(), transientRetryCount, maxTransientRetries, err))
+				// Internal can mask real bugs — surface at Warn so a recurring
+				// pattern is visible in CI; Unavailable is routine, stays Info.
+				logf := tflog.Info
+				if isGRPCInternal(err) {
+					logf = tflog.Warn
+				}
+				logf(ctx, fmt.Sprintf("transient error for operation %q (stuck %s / cap %s): %v", op.GetId(), stuckFor, stuckCap, err))
 				return RetryableError(err)
 			}
 			return NonRetryableError(err)
 		}
-		transientRetryCount = 0 // Reset on success
+		lastSuccessfulPoll = time.Now() // reset stuck window on any successful poll
 		op = latestOp.Operation
 
 		if op != nil {
@@ -301,40 +248,6 @@ func AreWeDoneYet(ctx context.Context, op *controlplanev1.Operation, timeout tim
 		}
 		return nil
 	})
-}
-
-// StringToConnectionType returns the controlplanev1's Cluster_ConnectionType code
-// based on the input string.
-func StringToConnectionType(s string) controlplanev1.Cluster_ConnectionType {
-	switch strings.ToLower(s) {
-	case "public":
-		return controlplanev1.Cluster_CONNECTION_TYPE_PUBLIC
-	case "private":
-		return controlplanev1.Cluster_CONNECTION_TYPE_PRIVATE
-	default:
-		return controlplanev1.Cluster_CONNECTION_TYPE_UNSPECIFIED
-	}
-}
-
-// ConnectionTypeToString returns the cloud cluster connection type string based
-// on the controlplanev1's Cluster_ConnectionType code.
-func ConnectionTypeToString(t controlplanev1.Cluster_ConnectionType) string {
-	switch t {
-	case controlplanev1.Cluster_CONNECTION_TYPE_PUBLIC:
-		return "public"
-	case controlplanev1.Cluster_CONNECTION_TYPE_PRIVATE:
-		return "private"
-	default:
-		return providerUnspecified
-	}
-}
-
-// StringToNetworkAccessMode converts a string to the controlplanev1 NetworkAccessMode enum.
-func StringToNetworkAccessMode(s string) controlplanev1.NetworkAccessMode {
-	if v, ok := controlplanev1.NetworkAccessMode_value[s]; ok {
-		return controlplanev1.NetworkAccessMode(v)
-	}
-	return controlplanev1.NetworkAccessMode_NETWORK_ACCESS_MODE_UNSPECIFIED
 }
 
 // TypeListToStringSlice converts a types.List to a []string, stripping
@@ -415,31 +328,25 @@ func StringToStringPointer(s string) *string {
 	return &s
 }
 
-// StringToUserMechanism converts a string to a dataplanev1.SASLMechanism
-func StringToUserMechanism(s string) dataplanev1.SASLMechanism {
-	switch strings.ToLower(s) {
-	case "scram-sha-256":
-		return dataplanev1.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_256
-	case "scram-sha-512":
-		return dataplanev1.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_512
-	default:
-		return dataplanev1.SASLMechanism_SASL_MECHANISM_UNSPECIFIED
-	}
+// TypesNullable is the subset of attr.Value used by PointerOrNil — every
+// types.String / types.Bool / types.Int32 / types.Int64 / types.Float64
+// satisfies it.
+type TypesNullable interface {
+	IsNull() bool
+	IsUnknown() bool
 }
 
-// UserMechanismToString converts a dataplanev1.SASLMechanism to a string
-func UserMechanismToString(m *dataplanev1.SASLMechanism) string {
-	if m == nil {
-		return "unspecified"
+// PointerOrNil returns nil when v is null or unknown; otherwise returns a
+// pointer to extract(v). Used by the schemagen Expand emission for
+// proto3-optional / wrapper / oneof scalar fields so "unset" round-trips as
+// proto's nil rather than the type's zero value. Callers pass an unbound
+// method expression such as types.String.ValueString or types.Bool.ValueBool.
+func PointerOrNil[V TypesNullable, T any](v V, extract func(V) T) *T {
+	if v.IsNull() || v.IsUnknown() {
+		return nil
 	}
-	switch *m {
-	case dataplanev1.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_256:
-		return "scram-sha-256"
-	case dataplanev1.SASLMechanism_SASL_MECHANISM_SCRAM_SHA_512:
-		return "scram-sha-512"
-	default:
-		return "unspecified"
-	}
+	out := extract(v)
+	return &out
 }
 
 // GetEffectivePassword returns the password to use from password_wo and password fields.
@@ -524,6 +431,17 @@ func Int32ToNumber(i int32) types.Number {
 	return types.NumberValue(big.NewFloat(float64(i)))
 }
 
+// NumberToInt32OrNil converts a types.Number to *int32, returning nil for
+// null or unknown values. Used by generated Expand for NumberAttribute
+// fields backed by proto3-optional int32 fields, where nil tells the
+// server to use its default.
+func NumberToInt32OrNil(n types.Number) *int32 {
+	if n.IsNull() || n.IsUnknown() {
+		return nil
+	}
+	return NumberToInt32(n)
+}
+
 // FindTopicByName searches for a topic by name using the provided client.
 func FindTopicByName(ctx context.Context, topicName string, client dataplanev1grpc.TopicServiceClient) (*dataplanev1.ListTopicsResponse_Topic, error) {
 	var pageToken string
@@ -574,9 +492,11 @@ func ConvertToConsoleURL(clusterAPIURL string) string {
 	return strings.Replace(clusterAPIURL, "://api-", "://console-", 1)
 }
 
-// RetryGetCluster will retry a function, passing in the latest state of the given cluster id, until
-// it either no longer returns an error or times out. Transient errors (503/Unavailable) are retried
-// up to maxTransientRetries times before failing.
+// RetryGetCluster retries f against the latest cluster snapshot until f
+// succeeds, ctx expires, or maxTransientRetries Unavailable errors have been
+// observed. Uses a count cap on transient errors rather than the stuck-cap
+// timing AreWeDoneYet uses, because cluster lifecycle calls are interactive
+// and should fail fast on persistent server faults.
 func RetryGetCluster(ctx context.Context, timeout time.Duration, clusterID string, client cloud.CpClientSet, f func(*controlplanev1.Cluster) *RetryError) (*controlplanev1.Cluster, error) {
 	var cluster *controlplanev1.Cluster
 	const maxTransientRetries = 10
@@ -614,28 +534,6 @@ func RetryGetCluster(ctx context.Context, timeout time.Duration, clusterID strin
 	return cluster, err
 }
 
-// TypeMapToStringMap converts a types.Map to a map[string]string
-func TypeMapToStringMap(tags types.Map) map[string]string {
-	tagsMap := make(map[string]string)
-	for k, v := range tags.Elements() {
-		tagsMap[k] = strings.ReplaceAll(strings.ReplaceAll(v.String(), "\\", ""), "\"", "")
-	}
-	if len(tagsMap) == 0 {
-		return nil
-	}
-	return tagsMap
-}
-
-// StringMapToTypeMap converts a map[string]string to a types.Map.
-func StringMapToTypeMap(m map[string]string) types.Map {
-	elements := make(map[string]attr.Value, len(m))
-	for k, v := range m {
-		elements[k] = types.StringValue(v)
-	}
-	result, _ := types.MapValue(types.StringType, elements)
-	return result
-}
-
 // DeserializeGrpcError returns a formatted error string with gRPC status code, message, and details.
 // Falls back to raw error string when the gRPC message is empty.
 func DeserializeGrpcError(err error) string {
@@ -666,19 +564,6 @@ func DeserializeGrpcError(err error) string {
 	}
 
 	return result
-}
-
-// StringMapToTypesMap converts a map[string]string to a types.Map
-func StringMapToTypesMap(m map[string]string) (types.Map, error) {
-	mv := make(map[string]attr.Value)
-	for k, v := range m {
-		mv[k] = types.StringValue(v)
-	}
-	mvo, diags := types.MapValue(types.StringType, mv)
-	if diags.HasError() {
-		return types.MapNull(types.StringType), errors.New("unable to convert map to types.Map")
-	}
-	return mvo, nil
 }
 
 // GetObjectFromAttributes is used to pull a Terraform Object out of a attribute map using the name

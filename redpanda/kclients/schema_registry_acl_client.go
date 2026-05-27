@@ -68,10 +68,11 @@ type SchemaRegistryACLFilter struct {
 	Permission   string
 }
 
-// NewSchemaRegistryACLClient creates a new Schema Registry ACL client using common-go rpsr
-func NewSchemaRegistryACLClient(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, username, password string) (*SchemaRegistryACLClient, error) {
-	// Create Schema Registry client using existing kclients functionality
-	srClient, err := GetSchemaRegistryClientForCluster(ctx, cpCl, clusterID, username, password)
+// NewSchemaRegistryACLClient creates a new Schema Registry ACL client using
+// common-go rpsr. See GetSchemaRegistryClientForCluster for auth-precedence
+// rules between authToken (Bearer) and username+password (Basic).
+func NewSchemaRegistryACLClient(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, authToken, username, password string) (*SchemaRegistryACLClient, error) {
+	srClient, err := GetSchemaRegistryClientForCluster(ctx, cpCl, clusterID, authToken, username, password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Schema Registry client: %w", err)
 	}

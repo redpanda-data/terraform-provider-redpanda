@@ -22,7 +22,9 @@ import (
 
 	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1/controlplanev1grpc"
 	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1beta2/controlplanev1beta2grpc"
+	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/iam/v1/iamv1grpc"
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
+	iamv1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/iam/v1"
 	"google.golang.org/grpc"
 )
 
@@ -39,6 +41,8 @@ type CpClientSet interface {
 	GetCluster(ctx context.Context, in *controlplanev1.GetClusterRequest, opts ...grpc.CallOption) (*controlplanev1.GetClusterResponse, error)
 	ClusterForID(ctx context.Context, id string) (*controlplanev1.Cluster, error)
 	ShadowLinkForID(ctx context.Context, id string) (*controlplanev1.ShadowLink, error)
+	ServiceAccountForID(ctx context.Context, id string) (*iamv1.ServiceAccount, error)
+	ServiceAccountForName(ctx context.Context, name string) (*iamv1.ServiceAccount, error)
 }
 
 // ControlPlaneClientSet holds the respective service clients to interact with
@@ -54,6 +58,7 @@ type ControlPlaneClientSet struct {
 	Region                controlplanev1grpc.RegionServiceClient
 	ShadowLink            controlplanev1grpc.ShadowLinkServiceClient
 	ThroughputTier        controlplanev1beta2grpc.ThroughputTierServiceClient
+	ServiceAccount        iamv1grpc.ServiceAccountServiceClient
 }
 
 // NewControlPlaneClientSet uses the passed grpc connection to create a control
@@ -70,7 +75,36 @@ func NewControlPlaneClientSet(conn *grpc.ClientConn) *ControlPlaneClientSet {
 		Region:                controlplanev1grpc.NewRegionServiceClient(conn),
 		ShadowLink:            controlplanev1grpc.NewShadowLinkServiceClient(conn),
 		ThroughputTier:        controlplanev1beta2grpc.NewThroughputTierServiceClient(conn),
+		ServiceAccount:        iamv1grpc.NewServiceAccountServiceClient(conn),
 	}
+}
+
+// ServiceAccountForID gets the ServiceAccount for a given ID.
+func (c *ControlPlaneClientSet) ServiceAccountForID(ctx context.Context, id string) (*iamv1.ServiceAccount, error) {
+	resp, err := c.ServiceAccount.GetServiceAccount(ctx, &iamv1.GetServiceAccountRequest{Id: id})
+	if err != nil {
+		return nil, fmt.Errorf("unable to request service account with ID %q: %w", id, err)
+	}
+	if resp.GetServiceAccount() == nil {
+		return nil, fmt.Errorf("unable to find service account with ID %q; please report this bug to Redpanda Support", id)
+	}
+	return resp.GetServiceAccount(), nil
+}
+
+// ServiceAccountForName lists service accounts filtering by name and returns the first match.
+func (c *ControlPlaneClientSet) ServiceAccountForName(ctx context.Context, name string) (*iamv1.ServiceAccount, error) {
+	resp, err := c.ServiceAccount.ListServiceAccounts(ctx, &iamv1.ListServiceAccountsRequest{
+		Filter: &iamv1.ListServiceAccountsRequest_Filter{Name: name},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to list service accounts: %w", err)
+	}
+	for _, sa := range resp.GetServiceAccounts() {
+		if sa.GetName() == name {
+			return sa, nil
+		}
+	}
+	return nil, fmt.Errorf("service account %q not found", name)
 }
 
 // ShadowLinkForID gets the shadow link for a given ID.

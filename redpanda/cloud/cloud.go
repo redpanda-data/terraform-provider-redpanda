@@ -37,6 +37,7 @@ import (
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 )
@@ -149,6 +150,19 @@ func parseHTTPSURLAsGrpc(url string) (string, error) {
 // Terraform creates many resources in parallel.
 const DefaultMaxConcurrentRPCs = 5
 
+// SpawnConnOpts carries optional knobs for SpawnConn variants. Production
+// callers use SpawnConn (zero opts); the integration tier supplies
+// ExtraDialOptions + InsecureCreds to route through a bufconn listener.
+type SpawnConnOpts struct {
+	// ExtraDialOptions are prepended to the default grpc.NewClient options.
+	// In test mode these inject a bufconn dialer + insecure credentials.
+	ExtraDialOptions []grpc.DialOption
+	// InsecureCreds, when true, replaces the TLS transport credentials with
+	// insecure credentials. Required when ExtraDialOptions supplies a
+	// bufconn dialer.
+	InsecureCreds bool
+}
+
 // SpawnConn returns a gRPC connection to the given URL with a bearer token
 // added to each request using the given authToken.
 func SpawnConn(url, authToken, providerVersion, terraformVersion string) (*grpc.ClientConn, error) {
@@ -158,6 +172,16 @@ func SpawnConn(url, authToken, providerVersion, terraformVersion string) (*grpc.
 // SpawnConnWithConcurrency creates a new gRPC connection with a per-connection
 // concurrency limit on in-flight RPCs.
 func SpawnConnWithConcurrency(url, authToken, providerVersion, terraformVersion string, maxConcurrent int) (*grpc.ClientConn, error) {
+	return spawnConnInternal(url, authToken, providerVersion, terraformVersion, maxConcurrent, SpawnConnOpts{})
+}
+
+// SpawnConnWithOpts is SpawnConn plus integration hooks. Production code
+// calls SpawnConn; tests inject a bufconn dialer via opts.
+func SpawnConnWithOpts(url, authToken, providerVersion, terraformVersion string, opts SpawnConnOpts) (*grpc.ClientConn, error) {
+	return spawnConnInternal(url, authToken, providerVersion, terraformVersion, DefaultMaxConcurrentRPCs, opts)
+}
+
+func spawnConnInternal(url, authToken, providerVersion, terraformVersion string, maxConcurrent int, opts SpawnConnOpts) (*grpc.ClientConn, error) {
 	// we need a GRPC URL, but it's likely that we'll be given an HTTPS URL instead
 	grpcURL, err := parseHTTPSURLAsGrpc(url)
 	if err != nil {
@@ -166,8 +190,19 @@ func SpawnConnWithConcurrency(url, authToken, providerVersion, terraformVersion 
 
 	sem := make(chan struct{}, maxConcurrent)
 
-	return grpc.NewClient(
-		grpcURL,
+	transportCreds := grpc.WithTransportCredentials(
+		credentials.NewTLS(
+			&tls.Config{
+				MinVersion: tls.VersionTLS12,
+			},
+		),
+	)
+	if opts.InsecureCreds {
+		transportCreds = grpc.WithTransportCredentials(insecure.NewCredentials())
+	}
+
+	dialOpts := append([]grpc.DialOption{}, opts.ExtraDialOptions...)
+	dialOpts = append(dialOpts,
 		// Chain the interceptors using grpc_middleware.ChainUnaryClient
 		grpc.WithUnaryInterceptor(grpcmiddleware.ChainUnaryClient(
 			// Concurrency limiter: at most maxConcurrent in-flight RPCs per connection.
@@ -202,14 +237,7 @@ func SpawnConnWithConcurrency(url, authToken, providerVersion, terraformVersion 
 				grpcretry.WithBackoff(grpcretry.BackoffExponentialWithJitter(time.Millisecond*100, 0.2)),
 			),
 		)),
-		// And provide TLS config.
-		grpc.WithTransportCredentials(
-			credentials.NewTLS(
-				&tls.Config{
-					MinVersion: tls.VersionTLS12,
-				},
-			),
-		),
+		transportCreds,
 		grpc.WithConnectParams(grpc.ConnectParams{
 			Backoff: backoff.DefaultConfig,
 		}),
@@ -221,9 +249,15 @@ func SpawnConnWithConcurrency(url, authToken, providerVersion, terraformVersion 
 		grpc.WithUserAgent(
 			fmt.Sprintf("Terraform/%s %s_%s terraform-provider-redpanda/%s", terraformVersion, runtime.GOOS, runtime.GOARCH, providerVersion),
 		),
-		// We do not block (grpc.WithBlock) on purpose to avoid waiting
-		// indefinitely if the cluster is not responding and to provide an
-		// useful error on these cases. See:
-		// https://github.com/grpc/grpc-go/blob/master/Documentation/anti-patterns.md#using-failonnontempdialerror-withblock-and-withreturnconnectionerror
 	)
+
+	// We do not block (grpc.WithBlock) on purpose to avoid waiting
+	// indefinitely if the cluster is not responding and to provide an
+	// useful error on these cases. See:
+	// https://github.com/grpc/grpc-go/blob/master/Documentation/anti-patterns.md#using-failonnontempdialerror-withblock-and-withreturnconnectionerror
+	target := grpcURL
+	if len(opts.ExtraDialOptions) > 0 {
+		target = "passthrough:///" + grpcURL
+	}
+	return grpc.NewClient(target, dialOpts...)
 }

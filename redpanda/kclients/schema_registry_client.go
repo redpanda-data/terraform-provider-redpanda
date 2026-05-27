@@ -18,6 +18,7 @@ package kclients
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -30,8 +31,14 @@ const (
 	DefaultCompatibilityLevel = "BACKWARD"
 )
 
-// GetSchemaRegistryClientForCluster creates a Schema Registry client for a specific cluster
-func GetSchemaRegistryClientForCluster(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, username, password string) (*sr.Client, error) {
+// GetSchemaRegistryClientForCluster creates a Schema Registry client for a specific cluster.
+//
+// Auth precedence: when both username and password are non-empty, HTTP Basic
+// auth is used. Otherwise the provider's cloud-issued Bearer token (authToken)
+// is used. Redpanda Cloud SR endpoints accept Bearer tokens issued by the same
+// Auth0 IDP that mints the provider's control-plane token, so the Bearer path
+// is the recommended default.
+func GetSchemaRegistryClientForCluster(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, authToken, username, password string) (*sr.Client, error) {
 	cluster, err := cpCl.ClusterForID(ctx, clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster details: %w", err)
@@ -46,15 +53,33 @@ func GetSchemaRegistryClientForCluster(ctx context.Context, cpCl *cloud.ControlP
 		return nil, fmt.Errorf("schema registry URL is empty for cluster %s", clusterID)
 	}
 
+	authOpt, err := schemaRegistryAuthOption(authToken, username, password)
+	if err != nil {
+		return nil, err
+	}
+
 	client, err := sr.NewClient(
 		sr.URLs(schemaRegistry.GetUrl()),
-		sr.BasicAuth(username, password),
+		authOpt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create schema registry client: %w", err)
 	}
 
 	return client, nil
+}
+
+// schemaRegistryAuthOption selects the franz-go sr.Client auth option based on
+// which credentials are present. Username+password → Basic; else authToken →
+// Bearer. Returns an error when neither set of credentials is available.
+func schemaRegistryAuthOption(authToken, username, password string) (sr.ClientOpt, error) {
+	if username != "" && password != "" {
+		return sr.BasicAuth(username, password), nil
+	}
+	if authToken != "" {
+		return sr.BearerToken(authToken), nil
+	}
+	return nil, errors.New("no schema registry credentials available: provide username+password, or rely on the provider's cloud authentication")
 }
 
 // FetchSchema fetches a schema by subject and optional version
@@ -80,19 +105,15 @@ func FetchSchema(ctx context.Context, client *sr.Client, subject string, version
 // SetSubjectCompatibility sets the compatibility level for a subject
 func SetSubjectCompatibility(ctx context.Context, client *sr.Client, subject, compatibility string) error {
 	if compatibility == "" {
-		return nil // No compatibility to set
+		return nil
 	}
 
 	var level sr.CompatibilityLevel
 	if err := level.UnmarshalText([]byte(strings.ToUpper(compatibility))); err != nil {
-		level = sr.CompatBackward // Default to BACKWARD on error
+		return fmt.Errorf("invalid compatibility level %q: %w", compatibility, err)
 	}
 
-	setCompat := sr.SetCompatibility{
-		Level: level,
-	}
-
-	results := client.SetCompatibility(ctx, setCompat, subject)
+	results := client.SetCompatibility(ctx, sr.SetCompatibility{Level: level}, subject)
 	for _, result := range results {
 		if result.Err != nil {
 			return result.Err
