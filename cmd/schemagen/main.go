@@ -25,12 +25,14 @@ import (
 	"strings"
 
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/apidesc"
+	"github.com/redpanda-data/terraform-provider-redpanda/internal/bufdeps"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/schemagen"
 )
 
 func main() {
 	var (
 		cloudv2      = flag.String("cloudv2", "", "Path to cloudv2 repo root (or set CLOUDV2_ROOT env var)")
+		console      = flag.String("console", "", "Path to console repo root (or set CONSOLE_ROOT env var). Only needed for -update-deps.")
 		protoPkg     = flag.String("proto-pkg", "", "Proto package path (e.g. redpanda/api/controlplane/v1)")
 		message      = flag.String("message", "", "Name of the proto message (e.g. Cluster)")
 		configPath   = flag.String("config", "", "Path to YAML schema config file")
@@ -45,6 +47,7 @@ func main() {
 		convOutput   = flag.String("conv-output", "", "If set, also write generated flatten/expand functions to this path. Requires schema.yaml api: block.")
 		protoImport  = flag.String("proto-import", "", "Go import path for the proto package containing the request/response types (required with -conv-output)")
 		protoAlias   = flag.String("proto-alias", "", "Go import alias for the proto package (defaults to last segment of -proto-import)")
+		updateDeps   = flag.Bool("update-deps", false, "Rewrite internal/buf_dependencies.yaml from current cloudv2/console HEAD + go.mod, then exit without generating any code")
 	)
 	flag.Parse()
 
@@ -52,9 +55,20 @@ func main() {
 		*todoFlag = true
 	}
 
+	if *updateDeps {
+		if err := runUpdateDeps(*cloudv2, *console); err != nil {
+			log.Fatalf("schemagen -update-deps: %v", err)
+		}
+		return
+	}
+
 	cloudv2Root := resolveCloudv2Root(*cloudv2)
 	if cloudv2Root == "" {
 		log.Fatal("schemagen: cloudv2 repo not found — set -cloudv2 flag, CLOUDV2_ROOT env, or place cloudv2 as a sibling directory")
+	}
+
+	if err := assertPinnedCheckout(cloudv2Root); err != nil {
+		log.Fatalf("schemagen: %v", err)
 	}
 
 	var extraImportPaths []string
@@ -65,6 +79,82 @@ func main() {
 	if err := run(cloudv2Root, *protoPkg, *message, *configPath, *funcName, *schemaType, *output, *pkgName, *apiDescPath, *modelOutput, *modelPackage, *convOutput, *protoImport, *protoAlias, *todoFlag, extraImportPaths); err != nil {
 		log.Fatalf("schemagen: %v", err)
 	}
+}
+
+// assertPinnedCheckout fails the per-resource codegen run when the local
+// cloudv2 checkout has drifted from internal/buf_dependencies.yaml. Console
+// is consumed through the .build/console-protos buf-export tree so its git
+// SHA is checked only by cmd/apidesc-import.
+func assertPinnedCheckout(cloudv2Root string) error {
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		return fmt.Errorf("resolve repo root: %w", err)
+	}
+	deps, err := bufdeps.Read(bufdeps.DefaultPath(repoRoot))
+	if err != nil {
+		return fmt.Errorf("read pin file: %w", err)
+	}
+	return bufdeps.AssertCheckoutAt(cloudv2Root, deps.Cloudv2.SHA, "cloudv2")
+}
+
+// runUpdateDeps rewrites internal/buf_dependencies.yaml from current state.
+// Reads HEAD of cloudv2 and console git checkouts plus the BSR commit IDs
+// embedded in go.mod's buf-gen pseudo-versions, then writes everything to
+// the pin file. Exits without doing any code generation.
+func runUpdateDeps(cloudv2Flag, consoleFlag string) error {
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		return fmt.Errorf("resolve repo root: %w", err)
+	}
+	cloudv2Root := resolveCloudv2Root(cloudv2Flag)
+	if cloudv2Root == "" {
+		return errors.New("cloudv2 repo not found — set -cloudv2 flag, CLOUDV2_ROOT env, or place cloudv2 as a sibling directory")
+	}
+	consoleRoot := resolveConsoleRoot(consoleFlag, cloudv2Root)
+	if consoleRoot == "" {
+		return errors.New("console repo not found — set -console flag, CONSOLE_ROOT env, or place console as a sibling directory")
+	}
+
+	cloudSHA, err := bufdeps.HeadSHA(cloudv2Root)
+	if err != nil {
+		return fmt.Errorf("cloudv2: %w", err)
+	}
+	consoleSHA, err := bufdeps.HeadSHA(consoleRoot)
+	if err != nil {
+		return fmt.Errorf("console: %w", err)
+	}
+	modules, err := bufdeps.LoadBufModulesFromGoMod(filepath.Join(repoRoot, "go.mod"))
+	if err != nil {
+		return fmt.Errorf("buf-gen modules: %w", err)
+	}
+
+	// Preserve Remote URLs from existing pin if present; otherwise default.
+	prev, _ := bufdeps.Read(bufdeps.DefaultPath(repoRoot))
+	cloud := bufdeps.Source{Remote: "github.com/redpanda-data/cloudv2", SHA: cloudSHA}
+	console := bufdeps.Source{Remote: "github.com/redpanda-data/console", SHA: consoleSHA}
+	if prev != nil {
+		if prev.Cloudv2.Remote != "" {
+			cloud.Remote = prev.Cloudv2.Remote
+		}
+		if prev.Console.Remote != "" {
+			console.Remote = prev.Console.Remote
+		}
+	}
+
+	deps := &bufdeps.Deps{Cloudv2: cloud, Console: console, BufModules: modules}
+	if err := bufdeps.Write(bufdeps.DefaultPath(repoRoot), deps); err != nil {
+		return err
+	}
+	log.Printf("wrote %s: cloudv2=%s console=%s, %d buf modules",
+		bufdeps.RelPath, shortSHA(cloudSHA), shortSHA(consoleSHA), len(modules))
+	return nil
+}
+
+func shortSHA(s string) string {
+	if len(s) > 12 {
+		return s[:12]
+	}
+	return s
 }
 
 func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, output, pkgName, apiDescPath, modelOutput, modelPkg, convOutput, protoImport, protoAlias string, todoMode bool, extraImportPaths []string) error {
@@ -440,6 +530,26 @@ func resolveCloudv2Root(flagValue string) string {
 		}
 	}
 
+	return ""
+}
+
+// resolveConsoleRoot locates the local console git checkout. Only used by
+// -update-deps; the regular codegen path doesn't need console's git tree
+// (it reads the buf-exported tree at .build/console-protos).
+func resolveConsoleRoot(flagValue, cloudv2Root string) string {
+	candidates := []string{flagValue, os.Getenv("CONSOLE_ROOT")}
+	if cloudv2Root != "" {
+		candidates = append(candidates, filepath.Join(filepath.Dir(cloudv2Root), "console"))
+	}
+	candidates = append(candidates, "../console", "../../console", "../../../console")
+	for _, c := range candidates {
+		if c == "" {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(c, ".git")); err == nil {
+			return c
+		}
+	}
 	return ""
 }
 

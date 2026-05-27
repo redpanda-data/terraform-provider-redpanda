@@ -57,6 +57,20 @@ tasks:
     cmds:
       - go run ./cmd/apidesc-import -repo={{.CLOUDV2_REPO}} -console-repo={{.CONSOLE_REPO}}
 
+  # Rewrite internal/buf_dependencies.yaml from current cloudv2/console
+  # HEAD + go.mod's buf-gen pseudo-versions, then regenerate every
+  # downstream artifact against the new pin. Run this after pulling
+  # upstream changes locally.
+  bump-deps:
+    desc: "Bump pinned cloudv2/console SHAs + buf-gen commits to current local state, then regenerate"
+    vars:
+      CLOUDV2_REPO: '{{.CLOUDV2_REPO | default "../cloudv2"}}'
+      CONSOLE_REPO: '{{.CONSOLE_REPO | default "../console"}}'
+    cmds:
+      - go run ./cmd/schemagen -update-deps -cloudv2={{.CLOUDV2_REPO}} -console={{.CONSOLE_REPO}}
+      - task: apidescriptions
+      - task: models
+
   # Update golden files after intentional schema changes
   golden:
     desc: "Regenerate golden test files from current schemas"

@@ -21,8 +21,13 @@ steps:
     command: |
       export GIT_TERMINAL_PROMPT=0
       git config --global --add safe.directory /workdir
-      git clone --depth=1 "https://x-access-token:$${GITHUB_TOKEN}@github.com/redpanda-data/cloudv2.git" /workdir/../cloudv2
-      git clone --depth=1 "https://x-access-token:$${GITHUB_TOKEN}@github.com/redpanda-data/console.git" /workdir/../console
+      apt-get update -qq && apt-get install -y -qq python3-yaml
+      CLOUDV2_SHA=$$(python3 -c 'import yaml; print(yaml.safe_load(open("internal/buf_dependencies.yaml"))["cloudv2"]["sha"])')
+      CONSOLE_SHA=$$(python3 -c 'import yaml; print(yaml.safe_load(open("internal/buf_dependencies.yaml"))["console"]["sha"])')
+      git clone "https://x-access-token:$${GITHUB_TOKEN}@github.com/redpanda-data/cloudv2.git" /workdir/../cloudv2
+      git -C /workdir/../cloudv2 checkout "$$CLOUDV2_SHA"
+      git clone "https://x-access-token:$${GITHUB_TOKEN}@github.com/redpanda-data/console.git" /workdir/../console
+      git -C /workdir/../console checkout "$$CONSOLE_SHA"
       ./taskw generate
       if ! git diff --exit-code; then
         echo "Generated code is out of date. Run './taskw generate' locally and commit the changes."
@@ -58,6 +63,18 @@ steps:
       - generate
       - lint
 
+  - label: integration
+    key: integration
+    command: |
+      ./taskw test:integration
+    plugins:
+      - docker#v5.12.0:
+          image: "golang:1.25.10"
+    depends_on:
+      - docs
+      - generate
+      - lint
+
   - label: ready
     key: ready
     command: |
@@ -83,8 +100,13 @@ steps:
       export GIT_TERMINAL_PROMPT=0
       git config --global --add safe.directory /workdir
       : "$${GITHUB_TOKEN:?GITHUB_TOKEN is empty - verify the secret sdlc/prod/buildkite/terraform_provider_redpanda has a GITHUB_TOKEN key}"
-      git clone --depth=1 "https://x-access-token:$${GITHUB_TOKEN}@github.com/redpanda-data/cloudv2.git" /workdir/../cloudv2
-      git clone --depth=1 "https://x-access-token:$${GITHUB_TOKEN}@github.com/redpanda-data/console.git" /workdir/../console
+      apt-get update -qq && apt-get install -y -qq python3-yaml
+      CLOUDV2_SHA=$$(python3 -c 'import yaml; print(yaml.safe_load(open("internal/buf_dependencies.yaml"))["cloudv2"]["sha"])')
+      CONSOLE_SHA=$$(python3 -c 'import yaml; print(yaml.safe_load(open("internal/buf_dependencies.yaml"))["console"]["sha"])')
+      git clone "https://x-access-token:$${GITHUB_TOKEN}@github.com/redpanda-data/cloudv2.git" /workdir/../cloudv2
+      git -C /workdir/../cloudv2 checkout "$$CLOUDV2_SHA"
+      git clone "https://x-access-token:$${GITHUB_TOKEN}@github.com/redpanda-data/console.git" /workdir/../console
+      git -C /workdir/../console checkout "$$CONSOLE_SHA"
       ./taskw generate:apidescriptions
       if ! git diff --exit-code internal/schemagen/data/apidescriptions.yaml; then
         echo "apidescriptions.yaml drifted from upstream. Run './taskw generate:apidescriptions' locally and commit."
@@ -158,6 +180,7 @@ steps:
     depends_on:
       - lint
       - unit
+      - integration
   - label: test_service_account
     key: test_service_account
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
@@ -176,6 +199,7 @@ steps:
     depends_on:
       - lint
       - unit
+      - integration
   - label: test_network
     key: test_network
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
@@ -194,6 +218,7 @@ steps:
     depends_on:
       - lint
       - unit
+      - integration
   - label: test_cluster_aws
     key: test_cluster_aws
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
@@ -212,6 +237,7 @@ steps:
     depends_on:
       - lint
       - unit
+      - integration
   - label: test_cluster_gcp
     key: test_cluster_gcp
     if: build.tag == null && build.pull_request.labels includes 'ci-ready'
@@ -230,6 +256,7 @@ steps:
     depends_on:
       - lint
       - unit
+      - integration
   - label: test_serverless_cluster_aws_public
     key: test_serverless_cluster_aws_public
     if: build.tag == null && build.pull_request.labels includes 'ci-ready-serverless'
@@ -248,6 +275,7 @@ steps:
     depends_on:
       - lint
       - unit
+      - integration
   - label: test_serverless_cluster_gcp
     key: test_serverless_cluster_gcp
     if: build.tag == null && build.pull_request.labels includes 'ci-ready-serverless'
@@ -266,6 +294,7 @@ steps:
     depends_on:
       - lint
       - unit
+      - integration
   - label: test_serverless_cluster_aws_private
     key: test_serverless_cluster_aws_private
     if: build.tag == null && build.pull_request.labels includes 'ci-ready-serverless'
@@ -284,6 +313,7 @@ steps:
     depends_on:
       - lint
       - unit
+      - integration
   - label: test_serverless_regions
     key: test_serverless_regions
     if: build.tag == null && build.pull_request.labels includes 'ci-ready-serverless'
@@ -303,6 +333,7 @@ steps:
     depends_on:
       - lint
       - unit
+      - integration
   - label: test_serverless_private_link
     key: test_serverless_private_link
     if: build.tag == null && build.pull_request.labels includes 'ci-ready-serverless'
@@ -321,6 +352,7 @@ steps:
     depends_on:
       - lint
       - unit
+      - integration
   - label: test_byoc_aws
     key: test_byoc_aws
     if: build.tag == null && build.pull_request.labels includes 'ci-ready-byoc'
@@ -341,6 +373,7 @@ steps:
     depends_on:
       - lint
       - unit
+      - integration
   - label: test_byovpc_aws
     key: test_byovpc_aws
     if: build.tag == null && build.pull_request.labels includes 'ci-ready-byoc'
@@ -364,6 +397,7 @@ steps:
     depends_on:
       - lint
       - unit
+      - integration
   - label: test_byoc_gcp
     key: test_byoc_gcp
     if: build.tag == null && build.pull_request.labels includes 'ci-ready-byoc'
@@ -384,6 +418,7 @@ steps:
     depends_on:
       - lint
       - unit
+      - integration
   - label: cleanup_aws
     key: cleanup_aws
     if: build.tag == null && build.pull_request.labels includes 'ci-ready-byoc'
@@ -507,3 +542,4 @@ steps:
       - generate
       - lint
       - unit
+      - integration
