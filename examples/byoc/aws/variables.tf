@@ -86,3 +86,9 @@ variable "topic_retention_ms" {
   type        = string
   default     = "604800000"
 }
+
+variable "topic_configuration" {
+  description = "Full override of the redpanda_topic configuration map. When non-null, replaces the default {cleanup.policy, retention.ms} pair."
+  type        = map(string)
+  default     = null
+}
