@@ -29,6 +29,7 @@ import (
 
 // ResourceModel represents the Terraform schema for the serverlesscluster resource.
 type ResourceModel struct {
+	AllowDeletion     types.Bool     `tfsdk:"allow_deletion"`
 	ClusterAPIURL     types.String   `tfsdk:"cluster_api_url"`
 	ConsolePrivateURL types.String   `tfsdk:"console_private_url"`
 	ConsoleURL        types.String   `tfsdk:"console_url"`
@@ -300,6 +301,7 @@ func SchemaRegistryToObject(ctx context.Context, v *SchemaRegistryModel) (types.
 // partial state when Create / Read returns mid-flight.
 func GenerateMinimalResourceModel(id types.String, timeout timeouts.Value) *ResourceModel {
 	return &ResourceModel{
+		AllowDeletion:     types.BoolNull(),
 		ClusterAPIURL:     types.StringNull(),
 		ConsolePrivateURL: types.StringNull(),
 		ConsoleURL:        types.StringNull(),

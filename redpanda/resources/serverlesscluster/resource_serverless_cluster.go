@@ -173,6 +173,11 @@ func (c *ServerlessCluster) Delete(ctx context.Context, req resource.DeleteReque
 	var model serverlessclustermodel.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 
+	if !model.AllowDeletion.ValueBool() {
+		resp.Diagnostics.AddError("serverless cluster deletion not allowed", "allow_deletion is set to false")
+		return
+	}
+
 	delReq, expandDiags := serverlessclustermodel.ExpandDelete(ctx, &model)
 	resp.Diagnostics.Append(expandDiags...)
 	if resp.Diagnostics.HasError() {
@@ -198,4 +203,5 @@ func (c *ServerlessCluster) Delete(ctx context.Context, req resource.DeleteReque
 // ImportState imports the serverless cluster resource by ID.
 func (*ServerlessCluster) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	resp.Diagnostics.Append(utils.ImportStateBoolFromSchemaDefault(ctx, ResourceServerlessClusterSchema(ctx), &resp.State, "allow_deletion")...)
 }

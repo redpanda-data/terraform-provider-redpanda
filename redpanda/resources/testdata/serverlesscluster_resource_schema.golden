@@ -1,5 +1,10 @@
 has_timeouts: true
 attributes:
+    - name: allow_deletion
+      type: BoolAttribute
+      optional: true
+      computed: true
+      default: booldefault.staticBoolDefault
     - name: cluster_api_url
       type: StringAttribute
       computed: true
