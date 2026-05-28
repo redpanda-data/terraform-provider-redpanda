@@ -21,20 +21,26 @@ resource "redpanda_cluster" "example" {
   region            = "us-west-2"
   cluster_type      = "dedicated"
   connection_type   = "public"
-  throughput_tier   = "tier-1-aws"
+  throughput_tier   = "tier-1-aws-v2-arm"
   zones             = ["us-west-2a", "us-west-2b", "us-west-2c"]
 }
 
 resource "redpanda_user" "example" {
   name            = "example-user"
-  password        = "secure-password-123"
+  password        = var.example_password # supply via TF_VAR_example_password or a secret store
   mechanism       = "scram-sha-256"
   cluster_api_url = redpanda_cluster.example.cluster_api_url
   allow_deletion  = true
 }
 
+resource "redpanda_role" "example" {
+  name            = "example-role"
+  cluster_api_url = redpanda_cluster.example.cluster_api_url
+  allow_deletion  = true
+}
+
 resource "redpanda_role_assignment" "example" {
-  role_name       = "test-role"
+  role_name       = redpanda_role.example.name
   principal       = "User:${redpanda_user.example.name}"
   cluster_api_url = redpanda_cluster.example.cluster_api_url
 }

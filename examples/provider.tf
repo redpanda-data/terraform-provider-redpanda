@@ -2,7 +2,7 @@ terraform {
   required_providers {
     redpanda = {
       source  = "redpanda-data/redpanda"
-      version = "~> 0.2.4"
+      version = "~> 1.9"
     }
     random = {
       source  = "hashicorp/random"
