@@ -255,13 +255,16 @@ redpanda/
 - **Unit tier**: gomock clients from `redpanda/mocks/`. Cut at the Go
   interface. Keep doing what works.
 
-- **Integration tier**: typed Go fake server. Each fake
-  (`internal/testutil/mock/fakes/controlplane.go`,
-  `fakes/dataplane.go`, etc.) implements a connect-go handler interface
-  for one service and holds in-memory state. An `httptest.Server` mounts
-  the handlers; the provider's client URL is pointed at it during test
-  configuration. There is **no recording step** — the typed handler
-  interface and the proto schema together define the wire contract.
+- **Integration tier**: bufconn-backed gRPC fake server. Per-service fakes
+  live under `internal/testutil/mock/fakes/` (`cluster.go`, `network.go`,
+  `topic.go`, `user.go`, `acl.go`, `pipeline.go`, `secret.go`, `shadow_link.go`,
+  `serverless_cluster.go`, `serverless_private_link.go`, `service_account.go`,
+  `resource_group.go`, `region.go`, `serverless_region.go`,
+  `throughput_tier.go`, `operation.go`, `security.go`, `schema_registry.go`).
+  Each implements the gRPC server interface for one service and holds
+  in-memory state. The provider's dialer is pointed at the bufconn listener
+  during test configuration. There is **no recording step** — the typed
+  handler interface and the proto schema together define the wire contract.
   Fakes are stateful by design: Create stores, Read retrieves, Update
   mutates, Delete removes.
 
@@ -352,12 +355,11 @@ both layers, the manual testing rig is the discovery point.
 ### 5.5 CI gating (label-triggered)
 
 - **Every PR push**: unit + integration + lint. $0, minutes.
-- **`run-live-aws` label** (and `run-live-gcp`, `run-live-azure`,
-  `run-byoc-aws`, `run-byovpc-aws`, `run-serverless-aws`, etc.): triggers
-  the live-acc job for that build-tag group. Labels are added by hand.
-- **`run-upgrade` label**: triggers the provider-upgrade suite.
-- Every live-acc and provider-upgrade job ends with the cleanup postscript (§5.4)
-  regardless of test outcome.
+- **`ci-ready` label**: triggers the standard live-acc gate (cluster + network + service_account + datasource_cluster) against AWS + GCP.
+- **`ci-ready-byoc` label**: triggers the BYOC + BYOVPC live-acc suite (AWS + GCP).
+- **`ci-ready-serverless` label**: triggers the serverless live-acc suite.
+- Every live-acc job ends with the cleanup postscript (§5.4) regardless of test outcome.
+- Provider-upgrade tests (`TestUpgrade_*`) currently run only via `task test:upgrade` locally; a pipeline step is not yet wired (tracked as a follow-up).
 
 No cron. No nightly. No matrix expansion the human didn't ask for.
 
@@ -459,10 +461,10 @@ independently shippable.
    `task test:cluster:aws` becomes
    `go test -tags=live_test,cluster_aws ./redpanda/resources/cluster/...`
    under the hood; the user-facing taskfile names stay stable.
-10. **Label-triggered live + upgrade workflows** in BuildKite. `run-live-aws`,
-    `run-live-gcp`, `run-live-azure`, `run-byoc-aws`, `run-byovpc-aws`,
-    `run-serverless-aws`, `run-upgrade`. Each maps to one build-tag group +
-    the cleanup postscript.
+10. **Label-triggered live workflows** in BuildKite: `ci-ready` (standard
+    cluster + network + service_account + datasource_cluster), `ci-ready-byoc`
+    (BYOC + BYOVPC), and `ci-ready-serverless` (serverless suite). Each maps
+    to one build-tag group + the cleanup postscript.
 11. **`upgrade` package** with `internal/testutil/upgrade/external_providers.go`
     and one `TestUpgrade*` per resource that has had a schema change in the
     last two minor releases. Pre-flight rejects `TF_CLI_CONFIG_FILE`.

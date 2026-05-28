@@ -32,7 +32,9 @@ request. If you've added new functionality, consider adding appropriate unit and
 ### Pull Request Process
 
 * (optional) Use the label docs to generate documentation
-* Use the label ci-ready to run integration tests
+* Use the `ci-ready` label to trigger the standard live-acc gate (cluster + network + service_account + datasource_cluster on AWS + GCP)
+* Use the `ci-ready-byoc` label to trigger the BYOC + BYOVPC live-acc suite
+* Use the `ci-ready-serverless` label to trigger the serverless live-acc suite
 
 ## Development Guide
 
@@ -281,7 +283,7 @@ task release:snapshot
 1. Always run `task ready` before committing changes to ensure code quality and documentation accuracy.
 2. Use `task test:unit` for quick, local testing that doesn't require Redpanda credentials.
 3. Use `task local:cluster:*:apply` and `task local:cluster:*:destroy` for manual testing during development.
-4. Run the integration tests by tagging your PR with `ci-ready` to ensure all tests pass before merging.
+4. Trigger live-acc tests by tagging your PR with one or more of `ci-ready` (standard), `ci-ready-byoc`, or `ci-ready-serverless`.
 5. Use `task release:check` to validate GoReleaser configuration before creating releases.
 6. Set up your `.env` file with appropriate credentials for your development environment.
 
