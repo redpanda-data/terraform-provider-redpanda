@@ -17,7 +17,7 @@ YAML-driven proto-to-schema codegen pipeline. Reads protobuf descriptors plus pe
 
 ## Driving it
 
-`task generate:schemas` (runs `go generate ./redpanda/resources/...`, which invokes `cmd/schemagen` per resource).
+`task generate:models` runs the full pipeline (`go generate ./redpanda/resources/...` then `go generate ./redpanda/models/...`). `task generate:schemas` runs only the resources pass.
 
 ## Authoring guide
 
