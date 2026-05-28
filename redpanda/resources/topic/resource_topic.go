@@ -30,7 +30,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	topicmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/topic"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -388,19 +387,13 @@ func (t *Topic) ImportState(ctx context.Context, req resource.ImportStateRequest
 		return
 	}
 	topicName, clusterID := split[0], split[1]
-	client := cloud.NewControlPlaneClientSet(t.resData.ControlPlaneConnection)
-	cluster, err := client.ClusterForID(ctx, clusterID)
-	var dataplaneURL string
-
-	if err == nil && cluster != nil {
-		dataplaneURL = cluster.DataplaneApi.Url
-	} else {
-		serverlessCluster, serr := client.ServerlessClusterForID(ctx, clusterID)
-		if serr != nil || serverlessCluster == nil {
-			resp.Diagnostics.AddError(fmt.Sprintf("failed to find cluster with ID %q; make sure ID format is <topic_name>,<cluster_id>", clusterID), utils.DeserializeGrpcError(err)+utils.DeserializeGrpcError(serr))
-			return
-		}
-		dataplaneURL = serverlessCluster.DataplaneApi.Url
+	dataplaneURL, err := t.CpCl.DataplaneURLForCluster(ctx, clusterID)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("failed to resolve dataplane URL for cluster %q; make sure ID format is <topic_name>,<cluster_id>", clusterID),
+			err.Error(),
+		)
+		return
 	}
 
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(topicName))...)

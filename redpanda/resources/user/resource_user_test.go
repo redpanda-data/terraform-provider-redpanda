@@ -47,7 +47,7 @@ func TestUnit_User_Create_WriteOnlyPassword(t *testing.T) {
 	}
 
 	schemaResp := resource.SchemaResponse{}
-	u.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	schemaResp.Schema = ResourceUserSchema(ctx)
 
 	// Plan has password_wo as null (simulates real Terraform behavior for write-only attrs)
 	plan := usermodel.ResourceModel{
@@ -111,7 +111,7 @@ func TestUnit_User_Update_WriteOnlyPassword(t *testing.T) {
 	}
 
 	schemaResp := resource.SchemaResponse{}
-	u.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	schemaResp.Schema = ResourceUserSchema(ctx)
 
 	// Plan has password_wo as null (simulates real Terraform behavior)
 	planModel := usermodel.ResourceModel{

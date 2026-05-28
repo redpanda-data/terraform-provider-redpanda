@@ -186,7 +186,7 @@ func newTestSetup(t *testing.T) *testSetup {
 	r := setupPipelineResource(mockClient)
 
 	schemaResp := resource.SchemaResponse{}
-	r.Schema(context.Background(), resource.SchemaRequest{}, &schemaResp)
+	schemaResp.Schema = ResourcePipelineSchema(context.Background())
 
 	return &testSetup{
 		t:          t,
@@ -410,10 +410,9 @@ func TestUnit_Pipeline_ToModel(t *testing.T) {
 
 func TestUnit_Pipeline_Schema(t *testing.T) {
 	ctx := context.Background()
-	p := &Pipeline{}
 
 	schemaResp := resource.SchemaResponse{}
-	p.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	schemaResp.Schema = ResourcePipelineSchema(ctx)
 
 	require.False(t, schemaResp.Diagnostics.HasError())
 
@@ -931,9 +930,10 @@ func TestUnit_Pipeline_PlanApplyConsistency(t *testing.T) {
 			}
 
 			r := setupPipelineResource(mockClient)
+			_ = r
 
 			schemaResp := resource.SchemaResponse{}
-			r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+			schemaResp.Schema = ResourcePipelineSchema(ctx)
 			require.False(t, schemaResp.Diagnostics.HasError())
 
 			resourcesObj := createResourcesObject(tt.inputPipeline.cpuShares, tt.inputPipeline.memoryShares)
@@ -1424,7 +1424,7 @@ func TestUnit_Pipeline_ServiceAccountSecretVersionUpdate(t *testing.T) {
 	r := setupPipelineResource(mockClient)
 
 	schemaResp := resource.SchemaResponse{}
-	r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	schemaResp.Schema = ResourcePipelineSchema(ctx)
 	require.False(t, schemaResp.Diagnostics.HasError())
 
 	// Current state has service_account with secret_version = 1
@@ -1510,7 +1510,7 @@ func TestUnit_Pipeline_ServiceAccountNoUpdateWhenVersionUnchanged(t *testing.T) 
 	r := setupPipelineResource(mockClient)
 
 	schemaResp := resource.SchemaResponse{}
-	r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	schemaResp.Schema = ResourcePipelineSchema(ctx)
 	require.False(t, schemaResp.Diagnostics.HasError())
 
 	// Both state and plan have same secret_version = 1
@@ -1596,7 +1596,7 @@ func TestUnit_Pipeline_ReadPreservesServiceAccountWhenServerOmits(t *testing.T) 
 	r := setupPipelineResource(mockClient)
 
 	schemaResp := resource.SchemaResponse{}
-	r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	schemaResp.Schema = ResourcePipelineSchema(ctx)
 	require.False(t, schemaResp.Diagnostics.HasError())
 
 	priorState := pipelinemodel.ResourceModel{

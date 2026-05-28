@@ -343,5 +343,5 @@ func (*ShadowLink) ImportState(ctx context.Context, req resource.ImportStateRequ
 	if sourceRedpandaID != "" {
 		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("source_redpanda_id"), types.StringValue(sourceRedpandaID))...)
 	}
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
+	resp.Diagnostics.Append(utils.ImportStateBoolFromSchemaDefault(ctx, ResourceShadowLinkSchema(ctx), &resp.State, "allow_deletion")...)
 }

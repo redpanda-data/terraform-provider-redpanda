@@ -25,7 +25,6 @@ import (
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	splmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/serverlessprivatelink"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -224,5 +223,5 @@ func (s *ServerlessPrivateLink) Delete(ctx context.Context, req resource.DeleteR
 // ImportState imports and updates the state of the serverless private link resource.
 func (*ServerlessPrivateLink) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
+	resp.Diagnostics.Append(utils.ImportStateBoolFromSchemaDefault(ctx, ResourceServerlessPrivateLinkSchema(ctx), &resp.State, "allow_deletion")...)
 }

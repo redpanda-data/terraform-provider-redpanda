@@ -197,7 +197,7 @@ func TestUnit_Topic_Create(t *testing.T) {
 			}
 
 			schemaResp := resource.SchemaResponse{}
-			topic.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+			schemaResp.Schema = ResourceTopicSchema(ctx)
 
 			req := resource.CreateRequest{
 				Plan: tfsdk.Plan{Schema: schemaResp.Schema},
@@ -276,7 +276,7 @@ func TestUnit_Topic_CreateStatePersistence(t *testing.T) {
 	}
 
 	schemaResp := resource.SchemaResponse{}
-	topic.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	schemaResp.Schema = ResourceTopicSchema(ctx)
 
 	input := topicmodel.ResourceModel{
 		Name:              types.StringValue("bulk-topic"),
@@ -356,7 +356,7 @@ func TestUnit_Topic_UpdateStatePersistence(t *testing.T) {
 	}
 
 	schemaResp := resource.SchemaResponse{}
-	topic.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	schemaResp.Schema = ResourceTopicSchema(ctx)
 
 	state := topicmodel.ResourceModel{
 		Name:              types.StringValue("update-topic"),
@@ -495,7 +495,7 @@ func TestUnit_Topic_Read_RetriesTransient(t *testing.T) {
 		resData: config.Resource{AuthToken: "test-token", ProviderVersion: "1.0.0", TerraformVersion: "1.5.0"},
 	}
 	schemaResp := resource.SchemaResponse{}
-	topic.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	schemaResp.Schema = ResourceTopicSchema(ctx)
 
 	state := topicmodel.ResourceModel{
 		Name:              types.StringValue("retry-topic"),
@@ -551,7 +551,7 @@ func TestUnit_Topic_Update_RetriesTransient(t *testing.T) {
 		resData: config.Resource{AuthToken: "test-token", ProviderVersion: "1.0.0", TerraformVersion: "1.5.0"},
 	}
 	schemaResp := resource.SchemaResponse{}
-	topic.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	schemaResp.Schema = ResourceTopicSchema(ctx)
 
 	base := topicmodel.ResourceModel{
 		Name:              types.StringValue("update-topic"),
@@ -615,7 +615,7 @@ func TestUnit_Topic_Delete_NotFoundAfterRetryIsSuccess(t *testing.T) {
 		resData: config.Resource{AuthToken: "test-token", ProviderVersion: "1.0.0", TerraformVersion: "1.5.0"},
 	}
 	schemaResp := resource.SchemaResponse{}
-	topic.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	schemaResp.Schema = ResourceTopicSchema(ctx)
 
 	state := topicmodel.ResourceModel{
 		Name:              types.StringValue("delete-topic"),

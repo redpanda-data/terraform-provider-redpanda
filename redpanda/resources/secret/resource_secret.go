@@ -28,8 +28,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	rschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/internal/modelconv"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	secretmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/secret"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -65,11 +65,6 @@ func NewSecret() *Secret {
 	return s
 }
 
-// Schema returns the schema for the Secret resource.
-func (*Secret) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = ResourceSecretSchema()
-}
-
 // Create creates a Secret resource.
 func (s *Secret) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var model secretmodel.ResourceModel
@@ -88,7 +83,7 @@ func (s *Secret) Create(ctx context.Context, req resource.CreateRequest, resp *r
 
 	scopes, diags := secretmodel.StringsToScopes(ctx, model.Scopes)
 	resp.Diagnostics.Append(diags...)
-	labels, diags := secretmodel.MapToStringMap(ctx, model.Labels)
+	labels, diags := modelconv.MapToStrings(ctx, model.Labels)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -301,34 +296,19 @@ func (s *Secret) ImportState(ctx context.Context, req resource.ImportStateReques
 	}
 	name, clusterID := parts[0], parts[1]
 
-	cp := cloud.NewControlPlaneClientSet(s.resData.ControlPlaneConnection)
-	cl, err := cp.ClusterForID(ctx, clusterID)
-	var dataplaneURL string
-	if err == nil && cl != nil {
-		dataplaneURL = cl.DataplaneApi.Url
-	} else {
-		scl, serr := cp.ServerlessClusterForID(ctx, clusterID)
-		if serr != nil || scl == nil {
-			var msgs []string
-			if err != nil {
-				msgs = append(msgs, "cluster: "+utils.DeserializeGrpcError(err))
-			}
-			if serr != nil {
-				msgs = append(msgs, "serverless cluster: "+utils.DeserializeGrpcError(serr))
-			}
-			resp.Diagnostics.AddError(
-				fmt.Sprintf("failed to find cluster with ID %q; import format is <secret_name>,<cluster_id>", clusterID),
-				strings.Join(msgs, "; "),
-			)
-			return
-		}
-		dataplaneURL = scl.DataplaneApi.Url
+	dataplaneURL, err := s.CpCl.DataplaneURLForCluster(ctx, clusterID)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("failed to resolve dataplane URL for cluster %q; import format is <secret_name>,<cluster_id>", clusterID),
+			err.Error(),
+		)
+		return
 	}
 
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(name))...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(name))...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_api_url"), types.StringValue(dataplaneURL))...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
+	resp.Diagnostics.Append(utils.ImportStateBoolFromSchemaDefault(ctx, ResourceSecretSchema(), &resp.State, "allow_deletion")...)
 }
 
 func (s *Secret) createSecretClient(clusterURL string) error {
