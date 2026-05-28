@@ -401,8 +401,8 @@ func {{.FuncName}}({{if .UsesCtx}}ctx{{else}}_{{end}} context.Context, m *{{$.Mo
 // Flatten{{.FuncSuffix}} converts a single proto {{.ProtoTypeBare}} into the
 // corresponding nested model. The prev *{{.TypeName}} arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func Flatten{{.FuncSuffix}}({{if .FlattenUsesCtx}}ctx{{else}}_{{end}} context.Context, proto {{.ProtoType}}, prev *{{.TypeName}}) ({{.TypeName}}, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -414,6 +414,12 @@ func Flatten{{.FuncSuffix}}({{if .FlattenUsesCtx}}ctx{{else}}_{{end}} context.Co
 {{- if .HasPresence}}
 	if proto.Has{{.ProtoGoName}}() {
 		m.{{.GoName}} = {{.FlattenExpr}}
+	} else if prev != nil && !prev.{{.GoName}}.IsUnknown() {
+		m.{{.GoName}} = prev.{{.GoName}}
+{{- if .NullExpr}}
+	} else {
+		m.{{.GoName}} = {{.NullExpr}}
+{{- end}}
 	}
 {{- else}}
 	m.{{.GoName}} = {{.FlattenExpr}}
