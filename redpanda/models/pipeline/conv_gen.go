@@ -154,8 +154,8 @@ func ExpandDelete(_ context.Context, m *ResourceModel) (*dataplanev1.DeletePipel
 // FlattenServiceAccount converts a single proto dataplanev1.Pipeline_ServiceAccount into the
 // corresponding nested model. The prev *ServiceAccountModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenServiceAccount(_ context.Context, proto *dataplanev1.Pipeline_ServiceAccount, prev *ServiceAccountModel) (ServiceAccountModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -180,8 +180,8 @@ func ExpandServiceAccount(_ context.Context, m *ServiceAccountModel) (*dataplane
 // FlattenResources converts a single proto dataplanev1.Pipeline_Resources into the
 // corresponding nested model. The prev *ResourcesModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenResources(_ context.Context, proto *dataplanev1.Pipeline_Resources, prev *ResourcesModel) (ResourcesModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -219,8 +219,8 @@ func ExpandResources(_ context.Context, m *ResourcesModel) (*dataplanev1.Pipelin
 // FlattenStatus converts a single proto dataplanev1.Pipeline_Status into the
 // corresponding nested model. The prev *StatusModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenStatus(_ context.Context, proto *dataplanev1.Pipeline_Status, prev *StatusModel) (StatusModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev

@@ -112,14 +112,14 @@ func ExpandDelete(_ context.Context, m *ResourceModel) (*dataplanev1.DeleteTopic
 // FlattenReplicaAssignments converts a single proto dataplanev1.CreateTopicRequest_Topic_ReplicaAssignment into the
 // corresponding nested model. The prev *ReplicaAssignmentsModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenReplicaAssignments(ctx context.Context, proto *dataplanev1.CreateTopicRequest_Topic_ReplicaAssignment, prev *ReplicaAssignmentsModel) (ReplicaAssignmentsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
 	m := ReplicaAssignmentsModel{}
 	m.PartitionID = types.Int32Value(proto.GetPartitionId())
-	m.ReplicaIds = modelconv.ListFromInt32sWithDiags(ctx, proto.GetReplicaIds(), &diags)
+	m.ReplicaIds = modelconv.ListFromSliceWithDiags(ctx, proto.GetReplicaIds(), types.Int32Type, &diags)
 	return m, diags
 }
 
@@ -131,7 +131,7 @@ func ExpandReplicaAssignments(ctx context.Context, m *ReplicaAssignmentsModel) (
 	}
 	out := &dataplanev1.CreateTopicRequest_Topic_ReplicaAssignment{
 		PartitionId: m.PartitionID.ValueInt32(),
-		ReplicaIds:  modelconv.ListToInt32sWithDiags(ctx, m.ReplicaIds, &diags),
+		ReplicaIds:  modelconv.ListToSliceWithDiags[int32](ctx, m.ReplicaIds, &diags),
 	}
 	return out, diags
 }

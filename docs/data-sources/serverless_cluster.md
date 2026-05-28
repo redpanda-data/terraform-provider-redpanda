@@ -122,6 +122,7 @@ resource "redpanda_serverless_cluster" "test" {
   name              = var.cluster_name
   resource_group_id = redpanda_resource_group.test.id
   serverless_region = var.region
+  allow_deletion    = var.cluster_allow_deletion
 
   private_link_id = var.private_networking == "STATE_ENABLED" ? redpanda_serverless_private_link.test[0].id : null
 

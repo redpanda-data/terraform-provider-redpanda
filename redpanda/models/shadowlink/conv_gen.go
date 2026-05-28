@@ -173,8 +173,8 @@ func ExpandDelete(_ context.Context, m *ResourceModel) (*controlplanev1.DeleteSh
 // FlattenClientOptions converts a single proto controlplanev1.ShadowLinkClientOptions into the
 // corresponding nested model. The prev *ClientOptionsModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenClientOptions(ctx context.Context, proto *controlplanev1.ShadowLinkClientOptions, prev *ClientOptionsModel) (ClientOptionsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -183,7 +183,7 @@ func FlattenClientOptions(ctx context.Context, proto *controlplanev1.ShadowLinkC
 		v, _ := DecodeClientOptionsAuthenticationConfiguration(ctx, prev)
 		return v
 	}(), ClientOptionsAuthenticationConfigurationAttrTypes(), FlattenClientOptionsAuthenticationConfiguration, &diags)
-	m.BootstrapServers = modelconv.ListFromStringsWithDiags(ctx, proto.GetBootstrapServers(), &diags)
+	m.BootstrapServers = modelconv.ListFromSliceWithDiags(ctx, proto.GetBootstrapServers(), types.StringType, &diags)
 	m.ConnectionTimeoutMs = types.Int32Value(proto.GetConnectionTimeoutMs())
 	m.FetchMaxBytes = types.Int32Value(proto.GetFetchMaxBytes())
 	m.FetchMinBytes = types.Int32Value(proto.GetFetchMinBytes())
@@ -212,7 +212,7 @@ func ExpandClientOptions(ctx context.Context, m *ClientOptionsModel) (*controlpl
 	}
 	out := &controlplanev1.ShadowLinkClientOptions{
 		AuthenticationConfiguration:     modelconv.ObjectToMessageWithDiags(ctx, m.AuthenticationConfiguration, ExpandClientOptionsAuthenticationConfiguration, &diags),
-		BootstrapServers:                modelconv.ListToStringsWithDiags(ctx, m.BootstrapServers, &diags),
+		BootstrapServers:                modelconv.ListToSliceWithDiags[string](ctx, m.BootstrapServers, &diags),
 		ConnectionTimeoutMs:             m.ConnectionTimeoutMs.ValueInt32(),
 		FetchMaxBytes:                   m.FetchMaxBytes.ValueInt32(),
 		FetchMinBytes:                   m.FetchMinBytes.ValueInt32(),
@@ -237,8 +237,8 @@ func ExpandClientOptions(ctx context.Context, m *ClientOptionsModel) (*controlpl
 // FlattenClientOptionsAuthenticationConfiguration converts a single proto corev2.AuthenticationConfiguration into the
 // corresponding nested model. The prev *ClientOptionsAuthenticationConfigurationModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenClientOptionsAuthenticationConfiguration(ctx context.Context, proto *corev2.AuthenticationConfiguration, prev *ClientOptionsAuthenticationConfigurationModel) (ClientOptionsAuthenticationConfigurationModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -273,8 +273,8 @@ func ExpandClientOptionsAuthenticationConfiguration(ctx context.Context, m *Clie
 // FlattenClientOptionsAuthenticationConfigurationPlainConfiguration converts a single proto corev2.PlainConfig into the
 // corresponding nested model. The prev *ClientOptionsAuthenticationConfigurationPlainConfigurationModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenClientOptionsAuthenticationConfigurationPlainConfiguration(_ context.Context, proto *corev2.PlainConfig, prev *ClientOptionsAuthenticationConfigurationPlainConfigurationModel) (ClientOptionsAuthenticationConfigurationPlainConfigurationModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -282,7 +282,6 @@ func FlattenClientOptionsAuthenticationConfigurationPlainConfiguration(_ context
 	m.Password = types.StringValue(proto.GetPassword())
 	m.Username = types.StringValue(proto.GetUsername())
 	m.PasswordSet = types.BoolValue(proto.GetPasswordSet())
-	m.PasswordSetAt = modelconv.StringFromTimestamp(proto.GetPasswordSetAt())
 	return m, diags
 }
 
@@ -293,10 +292,9 @@ func ExpandClientOptionsAuthenticationConfigurationPlainConfiguration(_ context.
 		return nil, diags
 	}
 	out := &corev2.PlainConfig{
-		Password:      m.Password.ValueString(),
-		Username:      m.Username.ValueString(),
-		PasswordSet:   m.PasswordSet.ValueBool(),
-		PasswordSetAt: modelconv.TimestampFromStringWithDiags(m.PasswordSetAt, &diags),
+		Password:    m.Password.ValueString(),
+		Username:    m.Username.ValueString(),
+		PasswordSet: m.PasswordSet.ValueBool(),
 	}
 	return out, diags
 }
@@ -304,8 +302,8 @@ func ExpandClientOptionsAuthenticationConfigurationPlainConfiguration(_ context.
 // FlattenClientOptionsAuthenticationConfigurationScramConfiguration converts a single proto corev2.ScramConfig into the
 // corresponding nested model. The prev *ClientOptionsAuthenticationConfigurationScramConfigurationModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenClientOptionsAuthenticationConfigurationScramConfiguration(_ context.Context, proto *corev2.ScramConfig, prev *ClientOptionsAuthenticationConfigurationScramConfigurationModel) (ClientOptionsAuthenticationConfigurationScramConfigurationModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -314,7 +312,6 @@ func FlattenClientOptionsAuthenticationConfigurationScramConfiguration(_ context
 	m.ScramMechanism = types.StringValue(enums.ScramMechanismToString(proto.GetScramMechanism()))
 	m.Username = types.StringValue(proto.GetUsername())
 	m.PasswordSet = types.BoolValue(proto.GetPasswordSet())
-	m.PasswordSetAt = modelconv.StringFromTimestamp(proto.GetPasswordSetAt())
 	return m, diags
 }
 
@@ -329,7 +326,6 @@ func ExpandClientOptionsAuthenticationConfigurationScramConfiguration(_ context.
 		ScramMechanism: enums.StringToScramMechanism(m.ScramMechanism.ValueString()),
 		Username:       m.Username.ValueString(),
 		PasswordSet:    m.PasswordSet.ValueBool(),
-		PasswordSetAt:  modelconv.TimestampFromStringWithDiags(m.PasswordSetAt, &diags),
 	}
 	return out, diags
 }
@@ -337,8 +333,8 @@ func ExpandClientOptionsAuthenticationConfigurationScramConfiguration(_ context.
 // FlattenClientOptionsTLSSettings converts a single proto controlplanev1.TLSSettings into the
 // corresponding nested model. The prev *ClientOptionsTLSSettingsModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenClientOptionsTLSSettings(_ context.Context, proto *controlplanev1.TLSSettings, prev *ClientOptionsTLSSettingsModel) (ClientOptionsTLSSettingsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -370,8 +366,8 @@ func ExpandClientOptionsTLSSettings(_ context.Context, m *ClientOptionsTLSSettin
 // FlattenConsumerOffsetSyncOptions converts a single proto corev2.ConsumerOffsetSyncOptions into the
 // corresponding nested model. The prev *ConsumerOffsetSyncOptionsModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenConsumerOffsetSyncOptions(ctx context.Context, proto *corev2.ConsumerOffsetSyncOptions, prev *ConsumerOffsetSyncOptionsModel) (ConsumerOffsetSyncOptionsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -379,7 +375,6 @@ func FlattenConsumerOffsetSyncOptions(ctx context.Context, proto *corev2.Consume
 	m.GroupFilters = modelconv.ListFromObjectsWithDiags(ctx, proto.GetGroupFilters(), ConsumerOffsetSyncOptionsGroupFiltersAttrTypes(), FlattenConsumerOffsetSyncOptionsGroupFilters, &diags)
 	m.Interval = modelconv.StringFromDuration(proto.GetInterval())
 	m.Paused = types.BoolValue(proto.GetPaused())
-	m.EffectiveInterval = modelconv.StringFromDuration(proto.GetEffectiveInterval())
 	return m, diags
 }
 
@@ -390,10 +385,9 @@ func ExpandConsumerOffsetSyncOptions(ctx context.Context, m *ConsumerOffsetSyncO
 		return nil, diags
 	}
 	out := &corev2.ConsumerOffsetSyncOptions{
-		GroupFilters:      modelconv.ListToObjectsWithDiags(ctx, m.GroupFilters, ExpandConsumerOffsetSyncOptionsGroupFilters, &diags),
-		Interval:          modelconv.DurationFromStringWithDiags(m.Interval, &diags),
-		Paused:            m.Paused.ValueBool(),
-		EffectiveInterval: modelconv.DurationFromStringWithDiags(m.EffectiveInterval, &diags),
+		GroupFilters: modelconv.ListToObjectsWithDiags(ctx, m.GroupFilters, ExpandConsumerOffsetSyncOptionsGroupFilters, &diags),
+		Interval:     modelconv.DurationFromStringWithDiags(m.Interval, &diags),
+		Paused:       m.Paused.ValueBool(),
 	}
 	return out, diags
 }
@@ -401,8 +395,8 @@ func ExpandConsumerOffsetSyncOptions(ctx context.Context, m *ConsumerOffsetSyncO
 // FlattenConsumerOffsetSyncOptionsGroupFilters converts a single proto corev2.NameFilter into the
 // corresponding nested model. The prev *ConsumerOffsetSyncOptionsGroupFiltersModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenConsumerOffsetSyncOptionsGroupFilters(_ context.Context, proto *corev2.NameFilter, prev *ConsumerOffsetSyncOptionsGroupFiltersModel) (ConsumerOffsetSyncOptionsGroupFiltersModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -430,8 +424,8 @@ func ExpandConsumerOffsetSyncOptionsGroupFilters(_ context.Context, m *ConsumerO
 // FlattenSchemaRegistrySyncOptions converts a single proto corev2.SchemaRegistrySyncOptions into the
 // corresponding nested model. The prev *SchemaRegistrySyncOptionsModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenSchemaRegistrySyncOptions(_ context.Context, proto *corev2.SchemaRegistrySyncOptions, prev *SchemaRegistrySyncOptionsModel) (SchemaRegistrySyncOptionsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -456,8 +450,8 @@ func ExpandSchemaRegistrySyncOptions(_ context.Context, m *SchemaRegistrySyncOpt
 // FlattenSecuritySyncOptions converts a single proto corev2.SecuritySettingsSyncOptions into the
 // corresponding nested model. The prev *SecuritySyncOptionsModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenSecuritySyncOptions(ctx context.Context, proto *corev2.SecuritySettingsSyncOptions, prev *SecuritySyncOptionsModel) (SecuritySyncOptionsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -465,7 +459,6 @@ func FlattenSecuritySyncOptions(ctx context.Context, proto *corev2.SecuritySetti
 	m.AclFilters = modelconv.ListFromObjectsWithDiags(ctx, proto.GetAclFilters(), SecuritySyncOptionsAclFiltersAttrTypes(), FlattenSecuritySyncOptionsAclFilters, &diags)
 	m.Interval = modelconv.StringFromDuration(proto.GetInterval())
 	m.Paused = types.BoolValue(proto.GetPaused())
-	m.EffectiveInterval = modelconv.StringFromDuration(proto.GetEffectiveInterval())
 	return m, diags
 }
 
@@ -476,10 +469,9 @@ func ExpandSecuritySyncOptions(ctx context.Context, m *SecuritySyncOptionsModel)
 		return nil, diags
 	}
 	out := &corev2.SecuritySettingsSyncOptions{
-		AclFilters:        modelconv.ListToObjectsWithDiags(ctx, m.AclFilters, ExpandSecuritySyncOptionsAclFilters, &diags),
-		Interval:          modelconv.DurationFromStringWithDiags(m.Interval, &diags),
-		Paused:            m.Paused.ValueBool(),
-		EffectiveInterval: modelconv.DurationFromStringWithDiags(m.EffectiveInterval, &diags),
+		AclFilters: modelconv.ListToObjectsWithDiags(ctx, m.AclFilters, ExpandSecuritySyncOptionsAclFilters, &diags),
+		Interval:   modelconv.DurationFromStringWithDiags(m.Interval, &diags),
+		Paused:     m.Paused.ValueBool(),
 	}
 	return out, diags
 }
@@ -487,8 +479,8 @@ func ExpandSecuritySyncOptions(ctx context.Context, m *SecuritySyncOptionsModel)
 // FlattenSecuritySyncOptionsAclFilters converts a single proto corev2.ACLFilter into the
 // corresponding nested model. The prev *SecuritySyncOptionsAclFiltersModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenSecuritySyncOptionsAclFilters(ctx context.Context, proto *corev2.ACLFilter, prev *SecuritySyncOptionsAclFiltersModel) (SecuritySyncOptionsAclFiltersModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -520,8 +512,8 @@ func ExpandSecuritySyncOptionsAclFilters(ctx context.Context, m *SecuritySyncOpt
 // FlattenSecuritySyncOptionsAclFiltersAccessFilter converts a single proto corev2.ACLAccessFilter into the
 // corresponding nested model. The prev *SecuritySyncOptionsAclFiltersAccessFilterModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenSecuritySyncOptionsAclFiltersAccessFilter(_ context.Context, proto *corev2.ACLAccessFilter, prev *SecuritySyncOptionsAclFiltersAccessFilterModel) (SecuritySyncOptionsAclFiltersAccessFilterModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -551,8 +543,8 @@ func ExpandSecuritySyncOptionsAclFiltersAccessFilter(_ context.Context, m *Secur
 // FlattenSecuritySyncOptionsAclFiltersResourceFilter converts a single proto corev2.ACLResourceFilter into the
 // corresponding nested model. The prev *SecuritySyncOptionsAclFiltersResourceFilterModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenSecuritySyncOptionsAclFiltersResourceFilter(_ context.Context, proto *corev2.ACLResourceFilter, prev *SecuritySyncOptionsAclFiltersResourceFilterModel) (SecuritySyncOptionsAclFiltersResourceFilterModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -580,8 +572,8 @@ func ExpandSecuritySyncOptionsAclFiltersResourceFilter(_ context.Context, m *Sec
 // FlattenTopicMetadataSyncOptions converts a single proto corev2.TopicMetadataSyncOptions into the
 // corresponding nested model. The prev *TopicMetadataSyncOptionsModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenTopicMetadataSyncOptions(ctx context.Context, proto *corev2.TopicMetadataSyncOptions, prev *TopicMetadataSyncOptionsModel) (TopicMetadataSyncOptionsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -593,8 +585,7 @@ func FlattenTopicMetadataSyncOptions(ctx context.Context, proto *corev2.TopicMet
 	m.StartAtEarliest = modelconv.BoolFromOneofPresence(proto.HasStartAtEarliest())
 	m.StartAtLatest = modelconv.BoolFromOneofPresence(proto.HasStartAtLatest())
 	m.StartAtTimestamp = modelconv.StringFromTimestamp(proto.GetStartAtTimestamp())
-	m.SyncedShadowTopicProperties = modelconv.ListFromStringsWithDiags(ctx, proto.GetSyncedShadowTopicProperties(), &diags)
-	m.EffectiveInterval = modelconv.StringFromDuration(proto.GetEffectiveInterval())
+	m.SyncedShadowTopicProperties = modelconv.ListFromSliceWithDiags(ctx, proto.GetSyncedShadowTopicProperties(), types.StringType, &diags)
 	return m, diags
 }
 
@@ -609,8 +600,7 @@ func ExpandTopicMetadataSyncOptions(ctx context.Context, m *TopicMetadataSyncOpt
 		ExcludeDefault:               m.ExcludeDefault.ValueBool(),
 		Interval:                     modelconv.DurationFromStringWithDiags(m.Interval, &diags),
 		Paused:                       m.Paused.ValueBool(),
-		SyncedShadowTopicProperties:  modelconv.ListToStringsWithDiags(ctx, m.SyncedShadowTopicProperties, &diags),
-		EffectiveInterval:            modelconv.DurationFromStringWithDiags(m.EffectiveInterval, &diags),
+		SyncedShadowTopicProperties:  modelconv.ListToSliceWithDiags[string](ctx, m.SyncedShadowTopicProperties, &diags),
 	}
 	if m.StartAtEarliest.ValueBool() {
 		out.SetStartAtEarliest(&corev2.TopicMetadataSyncOptions_EarliestOffset{})
@@ -627,8 +617,8 @@ func ExpandTopicMetadataSyncOptions(ctx context.Context, m *TopicMetadataSyncOpt
 // FlattenTopicMetadataSyncOptionsAutoCreateShadowTopicFilters converts a single proto corev2.NameFilter into the
 // corresponding nested model. The prev *TopicMetadataSyncOptionsAutoCreateShadowTopicFiltersModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenTopicMetadataSyncOptionsAutoCreateShadowTopicFilters(_ context.Context, proto *corev2.NameFilter, prev *TopicMetadataSyncOptionsAutoCreateShadowTopicFiltersModel) (TopicMetadataSyncOptionsAutoCreateShadowTopicFiltersModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
