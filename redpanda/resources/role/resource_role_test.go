@@ -136,7 +136,7 @@ func TestUnit_Role_Create(t *testing.T) {
 
 			// Get schema
 			schemaResp := resource.SchemaResponse{}
-			r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+			schemaResp.Schema = ResourceRoleSchema(ctx)
 
 			// Setup request with plan
 			req := resource.CreateRequest{
@@ -338,7 +338,7 @@ func TestUnit_Role_Read(t *testing.T) {
 
 			// Get schema
 			schemaResp := resource.SchemaResponse{}
-			r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+			schemaResp.Schema = ResourceRoleSchema(ctx)
 
 			// Setup request with initial state
 			req := resource.ReadRequest{
@@ -466,7 +466,7 @@ func TestUnit_Role_Update(t *testing.T) {
 
 			// Get schema
 			schemaResp := resource.SchemaResponse{}
-			r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+			schemaResp.Schema = ResourceRoleSchema(ctx)
 
 			// Setup request with state and plan
 			req := resource.UpdateRequest{
@@ -622,7 +622,7 @@ func TestUnit_Role_Delete(t *testing.T) {
 
 			// Get schema
 			schemaResp := resource.SchemaResponse{}
-			r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+			schemaResp.Schema = ResourceRoleSchema(ctx)
 
 			// Setup request with state
 			req := resource.DeleteRequest{
@@ -802,7 +802,7 @@ func TestUnit_Role_CreateAndRead(t *testing.T) {
 			}
 
 			schemaResp := resource.SchemaResponse{}
-			r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+			schemaResp.Schema = ResourceRoleSchema(ctx)
 
 			// Execute Create
 			createReq := resource.CreateRequest{
@@ -921,7 +921,7 @@ func TestUnit_Role_CreateReadDelete(t *testing.T) {
 			}
 
 			schemaResp := resource.SchemaResponse{}
-			r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+			schemaResp.Schema = ResourceRoleSchema(ctx)
 
 			// Create
 			createReq := resource.CreateRequest{Plan: tfsdk.Plan{Schema: schemaResp.Schema}}
@@ -1018,7 +1018,7 @@ func TestUnit_Role_CreateReadUpdate(t *testing.T) {
 			}
 
 			schemaResp := resource.SchemaResponse{}
-			r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+			schemaResp.Schema = ResourceRoleSchema(ctx)
 
 			// Create
 			createReq := resource.CreateRequest{Plan: tfsdk.Plan{Schema: schemaResp.Schema}}

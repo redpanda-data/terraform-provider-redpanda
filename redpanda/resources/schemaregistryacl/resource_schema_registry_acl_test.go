@@ -284,7 +284,7 @@ func TestUnit_SchemaRegistryACL_Create(t *testing.T) {
 			}
 
 			schemaResp := resource.SchemaResponse{}
-			sr.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+			schemaResp.Schema = ResourceSchemaRegistryACLSchema(ctx)
 
 			req := resource.CreateRequest{
 				Plan: tfsdk.Plan{Schema: schemaResp.Schema},
@@ -492,7 +492,7 @@ func TestUnit_SchemaRegistryACL_Read(t *testing.T) {
 			}
 
 			schemaResp := resource.SchemaResponse{}
-			sr.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+			schemaResp.Schema = ResourceSchemaRegistryACLSchema(ctx)
 
 			req := resource.ReadRequest{
 				State: tfsdk.State{Schema: schemaResp.Schema},
@@ -790,7 +790,7 @@ func TestUnit_SchemaRegistryACL_Update(t *testing.T) {
 			sr := &SchemaRegistryACL{}
 
 			schemaResp := resource.SchemaResponse{}
-			sr.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+			schemaResp.Schema = ResourceSchemaRegistryACLSchema(ctx)
 
 			req := resource.UpdateRequest{
 				State: tfsdk.State{Schema: schemaResp.Schema},
@@ -942,7 +942,7 @@ func TestUnit_SchemaRegistryACL_Delete(t *testing.T) {
 			}
 
 			schemaResp := resource.SchemaResponse{}
-			sr.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+			schemaResp.Schema = ResourceSchemaRegistryACLSchema(ctx)
 
 			req := resource.DeleteRequest{
 				State: tfsdk.State{Schema: schemaResp.Schema},

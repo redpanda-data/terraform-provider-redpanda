@@ -65,7 +65,7 @@ func TestUnit_Secret_Create_WriteOnlySecretData(t *testing.T) {
 
 	s := &Secret{SecretClient: mockClient}
 	schemaResp := resource.SchemaResponse{}
-	s.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	schemaResp.Schema = ResourceSecretSchema()
 
 	plan := secretmodel.ResourceModel{
 		Name:              types.StringValue("MY_SECRET"),
@@ -109,7 +109,7 @@ func TestUnit_Secret_Create_APIError(t *testing.T) {
 
 	s := &Secret{SecretClient: mockClient}
 	schemaResp := resource.SchemaResponse{}
-	s.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	schemaResp.Schema = ResourceSecretSchema()
 
 	plan := secretmodel.ResourceModel{
 		Name:          types.StringValue("MY_SECRET"),
@@ -151,7 +151,7 @@ func TestUnit_Secret_Update_VersionTriggersWrite(t *testing.T) {
 
 	s := &Secret{SecretClient: mockClient}
 	schemaResp := resource.SchemaResponse{}
-	s.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	schemaResp.Schema = ResourceSecretSchema()
 
 	plan := secretmodel.ResourceModel{
 		Name:              types.StringValue("MY_SECRET"),
@@ -193,7 +193,7 @@ func TestUnit_Secret_Update_NoChange_Skips_API(t *testing.T) {
 	mockClient := mocks.NewMockSecretServiceClient(ctrl)
 	s := &Secret{SecretClient: mockClient}
 	schemaResp := resource.SchemaResponse{}
-	s.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	schemaResp.Schema = ResourceSecretSchema()
 
 	plan := secretmodel.ResourceModel{
 		Name:              types.StringValue("MY_SECRET"),
@@ -237,7 +237,7 @@ func TestUnit_Secret_Read_RoundTripsScopesAndLabels(t *testing.T) {
 
 	s := &Secret{SecretClient: mockClient}
 	schemaResp := resource.SchemaResponse{}
-	s.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	schemaResp.Schema = ResourceSecretSchema()
 
 	state := secretmodel.ResourceModel{
 		Name:              types.StringValue("MY_SECRET"),
@@ -271,7 +271,7 @@ func TestUnit_Secret_Delete_RespectsAllowDeletion(t *testing.T) {
 	// Expect no Delete call when allow_deletion=false.
 	s := &Secret{SecretClient: mockClient}
 	schemaResp := resource.SchemaResponse{}
-	s.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	schemaResp.Schema = ResourceSecretSchema()
 
 	state := secretmodel.ResourceModel{
 		Name:          types.StringValue("MY_SECRET"),

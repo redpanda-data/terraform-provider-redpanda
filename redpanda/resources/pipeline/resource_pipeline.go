@@ -31,7 +31,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	pipelinemodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/pipeline"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -70,11 +69,6 @@ func NewPipeline() *Pipeline {
 		func(d config.Resource) { p.resData = d },
 	)
 	return p
-}
-
-// Schema returns the schema for the Pipeline resource.
-func (*Pipeline) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = ResourcePipelineSchema(ctx)
 }
 
 // Create creates a new Pipeline resource
@@ -452,27 +446,18 @@ func (p *Pipeline) ImportState(ctx context.Context, req resource.ImportStateRequ
 
 	pipelineID, clusterID := split[0], split[1]
 
-	client := cloud.NewControlPlaneClientSet(p.resData.ControlPlaneConnection)
-	cluster, err := client.ClusterForID(ctx, clusterID)
-	var dataplaneURL string
-
-	if err == nil && cluster != nil && cluster.DataplaneApi != nil {
-		dataplaneURL = cluster.DataplaneApi.Url
-	} else {
-		serverlessCluster, serr := client.ServerlessClusterForID(ctx, clusterID)
-		if serr != nil || serverlessCluster == nil || serverlessCluster.DataplaneApi == nil {
-			resp.Diagnostics.AddError(
-				fmt.Sprintf("failed to find cluster with ID %q; make sure import ID format is <pipeline_id>,<cluster_id>", clusterID),
-				utils.DeserializeGrpcError(err)+utils.DeserializeGrpcError(serr),
-			)
-			return
-		}
-		dataplaneURL = serverlessCluster.DataplaneApi.Url
+	dataplaneURL, err := p.CpCl.DataplaneURLForCluster(ctx, clusterID)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("failed to resolve dataplane URL for cluster %q; make sure import ID format is <pipeline_id>,<cluster_id>", clusterID),
+			err.Error(),
+		)
+		return
 	}
 
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(pipelineID))...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_api_url"), types.StringValue(dataplaneURL))...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
+	resp.Diagnostics.Append(utils.ImportStateBoolFromSchemaDefault(ctx, ResourcePipelineSchema(ctx), &resp.State, "allow_deletion")...)
 }
 
 // startPipeline starts the pipeline and waits for it to reach running state.

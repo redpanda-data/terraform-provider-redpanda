@@ -28,7 +28,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	rolemodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/role"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -51,11 +50,6 @@ type Role struct {
 	SecurityClient consolev1alpha1grpc.SecurityServiceClient
 	resData        config.Resource
 	clientFactory  SecurityServiceClientFactory
-}
-
-// Schema returns the schema for the Role resource.
-func (*Role) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = ResourceRoleSchema(ctx)
 }
 
 // NewRole constructs a Role resource.
@@ -223,22 +217,13 @@ func (r *Role) ImportState(ctx context.Context, req resource.ImportStateRequest,
 	roleName := split[0]
 	clusterID := split[1]
 
-	client := cloud.NewControlPlaneClientSet(r.resData.ControlPlaneConnection)
-	cluster, err := client.ClusterForID(ctx, clusterID)
-	var dataplaneURL string
-
-	if err == nil && cluster != nil {
-		dataplaneURL = cluster.DataplaneApi.Url
-	} else {
-		serverlessCluster, serr := client.ServerlessClusterForID(ctx, clusterID)
-		if serr != nil || serverlessCluster == nil {
-			resp.Diagnostics.AddError(
-				fmt.Sprintf("failed to find cluster with ID %q; make sure import ID format is role_name,cluster_id", clusterID),
-				utils.DeserializeGrpcError(err)+utils.DeserializeGrpcError(serr),
-			)
-			return
-		}
-		dataplaneURL = serverlessCluster.DataplaneApi.Url
+	dataplaneURL, err := r.CpCl.DataplaneURLForCluster(ctx, clusterID)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("failed to resolve dataplane URL for cluster %q; make sure import ID format is role_name,cluster_id", clusterID),
+			err.Error(),
+		)
+		return
 	}
 
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(roleName))...)

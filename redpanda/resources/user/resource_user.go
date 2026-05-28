@@ -29,7 +29,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
-	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	usermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/user"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -63,11 +62,6 @@ func NewUser() *User {
 		func(p config.Resource) { u.resData = p },
 	)
 	return u
-}
-
-// Schema returns the schema for the User resource.
-func (*User) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = ResourceUserSchema(ctx)
 }
 
 // Create creates a User resource.
@@ -303,22 +297,13 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 		password = envPassword
 	}
 
-	client := cloud.NewControlPlaneClientSet(u.resData.ControlPlaneConnection)
-	cluster, err := client.ClusterForID(ctx, clusterID)
-	var dataplaneURL string
-
-	if err == nil && cluster != nil {
-		dataplaneURL = cluster.DataplaneApi.Url
-	} else {
-		serverlessCluster, serr := client.ServerlessClusterForID(ctx, clusterID)
-		if serr != nil || serverlessCluster == nil {
-			resp.Diagnostics.AddError(
-				fmt.Sprintf("failed to find cluster with ID %q; make sure import ID format is <user_name>,<cluster_id>[,<password>[,<mechanism>]]", clusterID),
-				utils.DeserializeGrpcError(err)+utils.DeserializeGrpcError(serr),
-			)
-			return
-		}
-		dataplaneURL = serverlessCluster.DataplaneApi.Url
+	dataplaneURL, err := u.CpCl.DataplaneURLForCluster(ctx, clusterID)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("failed to resolve dataplane URL for cluster %q; make sure import ID format is <user_name>,<cluster_id>[,<password>[,<mechanism>]]", clusterID),
+			err.Error(),
+		)
+		return
 	}
 
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(user))...)

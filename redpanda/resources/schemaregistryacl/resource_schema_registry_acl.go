@@ -49,11 +49,6 @@ type SchemaRegistryACL struct {
 	clientFactory SchemaRegistryACLClientFactory
 }
 
-// Schema returns the schema for the resource.
-func (*SchemaRegistryACL) Schema(ctx context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
-	response.Schema = ResourceSchemaRegistryACLSchema(ctx)
-}
-
 // NewSchemaRegistryACL constructs a SchemaRegistryACL resource.
 func NewSchemaRegistryACL() *SchemaRegistryACL {
 	s := &SchemaRegistryACL{}
@@ -291,7 +286,7 @@ func (*SchemaRegistryACL) ImportState(ctx context.Context, request resource.Impo
 		components.permission,
 	)
 	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("id"), id)...)
-	response.Diagnostics.Append(response.State.SetAttribute(ctx, path.Root("allow_deletion"), types.BoolValue(false))...)
+	response.Diagnostics.Append(utils.ImportStateBoolFromSchemaDefault(ctx, ResourceSchemaRegistryACLSchema(ctx), &response.State, "allow_deletion")...)
 }
 
 func (s *SchemaRegistryACL) getSchemaRegistryClient(ctx context.Context, model *schemaregistryaclmodel.ResourceModel) (kclients.SchemaRegistryACLClientInterface, error) {
