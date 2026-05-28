@@ -29,7 +29,9 @@ var avroPrimitives = map[string]bool{
 }
 
 // AvroBodiesEquivalent reports whether two Avro JSON schema bodies represent
-// the same schema
+// the same schema after canonicalization (resolves namespace-relative refs,
+// strips non-essential keys, normalizes JSON key order + whitespace).
+func AvroBodiesEquivalent(a, b string) bool {
 	if a == b {
 		return true
 	}
