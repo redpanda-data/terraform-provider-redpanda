@@ -64,31 +64,31 @@ To update the password, change the `password_wo` value and increment `password_w
 
 ## Import
 
-Schemas can be imported using a colon-separated string. Two forms are supported:
+Schemas can be imported using a comma-separated string. Two forms are supported:
 
 **Bearer auth (default):**
 
 ```
-cluster_id:subject:version
+cluster_id,subject,version
 ```
 
 **Basic auth (optional, when explicit SASL credentials are needed):**
 
 ```
-cluster_id:subject:version:username:password
+cluster_id,subject,version,username,password
 ```
 
 Example imports:
 
 ```shell
 # Import via Bearer auth (default) — no username or password required
-terraform import redpanda_schema.example "cluster-123:user-value:1"
+terraform import redpanda_schema.example "cluster-123,user-value,1"
 
-# Import via Bearer auth with a complex subject name
-terraform import redpanda_schema.product "cluster-456:com.example.Product-v2:5"
+# Import via Bearer auth with a complex subject name (colons are valid in subject names)
+terraform import redpanda_schema.product "cluster-456,com.example:Product-v2,5"
 
 # Import via Basic auth with explicit SASL credentials
-terraform import redpanda_schema.initial "cluster-789:test-subject:0:svc_account:p@ssw0rd"
+terraform import redpanda_schema.initial "cluster-789,test-subject,0,svc_account,p@ssw0rd"
 ```
 
 For Basic auth, the password can also be supplied via the `REDPANDA_IMPORT_PASSWORD` environment variable instead of placing it in the import ID.

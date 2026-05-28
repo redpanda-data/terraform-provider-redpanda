@@ -555,11 +555,11 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				password := rs.Primary.Attributes["password"]
 
 				// Bearer-primary: 3-field form when the fixture didn't set
-				// username/password. Basic auth appends :username:password.
+				// username/password. Basic auth appends ,username,password.
 				if username == "" && password == "" {
-					return fmt.Sprintf("%s:%s:%s", clusterID, subject, version), nil
+					return fmt.Sprintf("%s,%s,%s", clusterID, subject, version), nil
 				}
-				return fmt.Sprintf("%s:%s:%s:%s:%s",
+				return fmt.Sprintf("%s,%s,%s,%s,%s",
 					clusterID, subject, version, username, password), nil
 			},
 			ImportStateCheck: func(state []*terraform.InstanceState) error {

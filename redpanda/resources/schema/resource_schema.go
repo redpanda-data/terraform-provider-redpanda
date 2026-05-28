@@ -72,15 +72,15 @@ type importIDComponents struct {
 
 // parseImportID parses the import ID string into its components. Two forms:
 //
-//	Bearer auth (default): cluster_id:subject:version
-//	Basic auth (optional): cluster_id:subject:version:username:password
+//	Bearer auth (default): cluster_id,subject,version
+//	Basic auth (optional): cluster_id,subject,version,username,password
 func parseImportID(importID string) (*importIDComponents, error) {
-	parts := strings.Split(importID, ":")
+	parts := strings.Split(importID, ",")
 	if len(parts) != 3 && len(parts) != 5 {
 		return nil, fmt.Errorf(
 			"expected one of:\n"+
-				"  Bearer auth (default): cluster_id:subject:version\n"+
-				"  Basic auth (optional): cluster_id:subject:version:username:password\n"+
+				"  Bearer auth (default): cluster_id,subject,version\n"+
+				"  Basic auth (optional): cluster_id,subject,version,username,password\n"+
 				"got %d parts",
 			len(parts),
 		)
@@ -105,8 +105,8 @@ func parseImportID(importID string) (*importIDComponents, error) {
 
 // ImportState imports an existing schema resource.
 //
-// Bearer auth (default): cluster_id:subject:version
-// Basic auth (optional): same 3 fields + :username:password
+// Bearer auth (default): cluster_id,subject,version
+// Basic auth (optional): same 3 fields + ,username,password
 //
 // For Basic auth, password can also be set via REDPANDA_IMPORT_PASSWORD env var.
 func (*Schema) ImportState(ctx context.Context, request resource.ImportStateRequest, response *resource.ImportStateResponse) {

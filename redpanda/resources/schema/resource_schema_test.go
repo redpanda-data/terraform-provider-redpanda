@@ -54,7 +54,7 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 	}{
 		{
 			name:     "valid import - basic schema",
-			importID: "cluster-123:my-subject:1:myuser:mypass",
+			importID: "cluster-123,my-subject,1,myuser,mypass",
 			want: &importIDComponents{
 				clusterID: "cluster-123",
 				subject:   "my-subject",
@@ -66,7 +66,7 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:     "valid import - subject with hyphens",
-			importID: "cluster-456:my-test-subject:5:testuser:testpass",
+			importID: "cluster-456,my-test-subject,5,testuser,testpass",
 			want: &importIDComponents{
 				clusterID: "cluster-456",
 				subject:   "my-test-subject",
@@ -78,7 +78,7 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:     "valid import - subject with dots",
-			importID: "cluster-789:com.example.schema:10:admin:secret123",
+			importID: "cluster-789,com.example.schema,10,admin,secret123",
 			want: &importIDComponents{
 				clusterID: "cluster-789",
 				subject:   "com.example.schema",
@@ -90,7 +90,7 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:     "valid import - subject with underscores",
-			importID: "prod-cluster:user_profile_schema:2:svc_account:p@ssw0rd",
+			importID: "prod-cluster,user_profile_schema,2,svc_account,p@ssw0rd",
 			want: &importIDComponents{
 				clusterID: "prod-cluster",
 				subject:   "user_profile_schema",
@@ -102,7 +102,7 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:     "valid import - version zero",
-			importID: "cluster-1:test-subject:0:user:pass",
+			importID: "cluster-1,test-subject,0,user,pass",
 			want: &importIDComponents{
 				clusterID: "cluster-1",
 				subject:   "test-subject",
@@ -114,7 +114,7 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:     "valid import - large version number",
-			importID: "cluster-1:schema:999999:admin:adminpass",
+			importID: "cluster-1,schema,999999,admin,adminpass",
 			want: &importIDComponents{
 				clusterID: "cluster-1",
 				subject:   "schema",
@@ -126,7 +126,7 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:     "valid import - subject with mixed case",
-			importID: "cluster-1:MyTestSchema:1:TestUser:TestPass",
+			importID: "cluster-1,MyTestSchema,1,TestUser,TestPass",
 			want: &importIDComponents{
 				clusterID: "cluster-1",
 				subject:   "MyTestSchema",
@@ -138,7 +138,7 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:     "valid import - subject with numbers",
-			importID: "cluster-1:schema123:1:user123:pass123",
+			importID: "cluster-1,schema123,1,user123,pass123",
 			want: &importIDComponents{
 				clusterID: "cluster-1",
 				subject:   "schema123",
@@ -150,7 +150,7 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:     "valid import - Bearer (3 parts, no credentials)",
-			importID: "cluster-1:my-subject:1",
+			importID: "cluster-1,my-subject,1",
 			want: &importIDComponents{
 				clusterID: "cluster-1",
 				subject:   "my-subject",
@@ -162,7 +162,7 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:     "valid import - Bearer (3 parts) with complex subject",
-			importID: "prod-cluster:com.example.avro.User-v2:42",
+			importID: "prod-cluster,com.example.avro.User-v2,42",
 			want: &importIDComponents{
 				clusterID: "prod-cluster",
 				subject:   "com.example.avro.User-v2",
@@ -174,14 +174,14 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:        "invalid import - missing password (4 parts)",
-			importID:    "cluster-1:my-subject:1:myuser",
+			importID:    "cluster-1,my-subject,1,myuser",
 			want:        nil,
 			wantErr:     true,
 			errContains: "got 4 parts",
 		},
 		{
 			name:        "invalid import - missing version, username, and password (2 parts)",
-			importID:    "cluster-1:my-subject",
+			importID:    "cluster-1,my-subject",
 			want:        nil,
 			wantErr:     true,
 			errContains: "got 2 parts",
@@ -202,21 +202,21 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:        "invalid import - too many parts (6)",
-			importID:    "cluster-1:subject:1:user:pass:extra",
+			importID:    "cluster-1,subject,1,user,pass,extra",
 			want:        nil,
 			wantErr:     true,
 			errContains: "got 6 parts",
 		},
 		{
-			name:        "invalid import - too many colons (7)",
-			importID:    "cluster-1:subject:1:user:pass:extra:more",
+			name:        "invalid import - too many commas (7)",
+			importID:    "cluster-1,subject,1,user,pass,extra,more",
 			want:        nil,
 			wantErr:     true,
 			errContains: "got 7 parts",
 		},
 		{
 			name:     "valid import - empty cluster_id",
-			importID: ":my-subject:1:user:pass",
+			importID: ",my-subject,1,user,pass",
 			want: &importIDComponents{
 				clusterID: "",
 				subject:   "my-subject",
@@ -228,7 +228,7 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:     "valid import - empty subject",
-			importID: "cluster-1::1:user:pass",
+			importID: "cluster-1,,1,user,pass",
 			want: &importIDComponents{
 				clusterID: "cluster-1",
 				subject:   "",
@@ -240,14 +240,14 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:        "invalid import - empty version",
-			importID:    "cluster-1:my-subject::user:pass",
+			importID:    "cluster-1,my-subject,,user,pass",
 			want:        nil,
 			wantErr:     true,
 			errContains: "version must be a valid integer",
 		},
 		{
 			name:     "valid import - empty username",
-			importID: "cluster-1:my-subject:1::pass",
+			importID: "cluster-1,my-subject,1,,pass",
 			want: &importIDComponents{
 				clusterID: "cluster-1",
 				subject:   "my-subject",
@@ -259,7 +259,7 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:     "valid import - empty password",
-			importID: "cluster-1:my-subject:1:user:",
+			importID: "cluster-1,my-subject,1,user,",
 			want: &importIDComponents{
 				clusterID: "cluster-1",
 				subject:   "my-subject",
@@ -271,14 +271,14 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:        "invalid import - all empty",
-			importID:    "::::",
+			importID:    ",,,,",
 			want:        nil,
 			wantErr:     true,
 			errContains: "version must be a valid integer",
 		},
 		{
 			name:     "valid import - special characters in subject",
-			importID: "cluster-1:test-subject-$special:1:user:pass",
+			importID: "cluster-1,test-subject-$special,1,user,pass",
 			want: &importIDComponents{
 				clusterID: "cluster-1",
 				subject:   "test-subject-$special",
@@ -290,7 +290,7 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:     "valid import - special characters in password",
-			importID: "cluster-1:subject:1:user:p@ss!w0rd#",
+			importID: "cluster-1,subject,1,user,p@ss!w0rd#",
 			want: &importIDComponents{
 				clusterID: "cluster-1",
 				subject:   "subject",
@@ -302,7 +302,7 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:     "valid import - version with leading zeros",
-			importID: "cluster-1:my-subject:001:user:pass",
+			importID: "cluster-1,my-subject,001,user,pass",
 			want: &importIDComponents{
 				clusterID: "cluster-1",
 				subject:   "my-subject",
@@ -314,14 +314,14 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:        "invalid import - non-numeric version",
-			importID:    "cluster-1:my-subject:latest:user:pass",
+			importID:    "cluster-1,my-subject,latest,user,pass",
 			want:        nil,
 			wantErr:     true,
 			errContains: "version must be a valid integer",
 		},
 		{
 			name:     "valid import - negative version (parses successfully)",
-			importID: "cluster-1:my-subject:-1:user:pass",
+			importID: "cluster-1,my-subject,-1,user,pass",
 			want: &importIDComponents{
 				clusterID: "cluster-1",
 				subject:   "my-subject",
@@ -332,15 +332,15 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:        "valid import - colons in password",
-			importID:    "cluster-1:subject:1:user:pass:with:colons",
+			name:        "valid import - commas in password",
+			importID:    "cluster-1,subject,1,user,pass,with,colons",
 			want:        nil,
 			wantErr:     true,
 			errContains: "got 7 parts",
 		},
 		{
 			name:     "valid import - UUID cluster ID",
-			importID: "c7n1234567890ab:my-subject:1:admin:secretpass",
+			importID: "c7n1234567890ab,my-subject,1,admin,secretpass",
 			want: &importIDComponents{
 				clusterID: "c7n1234567890ab",
 				subject:   "my-subject",
@@ -352,7 +352,7 @@ func TestUnit_Schema_ParseImportID(t *testing.T) {
 		},
 		{
 			name:     "valid import - complex subject name",
-			importID: "cluster-1:com.example.avro.User-v2:42:svc_user:complex_P@ss123",
+			importID: "cluster-1,com.example.avro.User-v2,42,svc_user,complex_P@ss123",
 			want: &importIDComponents{
 				clusterID: "cluster-1",
 				subject:   "com.example.avro.User-v2",
@@ -405,7 +405,7 @@ func TestUnit_Schema_ImportTypeConversions(t *testing.T) {
 	}{
 		{
 			name:            "basic types convert correctly",
-			importID:        "cluster-123:test-subject:42:testuser:testpass",
+			importID:        "cluster-123,test-subject,42,testuser,testpass",
 			expectClusterID: "cluster-123",
 			expectSubject:   "test-subject",
 			expectVersion:   42,
@@ -415,7 +415,7 @@ func TestUnit_Schema_ImportTypeConversions(t *testing.T) {
 		},
 		{
 			name:            "version zero",
-			importID:        "cluster-1:subject:0:user:pass",
+			importID:        "cluster-1,subject,0,user,pass",
 			expectClusterID: "cluster-1",
 			expectSubject:   "subject",
 			expectVersion:   0,
@@ -425,7 +425,7 @@ func TestUnit_Schema_ImportTypeConversions(t *testing.T) {
 		},
 		{
 			name:            "large version number",
-			importID:        "cluster-1:subject:999999:user:pass",
+			importID:        "cluster-1,subject,999999,user,pass",
 			expectClusterID: "cluster-1",
 			expectSubject:   "subject",
 			expectVersion:   999999,
@@ -435,7 +435,7 @@ func TestUnit_Schema_ImportTypeConversions(t *testing.T) {
 		},
 		{
 			name:            "negative version",
-			importID:        "cluster-1:subject:-1:user:pass",
+			importID:        "cluster-1,subject,-1,user,pass",
 			expectClusterID: "cluster-1",
 			expectSubject:   "subject",
 			expectVersion:   -1,
@@ -445,7 +445,7 @@ func TestUnit_Schema_ImportTypeConversions(t *testing.T) {
 		},
 		{
 			name:            "empty strings",
-			importID:        "::1::",
+			importID:        ",,1,,",
 			expectClusterID: "",
 			expectSubject:   "",
 			expectVersion:   1,
@@ -455,7 +455,7 @@ func TestUnit_Schema_ImportTypeConversions(t *testing.T) {
 		},
 		{
 			name:            "special characters in strings",
-			importID:        "cluster-123:test-$subject:1:user@example.com:p@ss!w0rd#",
+			importID:        "cluster-123,test-$subject,1,user@example.com,p@ss!w0rd#",
 			expectClusterID: "cluster-123",
 			expectSubject:   "test-$subject",
 			expectVersion:   1,
@@ -465,13 +465,13 @@ func TestUnit_Schema_ImportTypeConversions(t *testing.T) {
 		},
 		{
 			name:        "non-numeric version fails",
-			importID:    "cluster-1:subject:latest:user:pass",
+			importID:    "cluster-1,subject,latest,user,pass",
 			wantErr:     true,
 			errContains: "version must be a valid integer",
 		},
 		{
 			name:        "empty version fails",
-			importID:    "cluster-1:subject::user:pass",
+			importID:    "cluster-1,subject,,user,pass",
 			wantErr:     true,
 			errContains: "version must be a valid integer",
 		},
