@@ -163,15 +163,12 @@ func (c *ControlPlaneClientSet) ResourceGroupForName(ctx context.Context, name s
 	if err != nil {
 		return nil, fmt.Errorf("unable to find resource group with name %q: %w", name, err)
 	}
-	if listResp.ResourceGroups == nil {
-		return nil, fmt.Errorf("unable to find resource group with name %q: provider response was empty. Please report this issue to the provider developers", name)
-	}
 	for _, rg := range listResp.ResourceGroups {
 		if rg.GetName() == name {
 			return rg, nil
 		}
 	}
-	return nil, fmt.Errorf("resource group %s not found", name)
+	return nil, fmt.Errorf("resource group %q not found", name)
 }
 
 // ResourceGroupForIDOrName gets the resource group for a given ID and/or name, or neither,
@@ -342,4 +339,38 @@ func (c *ControlPlaneClientSet) ServerlessPrivateLinkForName(ctx context.Context
 		}
 	}
 	return nil, errors.New("serverless private link not found")
+}
+
+// DataplaneURLForCluster resolves clusterID to a dataplane API URL. Tries
+// regular cluster first; falls back to serverless. Returns a clear diagnostic
+// if the resolved cluster has no DataplaneApi populated yet (STATE_CREATING,
+// pre-dataplane BYOC). The previous direct `.DataplaneApi.Url` access would
+// nil-deref on those clusters.
+func (c *ControlPlaneClientSet) DataplaneURLForCluster(ctx context.Context, clusterID string) (string, error) {
+	cl, cerr := c.ClusterForID(ctx, clusterID)
+	if cerr == nil && cl != nil {
+		return dataplaneURLOrNotReady(cl.GetDataplaneApi().GetUrl(), cl.GetDataplaneApi() != nil, clusterID, false)
+	}
+	sl, serr := c.ServerlessClusterForID(ctx, clusterID)
+	if serr == nil && sl != nil {
+		return dataplaneURLOrNotReady(sl.GetDataplaneApi().GetUrl(), sl.GetDataplaneApi() != nil, clusterID, true)
+	}
+	if cerr != nil && serr != nil {
+		return "", fmt.Errorf("failed to resolve cluster %q: %v; serverless lookup: %v", clusterID, cerr, serr)
+	}
+	return "", fmt.Errorf("cluster %q not found", clusterID)
+}
+
+// dataplaneURLOrNotReady returns the URL when dataplaneAPIPresent is true, or
+// a "not ready yet" diagnostic naming the cluster otherwise. Extracted so the
+// nil-DataplaneApi guard can be unit tested without standing up a fake
+// controlplane.
+func dataplaneURLOrNotReady(url string, dataplaneAPIPresent bool, clusterID string, serverless bool) (string, error) {
+	if dataplaneAPIPresent {
+		return url, nil
+	}
+	if serverless {
+		return "", fmt.Errorf("serverless cluster %q has no dataplane API URL yet", clusterID)
+	}
+	return "", fmt.Errorf("cluster %q has no dataplane API URL yet; try importing after the cluster reaches READY state", clusterID)
 }
