@@ -1,3 +1,5 @@
+//go:build integration
+
 // Copyright 2026 Redpanda Data, Inc.
 //
 //
@@ -476,7 +478,7 @@ func TestIntegration_Schema_ImportRoundTrip(t *testing.T) {
 		if !ok {
 			return "", fmt.Errorf("resource %q not found in state", schemaAddr)
 		}
-		return fmt.Sprintf("%s:%s:%s",
+		return fmt.Sprintf("%s,%s,%s",
 			rs.Primary.Attributes["cluster_id"],
 			rs.Primary.Attributes["subject"],
 			rs.Primary.Attributes["version"],

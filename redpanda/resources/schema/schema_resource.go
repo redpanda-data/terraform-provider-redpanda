@@ -110,7 +110,7 @@ func ResourceSchemaSchema(_ context.Context) schema.Schema {
 				},
 			},
 			"allow_deletion": schema.BoolAttribute{
-				Description: "When enabled, prevents the resource from being deleted if the cluster is unreachable. When disabled (default), the resource will be removed from state without attempting deletion when the cluster is unreachable.",
+				Description: "Whether terraform may destroy this schema subject. Defaults to `false` — `terraform destroy` will refuse until you set this to `true`. After `terraform import`, defaults to `false` regardless of what was previously in state; set to `true` in your config before destroy.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
