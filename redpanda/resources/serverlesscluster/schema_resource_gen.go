@@ -21,6 +21,7 @@ import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -55,6 +56,13 @@ func ResourceServerlessClusterSchema(ctx context.Context) schema.Schema {
 				Description: "User-defined tags for the Serverless cluster",
 				Optional:    true,
 				ElementType: types.StringType,
+			},
+
+			"allow_deletion": schema.BoolAttribute{
+				Description: "Whether terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
 			},
 
 			"networking_config": schema.SingleNestedAttribute{

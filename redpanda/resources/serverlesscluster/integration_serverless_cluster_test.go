@@ -122,6 +122,7 @@ resource "redpanda_resource_group" "test" {
 }
 
 resource "redpanda_serverless_cluster" "test" {
+  allow_deletion    = true
   name              = "tfrp-mock-sc"
   resource_group_id = redpanda_resource_group.test.id
   serverless_region = "pro-us-east-1"
@@ -147,6 +148,7 @@ resource "redpanda_resource_group" "test" {
 }
 
 resource "redpanda_serverless_cluster" "test" {
+  allow_deletion    = true
   name              = %q
   resource_group_id = redpanda_resource_group.test.id
   serverless_region = %q
@@ -171,6 +173,7 @@ resource "redpanda_resource_group" "test" {
 }
 
 resource "redpanda_serverless_cluster" "test" {
+  allow_deletion    = true
   name              = %q
   resource_group_id = redpanda_resource_group.test.id
   serverless_region = %q
@@ -197,6 +200,7 @@ resource "redpanda_resource_group" "test" {
 }
 
 resource "redpanda_serverless_cluster" "test" {
+  allow_deletion    = true
   name              = %q
   resource_group_id = redpanda_resource_group.test.id
   serverless_region = %q
@@ -219,6 +223,7 @@ resource "redpanda_resource_group" "rg2" {
 }
 
 resource "redpanda_serverless_cluster" "test" {
+  allow_deletion    = true
   name              = %q
   resource_group_id = redpanda_resource_group.%s.id
   serverless_region = "pro-us-east-1"
@@ -480,8 +485,8 @@ func TestIntegration_ServerlessCluster_UpdateLeaf_PrivateLinkID(t *testing.T) {
 
 // TestIntegration_ServerlessCluster_ImportRoundTrip exercises the bearer-id import
 // path. ImportState uses ImportStatePassthroughID — no live controlplane
-// lookup. nil idFunc uses the bearer "id" from prior state; nil verifyIgnore
-// means every attribute must round-trip identically.
+// lookup. allow_deletion is verifyIgnore'd because import resets it to the
+// schema default (false), while the config has it true.
 func TestIntegration_ServerlessCluster_ImportRoundTrip(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -494,7 +499,7 @@ func TestIntegration_ServerlessCluster_ImportRoundTrip(t *testing.T) {
 				statecheck.ExpectKnownValue(scAddr, tfjsonpath.New("name"), knownvalue.StringExact(name)),
 				statecheck.ExpectKnownValue(scAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 			}),
-			integration.ImportRoundTripStep(scAddr, nil, nil),
+			integration.ImportRoundTripStep(scAddr, nil, []string{"allow_deletion"}),
 		},
 	})
 }
@@ -587,6 +592,67 @@ func TestIntegration_ServerlessCluster_ErrorPath_UpdateFailed(t *testing.T) {
 				},
 				Config:      cfgV2,
 				ExpectError: regexp.MustCompile("synthetic update failure"),
+			},
+		},
+	})
+}
+
+// TestIntegration_ServerlessCluster_DeleteNotAllowed_GuardFires verifies that
+// the Delete handler's `allow_deletion` check rejects destroy with a clean
+// diagnostic when the caller hasn't opted in. Mirrors the regular cluster's
+// allow_deletion semantics. The Create step uses an inline HCL that omits
+// `allow_deletion = true` (the schema default of false applies). The Destroy
+// step expects the guard message; nothing is actually deleted server-side, so
+// a follow-on apply with allow_deletion=true would succeed.
+func TestIntegration_ServerlessCluster_DeleteNotAllowed_GuardFires(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	const name = "tfrp-mock-sc-deny-del"
+	// Note: NOT using scBaseConfig (it sets allow_deletion=true). Inline an HCL
+	// that lets the schema default (`allow_deletion = false`) apply.
+	cfg := fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-sc-rg"
+}
+
+resource "redpanda_serverless_cluster" "test" {
+  name              = %q
+  resource_group_id = redpanda_resource_group.test.id
+  serverless_region = "pro-us-east-1"
+}
+`, name)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(scAddr, cfg, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(scAddr, tfjsonpath.New("name"), knownvalue.StringExact(name)),
+				statecheck.ExpectKnownValue(scAddr, tfjsonpath.New("allow_deletion"), knownvalue.Bool(false)),
+			}),
+			{
+				Config:      cfg,
+				Destroy:     true,
+				ExpectError: regexp.MustCompile(`serverless cluster deletion not allowed`),
+			},
+			// Flip allow_deletion=true so the framework's post-test destroy
+			// succeeds and the resource is cleaned up.
+			{
+				Config: fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-sc-rg"
+}
+
+resource "redpanda_serverless_cluster" "test" {
+  name              = %q
+  resource_group_id = redpanda_resource_group.test.id
+  serverless_region = "pro-us-east-1"
+  allow_deletion    = true
+}
+`, name),
 			},
 		},
 	})

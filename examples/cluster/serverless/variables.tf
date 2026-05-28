@@ -63,3 +63,9 @@ variable "allow_private_link_deletion" {
   description = "Allow deletion of the serverless private link. Set to true to allow terraform destroy."
   default     = false
 }
+
+variable "cluster_allow_deletion" {
+  description = "Allow deletion of serverless cluster resource. Set to true to allow terraform destroy."
+  type        = bool
+  default     = false
+}

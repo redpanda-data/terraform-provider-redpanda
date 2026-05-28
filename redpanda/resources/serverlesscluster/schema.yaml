@@ -119,6 +119,14 @@ cluster_api_url:
   deprecation_message: "This field is deprecated and will be removed in a future version. Use dataplane_api.url instead."
   description: "The URL of the dataplane API for the serverless cluster"
 
+allow_deletion:
+  extra: true
+  type: bool
+  optional: true
+  computed: true
+  default: false
+  description: "Whether terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`."
+
 
 # --- New proto fields (auto-added by schemagen -todo) ---
 ai_gateway:

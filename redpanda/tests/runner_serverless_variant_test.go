@@ -63,9 +63,14 @@ func runServerlessClusterVariantTest(t *testing.T, testSuffix, region string, pu
 	}
 
 	rename := acc.RandomName(acc.NamePrefix + testSuffix + "-rename")
+	allowDeleteVars := make(map[string]config.Variable)
+	maps.Copy(allowDeleteVars, origTestCaseVars)
+	allowDeleteVars["cluster_allow_deletion"] = config.BoolVariable(true)
+
 	updateTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(updateTestCaseVars, origTestCaseVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
+	updateTestCaseVars["cluster_allow_deletion"] = config.BoolVariable(true)
 
 	checkFuncs, err := acc.BuildTestCheckFuncs(acc.ServerlessClusterDir, name, privateNetworking)
 	if err != nil {
@@ -106,9 +111,19 @@ func runServerlessClusterVariantTest(t *testing.T, testSuffix, region string, pu
 			},
 			{
 				ConfigDirectory:          config.StaticDirectory(acc.ServerlessClusterDir),
-				ConfigVariables:          updateTestCaseVars,
-				Destroy:                  true,
+				ConfigVariables:          allowDeleteVars,
 				ProtoV6ProviderFactories: acc.ProtoV6Factories,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+			},
+			{
+				ConfigDirectory:          config.StaticDirectory(acc.ServerlessClusterDir),
+				ConfigVariables:          updateTestCaseVars,
+				ProtoV6ProviderFactories: acc.ProtoV6Factories,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
 			},
 		},
 	})
