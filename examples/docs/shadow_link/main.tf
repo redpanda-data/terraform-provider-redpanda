@@ -28,7 +28,7 @@ resource "redpanda_cluster" "shadow" {
   region            = "us-west-2"
   cluster_type      = "byoc"
   connection_type   = "public"
-  throughput_tier   = "tier-1-aws"
+  throughput_tier   = "tier-1-aws-v2-arm"
   zones             = ["us-west-2a", "us-west-2b", "us-west-2c"]
   cluster_configuration = {
     custom_properties_json = jsonencode({
