@@ -87,8 +87,8 @@ func FlattenData(ctx context.Context, proto DataServerlessClusterResponse, prev 
 // FlattenDataDataplaneAPI converts a single proto controlplanev1.ServerlessCluster_DataplaneAPI into the
 // corresponding nested model. The prev *DataDataplaneAPIModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenDataDataplaneAPI(_ context.Context, proto *controlplanev1.ServerlessCluster_DataplaneAPI, prev *DataDataplaneAPIModel) (DataDataplaneAPIModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -114,14 +114,14 @@ func ExpandDataDataplaneAPI(_ context.Context, m *DataDataplaneAPIModel) (*contr
 // FlattenDataKafkaAPI converts a single proto controlplanev1.ServerlessCluster_KafkaAPI into the
 // corresponding nested model. The prev *DataKafkaAPIModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenDataKafkaAPI(ctx context.Context, proto *controlplanev1.ServerlessCluster_KafkaAPI, prev *DataKafkaAPIModel) (DataKafkaAPIModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
 	m := DataKafkaAPIModel{}
-	m.PrivateSeedBrokers = modelconv.ListFromStringsWithDiags(ctx, proto.GetPrivateSeedBrokers(), &diags)
-	m.SeedBrokers = modelconv.ListFromStringsWithDiags(ctx, proto.GetSeedBrokers(), &diags)
+	m.PrivateSeedBrokers = modelconv.ListFromSliceWithDiags(ctx, proto.GetPrivateSeedBrokers(), types.StringType, &diags)
+	m.SeedBrokers = modelconv.ListFromSliceWithDiags(ctx, proto.GetSeedBrokers(), types.StringType, &diags)
 	return m, diags
 }
 
@@ -132,8 +132,8 @@ func ExpandDataKafkaAPI(ctx context.Context, m *DataKafkaAPIModel) (*controlplan
 		return nil, diags
 	}
 	out := &controlplanev1.ServerlessCluster_KafkaAPI{
-		PrivateSeedBrokers: modelconv.ListToStringsWithDiags(ctx, m.PrivateSeedBrokers, &diags),
-		SeedBrokers:        modelconv.ListToStringsWithDiags(ctx, m.SeedBrokers, &diags),
+		PrivateSeedBrokers: modelconv.ListToSliceWithDiags[string](ctx, m.PrivateSeedBrokers, &diags),
+		SeedBrokers:        modelconv.ListToSliceWithDiags[string](ctx, m.SeedBrokers, &diags),
 	}
 	return out, diags
 }
@@ -141,8 +141,8 @@ func ExpandDataKafkaAPI(ctx context.Context, m *DataKafkaAPIModel) (*controlplan
 // FlattenDataNetworkingConfig converts a single proto controlplanev1.ServerlessNetworkingConfig into the
 // corresponding nested model. The prev *DataNetworkingConfigModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenDataNetworkingConfig(_ context.Context, proto *controlplanev1.ServerlessNetworkingConfig, prev *DataNetworkingConfigModel) (DataNetworkingConfigModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -168,8 +168,8 @@ func ExpandDataNetworkingConfig(_ context.Context, m *DataNetworkingConfigModel)
 // FlattenDataPlannedDeletion converts a single proto controlplanev1.ServerlessCluster_PlannedDeletion into the
 // corresponding nested model. The prev *DataPlannedDeletionModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenDataPlannedDeletion(_ context.Context, proto *controlplanev1.ServerlessCluster_PlannedDeletion, prev *DataPlannedDeletionModel) (DataPlannedDeletionModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -195,8 +195,8 @@ func ExpandDataPlannedDeletion(_ context.Context, m *DataPlannedDeletionModel) (
 // FlattenDataPrometheus converts a single proto controlplanev1.ServerlessCluster_Prometheus into the
 // corresponding nested model. The prev *DataPrometheusModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenDataPrometheus(_ context.Context, proto *controlplanev1.ServerlessCluster_Prometheus, prev *DataPrometheusModel) (DataPrometheusModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -222,8 +222,8 @@ func ExpandDataPrometheus(_ context.Context, m *DataPrometheusModel) (*controlpl
 // FlattenDataSchemaRegistry converts a single proto controlplanev1.ServerlessCluster_SchemaRegistryStatus into the
 // corresponding nested model. The prev *DataSchemaRegistryModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenDataSchemaRegistry(_ context.Context, proto *controlplanev1.ServerlessCluster_SchemaRegistryStatus, prev *DataSchemaRegistryModel) (DataSchemaRegistryModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev

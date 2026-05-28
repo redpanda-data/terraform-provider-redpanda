@@ -24,7 +24,7 @@ Creates a schema in the Redpanda Schema Registry.
 
 > **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
 
-- `allow_deletion` (Boolean) When enabled, prevents the resource from being deleted if the cluster is unreachable. When disabled (default), the resource will be removed from state without attempting deletion when the cluster is unreachable.
+- `allow_deletion` (Boolean) Whether terraform may destroy this schema subject. Defaults to `false` — `terraform destroy` will refuse until you set this to `true`. After `terraform import`, defaults to `false` regardless of what was previously in state; set to `true` in your config before destroy.
 - `compatibility` (String) The compatibility level for schema evolution (BACKWARD, BACKWARD_TRANSITIVE, FORWARD, FORWARD_TRANSITIVE, FULL, FULL_TRANSITIVE, NONE). Defaults to BACKWARD.
 - `password` (String, Sensitive) SASL password for Schema Registry HTTP Basic authentication. Pair with username when you need writes attributed to a specific SASL identity instead of the provider's cloud Bearer token. Stored in Terraform state.
 - `password_wo` (String, Deprecated, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Deprecated. The Terraform Plugin Framework does not persist write-only attributes to state, leaving the provider unable to authenticate to Schema Registry during refresh — this attribute cannot reliably manage schemas. Use the default cloud Bearer authentication (omit username and password) or the regular `password` attribute.
@@ -79,7 +79,7 @@ resource "redpanda_cluster" "example" {
   region            = "us-west-2"
   cluster_type      = "dedicated"
   connection_type   = "public"
-  throughput_tier   = "tier-1-aws"
+  throughput_tier   = "tier-1-aws-v2-arm"
   zones             = ["us-west-2a", "us-west-2b", "us-west-2c"]
 }
 
@@ -199,31 +199,31 @@ To update the password, change the `password_wo` value and increment `password_w
 
 ## Import
 
-Schemas can be imported using a colon-separated string. Two forms are supported:
+Schemas can be imported using a comma-separated string. Two forms are supported:
 
 **Bearer auth (default):**
 
 ```
-cluster_id:subject:version
+cluster_id,subject,version
 ```
 
 **Basic auth (optional, when explicit SASL credentials are needed):**
 
 ```
-cluster_id:subject:version:username:password
+cluster_id,subject,version,username,password
 ```
 
 Example imports:
 
 ```shell
 # Import via Bearer auth (default) — no username or password required
-terraform import redpanda_schema.example "cluster-123:user-value:1"
+terraform import redpanda_schema.example "cluster-123,user-value,1"
 
-# Import via Bearer auth with a complex subject name
-terraform import redpanda_schema.product "cluster-456:com.example.Product-v2:5"
+# Import via Bearer auth with a complex subject name (colons are valid in subject names)
+terraform import redpanda_schema.product "cluster-456,com.example:Product-v2,5"
 
 # Import via Basic auth with explicit SASL credentials
-terraform import redpanda_schema.initial "cluster-789:test-subject:0:svc_account:p@ssw0rd"
+terraform import redpanda_schema.initial "cluster-789,test-subject,0,svc_account,p@ssw0rd"
 ```
 
 For Basic auth, the password can also be supplied via the `REDPANDA_IMPORT_PASSWORD` environment variable instead of placing it in the import ID.

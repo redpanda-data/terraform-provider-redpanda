@@ -111,13 +111,20 @@ func ExpandDelete(_ context.Context, m *ResourceModel) (*iamv1.DeleteServiceAcco
 // FlattenAuth0ClientCredentials converts a single proto iamv1.ServiceAccountCredentials into the
 // corresponding nested model. The prev *Auth0ClientCredentialsModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenAuth0ClientCredentials(_ context.Context, proto *iamv1.ServiceAccountCredentials, prev *Auth0ClientCredentialsModel) (Auth0ClientCredentialsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
 	m := Auth0ClientCredentialsModel{}
 	m.ClientID = types.StringValue(proto.GetClientId())
+	if proto.HasClientSecret() {
+		m.ClientSecret = types.StringValue(proto.GetClientSecret())
+	} else if prev != nil && !prev.ClientSecret.IsUnknown() {
+		m.ClientSecret = prev.ClientSecret
+	} else {
+		m.ClientSecret = types.StringNull()
+	}
 	return m, diags
 }
 
@@ -129,7 +136,7 @@ func ExpandAuth0ClientCredentials(_ context.Context, m *Auth0ClientCredentialsMo
 	}
 	out := &iamv1.ServiceAccountCredentials{
 		ClientId:     m.ClientID.ValueString(),
-		ClientSecret: utils.TypesStringToStringPointerOrNil(m.ClientSecret),
+		ClientSecret: utils.PointerOrNil(m.ClientSecret, types.String.ValueString),
 	}
 	return out, diags
 }

@@ -111,13 +111,13 @@ func ExpandDelete(_ context.Context, m *ResourceModel) (*controlplanev1.DeleteSe
 // FlattenAWSConfig converts a single proto controlplanev1.ServerlessPrivateLink_AWS into the
 // corresponding nested model. The prev *AWSConfigModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenAWSConfig(ctx context.Context, proto *controlplanev1.ServerlessPrivateLink_AWS, prev *AWSConfigModel) (AWSConfigModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
 	m := AWSConfigModel{}
-	m.AllowedPrincipals = modelconv.ListFromStringsWithDiags(ctx, proto.GetAllowedPrincipals(), &diags)
+	m.AllowedPrincipals = modelconv.ListFromSliceWithDiags(ctx, proto.GetAllowedPrincipals(), types.StringType, &diags)
 	return m, diags
 }
 
@@ -128,7 +128,7 @@ func ExpandAWSConfig(ctx context.Context, m *AWSConfigModel) (*controlplanev1.Se
 		return nil, diags
 	}
 	out := &controlplanev1.ServerlessPrivateLink_AWS{
-		AllowedPrincipals: modelconv.ListToStringsWithDiags(ctx, m.AllowedPrincipals, &diags),
+		AllowedPrincipals: modelconv.ListToSliceWithDiags[string](ctx, m.AllowedPrincipals, &diags),
 	}
 	return out, diags
 }
@@ -136,8 +136,8 @@ func ExpandAWSConfig(ctx context.Context, m *AWSConfigModel) (*controlplanev1.Se
 // FlattenStatus converts a single proto controlplanev1.ServerlessPrivateLinkStatus into the
 // corresponding nested model. The prev *StatusModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenStatus(ctx context.Context, proto *controlplanev1.ServerlessPrivateLinkStatus, prev *StatusModel) (StatusModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -162,13 +162,13 @@ func ExpandStatus(ctx context.Context, m *StatusModel) (*controlplanev1.Serverle
 // FlattenStatusAWS converts a single proto controlplanev1.ServerlessPrivateLinkStatus_AWS into the
 // corresponding nested model. The prev *StatusAWSModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenStatusAWS(ctx context.Context, proto *controlplanev1.ServerlessPrivateLinkStatus_AWS, prev *StatusAWSModel) (StatusAWSModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
 	m := StatusAWSModel{}
-	m.AvailabilityZones = modelconv.ListFromStringsWithDiags(ctx, proto.GetAvailabilityZones(), &diags)
+	m.AvailabilityZones = modelconv.ListFromSliceWithDiags(ctx, proto.GetAvailabilityZones(), types.StringType, &diags)
 	m.VPCEndpointServiceName = types.StringValue(proto.GetVpcEndpointServiceName())
 	return m, diags
 }
@@ -180,7 +180,7 @@ func ExpandStatusAWS(ctx context.Context, m *StatusAWSModel) (*controlplanev1.Se
 		return nil, diags
 	}
 	out := &controlplanev1.ServerlessPrivateLinkStatus_AWS{
-		AvailabilityZones:      modelconv.ListToStringsWithDiags(ctx, m.AvailabilityZones, &diags),
+		AvailabilityZones:      modelconv.ListToSliceWithDiags[string](ctx, m.AvailabilityZones, &diags),
 		VpcEndpointServiceName: m.VPCEndpointServiceName.ValueString(),
 	}
 	return out, diags
@@ -193,7 +193,7 @@ func ExpandCreateAWSConfig(ctx context.Context, m *AWSConfigModel) (*controlplan
 		return nil, diags
 	}
 	out := &controlplanev1.ServerlessPrivateLinkCreate_AWS{
-		AllowedPrincipals: modelconv.ListToStringsWithDiags(ctx, m.AllowedPrincipals, &diags),
+		AllowedPrincipals: modelconv.ListToSliceWithDiags[string](ctx, m.AllowedPrincipals, &diags),
 	}
 	return out, diags
 }
@@ -205,7 +205,7 @@ func ExpandUpdateAWSConfig(ctx context.Context, m *AWSConfigModel) (*controlplan
 		return nil, diags
 	}
 	out := &controlplanev1.UpdateServerlessPrivateLinkRequest_AWS{
-		AllowedPrincipals: modelconv.ListToStringsWithDiags(ctx, m.AllowedPrincipals, &diags),
+		AllowedPrincipals: modelconv.ListToSliceWithDiags[string](ctx, m.AllowedPrincipals, &diags),
 	}
 	return out, diags
 }

@@ -85,7 +85,6 @@ Optional:
 Read-Only:
 
 - `password_set` (Boolean) Indicates that the password has been set
-- `password_set_at` (String) Timestamp of when the password was last set - only valid if password_set is true
 
 
 <a id="nestedatt--client_options--authentication_configuration--scram_configuration"></a>
@@ -100,7 +99,6 @@ Optional:
 Read-Only:
 
 - `password_set` (Boolean) Indicates that the password has been set
-- `password_set_at` (String) Timestamp of when the password was last set - only valid if password_set is true
 
 
 
@@ -125,10 +123,6 @@ Optional:
 - `group_filters` (Attributes List) The filters (see [below for nested schema](#nestedatt--consumer_offset_sync_options--group_filters))
 - `interval` (String) Sync interval If 0 provided, defaults to 30 seconds
 - `paused` (Boolean) Allows user to pause the consumer offset sync task. If paused, then the task will enter the 'paused' state and not sync consumer offsets from the source cluster
-
-Read-Only:
-
-- `effective_interval` (String) The effective interval for the task
 
 <a id="nestedatt--consumer_offset_sync_options--group_filters"></a>
 ### Nested Schema for `consumer_offset_sync_options.group_filters`
@@ -157,10 +151,6 @@ Optional:
 - `acl_filters` (Attributes List) ACL filters (see [below for nested schema](#nestedatt--security_sync_options--acl_filters))
 - `interval` (String) Sync interval If 0 provided, defaults to 30 seconds
 - `paused` (Boolean) Allows user to pause the security settings sync task. If paused, then the task will enter the 'paused' state and will not sync security settings from the source cluster
-
-Read-Only:
-
-- `effective_interval` (String) The effective interval for the task
 
 <a id="nestedatt--security_sync_options--acl_filters"></a>
 ### Nested Schema for `security_sync_options.acl_filters`
@@ -223,10 +213,6 @@ Optional:
 - `start_at_timestamp` (String) Enables data replication from the first offset on the source topic/partition where the record's timestamp is at or after the specified timestamp.
 - `synced_shadow_topic_properties` (List of String) The following properties are not allowed to be replicated and adding them to this list will result in an error: - `redpanda.remote.readreplica` - `redpanda.remote.recovery` - `redpanda.remote.allowgaps` - `redpanda.virtual.cluster.id` - `redpanda.leaders.preference` - `redpanda.storage.mode` This list is a list of properties in addition to the default properties that will be synced. See `exclude_default`.
 
-Read-Only:
-
-- `effective_interval` (String) The effective interval for the task
-
 <a id="nestedatt--topic_metadata_sync_options--auto_create_shadow_topic_filters"></a>
 ### Nested Schema for `topic_metadata_sync_options.auto_create_shadow_topic_filters`
 
@@ -269,7 +255,7 @@ resource "redpanda_cluster" "shadow" {
   region            = "us-west-2"
   cluster_type      = "byoc"
   connection_type   = "public"
-  throughput_tier   = "tier-1-aws"
+  throughput_tier   = "tier-1-aws-v2-arm"
   zones             = ["us-west-2a", "us-west-2b", "us-west-2c"]
   cluster_configuration = {
     custom_properties_json = jsonencode({

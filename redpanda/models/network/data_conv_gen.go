@@ -55,15 +55,15 @@ func FlattenData(ctx context.Context, proto DataNetworkResponse, prev *DataModel
 	m.Region = types.StringValue(proto.GetRegion())
 	m.ResourceGroupID = types.StringValue(proto.GetResourceGroupId())
 	m.State = types.StringValue(enums.NetworkStateToString(proto.GetState()))
-	m.Zones = modelconv.ListFromStringsWithDiags(ctx, proto.GetZones(), &diags)
+	m.Zones = modelconv.ListFromSliceWithDiags(ctx, proto.GetZones(), types.StringType, &diags)
 	return m, diags
 }
 
 // FlattenDataCustomerManagedResources converts a single proto controlplanev1.Network_CustomerManagedResources into the
 // corresponding nested model. The prev *DataCustomerManagedResourcesModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenDataCustomerManagedResources(ctx context.Context, proto *controlplanev1.Network_CustomerManagedResources, prev *DataCustomerManagedResourcesModel) (DataCustomerManagedResourcesModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -98,8 +98,8 @@ func ExpandDataCustomerManagedResources(ctx context.Context, m *DataCustomerMana
 // FlattenDataCustomerManagedResourcesAWS converts a single proto controlplanev1.Network_CustomerManagedResources_AWS into the
 // corresponding nested model. The prev *DataCustomerManagedResourcesAWSModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenDataCustomerManagedResourcesAWS(ctx context.Context, proto *controlplanev1.Network_CustomerManagedResources_AWS, prev *DataCustomerManagedResourcesAWSModel) (DataCustomerManagedResourcesAWSModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -141,8 +141,8 @@ func ExpandDataCustomerManagedResourcesAWS(ctx context.Context, m *DataCustomerM
 // FlattenDataCustomerManagedResourcesAWSDynamodbTable converts a single proto controlplanev1.CustomerManagedDynamoDBTable into the
 // corresponding nested model. The prev *DataCustomerManagedResourcesAWSDynamodbTableModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenDataCustomerManagedResourcesAWSDynamodbTable(_ context.Context, proto *controlplanev1.CustomerManagedDynamoDBTable, prev *DataCustomerManagedResourcesAWSDynamodbTableModel) (DataCustomerManagedResourcesAWSDynamodbTableModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -166,8 +166,8 @@ func ExpandDataCustomerManagedResourcesAWSDynamodbTable(_ context.Context, m *Da
 // FlattenDataCustomerManagedResourcesAWSManagementBucket converts a single proto controlplanev1.CustomerManagedAWSCloudStorageBucket into the
 // corresponding nested model. The prev *DataCustomerManagedResourcesAWSManagementBucketModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenDataCustomerManagedResourcesAWSManagementBucket(_ context.Context, proto *controlplanev1.CustomerManagedAWSCloudStorageBucket, prev *DataCustomerManagedResourcesAWSManagementBucketModel) (DataCustomerManagedResourcesAWSManagementBucketModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -191,13 +191,13 @@ func ExpandDataCustomerManagedResourcesAWSManagementBucket(_ context.Context, m 
 // FlattenDataCustomerManagedResourcesAWSPrivateSubnets converts a single proto controlplanev1.CustomerManagedAWSSubnets into the
 // corresponding nested model. The prev *DataCustomerManagedResourcesAWSPrivateSubnetsModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenDataCustomerManagedResourcesAWSPrivateSubnets(ctx context.Context, proto *controlplanev1.CustomerManagedAWSSubnets, prev *DataCustomerManagedResourcesAWSPrivateSubnetsModel) (DataCustomerManagedResourcesAWSPrivateSubnetsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
 	m := DataCustomerManagedResourcesAWSPrivateSubnetsModel{}
-	m.Arns = modelconv.ListFromStringsWithDiags(ctx, proto.GetArns(), &diags)
+	m.Arns = modelconv.ListFromSliceWithDiags(ctx, proto.GetArns(), types.StringType, &diags)
 	return m, diags
 }
 
@@ -208,7 +208,7 @@ func ExpandDataCustomerManagedResourcesAWSPrivateSubnets(ctx context.Context, m 
 		return nil, diags
 	}
 	out := &controlplanev1.CustomerManagedAWSSubnets{
-		Arns: modelconv.ListToStringsWithDiags(ctx, m.Arns, &diags),
+		Arns: modelconv.ListToSliceWithDiags[string](ctx, m.Arns, &diags),
 	}
 	return out, diags
 }
@@ -216,8 +216,8 @@ func ExpandDataCustomerManagedResourcesAWSPrivateSubnets(ctx context.Context, m 
 // FlattenDataCustomerManagedResourcesAWSVPC converts a single proto controlplanev1.CustomerManagedAWSVPC into the
 // corresponding nested model. The prev *DataCustomerManagedResourcesAWSVPCModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenDataCustomerManagedResourcesAWSVPC(_ context.Context, proto *controlplanev1.CustomerManagedAWSVPC, prev *DataCustomerManagedResourcesAWSVPCModel) (DataCustomerManagedResourcesAWSVPCModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -241,8 +241,8 @@ func ExpandDataCustomerManagedResourcesAWSVPC(_ context.Context, m *DataCustomer
 // FlattenDataCustomerManagedResourcesGCP converts a single proto controlplanev1.Network_CustomerManagedResources_GCP into the
 // corresponding nested model. The prev *DataCustomerManagedResourcesGCPModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenDataCustomerManagedResourcesGCP(ctx context.Context, proto *controlplanev1.Network_CustomerManagedResources_GCP, prev *DataCustomerManagedResourcesGCPModel) (DataCustomerManagedResourcesGCPModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -273,8 +273,8 @@ func ExpandDataCustomerManagedResourcesGCP(ctx context.Context, m *DataCustomerM
 // FlattenDataCustomerManagedResourcesGCPManagementBucket converts a single proto controlplanev1.CustomerManagedGoogleCloudStorageBucket into the
 // corresponding nested model. The prev *DataCustomerManagedResourcesGCPManagementBucketModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenDataCustomerManagedResourcesGCPManagementBucket(_ context.Context, proto *controlplanev1.CustomerManagedGoogleCloudStorageBucket, prev *DataCustomerManagedResourcesGCPManagementBucketModel) (DataCustomerManagedResourcesGCPManagementBucketModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev

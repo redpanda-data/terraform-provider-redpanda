@@ -22,6 +22,7 @@ Enables the provisioning and management of Redpanda Serverless clusters. A Serve
 
 ### Optional
 
+- `allow_deletion` (Boolean) Whether terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.
 - `networking_config` (Attributes) Network configuration controlling public/private access to the cluster (see [below for nested schema](#nestedatt--networking_config))
 - `private_link_id` (String) Private link ID for the serverless cluster. Must be set if private networking is enabled. Must match pattern `^[a-v0-9]{20}$`.
 - `tags` (Map of String) User-defined tags for the Serverless cluster
@@ -150,6 +151,7 @@ resource "redpanda_serverless_cluster" "test" {
   name              = var.cluster_name
   resource_group_id = redpanda_resource_group.test.id
   serverless_region = var.region
+  allow_deletion    = var.cluster_allow_deletion
 
   private_link_id = var.private_networking == "STATE_ENABLED" ? redpanda_serverless_private_link.test[0].id : null
 

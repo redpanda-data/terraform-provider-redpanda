@@ -85,9 +85,9 @@ func Flatten(ctx context.Context, proto ClusterResponse, prev *ResourceModel) (*
 	m.Region = types.StringValue(proto.GetRegion())
 	m.ResourceGroupID = types.StringValue(proto.GetResourceGroupId())
 	m.ThroughputTier = types.StringValue(proto.GetThroughputTier())
-	m.Zones = modelconv.ListFromStringsWithDiags(ctx, proto.GetZones(), &diags)
+	m.Zones = modelconv.ListFromSliceWithDiags(ctx, proto.GetZones(), types.StringType, &diags)
 	m.CustomerManagedResources = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetCustomerManagedResources(), func() *CustomerManagedResourcesModel { v, _ := prev.AsCustomerManagedResources(ctx); return v }(), CustomerManagedResourcesAttrTypes(), FlattenCustomerManagedResources, &diags)
-	m.ReadReplicaClusterIds = modelconv.ListFromStringsWithDiags(ctx, proto.GetReadReplicaClusterIds(), &diags)
+	m.ReadReplicaClusterIds = modelconv.ListFromSliceWithDiags(ctx, proto.GetReadReplicaClusterIds(), types.StringType, &diags)
 	m.APIGatewayAccess = types.StringValue(enums.NetworkAccessModeToString(proto.GetApiGatewayAccess()))
 	if proto.HasAwsPrivateLink() {
 		m.AWSPrivateLink = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAwsPrivateLink(), func() *AWSPrivateLinkModel { v, _ := prev.AsAWSPrivateLink(ctx); return v }(), AWSPrivateLinkAttrTypes(), FlattenAWSPrivateLink, &diags)
@@ -138,7 +138,7 @@ func Flatten(ctx context.Context, proto ClusterResponse, prev *ResourceModel) (*
 		m.GCPGlobalAccessEnabled = types.BoolNull()
 	}
 	m.ID = types.StringValue(proto.GetId())
-	m.NatGateways = modelconv.ListFromStringsWithDiags(ctx, proto.GetNatGateways(), &diags)
+	m.NatGateways = modelconv.ListFromSliceWithDiags(ctx, proto.GetNatGateways(), types.StringType, &diags)
 	m.Prometheus = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetPrometheus(), func() *PrometheusModel { v, _ := prev.AsPrometheus(ctx); return v }(), PrometheusAttrTypes(), FlattenPrometheus, &diags)
 	m.RedpandaConsole = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaConsole(), func() *RedpandaConsoleModel { v, _ := prev.AsRedpandaConsole(ctx); return v }(), RedpandaConsoleAttrTypes(), FlattenRedpandaConsole, &diags)
 	m.State = types.StringValue(enums.ClusterStateToString(proto.GetState()))
@@ -190,9 +190,9 @@ func ExpandCreate(ctx context.Context, m *ResourceModel) (*controlplanev1.Create
 		Region:                   m.Region.ValueString(),
 		ResourceGroupId:          m.ResourceGroupID.ValueString(),
 		ThroughputTier:           m.ThroughputTier.ValueString(),
-		Zones:                    modelconv.ListToStringsWithDiags(ctx, m.Zones, &diags),
+		Zones:                    modelconv.ListToSliceWithDiags[string](ctx, m.Zones, &diags),
 		CustomerManagedResources: modelconv.ObjectToMessageWithDiags(ctx, m.CustomerManagedResources, ExpandCustomerManagedResources, &diags),
-		ReadReplicaClusterIds:    modelconv.ListToStringsWithDiags(ctx, m.ReadReplicaClusterIds, &diags),
+		ReadReplicaClusterIds:    modelconv.ListToSliceWithDiags[string](ctx, m.ReadReplicaClusterIds, &diags),
 		ApiGatewayAccess:         enums.StringToNetworkAccessMode(m.APIGatewayAccess.ValueString()),
 		AwsPrivateLink:           modelconv.ObjectToMessageWithDiags(ctx, m.AWSPrivateLink, ExpandCreateAWSPrivateLink, &diags),
 		AzurePrivateLink:         modelconv.ObjectToMessageWithDiags(ctx, m.AzurePrivateLink, ExpandCreateAzurePrivateLink, &diags),
@@ -222,7 +222,7 @@ func ExpandUpdate(ctx context.Context, m *ResourceModel) (*controlplanev1.Cluste
 		Name:                     m.Name.ValueString(),
 		ThroughputTier:           m.ThroughputTier.ValueString(),
 		CustomerManagedResources: modelconv.ObjectToMessageWithDiags(ctx, m.CustomerManagedResources, ExpandUpdateCustomerManagedResources, &diags),
-		ReadReplicaClusterIds:    modelconv.ListToStringsWithDiags(ctx, m.ReadReplicaClusterIds, &diags),
+		ReadReplicaClusterIds:    modelconv.ListToSliceWithDiags[string](ctx, m.ReadReplicaClusterIds, &diags),
 		ApiGatewayAccess:         enums.StringToNetworkAccessMode(m.APIGatewayAccess.ValueString()),
 		AwsPrivateLink:           modelconv.ObjectToMessageWithDiags(ctx, m.AWSPrivateLink, ExpandUpdateAWSPrivateLink, &diags),
 		AzurePrivateLink:         modelconv.ObjectToMessageWithDiags(ctx, m.AzurePrivateLink, ExpandUpdateAzurePrivateLink, &diags),
@@ -254,8 +254,8 @@ func ExpandDelete(_ context.Context, m *ResourceModel) (*controlplanev1.DeleteCl
 // FlattenCustomerManagedResources converts a single proto controlplanev1.CustomerManagedResources into the
 // corresponding nested model. The prev *CustomerManagedResourcesModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResources(ctx context.Context, proto *controlplanev1.CustomerManagedResources, prev *CustomerManagedResourcesModel) (CustomerManagedResourcesModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -290,8 +290,8 @@ func ExpandCustomerManagedResources(ctx context.Context, m *CustomerManagedResou
 // FlattenCustomerManagedResourcesAWS converts a single proto controlplanev1.CustomerManagedResources_AWS into the
 // corresponding nested model. The prev *CustomerManagedResourcesAWSModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesAWS(ctx context.Context, proto *controlplanev1.CustomerManagedResources_AWS, prev *CustomerManagedResourcesAWSModel) (CustomerManagedResourcesAWSModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -388,8 +388,8 @@ func ExpandCustomerManagedResourcesAWS(ctx context.Context, m *CustomerManagedRe
 // FlattenCustomerManagedResourcesAWSAgentInstanceProfile converts a single proto controlplanev1.AWSInstanceProfile into the
 // corresponding nested model. The prev *CustomerManagedResourcesAWSAgentInstanceProfileModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesAWSAgentInstanceProfile(_ context.Context, proto *controlplanev1.AWSInstanceProfile, prev *CustomerManagedResourcesAWSAgentInstanceProfileModel) (CustomerManagedResourcesAWSAgentInstanceProfileModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -413,8 +413,8 @@ func ExpandCustomerManagedResourcesAWSAgentInstanceProfile(_ context.Context, m 
 // FlattenCustomerManagedResourcesAWSCloudStorageBucket converts a single proto controlplanev1.CustomerManagedAWSCloudStorageBucket into the
 // corresponding nested model. The prev *CustomerManagedResourcesAWSCloudStorageBucketModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesAWSCloudStorageBucket(_ context.Context, proto *controlplanev1.CustomerManagedAWSCloudStorageBucket, prev *CustomerManagedResourcesAWSCloudStorageBucketModel) (CustomerManagedResourcesAWSCloudStorageBucketModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -438,8 +438,8 @@ func ExpandCustomerManagedResourcesAWSCloudStorageBucket(_ context.Context, m *C
 // FlattenCustomerManagedResourcesAWSClusterSecurityGroup converts a single proto controlplanev1.AWSSecurityGroup into the
 // corresponding nested model. The prev *CustomerManagedResourcesAWSClusterSecurityGroupModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesAWSClusterSecurityGroup(_ context.Context, proto *controlplanev1.AWSSecurityGroup, prev *CustomerManagedResourcesAWSClusterSecurityGroupModel) (CustomerManagedResourcesAWSClusterSecurityGroupModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -463,8 +463,8 @@ func ExpandCustomerManagedResourcesAWSClusterSecurityGroup(_ context.Context, m 
 // FlattenCustomerManagedResourcesAWSConnectorsNodeGroupInstanceProfile converts a single proto controlplanev1.AWSInstanceProfile into the
 // corresponding nested model. The prev *CustomerManagedResourcesAWSConnectorsNodeGroupInstanceProfileModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesAWSConnectorsNodeGroupInstanceProfile(_ context.Context, proto *controlplanev1.AWSInstanceProfile, prev *CustomerManagedResourcesAWSConnectorsNodeGroupInstanceProfileModel) (CustomerManagedResourcesAWSConnectorsNodeGroupInstanceProfileModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -488,8 +488,8 @@ func ExpandCustomerManagedResourcesAWSConnectorsNodeGroupInstanceProfile(_ conte
 // FlattenCustomerManagedResourcesAWSConnectorsSecurityGroup converts a single proto controlplanev1.AWSSecurityGroup into the
 // corresponding nested model. The prev *CustomerManagedResourcesAWSConnectorsSecurityGroupModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesAWSConnectorsSecurityGroup(_ context.Context, proto *controlplanev1.AWSSecurityGroup, prev *CustomerManagedResourcesAWSConnectorsSecurityGroupModel) (CustomerManagedResourcesAWSConnectorsSecurityGroupModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -513,8 +513,8 @@ func ExpandCustomerManagedResourcesAWSConnectorsSecurityGroup(_ context.Context,
 // FlattenCustomerManagedResourcesAWSK8sClusterRole converts a single proto controlplanev1.CustomerManagedResources_AWS_Role into the
 // corresponding nested model. The prev *CustomerManagedResourcesAWSK8sClusterRoleModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesAWSK8sClusterRole(_ context.Context, proto *controlplanev1.CustomerManagedResources_AWS_Role, prev *CustomerManagedResourcesAWSK8sClusterRoleModel) (CustomerManagedResourcesAWSK8sClusterRoleModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -538,8 +538,8 @@ func ExpandCustomerManagedResourcesAWSK8sClusterRole(_ context.Context, m *Custo
 // FlattenCustomerManagedResourcesAWSNodeSecurityGroup converts a single proto controlplanev1.AWSSecurityGroup into the
 // corresponding nested model. The prev *CustomerManagedResourcesAWSNodeSecurityGroupModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesAWSNodeSecurityGroup(_ context.Context, proto *controlplanev1.AWSSecurityGroup, prev *CustomerManagedResourcesAWSNodeSecurityGroupModel) (CustomerManagedResourcesAWSNodeSecurityGroupModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -563,8 +563,8 @@ func ExpandCustomerManagedResourcesAWSNodeSecurityGroup(_ context.Context, m *Cu
 // FlattenCustomerManagedResourcesAWSPermissionsBoundaryPolicy converts a single proto controlplanev1.CustomerManagedResources_AWS_Policy into the
 // corresponding nested model. The prev *CustomerManagedResourcesAWSPermissionsBoundaryPolicyModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesAWSPermissionsBoundaryPolicy(_ context.Context, proto *controlplanev1.CustomerManagedResources_AWS_Policy, prev *CustomerManagedResourcesAWSPermissionsBoundaryPolicyModel) (CustomerManagedResourcesAWSPermissionsBoundaryPolicyModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -588,8 +588,8 @@ func ExpandCustomerManagedResourcesAWSPermissionsBoundaryPolicy(_ context.Contex
 // FlattenCustomerManagedResourcesAWSRedpandaAgentSecurityGroup converts a single proto controlplanev1.AWSSecurityGroup into the
 // corresponding nested model. The prev *CustomerManagedResourcesAWSRedpandaAgentSecurityGroupModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesAWSRedpandaAgentSecurityGroup(_ context.Context, proto *controlplanev1.AWSSecurityGroup, prev *CustomerManagedResourcesAWSRedpandaAgentSecurityGroupModel) (CustomerManagedResourcesAWSRedpandaAgentSecurityGroupModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -613,8 +613,8 @@ func ExpandCustomerManagedResourcesAWSRedpandaAgentSecurityGroup(_ context.Conte
 // FlattenCustomerManagedResourcesAWSRedpandaNodeGroupInstanceProfile converts a single proto controlplanev1.AWSInstanceProfile into the
 // corresponding nested model. The prev *CustomerManagedResourcesAWSRedpandaNodeGroupInstanceProfileModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesAWSRedpandaNodeGroupInstanceProfile(_ context.Context, proto *controlplanev1.AWSInstanceProfile, prev *CustomerManagedResourcesAWSRedpandaNodeGroupInstanceProfileModel) (CustomerManagedResourcesAWSRedpandaNodeGroupInstanceProfileModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -638,8 +638,8 @@ func ExpandCustomerManagedResourcesAWSRedpandaNodeGroupInstanceProfile(_ context
 // FlattenCustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroup converts a single proto controlplanev1.AWSSecurityGroup into the
 // corresponding nested model. The prev *CustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroupModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroup(_ context.Context, proto *controlplanev1.AWSSecurityGroup, prev *CustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroupModel) (CustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroupModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -663,8 +663,8 @@ func ExpandCustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroup(_ context.C
 // FlattenCustomerManagedResourcesAWSUtilityNodeGroupInstanceProfile converts a single proto controlplanev1.AWSInstanceProfile into the
 // corresponding nested model. The prev *CustomerManagedResourcesAWSUtilityNodeGroupInstanceProfileModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesAWSUtilityNodeGroupInstanceProfile(_ context.Context, proto *controlplanev1.AWSInstanceProfile, prev *CustomerManagedResourcesAWSUtilityNodeGroupInstanceProfileModel) (CustomerManagedResourcesAWSUtilityNodeGroupInstanceProfileModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -688,8 +688,8 @@ func ExpandCustomerManagedResourcesAWSUtilityNodeGroupInstanceProfile(_ context.
 // FlattenCustomerManagedResourcesAWSUtilitySecurityGroup converts a single proto controlplanev1.AWSSecurityGroup into the
 // corresponding nested model. The prev *CustomerManagedResourcesAWSUtilitySecurityGroupModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesAWSUtilitySecurityGroup(_ context.Context, proto *controlplanev1.AWSSecurityGroup, prev *CustomerManagedResourcesAWSUtilitySecurityGroupModel) (CustomerManagedResourcesAWSUtilitySecurityGroupModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -713,8 +713,8 @@ func ExpandCustomerManagedResourcesAWSUtilitySecurityGroup(_ context.Context, m 
 // FlattenCustomerManagedResourcesAWSRedpandaConnectNodeGroupInstanceProfile converts a single proto controlplanev1.AWSInstanceProfile into the
 // corresponding nested model. The prev *CustomerManagedResourcesAWSRedpandaConnectNodeGroupInstanceProfileModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesAWSRedpandaConnectNodeGroupInstanceProfile(_ context.Context, proto *controlplanev1.AWSInstanceProfile, prev *CustomerManagedResourcesAWSRedpandaConnectNodeGroupInstanceProfileModel) (CustomerManagedResourcesAWSRedpandaConnectNodeGroupInstanceProfileModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -738,8 +738,8 @@ func ExpandCustomerManagedResourcesAWSRedpandaConnectNodeGroupInstanceProfile(_ 
 // FlattenCustomerManagedResourcesAWSRedpandaConnectSecurityGroup converts a single proto controlplanev1.AWSSecurityGroup into the
 // corresponding nested model. The prev *CustomerManagedResourcesAWSRedpandaConnectSecurityGroupModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesAWSRedpandaConnectSecurityGroup(_ context.Context, proto *controlplanev1.AWSSecurityGroup, prev *CustomerManagedResourcesAWSRedpandaConnectSecurityGroupModel) (CustomerManagedResourcesAWSRedpandaConnectSecurityGroupModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -763,8 +763,8 @@ func ExpandCustomerManagedResourcesAWSRedpandaConnectSecurityGroup(_ context.Con
 // FlattenCustomerManagedResourcesGCP converts a single proto controlplanev1.CustomerManagedResources_GCP into the
 // corresponding nested model. The prev *CustomerManagedResourcesGCPModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesGCP(ctx context.Context, proto *controlplanev1.CustomerManagedResources_GCP, prev *CustomerManagedResourcesGCPModel) (CustomerManagedResourcesGCPModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -829,8 +829,8 @@ func ExpandCustomerManagedResourcesGCP(ctx context.Context, m *CustomerManagedRe
 // FlattenCustomerManagedResourcesGCPAgentServiceAccount converts a single proto controlplanev1.GCPServiceAccount into the
 // corresponding nested model. The prev *CustomerManagedResourcesGCPAgentServiceAccountModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesGCPAgentServiceAccount(_ context.Context, proto *controlplanev1.GCPServiceAccount, prev *CustomerManagedResourcesGCPAgentServiceAccountModel) (CustomerManagedResourcesGCPAgentServiceAccountModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -854,8 +854,8 @@ func ExpandCustomerManagedResourcesGCPAgentServiceAccount(_ context.Context, m *
 // FlattenCustomerManagedResourcesGCPConnectorServiceAccount converts a single proto controlplanev1.GCPServiceAccount into the
 // corresponding nested model. The prev *CustomerManagedResourcesGCPConnectorServiceAccountModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesGCPConnectorServiceAccount(_ context.Context, proto *controlplanev1.GCPServiceAccount, prev *CustomerManagedResourcesGCPConnectorServiceAccountModel) (CustomerManagedResourcesGCPConnectorServiceAccountModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -879,8 +879,8 @@ func ExpandCustomerManagedResourcesGCPConnectorServiceAccount(_ context.Context,
 // FlattenCustomerManagedResourcesGCPConsoleServiceAccount converts a single proto controlplanev1.GCPServiceAccount into the
 // corresponding nested model. The prev *CustomerManagedResourcesGCPConsoleServiceAccountModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesGCPConsoleServiceAccount(_ context.Context, proto *controlplanev1.GCPServiceAccount, prev *CustomerManagedResourcesGCPConsoleServiceAccountModel) (CustomerManagedResourcesGCPConsoleServiceAccountModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -904,8 +904,8 @@ func ExpandCustomerManagedResourcesGCPConsoleServiceAccount(_ context.Context, m
 // FlattenCustomerManagedResourcesGCPGkeServiceAccount converts a single proto controlplanev1.GCPServiceAccount into the
 // corresponding nested model. The prev *CustomerManagedResourcesGCPGkeServiceAccountModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesGCPGkeServiceAccount(_ context.Context, proto *controlplanev1.GCPServiceAccount, prev *CustomerManagedResourcesGCPGkeServiceAccountModel) (CustomerManagedResourcesGCPGkeServiceAccountModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -929,8 +929,8 @@ func ExpandCustomerManagedResourcesGCPGkeServiceAccount(_ context.Context, m *Cu
 // FlattenCustomerManagedResourcesGCPRedpandaClusterServiceAccount converts a single proto controlplanev1.GCPServiceAccount into the
 // corresponding nested model. The prev *CustomerManagedResourcesGCPRedpandaClusterServiceAccountModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesGCPRedpandaClusterServiceAccount(_ context.Context, proto *controlplanev1.GCPServiceAccount, prev *CustomerManagedResourcesGCPRedpandaClusterServiceAccountModel) (CustomerManagedResourcesGCPRedpandaClusterServiceAccountModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -954,8 +954,8 @@ func ExpandCustomerManagedResourcesGCPRedpandaClusterServiceAccount(_ context.Co
 // FlattenCustomerManagedResourcesGCPSubnet converts a single proto controlplanev1.CustomerManagedResources_GCP_Subnet into the
 // corresponding nested model. The prev *CustomerManagedResourcesGCPSubnetModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesGCPSubnet(ctx context.Context, proto *controlplanev1.CustomerManagedResources_GCP_Subnet, prev *CustomerManagedResourcesGCPSubnetModel) (CustomerManagedResourcesGCPSubnetModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -991,8 +991,8 @@ func ExpandCustomerManagedResourcesGCPSubnet(ctx context.Context, m *CustomerMan
 // FlattenCustomerManagedResourcesGCPSubnetSecondaryIpv4RangePods converts a single proto controlplanev1.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range into the
 // corresponding nested model. The prev *CustomerManagedResourcesGCPSubnetSecondaryIpv4RangePodsModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesGCPSubnetSecondaryIpv4RangePods(_ context.Context, proto *controlplanev1.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range, prev *CustomerManagedResourcesGCPSubnetSecondaryIpv4RangePodsModel) (CustomerManagedResourcesGCPSubnetSecondaryIpv4RangePodsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1016,8 +1016,8 @@ func ExpandCustomerManagedResourcesGCPSubnetSecondaryIpv4RangePods(_ context.Con
 // FlattenCustomerManagedResourcesGCPSubnetSecondaryIpv4RangeServices converts a single proto controlplanev1.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range into the
 // corresponding nested model. The prev *CustomerManagedResourcesGCPSubnetSecondaryIpv4RangeServicesModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesGCPSubnetSecondaryIpv4RangeServices(_ context.Context, proto *controlplanev1.CustomerManagedResources_GCP_Subnet_SecondaryIPv4Range, prev *CustomerManagedResourcesGCPSubnetSecondaryIpv4RangeServicesModel) (CustomerManagedResourcesGCPSubnetSecondaryIpv4RangeServicesModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1041,8 +1041,8 @@ func ExpandCustomerManagedResourcesGCPSubnetSecondaryIpv4RangeServices(_ context
 // FlattenCustomerManagedResourcesGCPTieredStorageBucket converts a single proto controlplanev1.CustomerManagedGoogleCloudStorageBucket into the
 // corresponding nested model. The prev *CustomerManagedResourcesGCPTieredStorageBucketModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCustomerManagedResourcesGCPTieredStorageBucket(_ context.Context, proto *controlplanev1.CustomerManagedGoogleCloudStorageBucket, prev *CustomerManagedResourcesGCPTieredStorageBucketModel) (CustomerManagedResourcesGCPTieredStorageBucketModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1066,17 +1066,17 @@ func ExpandCustomerManagedResourcesGCPTieredStorageBucket(_ context.Context, m *
 // FlattenAWSPrivateLink converts a single proto controlplanev1.Cluster_AWSPrivateLink into the
 // corresponding nested model. The prev *AWSPrivateLinkModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenAWSPrivateLink(ctx context.Context, proto *controlplanev1.Cluster_AWSPrivateLink, prev *AWSPrivateLinkModel) (AWSPrivateLinkModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
 	m := AWSPrivateLinkModel{}
-	m.AllowedPrincipals = modelconv.ListFromStringsWithDiags(ctx, proto.GetAllowedPrincipals(), &diags)
+	m.AllowedPrincipals = modelconv.ListFromSliceWithDiags(ctx, proto.GetAllowedPrincipals(), types.StringType, &diags)
 	m.ConnectConsole = types.BoolValue(proto.GetConnectConsole())
 	m.Enabled = types.BoolValue(proto.GetEnabled())
 	m.Status = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetStatus(), func() *AWSPrivateLinkStatusModel { v, _ := DecodeAWSPrivateLinkStatus(ctx, prev); return v }(), AWSPrivateLinkStatusAttrTypes(), FlattenAWSPrivateLinkStatus, &diags)
-	m.SupportedRegions = modelconv.ListFromStringsWithDiags(ctx, proto.GetSupportedRegions(), &diags)
+	m.SupportedRegions = modelconv.ListFromSliceWithDiags(ctx, proto.GetSupportedRegions(), types.StringType, &diags)
 	return m, diags
 }
 
@@ -1087,11 +1087,11 @@ func ExpandAWSPrivateLink(ctx context.Context, m *AWSPrivateLinkModel) (*control
 		return nil, diags
 	}
 	out := &controlplanev1.Cluster_AWSPrivateLink{
-		AllowedPrincipals: modelconv.ListToStringsWithDiags(ctx, m.AllowedPrincipals, &diags),
+		AllowedPrincipals: modelconv.ListToSliceWithDiags[string](ctx, m.AllowedPrincipals, &diags),
 		ConnectConsole:    m.ConnectConsole.ValueBool(),
 		Enabled:           m.Enabled.ValueBool(),
 		Status:            modelconv.ObjectToMessageWithDiags(ctx, m.Status, ExpandAWSPrivateLinkStatus, &diags),
-		SupportedRegions:  modelconv.ListToStringsWithDiags(ctx, m.SupportedRegions, &diags),
+		SupportedRegions:  modelconv.ListToSliceWithDiags[string](ctx, m.SupportedRegions, &diags),
 	}
 	return out, diags
 }
@@ -1099,8 +1099,8 @@ func ExpandAWSPrivateLink(ctx context.Context, m *AWSPrivateLinkModel) (*control
 // FlattenAWSPrivateLinkStatus converts a single proto controlplanev1.Cluster_AWSPrivateLink_Status into the
 // corresponding nested model. The prev *AWSPrivateLinkStatusModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenAWSPrivateLinkStatus(ctx context.Context, proto *controlplanev1.Cluster_AWSPrivateLink_Status, prev *AWSPrivateLinkStatusModel) (AWSPrivateLinkStatusModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1142,8 +1142,8 @@ func ExpandAWSPrivateLinkStatus(ctx context.Context, m *AWSPrivateLinkStatusMode
 // FlattenAWSPrivateLinkStatusVPCEndpointConnections converts a single proto controlplanev1.Cluster_AWSPrivateLink_Status_VPCEndpointConnection into the
 // corresponding nested model. The prev *AWSPrivateLinkStatusVPCEndpointConnectionsModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenAWSPrivateLinkStatusVPCEndpointConnections(ctx context.Context, proto *controlplanev1.Cluster_AWSPrivateLink_Status_VPCEndpointConnection, prev *AWSPrivateLinkStatusVPCEndpointConnectionsModel) (AWSPrivateLinkStatusVPCEndpointConnectionsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1151,7 +1151,7 @@ func FlattenAWSPrivateLinkStatusVPCEndpointConnections(ctx context.Context, prot
 	m.ConnectionID = types.StringValue(proto.GetConnectionId())
 	m.DNSEntries = modelconv.ListFromObjectsWithDiags(ctx, proto.GetDnsEntries(), AWSPrivateLinkStatusVPCEndpointConnectionsDNSEntriesAttrTypes(), FlattenAWSPrivateLinkStatusVPCEndpointConnectionsDNSEntries, &diags)
 	m.ID = types.StringValue(proto.GetId())
-	m.LoadBalancerArns = modelconv.ListFromStringsWithDiags(ctx, proto.GetLoadBalancerArns(), &diags)
+	m.LoadBalancerArns = modelconv.ListFromSliceWithDiags(ctx, proto.GetLoadBalancerArns(), types.StringType, &diags)
 	m.Owner = types.StringValue(proto.GetOwner())
 	m.State = types.StringValue(proto.GetState())
 	return m, diags
@@ -1167,7 +1167,7 @@ func ExpandAWSPrivateLinkStatusVPCEndpointConnections(ctx context.Context, m *AW
 		ConnectionId:     m.ConnectionID.ValueString(),
 		DnsEntries:       modelconv.ListToObjectsWithDiags(ctx, m.DNSEntries, ExpandAWSPrivateLinkStatusVPCEndpointConnectionsDNSEntries, &diags),
 		Id:               m.ID.ValueString(),
-		LoadBalancerArns: modelconv.ListToStringsWithDiags(ctx, m.LoadBalancerArns, &diags),
+		LoadBalancerArns: modelconv.ListToSliceWithDiags[string](ctx, m.LoadBalancerArns, &diags),
 		Owner:            m.Owner.ValueString(),
 		State:            m.State.ValueString(),
 	}
@@ -1177,8 +1177,8 @@ func ExpandAWSPrivateLinkStatusVPCEndpointConnections(ctx context.Context, m *AW
 // FlattenAWSPrivateLinkStatusVPCEndpointConnectionsDNSEntries converts a single proto controlplanev1.Cluster_AWSPrivateLink_Status_VPCEndpointConnection_DNSEntry into the
 // corresponding nested model. The prev *AWSPrivateLinkStatusVPCEndpointConnectionsDNSEntriesModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenAWSPrivateLinkStatusVPCEndpointConnectionsDNSEntries(_ context.Context, proto *controlplanev1.Cluster_AWSPrivateLink_Status_VPCEndpointConnection_DNSEntry, prev *AWSPrivateLinkStatusVPCEndpointConnectionsDNSEntriesModel) (AWSPrivateLinkStatusVPCEndpointConnectionsDNSEntriesModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1204,13 +1204,13 @@ func ExpandAWSPrivateLinkStatusVPCEndpointConnectionsDNSEntries(_ context.Contex
 // FlattenAzurePrivateLink converts a single proto controlplanev1.Cluster_AzurePrivateLink into the
 // corresponding nested model. The prev *AzurePrivateLinkModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenAzurePrivateLink(ctx context.Context, proto *controlplanev1.Cluster_AzurePrivateLink, prev *AzurePrivateLinkModel) (AzurePrivateLinkModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
 	m := AzurePrivateLinkModel{}
-	m.AllowedSubscriptions = modelconv.ListFromStringsWithDiags(ctx, proto.GetAllowedSubscriptions(), &diags)
+	m.AllowedSubscriptions = modelconv.ListFromSliceWithDiags(ctx, proto.GetAllowedSubscriptions(), types.StringType, &diags)
 	m.ConnectConsole = types.BoolValue(proto.GetConnectConsole())
 	m.Enabled = types.BoolValue(proto.GetEnabled())
 	m.Status = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetStatus(), func() *AzurePrivateLinkStatusModel { v, _ := DecodeAzurePrivateLinkStatus(ctx, prev); return v }(), AzurePrivateLinkStatusAttrTypes(), FlattenAzurePrivateLinkStatus, &diags)
@@ -1224,7 +1224,7 @@ func ExpandAzurePrivateLink(ctx context.Context, m *AzurePrivateLinkModel) (*con
 		return nil, diags
 	}
 	out := &controlplanev1.Cluster_AzurePrivateLink{
-		AllowedSubscriptions: modelconv.ListToStringsWithDiags(ctx, m.AllowedSubscriptions, &diags),
+		AllowedSubscriptions: modelconv.ListToSliceWithDiags[string](ctx, m.AllowedSubscriptions, &diags),
 		ConnectConsole:       m.ConnectConsole.ValueBool(),
 		Enabled:              m.Enabled.ValueBool(),
 		Status:               modelconv.ObjectToMessageWithDiags(ctx, m.Status, ExpandAzurePrivateLinkStatus, &diags),
@@ -1235,13 +1235,13 @@ func ExpandAzurePrivateLink(ctx context.Context, m *AzurePrivateLinkModel) (*con
 // FlattenAzurePrivateLinkStatus converts a single proto controlplanev1.Cluster_AzurePrivateLink_Status into the
 // corresponding nested model. The prev *AzurePrivateLinkStatusModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenAzurePrivateLinkStatus(ctx context.Context, proto *controlplanev1.Cluster_AzurePrivateLink_Status, prev *AzurePrivateLinkStatusModel) (AzurePrivateLinkStatusModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
 	m := AzurePrivateLinkStatusModel{}
-	m.ApprovedSubscriptions = modelconv.ListFromStringsWithDiags(ctx, proto.GetApprovedSubscriptions(), &diags)
+	m.ApprovedSubscriptions = modelconv.ListFromSliceWithDiags(ctx, proto.GetApprovedSubscriptions(), types.StringType, &diags)
 	m.ConsolePort = types.Int32Value(proto.GetConsolePort())
 	m.DNSARecord = types.StringValue(proto.GetDnsARecord())
 	m.KafkaAPINodeBasePort = types.Int32Value(proto.GetKafkaApiNodeBasePort())
@@ -1262,7 +1262,7 @@ func ExpandAzurePrivateLinkStatus(ctx context.Context, m *AzurePrivateLinkStatus
 		return nil, diags
 	}
 	out := &controlplanev1.Cluster_AzurePrivateLink_Status{
-		ApprovedSubscriptions:      modelconv.ListToStringsWithDiags(ctx, m.ApprovedSubscriptions, &diags),
+		ApprovedSubscriptions:      modelconv.ListToSliceWithDiags[string](ctx, m.ApprovedSubscriptions, &diags),
 		ConsolePort:                m.ConsolePort.ValueInt32(),
 		DnsARecord:                 m.DNSARecord.ValueString(),
 		KafkaApiNodeBasePort:       m.KafkaAPINodeBasePort.ValueInt32(),
@@ -1280,8 +1280,8 @@ func ExpandAzurePrivateLinkStatus(ctx context.Context, m *AzurePrivateLinkStatus
 // FlattenAzurePrivateLinkStatusPrivateEndpointConnections converts a single proto controlplanev1.Cluster_AzurePrivateLink_Status_PrivateEndpointConnection into the
 // corresponding nested model. The prev *AzurePrivateLinkStatusPrivateEndpointConnectionsModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenAzurePrivateLinkStatusPrivateEndpointConnections(_ context.Context, proto *controlplanev1.Cluster_AzurePrivateLink_Status_PrivateEndpointConnection, prev *AzurePrivateLinkStatusPrivateEndpointConnectionsModel) (AzurePrivateLinkStatusPrivateEndpointConnectionsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1313,13 +1313,19 @@ func ExpandAzurePrivateLinkStatusPrivateEndpointConnections(_ context.Context, m
 // FlattenCloudStorage converts a single proto controlplanev1.Cluster_CloudStorage into the
 // corresponding nested model. The prev *CloudStorageModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCloudStorage(ctx context.Context, proto *controlplanev1.Cluster_CloudStorage, prev *CloudStorageModel) (CloudStorageModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
 	m := CloudStorageModel{}
-	m.SkipDestroy = types.BoolValue(proto.GetSkipDestroy())
+	if v := proto.GetSkipDestroy(); v != false {
+		m.SkipDestroy = types.BoolValue(v)
+	} else if prev != nil && !prev.SkipDestroy.IsUnknown() {
+		m.SkipDestroy = prev.SkipDestroy
+	} else {
+		m.SkipDestroy = types.BoolNull()
+	}
 	m.AWS = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAws(), func() *CloudStorageAWSModel { v, _ := DecodeCloudStorageAWS(ctx, prev); return v }(), CloudStorageAWSAttrTypes(), FlattenCloudStorageAWS, &diags)
 	m.Azure = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAzure(), func() *CloudStorageAzureModel { v, _ := DecodeCloudStorageAzure(ctx, prev); return v }(), CloudStorageAzureAttrTypes(), FlattenCloudStorageAzure, &diags)
 	m.GCP = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetGcp(), func() *CloudStorageGCPModel { v, _ := DecodeCloudStorageGCP(ctx, prev); return v }(), CloudStorageGCPAttrTypes(), FlattenCloudStorageGCP, &diags)
@@ -1350,8 +1356,8 @@ func ExpandCloudStorage(ctx context.Context, m *CloudStorageModel) (*controlplan
 // FlattenCloudStorageAWS converts a single proto controlplanev1.Cluster_CloudStorage_AWS into the
 // corresponding nested model. The prev *CloudStorageAWSModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCloudStorageAWS(_ context.Context, proto *controlplanev1.Cluster_CloudStorage_AWS, prev *CloudStorageAWSModel) (CloudStorageAWSModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1375,8 +1381,8 @@ func ExpandCloudStorageAWS(_ context.Context, m *CloudStorageAWSModel) (*control
 // FlattenCloudStorageAzure converts a single proto controlplanev1.Cluster_CloudStorage_Azure into the
 // corresponding nested model. The prev *CloudStorageAzureModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCloudStorageAzure(_ context.Context, proto *controlplanev1.Cluster_CloudStorage_Azure, prev *CloudStorageAzureModel) (CloudStorageAzureModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1402,8 +1408,8 @@ func ExpandCloudStorageAzure(_ context.Context, m *CloudStorageAzureModel) (*con
 // FlattenCloudStorageGCP converts a single proto controlplanev1.Cluster_CloudStorage_GCP into the
 // corresponding nested model. The prev *CloudStorageGCPModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenCloudStorageGCP(_ context.Context, proto *controlplanev1.Cluster_CloudStorage_GCP, prev *CloudStorageGCPModel) (CloudStorageGCPModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1427,8 +1433,8 @@ func ExpandCloudStorageGCP(_ context.Context, m *CloudStorageGCPModel) (*control
 // FlattenClusterConfiguration converts a single proto controlplanev1.Cluster_ClusterConfiguration into the
 // corresponding nested model. The prev *ClusterConfigurationModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenClusterConfiguration(_ context.Context, proto *controlplanev1.Cluster_ClusterConfiguration, prev *ClusterConfigurationModel) (ClusterConfigurationModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1452,8 +1458,8 @@ func ExpandClusterConfiguration(_ context.Context, m *ClusterConfigurationModel)
 // FlattenGCPPrivateServiceConnect converts a single proto controlplanev1.Cluster_GCPPrivateServiceConnect into the
 // corresponding nested model. The prev *GCPPrivateServiceConnectModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenGCPPrivateServiceConnect(ctx context.Context, proto *controlplanev1.Cluster_GCPPrivateServiceConnect, prev *GCPPrivateServiceConnectModel) (GCPPrivateServiceConnectModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1486,8 +1492,8 @@ func ExpandGCPPrivateServiceConnect(ctx context.Context, m *GCPPrivateServiceCon
 // FlattenGCPPrivateServiceConnectConsumerAcceptList converts a single proto controlplanev1.GCPPrivateServiceConnectConsumer into the
 // corresponding nested model. The prev *GCPPrivateServiceConnectConsumerAcceptListModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenGCPPrivateServiceConnectConsumerAcceptList(_ context.Context, proto *controlplanev1.GCPPrivateServiceConnectConsumer, prev *GCPPrivateServiceConnectConsumerAcceptListModel) (GCPPrivateServiceConnectConsumerAcceptListModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1511,14 +1517,14 @@ func ExpandGCPPrivateServiceConnectConsumerAcceptList(_ context.Context, m *GCPP
 // FlattenGCPPrivateServiceConnectStatus converts a single proto controlplanev1.Cluster_GCPPrivateServiceConnect_Status into the
 // corresponding nested model. The prev *GCPPrivateServiceConnectStatusModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenGCPPrivateServiceConnectStatus(ctx context.Context, proto *controlplanev1.Cluster_GCPPrivateServiceConnect_Status, prev *GCPPrivateServiceConnectStatusModel) (GCPPrivateServiceConnectStatusModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
 	m := GCPPrivateServiceConnectStatusModel{}
 	m.ConnectedEndpoints = modelconv.ListFromObjectsWithDiags(ctx, proto.GetConnectedEndpoints(), GCPPrivateServiceConnectStatusConnectedEndpointsAttrTypes(), FlattenGCPPrivateServiceConnectStatusConnectedEndpoints, &diags)
-	m.DNSARecords = modelconv.ListFromStringsWithDiags(ctx, proto.GetDnsARecords(), &diags)
+	m.DNSARecords = modelconv.ListFromSliceWithDiags(ctx, proto.GetDnsARecords(), types.StringType, &diags)
 	m.KafkaAPINodeBasePort = types.Int32Value(proto.GetKafkaApiNodeBasePort())
 	m.KafkaAPISeedPort = types.Int32Value(proto.GetKafkaApiSeedPort())
 	m.RedpandaProxyNodeBasePort = types.Int32Value(proto.GetRedpandaProxyNodeBasePort())
@@ -1537,7 +1543,7 @@ func ExpandGCPPrivateServiceConnectStatus(ctx context.Context, m *GCPPrivateServ
 	}
 	out := &controlplanev1.Cluster_GCPPrivateServiceConnect_Status{
 		ConnectedEndpoints:        modelconv.ListToObjectsWithDiags(ctx, m.ConnectedEndpoints, ExpandGCPPrivateServiceConnectStatusConnectedEndpoints, &diags),
-		DnsARecords:               modelconv.ListToStringsWithDiags(ctx, m.DNSARecords, &diags),
+		DnsARecords:               modelconv.ListToSliceWithDiags[string](ctx, m.DNSARecords, &diags),
 		KafkaApiNodeBasePort:      m.KafkaAPINodeBasePort.ValueInt32(),
 		KafkaApiSeedPort:          m.KafkaAPISeedPort.ValueInt32(),
 		RedpandaProxyNodeBasePort: m.RedpandaProxyNodeBasePort.ValueInt32(),
@@ -1552,8 +1558,8 @@ func ExpandGCPPrivateServiceConnectStatus(ctx context.Context, m *GCPPrivateServ
 // FlattenGCPPrivateServiceConnectStatusConnectedEndpoints converts a single proto controlplanev1.Cluster_GCPPrivateServiceConnect_Status_ConnectedEndpoint into the
 // corresponding nested model. The prev *GCPPrivateServiceConnectStatusConnectedEndpointsModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenGCPPrivateServiceConnectStatusConnectedEndpoints(_ context.Context, proto *controlplanev1.Cluster_GCPPrivateServiceConnect_Status_ConnectedEndpoint, prev *GCPPrivateServiceConnectStatusConnectedEndpointsModel) (GCPPrivateServiceConnectStatusConnectedEndpointsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1583,8 +1589,8 @@ func ExpandGCPPrivateServiceConnectStatusConnectedEndpoints(_ context.Context, m
 // FlattenHTTPProxy converts a single proto controlplanev1.Cluster_HTTPProxyStatus into the
 // corresponding nested model. The prev *HTTPProxyModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenHTTPProxy(ctx context.Context, proto *controlplanev1.Cluster_HTTPProxyStatus, prev *HTTPProxyModel) (HTTPProxyModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1614,14 +1620,14 @@ func ExpandHTTPProxy(ctx context.Context, m *HTTPProxyModel) (*controlplanev1.Cl
 // FlattenHTTPProxyMtls converts a single proto controlplanev1.MTLSSpec into the
 // corresponding nested model. The prev *HTTPProxyMtlsModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenHTTPProxyMtls(ctx context.Context, proto *controlplanev1.MTLSSpec, prev *HTTPProxyMtlsModel) (HTTPProxyMtlsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
 	m := HTTPProxyMtlsModel{}
-	m.CaCertificatesPem = modelconv.ListFromStringsWithDiags(ctx, proto.GetCaCertificatesPem(), &diags)
-	m.PrincipalMappingRules = modelconv.ListFromStringsWithDiags(ctx, proto.GetPrincipalMappingRules(), &diags)
+	m.CaCertificatesPem = modelconv.ListFromSliceWithDiags(ctx, proto.GetCaCertificatesPem(), types.StringType, &diags)
+	m.PrincipalMappingRules = modelconv.ListFromSliceWithDiags(ctx, proto.GetPrincipalMappingRules(), types.StringType, &diags)
 	m.Enabled = types.BoolValue(proto.GetEnabled())
 	return m, diags
 }
@@ -1633,8 +1639,8 @@ func ExpandHTTPProxyMtls(ctx context.Context, m *HTTPProxyMtlsModel) (*controlpl
 		return nil, diags
 	}
 	out := &controlplanev1.MTLSSpec{
-		CaCertificatesPem:     modelconv.ListToStringsWithDiags(ctx, m.CaCertificatesPem, &diags),
-		PrincipalMappingRules: modelconv.ListToStringsWithDiags(ctx, m.PrincipalMappingRules, &diags),
+		CaCertificatesPem:     modelconv.ListToSliceWithDiags[string](ctx, m.CaCertificatesPem, &diags),
+		PrincipalMappingRules: modelconv.ListToSliceWithDiags[string](ctx, m.PrincipalMappingRules, &diags),
 		Enabled:               m.Enabled.ValueBool(),
 	}
 	return out, diags
@@ -1643,8 +1649,8 @@ func ExpandHTTPProxyMtls(ctx context.Context, m *HTTPProxyMtlsModel) (*controlpl
 // FlattenHTTPProxySasl converts a single proto controlplanev1.SASLSpec into the
 // corresponding nested model. The prev *HTTPProxySaslModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenHTTPProxySasl(_ context.Context, proto *controlplanev1.SASLSpec, prev *HTTPProxySaslModel) (HTTPProxySaslModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1668,8 +1674,8 @@ func ExpandHTTPProxySasl(_ context.Context, m *HTTPProxySaslModel) (*controlplan
 // FlattenHTTPProxyAllUrls converts a single proto controlplanev1.Endpoints into the
 // corresponding nested model. The prev *HTTPProxyAllUrlsModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenHTTPProxyAllUrls(_ context.Context, proto *controlplanev1.Endpoints, prev *HTTPProxyAllUrlsModel) (HTTPProxyAllUrlsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1699,8 +1705,8 @@ func ExpandHTTPProxyAllUrls(_ context.Context, m *HTTPProxyAllUrlsModel) (*contr
 // FlattenKafkaAPI converts a single proto controlplanev1.Cluster_KafkaAPI into the
 // corresponding nested model. The prev *KafkaAPIModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenKafkaAPI(ctx context.Context, proto *controlplanev1.Cluster_KafkaAPI, prev *KafkaAPIModel) (KafkaAPIModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1708,7 +1714,7 @@ func FlattenKafkaAPI(ctx context.Context, proto *controlplanev1.Cluster_KafkaAPI
 	m.Mtls = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetMtls(), func() *KafkaAPIMtlsModel { v, _ := DecodeKafkaAPIMtls(ctx, prev); return v }(), KafkaAPIMtlsAttrTypes(), FlattenKafkaAPIMtls, &diags)
 	m.Sasl = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetSasl(), func() *KafkaAPISaslModel { v, _ := DecodeKafkaAPISasl(ctx, prev); return v }(), KafkaAPISaslAttrTypes(), FlattenKafkaAPISasl, &diags)
 	m.AllSeedBrokers = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAllSeedBrokers(), func() *KafkaAPIAllSeedBrokersModel { v, _ := DecodeKafkaAPIAllSeedBrokers(ctx, prev); return v }(), KafkaAPIAllSeedBrokersAttrTypes(), FlattenKafkaAPIAllSeedBrokers, &diags)
-	m.SeedBrokers = modelconv.ListFromStringsWithDiags(ctx, proto.GetSeedBrokers(), &diags)
+	m.SeedBrokers = modelconv.ListFromSliceWithDiags(ctx, proto.GetSeedBrokers(), types.StringType, &diags)
 	return m, diags
 }
 
@@ -1722,7 +1728,7 @@ func ExpandKafkaAPI(ctx context.Context, m *KafkaAPIModel) (*controlplanev1.Clus
 		Mtls:           modelconv.ObjectToMessageWithDiags(ctx, m.Mtls, ExpandKafkaAPIMtls, &diags),
 		Sasl:           modelconv.ObjectToMessageWithDiags(ctx, m.Sasl, ExpandKafkaAPISasl, &diags),
 		AllSeedBrokers: modelconv.ObjectToMessageWithDiags(ctx, m.AllSeedBrokers, ExpandKafkaAPIAllSeedBrokers, &diags),
-		SeedBrokers:    modelconv.ListToStringsWithDiags(ctx, m.SeedBrokers, &diags),
+		SeedBrokers:    modelconv.ListToSliceWithDiags[string](ctx, m.SeedBrokers, &diags),
 	}
 	return out, diags
 }
@@ -1730,14 +1736,14 @@ func ExpandKafkaAPI(ctx context.Context, m *KafkaAPIModel) (*controlplanev1.Clus
 // FlattenKafkaAPIMtls converts a single proto controlplanev1.MTLSSpec into the
 // corresponding nested model. The prev *KafkaAPIMtlsModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenKafkaAPIMtls(ctx context.Context, proto *controlplanev1.MTLSSpec, prev *KafkaAPIMtlsModel) (KafkaAPIMtlsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
 	m := KafkaAPIMtlsModel{}
-	m.CaCertificatesPem = modelconv.ListFromStringsWithDiags(ctx, proto.GetCaCertificatesPem(), &diags)
-	m.PrincipalMappingRules = modelconv.ListFromStringsWithDiags(ctx, proto.GetPrincipalMappingRules(), &diags)
+	m.CaCertificatesPem = modelconv.ListFromSliceWithDiags(ctx, proto.GetCaCertificatesPem(), types.StringType, &diags)
+	m.PrincipalMappingRules = modelconv.ListFromSliceWithDiags(ctx, proto.GetPrincipalMappingRules(), types.StringType, &diags)
 	m.Enabled = types.BoolValue(proto.GetEnabled())
 	return m, diags
 }
@@ -1749,8 +1755,8 @@ func ExpandKafkaAPIMtls(ctx context.Context, m *KafkaAPIMtlsModel) (*controlplan
 		return nil, diags
 	}
 	out := &controlplanev1.MTLSSpec{
-		CaCertificatesPem:     modelconv.ListToStringsWithDiags(ctx, m.CaCertificatesPem, &diags),
-		PrincipalMappingRules: modelconv.ListToStringsWithDiags(ctx, m.PrincipalMappingRules, &diags),
+		CaCertificatesPem:     modelconv.ListToSliceWithDiags[string](ctx, m.CaCertificatesPem, &diags),
+		PrincipalMappingRules: modelconv.ListToSliceWithDiags[string](ctx, m.PrincipalMappingRules, &diags),
 		Enabled:               m.Enabled.ValueBool(),
 	}
 	return out, diags
@@ -1759,8 +1765,8 @@ func ExpandKafkaAPIMtls(ctx context.Context, m *KafkaAPIMtlsModel) (*controlplan
 // FlattenKafkaAPISasl converts a single proto controlplanev1.SASLSpec into the
 // corresponding nested model. The prev *KafkaAPISaslModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenKafkaAPISasl(_ context.Context, proto *controlplanev1.SASLSpec, prev *KafkaAPISaslModel) (KafkaAPISaslModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1784,8 +1790,8 @@ func ExpandKafkaAPISasl(_ context.Context, m *KafkaAPISaslModel) (*controlplanev
 // FlattenKafkaAPIAllSeedBrokers converts a single proto controlplanev1.SeedBrokers into the
 // corresponding nested model. The prev *KafkaAPIAllSeedBrokersModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenKafkaAPIAllSeedBrokers(_ context.Context, proto *controlplanev1.SeedBrokers, prev *KafkaAPIAllSeedBrokersModel) (KafkaAPIAllSeedBrokersModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1815,8 +1821,8 @@ func ExpandKafkaAPIAllSeedBrokers(_ context.Context, m *KafkaAPIAllSeedBrokersMo
 // FlattenKafkaConnect converts a single proto controlplanev1.KafkaConnect into the
 // corresponding nested model. The prev *KafkaConnectModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenKafkaConnect(_ context.Context, proto *controlplanev1.KafkaConnect, prev *KafkaConnectModel) (KafkaConnectModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1840,8 +1846,8 @@ func ExpandKafkaConnect(_ context.Context, m *KafkaConnectModel) (*controlplanev
 // FlattenMaintenanceWindowConfig converts a single proto controlplanev1.MaintenanceWindowConfig into the
 // corresponding nested model. The prev *MaintenanceWindowConfigModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenMaintenanceWindowConfig(ctx context.Context, proto *controlplanev1.MaintenanceWindowConfig, prev *MaintenanceWindowConfigModel) (MaintenanceWindowConfigModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1877,14 +1883,20 @@ func ExpandMaintenanceWindowConfig(ctx context.Context, m *MaintenanceWindowConf
 // FlattenMaintenanceWindowConfigDayHour converts a single proto controlplanev1.MaintenanceWindowConfig_DayHour into the
 // corresponding nested model. The prev *MaintenanceWindowConfigDayHourModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenMaintenanceWindowConfigDayHour(_ context.Context, proto *controlplanev1.MaintenanceWindowConfig_DayHour, prev *MaintenanceWindowConfigDayHourModel) (MaintenanceWindowConfigDayHourModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
 	m := MaintenanceWindowConfigDayHourModel{}
 	m.DayOfWeek = types.StringValue(enums.DayOfWeekToString(proto.GetDayOfWeek()))
-	m.HourOfDay = types.Int32Value(proto.GetHourOfDay())
+	if v := proto.GetHourOfDay(); v != 0 {
+		m.HourOfDay = types.Int32Value(v)
+	} else if prev != nil && !prev.HourOfDay.IsUnknown() {
+		m.HourOfDay = prev.HourOfDay
+	} else {
+		m.HourOfDay = types.Int32Null()
+	}
 	return m, diags
 }
 
@@ -1904,8 +1916,8 @@ func ExpandMaintenanceWindowConfigDayHour(_ context.Context, m *MaintenanceWindo
 // FlattenSchemaRegistry converts a single proto controlplanev1.Cluster_SchemaRegistryStatus into the
 // corresponding nested model. The prev *SchemaRegistryModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenSchemaRegistry(ctx context.Context, proto *controlplanev1.Cluster_SchemaRegistryStatus, prev *SchemaRegistryModel) (SchemaRegistryModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1933,14 +1945,14 @@ func ExpandSchemaRegistry(ctx context.Context, m *SchemaRegistryModel) (*control
 // FlattenSchemaRegistryMtls converts a single proto controlplanev1.MTLSSpec into the
 // corresponding nested model. The prev *SchemaRegistryMtlsModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenSchemaRegistryMtls(ctx context.Context, proto *controlplanev1.MTLSSpec, prev *SchemaRegistryMtlsModel) (SchemaRegistryMtlsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
 	m := SchemaRegistryMtlsModel{}
-	m.CaCertificatesPem = modelconv.ListFromStringsWithDiags(ctx, proto.GetCaCertificatesPem(), &diags)
-	m.PrincipalMappingRules = modelconv.ListFromStringsWithDiags(ctx, proto.GetPrincipalMappingRules(), &diags)
+	m.CaCertificatesPem = modelconv.ListFromSliceWithDiags(ctx, proto.GetCaCertificatesPem(), types.StringType, &diags)
+	m.PrincipalMappingRules = modelconv.ListFromSliceWithDiags(ctx, proto.GetPrincipalMappingRules(), types.StringType, &diags)
 	m.Enabled = types.BoolValue(proto.GetEnabled())
 	return m, diags
 }
@@ -1952,8 +1964,8 @@ func ExpandSchemaRegistryMtls(ctx context.Context, m *SchemaRegistryMtlsModel) (
 		return nil, diags
 	}
 	out := &controlplanev1.MTLSSpec{
-		CaCertificatesPem:     modelconv.ListToStringsWithDiags(ctx, m.CaCertificatesPem, &diags),
-		PrincipalMappingRules: modelconv.ListToStringsWithDiags(ctx, m.PrincipalMappingRules, &diags),
+		CaCertificatesPem:     modelconv.ListToSliceWithDiags[string](ctx, m.CaCertificatesPem, &diags),
+		PrincipalMappingRules: modelconv.ListToSliceWithDiags[string](ctx, m.PrincipalMappingRules, &diags),
 		Enabled:               m.Enabled.ValueBool(),
 	}
 	return out, diags
@@ -1962,8 +1974,8 @@ func ExpandSchemaRegistryMtls(ctx context.Context, m *SchemaRegistryMtlsModel) (
 // FlattenSchemaRegistryAllUrls converts a single proto controlplanev1.Endpoints into the
 // corresponding nested model. The prev *SchemaRegistryAllUrlsModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenSchemaRegistryAllUrls(_ context.Context, proto *controlplanev1.Endpoints, prev *SchemaRegistryAllUrlsModel) (SchemaRegistryAllUrlsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -1993,8 +2005,8 @@ func ExpandSchemaRegistryAllUrls(_ context.Context, m *SchemaRegistryAllUrlsMode
 // FlattenPrometheus converts a single proto controlplanev1.Cluster_Prometheus into the
 // corresponding nested model. The prev *PrometheusModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenPrometheus(_ context.Context, proto *controlplanev1.Cluster_Prometheus, prev *PrometheusModel) (PrometheusModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -2018,8 +2030,8 @@ func ExpandPrometheus(_ context.Context, m *PrometheusModel) (*controlplanev1.Cl
 // FlattenRedpandaConsole converts a single proto controlplanev1.Cluster_RedpandaConsole into the
 // corresponding nested model. The prev *RedpandaConsoleModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenRedpandaConsole(_ context.Context, proto *controlplanev1.Cluster_RedpandaConsole, prev *RedpandaConsoleModel) (RedpandaConsoleModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -2043,8 +2055,8 @@ func ExpandRedpandaConsole(_ context.Context, m *RedpandaConsoleModel) (*control
 // FlattenStateDescription converts a single proto status.Status into the
 // corresponding nested model. The prev *StateDescriptionModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalars; pass nil when no prior
-// nested state is available.
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
 func FlattenStateDescription(_ context.Context, proto *status.Status, prev *StateDescriptionModel) (StateDescriptionModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
@@ -2074,10 +2086,10 @@ func ExpandCreateAWSPrivateLink(ctx context.Context, m *AWSPrivateLinkModel) (*c
 		return nil, diags
 	}
 	out := &controlplanev1.AWSPrivateLinkSpec{
-		AllowedPrincipals: modelconv.ListToStringsWithDiags(ctx, m.AllowedPrincipals, &diags),
-		ConnectConsole:    utils.TypesBoolToBoolPointerOrNil(m.ConnectConsole),
+		AllowedPrincipals: modelconv.ListToSliceWithDiags[string](ctx, m.AllowedPrincipals, &diags),
+		ConnectConsole:    utils.PointerOrNil(m.ConnectConsole, types.Bool.ValueBool),
 		Enabled:           m.Enabled.ValueBool(),
-		SupportedRegions:  modelconv.ListToStringsWithDiags(ctx, m.SupportedRegions, &diags),
+		SupportedRegions:  modelconv.ListToSliceWithDiags[string](ctx, m.SupportedRegions, &diags),
 	}
 	return out, diags
 }
@@ -2089,8 +2101,8 @@ func ExpandCreateAzurePrivateLink(ctx context.Context, m *AzurePrivateLinkModel)
 		return nil, diags
 	}
 	out := &controlplanev1.AzurePrivateLinkSpec{
-		AllowedSubscriptions: modelconv.ListToStringsWithDiags(ctx, m.AllowedSubscriptions, &diags),
-		ConnectConsole:       utils.TypesBoolToBoolPointerOrNil(m.ConnectConsole),
+		AllowedSubscriptions: modelconv.ListToSliceWithDiags[string](ctx, m.AllowedSubscriptions, &diags),
+		ConnectConsole:       utils.PointerOrNil(m.ConnectConsole, types.Bool.ValueBool),
 		Enabled:              m.Enabled.ValueBool(),
 	}
 	return out, diags
@@ -2192,8 +2204,8 @@ func ExpandCreateHTTPProxyMtls(ctx context.Context, m *HTTPProxyMtlsModel) (*con
 		return nil, diags
 	}
 	out := &controlplanev1.MTLSSpec{
-		CaCertificatesPem:     modelconv.ListToStringsWithDiags(ctx, m.CaCertificatesPem, &diags),
-		PrincipalMappingRules: modelconv.ListToStringsWithDiags(ctx, m.PrincipalMappingRules, &diags),
+		CaCertificatesPem:     modelconv.ListToSliceWithDiags[string](ctx, m.CaCertificatesPem, &diags),
+		PrincipalMappingRules: modelconv.ListToSliceWithDiags[string](ctx, m.PrincipalMappingRules, &diags),
 		Enabled:               m.Enabled.ValueBool(),
 	}
 	return out, diags
@@ -2231,8 +2243,8 @@ func ExpandCreateKafkaAPIMtls(ctx context.Context, m *KafkaAPIMtlsModel) (*contr
 		return nil, diags
 	}
 	out := &controlplanev1.MTLSSpec{
-		CaCertificatesPem:     modelconv.ListToStringsWithDiags(ctx, m.CaCertificatesPem, &diags),
-		PrincipalMappingRules: modelconv.ListToStringsWithDiags(ctx, m.PrincipalMappingRules, &diags),
+		CaCertificatesPem:     modelconv.ListToSliceWithDiags[string](ctx, m.CaCertificatesPem, &diags),
+		PrincipalMappingRules: modelconv.ListToSliceWithDiags[string](ctx, m.PrincipalMappingRules, &diags),
 		Enabled:               m.Enabled.ValueBool(),
 	}
 	return out, diags
@@ -2270,8 +2282,8 @@ func ExpandCreateSchemaRegistryMtls(ctx context.Context, m *SchemaRegistryMtlsMo
 		return nil, diags
 	}
 	out := &controlplanev1.MTLSSpec{
-		CaCertificatesPem:     modelconv.ListToStringsWithDiags(ctx, m.CaCertificatesPem, &diags),
-		PrincipalMappingRules: modelconv.ListToStringsWithDiags(ctx, m.PrincipalMappingRules, &diags),
+		CaCertificatesPem:     modelconv.ListToSliceWithDiags[string](ctx, m.CaCertificatesPem, &diags),
+		PrincipalMappingRules: modelconv.ListToSliceWithDiags[string](ctx, m.PrincipalMappingRules, &diags),
 		Enabled:               m.Enabled.ValueBool(),
 	}
 	return out, diags
@@ -2361,10 +2373,10 @@ func ExpandUpdateAWSPrivateLink(ctx context.Context, m *AWSPrivateLinkModel) (*c
 		return nil, diags
 	}
 	out := &controlplanev1.AWSPrivateLinkSpec{
-		AllowedPrincipals: modelconv.ListToStringsWithDiags(ctx, m.AllowedPrincipals, &diags),
-		ConnectConsole:    utils.TypesBoolToBoolPointerOrNil(m.ConnectConsole),
+		AllowedPrincipals: modelconv.ListToSliceWithDiags[string](ctx, m.AllowedPrincipals, &diags),
+		ConnectConsole:    utils.PointerOrNil(m.ConnectConsole, types.Bool.ValueBool),
 		Enabled:           m.Enabled.ValueBool(),
-		SupportedRegions:  modelconv.ListToStringsWithDiags(ctx, m.SupportedRegions, &diags),
+		SupportedRegions:  modelconv.ListToSliceWithDiags[string](ctx, m.SupportedRegions, &diags),
 	}
 	return out, diags
 }
@@ -2376,8 +2388,8 @@ func ExpandUpdateAzurePrivateLink(ctx context.Context, m *AzurePrivateLinkModel)
 		return nil, diags
 	}
 	out := &controlplanev1.AzurePrivateLinkSpec{
-		AllowedSubscriptions: modelconv.ListToStringsWithDiags(ctx, m.AllowedSubscriptions, &diags),
-		ConnectConsole:       utils.TypesBoolToBoolPointerOrNil(m.ConnectConsole),
+		AllowedSubscriptions: modelconv.ListToSliceWithDiags[string](ctx, m.AllowedSubscriptions, &diags),
+		ConnectConsole:       utils.PointerOrNil(m.ConnectConsole, types.Bool.ValueBool),
 		Enabled:              m.Enabled.ValueBool(),
 	}
 	return out, diags
@@ -2479,8 +2491,8 @@ func ExpandUpdateHTTPProxyMtls(ctx context.Context, m *HTTPProxyMtlsModel) (*con
 		return nil, diags
 	}
 	out := &controlplanev1.MTLSSpec{
-		CaCertificatesPem:     modelconv.ListToStringsWithDiags(ctx, m.CaCertificatesPem, &diags),
-		PrincipalMappingRules: modelconv.ListToStringsWithDiags(ctx, m.PrincipalMappingRules, &diags),
+		CaCertificatesPem:     modelconv.ListToSliceWithDiags[string](ctx, m.CaCertificatesPem, &diags),
+		PrincipalMappingRules: modelconv.ListToSliceWithDiags[string](ctx, m.PrincipalMappingRules, &diags),
 		Enabled:               m.Enabled.ValueBool(),
 	}
 	return out, diags
@@ -2518,8 +2530,8 @@ func ExpandUpdateKafkaAPIMtls(ctx context.Context, m *KafkaAPIMtlsModel) (*contr
 		return nil, diags
 	}
 	out := &controlplanev1.MTLSSpec{
-		CaCertificatesPem:     modelconv.ListToStringsWithDiags(ctx, m.CaCertificatesPem, &diags),
-		PrincipalMappingRules: modelconv.ListToStringsWithDiags(ctx, m.PrincipalMappingRules, &diags),
+		CaCertificatesPem:     modelconv.ListToSliceWithDiags[string](ctx, m.CaCertificatesPem, &diags),
+		PrincipalMappingRules: modelconv.ListToSliceWithDiags[string](ctx, m.PrincipalMappingRules, &diags),
 		Enabled:               m.Enabled.ValueBool(),
 	}
 	return out, diags
@@ -2557,8 +2569,8 @@ func ExpandUpdateSchemaRegistryMtls(ctx context.Context, m *SchemaRegistryMtlsMo
 		return nil, diags
 	}
 	out := &controlplanev1.MTLSSpec{
-		CaCertificatesPem:     modelconv.ListToStringsWithDiags(ctx, m.CaCertificatesPem, &diags),
-		PrincipalMappingRules: modelconv.ListToStringsWithDiags(ctx, m.PrincipalMappingRules, &diags),
+		CaCertificatesPem:     modelconv.ListToSliceWithDiags[string](ctx, m.CaCertificatesPem, &diags),
+		PrincipalMappingRules: modelconv.ListToSliceWithDiags[string](ctx, m.PrincipalMappingRules, &diags),
 		Enabled:               m.Enabled.ValueBool(),
 	}
 	return out, diags
