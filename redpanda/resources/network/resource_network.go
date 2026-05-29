@@ -25,6 +25,7 @@ import (
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	networkmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/network"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -74,6 +75,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 		return
 	}
 	op := netResp.Operation
+	tflog.Info(ctx, "creating network", map[string]any{"network_id": op.GetResourceId()})
 	// Write initial state so that if network creation fails, we can still track and delete it.
 	plan.ID = utils.TrimmedStringValue(op.GetResourceId())
 	response.Diagnostics.Append(response.State.Set(ctx, &plan)...)
@@ -93,6 +95,7 @@ func (n *Network) Create(ctx context.Context, request resource.CreateRequest, re
 	if response.Diagnostics.HasError() {
 		return
 	}
+	tflog.Info(ctx, "network created", map[string]any{"network_id": nw.GetId()})
 	response.Diagnostics.Append(response.State.Set(ctx, state)...)
 }
 
@@ -116,6 +119,7 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 		response.Diagnostics.AddWarning(fmt.Sprintf("network %s is in state %s", nw.Id, nw.GetState()), "")
 		return
 	}
+	tflog.Debug(ctx, "read network", map[string]any{"network_id": nw.GetId(), "state": nw.GetState().String()})
 	state, flatDiags := networkmodel.Flatten(ctx, nw, &model)
 	response.Diagnostics.Append(flatDiags...)
 	if response.Diagnostics.HasError() {
@@ -132,6 +136,7 @@ func (*Network) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.
 func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
 	var model networkmodel.ResourceModel
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
+	tflog.Info(ctx, "deleting network", map[string]any{"network_id": model.ID.ValueString()})
 
 	deleteTimeout, diags := model.Timeouts.Delete(ctx, 15*time.Minute)
 	response.Diagnostics.Append(diags...)
@@ -152,7 +157,9 @@ func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, re
 	}
 	if err := utils.AreWeDoneYet(ctx, netResp.Operation, deleteTimeout, n.CpCl.Operation); err != nil {
 		response.Diagnostics.AddError("failed waiting for network deletion", utils.DeserializeGrpcError(err))
+		return
 	}
+	tflog.Info(ctx, "network deleted", map[string]any{"network_id": model.ID.ValueString()})
 }
 
 // ImportState refreshes the state with the correct ID for the network, allowing

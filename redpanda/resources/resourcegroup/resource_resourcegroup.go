@@ -22,6 +22,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	resourcegroupmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/resourcegroup"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -54,6 +55,8 @@ func (n *ResourceGroup) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
+	tflog.Info(ctx, "creating resource group", map[string]any{"name": model.Name.ValueString()})
+
 	pbReq, diags := resourcegroupmodel.ExpandCreate(ctx, &model)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -71,6 +74,7 @@ func (n *ResourceGroup) Create(ctx context.Context, req resource.CreateRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	tflog.Info(ctx, "resource group created", map[string]any{"id": apiResp.ResourceGroup.GetId()})
 	resp.Diagnostics.Append(resp.State.Set(ctx, persist)...)
 }
 
@@ -89,6 +93,7 @@ func (n *ResourceGroup) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
+	tflog.Debug(ctx, "read resource group", map[string]any{"id": rg.GetId()})
 	persist, diags := resourcegroupmodel.Flatten(ctx, rg, &model)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -105,6 +110,8 @@ func (n *ResourceGroup) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
+	tflog.Info(ctx, "updating resource group", map[string]any{"id": plan.ID.ValueString()})
+
 	pbReq, diags := resourcegroupmodel.ExpandUpdate(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -116,6 +123,7 @@ func (n *ResourceGroup) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
+	tflog.Info(ctx, "resource group updated", map[string]any{"id": plan.ID.ValueString()})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -126,6 +134,7 @@ func (n *ResourceGroup) Delete(ctx context.Context, req resource.DeleteRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	tflog.Info(ctx, "deleting resource group", map[string]any{"id": model.ID.ValueString()})
 
 	pbReq, diags := resourcegroupmodel.ExpandDelete(ctx, &model)
 	resp.Diagnostics.Append(diags...)
@@ -141,6 +150,7 @@ func (n *ResourceGroup) Delete(ctx context.Context, req resource.DeleteRequest, 
 		resp.Diagnostics.AddError("failed to delete resource group", utils.DeserializeGrpcError(err))
 		return
 	}
+	tflog.Info(ctx, "resource group deleted", map[string]any{"id": model.ID.ValueString()})
 }
 
 // ImportState refreshes the state with the correct ID for the ResourceGroup,

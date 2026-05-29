@@ -16,9 +16,11 @@
 package cloud
 
 import (
+	"context"
 	"errors"
 	"sync"
 
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"golang.org/x/oauth2"
 	"golang.org/x/sync/singleflight"
 	"google.golang.org/grpc"
@@ -81,7 +83,7 @@ func isHealthy(conn *grpc.ClientConn) bool {
 // GetConnection returns a shared gRPC connection for the given URL, creating
 // one if it doesn't already exist. Unhealthy connections (Shutdown or
 // TransientFailure) are evicted and replaced.
-func (p *ConnPool) GetConnection(url string) (*grpc.ClientConn, error) {
+func (p *ConnPool) GetConnection(ctx context.Context, url string) (*grpc.ClientConn, error) {
 	// Fast path: return an existing healthy connection.
 	p.mu.Lock()
 	if conn, ok := p.conns[url]; ok {
@@ -91,6 +93,7 @@ func (p *ConnPool) GetConnection(url string) (*grpc.ClientConn, error) {
 		}
 		delete(p.conns, url)
 		go conn.Close()
+		tflog.Debug(ctx, "evicting unhealthy connection", map[string]any{"url": url})
 	}
 	p.mu.Unlock()
 
@@ -109,6 +112,7 @@ func (p *ConnPool) GetConnection(url string) (*grpc.ClientConn, error) {
 		}
 		p.mu.Unlock()
 
+		tflog.Debug(ctx, "dialing new connection", map[string]any{"url": url})
 		conn, err := p.spawnFunc(url, p.ts, p.providerVersion, p.terraformVersion)
 		if err != nil {
 			return nil, err

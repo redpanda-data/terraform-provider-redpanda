@@ -25,6 +25,7 @@ import (
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	splmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/serverlessprivatelink"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -69,6 +70,7 @@ func (s *ServerlessPrivateLink) Create(ctx context.Context, req resource.CreateR
 	}
 
 	op := plResp.Operation
+	tflog.Info(ctx, "creating serverless private link", map[string]any{"id": op.GetResourceId()})
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), op.GetResourceId())...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -97,6 +99,7 @@ func (s *ServerlessPrivateLink) Create(ctx context.Context, req resource.CreateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	tflog.Info(ctx, "serverless private link created", map[string]any{"id": privateLink.GetId()})
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
@@ -126,6 +129,7 @@ func (s *ServerlessPrivateLink) Read(ctx context.Context, req resource.ReadReque
 		return
 	}
 
+	tflog.Debug(ctx, "read serverless private link", map[string]any{"id": privateLink.GetId(), "state": privateLink.GetState().String()})
 	state, flatDiags := splmodel.Flatten(ctx, privateLink, &model)
 	resp.Diagnostics.Append(flatDiags...)
 	if resp.Diagnostics.HasError() {
@@ -141,6 +145,8 @@ func (s *ServerlessPrivateLink) Update(ctx context.Context, req resource.UpdateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	tflog.Info(ctx, "updating serverless private link", map[string]any{"id": plan.ID.ValueString()})
 
 	updateReq, expandDiags := splmodel.ExpandUpdate(ctx, &plan)
 	resp.Diagnostics.Append(expandDiags...)
@@ -173,6 +179,7 @@ func (s *ServerlessPrivateLink) Update(ctx context.Context, req resource.UpdateR
 		return
 	}
 
+	tflog.Info(ctx, "serverless private link updated", map[string]any{"id": plan.ID.ValueString()})
 	state, flatDiags := splmodel.Flatten(ctx, privateLink, &plan)
 	resp.Diagnostics.Append(flatDiags...)
 	if resp.Diagnostics.HasError() {
@@ -193,6 +200,7 @@ func (s *ServerlessPrivateLink) Delete(ctx context.Context, req resource.DeleteR
 		resp.Diagnostics.AddError("serverless private link deletion not allowed", "allow_deletion is set to false")
 		return
 	}
+	tflog.Info(ctx, "deleting serverless private link", map[string]any{"id": model.ID.ValueString()})
 
 	delReq, expandDiags := splmodel.ExpandDelete(ctx, &model)
 	resp.Diagnostics.Append(expandDiags...)
@@ -218,6 +226,7 @@ func (s *ServerlessPrivateLink) Delete(ctx context.Context, req resource.DeleteR
 		resp.Diagnostics.AddError("failed to delete serverless private link", utils.DeserializeGrpcError(err))
 		return
 	}
+	tflog.Info(ctx, "serverless private link deleted", map[string]any{"id": model.ID.ValueString()})
 }
 
 // ImportState imports and updates the state of the serverless private link resource.

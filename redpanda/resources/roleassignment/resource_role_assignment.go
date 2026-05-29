@@ -151,7 +151,7 @@ func (r *RoleAssignment) Read(ctx context.Context, req resource.ReadRequest, res
 	// If cluster_api_url is empty (e.g., during import), skip the API check
 	// The next plan/apply will validate the resource exists
 	if clusterAPIURL == "" {
-		tflog.Info(ctx, "Skipping API check due to empty cluster_api_url (likely during import)")
+		tflog.Debug(ctx, "Skipping API check due to empty cluster_api_url (likely during import)")
 		if canonical != principal {
 			model.Principal = types.StringValue(canonical)
 			model.ID = types.StringValue(fmt.Sprintf("%s:%s", roleName, canonical))
@@ -308,7 +308,7 @@ func (r *RoleAssignment) roleAssignmentExists(ctx context.Context, roleName, pri
 }
 
 // createSecurityClient creates a SecurityService client
-func (r *RoleAssignment) createSecurityClient(_ context.Context, clusterURL string) error {
+func (r *RoleAssignment) createSecurityClient(ctx context.Context, clusterURL string) error {
 	if r.SecurityClient != nil {
 		return nil
 	}
@@ -317,7 +317,7 @@ func (r *RoleAssignment) createSecurityClient(_ context.Context, clusterURL stri
 		return errors.New("provider not configured: dataplane connection pool is nil")
 	}
 	consoleURL := utils.ConvertToConsoleURL(clusterURL)
-	conn, err := r.resData.DataplaneConnPool.GetConnection(consoleURL)
+	conn, err := r.resData.DataplaneConnPool.GetConnection(ctx, consoleURL)
 	if err != nil {
 		return fmt.Errorf("unable to open a connection with the console API at %s: %v", consoleURL, err)
 	}

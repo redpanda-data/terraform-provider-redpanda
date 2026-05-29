@@ -207,12 +207,17 @@ func AreWeDoneYet(ctx context.Context, op *controlplanev1.Operation, timeout tim
 	}
 	lastSuccessfulPoll := time.Now()
 
+	tflog.Info(ctx, "waiting for operation", map[string]any{
+		"operation_id": op.GetId(),
+		"timeout":      timeout.String(),
+	})
+
 	return Retry(ctx, timeout, func() *RetryError {
-		tflog.Info(ctx, "getting operation")
+		tflog.Trace(ctx, "getting operation")
 		latestOp, err := client.GetOperation(ctx, &controlplanev1.GetOperationRequest{
 			Id: op.GetId(),
 		})
-		tflog.Info(ctx, "got result of operation")
+		tflog.Trace(ctx, "got result of operation")
 		if err != nil {
 			if IsTransientServerError(err) {
 				stuckFor := time.Since(lastSuccessfulPoll)
@@ -220,9 +225,7 @@ func AreWeDoneYet(ctx context.Context, op *controlplanev1.Operation, timeout tim
 					tflog.Warn(ctx, fmt.Sprintf("server unresponsive for %s (stuck cap %s) on operation %q", stuckFor, stuckCap, op.GetId()))
 					return NonRetryableError(fmt.Errorf("server unresponsive for %s (stuck cap %s): %w", stuckFor, stuckCap, err))
 				}
-				// Internal can mask real bugs — surface at Warn so a recurring
-				// pattern is visible in CI; Unavailable is routine, stays Info.
-				logf := tflog.Info
+				logf := tflog.Debug
 				if isGRPCInternal(err) {
 					logf = tflog.Warn
 				}
@@ -235,9 +238,9 @@ func AreWeDoneYet(ctx context.Context, op *controlplanev1.Operation, timeout tim
 		op = latestOp.Operation
 
 		if op != nil {
-			tflog.Info(ctx, fmt.Sprintf("op %v %s", op, op.GetState()))
+			tflog.Trace(ctx, fmt.Sprintf("op %v %s", op, op.GetState()))
 		} else {
-			tflog.Info(ctx, "op is nil")
+			tflog.Trace(ctx, "op is nil")
 		}
 
 		if op != nil && op.GetState() == controlplanev1.Operation_STATE_FAILED {
@@ -502,12 +505,17 @@ func RetryGetCluster(ctx context.Context, timeout time.Duration, clusterID strin
 	const maxTransientRetries = 10
 	transientRetryCount := 0
 
+	tflog.Info(ctx, "waiting for cluster", map[string]any{
+		"cluster_id": clusterID,
+		"timeout":    timeout.String(),
+	})
+
 	err := Retry(ctx, timeout, func() *RetryError {
 		var err error
 		cluster, err = client.ClusterForID(ctx, clusterID)
 		if err != nil {
 			if IsNotFound(err) {
-				tflog.Info(ctx, fmt.Sprintf("cluster %q not found", clusterID))
+				tflog.Debug(ctx, fmt.Sprintf("cluster %q not found", clusterID))
 				cluster = nil
 				return nil
 			}
@@ -522,13 +530,13 @@ func RetryGetCluster(ctx context.Context, timeout time.Duration, clusterID strin
 					tflog.Warn(ctx, fmt.Sprintf("max transient retries (%d) exceeded for cluster %q", maxTransientRetries, clusterID))
 					return NonRetryableError(fmt.Errorf("max transient retries exceeded: %w", err))
 				}
-				tflog.Info(ctx, fmt.Sprintf("transient error for cluster %q (attempt %d/%d): %v", clusterID, transientRetryCount, maxTransientRetries, err))
+				tflog.Debug(ctx, fmt.Sprintf("transient error for cluster %q (attempt %d/%d): %v", clusterID, transientRetryCount, maxTransientRetries, err))
 				return RetryableError(err)
 			}
 			return NonRetryableError(err)
 		}
 		transientRetryCount = 0 // Reset on success
-		tflog.Info(ctx, fmt.Sprintf("cluster %v : %v", clusterID, cluster.GetState()))
+		tflog.Trace(ctx, fmt.Sprintf("cluster %v : %v", clusterID, cluster.GetState()))
 		return f(cluster)
 	})
 	return cluster, err

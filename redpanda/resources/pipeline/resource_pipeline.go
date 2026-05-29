@@ -86,7 +86,7 @@ func (p *Pipeline) Create(ctx context.Context, req resource.CreateRequest, resp 
 		return
 	}
 
-	err := p.createPipelineClient(model.ClusterAPIURL.ValueString())
+	err := p.createPipelineClient(ctx, model.ClusterAPIURL.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create pipeline client", utils.DeserializeGrpcError(err))
 		return
@@ -167,7 +167,7 @@ func (p *Pipeline) Read(ctx context.Context, req resource.ReadRequest, resp *res
 		return
 	}
 
-	err := p.createPipelineClient(model.ClusterAPIURL.ValueString())
+	err := p.createPipelineClient(ctx, model.ClusterAPIURL.ValueString())
 	if err != nil {
 		if utils.IsClusterUnreachable(err) {
 			if model.AllowDeletion.IsNull() || model.AllowDeletion.ValueBool() {
@@ -247,7 +247,7 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 		return
 	}
 
-	err := p.createPipelineClient(plan.ClusterAPIURL.ValueString())
+	err := p.createPipelineClient(ctx, plan.ClusterAPIURL.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create pipeline client", utils.DeserializeGrpcError(err))
 		return
@@ -382,7 +382,7 @@ func (p *Pipeline) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 		return
 	}
 
-	err := p.createPipelineClient(model.ClusterAPIURL.ValueString())
+	err := p.createPipelineClient(ctx, model.ClusterAPIURL.ValueString())
 	if err != nil {
 		_, diags := utils.HandleGracefulRemoval(ctx, "pipeline", model.ID.ValueString(), model.AllowDeletion, err, "create pipeline client")
 		resp.Diagnostics.Append(diags...)
@@ -511,7 +511,7 @@ func (p *Pipeline) stopPipeline(ctx context.Context, pipelineID string, timeout 
 	return getResp.GetPipeline(), "", true
 }
 
-func (p *Pipeline) createPipelineClient(clusterURL string) error {
+func (p *Pipeline) createPipelineClient(ctx context.Context, clusterURL string) error {
 	if p.PipelineClient != nil {
 		return nil
 	}
@@ -531,7 +531,7 @@ func (p *Pipeline) createPipelineClient(clusterURL string) error {
 	if p.resData.DataplaneConnPool == nil {
 		return errors.New("provider not configured: dataplane connection pool is nil")
 	}
-	conn, err := p.resData.DataplaneConnPool.GetConnection(clusterURL)
+	conn, err := p.resData.DataplaneConnPool.GetConnection(ctx, clusterURL)
 	if err != nil {
 		return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
 	}

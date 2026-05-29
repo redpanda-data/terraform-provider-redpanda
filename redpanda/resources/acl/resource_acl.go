@@ -75,7 +75,7 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		return
 	}
 
-	if err := a.createACLClient(model.ClusterAPIURL.ValueString()); err != nil {
+	if err := a.createACLClient(ctx, model.ClusterAPIURL.ValueString()); err != nil {
 		response.Diagnostics.AddError("failed to create ACL client", utils.DeserializeGrpcError(err))
 		return
 	}
@@ -146,7 +146,7 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 		return
 	}
 
-	if err := a.createACLClient(model.ClusterAPIURL.ValueString()); err != nil {
+	if err := a.createACLClient(ctx, model.ClusterAPIURL.ValueString()); err != nil {
 		action, diags := utils.HandleGracefulRemoval(ctx, "ACL", model.GenerateID(), model.AllowDeletion, err, "create ACL client")
 		response.Diagnostics.Append(diags...)
 		if action == utils.RemoveFromState {
@@ -233,7 +233,7 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 		return
 	}
 
-	if err := a.createACLClient(model.ClusterAPIURL.ValueString()); err != nil {
+	if err := a.createACLClient(ctx, model.ClusterAPIURL.ValueString()); err != nil {
 		_, diags := utils.HandleGracefulRemoval(ctx, "ACL", aclID, model.AllowDeletion, err, "create ACL client")
 		response.Diagnostics.Append(diags...)
 		return
@@ -286,14 +286,14 @@ func buildACLFilter(m *aclmodel.ResourceModel) *dataplanev1.ListACLsRequest_Filt
 	}
 }
 
-func (a *ACL) createACLClient(clusterURL string) error {
+func (a *ACL) createACLClient(ctx context.Context, clusterURL string) error {
 	if a.ACLClient != nil {
 		return nil
 	}
 	if a.resData.DataplaneConnPool == nil {
 		return errors.New("provider not configured: dataplane connection pool is nil")
 	}
-	conn, err := a.resData.DataplaneConnPool.GetConnection(clusterURL)
+	conn, err := a.resData.DataplaneConnPool.GetConnection(ctx, clusterURL)
 	if err != nil {
 		return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
 	}

@@ -80,7 +80,7 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		response.Diagnostics.AddError(fmt.Sprintf("failed to parse topic configuration for %s", plan.Name), utils.DeserializeGrpcError(err))
 		return
 	}
-	if err := t.createTopicClient(plan.ClusterAPIURL.ValueString()); err != nil {
+	if err := t.createTopicClient(ctx, plan.ClusterAPIURL.ValueString()); err != nil {
 		response.Diagnostics.AddError("failed to create topic client", utils.DeserializeGrpcError(err))
 		return
 	}
@@ -186,7 +186,7 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 
 	topicName := model.Name.ValueString()
 
-	if err := t.createTopicClient(model.ClusterAPIURL.ValueString()); err != nil {
+	if err := t.createTopicClient(ctx, model.ClusterAPIURL.ValueString()); err != nil {
 		action, diags := utils.HandleGracefulRemoval(ctx, "topic", topicName, model.AllowDeletion, err, "create topic client")
 		response.Diagnostics.Append(diags...)
 		if action == utils.RemoveFromState {
@@ -251,7 +251,7 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 	var plan, state topicmodel.ResourceModel
 	response.Diagnostics.Append(request.Plan.Get(ctx, &plan)...)
 	response.Diagnostics.Append(request.State.Get(ctx, &state)...)
-	err := t.createTopicClient(plan.ClusterAPIURL.ValueString())
+	err := t.createTopicClient(ctx, plan.ClusterAPIURL.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("failed to create topic client", utils.DeserializeGrpcError(err))
 		return
@@ -346,7 +346,7 @@ func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, resp
 		response.Diagnostics.AddError(fmt.Sprintf("topic %s does not allow deletion", topicName), "allow_deletion is set to false")
 		return
 	}
-	if err := t.createTopicClient(model.ClusterAPIURL.ValueString()); err != nil {
+	if err := t.createTopicClient(ctx, model.ClusterAPIURL.ValueString()); err != nil {
 		_, diags := utils.HandleGracefulRemoval(ctx, "topic", topicName, model.AllowDeletion, err, "create topic client")
 		response.Diagnostics.Append(diags...)
 		return
@@ -403,7 +403,7 @@ func (t *Topic) ImportState(ctx context.Context, req resource.ImportStateRequest
 	resp.Diagnostics.Append(utils.ImportStateBoolFromSchemaDefault(ctx, ResourceTopicSchema(ctx), &resp.State, "allow_deletion")...)
 }
 
-func (t *Topic) createTopicClient(clusterURL string) error {
+func (t *Topic) createTopicClient(ctx context.Context, clusterURL string) error {
 	if t.TopicClient != nil {
 		return nil
 	}
@@ -418,7 +418,7 @@ func (t *Topic) createTopicClient(clusterURL string) error {
 	if t.resData.DataplaneConnPool == nil {
 		return errors.New("provider not configured: dataplane connection pool is nil")
 	}
-	conn, err := t.resData.DataplaneConnPool.GetConnection(clusterURL)
+	conn, err := t.resData.DataplaneConnPool.GetConnection(ctx, clusterURL)
 	if err != nil {
 		return fmt.Errorf("unable to open a connection with the cluster API: %v", utils.DeserializeGrpcError(err))
 	}

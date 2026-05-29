@@ -62,12 +62,12 @@ func NewRole() *Role {
 		func(p config.Resource) {
 			r.resData = p
 			if r.clientFactory == nil {
-				r.clientFactory = func(_ context.Context, clusterURL string, _ oauth2.TokenSource, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
+				r.clientFactory = func(ctx context.Context, clusterURL string, _ oauth2.TokenSource, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
 					if r.resData.DataplaneConnPool == nil {
 						return nil, errors.New("provider not configured: dataplane connection pool is nil")
 					}
 					consoleURL := utils.ConvertToConsoleURL(clusterURL)
-					conn, err := r.resData.DataplaneConnPool.GetConnection(consoleURL)
+					conn, err := r.resData.DataplaneConnPool.GetConnection(ctx, consoleURL)
 					if err != nil {
 						return nil, fmt.Errorf("unable to open a connection with the console API at %s: %v", consoleURL, err)
 					}
