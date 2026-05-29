@@ -62,6 +62,26 @@ func ResourceServerlessPrivateLinkSchema(ctx context.Context) schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
+			"cloud_provider_config": schema.SingleNestedAttribute{
+				Description:        "Cloud Provider Config configuration",
+				Optional:           true,
+				DeprecationMessage: "cloud_provider_config has been replaced by aws_config. Move your configuration from cloud_provider_config.aws to aws_config.\n\nNone of this serverless private link resource's attributes are marked RequiresReplace, so updating in place is safe. To guarantee the transition will be a no-op, use terraform state rm followed by terraform import on each affected serverless private link resource:\n\n  terraform state rm redpanda_serverless_private_link.<resource_name>\n  terraform import redpanda_serverless_private_link.<resource_name> <serverless_private_link_id>",
+				Validators:         []validator.Object{validators.ServerlessPrivateLinkConfigRemovedValidator{}},
+				Attributes: map[string]schema.Attribute{
+					"aws": schema.SingleNestedAttribute{
+						Description: "AWS configuration",
+						Optional:    true,
+						Attributes: map[string]schema.Attribute{
+							"allowed_principals": schema.ListAttribute{
+								Description: "Allowed Principals",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+						},
+					},
+				},
+			},
+
 			"allow_deletion": schema.BoolAttribute{
 				Description: "Allows deletion of the serverless private link. Defaults to false.",
 				Optional:    true,

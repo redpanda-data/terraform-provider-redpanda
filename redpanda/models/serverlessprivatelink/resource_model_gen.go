@@ -29,19 +29,34 @@ import (
 
 // ResourceModel represents the Terraform schema for the serverlessprivatelink resource.
 type ResourceModel struct {
-	AWSConfig        types.Object   `tfsdk:"aws_config"`
-	AllowDeletion    types.Bool     `tfsdk:"allow_deletion"`
-	CloudProvider    types.String   `tfsdk:"cloud_provider"`
-	ID               types.String   `tfsdk:"id"`
-	Name             types.String   `tfsdk:"name"`
-	ResourceGroupID  types.String   `tfsdk:"resource_group_id"`
-	ServerlessRegion types.String   `tfsdk:"serverless_region"`
-	State            types.String   `tfsdk:"state"`
-	Status           types.Object   `tfsdk:"status"`
-	Timeouts         timeouts.Value `tfsdk:"timeouts"`
+	AWSConfig           types.Object   `tfsdk:"aws_config"`
+	AllowDeletion       types.Bool     `tfsdk:"allow_deletion"`
+	CloudProvider       types.String   `tfsdk:"cloud_provider"`
+	CloudProviderConfig types.Object   `tfsdk:"cloud_provider_config"`
+	ID                  types.String   `tfsdk:"id"`
+	Name                types.String   `tfsdk:"name"`
+	ResourceGroupID     types.String   `tfsdk:"resource_group_id"`
+	ServerlessRegion    types.String   `tfsdk:"serverless_region"`
+	State               types.String   `tfsdk:"state"`
+	Status              types.Object   `tfsdk:"status"`
+	Timeouts            timeouts.Value `tfsdk:"timeouts"`
 }
 
 // --- Nested typed structs (one per nested message in the proto tree) ---
+
+// CloudProviderConfigModel mirrors the nested "cloud_provider_config" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CloudProviderConfigModel struct {
+	AWS types.Object `tfsdk:"aws"`
+}
+
+// CloudProviderConfigAWSModel mirrors the nested "cloud_provider_config.aws" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CloudProviderConfigAWSModel struct {
+	AllowedPrincipals types.List `tfsdk:"allowed_principals"`
+}
 
 // AWSConfigModel mirrors the nested "aws_config" attribute. Use the As/To
 // converters on the parent struct to move between types.Object and this
@@ -66,6 +81,22 @@ type StatusAWSModel struct {
 }
 
 // --- AttrType tables for nested types (consumed by types.ObjectValueFrom / ObjectNull) ---
+
+// CloudProviderConfigAttrTypes returns the attr.Type map for the "cloud_provider_config" nested
+// attribute.
+func CloudProviderConfigAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"aws": types.ObjectType{AttrTypes: CloudProviderConfigAWSAttrTypes()},
+	}
+}
+
+// CloudProviderConfigAWSAttrTypes returns the attr.Type map for the "cloud_provider_config.aws" nested
+// attribute.
+func CloudProviderConfigAWSAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"allowed_principals": types.ListType{ElemType: types.StringType},
+	}
+}
 
 // AWSConfigAttrTypes returns the attr.Type map for the "aws_config" nested
 // attribute.
@@ -93,6 +124,29 @@ func StatusAWSAttrTypes() map[string]attr.Type {
 }
 
 // --- Root-level converters (types.Object ⇄ typed struct ergonomics) ---
+
+// AsCloudProviderConfig converts the root cloud_provider_config attribute from
+// types.Object into its typed form. Returns (nil, nil) when the object is
+// null or unknown. Use this when you want typed field access without
+// manually unpacking .Attributes().
+func (m *ResourceModel) AsCloudProviderConfig(ctx context.Context) (*CloudProviderConfigModel, diag.Diagnostics) {
+	if m == nil || m.CloudProviderConfig.IsNull() || m.CloudProviderConfig.IsUnknown() {
+		return nil, nil
+	}
+	var out CloudProviderConfigModel
+	d := m.CloudProviderConfig.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CloudProviderConfigToObject encodes a typed struct back into the
+// types.Object shape expected by the framework. A nil receiver returns
+// types.ObjectNull with the correct attribute types.
+func CloudProviderConfigToObject(ctx context.Context, v *CloudProviderConfigModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CloudProviderConfigAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CloudProviderConfigAttrTypes(), v)
+}
 
 // AsAWSConfig converts the root aws_config attribute from
 // types.Object into its typed form. Returns (nil, nil) when the object is
@@ -142,6 +196,26 @@ func StatusToObject(ctx context.Context, v *StatusModel) (types.Object, diag.Dia
 
 // --- Sub-level converters (free-standing Decode*/ToObject for types nested beyond root level) ---
 
+// DecodeCloudProviderConfigAWS decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCloudProviderConfigAWS(ctx context.Context, v *CloudProviderConfigModel) (*CloudProviderConfigAWSModel, diag.Diagnostics) {
+	if v == nil || v.AWS.IsNull() || v.AWS.IsUnknown() {
+		return nil, nil
+	}
+	var out CloudProviderConfigAWSModel
+	d := v.AWS.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CloudProviderConfigAWSToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CloudProviderConfigAWSToObject(ctx context.Context, v *CloudProviderConfigAWSModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CloudProviderConfigAWSAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CloudProviderConfigAWSAttrTypes(), v)
+}
+
 // DecodeStatusAWS decodes the sub-field from its parent typed struct.
 // Returns (nil, nil) when the field is null or unknown.
 func DecodeStatusAWS(ctx context.Context, v *StatusModel) (*StatusAWSModel, diag.Diagnostics) {
@@ -168,15 +242,16 @@ func StatusAWSToObject(ctx context.Context, v *StatusAWSModel) (types.Object, di
 // partial state when Create / Read returns mid-flight.
 func GenerateMinimalResourceModel(id types.String, timeout timeouts.Value) *ResourceModel {
 	return &ResourceModel{
-		AWSConfig:        types.ObjectNull(AWSConfigAttrTypes()),
-		AllowDeletion:    types.BoolNull(),
-		CloudProvider:    types.StringNull(),
-		ID:               id,
-		Name:             types.StringNull(),
-		ResourceGroupID:  types.StringNull(),
-		ServerlessRegion: types.StringNull(),
-		State:            types.StringNull(),
-		Status:           types.ObjectNull(StatusAttrTypes()),
-		Timeouts:         timeout,
+		AWSConfig:           types.ObjectNull(AWSConfigAttrTypes()),
+		AllowDeletion:       types.BoolNull(),
+		CloudProvider:       types.StringNull(),
+		CloudProviderConfig: types.ObjectNull(CloudProviderConfigAttrTypes()),
+		ID:                  id,
+		Name:                types.StringNull(),
+		ResourceGroupID:     types.StringNull(),
+		ServerlessRegion:    types.StringNull(),
+		State:               types.StringNull(),
+		Status:              types.ObjectNull(StatusAttrTypes()),
+		Timeouts:            timeout,
 	}
 }

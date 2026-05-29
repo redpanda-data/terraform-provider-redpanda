@@ -10,13 +10,13 @@ attributes:
     - name: cloud_provider
       description: Cloud provider (aws)
     - name: cloud_provider_config
-      description: Cloud provider specific configuration
+      description: Cloud Provider Config configuration
       attributes:
         - name: aws
-          description: AWS-specific configuration. Required when cloud_provider is 'aws'.
+          description: AWS configuration
           attributes:
             - name: allowed_principals
-              description: AWS principals (ARNs) allowed to connect to the private link endpoint
+              description: Allowed Principals
     - name: id
       description: The ID of the serverless private link
     - name: name

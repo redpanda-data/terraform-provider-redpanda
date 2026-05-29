@@ -25,6 +25,27 @@ attributes:
         - stringvalidator.oneOfValidator
       plan_modifiers:
         - stringplanmodifier.requiresReplaceIfModifier
+    - name: cloud_provider_config
+      type: SingleNestedAttribute
+      optional: true
+      deprecation_message: |-
+        cloud_provider_config has been replaced by aws_config. Move your configuration from cloud_provider_config.aws to aws_config.
+
+        None of this serverless private link resource's attributes are marked RequiresReplace, so updating in place is safe. To guarantee the transition will be a no-op, use terraform state rm followed by terraform import on each affected serverless private link resource:
+
+          terraform state rm redpanda_serverless_private_link.<resource_name>
+          terraform import redpanda_serverless_private_link.<resource_name> <serverless_private_link_id>
+      validators:
+        - validators.ServerlessPrivateLinkConfigRemovedValidator
+      attributes:
+        - name: aws
+          type: SingleNestedAttribute
+          optional: true
+          attributes:
+            - name: allowed_principals
+              type: ListAttribute
+              optional: true
+              element_type: basetypes.StringType
     - name: id
       type: StringAttribute
       computed: true
