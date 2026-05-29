@@ -47,6 +47,31 @@ aws_config:
     allowed_regions:
       todo: true
 
+# Deprecated tombstone for main's cloud_provider_config { aws { allowed_principals } }
+# wrapper. Synthetic (no proto backing) — it exists only so a config still written
+# in the old shape parses and then hard-fails via the validator with a migrate
+# message, instead of a bare "Unsupported argument". aws_config is the real field.
+cloud_provider_config:
+  synthetic: true
+  deprecated: true
+  extra: true
+  optional: true
+  validator: ServerlessPrivateLinkConfigRemoved
+  deprecation_message: |-
+    cloud_provider_config has been replaced by aws_config. Move your configuration from cloud_provider_config.aws to aws_config.
+
+    None of this serverless private link resource's attributes are marked RequiresReplace, so updating in place is safe. To guarantee the transition will be a no-op, use terraform state rm followed by terraform import on each affected serverless private link resource:
+
+      terraform state rm redpanda_serverless_private_link.<resource_name>
+      terraform import redpanda_serverless_private_link.<resource_name> <serverless_private_link_id>
+  fields:
+    aws:
+      optional: true
+      fields:
+        allowed_principals:
+          optional: true
+          type: list_string
+
 allow_deletion:
   extra: true
   type: bool

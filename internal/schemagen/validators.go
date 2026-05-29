@@ -49,6 +49,11 @@ var validatorRegistry = map[string]ValidatorDef{
 		Imports:  []string{validatorsImport},
 		AttrType: "String",
 	},
+	"ServerlessPrivateLinkConfigRemoved": {
+		Expr:     "validators.ServerlessPrivateLinkConfigRemovedValidator{}",
+		Imports:  []string{validatorsImport},
+		AttrType: "Object",
+	},
 	"CloudProviders": {
 		Expr:         "validators.CloudProviders()",
 		Imports:      []string{validatorsImport},

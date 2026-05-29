@@ -52,6 +52,11 @@ func Flatten(ctx context.Context, proto ServerlessPrivateLinkResponse, prev *Res
 	m.ID = types.StringValue(proto.GetId())
 	m.State = types.StringValue(enums.ServerlessPrivateLinkStateToString(proto.GetState()))
 	m.Status = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetStatus(), func() *StatusModel { v, _ := prev.AsStatus(ctx); return v }(), StatusAttrTypes(), FlattenStatus, &diags)
+	if prev != nil && !prev.CloudProviderConfig.IsUnknown() {
+		m.CloudProviderConfig = prev.CloudProviderConfig
+	} else {
+		m.CloudProviderConfig = types.ObjectNull(CloudProviderConfigAttrTypes())
+	}
 	if prev != nil && !prev.AllowDeletion.IsUnknown() {
 		m.AllowDeletion = prev.AllowDeletion
 	} else {

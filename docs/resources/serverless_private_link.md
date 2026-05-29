@@ -26,6 +26,7 @@ Manages a Redpanda Serverless Private Link
 
 - `allow_deletion` (Boolean) Allows deletion of the serverless private link. Defaults to false.
 - `aws_config` (Attributes) AWS-specific configuration. Required when cloud_provider is 'aws'. (see [below for nested schema](#nestedatt--aws_config))
+- `cloud_provider_config` (Attributes, Deprecated) Cloud Provider Config configuration (see [below for nested schema](#nestedatt--cloud_provider_config))
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
@@ -40,6 +41,22 @@ Manages a Redpanda Serverless Private Link
 Required:
 
 - `allowed_principals` (List of String) AWS principals (ARNs) allowed to connect to the private link endpoint
+
+
+<a id="nestedatt--cloud_provider_config"></a>
+### Nested Schema for `cloud_provider_config`
+
+Optional:
+
+- `aws` (Attributes) AWS configuration (see [below for nested schema](#nestedatt--cloud_provider_config--aws))
+
+<a id="nestedatt--cloud_provider_config--aws"></a>
+### Nested Schema for `cloud_provider_config.aws`
+
+Optional:
+
+- `allowed_principals` (List of String) Allowed Principals
+
 
 
 <a id="nestedatt--timeouts"></a>
