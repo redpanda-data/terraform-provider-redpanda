@@ -76,7 +76,7 @@ func (s *Secret) Create(ctx context.Context, req resource.CreateRequest, resp *r
 		return
 	}
 
-	if err := s.createSecretClient(model.ClusterAPIURL.ValueString()); err != nil {
+	if err := s.createSecretClient(ctx, model.ClusterAPIURL.ValueString()); err != nil {
 		resp.Diagnostics.AddError("failed to create secret client", utils.DeserializeGrpcError(err))
 		return
 	}
@@ -142,7 +142,7 @@ func (s *Secret) Read(ctx context.Context, req resource.ReadRequest, resp *resou
 
 	name := model.Name.ValueString()
 
-	if err := s.createSecretClient(model.ClusterAPIURL.ValueString()); err != nil {
+	if err := s.createSecretClient(ctx, model.ClusterAPIURL.ValueString()); err != nil {
 		action, diags := utils.HandleGracefulRemoval(ctx, "secret", name, model.AllowDeletion, err, "create secret client")
 		resp.Diagnostics.Append(diags...)
 		if action == utils.RemoveFromState {
@@ -202,7 +202,7 @@ func (s *Secret) Update(ctx context.Context, req resource.UpdateRequest, resp *r
 		return
 	}
 
-	if err := s.createSecretClient(plan.ClusterAPIURL.ValueString()); err != nil {
+	if err := s.createSecretClient(ctx, plan.ClusterAPIURL.ValueString()); err != nil {
 		resp.Diagnostics.AddError("failed to create secret client", utils.DeserializeGrpcError(err))
 		return
 	}
@@ -261,7 +261,7 @@ func (s *Secret) Delete(ctx context.Context, req resource.DeleteRequest, resp *r
 		return
 	}
 
-	if err := s.createSecretClient(model.ClusterAPIURL.ValueString()); err != nil {
+	if err := s.createSecretClient(ctx, model.ClusterAPIURL.ValueString()); err != nil {
 		_, diags := utils.HandleGracefulRemoval(ctx, "secret", name, model.AllowDeletion, err, "create secret client")
 		resp.Diagnostics.Append(diags...)
 		return
@@ -311,7 +311,7 @@ func (s *Secret) ImportState(ctx context.Context, req resource.ImportStateReques
 	resp.Diagnostics.Append(utils.ImportStateBoolFromSchemaDefault(ctx, ResourceSecretSchema(), &resp.State, "allow_deletion")...)
 }
 
-func (s *Secret) createSecretClient(clusterURL string) error {
+func (s *Secret) createSecretClient(ctx context.Context, clusterURL string) error {
 	if s.SecretClient != nil {
 		return nil
 	}
@@ -321,7 +321,7 @@ func (s *Secret) createSecretClient(clusterURL string) error {
 	if s.resData.DataplaneConnPool == nil {
 		return errors.New("provider not configured: dataplane connection pool is nil")
 	}
-	conn, err := s.resData.DataplaneConnPool.GetConnection(clusterURL)
+	conn, err := s.resData.DataplaneConnPool.GetConnection(ctx, clusterURL)
 	if err != nil {
 		return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
 	}

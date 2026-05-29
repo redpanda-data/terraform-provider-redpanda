@@ -81,6 +81,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	}
 	op := clResp.Operation
 	clusterID := op.GetResourceId()
+	tflog.Info(ctx, "creating cluster", map[string]any{"cluster_id": clusterID})
 
 	createTimeout, diags := plan.Timeouts.Create(ctx, 90*time.Minute)
 	resp.Diagnostics.Append(diags...)
@@ -98,7 +99,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 				err = c.Byoc.RunByoc(ctx, clusterID, "apply")
 				if err != nil {
 					if utils.IsRetryableByocError(err) {
-						tflog.Info(ctx, fmt.Sprintf("Retryable byoc error during apply: %v", err))
+						tflog.Debug(ctx, fmt.Sprintf("Retryable byoc error during apply: %v", err))
 						return utils.RetryableError(err)
 					}
 					return utils.NonRetryableError(err)
@@ -130,6 +131,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 			resp.Diagnostics.AddError("failed to generate model for state during cluster.Create", "")
 			return
 		}
+		tflog.Info(ctx, "cluster created", map[string]any{"cluster_id": clusterID})
 		resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 	}
 }
@@ -150,6 +152,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 	}
 
 	logPrivateLinkResponse(ctx, cl)
+	tflog.Debug(ctx, "read cluster", map[string]any{"cluster_id": cl.GetId(), "state": cl.GetState().String()})
 
 	if cl.GetState() == controlplanev1.Cluster_STATE_DELETING || cl.GetState() == controlplanev1.Cluster_STATE_DELETING_AGENT {
 		resp.Diagnostics.Append(resp.State.Set(ctx, clustermodel.GenerateMinimalResourceModel(types.StringValue(cl.GetId()), model.Timeouts))...)
@@ -178,6 +181,8 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	tflog.Info(ctx, "updating cluster", map[string]any{"cluster_id": plan.ID.ValueString()})
 
 	planPayload, expandDiags := clustermodel.ExpandUpdate(ctx, &plan)
 	resp.Diagnostics.Append(expandDiags...)
@@ -225,6 +230,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		resp.Diagnostics.AddError("failed to generate model for state during cluster.Update", "")
 		return
 	}
+	tflog.Info(ctx, "cluster updated", map[string]any{"cluster_id": plan.ID.ValueString()})
 	resp.Diagnostics.Append(resp.State.Set(ctx, newState)...)
 }
 
@@ -239,6 +245,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 	}
 
 	clusterID := model.ID.ValueString()
+	tflog.Info(ctx, "deleting cluster", map[string]any{"cluster_id": clusterID})
 	cl, err := c.CpCl.ClusterForID(ctx, clusterID)
 	if err != nil {
 		if utils.IsNotFound(err) {
@@ -272,7 +279,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 				err = c.Byoc.RunByoc(ctx, clusterID, "destroy")
 				if err != nil {
 					if utils.IsRetryableByocError(err) {
-						tflog.Info(ctx, fmt.Sprintf("Retryable byoc error during destroy: %v", err))
+						tflog.Debug(ctx, fmt.Sprintf("Retryable byoc error during destroy: %v", err))
 						return utils.RetryableError(err)
 					}
 					return utils.NonRetryableError(err)
@@ -290,6 +297,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to delete cluster %s", model.ID), utils.DeserializeGrpcError(err))
 		return
 	}
+	tflog.Info(ctx, "cluster deleted", map[string]any{"cluster_id": clusterID})
 }
 
 // ImportState imports and update the state of the cluster resource.

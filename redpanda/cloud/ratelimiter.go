@@ -114,7 +114,7 @@ func (r *rateLimiter) Limiter(ctx context.Context, method string, req, reply any
 	newBurst := limit / burstPeriod
 
 	if r.limiter.Limit() != newLimit || r.limiter.Burst() != newBurst {
-		tflog.Debug(ctx, "updating rate limiter", map[string]any{
+		tflog.Trace(ctx, "updating rate limiter", map[string]any{
 			"new_limit": newLimit,
 			"new_burst": newBurst,
 		})
@@ -135,7 +135,7 @@ func (r *rateLimiter) Limiter(ctx context.Context, method string, req, reply any
 		}
 	}
 
-	tflog.Debug(ctx, "rate limit updated", map[string]any{
+	tflog.Trace(ctx, "rate limit updated", map[string]any{
 		"limit":     limit,
 		"remaining": remaining,
 		"reset":     reset,

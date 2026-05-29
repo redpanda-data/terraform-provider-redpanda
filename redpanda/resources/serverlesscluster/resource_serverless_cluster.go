@@ -25,6 +25,7 @@ import (
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	serverlessclustermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/serverlesscluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -68,6 +69,7 @@ func (c *ServerlessCluster) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 	op := clResp.Operation
+	tflog.Info(ctx, "creating serverless cluster", map[string]any{"cluster_id": op.GetResourceId()})
 	// Write initial state so a failed create is still trackable / deletable.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), op.GetResourceId())...)
 	if resp.Diagnostics.HasError() {
@@ -92,6 +94,7 @@ func (c *ServerlessCluster) Create(ctx context.Context, req resource.CreateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	tflog.Info(ctx, "serverless cluster created", map[string]any{"cluster_id": cluster.GetId()})
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
@@ -116,6 +119,7 @@ func (c *ServerlessCluster) Read(ctx context.Context, req resource.ReadRequest, 
 		resp.Diagnostics.AddWarning(fmt.Sprintf("serverless cluster %s is in state %s", cluster.Id, cluster.GetState()), "")
 		return
 	}
+	tflog.Debug(ctx, "read serverless cluster", map[string]any{"cluster_id": cluster.GetId(), "state": cluster.GetState().String()})
 	state, flatDiags := serverlessclustermodel.Flatten(ctx, cluster, &model)
 	resp.Diagnostics.Append(flatDiags...)
 	if resp.Diagnostics.HasError() {
@@ -131,6 +135,8 @@ func (c *ServerlessCluster) Update(ctx context.Context, req resource.UpdateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	tflog.Info(ctx, "updating serverless cluster", map[string]any{"cluster_id": plan.ID.ValueString()})
 
 	updateReq, expandDiags := serverlessclustermodel.ExpandUpdate(ctx, &plan)
 	resp.Diagnostics.Append(expandDiags...)
@@ -160,6 +166,7 @@ func (c *ServerlessCluster) Update(ctx context.Context, req resource.UpdateReque
 			utils.DeserializeGrpcError(err))
 		return
 	}
+	tflog.Info(ctx, "serverless cluster updated", map[string]any{"cluster_id": plan.ID.ValueString()})
 	state, flatDiags := serverlessclustermodel.Flatten(ctx, cluster, &plan)
 	resp.Diagnostics.Append(flatDiags...)
 	if resp.Diagnostics.HasError() {
@@ -177,6 +184,7 @@ func (c *ServerlessCluster) Delete(ctx context.Context, req resource.DeleteReque
 		resp.Diagnostics.AddError("serverless cluster deletion not allowed", "allow_deletion is set to false")
 		return
 	}
+	tflog.Info(ctx, "deleting serverless cluster", map[string]any{"cluster_id": model.ID.ValueString()})
 
 	delReq, expandDiags := serverlessclustermodel.ExpandDelete(ctx, &model)
 	resp.Diagnostics.Append(expandDiags...)
@@ -198,6 +206,7 @@ func (c *ServerlessCluster) Delete(ctx context.Context, req resource.DeleteReque
 		resp.Diagnostics.AddError("failed to delete serverless cluster", utils.DeserializeGrpcError(err))
 		return
 	}
+	tflog.Info(ctx, "serverless cluster deleted", map[string]any{"cluster_id": model.ID.ValueString()})
 }
 
 // ImportState imports the serverless cluster resource by ID.

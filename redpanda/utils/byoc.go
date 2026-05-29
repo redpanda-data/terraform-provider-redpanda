@@ -102,6 +102,10 @@ func (cl *ByocClient) newAPI() (*cloudapi.Client, error) {
 // RunByoc downloads and runs the rpk byoc plugin for a given cluster id and verb
 // ("apply" or "destroy").
 func (cl *ByocClient) RunByoc(ctx context.Context, clusterID, verb string) error {
+	tflog.Info(ctx, "running byoc plugin", map[string]any{
+		"cluster_id": clusterID,
+		"verb":       verb,
+	})
 	api, err := cl.newAPI()
 	if err != nil {
 		return err

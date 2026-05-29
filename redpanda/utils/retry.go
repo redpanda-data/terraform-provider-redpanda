@@ -89,7 +89,7 @@ func Retry(ctx context.Context, timeout time.Duration, f func() *RetryError) err
 		}
 		jittered := waitUnit/2 + time.Duration(rand.Int64N(int64(waitUnit))) //nolint:gosec // math/rand/v2 is fine for retry jitter; not security-sensitive
 		attempt++
-		tflog.Info(ctx, "retrying after transient error", map[string]any{
+		tflog.Debug(ctx, "retrying after transient error", map[string]any{
 			"attempt": attempt,
 			"wait":    jittered.String(),
 			"elapsed": time.Since(startTime).String(),

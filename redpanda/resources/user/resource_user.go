@@ -76,7 +76,7 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 	}
 	model.PasswordWO = cfg.PasswordWO
 
-	if err := u.createUserClient(model.ClusterAPIURL.ValueString()); err != nil {
+	if err := u.createUserClient(ctx, model.ClusterAPIURL.ValueString()); err != nil {
 		resp.Diagnostics.AddError("failed to create user client", utils.DeserializeGrpcError(err))
 		return
 	}
@@ -132,7 +132,7 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 
 	userName := model.Name.ValueString()
 
-	if err := u.createUserClient(model.ClusterAPIURL.ValueString()); err != nil {
+	if err := u.createUserClient(ctx, model.ClusterAPIURL.ValueString()); err != nil {
 		action, diags := utils.HandleGracefulRemoval(ctx, "user", userName, model.AllowDeletion, err, "create user client")
 		resp.Diagnostics.Append(diags...)
 		if action == utils.RemoveFromState {
@@ -194,7 +194,7 @@ func (u *User) Update(ctx context.Context, req resource.UpdateRequest, resp *res
 		return
 	}
 
-	if err := u.createUserClient(plan.ClusterAPIURL.ValueString()); err != nil {
+	if err := u.createUserClient(ctx, plan.ClusterAPIURL.ValueString()); err != nil {
 		resp.Diagnostics.AddError("failed to create user client", utils.DeserializeGrpcError(err))
 		return
 	}
@@ -242,7 +242,7 @@ func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 		return
 	}
 
-	if err := u.createUserClient(model.ClusterAPIURL.ValueString()); err != nil {
+	if err := u.createUserClient(ctx, model.ClusterAPIURL.ValueString()); err != nil {
 		_, diags := utils.HandleGracefulRemoval(ctx, "user", userName, model.AllowDeletion, err, "create user client")
 		resp.Diagnostics.Append(diags...)
 		return
@@ -318,7 +318,7 @@ func (u *User) ImportState(ctx context.Context, req resource.ImportStateRequest,
 	}
 }
 
-func (u *User) createUserClient(clusterURL string) error {
+func (u *User) createUserClient(ctx context.Context, clusterURL string) error {
 	if u.UserClient != nil {
 		return nil
 	}
@@ -328,7 +328,7 @@ func (u *User) createUserClient(clusterURL string) error {
 	if u.resData.DataplaneConnPool == nil {
 		return errors.New("provider not configured: dataplane connection pool is nil")
 	}
-	conn, err := u.resData.DataplaneConnPool.GetConnection(clusterURL)
+	conn, err := u.resData.DataplaneConnPool.GetConnection(ctx, clusterURL)
 	if err != nil {
 		return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
 	}

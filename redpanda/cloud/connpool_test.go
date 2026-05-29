@@ -1,6 +1,7 @@
 package cloud
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -41,9 +42,9 @@ func TestGetConnection_Reuse(t *testing.T) {
 		return conn, nil
 	})
 
-	c1, err := pool.GetConnection("https://cluster-a:443")
+	c1, err := pool.GetConnection(context.Background(), "https://cluster-a:443")
 	require.NoError(t, err)
-	c2, err := pool.GetConnection("https://cluster-a:443")
+	c2, err := pool.GetConnection(context.Background(), "https://cluster-a:443")
 	require.NoError(t, err)
 
 	assert.Same(t, c1, c2, "same URL should return same connection")
@@ -55,9 +56,9 @@ func TestGetConnection_DifferentURLs(t *testing.T) {
 		return newStubConn(t), nil
 	})
 
-	c1, err := pool.GetConnection("https://cluster-a:443")
+	c1, err := pool.GetConnection(context.Background(), "https://cluster-a:443")
 	require.NoError(t, err)
-	c2, err := pool.GetConnection("https://cluster-b:443")
+	c2, err := pool.GetConnection(context.Background(), "https://cluster-b:443")
 	require.NoError(t, err)
 
 	assert.NotSame(t, c1, c2, "different URLs should return different connections")
@@ -75,14 +76,14 @@ func TestGetConnection_EvictsShutdown(t *testing.T) {
 		return second, nil
 	})
 
-	c1, err := pool.GetConnection("https://cluster-a:443")
+	c1, err := pool.GetConnection(context.Background(), "https://cluster-a:443")
 	require.NoError(t, err)
 	assert.Same(t, first, c1)
 
 	// Close puts the connection into Shutdown state.
 	require.NoError(t, first.Close())
 
-	c2, err := pool.GetConnection("https://cluster-a:443")
+	c2, err := pool.GetConnection(context.Background(), "https://cluster-a:443")
 	require.NoError(t, err)
 	assert.Same(t, second, c2, "should get a new connection after shutdown")
 	assert.Equal(t, 2, calls)
@@ -107,7 +108,7 @@ func TestGetConnection_ConcurrentSameURL(t *testing.T) {
 	for i := range goroutines {
 		go func(idx int) {
 			defer wg.Done()
-			conns[idx], errs[idx] = pool.GetConnection("https://cluster-a:443")
+			conns[idx], errs[idx] = pool.GetConnection(context.Background(), "https://cluster-a:443")
 		}(i)
 	}
 	wg.Wait()
@@ -137,7 +138,7 @@ func TestGetConnection_CrossURLNonBlocking(t *testing.T) {
 	// Start slow URL first.
 	go func() {
 		defer wg.Done()
-		_, _ = pool.GetConnection("https://slow-cluster:443")
+		_, _ = pool.GetConnection(context.Background(), "https://slow-cluster:443")
 	}()
 
 	// Give the slow goroutine a moment to enter singleflight.
@@ -147,7 +148,7 @@ func TestGetConnection_CrossURLNonBlocking(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		start := time.Now()
-		_, err := pool.GetConnection("https://fast-cluster:443")
+		_, err := pool.GetConnection(context.Background(), "https://fast-cluster:443")
 		fastElapsed = time.Since(start)
 		require.NoError(t, err)
 		fastDone.Store(true)
@@ -185,7 +186,7 @@ func TestGetConnection_ConcurrentMixedURLs(t *testing.T) {
 	for i := range total {
 		go func(idx int) {
 			defer wg.Done()
-			conns[idx], errs[idx] = pool.GetConnection(urls[idx%len(urls)])
+			conns[idx], errs[idx] = pool.GetConnection(context.Background(), urls[idx%len(urls)])
 		}(i)
 	}
 	wg.Wait()

@@ -28,6 +28,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	shadowlinkmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/shadowlink"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
@@ -172,6 +173,7 @@ func (s *ShadowLink) Create(ctx context.Context, req resource.CreateRequest, res
 	}
 
 	op := createResp.GetOperation()
+	tflog.Info(ctx, "creating shadow link", map[string]any{"id": op.GetResourceId()})
 	if err := utils.AreWeDoneYet(ctx, op, createTimeout, s.CpCl.Operation); err != nil {
 		resp.Diagnostics.Append(resp.State.Set(ctx, shadowlinkmodel.GenerateMinimalResourceModel(types.StringValue(op.GetResourceId()), plan.Timeouts))...)
 		resp.Diagnostics.AddError("failed waiting for shadow link creation", utils.DeserializeGrpcError(err))
@@ -193,6 +195,7 @@ func (s *ShadowLink) Create(ctx context.Context, req resource.CreateRequest, res
 	state.SourceRedpandaID = plan.SourceRedpandaID
 	resp.Diagnostics.Append(preserveSensitiveFromPrev(ctx, state, &plan)...)
 
+	tflog.Info(ctx, "shadow link created", map[string]any{"id": sl.GetId()})
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
@@ -219,6 +222,7 @@ func (s *ShadowLink) Read(ctx context.Context, req resource.ReadRequest, resp *r
 		return
 	}
 
+	tflog.Debug(ctx, "read shadow link", map[string]any{"id": sl.GetId(), "state": sl.GetState().String()})
 	state, flatDiags := shadowlinkmodel.Flatten(ctx, sl, &model)
 	resp.Diagnostics.Append(flatDiags...)
 	if resp.Diagnostics.HasError() {
@@ -240,6 +244,7 @@ func (s *ShadowLink) Update(ctx context.Context, req resource.UpdateRequest, res
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	tflog.Info(ctx, "updating shadow link", map[string]any{"id": plan.ID.ValueString()})
 
 	planPayload, expandDiags := shadowlinkmodel.ExpandUpdate(ctx, &plan)
 	resp.Diagnostics.Append(expandDiags...)
@@ -290,6 +295,7 @@ func (s *ShadowLink) Update(ctx context.Context, req resource.UpdateRequest, res
 	newState.SourceRedpandaID = plan.SourceRedpandaID
 	resp.Diagnostics.Append(preserveSensitiveFromPrev(ctx, newState, &plan)...)
 
+	tflog.Info(ctx, "shadow link updated", map[string]any{"id": plan.ID.ValueString()})
 	resp.Diagnostics.Append(resp.State.Set(ctx, newState)...)
 }
 
@@ -305,6 +311,7 @@ func (s *ShadowLink) Delete(ctx context.Context, req resource.DeleteRequest, res
 		resp.Diagnostics.AddError("shadow link deletion not allowed", "allow_deletion is set to false")
 		return
 	}
+	tflog.Info(ctx, "deleting shadow link", map[string]any{"id": model.ID.ValueString()})
 
 	deleteTimeout, diags := model.Timeouts.Delete(ctx, 30*time.Minute)
 	resp.Diagnostics.Append(diags...)
@@ -324,7 +331,9 @@ func (s *ShadowLink) Delete(ctx context.Context, req resource.DeleteRequest, res
 	}
 	if err := utils.AreWeDoneYet(ctx, delResp.GetOperation(), deleteTimeout, s.CpCl.Operation); err != nil {
 		resp.Diagnostics.AddError("failed waiting for shadow link deletion", utils.DeserializeGrpcError(err))
+		return
 	}
+	tflog.Info(ctx, "shadow link deleted", map[string]any{"id": model.ID.ValueString()})
 }
 
 // ImportState parses a composite import ID of the form "<id>|<source_redpanda_id>".
