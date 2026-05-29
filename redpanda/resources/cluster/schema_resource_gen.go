@@ -45,13 +45,14 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Description:   "Cloud provider where resources are created.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    validators.CloudProviders(),
 			},
 
 			"connection_type": schema.StringAttribute{
 				Description:   "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, private is best-practice",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Validators:    []validator.String{validators.RequirePrivateConnectionValidator{}},
+				Validators:    []validator.String{stringvalidator.OneOf("", "public", "private"), validators.RequirePrivateConnectionValidator{}},
 			},
 
 			"name": schema.StringAttribute{

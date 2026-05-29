@@ -243,6 +243,8 @@ attributes:
     - name: cloud_provider
       type: StringAttribute
       required: true
+      validators:
+        - stringvalidator.oneOfValidator
       plan_modifiers:
         - stringplanmodifier.requiresReplaceIfModifier
     - name: cloud_storage
@@ -329,6 +331,7 @@ attributes:
       type: StringAttribute
       required: true
       validators:
+        - stringvalidator.oneOfValidator
         - validators.RequirePrivateConnectionValidator
       plan_modifiers:
         - stringplanmodifier.requiresReplaceIfModifier
