@@ -76,6 +76,7 @@ azure_private_link:
 cloud_provider:
   plan_modifiers: [RequiresReplace]
   required: true
+  validator: CloudProviders
 
 cloud_provider_tags:
   proto_only: true
@@ -149,10 +150,15 @@ connection_type:
   plan_modifiers: [RequiresReplace]
   required: true
   description: "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, private is best-practice"
+  # OneOf restores plan-time enum-membership validation (cloudv2's proto
+  # declares no rule on connection_type, so an invalid value would otherwise
+  # silently map to UNSPECIFIED and only fail at apply).
   # RequirePrivateConnectionValidator stays — it enforces a cross-field rule
   # (connection_type == private when customer_managed_resources is set) that
   # cloudv2 does not declare via buf.validate CEL.
-  validator: RequirePrivateConnectionValidator
+  validator:
+    - "OneOf{values: |public|private}"
+    - RequirePrivateConnectionValidator
 
 current_redpanda_version:
   computed_only: true
