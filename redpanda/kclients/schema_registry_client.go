@@ -20,10 +20,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/twmb/franz-go/pkg/sr"
+	"golang.org/x/oauth2"
 )
 
 const (
@@ -34,11 +36,11 @@ const (
 // GetSchemaRegistryClientForCluster creates a Schema Registry client for a specific cluster.
 //
 // Auth precedence: when both username and password are non-empty, HTTP Basic
-// auth is used. Otherwise the provider's cloud-issued Bearer token (authToken)
-// is used. Redpanda Cloud SR endpoints accept Bearer tokens issued by the same
-// Auth0 IDP that mints the provider's control-plane token, so the Bearer path
-// is the recommended default.
-func GetSchemaRegistryClientForCluster(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, authToken, username, password string) (*sr.Client, error) {
+// auth is used. Otherwise the provider's cloud-issued Bearer token (sourced
+// from the TokenSource per request) is used. Redpanda Cloud SR endpoints
+// accept Bearer tokens issued by the same Auth0 IDP that mints the provider's
+// control-plane token, so the Bearer path is the recommended default.
+func GetSchemaRegistryClientForCluster(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID string, ts oauth2.TokenSource, username, password string) (*sr.Client, error) {
 	cluster, err := cpCl.ClusterForID(ctx, clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster details: %w", err)
@@ -53,7 +55,7 @@ func GetSchemaRegistryClientForCluster(ctx context.Context, cpCl *cloud.ControlP
 		return nil, fmt.Errorf("schema registry URL is empty for cluster %s", clusterID)
 	}
 
-	authOpt, err := schemaRegistryAuthOption(authToken, username, password)
+	authOpt, err := schemaRegistryAuthOption(ts, username, password)
 	if err != nil {
 		return nil, err
 	}
@@ -70,14 +72,23 @@ func GetSchemaRegistryClientForCluster(ctx context.Context, cpCl *cloud.ControlP
 }
 
 // schemaRegistryAuthOption selects the franz-go sr.Client auth option based on
-// which credentials are present. Username+password → Basic; else authToken →
-// Bearer. Returns an error when neither set of credentials is available.
-func schemaRegistryAuthOption(authToken, username, password string) (sr.ClientOpt, error) {
+// which credentials are present. Username+password → Basic; else the
+// TokenSource is consulted per HTTP request via sr.PreReq, so the bearer
+// header reflects the latest cached or freshly-fetched access token.
+// Returns an error when neither set of credentials is available.
+func schemaRegistryAuthOption(ts oauth2.TokenSource, username, password string) (sr.ClientOpt, error) {
 	if username != "" && password != "" {
 		return sr.BasicAuth(username, password), nil
 	}
-	if authToken != "" {
-		return sr.BearerToken(authToken), nil
+	if ts != nil {
+		return sr.PreReq(func(req *http.Request) error {
+			tok, err := ts.Token()
+			if err != nil {
+				return fmt.Errorf("acquire bearer token: %w", err)
+			}
+			req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+			return nil
+		}), nil
 	}
 	return nil, errors.New("no schema registry credentials available: provide username+password, or rely on the provider's cloud authentication")
 }

@@ -33,10 +33,10 @@ func VerifySRAuth(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, cluste
 		return fmt.Errorf("failed to look up cluster by name: %w", err)
 	}
 
-	// Empty authToken so the auth-precedence helper falls through to Basic;
+	// nil TokenSource so the auth-precedence helper falls through to Basic;
 	// this helper exists to verify the username+password path was wired
 	// correctly.
-	srClient, err := kclients.GetSchemaRegistryClientForCluster(ctx, cpCl, cluster.GetId(), "", username, password)
+	srClient, err := kclients.GetSchemaRegistryClientForCluster(ctx, cpCl, cluster.GetId(), nil, username, password)
 	if err != nil {
 		return fmt.Errorf("failed to create SR client: %w", err)
 	}

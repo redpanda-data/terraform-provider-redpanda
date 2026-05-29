@@ -35,11 +35,12 @@ import (
 	"github.com/redpanda-data/redpanda/src/go/rpk/pkg/cloudapi"
 	"github.com/redpanda-data/redpanda/src/go/rpk/pkg/plugin"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils/enums"
+	"golang.org/x/oauth2"
 )
 
 // ByocClientConfig represents the options that must be passed to NewByocClient.
 type ByocClientConfig struct {
-	AuthToken           string
+	TokenSource         oauth2.TokenSource
 	AzureSubscriptionID string
 	GcpProject          string
 	InternalAPIURL      string
@@ -56,8 +57,7 @@ type ByocClientConfig struct {
 // ByocClient holds the information and clients needed to download and interact
 // with the rpk byoc plugin.
 type ByocClient struct {
-	api                 *cloudapi.Client
-	authToken           string
+	ts                  oauth2.TokenSource
 	internalAPIURL      string
 	gcpProject          string
 	azureSubscriptionID string
@@ -74,8 +74,7 @@ type ByocClient struct {
 // NewByocClient creates a new ByocClient.
 func NewByocClient(conf ByocClientConfig) *ByocClient {
 	return &ByocClient{
-		api:                 cloudapi.NewClient(conf.InternalAPIURL, conf.AuthToken),
-		authToken:           conf.AuthToken,
+		ts:                  conf.TokenSource,
 		internalAPIURL:      conf.InternalAPIURL,
 		gcpProject:          conf.GcpProject,
 		azureSubscriptionID: conf.AzureSubscriptionID,
@@ -90,10 +89,24 @@ func NewByocClient(conf ByocClientConfig) *ByocClient {
 	}
 }
 
+// newAPI returns a fresh cloudapi.Client using a token fetched from the
+// TokenSource. Each call hits the cache layer; the wire fetch is rare.
+func (cl *ByocClient) newAPI() (*cloudapi.Client, error) {
+	tok, err := cl.ts.Token()
+	if err != nil {
+		return nil, fmt.Errorf("acquire bearer token: %w", err)
+	}
+	return cloudapi.NewClient(cl.internalAPIURL, tok.AccessToken), nil
+}
+
 // RunByoc downloads and runs the rpk byoc plugin for a given cluster id and verb
 // ("apply" or "destroy").
 func (cl *ByocClient) RunByoc(ctx context.Context, clusterID, verb string) error {
-	cluster, err := cl.api.Cluster(ctx, clusterID)
+	api, err := cl.newAPI()
+	if err != nil {
+		return err
+	}
+	cluster, err := api.Cluster(ctx, clusterID)
 	if err != nil {
 		return fmt.Errorf("unable to request cluster details for %q: %w", clusterID, err)
 	}
@@ -266,10 +279,14 @@ func (cl *ByocClient) generateGcpArgsAndEnv(ctx context.Context) (args, env []st
 }
 
 func (cl *ByocClient) generateByocArgsAndEnv(ctx context.Context, cluster cloudapi.Cluster, verb string) (args, env []string, cleanup func(), err error) {
+	tok, err := cl.ts.Token()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("acquire bearer token: %w", err)
+	}
 	cloudProvider := strings.ToLower(cluster.Spec.Provider)
 	byocArgs := []string{
 		cloudProvider, verb,
-		"--cloud-api-token", cl.authToken,
+		"--cloud-api-token", tok.AccessToken,
 		"--redpanda-id", cluster.ID,
 		"--debug",
 	}
@@ -314,7 +331,11 @@ func (cl *ByocClient) getByocExecutable(ctx context.Context, cluster cloudapi.Cl
 	// TODO: try to cache this in local directory somewhere. beware race conditions.
 	// TODO: grab the existing one from rpk if it has the correct checksum?
 
-	pack, err := cl.api.InstallPack(ctx, cluster.Spec.InstallPackVersion)
+	api, err := cl.newAPI()
+	if err != nil {
+		return "", nil, err
+	}
+	pack, err := api.InstallPack(ctx, cluster.Spec.InstallPackVersion)
 	if err != nil {
 		return "", nil, fmt.Errorf("unable to request install pack details for %q: %v",
 			cluster.Spec.InstallPackVersion, err)

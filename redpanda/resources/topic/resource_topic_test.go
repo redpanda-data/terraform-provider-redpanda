@@ -18,9 +18,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"golang.org/x/oauth2"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 )
+
+func testTokenSource() oauth2.TokenSource {
+	return oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "test-token"})
+}
 
 func TestUnit_Topic_Create(t *testing.T) {
 	partitionCount := int32(3)
@@ -186,11 +191,11 @@ func TestUnit_Topic_Create(t *testing.T) {
 			tt.setup(mockClient)
 
 			topic := &Topic{
-				clientFactory: func(_, _, _, _ string) (dataplanev1grpc.TopicServiceClient, error) {
+				clientFactory: func(_ string, _ oauth2.TokenSource, _, _ string) (dataplanev1grpc.TopicServiceClient, error) {
 					return mockClient, nil
 				},
 				resData: config.Resource{
-					AuthToken:        "test-token",
+					TokenSource:      testTokenSource(),
 					ProviderVersion:  "1.0.0",
 					TerraformVersion: "1.5.0",
 				},
@@ -265,11 +270,11 @@ func TestUnit_Topic_CreateStatePersistence(t *testing.T) {
 		Return(nil, errors.New("context deadline exceeded"))
 
 	topic := &Topic{
-		clientFactory: func(_, _, _, _ string) (dataplanev1grpc.TopicServiceClient, error) {
+		clientFactory: func(_ string, _ oauth2.TokenSource, _, _ string) (dataplanev1grpc.TopicServiceClient, error) {
 			return mockClient, nil
 		},
 		resData: config.Resource{
-			AuthToken:        "test-token",
+			TokenSource:      testTokenSource(),
 			ProviderVersion:  "1.0.0",
 			TerraformVersion: "1.5.0",
 		},
@@ -345,11 +350,11 @@ func TestUnit_Topic_UpdateStatePersistence(t *testing.T) {
 		Return(nil, errors.New("context deadline exceeded"))
 
 	topic := &Topic{
-		clientFactory: func(_, _, _, _ string) (dataplanev1grpc.TopicServiceClient, error) {
+		clientFactory: func(_ string, _ oauth2.TokenSource, _, _ string) (dataplanev1grpc.TopicServiceClient, error) {
 			return mockClient, nil
 		},
 		resData: config.Resource{
-			AuthToken:        "test-token",
+			TokenSource:      testTokenSource(),
 			ProviderVersion:  "1.0.0",
 			TerraformVersion: "1.5.0",
 		},
@@ -489,10 +494,10 @@ func TestUnit_Topic_Read_RetriesTransient(t *testing.T) {
 		}, nil)
 
 	topic := &Topic{
-		clientFactory: func(_, _, _, _ string) (dataplanev1grpc.TopicServiceClient, error) {
+		clientFactory: func(_ string, _ oauth2.TokenSource, _, _ string) (dataplanev1grpc.TopicServiceClient, error) {
 			return mockClient, nil
 		},
-		resData: config.Resource{AuthToken: "test-token", ProviderVersion: "1.0.0", TerraformVersion: "1.5.0"},
+		resData: config.Resource{TokenSource: testTokenSource(), ProviderVersion: "1.0.0", TerraformVersion: "1.5.0"},
 	}
 	schemaResp := resource.SchemaResponse{}
 	schemaResp.Schema = ResourceTopicSchema(ctx)
@@ -545,10 +550,10 @@ func TestUnit_Topic_Update_RetriesTransient(t *testing.T) {
 		}, nil)
 
 	topic := &Topic{
-		clientFactory: func(_, _, _, _ string) (dataplanev1grpc.TopicServiceClient, error) {
+		clientFactory: func(_ string, _ oauth2.TokenSource, _, _ string) (dataplanev1grpc.TopicServiceClient, error) {
 			return mockClient, nil
 		},
-		resData: config.Resource{AuthToken: "test-token", ProviderVersion: "1.0.0", TerraformVersion: "1.5.0"},
+		resData: config.Resource{TokenSource: testTokenSource(), ProviderVersion: "1.0.0", TerraformVersion: "1.5.0"},
 	}
 	schemaResp := resource.SchemaResponse{}
 	schemaResp.Schema = ResourceTopicSchema(ctx)
@@ -609,10 +614,10 @@ func TestUnit_Topic_Delete_NotFoundAfterRetryIsSuccess(t *testing.T) {
 	)
 
 	topic := &Topic{
-		clientFactory: func(_, _, _, _ string) (dataplanev1grpc.TopicServiceClient, error) {
+		clientFactory: func(_ string, _ oauth2.TokenSource, _, _ string) (dataplanev1grpc.TopicServiceClient, error) {
 			return mockClient, nil
 		},
-		resData: config.Resource{AuthToken: "test-token", ProviderVersion: "1.0.0", TerraformVersion: "1.5.0"},
+		resData: config.Resource{TokenSource: testTokenSource(), ProviderVersion: "1.0.0", TerraformVersion: "1.5.0"},
 	}
 	schemaResp := resource.SchemaResponse{}
 	schemaResp.Schema = ResourceTopicSchema(ctx)

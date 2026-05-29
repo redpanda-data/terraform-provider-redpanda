@@ -32,14 +32,16 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/kclients"
 	schemaregistryaclmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/schemaregistryacl"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"golang.org/x/oauth2"
 )
 
 // SchemaRegistryACLClientFactory is a function type for creating Schema Registry
-// ACL clients. authToken is the provider's cloud-issued Bearer token, used when
-// explicit Basic creds (username+password) are absent.
+// ACL clients. ts is the provider's cloud-issued token source, used when
+// explicit Basic creds (username+password) are absent; tokens are fetched
+// lazily per HTTP request.
 //
 //nolint:revive // intentional naming for clarity
-type SchemaRegistryACLClientFactory func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, authToken, username, password string) (kclients.SchemaRegistryACLClientInterface, error)
+type SchemaRegistryACLClientFactory func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID string, ts oauth2.TokenSource, username, password string) (kclients.SchemaRegistryACLClientInterface, error)
 
 // SchemaRegistryACL represents the Schema Registry ACL Terraform resource.
 type SchemaRegistryACL struct {
@@ -58,8 +60,8 @@ func NewSchemaRegistryACL() *SchemaRegistryACL {
 		func(p config.Resource) {
 			s.resData = p
 			if s.clientFactory == nil {
-				s.clientFactory = func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, authToken, username, password string) (kclients.SchemaRegistryACLClientInterface, error) {
-					return kclients.NewSchemaRegistryACLClient(ctx, cpCl, clusterID, authToken, username, password)
+				s.clientFactory = func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID string, ts oauth2.TokenSource, username, password string) (kclients.SchemaRegistryACLClientInterface, error) {
+					return kclients.NewSchemaRegistryACLClient(ctx, cpCl, clusterID, ts, username, password)
 				}
 			}
 		},
@@ -290,7 +292,7 @@ func (*SchemaRegistryACL) ImportState(ctx context.Context, request resource.Impo
 }
 
 func (s *SchemaRegistryACL) getSchemaRegistryClient(ctx context.Context, model *schemaregistryaclmodel.ResourceModel) (kclients.SchemaRegistryACLClientInterface, error) {
-	return s.clientFactory(ctx, s.CpCl, model.ClusterID.ValueString(), s.resData.AuthToken, model.Username.ValueString(), model.GetEffectivePassword())
+	return s.clientFactory(ctx, s.CpCl, model.ClusterID.ValueString(), s.resData.TokenSource, model.Username.ValueString(), model.GetEffectivePassword())
 }
 
 // verifyACLPropagation verifies that the ACL has been propagated and is ready for use.
@@ -300,7 +302,7 @@ func (*SchemaRegistryACL) verifyACLPropagation(ctx context.Context, client kclie
 	startTime := time.Now()
 	attempt := 0
 
-	tflog.Info(ctx, "Verifying Schema Registry ACL propagation", map[string]any{
+	tflog.Debug(ctx, "Verifying Schema Registry ACL propagation", map[string]any{
 		"principal": model.Principal.ValueString(),
 		"resource":  model.ResourceName.ValueString(),
 		"timeout":   timeout.String(),
@@ -310,7 +312,7 @@ func (*SchemaRegistryACL) verifyACLPropagation(ctx context.Context, client kclie
 		attempt++
 		elapsed := time.Since(startTime)
 
-		tflog.Debug(ctx, "ACL verification attempt", map[string]any{
+		tflog.Trace(ctx, "ACL verification attempt", map[string]any{
 			"attempt": attempt,
 			"elapsed": elapsed.String(),
 		})
@@ -320,7 +322,7 @@ func (*SchemaRegistryACL) verifyACLPropagation(ctx context.Context, client kclie
 			// Permission denied errors during verification often indicate
 			// the ACL hasn't propagated yet
 			if utils.IsPermissionDenied(err) {
-				tflog.Debug(ctx, "ACL verification permission denied, retrying", map[string]any{
+				tflog.Trace(ctx, "ACL verification permission denied, retrying", map[string]any{
 					"error":   err.Error(),
 					"attempt": attempt,
 				})
@@ -345,7 +347,7 @@ func (*SchemaRegistryACL) verifyACLPropagation(ctx context.Context, client kclie
 		}
 
 		if !found {
-			tflog.Debug(ctx, "ACL not found in list, retrying", map[string]any{
+			tflog.Trace(ctx, "ACL not found in list, retrying", map[string]any{
 				"acl_count": len(acls),
 				"attempt":   attempt,
 				"elapsed":   elapsed.String(),
@@ -353,7 +355,7 @@ func (*SchemaRegistryACL) verifyACLPropagation(ctx context.Context, client kclie
 			return utils.RetryableError(fmt.Errorf("ACL not yet visible in list (found %d ACLs)", len(acls)))
 		}
 
-		tflog.Info(ctx, "ACL verification successful", map[string]any{
+		tflog.Debug(ctx, "ACL verification successful", map[string]any{
 			"attempts":   attempt,
 			"total_time": elapsed.String(),
 			"acls_found": len(acls),

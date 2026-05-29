@@ -8,9 +8,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
+
+func stubTokenSource() oauth2.TokenSource {
+	return oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "token"})
+}
 
 // newStubConn creates a real (but unconnected) gRPC client connection suitable
 // for pool bookkeeping tests. The connection targets a dummy address and uses
@@ -22,8 +27,8 @@ func newStubConn(t *testing.T) *grpc.ClientConn {
 	return conn
 }
 
-func newTestPool(spawn func(url, authToken, providerVersion, terraformVersion string) (*grpc.ClientConn, error)) *ConnPool {
-	p := NewConnPool("token", "v1", "tf1")
+func newTestPool(spawn func(url string, ts oauth2.TokenSource, providerVersion, terraformVersion string) (*grpc.ClientConn, error)) *ConnPool {
+	p := NewConnPool(stubTokenSource(), "v1", "tf1")
 	p.spawnFunc = spawn
 	return p
 }
@@ -31,7 +36,7 @@ func newTestPool(spawn func(url, authToken, providerVersion, terraformVersion st
 func TestGetConnection_Reuse(t *testing.T) {
 	conn := newStubConn(t)
 	var calls int
-	pool := newTestPool(func(_, _, _, _ string) (*grpc.ClientConn, error) {
+	pool := newTestPool(func(_ string, _ oauth2.TokenSource, _, _ string) (*grpc.ClientConn, error) {
 		calls++
 		return conn, nil
 	})
@@ -46,7 +51,7 @@ func TestGetConnection_Reuse(t *testing.T) {
 }
 
 func TestGetConnection_DifferentURLs(t *testing.T) {
-	pool := newTestPool(func(_, _, _, _ string) (*grpc.ClientConn, error) {
+	pool := newTestPool(func(_ string, _ oauth2.TokenSource, _, _ string) (*grpc.ClientConn, error) {
 		return newStubConn(t), nil
 	})
 
@@ -62,7 +67,7 @@ func TestGetConnection_EvictsShutdown(t *testing.T) {
 	first := newStubConn(t)
 	second := newStubConn(t)
 	var calls int
-	pool := newTestPool(func(_, _, _, _ string) (*grpc.ClientConn, error) {
+	pool := newTestPool(func(_ string, _ oauth2.TokenSource, _, _ string) (*grpc.ClientConn, error) {
 		calls++
 		if calls == 1 {
 			return first, nil
@@ -86,7 +91,7 @@ func TestGetConnection_EvictsShutdown(t *testing.T) {
 func TestGetConnection_ConcurrentSameURL(t *testing.T) {
 	var spawnCalls atomic.Int32
 	stub := newStubConn(t)
-	pool := newTestPool(func(_, _, _, _ string) (*grpc.ClientConn, error) {
+	pool := newTestPool(func(_ string, _ oauth2.TokenSource, _, _ string) (*grpc.ClientConn, error) {
 		spawnCalls.Add(1)
 		time.Sleep(200 * time.Millisecond)
 		return stub, nil
@@ -117,7 +122,7 @@ func TestGetConnection_ConcurrentSameURL(t *testing.T) {
 }
 
 func TestGetConnection_CrossURLNonBlocking(t *testing.T) {
-	pool := newTestPool(func(url, _, _, _ string) (*grpc.ClientConn, error) {
+	pool := newTestPool(func(url string, _ oauth2.TokenSource, _, _ string) (*grpc.ClientConn, error) {
 		if url == "https://slow-cluster:443" {
 			time.Sleep(2 * time.Second)
 		}
@@ -155,7 +160,7 @@ func TestGetConnection_CrossURLNonBlocking(t *testing.T) {
 
 func TestGetConnection_ConcurrentMixedURLs(t *testing.T) {
 	var spawnCalls atomic.Int32
-	pool := newTestPool(func(_, _, _, _ string) (*grpc.ClientConn, error) {
+	pool := newTestPool(func(_ string, _ oauth2.TokenSource, _, _ string) (*grpc.ClientConn, error) {
 		spawnCalls.Add(1)
 		time.Sleep(100 * time.Millisecond)
 		return newStubConn(t), nil

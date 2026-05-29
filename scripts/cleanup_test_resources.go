@@ -10,6 +10,7 @@ import (
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud/auth"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -50,12 +51,12 @@ func main() {
 		log.Fatalf("Failed to get endpoint: %v", err)
 	}
 
-	token, err := cloud.RequestToken(ctx, endpoint, clientID, clientSecret)
+	ts, err := auth.BuildTokenSource(ctx, endpoint.AuthURL(), endpoint.Audience(), clientID, clientSecret)
 	if err != nil {
-		log.Fatalf("Failed to request auth token: %v", err)
+		log.Fatalf("Failed to build token source: %v", err)
 	}
 
-	conn, err := cloud.SpawnConn(endpoint.APIURL, token, "dev", "")
+	conn, err := cloud.SpawnConn(endpoint.APIURL, ts, "dev", "")
 	if err != nil {
 		log.Fatalf("Failed to spawn connection: %v", err)
 	}

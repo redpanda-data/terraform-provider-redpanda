@@ -20,13 +20,14 @@ package config
 import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 )
 
 // Resource is the config used to pass data and dependencies to resource
 // implementations.
 type Resource struct {
-	AuthToken              string
+	TokenSource            oauth2.TokenSource
 	ByocClient             *utils.ByocClient
 	ControlPlaneConnection *grpc.ClientConn
 	DataplaneConnPool      *cloud.ConnPool
@@ -37,7 +38,7 @@ type Resource struct {
 // Datasource is the config used to pass data and dependencies to data source
 // implementations.
 type Datasource struct {
-	AuthToken              string
+	TokenSource            oauth2.TokenSource
 	ControlPlaneConnection *grpc.ClientConn
 	DataplaneConnPool      *cloud.ConnPool
 	TerraformVersion       string

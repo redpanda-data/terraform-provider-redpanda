@@ -24,7 +24,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	rschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
+	"golang.org/x/oauth2"
 )
+
+func testTS(token string) oauth2.TokenSource {
+	return oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
+}
 
 func TestResourceBase_Metadata(t *testing.T) {
 	b := NewResourceBase("redpanda_thing", func(context.Context) rschema.Schema { return rschema.Schema{} }, nil)
@@ -91,12 +96,13 @@ func TestResourceBase_Configure(t *testing.T) {
 			func(p config.Resource) { called = true; got = p },
 		)
 		resp := &resource.ConfigureResponse{}
-		in := config.Resource{AuthToken: "tok"}
+		ts := testTS("tok")
+		in := config.Resource{TokenSource: ts}
 		b.Configure(context.Background(), resource.ConfigureRequest{ProviderData: in}, resp)
 		if !called {
 			t.Fatal("extra hook was not called")
 		}
-		if got.AuthToken != "tok" {
+		if got.TokenSource != ts {
 			t.Fatalf("extra hook received wrong value: got %+v", got)
 		}
 	})
@@ -181,12 +187,13 @@ func TestDataSourceBase_Configure(t *testing.T) {
 			func(p config.Datasource) { called = true; got = p },
 		)
 		resp := &datasource.ConfigureResponse{}
-		in := config.Datasource{AuthToken: "tok"}
+		ts := testTS("tok")
+		in := config.Datasource{TokenSource: ts}
 		b.Configure(context.Background(), datasource.ConfigureRequest{ProviderData: in}, resp)
 		if !called {
 			t.Fatal("extra hook was not called")
 		}
-		if got.AuthToken != "tok" {
+		if got.TokenSource != ts {
 			t.Fatalf("extra hook received wrong value: got %+v", got)
 		}
 	})

@@ -19,6 +19,7 @@ import (
 	schemamodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/schema"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"github.com/twmb/franz-go/pkg/sr"
+	"golang.org/x/oauth2"
 )
 
 var (
@@ -42,7 +43,7 @@ type Schema struct {
 	base.ResourceBase
 
 	resData       config.Resource
-	clientFactory func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, authToken, username, password string) (SRClienter, error)
+	clientFactory func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID string, ts oauth2.TokenSource, username, password string) (SRClienter, error)
 }
 
 // Schema returns the resource schema definition.
@@ -145,7 +146,7 @@ func (s *Schema) Create(ctx context.Context, request resource.CreateRequest, res
 	}
 	plan.PasswordWO = cfg.PasswordWO
 
-	client, err := s.getClient(ctx, plan.ClusterID.ValueString(), s.resData.AuthToken, plan.Username.ValueString(), plan.GetEffectivePassword())
+	client, err := s.getClient(ctx, plan.ClusterID.ValueString(), s.resData.TokenSource, plan.Username.ValueString(), plan.GetEffectivePassword())
 	if err != nil {
 		response.Diagnostics.AddError(
 			"Failed to create Schema Registry client",
@@ -205,7 +206,7 @@ func (s *Schema) Read(ctx context.Context, request resource.ReadRequest, respons
 	}
 
 	subject := state.GetSubject()
-	client, err := s.getClient(ctx, state.ClusterID.ValueString(), s.resData.AuthToken, state.Username.ValueString(), state.GetEffectivePassword())
+	client, err := s.getClient(ctx, state.ClusterID.ValueString(), s.resData.TokenSource, state.Username.ValueString(), state.GetEffectivePassword())
 	if err != nil {
 		action, diags := utils.HandleGracefulRemoval(ctx, "schema", subject, state.AllowDeletion, err, "create schema registry client")
 		response.Diagnostics.Append(diags...)
@@ -266,7 +267,7 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 	}
 	plan.PasswordWO = cfg.PasswordWO
 
-	client, err := s.getClient(ctx, plan.ClusterID.ValueString(), s.resData.AuthToken, plan.Username.ValueString(), plan.GetEffectivePassword())
+	client, err := s.getClient(ctx, plan.ClusterID.ValueString(), s.resData.TokenSource, plan.Username.ValueString(), plan.GetEffectivePassword())
 	if err != nil {
 		response.Diagnostics.AddError(
 			"Failed to create Schema Registry client",
@@ -387,7 +388,7 @@ func (s *Schema) Delete(ctx context.Context, request resource.DeleteRequest, res
 		return
 	}
 
-	client, err := s.getClient(ctx, state.ClusterID.ValueString(), s.resData.AuthToken, state.Username.ValueString(), state.GetEffectivePassword())
+	client, err := s.getClient(ctx, state.ClusterID.ValueString(), s.resData.TokenSource, state.Username.ValueString(), state.GetEffectivePassword())
 	if err != nil {
 		if utils.IsPermissionDenied(err) || utils.IsClusterUnreachable(err) {
 			if !state.AllowDeletion.IsNull() && !state.AllowDeletion.ValueBool() {
@@ -442,13 +443,14 @@ func (s *Schema) Delete(ctx context.Context, request resource.DeleteRequest, res
 }
 
 // getClient returns a Schema Registry client, using the factory if available or
-// the default implementation. authToken is the provider's cloud-issued Bearer
-// token used when explicit Basic creds (username+password) are absent.
-func (s *Schema) getClient(ctx context.Context, clusterID, authToken, username, password string) (SRClienter, error) {
+// the default implementation. ts is the provider's cloud-issued token source
+// used when explicit Basic creds (username+password) are absent; the bearer
+// header is stamped per HTTP request.
+func (s *Schema) getClient(ctx context.Context, clusterID string, ts oauth2.TokenSource, username, password string) (SRClienter, error) {
 	if s.clientFactory != nil {
-		return s.clientFactory(ctx, s.CpCl, clusterID, authToken, username, password)
+		return s.clientFactory(ctx, s.CpCl, clusterID, ts, username, password)
 	}
-	client, err := kclients.GetSchemaRegistryClientForCluster(ctx, s.CpCl, clusterID, authToken, username, password)
+	client, err := kclients.GetSchemaRegistryClientForCluster(ctx, s.CpCl, clusterID, ts, username, password)
 	if err != nil {
 		return nil, err
 	}

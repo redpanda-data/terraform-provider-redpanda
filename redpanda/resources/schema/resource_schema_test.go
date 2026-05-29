@@ -35,6 +35,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/twmb/franz-go/pkg/sr"
 	"go.uber.org/mock/gomock"
+	"golang.org/x/oauth2"
 )
 
 // setConfig populates a tfsdk.Config using a temporary State (since Config has no Set method).
@@ -830,7 +831,7 @@ func TestUnit_Schema_Create(t *testing.T) {
 			var s *Schema
 			if tt.clientFactoryError != nil {
 				s = &Schema{
-					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
+					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _ string, _ oauth2.TokenSource, _, _ string) (SRClienter, error) {
 						return nil, tt.clientFactoryError
 					},
 				}
@@ -867,7 +868,7 @@ func TestUnit_Schema_Create(t *testing.T) {
 				}
 
 				s = &Schema{
-					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
+					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _ string, _ oauth2.TokenSource, _, _ string) (SRClienter, error) {
 						return mockClient, nil
 					},
 				}
@@ -1348,7 +1349,7 @@ func TestUnit_Schema_CreateReadConsistency(t *testing.T) {
 				Return(tt.compatResults)
 
 			s := &Schema{
-				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
+				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _ string, _ oauth2.TokenSource, _, _ string) (SRClienter, error) {
 					return mockClient, nil
 				},
 			}
@@ -1708,14 +1709,14 @@ func TestUnit_Schema_Read(t *testing.T) {
 			//nolint:gocritic // if-else chain is clearer than switch for this test setup logic
 			if tt.clientFactoryError != nil {
 				s = &Schema{
-					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
+					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _ string, _ oauth2.TokenSource, _, _ string) (SRClienter, error) {
 						return nil, tt.clientFactoryError
 					},
 				}
 			} else if tt.initialState.ClusterID.IsNull() || tt.initialState.ClusterID.ValueString() == "" {
 				// Don't set up mock client for null/empty cluster ID
 				s = &Schema{
-					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
+					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _ string, _ oauth2.TokenSource, _, _ string) (SRClienter, error) {
 						return mockClient, nil
 					},
 				}
@@ -1762,7 +1763,7 @@ func TestUnit_Schema_Read(t *testing.T) {
 				}
 
 				s = &Schema{
-					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
+					clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _ string, _ oauth2.TokenSource, _, _ string) (SRClienter, error) {
 						return mockClient, nil
 					},
 				}
@@ -1930,7 +1931,7 @@ func TestUnit_Schema_Update(t *testing.T) {
 			}
 
 			s := &Schema{
-				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
+				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _ string, _ oauth2.TokenSource, _, _ string) (SRClienter, error) {
 					return mockClient, nil
 				},
 			}
@@ -2451,7 +2452,7 @@ func TestUnit_Schema_UpdateReadConsistency(t *testing.T) {
 				Return(tt.compatResults)
 
 			s := &Schema{
-				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
+				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _ string, _ oauth2.TokenSource, _, _ string) (SRClienter, error) {
 					return mockClient, nil
 				},
 			}
@@ -2578,7 +2579,7 @@ func TestUnit_Schema_Delete(t *testing.T) {
 				Return([]int{int(tt.initialState.Version.ValueInt64())}, nil)
 
 			s := &Schema{
-				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
+				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _ string, _ oauth2.TokenSource, _, _ string) (SRClienter, error) {
 					return mockClient, nil
 				},
 			}
@@ -2788,7 +2789,7 @@ func TestUnit_SchemaDataSource_Read(t *testing.T) {
 
 			d := NewSchemaDataSource()
 			if tt.clientFactoryError != nil {
-				d.clientFactory = func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (SRClienter, error) {
+				d.clientFactory = func(_ context.Context, _ *cloud.ControlPlaneClientSet, _ string, _ oauth2.TokenSource, _, _ string) (SRClienter, error) {
 					return nil, tt.clientFactoryError
 				}
 			} else {
@@ -2807,7 +2808,7 @@ func TestUnit_SchemaDataSource_Read(t *testing.T) {
 						mockClient.EXPECT().SchemaByVersion(ctx, subject, v).Return(*tt.mockByVersion, nil)
 					}
 				}
-				d.clientFactory = func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, u, p string) (SRClienter, error) {
+				d.clientFactory = func(_ context.Context, _ *cloud.ControlPlaneClientSet, _ string, _ oauth2.TokenSource, u, p string) (SRClienter, error) {
 					capturedUsername = u
 					capturedPassword = p
 					return mockClient, nil

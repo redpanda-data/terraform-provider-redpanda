@@ -14,6 +14,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
+	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/hashicorp/terraform-json v0.27.2
 	github.com/hashicorp/terraform-plugin-docs v0.22.0
 	github.com/hashicorp/terraform-plugin-framework v1.19.0
@@ -28,6 +29,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/twmb/franz-go/pkg/sr v1.4.1-0.20250711145744-a849b8be17b7
 	go.uber.org/mock v0.5.0
+	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.20.0
 	golang.org/x/time v0.11.0
 	google.golang.org/genproto v0.0.0-20250313205543-e70fdf4c4cb4
@@ -70,7 +72,6 @@ require (
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-plugin v1.7.0 // indirect
-	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/go-version v1.9.0 // indirect
 	github.com/hashicorp/hc-install v0.9.4 // indirect

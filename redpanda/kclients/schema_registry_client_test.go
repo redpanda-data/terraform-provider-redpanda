@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/twmb/franz-go/pkg/sr"
+	"golang.org/x/oauth2"
 )
 
 // TestSetSubjectCompatibility_InvalidLevelReturnsError proves that an
@@ -59,17 +60,18 @@ func TestSetSubjectCompatibility_InvalidLevelReturnsError(t *testing.T) {
 	})
 }
 
-// TestSchemaRegistryAuthOption_Precedence covers the four cases the helper
-// must distinguish: explicit Basic creds win, fall back to Bearer, error
-// when nothing is available, explicit Basic wins even when Bearer is also
-// supplied.
+// TestSchemaRegistryAuthOption_Precedence covers the cases the helper must
+// distinguish: explicit Basic creds win, fall back to Bearer via TokenSource,
+// error when nothing is available, explicit Basic wins even when a
+// TokenSource is also supplied.
 func TestSchemaRegistryAuthOption_Precedence(t *testing.T) {
+	bearer := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "tok-bearer"})
 	tests := []struct {
-		name      string
-		authToken string
-		username  string
-		password  string
-		wantErr   string
+		name     string
+		ts       oauth2.TokenSource
+		username string
+		password string
+		wantErr  string
 	}{
 		{
 			name:     "username and password — Basic auth",
@@ -77,33 +79,33 @@ func TestSchemaRegistryAuthOption_Precedence(t *testing.T) {
 			password: "p4ssw0rd",
 		},
 		{
-			name:      "authToken only — Bearer auth",
-			authToken: "tok-bearer",
+			name: "token source only — Bearer auth",
+			ts:   bearer,
 		},
 		{
-			name:      "both Basic creds and authToken — Basic wins",
-			authToken: "tok-bearer",
-			username:  "alice",
-			password:  "p4ssw0rd",
+			name:     "both Basic creds and token source — Basic wins",
+			ts:       bearer,
+			username: "alice",
+			password: "p4ssw0rd",
 		},
 		{
 			name:    "no credentials — error",
 			wantErr: "no schema registry credentials available",
 		},
 		{
-			name:      "username only with authToken — Bearer (username alone is not enough for Basic)",
-			authToken: "tok-bearer",
-			username:  "alice",
+			name:     "username only with token source — Bearer (username alone is not enough for Basic)",
+			ts:       bearer,
+			username: "alice",
 		},
 		{
-			name:      "password only with authToken — Bearer (password alone is not enough for Basic)",
-			authToken: "tok-bearer",
-			password:  "p4ssw0rd",
+			name:     "password only with token source — Bearer (password alone is not enough for Basic)",
+			ts:       bearer,
+			password: "p4ssw0rd",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			opt, err := schemaRegistryAuthOption(tt.authToken, tt.username, tt.password)
+			opt, err := schemaRegistryAuthOption(tt.ts, tt.username, tt.password)
 			if tt.wantErr != "" {
 				if err == nil {
 					t.Fatalf("expected error containing %q, got nil", tt.wantErr)
