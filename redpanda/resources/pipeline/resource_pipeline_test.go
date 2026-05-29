@@ -34,7 +34,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"golang.org/x/oauth2"
 )
+
+func testTokenSource() oauth2.TokenSource {
+	return oauth2.StaticTokenSource(&oauth2.Token{AccessToken: testAuthToken})
+}
 
 const (
 	testClusterAPIURL = "https://api.cluster.example.com"
@@ -160,11 +165,11 @@ func createMockPipelineResources(cpuShares, memoryShares string) *dataplanev1.Pi
 
 func setupPipelineResource(mockClient dataplanev1grpc.PipelineServiceClient) *Pipeline {
 	return &Pipeline{
-		clientFactory: func(_, _, _, _ string) (dataplanev1grpc.PipelineServiceClient, error) {
+		clientFactory: func(_ string, _ oauth2.TokenSource, _, _ string) (dataplanev1grpc.PipelineServiceClient, error) {
 			return mockClient, nil
 		},
 		resData: config.Resource{
-			AuthToken:        testAuthToken,
+			TokenSource:      testTokenSource(),
 			ProviderVersion:  testProviderVer,
 			TerraformVersion: testTerraformVer,
 		},

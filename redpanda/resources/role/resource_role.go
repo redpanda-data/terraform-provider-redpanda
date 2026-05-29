@@ -31,6 +31,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	rolemodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/role"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"golang.org/x/oauth2"
 )
 
 var (
@@ -41,7 +42,7 @@ var (
 
 // SecurityServiceClientFactory is a function type for creating security service clients.
 // This allows dependency injection for testing.
-type SecurityServiceClientFactory func(ctx context.Context, clusterURL, authToken, providerVersion, terraformVersion string) (consolev1alpha1grpc.SecurityServiceClient, error)
+type SecurityServiceClientFactory func(ctx context.Context, clusterURL string, ts oauth2.TokenSource, providerVersion, terraformVersion string) (consolev1alpha1grpc.SecurityServiceClient, error)
 
 // Role represents the Role Terraform resource.
 type Role struct {
@@ -61,7 +62,7 @@ func NewRole() *Role {
 		func(p config.Resource) {
 			r.resData = p
 			if r.clientFactory == nil {
-				r.clientFactory = func(_ context.Context, clusterURL, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
+				r.clientFactory = func(_ context.Context, clusterURL string, _ oauth2.TokenSource, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
 					if r.resData.DataplaneConnPool == nil {
 						return nil, errors.New("provider not configured: dataplane connection pool is nil")
 					}
@@ -262,7 +263,7 @@ func (r *Role) createSecurityClient(ctx context.Context, clusterURL string) erro
 		return nil
 	}
 
-	client, err := r.clientFactory(ctx, clusterURL, r.resData.AuthToken, r.resData.ProviderVersion, r.resData.TerraformVersion)
+	client, err := r.clientFactory(ctx, clusterURL, r.resData.TokenSource, r.resData.ProviderVersion, r.resData.TerraformVersion)
 	if err != nil {
 		return err
 	}

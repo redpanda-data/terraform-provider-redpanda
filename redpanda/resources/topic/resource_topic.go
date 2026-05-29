@@ -33,6 +33,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	topicmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/topic"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"golang.org/x/oauth2"
 )
 
 var (
@@ -43,7 +44,7 @@ var (
 
 // ServiceClientFactory is a function type for creating topic service clients.
 // This allows dependency injection for testing.
-type ServiceClientFactory func(clusterURL, authToken, providerVersion, terraformVersion string) (dataplanev1grpc.TopicServiceClient, error)
+type ServiceClientFactory func(clusterURL string, ts oauth2.TokenSource, providerVersion, terraformVersion string) (dataplanev1grpc.TopicServiceClient, error)
 
 // Topic represents the Topic Terraform resource.
 type Topic struct {
@@ -407,7 +408,7 @@ func (t *Topic) createTopicClient(clusterURL string) error {
 		return nil
 	}
 	if t.clientFactory != nil {
-		client, err := t.clientFactory(clusterURL, t.resData.AuthToken, t.resData.ProviderVersion, t.resData.TerraformVersion)
+		client, err := t.clientFactory(clusterURL, t.resData.TokenSource, t.resData.ProviderVersion, t.resData.TerraformVersion)
 		if err != nil {
 			return fmt.Errorf("unable to open a connection with the cluster API: %v", utils.DeserializeGrpcError(err))
 		}

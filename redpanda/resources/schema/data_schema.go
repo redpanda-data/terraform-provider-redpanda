@@ -15,6 +15,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/kclients"
 	schemamodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/schema"
 	"github.com/twmb/franz-go/pkg/sr"
+	"golang.org/x/oauth2"
 )
 
 var (
@@ -28,7 +29,7 @@ var (
 type SchemaDataSource struct {
 	base.DataSourceBase
 	dsData        config.Datasource
-	clientFactory func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, authToken, username, password string) (SRClienter, error)
+	clientFactory func(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID string, ts oauth2.TokenSource, username, password string) (SRClienter, error)
 }
 
 // NewSchemaDataSource constructs a Schema datasource.
@@ -107,9 +108,9 @@ func DatasourceSchemaSchema(_ context.Context) schema.Schema {
 // getClient returns an SR client using the factory when set, else the default implementation.
 func (d *SchemaDataSource) getClient(ctx context.Context, clusterID, username, password string) (SRClienter, error) {
 	if d.clientFactory != nil {
-		return d.clientFactory(ctx, d.CpCl, clusterID, d.dsData.AuthToken, username, password)
+		return d.clientFactory(ctx, d.CpCl, clusterID, d.dsData.TokenSource, username, password)
 	}
-	client, err := kclients.GetSchemaRegistryClientForCluster(ctx, d.CpCl, clusterID, d.dsData.AuthToken, username, password)
+	client, err := kclients.GetSchemaRegistryClientForCluster(ctx, d.CpCl, clusterID, d.dsData.TokenSource, username, password)
 	if err != nil {
 		return nil, err
 	}

@@ -31,10 +31,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+func testTokenSource() oauth2.TokenSource {
+	return oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "test-token"})
+}
 
 func TestUnit_Role_Create(t *testing.T) {
 	tests := []struct {
@@ -124,11 +129,11 @@ func TestUnit_Role_Create(t *testing.T) {
 
 			// Create role resource with mock factory
 			r := &Role{
-				clientFactory: func(_ context.Context, _, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
+				clientFactory: func(_ context.Context, _ string, _ oauth2.TokenSource, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
 					return mockClient, nil
 				},
 				resData: config.Resource{
-					AuthToken:        "test-token",
+					TokenSource:      testTokenSource(),
 					ProviderVersion:  "1.0.0",
 					TerraformVersion: "1.5.0",
 				},
@@ -322,7 +327,7 @@ func TestUnit_Role_Read(t *testing.T) {
 
 			// Create role resource with mock factory
 			r := &Role{
-				clientFactory: func(_ context.Context, clusterURL, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
+				clientFactory: func(_ context.Context, clusterURL string, _ oauth2.TokenSource, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
 					// Simulate real behavior: empty clusterURL should error
 					if clusterURL == "" {
 						return nil, errors.New("unable to create client with empty target cluster API URL")
@@ -330,7 +335,7 @@ func TestUnit_Role_Read(t *testing.T) {
 					return mockClient, nil
 				},
 				resData: config.Resource{
-					AuthToken:        "test-token",
+					TokenSource:      testTokenSource(),
 					ProviderVersion:  "1.0.0",
 					TerraformVersion: "1.5.0",
 				},
@@ -454,11 +459,11 @@ func TestUnit_Role_Update(t *testing.T) {
 			// If any API calls are made, the test will fail
 
 			r := &Role{
-				clientFactory: func(_ context.Context, _, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
+				clientFactory: func(_ context.Context, _ string, _ oauth2.TokenSource, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
 					return mockClient, nil
 				},
 				resData: config.Resource{
-					AuthToken:        "test-token",
+					TokenSource:      testTokenSource(),
 					ProviderVersion:  "1.0.0",
 					TerraformVersion: "1.5.0",
 				},
@@ -610,11 +615,11 @@ func TestUnit_Role_Delete(t *testing.T) {
 			tt.mockSetup(mockClient)
 
 			r := &Role{
-				clientFactory: func(_ context.Context, _, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
+				clientFactory: func(_ context.Context, _ string, _ oauth2.TokenSource, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
 					return mockClient, nil
 				},
 				resData: config.Resource{
-					AuthToken:        "test-token",
+					TokenSource:      testTokenSource(),
 					ProviderVersion:  "1.0.0",
 					TerraformVersion: "1.5.0",
 				},
@@ -791,11 +796,11 @@ func TestUnit_Role_CreateAndRead(t *testing.T) {
 				Return(&consolev1alpha1.GetRoleResponse{}, nil)
 
 			r := &Role{
-				clientFactory: func(_ context.Context, _, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
+				clientFactory: func(_ context.Context, _ string, _ oauth2.TokenSource, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
 					return mockClient, nil
 				},
 				resData: config.Resource{
-					AuthToken:        "test-token",
+					TokenSource:      testTokenSource(),
 					ProviderVersion:  "1.0.0",
 					TerraformVersion: "1.5.0",
 				},
@@ -910,11 +915,11 @@ func TestUnit_Role_CreateReadDelete(t *testing.T) {
 			}
 
 			r := &Role{
-				clientFactory: func(_ context.Context, _, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
+				clientFactory: func(_ context.Context, _ string, _ oauth2.TokenSource, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
 					return mockClient, nil
 				},
 				resData: config.Resource{
-					AuthToken:        "test-token",
+					TokenSource:      testTokenSource(),
 					ProviderVersion:  "1.0.0",
 					TerraformVersion: "1.5.0",
 				},
@@ -1007,11 +1012,11 @@ func TestUnit_Role_CreateReadUpdate(t *testing.T) {
 				Return(&consolev1alpha1.GetRoleResponse{}, nil).Times(2)
 
 			r := &Role{
-				clientFactory: func(_ context.Context, _, _, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
+				clientFactory: func(_ context.Context, _ string, _ oauth2.TokenSource, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
 					return mockClient, nil
 				},
 				resData: config.Resource{
-					AuthToken:        "test-token",
+					TokenSource:      testTokenSource(),
 					ProviderVersion:  "1.0.0",
 					TerraformVersion: "1.5.0",
 				},

@@ -34,6 +34,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	pipelinemodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/pipeline"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"golang.org/x/oauth2"
 )
 
 var (
@@ -48,7 +49,7 @@ var (
 const DefaultPipelineOperationTimeout = 2 * time.Minute
 
 // ClientFactory creates a PipelineServiceClient for the given cluster URL
-type ClientFactory func(clusterURL, authToken, providerVersion, terraformVersion string) (dataplanev1grpc.PipelineServiceClient, error)
+type ClientFactory func(clusterURL string, ts oauth2.TokenSource, providerVersion, terraformVersion string) (dataplanev1grpc.PipelineServiceClient, error)
 
 // Pipeline represents a pipeline managed resource
 type Pipeline struct {
@@ -519,7 +520,7 @@ func (p *Pipeline) createPipelineClient(clusterURL string) error {
 	}
 
 	if p.clientFactory != nil {
-		client, err := p.clientFactory(clusterURL, p.resData.AuthToken, p.resData.ProviderVersion, p.resData.TerraformVersion)
+		client, err := p.clientFactory(clusterURL, p.resData.TokenSource, p.resData.ProviderVersion, p.resData.TerraformVersion)
 		if err != nil {
 			return err
 		}

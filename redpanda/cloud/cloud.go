@@ -20,19 +20,15 @@ package cloud
 import (
 	"context"
 	"crypto/tls"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"regexp"
 	"runtime"
-	"strings"
 	"time"
 
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpcretry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/codes"
@@ -50,6 +46,12 @@ type Endpoint struct {
 	authURL        string // CloudV2 URL for authorization token exchange.
 	audience       string // CloudV2 audience used for token exchange.
 }
+
+// AuthURL returns the CloudV2 token exchange URL for the endpoint.
+func (e *Endpoint) AuthURL() string { return e.authURL }
+
+// Audience returns the CloudV2 audience used for token exchange.
+func (e *Endpoint) Audience() string { return e.audience }
 
 var endpoints = map[string]Endpoint{
 	"dev": {
@@ -78,13 +80,6 @@ var endpoints = map[string]Endpoint{
 	},
 }
 
-type tokenResponse struct {
-	AccessToken string `json:"access_token"`
-	Scope       string `json:"scope"`
-	ExpiresIn   int    `json:"expires_in"`
-	TokenType   string `json:"token_type"`
-}
-
 // EndpointForEnv returns the Endpoint for a given environment.
 func EndpointForEnv(cloudEnv string) (*Endpoint, error) {
 	endpoint, found := endpoints[cloudEnv]
@@ -92,44 +87,6 @@ func EndpointForEnv(cloudEnv string) (*Endpoint, error) {
 		return nil, fmt.Errorf("unable to find requested environment: %q", cloudEnv)
 	}
 	return &endpoint, nil
-}
-
-// RequestToken requests an authentication token for a given Endpoint.
-func RequestToken(ctx context.Context, endpoint *Endpoint, clientID, clientSecret string) (string, error) {
-	if clientID == "" {
-		return "", errors.New("client_id is not set")
-	}
-	if clientSecret == "" {
-		return "", errors.New("client_secret is not set")
-	}
-	payload := fmt.Sprintf("grant_type=client_credentials&client_id=%s&client_secret=%s&audience=%s", clientID, clientSecret, endpoint.audience)
-	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.authURL, strings.NewReader(payload))
-	if err != nil {
-		return "", fmt.Errorf("unable to issue request to %v: %v", endpoint.authURL, err)
-	}
-	req.Header.Add("content-type", "application/x-www-form-urlencoded")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("request to %v failed: %v", endpoint.authURL, err)
-	}
-	if resp.StatusCode/100 != 2 {
-		resBody, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return "", fmt.Errorf("request to %v failed: unable to read body", endpoint.authURL)
-		}
-		return "", fmt.Errorf("request to %v failed: %v %v: %s", endpoint.authURL, resp.StatusCode, http.StatusText(resp.StatusCode), resBody)
-	}
-
-	defer resp.Body.Close()
-
-	tokenContainer := tokenResponse{}
-	if err := json.NewDecoder(resp.Body).Decode(&tokenContainer); err != nil {
-		return "", fmt.Errorf("error decoding token response: %v", err)
-	}
-	if tokenContainer.AccessToken == "" {
-		return "", fmt.Errorf("no access token found in response: %v", tokenContainer)
-	}
-	return tokenContainer.AccessToken, nil
 }
 
 var rl = newRateLimiter(500)
@@ -163,25 +120,26 @@ type SpawnConnOpts struct {
 	InsecureCreds bool
 }
 
-// SpawnConn returns a gRPC connection to the given URL with a bearer token
-// added to each request using the given authToken.
-func SpawnConn(url, authToken, providerVersion, terraformVersion string) (*grpc.ClientConn, error) {
-	return SpawnConnWithConcurrency(url, authToken, providerVersion, terraformVersion, DefaultMaxConcurrentRPCs)
+// SpawnConn returns a gRPC connection to the given URL. Each outgoing RPC is
+// stamped with a Bearer token sourced from ts, fetched lazily so token refresh
+// flows through the same TokenSource on every call.
+func SpawnConn(url string, ts oauth2.TokenSource, providerVersion, terraformVersion string) (*grpc.ClientConn, error) {
+	return SpawnConnWithConcurrency(url, ts, providerVersion, terraformVersion, DefaultMaxConcurrentRPCs)
 }
 
 // SpawnConnWithConcurrency creates a new gRPC connection with a per-connection
 // concurrency limit on in-flight RPCs.
-func SpawnConnWithConcurrency(url, authToken, providerVersion, terraformVersion string, maxConcurrent int) (*grpc.ClientConn, error) {
-	return spawnConnInternal(url, authToken, providerVersion, terraformVersion, maxConcurrent, SpawnConnOpts{})
+func SpawnConnWithConcurrency(url string, ts oauth2.TokenSource, providerVersion, terraformVersion string, maxConcurrent int) (*grpc.ClientConn, error) {
+	return spawnConnInternal(url, ts, providerVersion, terraformVersion, maxConcurrent, SpawnConnOpts{})
 }
 
 // SpawnConnWithOpts is SpawnConn plus integration hooks. Production code
 // calls SpawnConn; tests inject a bufconn dialer via opts.
-func SpawnConnWithOpts(url, authToken, providerVersion, terraformVersion string, opts SpawnConnOpts) (*grpc.ClientConn, error) {
-	return spawnConnInternal(url, authToken, providerVersion, terraformVersion, DefaultMaxConcurrentRPCs, opts)
+func SpawnConnWithOpts(url string, ts oauth2.TokenSource, providerVersion, terraformVersion string, opts SpawnConnOpts) (*grpc.ClientConn, error) {
+	return spawnConnInternal(url, ts, providerVersion, terraformVersion, DefaultMaxConcurrentRPCs, opts)
 }
 
-func spawnConnInternal(url, authToken, providerVersion, terraformVersion string, maxConcurrent int, opts SpawnConnOpts) (*grpc.ClientConn, error) {
+func spawnConnInternal(url string, ts oauth2.TokenSource, providerVersion, terraformVersion string, maxConcurrent int, opts SpawnConnOpts) (*grpc.ClientConn, error) {
 	// we need a GRPC URL, but it's likely that we'll be given an HTTPS URL instead
 	grpcURL, err := parseHTTPSURLAsGrpc(url)
 	if err != nil {
@@ -215,14 +173,19 @@ func spawnConnInternal(url, authToken, providerVersion, terraformVersion string,
 					return ctx.Err()
 				}
 			},
-			// Interceptor to add the Bearer token
+			// Interceptor to add the Bearer token, fetched per RPC so the
+			// underlying TokenSource can refresh transparently.
 			func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-				return invoker(metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", authToken)), method, req, reply, cc, opts...)
+				tok, err := ts.Token()
+				if err != nil {
+					return fmt.Errorf("acquire bearer token: %w", err)
+				}
+				return invoker(metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+tok.AccessToken), method, req, reply, cc, opts...)
 			},
 			func(ctx context.Context, method string, req any, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 				start := time.Now()
 				err := invoker(ctx, method, req, reply, cc, opts...)
-				tflog.Debug(ctx, "Redpanda API call", map[string]any{
+				tflog.Trace(ctx, "Redpanda API call", map[string]any{
 					"method":   method,
 					"duration": time.Since(start),
 					"error":    err,

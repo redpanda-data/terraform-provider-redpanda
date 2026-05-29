@@ -31,6 +31,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"golang.org/x/oauth2"
 )
 
 // setConfig populates a tfsdk.Config using a temporary State (since Config has no Set method).
@@ -278,7 +279,7 @@ func TestUnit_SchemaRegistryACL_Create(t *testing.T) {
 				Return(tt.mockResponse, nil)
 
 			sr := &SchemaRegistryACL{
-				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (kclients.SchemaRegistryACLClientInterface, error) {
+				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _ string, _ oauth2.TokenSource, _, _ string) (kclients.SchemaRegistryACLClientInterface, error) {
 					return mockClient, nil
 				},
 			}
@@ -486,7 +487,7 @@ func TestUnit_SchemaRegistryACL_Read(t *testing.T) {
 			}
 
 			sr := &SchemaRegistryACL{
-				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (kclients.SchemaRegistryACLClientInterface, error) {
+				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _ string, _ oauth2.TokenSource, _, _ string) (kclients.SchemaRegistryACLClientInterface, error) {
 					return mockClient, nil
 				},
 			}
@@ -936,7 +937,7 @@ func TestUnit_SchemaRegistryACL_Delete(t *testing.T) {
 			}
 
 			sr := &SchemaRegistryACL{
-				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _, _, _, _ string) (kclients.SchemaRegistryACLClientInterface, error) {
+				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _ string, _ oauth2.TokenSource, _, _ string) (kclients.SchemaRegistryACLClientInterface, error) {
 					return mockClient, nil
 				},
 			}

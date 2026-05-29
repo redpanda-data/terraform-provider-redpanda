@@ -14,6 +14,26 @@ The Redpanda provider is designed for managing Redpanda clusters and Kafka resou
 
 This provider requires a `client_id` and `client_secret` for authentication with Redpanda Cloud services, enabling users to securely manage their Redpanda resources. You can get these by creating an account in [Redpanda Cloud](https://cloudv2.redpanda.com/home) and then [creating a client in the Redpanda Cloud UI](https://cloudv2.redpanda.com/clients).
 
+### Token cache
+
+The provider caches the OAuth2 access token to disk so that subsequent
+`terraform` invocations reuse it until expiry, instead of issuing a fresh
+token on every plan or apply. This keeps usage well under the per-organization
+daily token-issuance quota.
+
+- **Location:** `<user-cache-dir>/redpanda/provider/creds-cache.json`. The
+  user cache directory is `~/Library/Caches` on macOS, `$XDG_CACHE_HOME`
+  (falling back to `~/.cache`) on Linux, and `%LocalAppData%` on Windows.
+- **Permissions:** the file is written with mode `0600`; the
+  `redpanda/provider/` directory is created with mode `0755`.
+- **Cache key:** tokens are keyed by `<audience>:<client_id>`, so different
+  Redpanda environments and clients each get their own entry.
+- **Disable:** set `REDPANDA_TOKEN_CACHE_DISABLE=1` to skip the on-disk
+  cache; a fresh token is fetched per provider invocation.
+- **Clear:** delete the file (`rm <user-cache-dir>/redpanda/provider/creds-cache.json`).
+  Useful if a server-side secret rotation invalidates the cached token before
+  its local expiry.
+
 ## Example Provider Configuration
 
 Terraform 1.0 or later:

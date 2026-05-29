@@ -19,6 +19,7 @@ import (
 	"errors"
 	"sync"
 
+	"golang.org/x/oauth2"
 	"golang.org/x/sync/singleflight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -34,21 +35,21 @@ import (
 // network calls. This ensures that a slow dial to one cluster does not block
 // connections to other clusters.
 type ConnPool struct {
-	authToken        string
+	ts               oauth2.TokenSource
 	providerVersion  string
 	terraformVersion string
 
 	mu        sync.Mutex
 	conns     map[string]*grpc.ClientConn
 	sf        singleflight.Group
-	spawnFunc func(url, authToken, providerVersion, terraformVersion string) (*grpc.ClientConn, error)
+	spawnFunc func(url string, ts oauth2.TokenSource, providerVersion, terraformVersion string) (*grpc.ClientConn, error)
 }
 
 // NewConnPool creates a new connection pool with the given authentication and
 // version parameters.
-func NewConnPool(authToken, providerVersion, terraformVersion string) *ConnPool {
+func NewConnPool(ts oauth2.TokenSource, providerVersion, terraformVersion string) *ConnPool {
 	return &ConnPool{
-		authToken:        authToken,
+		ts:               ts,
 		providerVersion:  providerVersion,
 		terraformVersion: terraformVersion,
 		conns:            make(map[string]*grpc.ClientConn),
@@ -59,14 +60,14 @@ func NewConnPool(authToken, providerVersion, terraformVersion string) *ConnPool 
 // NewConnPoolWithOpts is NewConnPool plus integration hooks. The supplied
 // opts are threaded into every spawn so dataplane dials route through the
 // same bufconn dialer as the controlplane.
-func NewConnPoolWithOpts(authToken, providerVersion, terraformVersion string, opts SpawnConnOpts) *ConnPool {
+func NewConnPoolWithOpts(ts oauth2.TokenSource, providerVersion, terraformVersion string, opts SpawnConnOpts) *ConnPool {
 	return &ConnPool{
-		authToken:        authToken,
+		ts:               ts,
 		providerVersion:  providerVersion,
 		terraformVersion: terraformVersion,
 		conns:            make(map[string]*grpc.ClientConn),
-		spawnFunc: func(url, authToken, providerVersion, terraformVersion string) (*grpc.ClientConn, error) {
-			return SpawnConnWithOpts(url, authToken, providerVersion, terraformVersion, opts)
+		spawnFunc: func(url string, ts oauth2.TokenSource, providerVersion, terraformVersion string) (*grpc.ClientConn, error) {
+			return SpawnConnWithOpts(url, ts, providerVersion, terraformVersion, opts)
 		},
 	}
 }
@@ -108,7 +109,7 @@ func (p *ConnPool) GetConnection(url string) (*grpc.ClientConn, error) {
 		}
 		p.mu.Unlock()
 
-		conn, err := p.spawnFunc(url, p.authToken, p.providerVersion, p.terraformVersion)
+		conn, err := p.spawnFunc(url, p.ts, p.providerVersion, p.terraformVersion)
 		if err != nil {
 			return nil, err
 		}

@@ -33,6 +33,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud/auth"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/acl"
@@ -57,6 +58,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/user"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
+	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 )
 
@@ -232,7 +234,7 @@ type credentials struct {
 	ClientSecret   string
 	EndpointAPIURL string
 	InternalAPIURL string
-	Token          string
+	TokenSource    oauth2.TokenSource
 }
 
 // getCredentials reads authentication configuration from multiple sources and returns an access token for Redpanda Cloud
@@ -268,27 +270,31 @@ func getCredentials(ctx context.Context, cloudEnv string, conf models.Redpanda) 
 
 	// Check provider configuration
 	if !conf.ClientID.IsNull() || !conf.ClientSecret.IsNull() || !conf.AccessToken.IsNull() {
-		tflog.Info(ctx, "using authentication configuration found in provider configuration")
+		tflog.Debug(ctx, "using authentication configuration found in provider configuration")
 		// client_id, client_secret, and token are validated in the schema to make sure a valid
 		// combination is always provided. the validators have better error messages than checking
 		// here would, as they can point directly to the attribute in the user's HCL code.
 		creds.ClientID = conf.ClientID.ValueString()
 		creds.ClientSecret = conf.ClientSecret.ValueString()
-		creds.Token = conf.AccessToken.ValueString()
+		staticToken := conf.AccessToken.ValueString()
 
-		if creds.Token == "" {
-			creds.Token, err = cloud.RequestToken(ctx, endpoint, creds.ClientID, creds.ClientSecret)
-			if err != nil {
-				diags.AddError("failed to authenticate with Redpanda API", utils.DeserializeGrpcError(err))
-			}
+		if staticToken != "" {
+			creds.TokenSource = auth.BuildStaticTokenSource(staticToken)
+			return creds, diags
 		}
+		ts, err := auth.BuildTokenSource(ctx, endpoint.AuthURL(), endpoint.Audience(), creds.ClientID, creds.ClientSecret)
+		if err != nil {
+			diags.AddError("failed to build token source for Redpanda API", utils.DeserializeGrpcError(err))
+			return creds, diags
+		}
+		creds.TokenSource = ts
 		return creds, diags
 	}
 
 	// Check environment variable configuration
 	id, sec, token := os.Getenv(ClientIDEnv), os.Getenv(ClientSecretEnv), os.Getenv(AccessTokenEnv)
 	if id != "" || sec != "" || token != "" {
-		tflog.Info(ctx, "using authentication configuration found in environment variables")
+		tflog.Debug(ctx, "using authentication configuration found in environment variables")
 		if id != "" && sec == "" && token == "" {
 			diags.AddError("Client Secret or Token missing",
 				fmt.Sprintf("One of the environment variables %v or %v must be set when %v is also set", ClientSecretEnv, AccessTokenEnv, ClientIDEnv))
@@ -302,12 +308,16 @@ func getCredentials(ctx context.Context, cloudEnv string, conf models.Redpanda) 
 
 		creds.ClientID = id
 		creds.ClientSecret = sec
-		if creds.Token == "" {
-			creds.Token, err = cloud.RequestToken(ctx, endpoint, creds.ClientID, creds.ClientSecret)
-			if err != nil {
-				diags.AddError("failed to authenticate with Redpanda API", utils.DeserializeGrpcError(err))
-			}
+		if token != "" {
+			creds.TokenSource = auth.BuildStaticTokenSource(token)
+			return creds, diags
 		}
+		ts, err := auth.BuildTokenSource(ctx, endpoint.AuthURL(), endpoint.Audience(), creds.ClientID, creds.ClientSecret)
+		if err != nil {
+			diags.AddError("failed to build token source for Redpanda API", utils.DeserializeGrpcError(err))
+			return creds, diags
+		}
+		creds.TokenSource = ts
 		return creds, diags
 	}
 
@@ -354,7 +364,7 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		creds = credentials{
 			EndpointAPIURL: endpoint.APIURL,
 			InternalAPIURL: endpoint.InternalAPIURL,
-			Token:          "mock-token",
+			TokenSource:    auth.BuildStaticTokenSource("mock-token"),
 		}
 	} else {
 		c, diags := getCredentials(ctx, r.cloudEnv, conf)
@@ -365,7 +375,7 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		creds = c
 	}
 	if r.conn == nil {
-		conn, err := cloud.SpawnConnWithOpts(creds.EndpointAPIURL, creds.Token, r.version, request.TerraformVersion, cloud.SpawnConnOpts{
+		conn, err := cloud.SpawnConnWithOpts(creds.EndpointAPIURL, creds.TokenSource, r.version, request.TerraformVersion, cloud.SpawnConnOpts{
 			ExtraDialOptions: r.dialOptions,
 			InsecureCreds:    r.insecureDial,
 		})
@@ -436,7 +446,7 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	)
 	if r.byoc == nil {
 		r.byoc = utils.NewByocClient(utils.ByocClientConfig{
-			AuthToken:           creds.Token,
+			TokenSource:         creds.TokenSource,
 			PublicAPIURL:        creds.EndpointAPIURL,
 			InternalAPIURL:      creds.InternalAPIURL,
 			GcpProject:          gcpProjectID,
@@ -453,16 +463,16 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 
 	if r.dataplanePool == nil {
 		if len(r.dialOptions) > 0 || r.insecureDial {
-			r.dataplanePool = cloud.NewConnPoolWithOpts(creds.Token, r.version, request.TerraformVersion, cloud.SpawnConnOpts{
+			r.dataplanePool = cloud.NewConnPoolWithOpts(creds.TokenSource, r.version, request.TerraformVersion, cloud.SpawnConnOpts{
 				ExtraDialOptions: r.dialOptions,
 				InsecureCreds:    r.insecureDial,
 			})
 		} else {
-			r.dataplanePool = cloud.NewConnPool(creds.Token, r.version, request.TerraformVersion)
+			r.dataplanePool = cloud.NewConnPool(creds.TokenSource, r.version, request.TerraformVersion)
 		}
 	}
 	response.ResourceData = config.Resource{
-		AuthToken:              creds.Token,
+		TokenSource:            creds.TokenSource,
 		ByocClient:             r.byoc,
 		ControlPlaneConnection: r.conn,
 		DataplaneConnPool:      r.dataplanePool,
@@ -470,7 +480,7 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		ProviderVersion:        r.version,
 	}
 	response.DataSourceData = config.Datasource{
-		AuthToken:              creds.Token,
+		TokenSource:            creds.TokenSource,
 		ControlPlaneConnection: r.conn,
 		DataplaneConnPool:      r.dataplanePool,
 		TerraformVersion:       request.TerraformVersion,

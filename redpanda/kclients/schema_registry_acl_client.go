@@ -21,6 +21,7 @@ import (
 
 	"github.com/redpanda-data/common-go/rpsr"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
+	"golang.org/x/oauth2"
 )
 
 // SchemaRegistryACLClientInterface defines the interface for Schema Registry ACL operations
@@ -70,9 +71,10 @@ type SchemaRegistryACLFilter struct {
 
 // NewSchemaRegistryACLClient creates a new Schema Registry ACL client using
 // common-go rpsr. See GetSchemaRegistryClientForCluster for auth-precedence
-// rules between authToken (Bearer) and username+password (Basic).
-func NewSchemaRegistryACLClient(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, authToken, username, password string) (*SchemaRegistryACLClient, error) {
-	srClient, err := GetSchemaRegistryClientForCluster(ctx, cpCl, clusterID, authToken, username, password)
+// rules between the cloud Bearer (sourced from ts per request) and
+// username+password (Basic).
+func NewSchemaRegistryACLClient(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID string, ts oauth2.TokenSource, username, password string) (*SchemaRegistryACLClient, error) {
+	srClient, err := GetSchemaRegistryClientForCluster(ctx, cpCl, clusterID, ts, username, password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Schema Registry client: %w", err)
 	}
