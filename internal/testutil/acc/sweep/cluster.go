@@ -64,5 +64,5 @@ func (s Cluster) SweepServerlessCluster(_ string) error {
 	if err != nil {
 		return err
 	}
-	return utils.AreWeDoneYet(ctx, op.Operation, 1*time.Minute, s.Client.Operation)
+	return utils.AreWeDoneYet(ctx, op.Operation, 15*time.Minute, s.Client.Operation)
 }

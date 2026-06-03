@@ -22,15 +22,17 @@ import (
 )
 
 // ResourceKind controls cleanup ordering. Lower values are cleaned up first
-// (reverse-dependency order: shadow_links → serverless_private_links →
-// clusters → networks → resource_groups).
+// (reverse-dependency order: shadow_links → clusters → serverless_private_links
+// → networks → resource_groups). A serverless cluster references its private
+// link, so the cluster must be deleted before the link — the backend rejects
+// deleting a private link still associated with a cluster.
 type ResourceKind int
 
 // Resource kinds, ordered for reverse-dependency cleanup.
 const (
 	KindShadowLink            ResourceKind = 0
-	KindServerlessPrivateLink ResourceKind = 1
-	KindCluster               ResourceKind = 2
+	KindCluster               ResourceKind = 1
+	KindServerlessPrivateLink ResourceKind = 2
 	KindNetwork               ResourceKind = 3
 	KindResourceGroup         ResourceKind = 4
 )
@@ -79,8 +81,8 @@ func (reg *Registry) Cleanup(ctx context.Context) {
 	}
 	for _, kind := range []ResourceKind{
 		KindShadowLink,
-		KindServerlessPrivateLink,
 		KindCluster,
+		KindServerlessPrivateLink,
 		KindNetwork,
 		KindResourceGroup,
 	} {
