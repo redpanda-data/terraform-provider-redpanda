@@ -145,30 +145,38 @@ func (s *ServerlessPrivateLink) Update(ctx context.Context, req resource.UpdateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	var state splmodel.ResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	tflog.Info(ctx, "updating serverless private link", map[string]any{"id": plan.ID.ValueString()})
 
-	updateReq, expandDiags := splmodel.ExpandUpdate(ctx, &plan)
+	updateReq, mask, expandDiags := splmodel.ExpandUpdateWithMask(ctx, &plan, &state)
 	resp.Diagnostics.Append(expandDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	plResp, err := s.CpCl.ServerlessPrivateLink.UpdateServerlessPrivateLink(ctx, updateReq)
-	if err != nil {
-		resp.Diagnostics.AddError("failed to update serverless private link", utils.DeserializeGrpcError(err))
-		return
-	}
-
-	op := plResp.Operation
-	updateTimeout, tdiags := plan.Timeouts.Update(ctx, 30*time.Minute)
-	resp.Diagnostics.Append(tdiags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	if err := utils.AreWeDoneYet(ctx, op, updateTimeout, s.CpCl.Operation); err != nil {
-		resp.Diagnostics.AddError("operation error while updating serverless private link", utils.DeserializeGrpcError(err))
-		return
+	// The update request carries no FieldMask; an empty mask means no
+	// backend-relevant field changed (e.g. an allow_deletion-only flip), so
+	// skip the RPC and just re-read to settle computed state.
+	if len(mask.Paths) != 0 {
+		plResp, err := s.CpCl.ServerlessPrivateLink.UpdateServerlessPrivateLink(ctx, updateReq)
+		if err != nil {
+			resp.Diagnostics.AddError("failed to update serverless private link", utils.DeserializeGrpcError(err))
+			return
+		}
+		updateTimeout, tdiags := plan.Timeouts.Update(ctx, 30*time.Minute)
+		resp.Diagnostics.Append(tdiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		if err := utils.AreWeDoneYet(ctx, plResp.Operation, updateTimeout, s.CpCl.Operation); err != nil {
+			resp.Diagnostics.AddError("operation error while updating serverless private link", utils.DeserializeGrpcError(err))
+			return
+		}
 	}
 
 	privateLink, err := s.CpCl.ServerlessPrivateLinkForID(ctx, plan.ID.ValueString())
@@ -180,12 +188,12 @@ func (s *ServerlessPrivateLink) Update(ctx context.Context, req resource.UpdateR
 	}
 
 	tflog.Info(ctx, "serverless private link updated", map[string]any{"id": plan.ID.ValueString()})
-	state, flatDiags := splmodel.Flatten(ctx, privateLink, &plan)
+	newState, flatDiags := splmodel.Flatten(ctx, privateLink, &plan)
 	resp.Diagnostics.Append(flatDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, newState)...)
 }
 
 // Delete deletes the ServerlessPrivateLink resource.

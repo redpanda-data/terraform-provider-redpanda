@@ -120,18 +120,11 @@ func (s *ServiceAccount) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	planPayload, eDiags := serviceaccountmodel.ExpandUpdate(ctx, &plan)
+	payload, mask, eDiags := serviceaccountmodel.ExpandUpdateWithMask(ctx, &plan, &state)
 	resp.Diagnostics.Append(eDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	statePayload, eDiags := serviceaccountmodel.ExpandUpdate(ctx, &state)
-	resp.Diagnostics.Append(eDiags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	payload, mask := utils.PlanPayloadWithUpdateMask(planPayload, statePayload)
 	updateReq := &iamv1.UpdateServiceAccountRequest{
 		Id:             plan.ID.ValueString(),
 		ServiceAccount: payload,

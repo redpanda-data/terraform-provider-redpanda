@@ -8,6 +8,14 @@ timeouts: [create, update, delete]
 # variant) are top-level. The generator emits SetAwsConfig(...) for the
 # oneof variant; per-RPC divergence routes through ExpandUpdateAwsConfig.
 
+api:
+  update:
+    # full: the request has no FieldMask field (aws_config is a full-replacement
+    # oneof variant). ExpandUpdateWithMask returns the whole plan request; the
+    # resource reads the mask only to skip the RPC when nothing changed (e.g. a
+    # provider-only allow_deletion flip).
+    diff_mask: full
+
 name:
   required: true
   description: "Name of the serverless private link"

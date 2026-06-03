@@ -30,6 +30,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/provider"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/integration"
@@ -206,6 +207,27 @@ resource "redpanda_serverless_cluster" "test" {
   serverless_region = %q
 %s}
 `, name, region, plinkLine)
+}
+
+// scAllowDeletionConfig builds the minimal serverless_cluster HCL with
+// allow_deletion set to the given value and no other optional fields. Used by
+// the AllowDeletionFlip no-op scenario, where the only field changing between
+// steps is allow_deletion (a provider-only attribute absent from the proto).
+func scAllowDeletionConfig(name string, allowDeletion bool) string {
+	return fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-sc-rg"
+}
+
+resource "redpanda_serverless_cluster" "test" {
+  allow_deletion    = %t
+  name              = %q
+  resource_group_id = redpanda_resource_group.test.id
+  serverless_region = "pro-us-east-1"
+}
+`, allowDeletion, name)
 }
 
 // scRRRGConfig declares two resource_groups and binds the serverless_cluster
@@ -399,6 +421,52 @@ func TestIntegration_ServerlessCluster_UpdateLeaf_Tags(t *testing.T) {
 				statecheck.ExpectKnownValue(scAddr, tfjsonpath.New("dataplane_api").AtMapKey("url"), knownvalue.StringExact("bufnet")),
 				idUnchanged.AddStateValue(scAddr, tfjsonpath.New("id")),
 			}),
+		},
+	})
+}
+
+// TestIntegration_ServerlessCluster_UpdateLeaf_AllowDeletionFlip_NoBackendCall
+// flips allow_deletion — a provider-only attribute absent from the proto update
+// request — with every backend-relevant field unchanged. The plan is a
+// Terraform-level Update, but the provider must short-circuit: no
+// UpdateServerlessCluster RPC should fire, because nothing the backend tracks
+// changed. CallCount == 0 is the load-bearing assertion.
+func TestIntegration_ServerlessCluster_UpdateLeaf_AllowDeletionFlip_NoBackendCall(t *testing.T) {
+	srv, factories := integration.Setup(t)
+
+	const name = "tfrp-mock-sc-ul-allowdel"
+
+	idUnchanged := statecheck.CompareValue(compare.ValuesSame())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(scAddr, scAllowDeletionConfig(name, false), []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(scAddr, tfjsonpath.New("allow_deletion"), knownvalue.Bool(false)),
+				statecheck.ExpectKnownValue(scAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idUnchanged.AddStateValue(scAddr, tfjsonpath.New("id")),
+			}),
+			{
+				Config: scAllowDeletionConfig(name, true),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(scAddr, plancheck.ResourceActionUpdate),
+					},
+					PostApplyPostRefresh: []plancheck.PlanCheck{
+						plancheck.ExpectEmptyPlan(),
+					},
+				},
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(scAddr, tfjsonpath.New("allow_deletion"), knownvalue.Bool(true)),
+					idUnchanged.AddStateValue(scAddr, tfjsonpath.New("id")),
+				},
+				Check: func(*terraform.State) error {
+					if n := srv.CallCount(controlplanev1grpc.ServerlessClusterService_UpdateServerlessCluster_FullMethodName); n != 0 {
+						return fmt.Errorf("allow_deletion-only flip called UpdateServerlessCluster %d time(s); want 0 (no-op short-circuit)", n)
+					}
+					return nil
+				},
+			},
 		},
 	})
 }

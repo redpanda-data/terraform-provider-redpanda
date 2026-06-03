@@ -135,30 +135,40 @@ func (c *ServerlessCluster) Update(ctx context.Context, req resource.UpdateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	var state serverlessclustermodel.ResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	tflog.Info(ctx, "updating serverless cluster", map[string]any{"cluster_id": plan.ID.ValueString()})
 
-	updateReq, expandDiags := serverlessclustermodel.ExpandUpdate(ctx, &plan)
+	updateReq, mask, expandDiags := serverlessclustermodel.ExpandUpdateWithMask(ctx, &plan, &state)
 	resp.Diagnostics.Append(expandDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	clResp, err := c.CpCl.ServerlessCluster.UpdateServerlessCluster(ctx, updateReq)
-	if err != nil {
-		resp.Diagnostics.AddError("failed to update serverless cluster", utils.DeserializeGrpcError(err))
-		return
+	// The update request carries no FieldMask; an empty mask means no
+	// backend-relevant field changed (e.g. an allow_deletion-only flip), so
+	// skip the RPC and just re-read to settle computed state.
+	if len(mask.Paths) != 0 {
+		clResp, err := c.CpCl.ServerlessCluster.UpdateServerlessCluster(ctx, updateReq)
+		if err != nil {
+			resp.Diagnostics.AddError("failed to update serverless cluster", utils.DeserializeGrpcError(err))
+			return
+		}
+		updateTimeout, tdiags := plan.Timeouts.Update(ctx, 30*time.Minute)
+		resp.Diagnostics.Append(tdiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		if err := utils.AreWeDoneYet(ctx, clResp.Operation, updateTimeout, c.CpCl.Operation); err != nil {
+			resp.Diagnostics.AddError("operation error while updating serverless cluster", utils.DeserializeGrpcError(err))
+			return
+		}
 	}
-	op := clResp.Operation
-	updateTimeout, tdiags := plan.Timeouts.Update(ctx, 30*time.Minute)
-	resp.Diagnostics.Append(tdiags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	if err := utils.AreWeDoneYet(ctx, op, updateTimeout, c.CpCl.Operation); err != nil {
-		resp.Diagnostics.AddError("operation error while updating serverless cluster", utils.DeserializeGrpcError(err))
-		return
-	}
+
 	cluster, err := c.CpCl.ServerlessClusterForID(ctx, plan.ID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -167,12 +177,12 @@ func (c *ServerlessCluster) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 	tflog.Info(ctx, "serverless cluster updated", map[string]any{"cluster_id": plan.ID.ValueString()})
-	state, flatDiags := serverlessclustermodel.Flatten(ctx, cluster, &plan)
+	newState, flatDiags := serverlessclustermodel.Flatten(ctx, cluster, &plan)
 	resp.Diagnostics.Append(flatDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, newState)...)
 }
 
 // Delete deletes the ServerlessCluster resource.

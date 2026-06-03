@@ -50,6 +50,7 @@ type Server struct {
 	grpc             *grpc.Server
 	mu               sync.Mutex
 	pendingOverrides map[string]error
+	callCounts       map[string]int
 
 	// ResourceGroup is the stateful fake for the ResourceGroupService RPCs.
 	// Tests may read its store or invoke OverrideOnce on its method names.
@@ -147,6 +148,7 @@ func New(t testing.TB) *Server {
 	s := &Server{
 		lis:                   bufconn.Listen(bufSize),
 		pendingOverrides:      map[string]error{},
+		callCounts:            map[string]int{},
 		ResourceGroup:         fakes.NewResourceGroupFake(),
 		ACL:                   fakes.NewACLFake(),
 		User:                  fakes.NewUserFake(),
@@ -168,6 +170,7 @@ func New(t testing.TB) *Server {
 	}
 	s.Cluster.SetSchemaRegistryURL(s.SR.BaseURL())
 	s.grpc = grpc.NewServer(grpc.ChainUnaryInterceptor(
+		s.countingInterceptor(),
 		s.overrideInterceptor(),
 		validatingInterceptor(v),
 	))

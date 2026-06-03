@@ -246,17 +246,11 @@ func (s *ShadowLink) Update(ctx context.Context, req resource.UpdateRequest, res
 	}
 	tflog.Info(ctx, "updating shadow link", map[string]any{"id": plan.ID.ValueString()})
 
-	planPayload, expandDiags := shadowlinkmodel.ExpandUpdate(ctx, &plan)
+	diffedPayload, mask, expandDiags := shadowlinkmodel.ExpandUpdateWithMask(ctx, &plan, &state)
 	resp.Diagnostics.Append(expandDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	statePayload, expandDiags := shadowlinkmodel.ExpandUpdate(ctx, &state)
-	resp.Diagnostics.Append(expandDiags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	diffedPayload, mask := utils.GenerateProtobufDiffAndUpdateMask(planPayload, statePayload)
 	diffedPayload.Id = plan.ID.ValueString()
 
 	if len(mask.Paths) > 0 {
