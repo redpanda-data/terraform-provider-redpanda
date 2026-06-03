@@ -298,6 +298,9 @@ attributes:
         - name: skip_destroy
           type: BoolAttribute
           optional: true
+          computed: true
+          plan_modifiers:
+            - boolplanmodifier.useStateForUnknownModifier
     - name: cluster_api_url
       type: StringAttribute
       computed: true
@@ -841,6 +844,9 @@ attributes:
             - name: hour_of_day
               type: Int32Attribute
               optional: true
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useStateForUnknownModifier
         - name: unspecified
           type: BoolAttribute
           computed: true

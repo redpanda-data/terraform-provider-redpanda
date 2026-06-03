@@ -238,3 +238,15 @@ variable "topic_configuration" {
   default     = null
 }
 
+variable "maintenance_day_of_week" {
+  description = "Day of the cluster maintenance window."
+  type        = string
+  default     = "MONDAY"
+}
+
+variable "maintenance_hour_of_day" {
+  description = "Hour (UTC) of the cluster maintenance window. Defaults to 0 (midnight) to exercise the zero-valued Optional+Computed leaf; mutated by acceptance tests to exercise the Update path."
+  type        = number
+  default     = 0
+}
+

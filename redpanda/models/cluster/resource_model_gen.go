@@ -374,10 +374,10 @@ type AzurePrivateLinkStatusPrivateEndpointConnectionsModel struct {
 // converters on the parent struct to move between types.Object and this
 // typed form.
 type CloudStorageModel struct {
-	SkipDestroy types.Bool   `tfsdk:"skip_destroy"`
 	AWS         types.Object `tfsdk:"aws"`
 	Azure       types.Object `tfsdk:"azure"`
 	GCP         types.Object `tfsdk:"gcp"`
+	SkipDestroy types.Bool   `tfsdk:"skip_destroy"`
 }
 
 // CloudStorageAWSModel mirrors the nested "cloud_storage.aws" attribute. Use the As/To
@@ -936,10 +936,10 @@ func AzurePrivateLinkStatusPrivateEndpointConnectionsAttrTypes() map[string]attr
 // attribute.
 func CloudStorageAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"skip_destroy": types.BoolType,
 		"aws":          types.ObjectType{AttrTypes: CloudStorageAWSAttrTypes()},
 		"azure":        types.ObjectType{AttrTypes: CloudStorageAzureAttrTypes()},
 		"gcp":          types.ObjectType{AttrTypes: CloudStorageGCPAttrTypes()},
+		"skip_destroy": types.BoolType,
 	}
 }
 

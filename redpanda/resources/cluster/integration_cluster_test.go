@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1/controlplanev1grpc"
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-testing/compare"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -1099,6 +1100,15 @@ func TestIntegration_Cluster_UpdateLeaf_MaintenanceWindow_DayHour(t *testing.T) 
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
+			integration.UpdateLeafStep(clusterAddr,
+				awsDedicatedConfig(name, `maintenance_window_config = { day_hour = { day_of_week = "FRIDAY", hour_of_day = 0 } }`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("maintenance_window_config").AtMapKey("day_hour").AtMapKey("hour_of_day"),
+						knownvalue.Int32Exact(0)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
 		},
 	})
 }
@@ -1613,6 +1623,9 @@ resource "redpanda_cluster" "test" {
   cluster_type      = "dedicated"
   connection_type   = "public"
   allow_deletion    = true
+
+  maintenance_window_config = { day_hour = { day_of_week = "MONDAY", hour_of_day = 0 } }
+  cloud_storage             = { skip_destroy = false }
 }
 `, name)
 
@@ -1622,6 +1635,11 @@ resource "redpanda_cluster" "test" {
 			integration.CreateStep(clusterAddr, importCfg, []statecheck.StateCheck{
 				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("name"), knownvalue.StringExact(name)),
 				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				statecheck.ExpectKnownValue(clusterAddr,
+					tfjsonpath.New("maintenance_window_config").AtMapKey("day_hour").AtMapKey("hour_of_day"),
+					knownvalue.Int32Exact(0)),
+				statecheck.ExpectKnownValue(clusterAddr,
+					tfjsonpath.New("cloud_storage").AtMapKey("skip_destroy"), knownvalue.Bool(false)),
 			}),
 			integration.ImportRoundTripStep(clusterAddr, nil, []string{"allow_deletion"}),
 		},
@@ -2177,6 +2195,82 @@ func TestIntegration_Cluster_NestedMatrix_CloudStorage_Dense(t *testing.T) {
 					tfjsonpath.New("cloud_storage").AtMapKey("skip_destroy"), knownvalue.Bool(true)),
 				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 				idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+			}),
+			integration.UpdateLeafStep(clusterAddr,
+				awsDedicatedConfig(name, `cloud_storage = { skip_destroy = false }`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("cloud_storage").AtMapKey("skip_destroy"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+		},
+	})
+}
+
+// TestIntegration_Cluster_OptionalComputed_MaintenanceWindowHour covers the
+// Optional+Computed contract for hour_of_day: a server-supplied default is
+// adopted when config omits the field and stays stable across re-apply, and a
+// later config value overrides a differing remote default.
+func TestIntegration_Cluster_OptionalComputed_MaintenanceWindowHour(t *testing.T) {
+	srv, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-oc1"
+
+	srv.Cluster.CreateMutator = func(cl *controlplanev1.Cluster) {
+		if dh := cl.GetMaintenanceWindowConfig().GetDayHour(); dh != nil {
+			dh.HourOfDay = 9
+		}
+	}
+
+	hourPath := tfjsonpath.New("maintenance_window_config").AtMapKey("day_hour").AtMapKey("hour_of_day")
+	nullHour := awsDedicatedConfig(name, `maintenance_window_config = { day_hour = { day_of_week = "MONDAY" } }`)
+	setHour := awsDedicatedConfig(name, `maintenance_window_config = { day_hour = { day_of_week = "MONDAY", hour_of_day = 3 } }`)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr, nullHour, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(clusterAddr, hourPath, knownvalue.Int32Exact(9)),
+			}),
+			integration.NoopReapplyStep(clusterAddr, nullHour, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(clusterAddr, hourPath, knownvalue.Int32Exact(9)),
+			}),
+			integration.UpdateLeafStep(clusterAddr, setHour, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(clusterAddr, hourPath, knownvalue.Int32Exact(3)),
+			}),
+		},
+	})
+}
+
+// TestIntegration_Cluster_OptionalComputed_CloudStorageSkipDestroy covers the
+// Optional+Computed contract for skip_destroy: a server-supplied default is
+// adopted when config omits the field and stays stable across re-apply, and a
+// later config value overrides a differing remote default.
+func TestIntegration_Cluster_OptionalComputed_CloudStorageSkipDestroy(t *testing.T) {
+	srv, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-oc2"
+
+	srv.Cluster.CreateMutator = func(cl *controlplanev1.Cluster) {
+		cl.CloudStorage = &controlplanev1.Cluster_CloudStorage{SkipDestroy: true}
+	}
+
+	skipPath := tfjsonpath.New("cloud_storage").AtMapKey("skip_destroy")
+	noStorage := awsDedicatedConfig(name)
+	setFalse := awsDedicatedConfig(name, `cloud_storage = { skip_destroy = false }`)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr, noStorage, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(clusterAddr, skipPath, knownvalue.Bool(true)),
+			}),
+			integration.NoopReapplyStep(clusterAddr, noStorage, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(clusterAddr, skipPath, knownvalue.Bool(true)),
+			}),
+			integration.UpdateLeafStep(clusterAddr, setFalse, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(clusterAddr, skipPath, knownvalue.Bool(false)),
 			}),
 		},
 	})

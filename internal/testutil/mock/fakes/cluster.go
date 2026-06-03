@@ -61,6 +61,11 @@ type ClusterFake struct {
 	clusters map[string]*controlplanev1.Cluster
 	seq      atomic.Uint64
 	srURL    string
+
+	// CreateMutator, when set, is applied to the freshly built cluster just
+	// before it is stored, letting a test simulate server-side defaulting of
+	// computed fields the provider did not send. Fires only at create.
+	CreateMutator func(*controlplanev1.Cluster)
 }
 
 // NewClusterFake returns an empty fake bound to op.
@@ -190,6 +195,10 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 		})
 	}
 
+	if f.CreateMutator != nil {
+		f.CreateMutator(cl)
+	}
+
 	f.mu.Lock()
 	f.clusters[id] = cl
 	f.mu.Unlock()
@@ -277,6 +286,13 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 					GlobalAccessEnabled: spec.GetGlobalAccessEnabled(),
 					ConsumerAcceptList:  append([]*controlplanev1.GCPPrivateServiceConnectConsumer(nil), spec.GetConsumerAcceptList()...),
 				})
+			}
+		case "cloud_storage":
+			if upd.HasCloudStorage() {
+				if cl.CloudStorage == nil {
+					cl.CloudStorage = &controlplanev1.Cluster_CloudStorage{}
+				}
+				cl.CloudStorage.SkipDestroy = upd.GetCloudStorage().GetSkipDestroy()
 			}
 		case "cluster_configuration":
 			if upd.HasClusterConfiguration() {

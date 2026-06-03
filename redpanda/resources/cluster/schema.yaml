@@ -120,7 +120,7 @@ cloud_storage:
           computed_only: true
           description: "Name of the GCP storage bucket"
     skip_destroy:
-      computed: false
+      computed: true
       optional: true
       description: "If true, cloud storage is not deleted when the cluster is destroyed"
 
@@ -431,7 +431,7 @@ maintenance_window_config:
           computed: false
           optional: true
         hour_of_day:
-          computed: false
+          computed: true
           optional: true
     unspecified:
       computed_only: true
