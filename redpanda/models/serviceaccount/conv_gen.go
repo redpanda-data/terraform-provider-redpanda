@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/modelconv"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 type ServiceAccountResponse interface {
@@ -96,6 +97,24 @@ func ExpandUpdate(_ context.Context, m *ResourceModel) (*iamv1.ServiceAccountUpd
 		Name:        m.Name.ValueString(),
 	}
 	return payload, diags
+}
+
+// ExpandUpdateWithMask expands plan and state via ExpandUpdate, then returns the
+// value to send plus a FieldMask of the changed top-level fields. mask.Paths is
+// empty when nothing the backend tracks changed — callers use that to skip the
+// update RPC entirely.
+func ExpandUpdateWithMask(ctx context.Context, plan, state *ResourceModel) (*iamv1.ServiceAccountUpdate, *fieldmaskpb.FieldMask, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	planPayload, planDiags := ExpandUpdate(ctx, plan)
+	diags.Append(planDiags...)
+	statePayload, stateDiags := ExpandUpdate(ctx, state)
+	diags.Append(stateDiags...)
+	if diags.HasError() {
+		var zero *iamv1.ServiceAccountUpdate
+		return zero, nil, diags
+	}
+	payload, mask := utils.PlanPayloadWithUpdateMask(planPayload, statePayload)
+	return payload, mask, diags
 }
 
 // ExpandDelete renders a *ResourceModel into the proto request envelope for

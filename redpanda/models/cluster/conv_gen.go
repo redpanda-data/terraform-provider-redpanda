@@ -26,6 +26,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils/enums"
 	status "google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 type ClusterResponse interface {
@@ -243,6 +244,24 @@ func ExpandUpdate(ctx context.Context, m *ResourceModel) (*controlplanev1.Cluste
 		Id:                       m.ID.ValueString(),
 	}
 	return payload, diags
+}
+
+// ExpandUpdateWithMask expands plan and state via ExpandUpdate, then returns the
+// value to send plus a FieldMask of the changed top-level fields. mask.Paths is
+// empty when nothing the backend tracks changed — callers use that to skip the
+// update RPC entirely.
+func ExpandUpdateWithMask(ctx context.Context, plan, state *ResourceModel) (*controlplanev1.ClusterUpdate, *fieldmaskpb.FieldMask, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	planPayload, planDiags := ExpandUpdate(ctx, plan)
+	diags.Append(planDiags...)
+	statePayload, stateDiags := ExpandUpdate(ctx, state)
+	diags.Append(stateDiags...)
+	if diags.HasError() {
+		var zero *controlplanev1.ClusterUpdate
+		return zero, nil, diags
+	}
+	payload, mask := utils.GenerateProtobufDiffAndUpdateMask(planPayload, statePayload)
+	return payload, mask, diags
 }
 
 // ExpandDelete renders a *ResourceModel into the proto request envelope for
