@@ -22,11 +22,11 @@ func ExternalProviders() map[string]resource.ExternalProvider {
 	}
 }
 
-// versionConstraint returns the registry pin for upgrade tests. Defaults to
-// "1.9.0". Override with REDPANDA_LAST_VERSION when a new release ships.
+// versionConstraint returns the registry pin for the released ("before")
+// provider. Empty by default, which resolves to the latest published release so
+// upgrade tests always validate latest..HEAD. Override with REDPANDA_LAST_VERSION
+// to pin a specific version (e.g. to reproduce a migration from a
+// pre-format-change release).
 func versionConstraint() string {
-	if v := os.Getenv("REDPANDA_LAST_VERSION"); v != "" {
-		return v
-	}
-	return "1.9.0"
+	return os.Getenv("REDPANDA_LAST_VERSION")
 }

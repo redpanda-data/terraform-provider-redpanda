@@ -4,6 +4,7 @@ package upgrade
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -30,4 +31,15 @@ func ClusterAPIURL(t *testing.T) string {
 	}
 	t.Skip("KAFKA_CLUSTER_API_URL not set; set to a live cluster's dataplane API URL to run user upgrade tests")
 	return ""
+}
+
+// ClusterAPIURLForms returns the legacy "host:443" and canonical "https://host"
+// forms of the fixture dataplane URL, for cluster_api_url format-migration
+// upgrade tests. Skips (via ClusterAPIURL) when KAFKA_CLUSTER_API_URL is unset.
+func ClusterAPIURLForms(t *testing.T) (legacy, canonical string) {
+	t.Helper()
+	host := ClusterAPIURL(t)
+	host = strings.TrimPrefix(strings.TrimPrefix(host, "https://"), "http://")
+	host = strings.TrimSuffix(strings.TrimSuffix(host, "/"), ":443")
+	return host + ":443", "https://" + host
 }

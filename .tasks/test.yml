@@ -381,7 +381,7 @@ tasks:
         REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
-        {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT_SHORT}} ./redpanda/resources/...
+        {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT_SHORT}} ./redpanda/resources/... ./redpanda/tests/...
       - echo "Provider-upgrade tests completed successfully"
 
   upgrade:smoke:
