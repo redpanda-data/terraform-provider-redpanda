@@ -194,6 +194,9 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 			ConsumerAcceptList:  append([]*controlplanev1.GCPPrivateServiceConnectConsumer(nil), spec.GetConsumerAcceptList()...),
 		})
 	}
+	if in.HasRpsql() {
+		cl.SetRpsql(rpsqlStatus(in.GetRpsql()))
+	}
 
 	if f.CreateMutator != nil {
 		f.CreateMutator(cl)
@@ -278,6 +281,12 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 					SupportedRegions:  supported,
 				})
 			}
+		case "rpsql.enabled", "rpsql.replicas":
+			// The provider expands the top-level "rpsql" mask into these granular
+			// paths; the diff payload still carries the full rpsql message.
+			if upd.HasRpsql() {
+				cl.SetRpsql(rpsqlStatus(upd.GetRpsql()))
+			}
 		case "gcp_private_service_connect":
 			if upd.HasGcpPrivateServiceConnect() {
 				spec := upd.GetGcpPrivateServiceConnect()
@@ -314,6 +323,23 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 	cl.UpdatedAt = timestamppb.Now()
 
 	return &controlplanev1.UpdateClusterOperation{Operation: completedOp(f.op, upd.GetId())}, nil
+}
+
+// rpsqlStatus mirrors the write-shape RPSql onto the read-shape record,
+// assigning a mock endpoint URL when enabled (the real control plane
+// populates url on provisioning; it stays empty while disabled).
+func rpsqlStatus(spec *controlplanev1.RPSql) *controlplanev1.RPSql {
+	if spec == nil {
+		return nil
+	}
+	out := &controlplanev1.RPSql{
+		Enabled:  spec.GetEnabled(),
+		Replicas: spec.GetReplicas(),
+	}
+	if out.Enabled {
+		out.Url = "https://mock.rpsql.redpanda.cloud"
+	}
+	return out
 }
 
 // specToClusterKafkaAPI converts a write-shape KafkaAPISpec to the read-shape

@@ -58,6 +58,7 @@ type ClusterResponse interface {
 	GetRedpandaNodeCount() int32
 	GetRegion() string
 	GetResourceGroupId() string
+	GetRpsql() *controlplanev1.RPSql
 	GetSchemaRegistry() *controlplanev1.Cluster_SchemaRegistryStatus
 	GetState() controlplanev1.Cluster_State
 	GetStateDescription() *status.Status
@@ -125,6 +126,7 @@ func Flatten(ctx context.Context, proto ClusterResponse, prev *ResourceModel) (*
 	m.KafkaConnect = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetKafkaConnect(), func() *KafkaConnectModel { v, _ := prev.AsKafkaConnect(ctx); return v }(), KafkaConnectAttrTypes(), FlattenKafkaConnect, &diags)
 	m.MaintenanceWindowConfig = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetMaintenanceWindowConfig(), func() *MaintenanceWindowConfigModel { v, _ := prev.AsMaintenanceWindowConfig(ctx); return v }(), MaintenanceWindowConfigAttrTypes(), FlattenMaintenanceWindowConfig, &diags)
 	m.RedpandaNodeCount = types.Int32Value(proto.GetRedpandaNodeCount())
+	m.Rpsql = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpsql(), func() *RpsqlModel { v, _ := prev.AsRpsql(ctx); return v }(), RpsqlAttrTypes(), FlattenRpsql, &diags)
 	m.SchemaRegistry = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetSchemaRegistry(), func() *SchemaRegistryModel { v, _ := prev.AsSchemaRegistry(ctx); return v }(), SchemaRegistryAttrTypes(), FlattenSchemaRegistry, &diags)
 	m.Tags = tagsFromProto(proto)
 	m.ClusterAPIURL = clusterAPIURLFromProto(proto)
@@ -205,6 +207,7 @@ func ExpandCreate(ctx context.Context, m *ResourceModel) (*controlplanev1.Create
 		KafkaConnect:             modelconv.ObjectToMessageWithDiags(ctx, m.KafkaConnect, ExpandKafkaConnect, &diags),
 		MaintenanceWindowConfig:  modelconv.ObjectToMessageWithDiags(ctx, m.MaintenanceWindowConfig, ExpandMaintenanceWindowConfig, &diags),
 		RedpandaNodeCount:        m.RedpandaNodeCount.ValueInt32(),
+		Rpsql:                    modelconv.ObjectToMessageWithDiags(ctx, m.Rpsql, ExpandRpsql, &diags),
 		SchemaRegistry:           modelconv.ObjectToMessageWithDiags(ctx, m.SchemaRegistry, ExpandCreateSchemaRegistry, &diags),
 		CloudProviderTags:        m.TagsForProto(),
 	}
@@ -234,6 +237,7 @@ func ExpandUpdate(ctx context.Context, m *ResourceModel) (*controlplanev1.Cluste
 		KafkaConnect:             modelconv.ObjectToMessageWithDiags(ctx, m.KafkaConnect, ExpandKafkaConnect, &diags),
 		MaintenanceWindowConfig:  modelconv.ObjectToMessageWithDiags(ctx, m.MaintenanceWindowConfig, ExpandMaintenanceWindowConfig, &diags),
 		RedpandaNodeCount:        m.RedpandaNodeCount.ValueInt32(),
+		Rpsql:                    modelconv.ObjectToMessageWithDiags(ctx, m.Rpsql, ExpandRpsql, &diags),
 		SchemaRegistry:           modelconv.ObjectToMessageWithDiags(ctx, m.SchemaRegistry, ExpandUpdateSchemaRegistry, &diags),
 		CloudProviderTags:        m.TagsForProto(),
 		Id:                       m.ID.ValueString(),
@@ -1897,6 +1901,35 @@ func ExpandMaintenanceWindowConfigDayHour(_ context.Context, m *MaintenanceWindo
 	out := &controlplanev1.MaintenanceWindowConfig_DayHour{
 		DayOfWeek: enums.StringToDayOfWeek(m.DayOfWeek.ValueString()),
 		HourOfDay: m.HourOfDay.ValueInt32(),
+	}
+	return out, diags
+}
+
+// FlattenRpsql converts a single proto controlplanev1.RPSql into the
+// corresponding nested model. The prev *RpsqlModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenRpsql(_ context.Context, proto *controlplanev1.RPSql, prev *RpsqlModel) (RpsqlModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := RpsqlModel{}
+	m.Enabled = types.BoolValue(proto.GetEnabled())
+	m.Replicas = types.Int32Value(proto.GetReplicas())
+	m.URL = types.StringValue(proto.GetUrl())
+	return m, diags
+}
+
+// ExpandRpsql renders a nested model back into the proto type.
+func ExpandRpsql(_ context.Context, m *RpsqlModel) (*controlplanev1.RPSql, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.RPSql{
+		Enabled:  m.Enabled.ValueBool(),
+		Replicas: m.Replicas.ValueInt32(),
+		Url:      m.URL.ValueString(),
 	}
 	return out, diags
 }

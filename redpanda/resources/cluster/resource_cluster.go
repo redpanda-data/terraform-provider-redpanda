@@ -34,6 +34,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	clustermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/cluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 var (
@@ -195,6 +196,9 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		return
 	}
 	diffedPayload, mask := utils.GenerateProtobufDiffAndUpdateMask(planPayload, statePayload)
+	// The public-API mapper recognizes rpsql.enabled / rpsql.replicas but not
+	// the top-level "rpsql" path the diff emits, so expand it before the request.
+	expandRpsqlPath(mask)
 	diffedPayload.Id = planPayload.Id
 	updateReq := &controlplanev1.UpdateClusterRequest{
 		Cluster:    diffedPayload,
@@ -232,6 +236,23 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 	}
 	tflog.Info(ctx, "cluster updated", map[string]any{"cluster_id": plan.ID.ValueString()})
 	resp.Diagnostics.Append(resp.State.Set(ctx, newState)...)
+}
+
+// expandRpsqlPath rewrites a top-level "rpsql" update-mask path into the
+// granular rpsql.enabled / rpsql.replicas paths the public-API mapper accepts.
+func expandRpsqlPath(fm *fieldmaskpb.FieldMask) {
+	if fm == nil {
+		return
+	}
+	out := make([]string, 0, len(fm.Paths)+1)
+	for _, p := range fm.Paths {
+		if p == "rpsql" {
+			out = append(out, "rpsql.enabled", "rpsql.replicas")
+			continue
+		}
+		out = append(out, p)
+	}
+	fm.Paths = out
 }
 
 // Delete deletes the Cluster resource.

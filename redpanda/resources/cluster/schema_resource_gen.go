@@ -25,6 +25,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
@@ -1055,6 +1056,33 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Optional:      true,
 				Computed:      true,
 				PlanModifiers: []planmodifier.Int32{int32planmodifier.UseStateForUnknown()},
+			},
+
+			"rpsql": schema.SingleNestedAttribute{
+				Description:   "Rpsql configuration",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						Description:   "Whether Rpsql is enabled",
+						Optional:      true,
+						Computed:      true,
+						Default:       booldefault.StaticBool(false),
+						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+					},
+					"replicas": schema.Int32Attribute{
+						Description:   "Replicas",
+						Optional:      true,
+						Computed:      true,
+						Default:       int32default.StaticInt32(1),
+						PlanModifiers: []planmodifier.Int32{int32planmodifier.UseStateForUnknown()},
+					},
+					"url": schema.StringAttribute{
+						Description: "Rpsql URL",
+						Computed:    true,
+					},
+				},
 			},
 
 			"schema_registry": schema.SingleNestedAttribute{

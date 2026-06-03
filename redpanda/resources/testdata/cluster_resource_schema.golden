@@ -913,6 +913,30 @@ attributes:
       required: true
       plan_modifiers:
         - stringplanmodifier.requiresReplaceIfModifier
+    - name: rpsql
+      type: SingleNestedAttribute
+      optional: true
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: enabled
+          type: BoolAttribute
+          optional: true
+          computed: true
+          plan_modifiers:
+            - boolplanmodifier.useStateForUnknownModifier
+          default: booldefault.staticBoolDefault
+        - name: replicas
+          type: Int32Attribute
+          optional: true
+          computed: true
+          plan_modifiers:
+            - int32planmodifier.useStateForUnknownModifier
+          default: int32default.staticInt32Default
+        - name: url
+          type: StringAttribute
+          computed: true
     - name: schema_registry
       type: SingleNestedAttribute
       optional: true

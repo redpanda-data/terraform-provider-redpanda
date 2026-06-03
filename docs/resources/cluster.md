@@ -44,6 +44,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `read_replica_cluster_ids` (List of String) IDs of clusters that can create read-only topics from this cluster
 - `redpanda_node_count` (Number) Number of Redpanda broker nodes
 - `redpanda_version` (String) Redpanda Version
+- `rpsql` (Attributes) Rpsql configuration (see [below for nested schema](#nestedatt--rpsql))
 - `schema_registry` (Attributes) Cluster's Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
 - `tags` (Map of String) Tags placed on cloud resources. Server-managed keys (prefixed with `redpanda-`) are filtered out of state.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
@@ -613,6 +614,19 @@ Optional:
 - `day_of_week` (String) Represents a day of the week. - MONDAY: Monday - TUESDAY: Tuesday - WEDNESDAY: Wednesday - THURSDAY: Thursday - FRIDAY: Friday - SATURDAY: Saturday - SUNDAY: Sunday
 - `hour_of_day` (Number) always UTC. Must be between 0 and 23 (inclusive).
 
+
+
+<a id="nestedatt--rpsql"></a>
+### Nested Schema for `rpsql`
+
+Optional:
+
+- `enabled` (Boolean) Whether Rpsql is enabled
+- `replicas` (Number) Replicas
+
+Read-Only:
+
+- `url` (String) Rpsql URL
 
 
 <a id="nestedatt--schema_registry"></a>

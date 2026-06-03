@@ -416,6 +416,28 @@ kafka_connect:
     enabled:
       default: false
 
+rpsql:
+  # Defer the message CEL rule (replicas>=1 when enabled) to apply: it runs on
+  # raw config, before the replicas Default, so it would falsely reject configs
+  # relying on the default (cf. user.mechanism).
+  skip_proto_validation: true
+  fields:
+    # Default seeds on create; UseStateForUnknown carries the value across
+    # updates when omitted (else replicas plans <1 and trips the CEL rule).
+    enabled:
+      default: false
+      plan_modifiers: [UseStateForUnknown]
+    replicas:
+      default: 1
+      plan_modifiers: [UseStateForUnknown]
+    url:
+      computed_only: true
+      # Empty while disabled, set by the server on enable. No state-pin modifier:
+      # it would pin "" across the enable transition and trip inconsistent-result.
+      plan_modifiers: [None]
+    zones:
+      exclude: true
+
 maintenance_window_config:
   fields:
     anytime:
@@ -536,8 +558,6 @@ ai_gateway:
 
 # --- New proto fields (auto-added by schemagen -todo) ---
 adp_api:
-  todo: true
-rpsql:
   todo: true
 sandbox:
   todo: true

@@ -70,5 +70,6 @@ func (protoValidator) ValidateResource(ctx context.Context, req resource.Validat
 	if eDiags.HasError() {
 		return
 	}
-	resp.Diagnostics.Append(rpvalidate.Validate(path.Empty(), payload.GetCluster())...)
+	resp.Diagnostics.Append(rpvalidate.Validate(path.Empty(), payload.GetCluster(),
+		"rpsql")...)
 }
