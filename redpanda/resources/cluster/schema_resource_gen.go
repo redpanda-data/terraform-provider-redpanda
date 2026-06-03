@@ -751,6 +751,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								"source": schema.StringAttribute{
 									Description: "GCP project ID from which connections are accepted",
 									Required:    true,
+									Validators:  []validator.String{validators.PSCConsumerSourceValidator{}},
 								},
 							},
 						},

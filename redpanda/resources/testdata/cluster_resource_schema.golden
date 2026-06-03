@@ -585,6 +585,8 @@ attributes:
             - name: source
               type: StringAttribute
               required: true
+              validators:
+                - validators.PSCConsumerSourceValidator
         - name: enabled
           type: BoolAttribute
           required: true

@@ -95,5 +95,6 @@ func ResourceACLSchema(_ context.Context) schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 		},
+		Version: 1,
 	}
 }
