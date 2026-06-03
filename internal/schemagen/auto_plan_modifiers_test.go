@@ -98,3 +98,36 @@ func TestMerge_PlanModifiers_SkippedWhenDefaultSet(t *testing.T) {
 		t.Errorf("expected no PlanModifiers when Default is set; got %q", got)
 	}
 }
+
+// The None sentinel suppresses the auto-added state modifier and emits nothing,
+// for a computed leaf that would otherwise get UseStateForUnknown.
+func TestMerge_PlanModifiers_NoneSuppresses(t *testing.T) {
+	proto := &ProtoMessage{Name: "Thing", Fields: []ProtoField{}}
+	tru := true
+	cfg := &Config{
+		Fields: map[string]FieldConfig{
+			"endpoint": {
+				Extra:         true,
+				Type:          "string",
+				Computed:      &tru,
+				PlanModifiers: []string{modNone},
+			},
+		},
+	}
+	attrs, _, _, errs := Merge(proto, cfg, "resource", nil)
+	if len(errs) != 0 {
+		t.Fatalf("unexpected errors: %v", errs)
+	}
+	var found bool
+	for _, a := range attrs {
+		if a.Name == "endpoint" {
+			found = true
+			if a.PlanModifiers != "" {
+				t.Errorf("expected no PlanModifiers with [None]; got %q", a.PlanModifiers)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("endpoint attr not found")
+	}
+}

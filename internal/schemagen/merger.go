@@ -712,7 +712,7 @@ func applyAutoPlanModifiers(attrs []SchemaAttr, ancestors []ancestorFrame, mc *m
 
 func containsStateNullModifier(names []string) bool {
 	for _, n := range names {
-		if n == modUseStateForUnknown || n == modUseNonNullStateForUnknown {
+		if n == modUseStateForUnknown || n == modUseNonNullStateForUnknown || n == modNone {
 			return true
 		}
 		if def, ok := planModifierRegistry[n]; ok && def.subsumesStateNullAxis {
@@ -732,11 +732,19 @@ func planModifierExpr(attrType string, modifiers []string) (string, error) {
 	}
 	inners := make([]string, 0, len(modifiers))
 	for _, m := range modifiers {
+		if m == modNone {
+			// Sentinel: suppresses the auto-added state modifier and emits
+			// nothing on its own.
+			continue
+		}
 		if def, ok := planModifierRegistry[m]; ok {
 			inners = append(inners, def.expr(pkg))
 			continue
 		}
 		inners = append(inners, fmt.Sprintf("%splanmodifier.%s()", pkg, m))
+	}
+	if len(inners) == 0 {
+		return "", nil
 	}
 	return fmt.Sprintf("[]planmodifier.%s{%s}",
 		strings.ToUpper(pkg[:1])+pkg[1:], strings.Join(inners, ", ")), nil
