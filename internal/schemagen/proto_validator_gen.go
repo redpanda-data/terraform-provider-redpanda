@@ -34,6 +34,11 @@ type ProtoValidatorData struct {
 	ExpandFunc    string
 	ResourceLabel string
 
+	// InnerGetter unwraps the Create request to the inner spec message to
+	// validate (e.g. "GetCluster"), keeping violation paths schema-relative so
+	// they match the skip-set. Empty for flat requests (validated directly).
+	InnerGetter string
+
 	PreValidateHook string
 
 	PostExpandHook string
@@ -115,7 +120,7 @@ func (protoValidator) ValidateResource(ctx context.Context, req resource.Validat
 		return
 	}
 {{- end }}
-	resp.Diagnostics.Append(rpvalidate.Validate(path.Empty(), payload{{if .SkippedFields}},
+	resp.Diagnostics.Append(rpvalidate.Validate(path.Empty(), payload{{if .InnerGetter}}.{{.InnerGetter}}(){{end}}{{if .SkippedFields}},
 {{- range $i, $f := .SkippedFields}}
 		{{printf "%q" $f}},
 {{- end}}
@@ -141,6 +146,25 @@ func CollectSkippedValidationFields(cfg *Config) []string {
 	collectSkipped("", cfg.Fields, &out)
 	sort.Strings(out)
 	return out
+}
+
+// ProtoValidatorInnerGetter resolves the getter that unwraps a Create request
+// to its inner spec message (e.g. "GetCluster"), or "" for a flat request whose
+// type is itself the payload. The inner message yields schema-relative
+// violation paths that match the skip-set; the wrapper would prefix them and
+// break the exact-match skip lookup. Non-mutating.
+func ProtoValidatorInnerGetter(cfg *Config, lookup ProtoLookup) (string, error) {
+	if cfg == nil || cfg.API == nil || cfg.API.Create == nil {
+		return "", nil
+	}
+	rpc := *cfg.API.Create
+	if err := inferRPCPayload(&rpc, lookup); err != nil {
+		return "", err
+	}
+	if rpc.PayloadField == "" {
+		return "", nil
+	}
+	return "Get" + toProtoGoName(rpc.PayloadField), nil
 }
 
 func collectSkipped(prefix string, fields map[string]FieldConfig, out *[]string) {

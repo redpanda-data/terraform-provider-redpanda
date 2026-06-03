@@ -70,5 +70,5 @@ func (protoValidator) ValidateResource(ctx context.Context, req resource.Validat
 	if eDiags.HasError() {
 		return
 	}
-	resp.Diagnostics.Append(rpvalidate.Validate(path.Empty(), payload)...)
+	resp.Diagnostics.Append(rpvalidate.Validate(path.Empty(), payload.GetTopic())...)
 }
