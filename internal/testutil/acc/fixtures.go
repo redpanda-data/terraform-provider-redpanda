@@ -23,6 +23,7 @@ var (
 	AwsDedicatedClusterDir         = filepath.Join(RepoRoot(), "examples", "cluster", "aws")
 	GcpDedicatedClusterDir         = filepath.Join(RepoRoot(), "examples", "cluster", "gcp")
 	ServerlessClusterDir           = filepath.Join(RepoRoot(), "examples", "cluster", "serverless")
+	ServerlessClusterPrivateDir    = filepath.Join(RepoRoot(), "redpanda", "tests", "testdata", "serverless_private")
 	ServerlessPrivateLinkDir       = filepath.Join(RepoRoot(), "examples", "serverless_private_link", "aws")
 	AwsByocClusterDir              = filepath.Join(RepoRoot(), "examples", "byoc", "aws")
 	AwsByocVpcClusterDir           = filepath.Join(RepoRoot(), "redpanda", "tests", "testdata", "byovpc", "aws")
