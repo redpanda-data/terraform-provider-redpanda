@@ -37,6 +37,11 @@ func frameForAttr(attr *SchemaAttr) ancestorFrame {
 const (
 	modUseStateForUnknown        = "UseStateForUnknown"
 	modUseNonNullStateForUnknown = "UseNonNullStateForUnknown"
+	// modNone is a sentinel meaning "emit no plan modifier" — it suppresses the
+	// auto-added state modifier. For a computed leaf whose value changes with a
+	// sibling (e.g. a URL empty until `enabled` flips true), a state-pin modifier
+	// would pin the stale value and trip inconsistent-result.
+	modNone = "None"
 )
 
 func chooseStateModifier(ancestors []ancestorFrame, leafIsUserInput bool) string {
