@@ -84,6 +84,15 @@ type RPCConfig struct {
 	FlatFieldMap map[string]string `yaml:"flat_field_map,omitempty"`
 
 	ReturnPayload bool `yaml:"return_payload,omitempty"`
+
+	// DiffMask, when set on an update RPC, emits an ExpandUpdateWithMask helper
+	// alongside ExpandUpdate. "sparse" returns the diff payload via
+	// utils.GenerateProtobufDiffAndUpdateMask (server tolerates a partial
+	// message); "full" returns the whole plan payload via
+	// utils.PlanPayloadWithUpdateMask (server runs buf.validate on every field).
+	// In both cases the returned mask has empty Paths when nothing changed, so
+	// callers can skip the update RPC entirely.
+	DiffMask string `yaml:"diff_mask,omitempty"`
 }
 
 // ResponseInterfaceConfig declares a Go interface synthesized over the

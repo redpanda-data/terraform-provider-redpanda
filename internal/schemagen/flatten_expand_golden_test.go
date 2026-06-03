@@ -60,6 +60,8 @@ func TestFlattenExpandGolden(t *testing.T) {
 		perRPCDivergentNestedGoldenCase(),
 		forceBoolOneofGoldenCase(),
 		returnPayloadUpdateGoldenCase(),
+		withMaskSparseGoldenCase(),
+		withMaskFullGoldenCase(),
 	}
 
 	for _, c := range cases {
@@ -1059,6 +1061,141 @@ func returnPayloadUpdateGoldenCase() goldenCase {
 			},
 			"ThingUpdate": {
 				Name: "ThingUpdate", GoName: "ThingUpdate",
+				Fields: []ProtoField{
+					{Name: "id", Kind: "string", Cardinality: "singular"},
+					{Name: "name", Kind: "string", Cardinality: "singular"},
+				},
+			},
+			"DeleteThingRequest": {
+				Name: "DeleteThingRequest",
+				Fields: []ProtoField{
+					{Name: "id", Kind: "string", Cardinality: "singular"},
+				},
+			},
+		},
+	}
+}
+
+// withMaskSparseGoldenCase exercises diff_mask: sparse on a return_payload
+// update — the cluster/shadowlink shape. ExpandUpdateWithMask returns the
+// sparse diff payload via utils.GenerateProtobufDiffAndUpdateMask.
+func withMaskSparseGoldenCase() goldenCase {
+	return goldenCase{
+		name:    "with_mask_sparse_conv",
+		pkg:     "thing",
+		alias:   "thingv1",
+		import_: "buf.build/gen/go/example/thing/protocolbuffers/go/example/thing/v1",
+		cfg: &Config{
+			TFName: "Thing",
+			Fields: map[string]FieldConfig{
+				"id":   {ComputedOnly: true},
+				"name": {Required: true},
+			},
+			API: &APIConfig{
+				Create: &RPCConfig{
+					RPC: "CreateThing", Request: "CreateThingRequest",
+					PayloadField: "thing", PayloadType: "ThingCreate",
+				},
+				Update: &RPCConfig{
+					RPC: "UpdateThing", Request: "UpdateThingRequest",
+					PayloadField: "thing", PayloadType: "ThingUpdate",
+					ReturnPayload: true, DiffMask: "sparse",
+				},
+				Delete: &RPCConfig{RPC: "DeleteThing", Request: "DeleteThingRequest"},
+				ResponseInterface: &ResponseInterfaceConfig{
+					Name: "ThingResponse",
+				},
+			},
+		},
+		proto: &ProtoMessage{
+			Name:   "Thing",
+			GoName: "Thing",
+			Fields: []ProtoField{
+				{Name: "id", Kind: "string", Cardinality: "singular"},
+				{Name: "name", Kind: "string", Cardinality: "singular"},
+			},
+		},
+		attrs: []SchemaAttr{
+			{Name: "id", AttrType: AttrTypeString, Computed: true},
+			{Name: "name", AttrType: AttrTypeString, Required: true},
+		},
+		extraProtos: map[string]*ProtoMessage{
+			"ThingCreate": {
+				Name: "ThingCreate", GoName: "ThingCreate",
+				Fields: []ProtoField{
+					{Name: "name", Kind: "string", Cardinality: "singular"},
+				},
+			},
+			"ThingUpdate": {
+				Name: "ThingUpdate", GoName: "ThingUpdate",
+				Fields: []ProtoField{
+					{Name: "id", Kind: "string", Cardinality: "singular"},
+					{Name: "name", Kind: "string", Cardinality: "singular"},
+				},
+			},
+			"DeleteThingRequest": {
+				Name: "DeleteThingRequest",
+				Fields: []ProtoField{
+					{Name: "id", Kind: "string", Cardinality: "singular"},
+				},
+			},
+		},
+	}
+}
+
+// withMaskFullGoldenCase exercises diff_mask: full on a flat update request —
+// the serverless shape (no payload sub-message, no FieldMask field in the
+// request). ExpandUpdateWithMask returns the full plan request via
+// utils.PlanPayloadWithUpdateMask; the caller reads the mask only to decide
+// whether to skip the RPC.
+func withMaskFullGoldenCase() goldenCase {
+	return goldenCase{
+		name:    "with_mask_full_conv",
+		pkg:     "thing",
+		alias:   "thingv1",
+		import_: "buf.build/gen/go/example/thing/protocolbuffers/go/example/thing/v1",
+		cfg: &Config{
+			TFName: "Thing",
+			Fields: map[string]FieldConfig{
+				"id":   {ComputedOnly: true},
+				"name": {Required: true},
+			},
+			API: &APIConfig{
+				Create: &RPCConfig{
+					RPC: "CreateThing", Request: "CreateThingRequest",
+					PayloadField: "thing", PayloadType: "ThingCreate",
+				},
+				Update: &RPCConfig{
+					RPC: "UpdateThing", Request: "UpdateThingRequest",
+					DiffMask: "full",
+				},
+				Delete: &RPCConfig{RPC: "DeleteThing", Request: "DeleteThingRequest"},
+				ResponseInterface: &ResponseInterfaceConfig{
+					Name: "ThingResponse",
+				},
+			},
+		},
+		proto: &ProtoMessage{
+			Name:   "Thing",
+			GoName: "Thing",
+			Fields: []ProtoField{
+				{Name: "id", Kind: "string", Cardinality: "singular"},
+				{Name: "name", Kind: "string", Cardinality: "singular"},
+			},
+		},
+		attrs: []SchemaAttr{
+			{Name: "id", AttrType: AttrTypeString, Computed: true},
+			{Name: "name", AttrType: AttrTypeString, Required: true},
+		},
+		extraProtos: map[string]*ProtoMessage{
+			"ThingCreate": {
+				Name: "ThingCreate", GoName: "ThingCreate",
+				Fields: []ProtoField{
+					{Name: "name", Kind: "string", Cardinality: "singular"},
+				},
+			},
+			"UpdateThingRequest": {
+				Name: "UpdateThingRequest", GoName: "UpdateThingRequest",
 				Fields: []ProtoField{
 					{Name: "id", Kind: "string", Cardinality: "singular"},
 					{Name: "name", Kind: "string", Cardinality: "singular"},

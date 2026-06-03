@@ -158,6 +158,12 @@ type Expander struct {
 	ReturnPayload bool
 	Conversions   []FieldConversion
 
+	// EmitWithMask requests an ExpandUpdateWithMask companion; MaskHelper is the
+	// utils function it calls ("GenerateProtobufDiffAndUpdateMask" for sparse,
+	// "PlanPayloadWithUpdateMask" for full).
+	EmitWithMask bool
+	MaskHelper   string
+
 	UsesCtx bool
 }
 
@@ -393,6 +399,26 @@ func {{.FuncName}}({{if .UsesCtx}}ctx{{else}}_{{end}} context.Context, m *{{$.Mo
 {{- end}}
 {{- end}}
 }
+{{- if .EmitWithMask}}
+
+// {{.FuncName}}WithMask expands plan and state via {{.FuncName}}, then returns the
+// value to send plus a FieldMask of the changed top-level fields. mask.Paths is
+// empty when nothing the backend tracks changed — callers use that to skip the
+// update RPC entirely.
+func {{.FuncName}}WithMask(ctx context.Context, plan, state *{{$.ModelTypeName}}) ({{.RequestType}}, *fieldmaskpb.FieldMask, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	planPayload, planDiags := {{.FuncName}}(ctx, plan)
+	diags.Append(planDiags...)
+	statePayload, stateDiags := {{.FuncName}}(ctx, state)
+	diags.Append(stateDiags...)
+	if diags.HasError() {
+		var zero {{.RequestType}}
+		return zero, nil, diags
+	}
+	payload, mask := utils.{{.MaskHelper}}(planPayload, statePayload)
+	return payload, mask, diags
+}
+{{- end}}
 {{- end}}
 
 {{- range .NestedFlatteners}}

@@ -432,9 +432,13 @@ func PlanFlattenExpand(
 		data.ExtraImports = append(data.ExtraImports,
 			"github.com/redpanda-data/terraform-provider-redpanda/internal/modelconv")
 	}
-	if usesUtils(data) {
+	if usesUtils(data) || emitsWithMask(data) {
 		data.ExtraImports = append(data.ExtraImports,
 			"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils")
+	}
+	if emitsWithMask(data) {
+		data.ExtraImports = append(data.ExtraImports,
+			"google.golang.org/protobuf/types/known/fieldmaskpb")
 	}
 	if usesEnumsPkg(data) {
 		data.ExtraImports = append(data.ExtraImports,
@@ -995,6 +999,21 @@ func planExpander(kind string, rpc *RPCConfig, attrs []SchemaAttr, cfg *Config, 
 
 	if rpc.ReturnPayload && rpc.PayloadType != "" {
 		exp.RequestType = "*" + protoAlias + "." + rpc.PayloadType
+	}
+
+	if rpc.DiffMask != "" {
+		if kind != "Update" {
+			return Expander{}, fmt.Errorf("diff_mask is only valid on the update RPC, not %s", kind)
+		}
+		switch rpc.DiffMask {
+		case "sparse":
+			exp.MaskHelper = "GenerateProtobufDiffAndUpdateMask"
+		case "full":
+			exp.MaskHelper = "PlanPayloadWithUpdateMask"
+		default:
+			return Expander{}, fmt.Errorf("diff_mask must be \"sparse\" or \"full\", got %q", rpc.DiffMask)
+		}
+		exp.EmitWithMask = true
 	}
 	if rpc.PayloadField == "" {
 		if lookup == nil {
@@ -1566,6 +1585,15 @@ func usesModelConv(data ConversionData) bool {
 			if needsModelConv(convs[j].Kind) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func emitsWithMask(data ConversionData) bool {
+	for i := range data.Expanders {
+		if data.Expanders[i].EmitWithMask {
+			return true
 		}
 	}
 	return false
