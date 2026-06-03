@@ -49,3 +49,48 @@ func TestGenerateProtoValidator(t *testing.T) {
 		}
 	}
 }
+
+// A non-empty InnerGetter validates the unwrapped Create payload so violation
+// paths stay schema-relative and match the skip-set.
+func TestGenerateProtoValidator_InnerGetter(t *testing.T) {
+	src, err := GenerateProtoValidator(ProtoValidatorData{
+		Package:       "cluster",
+		ResourceType:  "Cluster",
+		ModelImport:   "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/cluster",
+		ModelAlias:    "clustermodel",
+		ModelType:     ModelTypeResource,
+		ExpandFunc:    "ExpandCreate",
+		ResourceLabel: "cluster",
+		InnerGetter:   "GetCluster",
+		SkippedFields: []string{"rpsql"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "rpvalidate.Validate(path.Empty(), payload.GetCluster(),"; !strings.Contains(string(src), want) {
+		t.Errorf("generated source missing %q\n--- got ---\n%s", want, src)
+	}
+}
+
+func TestProtoValidatorInnerGetter(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		cfg  *Config
+		want string
+	}{
+		{"wrapped", &Config{API: &APIConfig{Create: &RPCConfig{PayloadField: "cluster"}}}, "GetCluster"},
+		{"snake wrapper", &Config{API: &APIConfig{Create: &RPCConfig{PayloadField: "resource_group"}}}, "GetResourceGroup"},
+		{"flat", &Config{API: &APIConfig{Create: &RPCConfig{}}}, ""},
+		{"no create rpc", &Config{}, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ProtoValidatorInnerGetter(tc.cfg, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tc.want {
+				t.Errorf("got %q want %q", got, tc.want)
+			}
+		})
+	}
+}

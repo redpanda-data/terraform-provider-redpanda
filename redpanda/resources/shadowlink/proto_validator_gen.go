@@ -77,5 +77,5 @@ func (protoValidator) ValidateResource(ctx context.Context, req resource.Validat
 		resp.Diagnostics.Append(hDiags...)
 		return
 	}
-	resp.Diagnostics.Append(rpvalidate.Validate(path.Empty(), payload)...)
+	resp.Diagnostics.Append(rpvalidate.Validate(path.Empty(), payload.GetShadowLink())...)
 }

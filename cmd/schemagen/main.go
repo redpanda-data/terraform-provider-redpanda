@@ -342,6 +342,10 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 			return fmt.Errorf("derive model import path: %w", err)
 		}
 		modelAlias := pkgName + "model"
+		innerGetter, err := schemagen.ProtoValidatorInnerGetter(cfg, protoLookup)
+		if err != nil {
+			return fmt.Errorf("resolve proto validator inner getter: %w", err)
+		}
 		validatorPath := filepath.Join(filepath.Dir(output), "proto_validator_gen.go")
 		valSrc, err := schemagen.GenerateProtoValidator(schemagen.ProtoValidatorData{
 			License:         schemagen.LicenseHeader(),
@@ -352,6 +356,7 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 			ModelType:       schemagen.ModelTypeResource,
 			ExpandFunc:      "ExpandCreate",
 			ResourceLabel:   pkgName,
+			InnerGetter:     innerGetter,
 			PreValidateHook: cfg.API.PreValidateHook,
 			PostExpandHook:  cfg.API.PostExpandHook,
 			SkippedFields:   schemagen.CollectSkippedValidationFields(cfg),
