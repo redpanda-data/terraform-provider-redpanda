@@ -277,6 +277,26 @@ steps:
       - lint
       - unit
       - integration
+  - label: test_upgrade_serverless
+    key: test_upgrade_serverless
+    if: build.tag == null && build.pull_request.labels includes 'ci-ready-upgrade-serverless'
+    command: |
+      ./taskw test:upgrade:serverless
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.12.0:
+          image: "golang:1.25.10"
+          environment:
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
+            - REDPANDA_LAST_VERSION
+            - TF_LOG=DEBUG
+    depends_on:
+      - lint
+      - unit
+      - integration
   - label: test_serverless_cluster_aws_public
     key: test_serverless_cluster_aws_public
     if: build.tag == null && build.pull_request.labels includes 'ci-ready-serverless'
