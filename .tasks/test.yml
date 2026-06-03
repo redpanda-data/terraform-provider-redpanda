@@ -369,20 +369,45 @@ tasks:
       - echo "Serverless private link tests completed successfully"
 
   upgrade:
-    desc: "Run all provider-upgrade tests (requires REDPANDA_CLIENT_ID + REDPANDA_CLIENT_SECRET)"
+    desc: "Run non-serverless provider-upgrade tests (requires REDPANDA_CLIENT_ID + REDPANDA_CLIENT_SECRET)"
     deps:
       - :tools:install:terraform
     cmds:
-      - echo "Running provider-upgrade tests..."
+      - echo "Running non-serverless provider-upgrade tests..."
       - |
-        DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
-        TF_ACC=true \
-        TF_LOG={{.TF_LOG}} \
-        {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT_SHORT}} ./redpanda/resources/... ./redpanda/tests/...
-      - echo "Provider-upgrade tests completed successfully"
+        set -e
+        export DEBUG=true
+        export REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}"
+        export REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}"
+        export REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}"
+        export TF_ACC=true
+        export TF_LOG={{.TF_LOG}}
+        # Fast pass: control-plane + dataplane upgrade tests, skipping the slow dedicated-cluster
+        # lifecycle (own pass below) and the serverless tests (task test:upgrade:serverless).
+        {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT_SHORT}} -skip '^(TestUpgrade_Cluster|TestUpgrade_ServerlessCluster|TestUpgrade_DataplaneClusterAPIURLMigration)$' ./redpanda/resources/... ./redpanda/tests/...
+        # Slow pass: dedicated-cluster create+delete in its own single-package invocation so output streams live
+        # and gets a timeout above the resource's own 1h30m create budget (TIMEOUT_SHORT=1h is too short).
+        {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT}} -run '^TestUpgrade_Cluster$' ./redpanda/resources/cluster/...
+      - echo "Non-serverless provider-upgrade tests completed successfully"
+
+  upgrade:serverless:
+    desc: "Run serverless provider-upgrade tests (requires REDPANDA_CLIENT_ID + REDPANDA_CLIENT_SECRET)"
+    deps:
+      - :tools:install:terraform
+    cmds:
+      - echo "Running serverless provider-upgrade tests..."
+      - |
+        set -e
+        export DEBUG=true
+        export REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}"
+        export REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}"
+        export REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}"
+        export TF_ACC=true
+        export TF_LOG={{.TF_LOG}}
+        # Both upgrade tests that provision a serverless cluster: the serverless_cluster
+        # resource itself and the dataplane cluster_api_url migration (serverless-backed).
+        {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT_SHORT}} -run '^(TestUpgrade_ServerlessCluster|TestUpgrade_DataplaneClusterAPIURLMigration)$' ./redpanda/resources/serverlesscluster/... ./redpanda/tests/...
+      - echo "Serverless provider-upgrade tests completed successfully"
 
   upgrade:smoke:
     desc: "Run control-plane-only provider-upgrade tests (resource_group + network; no cluster needed)"
