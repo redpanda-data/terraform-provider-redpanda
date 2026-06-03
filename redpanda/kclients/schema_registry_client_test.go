@@ -20,9 +20,98 @@ import (
 	"strings"
 	"testing"
 
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
+	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/mock"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/twmb/franz-go/pkg/sr"
 	"golang.org/x/oauth2"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
+
+// TestGetSchemaRegistryClientForCluster_ServerlessFallback proves that a
+// serverless cluster ID — which the dedicated ClusterService rejects
+// (PermissionDenied live, NotFound against the fake) — still resolves its
+// Schema Registry URL via the ServerlessClusterService fallback, rather than
+// failing because GetSchemaRegistryClientForCluster only calls ClusterForID.
+func TestGetSchemaRegistryClientForCluster_ServerlessFallback(t *testing.T) {
+	ctx := context.Background()
+	srv := mock.New(t)
+
+	op, err := srv.ServerlessCluster.CreateServerlessCluster(ctx, &controlplanev1.CreateServerlessClusterRequest{
+		ServerlessCluster: &controlplanev1.ServerlessClusterCreate{Name: "sr-fallback"},
+	})
+	if err != nil {
+		t.Fatalf("seed serverless cluster: %v", err)
+	}
+	id := op.GetOperation().GetResourceId()
+	if id == "" {
+		t.Fatal("seeded serverless cluster has empty ID")
+	}
+
+	conn, err := grpc.NewClient("passthrough:///bufnet", srv.Dialer()...)
+	if err != nil {
+		t.Fatalf("grpc.NewClient: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	cpCl := cloud.NewControlPlaneClientSet(conn)
+
+	// The live ClusterService returns PermissionDenied (not NotFound) for a
+	// serverless id. The fake can't model that boundary on its own, so force
+	// it to pin that the fallback triggers on PermissionDenied specifically,
+	// not just any error.
+	srv.OverrideOnce(
+		"/redpanda.api.controlplane.v1.ClusterService/GetCluster",
+		status.Error(codes.PermissionDenied, "Missing required permission read"),
+	)
+
+	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "tok"})
+	client, err := GetSchemaRegistryClientForCluster(ctx, cpCl, id, ts, "", "")
+	if err != nil {
+		t.Fatalf("expected serverless SR client, got error: %v", err)
+	}
+	if client == nil {
+		t.Fatal("expected non-nil sr.Client")
+	}
+
+	// The seeded cluster defaults to public networking enabled, so the
+	// resolved SR URL is the public one.
+	publicURL, err := schemaRegistryURLForCluster(ctx, cpCl, id)
+	if err != nil {
+		t.Fatalf("resolve public SR URL: %v", err)
+	}
+	if want := "https://mock.schema-registry.redpanda.cloud"; publicURL != want {
+		t.Fatalf("public-enabled serverless SR URL = %q, want %q", publicURL, want)
+	}
+
+	// A public-disabled serverless cluster rejects the public SR URL
+	// ("public network is not enabled"); resolution must return the private
+	// URL reachable from inside the private link.
+	privOp, err := srv.ServerlessCluster.CreateServerlessCluster(ctx, &controlplanev1.CreateServerlessClusterRequest{
+		ServerlessCluster: &controlplanev1.ServerlessClusterCreate{
+			Name: "sr-private",
+			NetworkingConfig: &controlplanev1.ServerlessNetworkingConfig{
+				Public:  controlplanev1.ServerlessNetworkingConfig_STATE_DISABLED,
+				Private: controlplanev1.ServerlessNetworkingConfig_STATE_ENABLED,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("seed private serverless cluster: %v", err)
+	}
+	privID := privOp.GetOperation().GetResourceId()
+	if privID == "" {
+		t.Fatal("seeded private serverless cluster has empty ID")
+	}
+	privateURL, err := schemaRegistryURLForCluster(ctx, cpCl, privID)
+	if err != nil {
+		t.Fatalf("resolve private SR URL: %v", err)
+	}
+	if want := "https://mock.schema-registry.private.redpanda.cloud"; privateURL != want {
+		t.Fatalf("public-disabled serverless SR URL = %q, want %q", privateURL, want)
+	}
+}
 
 // TestSetSubjectCompatibility_InvalidLevelReturnsError proves that an
 // unrecognised compatibility string is rejected rather than silently substituted

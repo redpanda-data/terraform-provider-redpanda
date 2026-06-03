@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"strings"
 
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/twmb/franz-go/pkg/sr"
 	"golang.org/x/oauth2"
@@ -41,18 +42,9 @@ const (
 // accept Bearer tokens issued by the same Auth0 IDP that mints the provider's
 // control-plane token, so the Bearer path is the recommended default.
 func GetSchemaRegistryClientForCluster(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID string, ts oauth2.TokenSource, username, password string) (*sr.Client, error) {
-	cluster, err := cpCl.ClusterForID(ctx, clusterID)
+	srURL, err := schemaRegistryURLForCluster(ctx, cpCl, clusterID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get cluster details: %w", err)
-	}
-
-	if !cluster.HasSchemaRegistry() {
-		return nil, fmt.Errorf("schema registry is not enabled for cluster %s", clusterID)
-	}
-
-	schemaRegistry := cluster.GetSchemaRegistry()
-	if schemaRegistry.GetUrl() == "" {
-		return nil, fmt.Errorf("schema registry URL is empty for cluster %s", clusterID)
+		return nil, err
 	}
 
 	authOpt, err := schemaRegistryAuthOption(ts, username, password)
@@ -61,7 +53,7 @@ func GetSchemaRegistryClientForCluster(ctx context.Context, cpCl *cloud.ControlP
 	}
 
 	client, err := sr.NewClient(
-		sr.URLs(schemaRegistry.GetUrl()),
+		sr.URLs(srURL),
 		authOpt,
 	)
 	if err != nil {
@@ -69,6 +61,44 @@ func GetSchemaRegistryClientForCluster(ctx context.Context, cpCl *cloud.ControlP
 	}
 
 	return client, nil
+}
+
+// schemaRegistryURLForCluster resolves the Schema Registry URL for clusterID.
+// A serverless cluster ID is invalid for the dedicated ClusterService and is
+// rejected there (PermissionDenied), so any ClusterForID failure falls back to
+// ServerlessClusterForID before giving up.
+func schemaRegistryURLForCluster(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID string) (string, error) {
+	cluster, err := cpCl.ClusterForID(ctx, clusterID)
+	if err == nil {
+		if !cluster.HasSchemaRegistry() {
+			return "", fmt.Errorf("schema registry is not enabled for cluster %s", clusterID)
+		}
+		if url := cluster.GetSchemaRegistry().GetUrl(); url != "" {
+			return url, nil
+		}
+		return "", fmt.Errorf("schema registry URL is empty for cluster %s", clusterID)
+	}
+
+	serverless, serverlessErr := cpCl.ServerlessClusterForID(ctx, clusterID)
+	if serverlessErr != nil {
+		return "", fmt.Errorf("failed to get cluster details: %w", err)
+	}
+	if !serverless.HasSchemaRegistry() {
+		return "", fmt.Errorf("schema registry is not enabled for serverless cluster %s", clusterID)
+	}
+	srStatus := serverless.GetSchemaRegistry()
+	// A public-disabled serverless cluster rejects the public SR URL with
+	// "public network is not enabled"; the private URL is the endpoint
+	// reachable from inside the private link.
+	if serverless.GetNetworkingConfig().GetPublic() == controlplanev1.ServerlessNetworkingConfig_STATE_DISABLED {
+		if url := srStatus.GetPrivateUrl(); url != "" {
+			return url, nil
+		}
+	}
+	if url := srStatus.GetUrl(); url != "" {
+		return url, nil
+	}
+	return "", fmt.Errorf("schema registry URL is empty for serverless cluster %s", clusterID)
 }
 
 // schemaRegistryAuthOption selects the franz-go sr.Client auth option based on
