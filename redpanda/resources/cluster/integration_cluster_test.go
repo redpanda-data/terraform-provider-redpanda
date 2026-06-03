@@ -1243,6 +1243,57 @@ func TestIntegration_Cluster_UpdateLeaf_AWSPrivateLink_Enabled(t *testing.T) {
 	})
 }
 
+// TestIntegration_Cluster_AWSPrivateLink_SupportedRegions is the regression
+// guard. With aws_private_link enabled and supported_regions unset, the schema's
+// computed_only makes the planned value "known after apply"; before the fix it
+// was a plain Optional whose planned value was null, which mismatched the
+// server's empty/absent list and tripped "Provider produced inconsistent result
+// after apply: was null, but now cty.ListValEmpty". UseStateForUnknown then
+// holds the value across replans — and because the value lands null, this also
+// pins the override choice over the classifier default UseNonNullStateForUnknown
+// (which would leave a null leaf perpetually "known after apply" and churn).
+//
+// A proto3 repeated field cannot distinguish empty from absent on the wire, so
+// the server's "[]" arrives as a nil slice that the provider flattens to null;
+// the nil->null boundary itself is pinned by the model-level
+// TestFlattenAWSPrivateLink_SupportedRegions_* tests.
+func TestIntegration_Cluster_AWSPrivateLink_SupportedRegions(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-344"
+	cfg := awsDedicatedConfig(name, `aws_private_link = {
+  enabled            = true
+  connect_console    = false
+  allowed_principals = ["arn:aws:iam::123456789012:root"]
+}`)
+	srPath := tfjsonpath.New("aws_private_link").AtMapKey("supported_regions")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config: cfg,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						// computed_only => known after apply (null pre-fix).
+						plancheck.ExpectUnknownValue(clusterAddr, srPath),
+					},
+					PostApplyPostRefresh: []plancheck.PlanCheck{
+						plancheck.ExpectEmptyPlan(),
+					},
+				},
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, srPath, knownvalue.Null()),
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("aws_private_link").AtMapKey("enabled"), knownvalue.Bool(true)),
+				},
+			},
+			// Re-plan: UseStateForUnknown holds the null value, no churn.
+			integration.NoopReapplyStep(clusterAddr, cfg, nil),
+		},
+	})
+}
+
 // TestIntegration_Cluster_UpdateLeaf_GCPPrivateServiceConnect_Toggle toggles
 // gcp_private_service_connect.enabled from false to true.
 func TestIntegration_Cluster_UpdateLeaf_GCPPrivateServiceConnect_Toggle(t *testing.T) {

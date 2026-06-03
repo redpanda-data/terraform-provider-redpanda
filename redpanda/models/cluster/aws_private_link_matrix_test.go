@@ -97,3 +97,41 @@ func TestFlattenAWSPrivateLink_PopulatedPrev_NoProto_PreservesPrev(t *testing.T)
 		t.Fatal("populated prev with no proto: got Null, want preserved prev value")
 	}
 }
+
+// supported_regions must flatten a nil/empty server slice to Null, never to an
+// empty list. The provider's old conv produced [] here, which mismatched the
+// null planned value and tripped "Provider produced inconsistent result after
+// apply: was null, but now cty.ListValEmpty". A proto3 repeated field
+// also can't distinguish empty from absent on the wire, so the server's "[]"
+// arrives as a nil slice — this is the only boundary the provider controls.
+func TestFlattenAWSPrivateLink_SupportedRegions_NilToNull(t *testing.T) {
+	pl := &controlplanev1.Cluster_AWSPrivateLink{Enabled: true}
+	out, diags := FlattenAWSPrivateLink(context.Background(), pl, nil)
+	if diags.HasError() {
+		t.Fatalf("unexpected diagnostics: %v", diags.Errors())
+	}
+	if !out.SupportedRegions.IsNull() {
+		t.Fatalf("nil supported_regions: got %v, want Null (must not be [])", out.SupportedRegions)
+	}
+}
+
+func TestFlattenAWSPrivateLink_SupportedRegions_PopulatedToList(t *testing.T) {
+	pl := &controlplanev1.Cluster_AWSPrivateLink{
+		Enabled:          true,
+		SupportedRegions: []string{"us-east-1", "us-west-2"},
+	}
+	out, diags := FlattenAWSPrivateLink(context.Background(), pl, nil)
+	if diags.HasError() {
+		t.Fatalf("unexpected diagnostics: %v", diags.Errors())
+	}
+	if out.SupportedRegions.IsNull() {
+		t.Fatal("populated supported_regions: got Null, want list")
+	}
+	var got []string
+	if d := out.SupportedRegions.ElementsAs(context.Background(), &got, false); d.HasError() {
+		t.Fatalf("ElementsAs: %v", d.Errors())
+	}
+	if len(got) != 2 || got[0] != "us-east-1" || got[1] != "us-west-2" {
+		t.Fatalf("supported_regions = %v, want [us-east-1 us-west-2]", got)
+	}
+}
