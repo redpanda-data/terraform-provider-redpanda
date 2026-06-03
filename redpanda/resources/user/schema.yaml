@@ -1,6 +1,7 @@
 message: "User is a user that can be created in Redpanda"
 api_schema: CreateUserRequest.User
 tf_name: User
+version: 1
 
 name:
   required: true

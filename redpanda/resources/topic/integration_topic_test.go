@@ -27,6 +27,7 @@ import (
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-testing/compare"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
@@ -38,6 +39,9 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/integration"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/mock"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/topic"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -784,4 +788,33 @@ func TestIntegration_Topic_ErrorPath_DeleteFailed(t *testing.T) {
 			},
 		},
 	})
+}
+
+// TestIntegration_Topic_UpgradeState_NormalizesClusterApiUrl drives the v0->v1
+// state upgrade through the provider server's UpgradeResourceState RPC and
+// asserts the legacy host:443 cluster_api_url is rewritten to https://host so
+// the format change alone no longer forces replacement.
+func TestIntegration_Topic_UpgradeState_NormalizesClusterApiUrl(t *testing.T) {
+	_, factories := integration.Setup(t)
+	ctx := context.Background()
+	schemaType := topic.ResourceTopicSchema(ctx).Type().TerraformType(ctx)
+
+	const priorState = `{` +
+		`"allow_deletion":true,` +
+		`"cluster_api_url":"bufnet:443",` +
+		`"configuration":null,` +
+		`"id":"app",` +
+		`"name":"app",` +
+		`"partition_count":null,` +
+		`"replica_assignments":null,` +
+		`"replication_factor":null` +
+		`}`
+
+	upgraded := integration.UpgradeState(t, factories, "redpanda_topic", 0, priorState, schemaType)
+
+	var obj map[string]tftypes.Value
+	require.NoError(t, upgraded.As(&obj))
+	var got string
+	require.NoError(t, obj["cluster_api_url"].As(&got))
+	assert.Equal(t, "https://bufnet", got)
 }

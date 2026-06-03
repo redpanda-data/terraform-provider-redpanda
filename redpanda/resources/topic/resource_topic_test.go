@@ -884,3 +884,30 @@ func TestUnit_Topic_MergeWithPlannedConfig(t *testing.T) {
 			"every planned key found in allConfigs must be reinstated when dynamicConfigs is empty")
 	})
 }
+
+func TestUnit_Topic_UpgradeState_NormalizesClusterAPIURL(t *testing.T) {
+	ctx := context.Background()
+	up, ok := (&Topic{}).UpgradeState(ctx)[0]
+	require.True(t, ok, "expected a v0 state upgrader")
+	require.NotNil(t, up.PriorSchema)
+
+	sch := ResourceTopicSchema(ctx)
+	cfgElem := sch.Attributes["configuration"].GetType().(types.MapType).ElemType
+	raElem := sch.Attributes["replica_assignments"].GetType().(types.ListType).ElemType
+
+	prior := tfsdk.State{Schema: *up.PriorSchema}
+	require.False(t, prior.Set(ctx, &topicmodel.ResourceModel{
+		Name:               types.StringValue("app"),
+		ClusterAPIURL:      types.StringValue("api-abc.cid.byoc.prd.cloud.redpanda.com:443"),
+		Configuration:      types.MapNull(cfgElem),
+		ReplicaAssignments: types.ListNull(raElem),
+	}).HasError())
+
+	resp := &resource.UpgradeStateResponse{State: tfsdk.State{Schema: sch}}
+	up.StateUpgrader(ctx, resource.UpgradeStateRequest{State: &prior}, resp)
+	require.False(t, resp.Diagnostics.HasError())
+
+	var got topicmodel.ResourceModel
+	require.False(t, resp.State.Get(ctx, &got).HasError())
+	assert.Equal(t, "https://api-abc.cid.byoc.prd.cloud.redpanda.com", got.ClusterAPIURL.ValueString())
+}

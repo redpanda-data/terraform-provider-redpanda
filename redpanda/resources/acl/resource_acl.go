@@ -60,10 +60,35 @@ func NewACL() *ACL {
 }
 
 var (
-	_ resource.Resource                = &ACL{}
-	_ resource.ResourceWithConfigure   = &ACL{}
-	_ resource.ResourceWithImportState = &ACL{}
+	_ resource.Resource                 = &ACL{}
+	_ resource.ResourceWithConfigure    = &ACL{}
+	_ resource.ResourceWithImportState  = &ACL{}
+	_ resource.ResourceWithUpgradeState = &ACL{}
 )
+
+// UpgradeState migrates v0 state to v1, normalizing the legacy host:443
+// cluster_api_url form to the canonical https://host the control plane now
+// returns so the RequiresReplace plan modifier does not fire on the format
+// change alone.
+func (*ACL) UpgradeState(ctx context.Context) map[int64]resource.StateUpgrader {
+	prior := ResourceACLSchema(ctx)
+	return map[int64]resource.StateUpgrader{
+		0: {
+			PriorSchema: &prior,
+			StateUpgrader: func(ctx context.Context, req resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {
+				var model aclmodel.ResourceModel
+				resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
+				if resp.Diagnostics.HasError() {
+					return
+				}
+				if !model.ClusterAPIURL.IsNull() && !model.ClusterAPIURL.IsUnknown() {
+					model.ClusterAPIURL = types.StringValue(utils.NormalizeClusterAPIURL(model.ClusterAPIURL.ValueString()))
+				}
+				resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
+			},
+		},
+	}
+}
 
 // Create creates a new ACL resource. CreateACL has no useful response payload,
 // so the model is persisted from plan input with the ID computed via

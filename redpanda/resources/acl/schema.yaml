@@ -1,6 +1,7 @@
 message: ""
 api_schema: CreateACLRequest
 tf_name: ACL
+version: 1
 
 api:
   # CreateACLRequest is a flat 7-field request — no payload wrapper,
