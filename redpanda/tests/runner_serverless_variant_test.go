@@ -32,6 +32,14 @@ import (
 func runServerlessClusterVariantTest(t *testing.T, testSuffix, region string, publicNetworking, privateNetworking bool) {
 	ctx := context.Background()
 
+	// A public-disabled (private-only) serverless cluster is unreachable from
+	// the external test runner for Schema Registry, so it uses a fixture
+	// without SR ACL / schema resources.
+	dir := acc.ServerlessClusterDir
+	if privateNetworking && !publicNetworking {
+		dir = acc.ServerlessClusterPrivateDir
+	}
+
 	name := acc.RandomName(acc.NamePrefix + testSuffix)
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, acc.ProviderCfgIDSecretVars)
@@ -72,7 +80,7 @@ func runServerlessClusterVariantTest(t *testing.T, testSuffix, region string, pu
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
 	updateTestCaseVars["cluster_allow_deletion"] = config.BoolVariable(true)
 
-	checkFuncs, err := acc.BuildTestCheckFuncs(acc.ServerlessClusterDir, name, privateNetworking)
+	checkFuncs, err := acc.BuildTestCheckFuncs(dir, name, privateNetworking)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +109,7 @@ func runServerlessClusterVariantTest(t *testing.T, testSuffix, region string, pu
 		PreCheck: func() { acc.PreCheck(t) },
 		Steps: []resource.TestStep{
 			{
-				ConfigDirectory:          config.StaticDirectory(acc.ServerlessClusterDir),
+				ConfigDirectory:          config.StaticDirectory(dir),
 				ConfigVariables:          origTestCaseVars,
 				Check:                    resource.ComposeAggregateTestCheckFunc(checkFuncs...),
 				ProtoV6ProviderFactories: acc.ProtoV6Factories,
@@ -110,7 +118,7 @@ func runServerlessClusterVariantTest(t *testing.T, testSuffix, region string, pu
 				},
 			},
 			{
-				ConfigDirectory:          config.StaticDirectory(acc.ServerlessClusterDir),
+				ConfigDirectory:          config.StaticDirectory(dir),
 				ConfigVariables:          allowDeleteVars,
 				ProtoV6ProviderFactories: acc.ProtoV6Factories,
 				ConfigPlanChecks: resource.ConfigPlanChecks{
@@ -118,7 +126,7 @@ func runServerlessClusterVariantTest(t *testing.T, testSuffix, region string, pu
 				},
 			},
 			{
-				ConfigDirectory:          config.StaticDirectory(acc.ServerlessClusterDir),
+				ConfigDirectory:          config.StaticDirectory(dir),
 				ConfigVariables:          updateTestCaseVars,
 				ProtoV6ProviderFactories: acc.ProtoV6Factories,
 				ConfigPlanChecks: resource.ConfigPlanChecks{
