@@ -128,7 +128,7 @@ func extractMessageFromDescriptor(
 	}
 
 	if pkg := string(md.ParentFile().Package()); pkg != "" && pkg != rootPkg {
-		if ext, ok := externalProtoPackages[pkg]; ok {
+		if ext, ok := ExternalProtoPackages[pkg]; ok {
 			msg.ExternalPkgAlias = ext.Alias
 			msg.ExternalPkgImport = ext.GoImport
 		}
@@ -320,14 +320,18 @@ func isScalarWrapperKind(k string) bool {
 	}
 }
 
-type externalProtoPackage struct {
-	GoImport string
-	Alias    string
+// ExternalProtoPackage maps a proto package to its generated Go import. Shared
+// by the schema/model walker and cmd/enumgen as the single source of truth.
+type ExternalProtoPackage struct {
+	GoImport       string
+	Alias          string
+	FunctionPrefix string
 }
 
-var externalProtoPackages = map[string]externalProtoPackage{
+// ExternalProtoPackages is the canonical proto-package → Go-import registry.
+var ExternalProtoPackages = map[string]ExternalProtoPackage{
 	"redpanda.core.admin.v2":       {GoImport: "buf.build/gen/go/redpandadata/core/protocolbuffers/go/redpanda/core/admin/v2", Alias: "corev2"},
-	"redpanda.core.common.v1":      {GoImport: "buf.build/gen/go/redpandadata/core/protocolbuffers/go/redpanda/core/common/v1", Alias: "commonv1"},
+	"redpanda.core.common.v1":      {GoImport: "buf.build/gen/go/redpandadata/core/protocolbuffers/go/redpanda/core/common/v1", Alias: "commonv1", FunctionPrefix: "Common"},
 	"redpanda.api.dataplane.v1":    {GoImport: "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1", Alias: "dataplanev1"},
 	"redpanda.api.controlplane.v1": {GoImport: "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1", Alias: "controlplanev1"},
 }

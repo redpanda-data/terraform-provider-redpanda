@@ -115,6 +115,12 @@ resource "redpanda_cluster" "test" {
       "schema_registry_enable_authorization" = true
     })
   }
+  maintenance_window_config = {
+    day_hour = {
+      day_of_week = var.maintenance_day_of_week
+      hour_of_day = var.maintenance_hour_of_day
+    }
+  }
   tags = var.cluster_tags
   timeouts = {
     create = "90m"
@@ -496,6 +502,12 @@ resource "redpanda_cluster" "test" {
       "enable_shadow_linking"                = var.cluster_enable_shadow_linking
       "schema_registry_enable_authorization" = true
     })
+  }
+  maintenance_window_config = {
+    day_hour = {
+      day_of_week = var.maintenance_day_of_week
+      hour_of_day = var.maintenance_hour_of_day
+    }
   }
   tags = var.cluster_tags
   ## This is a reference for GCP Private Service Connect

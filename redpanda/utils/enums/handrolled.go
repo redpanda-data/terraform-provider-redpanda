@@ -286,7 +286,7 @@ func StringToSASLMechanism(s string) dataplanev1.SASLMechanism {
 // `google.golang.org/genproto/googleapis/type/dayofweek`. Hand-written
 // because the google.type proto package contains multiple enums each in
 // a SEPARATE Go package (dayofweek, month, etc.) and enumgen's
-// per-proto-package goImports map doesn't model that. Manual wrappers
+// per-proto-package import registry doesn't model that. Manual wrappers
 // are cheap; adding more google.type enums = add another carve-out.
 //
 // google.type.DayOfWeek's values are `DAY_OF_WEEK_UNSPECIFIED`, `MONDAY`,

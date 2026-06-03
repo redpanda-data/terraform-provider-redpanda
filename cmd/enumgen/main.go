@@ -40,19 +40,6 @@ var protoPackages = []string{
 	"redpanda/core/common/v1",
 }
 
-var goImports = map[string]protoImport{
-	"redpanda.api.controlplane.v1": {Path: "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1", Alias: "controlplanev1"},
-	"redpanda.api.dataplane.v1":    {Path: "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1", Alias: "dataplanev1"},
-	"redpanda.core.admin.v2":       {Path: "buf.build/gen/go/redpandadata/core/protocolbuffers/go/redpanda/core/admin/v2", Alias: "corev2"},
-	"redpanda.core.common.v1":      {Path: "buf.build/gen/go/redpandadata/core/protocolbuffers/go/redpanda/core/common/v1", Alias: "commonv1", FunctionPrefix: "Common"},
-}
-
-type protoImport struct {
-	Path           string
-	Alias          string
-	FunctionPrefix string
-}
-
 type enumInfo struct {
 	GoName          string
 	ProtoPkg        string
@@ -165,8 +152,8 @@ func buildEnumInfo(e protoreflect.EnumDescriptor, pkg string) enumInfo {
 		GoName:   enumGoName(e),
 		ProtoPkg: pkg,
 	}
-	if gi, ok := goImports[pkg]; ok {
-		info.GoImportPath = gi.Path
+	if gi, ok := schemagen.ExternalProtoPackages[pkg]; ok {
+		info.GoImportPath = gi.GoImport
 		info.GoImportAlias = gi.Alias
 		info.FunctionPrefix = gi.FunctionPrefix
 	}

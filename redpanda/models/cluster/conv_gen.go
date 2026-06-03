@@ -1319,16 +1319,10 @@ func FlattenCloudStorage(ctx context.Context, proto *controlplanev1.Cluster_Clou
 	var diags diag.Diagnostics
 	_ = prev
 	m := CloudStorageModel{}
-	if v := proto.GetSkipDestroy(); v != false {
-		m.SkipDestroy = types.BoolValue(v)
-	} else if prev != nil && !prev.SkipDestroy.IsUnknown() {
-		m.SkipDestroy = prev.SkipDestroy
-	} else {
-		m.SkipDestroy = types.BoolNull()
-	}
 	m.AWS = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAws(), func() *CloudStorageAWSModel { v, _ := DecodeCloudStorageAWS(ctx, prev); return v }(), CloudStorageAWSAttrTypes(), FlattenCloudStorageAWS, &diags)
 	m.Azure = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAzure(), func() *CloudStorageAzureModel { v, _ := DecodeCloudStorageAzure(ctx, prev); return v }(), CloudStorageAzureAttrTypes(), FlattenCloudStorageAzure, &diags)
 	m.GCP = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetGcp(), func() *CloudStorageGCPModel { v, _ := DecodeCloudStorageGCP(ctx, prev); return v }(), CloudStorageGCPAttrTypes(), FlattenCloudStorageGCP, &diags)
+	m.SkipDestroy = types.BoolValue(proto.GetSkipDestroy())
 	return m, diags
 }
 
@@ -1890,13 +1884,7 @@ func FlattenMaintenanceWindowConfigDayHour(_ context.Context, proto *controlplan
 	_ = prev
 	m := MaintenanceWindowConfigDayHourModel{}
 	m.DayOfWeek = types.StringValue(enums.DayOfWeekToString(proto.GetDayOfWeek()))
-	if v := proto.GetHourOfDay(); v != 0 {
-		m.HourOfDay = types.Int32Value(v)
-	} else if prev != nil && !prev.HourOfDay.IsUnknown() {
-		m.HourOfDay = prev.HourOfDay
-	} else {
-		m.HourOfDay = types.Int32Null()
-	}
+	m.HourOfDay = types.Int32Value(proto.GetHourOfDay())
 	return m, diags
 }
 

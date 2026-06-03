@@ -131,6 +131,12 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	hasTopic := strings.Contains(string(testFileContent), `resource "redpanda_topic" "test"`)
 	hasPipeline := strings.Contains(string(testFileContent), `resource "redpanda_pipeline" "test"`)
 	hasPasswordWo := strings.Contains(string(testFileContent), "var.user_password_wo")
+	hasMaintenanceWindow := strings.Contains(string(testFileContent), "maintenance_window_config")
+
+	if hasMaintenanceWindow {
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttr(acc.ClusterResourceName, "maintenance_window_config.day_hour.hour_of_day", "0"))
+	}
 
 	steps := []resource.TestStep{
 		{
@@ -375,6 +381,11 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	fieldMutationChecks := []resource.TestCheckFunc{
 		resource.TestCheckResourceAttr(acc.ClusterResourceName, "tags.env", "acc"),
 		resource.TestCheckResourceAttr(acc.ClusterResourceName, "tags.team", "platform"),
+	}
+	if hasMaintenanceWindow {
+		fieldMutationVars["maintenance_hour_of_day"] = config.IntegerVariable(3)
+		fieldMutationChecks = append(fieldMutationChecks,
+			resource.TestCheckResourceAttr(acc.ClusterResourceName, "maintenance_window_config.day_hour.hour_of_day", "3"))
 	}
 	if hasTopic {
 		fieldMutationVars["partition_count"] = config.IntegerVariable(6)

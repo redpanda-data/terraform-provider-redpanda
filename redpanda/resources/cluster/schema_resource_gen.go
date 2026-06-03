@@ -652,10 +652,6 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Computed:      true,
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
-					"skip_destroy": schema.BoolAttribute{
-						Description: "If true, cloud storage is not deleted when the cluster is destroyed",
-						Optional:    true,
-					},
 					"aws": schema.SingleNestedAttribute{
 						Description:   "AWS configuration",
 						Optional:      true,
@@ -699,6 +695,12 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 						},
+					},
+					"skip_destroy": schema.BoolAttribute{
+						Description:   "If true, cloud storage is not deleted when the cluster is destroyed",
+						Optional:      true,
+						Computed:      true,
+						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
 					},
 				},
 			},
@@ -1033,8 +1035,10 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Optional:    true,
 							},
 							"hour_of_day": schema.Int32Attribute{
-								Description: "always UTC. Must be between 0 and 23 (inclusive).",
-								Optional:    true,
+								Description:   "always UTC. Must be between 0 and 23 (inclusive).",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.Int32{int32planmodifier.UseStateForUnknown()},
 							},
 						},
 					},

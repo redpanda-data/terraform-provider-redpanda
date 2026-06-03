@@ -24,17 +24,12 @@ const validatorsImport = "github.com/redpanda-data/terraform-provider-redpanda/r
 
 // ValidatorDef describes how to generate Go code for a named validator.
 type ValidatorDef struct {
-	Expr string
-
-	Imports []string
-
-	AttrType string
-
-	ReturnsSlice bool
-
+	Expr          string
+	Imports       []string
+	AttrType      string
+	ReturnsSlice  bool
 	Parameterized bool
-
-	GenFunc func(fieldPath string, params map[string]string) (expr string, imports []string)
+	GenFunc       func(fieldPath string, params map[string]string) (expr string, imports []string)
 }
 
 var validatorRegistry = map[string]ValidatorDef{
