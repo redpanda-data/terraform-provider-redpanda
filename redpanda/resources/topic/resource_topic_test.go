@@ -129,7 +129,6 @@ func TestUnit_Topic_Create(t *testing.T) {
 		},
 		{
 			// Server says "no" with retriable: false metadata; provider must not retry.
-			// Regression guard for the dropped "topic authorization not ready" retry.
 			name: "PermissionDenied fails fast, no retry",
 			input: topicmodel.ResourceModel{
 				Name:              types.StringValue("denied-topic"),

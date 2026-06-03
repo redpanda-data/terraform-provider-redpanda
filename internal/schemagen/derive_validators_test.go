@@ -248,8 +248,7 @@ func TestConstraintSummary_Int32Range(t *testing.T) {
 	}
 }
 
-// TestConstraintSummary_MixedBounds exercises gte+lt and gt+lte combinations,
-// which previously fell through to the bare-min case.
+// TestConstraintSummary_MixedBounds exercises gte+lt and gt+lte combinations.
 func TestConstraintSummary_MixedBounds(t *testing.T) {
 	cases := []struct {
 		name  string
