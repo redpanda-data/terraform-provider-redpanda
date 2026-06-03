@@ -185,21 +185,15 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 
 	tflog.Info(ctx, "updating cluster", map[string]any{"cluster_id": plan.ID.ValueString()})
 
-	planPayload, expandDiags := clustermodel.ExpandUpdate(ctx, &plan)
+	diffedPayload, mask, expandDiags := clustermodel.ExpandUpdateWithMask(ctx, &plan, &state)
 	resp.Diagnostics.Append(expandDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	statePayload, expandDiags := clustermodel.ExpandUpdate(ctx, &state)
-	resp.Diagnostics.Append(expandDiags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	diffedPayload, mask := utils.GenerateProtobufDiffAndUpdateMask(planPayload, statePayload)
 	// The public-API mapper recognizes rpsql.enabled / rpsql.replicas but not
 	// the top-level "rpsql" path the diff emits, so expand it before the request.
 	expandRpsqlPath(mask)
-	diffedPayload.Id = planPayload.Id
+	diffedPayload.Id = plan.ID.ValueString()
 	updateReq := &controlplanev1.UpdateClusterRequest{
 		Cluster:    diffedPayload,
 		UpdateMask: mask,

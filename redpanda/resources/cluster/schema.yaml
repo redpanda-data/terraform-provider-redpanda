@@ -11,6 +11,9 @@ api:
     # and wraps the returned payload itself, so the generator returns the
     # payload type instead of the full request envelope.
     return_payload: true
+    # ExpandUpdateWithMask diffs plan vs state into a sparse payload; the
+    # cluster API tolerates partial messages.
+    diff_mask: sparse
 
 allow_deletion:
   computed: true

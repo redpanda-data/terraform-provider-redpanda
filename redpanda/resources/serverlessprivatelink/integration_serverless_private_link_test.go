@@ -30,6 +30,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/provider"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/integration"
@@ -195,6 +196,51 @@ const (
 	splPrincipals1 = `["arn:aws:iam::123456789012:root"]`
 	splPrincipals2 = `["arn:aws:iam::123456789012:root", "arn:aws:iam::987654321098:root"]`
 )
+
+// TestIntegration_ServerlessPrivateLink_AllowDeletionFlip_NoBackendCall flips
+// allow_deletion — a provider-only attribute absent from the proto update
+// request — with aws_config unchanged. The plan is a Terraform-level Update,
+// but the provider must short-circuit: no UpdateServerlessPrivateLink RPC
+// should fire. CallCount == 0 is the load-bearing assertion.
+func TestIntegration_ServerlessPrivateLink_AllowDeletionFlip_NoBackendCall(t *testing.T) {
+	srv, factories := integration.Setup(t)
+
+	const name = "tfrp-mock-spl-allowdel"
+
+	idUnchanged := statecheck.CompareValue(compare.ValuesSame())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(splAddr, splConfig(name, "pro-us-east-1", splPrincipals1, false), []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(splAddr, tfjsonpath.New("allow_deletion"), knownvalue.Bool(false)),
+				statecheck.ExpectKnownValue(splAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idUnchanged.AddStateValue(splAddr, tfjsonpath.New("id")),
+			}),
+			{
+				Config: splConfig(name, "pro-us-east-1", splPrincipals1, true),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(splAddr, plancheck.ResourceActionUpdate),
+					},
+					PostApplyPostRefresh: []plancheck.PlanCheck{
+						plancheck.ExpectEmptyPlan(),
+					},
+				},
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(splAddr, tfjsonpath.New("allow_deletion"), knownvalue.Bool(true)),
+					idUnchanged.AddStateValue(splAddr, tfjsonpath.New("id")),
+				},
+				Check: func(*terraform.State) error {
+					if n := srv.CallCount(controlplanev1grpc.ServerlessPrivateLinkService_UpdateServerlessPrivateLink_FullMethodName); n != 0 {
+						return fmt.Errorf("allow_deletion-only flip called UpdateServerlessPrivateLink %d time(s); want 0 (no-op short-circuit)", n)
+					}
+					return nil
+				},
+			},
+		},
+	})
+}
 
 // TestIntegration_ServerlessPrivateLink_CreateAndRefresh validates the Create +
 // no-op cycle for the only shipped variant (AWS). Asserts every leaf at

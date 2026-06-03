@@ -33,6 +33,28 @@ func (s *Server) OverrideOnce(fullMethod string, err error) {
 	s.pendingOverrides[fullMethod] = err
 }
 
+// CallCount returns how many times the given gRPC full method name has been
+// invoked since the Server was constructed. Use it to assert that a no-op
+// provider Update skips its backend mutation RPC entirely (e.g. an
+// allow_deletion-only flip must not call UpdateServerlessCluster).
+func (s *Server) CallCount(fullMethod string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.callCounts[fullMethod]
+}
+
+// countingInterceptor returns a server unary interceptor that records every
+// incoming call by full method name. Chained ahead of overrideInterceptor so
+// error-injected calls are still counted.
+func (s *Server) countingInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		s.mu.Lock()
+		s.callCounts[info.FullMethod]++
+		s.mu.Unlock()
+		return handler(ctx, req)
+	}
+}
+
 // overrideInterceptor returns a server unary interceptor that consults the
 // pending-overrides map; on hit, returns the registered error and clears the
 // entry. Chained ahead of validatingInterceptor so per-test error injection

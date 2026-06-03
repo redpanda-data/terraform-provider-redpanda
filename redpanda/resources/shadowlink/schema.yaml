@@ -18,6 +18,9 @@ api:
   post_expand_hook: shadowlinkmodel.ThreadCreateExtras
   update:
     return_payload: true
+    # ExpandUpdateWithMask diffs plan vs state into a sparse payload; the
+    # shadow link API honors the FieldMask and tolerates partial messages.
+    diff_mask: sparse
 
 # TF-only convenience: trip-wire that the resource must be allow_deletion=true
 # to be destroyed. Mirrors every other cluster-scoped resource in the provider.

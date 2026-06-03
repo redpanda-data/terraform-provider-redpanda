@@ -10,6 +10,10 @@ api:
     # and wraps the returned payload, so the generator returns the
     # ServiceAccountUpdate payload type instead of the full request envelope.
     return_payload: true
+    # full (not sparse): the service account API runs buf.validate on every
+    # field regardless of the FieldMask, so a sparse payload's zero-valued
+    # unchanged `name` would trip string.min_len. Send the whole plan payload.
+    diff_mask: full
 
 id:
   computed_only: true

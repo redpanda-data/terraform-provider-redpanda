@@ -9,6 +9,14 @@ timeouts: [create, update, delete]
 # SingleNested (networking_config), Map (tags), and proto3-optional
 # string (private_link_id) directly.
 
+api:
+  update:
+    # full: the request has no FieldMask field (tags / networking_config are
+    # full replacements). ExpandUpdateWithMask returns the whole plan request;
+    # the resource reads the mask only to skip the RPC when nothing changed
+    # (e.g. a provider-only allow_deletion flip).
+    diff_mask: full
+
 name:
   required: true
   description: "Name of the serverless cluster"
