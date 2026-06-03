@@ -60,6 +60,7 @@ type ResourceModel struct {
 	RedpandaVersion                  types.String   `tfsdk:"redpanda_version"`
 	Region                           types.String   `tfsdk:"region"`
 	ResourceGroupID                  types.String   `tfsdk:"resource_group_id"`
+	Rpsql                            types.Object   `tfsdk:"rpsql"`
 	SchemaRegistry                   types.Object   `tfsdk:"schema_registry"`
 	State                            types.String   `tfsdk:"state"`
 	StateDescription                 types.Object   `tfsdk:"state_description"`
@@ -545,6 +546,15 @@ type MaintenanceWindowConfigModel struct {
 type MaintenanceWindowConfigDayHourModel struct {
 	DayOfWeek types.String `tfsdk:"day_of_week"`
 	HourOfDay types.Int32  `tfsdk:"hour_of_day"`
+}
+
+// RpsqlModel mirrors the nested "rpsql" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type RpsqlModel struct {
+	Enabled  types.Bool   `tfsdk:"enabled"`
+	Replicas types.Int32  `tfsdk:"replicas"`
+	URL      types.String `tfsdk:"url"`
 }
 
 // SchemaRegistryModel mirrors the nested "schema_registry" attribute. Use the As/To
@@ -1129,6 +1139,16 @@ func MaintenanceWindowConfigDayHourAttrTypes() map[string]attr.Type {
 	}
 }
 
+// RpsqlAttrTypes returns the attr.Type map for the "rpsql" nested
+// attribute.
+func RpsqlAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"enabled":  types.BoolType,
+		"replicas": types.Int32Type,
+		"url":      types.StringType,
+	}
+}
+
 // SchemaRegistryAttrTypes returns the attr.Type map for the "schema_registry" nested
 // attribute.
 func SchemaRegistryAttrTypes() map[string]attr.Type {
@@ -1415,6 +1435,29 @@ func MaintenanceWindowConfigToObject(ctx context.Context, v *MaintenanceWindowCo
 		return types.ObjectNull(MaintenanceWindowConfigAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, MaintenanceWindowConfigAttrTypes(), v)
+}
+
+// AsRpsql converts the root rpsql attribute from
+// types.Object into its typed form. Returns (nil, nil) when the object is
+// null or unknown. Use this when you want typed field access without
+// manually unpacking .Attributes().
+func (m *ResourceModel) AsRpsql(ctx context.Context) (*RpsqlModel, diag.Diagnostics) {
+	if m == nil || m.Rpsql.IsNull() || m.Rpsql.IsUnknown() {
+		return nil, nil
+	}
+	var out RpsqlModel
+	d := m.Rpsql.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// RpsqlToObject encodes a typed struct back into the
+// types.Object shape expected by the framework. A nil receiver returns
+// types.ObjectNull with the correct attribute types.
+func RpsqlToObject(ctx context.Context, v *RpsqlModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(RpsqlAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, RpsqlAttrTypes(), v)
 }
 
 // AsSchemaRegistry converts the root schema_registry attribute from
@@ -2368,6 +2411,7 @@ func GenerateMinimalResourceModel(id types.String, timeout timeouts.Value) *Reso
 		RedpandaVersion:                  types.StringNull(),
 		Region:                           types.StringNull(),
 		ResourceGroupID:                  types.StringNull(),
+		Rpsql:                            types.ObjectNull(RpsqlAttrTypes()),
 		SchemaRegistry:                   types.ObjectNull(SchemaRegistryAttrTypes()),
 		State:                            types.StringNull(),
 		StateDescription:                 types.ObjectNull(StateDescriptionAttrTypes()),

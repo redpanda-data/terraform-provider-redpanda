@@ -319,7 +319,11 @@ resource "redpanda_cluster" "test" {
 // subnetName allows the C10 scenario to mutate cmr.gcp.subnet.name.
 // psc_nat_subnet_name is always set to a non-empty value because conv_gen.go
 // flattens the unset proto3 string as "" rather than null.
-func gcpBYOVPCConfig(name, subnetName string) string {
+func gcpBYOVPCConfig(name, subnetName, pscNatSubnet string) string {
+	pscLine := ""
+	if pscNatSubnet != "" {
+		pscLine = fmt.Sprintf("\n      psc_nat_subnet_name   = %q", pscNatSubnet)
+	}
 	return fmt.Sprintf(`
 provider "redpanda" {}
 
@@ -366,12 +370,11 @@ resource "redpanda_cluster" "test" {
         secondary_ipv4_range_pods     = { name = "pods-range" }
         secondary_ipv4_range_services = { name = "svc-range" }
       }
-      tiered_storage_bucket = { name = "tfrp-tiered-bucket" }
-      psc_nat_subnet_name   = "psc-nat-subnet-test"
+      tiered_storage_bucket = { name = "tfrp-tiered-bucket" }%s
     }
   }
 }
-`, name, subnetName)
+`, name, subnetName, pscLine)
 }
 
 // twoRGConfig declares two resource_groups; rgLabel selects which one the
@@ -731,7 +734,7 @@ func TestIntegration_Cluster_CreateAndRefresh_GCP_BYOVPC(t *testing.T) {
 		name       = "tfrp-mock-cl-a5"
 		subnetName = "tfrp-subnet-a"
 	)
-	cfg := gcpBYOVPCConfig(name, subnetName)
+	cfg := gcpBYOVPCConfig(name, subnetName, "psc-nat-subnet-test")
 
 	idPreserved := statecheck.CompareValue(compare.ValuesSame())
 
@@ -1050,6 +1053,56 @@ func TestIntegration_Cluster_UpdateLeaf_KafkaConnect_Enabled(t *testing.T) {
 					statecheck.ExpectKnownValue(clusterAddr,
 						tfjsonpath.New("kafka_connect").AtMapKey("enabled"),
 						knownvalue.Bool(false)),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+		},
+	})
+}
+
+// TestIntegration_Cluster_UpdateLeaf_Rpsql exercises the rpsql block in place:
+// enable (null→enabled), enable-after-disable (re-derives the computed url),
+// and a replicas scale — all as ResourceActionUpdate. The scale also proves
+// expandRpsqlPath round-trips the granular mask paths.
+func TestIntegration_Cluster_UpdateLeaf_Rpsql(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-rpsql"
+	const mockURL = "https://mock.rpsql.redpanda.cloud"
+
+	idPreserved := statecheck.CompareValue(compare.ValuesSame())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				awsDedicatedConfig(name),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql"), knownvalue.Null()),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			// Add a disabled block: replicas defaults to 1, url stays empty.
+			integration.UpdateLeafStep(clusterAddr,
+				awsDedicatedConfig(name, `rpsql = { enabled = false }`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("enabled"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("replicas"), knownvalue.Int32Exact(1)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("url"), knownvalue.StringExact("")),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			// Enable in place: url is re-derived to the provisioned endpoint.
+			integration.UpdateLeafStep(clusterAddr,
+				awsDedicatedConfig(name, `rpsql = { enabled = true }`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("enabled"), knownvalue.Bool(true)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("url"), knownvalue.StringExact(mockURL)),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			// Scale replicas in place.
+			integration.UpdateLeafStep(clusterAddr,
+				awsDedicatedConfig(name, `rpsql = { enabled = true, replicas = 3 }`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("replicas"), knownvalue.Int32Exact(3)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("url"), knownvalue.StringExact(mockURL)),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
 		},
@@ -1564,7 +1617,7 @@ func TestIntegration_Cluster_RequiresReplace_CMR_GCP_Block(t *testing.T) {
 		ProtoV6ProviderFactories: factories,
 		Steps: []resource.TestStep{
 			integration.CreateStep(clusterAddr,
-				gcpBYOVPCConfig(name, subnetNameA),
+				gcpBYOVPCConfig(name, subnetNameA, "psc-nat-subnet-test"),
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr,
 						tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("subnet").AtMapKey("name"),
@@ -1573,7 +1626,7 @@ func TestIntegration_Cluster_RequiresReplace_CMR_GCP_Block(t *testing.T) {
 					idChanged.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
 			integration.RequiresReplaceStep(clusterAddr,
-				gcpBYOVPCConfig(name, subnetNameB),
+				gcpBYOVPCConfig(name, subnetNameB, "psc-nat-subnet-test"),
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr,
 						tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("subnet").AtMapKey("name"),
@@ -2271,6 +2324,30 @@ func TestIntegration_Cluster_OptionalComputed_CloudStorageSkipDestroy(t *testing
 			}),
 			integration.UpdateLeafStep(clusterAddr, setFalse, []statecheck.StateCheck{
 				statecheck.ExpectKnownValue(clusterAddr, skipPath, knownvalue.Bool(false)),
+			}),
+		},
+	})
+}
+
+// TestIntegration_Cluster_NullPscNatSubnetName_Repro omits psc_nat_subnet_name
+// from the GCP CMR block; the Optional-only string leaf must stay null across
+// create and re-apply rather than materializing an empty string.
+func TestIntegration_Cluster_NullPscNatSubnetName_Repro(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-nullpsc"
+	cfg := gcpBYOVPCConfig(name, "tfrp-subnet-nullpsc", "")
+
+	pscPath := tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("psc_nat_subnet_name")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr, cfg, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(clusterAddr, pscPath, knownvalue.Null()),
+			}),
+			integration.NoopReapplyStep(clusterAddr, cfg, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(clusterAddr, pscPath, knownvalue.Null()),
 			}),
 		},
 	})
