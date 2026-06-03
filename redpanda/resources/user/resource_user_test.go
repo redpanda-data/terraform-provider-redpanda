@@ -163,3 +163,24 @@ func TestUnit_User_Update_WriteOnlyPassword(t *testing.T) {
 	require.False(t, diags.HasError(), "State.Get should not error")
 	assert.Equal(t, "testuser", resultState.Name.ValueString())
 }
+
+func TestUnit_User_UpgradeState_NormalizesClusterAPIURL(t *testing.T) {
+	ctx := context.Background()
+	up, ok := (&User{}).UpgradeState(ctx)[0]
+	require.True(t, ok, "expected a v0 state upgrader")
+	require.NotNil(t, up.PriorSchema)
+
+	prior := tfsdk.State{Schema: *up.PriorSchema}
+	require.False(t, prior.Set(ctx, &usermodel.ResourceModel{
+		Name:          types.StringValue("app"),
+		ClusterAPIURL: types.StringValue("api-abc.cid.byoc.prd.cloud.redpanda.com:443"),
+	}).HasError())
+
+	resp := &resource.UpgradeStateResponse{State: tfsdk.State{Schema: ResourceUserSchema(ctx)}}
+	up.StateUpgrader(ctx, resource.UpgradeStateRequest{State: &prior}, resp)
+	require.False(t, resp.Diagnostics.HasError())
+
+	var got usermodel.ResourceModel
+	require.False(t, resp.State.Get(ctx, &got).HasError())
+	assert.Equal(t, "https://api-abc.cid.byoc.prd.cloud.redpanda.com", got.ClusterAPIURL.ValueString())
+}

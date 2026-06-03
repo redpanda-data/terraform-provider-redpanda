@@ -484,6 +484,20 @@ func SplitSchemeDefPort(url, def string) (string, error) {
 	return host + ":" + port, nil
 }
 
+// NormalizeClusterAPIURL canonicalizes a cluster API URL to the current
+// scheme-prefixed, port-stripped form (https://host) that the control plane
+// returns. It upgrades the legacy host:443 form and is idempotent on values
+// already in canonical form. Non-standard ports are preserved. Empty stays empty.
+func NormalizeClusterAPIURL(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	host := strings.TrimPrefix(strings.TrimPrefix(raw, "https://"), "http://")
+	host = strings.TrimSuffix(host, "/")
+	host = strings.TrimSuffix(host, ":443")
+	return "https://" + host
+}
+
 // ConvertToConsoleURL converts a cluster API URL to a console URL for SecurityService operations.
 // This transformation is needed because the SecurityService uses console URLs instead of cluster API URLs.
 //

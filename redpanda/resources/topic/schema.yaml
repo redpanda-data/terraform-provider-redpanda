@@ -1,6 +1,7 @@
 message: "Topic represents a Kafka topic configuration"
 api_schema: CreateTopicRequest.Topic
 tf_name: Topic
+version: 1
 
 api:
   delete:

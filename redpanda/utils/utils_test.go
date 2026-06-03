@@ -1541,3 +1541,24 @@ func TestStringSliceToTypeListOrNull(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalizeClusterAPIURL(t *testing.T) {
+	const canonical = "https://api-abc.cid.byoc.prd.cloud.redpanda.com"
+	for _, tt := range []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"host_port_443", "api-abc.cid.byoc.prd.cloud.redpanda.com:443", canonical},
+		{"bare_host", "api-abc.cid.byoc.prd.cloud.redpanda.com", canonical},
+		{"already_canonical", canonical, canonical},
+		{"https_with_443", "https://api-abc.cid.byoc.prd.cloud.redpanda.com:443", canonical},
+		{"https_trailing_slash", "https://api-abc.cid.byoc.prd.cloud.redpanda.com/", canonical},
+		{"non_standard_port_kept", "api-abc.cid.byoc.prd.cloud.redpanda.com:9092", "https://api-abc.cid.byoc.prd.cloud.redpanda.com:9092"},
+		{"empty", "", ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, NormalizeClusterAPIURL(tt.in))
+		})
+	}
+}

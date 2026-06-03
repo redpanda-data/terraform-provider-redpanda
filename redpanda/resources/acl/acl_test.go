@@ -16,9 +16,17 @@
 package acl
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	aclmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/acl"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // The two tests below pin the composite-ID format used by
@@ -197,4 +205,25 @@ func Test_ACLCompositeIDFormat(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUnit_ACL_UpgradeState_NormalizesClusterAPIURL(t *testing.T) {
+	ctx := context.Background()
+	up, ok := (&ACL{}).UpgradeState(ctx)[0]
+	require.True(t, ok, "expected a v0 state upgrader")
+	require.NotNil(t, up.PriorSchema)
+
+	prior := tfsdk.State{Schema: *up.PriorSchema}
+	require.False(t, prior.Set(ctx, &aclmodel.ResourceModel{
+		Host:          types.StringValue("*"),
+		ClusterAPIURL: types.StringValue("api-abc.cid.byoc.prd.cloud.redpanda.com:443"),
+	}).HasError())
+
+	resp := &resource.UpgradeStateResponse{State: tfsdk.State{Schema: ResourceACLSchema(ctx)}}
+	up.StateUpgrader(ctx, resource.UpgradeStateRequest{State: &prior}, resp)
+	require.False(t, resp.Diagnostics.HasError())
+
+	var got aclmodel.ResourceModel
+	require.False(t, resp.State.Get(ctx, &got).HasError())
+	assert.Equal(t, "https://api-abc.cid.byoc.prd.cloud.redpanda.com", got.ClusterAPIURL.ValueString())
 }
