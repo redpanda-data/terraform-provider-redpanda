@@ -95,6 +95,8 @@ Walk the fake against every RPC the production calls — not just the ones in yo
 
 **Carve-out: proto-level constraints are already enforced.** The mock server registers `validatingInterceptor` (`internal/testutil/mock/server.go`) which runs `protovalidate` against every incoming RPC. Any `buf.validate.field` rule in the proto descriptor — `[string.uuid]`, regex, length, range, required — is enforced at the bufconn boundary before the fake ever sees the request. For those constraints, fake parity is automatic; **don't hand-patch the fake to mirror what the interceptor already does.** Fake-author parity is only required for behavior NOT expressible in proto annotations: canonicalization (role_assignment principal-prefix), defaulting (server-populated fields), shaping (id-vs-name swaps in `DeleteX` requests), stateful semantics (write-only fields, async polling).
 
+**Error-CODE parity, not just data-shape parity.** A fake's *error gRPC code* is part of the contract too, and it drifts silently. The canonical case (`GetSchemaRegistryClientForCluster` serverless fallback): the live `ClusterService.GetCluster` returns `PermissionDenied` for a serverless id (it's an authz boundary — the id belongs to a different service), but `ClusterFake.GetCluster` returns `NotFound` for any id it doesn't hold. A naive red test reproduces the bug's *structure* (ClusterForID errors → no fallback) with the *wrong code*, and the fake can't model the real boundary on its own. This matters whenever the production code branches on the code (`status.Code(err) == codes.X`): a code-agnostic fix (fall back on *any* error) passes against both codes, but the guard then fails to pin the specific live symptom — a future narrowing to `== codes.NotFound` would re-break the `PermissionDenied` path and the test would stay green. **Remedy: force the real code with the mock's `OverrideOnce(method, status.Error(codes.X, "..."))` seam** (`internal/testutil/mock/server.go`, used in `server_test.go`) so the red proof reproduces the *exact* reported error and the guard pins that code specifically. When you can't confirm the live code from a ticket, check the backend handler (Phase 2 step 3) — the code is as much a part of the contract as the message.
+
 ## Phase 4: Audit test coverage tier by tier
 
 Per [`../_shared/testing-tiers.md`](../_shared/testing-tiers.md), the four tiers are:
@@ -187,6 +189,7 @@ Per memory `feedback_test_all_leaves.md`: when the bug fix adds or modifies an a
 - **Don't declare a state-shape-drift bug fixed** without checking what happens to state that's already wrong (Phase 7).
 - **Don't pivot to a test-mechanic workaround** when the workaround is papering over a real UX bug (Phase 8).
 - **Don't spin up a new cluster** for dataplane resource acc coverage — extend `testRunner` (memory `feedback_dataplane_extends_existing_runner.md`).
+- **Don't accept a red proof whose error code differs from the live symptom.** If the fake emits `NotFound` but the live symptom was `PermissionDenied`, force the real code via `OverrideOnce` (Phase 3) — a structurally-right but code-wrong reproduction leaves the guard blind to code-specific regressions.
 
 ## Commit shape
 
