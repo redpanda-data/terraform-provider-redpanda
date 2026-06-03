@@ -41,3 +41,20 @@ resource "redpanda_user" "test" {
 }
 `, name, clusterAPIURL)
 }
+
+// TestUpgrade_User_ClusterAPIURLMigration guards the cluster_api_url format
+// migration across v1.9.0..HEAD: the released provider stores the legacy
+// host:443 form, and HEAD's schema-version-1 UpgradeState must rewrite it to
+// the canonical https://host in place so the format change alone does not force
+// replacement. Step 1's empty plan is the proof; it also exercises the
+// UpgradeResourceState PriorSchema decode against real released-provider state.
+//
+// Requires KAFKA_CLUSTER_API_URL.
+func TestUpgrade_User_ClusterAPIURLMigration(t *testing.T) {
+	legacy, canonical := upgrade.ClusterAPIURLForms(t)
+	name := upgrade.RandomName("tfrp-upgrade-user-url")
+	upgrade.CreateAndRunMigrationTest(t,
+		upgradeUserConfig(name, legacy),
+		upgradeUserConfig(name, canonical),
+	)
+}
