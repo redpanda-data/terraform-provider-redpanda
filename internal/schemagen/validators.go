@@ -177,6 +177,11 @@ var validatorRegistry = map[string]ValidatorDef{
 		},
 		AttrType: "String",
 	},
+	"PSCConsumerSource": {
+		Expr:     "validators.PSCConsumerSourceValidator{}",
+		Imports:  []string{validatorsImport},
+		AttrType: "String",
+	},
 	"OneOf": {
 		Parameterized: true,
 		GenFunc: func(_ string, params map[string]string) (string, []string) {

@@ -356,6 +356,7 @@ gcp_private_service_connect:
         source:
           required: true
           description: "GCP project ID from which connections are accepted"
+          validator: PSCConsumerSource
     enabled:
       required: true
     global_access_enabled:
