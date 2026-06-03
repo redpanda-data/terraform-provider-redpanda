@@ -516,7 +516,7 @@ resource "redpanda_cluster" "test" {
   #     global_access_enabled = true
   #     consumer_accept_list = [
   #       {
-  #         source = "projects/123456789012"
+  #         source = "123456789012"
   #       }
   #     ]
   #   }
