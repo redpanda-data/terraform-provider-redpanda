@@ -1,8 +1,0 @@
-description: Data source for a Redpanda Cloud region
-attributes:
-    - name: cloud_provider
-      description: Cloud provider where the region exists
-    - name: name
-      description: Name of the region
-    - name: zones
-      description: Zones available in the region

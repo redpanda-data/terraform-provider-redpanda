@@ -40,7 +40,7 @@ Author `redpanda/resources/<name>/schema.yaml`. See [`../_shared/schema-authorin
 
 Datasources also need `schema_datasource.yaml` with `computed_default: true`.
 
-Pull descriptions from cloudv2 by running `task generate:apidescriptions` first if the proto change is new. Inline `description:` overrides only for gaps.
+Pull descriptions from cloudv2 by running `task generate:apidescriptions` first if the proto change is new. Inline `description:` overrides are rejected; terraform-only fields use `commonDescriptions` and provider-behavior text uses `scopedDescriptions` in `internal/schemagen/descriptions.go` — or upstream the text into cloudv2 proto comments.
 
 ## 2. Provider registration
 
@@ -153,7 +153,7 @@ Per memory `feedback_test_first_bug_proof.md`: if you find a bug during the add 
 ## Commit shape
 
 Per memory `feedback_review_shape_commits.md`:
-- Generated files (`*_gen.go`, `.golden`, `.description`, regenerated `docs/`) get their own commit, **placed last** so reviewers can skim and skip.
+- Generated files (`*_gen.go`, `.golden`, regenerated `docs/`) get their own commit, **placed last** so reviewers can skim and skip.
 - For new-resource scaffolding, prefer one bundled PR over several small ones (memory `feedback_single_pr_with_folded_fixes.md`).
 
 Suggested commit order:
@@ -161,4 +161,4 @@ Suggested commit order:
 2. CRUD glue + hand-written conv.go (if any)
 3. Tests (Tier 1, 2, 3 as applicable)
 4. Examples + templates
-5. **Generated:** `*_gen.go` + `*.golden` + `*.description` + `docs/`
+5. **Generated:** `*_gen.go` + `*.golden` + `docs/`

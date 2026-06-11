@@ -28,11 +28,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Update controls whether golden/description files are regenerated.
-var Update = flag.Bool("update", false, "overwrite golden/description files with current schema output")
-
-// Descriptions enables description comparison against .description files.
-var Descriptions = flag.Bool("descriptions", false, "also compare field descriptions against .description files")
+// Update controls whether golden files are regenerated.
+var Update = flag.Bool("update", false, "overwrite golden files with current schema output")
 
 // AssertGolden compares actual against the contents of path. If -update is
 // set, writes actual to path instead.
@@ -91,103 +88,6 @@ func DumpSchema(s any) string {
 		return "error: " + err.Error() + "\n"
 	}
 	return string(data)
-}
-
-// DumpDescriptions produces a deterministic YAML dump of all field
-// descriptions in a schema. Only includes fields that have a non-empty
-// description. Uses the same nested structure as DumpSchema for readability.
-func DumpDescriptions(s any) string {
-	sv := reflect.ValueOf(s)
-	attrsField := sv.FieldByName("Attributes")
-	if !attrsField.IsValid() || attrsField.Kind() != reflect.Map {
-		return "error: no Attributes field found\n"
-	}
-
-	out := &yamlDescriptions{}
-	if df := sv.FieldByName("Description"); df.IsValid() && df.Kind() == reflect.String && df.String() != "" {
-		out.Description = df.String()
-	}
-
-	for _, key := range attrsField.MapKeys() {
-		name := key.String()
-		if name == "timeouts" {
-			continue
-		}
-		attrVal := attrsField.MapIndex(key)
-		if attrVal.Kind() == reflect.Interface {
-			attrVal = attrVal.Elem()
-		}
-		if a := buildDescAttr(name, attrVal); a != nil {
-			out.Attributes = append(out.Attributes, *a)
-		}
-	}
-	sort.Slice(out.Attributes, func(i, j int) bool {
-		return out.Attributes[i].Name < out.Attributes[j].Name
-	})
-
-	data, err := yaml.Marshal(out)
-	if err != nil {
-		return "error: " + err.Error() + "\n"
-	}
-	return string(data)
-}
-
-type yamlDescriptions struct {
-	Description string     `yaml:"description,omitempty"`
-	Attributes  []descAttr `yaml:"attributes,omitempty"`
-}
-
-type descAttr struct {
-	Name        string     `yaml:"name"`
-	Description string     `yaml:"description,omitempty"`
-	Attributes  []descAttr `yaml:"attributes,omitempty"`
-}
-
-func buildDescAttr(name string, v reflect.Value) *descAttr {
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-
-	desc := getString(v, "Description")
-	nested := getNestedDescs(v)
-
-	if desc == "" && len(nested) == 0 {
-		return nil
-	}
-
-	return &descAttr{
-		Name:        name,
-		Description: desc,
-		Attributes:  nested,
-	}
-}
-
-func getNestedDescs(v reflect.Value) []descAttr {
-	af := v.FieldByName("Attributes")
-	if !af.IsValid() || af.Kind() != reflect.Map {
-		nof := v.FieldByName("NestedObject")
-		if nof.IsValid() && nof.Kind() == reflect.Struct {
-			af = nof.FieldByName("Attributes")
-		}
-	}
-	if !af.IsValid() || af.Kind() != reflect.Map {
-		return nil
-	}
-
-	var attrs []descAttr
-	for _, key := range af.MapKeys() {
-		val := af.MapIndex(key)
-		if val.Kind() == reflect.Interface {
-			val = val.Elem()
-		}
-		if a := buildDescAttr(key.String(), val); a != nil {
-			attrs = append(attrs, *a)
-		}
-	}
-	sort.Slice(attrs, func(i, j int) bool {
-		return attrs[i].Name < attrs[j].Name
-	})
-	return attrs
 }
 
 type yamlSchema struct {
