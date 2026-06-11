@@ -433,7 +433,7 @@ func buildHeader(sources []*source, files []string, schemaCount, descCount int, 
 			len(scope.roots), scope.before, strings.Join(scope.roots, ", "))
 	}
 	b.WriteString("#\n")
-	b.WriteString("# Precedence layer: YAML override > this file > mechanical default\n")
+	b.WriteString("# Precedence layer: scopedDescriptions (descriptions.go) > this file > common/mechanical defaults\n")
 	b.WriteString("# Regenerate: task generate:apidescriptions\n")
 	b.WriteString("\n")
 	return b.String()

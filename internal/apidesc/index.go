@@ -63,15 +63,21 @@ func Load(path string) (*Index, error) {
 	if err := yaml.Unmarshal(data, &f); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
+	return FromFile(&f, path), nil
+}
+
+// FromFile builds an Index from an in-memory File. Source labels the origin
+// for logs; tests use this to inject lookup fixtures without touching disk.
+func FromFile(f *File, source string) *Index {
 	idx := &Index{
-		Source:  path,
+		Source:  source,
 		Schemas: f.Schemas,
 		flat:    make(map[string]string),
 	}
 	for name, node := range f.Schemas {
 		idx.addToFlat(name, node)
 	}
-	return idx, nil
+	return idx
 }
 
 // Len returns the total entry count, including entries with empty descriptions.

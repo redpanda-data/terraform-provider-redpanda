@@ -125,3 +125,32 @@ func TestListToSliceWithDiags(t *testing.T) {
 // the ListFromSliceWithDiags(ctx, v, types.StringType, ...) shape generated
 // by schemagen always compiles.
 var _ attr.Type = types.StringType
+
+func TestListCarryKnownEmpty(t *testing.T) {
+	ctx := context.Background()
+	null := types.ListNull(types.StringType)
+	unknown := types.ListUnknown(types.StringType)
+	empty, d := types.ListValueFrom(ctx, types.StringType, []string{})
+	require.False(t, d.HasError())
+	populated, d := types.ListValueFrom(ctx, types.StringType, []string{"a"})
+	require.False(t, d.HasError())
+
+	t.Run("null cur carries known-empty prev", func(t *testing.T) {
+		require.Equal(t, empty, ListCarryKnownEmpty(null, empty))
+	})
+	t.Run("null cur keeps null when prev null", func(t *testing.T) {
+		require.Equal(t, null, ListCarryKnownEmpty(null, null))
+	})
+	t.Run("null cur keeps null when prev unknown", func(t *testing.T) {
+		require.Equal(t, null, ListCarryKnownEmpty(null, unknown))
+	})
+	t.Run("null cur keeps null when prev populated", func(t *testing.T) {
+		require.Equal(t, null, ListCarryKnownEmpty(null, populated))
+	})
+	t.Run("populated cur wins over empty prev", func(t *testing.T) {
+		require.Equal(t, populated, ListCarryKnownEmpty(populated, empty))
+	})
+	t.Run("empty cur unchanged", func(t *testing.T) {
+		require.Equal(t, empty, ListCarryKnownEmpty(empty, populated))
+	})
+}

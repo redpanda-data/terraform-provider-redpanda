@@ -33,4 +33,13 @@ var planModifierRegistry = map[string]planModifierDef{
 			)
 		},
 	},
+	"PinStateUnlessRpsqlEnables": {
+		expr: func(pkg string) string {
+			if pkg == KindString {
+				return "rpsqlStringStatePin()"
+			}
+			return "rpsqlZonesStatePin()"
+		},
+		subsumesStateNullAxis: true,
+	},
 }
