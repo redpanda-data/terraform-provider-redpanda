@@ -135,3 +135,45 @@ func TestFlattenAWSPrivateLink_SupportedRegions_PopulatedToList(t *testing.T) {
 		t.Fatalf("supported_regions = %v, want [us-east-1 us-west-2]", got)
 	}
 }
+
+// The carve-out to NilToNull: when prev carries a known empty list (the user
+// planned an explicit []), the nil wire slice flattens back to that [] instead
+// of null — proto3 can't distinguish the two, and only prev knows the intent.
+func TestFlattenAWSPrivateLink_SupportedRegions_NilCarriesKnownEmptyPrev(t *testing.T) {
+	ctx := context.Background()
+	empty, d := types.ListValueFrom(ctx, types.StringType, []string{})
+	if d.HasError() {
+		t.Fatalf("ListValueFrom: %v", d.Errors())
+	}
+	prev := &AWSPrivateLinkModel{SupportedRegions: empty}
+	pl := &controlplanev1.Cluster_AWSPrivateLink{Enabled: true}
+	out, diags := FlattenAWSPrivateLink(ctx, pl, prev)
+	if diags.HasError() {
+		t.Fatalf("unexpected diagnostics: %v", diags.Errors())
+	}
+	if out.SupportedRegions.IsNull() || out.SupportedRegions.IsUnknown() {
+		t.Fatalf("known-empty prev: got %v, want []", out.SupportedRegions)
+	}
+	if n := len(out.SupportedRegions.Elements()); n != 0 {
+		t.Fatalf("known-empty prev: got %d elements, want 0", n)
+	}
+}
+
+// A populated prev must NOT mask a nil wire slice: that would hide a genuine
+// server-side clear as no-drift. Null wins unless prev is exactly [].
+func TestFlattenAWSPrivateLink_SupportedRegions_NilIgnoresPopulatedPrev(t *testing.T) {
+	ctx := context.Background()
+	populated, d := types.ListValueFrom(ctx, types.StringType, []string{"us-east-1"})
+	if d.HasError() {
+		t.Fatalf("ListValueFrom: %v", d.Errors())
+	}
+	prev := &AWSPrivateLinkModel{SupportedRegions: populated}
+	pl := &controlplanev1.Cluster_AWSPrivateLink{Enabled: true}
+	out, diags := FlattenAWSPrivateLink(ctx, pl, prev)
+	if diags.HasError() {
+		t.Fatalf("unexpected diagnostics: %v", diags.Errors())
+	}
+	if !out.SupportedRegions.IsNull() {
+		t.Fatalf("populated prev with nil wire slice: got %v, want Null", out.SupportedRegions)
+	}
+}
