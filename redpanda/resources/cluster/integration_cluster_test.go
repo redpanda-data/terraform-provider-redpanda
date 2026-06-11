@@ -307,6 +307,9 @@ resource "redpanda_cluster" "test" {
       redpanda_agent_security_group            = { arn = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-rp-agent" }
       redpanda_node_group_instance_profile     = { arn = "arn:aws:iam::123456789012:instance-profile/tfrp-rp-ng" }
       redpanda_node_group_security_group       = { arn = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-rp-ng" }
+      rpsql_cloud_storage_bucket               = { arn = "arn:aws:s3:::tfrp-rpsql-storage" }
+      rpsql_node_group_instance_profile        = { arn = "arn:aws:iam::123456789012:instance-profile/tfrp-rpsql-ng" }
+      rpsql_security_group                     = { arn = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-rpsql" }
       utility_node_group_instance_profile      = { arn = "arn:aws:iam::123456789012:instance-profile/tfrp-utility-ng" }
       utility_security_group                   = { arn = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-utility" }
     }
@@ -710,6 +713,19 @@ func TestIntegration_Cluster_CreateAndRefresh_AWS_BYOVPC(t *testing.T) {
 				statecheck.ExpectKnownValue(clusterAddr,
 					tfjsonpath.New("customer_managed_resources").AtMapKey("aws").AtMapKey("permissions_boundary_policy").AtMapKey("arn"),
 					knownvalue.StringExact("arn:aws:iam::123456789012:policy/tfrp-permissions-boundary")),
+				statecheck.ExpectKnownValue(clusterAddr,
+					tfjsonpath.New("customer_managed_resources").AtMapKey("aws").AtMapKey("rpsql_node_group_instance_profile").AtMapKey("arn"),
+					knownvalue.StringExact("arn:aws:iam::123456789012:instance-profile/tfrp-rpsql-ng")),
+				statecheck.ExpectKnownValue(clusterAddr,
+					tfjsonpath.New("customer_managed_resources").AtMapKey("aws").AtMapKey("rpsql_cloud_storage_bucket").AtMapKey("arn"),
+					knownvalue.StringExact("arn:aws:s3:::tfrp-rpsql-storage")),
+				statecheck.ExpectKnownValue(clusterAddr,
+					tfjsonpath.New("customer_managed_resources").AtMapKey("aws").AtMapKey("rpsql_security_group").AtMapKey("arn"),
+					knownvalue.StringExact("arn:aws:ec2:us-east-1:123456789012:security-group/sg-rpsql")),
+				// Read-only endpoint block, populated by the server (the fake
+				// returns its bufconn address).
+				statecheck.ExpectKnownValue(clusterAddr,
+					tfjsonpath.New("dataplane_api").AtMapKey("url"), knownvalue.StringExact("bufnet")),
 				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("state"), knownvalue.StringExact("STATE_READY")),
 				idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
@@ -1061,13 +1077,15 @@ func TestIntegration_Cluster_UpdateLeaf_KafkaConnect_Enabled(t *testing.T) {
 
 // TestIntegration_Cluster_UpdateLeaf_Rpsql exercises the rpsql block in place:
 // enable (null→enabled), enable-after-disable (re-derives the computed url),
-// and a replicas scale — all as ResourceActionUpdate. The scale also proves
-// expandRpsqlPath round-trips the granular mask paths.
+// a replicas scale, and a zones set — all as ResourceActionUpdate. The scale
+// and zones steps prove clustermask.ExpandLeafPaths round-trips the granular
+// mask paths (rpsql.enabled / rpsql.replicas / rpsql.zones).
 func TestIntegration_Cluster_UpdateLeaf_Rpsql(t *testing.T) {
 	_, factories := clusterSetup(t)
 
 	const name = "tfrp-mock-cl-rpsql"
 	const mockURL = "https://mock.rpsql.redpanda.cloud"
+	const mockRpsqlVersion = "mock-rpsql-v1"
 
 	idPreserved := statecheck.CompareValue(compare.ValuesSame())
 
@@ -1089,21 +1107,87 @@ func TestIntegration_Cluster_UpdateLeaf_Rpsql(t *testing.T) {
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("url"), knownvalue.StringExact("")),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
-			// Enable in place: url is re-derived to the provisioned endpoint.
+			// Enable in place: url is re-derived to the provisioned endpoint and
+			// the control plane assigns the first cluster zone. Live finding #1:
+			// before the rise-aware pin, UseStateForUnknown held zones at the
+			// prior null and the server-assigned zone tripped inconsistent-result.
 			integration.UpdateLeafStep(clusterAddr,
 				awsDedicatedConfig(name, `rpsql = { enabled = true }`),
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("enabled"), knownvalue.Bool(true)),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("url"), knownvalue.StringExact(mockURL)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("version"), knownvalue.StringExact(mockRpsqlVersion)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("zones"),
+						knownvalue.ListExact([]knownvalue.Check{knownvalue.StringExact("use1-az1")})),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
-			// Scale replicas in place.
-			integration.UpdateLeafStep(clusterAddr,
+			// Scale replicas in place. The PreApply check pins the steady-state
+			// zone pin: zones stay known inside an unrelated update plan instead
+			// of churning to "known after apply".
+			integration.UpdateLeafStepWithPlanChecks(clusterAddr,
 				awsDedicatedConfig(name, `rpsql = { enabled = true, replicas = 3 }`),
+				[]plancheck.PlanCheck{
+					plancheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("zones"),
+						knownvalue.ListExact([]knownvalue.Check{knownvalue.StringExact("use1-az1")})),
+				},
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("replicas"), knownvalue.Int32Exact(3)),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("url"), knownvalue.StringExact(mockURL)),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			// Writing the auto-assigned zone into config is convergence, not a
+			// change: the plan is a no-op.
+			integration.NoopReapplyStep(clusterAddr,
+				awsDedicatedConfig(name, `rpsql = { enabled = true, replicas = 3, zones = ["use1-az1"] }`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("zones"),
+						knownvalue.ListExact([]knownvalue.Check{knownvalue.StringExact("use1-az1")})),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			// Changing the zone is rejected by the control plane — on this
+			// single-zone cluster the membership check fires first (the exact
+			// rejection live validation observed); state survives the failure.
+			{
+				Config:      awsDedicatedConfig(name, `rpsql = { enabled = true, replicas = 3, zones = ["use1-az2"] }`),
+				ExpectError: regexp.MustCompile("is not one of the cluster zones"),
+			},
+			// Disable keeps zones pinned (the leaf-expanded mask still carries
+			// rpsql.zones; an unknown here would send empty zones into the
+			// immutability check) and the server clears the url.
+			integration.UpdateLeafStep(clusterAddr,
+				awsDedicatedConfig(name, `rpsql = { enabled = false, replicas = 3 }`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("enabled"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("zones"),
+						knownvalue.ListExact([]knownvalue.Check{knownvalue.StringExact("use1-az1")})),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("url"), knownvalue.StringExact("")),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("version"), knownvalue.StringExact("")),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			// Re-enable: zones were retained, so the defaulter has nothing to do
+			// and the pinned value flows straight through.
+			integration.UpdateLeafStep(clusterAddr,
+				awsDedicatedConfig(name, `rpsql = { enabled = true, replicas = 3 }`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("enabled"), knownvalue.Bool(true)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("zones"),
+						knownvalue.ListExact([]knownvalue.Check{knownvalue.StringExact("use1-az1")})),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			// Datasource read of the same cluster surfaces the rpsql block.
+			integration.NoopReapplyStep(clusterAddr,
+				awsDedicatedConfig(name, `rpsql = { enabled = true, replicas = 3, zones = ["use1-az1"] }`)+`
+data "redpanda_cluster" "test" {
+  id = redpanda_cluster.test.id
+}
+`,
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue("data.redpanda_cluster.test", tfjsonpath.New("rpsql").AtMapKey("enabled"), knownvalue.Bool(true)),
+					statecheck.ExpectKnownValue("data.redpanda_cluster.test", tfjsonpath.New("rpsql").AtMapKey("replicas"), knownvalue.Int32Exact(3)),
+					statecheck.ExpectKnownValue("data.redpanda_cluster.test", tfjsonpath.New("rpsql").AtMapKey("zones"),
+						knownvalue.ListExact([]knownvalue.Check{knownvalue.StringExact("use1-az1")})),
+					statecheck.ExpectKnownValue("data.redpanda_cluster.test", tfjsonpath.New("rpsql").AtMapKey("url"), knownvalue.StringExact(mockURL)),
+					statecheck.ExpectKnownValue("data.redpanda_cluster.test", tfjsonpath.New("rpsql").AtMapKey("version"), knownvalue.StringExact(mockRpsqlVersion)),
 				}),
 		},
 	})
@@ -1244,13 +1328,13 @@ func TestIntegration_Cluster_UpdateLeaf_AWSPrivateLink_Enabled(t *testing.T) {
 }
 
 // TestIntegration_Cluster_AWSPrivateLink_SupportedRegions is the regression
-// guard. With aws_private_link enabled and supported_regions unset, the schema's
-// computed_only makes the planned value "known after apply"; before the fix it
-// was a plain Optional whose planned value was null, which mismatched the
+// guard for the unset path. With aws_private_link enabled and supported_regions
+// unset, the Optional+Computed leaf plans as "known after apply"; before the fix
+// it was a plain Optional whose planned value was null, which mismatched the
 // server's empty/absent list and tripped "Provider produced inconsistent result
 // after apply: was null, but now cty.ListValEmpty". UseStateForUnknown then
 // holds the value across replans — and because the value lands null, this also
-// pins the override choice over the classifier default UseNonNullStateForUnknown
+// pins the modifier choice over the classifier default UseNonNullStateForUnknown
 // (which would leave a null leaf perpetually "known after apply" and churn).
 //
 // A proto3 repeated field cannot distinguish empty from absent on the wire, so
@@ -1261,12 +1345,17 @@ func TestIntegration_Cluster_AWSPrivateLink_SupportedRegions(t *testing.T) {
 	_, factories := clusterSetup(t)
 
 	const name = "tfrp-mock-cl-344"
-	cfg := awsDedicatedConfig(name, `aws_private_link = {
+	plBody := func(extra string) string {
+		return awsDedicatedConfig(name, `aws_private_link = {
   enabled            = true
   connect_console    = false
   allowed_principals = ["arn:aws:iam::123456789012:root"]
-}`)
+`+extra+`}`)
+	}
+	cfg := plBody("")
 	srPath := tfjsonpath.New("aws_private_link").AtMapKey("supported_regions")
+
+	idPreserved := statecheck.CompareValue(compare.ValuesSame())
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: factories,
@@ -1286,10 +1375,50 @@ func TestIntegration_Cluster_AWSPrivateLink_SupportedRegions(t *testing.T) {
 					statecheck.ExpectKnownValue(clusterAddr, srPath, knownvalue.Null()),
 					statecheck.ExpectKnownValue(clusterAddr,
 						tfjsonpath.New("aws_private_link").AtMapKey("enabled"), knownvalue.Bool(true)),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				},
 			},
 			// Re-plan: UseStateForUnknown holds the null value, no churn.
 			integration.NoopReapplyStep(clusterAddr, cfg, nil),
+			// null -> set: in-place update applies the user value.
+			integration.UpdateLeafStep(clusterAddr,
+				plBody(`  supported_regions  = ["us-east-1"]
+`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, srPath, knownvalue.ListExact([]knownvalue.Check{
+						knownvalue.StringExact("us-east-1"),
+					})),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			// set -> changed: in-place update replaces the list.
+			integration.UpdateLeafStep(clusterAddr,
+				plBody(`  supported_regions  = ["us-east-1", "us-west-2"]
+`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, srPath, knownvalue.ListExact([]knownvalue.Check{
+						knownvalue.StringExact("us-east-1"),
+						knownvalue.StringExact("us-west-2"),
+					})),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			// Omitted attribute: Optional+Computed+UseStateForUnknown keeps the
+			// last applied value, no churn.
+			integration.NoopReapplyStep(clusterAddr, cfg,
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, srPath, knownvalue.ListExact([]knownvalue.Check{
+						knownvalue.StringExact("us-east-1"),
+						knownvalue.StringExact("us-west-2"),
+					})),
+				}),
+			// Explicit []: the wire erases empty-vs-absent; the prev-aware list
+			// flatten carries the planned [] through read-back.
+			integration.UpdateLeafStep(clusterAddr,
+				plBody(`  supported_regions  = []
+`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, srPath, knownvalue.ListSizeExact(0)),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
 		},
 	})
 }
@@ -2076,11 +2205,10 @@ resource "redpanda_cluster" "test" {
 // --- Class F: NestedMatrix Dense ---
 
 // TestIntegration_Cluster_NestedMatrix_AWSPrivateLink_Dense fully populates the
-// aws_private_link block (Required: allowed_principals, connect_console,
-// enabled) and verifies it round-trips via Create + NoopReapply. The empty
-// plan on the Noop step is the load-bearing v10d-override regression guard
-// for aws_private_link.supported_regions (UseStateForUnknown overrides
-// classifier default to prevent plan churn on null server-side field).
+// aws_private_link block (allowed_principals, connect_console, enabled, plus the
+// user-settable supported_regions) and verifies it round-trips via Create +
+// NoopReapply. The empty plan on the Noop step is the load-bearing guard that
+// the Optional+Computed supported_regions value persists without plan churn.
 func TestIntegration_Cluster_NestedMatrix_AWSPrivateLink_Dense(t *testing.T) {
 	_, factories := clusterSetup(t)
 
@@ -2090,8 +2218,14 @@ func TestIntegration_Cluster_NestedMatrix_AWSPrivateLink_Dense(t *testing.T) {
     enabled            = true
     connect_console    = true
     allowed_principals = ["arn:aws:iam::123456789012:user/test-user", "arn:aws:iam::123456789012:role/test-role"]
+    supported_regions  = ["us-east-1", "us-west-2"]
   }`,
 	)
+
+	supportedRegions := knownvalue.ListExact([]knownvalue.Check{
+		knownvalue.StringExact("us-east-1"),
+		knownvalue.StringExact("us-west-2"),
+	})
 
 	idPreserved := statecheck.CompareValue(compare.ValuesSame())
 
@@ -2109,16 +2243,29 @@ func TestIntegration_Cluster_NestedMatrix_AWSPrivateLink_Dense(t *testing.T) {
 						knownvalue.StringExact("arn:aws:iam::123456789012:user/test-user"),
 						knownvalue.StringExact("arn:aws:iam::123456789012:role/test-role"),
 					})),
+				statecheck.ExpectKnownValue(clusterAddr,
+					tfjsonpath.New("aws_private_link").AtMapKey("supported_regions"), supportedRegions),
 				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 				idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 			}),
-			integration.NoopReapplyStep(clusterAddr, cfg, []statecheck.StateCheck{
+			integration.NoopReapplyStep(clusterAddr, cfg+`
+data "redpanda_cluster" "test" {
+  id = redpanda_cluster.test.id
+}
+`, []statecheck.StateCheck{
 				statecheck.ExpectKnownValue(clusterAddr,
 					tfjsonpath.New("aws_private_link").AtMapKey("enabled"), knownvalue.Bool(true)),
 				statecheck.ExpectKnownValue(clusterAddr,
 					tfjsonpath.New("aws_private_link").AtMapKey("connect_console"), knownvalue.Bool(true)),
+				statecheck.ExpectKnownValue(clusterAddr,
+					tfjsonpath.New("aws_private_link").AtMapKey("supported_regions"), supportedRegions),
 				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 				idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				// Datasource read surfaces the same private-link block.
+				statecheck.ExpectKnownValue("data.redpanda_cluster.test",
+					tfjsonpath.New("aws_private_link").AtMapKey("enabled"), knownvalue.Bool(true)),
+				statecheck.ExpectKnownValue("data.redpanda_cluster.test",
+					tfjsonpath.New("aws_private_link").AtMapKey("supported_regions"), supportedRegions),
 			}),
 		},
 	})

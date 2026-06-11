@@ -16,7 +16,6 @@ cluster_type:
   type: string
   computed_only: true
   from_proto: type
-  description: "Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated."
 
 cloud_provider_tags:
   proto_only: true
@@ -28,7 +27,6 @@ tags:
   computed_only: true
   from_proto: cloud_provider_tags
   flatten_via: tagsFromProto
-  description: "Tags placed on cloud resources. Server-managed keys (prefixed with `redpanda-`) are filtered out of state."
 
 
 cloud_provider:
@@ -103,10 +101,13 @@ customer_managed_resources:
           todo: true
     aws:
       fields:
-        oxla_node_group_instance_profile:
-          todo: true
-        rpsql_security_group:
-          todo: true
+        rpsql_node_group_instance_profile:
+          fields:
+            arn: {}
+        rpsql_cloud_storage_bucket:
+          fields:
+            arn: {}
+        rpsql_security_group: {}
     azure:
       todo: true
 cluster_configuration:
@@ -150,8 +151,7 @@ redpanda_version:
   type: string
   computed_only: true
 
-dataplane_api:
-  proto_only: true
+dataplane_api: {}
 
 cluster_api_url:
   extra: true
@@ -169,6 +169,12 @@ ai_gateway:
 adp_api:
   todo: true
 rpsql:
-  todo: true
+  fields:
+    version: {}
 sandbox:
+  todo: true
+
+
+# --- New proto fields (auto-added by schemagen -todo) ---
+redpanda_connect:
   todo: true

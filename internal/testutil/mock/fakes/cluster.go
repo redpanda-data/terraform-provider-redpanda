@@ -17,11 +17,13 @@ package fakes
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"sync/atomic"
 
 	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1/controlplanev1grpc"
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
+	"github.com/redpanda-data/terraform-provider-redpanda/internal/clustermask"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -195,7 +197,7 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 		})
 	}
 	if in.HasRpsql() {
-		cl.SetRpsql(rpsqlStatus(in.GetRpsql()))
+		cl.SetRpsql(rpsqlStatus(in.GetRpsql(), in.GetZones()))
 	}
 
 	if f.CreateMutator != nil {
@@ -269,23 +271,45 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 		case "aws_private_link":
 			if upd.HasAwsPrivateLink() {
 				spec := upd.GetAwsPrivateLink()
-				existing := cl.GetAwsPrivateLink()
-				var supported []string
-				if existing != nil {
-					supported = append([]string(nil), existing.GetSupportedRegions()...)
-				}
 				cl.SetAwsPrivateLink(&controlplanev1.Cluster_AWSPrivateLink{
 					Enabled:           spec.GetEnabled(),
 					AllowedPrincipals: append([]string(nil), spec.GetAllowedPrincipals()...),
 					ConnectConsole:    spec.GetConnectConsole(),
-					SupportedRegions:  supported,
+					SupportedRegions:  append([]string(nil), spec.GetSupportedRegions()...),
 				})
 			}
-		case "rpsql.enabled", "rpsql.replicas":
+		case "rpsql.enabled", "rpsql.replicas", "rpsql.zones":
 			// The provider expands the top-level "rpsql" mask into these granular
 			// paths; the diff payload still carries the full rpsql message.
 			if upd.HasRpsql() {
-				cl.SetRpsql(rpsqlStatus(upd.GetRpsql()))
+				effective := oxlaEffectiveZones(upd.GetRpsql(), cl.GetZones())
+				// validateOxlaZones: the zone must be one of the cluster's zones
+				// (checked before immutability, matching the control plane).
+				if len(cl.GetZones()) > 0 {
+					for _, z := range effective {
+						if !slices.Contains(cl.GetZones(), z) {
+							return nil, status.Errorf(codes.InvalidArgument,
+								"oxla zone %q is not one of the cluster zones", z)
+						}
+					}
+				}
+				// validateOxlaZonesImmutable: zones are immutable once set; only
+				// the one-time populate from empty is allowed.
+				if existing := cl.GetRpsql().GetZones(); len(existing) > 0 &&
+					!slices.Equal(existing, effective) {
+					return nil, status.Error(codes.InvalidArgument,
+						"Redpanda SQL zones are immutable and cannot be changed after creation")
+				}
+				cl.SetRpsql(rpsqlStatus(upd.GetRpsql(), cl.GetZones()))
+			}
+		case "kafka_connect.enabled":
+			// The control plane maps kafka_connect only at leaf granularity
+			// (kafka_connect.enabled); there is no top-level "kafka_connect" entry.
+			// Copy the (proto-deprecated) kafka_connect message via reflection to
+			// avoid the deprecated typed accessors.
+			kcFD := srcR.Descriptor().Fields().ByName("kafka_connect")
+			if kcFD != nil && srcR.Has(kcFD) {
+				dstR.Set(dstR.Descriptor().Fields().ByName("kafka_connect"), srcR.Get(kcFD))
 			}
 		case "gcp_private_service_connect":
 			if upd.HasGcpPrivateServiceConnect() {
@@ -312,6 +336,17 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 				cl.ClusterConfiguration.CustomProperties = uc.GetCustomProperties()
 			}
 		default:
+			// Mirror the control plane: it translates the public mask through its
+			// pathMap (cloudv2 .../services/cluster/v1/mapper.go) and silently
+			// DROPS any path lacking a mapping. Several object fields (rpsql,
+			// kafka_connect, kafka_api) have NO top-level pathMap entry — the API
+			// accepts them only at leaf granularity. Applying an un-mapped
+			// top-level path here by reflection would let a wrong (un-expanded)
+			// mask pass tests the real API would reject, so apply only top-level
+			// paths the backend actually accepts (generated from cloudv2's pathMap).
+			if !clustermask.AcceptedTopLevel[path] {
+				continue
+			}
 			dstFD := dstR.Descriptor().Fields().ByName(protoreflect.Name(path))
 			srcFD := srcR.Descriptor().Fields().ByName(protoreflect.Name(path))
 			if dstFD == nil || srcFD == nil {
@@ -328,18 +363,29 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 // rpsqlStatus mirrors the write-shape RPSql onto the read-shape record,
 // assigning a mock endpoint URL when enabled (the real control plane
 // populates url on provisioning; it stays empty while disabled).
-func rpsqlStatus(spec *controlplanev1.RPSql) *controlplanev1.RPSql {
+func rpsqlStatus(spec *controlplanev1.RPSql, clusterZones []string) *controlplanev1.RPSql {
 	if spec == nil {
 		return nil
 	}
 	out := &controlplanev1.RPSql{
 		Enabled:  spec.GetEnabled(),
 		Replicas: spec.GetReplicas(),
+		Zones:    append([]string(nil), oxlaEffectiveZones(spec, clusterZones)...),
 	}
 	if out.Enabled {
 		out.Url = "https://mock.rpsql.redpanda.cloud"
+		out.Version = "mock-rpsql-v1"
 	}
 	return out
+}
+
+// oxlaEffectiveZones mirrors the control-plane defaulter: enabling Redpanda
+// SQL with no zones assigns the first cluster zone.
+func oxlaEffectiveZones(spec *controlplanev1.RPSql, clusterZones []string) []string {
+	if spec.GetEnabled() && len(spec.GetZones()) == 0 && len(clusterZones) > 0 {
+		return clusterZones[:1]
+	}
+	return spec.GetZones()
 }
 
 // specToClusterKafkaAPI converts a write-shape KafkaAPISpec to the read-shape
