@@ -65,7 +65,7 @@ Extend-specific discipline:
 - **If the field was `todo: true`**, the edit is a replacement: remove `todo: true` and add the correct lifecycle.
 - **Server-defaulted proto fields** → `optional+computed+UseStateForUnknown` (memory `feedback_server_default_optional_computed.md`). The classifier auto-emits `UseStateForUnknown` for top-level optional+computed; only override when the server returns null and would create perpetual churn.
 
-If the proto field is new, `task generate:apidescriptions` first to pull the description from cloudv2. Add inline `description:` only for gaps.
+If the proto field is new, `task generate:apidescriptions` first to pull the description from cloudv2. Inline `description:` is rejected; gaps go in the curated tables in `internal/schemagen/descriptions.go` or upstream into cloudv2 proto comments.
 
 ## 2. Regenerate
 
@@ -92,7 +92,7 @@ go test ./redpanda/resources/ -run TestSchemaGolden
 If it fails legitimately, update with explicit user approval:
 
 ```bash
-go test ./redpanda/resources/ -run "^TestSchemaGolden$/^<name>_(resource|datasource)$" -update -descriptions
+go test ./redpanda/resources/ -run "^TestSchemaGolden$/^<name>_(resource|datasource)$" -update
 ```
 
 Review the golden diff line-by-line. One new attribute line, one new description line. Larger diff = unintended cascade.
@@ -218,4 +218,4 @@ Suggested commit order for a field-add extend:
 1. Schema YAML edit
 2. Hand-written conv.go function (if any) + CRUD touch (if any)
 3. Tests (Tier 2 update + optional Tier 1 matrix)
-4. **Generated:** `*_gen.go` + `*.golden` + `*.description` + `docs/`
+4. **Generated:** `*_gen.go` + `*.golden` + `docs/`

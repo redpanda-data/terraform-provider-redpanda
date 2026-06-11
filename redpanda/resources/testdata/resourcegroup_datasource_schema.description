@@ -1,6 +1,0 @@
-description: Data source for a Redpanda Cloud resource group
-attributes:
-    - name: id
-      description: UUID of the resource group
-    - name: name
-      description: Name of the resource group
