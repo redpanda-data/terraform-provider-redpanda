@@ -23,12 +23,12 @@ RBAC is available for:
 
 ### Required
 
-- `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports
-- `name` (String) Name of the role, must be unique. Length must be between 1 and 128. Must match pattern `^[^,=]+$`.
+- `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports.
+- `name` (String) The name of the role. Length must be between 1 and 128. Must match pattern `^[^,=]+$`.
 
 ### Optional
 
-- `allow_deletion` (Boolean) Allows deletion of the role. If false, the role cannot be deleted and the resource will be removed from the state on destruction. Defaults to false.
+- `allow_deletion` (Boolean) Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.
 - `delete_acls` (Boolean) Whether to delete the ACLs bound to the role when the role is deleted. Defaults to false.
 
 ### Read-Only

@@ -17,30 +17,30 @@ Manages a Redpanda Serverless Private Link
 
 ### Required
 
-- `cloud_provider` (String) Cloud provider (aws)
-- `name` (String) Name of the serverless private link
-- `resource_group_id` (String) The ID of the Resource Group in which to create the serverless private link
-- `serverless_region` (String) Redpanda serverless region
+- `cloud_provider` (String) Cloud provider where resources are created.
+- `name` (String) Name
+- `resource_group_id` (String) Resource Group ID
+- `serverless_region` (String) Serverless Region
 
 ### Optional
 
-- `allow_deletion` (Boolean) Allows deletion of the serverless private link. Defaults to false.
-- `aws_config` (Attributes) AWS-specific configuration. Required when cloud_provider is 'aws'. (see [below for nested schema](#nestedatt--aws_config))
+- `allow_deletion` (Boolean) Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.
+- `aws_config` (Attributes) AWS-specific configuration. Required when cloud_provider is `aws`. (see [below for nested schema](#nestedatt--aws_config))
 - `cloud_provider_config` (Attributes, Deprecated) Cloud Provider Config configuration (see [below for nested schema](#nestedatt--cloud_provider_config))
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
 
-- `id` (String) The ID of the serverless private link
-- `state` (String) Current state of the serverless private link (STATE_CREATING, STATE_READY, STATE_DELETING, STATE_FAILED, STATE_UPDATING)
-- `status` (Attributes) Cloud provider specific status information (see [below for nested schema](#nestedatt--status))
+- `id` (String) Unique identifier of the resource.
+- `state` (String) - STATE_CREATING: Private link is being created. - STATE_READY: Private link is ready to use. - STATE_DELETING: Private link is being deleted. - STATE_FAILED: Private link is in an error state. - STATE_UPDATING: Private link is in an updating state.
+- `status` (Attributes) ServerlessPrivateLinkStatus contains provider-specific status information (see [below for nested schema](#nestedatt--status))
 
 <a id="nestedatt--aws_config"></a>
 ### Nested Schema for `aws_config`
 
 Required:
 
-- `allowed_principals` (List of String) AWS principals (ARNs) allowed to connect to the private link endpoint
+- `allowed_principals` (List of String) Allowed Principals. Must have at least 1 items.
 
 
 <a id="nestedatt--cloud_provider_config"></a>
@@ -74,12 +74,12 @@ Optional:
 
 Read-Only:
 
-- `aws` (Attributes) AWS-specific status information (see [below for nested schema](#nestedatt--status--aws))
+- `aws` (Attributes) AWS configuration (see [below for nested schema](#nestedatt--status--aws))
 
 <a id="nestedatt--status--aws"></a>
 ### Nested Schema for `status.aws`
 
 Read-Only:
 
-- `availability_zones` (List of String) Availability zones where the private link endpoint service is available
-- `vpc_endpoint_service_name` (String) VPC endpoint service name for connecting to the private link
+- `availability_zones` (List of String) Availability Zones
+- `vpc_endpoint_service_name` (String) VPC Endpoint Service Name

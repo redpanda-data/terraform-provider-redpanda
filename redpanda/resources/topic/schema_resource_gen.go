@@ -35,19 +35,19 @@ func ResourceTopicSchema(_ context.Context) schema.Schema {
 		Description: "Topic represents a Kafka topic configuration",
 		Attributes: map[string]schema.Attribute{
 			"cluster_api_url": schema.StringAttribute{
-				Description:   "The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports",
+				Description:   "The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"name": schema.StringAttribute{
-				Description:   "The name of the topic. Length must be between 1 and 249. Must match pattern `^[a-zA-Z0-9._\\-]*$`.",
+				Description:   "Name of topic. Length must be between 1 and 249. Must match pattern `^[a-zA-Z0-9._\\-]*$`.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"replica_assignments": schema.ListNestedAttribute{
-				Description:   "Manually specify broker ID assignments for partition replicas. If manually assigning replicas, both replication_factor and partition_count must be -1. Mutually exclusive with partition_count and replication_factor.",
+				Description:   "Manually specify broker ID assignments for partition replicas. If manually assigning replicas, both `replication_factor` and `partition_count` must be -1.",
 				Optional:      true,
 				PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
 				NestedObject: schema.NestedAttributeObject{
@@ -66,7 +66,7 @@ func ResourceTopicSchema(_ context.Context) schema.Schema {
 			},
 
 			"allow_deletion": schema.BoolAttribute{
-				Description: "Indicates whether the topic can be deleted.",
+				Description: "Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
@@ -81,14 +81,14 @@ func ResourceTopicSchema(_ context.Context) schema.Schema {
 			},
 
 			"partition_count": schema.NumberAttribute{
-				Description:   "The number of partitions for the topic. This determines how the data is distributed across brokers. Increases are fully supported without data loss. Decreases will destroy and recreate the topic if allow_deletion is set to true (defaults to false). Must be at least -1.",
+				Description:   "The number of partitions for the topic. Increases are fully supported without data loss. Decreases will destroy and recreate the topic if allow_deletion is set to true (defaults to false). Must be at least -1.",
 				Optional:      true,
 				Computed:      true,
 				PlanModifiers: []planmodifier.Number{numberplanmodifier.RequiresReplaceIf(partitionRequiresReplaceWhenShrinking, "Decreasing partition count requires recreating the topic", "Decreasing partition count requires recreating the topic"), numberplanmodifier.UseStateForUnknown()},
 			},
 
 			"replication_factor": schema.NumberAttribute{
-				Description:   "The replication factor for the topic, which defines how many copies of the data are kept across different brokers for fault tolerance. Must be between -1 and 5 (inclusive).",
+				Description:   "The number of replicas every partition must have. If specifying partitions manually (see `replica_assignments`), set to -1. Or, to use the cluster default replication factor, set to null. Must be between -1 and 5 (inclusive).",
 				Optional:      true,
 				Computed:      true,
 				PlanModifiers: []planmodifier.Number{numberplanmodifier.RequiresReplace(), numberplanmodifier.UseStateForUnknown()},

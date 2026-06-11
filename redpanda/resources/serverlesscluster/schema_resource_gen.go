@@ -35,50 +35,50 @@ func ResourceServerlessClusterSchema(ctx context.Context) schema.Schema {
 		Description: "ServerlessCluster represents a Redpanda Cloud serverless cluster",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				Description:   "Name of the serverless cluster",
+				Description:   "Unique name of the Serverless cluster. Length must be between 3 and 128. Must match pattern `^[A-Za-z0-9-_:]+$`.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"resource_group_id": schema.StringAttribute{
-				Description:   "The ID of the Resource Group in which to create the serverless cluster",
+				Description:   "Resource group ID of the cluster. Must be a valid UUID.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"serverless_region": schema.StringAttribute{
-				Description:   "Redpanda specific region of the serverless cluster",
+				Description:   "Serverless region in which the cluster is placed, backed by a cloud provider region.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"tags": schema.MapAttribute{
-				Description: "User-defined tags for the Serverless cluster",
+				Description: "User-defined tags for the Serverless cluster. Must have at most 50 entries.",
 				Optional:    true,
 				ElementType: types.StringType,
 			},
 
 			"allow_deletion": schema.BoolAttribute{
-				Description: "Whether terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.",
+				Description: "Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 			},
 
 			"networking_config": schema.SingleNestedAttribute{
-				Description:   "Network configuration controlling public/private access to the cluster",
+				Description:   "Networking Config configuration",
 				Optional:      true,
 				Computed:      true,
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"private": schema.StringAttribute{
-						Description:   "Private network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED",
+						Description:   "Private network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED.",
 						Optional:      true,
 						Computed:      true,
 						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"public": schema.StringAttribute{
-						Description:   "Public network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED",
+						Description:   "Public network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED.",
 						Optional:      true,
 						Computed:      true,
 						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
@@ -94,36 +94,36 @@ func ResourceServerlessClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"cluster_api_url": schema.StringAttribute{
-				Description:        "The URL of the dataplane API for the serverless cluster",
+				Description:        "The URL of the dataplane API for the serverless cluster.",
 				Computed:           true,
 				DeprecationMessage: "This field is deprecated and will be removed in a future version. Use dataplane_api.url instead.",
 				PlanModifiers:      []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 
 			"console_private_url": schema.StringAttribute{
-				Description:   "Private Console URL for the serverless cluster",
+				Description:   "Private Console URL for the serverless cluster.",
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 
 			"console_url": schema.StringAttribute{
-				Description:   "Public Console URL for the serverless cluster",
+				Description:   "Public Console URL for the serverless cluster.",
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 
 			"dataplane_api": schema.SingleNestedAttribute{
-				Description:   "Dataplane API endpoints for the serverless cluster",
+				Description:   "Cluster's Data Plane API properties.",
 				Computed:      true,
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"private_url": schema.StringAttribute{
-						Description:   "Private Dataplane API URL",
+						Description:   "private_url is the private url of the dataplane api if private networking is enabled for this cluster.",
 						Computed:      true,
 						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"url": schema.StringAttribute{
-						Description:   "Public Dataplane API URL",
+						Description:   "Dataplane API URL",
 						Computed:      true,
 						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
@@ -131,24 +131,24 @@ func ResourceServerlessClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"id": schema.StringAttribute{
-				Description:   "The ID of the serverless cluster",
+				Description:   "ID of the Serverless cluster. ID is an output from the Create Serverless Cluster operation and cannot be set by the caller.",
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 
 			"kafka_api": schema.SingleNestedAttribute{
-				Description:   "Kafka API endpoints for the serverless cluster",
+				Description:   "Cluster's Kafka API properties.",
 				Computed:      true,
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"private_seed_brokers": schema.ListAttribute{
-						Description:   "Private Kafka API seed brokers (bootstrap servers)",
+						Description:   "Kafka API seed brokers (also known as bootstrap servers). Private addresses",
 						Computed:      true,
 						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
 						ElementType:   types.StringType,
 					},
 					"seed_brokers": schema.ListAttribute{
-						Description:   "Public Kafka API seed brokers (bootstrap servers)",
+						Description:   "Kafka API seed brokers (also known as bootstrap servers). Implicitly public",
 						Computed:      true,
 						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
 						ElementType:   types.StringType,
@@ -157,7 +157,7 @@ func ResourceServerlessClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"planned_deletion": schema.SingleNestedAttribute{
-				Description:   "Planned deletion information for the serverless cluster.",
+				Description:   "Date after which this cluster can and should be deleted.",
 				Computed:      true,
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
@@ -175,17 +175,17 @@ func ResourceServerlessClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"prometheus": schema.SingleNestedAttribute{
-				Description:   "Prometheus metrics endpoints for the serverless cluster",
+				Description:   "Prometheus metrics endpoint properties.",
 				Computed:      true,
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"private_url": schema.StringAttribute{
-						Description:   "Private Prometheus metrics URL",
+						Description:   "Prometheus API Private URL.",
 						Computed:      true,
 						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"url": schema.StringAttribute{
-						Description:   "Public Prometheus metrics URL",
+						Description:   "Prometheus API URL.",
 						Computed:      true,
 						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
@@ -193,17 +193,17 @@ func ResourceServerlessClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"schema_registry": schema.SingleNestedAttribute{
-				Description:   "Schema Registry endpoints for the serverless cluster",
+				Description:   "Cluster's Schema Registry properties.",
 				Computed:      true,
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"private_url": schema.StringAttribute{
-						Description:   "Private Schema Registry URL",
+						Description:   "Private url for the schema registry",
 						Computed:      true,
 						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"url": schema.StringAttribute{
-						Description:   "Public Schema Registry URL",
+						Description:   "Schema Registry URL",
 						Computed:      true,
 						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
@@ -211,7 +211,7 @@ func ResourceServerlessClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"state": schema.StringAttribute{
-				Description:   "Current state of the serverless cluster.",
+				Description:   "State describes the state of the ServerlessCluster. - STATE_PLACING: Serverless cluster is in the process of being placed on a cell with sufficient resources in the data plane. - STATE_CREATING: Serverless cluster is in the process of having its control plane state created. - STATE_READY: Serverless cluster is in execution and accepting external requests. - STATE_DELETING: Serverless cluster is in the process of having its control plane state removed. Resources dedicated to the cluster in the data plane will be released. - STATE_FAILED: Serverless cluster was unable to enter the ready state from either the creating or placing states. - STATE_SUSPENDED: Serverless cluster is in execution but blocks all external requests.",
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},

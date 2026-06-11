@@ -22,15 +22,16 @@ Cluster data source
 
 ### Read-Only
 
-- `allow_deletion` (Boolean) Resource will only be deleted when allow_deletion is set to true. Otherwise deletion will fail with a related error.
+- `allow_deletion` (Boolean) Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.
 - `aws_private_link` (Attributes) AWS Private Link configuration (see [below for nested schema](#nestedatt--aws_private_link))
 - `azure_private_link` (Attributes) Azure Private Link configuration (see [below for nested schema](#nestedatt--azure_private_link))
 - `cloud_provider` (String) Cloud provider where resources are created.
-- `cluster_api_url` (String) The cluster API URL.
+- `cluster_api_url` (String) The URL of the cluster's data plane API.
 - `cluster_configuration` (Attributes) Cluster Configuration configuration (see [below for nested schema](#nestedatt--cluster_configuration))
 - `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated.
 - `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, **Private** is best-practice.
 - `customer_managed_resources` (Attributes) The cloud resources created by user. (see [below for nested schema](#nestedatt--customer_managed_resources))
+- `dataplane_api` (Attributes) Cluster's Data Plane API properties. (see [below for nested schema](#nestedatt--dataplane_api))
 - `gcp_global_access_api_gateway_enabled` (Boolean) gcp_global_access_api_gateway_enabled reports whether global access is enabled on the internal load balancer serving the Console/API Gateway endpoint. Applicable only for GCP.
 - `gcp_global_access_enabled` (Boolean) gcp_enable_global_access control if global access is enabled on the seed load balancer, applicable only for GCP. Default is false
 - `gcp_private_service_connect` (Attributes) GCP Private Service Connect configuration (see [below for nested schema](#nestedatt--gcp_private_service_connect))
@@ -46,6 +47,7 @@ Cluster data source
 - `redpanda_version` (String) Redpanda Version
 - `region` (String) Region represents the name of the region where the cluster will be provisioned.
 - `resource_group_id` (String) Resource group ID of the cluster.
+- `rpsql` (Attributes) Rpsql configuration (see [below for nested schema](#nestedatt--rpsql))
 - `schema_registry` (Attributes) Cluster's Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
 - `state` (String) State describes the state of the cluster.
 - `state_description` (Attributes) Describes errors (see [below for nested schema](#nestedatt--state_description))
@@ -158,7 +160,7 @@ Read-Only:
 
 Read-Only:
 
-- `custom_properties_json` (String) Custom Properties JSON
+- `custom_properties_json` (String) Custom cluster configuration properties in JSON format.
 
 
 <a id="nestedatt--customer_managed_resources"></a>
@@ -187,6 +189,9 @@ Read-Only:
 - `redpanda_connect_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_connect_security_group))
 - `redpanda_node_group_instance_profile` (Attributes) AWS instance profile. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_node_group_instance_profile))
 - `redpanda_node_group_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_node_group_security_group))
+- `rpsql_cloud_storage_bucket` (Attributes) AWS storage bucket properties by ARN. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--rpsql_cloud_storage_bucket))
+- `rpsql_node_group_instance_profile` (Attributes) AWS instance profile. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--rpsql_node_group_instance_profile))
+- `rpsql_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--rpsql_security_group))
 - `utility_node_group_instance_profile` (Attributes) AWS instance profile. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--utility_node_group_instance_profile))
 - `utility_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--utility_security_group))
 
@@ -288,6 +293,30 @@ Read-Only:
 
 <a id="nestedatt--customer_managed_resources--aws--redpanda_node_group_security_group"></a>
 ### Nested Schema for `customer_managed_resources.aws.redpanda_node_group_security_group`
+
+Read-Only:
+
+- `arn` (String) AWS security group ARN.
+
+
+<a id="nestedatt--customer_managed_resources--aws--rpsql_cloud_storage_bucket"></a>
+### Nested Schema for `customer_managed_resources.aws.rpsql_cloud_storage_bucket`
+
+Read-Only:
+
+- `arn` (String) AWS storage bucket identifier.
+
+
+<a id="nestedatt--customer_managed_resources--aws--rpsql_node_group_instance_profile"></a>
+### Nested Schema for `customer_managed_resources.aws.rpsql_node_group_instance_profile`
+
+Read-Only:
+
+- `arn` (String) AWS instance profile ARN.
+
+
+<a id="nestedatt--customer_managed_resources--aws--rpsql_security_group"></a>
+### Nested Schema for `customer_managed_resources.aws.rpsql_security_group`
 
 Read-Only:
 
@@ -400,6 +429,14 @@ Read-Only:
 - `name` (String) Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions.
 
 
+
+
+<a id="nestedatt--dataplane_api"></a>
+### Nested Schema for `dataplane_api`
+
+Read-Only:
+
+- `url` (String) Data Plane API URL.
 
 
 <a id="nestedatt--gcp_private_service_connect"></a>
@@ -569,6 +606,18 @@ Read-Only:
 Read-Only:
 
 - `url` (String) Redpanda Console API URL.
+
+
+<a id="nestedatt--rpsql"></a>
+### Nested Schema for `rpsql`
+
+Read-Only:
+
+- `enabled` (Boolean) Whether Rpsql is enabled
+- `replicas` (Number) Replicas
+- `url` (String) Rpsql URL
+- `version` (String) Version
+- `zones` (List of String) Zones
 
 
 <a id="nestedatt--schema_registry"></a>

@@ -16,16 +16,16 @@ Creates a topic in a Redpanda Cluster
 
 ### Required
 
-- `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports
-- `name` (String) The name of the topic. Length must be between 1 and 249. Must match pattern `^[a-zA-Z0-9._\-]*$`.
+- `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports.
+- `name` (String) Name of topic. Length must be between 1 and 249. Must match pattern `^[a-zA-Z0-9._\-]*$`.
 
 ### Optional
 
-- `allow_deletion` (Boolean) Indicates whether the topic can be deleted.
+- `allow_deletion` (Boolean) Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.
 - `configuration` (Map of String) A map of string key/value pairs of topic configurations.
-- `partition_count` (Number) The number of partitions for the topic. This determines how the data is distributed across brokers. Increases are fully supported without data loss. Decreases will destroy and recreate the topic if allow_deletion is set to true (defaults to false). Must be at least -1.
-- `replica_assignments` (Attributes List) Manually specify broker ID assignments for partition replicas. If manually assigning replicas, both replication_factor and partition_count must be -1. Mutually exclusive with partition_count and replication_factor. (see [below for nested schema](#nestedatt--replica_assignments))
-- `replication_factor` (Number) The replication factor for the topic, which defines how many copies of the data are kept across different brokers for fault tolerance. Must be between -1 and 5 (inclusive).
+- `partition_count` (Number) The number of partitions for the topic. Increases are fully supported without data loss. Decreases will destroy and recreate the topic if allow_deletion is set to true (defaults to false). Must be at least -1.
+- `replica_assignments` (Attributes List) Manually specify broker ID assignments for partition replicas. If manually assigning replicas, both `replication_factor` and `partition_count` must be -1. (see [below for nested schema](#nestedatt--replica_assignments))
+- `replication_factor` (Number) The number of replicas every partition must have. If specifying partitions manually (see `replica_assignments`), set to -1. Or, to use the cluster default replication factor, set to null. Must be between -1 and 5 (inclusive).
 
 ### Read-Only
 

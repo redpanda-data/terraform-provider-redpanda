@@ -28,13 +28,13 @@ func DatasourceResourceGroupSchema(_ context.Context) schema.Schema {
 		Description: "Data source for a Redpanda Cloud resource group",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description: "UUID of the resource group",
+				Description: "ID of the resource group. ID is an output of the Create Resource Group request and cannot be set by the caller",
 				Optional:    true,
 				Computed:    true,
 			},
 
 			"name": schema.StringAttribute{
-				Description: "Name of the resource group",
+				Description: "The unique name of the resource group.",
 				Optional:    true,
 				Computed:    true,
 			},

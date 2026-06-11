@@ -51,6 +51,7 @@ type DataClusterResponse interface {
 	GetRedpandaConsole() *controlplanev1.Cluster_RedpandaConsole
 	GetRegion() string
 	GetResourceGroupId() string
+	GetRpsql() *controlplanev1.RPSql
 	GetSchemaRegistry() *controlplanev1.Cluster_SchemaRegistryStatus
 	GetState() controlplanev1.Cluster_State
 	GetStateDescription() *status.Status
@@ -92,6 +93,7 @@ func FlattenData(ctx context.Context, proto DataClusterResponse, prev *DataModel
 	m.ClusterType = types.StringValue(enums.ClusterTypeToString(proto.GetType()))
 	m.ConnectionType = types.StringValue(enums.ClusterConnectionTypeToString(proto.GetConnectionType()))
 	m.CustomerManagedResources = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetCustomerManagedResources(), func() *DataCustomerManagedResourcesModel { v, _ := prev.AsCustomerManagedResources(ctx); return v }(), DataCustomerManagedResourcesAttrTypes(), FlattenDataCustomerManagedResources, &diags)
+	m.DataplaneAPI = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetDataplaneApi(), func() *DataDataplaneAPIModel { v, _ := prev.AsDataplaneAPI(ctx); return v }(), DataDataplaneAPIAttrTypes(), FlattenDataDataplaneAPI, &diags)
 	if proto.HasGcpGlobalAccessApiGatewayEnabled() {
 		m.GCPGlobalAccessAPIGatewayEnabled = types.BoolValue(proto.GetGcpGlobalAccessApiGatewayEnabled())
 	} else if prev != nil && !prev.GCPGlobalAccessAPIGatewayEnabled.IsUnknown() {
@@ -124,6 +126,7 @@ func FlattenData(ctx context.Context, proto DataClusterResponse, prev *DataModel
 	m.RedpandaConsole = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaConsole(), func() *DataRedpandaConsoleModel { v, _ := prev.AsRedpandaConsole(ctx); return v }(), DataRedpandaConsoleAttrTypes(), FlattenDataRedpandaConsole, &diags)
 	m.Region = types.StringValue(proto.GetRegion())
 	m.ResourceGroupID = types.StringValue(proto.GetResourceGroupId())
+	m.Rpsql = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpsql(), func() *DataRpsqlModel { v, _ := prev.AsRpsql(ctx); return v }(), DataRpsqlAttrTypes(), FlattenDataRpsql, &diags)
 	m.SchemaRegistry = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetSchemaRegistry(), func() *DataSchemaRegistryModel { v, _ := prev.AsSchemaRegistry(ctx); return v }(), DataSchemaRegistryAttrTypes(), FlattenDataSchemaRegistry, &diags)
 	m.State = types.StringValue(enums.ClusterStateToString(proto.GetState()))
 	m.StateDescription = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetStateDescription(), func() *DataStateDescriptionModel { v, _ := prev.AsStateDescription(ctx); return v }(), DataStateDescriptionAttrTypes(), FlattenDataStateDescription, &diags)
@@ -531,6 +534,18 @@ func FlattenDataCustomerManagedResourcesAWS(ctx context.Context, proto *controlp
 		v, _ := DecodeDataCustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroup(ctx, prev)
 		return v
 	}(), DataCustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroupAttrTypes(), FlattenDataCustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroup, &diags)
+	m.RpsqlCloudStorageBucket = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpsqlCloudStorageBucket(), func() *DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketModel {
+		v, _ := DecodeDataCustomerManagedResourcesAWSRpsqlCloudStorageBucket(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketAttrTypes(), FlattenDataCustomerManagedResourcesAWSRpsqlCloudStorageBucket, &diags)
+	m.RpsqlNodeGroupInstanceProfile = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpsqlNodeGroupInstanceProfile(), func() *DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileModel {
+		v, _ := DecodeDataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfile(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileAttrTypes(), FlattenDataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfile, &diags)
+	m.RpsqlSecurityGroup = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpsqlSecurityGroup(), func() *DataCustomerManagedResourcesAWSRpsqlSecurityGroupModel {
+		v, _ := DecodeDataCustomerManagedResourcesAWSRpsqlSecurityGroup(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAWSRpsqlSecurityGroupAttrTypes(), FlattenDataCustomerManagedResourcesAWSRpsqlSecurityGroup, &diags)
 	m.UtilityNodeGroupInstanceProfile = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetUtilityNodeGroupInstanceProfile(), func() *DataCustomerManagedResourcesAWSUtilityNodeGroupInstanceProfileModel {
 		v, _ := DecodeDataCustomerManagedResourcesAWSUtilityNodeGroupInstanceProfile(ctx, prev)
 		return v
@@ -562,6 +577,9 @@ func ExpandDataCustomerManagedResourcesAWS(ctx context.Context, m *DataCustomerM
 		RedpandaConnectSecurityGroup:            modelconv.ObjectToMessageWithDiags(ctx, m.RedpandaConnectSecurityGroup, ExpandDataCustomerManagedResourcesAWSRedpandaConnectSecurityGroup, &diags),
 		RedpandaNodeGroupInstanceProfile:        modelconv.ObjectToMessageWithDiags(ctx, m.RedpandaNodeGroupInstanceProfile, ExpandDataCustomerManagedResourcesAWSRedpandaNodeGroupInstanceProfile, &diags),
 		RedpandaNodeGroupSecurityGroup:          modelconv.ObjectToMessageWithDiags(ctx, m.RedpandaNodeGroupSecurityGroup, ExpandDataCustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroup, &diags),
+		RpsqlCloudStorageBucket:                 modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlCloudStorageBucket, ExpandDataCustomerManagedResourcesAWSRpsqlCloudStorageBucket, &diags),
+		RpsqlNodeGroupInstanceProfile:           modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlNodeGroupInstanceProfile, ExpandDataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfile, &diags),
+		RpsqlSecurityGroup:                      modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlSecurityGroup, ExpandDataCustomerManagedResourcesAWSRpsqlSecurityGroup, &diags),
 		UtilityNodeGroupInstanceProfile:         modelconv.ObjectToMessageWithDiags(ctx, m.UtilityNodeGroupInstanceProfile, ExpandDataCustomerManagedResourcesAWSUtilityNodeGroupInstanceProfile, &diags),
 		UtilitySecurityGroup:                    modelconv.ObjectToMessageWithDiags(ctx, m.UtilitySecurityGroup, ExpandDataCustomerManagedResourcesAWSUtilitySecurityGroup, &diags),
 	}
@@ -883,6 +901,81 @@ func FlattenDataCustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroup(_ cont
 
 // ExpandDataCustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroup renders a nested model back into the proto type.
 func ExpandDataCustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroup(_ context.Context, m *DataCustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroupModel) (*controlplanev1.AWSSecurityGroup, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.AWSSecurityGroup{
+		Arn: m.ARN.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAWSRpsqlCloudStorageBucket converts a single proto controlplanev1.CustomerManagedAWSCloudStorageBucket into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAWSRpsqlCloudStorageBucket(_ context.Context, proto *controlplanev1.CustomerManagedAWSCloudStorageBucket, prev *DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketModel) (DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketModel{}
+	m.ARN = types.StringValue(proto.GetArn())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAWSRpsqlCloudStorageBucket renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAWSRpsqlCloudStorageBucket(_ context.Context, m *DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketModel) (*controlplanev1.CustomerManagedAWSCloudStorageBucket, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedAWSCloudStorageBucket{
+		Arn: m.ARN.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfile converts a single proto controlplanev1.AWSInstanceProfile into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfile(_ context.Context, proto *controlplanev1.AWSInstanceProfile, prev *DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileModel) (DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileModel{}
+	m.ARN = types.StringValue(proto.GetArn())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfile renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfile(_ context.Context, m *DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileModel) (*controlplanev1.AWSInstanceProfile, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.AWSInstanceProfile{
+		Arn: m.ARN.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAWSRpsqlSecurityGroup converts a single proto controlplanev1.AWSSecurityGroup into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAWSRpsqlSecurityGroupModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAWSRpsqlSecurityGroup(_ context.Context, proto *controlplanev1.AWSSecurityGroup, prev *DataCustomerManagedResourcesAWSRpsqlSecurityGroupModel) (DataCustomerManagedResourcesAWSRpsqlSecurityGroupModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAWSRpsqlSecurityGroupModel{}
+	m.ARN = types.StringValue(proto.GetArn())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAWSRpsqlSecurityGroup renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAWSRpsqlSecurityGroup(_ context.Context, m *DataCustomerManagedResourcesAWSRpsqlSecurityGroupModel) (*controlplanev1.AWSSecurityGroup, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if m == nil {
 		return nil, diags
@@ -1236,6 +1329,31 @@ func ExpandDataCustomerManagedResourcesGCPTieredStorageBucket(_ context.Context,
 	}
 	out := &controlplanev1.CustomerManagedGoogleCloudStorageBucket{
 		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataDataplaneAPI converts a single proto controlplanev1.Cluster_DataplaneAPI into the
+// corresponding nested model. The prev *DataDataplaneAPIModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataDataplaneAPI(_ context.Context, proto *controlplanev1.Cluster_DataplaneAPI, prev *DataDataplaneAPIModel) (DataDataplaneAPIModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataDataplaneAPIModel{}
+	m.URL = types.StringValue(proto.GetUrl())
+	return m, diags
+}
+
+// ExpandDataDataplaneAPI renders a nested model back into the proto type.
+func ExpandDataDataplaneAPI(_ context.Context, m *DataDataplaneAPIModel) (*controlplanev1.Cluster_DataplaneAPI, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Cluster_DataplaneAPI{
+		Url: m.URL.ValueString(),
 	}
 	return out, diags
 }
@@ -1738,6 +1856,39 @@ func ExpandDataRedpandaConsole(_ context.Context, m *DataRedpandaConsoleModel) (
 	}
 	out := &controlplanev1.Cluster_RedpandaConsole{
 		Url: m.URL.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataRpsql converts a single proto controlplanev1.RPSql into the
+// corresponding nested model. The prev *DataRpsqlModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataRpsql(ctx context.Context, proto *controlplanev1.RPSql, prev *DataRpsqlModel) (DataRpsqlModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataRpsqlModel{}
+	m.Enabled = types.BoolValue(proto.GetEnabled())
+	m.Replicas = types.Int32Value(proto.GetReplicas())
+	m.URL = types.StringValue(proto.GetUrl())
+	m.Version = types.StringValue(proto.GetVersion())
+	m.Zones = modelconv.ListFromSliceWithDiags(ctx, proto.GetZones(), types.StringType, &diags)
+	return m, diags
+}
+
+// ExpandDataRpsql renders a nested model back into the proto type.
+func ExpandDataRpsql(ctx context.Context, m *DataRpsqlModel) (*controlplanev1.RPSql, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.RPSql{
+		Enabled:  m.Enabled.ValueBool(),
+		Replicas: m.Replicas.ValueInt32(),
+		Url:      m.URL.ValueString(),
+		Version:  m.Version.ValueString(),
+		Zones:    modelconv.ListToSliceWithDiags[string](ctx, m.Zones, &diags),
 	}
 	return out, diags
 }

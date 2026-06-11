@@ -20,6 +20,7 @@ package network
 import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
@@ -38,39 +39,39 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 		Description: "Network represents a Redpanda Cloud managed network",
 		Attributes: map[string]schema.Attribute{
 			"cloud_provider": schema.StringAttribute{
-				Description:   "The cloud provider to create the network in.",
+				Description:   "Cloud provider where resources are created.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    validators.CloudProviders(),
 			},
 
 			"cluster_type": schema.StringAttribute{
-				Description:   "The type of cluster this network is associated with, can be one of dedicated or byoc",
+				Description:   "Cluster type. Type is immutable and can only be set on cluster creation.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    validators.ClusterTypes(),
 			},
 
 			"name": schema.StringAttribute{
-				Description:   "Name of the network",
+				Description:   "The unique name of the network.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"region": schema.StringAttribute{
-				Description:   "The region to create the network in.",
+				Description:   "Region where network is placed.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"resource_group_id": schema.StringAttribute{
-				Description:   "The ID of the resource group in which to create the network. Must be a valid UUID.",
+				Description:   "Resource group ID of the network. Must be a valid UUID.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"cidr_block": schema.StringAttribute{
-				Description:   "The cidr_block to create the network in",
+				Description:   "Network CIDR from where public and private subnets are derived. At least a 21 bits CIDR is required.",
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    []validator.String{validators.CIDRBlockValidator{}},
@@ -110,8 +111,9 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arns": schema.ListAttribute{
-										Description: "AWS private subnet identifiers. Items must be unique.",
+										Description: "AWS subnet identifiers. Items must be unique.",
 										Required:    true,
+										Validators:  []validator.List{listvalidator.UniqueValues()},
 										ElementType: types.StringType,
 									},
 								},
@@ -138,7 +140,7 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"name": schema.StringAttribute{
-										Description: "GCP storage bucket name for storing the state of Redpanda cluster deployment. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.",
+										Description: "Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.",
 										Required:    true,
 									},
 								},
@@ -165,7 +167,7 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 			},
 
 			"id": schema.StringAttribute{
-				Description:   "The ID of the network. Must match pattern `^[a-v0-9]{20}`.",
+				Description:   "Network ID. The ID is an output of the Create Network request and cannot be set by the caller. Must match pattern `^[a-v0-9]{20}`.",
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},

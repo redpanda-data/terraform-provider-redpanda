@@ -29,22 +29,22 @@ func DatasourceServerlessClusterSchema(_ context.Context) schema.Schema {
 		Description: "Data source for a Redpanda Cloud serverless cluster",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description: "The ID of the serverless cluster",
+				Description: "ID of the Serverless cluster. ID is an output from the Create Serverless Cluster operation and cannot be set by the caller.",
 				Required:    true,
 			},
 
 			"cluster_api_url": schema.StringAttribute{
-				Description: "The URL of the dataplane API for the serverless cluster",
+				Description: "The URL of the dataplane API for the serverless cluster.",
 				Computed:    true,
 			},
 
 			"console_private_url": schema.StringAttribute{
-				Description: "Private Console URL",
+				Description: "Private Console URL for the serverless cluster.",
 				Computed:    true,
 			},
 
 			"console_url": schema.StringAttribute{
-				Description: "Public Console URL",
+				Description: "Public Console URL for the serverless cluster.",
 				Computed:    true,
 			},
 
@@ -53,11 +53,11 @@ func DatasourceServerlessClusterSchema(_ context.Context) schema.Schema {
 				Computed:    true,
 				Attributes: map[string]schema.Attribute{
 					"private_url": schema.StringAttribute{
-						Description: "Private Dataplane API URL",
+						Description: "private_url is the private url of the dataplane api if private networking is enabled for this cluster.",
 						Computed:    true,
 					},
 					"url": schema.StringAttribute{
-						Description: "Public Dataplane API URL",
+						Description: "Dataplane API URL",
 						Computed:    true,
 					},
 				},
@@ -68,12 +68,12 @@ func DatasourceServerlessClusterSchema(_ context.Context) schema.Schema {
 				Computed:    true,
 				Attributes: map[string]schema.Attribute{
 					"private_seed_brokers": schema.ListAttribute{
-						Description: "Private Kafka API seed brokers",
+						Description: "Kafka API seed brokers (also known as bootstrap servers). Private addresses",
 						Computed:    true,
 						ElementType: types.StringType,
 					},
 					"seed_brokers": schema.ListAttribute{
-						Description: "Public Kafka API seed brokers",
+						Description: "Kafka API seed brokers (also known as bootstrap servers). Implicitly public",
 						Computed:    true,
 						ElementType: types.StringType,
 					},
@@ -81,7 +81,7 @@ func DatasourceServerlessClusterSchema(_ context.Context) schema.Schema {
 			},
 
 			"name": schema.StringAttribute{
-				Description: "Name of the serverless cluster",
+				Description: "Unique name of the Serverless cluster.",
 				Computed:    true,
 			},
 
@@ -90,18 +90,18 @@ func DatasourceServerlessClusterSchema(_ context.Context) schema.Schema {
 				Computed:    true,
 				Attributes: map[string]schema.Attribute{
 					"private": schema.StringAttribute{
-						Description: "Private network state",
+						Description: "Private network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED.",
 						Computed:    true,
 					},
 					"public": schema.StringAttribute{
-						Description: "Public network state",
+						Description: "Public network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED.",
 						Computed:    true,
 					},
 				},
 			},
 
 			"planned_deletion": schema.SingleNestedAttribute{
-				Description: "Planned deletion information",
+				Description: "Date after which this cluster can and should be deleted.",
 				Computed:    true,
 				Attributes: map[string]schema.Attribute{
 					"delete_after": schema.StringAttribute{
@@ -116,7 +116,7 @@ func DatasourceServerlessClusterSchema(_ context.Context) schema.Schema {
 			},
 
 			"private_link_id": schema.StringAttribute{
-				Description: "Private link ID for the serverless cluster, if any",
+				Description: "Private link ID for the serverless cluster. Must be set if private networking is enabled.",
 				Computed:    true,
 			},
 
@@ -125,18 +125,18 @@ func DatasourceServerlessClusterSchema(_ context.Context) schema.Schema {
 				Computed:    true,
 				Attributes: map[string]schema.Attribute{
 					"private_url": schema.StringAttribute{
-						Description: "Private Prometheus metrics URL",
+						Description: "Prometheus API Private URL.",
 						Computed:    true,
 					},
 					"url": schema.StringAttribute{
-						Description: "Public Prometheus metrics URL",
+						Description: "Prometheus API URL.",
 						Computed:    true,
 					},
 				},
 			},
 
 			"resource_group_id": schema.StringAttribute{
-				Description: "The ID of the resource group in which to create the serverless cluster",
+				Description: "Resource group ID of the cluster.",
 				Computed:    true,
 			},
 
@@ -145,28 +145,28 @@ func DatasourceServerlessClusterSchema(_ context.Context) schema.Schema {
 				Computed:    true,
 				Attributes: map[string]schema.Attribute{
 					"private_url": schema.StringAttribute{
-						Description: "Private Schema Registry URL",
+						Description: "Private url for the schema registry",
 						Computed:    true,
 					},
 					"url": schema.StringAttribute{
-						Description: "Public Schema Registry URL",
+						Description: "Schema Registry URL",
 						Computed:    true,
 					},
 				},
 			},
 
 			"serverless_region": schema.StringAttribute{
-				Description: "Redpanda specific region for the serverless cluster",
+				Description: "Serverless region in which the cluster is placed, backed by a cloud provider region.",
 				Computed:    true,
 			},
 
 			"state": schema.StringAttribute{
-				Description: "Current state of the serverless cluster.",
+				Description: "State describes the state of the ServerlessCluster. - STATE_PLACING: Serverless cluster is in the process of being placed on a cell with sufficient resources in the data plane. - STATE_CREATING: Serverless cluster is in the process of having its control plane state created. - STATE_READY: Serverless cluster is in execution and accepting external requests. - STATE_DELETING: Serverless cluster is in the process of having its control plane state removed. Resources dedicated to the cluster in the data plane will be released. - STATE_FAILED: Serverless cluster was unable to enter the ready state from either the creating or placing states. - STATE_SUSPENDED: Serverless cluster is in execution but blocks all external requests.",
 				Computed:    true,
 			},
 
 			"tags": schema.MapAttribute{
-				Description: "User-defined tags on the cluster",
+				Description: "User-defined tags for the Serverless cluster",
 				Computed:    true,
 				ElementType: types.StringType,
 			},

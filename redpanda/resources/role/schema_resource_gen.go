@@ -31,19 +31,19 @@ func ResourceRoleSchema(_ context.Context) schema.Schema {
 		Description: "Redpanda Cloud RBAC role",
 		Attributes: map[string]schema.Attribute{
 			"cluster_api_url": schema.StringAttribute{
-				Description:   "The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports",
+				Description:   "The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"name": schema.StringAttribute{
-				Description:   "Name of the role, must be unique. Length must be between 1 and 128. Must match pattern `^[^,=]+$`.",
+				Description:   "The name of the role. Length must be between 1 and 128. Must match pattern `^[^,=]+$`.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"allow_deletion": schema.BoolAttribute{
-				Description: "Allows deletion of the role. If false, the role cannot be deleted and the resource will be removed from the state on destruction. Defaults to false.",
+				Description: "Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),

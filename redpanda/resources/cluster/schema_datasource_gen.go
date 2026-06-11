@@ -35,7 +35,7 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"allow_deletion": schema.BoolAttribute{
-				Description: "Resource will only be deleted when allow_deletion is set to true. Otherwise deletion will fail with a related error.",
+				Description: "Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.",
 				Computed:    true,
 			},
 
@@ -252,7 +252,7 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"cluster_api_url": schema.StringAttribute{
-				Description: "The cluster API URL.",
+				Description: "The URL of the cluster's data plane API.",
 				Computed:    true,
 			},
 
@@ -261,7 +261,7 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 				Computed:    true,
 				Attributes: map[string]schema.Attribute{
 					"custom_properties_json": schema.StringAttribute{
-						Description: "Custom Properties JSON",
+						Description: "Custom cluster configuration properties in JSON format.",
 						Computed:    true,
 					},
 				},
@@ -415,6 +415,36 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 									},
 								},
 							},
+							"rpsql_cloud_storage_bucket": schema.SingleNestedAttribute{
+								Description: "AWS storage bucket properties by ARN.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Description: "AWS storage bucket identifier.",
+										Computed:    true,
+									},
+								},
+							},
+							"rpsql_node_group_instance_profile": schema.SingleNestedAttribute{
+								Description: "AWS instance profile.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Description: "AWS instance profile ARN.",
+										Computed:    true,
+									},
+								},
+							},
+							"rpsql_security_group": schema.SingleNestedAttribute{
+								Description: "Security Group identifies AWS security group.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Description: "AWS security group ARN.",
+										Computed:    true,
+									},
+								},
+							},
 							"utility_node_group_instance_profile": schema.SingleNestedAttribute{
 								Description: "AWS instance profile.",
 								Computed:    true,
@@ -540,6 +570,17 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 								},
 							},
 						},
+					},
+				},
+			},
+
+			"dataplane_api": schema.SingleNestedAttribute{
+				Description: "Cluster's Data Plane API properties.",
+				Computed:    true,
+				Attributes: map[string]schema.Attribute{
+					"url": schema.StringAttribute{
+						Description: "Data Plane API URL.",
+						Computed:    true,
 					},
 				},
 			},
@@ -862,6 +903,34 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 			"resource_group_id": schema.StringAttribute{
 				Description: "Resource group ID of the cluster.",
 				Computed:    true,
+			},
+
+			"rpsql": schema.SingleNestedAttribute{
+				Description: "Rpsql configuration",
+				Computed:    true,
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						Description: "Whether Rpsql is enabled",
+						Computed:    true,
+					},
+					"replicas": schema.Int32Attribute{
+						Description: "Replicas",
+						Computed:    true,
+					},
+					"url": schema.StringAttribute{
+						Description: "Rpsql URL",
+						Computed:    true,
+					},
+					"version": schema.StringAttribute{
+						Description: "Version",
+						Computed:    true,
+					},
+					"zones": schema.ListAttribute{
+						Description: "Zones",
+						Computed:    true,
+						ElementType: types.StringType,
+					},
+				},
 			},
 
 			"schema_registry": schema.SingleNestedAttribute{

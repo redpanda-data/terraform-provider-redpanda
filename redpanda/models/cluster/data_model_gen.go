@@ -38,6 +38,7 @@ type DataModel struct {
 	ClusterType                      types.String   `tfsdk:"cluster_type"`
 	ConnectionType                   types.String   `tfsdk:"connection_type"`
 	CustomerManagedResources         types.Object   `tfsdk:"customer_managed_resources"`
+	DataplaneAPI                     types.Object   `tfsdk:"dataplane_api"`
 	GCPGlobalAccessAPIGatewayEnabled types.Bool     `tfsdk:"gcp_global_access_api_gateway_enabled"`
 	GCPGlobalAccessEnabled           types.Bool     `tfsdk:"gcp_global_access_enabled"`
 	GCPPrivateServiceConnect         types.Object   `tfsdk:"gcp_private_service_connect"`
@@ -54,6 +55,7 @@ type DataModel struct {
 	RedpandaVersion                  types.String   `tfsdk:"redpanda_version"`
 	Region                           types.String   `tfsdk:"region"`
 	ResourceGroupID                  types.String   `tfsdk:"resource_group_id"`
+	Rpsql                            types.Object   `tfsdk:"rpsql"`
 	SchemaRegistry                   types.Object   `tfsdk:"schema_registry"`
 	State                            types.String   `tfsdk:"state"`
 	StateDescription                 types.Object   `tfsdk:"state_description"`
@@ -182,6 +184,9 @@ type DataCustomerManagedResourcesAWSModel struct {
 	RedpandaConnectSecurityGroup            types.Object `tfsdk:"redpanda_connect_security_group"`
 	RedpandaNodeGroupInstanceProfile        types.Object `tfsdk:"redpanda_node_group_instance_profile"`
 	RedpandaNodeGroupSecurityGroup          types.Object `tfsdk:"redpanda_node_group_security_group"`
+	RpsqlCloudStorageBucket                 types.Object `tfsdk:"rpsql_cloud_storage_bucket"`
+	RpsqlNodeGroupInstanceProfile           types.Object `tfsdk:"rpsql_node_group_instance_profile"`
+	RpsqlSecurityGroup                      types.Object `tfsdk:"rpsql_security_group"`
 	UtilityNodeGroupInstanceProfile         types.Object `tfsdk:"utility_node_group_instance_profile"`
 	UtilitySecurityGroup                    types.Object `tfsdk:"utility_security_group"`
 }
@@ -277,6 +282,27 @@ type DataCustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroupModel struct {
 	ARN types.String `tfsdk:"arn"`
 }
 
+// DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketModel mirrors the nested "customer_managed_resources.aws.rpsql_cloud_storage_bucket" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketModel struct {
+	ARN types.String `tfsdk:"arn"`
+}
+
+// DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileModel mirrors the nested "customer_managed_resources.aws.rpsql_node_group_instance_profile" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileModel struct {
+	ARN types.String `tfsdk:"arn"`
+}
+
+// DataCustomerManagedResourcesAWSRpsqlSecurityGroupModel mirrors the nested "customer_managed_resources.aws.rpsql_security_group" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAWSRpsqlSecurityGroupModel struct {
+	ARN types.String `tfsdk:"arn"`
+}
+
 // DataCustomerManagedResourcesAWSUtilityNodeGroupInstanceProfileModel mirrors the nested "customer_managed_resources.aws.utility_node_group_instance_profile" attribute. Use the As/To
 // converters on the parent struct to move between types.Object and this
 // typed form.
@@ -369,6 +395,13 @@ type DataCustomerManagedResourcesGCPSubnetSecondaryIpv4RangeServicesModel struct
 // typed form.
 type DataCustomerManagedResourcesGCPTieredStorageBucketModel struct {
 	Name types.String `tfsdk:"name"`
+}
+
+// DataDataplaneAPIModel mirrors the nested "dataplane_api" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataDataplaneAPIModel struct {
+	URL types.String `tfsdk:"url"`
 }
 
 // DataGCPPrivateServiceConnectModel mirrors the nested "gcp_private_service_connect" attribute. Use the As/To
@@ -521,6 +554,17 @@ type DataPrometheusModel struct {
 // typed form.
 type DataRedpandaConsoleModel struct {
 	URL types.String `tfsdk:"url"`
+}
+
+// DataRpsqlModel mirrors the nested "rpsql" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataRpsqlModel struct {
+	Enabled  types.Bool   `tfsdk:"enabled"`
+	Replicas types.Int32  `tfsdk:"replicas"`
+	URL      types.String `tfsdk:"url"`
+	Version  types.String `tfsdk:"version"`
+	Zones    types.List   `tfsdk:"zones"`
 }
 
 // DataSchemaRegistryModel mirrors the nested "schema_registry" attribute. Use the As/To
@@ -687,6 +731,9 @@ func DataCustomerManagedResourcesAWSAttrTypes() map[string]attr.Type {
 		"redpanda_connect_security_group":              types.ObjectType{AttrTypes: DataCustomerManagedResourcesAWSRedpandaConnectSecurityGroupAttrTypes()},
 		"redpanda_node_group_instance_profile":         types.ObjectType{AttrTypes: DataCustomerManagedResourcesAWSRedpandaNodeGroupInstanceProfileAttrTypes()},
 		"redpanda_node_group_security_group":           types.ObjectType{AttrTypes: DataCustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroupAttrTypes()},
+		"rpsql_cloud_storage_bucket":                   types.ObjectType{AttrTypes: DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketAttrTypes()},
+		"rpsql_node_group_instance_profile":            types.ObjectType{AttrTypes: DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileAttrTypes()},
+		"rpsql_security_group":                         types.ObjectType{AttrTypes: DataCustomerManagedResourcesAWSRpsqlSecurityGroupAttrTypes()},
 		"utility_node_group_instance_profile":          types.ObjectType{AttrTypes: DataCustomerManagedResourcesAWSUtilityNodeGroupInstanceProfileAttrTypes()},
 		"utility_security_group":                       types.ObjectType{AttrTypes: DataCustomerManagedResourcesAWSUtilitySecurityGroupAttrTypes()},
 	}
@@ -796,6 +843,30 @@ func DataCustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroupAttrTypes() ma
 	}
 }
 
+// DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketAttrTypes returns the attr.Type map for the "customer_managed_resources.aws.rpsql_cloud_storage_bucket" nested
+// attribute.
+func DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"arn": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileAttrTypes returns the attr.Type map for the "customer_managed_resources.aws.rpsql_node_group_instance_profile" nested
+// attribute.
+func DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"arn": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAWSRpsqlSecurityGroupAttrTypes returns the attr.Type map for the "customer_managed_resources.aws.rpsql_security_group" nested
+// attribute.
+func DataCustomerManagedResourcesAWSRpsqlSecurityGroupAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"arn": types.StringType,
+	}
+}
+
 // DataCustomerManagedResourcesAWSUtilityNodeGroupInstanceProfileAttrTypes returns the attr.Type map for the "customer_managed_resources.aws.utility_node_group_instance_profile" nested
 // attribute.
 func DataCustomerManagedResourcesAWSUtilityNodeGroupInstanceProfileAttrTypes() map[string]attr.Type {
@@ -899,6 +970,14 @@ func DataCustomerManagedResourcesGCPSubnetSecondaryIpv4RangeServicesAttrTypes() 
 func DataCustomerManagedResourcesGCPTieredStorageBucketAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"name": types.StringType,
+	}
+}
+
+// DataDataplaneAPIAttrTypes returns the attr.Type map for the "dataplane_api" nested
+// attribute.
+func DataDataplaneAPIAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"url": types.StringType,
 	}
 }
 
@@ -1071,6 +1150,18 @@ func DataRedpandaConsoleAttrTypes() map[string]attr.Type {
 	}
 }
 
+// DataRpsqlAttrTypes returns the attr.Type map for the "rpsql" nested
+// attribute.
+func DataRpsqlAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"enabled":  types.BoolType,
+		"replicas": types.Int32Type,
+		"url":      types.StringType,
+		"version":  types.StringType,
+		"zones":    types.ListType{ElemType: types.StringType},
+	}
+}
+
 // DataSchemaRegistryAttrTypes returns the attr.Type map for the "schema_registry" nested
 // attribute.
 func DataSchemaRegistryAttrTypes() map[string]attr.Type {
@@ -1203,6 +1294,29 @@ func DataCustomerManagedResourcesToObject(ctx context.Context, v *DataCustomerMa
 		return types.ObjectNull(DataCustomerManagedResourcesAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAttrTypes(), v)
+}
+
+// AsDataplaneAPI converts the root dataplane_api attribute from
+// types.Object into its typed form. Returns (nil, nil) when the object is
+// null or unknown. Use this when you want typed field access without
+// manually unpacking .Attributes().
+func (m *DataModel) AsDataplaneAPI(ctx context.Context) (*DataDataplaneAPIModel, diag.Diagnostics) {
+	if m == nil || m.DataplaneAPI.IsNull() || m.DataplaneAPI.IsUnknown() {
+		return nil, nil
+	}
+	var out DataDataplaneAPIModel
+	d := m.DataplaneAPI.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataDataplaneAPIToObject encodes a typed struct back into the
+// types.Object shape expected by the framework. A nil receiver returns
+// types.ObjectNull with the correct attribute types.
+func DataDataplaneAPIToObject(ctx context.Context, v *DataDataplaneAPIModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataDataplaneAPIAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataDataplaneAPIAttrTypes(), v)
 }
 
 // AsGCPPrivateServiceConnect converts the root gcp_private_service_connect attribute from
@@ -1364,6 +1478,29 @@ func DataRedpandaConsoleToObject(ctx context.Context, v *DataRedpandaConsoleMode
 		return types.ObjectNull(DataRedpandaConsoleAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, DataRedpandaConsoleAttrTypes(), v)
+}
+
+// AsRpsql converts the root rpsql attribute from
+// types.Object into its typed form. Returns (nil, nil) when the object is
+// null or unknown. Use this when you want typed field access without
+// manually unpacking .Attributes().
+func (m *DataModel) AsRpsql(ctx context.Context) (*DataRpsqlModel, diag.Diagnostics) {
+	if m == nil || m.Rpsql.IsNull() || m.Rpsql.IsUnknown() {
+		return nil, nil
+	}
+	var out DataRpsqlModel
+	d := m.Rpsql.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataRpsqlToObject encodes a typed struct back into the
+// types.Object shape expected by the framework. A nil receiver returns
+// types.ObjectNull with the correct attribute types.
+func DataRpsqlToObject(ctx context.Context, v *DataRpsqlModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataRpsqlAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataRpsqlAttrTypes(), v)
 }
 
 // AsSchemaRegistry converts the root schema_registry attribute from
@@ -1732,6 +1869,66 @@ func DataCustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroupToObject(ctx c
 		return types.ObjectNull(DataCustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroupAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAWSRedpandaNodeGroupSecurityGroupAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAWSRpsqlCloudStorageBucket decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAWSRpsqlCloudStorageBucket(ctx context.Context, v *DataCustomerManagedResourcesAWSModel) (*DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketModel, diag.Diagnostics) {
+	if v == nil || v.RpsqlCloudStorageBucket.IsNull() || v.RpsqlCloudStorageBucket.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketModel
+	d := v.RpsqlCloudStorageBucket.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketToObject(ctx context.Context, v *DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAWSRpsqlCloudStorageBucketAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfile decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfile(ctx context.Context, v *DataCustomerManagedResourcesAWSModel) (*DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileModel, diag.Diagnostics) {
+	if v == nil || v.RpsqlNodeGroupInstanceProfile.IsNull() || v.RpsqlNodeGroupInstanceProfile.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileModel
+	d := v.RpsqlNodeGroupInstanceProfile.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileToObject(ctx context.Context, v *DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAWSRpsqlSecurityGroup decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAWSRpsqlSecurityGroup(ctx context.Context, v *DataCustomerManagedResourcesAWSModel) (*DataCustomerManagedResourcesAWSRpsqlSecurityGroupModel, diag.Diagnostics) {
+	if v == nil || v.RpsqlSecurityGroup.IsNull() || v.RpsqlSecurityGroup.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAWSRpsqlSecurityGroupModel
+	d := v.RpsqlSecurityGroup.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAWSRpsqlSecurityGroupToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAWSRpsqlSecurityGroupToObject(ctx context.Context, v *DataCustomerManagedResourcesAWSRpsqlSecurityGroupModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAWSRpsqlSecurityGroupAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAWSRpsqlSecurityGroupAttrTypes(), v)
 }
 
 // DecodeDataCustomerManagedResourcesAWSUtilityNodeGroupInstanceProfile decodes the sub-field from its parent typed struct.

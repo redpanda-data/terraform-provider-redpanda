@@ -50,19 +50,19 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"connection_type": schema.StringAttribute{
-				Description:   "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, private is best-practice",
+				Description:   "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, **Private** is best-practice.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    []validator.String{stringvalidator.OneOf("", "public", "private"), validators.RequirePrivateConnectionValidator{}},
 			},
 
 			"name": schema.StringAttribute{
-				Description: "Unique name of the cluster.",
+				Description: "Unique name of the cluster. Length must be between 3 and 128. Must match pattern `^[A-Za-z0-9-:_]+$`.",
 				Required:    true,
 			},
 
 			"network_id": schema.StringAttribute{
-				Description:   "Network ID where cluster is placed.",
+				Description:   "Network ID where cluster is placed. Must match pattern `^[a-v0-9]{20}`.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
@@ -74,7 +74,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"resource_group_id": schema.StringAttribute{
-				Description:   "Resource group ID of the cluster.",
+				Description:   "Resource group ID of the cluster. Must be a valid UUID.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
@@ -85,16 +85,17 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"zones": schema.ListAttribute{
-				Description:   "Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster.",
+				Description:   "Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster. Items must be unique.",
 				Required:      true,
 				PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
-				Validators:    []validator.List{validators.AWSZoneIDValidator{}},
+				Validators:    append([]validator.List{validators.AWSZoneIDValidator{}}, listvalidator.UniqueValues()),
 				ElementType:   types.StringType,
 			},
 
 			"customer_managed_resources": schema.SingleNestedAttribute{
-				Description: "The cloud resources created by user.",
-				Optional:    true,
+				Description:   "The cloud resources created by user.",
+				Optional:      true,
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
 				Attributes: map[string]schema.Attribute{
 					"aws": schema.SingleNestedAttribute{
 						Description:   "AWS resources created and managed by user, and required to deploy the Redpanda cluster.",
@@ -251,6 +252,36 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 									},
 								},
 							},
+							"rpsql_cloud_storage_bucket": schema.SingleNestedAttribute{
+								Description: "AWS storage bucket properties by ARN.",
+								Optional:    true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Description: "AWS storage bucket identifier.",
+										Required:    true,
+									},
+								},
+							},
+							"rpsql_node_group_instance_profile": schema.SingleNestedAttribute{
+								Description: "AWS instance profile.",
+								Optional:    true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Description: "AWS instance profile ARN.",
+										Required:    true,
+									},
+								},
+							},
+							"rpsql_security_group": schema.SingleNestedAttribute{
+								Description: "Security Group identifies AWS security group.",
+								Optional:    true,
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Description: "AWS security group ARN.",
+										Required:    true,
+									},
+								},
+							},
 						},
 					},
 					"gcp": schema.SingleNestedAttribute{
@@ -373,8 +404,9 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"read_replica_cluster_ids": schema.ListAttribute{
-				Description: "IDs of clusters that can create read-only topics from this cluster",
+				Description: "IDs of clusters which may create read-only topics from this cluster. Must have at most 100 items. Items must be unique.",
 				Optional:    true,
+				Validators:  []validator.List{listvalidator.SizeAtMost(100), listvalidator.UniqueValues()},
 				ElementType: types.StringType,
 			},
 
@@ -385,7 +417,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"allow_deletion": schema.BoolAttribute{
-				Description: "Resource will only be deleted when allow_deletion is set to true. Otherwise deletion will fail with a related error.",
+				Description: "Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
@@ -405,7 +437,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"allowed_principals": schema.ListAttribute{
-						Description: "ARN of the principals that can access the Redpanda AWS PrivateLink Endpoint Service",
+						Description: "The ARN of the principals that can access the Redpanda AWS PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).",
 						Required:    true,
 						Validators:  []validator.List{listvalidator.ValueStringsAre(stringvalidator.LengthAtLeast(1))},
 						ElementType: types.StringType,
@@ -417,6 +449,14 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 					"enabled": schema.BoolAttribute{
 						Description: "Whether Redpanda AWS Private Link Endpoint Service is enabled.",
 						Required:    true,
+					},
+					"supported_regions": schema.ListAttribute{
+						Description:   "List of supported regions in cross-region AWS PrivateLink. Must have at most 50 items. Items must be unique.",
+						Optional:      true,
+						Computed:      true,
+						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+						Validators:    []validator.List{listvalidator.SizeAtMost(50), listvalidator.UniqueValues()},
+						ElementType:   types.StringType,
 					},
 					"status": schema.SingleNestedAttribute{
 						Description:   "Status configuration",
@@ -524,12 +564,6 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 							},
 						},
 					},
-					"supported_regions": schema.ListAttribute{
-						Description:   "List of supported regions in cross-region AWS PrivateLink.",
-						Computed:      true,
-						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
-						ElementType:   types.StringType,
-					},
 				},
 			},
 
@@ -540,7 +574,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"allowed_subscriptions": schema.ListAttribute{
-						Description: "Azure subscription IDs allowed to access the Redpanda Private Link Endpoint Service",
+						Description: "The subscriptions that can access the Redpanda Azure PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).",
 						Required:    true,
 						ElementType: types.StringType,
 					},
@@ -673,12 +707,12 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 						Attributes: map[string]schema.Attribute{
 							"container_name": schema.StringAttribute{
-								Description:   "Name of the Azure storage container",
+								Description:   "Name of the Azure storage container.",
 								Computed:      true,
 								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 							"storage_account_name": schema.StringAttribute{
-								Description:   "Name of the Azure storage account",
+								Description:   "Name of the Azure storage account.",
 								Computed:      true,
 								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
@@ -691,14 +725,14 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 						Attributes: map[string]schema.Attribute{
 							"name": schema.StringAttribute{
-								Description:   "Name of the GCP storage bucket",
+								Description:   "Name of the GCP storage bucket.",
 								Computed:      true,
 								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 						},
 					},
 					"skip_destroy": schema.BoolAttribute{
-						Description:   "If true, cloud storage is not deleted when the cluster is destroyed",
+						Description:   "If true, cloud storage is not deleted when the cluster is destroyed.",
 						Optional:      true,
 						Computed:      true,
 						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
@@ -714,7 +748,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Validators:    []validator.Object{validators.ClusterConfiguration()},
 				Attributes: map[string]schema.Attribute{
 					"custom_properties_json": schema.StringAttribute{
-						Description:   "Custom cluster configuration properties in JSON format",
+						Description:   "Custom cluster configuration properties in JSON format.",
 						Optional:      true,
 						Computed:      true,
 						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
@@ -734,7 +768,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Description:   "gcp_global_access_api_gateway_enabled reports whether global access is enabled on the internal load balancer serving the Console/API Gateway endpoint. Applicable only for GCP.",
 				Optional:      true,
 				Computed:      true,
-				PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace(), boolplanmodifier.UseStateForUnknown()},
 			},
 
 			"gcp_private_service_connect": schema.SingleNestedAttribute{
@@ -749,7 +783,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						NestedObject: schema.NestedAttributeObject{
 							Attributes: map[string]schema.Attribute{
 								"source": schema.StringAttribute{
-									Description: "GCP project ID from which connections are accepted",
+									Description: "Either the GCP project number or its alphanumeric ID.",
 									Required:    true,
 									Validators:  []validator.String{validators.PSCConsumerSourceValidator{}},
 								},
@@ -862,7 +896,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								ElementType: types.StringType,
 							},
 							"principal_mapping_rules": schema.ListAttribute{
-								Description: "Principal mapping rules for mTLS authentication. See Redpanda documentation for details",
+								Description: "Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on [configuring authentication](https://docs.redpanda.com/redpanda-cloud/security/cloud-authentication/#mtls).",
 								Optional:    true,
 								ElementType: types.StringType,
 							},
@@ -941,7 +975,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								ElementType: types.StringType,
 							},
 							"principal_mapping_rules": schema.ListAttribute{
-								Description: "Principal mapping rules for mTLS authentication. See Redpanda documentation for details",
+								Description: "Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on [configuring authentication](https://docs.redpanda.com/redpanda-cloud/security/cloud-authentication/#mtls).",
 								Optional:    true,
 								ElementType: types.StringType,
 							},
@@ -1025,7 +1059,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"anytime": schema.BoolAttribute{
-						Description: "If true, maintenance can occur at any time",
+						Description: "Anytime configuration",
 						Optional:    true,
 					},
 					"day_hour": schema.SingleNestedAttribute{
@@ -1045,7 +1079,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						},
 					},
 					"unspecified": schema.BoolAttribute{
-						Description:   "If true, maintenance window is unspecified",
+						Description:   "Unspecified configuration",
 						Computed:      true,
 						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
 					},
@@ -1053,7 +1087,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"redpanda_node_count": schema.Int32Attribute{
-				Description:   "Number of Redpanda broker nodes",
+				Description:   "Number of Redpanda broker nodes. Must be at least 0.",
 				Optional:      true,
 				Computed:      true,
 				PlanModifiers: []planmodifier.Int32{int32planmodifier.UseStateForUnknown()},
@@ -1079,9 +1113,23 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						Default:       int32default.StaticInt32(1),
 						PlanModifiers: []planmodifier.Int32{int32planmodifier.UseStateForUnknown()},
 					},
+					"zones": schema.ListAttribute{
+						Description:   "Zones. Must have at most 1 items.",
+						Optional:      true,
+						Computed:      true,
+						PlanModifiers: []planmodifier.List{rpsqlZonesStatePin()},
+						Validators:    []validator.List{listvalidator.SizeAtMost(1)},
+						ElementType:   types.StringType,
+					},
 					"url": schema.StringAttribute{
-						Description: "Rpsql URL",
-						Computed:    true,
+						Description:   "Rpsql URL",
+						Computed:      true,
+						PlanModifiers: []planmodifier.String{rpsqlStringStatePin()},
+					},
+					"version": schema.StringAttribute{
+						Description:   "Version",
+						Computed:      true,
+						PlanModifiers: []planmodifier.String{rpsqlStringStatePin()},
 					},
 				},
 			},
@@ -1102,7 +1150,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								ElementType: types.StringType,
 							},
 							"principal_mapping_rules": schema.ListAttribute{
-								Description: "Principal mapping rules for mTLS authentication. See Redpanda documentation for details",
+								Description: "Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on [configuring authentication](https://docs.redpanda.com/redpanda-cloud/security/cloud-authentication/#mtls).",
 								Optional:    true,
 								ElementType: types.StringType,
 							},
@@ -1158,7 +1206,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"cluster_api_url": schema.StringAttribute{
-				Description:   "The URL of the cluster's data plane API",
+				Description:   "The URL of the cluster's data plane API.",
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
@@ -1167,6 +1215,19 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Description:   "Current Redpanda version of the cluster.",
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+
+			"dataplane_api": schema.SingleNestedAttribute{
+				Description:   "Cluster's Data Plane API properties.",
+				Computed:      true,
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Attributes: map[string]schema.Attribute{
+					"url": schema.StringAttribute{
+						Description:   "Data Plane API URL.",
+						Computed:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+					},
+				},
 			},
 
 			"desired_redpanda_version": schema.StringAttribute{

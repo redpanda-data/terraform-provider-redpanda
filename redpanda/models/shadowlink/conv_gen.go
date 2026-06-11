@@ -204,6 +204,9 @@ func FlattenClientOptions(ctx context.Context, proto *controlplanev1.ShadowLinkC
 		return v
 	}(), ClientOptionsAuthenticationConfigurationAttrTypes(), FlattenClientOptionsAuthenticationConfiguration, &diags)
 	m.BootstrapServers = modelconv.ListFromSliceWithDiags(ctx, proto.GetBootstrapServers(), types.StringType, &diags)
+	if prev != nil {
+		m.BootstrapServers = modelconv.ListCarryKnownEmpty(m.BootstrapServers, prev.BootstrapServers)
+	}
 	m.ConnectionTimeoutMs = types.Int32Value(proto.GetConnectionTimeoutMs())
 	m.FetchMaxBytes = types.Int32Value(proto.GetFetchMaxBytes())
 	m.FetchMinBytes = types.Int32Value(proto.GetFetchMinBytes())
@@ -606,6 +609,9 @@ func FlattenTopicMetadataSyncOptions(ctx context.Context, proto *corev2.TopicMet
 	m.StartAtLatest = modelconv.BoolFromOneofPresence(proto.HasStartAtLatest())
 	m.StartAtTimestamp = modelconv.StringFromTimestamp(proto.GetStartAtTimestamp())
 	m.SyncedShadowTopicProperties = modelconv.ListFromSliceWithDiags(ctx, proto.GetSyncedShadowTopicProperties(), types.StringType, &diags)
+	if prev != nil {
+		m.SyncedShadowTopicProperties = modelconv.ListCarryKnownEmpty(m.SyncedShadowTopicProperties, prev.SyncedShadowTopicProperties)
+	}
 	return m, diags
 }
 
