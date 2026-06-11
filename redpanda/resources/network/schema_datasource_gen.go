@@ -32,12 +32,12 @@ func DatasourceNetworkSchema(_ context.Context) schema.Schema {
 		Description: "Data source for a Redpanda Cloud network",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description: "UUID of the network",
+				Description: "Network ID. The ID is an output of the Create Network request and cannot be set by the caller.",
 				Required:    true,
 			},
 
 			"cidr_block": schema.StringAttribute{
-				Description: "The cidr_block to create the network in",
+				Description: "Network CIDR from where public and private subnets are derived. At least a 21 bits CIDR is required.",
 				Computed:    true,
 				Validators: []validator.String{stringvalidator.RegexMatches(
 					regexp.MustCompile(`^(\d{1,3}\.){3}\d{1,3}/(\d{1,2})$`),
@@ -46,13 +46,13 @@ func DatasourceNetworkSchema(_ context.Context) schema.Schema {
 			},
 
 			"cloud_provider": schema.StringAttribute{
-				Description: "The cloud provider to create the network in. Can also be set at the provider level",
+				Description: "Cloud provider where resources are created.",
 				Computed:    true,
 				Validators:  []validator.String{stringvalidator.OneOf("", "gcp", "aws")},
 			},
 
 			"cluster_type": schema.StringAttribute{
-				Description: "The type of cluster this network is associated with, can be one of dedicated or cloud",
+				Description: "Cluster type. Type is immutable and can only be set on cluster creation.",
 				Computed:    true,
 				Validators:  []validator.String{stringvalidator.OneOf("", "dedicated", "cloud")},
 			},
@@ -90,7 +90,7 @@ func DatasourceNetworkSchema(_ context.Context) schema.Schema {
 								Computed:    true,
 								Attributes: map[string]schema.Attribute{
 									"arns": schema.ListAttribute{
-										Description: "AWS private subnet identifiers",
+										Description: "AWS subnet identifiers.",
 										Required:    true,
 										ElementType: types.StringType,
 									},
@@ -117,7 +117,7 @@ func DatasourceNetworkSchema(_ context.Context) schema.Schema {
 								Computed:    true,
 								Attributes: map[string]schema.Attribute{
 									"name": schema.StringAttribute{
-										Description: "GCP storage bucket name for storing the state of Redpanda cluster deployment",
+										Description: "Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions.",
 										Required:    true,
 									},
 								},
@@ -136,17 +136,17 @@ func DatasourceNetworkSchema(_ context.Context) schema.Schema {
 			},
 
 			"name": schema.StringAttribute{
-				Description: "Name of the network",
+				Description: "The unique name of the network.",
 				Computed:    true,
 			},
 
 			"region": schema.StringAttribute{
-				Description: "The region to create the network in. Can also be set at the provider level",
+				Description: "Region where network is placed.",
 				Computed:    true,
 			},
 
 			"resource_group_id": schema.StringAttribute{
-				Description: "The ID of the resource group in which to create the network",
+				Description: "Resource group ID of the network",
 				Computed:    true,
 			},
 

@@ -30,18 +30,18 @@ func DataSourceRegionSchema(_ context.Context) schema.Schema {
 		Description: "Data source for a Redpanda Cloud region",
 		Attributes: map[string]schema.Attribute{
 			"cloud_provider": schema.StringAttribute{
-				Description: "Cloud provider where the region exists",
+				Description: "Cloud provider where resources are created.",
 				Required:    true,
 				Validators:  validators.CloudProviders(),
 			},
 
 			"name": schema.StringAttribute{
-				Description: "Name of the region",
+				Description: "name is the name of the region, as given by the cloud provider. e.g. europe-west3",
 				Required:    true,
 			},
 
 			"zones": schema.ListAttribute{
-				Description: "Zones available in the region",
+				Description: "zones is the list of zones that existing in this region.",
 				Computed:    true,
 				ElementType: types.StringType,
 			},

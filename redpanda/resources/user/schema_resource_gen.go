@@ -35,19 +35,19 @@ func ResourceUserSchema(_ context.Context) schema.Schema {
 		Description: "User is a user that can be created in Redpanda",
 		Attributes: map[string]schema.Attribute{
 			"cluster_api_url": schema.StringAttribute{
-				Description:   "The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports",
+				Description:   "The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"name": schema.StringAttribute{
-				Description:   "Name of the user, must be unique. Length must be between 1 and 128.",
+				Description:   "Username. Length must be between 1 and 128.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"password": schema.StringAttribute{
-				Description:        "Password of the user. Deprecated: use password_wo instead to avoid storing password in state. Length must be between 3 and 128.",
+				Description:        "Password. Length must be between 3 and 128.",
 				Optional:           true,
 				Sensitive:          true,
 				DeprecationMessage: "Use password_wo instead to avoid storing password in Terraform state",
@@ -55,7 +55,7 @@ func ResourceUserSchema(_ context.Context) schema.Schema {
 			},
 
 			"password_wo": schema.StringAttribute{
-				Description: "Password of the user (write-only, not stored in state). Requires Terraform 1.11+. Either password or password_wo must be set.",
+				Description: "Password (write-only, not stored in state). Requires Terraform 1.11+. Either password or password_wo must be set.",
 				Optional:    true,
 				WriteOnly:   true,
 			},
@@ -66,14 +66,14 @@ func ResourceUserSchema(_ context.Context) schema.Schema {
 			},
 
 			"allow_deletion": schema.BoolAttribute{
-				Description: "Allows deletion of the user. If false, the user cannot be deleted and the resource will be removed from the state on destruction. Defaults to false.",
+				Description: "Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 			},
 
 			"mechanism": schema.StringAttribute{
-				Description:   "Which authentication method to use, see https://docs.redpanda.com/current/manage/security/authentication/ for more information",
+				Description:   "Which authentication method to use. See https://docs.redpanda.com/current/manage/security/authentication/ for more information.",
 				Optional:      true,
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},

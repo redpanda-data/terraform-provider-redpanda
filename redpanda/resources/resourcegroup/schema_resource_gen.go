@@ -30,13 +30,13 @@ func ResourceGroupSchema(_ context.Context) schema.Schema {
 		Description: "A Redpanda Cloud resource group",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				Description:   "Name of the resource group. Changing the name of a resource group will result in a new resource group being created and the old one being destroyed. Length must be at most 253. Must match pattern `^[a-zA-Z0-9-]+$`.",
+				Description:   "The unique name of the resource group. Length must be at most 253. Must match pattern `^[a-zA-Z0-9-]+$`.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"id": schema.StringAttribute{
-				Description:   "UUID of the resource group. Must be a valid UUID.",
+				Description:   "ID of the resource group. ID is an output of the Create Resource Group request and cannot be set by the caller. Must be a valid UUID.",
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},

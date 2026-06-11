@@ -20,7 +20,7 @@ Pipeline represents a Redpanda Connect pipeline
 
 ### Optional
 
-- `allow_deletion` (Boolean) Allows deletion of the pipeline. Default is false. Must be set to true to delete the resource.
+- `allow_deletion` (Boolean) Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.
 - `description` (String) Optional pipeline description. Length must be at most 256.
 - `resources` (Attributes) Resources configuration (see [below for nested schema](#nestedatt--resources))
 - `service_account` (Attributes) Service Account configuration (see [below for nested schema](#nestedatt--service_account))

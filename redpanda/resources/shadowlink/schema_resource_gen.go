@@ -45,7 +45,7 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 			},
 
 			"shadow_redpanda_id": schema.StringAttribute{
-				Description:   "Shadow Redpanda cluster ID where the shadow link is created. This ID is immutable.",
+				Description:   "Shadow Redpanda cluster ID where the shadow link is created. This ID is immutable. Length must be at least 1.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
@@ -57,7 +57,7 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 			},
 
 			"allow_deletion": schema.BoolAttribute{
-				Description: "Allows deletion of the shadow link. Defaults to false.",
+				Description: "Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),

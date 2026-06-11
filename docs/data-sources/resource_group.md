@@ -32,5 +32,5 @@ data "redpanda_resource_group" "example" {
 
 ### Optional
 
-- `id` (String) UUID of the resource group
-- `name` (String) Name of the resource group
+- `id` (String) ID of the resource group. ID is an output of the Create Resource Group request and cannot be set by the caller
+- `name` (String) The unique name of the resource group.

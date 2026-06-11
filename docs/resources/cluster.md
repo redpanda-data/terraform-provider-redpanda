@@ -17,17 +17,17 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 ### Required
 
 - `cloud_provider` (String) Cloud provider where resources are created.
-- `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, private is best-practice
-- `name` (String) Unique name of the cluster.
-- `network_id` (String) Network ID where cluster is placed.
+- `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, **Private** is best-practice.
+- `name` (String) Unique name of the cluster. Length must be between 3 and 128. Must match pattern `^[A-Za-z0-9-:_]+$`.
+- `network_id` (String) Network ID where cluster is placed. Must match pattern `^[a-v0-9]{20}`.
 - `region` (String) Region represents the name of the region where the cluster will be provisioned.
-- `resource_group_id` (String) Resource group ID of the cluster.
+- `resource_group_id` (String) Resource group ID of the cluster. Must be a valid UUID.
 - `throughput_tier` (String) Throughput tier of the cluster.
-- `zones` (List of String) Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster.
+- `zones` (List of String) Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster. Items must be unique.
 
 ### Optional
 
-- `allow_deletion` (Boolean) Resource will only be deleted when allow_deletion is set to true. Otherwise deletion will fail with a related error.
+- `allow_deletion` (Boolean) Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.
 - `api_gateway_access` (String) Network access mode for an endpoint.
 - `aws_private_link` (Attributes) AWS Private Link configuration (see [below for nested schema](#nestedatt--aws_private_link))
 - `azure_private_link` (Attributes) Azure Private Link configuration (see [below for nested schema](#nestedatt--azure_private_link))
@@ -41,8 +41,8 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `kafka_api` (Attributes) Cluster's Kafka API properties. (see [below for nested schema](#nestedatt--kafka_api))
 - `kafka_connect` (Attributes) Kafka Connect configuration (see [below for nested schema](#nestedatt--kafka_connect))
 - `maintenance_window_config` (Attributes) Resource describing the maintenance window configuration of a cluster. (see [below for nested schema](#nestedatt--maintenance_window_config))
-- `read_replica_cluster_ids` (List of String) IDs of clusters that can create read-only topics from this cluster
-- `redpanda_node_count` (Number) Number of Redpanda broker nodes
+- `read_replica_cluster_ids` (List of String) IDs of clusters which may create read-only topics from this cluster. Must have at most 100 items. Items must be unique.
+- `redpanda_node_count` (Number) Number of Redpanda broker nodes. Must be at least 0.
 - `redpanda_version` (String) Redpanda Version
 - `rpsql` (Attributes) Rpsql configuration (see [below for nested schema](#nestedatt--rpsql))
 - `schema_registry` (Attributes) Cluster's Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
@@ -51,8 +51,9 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 
 ### Read-Only
 
-- `cluster_api_url` (String) The URL of the cluster's data plane API
+- `cluster_api_url` (String) The URL of the cluster's data plane API.
 - `current_redpanda_version` (String) Current Redpanda version of the cluster.
+- `dataplane_api` (Attributes) Cluster's Data Plane API properties. (see [below for nested schema](#nestedatt--dataplane_api))
 - `desired_redpanda_version` (String) Desired Redpanda version of the cluster.
 - `gcp_global_access_enabled` (Boolean) gcp_enable_global_access control if global access is enabled on the seed load balancer, applicable only for GCP. Default is false
 - `id` (String) ID of the cluster. ID is an output from the Create Cluster endpoint and cannot be set by the caller.
@@ -67,14 +68,17 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 
 Required:
 
-- `allowed_principals` (List of String) ARN of the principals that can access the Redpanda AWS PrivateLink Endpoint Service
+- `allowed_principals` (List of String) The ARN of the principals that can access the Redpanda AWS PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).
 - `connect_console` (Boolean) Whether Console is connected in Redpanda AWS Private Link Service.
 - `enabled` (Boolean) Whether Redpanda AWS Private Link Endpoint Service is enabled.
+
+Optional:
+
+- `supported_regions` (List of String) List of supported regions in cross-region AWS PrivateLink. Must have at most 50 items. Items must be unique.
 
 Read-Only:
 
 - `status` (Attributes) Status configuration (see [below for nested schema](#nestedatt--aws_private_link--status))
-- `supported_regions` (List of String) List of supported regions in cross-region AWS PrivateLink.
 
 <a id="nestedatt--aws_private_link--status"></a>
 ### Nested Schema for `aws_private_link.status`
@@ -121,7 +125,7 @@ Read-Only:
 
 Required:
 
-- `allowed_subscriptions` (List of String) Azure subscription IDs allowed to access the Redpanda Private Link Endpoint Service
+- `allowed_subscriptions` (List of String) The subscriptions that can access the Redpanda Azure PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*).
 - `connect_console` (Boolean) Whether Console is connected in Redpanda Azure Private Link Service.
 - `enabled` (Boolean) Whether Redpanda AWS Private Link Endpoint Service is enabled.
 
@@ -168,7 +172,7 @@ Optional:
 - `aws` (Attributes) AWS configuration (see [below for nested schema](#nestedatt--cloud_storage--aws))
 - `azure` (Attributes) Azure configuration (see [below for nested schema](#nestedatt--cloud_storage--azure))
 - `gcp` (Attributes) GCP configuration (see [below for nested schema](#nestedatt--cloud_storage--gcp))
-- `skip_destroy` (Boolean) If true, cloud storage is not deleted when the cluster is destroyed
+- `skip_destroy` (Boolean) If true, cloud storage is not deleted when the cluster is destroyed.
 
 <a id="nestedatt--cloud_storage--aws"></a>
 ### Nested Schema for `cloud_storage.aws`
@@ -183,8 +187,8 @@ Read-Only:
 
 Read-Only:
 
-- `container_name` (String) Name of the Azure storage container
-- `storage_account_name` (String) Name of the Azure storage account
+- `container_name` (String) Name of the Azure storage container.
+- `storage_account_name` (String) Name of the Azure storage account.
 
 
 <a id="nestedatt--cloud_storage--gcp"></a>
@@ -192,7 +196,7 @@ Read-Only:
 
 Read-Only:
 
-- `name` (String) Name of the GCP storage bucket
+- `name` (String) Name of the GCP storage bucket.
 
 
 
@@ -201,7 +205,7 @@ Read-Only:
 
 Optional:
 
-- `custom_properties_json` (String) Custom cluster configuration properties in JSON format
+- `custom_properties_json` (String) Custom cluster configuration properties in JSON format.
 
 
 <a id="nestedatt--customer_managed_resources"></a>
@@ -235,6 +239,9 @@ Optional:
 
 - `redpanda_connect_node_group_instance_profile` (Attributes) AWS instance profile. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_connect_node_group_instance_profile))
 - `redpanda_connect_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_connect_security_group))
+- `rpsql_cloud_storage_bucket` (Attributes) AWS storage bucket properties by ARN. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--rpsql_cloud_storage_bucket))
+- `rpsql_node_group_instance_profile` (Attributes) AWS instance profile. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--rpsql_node_group_instance_profile))
+- `rpsql_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--rpsql_security_group))
 
 <a id="nestedatt--customer_managed_resources--aws--agent_instance_profile"></a>
 ### Nested Schema for `customer_managed_resources.aws.agent_instance_profile`
@@ -356,6 +363,30 @@ Required:
 - `arn` (String) AWS security group ARN.
 
 
+<a id="nestedatt--customer_managed_resources--aws--rpsql_cloud_storage_bucket"></a>
+### Nested Schema for `customer_managed_resources.aws.rpsql_cloud_storage_bucket`
+
+Required:
+
+- `arn` (String) AWS storage bucket identifier.
+
+
+<a id="nestedatt--customer_managed_resources--aws--rpsql_node_group_instance_profile"></a>
+### Nested Schema for `customer_managed_resources.aws.rpsql_node_group_instance_profile`
+
+Required:
+
+- `arn` (String) AWS instance profile ARN.
+
+
+<a id="nestedatt--customer_managed_resources--aws--rpsql_security_group"></a>
+### Nested Schema for `customer_managed_resources.aws.rpsql_security_group`
+
+Required:
+
+- `arn` (String) AWS security group ARN.
+
+
 
 <a id="nestedatt--customer_managed_resources--gcp"></a>
 ### Nested Schema for `customer_managed_resources.gcp`
@@ -469,7 +500,7 @@ Read-Only:
 
 Required:
 
-- `source` (String) GCP project ID from which connections are accepted
+- `source` (String) Either the GCP project number or its alphanumeric ID.
 
 
 <a id="nestedatt--gcp_private_service_connect--status"></a>
@@ -520,7 +551,7 @@ Optional:
 
 - `ca_certificates_pem` (List of String) CA certificate in PEM format.
 - `enabled` (Boolean) Whether mTLS is enabled.
-- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. See Redpanda documentation for details
+- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on [configuring authentication](https://docs.redpanda.com/redpanda-cloud/security/cloud-authentication/#mtls).
 
 
 <a id="nestedatt--http_proxy--sasl"></a>
@@ -563,7 +594,7 @@ Optional:
 
 - `ca_certificates_pem` (List of String) CA certificate in PEM format.
 - `enabled` (Boolean) Whether mTLS is enabled.
-- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. See Redpanda documentation for details
+- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on [configuring authentication](https://docs.redpanda.com/redpanda-cloud/security/cloud-authentication/#mtls).
 
 
 <a id="nestedatt--kafka_api--sasl"></a>
@@ -599,12 +630,12 @@ Optional:
 
 Optional:
 
-- `anytime` (Boolean) If true, maintenance can occur at any time
+- `anytime` (Boolean) Anytime configuration
 - `day_hour` (Attributes) Day Hour configuration (see [below for nested schema](#nestedatt--maintenance_window_config--day_hour))
 
 Read-Only:
 
-- `unspecified` (Boolean) If true, maintenance window is unspecified
+- `unspecified` (Boolean) Unspecified configuration
 
 <a id="nestedatt--maintenance_window_config--day_hour"></a>
 ### Nested Schema for `maintenance_window_config.day_hour`
@@ -623,10 +654,12 @@ Optional:
 
 - `enabled` (Boolean) Whether Rpsql is enabled
 - `replicas` (Number) Replicas
+- `zones` (List of String) Zones. Must have at most 1 items.
 
 Read-Only:
 
 - `url` (String) Rpsql URL
+- `version` (String) Version
 
 
 <a id="nestedatt--schema_registry"></a>
@@ -648,7 +681,7 @@ Optional:
 
 - `ca_certificates_pem` (List of String) CA certificate in PEM format.
 - `enabled` (Boolean) Whether mTLS is enabled.
-- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. See Redpanda documentation for details
+- `principal_mapping_rules` (List of String) Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on [configuring authentication](https://docs.redpanda.com/redpanda-cloud/security/cloud-authentication/#mtls).
 
 
 <a id="nestedatt--schema_registry--all_urls"></a>
@@ -671,6 +704,14 @@ Optional:
 - `create` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 - `delete` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 - `update` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+
+
+<a id="nestedatt--dataplane_api"></a>
+### Nested Schema for `dataplane_api`
+
+Read-Only:
+
+- `url` (String) Data Plane API URL.
 
 
 <a id="nestedatt--prometheus"></a>

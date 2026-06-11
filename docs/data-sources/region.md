@@ -17,9 +17,9 @@ Data source for a Redpanda Cloud region
 
 ### Required
 
-- `cloud_provider` (String) Cloud provider where the region exists
-- `name` (String) Name of the region
+- `cloud_provider` (String) Cloud provider where resources are created.
+- `name` (String) name is the name of the region, as given by the cloud provider. e.g. europe-west3
 
 ### Read-Only
 
-- `zones` (List of String) Zones available in the region
+- `zones` (List of String) zones is the list of zones that existing in this region.

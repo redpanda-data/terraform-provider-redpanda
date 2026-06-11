@@ -31,7 +31,7 @@ func ResourceACLSchema(_ context.Context) schema.Schema {
 		Description: "Acl resource",
 		Attributes: map[string]schema.Attribute{
 			"cluster_api_url": schema.StringAttribute{
-				Description:   "The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports",
+				Description:   "The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
@@ -43,47 +43,47 @@ func ResourceACLSchema(_ context.Context) schema.Schema {
 			},
 
 			"operation": schema.StringAttribute{
-				Description:   "The operation type that shall be allowed or denied (e.g READ)",
+				Description:   "The operation that is allowed or denied (e.g. READ).",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    aclOperationValidator(),
 			},
 
 			"permission_type": schema.StringAttribute{
-				Description:   "The permission type. It determines whether the operation should be ALLOWED or DENIED. Must be one of (enum values): 2, 3.",
+				Description:   "Whether the operation should be allowed or denied. Must be one of (enum values): 2, 3.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    aclPermissionTypeValidator(),
 			},
 
 			"principal": schema.StringAttribute{
-				Description:   "The principal to apply this ACL for (e.g., User:alice or RedpandaRole:admin)",
+				Description:   "The user for whom this ACL applies. With the Kafka simple authorizer, you must include the prefix \"User:\" with the user name.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"resource_name": schema.StringAttribute{
-				Description:   "The name of the resource this ACL entry will be on",
+				Description:   "The name of the resource this ACL targets. For requests with resource_type CLUSTER, this will default to \"kafka-cluster\".",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"resource_pattern_type": schema.StringAttribute{
-				Description:   "The pattern type of the resource. It determines the strategy how the provided resource name is matched (LITERAL, MATCH, PREFIXED, etc ...) against the actual resource names. Must be one of (enum values): 3, 4.",
+				Description:   "The pattern to use for matching the specified resource_name (any, exact match, literal, or prefixed). Must be one of (enum values): 3, 4.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    aclResourcePatternTypeValidator(),
 			},
 
 			"resource_type": schema.StringAttribute{
-				Description:   "The type of the resource (TOPIC, GROUP, etc...) this ACL shall target",
+				Description:   "The type of resource (topic, consumer group, etc.) this ACL targets.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    aclResourceTypeValidator(),
 			},
 
 			"allow_deletion": schema.BoolAttribute{
-				Description: "When set to true, allows the resource to be removed from state even if the cluster is unreachable",
+				Description: "Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
