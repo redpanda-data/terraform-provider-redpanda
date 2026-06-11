@@ -10,14 +10,14 @@
 
 cloudv2:
     remote: github.com/redpanda-data/cloudv2
-    sha: aea3fe56605ea15169f262252a571808417f164e
+    sha: e5691f2955ac663bdb8f190dcac732653a8ec96b
 console:
     remote: github.com/redpanda-data/console
-    sha: 4a8e3db68f5569812b65410afe37538f72728ac5
+    sha: 6ff1a55d3d67b07c4b8049b32f42d6dad85881db
 buf_modules:
     buf.build/bufbuild/protovalidate: 50325440f8f2
     buf.build/grpc-ecosystem/grpc-gateway: a48fcebcf8f1
-    buf.build/redpandadata/cloud: bea2c0f11c89
+    buf.build/redpandadata/cloud: e662350dea1d
     buf.build/redpandadata/common: 6e06f84ad823
     buf.build/redpandadata/core: 2088239db14c
     buf.build/redpandadata/dataplane: 5d8d126492a6
