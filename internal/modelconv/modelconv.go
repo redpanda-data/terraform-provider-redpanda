@@ -53,6 +53,18 @@ func ListFromSliceWithDiags[T TFScalar](ctx context.Context, v []T, elemType att
 	return out
 }
 
+// ListCarryKnownEmpty returns prev when cur is null and prev is a known empty
+// list, else cur. proto3 repeated fields erase empty-vs-absent on the wire, so
+// a planned [] reads back as a nil slice that flattens to null; carrying the
+// known-empty prev preserves the explicit empty. A populated prev never
+// overrides cur — a genuinely cleared server value must surface as drift.
+func ListCarryKnownEmpty(cur, prev types.List) types.List {
+	if cur.IsNull() && !prev.IsNull() && !prev.IsUnknown() && len(prev.Elements()) == 0 {
+		return prev
+	}
+	return cur
+}
+
 // ListToSliceWithDiags unwraps a types.List into []T for any TFScalar T.
 // Null and unknown both yield nil so callers don't accidentally send empty
 // slices upstream. Decoding diagnostics are appended to diags.

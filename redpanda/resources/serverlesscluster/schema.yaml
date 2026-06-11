@@ -19,37 +19,30 @@ api:
 
 name:
   required: true
-  description: "Name of the serverless cluster"
   plan_modifiers: [RequiresReplace]
 
 resource_group_id:
   required: true
-  description: "The ID of the Resource Group in which to create the serverless cluster"
   plan_modifiers: [RequiresReplace]
 
 serverless_region:
   required: true
-  description: "Redpanda specific region of the serverless cluster"
   plan_modifiers: [RequiresReplace]
 
 private_link_id:
   optional: true
   computed: true
-  description: "Private link ID for the serverless cluster. Must be set if private networking is enabled."
 
 networking_config:
   optional: true
   computed: true
-  description: "Network configuration controlling public/private access to the cluster"
   fields:
     private:
       optional: true
       computed: true
-      description: "Private network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED"
     public:
       optional: true
       computed: true
-      description: "Public network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED"
 
 tags:
   optional: true
@@ -57,67 +50,50 @@ tags:
 
 id:
   computed_only: true
-  description: "The ID of the serverless cluster"
 
 state:
   computed_only: true
-  description: "Current state of the serverless cluster."
 
 kafka_api:
   computed_only: true
-  description: "Kafka API endpoints for the serverless cluster"
   fields:
     seed_brokers:
       computed_only: true
-      description: "Public Kafka API seed brokers (bootstrap servers)"
     private_seed_brokers:
       computed_only: true
-      description: "Private Kafka API seed brokers (bootstrap servers)"
 
 schema_registry:
   computed_only: true
-  description: "Schema Registry endpoints for the serverless cluster"
   fields:
     url:
       computed_only: true
-      description: "Public Schema Registry URL"
     private_url:
       computed_only: true
-      description: "Private Schema Registry URL"
 
 dataplane_api:
   computed_only: true
-  description: "Dataplane API endpoints for the serverless cluster"
   fields:
     url:
       computed_only: true
-      description: "Public Dataplane API URL"
     private_url:
       computed_only: true
-      description: "Private Dataplane API URL"
 
 console_url:
   computed_only: true
-  description: "Public Console URL for the serverless cluster"
 
 console_private_url:
   computed_only: true
-  description: "Private Console URL for the serverless cluster"
 
 planned_deletion:
   computed_only: true
-  description: "Planned deletion information for the serverless cluster."
 
 prometheus:
   computed_only: true
-  description: "Prometheus metrics endpoints for the serverless cluster"
   fields:
     url:
       computed_only: true
-      description: "Public Prometheus metrics URL"
     private_url:
       computed_only: true
-      description: "Private Prometheus metrics URL"
 
 cluster_api_url:
   extra: true
@@ -125,7 +101,6 @@ cluster_api_url:
   computed: true
   flatten_via: clusterAPIURLFromProto
   deprecation_message: "This field is deprecated and will be removed in a future version. Use dataplane_api.url instead."
-  description: "The URL of the dataplane API for the serverless cluster"
 
 allow_deletion:
   extra: true
@@ -133,7 +108,6 @@ allow_deletion:
   optional: true
   computed: true
   default: false
-  description: "Whether terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`."
 
 
 # --- New proto fields (auto-added by schemagen -todo) ---

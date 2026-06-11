@@ -5,32 +5,24 @@ computed_default: true
 
 id:
   required: true
-  description: "UUID of the network"
 
 name:
-  description: "Name of the network"
 
 cidr_block:
-  description: "The cidr_block to create the network in"
   validator: CIDRBlockRegex
   flatten_via: cidrBlockFromProto
 
 region:
-  description: "The region to create the network in. Can also be set at the provider level"
 
 cloud_provider:
-  description: "The cloud provider to create the network in. Can also be set at the provider level"
   validator: "OneOf{values: |gcp|aws}"
 
 resource_group_id:
-  description: "The ID of the resource group in which to create the network"
 
 cluster_type:
-  description: "The type of cluster this network is associated with, can be one of dedicated or cloud"
   validator: "OneOf{values: |dedicated|cloud}"
 
 state:
-  description: "Current state of the network."
 
 customer_managed_resources:
   fields:
@@ -52,7 +44,6 @@ customer_managed_resources:
           fields:
             arns:
               required: true
-              description: "AWS private subnet identifiers"
     gcp:
       fields:
         network_name:
@@ -61,7 +52,6 @@ customer_managed_resources:
           fields:
             name:
               required: true
-              description: "GCP storage bucket name for storing the state of Redpanda cluster deployment"
 
     azure:
       todo: true
@@ -69,4 +59,6 @@ customer_managed_resources:
 
 # --- New proto fields (auto-added by schemagen -todo) ---
 egress_spec:
+  todo: true
+cloud_provider_access_id:
   todo: true

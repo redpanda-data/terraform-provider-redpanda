@@ -820,8 +820,19 @@ func planField(a *SchemaAttr, fc *FieldConfig, protoByName map[string]*ProtoFiel
 			return nil, fmt.Errorf("attribute %q: %w", a.Name, err)
 		}
 		conv.Kind = FieldKindListScalar
-		if conv.FlattenExpr == "" {
-			conv.FlattenExpr = fmt.Sprintf("modelconv.ListFromSliceWithDiags(ctx, proto.Get%s(), %s, &diags)", conv.ProtoGoName, elemTypeExpr)
+		if conv.FlattenExpr == "" && conv.FlattenStmt == "" {
+			if a.Optional {
+				// proto3 repeated erases empty-vs-absent on the wire: a planned
+				// [] reads back as nil and would flatten to null, tripping
+				// inconsistent-result. Carry a known-empty prev through.
+				conv.FlattenStmt = fmt.Sprintf(
+					"m.%s = modelconv.ListFromSliceWithDiags(ctx, proto.Get%s(), %s, &diags)\n\tif prev != nil {\n\t\tm.%s = modelconv.ListCarryKnownEmpty(m.%s, prev.%s)\n\t}",
+					conv.GoName, conv.ProtoGoName, elemTypeExpr,
+					conv.GoName, conv.GoName, conv.GoName,
+				)
+			} else {
+				conv.FlattenExpr = fmt.Sprintf("modelconv.ListFromSliceWithDiags(ctx, proto.Get%s(), %s, &diags)", conv.ProtoGoName, elemTypeExpr)
+			}
 		}
 		if conv.ExpandExpr == "" {
 			conv.ExpandExpr = fmt.Sprintf("modelconv.ListToSliceWithDiags[%s](ctx, m.%s, &diags)", goType, conv.GoName)

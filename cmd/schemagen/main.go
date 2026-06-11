@@ -247,6 +247,21 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 		log.Printf("Loaded %d api description entries from %s", apiIndex.Len(), apiIndex.Source)
 	}
 
+	if err := schemagen.ApplyAPIDefaults(cfg, schemaType); err != nil {
+		return fmt.Errorf("apply api defaults: %w", err)
+	}
+	if schemaType != schemagen.SchemaTypeDatasource {
+		// Asymmetric APIs carry input rules on the create payload, not the
+		// walked read shape; enrich before Merge so validator and description
+		// derivation see them.
+		if err := schemagen.BridgeWriteShapeRules(proto, cfg, schemaType, protoLookup); err != nil {
+			return fmt.Errorf("bridge write-shape validate rules: %w", err)
+		}
+	}
+	if err := resolveMaskContract(cfg); err != nil {
+		return err
+	}
+
 	attrs, extraImports, stats, mergeErrs := schemagen.Merge(proto, cfg, schemaType, apiIndex)
 	if len(mergeErrs) > 0 {
 		for _, e := range mergeErrs {
@@ -270,10 +285,6 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 	needsContext := hasTimeouts
 
 	emitProtoValidator := schemaType != schemagen.SchemaTypeDatasource
-
-	if err := schemagen.ApplyAPIDefaults(cfg, schemaType); err != nil {
-		return fmt.Errorf("apply api defaults: %w", err)
-	}
 
 	imports := schemagen.ResolveImports(attrs, schemaType, hasTimeouts, extraImports)
 

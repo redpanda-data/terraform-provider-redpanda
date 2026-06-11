@@ -49,7 +49,9 @@ func constraintSummary(rules *bufvalidate.FieldRules, fieldPath string) string {
 	case *bufvalidate.FieldRules_Bytes:
 		parts = append(parts, bytesRuleSummary(t.Bytes)...)
 	case *bufvalidate.FieldRules_Bool, *bufvalidate.FieldRules_Duration,
-		*bufvalidate.FieldRules_Timestamp, *bufvalidate.FieldRules_Any:
+		*bufvalidate.FieldRules_Timestamp, *bufvalidate.FieldRules_Any,
+		*bufvalidate.FieldRules_Repeated, *bufvalidate.FieldRules_Map:
+		// repeated / map rules are summarized below via GetRepeated/GetMap.
 
 	default:
 		if t != nil {

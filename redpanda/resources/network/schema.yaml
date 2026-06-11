@@ -8,36 +8,30 @@ exclude_operations: [update]
 
 name:
   required: true
-  description: "Name of the network"
   plan_modifiers: [RequiresReplace]
 
 cidr_block:
   optional: true
   computed: false
-  description: "The cidr_block to create the network in"
   plan_modifiers: [RequiresReplace]
   validator: CIDRBlock
   flatten_via: cidrBlockFromProto
 
 region:
   required: true
-  description: "The region to create the network in."
   plan_modifiers: [RequiresReplace]
 
 cloud_provider:
   required: true
-  description: "The cloud provider to create the network in."
   plan_modifiers: [RequiresReplace]
   validator: CloudProviders
 
 resource_group_id:
   required: true
-  description: "The ID of the resource group in which to create the network"
   plan_modifiers: [RequiresReplace]
 
 cluster_type:
   required: true
-  description: "The type of cluster this network is associated with, can be one of dedicated or byoc"
   plan_modifiers: [RequiresReplace]
   validator: ClusterTypes
 
@@ -70,7 +64,6 @@ customer_managed_resources:
           fields:
             arns:
               required: true
-              description: "AWS private subnet identifiers"
     gcp:
       optional: true
       computed: false
@@ -91,7 +84,6 @@ customer_managed_resources:
           fields:
             name:
               required: true
-              description: "GCP storage bucket name for storing the state of Redpanda cluster deployment"
 
     azure:
       todo: true
@@ -101,11 +93,9 @@ customer_managed_resources:
 
 id:
   computed_only: true
-  description: "The ID of the network"
 
 state:
   computed_only: true
-  description: "Current state of the network."
 
 zones:
   computed_only: true
@@ -113,4 +103,6 @@ zones:
 
 # --- New proto fields (auto-added by schemagen -todo) ---
 egress_spec:
+  todo: true
+cloud_provider_access_id:
   todo: true

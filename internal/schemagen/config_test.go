@@ -79,3 +79,52 @@ c:
 		t.Errorf("c.validator: got %v, want nil", got)
 	}
 }
+
+// TestLoadConfig_MaskContract round-trips api.update.mask_contract.
+func TestLoadConfig_MaskContract(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "schema.yaml")
+	src := `
+tf_name: Cluster
+api:
+  update:
+    mask_contract: cluster
+`
+	if err := os.WriteFile(path, []byte(src), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if got := cfg.API.Update.MaskContract; got != "cluster" {
+		t.Errorf("mask_contract = %q, want %q", got, "cluster")
+	}
+}
+
+// TestLoadConfig_RejectsDescriptionKey — yaml description overrides were
+// removed; any description: key inside a field-config map fails loudly.
+// Fields NAMED description (proto fields) still load.
+func TestLoadConfig_RejectsDescriptionKey(t *testing.T) {
+	write := func(t *testing.T, src string) (string, error) {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), "schema.yaml")
+		if err := os.WriteFile(path, []byte(src), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		_, err := LoadConfig(path)
+		return path, err
+	}
+
+	if _, err := write(t, "name:\n  description: \"custom\"\n"); err == nil ||
+		!strings.Contains(err.Error(), "description overrides were removed") {
+		t.Errorf("top-level field description: want tombstone error, got %v", err)
+	}
+	if _, err := write(t, "outer:\n  fields:\n    inner:\n      description: \"custom\"\n"); err == nil ||
+		!strings.Contains(err.Error(), "description overrides were removed") {
+		t.Errorf("nested field description: want tombstone error, got %v", err)
+	}
+	if _, err := write(t, "description:\n  required: true\nstate_description:\n  computed_only: true\n"); err != nil {
+		t.Errorf("fields NAMED description/state_description must load; got %v", err)
+	}
+}

@@ -33,11 +33,12 @@ import (
 // unknown validator).
 //
 // Description precedence (highest wins):
-//  1. YAML config `description:` field
+//  1. scopedDescriptions["<cfg.APISchema>.<path>"] — provider-behavior text
 //  2. apiIndex lookup by "<cfg.APISchema>.<proto.path>" (when both are set)
-//  3. mechanical defaults from descriptions.go
+//  3. commonDescriptions / mechanical defaults from descriptions.go
 //
-// When apiIndex is nil or cfg.APISchema is empty, layer 2 is skipped.
+// When apiIndex is nil or cfg.APISchema is empty, layer 2 is skipped. Yaml
+// `description:` overrides were removed; LoadConfig rejects the key.
 func Merge(proto *ProtoMessage, cfg *Config, schemaType string, apiIndex *apidesc.Index) (attrs []SchemaAttr, extraImports []string, stats apidesc.Stats, errs []error) {
 	opts := mapOptions{
 		computedDefault:  cfg.ComputedDefault,
@@ -46,6 +47,8 @@ func Merge(proto *ProtoMessage, cfg *Config, schemaType string, apiIndex *apides
 	attrs = mapProtoFields(proto, "", opts)
 
 	applyTimestampDeny(&attrs)
+
+	applyScopedDescriptions(attrs, cfg.APISchema, "")
 
 	if apiIndex != nil && cfg.APISchema != "" {
 		stats = applyAPIDescriptions(attrs, cfg.APISchema, "", apiIndex)
@@ -63,10 +66,15 @@ func Merge(proto *ProtoMessage, cfg *Config, schemaType string, apiIndex *apides
 	}
 	applyFieldConfigs(&attrs, cfg.Fields, proto, "", mc)
 
+	if contract := cfg.MaskContract(); contract != nil && !mc.isDatasource {
+		deriveMaskContractRequiresReplace(attrs, cfg.Fields, contract, mc)
+	}
+
 	applyAutoPlanModifiers(attrs, nil, mc, "")
 
 	if opts.deriveValidators {
 		appendValidatorDescriptions(attrs, proto, "")
+		deriveRepeatedRuleValidators(attrs, proto, "")
 	}
 
 	sortAttrs(attrs)
@@ -93,6 +101,27 @@ func applyTimestampDeny(attrs *[]SchemaAttr) {
 			continue
 		}
 		applyTimestampDeny(&a.NestedAttrs)
+	}
+}
+
+// applyScopedDescriptions seeds descriptions from the scopedDescriptions
+// table. It runs before the apidesc pass, which only fills empty
+// descriptions, so scoped text wins by construction.
+func applyScopedDescriptions(attrs []SchemaAttr, scope, parentPath string) {
+	if scope == "" {
+		return
+	}
+	for i := range attrs {
+		path := attrs[i].Name
+		if parentPath != "" {
+			path = parentPath + "." + attrs[i].Name
+		}
+		if desc, ok := scopedDescriptions[scope+"."+path]; ok {
+			attrs[i].Description = desc
+		}
+		if len(attrs[i].NestedAttrs) > 0 {
+			applyScopedDescriptions(attrs[i].NestedAttrs, scope, path)
+		}
 	}
 }
 
@@ -184,7 +213,7 @@ func applyFieldConfigs(attrs *[]SchemaAttr, fields map[string]FieldConfig, proto
 			}
 			synth := syntheticToSchemaAttr(name, fc, path, mc)
 			if synth.Description == "" {
-				synth.Description = generateDescription(name, "", synth.AttrType)
+				synth.Description = curatedDescription(mc.resourceLabel, path, name, synth.AttrType)
 			}
 
 			if len(fc.Fields) > 0 {
@@ -207,7 +236,7 @@ func applyFieldConfigs(attrs *[]SchemaAttr, fields map[string]FieldConfig, proto
 				synth.ElementType = ""
 			}
 			if synth.Description == "" {
-				synth.Description = generateDescription(name, "", synth.AttrType)
+				synth.Description = curatedDescription(mc.resourceLabel, path, name, synth.AttrType)
 			}
 			if len(fc.Fields) > 0 {
 				mc.ancestors = append(mc.ancestors, frameForAttr(&synth))
@@ -418,10 +447,6 @@ func applyFieldConfig(attr *SchemaAttr, path string, fc FieldConfig, mc *mergeCt
 		attr.DeprecationMessage = fc.DeprecationMessage
 	}
 
-	if fc.Description != "" {
-		attr.Description = fc.Description
-	}
-
 	attr.Validators = resolveValidatorList(fc.ValidatorNames(), path, attr.AttrType, mc.extraImports, mc)
 
 	if fc.Default != nil {
@@ -461,7 +486,7 @@ func applySyntheticFields(attrs *[]SchemaAttr, fields map[string]FieldConfig, pa
 			synth.ElementType = ""
 		}
 		if synth.Description == "" {
-			synth.Description = generateDescription(name, "", synth.AttrType)
+			synth.Description = curatedDescription(mc.resourceLabel, path, name, synth.AttrType)
 		}
 		if len(fc.Fields) > 0 {
 			mc.ancestors = append(mc.ancestors, frameForAttr(&synth))
@@ -483,7 +508,6 @@ func syntheticToSchemaAttr(name string, fc FieldConfig, path string, mc *mergeCt
 		Name:               name,
 		AttrType:           attrType,
 		ElementType:        elemType,
-		Description:        fc.Description,
 		Required:           fc.Required,
 		Optional:           fc.Optional != nil && *fc.Optional,
 		Computed:           fc.Computed != nil && *fc.Computed,

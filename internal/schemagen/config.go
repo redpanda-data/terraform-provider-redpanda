@@ -45,6 +45,8 @@ type Config struct {
 	ExcludeOperations []string `yaml:"exclude_operations,omitempty"`
 
 	sourcePath string
+
+	maskContract *MaskContract
 }
 
 // Source returns the path this config was loaded from, or "" if hand-built.
@@ -53,6 +55,28 @@ func (c *Config) Source() string {
 		return ""
 	}
 	return c.sourcePath
+}
+
+// MaskContract mirrors the control plane's update-mask path map for one
+// resource: TopLevel names are accepted at object granularity, Leaf names
+// only at leaf granularity (the provider expands them). A top-level field in
+// neither set cannot be updated in place — it requires replace.
+type MaskContract struct {
+	TopLevel map[string]bool
+	Leaf     map[string]bool
+}
+
+// SetMaskContract attaches the resolved update-mask contract; cmd/schemagen
+// resolves the yaml `api.update.mask_contract` name against its registry.
+func (c *Config) SetMaskContract(mc *MaskContract) { c.maskContract = mc }
+
+// MaskContract returns the attached contract, or nil when the resource
+// declared none (derivation is then a no-op).
+func (c *Config) MaskContract() *MaskContract {
+	if c == nil {
+		return nil
+	}
+	return c.maskContract
 }
 
 // APIConfig declares the resource's proto RPC shapes for the
@@ -93,6 +117,11 @@ type RPCConfig struct {
 	// In both cases the returned mask has empty Paths when nothing changed, so
 	// callers can skip the update RPC entirely.
 	DiffMask string `yaml:"diff_mask,omitempty"`
+
+	// MaskContract names the control-plane update-mask contract registered in
+	// cmd/schemagen. Top-level fields absent from the contract derive
+	// RequiresReplace; yaml overrides that disagree are warned about.
+	MaskContract string `yaml:"mask_contract,omitempty"`
 }
 
 // ResponseInterfaceConfig declares a Go interface synthesized over the
@@ -125,8 +154,6 @@ type FieldConfig struct {
 	Synthetic   bool   `yaml:"synthetic,omitempty"`
 	ForceType   string `yaml:"force_type,omitempty"`
 	ElementType string `yaml:"element_type,omitempty"`
-
-	Description string `yaml:"description,omitempty"`
 
 	Extra bool   `yaml:"extra,omitempty"`
 	Type  string `yaml:"type,omitempty"`
@@ -281,6 +308,9 @@ func LoadConfig(path string) (*Config, error) {
 		if reservedKeys[key] {
 			continue
 		}
+		if err := rejectDescriptionOverrides(key, val); err != nil {
+			return nil, fmt.Errorf("config %s: %w", path, err)
+		}
 		fc, err := parseFieldConfig(val)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse field %s: %w", key, err)
@@ -371,6 +401,29 @@ func (c *Config) SupportedOperations(schemaType string) (map[string]bool, error)
 		}
 	}
 	return supported, nil
+}
+
+// rejectDescriptionOverrides errors on a description: key inside a
+// field-config map (recursing through fields:). Yaml description overrides
+// were removed; without this tombstone the non-strict parse would silently
+// ignore stale keys. Fields NAMED description are fine — they appear as keys
+// of a fields: map, never as a config key.
+func rejectDescriptionOverrides(path string, val any) error {
+	m, ok := val.(map[string]any)
+	if !ok {
+		return nil
+	}
+	if _, has := m["description"]; has {
+		return fmt.Errorf("field %s sets description: — yaml description overrides were removed; descriptions come from apidescriptions.yaml (proto/OpenAPI) or the curated tables in internal/schemagen/descriptions.go", path)
+	}
+	if fields, ok := m["fields"].(map[string]any); ok {
+		for name, child := range fields {
+			if err := rejectDescriptionOverrides(path+"."+name, child); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func parseFieldConfig(val any) (FieldConfig, error) {
