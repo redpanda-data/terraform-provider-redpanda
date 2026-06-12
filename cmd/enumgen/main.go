@@ -75,6 +75,9 @@ func main() {
 	if cloudv2Root == "" {
 		log.Fatal("enumgen: cloudv2 repo not found — set -cloudv2 flag or CLOUDV2_ROOT env var")
 	}
+	if err := cmdutil.AssertCloudv2Pinned(cloudv2Root); err != nil {
+		log.Fatalf("enumgen: %v", err)
+	}
 	var extraImportPaths []string
 	if consoleProtoPath := resolveConsoleProtoPath(cloudv2Root); consoleProtoPath != "" {
 		extraImportPaths = append(extraImportPaths, consoleProtoPath)

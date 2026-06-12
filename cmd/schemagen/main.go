@@ -68,7 +68,7 @@ func main() {
 		log.Fatal("schemagen: cloudv2 repo not found — set -cloudv2 flag, CLOUDV2_ROOT env, or place cloudv2 as a sibling directory")
 	}
 
-	if err := assertPinnedCheckout(cloudv2Root); err != nil {
+	if err := cmdutil.AssertCloudv2Pinned(cloudv2Root); err != nil {
 		log.Fatalf("schemagen: %v", err)
 	}
 
@@ -80,22 +80,6 @@ func main() {
 	if err := run(cloudv2Root, *protoPkg, *message, *configPath, *funcName, *schemaType, *output, *pkgName, *apiDescPath, *modelOutput, *modelPackage, *convOutput, *protoImport, *protoAlias, *todoFlag, extraImportPaths); err != nil {
 		log.Fatalf("schemagen: %v", err)
 	}
-}
-
-// assertPinnedCheckout fails the per-resource codegen run when the local
-// cloudv2 checkout has drifted from internal/buf_dependencies.yaml. Console
-// is consumed through the .build/console-protos buf-export tree so its git
-// SHA is checked only by cmd/apidesc-import.
-func assertPinnedCheckout(cloudv2Root string) error {
-	repoRoot, err := cmdutil.FindRepoRoot()
-	if err != nil {
-		return fmt.Errorf("resolve repo root: %w", err)
-	}
-	deps, err := bufdeps.Read(bufdeps.DefaultPath(repoRoot))
-	if err != nil {
-		return fmt.Errorf("read pin file: %w", err)
-	}
-	return bufdeps.AssertCheckoutAt(cloudv2Root, deps.Cloudv2.SHA, "cloudv2")
 }
 
 // runUpdateDeps rewrites internal/buf_dependencies.yaml from current state.
