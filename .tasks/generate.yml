@@ -24,10 +24,19 @@ tasks:
       - rm -rf {{.CONSOLE_PROTO_EXPORT_DIR}}
       - "{{.PATH_PREFIX}} buf export {{.CONSOLE_REPO}} -o {{.CONSOLE_PROTO_EXPORT_DIR}}"
 
+  # Generate enum string<->proto mappers (redpanda/utils/enums/enums_gen.go).
+  # Runs before schemas because the generated flatten/expand code references
+  # the enums.* mappers. Pinned to internal/buf_dependencies.yaml like schemagen.
+  enums:
+    desc: "Generate enum string<->proto mappers from protobuf definitions"
+    deps: [console-protos]
+    cmds:
+      - go run ./cmd/enumgen
+
   # Generate schemas from proto definitions + YAML configs
   schemas:
     desc: "Generate Terraform schemas from protobuf definitions"
-    deps: [console-protos]
+    deps: [console-protos, enums]
     cmds:
       - go generate ./{{.RESOURCES_DIR}}/...
 
@@ -88,7 +97,8 @@ tasks:
 
   # Clean generated files
   clean:
-    desc: "Remove generated schema and model files"
+    desc: "Remove generated schema, model, and enum files"
     cmds:
       - find {{.RESOURCES_DIR}} -name '*_gen.go' -delete
       - find {{.MODELS_DIR}} -name '*_gen.go' -delete
+      - find redpanda/utils/enums -name '*_gen.go' -delete
