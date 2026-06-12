@@ -387,6 +387,11 @@ func runSubprocess(ctx context.Context, env []string, executable string, args ..
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if rmErr := os.RemoveAll(tempDir); rmErr != nil {
+			tflog.Warn(ctx, "failed to remove byoc temp dir", map[string]any{"dir": tempDir, "error": rmErr.Error()})
+		}
+	}()
 
 	cmd := exec.CommandContext(ctx, executable, args...)
 	cmd.Env = env
@@ -397,21 +402,17 @@ func runSubprocess(ctx context.Context, env []string, executable string, args ..
 
 	lastLogs := &lastLogs{}
 
-	// Set up stdout pipe
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
 	}
-	go forwardLogs(ctx, stdout, lastLogs)
-
-	// Set up stderr pipe
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return err
 	}
-	go forwardLogs(ctx, stderr, lastLogs)
 
-	// Start the command
+	// Start the command before spawning the log readers so a Start failure
+	// doesn't leak goroutines blocked on a pipe that never fills.
 	if err := cmd.Start(); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -419,12 +420,19 @@ func runSubprocess(ctx context.Context, env []string, executable string, args ..
 		return err
 	}
 
-	// Wait for completion
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() { defer wg.Done(); forwardLogs(ctx, stdout, lastLogs) }()
+	go func() { defer wg.Done(); forwardLogs(ctx, stderr, lastLogs) }()
+
+	// Per exec.Cmd.StdoutPipe's contract, all reads from the pipes must
+	// complete before Wait — Wait closes them on process exit.
+	wg.Wait()
+
 	if err := cmd.Wait(); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		// Use the thread-safe method to get logs
 		return fmt.Errorf("%w:\n%v", err, strings.Join(lastLogs.GetLines(), "\n"))
 	}
 
