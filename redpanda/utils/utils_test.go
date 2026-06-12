@@ -1562,3 +1562,22 @@ func TestNormalizeClusterAPIURL(t *testing.T) {
 		})
 	}
 }
+
+// TestGetARNListFromAttributes_ErrorMessage pins that the not-found errors are
+// well-formed. They previously used fmt.Errorf(fmt.Sprintf(...), suffix), which
+// dropped the suffix as a stray EXTRA arg; go vet can't catch it because the
+// format string is a function call rather than a literal.
+func TestGetARNListFromAttributes_ErrorMessage(t *testing.T) {
+	_, err := GetARNListFromAttributes("subnet", map[string]attr.Value{})
+	require.Error(t, err)
+	require.Equal(t, "subnet not found: object is missing or malformed for network resource", err.Error())
+
+	obj, d := types.ObjectValue(
+		map[string]attr.Type{"other": types.StringType},
+		map[string]attr.Value{"other": types.StringValue("x")},
+	)
+	require.False(t, d.HasError())
+	_, err = GetARNListFromAttributes("subnet", map[string]attr.Value{"subnet": obj})
+	require.Error(t, err)
+	require.Equal(t, "subnet not found: list is missing or malformed for network resource", err.Error())
+}
