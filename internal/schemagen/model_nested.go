@@ -67,10 +67,7 @@ func collectNestedTypes(root []SchemaAttr, prefix string) ([]NestedType, error) 
 			if !isNestedMessage(a.AttrType) {
 				continue
 			}
-			childPath := a.Name
-			if path != "" {
-				childPath = path + "." + a.Name
-			}
+			childPath := joinPath(path, a.Name)
 			typeName := prefix + pathToPascal(childPath) + "Model"
 			if seen[typeName] {
 				continue
@@ -152,10 +149,7 @@ func collectSubConverters(root []SchemaAttr, prefix string) []SubConverter {
 			if !isNestedMessage(a.AttrType) {
 				continue
 			}
-			childPath := a.Name
-			if path != "" {
-				childPath = path + "." + a.Name
-			}
+			childPath := joinPath(path, a.Name)
 			fullPascal := prefix + pathToPascal(childPath)
 			nestedType := fullPascal + "Model"
 			// Decode helpers exist only for SingleNested fields — their
@@ -204,30 +198,18 @@ func attrTypeExpr(a *SchemaAttr, parentPath, prefix string) (string, error) {
 	case AttrTypeMap:
 		return fmt.Sprintf("types.MapType{ElemType: %s}", elementAttrType(a.ElementType)), nil
 	case AttrTypeSingleNested, AttrTypeObject:
-		path := a.Name
-		if parentPath != "" {
-			path = parentPath + "." + a.Name
-		}
+		path := joinPath(parentPath, a.Name)
 		return fmt.Sprintf("types.ObjectType{AttrTypes: %s()}", prefix+pathToPascal(path)+"AttrTypes"), nil
 	case AttrTypeListNested:
-		path := a.Name
-		if parentPath != "" {
-			path = parentPath + "." + a.Name
-		}
+		path := joinPath(parentPath, a.Name)
 		return fmt.Sprintf("types.ListType{ElemType: types.ObjectType{AttrTypes: %s()}}",
 			prefix+pathToPascal(path)+"AttrTypes"), nil
 	case AttrTypeSetNested:
-		path := a.Name
-		if parentPath != "" {
-			path = parentPath + "." + a.Name
-		}
+		path := joinPath(parentPath, a.Name)
 		return fmt.Sprintf("types.SetType{ElemType: types.ObjectType{AttrTypes: %s()}}",
 			prefix+pathToPascal(path)+"AttrTypes"), nil
 	case AttrTypeMapNested:
-		path := a.Name
-		if parentPath != "" {
-			path = parentPath + "." + a.Name
-		}
+		path := joinPath(parentPath, a.Name)
 		return fmt.Sprintf("types.MapType{ElemType: types.ObjectType{AttrTypes: %s()}}",
 			prefix+pathToPascal(path)+"AttrTypes"), nil
 	default:
@@ -236,22 +218,10 @@ func attrTypeExpr(a *SchemaAttr, parentPath, prefix string) (string, error) {
 }
 
 func scalarAttrType(attrType string) (string, error) {
-	switch attrType {
-	case AttrTypeString:
-		return elemTypeString, nil
-	case AttrTypeBool:
-		return "types.BoolType", nil
-	case AttrTypeInt32:
-		return "types.Int32Type", nil
-	case AttrTypeInt64:
-		return "types.Int64Type", nil
-	case AttrTypeFloat64:
-		return "types.Float64Type", nil
-	case AttrTypeNumber:
-		return "types.NumberType", nil
-	default:
-		return "", fmt.Errorf("schemagen: unsupported scalar AttrType %q", attrType)
+	if info, ok := attrTypeTable[attrType]; ok && info.TypeExpr != "" {
+		return info.TypeExpr, nil
 	}
+	return "", fmt.Errorf("schemagen: unsupported scalar AttrType %q", attrType)
 }
 
 func elementAttrType(elementType string) string {

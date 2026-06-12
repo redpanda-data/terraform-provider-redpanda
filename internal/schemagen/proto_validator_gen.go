@@ -170,10 +170,7 @@ func ProtoValidatorInnerGetter(cfg *Config, lookup ProtoLookup) (string, error) 
 func collectSkipped(prefix string, fields map[string]FieldConfig, out *[]string) {
 	for name := range fields {
 		fc := fields[name]
-		path := name
-		if prefix != "" {
-			path = prefix + "." + name
-		}
+		path := joinPath(prefix, name)
 		if fc.SkipProtoValidation {
 			*out = append(*out, path)
 		}

@@ -432,7 +432,7 @@ func PlanFlattenExpand(
 		data.ExtraImports = append(data.ExtraImports,
 			"github.com/redpanda-data/terraform-provider-redpanda/internal/modelconv")
 	}
-	if usesUtils(data) || emitsWithMask(data) {
+	if dataReferencesPkg(data, "utils.") || emitsWithMask(data) {
 		data.ExtraImports = append(data.ExtraImports,
 			"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils")
 	}
@@ -440,7 +440,7 @@ func PlanFlattenExpand(
 		data.ExtraImports = append(data.ExtraImports,
 			"google.golang.org/protobuf/types/known/fieldmaskpb")
 	}
-	if usesEnumsPkg(data) {
+	if dataReferencesPkg(data, "enums.") {
 		data.ExtraImports = append(data.ExtraImports,
 			"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils/enums")
 	}
@@ -451,51 +451,27 @@ func PlanFlattenExpand(
 }
 
 func annotateUsesCtx(data *ConversionData) {
-	data.FlattenUsesCtx = flattenBodyUsesCtx(data)
+	data.FlattenUsesCtx = conversionsUseCtx(data.RootFieldConversions, false) || len(data.NestedPreserveBlocks) > 0
 	for i := range data.Expanders {
-		data.Expanders[i].UsesCtx = expanderBodyUsesCtx(&data.Expanders[i])
+		data.Expanders[i].UsesCtx = conversionsUseCtx(data.Expanders[i].Conversions, true)
 	}
 	for i := range data.NestedFlatteners {
 		nf := &data.NestedFlatteners[i]
-		nf.FlattenUsesCtx = nestedFlattenBodyUsesCtx(nf)
-		nf.ExpandUsesCtx = nestedExpandBodyUsesCtx(nf)
+		nf.FlattenUsesCtx = conversionsUseCtx(nf.Conversions, false)
+		nf.ExpandUsesCtx = conversionsUseCtx(nf.Conversions, true)
 	}
 }
 
-func flattenBodyUsesCtx(data *ConversionData) bool {
-	for i := range data.RootFieldConversions {
-		c := &data.RootFieldConversions[i]
-		if strings.Contains(c.FlattenStmt, "ctx") || strings.Contains(c.FlattenExpr, "ctx") {
-			return true
+// conversionsUseCtx reports whether any conversion's generated body references
+// ctx. expand selects the Expand statement/expression pair; otherwise the
+// Flatten pair is checked.
+func conversionsUseCtx(convs []FieldConversion, expand bool) bool {
+	for i := range convs {
+		stmt, expr := convs[i].FlattenStmt, convs[i].FlattenExpr
+		if expand {
+			stmt, expr = convs[i].ExpandStmt, convs[i].ExpandExpr
 		}
-	}
-	return len(data.NestedPreserveBlocks) > 0
-}
-
-func expanderBodyUsesCtx(e *Expander) bool {
-	for i := range e.Conversions {
-		c := &e.Conversions[i]
-		if strings.Contains(c.ExpandStmt, "ctx") || strings.Contains(c.ExpandExpr, "ctx") {
-			return true
-		}
-	}
-	return false
-}
-
-func nestedFlattenBodyUsesCtx(nf *NestedFlattener) bool {
-	for i := range nf.Conversions {
-		c := &nf.Conversions[i]
-		if strings.Contains(c.FlattenStmt, "ctx") || strings.Contains(c.FlattenExpr, "ctx") {
-			return true
-		}
-	}
-	return false
-}
-
-func nestedExpandBodyUsesCtx(nf *NestedFlattener) bool {
-	for i := range nf.Conversions {
-		c := &nf.Conversions[i]
-		if strings.Contains(c.ExpandStmt, "ctx") || strings.Contains(c.ExpandExpr, "ctx") {
+		if strings.Contains(stmt, "ctx") || strings.Contains(expr, "ctx") {
 			return true
 		}
 	}
@@ -1610,49 +1586,21 @@ func emitsWithMask(data ConversionData) bool {
 	return false
 }
 
-func usesUtils(data ConversionData) bool {
+// dataReferencesPkg reports whether any generated conversion body references
+// the package selector sel (e.g. "utils." or "enums."). Flatten bodies are
+// checked on root conversions and emit-flatten nested conversions; expand
+// bodies on expanders and emit-expand nested conversions.
+func dataReferencesPkg(data ConversionData, sel string) bool {
 	for i := range data.RootFieldConversions {
 		c := &data.RootFieldConversions[i]
-		if strings.Contains(c.FlattenExpr, "utils.") || strings.Contains(c.FlattenStmt, "utils.") {
-			return true
-		}
-	}
-
-	for i := range data.Expanders {
-		convs := data.Expanders[i].Conversions
-		for j := range convs {
-			if strings.Contains(convs[j].ExpandExpr, "utils.") || strings.Contains(convs[j].ExpandStmt, "utils.") {
-				return true
-			}
-		}
-	}
-
-	for i := range data.NestedFlatteners {
-		nf := &data.NestedFlatteners[i]
-		for j := range nf.Conversions {
-			c := &nf.Conversions[j]
-			if nf.EmitFlatten && (strings.Contains(c.FlattenExpr, "utils.") || strings.Contains(c.FlattenStmt, "utils.")) {
-				return true
-			}
-			if nf.EmitExpand && (strings.Contains(c.ExpandExpr, "utils.") || strings.Contains(c.ExpandStmt, "utils.")) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func usesEnumsPkg(data ConversionData) bool {
-	for i := range data.RootFieldConversions {
-		c := &data.RootFieldConversions[i]
-		if strings.Contains(c.FlattenExpr, "enums.") || strings.Contains(c.FlattenStmt, "enums.") {
+		if strings.Contains(c.FlattenExpr, sel) || strings.Contains(c.FlattenStmt, sel) {
 			return true
 		}
 	}
 	for i := range data.Expanders {
 		convs := data.Expanders[i].Conversions
 		for j := range convs {
-			if strings.Contains(convs[j].ExpandExpr, "enums.") || strings.Contains(convs[j].ExpandStmt, "enums.") {
+			if strings.Contains(convs[j].ExpandExpr, sel) || strings.Contains(convs[j].ExpandStmt, sel) {
 				return true
 			}
 		}
@@ -1661,10 +1609,10 @@ func usesEnumsPkg(data ConversionData) bool {
 		nf := &data.NestedFlatteners[i]
 		for j := range nf.Conversions {
 			c := &nf.Conversions[j]
-			if nf.EmitFlatten && (strings.Contains(c.FlattenExpr, "enums.") || strings.Contains(c.FlattenStmt, "enums.")) {
+			if nf.EmitFlatten && (strings.Contains(c.FlattenExpr, sel) || strings.Contains(c.FlattenStmt, sel)) {
 				return true
 			}
-			if nf.EmitExpand && (strings.Contains(c.ExpandExpr, "enums.") || strings.Contains(c.ExpandStmt, "enums.")) {
+			if nf.EmitExpand && (strings.Contains(c.ExpandExpr, sel) || strings.Contains(c.ExpandStmt, sel)) {
 				return true
 			}
 		}

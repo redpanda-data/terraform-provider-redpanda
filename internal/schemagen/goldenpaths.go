@@ -63,10 +63,7 @@ func collectGoldenPaths(attrs []goldenAttr, prefix string, out map[string]struct
 		if a.Name == "" {
 			continue
 		}
-		p := a.Name
-		if prefix != "" {
-			p = prefix + "." + a.Name
-		}
+		p := joinPath(prefix, a.Name)
 		out[p] = struct{}{}
 		if len(a.Attributes) > 0 {
 			collectGoldenPaths(a.Attributes, p, out)

@@ -104,6 +104,17 @@ func applyTimestampDeny(attrs *[]SchemaAttr) {
 	}
 }
 
+// walkAttrs visits every attribute in the tree depth-first, passing each
+// attribute and its parent path (the dot-joined path of ancestors, excluding
+// the attribute's own name). Callers that need the full path call
+// joinPath(parentPath, a.Name).
+func walkAttrs(attrs []SchemaAttr, parentPath string, visit func(a *SchemaAttr, parentPath string)) {
+	for i := range attrs {
+		visit(&attrs[i], parentPath)
+		walkAttrs(attrs[i].NestedAttrs, joinPath(parentPath, attrs[i].Name), visit)
+	}
+}
+
 // applyScopedDescriptions seeds descriptions from the scopedDescriptions
 // table. It runs before the apidesc pass, which only fills empty
 // descriptions, so scoped text wins by construction.
@@ -111,44 +122,24 @@ func applyScopedDescriptions(attrs []SchemaAttr, scope, parentPath string) {
 	if scope == "" {
 		return
 	}
-	for i := range attrs {
-		path := attrs[i].Name
-		if parentPath != "" {
-			path = parentPath + "." + attrs[i].Name
+	walkAttrs(attrs, parentPath, func(a *SchemaAttr, parentPath string) {
+		if desc, ok := scopedDescriptions[scope+"."+joinPath(parentPath, a.Name)]; ok {
+			a.Description = desc
 		}
-		if desc, ok := scopedDescriptions[scope+"."+path]; ok {
-			attrs[i].Description = desc
-		}
-		if len(attrs[i].NestedAttrs) > 0 {
-			applyScopedDescriptions(attrs[i].NestedAttrs, scope, path)
-		}
-	}
+	})
 }
 
 func applyAPIDescriptions(attrs []SchemaAttr, rootSchema, parentPath string, idx *apidesc.Index) apidesc.Stats {
 	var s apidesc.Stats
-	for i := range attrs {
+	walkAttrs(attrs, parentPath, func(a *SchemaAttr, parentPath string) {
 		s.Attempted++
-		path := rootSchema + "." + attrs[i].Name
-		if parentPath != "" {
-			path = rootSchema + "." + parentPath + "." + attrs[i].Name
-		}
-		if attrs[i].Description == "" {
-			if desc, ok := idx.Lookup(path); ok {
-				attrs[i].Description = desc
+		if a.Description == "" {
+			if desc, ok := idx.Lookup(rootSchema + "." + joinPath(parentPath, a.Name)); ok {
+				a.Description = desc
 				s.Matched++
 			}
 		}
-		if len(attrs[i].NestedAttrs) > 0 {
-			child := attrs[i].Name
-			if parentPath != "" {
-				child = parentPath + "." + attrs[i].Name
-			}
-			cs := applyAPIDescriptions(attrs[i].NestedAttrs, rootSchema, child, idx)
-			s.Attempted += cs.Attempted
-			s.Matched += cs.Matched
-		}
-	}
+	})
 	return s
 }
 
@@ -603,18 +594,11 @@ func resolveDefault(val any, attrType string) (expr string, imports []string) {
 }
 
 func applyAutoDescriptions(attrs []SchemaAttr, parentPath string) {
-	for i := range attrs {
-		if attrs[i].Description == "" {
-			attrs[i].Description = generateDescription(attrs[i].Name, parentPath, attrs[i].AttrType)
+	walkAttrs(attrs, parentPath, func(a *SchemaAttr, parentPath string) {
+		if a.Description == "" {
+			a.Description = generateDescription(a.Name, parentPath, a.AttrType)
 		}
-		if len(attrs[i].NestedAttrs) > 0 {
-			childPath := attrs[i].Name
-			if parentPath != "" {
-				childPath = parentPath + "." + attrs[i].Name
-			}
-			applyAutoDescriptions(attrs[i].NestedAttrs, childPath)
-		}
-	}
+	})
 }
 
 // UncoveredField represents a proto field with no YAML config entry.
@@ -637,10 +621,7 @@ func findUncovered(msg *ProtoMessage, fields map[string]FieldConfig, prefix stri
 	}
 	for i := range msg.Fields {
 		f := &msg.Fields[i]
-		path := f.Name
-		if prefix != "" {
-			path = prefix + "." + f.Name
-		}
+		path := joinPath(prefix, f.Name)
 
 		fc, hasConfig := fields[f.Name]
 
@@ -774,31 +755,28 @@ func planModifierExpr(attrType string, modifiers []string) (string, error) {
 		strings.ToUpper(pkg[:1])+pkg[1:], strings.Join(inners, ", ")), nil
 }
 
+var planModifierPkgByAttr = map[string]string{
+	AttrTypeString:       KindString,
+	AttrTypeBool:         KindBool,
+	AttrTypeInt32:        KindInt32,
+	AttrTypeInt64:        KindInt64,
+	AttrTypeFloat64:      "float64",
+	AttrTypeNumber:       "number",
+	AttrTypeList:         KindList,
+	AttrTypeListNested:   KindList,
+	AttrTypeSet:          KindSet,
+	AttrTypeSetNested:    KindSet,
+	AttrTypeMap:          KindMap,
+	AttrTypeMapNested:    KindMap,
+	AttrTypeSingleNested: "object",
+	AttrTypeObject:       "object",
+}
+
 func planModifierPkgForAttr(attrType string) (string, error) {
-	switch attrType {
-	case AttrTypeString:
-		return KindString, nil
-	case AttrTypeBool:
-		return KindBool, nil
-	case AttrTypeInt32:
-		return KindInt32, nil
-	case AttrTypeInt64:
-		return KindInt64, nil
-	case AttrTypeFloat64:
-		return "float64", nil
-	case AttrTypeNumber:
-		return "number", nil
-	case AttrTypeList, AttrTypeListNested:
-		return KindList, nil
-	case AttrTypeSet, AttrTypeSetNested:
-		return KindSet, nil
-	case AttrTypeMap, AttrTypeMapNested:
-		return KindMap, nil
-	case AttrTypeSingleNested, "ObjectAttribute":
-		return "object", nil
-	default:
-		return "", fmt.Errorf("schemagen: unsupported AttrType %q for planModifierPkgForAttr", attrType)
+	if pkg, ok := planModifierPkgByAttr[attrType]; ok {
+		return pkg, nil
 	}
+	return "", fmt.Errorf("schemagen: unsupported AttrType %q for planModifierPkgForAttr", attrType)
 }
 
 func joinPath(prefix, name string) string {
