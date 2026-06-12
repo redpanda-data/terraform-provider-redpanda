@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -1561,4 +1563,36 @@ func TestNormalizeClusterAPIURL(t *testing.T) {
 			assert.Equal(t, tt.want, NormalizeClusterAPIURL(tt.in))
 		})
 	}
+}
+
+// TestGetARNListFromAttributes_ErrorMessage pins that the not-found errors are
+// well-formed. They previously used fmt.Errorf(fmt.Sprintf(...), suffix), which
+// dropped the suffix as a stray EXTRA arg; go vet can't catch it because the
+// format string is a function call rather than a literal.
+func TestGetARNListFromAttributes_ErrorMessage(t *testing.T) {
+	_, err := GetARNListFromAttributes("subnet", map[string]attr.Value{})
+	require.Error(t, err)
+	require.Equal(t, "subnet not found: object is missing or malformed for network resource", err.Error())
+
+	obj, d := types.ObjectValue(
+		map[string]attr.Type{"other": types.StringType},
+		map[string]attr.Value{"other": types.StringValue("x")},
+	)
+	require.False(t, d.HasError())
+	_, err = GetARNListFromAttributes("subnet", map[string]attr.Value{"subnet": obj})
+	require.Error(t, err)
+	require.Equal(t, "subnet not found: list is missing or malformed for network resource", err.Error())
+}
+
+// TestRunSubprocess_RemovesTempDir pins that runSubprocess cleans up the temp
+// working directory it creates. It previously leaked one dir per invocation
+// (no defer os.RemoveAll).
+func TestRunSubprocess_RemovesTempDir(t *testing.T) {
+	pattern := filepath.Join(os.TempDir(), "terraform-provider-redpanda-byoc*")
+	before, err := filepath.Glob(pattern)
+	require.NoError(t, err)
+	require.NoError(t, runSubprocess(context.Background(), nil, "echo", "hello"))
+	after, err := filepath.Glob(pattern)
+	require.NoError(t, err)
+	require.Len(t, after, len(before), "runSubprocess leaked a temp dir: before=%v after=%v", before, after)
 }

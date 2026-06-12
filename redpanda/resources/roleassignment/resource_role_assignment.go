@@ -281,12 +281,7 @@ func (r *RoleAssignment) roleAssignmentExists(ctx context.Context, roleName, pri
 	// Execute the request
 	resp, err := r.SecurityClient.ListRoleMembers(ctx, consoleReq)
 	if err != nil {
-		// Check for common "not found" errors
-		errStr := strings.ToLower(err.Error())
-		if strings.Contains(errStr, "not found") ||
-			strings.Contains(errStr, "notfound") ||
-			strings.Contains(errStr, "does not exist") ||
-			strings.Contains(errStr, "unknown role") {
+		if utils.IsNotFound(err) || strings.Contains(strings.ToLower(err.Error()), "unknown role") {
 			return false, nil
 		}
 		// For other errors, we should fail rather than assume the assignment doesn't exist

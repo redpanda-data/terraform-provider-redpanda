@@ -42,19 +42,11 @@ import (
 )
 
 // TestSchemaGolden validates every resource and datasource schema against its
-// golden file. Captures all structural details except descriptions.
+// golden file. Captures all structural details except descriptions (those flow
+// from apidescriptions.yaml and are validated via docs generation).
 //
-// Flags:
-//
-//	-update           regenerate .golden (and .description if -descriptions) files
-//	-descriptions     also compare field descriptions against .description files
-//
-// Examples:
-//
-//	go test ./redpanda/resources/ -run TestSchemaGolden                         # structural only
-//	go test ./redpanda/resources/ -run TestSchemaGolden -descriptions           # structural + descriptions
-//	go test ./redpanda/resources/ -run TestSchemaGolden -update                 # regenerate .golden
-//	go test ./redpanda/resources/ -run TestSchemaGolden -update -descriptions   # regenerate both
+//	go test ./redpanda/resources/ -run TestSchemaGolden            # compare
+//	go test ./redpanda/resources/ -run TestSchemaGolden -update    # regenerate .golden
 //
 // Add a new entry when adding a resource or datasource. A missing golden file
 // causes the test to fail with a clear message.
@@ -95,12 +87,6 @@ func TestSchemaGolden(t *testing.T) {
 			got := testutil.DumpSchema(tt.schema)
 			golden := filepath.Join("testdata", tt.name+"_schema.golden")
 			testutil.AssertGolden(t, golden, got)
-
-			if *testutil.Descriptions {
-				descs := testutil.DumpDescriptions(tt.schema)
-				descFile := filepath.Join("testdata", tt.name+"_schema.description")
-				testutil.AssertGolden(t, descFile, descs)
-			}
 		})
 	}
 }

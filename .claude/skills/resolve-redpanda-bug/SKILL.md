@@ -201,7 +201,7 @@ Per memory `feedback_review_shape_commits.md` and `feedback_single_pr_with_folde
 4. Tier 2 integration tests (regression guards)
 5. Tier 4 runner extension (if dataplane resource and cluster-dependent behavior)
 6. Cascading fixture + template + docs updates
-7. **Generated:** any regenerated `*_gen.go`, `*.golden`, `*.description`, `docs/`
+7. **Generated:** any regenerated `*_gen.go`, `*.golden`, `docs/`
 
 Reviewer reads the production fix in commit 2, sees the regression guards in commits 3–5, and skips the bulk fixture updates in 6 and the generated diff in 7. Three distinct review concerns, separated cleanly.
 

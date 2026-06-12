@@ -33,11 +33,12 @@ import (
 // unknown validator).
 //
 // Description precedence (highest wins):
-//  1. YAML config `description:` field
+//  1. scopedDescriptions["<cfg.APISchema>.<path>"] — provider-behavior text
 //  2. apiIndex lookup by "<cfg.APISchema>.<proto.path>" (when both are set)
-//  3. mechanical defaults from descriptions.go
+//  3. commonDescriptions / mechanical defaults from descriptions.go
 //
-// When apiIndex is nil or cfg.APISchema is empty, layer 2 is skipped.
+// When apiIndex is nil or cfg.APISchema is empty, layer 2 is skipped. Yaml
+// `description:` overrides were removed; LoadConfig rejects the key.
 func Merge(proto *ProtoMessage, cfg *Config, schemaType string, apiIndex *apidesc.Index) (attrs []SchemaAttr, extraImports []string, stats apidesc.Stats, errs []error) {
 	opts := mapOptions{
 		computedDefault:  cfg.ComputedDefault,
@@ -46,6 +47,8 @@ func Merge(proto *ProtoMessage, cfg *Config, schemaType string, apiIndex *apides
 	attrs = mapProtoFields(proto, "", opts)
 
 	applyTimestampDeny(&attrs)
+
+	applyScopedDescriptions(attrs, cfg.APISchema, "")
 
 	if apiIndex != nil && cfg.APISchema != "" {
 		stats = applyAPIDescriptions(attrs, cfg.APISchema, "", apiIndex)
@@ -63,10 +66,15 @@ func Merge(proto *ProtoMessage, cfg *Config, schemaType string, apiIndex *apides
 	}
 	applyFieldConfigs(&attrs, cfg.Fields, proto, "", mc)
 
+	if contract := cfg.MaskContract(); contract != nil && !mc.isDatasource {
+		deriveMaskContractRequiresReplace(attrs, cfg.Fields, contract, mc)
+	}
+
 	applyAutoPlanModifiers(attrs, nil, mc, "")
 
 	if opts.deriveValidators {
 		appendValidatorDescriptions(attrs, proto, "")
+		deriveRepeatedRuleValidators(attrs, proto, "")
 	}
 
 	sortAttrs(attrs)
@@ -96,30 +104,42 @@ func applyTimestampDeny(attrs *[]SchemaAttr) {
 	}
 }
 
+// walkAttrs visits every attribute in the tree depth-first, passing each
+// attribute and its parent path (the dot-joined path of ancestors, excluding
+// the attribute's own name). Callers that need the full path call
+// joinPath(parentPath, a.Name).
+func walkAttrs(attrs []SchemaAttr, parentPath string, visit func(a *SchemaAttr, parentPath string)) {
+	for i := range attrs {
+		visit(&attrs[i], parentPath)
+		walkAttrs(attrs[i].NestedAttrs, joinPath(parentPath, attrs[i].Name), visit)
+	}
+}
+
+// applyScopedDescriptions seeds descriptions from the scopedDescriptions
+// table. It runs before the apidesc pass, which only fills empty
+// descriptions, so scoped text wins by construction.
+func applyScopedDescriptions(attrs []SchemaAttr, scope, parentPath string) {
+	if scope == "" {
+		return
+	}
+	walkAttrs(attrs, parentPath, func(a *SchemaAttr, parentPath string) {
+		if desc, ok := scopedDescriptions[scope+"."+joinPath(parentPath, a.Name)]; ok {
+			a.Description = desc
+		}
+	})
+}
+
 func applyAPIDescriptions(attrs []SchemaAttr, rootSchema, parentPath string, idx *apidesc.Index) apidesc.Stats {
 	var s apidesc.Stats
-	for i := range attrs {
+	walkAttrs(attrs, parentPath, func(a *SchemaAttr, parentPath string) {
 		s.Attempted++
-		path := rootSchema + "." + attrs[i].Name
-		if parentPath != "" {
-			path = rootSchema + "." + parentPath + "." + attrs[i].Name
-		}
-		if attrs[i].Description == "" {
-			if desc, ok := idx.Lookup(path); ok {
-				attrs[i].Description = desc
+		if a.Description == "" {
+			if desc, ok := idx.Lookup(rootSchema + "." + joinPath(parentPath, a.Name)); ok {
+				a.Description = desc
 				s.Matched++
 			}
 		}
-		if len(attrs[i].NestedAttrs) > 0 {
-			child := attrs[i].Name
-			if parentPath != "" {
-				child = parentPath + "." + attrs[i].Name
-			}
-			cs := applyAPIDescriptions(attrs[i].NestedAttrs, rootSchema, child, idx)
-			s.Attempted += cs.Attempted
-			s.Matched += cs.Matched
-		}
-	}
+	})
 	return s
 }
 
@@ -184,7 +204,7 @@ func applyFieldConfigs(attrs *[]SchemaAttr, fields map[string]FieldConfig, proto
 			}
 			synth := syntheticToSchemaAttr(name, fc, path, mc)
 			if synth.Description == "" {
-				synth.Description = generateDescription(name, "", synth.AttrType)
+				synth.Description = curatedDescription(mc.resourceLabel, path, name, synth.AttrType)
 			}
 
 			if len(fc.Fields) > 0 {
@@ -207,7 +227,7 @@ func applyFieldConfigs(attrs *[]SchemaAttr, fields map[string]FieldConfig, proto
 				synth.ElementType = ""
 			}
 			if synth.Description == "" {
-				synth.Description = generateDescription(name, "", synth.AttrType)
+				synth.Description = curatedDescription(mc.resourceLabel, path, name, synth.AttrType)
 			}
 			if len(fc.Fields) > 0 {
 				mc.ancestors = append(mc.ancestors, frameForAttr(&synth))
@@ -418,10 +438,6 @@ func applyFieldConfig(attr *SchemaAttr, path string, fc FieldConfig, mc *mergeCt
 		attr.DeprecationMessage = fc.DeprecationMessage
 	}
 
-	if fc.Description != "" {
-		attr.Description = fc.Description
-	}
-
 	attr.Validators = resolveValidatorList(fc.ValidatorNames(), path, attr.AttrType, mc.extraImports, mc)
 
 	if fc.Default != nil {
@@ -461,7 +477,7 @@ func applySyntheticFields(attrs *[]SchemaAttr, fields map[string]FieldConfig, pa
 			synth.ElementType = ""
 		}
 		if synth.Description == "" {
-			synth.Description = generateDescription(name, "", synth.AttrType)
+			synth.Description = curatedDescription(mc.resourceLabel, path, name, synth.AttrType)
 		}
 		if len(fc.Fields) > 0 {
 			mc.ancestors = append(mc.ancestors, frameForAttr(&synth))
@@ -483,7 +499,6 @@ func syntheticToSchemaAttr(name string, fc FieldConfig, path string, mc *mergeCt
 		Name:               name,
 		AttrType:           attrType,
 		ElementType:        elemType,
-		Description:        fc.Description,
 		Required:           fc.Required,
 		Optional:           fc.Optional != nil && *fc.Optional,
 		Computed:           fc.Computed != nil && *fc.Computed,
@@ -579,18 +594,11 @@ func resolveDefault(val any, attrType string) (expr string, imports []string) {
 }
 
 func applyAutoDescriptions(attrs []SchemaAttr, parentPath string) {
-	for i := range attrs {
-		if attrs[i].Description == "" {
-			attrs[i].Description = generateDescription(attrs[i].Name, parentPath, attrs[i].AttrType)
+	walkAttrs(attrs, parentPath, func(a *SchemaAttr, parentPath string) {
+		if a.Description == "" {
+			a.Description = generateDescription(a.Name, parentPath, a.AttrType)
 		}
-		if len(attrs[i].NestedAttrs) > 0 {
-			childPath := attrs[i].Name
-			if parentPath != "" {
-				childPath = parentPath + "." + attrs[i].Name
-			}
-			applyAutoDescriptions(attrs[i].NestedAttrs, childPath)
-		}
-	}
+	})
 }
 
 // UncoveredField represents a proto field with no YAML config entry.
@@ -613,10 +621,7 @@ func findUncovered(msg *ProtoMessage, fields map[string]FieldConfig, prefix stri
 	}
 	for i := range msg.Fields {
 		f := &msg.Fields[i]
-		path := f.Name
-		if prefix != "" {
-			path = prefix + "." + f.Name
-		}
+		path := joinPath(prefix, f.Name)
 
 		fc, hasConfig := fields[f.Name]
 
@@ -750,31 +755,28 @@ func planModifierExpr(attrType string, modifiers []string) (string, error) {
 		strings.ToUpper(pkg[:1])+pkg[1:], strings.Join(inners, ", ")), nil
 }
 
+var planModifierPkgByAttr = map[string]string{
+	AttrTypeString:       KindString,
+	AttrTypeBool:         KindBool,
+	AttrTypeInt32:        KindInt32,
+	AttrTypeInt64:        KindInt64,
+	AttrTypeFloat64:      "float64",
+	AttrTypeNumber:       "number",
+	AttrTypeList:         KindList,
+	AttrTypeListNested:   KindList,
+	AttrTypeSet:          KindSet,
+	AttrTypeSetNested:    KindSet,
+	AttrTypeMap:          KindMap,
+	AttrTypeMapNested:    KindMap,
+	AttrTypeSingleNested: "object",
+	AttrTypeObject:       "object",
+}
+
 func planModifierPkgForAttr(attrType string) (string, error) {
-	switch attrType {
-	case AttrTypeString:
-		return KindString, nil
-	case AttrTypeBool:
-		return KindBool, nil
-	case AttrTypeInt32:
-		return KindInt32, nil
-	case AttrTypeInt64:
-		return KindInt64, nil
-	case AttrTypeFloat64:
-		return "float64", nil
-	case AttrTypeNumber:
-		return "number", nil
-	case AttrTypeList, AttrTypeListNested:
-		return KindList, nil
-	case AttrTypeSet, AttrTypeSetNested:
-		return KindSet, nil
-	case AttrTypeMap, AttrTypeMapNested:
-		return KindMap, nil
-	case AttrTypeSingleNested, "ObjectAttribute":
-		return "object", nil
-	default:
-		return "", fmt.Errorf("schemagen: unsupported AttrType %q for planModifierPkgForAttr", attrType)
+	if pkg, ok := planModifierPkgByAttr[attrType]; ok {
+		return pkg, nil
 	}
+	return "", fmt.Errorf("schemagen: unsupported AttrType %q for planModifierPkgForAttr", attrType)
 }
 
 func joinPath(prefix, name string) string {

@@ -16,18 +16,18 @@ Creates an Access Control List (ACL) in a Redpanda cluster.
 
 ### Required
 
-- `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports
+- `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports.
 - `host` (String) The host address to use for this ACL. To allow a principal access from multiple hosts, you must create an ACL for each host.
-- `operation` (String) The operation type that shall be allowed or denied (e.g READ)
-- `permission_type` (String) The permission type. It determines whether the operation should be ALLOWED or DENIED. Must be one of (enum values): 2, 3.
-- `principal` (String) The principal to apply this ACL for (e.g., User:alice or RedpandaRole:admin)
-- `resource_name` (String) The name of the resource this ACL entry will be on
-- `resource_pattern_type` (String) The pattern type of the resource. It determines the strategy how the provided resource name is matched (LITERAL, MATCH, PREFIXED, etc ...) against the actual resource names. Must be one of (enum values): 3, 4.
-- `resource_type` (String) The type of the resource (TOPIC, GROUP, etc...) this ACL shall target
+- `operation` (String) The operation that is allowed or denied (e.g. READ).
+- `permission_type` (String) Whether the operation should be allowed or denied. Must be one of (enum values): 2, 3.
+- `principal` (String) The user for whom this ACL applies. With the Kafka simple authorizer, you must include the prefix "User:" with the user name.
+- `resource_name` (String) The name of the resource this ACL targets. For requests with resource_type CLUSTER, this will default to "kafka-cluster".
+- `resource_pattern_type` (String) The pattern to use for matching the specified resource_name (any, exact match, literal, or prefixed). Must be one of (enum values): 3, 4.
+- `resource_type` (String) The type of resource (topic, consumer group, etc.) this ACL targets.
 
 ### Optional
 
-- `allow_deletion` (Boolean) When set to true, allows the resource to be removed from state even if the cluster is unreachable
+- `allow_deletion` (Boolean) Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.
 
 ### Read-Only
 

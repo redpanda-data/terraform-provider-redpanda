@@ -72,6 +72,16 @@ func UpdateLeafStep(addr, config string, stateChecks []statecheck.StateCheck) re
 	return actionStep(addr, config, plancheck.ResourceActionUpdate, stateChecks)
 }
 
+// UpdateLeafStepWithPlanChecks is UpdateLeafStep with extra PreApply plan
+// checks appended after the action assertion — e.g. ExpectKnownValue on a
+// state-pinned computed leaf to prove it does not churn to "known after
+// apply" inside an unrelated update plan.
+func UpdateLeafStepWithPlanChecks(addr, config string, extraPreApply []plancheck.PlanCheck, stateChecks []statecheck.StateCheck) resource.TestStep {
+	step := actionStep(addr, config, plancheck.ResourceActionUpdate, stateChecks)
+	step.ConfigPlanChecks.PreApply = append(step.ConfigPlanChecks.PreApply, extraPreApply...)
+	return step
+}
+
 // RequiresReplaceStep builds a step that mutates a RequiresReplace leaf.
 // PreApply asserts ResourceActionDestroyBeforeCreate. PostApplyPostRefresh
 // asserts an empty plan.

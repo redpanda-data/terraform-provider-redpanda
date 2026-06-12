@@ -268,6 +268,27 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   computed: true
+            - name: rpsql_cloud_storage_bucket
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  computed: true
+            - name: rpsql_node_group_instance_profile
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  computed: true
+            - name: rpsql_security_group
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  computed: true
             - name: utility_node_group_instance_profile
               type: SingleNestedAttribute
               computed: true
@@ -355,6 +376,13 @@ attributes:
                 - name: name
                   type: StringAttribute
                   computed: true
+    - name: dataplane_api
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: url
+          type: StringAttribute
+          computed: true
     - name: gcp_global_access_api_gateway_enabled
       type: BoolAttribute
       computed: true
@@ -577,6 +605,26 @@ attributes:
     - name: resource_group_id
       type: StringAttribute
       computed: true
+    - name: rpsql
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: enabled
+          type: BoolAttribute
+          computed: true
+        - name: replicas
+          type: Int32Attribute
+          computed: true
+        - name: url
+          type: StringAttribute
+          computed: true
+        - name: version
+          type: StringAttribute
+          computed: true
+        - name: zones
+          type: ListAttribute
+          computed: true
+          element_type: basetypes.StringType
     - name: schema_registry
       type: SingleNestedAttribute
       computed: true

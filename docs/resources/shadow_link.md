@@ -19,11 +19,11 @@ A shadow link is configuration on the destination ("shadow") cluster — no infr
 ### Required
 
 - `name` (String) Human-readable name for the shadow link. Must be unique. Must follow Kubernetes DNS-1123 subdomain naming convention: - lowercase alphanumeric characters, hyphens allowed - must start and end with alphanumeric character - maximum 63 characters. Length must be at most 63. Must match pattern `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`.
-- `shadow_redpanda_id` (String) Shadow Redpanda cluster ID where the shadow link is created. This ID is immutable.
+- `shadow_redpanda_id` (String) Shadow Redpanda cluster ID where the shadow link is created. This ID is immutable. Length must be at least 1.
 
 ### Optional
 
-- `allow_deletion` (Boolean) Allows deletion of the shadow link. Defaults to false.
+- `allow_deletion` (Boolean) Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.
 - `client_options` (Attributes) ShadowLinkClientOptions configures the Kafka client connection settings. (see [below for nested schema](#nestedatt--client_options))
 - `consumer_offset_sync_options` (Attributes) Options for syncing consumer offsets (see [below for nested schema](#nestedatt--consumer_offset_sync_options))
 - `schema_registry_sync_options` (Attributes) Options for how the Schema Registry is synced. (see [below for nested schema](#nestedatt--schema_registry_sync_options))

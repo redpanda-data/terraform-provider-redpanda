@@ -42,6 +42,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
+// DefaultDataplaneRetryTimeout is the default budget for Retry-wrapped dataplane
+// CRUD operations reconciling against the eventually-consistent dataplane API
+// (e.g., the freshly-provisioned-cluster DNS-propagation window). Sized to fit
+// ~5 attempts under Retry's 1s→60s backoff cap.
+const DefaultDataplaneRetryTimeout = 2 * time.Minute
+
 // NotFoundError represents a resource that couldn't be found
 type NotFoundError struct {
 	Message string
@@ -63,10 +69,22 @@ func IsNotFound(err error) bool {
 	if e, ok := grpcstatus.FromError(err); ok && e.Code() == grpccodes.NotFound {
 		return true
 	}
-	errStr := err.Error()
-	return strings.Contains(strings.ToLower(errStr), "not found") ||
-		strings.Contains(errStr, "404") ||
-		strings.Contains(strings.ToLower(errStr), "does not exist")
+	lower := strings.ToLower(err.Error())
+	return strings.Contains(lower, "not found") ||
+		strings.Contains(lower, "notfound") ||
+		strings.Contains(lower, "404") ||
+		strings.Contains(lower, "does not exist")
+}
+
+// SplitImportID splits a Terraform import ID into a head and tail on the first
+// occurrence of sep; the tail may itself contain sep. ok is false when sep is
+// absent, letting callers emit their own resource-specific format hint.
+func SplitImportID(id, sep string) (head, tail string, ok bool) {
+	parts := strings.SplitN(id, sep, 2)
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
 }
 
 // IsPermissionDenied checks if the error indicates a permission/ACL issue
@@ -616,11 +634,11 @@ func GetStringFromAttributes(key string, attributes map[string]attr.Value) (stri
 func GetARNListFromAttributes(key string, att map[string]attr.Value) ([]string, error) {
 	attVal, ok := att[key].(basetypes.ObjectValue)
 	if !ok {
-		return nil, fmt.Errorf(fmt.Sprintf("%s not found", key), "object is missing or malformed for network resource")
+		return nil, fmt.Errorf("%s not found: object is missing or malformed for network resource", key)
 	}
 	rt, ok := attVal.Attributes()["arns"].(types.List)
 	if !ok {
-		return nil, fmt.Errorf(fmt.Sprintf("%s not found", key), "list is missing or malformed for network resource")
+		return nil, fmt.Errorf("%s not found: list is missing or malformed for network resource", key)
 	}
 	return TypeListToStringSlice(rt), nil
 }

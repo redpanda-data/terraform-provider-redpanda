@@ -79,44 +79,62 @@ func NewControlPlaneClientSet(conn *grpc.ClientConn) *ControlPlaneClientSet {
 	}
 }
 
+// getByID issues a control-plane "get by ID" call and normalizes its two
+// failure modes: a request error, and a non-error response whose entity is nil.
+// get returns the extracted entity; proto getters are nil-safe, so extracting
+// is safe even when err is non-nil.
+func getByID[E comparable](kind, id string, get func() (E, error)) (E, error) {
+	var zero E
+	entity, err := get()
+	if err != nil {
+		return zero, fmt.Errorf("unable to request %s with ID %q: %w", kind, id, err)
+	}
+	if entity == zero {
+		return zero, fmt.Errorf("unable to find %s with ID %q; please report this bug to Redpanda Support", kind, id)
+	}
+	return entity, nil
+}
+
+// getByName issues a control-plane "list with name filter" call and returns the
+// first exact name match, or a not-found error.
+func getByName[E any](kind, name string, list func() ([]E, error), nameOf func(E) string) (E, error) {
+	var zero E
+	items, err := list()
+	if err != nil {
+		return zero, fmt.Errorf("unable to list %ss: %w", kind, err)
+	}
+	for _, item := range items {
+		if nameOf(item) == name {
+			return item, nil
+		}
+	}
+	return zero, fmt.Errorf("%s %q not found", kind, name)
+}
+
 // ServiceAccountForID gets the ServiceAccount for a given ID.
 func (c *ControlPlaneClientSet) ServiceAccountForID(ctx context.Context, id string) (*iamv1.ServiceAccount, error) {
-	resp, err := c.ServiceAccount.GetServiceAccount(ctx, &iamv1.GetServiceAccountRequest{Id: id})
-	if err != nil {
-		return nil, fmt.Errorf("unable to request service account with ID %q: %w", id, err)
-	}
-	if resp.GetServiceAccount() == nil {
-		return nil, fmt.Errorf("unable to find service account with ID %q; please report this bug to Redpanda Support", id)
-	}
-	return resp.GetServiceAccount(), nil
+	return getByID("service account", id, func() (*iamv1.ServiceAccount, error) {
+		resp, err := c.ServiceAccount.GetServiceAccount(ctx, &iamv1.GetServiceAccountRequest{Id: id})
+		return resp.GetServiceAccount(), err
+	})
 }
 
 // ServiceAccountForName lists service accounts filtering by name and returns the first match.
 func (c *ControlPlaneClientSet) ServiceAccountForName(ctx context.Context, name string) (*iamv1.ServiceAccount, error) {
-	resp, err := c.ServiceAccount.ListServiceAccounts(ctx, &iamv1.ListServiceAccountsRequest{
-		Filter: &iamv1.ListServiceAccountsRequest_Filter{Name: name},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("unable to list service accounts: %w", err)
-	}
-	for _, sa := range resp.GetServiceAccounts() {
-		if sa.GetName() == name {
-			return sa, nil
-		}
-	}
-	return nil, fmt.Errorf("service account %q not found", name)
+	return getByName("service account", name, func() ([]*iamv1.ServiceAccount, error) {
+		resp, err := c.ServiceAccount.ListServiceAccounts(ctx, &iamv1.ListServiceAccountsRequest{
+			Filter: &iamv1.ListServiceAccountsRequest_Filter{Name: name},
+		})
+		return resp.GetServiceAccounts(), err
+	}, (*iamv1.ServiceAccount).GetName)
 }
 
 // ShadowLinkForID gets the shadow link for a given ID.
 func (c *ControlPlaneClientSet) ShadowLinkForID(ctx context.Context, id string) (*controlplanev1.ShadowLink, error) {
-	resp, err := c.ShadowLink.GetShadowLink(ctx, &controlplanev1.GetShadowLinkRequest{Id: id})
-	if err != nil {
-		return nil, fmt.Errorf("unable to request shadow link with ID %q: %w", id, err)
-	}
-	if resp.GetShadowLink() == nil {
-		return nil, fmt.Errorf("unable to request shadow link with ID %q. Please report this issue to the provider developers", id)
-	}
-	return resp.GetShadowLink(), nil
+	return getByID("shadow link", id, func() (*controlplanev1.ShadowLink, error) {
+		resp, err := c.ShadowLink.GetShadowLink(ctx, &controlplanev1.GetShadowLinkRequest{Id: id})
+		return resp.GetShadowLink(), err
+	})
 }
 
 // CreateResourceGroup creates the resource group with the given name
@@ -138,37 +156,21 @@ func (c *ControlPlaneClientSet) CreateResourceGroup(ctx context.Context, name st
 // ResourceGroupForID gets the resource group for a given ID and handles the
 // error if the returned resource group is nil.
 func (c *ControlPlaneClientSet) ResourceGroupForID(ctx context.Context, id string) (*controlplanev1.ResourceGroup, error) {
-	rg, err := c.ResourceGroup.GetResourceGroup(ctx, &controlplanev1.GetResourceGroupRequest{
-		Id: id,
+	return getByID("resource group", id, func() (*controlplanev1.ResourceGroup, error) {
+		resp, err := c.ResourceGroup.GetResourceGroup(ctx, &controlplanev1.GetResourceGroupRequest{Id: id})
+		return resp.GetResourceGroup(), err
 	})
-	if err != nil {
-		return nil, fmt.Errorf("unable to request resource group with ID %q: %w", id, err)
-	}
-	if rg.ResourceGroup == nil {
-		// This should not happen but the new API returns a pointer, and we
-		// need to make sure that a ResourceGroup is returned
-		return nil, fmt.Errorf("unable to request resource group with ID %q. Please report this issue to the provider developers", id)
-	}
-	return rg.ResourceGroup, nil
 }
 
 // ResourceGroupForName lists all resource group with a name filter, returns
 // the resource group for the given name.
 func (c *ControlPlaneClientSet) ResourceGroupForName(ctx context.Context, name string) (*controlplanev1.ResourceGroup, error) {
-	listResp, err := c.ResourceGroup.ListResourceGroups(ctx, &controlplanev1.ListResourceGroupsRequest{
-		Filter: &controlplanev1.ListResourceGroupsRequest_Filter{
-			NameContains: name,
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("unable to find resource group with name %q: %w", name, err)
-	}
-	for _, rg := range listResp.ResourceGroups {
-		if rg.GetName() == name {
-			return rg, nil
-		}
-	}
-	return nil, fmt.Errorf("resource group %q not found", name)
+	return getByName("resource group", name, func() ([]*controlplanev1.ResourceGroup, error) {
+		resp, err := c.ResourceGroup.ListResourceGroups(ctx, &controlplanev1.ListResourceGroupsRequest{
+			Filter: &controlplanev1.ListResourceGroupsRequest_Filter{NameContains: name},
+		})
+		return resp.GetResourceGroups(), err
+	}, (*controlplanev1.ResourceGroup).GetName)
 }
 
 // ResourceGroupForIDOrName gets the resource group for a given ID and/or name, or neither,
@@ -208,33 +210,21 @@ func (c *ControlPlaneClientSet) ResourceGroupForIDOrName(ctx context.Context, id
 // NetworkForID gets the Network for a given ID and handles the error if the
 // returned network is nil.
 func (c *ControlPlaneClientSet) NetworkForID(ctx context.Context, id string) (*controlplanev1.Network, error) {
-	gnr, err := c.Network.GetNetwork(ctx, &controlplanev1.GetNetworkRequest{
-		Id: id,
+	return getByID("network", id, func() (*controlplanev1.Network, error) {
+		resp, err := c.Network.GetNetwork(ctx, &controlplanev1.GetNetworkRequest{Id: id})
+		return resp.GetNetwork(), err
 	})
-	if err != nil {
-		return nil, fmt.Errorf("unable to request network %q information: %w", id, err)
-	}
-	if gnr.Network == nil {
-		return nil, fmt.Errorf("unable to find network %q; please report this bug to Redpanda Support", id)
-	}
-	return gnr.Network, nil
 }
 
 // NetworkForName lists all networks with a name filter, returns the network for
 // the given name.
 func (c *ControlPlaneClientSet) NetworkForName(ctx context.Context, name string) (*controlplanev1.Network, error) {
-	ns, err := c.Network.ListNetworks(ctx, &controlplanev1.ListNetworksRequest{
-		Filter: &controlplanev1.ListNetworksRequest_Filter{NameContains: name},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("unable to list networks: %v", err)
-	}
-	for _, v := range ns.GetNetworks() {
-		if v.GetName() == name {
-			return v, nil
-		}
-	}
-	return nil, errors.New("network not found")
+	return getByName("network", name, func() ([]*controlplanev1.Network, error) {
+		resp, err := c.Network.ListNetworks(ctx, &controlplanev1.ListNetworksRequest{
+			Filter: &controlplanev1.ListNetworksRequest_Filter{NameContains: name},
+		})
+		return resp.GetNetworks(), err
+	}, (*controlplanev1.Network).GetName)
 }
 
 // ClusterForID gets the Cluster for a given ID and handles the error if the
@@ -243,65 +233,41 @@ func (c *ControlPlaneClientSet) ClusterForID(ctx context.Context, id string) (*c
 	if id == "" {
 		return nil, errors.New("cluster ID is empty")
 	}
-	cl, err := c.Cluster.GetCluster(ctx, &controlplanev1.GetClusterRequest{
-		Id: id,
+	return getByID("cluster", id, func() (*controlplanev1.Cluster, error) {
+		resp, err := c.Cluster.GetCluster(ctx, &controlplanev1.GetClusterRequest{Id: id})
+		return resp.GetCluster(), err
 	})
-	if err != nil {
-		return nil, fmt.Errorf("unable to request cluster %q information: %w", id, err)
-	}
-	if cl.Cluster == nil {
-		return nil, fmt.Errorf("unable to find cluster %q; please report this bug to Redpanda Support", id)
-	}
-	return cl.Cluster, nil
 }
 
 // ClusterForName lists all clusters with a name filter, returns the cluster for
 // the given name.
 func (c *ControlPlaneClientSet) ClusterForName(ctx context.Context, name string) (*controlplanev1.Cluster, error) {
-	clusters, err := c.Cluster.ListClusters(ctx, &controlplanev1.ListClustersRequest{
-		Filter: &controlplanev1.ListClustersRequest_Filter{NameContains: name},
-	})
-	if err != nil {
-		return nil, err
-	}
-	for _, c := range clusters.GetClusters() {
-		if c.GetName() == name {
-			return c, nil
-		}
-	}
-	return nil, errors.New("cluster not found")
+	return getByName("cluster", name, func() ([]*controlplanev1.Cluster, error) {
+		resp, err := c.Cluster.ListClusters(ctx, &controlplanev1.ListClustersRequest{
+			Filter: &controlplanev1.ListClustersRequest_Filter{NameContains: name},
+		})
+		return resp.GetClusters(), err
+	}, (*controlplanev1.Cluster).GetName)
 }
 
 // ServerlessClusterForID gets the ServerlessCluster for a given ID and handles the error if the
 // returned serverless cluster is nil.
 func (c *ControlPlaneClientSet) ServerlessClusterForID(ctx context.Context, id string) (*controlplanev1.ServerlessCluster, error) {
-	cl, err := c.ServerlessCluster.GetServerlessCluster(ctx, &controlplanev1.GetServerlessClusterRequest{
-		Id: id,
+	return getByID("serverless cluster", id, func() (*controlplanev1.ServerlessCluster, error) {
+		resp, err := c.ServerlessCluster.GetServerlessCluster(ctx, &controlplanev1.GetServerlessClusterRequest{Id: id})
+		return resp.GetServerlessCluster(), err
 	})
-	if err != nil {
-		return nil, fmt.Errorf("unable to request serverless cluster %q information: %w", id, err)
-	}
-	if cl.ServerlessCluster == nil {
-		return nil, fmt.Errorf("unable to find serverless cluster %q; please report this bug to Redpanda Support", id)
-	}
-	return cl.ServerlessCluster, nil
 }
 
 // ServerlessClusterForName lists all serverless clusters with a name filter, returns the serverless cluster for
 // the given name.
 func (c *ControlPlaneClientSet) ServerlessClusterForName(ctx context.Context, name string) (*controlplanev1.ServerlessCluster, error) {
-	serverlessClusters, err := c.ServerlessCluster.ListServerlessClusters(ctx, &controlplanev1.ListServerlessClustersRequest{
-		Filter: &controlplanev1.ListServerlessClustersRequest_Filter{NameContains: name},
-	})
-	if err != nil {
-		return nil, err
-	}
-	for _, c := range serverlessClusters.GetServerlessClusters() {
-		if c.GetName() == name {
-			return c, nil
-		}
-	}
-	return nil, errors.New("serverless cluster not found")
+	return getByName("serverless cluster", name, func() ([]*controlplanev1.ServerlessCluster, error) {
+		resp, err := c.ServerlessCluster.ListServerlessClusters(ctx, &controlplanev1.ListServerlessClustersRequest{
+			Filter: &controlplanev1.ListServerlessClustersRequest_Filter{NameContains: name},
+		})
+		return resp.GetServerlessClusters(), err
+	}, (*controlplanev1.ServerlessCluster).GetName)
 }
 
 // GetCluster gets the cluster for a given request (primarily added to satisfy interface for mocks
@@ -312,33 +278,21 @@ func (c *ControlPlaneClientSet) GetCluster(ctx context.Context, in *controlplane
 // ServerlessPrivateLinkForID gets the ServerlessPrivateLink for a given ID and handles the error if the
 // returned serverless private link is nil.
 func (c *ControlPlaneClientSet) ServerlessPrivateLinkForID(ctx context.Context, id string) (*controlplanev1.ServerlessPrivateLink, error) {
-	resp, err := c.ServerlessPrivateLink.GetServerlessPrivateLink(ctx, &controlplanev1.GetServerlessPrivateLinkRequest{
-		Id: id,
+	return getByID("serverless private link", id, func() (*controlplanev1.ServerlessPrivateLink, error) {
+		resp, err := c.ServerlessPrivateLink.GetServerlessPrivateLink(ctx, &controlplanev1.GetServerlessPrivateLinkRequest{Id: id})
+		return resp.GetServerlessPrivateLink(), err
 	})
-	if err != nil {
-		return nil, fmt.Errorf("unable to request serverless private link %q information: %w", id, err)
-	}
-	if resp.ServerlessPrivateLink == nil {
-		return nil, fmt.Errorf("unable to find serverless private link %q; please report this bug to Redpanda Support", id)
-	}
-	return resp.ServerlessPrivateLink, nil
 }
 
 // ServerlessPrivateLinkForName lists all serverless private links with a name filter, returns the serverless private link for
 // the given name.
 func (c *ControlPlaneClientSet) ServerlessPrivateLinkForName(ctx context.Context, name string) (*controlplanev1.ServerlessPrivateLink, error) {
-	privateLinks, err := c.ServerlessPrivateLink.ListServerlessPrivateLinks(ctx, &controlplanev1.ListServerlessPrivateLinksRequest{
-		Filter: &controlplanev1.ListServerlessPrivateLinksRequest_Filter{NameContains: name},
-	})
-	if err != nil {
-		return nil, err
-	}
-	for _, pl := range privateLinks.GetServerlessPrivateLinks() {
-		if pl.GetName() == name {
-			return pl, nil
-		}
-	}
-	return nil, errors.New("serverless private link not found")
+	return getByName("serverless private link", name, func() ([]*controlplanev1.ServerlessPrivateLink, error) {
+		resp, err := c.ServerlessPrivateLink.ListServerlessPrivateLinks(ctx, &controlplanev1.ListServerlessPrivateLinksRequest{
+			Filter: &controlplanev1.ListServerlessPrivateLinksRequest_Filter{NameContains: name},
+		})
+		return resp.GetServerlessPrivateLinks(), err
+	}, (*controlplanev1.ServerlessPrivateLink).GetName)
 }
 
 // DataplaneURLForCluster resolves clusterID to a dataplane API URL. Tries

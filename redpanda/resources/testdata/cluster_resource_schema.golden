@@ -131,7 +131,11 @@ attributes:
                     - stringplanmodifier.useNonNullStateForUnknown
         - name: supported_regions
           type: ListAttribute
+          optional: true
           computed: true
+          validators:
+            - listvalidator.sizeAtMostValidator
+            - listvalidator.uniqueValuesValidator
           plan_modifiers:
             - listplanmodifier.useStateForUnknownModifier
           element_type: basetypes.StringType
@@ -346,6 +350,8 @@ attributes:
     - name: customer_managed_resources
       type: SingleNestedAttribute
       optional: true
+      plan_modifiers:
+        - objectplanmodifier.requiresReplaceIfModifier
       attributes:
         - name: aws
           type: SingleNestedAttribute
@@ -440,6 +446,27 @@ attributes:
             - name: redpanda_node_group_security_group
               type: SingleNestedAttribute
               required: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: rpsql_cloud_storage_bucket
+              type: SingleNestedAttribute
+              optional: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: rpsql_node_group_instance_profile
+              type: SingleNestedAttribute
+              optional: true
+              attributes:
+                - name: arn
+                  type: StringAttribute
+                  required: true
+            - name: rpsql_security_group
+              type: SingleNestedAttribute
+              optional: true
               attributes:
                 - name: arn
                   type: StringAttribute
@@ -555,6 +582,17 @@ attributes:
                   required: true
                   plan_modifiers:
                     - stringplanmodifier.requiresReplaceIfModifier
+    - name: dataplane_api
+      type: SingleNestedAttribute
+      computed: true
+      plan_modifiers:
+        - objectplanmodifier.useStateForUnknownModifier
+      attributes:
+        - name: url
+          type: StringAttribute
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useStateForUnknownModifier
     - name: desired_redpanda_version
       type: StringAttribute
       computed: true
@@ -565,6 +603,7 @@ attributes:
       optional: true
       computed: true
       plan_modifiers:
+        - boolplanmodifier.requiresReplaceIfModifier
         - boolplanmodifier.useStateForUnknownModifier
     - name: gcp_global_access_enabled
       type: BoolAttribute
@@ -882,6 +921,9 @@ attributes:
     - name: read_replica_cluster_ids
       type: ListAttribute
       optional: true
+      validators:
+        - listvalidator.sizeAtMostValidator
+        - listvalidator.uniqueValuesValidator
       element_type: basetypes.StringType
     - name: redpanda_console
       type: SingleNestedAttribute
@@ -939,6 +981,22 @@ attributes:
         - name: url
           type: StringAttribute
           computed: true
+          plan_modifiers:
+            - cluster.pinStringStateUnlessSiblingRises
+        - name: version
+          type: StringAttribute
+          computed: true
+          plan_modifiers:
+            - cluster.pinStringStateUnlessSiblingRises
+        - name: zones
+          type: ListAttribute
+          optional: true
+          computed: true
+          validators:
+            - listvalidator.sizeAtMostValidator
+          plan_modifiers:
+            - cluster.pinStateUnlessSiblingRises
+          element_type: basetypes.StringType
     - name: schema_registry
       type: SingleNestedAttribute
       optional: true
@@ -1030,6 +1088,7 @@ attributes:
       required: true
       validators:
         - validators.AWSZoneIDValidator
+        - listvalidator.uniqueValuesValidator
       plan_modifiers:
         - listplanmodifier.requiresReplaceIfModifier
       element_type: basetypes.StringType

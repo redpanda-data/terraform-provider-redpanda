@@ -170,7 +170,7 @@ When a target FAILs with a real provider/test bug (not toolchain/infra):
      - `bug-hunter: TESTS RED` — failing test names + assertions
      - `bug-hunter: FIX COMMITTED` — commit SHA + message
    - Instruction: "invoke the `resolve-redpanda-bug` skill"
-   - Hard constraints: no push, no `//nolint`, no `.golden`/`.description` edits without authorization
+   - Hard constraints: no push, no `//nolint`, no `.golden` edits without authorization
    - Coordination guard: if their fix would overlap with another agent's territory, stop and ask
 
 6. **Record the leaked cluster** (if `allow_deletion=false` blocked destroy) in `LEAKED_RESOURCES.txt`.

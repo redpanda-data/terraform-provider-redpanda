@@ -6,7 +6,7 @@ YAML-driven proto-to-schema codegen pipeline. Reads protobuf descriptors plus pe
 
 - Protobuf descriptors compiled via `protocompile` from the cloudv2 + console proto trees.
 - Per-resource `redpanda/resources/<name>/schema.yaml` declaring field overrides (`required`, `computed`, `validators`, `plan_modifiers`, `flatten_from_prev`, `flatten_via`, etc.).
-- `internal/apidesc` index (`internal/schemagen/data/apidescriptions.yaml`) for OpenAPI field descriptions.
+- `internal/apidesc` index (`internal/schemagen/data/apidescriptions.yaml`) for OpenAPI field descriptions. Yaml `description:` overrides are not supported; terraform-only fields and provider-behavior exceptions use the curated tables in `descriptions.go` (`commonDescriptions`, `scopedDescriptions`).
 
 ## Outputs (per resource)
 

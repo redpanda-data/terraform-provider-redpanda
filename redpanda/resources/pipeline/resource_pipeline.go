@@ -19,7 +19,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
@@ -122,19 +121,29 @@ func (p *Pipeline) Create(ctx context.Context, req resource.CreateRequest, resp 
 
 	if desiredState == pipelinemodel.StateRunning && !isCurrentlyRunning {
 		updatedPipeline, warning, ok := p.startPipeline(ctx, pipeline.GetId(), createTimeout)
-		if !ok {
+		switch {
+		case !ok:
 			resp.Diagnostics.AddWarning("pipeline failed to reach desired state",
 				fmt.Sprintf("Pipeline %s was created but failed to start within the timeout. Run 'terraform apply' again to retry: %s", pipeline.GetId(), warning))
-		} else if updatedPipeline != nil {
+		case updatedPipeline != nil:
 			pipeline = updatedPipeline
+		case warning != "":
+			resp.Diagnostics.AddWarning("pipeline state may be stale", warning)
+		default:
+			// succeeded with refreshed state already applied
 		}
 	} else if desiredState == pipelinemodel.StateStopped && isCurrentlyRunning {
 		updatedPipeline, warning, ok := p.stopPipeline(ctx, pipeline.GetId(), createTimeout)
-		if !ok {
+		switch {
+		case !ok:
 			resp.Diagnostics.AddWarning("pipeline failed to reach desired state",
 				fmt.Sprintf("Pipeline %s was created but failed to stop within the timeout. Run 'terraform apply' again to retry: %s", pipeline.GetId(), warning))
-		} else if updatedPipeline != nil {
+		case updatedPipeline != nil:
 			pipeline = updatedPipeline
+		case warning != "":
+			resp.Diagnostics.AddWarning("pipeline state may be stale", warning)
+		default:
+			// succeeded with refreshed state already applied
 		}
 	}
 
@@ -340,11 +349,16 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 
 	if desiredState == pipelinemodel.StateRunning {
 		updatedPipeline, warning, ok := p.startPipeline(ctx, pipelineID, updateTimeout)
-		if !ok {
+		switch {
+		case !ok:
 			resp.Diagnostics.AddWarning("pipeline failed to reach desired state",
 				fmt.Sprintf("Pipeline %s was updated but failed to start within the timeout. Run 'terraform apply' again to retry: %s", pipelineID, warning))
-		} else if updatedPipeline != nil {
+		case updatedPipeline != nil:
 			pipeline = updatedPipeline
+		case warning != "":
+			resp.Diagnostics.AddWarning("pipeline state may be stale", warning)
+		default:
+			// succeeded with refreshed state already applied
 		}
 	}
 
@@ -436,16 +450,14 @@ func (p *Pipeline) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 
 // ImportState imports and update the state of the pipeline resource
 func (p *Pipeline) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	split := strings.SplitN(req.ID, ",", 2)
-	if len(split) != 2 {
+	pipelineID, clusterID, ok := utils.SplitImportID(req.ID, ",")
+	if !ok {
 		resp.Diagnostics.AddError(
 			fmt.Sprintf("wrong import ID format: %v", req.ID),
 			"Import ID format is <pipeline_id>,<cluster_id>",
 		)
 		return
 	}
-
-	pipelineID, clusterID := split[0], split[1]
 
 	dataplaneURL, err := p.CpCl.DataplaneURLForCluster(ctx, clusterID)
 	if err != nil {
@@ -481,7 +493,9 @@ func (p *Pipeline) startPipeline(ctx context.Context, pipelineID string, timeout
 		Id: pipelineID,
 	})
 	if err != nil {
-		return nil, "", true // Started but couldn't refresh state
+		// Started, but the post-start refresh failed. Report success (ok=true)
+		// with a warning so the stale state is surfaced rather than swallowed.
+		return nil, fmt.Sprintf("pipeline started but its state could not be refreshed; the recorded state may be stale until the next apply: %s", utils.DeserializeGrpcError(err)), true
 	}
 	return getResp.GetPipeline(), "", true
 }
@@ -506,7 +520,9 @@ func (p *Pipeline) stopPipeline(ctx context.Context, pipelineID string, timeout 
 		Id: pipelineID,
 	})
 	if err != nil {
-		return nil, "", true // Stopped but couldn't refresh state
+		// Stopped, but the post-stop refresh failed. Report success (ok=true)
+		// with a warning so the stale state is surfaced rather than swallowed.
+		return nil, fmt.Sprintf("pipeline stopped but its state could not be refreshed; the recorded state may be stale until the next apply: %s", utils.DeserializeGrpcError(err)), true
 	}
 	return getResp.GetPipeline(), "", true
 }
@@ -528,14 +544,11 @@ func (p *Pipeline) createPipelineClient(ctx context.Context, clusterURL string) 
 		return nil
 	}
 
-	if p.resData.DataplaneConnPool == nil {
-		return errors.New("provider not configured: dataplane connection pool is nil")
-	}
-	conn, err := p.resData.DataplaneConnPool.GetConnection(ctx, clusterURL)
+	client, err := utils.NewDataplaneClient(ctx, p.resData.DataplaneConnPool, clusterURL, dataplanev1grpc.NewPipelineServiceClient)
 	if err != nil {
-		return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
+		return err
 	}
-	p.PipelineClient = dataplanev1grpc.NewPipelineServiceClient(conn)
+	p.PipelineClient = client
 	return nil
 }
 

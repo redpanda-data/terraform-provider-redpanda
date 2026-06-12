@@ -16,21 +16,21 @@ Creates a network in the Redpanda Cloud.
 
 ### Required
 
-- `cloud_provider` (String) The cloud provider to create the network in.
-- `cluster_type` (String) The type of cluster this network is associated with, can be one of dedicated or byoc
-- `name` (String) Name of the network
-- `region` (String) The region to create the network in.
-- `resource_group_id` (String) The ID of the resource group in which to create the network. Must be a valid UUID.
+- `cloud_provider` (String) Cloud provider where resources are created.
+- `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation.
+- `name` (String) The unique name of the network.
+- `region` (String) Region where network is placed.
+- `resource_group_id` (String) Resource group ID of the network. Must be a valid UUID.
 
 ### Optional
 
-- `cidr_block` (String) The cidr_block to create the network in
+- `cidr_block` (String) Network CIDR from where public and private subnets are derived. At least a 21 bits CIDR is required.
 - `customer_managed_resources` (Attributes) Cloud resources created by user. (see [below for nested schema](#nestedatt--customer_managed_resources))
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
 
-- `id` (String) The ID of the network. Must match pattern `^[a-v0-9]{20}`.
+- `id` (String) Network ID. The ID is an output of the Create Network request and cannot be set by the caller. Must match pattern `^[a-v0-9]{20}`.
 - `state` (String) Current state of the network.
 - `zones` (List of String) Network availability zones.
 
@@ -73,7 +73,7 @@ Required:
 
 Required:
 
-- `arns` (List of String) AWS private subnet identifiers. Items must be unique.
+- `arns` (List of String) AWS subnet identifiers. Items must be unique.
 
 
 <a id="nestedatt--customer_managed_resources--aws--vpc"></a>
@@ -99,7 +99,7 @@ Required:
 
 Required:
 
-- `name` (String) GCP storage bucket name for storing the state of Redpanda cluster deployment. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.
+- `name` (String) Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.
 
 
 

@@ -38,26 +38,26 @@ func ResourceServerlessPrivateLinkSchema(ctx context.Context) schema.Schema {
 		Description: "Manages a Redpanda Serverless Private Link",
 		Attributes: map[string]schema.Attribute{
 			"cloud_provider": schema.StringAttribute{
-				Description:   "Cloud provider (aws)",
+				Description:   "Cloud provider where resources are created.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    validators.CloudProviders(),
 			},
 
 			"name": schema.StringAttribute{
-				Description:   "Name of the serverless private link",
+				Description:   "Name",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"resource_group_id": schema.StringAttribute{
-				Description:   "The ID of the Resource Group in which to create the serverless private link",
+				Description:   "Resource Group ID",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"serverless_region": schema.StringAttribute{
-				Description:   "Redpanda serverless region",
+				Description:   "Serverless Region",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
@@ -83,20 +83,20 @@ func ResourceServerlessPrivateLinkSchema(ctx context.Context) schema.Schema {
 			},
 
 			"allow_deletion": schema.BoolAttribute{
-				Description: "Allows deletion of the serverless private link. Defaults to false.",
+				Description: "Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 			},
 
 			"aws_config": schema.SingleNestedAttribute{
-				Description:   "AWS-specific configuration. Required when cloud_provider is 'aws'.",
+				Description:   "AWS-specific configuration. Required when cloud_provider is `aws`.",
 				Optional:      true,
 				Computed:      true,
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"allowed_principals": schema.ListAttribute{
-						Description: "AWS principals (ARNs) allowed to connect to the private link endpoint",
+						Description: "Allowed Principals. Must have at least 1 items.",
 						Required:    true,
 						Validators:  []validator.List{listvalidator.SizeAtLeast(1)},
 						ElementType: types.StringType,
@@ -105,35 +105,35 @@ func ResourceServerlessPrivateLinkSchema(ctx context.Context) schema.Schema {
 			},
 
 			"id": schema.StringAttribute{
-				Description:   "The ID of the serverless private link",
+				Description:   "Unique identifier of the resource.",
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 
 			"state": schema.StringAttribute{
-				Description:   "Current state of the serverless private link (STATE_CREATING, STATE_READY, STATE_DELETING, STATE_FAILED, STATE_UPDATING)",
+				Description:   "- STATE_CREATING: Private link is being created. - STATE_READY: Private link is ready to use. - STATE_DELETING: Private link is being deleted. - STATE_FAILED: Private link is in an error state. - STATE_UPDATING: Private link is in an updating state.",
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 
 			"status": schema.SingleNestedAttribute{
-				Description:   "Cloud provider specific status information",
+				Description:   "ServerlessPrivateLinkStatus contains provider-specific status information",
 				Computed:      true,
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"aws": schema.SingleNestedAttribute{
-						Description:   "AWS-specific status information",
+						Description:   "AWS configuration",
 						Computed:      true,
 						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 						Attributes: map[string]schema.Attribute{
 							"availability_zones": schema.ListAttribute{
-								Description:   "Availability zones where the private link endpoint service is available",
+								Description:   "Availability Zones",
 								Computed:      true,
 								PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
 								ElementType:   types.StringType,
 							},
 							"vpc_endpoint_service_name": schema.StringAttribute{
-								Description:   "VPC endpoint service name for connecting to the private link",
+								Description:   "VPC Endpoint Service Name",
 								Computed:      true,
 								PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 							},

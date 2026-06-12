@@ -235,7 +235,7 @@ func (s *Schema) Read(ctx context.Context, request resource.ReadRequest, respons
 
 	password := state.Password
 	passwordWOVersion := state.PasswordWOVersion
-	state.UpdateFromSchema(schemaResp)
+	response.Diagnostics.Append(state.UpdateFromSchema(schemaResp)...)
 	state.Password = password
 	state.PasswordWOVersion = passwordWOVersion
 
@@ -309,12 +309,12 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 
 		if referencesEqual {
 			// Schema hasn't changed, just update state with current values
-			plan.UpdateFromSchema(sr.SubjectSchema{
+			response.Diagnostics.Append(plan.UpdateFromSchema(sr.SubjectSchema{
 				ID:      int(state.ID.ValueInt64()),
 				Version: int(state.Version.ValueInt64()),
 				Schema:  planReq,
 				Subject: state.Subject.ValueString(),
-			})
+			})...)
 
 			// Check if only compatibility changed
 			if plan.Compatibility.ValueString() != state.Compatibility.ValueString() && !plan.Compatibility.IsNull() && !plan.Compatibility.IsUnknown() {
@@ -353,7 +353,7 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 		return
 	}
 
-	plan.UpdateFromSchema(schemaResp)
+	response.Diagnostics.Append(plan.UpdateFromSchema(schemaResp)...)
 
 	// Update compatibility level if it changed
 	if plan.Compatibility.ValueString() != state.Compatibility.ValueString() && !plan.Compatibility.IsNull() && !plan.Compatibility.IsUnknown() {

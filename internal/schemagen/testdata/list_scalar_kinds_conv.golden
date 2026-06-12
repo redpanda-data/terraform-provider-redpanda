@@ -43,10 +43,25 @@ func Flatten(ctx context.Context, proto ThingResponse, prev *ResourceModel) (*Re
 	m := &ResourceModel{}
 	m.Name = types.StringValue(proto.GetName())
 	m.Tags = modelconv.ListFromSliceWithDiags(ctx, proto.GetTags(), types.StringType, &diags)
+	if prev != nil {
+		m.Tags = modelconv.ListCarryKnownEmpty(m.Tags, prev.Tags)
+	}
 	m.Ids = modelconv.ListFromSliceWithDiags(ctx, proto.GetIds(), types.Int32Type, &diags)
+	if prev != nil {
+		m.Ids = modelconv.ListCarryKnownEmpty(m.Ids, prev.Ids)
+	}
 	m.Counts = modelconv.ListFromSliceWithDiags(ctx, proto.GetCounts(), types.Int64Type, &diags)
+	if prev != nil {
+		m.Counts = modelconv.ListCarryKnownEmpty(m.Counts, prev.Counts)
+	}
 	m.Flags = modelconv.ListFromSliceWithDiags(ctx, proto.GetFlags(), types.BoolType, &diags)
+	if prev != nil {
+		m.Flags = modelconv.ListCarryKnownEmpty(m.Flags, prev.Flags)
+	}
 	m.Weights = modelconv.ListFromSliceWithDiags(ctx, proto.GetWeights(), types.Float64Type, &diags)
+	if prev != nil {
+		m.Weights = modelconv.ListCarryKnownEmpty(m.Weights, prev.Weights)
+	}
 	return m, diags
 }
 

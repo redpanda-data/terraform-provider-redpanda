@@ -14,6 +14,10 @@ api:
     # ExpandUpdateWithMask diffs plan vs state into a sparse payload; the
     # cluster API tolerates partial messages.
     diff_mask: sparse
+    # Top-level fields absent from the control plane's update path map
+    # (mirrored in internal/clustermask) derive RequiresReplace; explicit
+    # overrides that disagree are warned about at generation time.
+    mask_contract: cluster
 
 allow_deletion:
   computed: true
@@ -35,7 +39,6 @@ aws_private_link:
   fields:
     allowed_principals:
       required: true
-      description: "ARN of the principals that can access the Redpanda AWS PrivateLink Endpoint Service"
       validator: "LengthAtLeast{n: 1}"
     connect_console:
       required: true
@@ -44,11 +47,8 @@ aws_private_link:
     status:
       computed_only: true
     supported_regions:
-      computed_only: true
-      # Server returns null for this tier — verified empirically that
-      # targeted heal apply doesn't populate it. Override the classifier's
-      # UseNonNullStateForUnknown default so plan doesn't churn benignly.
-      plan_modifiers: [UseStateForUnknown]
+      optional: true
+      computed: true
     http_proxy_auth_mode:
       todo: true
     kafka_api_auth_mode:
@@ -62,7 +62,6 @@ azure_private_link:
   fields:
     allowed_subscriptions:
       required: true
-      description: "Azure subscription IDs allowed to access the Redpanda Private Link Endpoint Service"
     connect_console:
       required: true
     enabled:
@@ -77,7 +76,6 @@ azure_private_link:
     schema_registry_auth_mode:
       todo: true
 cloud_provider:
-  plan_modifiers: [RequiresReplace]
   required: true
   validator: CloudProviders
 
@@ -93,7 +91,6 @@ tags:
   from_proto: cloud_provider_tags
   flatten_via: tagsFromProto
   expand_via: TagsForProto
-  description: "Tags placed on cloud resources. Server-managed keys (prefixed with `redpanda-`) are filtered out of state."
 
 cloud_storage:
   fields:
@@ -105,10 +102,8 @@ cloud_storage:
       fields:
         container_name:
           computed_only: true
-          description: "Name of the Azure storage container"
         storage_account_name:
           computed_only: true
-          description: "Name of the Azure storage account"
         allowed_ips:
           todo: true
         allowed_subnet_ids:
@@ -121,18 +116,15 @@ cloud_storage:
       fields:
         name:
           computed_only: true
-          description: "Name of the GCP storage bucket"
     skip_destroy:
       computed: true
       optional: true
-      description: "If true, cloud storage is not deleted when the cluster is destroyed"
 
 cluster_api_url:
   computed_only: true
   extra: true
   type: string
   flatten_via: clusterAPIURLFromProto
-  description: "The URL of the cluster's data plane API"
 
 cluster_configuration:
   validator: ClusterConfiguration
@@ -145,14 +137,11 @@ cluster_configuration:
       computed: true
       optional: true
       from_proto: custom_properties
-      description: "Custom cluster configuration properties in JSON format"
 
     computed_properties:
       todo: true
 connection_type:
-  plan_modifiers: [RequiresReplace]
   required: true
-  description: "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, private is best-practice"
   # OneOf restores plan-time enum-membership validation (cloudv2's proto
   # declares no rule on connection_type, so an invalid value would otherwise
   # silently map to UNSPECIFIED and only fail at apply).
@@ -252,10 +241,26 @@ customer_managed_resources:
           fields:
             arn:
               required: true
-        oxla_node_group_instance_profile:
-          todo: true
+        # Redpanda SQL BYOVPC infrastructure: only meaningful when rpsql is
+        # enabled, so optional unlike the required siblings.
+        rpsql_node_group_instance_profile:
+          computed: false
+          optional: true
+          fields:
+            arn:
+              required: true
+        rpsql_cloud_storage_bucket:
+          computed: false
+          optional: true
+          fields:
+            arn:
+              required: true
         rpsql_security_group:
-          todo: true
+          computed: false
+          optional: true
+          fields:
+            arn:
+              required: true
     gcp:
       computed: false
       plan_modifiers: [RequiresReplace]
@@ -334,10 +339,15 @@ customer_managed_resources:
     azure:
       todo: true
 dataplane_api:
-  proto_only: true
+  computed_only: true
 
 desired_redpanda_version:
   computed_only: true
+
+# Read-only in practice: the field exists on ClusterUpdate under a different
+# proto name (gcp_enable_global_access_api_gateway), so the provider never
+# sends updates for it.
+gcp_global_access_api_gateway_enabled: {}
 
 gcp_global_access_enabled:
   # Server-controlled, read-only: present on the Cluster read shape but NOT on
@@ -355,7 +365,6 @@ gcp_private_service_connect:
       fields:
         source:
           required: true
-          description: "GCP project ID from which connections are accepted"
           validator: PSCConsumerSource
     enabled:
       required: true
@@ -384,7 +393,6 @@ http_proxy:
         principal_mapping_rules:
           computed: false
           optional: true
-          description: "Principal mapping rules for mTLS authentication. See Redpanda documentation for details"
     sasl:
       fields:
         enabled:
@@ -408,7 +416,6 @@ kafka_api:
         principal_mapping_rules:
           computed: false
           optional: true
-          description: "Principal mapping rules for mTLS authentication. See Redpanda documentation for details"
     sasl:
       fields:
         enabled:
@@ -436,11 +443,25 @@ rpsql:
       plan_modifiers: [UseStateForUnknown]
     url:
       computed_only: true
-      # Empty while disabled, set by the server on enable. No state-pin modifier:
-      # it would pin "" across the enable transition and trip inconsistent-result.
-      plan_modifiers: [None]
+      # Server derives on enable. Same sibling-rise pin as zones: stays unknown
+      # across the enable rise so the server value lands, pins prior state every
+      # other plan so an enabled cluster reaches an empty steady-state plan
+      # (plain UseStateForUnknown would pin "" across enable and trip
+      # inconsistent-result).
+      plan_modifiers: [PinStateUnlessRpsqlEnables]
+    version:
+      computed_only: true
+      # Same server-sets-on-enable class as url.
+      plan_modifiers: [PinStateUnlessRpsqlEnables]
     zones:
-      exclude: true
+      optional: true
+      computed: true
+      # The control plane assigns the first cluster zone on enable, so the
+      # leaf must plan unknown across the enable rise for that value to land;
+      # every other plan pins state (null included). Disable keeps the pin:
+      # the leaf-expanded mask always carries rpsql.zones and an empty value
+      # would trip the control plane's immutability check.
+      plan_modifiers: [PinStateUnlessRpsqlEnables]
 
 maintenance_window_config:
   fields:
@@ -448,7 +469,6 @@ maintenance_window_config:
       computed: false
       force_type: BoolAttribute
       optional: true
-      description: "If true, maintenance can occur at any time"
     day_hour:
       computed: false
       optional: true
@@ -462,7 +482,6 @@ maintenance_window_config:
     unspecified:
       computed_only: true
       force_type: BoolAttribute
-      description: "If true, maintenance window is unspecified"
       # Oneof variant of maintenance_window_config — terminal-null whenever
       # day_hour or anytime is selected. Classifier's UseNonNullStateForUnknown
       # default would churn perpetually; override to preserve state-null.
@@ -475,7 +494,6 @@ nat_gateways:
   computed_only: true
 
 network_id:
-  plan_modifiers: [RequiresReplace]
   required: true
 
 prometheus:
@@ -484,7 +502,6 @@ prometheus:
 read_replica_cluster_ids:
   computed: false
   optional: true
-  description: "IDs of clusters that can create read-only topics from this cluster"
 
 redpanda_console:
   computed_only: true
@@ -498,11 +515,9 @@ redpanda_version:
   type: string
 
 region:
-  plan_modifiers: [RequiresReplace]
   required: true
 
 resource_group_id:
-  plan_modifiers: [RequiresReplace]
   required: true
 
 schema_registry:
@@ -521,7 +536,6 @@ schema_registry:
         principal_mapping_rules:
           computed: false
           optional: true
-          description: "Principal mapping rules for mTLS authentication. See Redpanda documentation for details"
     url:
       computed_only: true
 
@@ -544,13 +558,10 @@ cluster_type:
   type: string
   optional: true
   computed: true
-  plan_modifiers: [RequiresReplace]
   from_proto: type
   validator: ClusterTypes
-  description: "Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated."
 
 zones:
-  plan_modifiers: [RequiresReplace]
   required: true
   validator: AWSZoneIDValidator
 
@@ -564,4 +575,9 @@ ai_gateway:
 adp_api:
   todo: true
 sandbox:
+  todo: true
+
+
+# --- New proto fields (auto-added by schemagen -todo) ---
+redpanda_connect:
   todo: true

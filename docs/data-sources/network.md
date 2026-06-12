@@ -14,17 +14,17 @@ Data source for a Redpanda Cloud network
 
 ### Required
 
-- `id` (String) UUID of the network
+- `id` (String) Network ID. The ID is an output of the Create Network request and cannot be set by the caller.
 
 ### Read-Only
 
-- `cidr_block` (String) The cidr_block to create the network in
-- `cloud_provider` (String) The cloud provider to create the network in. Can also be set at the provider level
-- `cluster_type` (String) The type of cluster this network is associated with, can be one of dedicated or cloud
+- `cidr_block` (String) Network CIDR from where public and private subnets are derived. At least a 21 bits CIDR is required.
+- `cloud_provider` (String) Cloud provider where resources are created.
+- `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation.
 - `customer_managed_resources` (Attributes) Cloud resources created by user. (see [below for nested schema](#nestedatt--customer_managed_resources))
-- `name` (String) Name of the network
-- `region` (String) The region to create the network in. Can also be set at the provider level
-- `resource_group_id` (String) The ID of the resource group in which to create the network
+- `name` (String) The unique name of the network.
+- `region` (String) Region where network is placed.
+- `resource_group_id` (String) Resource group ID of the network
 - `state` (String) Current state of the network.
 - `zones` (List of String) Network availability zones.
 
@@ -67,7 +67,7 @@ Required:
 
 Required:
 
-- `arns` (List of String) AWS private subnet identifiers
+- `arns` (List of String) AWS subnet identifiers.
 
 
 <a id="nestedatt--customer_managed_resources--aws--vpc"></a>
@@ -93,7 +93,7 @@ Read-Only:
 
 Required:
 
-- `name` (String) GCP storage bucket name for storing the state of Redpanda cluster deployment
+- `name` (String) Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions.
 
 ## Usage
 

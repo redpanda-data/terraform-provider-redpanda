@@ -30,7 +30,6 @@ allow_deletion:
   optional: true
   computed: true
   default: false
-  description: "Allows deletion of the shadow link. Defaults to false."
 
 id:
   computed_only: true

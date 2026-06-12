@@ -64,9 +64,9 @@ Pipe regen output through `grep -E 'INFO|WARN'` to surface these. Per memory `fe
 
 `apidesc: X/Y attrs matched` also appears — a drop in the ratio after adding a field means the description is missing. Either run `task generate:apidescriptions` or add an inline `description:` override.
 
-## Golden files (`*.golden`) and `.description` files
+## Golden files (`*.golden`)
 
-These are **sacred** — memory `feedback_golden_files.md` and `feedback_description_files.md`. Never edit by hand to make a test pass. They pin the schema contract that drifts silently otherwise.
+These are **sacred** — memory `feedback_golden_files.md`. Never edit by hand to make a test pass. They pin the schema contract that drifts silently otherwise. (Descriptions are not golden-tested; they flow from `apidescriptions.yaml` and are validated via `task docs`.)
 
 When a golden test fails, per memory `feedback_show_golden_diffs.md`: **paste the raw diff to the user before any summary or interpretation.** The user needs to see exactly which lines changed before deciding whether the change is intentional or a regression. Running `task generate:golden` to "fix" a failing test without showing the diff first is exactly the wrong move.
 
@@ -76,16 +76,13 @@ When a golden test fails, per memory `feedback_show_golden_diffs.md`: **paste th
 # Verify nothing has drifted (the assertion path)
 go test ./redpanda/resources/ -run TestSchemaGolden
 
-# Verify descriptions too
-go test ./redpanda/resources/ -run TestSchemaGolden -descriptions
-
 # Update goldens for legitimate schema changes (requires user approval)
 task generate:golden
 # Or targeted to a single resource:
-go test ./redpanda/resources/ -run "^TestSchemaGolden$/^<name>_(resource|datasource)$" -update -descriptions
+go test ./redpanda/resources/ -run "^TestSchemaGolden$/^<name>_(resource|datasource)$" -update
 ```
 
-When extending: review the `.golden` diff line-by-line. A small YAML change should produce a tight golden diff (one added attribute line, one added description). If the diff is larger than expected, the YAML edit had side effects — back out and investigate.
+When extending: review the `.golden` diff line-by-line. A small YAML change should produce a tight golden diff (one added attribute line). If the diff is larger than expected, the YAML edit had side effects — back out and investigate.
 
 ## Golden baseline for a brand-new resource
 

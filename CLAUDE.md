@@ -35,8 +35,9 @@ Live acc tests require `REDPANDA_CLIENT_ID` + `REDPANDA_CLIENT_SECRET` and cloud
 - `task cleanup:redpanda:dry` — preview only
 
 ### Codegen / docs
-- `task generate:models` — regenerate `redpanda/models/*/*_gen.go` and `redpanda/resources/**/schema_*_gen.go` from `schema.yaml`
-- `task generate:clean` — delete all generated `*_gen.go` files under `redpanda/resources/` and `redpanda/models/`
+- `task generate:models` — regenerate enum mappers (`redpanda/utils/enums/enums_gen.go` via `cmd/enumgen`), then `redpanda/models/*/*_gen.go` and `redpanda/resources/**/schema_*_gen.go` from `schema.yaml`. enumgen runs first because the generated flatten/expand references the `enums.*` mappers; it is pinned to `internal/buf_dependencies.yaml` like schemagen.
+- `task generate:enums` — regenerate only the enum mappers
+- `task generate:clean` — delete all generated `*_gen.go` files under `redpanda/resources/`, `redpanda/models/`, and `redpanda/utils/enums/`
 - `task docs` — regenerate `docs/` via tfplugindocs
 - `task mock` — regenerate `redpanda/mocks/*`
 
@@ -88,7 +89,7 @@ Prefer unit tests with gomock clients for anything that can be exercised in-proc
 
 Models and schemas: run `task generate:models` after editing a `schema.yaml` (or `schema_datasource.yaml`) under `redpanda/resources/<resource>/`. Review the `*_gen.go` diff before committing. The `//go:generate` directives are registered centrally in `redpanda/resources/schemagen.go`.
 
-Golden files (`*.golden`) and `.description` files are **sacred** — never modify without explicit user approval. They pin contracts that drift silently without these guardrails.
+Golden files (`*.golden`) are **sacred** — never modify without explicit user approval. They pin the schema contract that drifts silently without this guardrail.
 
 Never swallow warnings or errors from codegen. Surface them.
 
@@ -134,8 +135,7 @@ When the user asks for a "local test cycle" (or equivalent phrasing — "run the
 1. `task test:unit`
 2. Golden tests
 3. `task docs`
-4. Description tests
-5. `task lint`
-6. `task test:integration`
+4. `task lint`
+5. `task test:integration`
 
 Don't skip ahead if one fails — keep going and report each result, including pass/fail counts, key failures, and how long each task took.

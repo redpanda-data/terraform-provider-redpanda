@@ -29,6 +29,7 @@ import (
 
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/apidesc"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/bufdeps"
+	"github.com/redpanda-data/terraform-provider-redpanda/internal/cmdutil"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/fileutil"
 	"gopkg.in/yaml.v3"
 )
@@ -85,7 +86,7 @@ func run(cloudRepo, cloudSpecDir, consoleRepo, consoleSpecDir, output, resourceD
 		log.Print("console not found — proceeding with cloudv2 only (set -console-repo, CONSOLE_ROOT, or place console as sibling)")
 	}
 
-	repoRoot, err := findRepoRoot()
+	repoRoot, err := cmdutil.FindRepoRoot()
 	if err != nil {
 		return fmt.Errorf("resolve repo root: %w", err)
 	}
@@ -433,27 +434,10 @@ func buildHeader(sources []*source, files []string, schemaCount, descCount int, 
 			len(scope.roots), scope.before, strings.Join(scope.roots, ", "))
 	}
 	b.WriteString("#\n")
-	b.WriteString("# Precedence layer: YAML override > this file > mechanical default\n")
+	b.WriteString("# Precedence layer: scopedDescriptions (descriptions.go) > this file > common/mechanical defaults\n")
 	b.WriteString("# Regenerate: task generate:apidescriptions\n")
 	b.WriteString("\n")
 	return b.String()
-}
-
-func findRepoRoot() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", errors.New("go.mod not found walking up from cwd")
-		}
-		dir = parent
-	}
 }
 
 type multiFlag []string

@@ -16,38 +16,38 @@ Enables the provisioning and management of Redpanda Serverless clusters. A Serve
 
 ### Required
 
-- `name` (String) Name of the serverless cluster
-- `resource_group_id` (String) The ID of the Resource Group in which to create the serverless cluster
-- `serverless_region` (String) Redpanda specific region of the serverless cluster
+- `name` (String) Unique name of the Serverless cluster. Length must be between 3 and 128. Must match pattern `^[A-Za-z0-9-_:]+$`.
+- `resource_group_id` (String) Resource group ID of the cluster. Must be a valid UUID.
+- `serverless_region` (String) Serverless region in which the cluster is placed, backed by a cloud provider region.
 
 ### Optional
 
-- `allow_deletion` (Boolean) Whether terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.
-- `networking_config` (Attributes) Network configuration controlling public/private access to the cluster (see [below for nested schema](#nestedatt--networking_config))
+- `allow_deletion` (Boolean) Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.
+- `networking_config` (Attributes) Networking Config configuration (see [below for nested schema](#nestedatt--networking_config))
 - `private_link_id` (String) Private link ID for the serverless cluster. Must be set if private networking is enabled. Must match pattern `^[a-v0-9]{20}$`.
-- `tags` (Map of String) User-defined tags for the Serverless cluster
+- `tags` (Map of String) User-defined tags for the Serverless cluster. Must have at most 50 entries.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
 
-- `cluster_api_url` (String, Deprecated) The URL of the dataplane API for the serverless cluster
-- `console_private_url` (String) Private Console URL for the serverless cluster
-- `console_url` (String) Public Console URL for the serverless cluster
-- `dataplane_api` (Attributes) Dataplane API endpoints for the serverless cluster (see [below for nested schema](#nestedatt--dataplane_api))
-- `id` (String) The ID of the serverless cluster
-- `kafka_api` (Attributes) Kafka API endpoints for the serverless cluster (see [below for nested schema](#nestedatt--kafka_api))
-- `planned_deletion` (Attributes) Planned deletion information for the serverless cluster. (see [below for nested schema](#nestedatt--planned_deletion))
-- `prometheus` (Attributes) Prometheus metrics endpoints for the serverless cluster (see [below for nested schema](#nestedatt--prometheus))
-- `schema_registry` (Attributes) Schema Registry endpoints for the serverless cluster (see [below for nested schema](#nestedatt--schema_registry))
-- `state` (String) Current state of the serverless cluster.
+- `cluster_api_url` (String, Deprecated) The URL of the dataplane API for the serverless cluster.
+- `console_private_url` (String) Private Console URL for the serverless cluster.
+- `console_url` (String) Public Console URL for the serverless cluster.
+- `dataplane_api` (Attributes) Cluster's Data Plane API properties. (see [below for nested schema](#nestedatt--dataplane_api))
+- `id` (String) ID of the Serverless cluster. ID is an output from the Create Serverless Cluster operation and cannot be set by the caller.
+- `kafka_api` (Attributes) Cluster's Kafka API properties. (see [below for nested schema](#nestedatt--kafka_api))
+- `planned_deletion` (Attributes) Date after which this cluster can and should be deleted. (see [below for nested schema](#nestedatt--planned_deletion))
+- `prometheus` (Attributes) Prometheus metrics endpoint properties. (see [below for nested schema](#nestedatt--prometheus))
+- `schema_registry` (Attributes) Cluster's Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
+- `state` (String) State describes the state of the ServerlessCluster. - STATE_PLACING: Serverless cluster is in the process of being placed on a cell with sufficient resources in the data plane. - STATE_CREATING: Serverless cluster is in the process of having its control plane state created. - STATE_READY: Serverless cluster is in execution and accepting external requests. - STATE_DELETING: Serverless cluster is in the process of having its control plane state removed. Resources dedicated to the cluster in the data plane will be released. - STATE_FAILED: Serverless cluster was unable to enter the ready state from either the creating or placing states. - STATE_SUSPENDED: Serverless cluster is in execution but blocks all external requests.
 
 <a id="nestedatt--networking_config"></a>
 ### Nested Schema for `networking_config`
 
 Optional:
 
-- `private` (String) Private network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED
-- `public` (String) Public network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED
+- `private` (String) Private network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED.
+- `public` (String) Public network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED.
 
 
 <a id="nestedatt--timeouts"></a>
@@ -65,8 +65,8 @@ Optional:
 
 Read-Only:
 
-- `private_url` (String) Private Dataplane API URL
-- `url` (String) Public Dataplane API URL
+- `private_url` (String) private_url is the private url of the dataplane api if private networking is enabled for this cluster.
+- `url` (String) Dataplane API URL
 
 
 <a id="nestedatt--kafka_api"></a>
@@ -74,8 +74,8 @@ Read-Only:
 
 Read-Only:
 
-- `private_seed_brokers` (List of String) Private Kafka API seed brokers (bootstrap servers)
-- `seed_brokers` (List of String) Public Kafka API seed brokers (bootstrap servers)
+- `private_seed_brokers` (List of String) Kafka API seed brokers (also known as bootstrap servers). Private addresses
+- `seed_brokers` (List of String) Kafka API seed brokers (also known as bootstrap servers). Implicitly public
 
 
 <a id="nestedatt--planned_deletion"></a>
@@ -92,8 +92,8 @@ Read-Only:
 
 Read-Only:
 
-- `private_url` (String) Private Prometheus metrics URL
-- `url` (String) Public Prometheus metrics URL
+- `private_url` (String) Prometheus API Private URL.
+- `url` (String) Prometheus API URL.
 
 
 <a id="nestedatt--schema_registry"></a>
@@ -101,8 +101,8 @@ Read-Only:
 
 Read-Only:
 
-- `private_url` (String) Private Schema Registry URL
-- `url` (String) Public Schema Registry URL
+- `private_url` (String) Private url for the schema registry
+- `url` (String) Schema Registry URL
 
 ## Example Usage
 

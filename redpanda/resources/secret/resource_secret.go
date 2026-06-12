@@ -17,10 +17,7 @@ package secret
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"strings"
-	"time"
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
@@ -34,10 +31,6 @@ import (
 	secretmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/secret"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
-
-// Per-RPC retry budget for dataplane calls (e.g., the freshly-provisioned-cluster
-// DNS-propagation window). Sized to fit ~5 attempts under Retry's 1s→60s cap.
-const dataplaneRetryTimeout = 2 * time.Minute
 
 var (
 	_ resource.Resource                = &Secret{}
@@ -90,7 +83,7 @@ func (s *Secret) Create(ctx context.Context, req resource.CreateRequest, resp *r
 	}
 
 	var createdSecret *dataplanev1.Secret
-	err := utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		created, rpcErr := s.SecretClient.CreateSecret(ctx, &dataplanev1.CreateSecretRequest{
 			Id:         model.Name.ValueString(),
 			Labels:     labels,
@@ -124,7 +117,11 @@ func (s *Secret) Create(ctx context.Context, req resource.CreateRequest, resp *r
 		return
 	}
 
-	persist := secretmodel.GetUpdatedModel(ctx, createdSecret)
+	persist, persistDiags := secretmodel.GetUpdatedModel(ctx, createdSecret)
+	resp.Diagnostics.Append(persistDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	persist.ClusterAPIURL = model.ClusterAPIURL
 	persist.AllowDeletion = model.AllowDeletion
 	persist.SecretDataVersion = effectiveVersion(model.SecretDataVersion)
@@ -152,7 +149,7 @@ func (s *Secret) Read(ctx context.Context, req resource.ReadRequest, resp *resou
 	}
 
 	var got *dataplanev1.GetSecretResponse
-	err := utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		var rpcErr error
 		got, rpcErr = s.SecretClient.GetSecret(ctx, &dataplanev1.GetSecretRequest{Id: name})
 		if rpcErr != nil {
@@ -172,7 +169,11 @@ func (s *Secret) Read(ctx context.Context, req resource.ReadRequest, resp *resou
 		return
 	}
 
-	persist := secretmodel.GetUpdatedModel(ctx, got.GetSecret())
+	persist, persistDiags := secretmodel.GetUpdatedModel(ctx, got.GetSecret())
+	resp.Diagnostics.Append(persistDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	persist.ClusterAPIURL = model.ClusterAPIURL
 	persist.AllowDeletion = model.AllowDeletion
 	persist.SecretDataVersion = effectiveVersion(model.SecretDataVersion)
@@ -222,7 +223,7 @@ func (s *Secret) Update(ctx context.Context, req resource.UpdateRequest, resp *r
 	}
 
 	var updated *dataplanev1.UpdateSecretResponse
-	err := utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		var rpcErr error
 		updated, rpcErr = s.SecretClient.UpdateSecret(ctx, updateReq)
 		if rpcErr != nil {
@@ -238,7 +239,11 @@ func (s *Secret) Update(ctx context.Context, req resource.UpdateRequest, resp *r
 		return
 	}
 
-	persist := secretmodel.GetUpdatedModel(ctx, updated.GetSecret())
+	persist, persistDiags := secretmodel.GetUpdatedModel(ctx, updated.GetSecret())
+	resp.Diagnostics.Append(persistDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	persist.ClusterAPIURL = plan.ClusterAPIURL
 	persist.AllowDeletion = plan.AllowDeletion
 	persist.SecretDataVersion = effectiveVersion(plan.SecretDataVersion)
@@ -267,7 +272,7 @@ func (s *Secret) Delete(ctx context.Context, req resource.DeleteRequest, resp *r
 		return
 	}
 
-	err := utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		_, rpcErr := s.SecretClient.DeleteSecret(ctx, &dataplanev1.DeleteSecretRequest{Id: name})
 		if rpcErr != nil {
 			if utils.IsUnavailable(rpcErr) {
@@ -286,15 +291,14 @@ func (s *Secret) Delete(ctx context.Context, req resource.DeleteRequest, resp *r
 
 // ImportState imports the Secret resource. Format: <name>,<cluster_id>
 func (s *Secret) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts := strings.SplitN(req.ID, ",", 2)
-	if len(parts) != 2 {
+	name, clusterID, ok := utils.SplitImportID(req.ID, ",")
+	if !ok {
 		resp.Diagnostics.AddError(
 			fmt.Sprintf("wrong import ID format: %v", req.ID),
 			"Import ID format is <secret_name>,<cluster_id>",
 		)
 		return
 	}
-	name, clusterID := parts[0], parts[1]
 
 	dataplaneURL, err := s.CpCl.DataplaneURLForCluster(ctx, clusterID)
 	if err != nil {
@@ -315,17 +319,11 @@ func (s *Secret) createSecretClient(ctx context.Context, clusterURL string) erro
 	if s.SecretClient != nil {
 		return nil
 	}
-	if clusterURL == "" {
-		return errors.New("unable to create client with empty target cluster API URL")
-	}
-	if s.resData.DataplaneConnPool == nil {
-		return errors.New("provider not configured: dataplane connection pool is nil")
-	}
-	conn, err := s.resData.DataplaneConnPool.GetConnection(ctx, clusterURL)
+	client, err := utils.NewDataplaneClient(ctx, s.resData.DataplaneConnPool, clusterURL, dataplanev1grpc.NewSecretServiceClient)
 	if err != nil {
-		return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
+		return err
 	}
-	s.SecretClient = dataplanev1grpc.NewSecretServiceClient(conn)
+	s.SecretClient = client
 	return nil
 }
 

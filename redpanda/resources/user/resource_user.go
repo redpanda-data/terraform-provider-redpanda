@@ -17,11 +17,9 @@ package user
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
@@ -33,10 +31,6 @@ import (
 	usermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/user"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
-
-// Per-RPC retry budget for dataplane calls (e.g., the freshly-provisioned-cluster
-// DNS-propagation window). Sized to fit ~5 attempts under Retry's 1s→60s cap.
-const dataplaneRetryTimeout = 2 * time.Minute
 
 var (
 	_ resource.Resource                 = &User{}
@@ -113,7 +107,7 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 	}
 
 	var createdUser usermodel.UserResponse
-	err := utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		created, rpcErr := u.UserClient.CreateUser(ctx, pbReq)
 		if rpcErr == nil {
 			createdUser = created.GetUser()
@@ -167,7 +161,7 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 	}
 
 	var user *dataplanev1.ListUsersResponse_User
-	err := utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		var rpcErr error
 		user, rpcErr = utils.FindUserByName(ctx, userName, u.UserClient)
 		if rpcErr != nil {
@@ -231,7 +225,7 @@ func (u *User) Update(ctx context.Context, req resource.UpdateRequest, resp *res
 	}
 
 	var updateResp *dataplanev1.UpdateUserResponse
-	err := utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		var rpcErr error
 		updateResp, rpcErr = u.UserClient.UpdateUser(ctx, pbReq)
 		if rpcErr != nil {
@@ -278,7 +272,7 @@ func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	err := utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		_, rpcErr := u.UserClient.DeleteUser(ctx, pbReq)
 		if rpcErr != nil {
 			if utils.IsUnavailable(rpcErr) {
@@ -347,16 +341,10 @@ func (u *User) createUserClient(ctx context.Context, clusterURL string) error {
 	if u.UserClient != nil {
 		return nil
 	}
-	if clusterURL == "" {
-		return errors.New("unable to create client with empty target cluster API URL")
-	}
-	if u.resData.DataplaneConnPool == nil {
-		return errors.New("provider not configured: dataplane connection pool is nil")
-	}
-	conn, err := u.resData.DataplaneConnPool.GetConnection(ctx, clusterURL)
+	client, err := utils.NewDataplaneClient(ctx, u.resData.DataplaneConnPool, clusterURL, dataplanev1grpc.NewUserServiceClient)
 	if err != nil {
-		return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
+		return err
 	}
-	u.UserClient = dataplanev1grpc.NewUserServiceClient(conn)
+	u.UserClient = client
 	return nil
 }

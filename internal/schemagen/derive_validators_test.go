@@ -197,36 +197,31 @@ func TestConstraintSummary_OnlyRequired(t *testing.T) {
 }
 
 // TestDeriveValidators_AppendsToExistingDescription pins the
-// enrichment-vs-replacement contract: when an apidesc / yaml description
-// is already present, the constraint summary must append. Without this
-// guarantee the apidesc text ("GCP service account email.") gets replaced
-// by the bare summary ("Must be a valid email address."), losing context.
+// enrichment-vs-replacement contract: when a description is already present
+// (here from the shared commonDescriptions table via the `password` name),
+// the constraint summary must append. Without this guarantee the table text
+// gets replaced by the bare summary, losing context.
 func TestDeriveValidators_AppendsToExistingDescription(t *testing.T) {
 	proto := &ProtoMessage{
 		Name: "Foo",
 		Fields: []ProtoField{
 			{
-				Name: "bounded", Kind: KindString, Cardinality: "singular",
+				Name: "password", Kind: KindString, Cardinality: "singular",
 				ValidateRules: fieldRulesStringLen(1, 64),
 			},
 		},
 	}
-	cfg := &Config{
-		API: &APIConfig{},
-		Fields: map[string]FieldConfig{
-			"bounded": {Description: "The bounded field."},
-		},
-	}
+	cfg := &Config{API: &APIConfig{}}
 	attrs, _, _, errs := Merge(proto, cfg, "resource", nil)
 	if len(errs) > 0 {
 		t.Fatalf("unexpected errs: %v", errs)
 	}
-	b := findAttrNamed(attrs, "bounded")
+	b := findAttrNamed(attrs, "password")
 	if b == nil {
-		t.Fatal("bounded missing")
+		t.Fatal("password missing")
 	}
-	if !strings.Contains(b.Description, "The bounded field.") {
-		t.Errorf("description should preserve original text; got %q", b.Description)
+	if !strings.Contains(b.Description, commonDescriptions["password"]) {
+		t.Errorf("description should preserve table text; got %q", b.Description)
 	}
 	if !strings.Contains(b.Description, "Length must be between 1 and 64.") {
 		t.Errorf("description should append constraint summary; got %q", b.Description)
@@ -287,5 +282,123 @@ func TestConstraintSummary_MixedBounds(t *testing.T) {
 				t.Errorf("mixed bounds summary: want %q in %q", tc.want, got)
 			}
 		})
+	}
+}
+
+func fieldRulesRepeated(minItems, maxItems uint64, unique bool) *bufvalidate.FieldRules {
+	r := &bufvalidate.RepeatedRules{}
+	if minItems > 0 {
+		r.MinItems = proto.Uint64(minItems)
+	}
+	if maxItems > 0 {
+		r.MaxItems = proto.Uint64(maxItems)
+	}
+	if unique {
+		r.Unique = proto.Bool(unique)
+	}
+	return &bufvalidate.FieldRules{
+		Type: &bufvalidate.FieldRules_Repeated{Repeated: r},
+	}
+}
+
+func protoWithRepeatedRules() *ProtoMessage {
+	return &ProtoMessage{
+		Name: "Foo",
+		Fields: []ProtoField{
+			{Name: "regions", Kind: KindString, Cardinality: KindRepeated, ValidateRules: fieldRulesRepeated(0, 50, true)},
+			{Name: "zones", Kind: KindString, Cardinality: KindRepeated, ValidateRules: fieldRulesRepeated(1, 1, false)},
+			{Name: "free", Kind: KindString, Cardinality: KindRepeated},
+		},
+	}
+}
+
+// TestDeriveValidators_RepeatedRules — buf.validate repeated rules become
+// plan-time list validators: max_items → SizeAtMost, min_items → SizeAtLeast,
+// unique → UniqueValues. Without these the rules only surface through
+// rpvalidate, which defers whenever the config has unknowns.
+func TestDeriveValidators_RepeatedRules(t *testing.T) {
+	cfg := &Config{API: &APIConfig{}}
+	attrs, _, _, errs := Merge(protoWithRepeatedRules(), cfg, "resource", nil)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected errs: %v", errs)
+	}
+	r := findAttrNamed(attrs, "regions")
+	if r == nil {
+		t.Fatal("regions missing")
+	}
+	want := "[]validator.List{listvalidator.SizeAtMost(50), listvalidator.UniqueValues()}"
+	if r.Validators != want {
+		t.Errorf("regions validators: got %q, want %q", r.Validators, want)
+	}
+	z := findAttrNamed(attrs, "zones")
+	if z == nil {
+		t.Fatal("zones missing")
+	}
+	want = "[]validator.List{listvalidator.SizeAtLeast(1), listvalidator.SizeAtMost(1)}"
+	if z.Validators != want {
+		t.Errorf("zones validators: got %q, want %q", z.Validators, want)
+	}
+	f := findAttrNamed(attrs, "free")
+	if f == nil {
+		t.Fatal("free missing")
+	}
+	if f.Validators != "" {
+		t.Errorf("free should have no validators; got %q", f.Validators)
+	}
+}
+
+// TestDeriveValidators_RepeatedRulesDatasource — datasources are read-only;
+// no list validators are derived.
+func TestDeriveValidators_RepeatedRulesDatasource(t *testing.T) {
+	cfg := &Config{ComputedDefault: true, API: &APIConfig{}}
+	attrs, _, _, errs := Merge(protoWithRepeatedRules(), cfg, "datasource", nil)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected errs: %v", errs)
+	}
+	if r := findAttrNamed(attrs, "regions"); r == nil || r.Validators != "" {
+		t.Errorf("datasource regions should have no validators; got %v", r)
+	}
+}
+
+// TestDeriveValidators_RepeatedRulesComputedOnly — a server-populated list
+// takes no input, so derived validators are pointless noise.
+func TestDeriveValidators_RepeatedRulesComputedOnly(t *testing.T) {
+	cfg := &Config{
+		API:    &APIConfig{},
+		Fields: map[string]FieldConfig{"regions": {ComputedOnly: true}},
+	}
+	attrs, _, _, errs := Merge(protoWithRepeatedRules(), cfg, "resource", nil)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected errs: %v", errs)
+	}
+	if r := findAttrNamed(attrs, "regions"); r == nil || r.Validators != "" {
+		t.Errorf("computed_only regions should have no validators; got %v", r)
+	}
+}
+
+// TestDeriveValidators_RepeatedRulesMergeWithYaml — yaml-named validators and
+// derived rules compose via append, neither replacing the other.
+func TestDeriveValidators_RepeatedRulesMergeWithYaml(t *testing.T) {
+	cfg := &Config{
+		API: &APIConfig{},
+		Fields: map[string]FieldConfig{
+			"regions": {Validator: "AWSZoneIDValidator"},
+		},
+	}
+	attrs, _, _, errs := Merge(protoWithRepeatedRules(), cfg, "resource", nil)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected errs: %v", errs)
+	}
+	r := findAttrNamed(attrs, "regions")
+	if r == nil {
+		t.Fatal("regions missing")
+	}
+	if !strings.HasPrefix(r.Validators, "append(") {
+		t.Errorf("merged validators should append to yaml-resolved slice; got %q", r.Validators)
+	}
+	for _, want := range []string{"listvalidator.SizeAtMost(50)", "listvalidator.UniqueValues()"} {
+		if !strings.Contains(r.Validators, want) {
+			t.Errorf("merged validators missing %s; got %q", want, r.Validators)
+		}
 	}
 }

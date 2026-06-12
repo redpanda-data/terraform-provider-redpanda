@@ -26,6 +26,7 @@ import (
 
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/apidesc"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/bufdeps"
+	"github.com/redpanda-data/terraform-provider-redpanda/internal/cmdutil"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/schemagen"
 )
 
@@ -62,12 +63,12 @@ func main() {
 		return
 	}
 
-	cloudv2Root := resolveCloudv2Root(*cloudv2)
+	cloudv2Root := cmdutil.ResolveCloudv2Root(*cloudv2)
 	if cloudv2Root == "" {
 		log.Fatal("schemagen: cloudv2 repo not found — set -cloudv2 flag, CLOUDV2_ROOT env, or place cloudv2 as a sibling directory")
 	}
 
-	if err := assertPinnedCheckout(cloudv2Root); err != nil {
+	if err := cmdutil.AssertCloudv2Pinned(cloudv2Root); err != nil {
 		log.Fatalf("schemagen: %v", err)
 	}
 
@@ -81,32 +82,16 @@ func main() {
 	}
 }
 
-// assertPinnedCheckout fails the per-resource codegen run when the local
-// cloudv2 checkout has drifted from internal/buf_dependencies.yaml. Console
-// is consumed through the .build/console-protos buf-export tree so its git
-// SHA is checked only by cmd/apidesc-import.
-func assertPinnedCheckout(cloudv2Root string) error {
-	repoRoot, err := findRepoRoot()
-	if err != nil {
-		return fmt.Errorf("resolve repo root: %w", err)
-	}
-	deps, err := bufdeps.Read(bufdeps.DefaultPath(repoRoot))
-	if err != nil {
-		return fmt.Errorf("read pin file: %w", err)
-	}
-	return bufdeps.AssertCheckoutAt(cloudv2Root, deps.Cloudv2.SHA, "cloudv2")
-}
-
 // runUpdateDeps rewrites internal/buf_dependencies.yaml from current state.
 // Reads HEAD of cloudv2 and console git checkouts plus the BSR commit IDs
 // embedded in go.mod's buf-gen pseudo-versions, then writes everything to
 // the pin file. Exits without doing any code generation.
 func runUpdateDeps(cloudv2Flag, consoleFlag string) error {
-	repoRoot, err := findRepoRoot()
+	repoRoot, err := cmdutil.FindRepoRoot()
 	if err != nil {
 		return fmt.Errorf("resolve repo root: %w", err)
 	}
-	cloudv2Root := resolveCloudv2Root(cloudv2Flag)
+	cloudv2Root := cmdutil.ResolveCloudv2Root(cloudv2Flag)
 	if cloudv2Root == "" {
 		return errors.New("cloudv2 repo not found — set -cloudv2 flag, CLOUDV2_ROOT env, or place cloudv2 as a sibling directory")
 	}
@@ -247,6 +232,21 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 		log.Printf("Loaded %d api description entries from %s", apiIndex.Len(), apiIndex.Source)
 	}
 
+	if err := schemagen.ApplyAPIDefaults(cfg, schemaType); err != nil {
+		return fmt.Errorf("apply api defaults: %w", err)
+	}
+	if schemaType != schemagen.SchemaTypeDatasource {
+		// Asymmetric APIs carry input rules on the create payload, not the
+		// walked read shape; enrich before Merge so validator and description
+		// derivation see them.
+		if err := schemagen.BridgeWriteShapeRules(proto, cfg, schemaType, protoLookup); err != nil {
+			return fmt.Errorf("bridge write-shape validate rules: %w", err)
+		}
+	}
+	if err := resolveMaskContract(cfg); err != nil {
+		return err
+	}
+
 	attrs, extraImports, stats, mergeErrs := schemagen.Merge(proto, cfg, schemaType, apiIndex)
 	if len(mergeErrs) > 0 {
 		for _, e := range mergeErrs {
@@ -270,10 +270,6 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 	needsContext := hasTimeouts
 
 	emitProtoValidator := schemaType != schemagen.SchemaTypeDatasource
-
-	if err := schemagen.ApplyAPIDefaults(cfg, schemaType); err != nil {
-		return fmt.Errorf("apply api defaults: %w", err)
-	}
 
 	imports := schemagen.ResolveImports(attrs, schemaType, hasTimeouts, extraImports)
 
@@ -479,7 +475,7 @@ func parseModulePath(content string) string {
 func loadAPIDescriptions(apiDescPath string) (*apidesc.Index, error) {
 	path := apiDescPath
 	if path == "" {
-		root, err := findRepoRoot()
+		root, err := cmdutil.FindRepoRoot()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: cannot locate repo root for api descriptions: %v\n", err)
 			return nil, nil
@@ -494,48 +490,6 @@ func loadAPIDescriptions(apiDescPath string) (*apidesc.Index, error) {
 		fmt.Fprintf(os.Stderr, "WARNING: api descriptions file not found at %s — descriptions will fall back to mechanical defaults\n", path)
 	}
 	return idx, nil
-}
-
-func findRepoRoot() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", errors.New("go.mod not found walking up from cwd")
-		}
-		dir = parent
-	}
-}
-
-func resolveCloudv2Root(flagValue string) string {
-	if flagValue != "" {
-		if _, err := os.Stat(filepath.Join(flagValue, "proto", "public", "cloud")); err == nil {
-			return flagValue
-		}
-		log.Printf("WARNING: -cloudv2 %s does not contain proto/public/cloud", flagValue)
-	}
-
-	if envRoot := os.Getenv("CLOUDV2_ROOT"); envRoot != "" {
-		if _, err := os.Stat(filepath.Join(envRoot, "proto", "public", "cloud")); err == nil {
-			log.Printf("Using cloudv2 from CLOUDV2_ROOT: %s", envRoot)
-			return envRoot
-		}
-	}
-
-	for _, rel := range []string{"../cloudv2", "../../cloudv2", "../../../cloudv2"} {
-		if _, err := os.Stat(filepath.Join(rel, "proto", "public", "cloud")); err == nil {
-			log.Printf("Using cloudv2 from relative path: %s", rel)
-			return rel
-		}
-	}
-
-	return ""
 }
 
 // resolveConsoleRoot locates the local console git checkout. Only used by
@@ -559,7 +513,7 @@ func resolveConsoleRoot(flagValue, cloudv2Root string) string {
 }
 
 func resolveConsoleProtoPath(cloudv2Root string) string {
-	if repoRoot, err := findRepoRoot(); err == nil {
+	if repoRoot, err := cmdutil.FindRepoRoot(); err == nil {
 		exportDir := filepath.Join(repoRoot, ".build", "console-protos")
 		if _, statErr := os.Stat(exportDir); statErr == nil {
 			log.Printf("Using console protos from buf export: %s", exportDir)

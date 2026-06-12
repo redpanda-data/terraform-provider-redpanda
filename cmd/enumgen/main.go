@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/redpanda-data/terraform-provider-redpanda/internal/cmdutil"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/schemagen"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"gopkg.in/yaml.v3"
@@ -70,9 +71,12 @@ func main() {
 	)
 	flag.Parse()
 
-	cloudv2Root := resolveCloudv2Root(*cloudv2)
+	cloudv2Root := cmdutil.ResolveCloudv2Root(*cloudv2)
 	if cloudv2Root == "" {
 		log.Fatal("enumgen: cloudv2 repo not found — set -cloudv2 flag or CLOUDV2_ROOT env var")
+	}
+	if err := cmdutil.AssertCloudv2Pinned(cloudv2Root); err != nil {
+		log.Fatalf("enumgen: %v", err)
 	}
 	var extraImportPaths []string
 	if consoleProtoPath := resolveConsoleProtoPath(cloudv2Root); consoleProtoPath != "" {
@@ -324,7 +328,9 @@ import (
 
 	src, err := format.Source([]byte(b.String()))
 	if err != nil {
-		_ = os.WriteFile(path, []byte(b.String()), 0o600)
+		if writeErr := os.WriteFile(path, []byte(b.String()), 0o600); writeErr != nil {
+			return fmt.Errorf("gofmt: %w (and writing unformatted output to %s for debugging also failed: %v)", err, path, writeErr)
+		}
 		return fmt.Errorf("gofmt: %w (wrote unformatted output to %s)", err, path)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
@@ -396,28 +402,8 @@ func verifyCarveoutParity(handrolledPath string, carveouts map[string]string) er
 	return nil
 }
 
-func resolveCloudv2Root(flagVal string) string {
-	if flagVal != "" {
-		if info, err := os.Stat(flagVal); err == nil && info.IsDir() {
-			return flagVal
-		}
-	}
-	if env := os.Getenv("CLOUDV2_ROOT"); env != "" {
-		if info, err := os.Stat(env); err == nil && info.IsDir() {
-			return env
-		}
-	}
-	for _, candidate := range []string{"../cloudv2", "../../cloudv2", "../../../cloudv2"} {
-		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
-			abs, _ := filepath.Abs(candidate)
-			return abs
-		}
-	}
-	return ""
-}
-
 func resolveConsoleProtoPath(cloudv2Root string) string {
-	if repoRoot, err := findRepoRoot(); err == nil {
+	if repoRoot, err := cmdutil.FindRepoRoot(); err == nil {
 		exportDir := filepath.Join(repoRoot, ".build", "console-protos")
 		if info, statErr := os.Stat(exportDir); statErr == nil && info.IsDir() {
 			return exportDir
@@ -435,21 +421,4 @@ func resolveConsoleProtoPath(cloudv2Root string) string {
 		}
 	}
 	return ""
-}
-
-func findRepoRoot() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", os.ErrNotExist
-		}
-		dir = parent
-	}
 }

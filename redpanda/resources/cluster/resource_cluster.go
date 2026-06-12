@@ -30,11 +30,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/redpanda-data/terraform-provider-redpanda/internal/clustermask"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	clustermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/cluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
-	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 var (
@@ -190,9 +190,10 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// The public-API mapper recognizes rpsql.enabled / rpsql.replicas but not
-	// the top-level "rpsql" path the diff emits, so expand it before the request.
-	expandRpsqlPath(mask)
+	// The public-API mapper accepts rpsql and kafka_connect only at leaf
+	// granularity, not the top-level path the diff emits, so expand those before
+	// the request (see internal/clustermask).
+	clustermask.ExpandLeafPaths(mask)
 	diffedPayload.Id = plan.ID.ValueString()
 	updateReq := &controlplanev1.UpdateClusterRequest{
 		Cluster:    diffedPayload,
@@ -230,23 +231,6 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 	}
 	tflog.Info(ctx, "cluster updated", map[string]any{"cluster_id": plan.ID.ValueString()})
 	resp.Diagnostics.Append(resp.State.Set(ctx, newState)...)
-}
-
-// expandRpsqlPath rewrites a top-level "rpsql" update-mask path into the
-// granular rpsql.enabled / rpsql.replicas paths the public-API mapper accepts.
-func expandRpsqlPath(fm *fieldmaskpb.FieldMask) {
-	if fm == nil {
-		return
-	}
-	out := make([]string, 0, len(fm.Paths)+1)
-	for _, p := range fm.Paths {
-		if p == "rpsql" {
-			out = append(out, "rpsql.enabled", "rpsql.replicas")
-			continue
-		}
-		out = append(out, p)
-	}
-	fm.Paths = out
 }
 
 // Delete deletes the Cluster resource.

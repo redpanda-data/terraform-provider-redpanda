@@ -18,24 +18,20 @@ api:
 
 name:
   required: true
-  description: "Name of the serverless private link"
   plan_modifiers: [RequiresReplace]
 
 resource_group_id:
   required: true
-  description: "The ID of the Resource Group in which to create the serverless private link"
   plan_modifiers: [RequiresReplace]
 
 cloudprovider:
   rename: cloud_provider
   required: true
-  description: "Cloud provider (aws)"
   plan_modifiers: [RequiresReplace]
   validator: CloudProviders
 
 serverless_region:
   required: true
-  description: "Redpanda serverless region"
   plan_modifiers: [RequiresReplace]
 
 # Proto oneof variant under the parent's cloud_provider_config oneof.
@@ -45,12 +41,9 @@ serverless_region:
 aws_config:
   optional: true
   computed: true
-  description: "AWS-specific configuration. Required when cloud_provider is 'aws'."
   fields:
     allowed_principals:
       required: true
-      description: "AWS principals (ARNs) allowed to connect to the private link endpoint"
-      validator: "ListSizeAtLeast{n: 1}"
 
     allowed_regions:
       todo: true
@@ -86,30 +79,23 @@ allow_deletion:
   optional: true
   computed: true
   default: false
-  description: "Allows deletion of the serverless private link. Defaults to false."
 
 id:
   computed_only: true
-  description: "The ID of the serverless private link"
 
 state:
   computed_only: true
-  description: "Current state of the serverless private link (STATE_CREATING, STATE_READY, STATE_DELETING, STATE_FAILED, STATE_UPDATING)"
 
 # Status proto shape: ServerlessPrivateLinkStatus { cloud_provider oneof
 # { aws *ServerlessPrivateLinkStatus_AWS } }. The 4.1 oneof machinery
 # emits FlattenStatusAWS + SetAws into the parent.
 status:
   computed_only: true
-  description: "Cloud provider specific status information"
   fields:
     aws:
       computed: true
-      description: "AWS-specific status information"
       fields:
         vpc_endpoint_service_name:
           computed_only: true
-          description: "VPC endpoint service name for connecting to the private link"
         availability_zones:
           computed_only: true
-          description: "Availability zones where the private link endpoint service is available"
