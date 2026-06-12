@@ -122,19 +122,29 @@ func (p *Pipeline) Create(ctx context.Context, req resource.CreateRequest, resp 
 
 	if desiredState == pipelinemodel.StateRunning && !isCurrentlyRunning {
 		updatedPipeline, warning, ok := p.startPipeline(ctx, pipeline.GetId(), createTimeout)
-		if !ok {
+		switch {
+		case !ok:
 			resp.Diagnostics.AddWarning("pipeline failed to reach desired state",
 				fmt.Sprintf("Pipeline %s was created but failed to start within the timeout. Run 'terraform apply' again to retry: %s", pipeline.GetId(), warning))
-		} else if updatedPipeline != nil {
+		case updatedPipeline != nil:
 			pipeline = updatedPipeline
+		case warning != "":
+			resp.Diagnostics.AddWarning("pipeline state may be stale", warning)
+		default:
+			// succeeded with refreshed state already applied
 		}
 	} else if desiredState == pipelinemodel.StateStopped && isCurrentlyRunning {
 		updatedPipeline, warning, ok := p.stopPipeline(ctx, pipeline.GetId(), createTimeout)
-		if !ok {
+		switch {
+		case !ok:
 			resp.Diagnostics.AddWarning("pipeline failed to reach desired state",
 				fmt.Sprintf("Pipeline %s was created but failed to stop within the timeout. Run 'terraform apply' again to retry: %s", pipeline.GetId(), warning))
-		} else if updatedPipeline != nil {
+		case updatedPipeline != nil:
 			pipeline = updatedPipeline
+		case warning != "":
+			resp.Diagnostics.AddWarning("pipeline state may be stale", warning)
+		default:
+			// succeeded with refreshed state already applied
 		}
 	}
 
@@ -340,11 +350,16 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 
 	if desiredState == pipelinemodel.StateRunning {
 		updatedPipeline, warning, ok := p.startPipeline(ctx, pipelineID, updateTimeout)
-		if !ok {
+		switch {
+		case !ok:
 			resp.Diagnostics.AddWarning("pipeline failed to reach desired state",
 				fmt.Sprintf("Pipeline %s was updated but failed to start within the timeout. Run 'terraform apply' again to retry: %s", pipelineID, warning))
-		} else if updatedPipeline != nil {
+		case updatedPipeline != nil:
 			pipeline = updatedPipeline
+		case warning != "":
+			resp.Diagnostics.AddWarning("pipeline state may be stale", warning)
+		default:
+			// succeeded with refreshed state already applied
 		}
 	}
 
@@ -481,7 +496,9 @@ func (p *Pipeline) startPipeline(ctx context.Context, pipelineID string, timeout
 		Id: pipelineID,
 	})
 	if err != nil {
-		return nil, "", true // Started but couldn't refresh state
+		// Started, but the post-start refresh failed. Report success (ok=true)
+		// with a warning so the stale state is surfaced rather than swallowed.
+		return nil, fmt.Sprintf("pipeline started but its state could not be refreshed; the recorded state may be stale until the next apply: %s", utils.DeserializeGrpcError(err)), true
 	}
 	return getResp.GetPipeline(), "", true
 }
@@ -506,7 +523,9 @@ func (p *Pipeline) stopPipeline(ctx context.Context, pipelineID string, timeout 
 		Id: pipelineID,
 	})
 	if err != nil {
-		return nil, "", true // Stopped but couldn't refresh state
+		// Stopped, but the post-stop refresh failed. Report success (ok=true)
+		// with a warning so the stale state is surfaced rather than swallowed.
+		return nil, fmt.Sprintf("pipeline stopped but its state could not be refreshed; the recorded state may be stale until the next apply: %s", utils.DeserializeGrpcError(err)), true
 	}
 	return getResp.GetPipeline(), "", true
 }
