@@ -82,6 +82,20 @@ func StringToCommonACLResource(s string) commonv1.ACLResource {
 	return commonv1.ACLResource_ACL_RESOURCE_UNSPECIFIED
 }
 
+// CloudProviderAccessStateToString maps a proto enum value to its TF string form.
+func CloudProviderAccessStateToString(e controlplanev1.CloudProviderAccess_State) string {
+	return strings.TrimPrefix(e.String(), "STATE_")
+}
+
+// StringToCloudProviderAccessState maps a TF string back to the proto enum.
+// Returns the UNSPECIFIED value for unknown inputs.
+func StringToCloudProviderAccessState(s string) controlplanev1.CloudProviderAccess_State {
+	if v, ok := controlplanev1.CloudProviderAccess_State_value["STATE_"+s]; ok {
+		return controlplanev1.CloudProviderAccess_State(v)
+	}
+	return controlplanev1.CloudProviderAccess_STATE_UNSPECIFIED
+}
+
 // NetworkPeeringStateToString maps a proto enum value to its TF string form.
 func NetworkPeeringStateToString(e controlplanev1.NetworkPeering_State) string {
 	return strings.TrimPrefix(e.String(), "STATE_")
@@ -136,6 +150,20 @@ func StringToPrivateLinkAuthMode(s string) controlplanev1.PrivateLinkAuthMode {
 		return controlplanev1.PrivateLinkAuthMode(v)
 	}
 	return controlplanev1.PrivateLinkAuthMode_PRIVATE_LINK_AUTH_MODE_UNSPECIFIED
+}
+
+// ScheduledOperationStateToString maps a proto enum value to its TF string form.
+func ScheduledOperationStateToString(e controlplanev1.ScheduledOperation_State) string {
+	return strings.TrimPrefix(e.String(), "STATE_")
+}
+
+// StringToScheduledOperationState maps a TF string back to the proto enum.
+// Returns the UNSPECIFIED value for unknown inputs.
+func StringToScheduledOperationState(s string) controlplanev1.ScheduledOperation_State {
+	if v, ok := controlplanev1.ScheduledOperation_State_value["STATE_"+s]; ok {
+		return controlplanev1.ScheduledOperation_State(v)
+	}
+	return controlplanev1.ScheduledOperation_STATE_UNSPECIFIED
 }
 
 // ShadowLink_StateToString maps a proto enum value to its TF string form.
