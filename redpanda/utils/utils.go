@@ -616,11 +616,11 @@ func GetStringFromAttributes(key string, attributes map[string]attr.Value) (stri
 func GetARNListFromAttributes(key string, att map[string]attr.Value) ([]string, error) {
 	attVal, ok := att[key].(basetypes.ObjectValue)
 	if !ok {
-		return nil, fmt.Errorf(fmt.Sprintf("%s not found", key), "object is missing or malformed for network resource")
+		return nil, fmt.Errorf("%s not found: object is missing or malformed for network resource", key)
 	}
 	rt, ok := attVal.Attributes()["arns"].(types.List)
 	if !ok {
-		return nil, fmt.Errorf(fmt.Sprintf("%s not found", key), "list is missing or malformed for network resource")
+		return nil, fmt.Errorf("%s not found: list is missing or malformed for network resource", key)
 	}
 	return TypeListToStringSlice(rt), nil
 }
