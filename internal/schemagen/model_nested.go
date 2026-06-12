@@ -198,23 +198,29 @@ func attrTypeExpr(a *SchemaAttr, parentPath, prefix string) (string, error) {
 	case AttrTypeMap:
 		return fmt.Sprintf("types.MapType{ElemType: %s}", elementAttrType(a.ElementType)), nil
 	case AttrTypeSingleNested, AttrTypeObject:
-		path := joinPath(parentPath, a.Name)
-		return fmt.Sprintf("types.ObjectType{AttrTypes: %s()}", prefix+pathToPascal(path)+"AttrTypes"), nil
+		return fmt.Sprintf("types.ObjectType{AttrTypes: %s()}", nestedAttrTypesFn(prefix, parentPath, a.Name)), nil
 	case AttrTypeListNested:
-		path := joinPath(parentPath, a.Name)
-		return fmt.Sprintf("types.ListType{ElemType: types.ObjectType{AttrTypes: %s()}}",
-			prefix+pathToPascal(path)+"AttrTypes"), nil
+		return nestedContainerExpr("List", prefix, parentPath, a.Name), nil
 	case AttrTypeSetNested:
-		path := joinPath(parentPath, a.Name)
-		return fmt.Sprintf("types.SetType{ElemType: types.ObjectType{AttrTypes: %s()}}",
-			prefix+pathToPascal(path)+"AttrTypes"), nil
+		return nestedContainerExpr("Set", prefix, parentPath, a.Name), nil
 	case AttrTypeMapNested:
-		path := joinPath(parentPath, a.Name)
-		return fmt.Sprintf("types.MapType{ElemType: types.ObjectType{AttrTypes: %s()}}",
-			prefix+pathToPascal(path)+"AttrTypes"), nil
+		return nestedContainerExpr("Map", prefix, parentPath, a.Name), nil
 	default:
 		return "", fmt.Errorf("schemagen: unsupported AttrType %q for attrTypeExpr", a.AttrType)
 	}
+}
+
+// nestedAttrTypesFn returns the generated AttrTypes helper name for a nested
+// attribute, e.g. "ClusterAwsPrivateLinkAttrTypes".
+func nestedAttrTypesFn(prefix, parentPath, name string) string {
+	return prefix + pathToPascal(joinPath(parentPath, name)) + "AttrTypes"
+}
+
+// nestedContainerExpr builds the framework type expression for a List/Set/Map
+// of nested objects, e.g. types.ListType{ElemType: types.ObjectType{...}}.
+func nestedContainerExpr(container, prefix, parentPath, name string) string {
+	return fmt.Sprintf("types.%sType{ElemType: types.ObjectType{AttrTypes: %s()}}",
+		container, nestedAttrTypesFn(prefix, parentPath, name))
 }
 
 func scalarAttrType(attrType string) (string, error) {

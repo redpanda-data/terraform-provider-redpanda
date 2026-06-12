@@ -641,9 +641,8 @@ func planField(a *SchemaAttr, fc *FieldConfig, protoByName map[string]*ProtoFiel
 				expandDefault = fmt.Sprintf("modelconv.MapToStringsWithDiags(ctx, m.%s, &diags)", conv.GoName)
 			case pf.Kind == protoKindEnum:
 				conv.Kind = FieldKindEnum
-				fnName := enumsFunctionName(pf)
-				flattenDefault = fmt.Sprintf("types.StringValue(enums.%sToString(proto.Get%s()))", fnName, conv.ProtoGoName)
-				expandDefault = fmt.Sprintf("enums.StringTo%s(m.%s.ValueString())", fnName, conv.GoName)
+				flattenDefault = enumFlattenExpr(pf, conv.ProtoGoName)
+				expandDefault = enumExpandExpr(pf, conv.GoName)
 			default:
 				flattenDefault = fmt.Sprintf("types.StringValue(proto.Get%s())", conv.ProtoGoName)
 			}
@@ -698,13 +697,11 @@ func planField(a *SchemaAttr, fc *FieldConfig, protoByName map[string]*ProtoFiel
 	if pf.Kind == protoKindEnum {
 		conv.Kind = FieldKindEnum
 		_ = protoAlias
-		fnName := enumsFunctionName(pf)
 		if conv.FlattenExpr == "" {
-			conv.FlattenExpr = fmt.Sprintf("types.StringValue(enums.%sToString(proto.Get%s()))",
-				fnName, conv.ProtoGoName)
+			conv.FlattenExpr = enumFlattenExpr(pf, conv.ProtoGoName)
 		}
 		if conv.ExpandExpr == "" {
-			conv.ExpandExpr = fmt.Sprintf("enums.StringTo%s(m.%s.ValueString())", fnName, conv.GoName)
+			conv.ExpandExpr = enumExpandExpr(pf, conv.GoName)
 		}
 		return conv, nil
 	}
@@ -929,7 +926,7 @@ func planFlatField(a *SchemaAttr, fc *FieldConfig, pf *ProtoField, protoAlias, n
 		return conv, nil
 	}
 	if pf != nil && pf.Kind == protoKindEnum {
-		conv.ExpandExpr = fmt.Sprintf("enums.StringTo%s(m.%s.ValueString())", enumsFunctionName(pf), conv.GoName)
+		conv.ExpandExpr = enumExpandExpr(pf, conv.GoName)
 		return conv, nil
 	}
 	switch a.AttrType {
@@ -1525,6 +1522,17 @@ func enumsFunctionName(pf *ProtoField) string {
 		return prefix + name
 	}
 	return prefix + strings.ReplaceAll(name, "_", "")
+}
+
+// enumFlattenExpr renders the proto-enum -> TF-string conversion for a flatten
+// body. enumExpandExpr renders the reverse. Both centralize the codegen's
+// coupling to the hand-written enums package API.
+func enumFlattenExpr(pf *ProtoField, protoGoName string) string {
+	return fmt.Sprintf("types.StringValue(enums.%sToString(proto.Get%s()))", enumsFunctionName(pf), protoGoName)
+}
+
+func enumExpandExpr(pf *ProtoField, goName string) string {
+	return fmt.Sprintf("enums.StringTo%s(m.%s.ValueString())", enumsFunctionName(pf), goName)
 }
 
 func upperRune(r rune) rune {
