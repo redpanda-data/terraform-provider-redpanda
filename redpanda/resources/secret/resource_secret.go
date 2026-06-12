@@ -124,7 +124,11 @@ func (s *Secret) Create(ctx context.Context, req resource.CreateRequest, resp *r
 		return
 	}
 
-	persist := secretmodel.GetUpdatedModel(ctx, createdSecret)
+	persist, persistDiags := secretmodel.GetUpdatedModel(ctx, createdSecret)
+	resp.Diagnostics.Append(persistDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	persist.ClusterAPIURL = model.ClusterAPIURL
 	persist.AllowDeletion = model.AllowDeletion
 	persist.SecretDataVersion = effectiveVersion(model.SecretDataVersion)
@@ -172,7 +176,11 @@ func (s *Secret) Read(ctx context.Context, req resource.ReadRequest, resp *resou
 		return
 	}
 
-	persist := secretmodel.GetUpdatedModel(ctx, got.GetSecret())
+	persist, persistDiags := secretmodel.GetUpdatedModel(ctx, got.GetSecret())
+	resp.Diagnostics.Append(persistDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	persist.ClusterAPIURL = model.ClusterAPIURL
 	persist.AllowDeletion = model.AllowDeletion
 	persist.SecretDataVersion = effectiveVersion(model.SecretDataVersion)
@@ -238,7 +246,11 @@ func (s *Secret) Update(ctx context.Context, req resource.UpdateRequest, resp *r
 		return
 	}
 
-	persist := secretmodel.GetUpdatedModel(ctx, updated.GetSecret())
+	persist, persistDiags := secretmodel.GetUpdatedModel(ctx, updated.GetSecret())
+	resp.Diagnostics.Append(persistDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	persist.ClusterAPIURL = plan.ClusterAPIURL
 	persist.AllowDeletion = plan.AllowDeletion
 	persist.SecretDataVersion = effectiveVersion(plan.SecretDataVersion)

@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"github.com/twmb/franz-go/pkg/sr"
@@ -69,7 +70,7 @@ func (r *ResourceModel) GetVersion() *int {
 }
 
 // UpdateFromSchema updates the model from a schema registry response
-func (r *ResourceModel) UpdateFromSchema(schemaResp sr.SubjectSchema) {
+func (r *ResourceModel) UpdateFromSchema(schemaResp sr.SubjectSchema) diag.Diagnostics {
 	r.ID = types.Int64Value(int64(schemaResp.ID))
 	r.Version = types.Int64Value(int64(schemaResp.Version))
 
@@ -81,56 +82,42 @@ func (r *ResourceModel) UpdateFromSchema(schemaResp sr.SubjectSchema) {
 	}
 
 	r.SchemaType = types.StringValue(strings.ToUpper(schemaResp.Type.String()))
-	r.References = r.convertReferencesToTerraform(schemaResp.References)
+	refsList, diags := r.convertReferencesToTerraform(schemaResp.References)
+	r.References = refsList
+	return diags
 }
 
 // convertReferencesToTerraform converts sr.SchemaReference slice to Terraform List type
-func (*ResourceModel) convertReferencesToTerraform(refs []sr.SchemaReference) types.List {
+func (*ResourceModel) convertReferencesToTerraform(refs []sr.SchemaReference) (types.List, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	objType := types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"name":    types.StringType,
+			"subject": types.StringType,
+			"version": types.Int64Type,
+		},
+	}
 	if len(refs) == 0 {
-		return types.ListNull(types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"name":    types.StringType,
-				"subject": types.StringType,
-				"version": types.Int64Type,
-			},
-		})
+		return types.ListNull(objType), diags
 	}
 
-	references := make([]types.Object, 0, len(refs))
+	elems := make([]attr.Value, 0, len(refs))
 	for _, ref := range refs {
-		refObj, _ := types.ObjectValue(
-			map[string]attr.Type{
-				"name":    types.StringType,
-				"subject": types.StringType,
-				"version": types.Int64Type,
-			},
+		refObj, d := types.ObjectValue(
+			objType.AttrTypes,
 			map[string]attr.Value{
 				"name":    types.StringValue(ref.Name),
 				"subject": types.StringValue(ref.Subject),
 				"version": types.Int64Value(int64(ref.Version)),
 			},
 		)
-		references = append(references, refObj)
+		diags.Append(d...)
+		elems = append(elems, refObj)
 	}
 
-	refsList, _ := types.ListValue(
-		types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"name":    types.StringType,
-				"subject": types.StringType,
-				"version": types.Int64Type,
-			},
-		},
-		func() []attr.Value {
-			result := make([]attr.Value, len(references))
-			for i, ref := range references {
-				result[i] = ref
-			}
-			return result
-		}(),
-	)
-
-	return refsList
+	refsList, d := types.ListValue(objType, elems)
+	diags.Append(d...)
+	return refsList, diags
 }
 
 // ToSchemaRequest converts the ResourceModel to a sr.Schema for API requests

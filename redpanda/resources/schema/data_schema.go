@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/base"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
@@ -156,30 +157,35 @@ func (d *SchemaDataSource) Read(ctx context.Context, request datasource.ReadRequ
 	cfg.Version = types.Int64Value(int64(sub.Version))
 	cfg.Schema = types.StringValue(sub.Schema.Schema)
 	cfg.SchemaType = types.StringValue(strings.ToUpper(sub.Type.String()))
-	cfg.References = convertRefsToList(sub.References)
+	refsList, refDiags := convertRefsToList(sub.References)
+	response.Diagnostics.Append(refDiags...)
+	cfg.References = refsList
 
 	response.Diagnostics.Append(response.State.Set(ctx, &cfg)...)
 }
 
 // convertRefsToList converts sr.SchemaReference slice to a Terraform types.List.
-func convertRefsToList(refs []sr.SchemaReference) types.List {
+func convertRefsToList(refs []sr.SchemaReference) (types.List, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	attrTypes := map[string]attr.Type{
 		"name":    types.StringType,
 		"subject": types.StringType,
 		"version": types.Int64Type,
 	}
 	if len(refs) == 0 {
-		return types.ListNull(types.ObjectType{AttrTypes: attrTypes})
+		return types.ListNull(types.ObjectType{AttrTypes: attrTypes}), diags
 	}
 	elems := make([]attr.Value, 0, len(refs))
 	for _, ref := range refs {
-		obj, _ := types.ObjectValue(attrTypes, map[string]attr.Value{
+		obj, d := types.ObjectValue(attrTypes, map[string]attr.Value{
 			"name":    types.StringValue(ref.Name),
 			"subject": types.StringValue(ref.Subject),
 			"version": types.Int64Value(int64(ref.Version)),
 		})
+		diags.Append(d...)
 		elems = append(elems, obj)
 	}
-	list, _ := types.ListValue(types.ObjectType{AttrTypes: attrTypes}, elems)
-	return list
+	list, d := types.ListValue(types.ObjectType{AttrTypes: attrTypes}, elems)
+	diags.Append(d...)
+	return list, diags
 }

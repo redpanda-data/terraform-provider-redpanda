@@ -55,7 +55,8 @@ func stripServerManagedLabels(in map[string]string) map[string]string {
 }
 
 // GetUpdatedModel populates a Secret resource model from the dataplane Secret response.
-func GetUpdatedModel(ctx context.Context, s *dataplanev1.Secret) *ResourceModel {
+func GetUpdatedModel(ctx context.Context, s *dataplanev1.Secret) (*ResourceModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	out := &ResourceModel{
 		Name: types.StringValue(s.GetId()),
 		ID:   types.StringValue(s.GetId()),
@@ -66,17 +67,19 @@ func GetUpdatedModel(ctx context.Context, s *dataplanev1.Secret) *ResourceModel 
 	for _, sc := range scopes {
 		scopeStrs = append(scopeStrs, sc.String())
 	}
-	scopesVal, _ := types.SetValueFrom(ctx, types.StringType, scopeStrs)
+	scopesVal, d := types.SetValueFrom(ctx, types.StringType, scopeStrs)
+	diags.Append(d...)
 	out.Scopes = scopesVal
 
 	labels := stripServerManagedLabels(s.GetLabels())
 	if len(labels) == 0 {
 		out.Labels = types.MapNull(types.StringType)
 	} else {
-		labelsVal, _ := types.MapValueFrom(ctx, types.StringType, labels)
+		labelsVal, d := types.MapValueFrom(ctx, types.StringType, labels)
+		diags.Append(d...)
 		out.Labels = labelsVal
 	}
-	return out
+	return out, diags
 }
 
 // StringsToScopes converts a Terraform set of scope-name strings to proto Scope enum values.
