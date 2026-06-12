@@ -251,19 +251,7 @@ func {{.FlattenFunc}}({{if .FlattenUsesCtx}}ctx{{else}}_{{end}} context.Context,
 {{- else if .FlattenStmt}}
 	{{.FlattenStmt}}
 {{- else if .FlattenExpr}}
-{{- if .HasPresence}}
-	if proto.Has{{.ProtoGoName}}() {
-		m.{{.GoName}} = {{.FlattenExpr}}
-	} else if prev != nil && !prev.{{.GoName}}.IsUnknown() {
-		m.{{.GoName}} = prev.{{.GoName}}
-{{- if .NullExpr}}
-	} else {
-		m.{{.GoName}} = {{.NullExpr}}
-{{- end}}
-	}
-{{- else}}
-	m.{{.GoName}} = {{.FlattenExpr}}
-{{- end}}
+{{- template "flattenExpr" .}}
 {{- end}}
 {{- end}}
 {{- range .RootFieldConversions}}
@@ -437,19 +425,7 @@ func Flatten{{.FuncSuffix}}({{if .FlattenUsesCtx}}ctx{{else}}_{{end}} context.Co
 {{- if .FlattenStmt}}
 	{{.FlattenStmt}}
 {{- else if .FlattenExpr}}
-{{- if .HasPresence}}
-	if proto.Has{{.ProtoGoName}}() {
-		m.{{.GoName}} = {{.FlattenExpr}}
-	} else if prev != nil && !prev.{{.GoName}}.IsUnknown() {
-		m.{{.GoName}} = prev.{{.GoName}}
-{{- if .NullExpr}}
-	} else {
-		m.{{.GoName}} = {{.NullExpr}}
-{{- end}}
-	}
-{{- else}}
-	m.{{.GoName}} = {{.FlattenExpr}}
-{{- end}}
+{{- template "flattenExpr" .}}
 {{- end}}
 {{- end}}
 	return m, diags
@@ -483,6 +459,21 @@ func Expand{{.FuncSuffix}}({{if .ExpandUsesCtx}}ctx{{else}}_{{end}} context.Cont
 }
 {{- end}}
 {{- end}}
+{{define "flattenExpr" -}}
+{{- if .HasPresence}}
+	if proto.Has{{.ProtoGoName}}() {
+		m.{{.GoName}} = {{.FlattenExpr}}
+	} else if prev != nil && !prev.{{.GoName}}.IsUnknown() {
+		m.{{.GoName}} = prev.{{.GoName}}
+{{- if .NullExpr}}
+	} else {
+		m.{{.GoName}} = {{.NullExpr}}
+{{- end}}
+	}
+{{- else}}
+	m.{{.GoName}} = {{.FlattenExpr}}
+{{- end}}
+{{- end -}}
 `
 
 // GenerateFlattenExpand renders flatten_gen.go + expand_gen.go (combined into
