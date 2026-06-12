@@ -35,8 +35,9 @@ Live acc tests require `REDPANDA_CLIENT_ID` + `REDPANDA_CLIENT_SECRET` and cloud
 - `task cleanup:redpanda:dry` — preview only
 
 ### Codegen / docs
-- `task generate:models` — regenerate `redpanda/models/*/*_gen.go` and `redpanda/resources/**/schema_*_gen.go` from `schema.yaml`
-- `task generate:clean` — delete all generated `*_gen.go` files under `redpanda/resources/` and `redpanda/models/`
+- `task generate:models` — regenerate enum mappers (`redpanda/utils/enums/enums_gen.go` via `cmd/enumgen`), then `redpanda/models/*/*_gen.go` and `redpanda/resources/**/schema_*_gen.go` from `schema.yaml`. enumgen runs first because the generated flatten/expand references the `enums.*` mappers; it is pinned to `internal/buf_dependencies.yaml` like schemagen.
+- `task generate:enums` — regenerate only the enum mappers
+- `task generate:clean` — delete all generated `*_gen.go` files under `redpanda/resources/`, `redpanda/models/`, and `redpanda/utils/enums/`
 - `task docs` — regenerate `docs/` via tfplugindocs
 - `task mock` — regenerate `redpanda/mocks/*`
 
