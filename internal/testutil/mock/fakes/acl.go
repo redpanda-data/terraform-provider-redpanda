@@ -86,7 +86,7 @@ func (f *ACLFake) ListACLs(_ context.Context, req *dataplanev1.ListACLsRequest) 
 	groups := map[resGroupKey][]*dataplanev1.ListACLsResponse_Policy{}
 	order := []resGroupKey{}
 	for k := range f.store {
-		if !matchListFilter(flt, k) {
+		if flt != nil && !matchACLFilter(flt, k) {
 			continue
 		}
 		g := resGroupKey{rtype: k.resourceType, rname: k.resourceName, rpattern: k.resourcePatternType}
@@ -120,7 +120,7 @@ func (f *ACLFake) DeleteACLs(_ context.Context, req *dataplanev1.DeleteACLsReque
 	defer f.mu.Unlock()
 	var matched []*dataplanev1.DeleteACLsResponse_MatchingACL
 	for k := range f.store {
-		if !matchDeleteFilter(flt, k) {
+		if flt != nil && !matchACLFilter(flt, k) {
 			continue
 		}
 		matched = append(matched, &dataplanev1.DeleteACLsResponse_MatchingACL{
@@ -137,40 +137,24 @@ func (f *ACLFake) DeleteACLs(_ context.Context, req *dataplanev1.DeleteACLsReque
 	return &dataplanev1.DeleteACLsResponse{MatchingAcls: matched}, nil
 }
 
-// matchListFilter applies wildcard-aware match semantics: enums at 0
-// (UNSPECIFIED) wildcard; proto3-optional string fields wildcard when unset.
-func matchListFilter(flt *dataplanev1.ListACLsRequest_Filter, k aclKey) bool {
-	if flt == nil {
-		return true
-	}
-	if flt.GetResourceType() != 0 && flt.GetResourceType() != k.resourceType {
-		return false
-	}
-	if flt.GetResourcePatternType() != 0 && flt.GetResourcePatternType() != k.resourcePatternType {
-		return false
-	}
-	if flt.GetOperation() != 0 && flt.GetOperation() != k.operation {
-		return false
-	}
-	if flt.GetPermissionType() != 0 && flt.GetPermissionType() != k.permissionType {
-		return false
-	}
-	if flt.HasResourceName() && flt.GetResourceName() != k.resourceName {
-		return false
-	}
-	if flt.HasPrincipal() && flt.GetPrincipal() != k.principal {
-		return false
-	}
-	if flt.HasHost() && flt.GetHost() != k.host {
-		return false
-	}
-	return true
+// aclFilter is the common shape of the List and Delete ACL request filters.
+type aclFilter interface {
+	GetResourceType() dataplanev1.ACL_ResourceType
+	GetResourcePatternType() dataplanev1.ACL_ResourcePatternType
+	GetOperation() dataplanev1.ACL_Operation
+	GetPermissionType() dataplanev1.ACL_PermissionType
+	HasResourceName() bool
+	GetResourceName() string
+	HasPrincipal() bool
+	GetPrincipal() string
+	HasHost() bool
+	GetHost() string
 }
 
-func matchDeleteFilter(flt *dataplanev1.DeleteACLsRequest_Filter, k aclKey) bool {
-	if flt == nil {
-		return true
-	}
+// matchACLFilter applies wildcard-aware match semantics: enums at 0
+// (UNSPECIFIED) wildcard; proto3-optional string fields wildcard when unset. A
+// nil filter (match-all) is handled by callers before reaching here.
+func matchACLFilter(flt aclFilter, k aclKey) bool {
 	if flt.GetResourceType() != 0 && flt.GetResourceType() != k.resourceType {
 		return false
 	}
