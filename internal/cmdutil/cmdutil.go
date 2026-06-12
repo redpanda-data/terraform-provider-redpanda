@@ -18,9 +18,12 @@ package cmdutil
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/redpanda-data/terraform-provider-redpanda/internal/bufdeps"
 )
 
 // FindRepoRoot walks up from the current working directory to the first
@@ -68,4 +71,19 @@ func ResolveCloudv2Root(flagValue string) string {
 	}
 
 	return ""
+}
+
+// AssertCloudv2Pinned fails when the local cloudv2 checkout at cloudv2Root has
+// drifted from the SHA pinned in internal/buf_dependencies.yaml, so codegen
+// binaries don't silently emit output from an unpinned cloudv2.
+func AssertCloudv2Pinned(cloudv2Root string) error {
+	repoRoot, err := FindRepoRoot()
+	if err != nil {
+		return fmt.Errorf("resolve repo root: %w", err)
+	}
+	deps, err := bufdeps.Read(bufdeps.DefaultPath(repoRoot))
+	if err != nil {
+		return fmt.Errorf("read pin file: %w", err)
+	}
+	return bufdeps.AssertCheckoutAt(cloudv2Root, deps.Cloudv2.SHA, "cloudv2")
 }
