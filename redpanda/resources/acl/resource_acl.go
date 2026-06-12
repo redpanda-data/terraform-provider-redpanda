@@ -17,10 +17,8 @@ package acl
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
@@ -34,10 +32,6 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils/enums"
 )
-
-// Per-RPC retry budget for dataplane calls (e.g., the freshly-provisioned-cluster
-// DNS-propagation window). Sized to fit ~5 attempts under Retry's 1s→60s cap.
-const dataplaneRetryTimeout = 2 * time.Minute
 
 // ACL represents the ACL Terraform resource.
 type ACL struct {
@@ -127,7 +121,7 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		return false
 	}
 
-	err := utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		_, rpcErr := a.ACLClient.CreateACL(ctx, pbReq)
 		if rpcErr == nil {
 			return nil
@@ -182,7 +176,7 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 
 	filter := buildACLFilter(&model)
 	var aclList *dataplanev1.ListACLsResponse
-	err := utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		var rpcErr error
 		aclList, rpcErr = a.ACLClient.ListACLs(ctx, &dataplanev1.ListACLsRequest{Filter: filter})
 		if rpcErr != nil {
@@ -271,7 +265,7 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 	}
 
 	var deleteResponse *dataplanev1.DeleteACLsResponse
-	err := utils.Retry(ctx, dataplaneRetryTimeout, func() *utils.RetryError {
+	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		var rpcErr error
 		deleteResponse, rpcErr = a.ACLClient.DeleteACLs(ctx, pbReq)
 		if rpcErr != nil {
@@ -315,14 +309,11 @@ func (a *ACL) createACLClient(ctx context.Context, clusterURL string) error {
 	if a.ACLClient != nil {
 		return nil
 	}
-	if a.resData.DataplaneConnPool == nil {
-		return errors.New("provider not configured: dataplane connection pool is nil")
-	}
-	conn, err := a.resData.DataplaneConnPool.GetConnection(ctx, clusterURL)
+	client, err := utils.NewDataplaneClient(ctx, a.resData.DataplaneConnPool, clusterURL, dataplanev1grpc.NewACLServiceClient)
 	if err != nil {
-		return fmt.Errorf("unable to open a connection with the cluster API: %v", err)
+		return err
 	}
-	a.ACLClient = dataplanev1grpc.NewACLServiceClient(conn)
+	a.ACLClient = client
 	return nil
 }
 

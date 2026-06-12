@@ -17,10 +17,8 @@ package topic
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
 	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
@@ -123,7 +121,7 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 
 	topicName := plan.Name.ValueString()
 	var topic *dataplanev1.CreateTopicResponse
-	err = utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+	err = utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		var createErr error
 		topic, createErr = t.TopicClient.CreateTopic(ctx, req)
 		if createErr != nil {
@@ -174,7 +172,7 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 
 	// Configuration sync — separate Get-after-Create RPC, then update state.
 	var tpCfgRes *dataplanev1.GetTopicConfigurationsResponse
-	err = utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+	err = utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		var cfgErr error
 		tpCfgRes, cfgErr = t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: state.Name.ValueString()})
 		if cfgErr != nil {
@@ -221,7 +219,7 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 	}
 
 	var tp *dataplanev1.ListTopicsResponse_Topic
-	err := utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		var findErr error
 		tp, findErr = utils.FindTopicByName(ctx, topicName, t.TopicClient)
 		if findErr != nil {
@@ -241,7 +239,7 @@ func (t *Topic) Read(ctx context.Context, request resource.ReadRequest, response
 		return
 	}
 	var tpCfgRes *dataplanev1.GetTopicConfigurationsResponse
-	err = utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+	err = utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		var cfgErr error
 		tpCfgRes, cfgErr = t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: tp.Name})
 		if cfgErr != nil {
@@ -288,7 +286,7 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 			response.Diagnostics.AddError("unable to parse the plan topic configuration", utils.DeserializeGrpcError(err))
 			return
 		}
-		err = utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+		err = utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 			_, setErr := t.TopicClient.SetTopicConfigurations(ctx, &dataplanev1.SetTopicConfigurationsRequest{
 				TopicName:      plan.Name.ValueString(),
 				Configurations: cfgToSet,
@@ -310,7 +308,7 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 	from := state.PartitionCount.ValueBigFloat()
 
 	if to.Cmp(from) > 0 {
-		err := utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+		err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 			_, setErr := t.TopicClient.SetTopicPartitions(ctx, &dataplanev1.SetTopicPartitionsRequest{
 				TopicName:      plan.Name.ValueString(),
 				PartitionCount: *utils.NumberToInt32(plan.PartitionCount),
@@ -335,7 +333,7 @@ func (t *Topic) Update(ctx context.Context, request resource.UpdateRequest, resp
 	}
 
 	var tpCfgRes *dataplanev1.GetTopicConfigurationsResponse
-	err = utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+	err = utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		var cfgErr error
 		tpCfgRes, cfgErr = t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: plan.Name.ValueString()})
 		if cfgErr != nil {
@@ -383,7 +381,7 @@ func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, resp
 		return
 	}
 
-	err := utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		_, delErr := t.TopicClient.DeleteTopic(ctx, delReq)
 		if delErr != nil {
 			// A retry after a transient broker error may see the topic as
@@ -407,12 +405,11 @@ func (t *Topic) Delete(ctx context.Context, request resource.DeleteRequest, resp
 
 // ImportState imports the state of the Topic resource.
 func (t *Topic) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	split := strings.SplitN(req.ID, ",", 2)
-	if len(split) != 2 {
+	topicName, clusterID, ok := utils.SplitImportID(req.ID, ",")
+	if !ok {
 		resp.Diagnostics.AddError(fmt.Sprintf("wrong ID format: %v", req.ID), "ID format is <topic_name>,<cluster_id>")
 		return
 	}
-	topicName, clusterID := split[0], split[1]
 	dataplaneURL, err := t.CpCl.DataplaneURLForCluster(ctx, clusterID)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -440,14 +437,11 @@ func (t *Topic) createTopicClient(ctx context.Context, clusterURL string) error 
 		t.TopicClient = client
 		return nil
 	}
-	if t.resData.DataplaneConnPool == nil {
-		return errors.New("provider not configured: dataplane connection pool is nil")
-	}
-	conn, err := t.resData.DataplaneConnPool.GetConnection(ctx, clusterURL)
+	client, err := utils.NewDataplaneClient(ctx, t.resData.DataplaneConnPool, clusterURL, dataplanev1grpc.NewTopicServiceClient)
 	if err != nil {
-		return fmt.Errorf("unable to open a connection with the cluster API: %v", utils.DeserializeGrpcError(err))
+		return err
 	}
-	t.TopicClient = dataplanev1grpc.NewTopicServiceClient(conn)
+	t.TopicClient = client
 	return nil
 }
 
@@ -467,7 +461,7 @@ func (t *Topic) flattenInputAfterCreate(ctx context.Context, topic *dataplanev1.
 		}, nil
 	}
 	var tp *dataplanev1.ListTopicsResponse_Topic
-	if err := utils.Retry(ctx, 2*time.Minute, func() *utils.RetryError {
+	if err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		var e error
 		tp, e = utils.FindTopicByName(ctx, topicName, t.TopicClient)
 		if e != nil {
@@ -600,10 +594,13 @@ func isTransientBrokerError(err error) bool {
 }
 
 func isNotFoundError(err error) bool {
+	if utils.IsNotFound(err) {
+		return true
+	}
+	// Topic-specific server codes that IsNotFound's generic tokens don't cover.
 	msg := utils.DeserializeGrpcError(err)
 	return strings.Contains(msg, "NOT_FOUND") ||
-		strings.Contains(msg, "TOPIC_DOES_NOT_EXIST") ||
-		strings.Contains(msg, "does not exist")
+		strings.Contains(msg, "TOPIC_DOES_NOT_EXIST")
 }
 
 // partitionRequiresReplaceWhenShrinking is the RequiresReplaceIf predicate

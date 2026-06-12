@@ -206,17 +206,14 @@ func (r *Role) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 // ImportState imports the state of the Role resource.
 func (r *Role) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Expected format: role_name,cluster_id
-	split := strings.SplitN(req.ID, ",", 2)
-	if len(split) != 2 {
+	roleName, clusterID, ok := utils.SplitImportID(req.ID, ",")
+	if !ok {
 		resp.Diagnostics.AddError(
 			"Invalid import ID format",
 			"Expected format: role_name,cluster_id",
 		)
 		return
 	}
-
-	roleName := split[0]
-	clusterID := split[1]
 
 	dataplaneURL, err := r.CpCl.DataplaneURLForCluster(ctx, clusterID)
 	if err != nil {
@@ -244,11 +241,7 @@ func (r *Role) roleExists(ctx context.Context, roleName string) (bool, error) {
 
 	_, err := r.SecurityClient.GetRole(ctx, consoleReq)
 	if err != nil {
-		errStr := strings.ToLower(err.Error())
-		if strings.Contains(errStr, "not found") ||
-			strings.Contains(errStr, "notfound") ||
-			strings.Contains(errStr, "does not exist") ||
-			strings.Contains(errStr, "unknown role") {
+		if utils.IsNotFound(err) || strings.Contains(strings.ToLower(err.Error()), "unknown role") {
 			return false, nil
 		}
 		return false, err
