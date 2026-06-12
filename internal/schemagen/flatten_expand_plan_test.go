@@ -689,8 +689,8 @@ func TestUsesUtils_StmtPaths(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := usesUtils(tc.data); got != tc.want {
-				t.Errorf("usesUtils = %v, want %v", got, tc.want)
+			if got := dataReferencesPkg(tc.data, "utils."); got != tc.want {
+				t.Errorf("dataReferencesPkg(utils.) = %v, want %v", got, tc.want)
 			}
 		})
 	}
@@ -1054,8 +1054,8 @@ func TestUsesEnumsPkg_StmtPaths(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := usesEnumsPkg(tc.data); got != tc.want {
-				t.Errorf("usesEnumsPkg = %v, want %v", got, tc.want)
+			if got := dataReferencesPkg(tc.data, "enums."); got != tc.want {
+				t.Errorf("dataReferencesPkg(enums.) = %v, want %v", got, tc.want)
 			}
 		})
 	}

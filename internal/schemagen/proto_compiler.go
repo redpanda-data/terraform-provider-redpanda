@@ -163,10 +163,7 @@ func extractFieldFromDescriptor(
 	rootPkg string,
 ) (ProtoField, error) {
 	name := string(fd.Name())
-	path := name
-	if prefix != "" {
-		path = prefix + "." + name
-	}
+	path := joinPath(prefix, name)
 
 	loc := file.SourceLocations().ByDescriptor(fd)
 	comment := strings.TrimSpace(loc.LeadingComments)

@@ -33,17 +33,17 @@ func constraintSummary(rules *bufvalidate.FieldRules, fieldPath string) string {
 	case *bufvalidate.FieldRules_String_:
 		parts = append(parts, stringRuleSummary(t.String_)...)
 	case *bufvalidate.FieldRules_Int32:
-		parts = append(parts, numericRuleSummary(int32SummaryAdapter{t.Int32})...)
+		parts = append(parts, numericRuleSummary(int32Bounds(t.Int32))...)
 	case *bufvalidate.FieldRules_Int64:
-		parts = append(parts, numericRuleSummary(int64SummaryAdapter{t.Int64})...)
+		parts = append(parts, numericRuleSummary(int64Bounds(t.Int64))...)
 	case *bufvalidate.FieldRules_Uint32:
-		parts = append(parts, numericRuleSummary(uint32SummaryAdapter{t.Uint32})...)
+		parts = append(parts, numericRuleSummary(uint32Bounds(t.Uint32))...)
 	case *bufvalidate.FieldRules_Uint64:
-		parts = append(parts, numericRuleSummary(uint64SummaryAdapter{t.Uint64})...)
+		parts = append(parts, numericRuleSummary(uint64Bounds(t.Uint64))...)
 	case *bufvalidate.FieldRules_Float:
-		parts = append(parts, numericRuleSummary(float32SummaryAdapter{t.Float})...)
+		parts = append(parts, numericRuleSummary(float32Bounds(t.Float))...)
 	case *bufvalidate.FieldRules_Double:
-		parts = append(parts, numericRuleSummary(float64SummaryAdapter{t.Double})...)
+		parts = append(parts, numericRuleSummary(float64Bounds(t.Double))...)
 	case *bufvalidate.FieldRules_Enum:
 		parts = append(parts, enumRuleSummary(t.Enum)...)
 	case *bufvalidate.FieldRules_Bytes:
@@ -72,20 +72,37 @@ func constraintSummary(rules *bufvalidate.FieldRules, fieldPath string) string {
 	return strings.Join(parts, " ")
 }
 
-func stringRuleSummary(r *bufvalidate.StringRules) []string {
-	var parts []string
+// rangePhrases holds the four phrasings of a min/max range constraint: an
+// exact match (one operand), a both-bounds range (two operands), a lower bound
+// only, and an upper bound only.
+type rangePhrases struct {
+	exactly, between, atLeast, atMost string
+}
+
+// describeRange renders a min/max constraint into at most one sentence. nil
+// bounds are treated as unset.
+func describeRange[T comparable](minVal, maxVal *T, p rangePhrases) []string {
 	switch {
-	case r.MinLen != nil && r.MaxLen != nil && *r.MinLen == *r.MaxLen:
-		parts = append(parts, fmt.Sprintf("Length must be exactly %d.", *r.MinLen))
-	case r.MinLen != nil && r.MaxLen != nil:
-		parts = append(parts, fmt.Sprintf("Length must be between %d and %d.", *r.MinLen, *r.MaxLen))
-	case r.MinLen != nil:
-		parts = append(parts, fmt.Sprintf("Length must be at least %d.", *r.MinLen))
-	case r.MaxLen != nil:
-		parts = append(parts, fmt.Sprintf("Length must be at most %d.", *r.MaxLen))
+	case minVal != nil && maxVal != nil && *minVal == *maxVal:
+		return []string{fmt.Sprintf(p.exactly, *minVal)}
+	case minVal != nil && maxVal != nil:
+		return []string{fmt.Sprintf(p.between, *minVal, *maxVal)}
+	case minVal != nil:
+		return []string{fmt.Sprintf(p.atLeast, *minVal)}
+	case maxVal != nil:
+		return []string{fmt.Sprintf(p.atMost, *maxVal)}
 	default:
-		// no length constraint
+		return nil
 	}
+}
+
+func stringRuleSummary(r *bufvalidate.StringRules) []string {
+	parts := describeRange(r.MinLen, r.MaxLen, rangePhrases{
+		exactly: "Length must be exactly %d.",
+		between: "Length must be between %d and %d.",
+		atLeast: "Length must be at least %d.",
+		atMost:  "Length must be at most %d.",
+	})
 	if r.Pattern != nil && *r.Pattern != "" {
 		parts = append(parts, fmt.Sprintf("Must match pattern `%s`.", *r.Pattern))
 	}
@@ -129,36 +146,21 @@ func enumRuleSummary(r *bufvalidate.EnumRules) []string {
 }
 
 func bytesRuleSummary(r *bufvalidate.BytesRules) []string {
-	var parts []string
-	switch {
-	case r.MinLen != nil && r.MaxLen != nil && *r.MinLen == *r.MaxLen:
-		parts = append(parts, fmt.Sprintf("Byte length must be exactly %d.", *r.MinLen))
-	case r.MinLen != nil && r.MaxLen != nil:
-		parts = append(parts, fmt.Sprintf("Byte length must be between %d and %d.", *r.MinLen, *r.MaxLen))
-	case r.MinLen != nil:
-		parts = append(parts, fmt.Sprintf("Byte length must be at least %d.", *r.MinLen))
-	case r.MaxLen != nil:
-		parts = append(parts, fmt.Sprintf("Byte length must be at most %d.", *r.MaxLen))
-	default:
-		// no byte length constraint
-	}
-	return parts
+	return describeRange(r.MinLen, r.MaxLen, rangePhrases{
+		exactly: "Byte length must be exactly %d.",
+		between: "Byte length must be between %d and %d.",
+		atLeast: "Byte length must be at least %d.",
+		atMost:  "Byte length must be at most %d.",
+	})
 }
 
 func repeatedRuleSummary(r *bufvalidate.RepeatedRules) []string {
-	var parts []string
-	switch {
-	case r.MinItems != nil && r.MaxItems != nil && *r.MinItems == *r.MaxItems:
-		parts = append(parts, fmt.Sprintf("Must have exactly %d items.", *r.MinItems))
-	case r.MinItems != nil && r.MaxItems != nil:
-		parts = append(parts, fmt.Sprintf("Must have between %d and %d items.", *r.MinItems, *r.MaxItems))
-	case r.MinItems != nil:
-		parts = append(parts, fmt.Sprintf("Must have at least %d items.", *r.MinItems))
-	case r.MaxItems != nil:
-		parts = append(parts, fmt.Sprintf("Must have at most %d items.", *r.MaxItems))
-	default:
-		// no item count constraint
-	}
+	parts := describeRange(r.MinItems, r.MaxItems, rangePhrases{
+		exactly: "Must have exactly %d items.",
+		between: "Must have between %d and %d items.",
+		atLeast: "Must have at least %d items.",
+		atMost:  "Must have at most %d items.",
+	})
 	if r.GetUnique() {
 		parts = append(parts, "Items must be unique.")
 	}
@@ -166,374 +168,164 @@ func repeatedRuleSummary(r *bufvalidate.RepeatedRules) []string {
 }
 
 func mapRuleSummary(r *bufvalidate.MapRules) []string {
-	var parts []string
-	switch {
-	case r.MinPairs != nil && r.MaxPairs != nil && *r.MinPairs == *r.MaxPairs:
-		parts = append(parts, fmt.Sprintf("Must have exactly %d entries.", *r.MinPairs))
-	case r.MinPairs != nil && r.MaxPairs != nil:
-		parts = append(parts, fmt.Sprintf("Must have between %d and %d entries.", *r.MinPairs, *r.MaxPairs))
-	case r.MinPairs != nil:
-		parts = append(parts, fmt.Sprintf("Must have at least %d entries.", *r.MinPairs))
-	case r.MaxPairs != nil:
-		parts = append(parts, fmt.Sprintf("Must have at most %d entries.", *r.MaxPairs))
-	default:
-		// no entry count constraint
-	}
-	return parts
+	return describeRange(r.MinPairs, r.MaxPairs, rangePhrases{
+		exactly: "Must have exactly %d entries.",
+		between: "Must have between %d and %d entries.",
+		atLeast: "Must have at least %d entries.",
+		atMost:  "Must have at most %d entries.",
+	})
 }
 
-type numericSummary interface {
-	gte() (string, bool)
-	gt() (string, bool)
-	lte() (string, bool)
-	lt() (string, bool)
-	in() []string
-	notIn() []string
+// numericBounds holds the pre-formatted bound strings extracted from a numeric
+// buf.validate rule. A nil pointer means the bound is unset; gt/gte and lt/lte
+// are mutually exclusive within their oneof.
+type numericBounds struct {
+	gt, gte, lt, lte *string
+	in, notIn        []string
 }
 
-func numericRuleSummary(r numericSummary) []string {
+func numericRuleSummary(b numericBounds) []string {
 	var parts []string
-	gte, hasGTE := r.gte()
-	gt, hasGT := r.gt()
-	lte, hasLTE := r.lte()
-	lt, hasLT := r.lt()
 	switch {
-	case hasGTE && hasLTE:
-		parts = append(parts, fmt.Sprintf("Must be between %s and %s (inclusive).", gte, lte))
-	case hasGT && hasLT:
-		parts = append(parts, fmt.Sprintf("Must be greater than %s and less than %s.", gt, lt))
-	case hasGTE && hasLT:
-		parts = append(parts, fmt.Sprintf("Must be at least %s and less than %s.", gte, lt))
-	case hasGT && hasLTE:
-		parts = append(parts, fmt.Sprintf("Must be greater than %s and at most %s.", gt, lte))
-	case hasGTE:
-		parts = append(parts, fmt.Sprintf("Must be at least %s.", gte))
-	case hasGT:
-		parts = append(parts, fmt.Sprintf("Must be greater than %s.", gt))
-	case hasLTE:
-		parts = append(parts, fmt.Sprintf("Must be at most %s.", lte))
-	case hasLT:
-		parts = append(parts, fmt.Sprintf("Must be less than %s.", lt))
+	case b.gte != nil && b.lte != nil:
+		parts = append(parts, fmt.Sprintf("Must be between %s and %s (inclusive).", *b.gte, *b.lte))
+	case b.gt != nil && b.lt != nil:
+		parts = append(parts, fmt.Sprintf("Must be greater than %s and less than %s.", *b.gt, *b.lt))
+	case b.gte != nil && b.lt != nil:
+		parts = append(parts, fmt.Sprintf("Must be at least %s and less than %s.", *b.gte, *b.lt))
+	case b.gt != nil && b.lte != nil:
+		parts = append(parts, fmt.Sprintf("Must be greater than %s and at most %s.", *b.gt, *b.lte))
+	case b.gte != nil:
+		parts = append(parts, fmt.Sprintf("Must be at least %s.", *b.gte))
+	case b.gt != nil:
+		parts = append(parts, fmt.Sprintf("Must be greater than %s.", *b.gt))
+	case b.lte != nil:
+		parts = append(parts, fmt.Sprintf("Must be at most %s.", *b.lte))
+	case b.lt != nil:
+		parts = append(parts, fmt.Sprintf("Must be less than %s.", *b.lt))
 	default:
 		// no numeric bound
 	}
-	if vals := r.in(); len(vals) > 0 {
-		parts = append(parts, fmt.Sprintf("Must be one of: %s.", strings.Join(vals, ", ")))
+	if len(b.in) > 0 {
+		parts = append(parts, fmt.Sprintf("Must be one of: %s.", strings.Join(b.in, ", ")))
 	}
-	if vals := r.notIn(); len(vals) > 0 {
-		parts = append(parts, fmt.Sprintf("Must not be one of: %s.", strings.Join(vals, ", ")))
+	if len(b.notIn) > 0 {
+		parts = append(parts, fmt.Sprintf("Must not be one of: %s.", strings.Join(b.notIn, ", ")))
 	}
 	return parts
 }
 
-type int32SummaryAdapter struct{ r *bufvalidate.Int32Rules }
-
-func (a int32SummaryAdapter) gte() (string, bool) {
-	if g, ok := a.r.GetGreaterThan().(*bufvalidate.Int32Rules_Gte); ok {
-		return fmt.Sprintf("%d", g.Gte), true
-	}
-	return "", false
-}
-
-func (a int32SummaryAdapter) gt() (string, bool) {
-	if g, ok := a.r.GetGreaterThan().(*bufvalidate.Int32Rules_Gt); ok {
-		return fmt.Sprintf("%d", g.Gt), true
-	}
-	return "", false
-}
-
-func (a int32SummaryAdapter) lte() (string, bool) {
-	if l, ok := a.r.GetLessThan().(*bufvalidate.Int32Rules_Lte); ok {
-		return fmt.Sprintf("%d", l.Lte), true
-	}
-	return "", false
-}
-
-func (a int32SummaryAdapter) lt() (string, bool) {
-	if l, ok := a.r.GetLessThan().(*bufvalidate.Int32Rules_Lt); ok {
-		return fmt.Sprintf("%d", l.Lt), true
-	}
-	return "", false
-}
-
-func (a int32SummaryAdapter) in() []string {
-	if len(a.r.GetIn()) == 0 {
+func formatNumericSlice[T any](vals []T, verb string) []string {
+	if len(vals) == 0 {
 		return nil
 	}
-	out := make([]string, len(a.r.GetIn()))
-	for i, v := range a.r.GetIn() {
-		out[i] = fmt.Sprintf("%d", v)
+	out := make([]string, len(vals))
+	for i, v := range vals {
+		out[i] = fmt.Sprintf(verb, v)
 	}
 	return out
 }
 
-func (a int32SummaryAdapter) notIn() []string {
-	if len(a.r.GetNotIn()) == 0 {
-		return nil
+func ptrString(s string) *string { return &s }
+
+func int32Bounds(r *bufvalidate.Int32Rules) numericBounds {
+	b := numericBounds{in: formatNumericSlice(r.GetIn(), "%d"), notIn: formatNumericSlice(r.GetNotIn(), "%d")}
+	switch g := r.GetGreaterThan().(type) {
+	case *bufvalidate.Int32Rules_Gte:
+		b.gte = ptrString(fmt.Sprintf("%d", g.Gte))
+	case *bufvalidate.Int32Rules_Gt:
+		b.gt = ptrString(fmt.Sprintf("%d", g.Gt))
 	}
-	out := make([]string, len(a.r.GetNotIn()))
-	for i, v := range a.r.GetNotIn() {
-		out[i] = fmt.Sprintf("%d", v)
+	switch l := r.GetLessThan().(type) {
+	case *bufvalidate.Int32Rules_Lte:
+		b.lte = ptrString(fmt.Sprintf("%d", l.Lte))
+	case *bufvalidate.Int32Rules_Lt:
+		b.lt = ptrString(fmt.Sprintf("%d", l.Lt))
 	}
-	return out
+	return b
 }
 
-type int64SummaryAdapter struct{ r *bufvalidate.Int64Rules }
-
-func (a int64SummaryAdapter) gte() (string, bool) {
-	if g, ok := a.r.GetGreaterThan().(*bufvalidate.Int64Rules_Gte); ok {
-		return fmt.Sprintf("%d", g.Gte), true
+func int64Bounds(r *bufvalidate.Int64Rules) numericBounds {
+	b := numericBounds{in: formatNumericSlice(r.GetIn(), "%d"), notIn: formatNumericSlice(r.GetNotIn(), "%d")}
+	switch g := r.GetGreaterThan().(type) {
+	case *bufvalidate.Int64Rules_Gte:
+		b.gte = ptrString(fmt.Sprintf("%d", g.Gte))
+	case *bufvalidate.Int64Rules_Gt:
+		b.gt = ptrString(fmt.Sprintf("%d", g.Gt))
 	}
-	return "", false
+	switch l := r.GetLessThan().(type) {
+	case *bufvalidate.Int64Rules_Lte:
+		b.lte = ptrString(fmt.Sprintf("%d", l.Lte))
+	case *bufvalidate.Int64Rules_Lt:
+		b.lt = ptrString(fmt.Sprintf("%d", l.Lt))
+	}
+	return b
 }
 
-func (a int64SummaryAdapter) gt() (string, bool) {
-	if g, ok := a.r.GetGreaterThan().(*bufvalidate.Int64Rules_Gt); ok {
-		return fmt.Sprintf("%d", g.Gt), true
+func uint32Bounds(r *bufvalidate.UInt32Rules) numericBounds {
+	b := numericBounds{in: formatNumericSlice(r.GetIn(), "%d"), notIn: formatNumericSlice(r.GetNotIn(), "%d")}
+	switch g := r.GetGreaterThan().(type) {
+	case *bufvalidate.UInt32Rules_Gte:
+		b.gte = ptrString(fmt.Sprintf("%d", g.Gte))
+	case *bufvalidate.UInt32Rules_Gt:
+		b.gt = ptrString(fmt.Sprintf("%d", g.Gt))
 	}
-	return "", false
+	switch l := r.GetLessThan().(type) {
+	case *bufvalidate.UInt32Rules_Lte:
+		b.lte = ptrString(fmt.Sprintf("%d", l.Lte))
+	case *bufvalidate.UInt32Rules_Lt:
+		b.lt = ptrString(fmt.Sprintf("%d", l.Lt))
+	}
+	return b
 }
 
-func (a int64SummaryAdapter) lte() (string, bool) {
-	if l, ok := a.r.GetLessThan().(*bufvalidate.Int64Rules_Lte); ok {
-		return fmt.Sprintf("%d", l.Lte), true
+func uint64Bounds(r *bufvalidate.UInt64Rules) numericBounds {
+	b := numericBounds{in: formatNumericSlice(r.GetIn(), "%d"), notIn: formatNumericSlice(r.GetNotIn(), "%d")}
+	switch g := r.GetGreaterThan().(type) {
+	case *bufvalidate.UInt64Rules_Gte:
+		b.gte = ptrString(fmt.Sprintf("%d", g.Gte))
+	case *bufvalidate.UInt64Rules_Gt:
+		b.gt = ptrString(fmt.Sprintf("%d", g.Gt))
 	}
-	return "", false
+	switch l := r.GetLessThan().(type) {
+	case *bufvalidate.UInt64Rules_Lte:
+		b.lte = ptrString(fmt.Sprintf("%d", l.Lte))
+	case *bufvalidate.UInt64Rules_Lt:
+		b.lt = ptrString(fmt.Sprintf("%d", l.Lt))
+	}
+	return b
 }
 
-func (a int64SummaryAdapter) lt() (string, bool) {
-	if l, ok := a.r.GetLessThan().(*bufvalidate.Int64Rules_Lt); ok {
-		return fmt.Sprintf("%d", l.Lt), true
+func float32Bounds(r *bufvalidate.FloatRules) numericBounds {
+	b := numericBounds{in: formatNumericSlice(r.GetIn(), "%g"), notIn: formatNumericSlice(r.GetNotIn(), "%g")}
+	switch g := r.GetGreaterThan().(type) {
+	case *bufvalidate.FloatRules_Gte:
+		b.gte = ptrString(fmt.Sprintf("%g", g.Gte))
+	case *bufvalidate.FloatRules_Gt:
+		b.gt = ptrString(fmt.Sprintf("%g", g.Gt))
 	}
-	return "", false
+	switch l := r.GetLessThan().(type) {
+	case *bufvalidate.FloatRules_Lte:
+		b.lte = ptrString(fmt.Sprintf("%g", l.Lte))
+	case *bufvalidate.FloatRules_Lt:
+		b.lt = ptrString(fmt.Sprintf("%g", l.Lt))
+	}
+	return b
 }
 
-func (a int64SummaryAdapter) in() []string {
-	if len(a.r.GetIn()) == 0 {
-		return nil
+func float64Bounds(r *bufvalidate.DoubleRules) numericBounds {
+	b := numericBounds{in: formatNumericSlice(r.GetIn(), "%g"), notIn: formatNumericSlice(r.GetNotIn(), "%g")}
+	switch g := r.GetGreaterThan().(type) {
+	case *bufvalidate.DoubleRules_Gte:
+		b.gte = ptrString(fmt.Sprintf("%g", g.Gte))
+	case *bufvalidate.DoubleRules_Gt:
+		b.gt = ptrString(fmt.Sprintf("%g", g.Gt))
 	}
-	out := make([]string, len(a.r.GetIn()))
-	for i, v := range a.r.GetIn() {
-		out[i] = fmt.Sprintf("%d", v)
+	switch l := r.GetLessThan().(type) {
+	case *bufvalidate.DoubleRules_Lte:
+		b.lte = ptrString(fmt.Sprintf("%g", l.Lte))
+	case *bufvalidate.DoubleRules_Lt:
+		b.lt = ptrString(fmt.Sprintf("%g", l.Lt))
 	}
-	return out
-}
-
-func (a int64SummaryAdapter) notIn() []string {
-	if len(a.r.GetNotIn()) == 0 {
-		return nil
-	}
-	out := make([]string, len(a.r.GetNotIn()))
-	for i, v := range a.r.GetNotIn() {
-		out[i] = fmt.Sprintf("%d", v)
-	}
-	return out
-}
-
-type uint32SummaryAdapter struct{ r *bufvalidate.UInt32Rules }
-
-func (a uint32SummaryAdapter) gte() (string, bool) {
-	if g, ok := a.r.GetGreaterThan().(*bufvalidate.UInt32Rules_Gte); ok {
-		return fmt.Sprintf("%d", g.Gte), true
-	}
-	return "", false
-}
-
-func (a uint32SummaryAdapter) gt() (string, bool) {
-	if g, ok := a.r.GetGreaterThan().(*bufvalidate.UInt32Rules_Gt); ok {
-		return fmt.Sprintf("%d", g.Gt), true
-	}
-	return "", false
-}
-
-func (a uint32SummaryAdapter) lte() (string, bool) {
-	if l, ok := a.r.GetLessThan().(*bufvalidate.UInt32Rules_Lte); ok {
-		return fmt.Sprintf("%d", l.Lte), true
-	}
-	return "", false
-}
-
-func (a uint32SummaryAdapter) lt() (string, bool) {
-	if l, ok := a.r.GetLessThan().(*bufvalidate.UInt32Rules_Lt); ok {
-		return fmt.Sprintf("%d", l.Lt), true
-	}
-	return "", false
-}
-
-func (a uint32SummaryAdapter) in() []string {
-	if len(a.r.GetIn()) == 0 {
-		return nil
-	}
-	out := make([]string, len(a.r.GetIn()))
-	for i, v := range a.r.GetIn() {
-		out[i] = fmt.Sprintf("%d", v)
-	}
-	return out
-}
-
-func (a uint32SummaryAdapter) notIn() []string {
-	if len(a.r.GetNotIn()) == 0 {
-		return nil
-	}
-	out := make([]string, len(a.r.GetNotIn()))
-	for i, v := range a.r.GetNotIn() {
-		out[i] = fmt.Sprintf("%d", v)
-	}
-	return out
-}
-
-type uint64SummaryAdapter struct{ r *bufvalidate.UInt64Rules }
-
-func (a uint64SummaryAdapter) gte() (string, bool) {
-	if g, ok := a.r.GetGreaterThan().(*bufvalidate.UInt64Rules_Gte); ok {
-		return fmt.Sprintf("%d", g.Gte), true
-	}
-	return "", false
-}
-
-func (a uint64SummaryAdapter) gt() (string, bool) {
-	if g, ok := a.r.GetGreaterThan().(*bufvalidate.UInt64Rules_Gt); ok {
-		return fmt.Sprintf("%d", g.Gt), true
-	}
-	return "", false
-}
-
-func (a uint64SummaryAdapter) lte() (string, bool) {
-	if l, ok := a.r.GetLessThan().(*bufvalidate.UInt64Rules_Lte); ok {
-		return fmt.Sprintf("%d", l.Lte), true
-	}
-	return "", false
-}
-
-func (a uint64SummaryAdapter) lt() (string, bool) {
-	if l, ok := a.r.GetLessThan().(*bufvalidate.UInt64Rules_Lt); ok {
-		return fmt.Sprintf("%d", l.Lt), true
-	}
-	return "", false
-}
-
-func (a uint64SummaryAdapter) in() []string {
-	if len(a.r.GetIn()) == 0 {
-		return nil
-	}
-	out := make([]string, len(a.r.GetIn()))
-	for i, v := range a.r.GetIn() {
-		out[i] = fmt.Sprintf("%d", v)
-	}
-	return out
-}
-
-func (a uint64SummaryAdapter) notIn() []string {
-	if len(a.r.GetNotIn()) == 0 {
-		return nil
-	}
-	out := make([]string, len(a.r.GetNotIn()))
-	for i, v := range a.r.GetNotIn() {
-		out[i] = fmt.Sprintf("%d", v)
-	}
-	return out
-}
-
-type float32SummaryAdapter struct{ r *bufvalidate.FloatRules }
-
-func (a float32SummaryAdapter) gte() (string, bool) {
-	if g, ok := a.r.GetGreaterThan().(*bufvalidate.FloatRules_Gte); ok {
-		return fmt.Sprintf("%g", g.Gte), true
-	}
-	return "", false
-}
-
-func (a float32SummaryAdapter) gt() (string, bool) {
-	if g, ok := a.r.GetGreaterThan().(*bufvalidate.FloatRules_Gt); ok {
-		return fmt.Sprintf("%g", g.Gt), true
-	}
-	return "", false
-}
-
-func (a float32SummaryAdapter) lte() (string, bool) {
-	if l, ok := a.r.GetLessThan().(*bufvalidate.FloatRules_Lte); ok {
-		return fmt.Sprintf("%g", l.Lte), true
-	}
-	return "", false
-}
-
-func (a float32SummaryAdapter) lt() (string, bool) {
-	if l, ok := a.r.GetLessThan().(*bufvalidate.FloatRules_Lt); ok {
-		return fmt.Sprintf("%g", l.Lt), true
-	}
-	return "", false
-}
-
-func (a float32SummaryAdapter) in() []string {
-	if len(a.r.GetIn()) == 0 {
-		return nil
-	}
-	out := make([]string, len(a.r.GetIn()))
-	for i, v := range a.r.GetIn() {
-		out[i] = fmt.Sprintf("%g", v)
-	}
-	return out
-}
-
-func (a float32SummaryAdapter) notIn() []string {
-	if len(a.r.GetNotIn()) == 0 {
-		return nil
-	}
-	out := make([]string, len(a.r.GetNotIn()))
-	for i, v := range a.r.GetNotIn() {
-		out[i] = fmt.Sprintf("%g", v)
-	}
-	return out
-}
-
-type float64SummaryAdapter struct{ r *bufvalidate.DoubleRules }
-
-func (a float64SummaryAdapter) gte() (string, bool) {
-	if g, ok := a.r.GetGreaterThan().(*bufvalidate.DoubleRules_Gte); ok {
-		return fmt.Sprintf("%g", g.Gte), true
-	}
-	return "", false
-}
-
-func (a float64SummaryAdapter) gt() (string, bool) {
-	if g, ok := a.r.GetGreaterThan().(*bufvalidate.DoubleRules_Gt); ok {
-		return fmt.Sprintf("%g", g.Gt), true
-	}
-	return "", false
-}
-
-func (a float64SummaryAdapter) lte() (string, bool) {
-	if l, ok := a.r.GetLessThan().(*bufvalidate.DoubleRules_Lte); ok {
-		return fmt.Sprintf("%g", l.Lte), true
-	}
-	return "", false
-}
-
-func (a float64SummaryAdapter) lt() (string, bool) {
-	if l, ok := a.r.GetLessThan().(*bufvalidate.DoubleRules_Lt); ok {
-		return fmt.Sprintf("%g", l.Lt), true
-	}
-	return "", false
-}
-
-func (a float64SummaryAdapter) in() []string {
-	if len(a.r.GetIn()) == 0 {
-		return nil
-	}
-	out := make([]string, len(a.r.GetIn()))
-	for i, v := range a.r.GetIn() {
-		out[i] = fmt.Sprintf("%g", v)
-	}
-	return out
-}
-
-func (a float64SummaryAdapter) notIn() []string {
-	if len(a.r.GetNotIn()) == 0 {
-		return nil
-	}
-	out := make([]string, len(a.r.GetNotIn()))
-	for i, v := range a.r.GetNotIn() {
-		out[i] = fmt.Sprintf("%g", v)
-	}
-	return out
+	return b
 }

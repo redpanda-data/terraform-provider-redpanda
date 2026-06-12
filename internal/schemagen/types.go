@@ -204,24 +204,29 @@ func elementTypeForKind(kind string) string {
 type attrTypeInfo struct {
 	ModelType       string
 	ValidatorSuffix string
+	// TypeExpr and NullExpr are set only for scalar AttrTypes. Collection
+	// and object AttrTypes leave them empty — their null expressions are
+	// element-dependent and built by NullExpr's non-scalar branch.
+	TypeExpr string
+	NullExpr string
 }
 
 var attrTypeTable = map[string]attrTypeInfo{
-	AttrTypeString:  {"types.String", "String"},
-	AttrTypeBool:    {"types.Bool", "Bool"},
-	AttrTypeInt32:   {"types.Int32", "Int32"},
-	AttrTypeInt64:   {"types.Int64", "Int64"},
-	AttrTypeFloat64: {"types.Float64", "Float64"},
+	AttrTypeString:  {ModelType: "types.String", ValidatorSuffix: "String", TypeExpr: elemTypeString, NullExpr: "types.StringNull()"},
+	AttrTypeBool:    {ModelType: "types.Bool", ValidatorSuffix: "Bool", TypeExpr: elemTypeBool, NullExpr: "types.BoolNull()"},
+	AttrTypeInt32:   {ModelType: "types.Int32", ValidatorSuffix: "Int32", TypeExpr: elemTypeInt32, NullExpr: "types.Int32Null()"},
+	AttrTypeInt64:   {ModelType: "types.Int64", ValidatorSuffix: "Int64", TypeExpr: elemTypeInt64, NullExpr: "types.Int64Null()"},
+	AttrTypeFloat64: {ModelType: "types.Float64", ValidatorSuffix: "Float64", TypeExpr: elemTypeFloat64, NullExpr: "types.Float64Null()"},
+	AttrTypeNumber:  {ModelType: "types.Number", TypeExpr: "types.NumberType", NullExpr: "types.NumberNull()"},
 
-	AttrTypeNumber:       {"types.Number", ""},
-	AttrTypeList:         {"types.List", "List"},
-	AttrTypeListNested:   {"types.List", "List"},
-	AttrTypeSet:          {"types.Set", "Set"},
-	AttrTypeSetNested:    {"types.Set", "Set"},
-	AttrTypeMap:          {"types.Map", "Map"},
-	AttrTypeMapNested:    {"types.Map", "Map"},
-	AttrTypeObject:       {"types.Object", "Object"},
-	AttrTypeSingleNested: {"types.Object", "Object"},
+	AttrTypeList:         {ModelType: "types.List", ValidatorSuffix: "List"},
+	AttrTypeListNested:   {ModelType: "types.List", ValidatorSuffix: "List"},
+	AttrTypeSet:          {ModelType: "types.Set", ValidatorSuffix: "Set"},
+	AttrTypeSetNested:    {ModelType: "types.Set", ValidatorSuffix: "Set"},
+	AttrTypeMap:          {ModelType: "types.Map", ValidatorSuffix: "Map"},
+	AttrTypeMapNested:    {ModelType: "types.Map", ValidatorSuffix: "Map"},
+	AttrTypeObject:       {ModelType: "types.Object", ValidatorSuffix: "Object"},
+	AttrTypeSingleNested: {ModelType: "types.Object", ValidatorSuffix: "Object"},
 }
 
 func modelGoTypeForAttr(attrType string) string {
@@ -236,26 +241,11 @@ func modelGoTypeForAttr(attrType string) string {
 // empty result to fall through to non-scalar handling. Unknown AttrTypes
 // return a non-nil error so schemagen drift surfaces at codegen time.
 func scalarNullExprForAttr(attrType string) (string, error) {
-	switch attrType {
-	case AttrTypeString:
-		return "types.StringNull()", nil
-	case AttrTypeBool:
-		return "types.BoolNull()", nil
-	case AttrTypeInt32:
-		return "types.Int32Null()", nil
-	case AttrTypeInt64:
-		return "types.Int64Null()", nil
-	case AttrTypeFloat64:
-		return "types.Float64Null()", nil
-	case AttrTypeNumber:
-		return "types.NumberNull()", nil
-	case AttrTypeList, AttrTypeSet, AttrTypeMap,
-		AttrTypeListNested, AttrTypeSetNested, AttrTypeMapNested,
-		AttrTypeSingleNested, AttrTypeObject:
-		return "", nil
-	default:
+	info, ok := attrTypeTable[attrType]
+	if !ok {
 		return "", fmt.Errorf("schemagen: unknown AttrType %q in scalarNullExprForAttr", attrType)
 	}
+	return info.NullExpr, nil
 }
 
 // NullExprOptions parameterises NullExpr for the three call sites that need

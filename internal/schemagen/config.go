@@ -228,26 +228,13 @@ func LoadConfig(path string) (*Config, error) {
 		sourcePath: path,
 	}
 
-	if v, ok := raw["message"]; ok {
-		if s, ok := v.(string); ok {
-			cfg.Message = s
-		}
-	}
-	if v, ok := raw["timeouts"]; ok {
-		if list, ok := v.([]any); ok {
-			for _, item := range list {
-				if s, ok := item.(string); ok {
-					cfg.Timeouts = append(cfg.Timeouts, s)
-				}
-			}
-		}
-	}
-
-	if v, ok := raw["computed_default"]; ok {
-		if b, ok := v.(bool); ok {
-			cfg.ComputedDefault = b
-		}
-	}
+	assignScalar(&cfg.Message, raw, "message")
+	appendStringList(&cfg.Timeouts, raw, "timeouts")
+	assignScalar(&cfg.ComputedDefault, raw, "computed_default")
+	assignScalar(&cfg.APISchema, raw, "api_schema")
+	assignScalar(&cfg.TFName, raw, "tf_name")
+	assignScalar(&cfg.StripOpenAPIPrefix, raw, "strip_openapi_prefix")
+	appendStringList(&cfg.ExcludeOperations, raw, "exclude_operations")
 
 	if v, ok := raw["version"]; ok {
 		switch n := v.(type) {
@@ -255,24 +242,6 @@ func LoadConfig(path string) (*Config, error) {
 			cfg.Version = int64(n)
 		case int64:
 			cfg.Version = n
-		}
-	}
-
-	if v, ok := raw["api_schema"]; ok {
-		if s, ok := v.(string); ok {
-			cfg.APISchema = s
-		}
-	}
-
-	if v, ok := raw["tf_name"]; ok {
-		if s, ok := v.(string); ok {
-			cfg.TFName = s
-		}
-	}
-
-	if v, ok := raw["strip_openapi_prefix"]; ok {
-		if s, ok := v.(string); ok {
-			cfg.StripOpenAPIPrefix = s
 		}
 	}
 
@@ -286,16 +255,6 @@ func LoadConfig(path string) (*Config, error) {
 			return nil, fmt.Errorf("failed to parse api block in %s: %w", path, err)
 		}
 		cfg.API = &api
-	}
-
-	if v, ok := raw["exclude_operations"]; ok {
-		if list, ok := v.([]any); ok {
-			for _, item := range list {
-				if s, ok := item.(string); ok {
-					cfg.ExcludeOperations = append(cfg.ExcludeOperations, s)
-				}
-			}
-		}
 	}
 
 	reservedKeys := map[string]bool{
@@ -325,6 +284,34 @@ func LoadConfig(path string) (*Config, error) {
 	return cfg, nil
 }
 
+// assignScalar sets *dst to raw[key] when that key is present and holds a value
+// of type T; otherwise *dst is left unchanged.
+func assignScalar[T any](dst *T, raw map[string]any, key string) {
+	if v, ok := raw[key]; ok {
+		if t, ok := v.(T); ok {
+			*dst = t
+		}
+	}
+}
+
+// appendStringList appends the string elements of raw[key] (a YAML sequence) to
+// *dst, skipping non-string items.
+func appendStringList(dst *[]string, raw map[string]any, key string) {
+	v, ok := raw[key]
+	if !ok {
+		return
+	}
+	list, ok := v.([]any)
+	if !ok {
+		return
+	}
+	for _, item := range list {
+		if s, ok := item.(string); ok {
+			*dst = append(*dst, s)
+		}
+	}
+}
+
 // validateValidatorTypes walks the field tree and rejects any `validator:`
 // value that isn't a string, []string, or a list whose items are all
 // non-empty strings. Catches silent drops at config-load time so a typoed
@@ -332,10 +319,7 @@ func LoadConfig(path string) (*Config, error) {
 func validateValidatorTypes(fields map[string]FieldConfig, parent string) error {
 	for name := range fields {
 		fc := fields[name]
-		path := name
-		if parent != "" {
-			path = parent + "." + name
-		}
+		path := joinPath(parent, name)
 		if fc.Validator != nil {
 			switch v := fc.Validator.(type) {
 			case string:
