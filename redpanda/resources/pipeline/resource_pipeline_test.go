@@ -1164,6 +1164,43 @@ func TestUnit_Pipeline_OperationErrors(t *testing.T) {
 			},
 			errorContains: "start",
 		},
+		{
+			// Start succeeds, the wait observes RUNNING, but the final
+			// state-refresh GetPipeline fails. The error must not be silently
+			// swallowed: a warning is surfaced so the user knows state may be stale.
+			name:      "start_succeeds_but_refresh_fails_surfaces_warning",
+			operation: opCreate,
+			setupMocks: func(mc *mocks.MockPipelineServiceClient) {
+				stopped := createMockPipeline(
+					testPipelineID, testDisplayName, testDescription, testConfigYaml, testPipelineURL,
+					dataplanev1.Pipeline_STATE_STOPPED, nil, nil,
+				)
+				running := createMockPipeline(
+					testPipelineID, testDisplayName, testDescription, testConfigYaml, testPipelineURL,
+					dataplanev1.Pipeline_STATE_RUNNING, nil, nil,
+				)
+				mc.EXPECT().
+					CreatePipeline(gomock.Any(), gomock.Any()).
+					Return(&dataplanev1.CreatePipelineResponse{Pipeline: stopped}, nil)
+				mc.EXPECT().
+					StartPipeline(gomock.Any(), gomock.Any()).
+					Return(&dataplanev1.StartPipelineResponse{}, nil)
+				gomock.InOrder(
+					mc.EXPECT().
+						GetPipeline(gomock.Any(), gomock.Any()).
+						Return(&dataplanev1.GetPipelineResponse{Pipeline: running}, nil),
+					mc.EXPECT().
+						GetPipeline(gomock.Any(), gomock.Any()).
+						Return(nil, errors.New("transient refresh failure")),
+				)
+			},
+			inputModel: func() pipelinemodel.ResourceModel {
+				return newModelBuilder().
+					WithState(pipelinemodel.StateRunning).
+					Build()
+			},
+			errorContains: "could not be refreshed",
+		},
 	}
 
 	for _, tt := range tests {
