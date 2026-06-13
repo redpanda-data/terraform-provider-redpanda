@@ -5,3 +5,7 @@ variable "service_account_name" {
 variable "service_account_description" {
   default = "Service account used by CI workloads."
 }
+
+variable "role_name" {
+  default = "Reader"
+}

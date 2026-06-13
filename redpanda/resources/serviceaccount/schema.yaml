@@ -5,6 +5,11 @@ tf_name: ServiceAccount
 timeouts: [create, update, delete]
 
 api:
+  # role_bindings is extra/synthetic (Create-only proto field) and threaded
+  # onto the payload after ExpandCreate by the resource code. The validator
+  # needs to see the same payload shape Apply does, so the generated
+  # proto-validator calls this hook between Expand and Validate.
+  post_expand_hook: serviceaccountmodel.ThreadCreateExtras
   update:
     # Resource code computes a FieldMask diff between plan and prev state
     # and wraps the returned payload, so the generator returns the
@@ -41,8 +46,32 @@ auth0_client_credentials:
       sensitive: true
 
 # role_bindings is Create-only on the proto side (ServiceAccountCreate carries
-# it; the canonical ServiceAccount and ServiceAccountUpdate do not). Exclude
-# it here — bindings are managed separately via the role / role-assignment
-# resources to keep this resource's Update/Read shape clean.
+# it; the canonical ServiceAccount and ServiceAccountUpdate do not), and the
+# backend requires at least one binding at create. Declared extra/synthetic
+# because the schema walker only sees the canonical message; the
+# post_expand_hook threads it onto the Create payload, and the server never
+# echoes it so the resource code carries the config value forward.
+# RequiresReplace: bindings attached at create cannot be changed through this
+# resource — manage post-create grants with redpanda_role_binding instead.
 role_bindings:
-  exclude: true
+  extra: true
+  synthetic: true
+  type: list_nested
+  optional: true
+  plan_modifiers: [RequiresReplace]
+  fields:
+    role_name:
+      required: true
+      type: string
+    scope:
+      required: true
+      fields:
+        resource_type:
+          required: true
+          type: string
+        resource_id:
+          required: true
+          type: string
+        dataplane_id:
+          optional: true
+          type: string

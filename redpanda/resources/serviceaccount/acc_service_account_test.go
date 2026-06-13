@@ -85,6 +85,9 @@ func TestAcc_ServiceAccount(t *testing.T) {
 				ResourceName:             acc.ServiceAccountResourceName,
 				ImportState:              true,
 				ImportStateVerify:        true,
+				// role_bindings is Create-only and never echoed by the
+				// server, so it is null after import by design.
+				ImportStateVerifyIgnore: []string{"role_bindings"},
 				ImportStateIdFunc: func(s *terraform.State) (string, error) {
 					rs, ok := s.RootModule().Resources[acc.ServiceAccountResourceName]
 					if !ok {

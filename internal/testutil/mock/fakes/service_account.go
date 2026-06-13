@@ -63,11 +63,15 @@ func NewServiceAccountFake() *ServiceAccountFake {
 
 // CreateServiceAccount stores a new service account with a deterministic
 // UUID and synthetic Auth0 client credentials. The returned response
-// includes ClientSecret — the one-time exposure.
+// includes ClientSecret — the one-time exposure. Mirrors the backend's
+// create contract: at least one role binding is required.
 func (f *ServiceAccountFake) CreateServiceAccount(_ context.Context, req *iamv1.CreateServiceAccountRequest) (*iamv1.CreateServiceAccountResponse, error) {
 	in := req.GetServiceAccount()
 	if in == nil {
 		return nil, status.Error(codes.InvalidArgument, "service_account is required")
+	}
+	if len(in.GetRoleBindings()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "service account must be created with at least one role binding")
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
