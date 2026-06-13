@@ -21,6 +21,7 @@ import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -39,6 +40,38 @@ func ResourceServiceAccountSchema(ctx context.Context) schema.Schema {
 			"name": schema.StringAttribute{
 				Description: "The unique name of the service account. Length must be between 3 and 128. Must match pattern `^[^<>]+$`.",
 				Required:    true,
+			},
+
+			"role_bindings": schema.ListNestedAttribute{
+				Description:   "List of role Bindings",
+				Optional:      true,
+				PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"role_name": schema.StringAttribute{
+							Description: "Role Name",
+							Required:    true,
+						},
+						"scope": schema.SingleNestedAttribute{
+							Description: "Scope configuration",
+							Required:    true,
+							Attributes: map[string]schema.Attribute{
+								"resource_id": schema.StringAttribute{
+									Description: "Resource ID",
+									Required:    true,
+								},
+								"resource_type": schema.StringAttribute{
+									Description: "Resource Type",
+									Required:    true,
+								},
+								"dataplane_id": schema.StringAttribute{
+									Description: "Dataplane ID",
+									Optional:    true,
+								},
+							},
+						},
+					},
+				},
 			},
 
 			"auth0_client_credentials": schema.SingleNestedAttribute{

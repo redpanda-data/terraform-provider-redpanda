@@ -52,6 +52,11 @@ func Flatten(ctx context.Context, proto ServiceAccountResponse, prev *ResourceMo
 		m.Auth0ClientCredentials = types.ObjectNull(Auth0ClientCredentialsAttrTypes())
 	}
 	m.ID = types.StringValue(proto.GetId())
+	if prev != nil && !prev.RoleBindings.IsUnknown() {
+		m.RoleBindings = prev.RoleBindings
+	} else {
+		m.RoleBindings = types.ListNull(types.ObjectType{AttrTypes: RoleBindingsAttrTypes()})
+	}
 	if prev != nil {
 		m.Timeouts = prev.Timeouts
 	}
