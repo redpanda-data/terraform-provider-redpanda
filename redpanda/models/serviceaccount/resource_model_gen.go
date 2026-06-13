@@ -33,10 +33,28 @@ type ResourceModel struct {
 	Description            types.String   `tfsdk:"description"`
 	ID                     types.String   `tfsdk:"id"`
 	Name                   types.String   `tfsdk:"name"`
+	RoleBindings           types.List     `tfsdk:"role_bindings"`
 	Timeouts               timeouts.Value `tfsdk:"timeouts"`
 }
 
 // --- Nested typed structs (one per nested message in the proto tree) ---
+
+// RoleBindingsModel mirrors the nested "role_bindings" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type RoleBindingsModel struct {
+	RoleName types.String `tfsdk:"role_name"`
+	Scope    types.Object `tfsdk:"scope"`
+}
+
+// RoleBindingsScopeModel mirrors the nested "role_bindings.scope" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type RoleBindingsScopeModel struct {
+	ResourceID   types.String `tfsdk:"resource_id"`
+	ResourceType types.String `tfsdk:"resource_type"`
+	DataplaneID  types.String `tfsdk:"dataplane_id"`
+}
 
 // Auth0ClientCredentialsModel mirrors the nested "auth0_client_credentials" attribute. Use the As/To
 // converters on the parent struct to move between types.Object and this
@@ -48,6 +66,25 @@ type Auth0ClientCredentialsModel struct {
 
 // --- AttrType tables for nested types (consumed by types.ObjectValueFrom / ObjectNull) ---
 
+// RoleBindingsAttrTypes returns the attr.Type map for the "role_bindings" nested
+// attribute.
+func RoleBindingsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"role_name": types.StringType,
+		"scope":     types.ObjectType{AttrTypes: RoleBindingsScopeAttrTypes()},
+	}
+}
+
+// RoleBindingsScopeAttrTypes returns the attr.Type map for the "role_bindings.scope" nested
+// attribute.
+func RoleBindingsScopeAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"resource_id":   types.StringType,
+		"resource_type": types.StringType,
+		"dataplane_id":  types.StringType,
+	}
+}
+
 // Auth0ClientCredentialsAttrTypes returns the attr.Type map for the "auth0_client_credentials" nested
 // attribute.
 func Auth0ClientCredentialsAttrTypes() map[string]attr.Type {
@@ -58,6 +95,28 @@ func Auth0ClientCredentialsAttrTypes() map[string]attr.Type {
 }
 
 // --- Root-level converters (types.Object ⇄ typed struct ergonomics) ---
+
+// AsRoleBindings decodes the root role_bindings list attribute into
+// a typed slice. Returns (nil, nil) when null or unknown.
+func (m *ResourceModel) AsRoleBindings(ctx context.Context) ([]RoleBindingsModel, diag.Diagnostics) {
+	if m == nil || m.RoleBindings.IsNull() || m.RoleBindings.IsUnknown() {
+		return nil, nil
+	}
+	out := make([]RoleBindingsModel, 0, len(m.RoleBindings.Elements()))
+	d := m.RoleBindings.ElementsAs(ctx, &out, false)
+	return out, d
+}
+
+// RoleBindingsToList encodes a typed slice back into a types.List
+// of types.Object elements. A nil receiver returns types.ListNull with
+// the correct element type.
+func RoleBindingsToList(ctx context.Context, v []RoleBindingsModel) (types.List, diag.Diagnostics) {
+	elemType := types.ObjectType{AttrTypes: RoleBindingsAttrTypes()}
+	if v == nil {
+		return types.ListNull(elemType), nil
+	}
+	return types.ListValueFrom(ctx, elemType, v)
+}
 
 // AsAuth0ClientCredentials converts the root auth0_client_credentials attribute from
 // types.Object into its typed form. Returns (nil, nil) when the object is
@@ -82,6 +141,28 @@ func Auth0ClientCredentialsToObject(ctx context.Context, v *Auth0ClientCredentia
 	return types.ObjectValueFrom(ctx, Auth0ClientCredentialsAttrTypes(), v)
 }
 
+// --- Sub-level converters (free-standing Decode*/ToObject for types nested beyond root level) ---
+
+// DecodeRoleBindingsScope decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeRoleBindingsScope(ctx context.Context, v *RoleBindingsModel) (*RoleBindingsScopeModel, diag.Diagnostics) {
+	if v == nil || v.Scope.IsNull() || v.Scope.IsUnknown() {
+		return nil, nil
+	}
+	var out RoleBindingsScopeModel
+	d := v.Scope.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// RoleBindingsScopeToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func RoleBindingsScopeToObject(ctx context.Context, v *RoleBindingsScopeModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(RoleBindingsScopeAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, RoleBindingsScopeAttrTypes(), v)
+}
+
 // GenerateMinimalResourceModel returns a *ResourceModel populated only with
 // the supplied id + timeouts; every other field is at its typed null (or its
 // declared minimal_default). Used by resources that need to persist a
@@ -92,6 +173,7 @@ func GenerateMinimalResourceModel(id types.String, timeout timeouts.Value) *Reso
 		Description:            types.StringNull(),
 		ID:                     id,
 		Name:                   types.StringNull(),
+		RoleBindings:           types.ListNull(types.ObjectType{AttrTypes: RoleBindingsAttrTypes()}),
 		Timeouts:               timeout,
 	}
 }

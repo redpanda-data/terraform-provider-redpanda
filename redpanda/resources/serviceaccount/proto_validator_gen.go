@@ -70,5 +70,12 @@ func (protoValidator) ValidateResource(ctx context.Context, req resource.Validat
 	if eDiags.HasError() {
 		return
 	}
+	// Resource-level hook: thread TF-only fields onto the payload that
+	// Create() also mutates after Expand. Keeps the validator's payload
+	// shape in sync with what the API will receive.
+	if hDiags := serviceaccountmodel.ThreadCreateExtras(ctx, &m, payload); hDiags.HasError() {
+		resp.Diagnostics.Append(hDiags...)
+		return
+	}
 	resp.Diagnostics.Append(rpvalidate.Validate(path.Empty(), payload.GetServiceAccount())...)
 }
