@@ -59,6 +59,10 @@ func (s *ServiceAccount) Create(ctx context.Context, req resource.CreateRequest,
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(serviceaccountmodel.ThreadCreateExtras(ctx, &plan, pbReq)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	apiResp, err := s.CpCl.ServiceAccount.CreateServiceAccount(ctx, pbReq)
 	if err != nil {

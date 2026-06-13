@@ -135,20 +135,40 @@ func TestIntegration_ServiceAccount(t *testing.T) {
 }
 
 func mockServiceAccountConfig(name, description string) string {
+	return mockServiceAccountConfigFull(name, description)
+}
+
+// mockServiceAccountConfigFull renders the standard integration HCL for
+// redpanda_service_account. All hand-rolled scenarios use this shape;
+// name and description are parameterized. The backend requires at least
+// one role binding at create.
+func mockServiceAccountConfigFull(name, description string) string {
+	return mockServiceAccountConfigWithBinding(name, description, "Reader", "fake-rg-id")
+}
+
+func mockServiceAccountConfigWithBinding(name, description, roleName, resourceID string) string {
 	return fmt.Sprintf(`
 provider "redpanda" {}
 
 resource "redpanda_service_account" "test" {
   name        = %q
   description = %q
+  role_bindings = [
+    {
+      role_name = %q
+      scope = {
+        resource_type = "RESOURCE_GROUP"
+        resource_id   = %q
+      }
+    },
+  ]
 }
-`, name, description)
+`, name, description, roleName, resourceID)
 }
 
-// mockServiceAccountConfigFull renders the standard integration HCL for
-// redpanda_service_account. All hand-rolled scenarios use this shape;
-// name and description are parameterized.
-func mockServiceAccountConfigFull(name, description string) string {
+// mockServiceAccountConfigNoBindings renders an SA without role_bindings —
+// the shape the backend now rejects at create.
+func mockServiceAccountConfigNoBindings(name, description string) string {
 	return fmt.Sprintf(`
 provider "redpanda" {}
 
@@ -169,6 +189,16 @@ func clientSecretPath() tfjsonpath.Path {
 // clientIDPath is the tfjsonpath for the nested client_id leaf.
 func clientIDPath() tfjsonpath.Path {
 	return tfjsonpath.New("auth0_client_credentials").AtMapKey("client_id")
+}
+
+// bindingPath is the tfjsonpath for a leaf of the first role_bindings element.
+func bindingPath(leaf string) tfjsonpath.Path {
+	return tfjsonpath.New("role_bindings").AtSliceIndex(0).AtMapKey(leaf)
+}
+
+// bindingScopePath is the tfjsonpath for a leaf of the first binding's scope.
+func bindingScopePath(leaf string) tfjsonpath.Path {
+	return tfjsonpath.New("role_bindings").AtSliceIndex(0).AtMapKey("scope").AtMapKey(leaf)
 }
 
 // TestIntegration_ServiceAccount_CreateAndRefresh validates the Create + no-op
@@ -197,6 +227,10 @@ func TestIntegration_ServiceAccount_CreateAndRefresh(t *testing.T) {
 				statecheck.ExpectKnownValue(saAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 				statecheck.ExpectKnownValue(saAddr, clientIDPath(), knownvalue.NotNull()),
 				statecheck.ExpectKnownValue(saAddr, clientSecretPath(), knownvalue.NotNull()),
+				statecheck.ExpectKnownValue(saAddr, bindingPath("role_name"), knownvalue.StringExact("Reader")),
+				statecheck.ExpectKnownValue(saAddr, bindingScopePath("resource_type"), knownvalue.StringExact("RESOURCE_GROUP")),
+				statecheck.ExpectKnownValue(saAddr, bindingScopePath("resource_id"), knownvalue.StringExact("fake-rg-id")),
+				statecheck.ExpectKnownValue(saAddr, bindingScopePath("dataplane_id"), knownvalue.Null()),
 				idPreserved.AddStateValue(saAddr, tfjsonpath.New("id")),
 				secretPreserved.AddStateValue(saAddr, clientSecretPath()),
 			}),
@@ -206,6 +240,7 @@ func TestIntegration_ServiceAccount_CreateAndRefresh(t *testing.T) {
 				statecheck.ExpectKnownValue(saAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 				statecheck.ExpectKnownValue(saAddr, clientIDPath(), knownvalue.NotNull()),
 				statecheck.ExpectKnownValue(saAddr, clientSecretPath(), knownvalue.NotNull()),
+				statecheck.ExpectKnownValue(saAddr, bindingPath("role_name"), knownvalue.StringExact("Reader")),
 				idPreserved.AddStateValue(saAddr, tfjsonpath.New("id")),
 				secretPreserved.AddStateValue(saAddr, clientSecretPath()),
 			}),
@@ -335,9 +370,10 @@ func TestIntegration_ServiceAccount_UpdateLeaf_Name(t *testing.T) {
 // once on Create and never echoed by subsequent reads, so the operator must
 // supply the secret they captured at creation time as the second segment of
 // the import ID. With the composite form, post-import state contains the
-// secret verbatim and ImportStateVerify (no ignores) confirms a full
-// round-trip — every leaf, including client_secret, matches the pre-import
-// state.
+// secret verbatim and ImportStateVerify confirms the round-trip — every leaf,
+// including client_secret, matches the pre-import state. role_bindings is
+// ignored: it is Create-only, never echoed by the server, and therefore null
+// after import by design.
 func TestIntegration_ServiceAccount_ImportRoundTrip(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -365,7 +401,7 @@ func TestIntegration_ServiceAccount_ImportRoundTrip(t *testing.T) {
 					return "", errors.New("auth0_client_credentials.client_secret missing from state at import time")
 				}
 				return rs.Primary.ID + ":" + secret, nil
-			}, nil),
+			}, []string{"role_bindings"}),
 		},
 	})
 }
@@ -637,6 +673,60 @@ func TestIntegration_ServiceAccount_ErrorPath_DeleteSA_Internal(t *testing.T) {
 				Destroy:     true,
 				ExpectError: regexp.MustCompile("synthetic delete failure"),
 			},
+		},
+	})
+}
+
+// TestIntegration_ServiceAccount_Create_NoBindings_Errors pins the backend's
+// new create contract (reproduced from Buildkite build 1435): a service
+// account created without role_bindings is rejected with InvalidArgument
+// before any resource is written.
+func TestIntegration_ServiceAccount_Create_NoBindings_Errors(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	cfg := mockServiceAccountConfigNoBindings("tfrp-mock-sa-nobind", "no bindings description")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config:      cfg,
+				ExpectError: regexp.MustCompile(`(?s)service account must be created with at least one role\s+binding`),
+			},
+		},
+	})
+}
+
+// TestIntegration_ServiceAccount_RequiresReplace_RoleBindings flips a binding's
+// role_name and asserts a destroy-before-create replace: role_bindings is
+// Create-only on the proto, so the only way to change it is to recreate the
+// service account. id and client_secret both change across the replace.
+func TestIntegration_ServiceAccount_RequiresReplace_RoleBindings(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	const (
+		name        = "tfrp-mock-sa-bindrepl"
+		description = "binding replace description"
+	)
+	cfg1 := mockServiceAccountConfigWithBinding(name, description, "Reader", "fake-rg-id")
+	cfg2 := mockServiceAccountConfigWithBinding(name, description, "Writer", "fake-rg-id")
+
+	idChanged := statecheck.CompareValue(compare.ValuesDiffer())
+	secretChanged := statecheck.CompareValue(compare.ValuesDiffer())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(saAddr, cfg1, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(saAddr, bindingPath("role_name"), knownvalue.StringExact("Reader")),
+				idChanged.AddStateValue(saAddr, tfjsonpath.New("id")),
+				secretChanged.AddStateValue(saAddr, clientSecretPath()),
+			}),
+			integration.RequiresReplaceStep(saAddr, cfg2, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(saAddr, bindingPath("role_name"), knownvalue.StringExact("Writer")),
+				idChanged.AddStateValue(saAddr, tfjsonpath.New("id")),
+				secretChanged.AddStateValue(saAddr, clientSecretPath()),
+			}),
 		},
 	})
 }
