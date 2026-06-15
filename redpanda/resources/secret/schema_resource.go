@@ -82,7 +82,7 @@ func ResourceSecretSchema() schema.Schema {
 				Optional:      true,
 				Computed:      true,
 				ElementType:   types.StringType,
-				PlanModifiers: []planmodifier.Map{mapplanmodifier.RequiresReplace(), mapplanmodifier.UseStateForUnknown()},
+				PlanModifiers: []planmodifier.Map{mapplanmodifier.UseStateForUnknown()},
 				Validators: []validator.Map{
 					mapvalidator.ValueStringsAre(stringvalidator.RegexMatches(secretLabelValuePattern, "must match ^([\\p{L}\\p{Z}\\p{N}_.:/=+\\-@]*)$")),
 				},

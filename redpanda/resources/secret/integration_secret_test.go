@@ -371,13 +371,13 @@ func TestIntegration_Secret_RequiresReplace_Name(t *testing.T) {
 	})
 }
 
-// TestIntegration_Secret_RequiresReplace_Labels mutates labels from null to a
-// non-empty map. labels has RequiresReplace + UseStateForUnknown; the
-// DestroyBeforeCreate baked into RequiresReplaceStep proves the plan
-// action. Because id == name and name is unchanged, id is SAME across the
-// replace — the idStable ValuesSame comparer is the inverse witness that
-// confirms id is derived purely from name (not from labels).
-func TestIntegration_Secret_RequiresReplace_Labels(t *testing.T) {
+// TestIntegration_Secret_UpdateLabels mutates labels from null to a non-empty
+// map, then mutates the map in place. labels is backend-mutable
+// (UpdateSecretRequest carries a labels field), so each change is an in-place
+// ResourceActionUpdate, not a replace. id == name and name is unchanged, so id
+// is SAME across both updates — the idStable ValuesSame comparer is the inverse
+// witness that the resource is not being recreated.
+func TestIntegration_Secret_UpdateLabels(t *testing.T) {
 	_, factories := integration.Setup(t)
 
 	idStable := statecheck.CompareValue(compare.ValuesSame())
@@ -390,9 +390,16 @@ func TestIntegration_Secret_RequiresReplace_Labels(t *testing.T) {
 				statecheck.ExpectKnownValue(secretAddr, tfjsonpath.New("id"), knownvalue.StringExact(resourceName)),
 				idStable.AddStateValue(secretAddr, tfjsonpath.New("id")),
 			}),
-			integration.RequiresReplaceStep(secretAddr, mockSecretWithLabelsConfig(resourceName, dataValueV1, "bufnet", scopeConnect, 1, true, map[string]string{"env": "test"}), []statecheck.StateCheck{
+			integration.UpdateLeafStep(secretAddr, mockSecretWithLabelsConfig(resourceName, dataValueV1, "bufnet", scopeConnect, 1, true, map[string]string{"env": "test"}), []statecheck.StateCheck{
 				statecheck.ExpectKnownValue(secretAddr, tfjsonpath.New("labels"), knownvalue.MapExact(map[string]knownvalue.Check{
 					"env": knownvalue.StringExact("test"),
+				})),
+				statecheck.ExpectKnownValue(secretAddr, tfjsonpath.New("id"), knownvalue.StringExact(resourceName)),
+				idStable.AddStateValue(secretAddr, tfjsonpath.New("id")),
+			}),
+			integration.UpdateLeafStep(secretAddr, mockSecretWithLabelsConfig(resourceName, dataValueV1, "bufnet", scopeConnect, 1, true, map[string]string{"env": "prod"}), []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(secretAddr, tfjsonpath.New("labels"), knownvalue.MapExact(map[string]knownvalue.Check{
+					"env": knownvalue.StringExact("prod"),
 				})),
 				statecheck.ExpectKnownValue(secretAddr, tfjsonpath.New("id"), knownvalue.StringExact(resourceName)),
 				idStable.AddStateValue(secretAddr, tfjsonpath.New("id")),

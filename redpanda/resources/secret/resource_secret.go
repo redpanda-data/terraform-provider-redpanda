@@ -195,8 +195,9 @@ func (s *Secret) Update(ctx context.Context, req resource.UpdateRequest, resp *r
 
 	versionChanged := !plan.SecretDataVersion.Equal(state.SecretDataVersion)
 	scopesChanged := !plan.Scopes.Equal(state.Scopes)
+	labelsChanged := !plan.Labels.Equal(state.Labels)
 
-	if !versionChanged && !scopesChanged {
+	if !versionChanged && !scopesChanged && !labelsChanged {
 		// No server-side change. Just persist any TF-only metadata.
 		state.AllowDeletion = plan.AllowDeletion
 		resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
@@ -210,6 +211,8 @@ func (s *Secret) Update(ctx context.Context, req resource.UpdateRequest, resp *r
 
 	scopes, diags := secretmodel.StringsToScopes(ctx, plan.Scopes)
 	resp.Diagnostics.Append(diags...)
+	labels, labelDiags := modelconv.MapToStrings(ctx, plan.Labels)
+	resp.Diagnostics.Append(labelDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -217,6 +220,7 @@ func (s *Secret) Update(ctx context.Context, req resource.UpdateRequest, resp *r
 	updateReq := &dataplanev1.UpdateSecretRequest{
 		Id:     plan.Name.ValueString(),
 		Scopes: scopes,
+		Labels: labels,
 	}
 	if versionChanged {
 		updateReq.SecretData = []byte(cfg.SecretData.ValueString())
