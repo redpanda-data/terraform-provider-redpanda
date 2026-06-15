@@ -128,7 +128,7 @@ The two case studies converged on 4–5 layers of defense per bug. Use this as t
 1. **Validator at the input boundary (plan-time)** — extract into `redpanda/validators/<name>.go` with a named function (per `redpanda/validators/cidr.go`, `password.go`). Inline `stringvalidator.RegexMatches` in schema is the wrong default — even for hand-written schemas. Add a dedicated `<name>_test.go` with table-driven cases including edge cases (empty, almost-valid, prefix-with-no-content).
 2. **Self-heal at the API boundary** — Read canonicalizes the value before comparison and writes the canonical form back to state. Delete sends the canonical form on the outgoing RPC. This protects legacy state that already has the wrong shape.
 3. **Fake parity** — fix the fake to mirror the real backend's data shaping. Add a `<fake>_test.go` pinning the rule so future fake authors can't silently regress.
-4. **Import format extension** (if relevant) — if `terraform import` produces state that can't refresh-clean (a null RequiresReplace field, a wrong-form value), extend the ImportState parser to accept the additional context. Follow `shadowlink/resource_shadowlink.go:330`'s `<id>|<aux>` pipe-suffix pattern; `|` avoids ambiguity with `:` inside prefixed principal values. Add unit tests for the new parse including empty cases and embedded-colon URLs.
+4. **Import format extension** (if relevant) — if `terraform import` produces state that can't refresh-clean (a null RequiresReplace field, a wrong-form value), extend the ImportState parser to accept the additional context. Follow the `<id>|<aux>` pipe-suffix pattern in `shadowlink/resource_shadowlink.go`'s `ImportState`; `|` avoids ambiguity with `:` inside prefixed principal values. Add unit tests for the new parse including empty cases and embedded-colon URLs.
 5. **Tier-by-tier regression guards** — add tests at every tier that was structurally silent on the bug. The aim is "if any future commit weakens the validator, breaks the canonicalization helper, breaks the import-ID parse, or makes the fake stop mirroring the real backend, one of these layers fires."
 
 If the bug is purely a coverage gap (Track B, no actual production bug found), the only layers needed are 3 + 5: fake parity + tier-by-tier guards.
@@ -266,7 +266,7 @@ The four-section structure makes the commit function as a mini-postmortem readab
 
 - **Skill edits** (`.claude/skills/*`) — land in separate commits after Phase 11's report and per-file human approval
 - **Memory edits** (`~/.claude/projects/.../memory/*`) — separate, also after approval
-- **Unrelated cleanups** discovered during the hunt — flag via `spawn_task` or queue for a follow-up PR; don't bundle into the bug fix
+- **Unrelated cleanups** discovered during the hunt — note them for the user and queue for a follow-up PR; don't bundle into the bug fix
 - **Speculative refactors** the bug "made you think of" — out of scope; the bug fix should be the smallest change that resolves the symptom + lays the regression guards
 
 Memory `feedback_single_pr_with_folded_fixes.md`: fixes for code introduced on the *same branch* fold into the introducing commit. Bug fixes against code on main are their own commit sequence — don't fold them into unrelated branch work.

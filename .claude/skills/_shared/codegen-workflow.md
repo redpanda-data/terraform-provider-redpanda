@@ -38,7 +38,7 @@ A `//go:generate` line in `redpanda/resources/schemagen.go` emits **four** files
 3. `redpanda/models/<name>/resource_model_gen.go` — `ResourceModel` struct with `tfsdk:""` tags, `AttrType` tables, `GenerateMinimalResourceModel`, `AsX`/`XToObject` round-trip helpers
 4. `redpanda/models/<name>/conv_gen.go` — `Flatten`, `ExpandCreate`, `ExpandUpdate`, all sub-converters
 
-Datasources produce the equivalents in `schema_datasource_gen.go` / `datasource_model_gen.go`.
+Datasources produce the equivalents in `schema_datasource_gen.go` plus `data_model_gen.go` / `data_conv_gen.go` under `redpanda/models/<name>/`.
 
 `go generate ./redpanda/models/...` (second pass in `task generate:models`) is effectively a no-op — the models directory has no `//go:generate` directives. All model files are written by the schemagen binary via `-model-output` and `-conv-output` flags.
 
@@ -88,7 +88,7 @@ When extending: review the `.golden` diff line-by-line. A small YAML change shou
 
 A new resource needs a baseline golden before `task test:unit` will pass:
 
-1. Add a new entry to the `tests` slice in `redpanda/resources/schema_golden_test.go` (around `:64-91`).
+1. Add a new entry to the `tests` slice in `redpanda/resources/schema_golden_test.go`.
 2. Run `task generate:golden` to create `redpanda/resources/testdata/<name>_(resource|datasource)_schema.golden`.
 3. Commit the baseline in the same commit as the schema YAML.
 
@@ -112,8 +112,10 @@ Actual flags from `cmd/schemagen/main.go`:
 ```
 -proto-pkg, -message, -config, -func, -type, -output, -package,
 -todo, -api-descriptions, -model-output, -model-package, -conv-output,
--proto-import, -proto-alias, -cloudv2
+-proto-import, -proto-alias, -cloudv2, -console, -update-deps
 ```
+
+`-console` and `-update-deps` only matter for `task generate:bump-deps` (rewriting `internal/buf_dependencies.yaml`); normal generation needs neither.
 
 Flags that **do not exist** (don't use): `-model-test-output`, `-resource-import`.
 
@@ -121,7 +123,7 @@ Flags that **do not exist** (don't use): `-model-test-output`, `-resource-import
 
 ## Other codegen binaries
 
-- `cmd/enumgen/` — produces `internal/schemagen/enums/enums_gen.go` (registered enum carve-outs)
+- `cmd/enumgen/` — produces `redpanda/utils/enums/enums_gen.go` (enum string↔proto mappers; runs before schemagen)
 - `cmd/apidesc-import/` — produces `internal/schemagen/data/apidescriptions.yaml` from `../cloudv2` checkout
 
 ## See also

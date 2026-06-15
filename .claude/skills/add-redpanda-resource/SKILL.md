@@ -58,11 +58,13 @@ task generate:models
 
 See [`../_shared/codegen-workflow.md`](../_shared/codegen-workflow.md) for what files get produced, classifier diagnostics to watch for, and the golden baseline workflow.
 
-Four files appear per directive:
+Four files appear per resource directive:
 - `redpanda/resources/<name>/schema_resource_gen.go`
 - `redpanda/resources/<name>/proto_validator_gen.go`
 - `redpanda/models/<name>/resource_model_gen.go`
 - `redpanda/models/<name>/conv_gen.go`
+
+A datasource directive adds `redpanda/resources/<name>/schema_datasource_gen.go` plus `redpanda/models/<name>/data_model_gen.go` and `data_conv_gen.go`.
 
 Then create the golden baseline:
 
@@ -72,7 +74,7 @@ task generate:golden    # requires user approval per memory feedback_golden_file
 
 ## 4. CRUD glue
 
-Hand-write `redpanda/resources/<name>/resource_<name>.go` (and `datasource_<name>.go` if applicable). See [`../_shared/crud-glue.md`](../_shared/crud-glue.md) for the resource skeleton, Create/Read/Update/Delete/ImportState patterns, FieldMask update flow, async polling, and the `flatten_skip:` + Create-only field pattern.
+Hand-write `redpanda/resources/<name>/resource_<name>.go` (and `data_<name>.go` if applicable). See [`../_shared/crud-glue.md`](../_shared/crud-glue.md) for the resource skeleton, Create/Read/Update/Delete/ImportState patterns, FieldMask update flow, async polling, and the `flatten_skip:` + Create-only field pattern.
 
 For hand-written conversion functions referenced by `flatten_via:` / `expand_via:` directives, write them in `redpanda/models/<name>/conv.go`.
 

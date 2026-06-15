@@ -35,6 +35,7 @@ request. If you've added new functionality, consider adding appropriate unit and
 * Use the `ci-ready` label to trigger the standard live-acc gate (cluster + network + service_account + datasource_cluster on AWS + GCP)
 * Use the `ci-ready-byoc` label to trigger the BYOC + BYOVPC live-acc suite
 * Use the `ci-ready-serverless` label to trigger the serverless live-acc suite
+* Use the `ci-ready-upgrade` / `ci-ready-upgrade-serverless` labels to trigger the provider-upgrade suites
 
 ## Development Guide
 
@@ -145,15 +146,26 @@ For CI/CD and integration testing, use the test domain commands:
 # Run unit tests (no credentials needed)
 task test:unit
 
-# Provider-upgrade regression tests (no cluster required)
+# Colocated integration tier — bufconn-backed CRUD/import/drift (no credentials needed)
+task test:integration
+
+# Provider-upgrade regression tests (no dedicated cluster; smoke needs no creds, the others do)
 task test:upgrade:smoke
 task test:upgrade
+task test:upgrade:serverless
 
 # Run network tests (requires credentials)
 task test:network
 
 # Run data source tests (requires existing cluster)
 task test:datasource
+
+# Run the cluster datasource test (creates a cluster, then reads via datasource)
+task test:datasource:cluster
+
+# Focused acceptance tests
+task test:service_account   # control-plane only, no cluster
+task test:shadowlink        # provisions two AWS clusters + a link
 
 # Run full cluster tests (creates real resources)
 task test:cluster:aws
@@ -223,8 +235,11 @@ Schemas and models are generated from `schema.yaml` / `schema_datasource.yaml` f
 under `redpanda/resources/<resource>/`. Regenerate after editing any schema YAML:
 
 ```bash
-# Regenerate all schemas and models
+# Regenerate all schemas and models (runs enumgen → schemagen → model gen)
 task generate:models
+
+# Regenerate only the enum string<->proto mappers
+task generate:enums
 
 # Regenerate golden test files
 task generate:golden
@@ -283,7 +298,7 @@ task release:snapshot
 1. Always run `task ready` before committing changes to ensure code quality and documentation accuracy.
 2. Use `task test:unit` for quick, local testing that doesn't require Redpanda credentials.
 3. Use `task local:cluster:*:apply` and `task local:cluster:*:destroy` for manual testing during development.
-4. Trigger live-acc tests by tagging your PR with one or more of `ci-ready` (standard), `ci-ready-byoc`, or `ci-ready-serverless`.
+4. Trigger live-acc tests by tagging your PR with one or more of `ci-ready` (standard), `ci-ready-byoc`, `ci-ready-serverless`, `ci-ready-upgrade`, or `ci-ready-upgrade-serverless`.
 5. Use `task release:check` to validate GoReleaser configuration before creating releases.
 6. Set up your `.env` file with appropriate credentials for your development environment.
 

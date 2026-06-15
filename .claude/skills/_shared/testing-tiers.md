@@ -5,9 +5,9 @@ Four distinct test tiers, each with a specific cost/coverage tradeoff. Most reso
 | Tier | Path | Package | Build tag | Run via | Creds |
 |------|------|---------|-----------|---------|-------|
 | 1. Model unit | `redpanda/models/<name>/*_test.go` | `package <name>` (internal) | none | `task test:unit` | none |
-| 2. Colocated integration | `redpanda/resources/<name>/integration_<name>_test.go` | `package <name>_test` (external) | none | `task test:unit` | none |
+| 2. Colocated integration | `redpanda/resources/<name>/integration_<name>_test.go` | `package <name>_test` (external) | `integration` | `task test:integration` | none |
 | 3. Colocated live-acc | `redpanda/resources/<name>/acc_<name>_test.go` | `package <name>_test` | `live_test && (all \|\| <name>)` | `task test:<name>` | `REDPANDA_CLIENT_ID/SECRET` + cloud |
-| 4. Global live-acc | `redpanda/tests/runner_<name>_test.go` | `package tests` | `live_test && (all \|\| <name>_<provider>)` | `task test:cluster:aws` etc. | live |
+| 4. Global live-acc | `redpanda/tests/acc_<name>_<provider>_test.go` (+ shared `runner_*_test.go`) | `package tests` | `live_test && (all \|\| <name>_<provider>)` | `task test:cluster:aws` etc. | live |
 
 Upgrade tests are a parallel track: `redpanda/resources/<name>/upgrade_<name>_test.go`, build tag `upgrade`, run via `task test:upgrade`.
 
@@ -24,7 +24,7 @@ When extending: add a matrix test only when the new field has behavioral nuance 
 
 ## Tier 2: Colocated integration (`integration_<name>_test.go`)
 
-The day-to-day test tier. Real Terraform lifecycle (`Create → NoopReapply → Update → RequiresReplace → Import`) against an in-memory gRPC fake — no cloud creds, no real cluster, runs with `task test:unit`.
+The day-to-day test tier. Real Terraform lifecycle (`Create → NoopReapply → Update → RequiresReplace → Import`) against an in-memory gRPC fake — no cloud creds, no real cluster. Files carry `//go:build integration` and run via `task test:integration` (`-tags=integration -run '^TestIntegration_'`); `task test:unit` is `-short` and excludes them.
 
 ### Leaf-coverage rule (non-negotiable)
 
