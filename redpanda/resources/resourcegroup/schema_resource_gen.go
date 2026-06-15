@@ -30,9 +30,8 @@ func ResourceGroupSchema(_ context.Context) schema.Schema {
 		Description: "A Redpanda Cloud resource group",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				Description:   "The unique name of the resource group. Length must be at most 253. Must match pattern `^[a-zA-Z0-9-]+$`.",
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description: "The unique name of the resource group. Length must be at most 253. Must match pattern `^[a-zA-Z0-9-]+$`.",
+				Required:    true,
 			},
 
 			"id": schema.StringAttribute{
