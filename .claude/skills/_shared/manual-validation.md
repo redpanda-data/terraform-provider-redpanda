@@ -48,7 +48,9 @@ The exact preprod credentials are in memory. **Don't proceed without `REDPANDA_C
 
 ## Dev overrides wiring
 
-Per memory `reference_local_dev_provider.md` — the dev-override key is `hashicorp/redpanda`, **not** `redpanda-data/redpanda`. The registry source is `redpanda-data/redpanda` but the local binary defaults to `hashicorp/redpanda`. Get this wrong and `terraform plan` won't pick up local changes.
+Per memory `reference_local_dev_provider.md` — today the dev-override key is `hashicorp/redpanda`, **not** `redpanda-data/redpanda`, because `.tasks/local.yml` and TESTING.md still wire it that way. Get this wrong and `terraform plan` won't pick up local changes.
+
+> Known wart (memory `project_namespace_redpanda_data.md`): the correct key is `redpanda-data/redpanda` to match the registry source. A separate PR will flip `local.yml`/TESTING.md; once it lands, use `redpanda-data/redpanda` here and the `terraform state replace-provider` step below becomes unnecessary.
 
 ```bash
 # Build local binary

@@ -55,11 +55,11 @@ The user almost always means "the live-acc test targets in `.tasks/test.yml`". R
 └── SUMMARY.log       (optional, end-of-run tally)
 ```
 
-`.logs/` is in the repo's `.gitignore`. Writing creds anywhere is never safe. Ask the user for any necessary credentials
+`.logs/` is in the repo's `.gitignore`. Writing creds outside it is never safe. Ask the user for any necessary credentials.
 
-### 4. Notification
+### 3. Notification
 
-As the user their preferred notification method. Make sure to notify on the following areas
+Ask the user their preferred notification method. Make sure to notify on the following areas:
 - Campaign start ("kicking off N targets in order: ...")
 - Each target start (`acctest START <target>`)
 - Each target completion (`acctest PASS/FAIL <target>` with elapsed time)
@@ -255,6 +255,6 @@ At the END of the campaign (whether all PASS or some FAIL):
 - One log file per target under `.logs/acctest-<date>/`
 - `LEAKED_RESOURCES.txt` listing every cluster/network/RG that needs follow-up sweep
 - `SUMMARY.log` (optional) — chronological PASS/FAIL/elapsed/error-tail tally
-notifications matching the protocol above
+- Notifications matching the protocol above
 - (If bugs found) commit SHAs from the spawned bug-hunter agents
 - A final user-facing summary with: targets PASS, targets FAIL, bugs found and fixed, leaks remaining, follow-up items

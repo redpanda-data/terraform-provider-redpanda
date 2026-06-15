@@ -48,13 +48,12 @@ api:                                                       # RPC overrides; mini
 
 ### Validators
 
-Validator registry lives at `internal/schemagen/validators/`. Common ones:
+Validator registry (`validatorRegistry` in `internal/schemagen/validators.go`) holds two entries:
 
 - `OneOf[T]` (auto-derived from proto `buf.validate` enum rules — usually no manual entry needed)
 - `RequireTrue` — for oneof-presence bool fields where `false` is unrepresentable in proto (`shadowlink.start_at_earliest`)
-- `Format(uuid|url|email|...)` (auto-derived from proto `buf.validate.string.format`)
 
-Add manually only when auto-derivation can't infer the rule.
+`buf.validate` string/numeric constraints (uuid, regex, length, range) are enforced server-side and via the description, not emitted as a client-side validator — there is no `Format` validator. Add a registry entry only when a new rule genuinely needs a client-side check.
 
 ### Plan modifiers
 

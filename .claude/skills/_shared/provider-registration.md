@@ -14,7 +14,7 @@ Miss any one and the resource won't actually work end-to-end. All three are pre-
 
 ## 1. `redpanda/redpanda.go`
 
-Two slices: `Resources()` (around `:509-530`) and `DataSources()` (around `:494-506`). Each entry is a single-line factory lambda:
+Two slices: `Resources()` and `DataSources()`. Each entry is a single-line factory lambda:
 
 ```go
 func() resource.Resource { return <name>.New<Name>() },
@@ -22,7 +22,7 @@ func() resource.Resource { return <name>.New<Name>() },
 
 Multi-line form exists historically (first entry, `resourcegroup`); don't copy. **Single-line is the convention.**
 
-Also update the import block (`:38-58`):
+Also update the resource-package import block at the top of the file:
 
 ```go
 "github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/<name>"
@@ -58,12 +58,14 @@ For a datasource, add a second line with `schema_datasource.yaml` + `-func DataS
 
 ## 3. `redpanda/resources/schema_golden_test.go`
 
-Add a new entry to the `tests` slice (around `:64-91`):
+Add a new entry to the `tests` slice (`{name, schema any}`):
 
 ```go
-{name: "<name>_resource", schema: <name>.Resource<Name>Schema(ctx).Schema},
-{name: "<name>_datasource", schema: <name>.DataSource<Name>Schema(ctx).Schema}, // if applicable
+{"<name>_resource", <name>.Resource<Name>Schema(ctx)},
+{"<name>_datasource", <name>.Datasource<Name>Schema(ctx)}, // if applicable
 ```
+
+The schema getter returns a `schema.Schema` directly — no `.Schema` suffix.
 
 Then run `task generate:golden` to create the baseline `redpanda/resources/testdata/<name>_(resource|datasource)_schema.golden` file. Without the baseline, `task test:unit` fails on first run.
 
