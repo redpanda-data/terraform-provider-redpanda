@@ -16,8 +16,6 @@
 package schemagen
 
 import (
-	"fmt"
-	"os"
 	"strings"
 )
 
@@ -53,6 +51,12 @@ func maskContractVerdictFor(inContract, hasRequiresReplace bool) maskContractVer
 // contract set cannot be updated in place, so it requires replace. Nested
 // attrs stay yaml-owned. Pure synthetics (no proto backing and no from_proto)
 // are invisible to the contract and skipped.
+//
+// A hand-maintained (non-WarnOnly) contract auto-derives RequiresReplace for
+// out-of-contract fields and only flags genuine contradictions. A WarnOnly
+// contract — derived from the update payload proto descriptor — never mutates
+// plan modifiers; it warns in both directions instead (Direction A: a payload
+// field marked RequiresReplace; Direction B: a non-payload field missing it).
 func deriveMaskContractRequiresReplace(attrs []SchemaAttr, fields map[string]FieldConfig, contract *MaskContract, mc *mergeCtx) {
 	for i := range attrs {
 		a := &attrs[i]
@@ -74,15 +78,31 @@ func deriveMaskContractRequiresReplace(attrs []SchemaAttr, fields map[string]Fie
 				break
 			}
 		}
-		switch maskContractVerdictFor(inContract, hasRR) {
+		verdict := maskContractVerdictFor(inContract, hasRR)
+		if contract.WarnOnly {
+			switch verdict {
+			case maskVerdictDerive:
+				mc.warn(
+					"WARN mask-contract %s.%s: %q is not in the update payload but is missing RequiresReplace — add it (the control plane cannot update it in place)\n",
+					mc.resourceLabel, a.Name, key)
+			case maskVerdictConflict:
+				mc.warn(
+					"WARN mask-contract %s.%s: plan_modifiers lists RequiresReplace but %q is in the update payload — remove it so the field updates in place\n",
+					mc.resourceLabel, a.Name, key)
+			case maskVerdictRedundant, maskVerdictAgree:
+			default:
+			}
+			continue
+		}
+		switch verdict {
 		case maskVerdictDerive:
 			a.PlanModifierNames = append([]string{"RequiresReplace"}, a.PlanModifierNames...)
 		case maskVerdictRedundant:
-			fmt.Fprintf(os.Stderr,
+			mc.warn(
 				"INFO mask-contract %s.%s: yaml RequiresReplace is redundant — derived from the update-mask contract; the override can be removed\n",
 				mc.resourceLabel, a.Name)
 		case maskVerdictConflict:
-			fmt.Fprintf(os.Stderr,
+			mc.warn(
 				"WARN mask-contract %s.%s: plan_modifiers lists RequiresReplace but %q is updatable per the update-mask contract — keep only if intentional\n",
 				mc.resourceLabel, a.Name, key)
 		case maskVerdictAgree:

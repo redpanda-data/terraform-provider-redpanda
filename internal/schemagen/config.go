@@ -61,9 +61,15 @@ func (c *Config) Source() string {
 // resource: TopLevel names are accepted at object granularity, Leaf names
 // only at leaf granularity (the provider expands them). A top-level field in
 // neither set cannot be updated in place — it requires replace.
+//
+// WarnOnly contracts are derived automatically from the update payload proto
+// descriptor (not hand-maintained). They never mutate plan modifiers — a
+// disagreement only emits a warning, because a proto descriptor cannot be
+// trusted to mutate generated output the way the curated cluster contract can.
 type MaskContract struct {
 	TopLevel map[string]bool
 	Leaf     map[string]bool
+	WarnOnly bool
 }
 
 // SetMaskContract attaches the resolved update-mask contract; cmd/schemagen
@@ -179,6 +185,13 @@ type FieldConfig struct {
 	FlattenFromPrev bool `yaml:"flatten_from_prev,omitempty"`
 
 	ProtoOnly bool `yaml:"proto_only,omitempty"`
+
+	// UpdatableOutOfBand marks a field that is mutable in place via a
+	// hand-written RPC outside the main update payload (e.g. pipeline.state via
+	// Start/Stop). It tells the derived WarnOnly mask contract to treat the
+	// field as updatable, suppressing the Direction-B "missing RequiresReplace"
+	// false positive the proto descriptor alone would raise.
+	UpdatableOutOfBand bool `yaml:"updatable_out_of_band,omitempty"`
 
 	Fields map[string]FieldConfig `yaml:"fields,omitempty"`
 }

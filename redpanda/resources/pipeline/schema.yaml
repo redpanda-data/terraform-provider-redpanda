@@ -66,6 +66,8 @@ state:
   default: "stopped"
   validator: "OneOf{values: |running|stopped}"
   flatten_via: FlattenDesiredState
+  # Reconciled in place via Start/Stop RPCs, not the PipelineUpdate payload.
+  updatable_out_of_band: true
 
 status:
   computed_only: true
