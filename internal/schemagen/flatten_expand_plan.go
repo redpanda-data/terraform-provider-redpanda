@@ -257,6 +257,59 @@ func inferRPCPayload(rpc *RPCConfig, lookup ProtoLookup) error {
 	return nil
 }
 
+// ResolveUpdateContractFields returns the set of top-level proto field names the
+// update RPC's payload carries, or ok=false when no update payload resolves. It
+// reuses the same request/payload resolution as the expand codegen: the nested
+// payload message when one is conventionally present (e.g. ClusterUpdate inside
+// UpdateClusterRequest), otherwise the request message itself (e.g.
+// UpdateServerlessClusterRequest, whose own fields ARE the update surface).
+// FieldMask fields are excluded. cmd/schemagen turns this into a WarnOnly
+// MaskContract for resources without a hand-maintained one.
+func ResolveUpdateContractFields(cfg *Config, lookup ProtoLookup) (map[string]bool, bool) {
+	if cfg == nil || cfg.API == nil || cfg.API.Update == nil || lookup == nil {
+		return nil, false
+	}
+	// Probe a copy so inferred payload type does not leak into cfg's RPC.
+	probe := *cfg.API.Update
+	if err := inferRPCPayload(&probe, lookup); err != nil {
+		return nil, false
+	}
+	msgName := probe.PayloadType
+	if msgName == "" {
+		msgName = probe.Request
+	}
+	if msgName == "" {
+		return nil, false
+	}
+	msg, err := lookup(msgName)
+	if err != nil || msg == nil {
+		return nil, false
+	}
+	fields := make(map[string]bool, len(msg.Fields))
+	for i := range msg.Fields {
+		f := &msg.Fields[i]
+		if f.Kind == KindMessage && f.Nested != nil && f.Nested.Name == "FieldMask" {
+			continue
+		}
+		fields[f.Name] = true
+	}
+	return fields, len(fields) > 0
+}
+
+// UpdateContractIdentityProtoField returns the proto field that backs the TF
+// `id` attribute — the resource's addressing key, which rides in the update
+// payload only to identify the row, not as a mutable field. Excluding it from a
+// derived contract is what separates a real bug (resourcegroup.name: keyed by
+// id, name is renamable) from a false positive (user.name: the key itself).
+func UpdateContractIdentityProtoField(cfg *Config) string {
+	if cfg != nil {
+		if fc, ok := cfg.Fields["id"]; ok && fc.FromProto != "" {
+			return fc.FromProto
+		}
+	}
+	return "id"
+}
+
 func payloadTypeMatchesRequestConvention(requestName, payloadType string) bool {
 	if requestName == "" || payloadType == "" {
 		return false

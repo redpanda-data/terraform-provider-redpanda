@@ -16,6 +16,7 @@
 package schemagen
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -345,5 +346,119 @@ func TestMaskContractVerdicts(t *testing.T) {
 		if got := maskContractVerdictFor(tc.inContract, tc.hasRR); got != tc.want {
 			t.Errorf("verdict(in=%v, rr=%v) = %v, want %v", tc.inContract, tc.hasRR, got, tc.want)
 		}
+	}
+}
+
+const nameField = "name"
+
+// TestMerge_MaskContract_WarnOnly_BothDirections — a derived (WarnOnly) contract
+// never mutates plan modifiers and warns in both directions: a payload field
+// marked RequiresReplace (Direction A) and a non-payload field missing it
+// (Direction B). In-contract-without-RR and out-of-contract-with-RR stay silent.
+func TestMerge_MaskContract_WarnOnly_BothDirections(t *testing.T) {
+	attrs := []SchemaAttr{
+		{Name: nameField, ProtoName: nameField, Optional: true, PlanModifierNames: []string{"RequiresReplace"}},               // in-payload + RR → Direction A
+		{Name: "region", ProtoName: "region", Optional: true},                                                                 // not in payload, no RR → Direction B
+		{Name: "tags", ProtoName: "tags", Optional: true},                                                                     // in-payload, no RR → silent
+		{Name: "cloud_provider", ProtoName: "cloud_provider", Required: true, PlanModifierNames: []string{"RequiresReplace"}}, // not in payload + RR → silent
+		{Name: "id", ProtoName: "id", Computed: true},                                                                         // not optional/required → skipped
+	}
+	contract := &MaskContract{TopLevel: map[string]bool{nameField: true, "tags": true}, WarnOnly: true}
+	var warns []string
+	mc := &mergeCtx{resourceLabel: "Thing", warnf: func(f string, a ...any) { warns = append(warns, fmt.Sprintf(f, a...)) }}
+
+	deriveMaskContractRequiresReplace(attrs, nil, contract, mc)
+
+	// No mutation: existing modifiers untouched, no RequiresReplace added.
+	if got := attrs[0].PlanModifierNames; len(got) != 1 || got[0] != "RequiresReplace" {
+		t.Errorf("warn-only must not mutate name modifiers; got %v", got)
+	}
+	if len(attrs[1].PlanModifierNames) != 0 {
+		t.Errorf("warn-only must not auto-add RequiresReplace to region; got %v", attrs[1].PlanModifierNames)
+	}
+
+	if len(warns) != 2 {
+		t.Fatalf("expected exactly 2 warnings (Direction A + B), got %d: %v", len(warns), warns)
+	}
+	var sawA, sawB bool
+	for _, w := range warns {
+		if strings.Contains(w, "Thing.name") && strings.Contains(w, "is in the update payload") {
+			sawA = true
+		}
+		if strings.Contains(w, "Thing.region") && strings.Contains(w, "missing RequiresReplace") {
+			sawB = true
+		}
+	}
+	if !sawA {
+		t.Errorf("missing Direction-A warning for name; got %v", warns)
+	}
+	if !sawB {
+		t.Errorf("missing Direction-B warning for region; got %v", warns)
+	}
+}
+
+// TestResolveUpdateContractFields — the derived contract reads the nested
+// payload message when one matches the request convention, otherwise the
+// request message itself; FieldMask fields are excluded.
+func TestResolveUpdateContractFields(t *testing.T) {
+	fieldMask := ProtoField{Name: "update_mask", Kind: KindMessage, Nested: &ProtoMessage{Name: "FieldMask"}}
+
+	nestedLookup := func(name string) (*ProtoMessage, error) {
+		switch name {
+		case "UpdateThingRequest":
+			return &ProtoMessage{Name: "UpdateThingRequest", Fields: []ProtoField{
+				{Name: "thing", Kind: KindMessage, Nested: &ProtoMessage{Name: "ThingUpdate", GoName: "ThingUpdate"}},
+				fieldMask,
+			}}, nil
+		case "ThingUpdate":
+			return &ProtoMessage{Name: "ThingUpdate", Fields: []ProtoField{
+				{Name: "id", Kind: KindString}, {Name: nameField, Kind: KindString}, {Name: "foo", Kind: KindString},
+			}}, nil
+		default:
+			return nil, nil
+		}
+	}
+	cfg := &Config{API: &APIConfig{Update: &RPCConfig{Request: "UpdateThingRequest"}}}
+	got, ok := ResolveUpdateContractFields(cfg, nestedLookup)
+	if !ok {
+		t.Fatal("expected nested payload to resolve")
+	}
+	for _, want := range []string{"id", nameField, "foo"} {
+		if !got[want] {
+			t.Errorf("nested payload field %q missing from contract %v", want, got)
+		}
+	}
+
+	// Request-as-payload: no conventionally-named nested message, so the
+	// request's own fields are the surface; FieldMask excluded.
+	flatLookup := func(name string) (*ProtoMessage, error) {
+		if name == "UpdateThingRequest" {
+			return &ProtoMessage{Name: "UpdateThingRequest", Fields: []ProtoField{
+				{Name: "id", Kind: KindString}, {Name: "tags", Kind: KindMap}, fieldMask,
+			}}, nil
+		}
+		return nil, nil
+	}
+	got, ok = ResolveUpdateContractFields(cfg, flatLookup)
+	if !ok {
+		t.Fatal("expected request-as-payload to resolve")
+	}
+	if !got["id"] || !got["tags"] {
+		t.Errorf("request-as-payload fields missing; got %v", got)
+	}
+	if got["update_mask"] {
+		t.Errorf("FieldMask must be excluded from the contract; got %v", got)
+	}
+}
+
+// TestUpdateContractIdentityProtoField — the identity proto field is the one
+// backing the TF id attribute (from_proto), defaulting to "id".
+func TestUpdateContractIdentityProtoField(t *testing.T) {
+	keyedByName := &Config{Fields: map[string]FieldConfig{"id": {FromProto: nameField}}}
+	if got := UpdateContractIdentityProtoField(keyedByName); got != nameField {
+		t.Errorf("id.from_proto=%s should be preserved, got %q", nameField, got)
+	}
+	if got := UpdateContractIdentityProtoField(&Config{}); got != "id" {
+		t.Errorf("default identity field should be %q, got %q", "id", got)
 	}
 }

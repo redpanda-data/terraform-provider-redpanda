@@ -151,6 +151,18 @@ type mergeCtx struct {
 	ancestors        []ancestorFrame
 	resourceLabel    string
 	source           string
+	// warnf sinks diagnostic warnings; nil routes to os.Stderr. Tests inject a
+	// collector to assert mask-contract verdicts without capturing stderr.
+	warnf func(format string, args ...any)
+}
+
+// warn emits a diagnostic warning through the injected sink, defaulting to stderr.
+func (mc *mergeCtx) warn(format string, args ...any) {
+	if mc.warnf != nil {
+		mc.warnf(format, args...)
+		return
+	}
+	fmt.Fprintf(os.Stderr, format, args...)
 }
 
 func (mc *mergeCtx) errorf(format string, args ...any) {

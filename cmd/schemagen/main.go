@@ -246,6 +246,29 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 	if err := resolveMaskContract(cfg); err != nil {
 		return err
 	}
+	// Resources without a hand-maintained contract get a WarnOnly contract
+	// derived from their update payload proto, so RequiresReplace markers are
+	// checked against the real update surface (both directions) without
+	// mutating generated output. The identity field is excluded — it rides the
+	// payload to address the row, not as a mutable field.
+	if cfg.MaskContract() == nil && schemaType != schemagen.SchemaTypeDatasource {
+		if topLevel, ok := schemagen.ResolveUpdateContractFields(cfg, protoLookup); ok {
+			delete(topLevel, schemagen.UpdateContractIdentityProtoField(cfg))
+			// Fields mutated via a side-channel RPC (e.g. pipeline.state via
+			// Start/Stop) are updatable even though the proto payload omits them.
+			for name := range cfg.Fields {
+				if !cfg.Fields[name].UpdatableOutOfBand {
+					continue
+				}
+				protoName := name
+				if fp := cfg.Fields[name].FromProto; fp != "" {
+					protoName = fp
+				}
+				topLevel[protoName] = true
+			}
+			cfg.SetMaskContract(&schemagen.MaskContract{TopLevel: topLevel, WarnOnly: true})
+		}
+	}
 
 	attrs, extraImports, stats, mergeErrs := schemagen.Merge(proto, cfg, schemaType, apiIndex)
 	if len(mergeErrs) > 0 {
