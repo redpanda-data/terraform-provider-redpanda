@@ -106,7 +106,7 @@ func TestIntegration_ResourceGroup(t *testing.T) {
 				Config: mockResourceGroupConfig(renamedName),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
-						plancheck.ExpectResourceAction(resourceGroupAddr, plancheck.ResourceActionDestroyBeforeCreate),
+						plancheck.ExpectResourceAction(resourceGroupAddr, plancheck.ResourceActionUpdate),
 					},
 					PostApplyPostRefresh: []plancheck.PlanCheck{
 						plancheck.ExpectEmptyPlan(),
@@ -150,14 +150,14 @@ func TestIntegration_ResourceGroup_CreateAndRefresh(t *testing.T) {
 	})
 }
 
-// TestIntegration_ResourceGroup_RequiresReplace_Name mutates the RequiresReplace
-// `name` leaf and asserts the framework plans DestroyBeforeCreate. The
-// load-bearing proof that the resource was actually destroyed and recreated
-// (rather than updated in-place) is that the server-assigned id DIFFERS
-// between the two steps — a single CompareValue(ValuesDiffer()) instance
-// shared across both steps captures the pre- and post-replace ids and the
-// comparer asserts they are not equal.
-func TestIntegration_ResourceGroup_RequiresReplace_Name(t *testing.T) {
+// TestIntegration_ResourceGroup_UpdateName mutates `name` and asserts the
+// framework plans an in-place ResourceActionUpdate: UpdateResourceGroup carries
+// a name field, so a rename is a backend update, not a destroy+recreate. The
+// load-bearing proof that the resource was NOT recreated is that the
+// server-assigned id is the SAME across both steps — a shared
+// CompareValue(ValuesSame()) instance captures the pre- and post-update ids and
+// asserts they are equal.
+func TestIntegration_ResourceGroup_UpdateName(t *testing.T) {
 	_, factories := integration.Setup(t)
 
 	const (
@@ -165,7 +165,7 @@ func TestIntegration_ResourceGroup_RequiresReplace_Name(t *testing.T) {
 		renamedName = "tfrp-mock-rg-b"
 	)
 
-	idChanged := statecheck.CompareValue(compare.ValuesDiffer())
+	idStable := statecheck.CompareValue(compare.ValuesSame())
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: factories,
@@ -173,12 +173,12 @@ func TestIntegration_ResourceGroup_RequiresReplace_Name(t *testing.T) {
 			integration.CreateStep(resourceGroupAddr, mockResourceGroupConfig(initialName), []statecheck.StateCheck{
 				statecheck.ExpectKnownValue(resourceGroupAddr, tfjsonpath.New("name"), knownvalue.StringExact(initialName)),
 				statecheck.ExpectKnownValue(resourceGroupAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
-				idChanged.AddStateValue(resourceGroupAddr, tfjsonpath.New("id")),
+				idStable.AddStateValue(resourceGroupAddr, tfjsonpath.New("id")),
 			}),
-			integration.RequiresReplaceStep(resourceGroupAddr, mockResourceGroupConfig(renamedName), []statecheck.StateCheck{
+			integration.UpdateLeafStep(resourceGroupAddr, mockResourceGroupConfig(renamedName), []statecheck.StateCheck{
 				statecheck.ExpectKnownValue(resourceGroupAddr, tfjsonpath.New("name"), knownvalue.StringExact(renamedName)),
 				statecheck.ExpectKnownValue(resourceGroupAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
-				idChanged.AddStateValue(resourceGroupAddr, tfjsonpath.New("id")),
+				idStable.AddStateValue(resourceGroupAddr, tfjsonpath.New("id")),
 			}),
 		},
 	})
