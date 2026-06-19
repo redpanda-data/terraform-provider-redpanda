@@ -42,4 +42,10 @@ var planModifierRegistry = map[string]planModifierDef{
 		},
 		subsumesStateNullAxis: true,
 	},
+	"PinStateUnlessGatewayChanges": {
+		expr: func(_ string) string {
+			return "gcpGatewayStatePin()"
+		},
+		subsumesStateNullAxis: true,
+	},
 }
