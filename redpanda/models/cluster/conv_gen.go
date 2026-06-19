@@ -111,13 +111,6 @@ func Flatten(ctx context.Context, proto ClusterResponse, prev *ResourceModel) (*
 	m.CloudStorage = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetCloudStorage(), func() *CloudStorageModel { v, _ := prev.AsCloudStorage(ctx); return v }(), CloudStorageAttrTypes(), FlattenCloudStorage, &diags)
 	m.ClusterConfiguration = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetClusterConfiguration(), func() *ClusterConfigurationModel { v, _ := prev.AsClusterConfiguration(ctx); return v }(), ClusterConfigurationAttrTypes(), FlattenClusterConfiguration, &diags)
 	m.ClusterType = types.StringValue(enums.ClusterTypeToString(proto.GetType()))
-	if proto.HasGcpGlobalAccessApiGatewayEnabled() {
-		m.GCPGlobalAccessAPIGatewayEnabled = types.BoolValue(proto.GetGcpGlobalAccessApiGatewayEnabled())
-	} else if prev != nil && !prev.GCPGlobalAccessAPIGatewayEnabled.IsUnknown() {
-		m.GCPGlobalAccessAPIGatewayEnabled = prev.GCPGlobalAccessAPIGatewayEnabled
-	} else {
-		m.GCPGlobalAccessAPIGatewayEnabled = types.BoolNull()
-	}
 	if proto.HasGcpPrivateServiceConnect() {
 		m.GCPPrivateServiceConnect = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetGcpPrivateServiceConnect(), func() *GCPPrivateServiceConnectModel { v, _ := prev.AsGCPPrivateServiceConnect(ctx); return v }(), GCPPrivateServiceConnectAttrTypes(), FlattenGCPPrivateServiceConnect, &diags)
 	} else if prev != nil && !prev.GCPPrivateServiceConnect.IsUnknown() {
@@ -137,6 +130,13 @@ func Flatten(ctx context.Context, proto ClusterResponse, prev *ResourceModel) (*
 	m.CurrentRedpandaVersion = types.StringValue(proto.GetCurrentRedpandaVersion())
 	m.DataplaneAPI = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetDataplaneApi(), func() *DataplaneAPIModel { v, _ := prev.AsDataplaneAPI(ctx); return v }(), DataplaneAPIAttrTypes(), FlattenDataplaneAPI, &diags)
 	m.DesiredRedpandaVersion = types.StringValue(proto.GetDesiredRedpandaVersion())
+	if proto.HasGcpGlobalAccessApiGatewayEnabled() {
+		m.GCPGlobalAccessAPIGatewayEnabled = types.BoolValue(proto.GetGcpGlobalAccessApiGatewayEnabled())
+	} else if prev != nil && !prev.GCPGlobalAccessAPIGatewayEnabled.IsUnknown() {
+		m.GCPGlobalAccessAPIGatewayEnabled = prev.GCPGlobalAccessAPIGatewayEnabled
+	} else {
+		m.GCPGlobalAccessAPIGatewayEnabled = types.BoolNull()
+	}
 	if proto.HasGcpGlobalAccessEnabled() {
 		m.GCPGlobalAccessEnabled = types.BoolValue(proto.GetGcpGlobalAccessEnabled())
 	} else if prev != nil && !prev.GCPGlobalAccessEnabled.IsUnknown() {
@@ -150,6 +150,11 @@ func Flatten(ctx context.Context, proto ClusterResponse, prev *ResourceModel) (*
 	m.RedpandaConsole = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaConsole(), func() *RedpandaConsoleModel { v, _ := prev.AsRedpandaConsole(ctx); return v }(), RedpandaConsoleAttrTypes(), FlattenRedpandaConsole, &diags)
 	m.State = types.StringValue(enums.ClusterStateToString(proto.GetState()))
 	m.StateDescription = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetStateDescription(), func() *StateDescriptionModel { v, _ := prev.AsStateDescription(ctx); return v }(), StateDescriptionAttrTypes(), FlattenStateDescription, &diags)
+	if prev != nil && !prev.GCPEnableGlobalAccessAPIGateway.IsUnknown() {
+		m.GCPEnableGlobalAccessAPIGateway = prev.GCPEnableGlobalAccessAPIGateway
+	} else {
+		m.GCPEnableGlobalAccessAPIGateway = types.BoolNull()
+	}
 	if prev != nil && !prev.RedpandaVersion.IsUnknown() {
 		m.RedpandaVersion = prev.RedpandaVersion
 	} else {
@@ -190,31 +195,32 @@ func Flatten(ctx context.Context, proto ClusterResponse, prev *ResourceModel) (*
 func ExpandCreate(ctx context.Context, m *ResourceModel) (*controlplanev1.CreateClusterRequest, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	payload := &controlplanev1.ClusterCreate{
-		CloudProvider:            enums.StringToCloudProvider(m.CloudProvider.ValueString()),
-		ConnectionType:           enums.StringToClusterConnectionType(m.ConnectionType.ValueString()),
-		Name:                     m.Name.ValueString(),
-		NetworkId:                m.NetworkID.ValueString(),
-		Region:                   m.Region.ValueString(),
-		ResourceGroupId:          m.ResourceGroupID.ValueString(),
-		ThroughputTier:           m.ThroughputTier.ValueString(),
-		Zones:                    modelconv.ListToSliceWithDiags[string](ctx, m.Zones, &diags),
-		CustomerManagedResources: modelconv.ObjectToMessageWithDiags(ctx, m.CustomerManagedResources, ExpandCustomerManagedResources, &diags),
-		ReadReplicaClusterIds:    modelconv.ListToSliceWithDiags[string](ctx, m.ReadReplicaClusterIds, &diags),
-		ApiGatewayAccess:         enums.StringToNetworkAccessMode(m.APIGatewayAccess.ValueString()),
-		AwsPrivateLink:           modelconv.ObjectToMessageWithDiags(ctx, m.AWSPrivateLink, ExpandCreateAWSPrivateLink, &diags),
-		AzurePrivateLink:         modelconv.ObjectToMessageWithDiags(ctx, m.AzurePrivateLink, ExpandCreateAzurePrivateLink, &diags),
-		CloudStorage:             modelconv.ObjectToMessageWithDiags(ctx, m.CloudStorage, ExpandCreateCloudStorage, &diags),
-		ClusterConfiguration:     modelconv.ObjectToMessageWithDiags(ctx, m.ClusterConfiguration, ExpandCreateClusterConfiguration, &diags),
-		Type:                     enums.StringToClusterType(m.ClusterType.ValueString()),
-		GcpPrivateServiceConnect: modelconv.ObjectToMessageWithDiags(ctx, m.GCPPrivateServiceConnect, ExpandCreateGCPPrivateServiceConnect, &diags),
-		HttpProxy:                modelconv.ObjectToMessageWithDiags(ctx, m.HTTPProxy, ExpandCreateHTTPProxy, &diags),
-		KafkaApi:                 modelconv.ObjectToMessageWithDiags(ctx, m.KafkaAPI, ExpandCreateKafkaAPI, &diags),
-		KafkaConnect:             modelconv.ObjectToMessageWithDiags(ctx, m.KafkaConnect, ExpandKafkaConnect, &diags),
-		MaintenanceWindowConfig:  modelconv.ObjectToMessageWithDiags(ctx, m.MaintenanceWindowConfig, ExpandMaintenanceWindowConfig, &diags),
-		RedpandaNodeCount:        m.RedpandaNodeCount.ValueInt32(),
-		Rpsql:                    modelconv.ObjectToMessageWithDiags(ctx, m.Rpsql, ExpandRpsql, &diags),
-		SchemaRegistry:           modelconv.ObjectToMessageWithDiags(ctx, m.SchemaRegistry, ExpandCreateSchemaRegistry, &diags),
-		CloudProviderTags:        m.TagsForProto(),
+		CloudProvider:                   enums.StringToCloudProvider(m.CloudProvider.ValueString()),
+		ConnectionType:                  enums.StringToClusterConnectionType(m.ConnectionType.ValueString()),
+		Name:                            m.Name.ValueString(),
+		NetworkId:                       m.NetworkID.ValueString(),
+		Region:                          m.Region.ValueString(),
+		ResourceGroupId:                 m.ResourceGroupID.ValueString(),
+		ThroughputTier:                  m.ThroughputTier.ValueString(),
+		Zones:                           modelconv.ListToSliceWithDiags[string](ctx, m.Zones, &diags),
+		CustomerManagedResources:        modelconv.ObjectToMessageWithDiags(ctx, m.CustomerManagedResources, ExpandCustomerManagedResources, &diags),
+		GcpEnableGlobalAccessApiGateway: m.GCPEnableGlobalAccessAPIGateway.ValueBool(),
+		ReadReplicaClusterIds:           modelconv.ListToSliceWithDiags[string](ctx, m.ReadReplicaClusterIds, &diags),
+		ApiGatewayAccess:                enums.StringToNetworkAccessMode(m.APIGatewayAccess.ValueString()),
+		AwsPrivateLink:                  modelconv.ObjectToMessageWithDiags(ctx, m.AWSPrivateLink, ExpandCreateAWSPrivateLink, &diags),
+		AzurePrivateLink:                modelconv.ObjectToMessageWithDiags(ctx, m.AzurePrivateLink, ExpandCreateAzurePrivateLink, &diags),
+		CloudStorage:                    modelconv.ObjectToMessageWithDiags(ctx, m.CloudStorage, ExpandCreateCloudStorage, &diags),
+		ClusterConfiguration:            modelconv.ObjectToMessageWithDiags(ctx, m.ClusterConfiguration, ExpandCreateClusterConfiguration, &diags),
+		Type:                            enums.StringToClusterType(m.ClusterType.ValueString()),
+		GcpPrivateServiceConnect:        modelconv.ObjectToMessageWithDiags(ctx, m.GCPPrivateServiceConnect, ExpandCreateGCPPrivateServiceConnect, &diags),
+		HttpProxy:                       modelconv.ObjectToMessageWithDiags(ctx, m.HTTPProxy, ExpandCreateHTTPProxy, &diags),
+		KafkaApi:                        modelconv.ObjectToMessageWithDiags(ctx, m.KafkaAPI, ExpandCreateKafkaAPI, &diags),
+		KafkaConnect:                    modelconv.ObjectToMessageWithDiags(ctx, m.KafkaConnect, ExpandKafkaConnect, &diags),
+		MaintenanceWindowConfig:         modelconv.ObjectToMessageWithDiags(ctx, m.MaintenanceWindowConfig, ExpandMaintenanceWindowConfig, &diags),
+		RedpandaNodeCount:               m.RedpandaNodeCount.ValueInt32(),
+		Rpsql:                           modelconv.ObjectToMessageWithDiags(ctx, m.Rpsql, ExpandRpsql, &diags),
+		SchemaRegistry:                  modelconv.ObjectToMessageWithDiags(ctx, m.SchemaRegistry, ExpandCreateSchemaRegistry, &diags),
+		CloudProviderTags:               m.TagsForProto(),
 	}
 	req := &controlplanev1.CreateClusterRequest{
 		Cluster: payload,
@@ -227,25 +233,26 @@ func ExpandCreate(ctx context.Context, m *ResourceModel) (*controlplanev1.Create
 func ExpandUpdate(ctx context.Context, m *ResourceModel) (*controlplanev1.ClusterUpdate, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	payload := &controlplanev1.ClusterUpdate{
-		Name:                     m.Name.ValueString(),
-		ThroughputTier:           m.ThroughputTier.ValueString(),
-		CustomerManagedResources: modelconv.ObjectToMessageWithDiags(ctx, m.CustomerManagedResources, ExpandUpdateCustomerManagedResources, &diags),
-		ReadReplicaClusterIds:    modelconv.ListToSliceWithDiags[string](ctx, m.ReadReplicaClusterIds, &diags),
-		ApiGatewayAccess:         enums.StringToNetworkAccessMode(m.APIGatewayAccess.ValueString()),
-		AwsPrivateLink:           modelconv.ObjectToMessageWithDiags(ctx, m.AWSPrivateLink, ExpandUpdateAWSPrivateLink, &diags),
-		AzurePrivateLink:         modelconv.ObjectToMessageWithDiags(ctx, m.AzurePrivateLink, ExpandUpdateAzurePrivateLink, &diags),
-		CloudStorage:             modelconv.ObjectToMessageWithDiags(ctx, m.CloudStorage, ExpandUpdateCloudStorage, &diags),
-		ClusterConfiguration:     modelconv.ObjectToMessageWithDiags(ctx, m.ClusterConfiguration, ExpandUpdateClusterConfiguration, &diags),
-		GcpPrivateServiceConnect: modelconv.ObjectToMessageWithDiags(ctx, m.GCPPrivateServiceConnect, ExpandUpdateGCPPrivateServiceConnect, &diags),
-		HttpProxy:                modelconv.ObjectToMessageWithDiags(ctx, m.HTTPProxy, ExpandUpdateHTTPProxy, &diags),
-		KafkaApi:                 modelconv.ObjectToMessageWithDiags(ctx, m.KafkaAPI, ExpandUpdateKafkaAPI, &diags),
-		KafkaConnect:             modelconv.ObjectToMessageWithDiags(ctx, m.KafkaConnect, ExpandKafkaConnect, &diags),
-		MaintenanceWindowConfig:  modelconv.ObjectToMessageWithDiags(ctx, m.MaintenanceWindowConfig, ExpandMaintenanceWindowConfig, &diags),
-		RedpandaNodeCount:        m.RedpandaNodeCount.ValueInt32(),
-		Rpsql:                    modelconv.ObjectToMessageWithDiags(ctx, m.Rpsql, ExpandRpsql, &diags),
-		SchemaRegistry:           modelconv.ObjectToMessageWithDiags(ctx, m.SchemaRegistry, ExpandUpdateSchemaRegistry, &diags),
-		CloudProviderTags:        m.TagsForProto(),
-		Id:                       m.ID.ValueString(),
+		Name:                            m.Name.ValueString(),
+		ThroughputTier:                  m.ThroughputTier.ValueString(),
+		CustomerManagedResources:        modelconv.ObjectToMessageWithDiags(ctx, m.CustomerManagedResources, ExpandUpdateCustomerManagedResources, &diags),
+		GcpEnableGlobalAccessApiGateway: m.GCPEnableGlobalAccessAPIGateway.ValueBool(),
+		ReadReplicaClusterIds:           modelconv.ListToSliceWithDiags[string](ctx, m.ReadReplicaClusterIds, &diags),
+		ApiGatewayAccess:                enums.StringToNetworkAccessMode(m.APIGatewayAccess.ValueString()),
+		AwsPrivateLink:                  modelconv.ObjectToMessageWithDiags(ctx, m.AWSPrivateLink, ExpandUpdateAWSPrivateLink, &diags),
+		AzurePrivateLink:                modelconv.ObjectToMessageWithDiags(ctx, m.AzurePrivateLink, ExpandUpdateAzurePrivateLink, &diags),
+		CloudStorage:                    modelconv.ObjectToMessageWithDiags(ctx, m.CloudStorage, ExpandUpdateCloudStorage, &diags),
+		ClusterConfiguration:            modelconv.ObjectToMessageWithDiags(ctx, m.ClusterConfiguration, ExpandUpdateClusterConfiguration, &diags),
+		GcpPrivateServiceConnect:        modelconv.ObjectToMessageWithDiags(ctx, m.GCPPrivateServiceConnect, ExpandUpdateGCPPrivateServiceConnect, &diags),
+		HttpProxy:                       modelconv.ObjectToMessageWithDiags(ctx, m.HTTPProxy, ExpandUpdateHTTPProxy, &diags),
+		KafkaApi:                        modelconv.ObjectToMessageWithDiags(ctx, m.KafkaAPI, ExpandUpdateKafkaAPI, &diags),
+		KafkaConnect:                    modelconv.ObjectToMessageWithDiags(ctx, m.KafkaConnect, ExpandKafkaConnect, &diags),
+		MaintenanceWindowConfig:         modelconv.ObjectToMessageWithDiags(ctx, m.MaintenanceWindowConfig, ExpandMaintenanceWindowConfig, &diags),
+		RedpandaNodeCount:               m.RedpandaNodeCount.ValueInt32(),
+		Rpsql:                           modelconv.ObjectToMessageWithDiags(ctx, m.Rpsql, ExpandRpsql, &diags),
+		SchemaRegistry:                  modelconv.ObjectToMessageWithDiags(ctx, m.SchemaRegistry, ExpandUpdateSchemaRegistry, &diags),
+		CloudProviderTags:               m.TagsForProto(),
+		Id:                              m.ID.ValueString(),
 	}
 	return payload, diags
 }

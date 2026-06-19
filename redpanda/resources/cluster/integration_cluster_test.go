@@ -1463,6 +1463,54 @@ func TestIntegration_Cluster_UpdateLeaf_GCPPrivateServiceConnect_Toggle(t *testi
 	})
 }
 
+// TestIntegration_Cluster_UpdateLeaf_GCPGlobalAccessAPIGateway toggles the
+// write-only intent input gcp_enable_global_access_api_gateway false->true->false
+// and asserts the separate computed status gcp_global_access_api_gateway_enabled
+// reflects it each way (the flip-back exercises the true->false diff-mask path).
+func TestIntegration_Cluster_UpdateLeaf_GCPGlobalAccessAPIGateway(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-b16"
+
+	idPreserved := statecheck.CompareValue(compare.ValuesSame())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				gcpDedicatedConfig(name, `gcp_enable_global_access_api_gateway = false`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("gcp_enable_global_access_api_gateway"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("gcp_global_access_api_gateway_enabled"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			integration.UpdateLeafStep(clusterAddr,
+				gcpDedicatedConfig(name, `gcp_enable_global_access_api_gateway = true`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("gcp_enable_global_access_api_gateway"), knownvalue.Bool(true)),
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("gcp_global_access_api_gateway_enabled"), knownvalue.Bool(true)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			integration.UpdateLeafStep(clusterAddr,
+				gcpDedicatedConfig(name, `gcp_enable_global_access_api_gateway = false`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("gcp_enable_global_access_api_gateway"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("gcp_global_access_api_gateway_enabled"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+		},
+	})
+}
+
 // TestIntegration_Cluster_UpdateLeaf_ReadReplicaClusterIds mutates
 // read_replica_cluster_ids from empty to a two-element list.
 func TestIntegration_Cluster_UpdateLeaf_ReadReplicaClusterIds(t *testing.T) {

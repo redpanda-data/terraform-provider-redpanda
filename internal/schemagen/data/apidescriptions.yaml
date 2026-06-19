@@ -10,8 +10,8 @@
 #   - console/openapi.v1alpha2.yaml
 #   - console/openapi.v1alpha3.yaml
 #   - console/openapi.yaml
-# Schemas: 13  Descriptions: 486
-# Scoped: 13 of 719 roots from resource api_schema: refs (Cluster, CreateACLRequest, CreateTopicRequest.Topic, CreateUserRequest.User, Network, Pipeline, Region, ResourceGroup, Role, ServerlessCluster, ServerlessPrivateLink, ServiceAccount, ShadowLink)
+# Schemas: 15  Descriptions: 733
+# Scoped: 15 of 719 roots from resource api_schema: refs (Cluster, ClusterCreate, ClusterUpdate, CreateACLRequest, CreateTopicRequest.Topic, CreateUserRequest.User, Network, Pipeline, Region, ResourceGroup, Role, ServerlessCluster, ServerlessPrivateLink, ServiceAccount, ShadowLink)
 #
 # Precedence layer: scopedDescriptions (descriptions.go) > this file > common/mechanical defaults
 # Regenerate: task generate:apidescriptions
@@ -706,6 +706,672 @@ schemas:
                 description: "Cluster update timestamp."
             zones:
                 description: "Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster."
+    ClusterCreate:
+        description: "Resource describing a Create Cluster."
+        fields:
+            api_gateway_access:
+                description: "Network access mode for an endpoint."
+            aws_private_link:
+                description: "AWS PrivateLink specification."
+                fields:
+                    allowed_principals:
+                        description: "The ARN of the principals that can access Redpanda AWS PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*)."
+                    connect_console:
+                        description: "Whether Console is connected in Redpanda AWS Private Link Service. The default is true if not set."
+                    enabled:
+                        description: "Whether Redpanda AWS Private Link Endpoint Service is enabled."
+                    http_proxy_auth_mode:
+                        description: "Private link authentication mode. - PRIVATE_LINK_AUTH_MODE_MATCH: Match the authentication methods configured for the normal API endpoint, i.e. Kafka, HTTP Proxy, or Schema Registry. - PRIVATE_LINK_AUTH_MODE_SASL: SASL authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS: mTLS authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS_AND_SASL: Both SASL and mTLS authentication modes. - PRIVATE_LINK_AUTH_MODE_NONE: Neither SASL or mTLS is enabled for Private Link."
+                    kafka_api_auth_mode:
+                        description: "Private link authentication mode. - PRIVATE_LINK_AUTH_MODE_MATCH: Match the authentication methods configured for the normal API endpoint, i.e. Kafka, HTTP Proxy, or Schema Registry. - PRIVATE_LINK_AUTH_MODE_SASL: SASL authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS: mTLS authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS_AND_SASL: Both SASL and mTLS authentication modes. - PRIVATE_LINK_AUTH_MODE_NONE: Neither SASL or mTLS is enabled for Private Link."
+                    schema_registry_auth_mode:
+                        description: "Private link authentication mode. - PRIVATE_LINK_AUTH_MODE_MATCH: Match the authentication methods configured for the normal API endpoint, i.e. Kafka, HTTP Proxy, or Schema Registry. - PRIVATE_LINK_AUTH_MODE_SASL: SASL authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS: mTLS authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS_AND_SASL: Both SASL and mTLS authentication modes. - PRIVATE_LINK_AUTH_MODE_NONE: Neither SASL or mTLS is enabled for Private Link."
+                    supported_regions:
+                        description: "List of AWS regions allowed in cross region configuration."
+            azure_private_link:
+                description: ""
+                fields:
+                    allowed_subscriptions:
+                        description: "The subscriptions that can access the Redpanda Azure PrivateLink Endpoint Service."
+                    connect_console:
+                        description: "Whether Console is connected in Redpanda Azure Private Link Service. The default is true if not set."
+                    enabled:
+                        description: "Enabled controls if Azure Private Link Endpoint Service is enabled."
+                    http_proxy_auth_mode:
+                        description: "Private link authentication mode. - PRIVATE_LINK_AUTH_MODE_MATCH: Match the authentication methods configured for the normal API endpoint, i.e. Kafka, HTTP Proxy, or Schema Registry. - PRIVATE_LINK_AUTH_MODE_SASL: SASL authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS: mTLS authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS_AND_SASL: Both SASL and mTLS authentication modes. - PRIVATE_LINK_AUTH_MODE_NONE: Neither SASL or mTLS is enabled for Private Link."
+                    kafka_api_auth_mode:
+                        description: "Private link authentication mode. - PRIVATE_LINK_AUTH_MODE_MATCH: Match the authentication methods configured for the normal API endpoint, i.e. Kafka, HTTP Proxy, or Schema Registry. - PRIVATE_LINK_AUTH_MODE_SASL: SASL authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS: mTLS authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS_AND_SASL: Both SASL and mTLS authentication modes. - PRIVATE_LINK_AUTH_MODE_NONE: Neither SASL or mTLS is enabled for Private Link."
+                    schema_registry_auth_mode:
+                        description: "Private link authentication mode. - PRIVATE_LINK_AUTH_MODE_MATCH: Match the authentication methods configured for the normal API endpoint, i.e. Kafka, HTTP Proxy, or Schema Registry. - PRIVATE_LINK_AUTH_MODE_SASL: SASL authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS: mTLS authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS_AND_SASL: Both SASL and mTLS authentication modes. - PRIVATE_LINK_AUTH_MODE_NONE: Neither SASL or mTLS is enabled for Private Link."
+            cloud_provider:
+                description: "Cloud provider where resources are created."
+            cloud_provider_tags:
+                description: "Tags placed on cloud resources. A tag is a key value pair. If the cloud provider is GCP and the key of a tag has the prefix \"gcp.network-tag.\", the tag is a network tag that will be added to the Redpanda cluster GKE nodes. Otherwise, the tag is a normal provider tag or label. For example, if the key of a tag is \"gcp.network-tag.network-tag-foo\", the GCP network tag named \"network-tag-foo\" will be added to the Redpanda cluster GKE nodes. Note: If a tag is GCP network tag, its value will be ignored. See the official [GCP VPC](https://cloud.google.com/vpc/docs/add-remove-network-tags) for more details on network tags."
+            cloud_storage:
+                description: ""
+                fields:
+                    aws:
+                        description: ""
+                    azure:
+                        description: ""
+                        fields:
+                            allowed_ips:
+                                description: "List of public IP or IP ranges in CIDR Format. - Only IPv4 addresses are allowed. - Private IP address ranges as defined in RFC 1918 are not allowed. - Private IP address ranges as defined in RFC 6598 are not allowed. - Small address ranges using \"/31\" or \"/32\" prefix sizes are not supported. These ranges should be configured using individual IP address rules without prefix specified. - allowed_ips have no effect on requests originating from the same Azure region as the storage account. Use allowed_subnet_ids to allow same-region requests. Services deployed in the same region as the storage account use private Azure IP addresses for communication. Thus, you cannot allow access to specific Azure services based on their public outbound IP address range."
+                            allowed_subnet_ids:
+                                description: "A list of virtual network subnet ids that are allowed to access the storage account."
+                    gcp:
+                        description: ""
+                    skip_destroy:
+                        description: ""
+            cluster_configuration:
+                description: ""
+                fields:
+                    custom_properties:
+                        description: ""
+            connection_type:
+                description: "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, **Private** is best-practice."
+            customer_managed_resources:
+                description: "The cloud resources created by user."
+                fields:
+                    aws:
+                        description: "AWS resources created and managed by user, and required to deploy the Redpanda cluster."
+                        fields:
+                            agent_instance_profile:
+                                description: "AWS instance profile."
+                                fields:
+                                    arn:
+                                        description: "AWS instance profile ARN."
+                            cloud_storage_bucket:
+                                description: "AWS storage bucket properties by ARN."
+                                fields:
+                                    arn:
+                                        description: "AWS storage bucket identifier."
+                            cluster_security_group:
+                                description: "Security Group identifies AWS security group."
+                                fields:
+                                    arn:
+                                        description: "AWS security group ARN."
+                            connectors_node_group_instance_profile:
+                                description: "AWS instance profile."
+                                fields:
+                                    arn:
+                                        description: "AWS instance profile ARN."
+                            connectors_security_group:
+                                description: "Security Group identifies AWS security group."
+                                fields:
+                                    arn:
+                                        description: "AWS security group ARN."
+                            k8s_cluster_role:
+                                description: "Role identifies AWS role."
+                                fields:
+                                    arn:
+                                        description: "AWS role ARN."
+                            node_security_group:
+                                description: "Security Group identifies AWS security group."
+                                fields:
+                                    arn:
+                                        description: "AWS security group ARN."
+                            permissions_boundary_policy:
+                                description: "Policy identifies an AWS policy."
+                                fields:
+                                    arn:
+                                        description: "AWS policy ARN."
+                            redpanda_agent_security_group:
+                                description: "Security Group identifies AWS security group."
+                                fields:
+                                    arn:
+                                        description: "AWS security group ARN."
+                            redpanda_connect_node_group_instance_profile:
+                                description: "AWS instance profile."
+                                fields:
+                                    arn:
+                                        description: "AWS instance profile ARN."
+                            redpanda_connect_security_group:
+                                description: "Security Group identifies AWS security group."
+                                fields:
+                                    arn:
+                                        description: "AWS security group ARN."
+                            redpanda_node_group_instance_profile:
+                                description: "AWS instance profile."
+                                fields:
+                                    arn:
+                                        description: "AWS instance profile ARN."
+                            redpanda_node_group_security_group:
+                                description: "Security Group identifies AWS security group."
+                                fields:
+                                    arn:
+                                        description: "AWS security group ARN."
+                            rpsql_cloud_storage_bucket:
+                                description: "AWS storage bucket properties by ARN."
+                                fields:
+                                    arn:
+                                        description: "AWS storage bucket identifier."
+                            rpsql_node_group_instance_profile:
+                                description: "AWS instance profile."
+                                fields:
+                                    arn:
+                                        description: "AWS instance profile ARN."
+                            rpsql_security_group:
+                                description: "Security Group identifies AWS security group."
+                                fields:
+                                    arn:
+                                        description: "AWS security group ARN."
+                            utility_node_group_instance_profile:
+                                description: "AWS instance profile."
+                                fields:
+                                    arn:
+                                        description: "AWS instance profile ARN."
+                            utility_security_group:
+                                description: "Security Group identifies AWS security group."
+                                fields:
+                                    arn:
+                                        description: "AWS security group ARN."
+                    azure:
+                        description: "Azure resources created and managed by user, and required to deploy the Redpanda cluster."
+                        fields:
+                            cidrs:
+                                description: "Additional CIDRs allocated to Redpanda cluster."
+                                fields:
+                                    aks_service_cidr:
+                                        description: "CIDR used by AKS Kubernetes services."
+                            key_vaults:
+                                description: "Azure key vaults used by Redpanda Cluster. All key vaults shall be in redpanda_resource_group."
+                                fields:
+                                    console_vault:
+                                        description: "Azure Key Vault."
+                                        fields:
+                                            name:
+                                                description: "Naming convention: Between 3 and 24 characters and begin with a letter, end with a letter or digit, and not contain consecutive hyphens. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules"
+                                    management_vault:
+                                        description: "Azure Key Vault."
+                                        fields:
+                                            name:
+                                                description: "Naming convention: Between 3 and 24 characters and begin with a letter, end with a letter or digit, and not contain consecutive hyphens. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules"
+                            resource_groups:
+                                description: "Azure resource groups holding the Redpanda cluster resources."
+                                fields:
+                                    iam_resource_group:
+                                        description: "Azure Resource Group Specification"
+                                        fields:
+                                            name:
+                                                description: "Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/"
+                                    redpanda_resource_group:
+                                        description: "Azure Resource Group Specification"
+                                        fields:
+                                            name:
+                                                description: "Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/"
+                                    storage_resource_group:
+                                        description: "Azure Resource Group Specification"
+                                        fields:
+                                            name:
+                                                description: "Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/"
+                            security_groups:
+                                description: "Azure security groups for Redpanda Cluster. All security groups shall be in the network resource group."
+                                fields:
+                                    redpanda_security_group:
+                                        description: "Azure security group."
+                                        fields:
+                                            name:
+                                                description: "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules"
+                            tiered_cloud_storage:
+                                description: "Azure Bucket Specification"
+                                fields:
+                                    resource_group:
+                                        description: "Azure Resource Group Specification"
+                                        fields:
+                                            name:
+                                                description: "Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/"
+                                    storage_account_name:
+                                        description: "Naming convention: Between 3 and 24 characters and use numbers and lower-case letters only. https://learn.microsoft.com/en-us/rest/api/storagerp/storage-accounts/create?view=rest-storagerp-2023-05-01&tabs=HTTP"
+                                    storage_container_name:
+                                        description: "Naming convention: Between 3 and 63 characters and use numbers, lower-case letters and dash (-) only. Every dash (-) character must be immediately preceded and followed by a letter or number. https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/create?view=rest-storagerp-2023-05-01&tabs=HTTP"
+                            user_assigned_identities:
+                                description: "Azure user assigned identities used by Redpanda cluster. All identities shall be in iam_resource_group."
+                                fields:
+                                    agent_user_assigned_identity:
+                                        description: "Azure user assigned identity."
+                                        fields:
+                                            name:
+                                                description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/"
+                                    aks_user_assigned_identity:
+                                        description: "Azure user assigned identity."
+                                        fields:
+                                            name:
+                                                description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/"
+                                    cert_manager_assigned_identity:
+                                        description: "Azure user assigned identity."
+                                        fields:
+                                            name:
+                                                description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/"
+                                    external_dns_assigned_identity:
+                                        description: "Azure user assigned identity."
+                                        fields:
+                                            name:
+                                                description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/"
+                                    kafka_connect_assigned_identity:
+                                        description: "Azure user assigned identity."
+                                        fields:
+                                            name:
+                                                description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/"
+                                    redpanda_cluster_assigned_identity:
+                                        description: "Azure user assigned identity."
+                                        fields:
+                                            name:
+                                                description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/"
+                                    redpanda_connect_api_assigned_identity:
+                                        description: "Azure user assigned identity."
+                                        fields:
+                                            name:
+                                                description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/"
+                                    redpanda_connect_assigned_identity:
+                                        description: "Azure user assigned identity."
+                                        fields:
+                                            name:
+                                                description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/"
+                                    redpanda_console_assigned_identity:
+                                        description: "Azure user assigned identity."
+                                        fields:
+                                            name:
+                                                description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/"
+                                    redpanda_operator_assigned_identity:
+                                        description: "Azure user assigned identity."
+                                        fields:
+                                            name:
+                                                description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/"
+                    gcp:
+                        description: "GCP resources created and managed by user, and required to deploy the Redpanda cluster. See [Create a BYOVPC Cluster on GCP](https://docs.redpanda.com/redpanda-cloud/get-started/cluster-types/byoc/gcp/vpc-byo-gcp/)."
+                        fields:
+                            agent_service_account:
+                                description: "GCP service account."
+                                fields:
+                                    email:
+                                        description: "GCP service account email."
+                            connector_service_account:
+                                description: "GCP service account."
+                                fields:
+                                    email:
+                                        description: "GCP service account email."
+                            console_service_account:
+                                description: "GCP service account."
+                                fields:
+                                    email:
+                                        description: "GCP service account email."
+                            gke_service_account:
+                                description: "GCP service account."
+                                fields:
+                                    email:
+                                        description: "GCP service account email."
+                            psc_nat_subnet_name:
+                                description: "NAT subnet name if GCP Private Service Connect (a.k.a Private Link) is enabled. If it is used for PSC v1, use psc_v2_nat_subnet_name to set NAT subnet name for PSC v2."
+                            psc_v2_nat_subnet_name:
+                                description: "NAT subnet name for PSC v2 if GCP Private Service Connect (a.k.a Private Link) is enabled and psc_nat_subnet_name is used for PSC v1."
+                            redpanda_cluster_service_account:
+                                description: "GCP service account."
+                                fields:
+                                    email:
+                                        description: "GCP service account email."
+                            redpanda_connect_api_service_account:
+                                description: "GCP service account."
+                                fields:
+                                    email:
+                                        description: "GCP service account email."
+                            redpanda_connect_service_account:
+                                description: "GCP service account."
+                                fields:
+                                    email:
+                                        description: "GCP service account email."
+                            redpanda_operator_service_account:
+                                description: "GCP service account."
+                                fields:
+                                    email:
+                                        description: "GCP service account email."
+                            subnet:
+                                description: "GCP subnet properties. See the official [GCP API reference](https://cloud.google.com/compute/docs/reference/rest/v1/subnetworks)."
+                                fields:
+                                    k8s_master_ipv4_range:
+                                        description: "Kubernetes Master IPv4 range, e.g. 10.0.0.0/24."
+                                    name:
+                                        description: "Subnet name."
+                                    secondary_ipv4_range_pods:
+                                        description: "Secondary IPv4 range."
+                                        fields:
+                                            name:
+                                                description: ""
+                                    secondary_ipv4_range_services:
+                                        description: "Secondary IPv4 range."
+                                        fields:
+                                            name:
+                                                description: ""
+                            tiered_storage_bucket:
+                                description: "GCP storage bucket properties."
+                                fields:
+                                    name:
+                                        description: "Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions."
+            gcp_enable_global_access:
+                description: "gcp_enable_global_access control if global access is enabled on the seed load balancer, applicable only for GCP. Default is false"
+            gcp_enable_global_access_api_gateway:
+                description: "gcp_enable_global_access_api_gateway controls if global access is enabled on the internal load balancer serving the Console/API Gateway endpoint. Applicable only for GCP. Default is false."
+            gcp_private_service_connect:
+                description: ""
+                fields:
+                    consumer_accept_list:
+                        description: "List of consumers that are allowed to connect to Redpanda GCP PSC (Private Service Connect) service attachment."
+                        fields:
+                            source:
+                                description: "Either the GCP project number or its alphanumeric ID."
+                    enabled:
+                        description: "Whether Redpanda GCP Private Service Connect is enabled."
+                    global_access_enabled:
+                        description: "Whether global access is enabled."
+                    http_proxy_auth_mode:
+                        description: "Private link authentication mode. - PRIVATE_LINK_AUTH_MODE_MATCH: Match the authentication methods configured for the normal API endpoint, i.e. Kafka, HTTP Proxy, or Schema Registry. - PRIVATE_LINK_AUTH_MODE_SASL: SASL authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS: mTLS authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS_AND_SASL: Both SASL and mTLS authentication modes. - PRIVATE_LINK_AUTH_MODE_NONE: Neither SASL or mTLS is enabled for Private Link."
+                    kafka_api_auth_mode:
+                        description: "Private link authentication mode. - PRIVATE_LINK_AUTH_MODE_MATCH: Match the authentication methods configured for the normal API endpoint, i.e. Kafka, HTTP Proxy, or Schema Registry. - PRIVATE_LINK_AUTH_MODE_SASL: SASL authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS: mTLS authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS_AND_SASL: Both SASL and mTLS authentication modes. - PRIVATE_LINK_AUTH_MODE_NONE: Neither SASL or mTLS is enabled for Private Link."
+                    schema_registry_auth_mode:
+                        description: "Private link authentication mode. - PRIVATE_LINK_AUTH_MODE_MATCH: Match the authentication methods configured for the normal API endpoint, i.e. Kafka, HTTP Proxy, or Schema Registry. - PRIVATE_LINK_AUTH_MODE_SASL: SASL authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS: mTLS authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS_AND_SASL: Both SASL and mTLS authentication modes. - PRIVATE_LINK_AUTH_MODE_NONE: Neither SASL or mTLS is enabled for Private Link."
+            http_proxy:
+                description: "Cluster's HTTP Proxy properties. See [Use Redpanda with the HTTP Proxy API](https://docs.redpanda.com/redpanda-cloud/develop/http-proxy/) and the [HTTP Proxy API reference](https://docs.redpanda.com/api/doc/http-proxy) for more information."
+                fields:
+                    mtls:
+                        description: "mTLS configuration."
+                        fields:
+                            ca_certificates_pem:
+                                description: "CA certificate in PEM format."
+                            enabled:
+                                description: "Whether mTLS is enabled."
+                            principal_mapping_rules:
+                                description: "Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on [configuring authentication](https://docs.redpanda.com/redpanda-cloud/security/cloud-authentication/#mtls)."
+                    sasl:
+                        description: "SASL configuration"
+                        fields:
+                            enabled:
+                                description: "Whether SASL is enabled."
+            kafka_api:
+                description: "Cluster's Kafka API properties."
+                fields:
+                    mtls:
+                        description: "mTLS configuration."
+                        fields:
+                            ca_certificates_pem:
+                                description: "CA certificate in PEM format."
+                            enabled:
+                                description: "Whether mTLS is enabled."
+                            principal_mapping_rules:
+                                description: "Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on [configuring authentication](https://docs.redpanda.com/redpanda-cloud/security/cloud-authentication/#mtls)."
+                    sasl:
+                        description: "SASL configuration"
+                        fields:
+                            enabled:
+                                description: "Whether SASL is enabled."
+            kafka_connect:
+                description: ""
+                fields:
+                    enabled:
+                        description: ""
+            maintenance_window_config:
+                description: "Resource describing the maintenance window configuration of a cluster."
+                fields:
+                    anytime:
+                        description: ""
+                    day_hour:
+                        description: ""
+                        fields:
+                            day_of_week:
+                                description: "Represents a day of the week. - MONDAY: Monday - TUESDAY: Tuesday - WEDNESDAY: Wednesday - THURSDAY: Thursday - FRIDAY: Friday - SATURDAY: Saturday - SUNDAY: Sunday"
+                            hour_of_day:
+                                description: "always UTC"
+                    unspecified:
+                        description: ""
+            name:
+                description: "Unique name of the cluster."
+            network_id:
+                description: "Id of the network where the cluster will be placed."
+            read_replica_cluster_ids:
+                description: "IDs of clusters that can create read-only topics from this cluster."
+            redpanda_node_count:
+                description: "redpanda_node_count defines the starting node count for the cluster."
+            redpanda_version:
+                description: "Cluster's Redpanda version. Only `major.minor` semver is supported, e.g. `24.1`."
+            region:
+                description: "Cloud provider region where the cluster will be provisioned."
+            resource_group_id:
+                description: "Resource group ID of the cluster"
+            schema_registry:
+                description: "Cluster's Schema Registry properties. See the [Schema Registry overview](https://docs.redpanda.com/redpanda-cloud/manage/schema-reg/schema-reg-overview/) and the [Schema Registry API reference](https://docs.redpanda.com/api/doc/schema-registry) for more information."
+                fields:
+                    mtls:
+                        description: "mTLS configuration."
+                        fields:
+                            ca_certificates_pem:
+                                description: "CA certificate in PEM format."
+                            enabled:
+                                description: "Whether mTLS is enabled."
+                            principal_mapping_rules:
+                                description: "Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on [configuring authentication](https://docs.redpanda.com/redpanda-cloud/security/cloud-authentication/#mtls)."
+                    sasl:
+                        description: "SASL configuration"
+                        fields:
+                            enabled:
+                                description: "Whether SASL is enabled."
+            throughput_tier:
+                description: "[Throughput tier](https://docs.redpanda.com/api/doc/cloud-controlplane/topic/topic-regions-and-usage-tiers) of the cluster. See also: Redpanda Cloud [Dedicated tiers](https://docs.redpanda.com/redpanda-cloud/reference/tiers/dedicated-tiers/#dedicated-usage-tiers) and [BYOC tiers](https://docs.redpanda.com/redpanda-cloud/reference/tiers/byoc-tiers/)."
+            type:
+                description: "Cluster type. Type is immutable and can only be set on cluster creation."
+            zones:
+                description: "Cloud provider zones. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster."
+    ClusterUpdate:
+        description: "Resource describing an Update Cluster."
+        fields:
+            api_gateway_access:
+                description: "Network access mode for an endpoint."
+            aws_private_link:
+                description: "AWS PrivateLink specification."
+                fields:
+                    allowed_principals:
+                        description: "The ARN of the principals that can access Redpanda AWS PrivateLink Endpoint Service. To grant permissions to all principals, use an asterisk (*)."
+                    connect_console:
+                        description: "Whether Console is connected in Redpanda AWS Private Link Service. The default is true if not set."
+                    enabled:
+                        description: "Whether Redpanda AWS Private Link Endpoint Service is enabled."
+                    http_proxy_auth_mode:
+                        description: "Private link authentication mode. - PRIVATE_LINK_AUTH_MODE_MATCH: Match the authentication methods configured for the normal API endpoint, i.e. Kafka, HTTP Proxy, or Schema Registry. - PRIVATE_LINK_AUTH_MODE_SASL: SASL authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS: mTLS authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS_AND_SASL: Both SASL and mTLS authentication modes. - PRIVATE_LINK_AUTH_MODE_NONE: Neither SASL or mTLS is enabled for Private Link."
+                    kafka_api_auth_mode:
+                        description: "Private link authentication mode. - PRIVATE_LINK_AUTH_MODE_MATCH: Match the authentication methods configured for the normal API endpoint, i.e. Kafka, HTTP Proxy, or Schema Registry. - PRIVATE_LINK_AUTH_MODE_SASL: SASL authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS: mTLS authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS_AND_SASL: Both SASL and mTLS authentication modes. - PRIVATE_LINK_AUTH_MODE_NONE: Neither SASL or mTLS is enabled for Private Link."
+                    schema_registry_auth_mode:
+                        description: "Private link authentication mode. - PRIVATE_LINK_AUTH_MODE_MATCH: Match the authentication methods configured for the normal API endpoint, i.e. Kafka, HTTP Proxy, or Schema Registry. - PRIVATE_LINK_AUTH_MODE_SASL: SASL authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS: mTLS authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS_AND_SASL: Both SASL and mTLS authentication modes. - PRIVATE_LINK_AUTH_MODE_NONE: Neither SASL or mTLS is enabled for Private Link."
+                    supported_regions:
+                        description: "List of AWS regions allowed in cross region configuration."
+            azure_private_link:
+                description: ""
+                fields:
+                    allowed_subscriptions:
+                        description: "The subscriptions that can access the Redpanda Azure PrivateLink Endpoint Service."
+                    connect_console:
+                        description: "Whether Console is connected in Redpanda Azure Private Link Service. The default is true if not set."
+                    enabled:
+                        description: "Enabled controls if Azure Private Link Endpoint Service is enabled."
+                    http_proxy_auth_mode:
+                        description: "Private link authentication mode. - PRIVATE_LINK_AUTH_MODE_MATCH: Match the authentication methods configured for the normal API endpoint, i.e. Kafka, HTTP Proxy, or Schema Registry. - PRIVATE_LINK_AUTH_MODE_SASL: SASL authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS: mTLS authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS_AND_SASL: Both SASL and mTLS authentication modes. - PRIVATE_LINK_AUTH_MODE_NONE: Neither SASL or mTLS is enabled for Private Link."
+                    kafka_api_auth_mode:
+                        description: "Private link authentication mode. - PRIVATE_LINK_AUTH_MODE_MATCH: Match the authentication methods configured for the normal API endpoint, i.e. Kafka, HTTP Proxy, or Schema Registry. - PRIVATE_LINK_AUTH_MODE_SASL: SASL authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS: mTLS authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS_AND_SASL: Both SASL and mTLS authentication modes. - PRIVATE_LINK_AUTH_MODE_NONE: Neither SASL or mTLS is enabled for Private Link."
+                    schema_registry_auth_mode:
+                        description: "Private link authentication mode. - PRIVATE_LINK_AUTH_MODE_MATCH: Match the authentication methods configured for the normal API endpoint, i.e. Kafka, HTTP Proxy, or Schema Registry. - PRIVATE_LINK_AUTH_MODE_SASL: SASL authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS: mTLS authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS_AND_SASL: Both SASL and mTLS authentication modes. - PRIVATE_LINK_AUTH_MODE_NONE: Neither SASL or mTLS is enabled for Private Link."
+            cloud_provider_tags:
+                description: "Tags that are placed on Cloud resources. If the cloud provider is GCP and the name of a tag has the prefix \"gcp.network-tag.\", the tag is a network tag that will be added to the Redpanda cluster GKE nodes. Otherwise, the tag is a normal tag. For example, if the name of a tag is \"gcp.network-tag.network-tag-foo\", the network tag named \"network-tag-foo\" will be added to the Redpanda cluster GKE nodes. Note: The value of a network tag will be ignored. See the official [GCP VPC](https://cloud.google.com/vpc/docs/add-remove-network-tags) for more details on network tags."
+            cloud_storage:
+                description: ""
+                fields:
+                    aws:
+                        description: ""
+                    azure:
+                        description: ""
+                        fields:
+                            allowed_ips:
+                                description: "List of public IP or IP ranges in CIDR Format. - Only IPv4 addresses are allowed. - Private IP address ranges as defined in RFC 1918 are not allowed. - Private IP address ranges as defined in RFC 6598 are not allowed. - Small address ranges using \"/31\" or \"/32\" prefix sizes are not supported. These ranges should be configured using individual IP address rules without prefix specified. - allowed_ips have no effect on requests originating from the same Azure region as the storage account. Use allowed_subnet_ids to allow same-region requests. Services deployed in the same region as the storage account use private Azure IP addresses for communication. Thus, you cannot allow access to specific Azure services based on their public outbound IP address range."
+                            allowed_subnet_ids:
+                                description: "A list of virtual network subnet ids that are allowed to access the storage account."
+                    gcp:
+                        description: ""
+                    skip_destroy:
+                        description: ""
+            cluster_configuration:
+                description: ""
+                fields:
+                    custom_properties:
+                        description: ""
+            customer_managed_resources:
+                description: "The cloud resources created by user that can be updated"
+                fields:
+                    aws:
+                        description: "AWS resources managed by user."
+                        fields:
+                            redpanda_connect_node_group_instance_profile:
+                                description: "AWS instance profile."
+                                fields:
+                                    arn:
+                                        description: "AWS instance profile ARN."
+                            redpanda_connect_security_group:
+                                description: "Security Group identifies AWS security group."
+                                fields:
+                                    arn:
+                                        description: "AWS security group ARN."
+                            rpsql_cloud_storage_bucket:
+                                description: "AWS storage bucket properties by ARN."
+                                fields:
+                                    arn:
+                                        description: "AWS storage bucket identifier."
+                            rpsql_node_group_instance_profile:
+                                description: "AWS instance profile."
+                                fields:
+                                    arn:
+                                        description: "AWS instance profile ARN."
+                            rpsql_security_group:
+                                description: "Security Group identifies AWS security group."
+                                fields:
+                                    arn:
+                                        description: "AWS security group ARN."
+                    gcp:
+                        description: "GCP resources managed by user."
+                        fields:
+                            psc_nat_subnet_name:
+                                description: "NAT subnet name if GCP Private Service Connect (a.k.a. Private Link) is enabled. If it is used for PSC v1, use psc_v2_nat_subnet_name to set NAT subnet name for PSC v2."
+                            psc_v2_nat_subnet_name:
+                                description: "NAT subnet name for PSC v2 if GCP Private Service Connect (a.k.a. Private Link) is enabled and psc_nat_subnet_name is used for PSC v1."
+                            redpanda_connect_api_service_account:
+                                description: "GCP service account."
+                                fields:
+                                    email:
+                                        description: "GCP service account email."
+                            redpanda_connect_service_account:
+                                description: "GCP service account."
+                                fields:
+                                    email:
+                                        description: "GCP service account email."
+                            redpanda_operator_service_account:
+                                description: "GCP service account."
+                                fields:
+                                    email:
+                                        description: "GCP service account email."
+            gcp_enable_global_access_api_gateway:
+                description: "gcp_enable_global_access_api_gateway controls if global access is enabled on the internal load balancer serving the Console/API Gateway endpoint. Applicable only for GCP. Default is false. Maps to enable_global_access_console in the internal RedpandaSpec connectivity spec."
+            gcp_private_service_connect:
+                description: ""
+                fields:
+                    consumer_accept_list:
+                        description: "List of consumers that are allowed to connect to Redpanda GCP PSC (Private Service Connect) service attachment."
+                        fields:
+                            source:
+                                description: "Either the GCP project number or its alphanumeric ID."
+                    enabled:
+                        description: "Whether Redpanda GCP Private Service Connect is enabled."
+                    global_access_enabled:
+                        description: "Whether global access is enabled."
+                    http_proxy_auth_mode:
+                        description: "Private link authentication mode. - PRIVATE_LINK_AUTH_MODE_MATCH: Match the authentication methods configured for the normal API endpoint, i.e. Kafka, HTTP Proxy, or Schema Registry. - PRIVATE_LINK_AUTH_MODE_SASL: SASL authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS: mTLS authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS_AND_SASL: Both SASL and mTLS authentication modes. - PRIVATE_LINK_AUTH_MODE_NONE: Neither SASL or mTLS is enabled for Private Link."
+                    kafka_api_auth_mode:
+                        description: "Private link authentication mode. - PRIVATE_LINK_AUTH_MODE_MATCH: Match the authentication methods configured for the normal API endpoint, i.e. Kafka, HTTP Proxy, or Schema Registry. - PRIVATE_LINK_AUTH_MODE_SASL: SASL authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS: mTLS authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS_AND_SASL: Both SASL and mTLS authentication modes. - PRIVATE_LINK_AUTH_MODE_NONE: Neither SASL or mTLS is enabled for Private Link."
+                    schema_registry_auth_mode:
+                        description: "Private link authentication mode. - PRIVATE_LINK_AUTH_MODE_MATCH: Match the authentication methods configured for the normal API endpoint, i.e. Kafka, HTTP Proxy, or Schema Registry. - PRIVATE_LINK_AUTH_MODE_SASL: SASL authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS: mTLS authentication mode only. - PRIVATE_LINK_AUTH_MODE_MTLS_AND_SASL: Both SASL and mTLS authentication modes. - PRIVATE_LINK_AUTH_MODE_NONE: Neither SASL or mTLS is enabled for Private Link."
+            http_proxy:
+                description: "Cluster's HTTP Proxy properties. See [Use Redpanda with the HTTP Proxy API](https://docs.redpanda.com/redpanda-cloud/develop/http-proxy/) and the [HTTP Proxy API reference](https://docs.redpanda.com/api/doc/http-proxy) for more information."
+                fields:
+                    mtls:
+                        description: "mTLS configuration."
+                        fields:
+                            ca_certificates_pem:
+                                description: "CA certificate in PEM format."
+                            enabled:
+                                description: "Whether mTLS is enabled."
+                            principal_mapping_rules:
+                                description: "Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on [configuring authentication](https://docs.redpanda.com/redpanda-cloud/security/cloud-authentication/#mtls)."
+                    sasl:
+                        description: "SASL configuration"
+                        fields:
+                            enabled:
+                                description: "Whether SASL is enabled."
+            id:
+                description: "ID of the cluster."
+            kafka_api:
+                description: "Cluster's Kafka API properties."
+                fields:
+                    mtls:
+                        description: "mTLS configuration."
+                        fields:
+                            ca_certificates_pem:
+                                description: "CA certificate in PEM format."
+                            enabled:
+                                description: "Whether mTLS is enabled."
+                            principal_mapping_rules:
+                                description: "Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on [configuring authentication](https://docs.redpanda.com/redpanda-cloud/security/cloud-authentication/#mtls)."
+                    sasl:
+                        description: "SASL configuration"
+                        fields:
+                            enabled:
+                                description: "Whether SASL is enabled."
+            kafka_connect:
+                description: ""
+                fields:
+                    enabled:
+                        description: ""
+            maintenance_window_config:
+                description: "Resource describing the maintenance window configuration of a cluster."
+                fields:
+                    anytime:
+                        description: ""
+                    day_hour:
+                        description: ""
+                        fields:
+                            day_of_week:
+                                description: "Represents a day of the week. - MONDAY: Monday - TUESDAY: Tuesday - WEDNESDAY: Wednesday - THURSDAY: Thursday - FRIDAY: Friday - SATURDAY: Saturday - SUNDAY: Sunday"
+                            hour_of_day:
+                                description: "always UTC"
+                    unspecified:
+                        description: ""
+            name:
+                description: "Unique name of the cluster."
+            read_replica_cluster_ids:
+                description: "IDs of clusters which may create read-only topics from this cluster."
+            redpanda_node_count:
+                description: ""
+            schema_registry:
+                description: "Cluster's Schema Registry properties. See the [Schema Registry overview](https://docs.redpanda.com/redpanda-cloud/manage/schema-reg/schema-reg-overview/) and the [Schema Registry API reference](https://docs.redpanda.com/api/doc/schema-registry) for more information."
+                fields:
+                    mtls:
+                        description: "mTLS configuration."
+                        fields:
+                            ca_certificates_pem:
+                                description: "CA certificate in PEM format."
+                            enabled:
+                                description: "Whether mTLS is enabled."
+                            principal_mapping_rules:
+                                description: "Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on [configuring authentication](https://docs.redpanda.com/redpanda-cloud/security/cloud-authentication/#mtls)."
+                    sasl:
+                        description: "SASL configuration"
+                        fields:
+                            enabled:
+                                description: "Whether SASL is enabled."
+            throughput_tier:
+                description: ""
     CreateACLRequest:
         description: ""
         fields:

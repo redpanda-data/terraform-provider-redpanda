@@ -101,3 +101,58 @@ func TestFlattenGCPGlobalAccessEnabled_NilPrev(t *testing.T) {
 		t.Errorf("nil prev: got %s, want BoolValue(false)", stringifyBool(out.GCPGlobalAccessEnabled))
 	}
 }
+
+// TestExpandGCPEnableGlobalAccessAPIGateway pins the write-only intent input:
+// the model value lands on the differently-named ClusterCreate/ClusterUpdate
+// proto field, and an unset (null) input sends the proto3 default false.
+func TestExpandGCPEnableGlobalAccessAPIGateway(t *testing.T) {
+	ctx := context.Background()
+	for _, tc := range []struct {
+		name string
+		in   types.Bool
+		want bool
+	}{
+		{"true", types.BoolValue(true), true},
+		{"false", types.BoolValue(false), false},
+		{"null defaults to false", types.BoolNull(), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := &ResourceModel{GCPEnableGlobalAccessAPIGateway: tc.in}
+			create, diags := ExpandCreate(ctx, m)
+			if diags.HasError() {
+				t.Fatalf("ExpandCreate: %v", diags.Errors())
+			}
+			if got := create.GetCluster().GetGcpEnableGlobalAccessApiGateway(); got != tc.want {
+				t.Errorf("ExpandCreate: got %t, want %t", got, tc.want)
+			}
+			update, diags := ExpandUpdate(ctx, m)
+			if diags.HasError() {
+				t.Fatalf("ExpandUpdate: %v", diags.Errors())
+			}
+			if got := update.GetGcpEnableGlobalAccessApiGateway(); got != tc.want {
+				t.Errorf("ExpandUpdate: got %t, want %t", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestFlattenGCPGlobalAccessAPIGatewayStatusAndInputCarry verifies the status
+// field reads from the proto while the write-only input is carried from prev
+// (flatten_skip — it never appears on the read shape).
+func TestFlattenGCPGlobalAccessAPIGatewayStatusAndInputCarry(t *testing.T) {
+	ctx := context.Background()
+	status := true
+	proto := &controlplanev1.Cluster{GcpGlobalAccessApiGatewayEnabled: &status}
+	prev := &ResourceModel{GCPEnableGlobalAccessAPIGateway: types.BoolValue(true)}
+
+	out, diags := Flatten(ctx, proto, prev)
+	if diags.HasError() {
+		t.Fatalf("Flatten: %v", diags.Errors())
+	}
+	if !out.GCPGlobalAccessAPIGatewayEnabled.Equal(types.BoolValue(true)) {
+		t.Errorf("status: got %s, want BoolValue(true)", stringifyBool(out.GCPGlobalAccessAPIGatewayEnabled))
+	}
+	if !out.GCPEnableGlobalAccessAPIGateway.Equal(types.BoolValue(true)) {
+		t.Errorf("input carry: got %s, want BoolValue(true)", stringifyBool(out.GCPEnableGlobalAccessAPIGateway))
+	}
+}

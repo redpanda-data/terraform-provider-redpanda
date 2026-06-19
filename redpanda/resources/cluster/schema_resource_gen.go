@@ -403,6 +403,11 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				},
 			},
 
+			"gcp_enable_global_access_api_gateway": schema.BoolAttribute{
+				Description: "gcp_enable_global_access_api_gateway controls if global access is enabled on the internal load balancer serving the Console/API Gateway endpoint. Applicable only for GCP. Default is false.",
+				Optional:    true,
+			},
+
 			"read_replica_cluster_ids": schema.ListAttribute{
 				Description: "IDs of clusters which may create read-only topics from this cluster. Must have at most 100 items. Items must be unique.",
 				Optional:    true,
@@ -411,7 +416,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"redpanda_version": schema.StringAttribute{
-				Description:   "Redpanda Version",
+				Description:   "Cluster's Redpanda version. Only `major.minor` semver is supported, e.g. `24.1`.",
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
@@ -431,7 +436,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"aws_private_link": schema.SingleNestedAttribute{
-				Description:   "AWS Private Link configuration",
+				Description:   "AWS PrivateLink specification.",
 				Optional:      true,
 				Computed:      true,
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
@@ -762,13 +767,6 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace(), stringplanmodifier.UseStateForUnknown()},
 				Validators:    validators.ClusterTypes(),
-			},
-
-			"gcp_global_access_api_gateway_enabled": schema.BoolAttribute{
-				Description:   "gcp_global_access_api_gateway_enabled reports whether global access is enabled on the internal load balancer serving the Console/API Gateway endpoint. Applicable only for GCP.",
-				Optional:      true,
-				Computed:      true,
-				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace(), boolplanmodifier.UseStateForUnknown()},
 			},
 
 			"gcp_private_service_connect": schema.SingleNestedAttribute{
@@ -1234,6 +1232,12 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Description:   "Desired Redpanda version of the cluster.",
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+
+			"gcp_global_access_api_gateway_enabled": schema.BoolAttribute{
+				Description:   "gcp_global_access_api_gateway_enabled reports whether global access is enabled on the internal load balancer serving the Console/API Gateway endpoint. Applicable only for GCP.",
+				Computed:      true,
+				PlanModifiers: []planmodifier.Bool{gcpGatewayStatePin()},
 			},
 
 			"gcp_global_access_enabled": schema.BoolAttribute{

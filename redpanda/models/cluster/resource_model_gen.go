@@ -43,6 +43,7 @@ type ResourceModel struct {
 	CustomerManagedResources         types.Object   `tfsdk:"customer_managed_resources"`
 	DataplaneAPI                     types.Object   `tfsdk:"dataplane_api"`
 	DesiredRedpandaVersion           types.String   `tfsdk:"desired_redpanda_version"`
+	GCPEnableGlobalAccessAPIGateway  types.Bool     `tfsdk:"gcp_enable_global_access_api_gateway"`
 	GCPGlobalAccessAPIGatewayEnabled types.Bool     `tfsdk:"gcp_global_access_api_gateway_enabled"`
 	GCPGlobalAccessEnabled           types.Bool     `tfsdk:"gcp_global_access_enabled"`
 	GCPPrivateServiceConnect         types.Object   `tfsdk:"gcp_private_service_connect"`
@@ -2548,6 +2549,7 @@ func GenerateMinimalResourceModel(id types.String, timeout timeouts.Value) *Reso
 		CustomerManagedResources:         types.ObjectNull(CustomerManagedResourcesAttrTypes()),
 		DataplaneAPI:                     types.ObjectNull(DataplaneAPIAttrTypes()),
 		DesiredRedpandaVersion:           types.StringNull(),
+		GCPEnableGlobalAccessAPIGateway:  types.BoolNull(),
 		GCPGlobalAccessAPIGatewayEnabled: types.BoolNull(),
 		GCPGlobalAccessEnabled:           types.BoolNull(),
 		GCPPrivateServiceConnect:         types.ObjectNull(GCPPrivateServiceConnectAttrTypes()),

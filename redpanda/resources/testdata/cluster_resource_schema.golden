@@ -598,13 +598,14 @@ attributes:
       computed: true
       plan_modifiers:
         - stringplanmodifier.useStateForUnknownModifier
-    - name: gcp_global_access_api_gateway_enabled
+    - name: gcp_enable_global_access_api_gateway
       type: BoolAttribute
       optional: true
+    - name: gcp_global_access_api_gateway_enabled
+      type: BoolAttribute
       computed: true
       plan_modifiers:
-        - boolplanmodifier.requiresReplaceIfModifier
-        - boolplanmodifier.useStateForUnknownModifier
+        - cluster.pinBoolStateUnlessSiblingDiffers
     - name: gcp_global_access_enabled
       type: BoolAttribute
       computed: true

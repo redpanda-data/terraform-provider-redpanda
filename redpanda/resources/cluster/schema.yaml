@@ -1,6 +1,10 @@
 message: ""
 
 api_schema: Cluster
+# Write-shape roots for description fallback: input fields absent from the
+# Cluster read shape (e.g. gcp_enable_global_access_api_gateway) source their
+# text from the create/update payloads.
+api_write_schemas: [ClusterCreate, ClusterUpdate]
 tf_name: Cluster
 
 timeouts: [create, update, delete]
@@ -344,10 +348,23 @@ dataplane_api:
 desired_redpanda_version:
   computed_only: true
 
-# Read-only in practice: the field exists on ClusterUpdate under a different
-# proto name (gcp_enable_global_access_api_gateway), so the provider never
-# sends updates for it.
-gcp_global_access_api_gateway_enabled: {}
+# Desired-state input: present on ClusterCreate/ClusterUpdate only, never on the
+# read shape. The server-reported status is the separate computed
+# gcp_global_access_api_gateway_enabled field below.
+gcp_enable_global_access_api_gateway:
+  extra: true
+  type: bool
+  optional: true
+  expand_proto_name: gcp_enable_global_access_api_gateway
+  flatten_skip: true
+
+# Server-reported status: present on the Cluster read shape only. The user's
+# intent is expressed via the separate gcp_enable_global_access_api_gateway
+# input field, which maps to ClusterCreate/ClusterUpdate. The pin keeps the
+# value stable except when that input is toggled, when it re-derives server-side.
+gcp_global_access_api_gateway_enabled:
+  computed_only: true
+  plan_modifiers: [PinStateUnlessGatewayChanges]
 
 gcp_global_access_enabled:
   # Server-controlled, read-only: present on the Cluster read shape but NOT on

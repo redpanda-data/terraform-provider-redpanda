@@ -199,6 +199,11 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 	if in.HasRpsql() {
 		cl.SetRpsql(rpsqlStatus(in.GetRpsql(), in.GetZones()))
 	}
+	// Mirror the GCP-only intent input (gcp_enable_global_access_api_gateway on
+	// the write shape) onto the reported status field (different read-shape name).
+	if in.GetCloudProvider() == controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP {
+		cl.SetGcpGlobalAccessApiGatewayEnabled(in.GetGcpEnableGlobalAccessApiGateway())
+	}
 
 	if f.CreateMutator != nil {
 		f.CreateMutator(cl)
@@ -320,6 +325,9 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 					ConsumerAcceptList:  append([]*controlplanev1.GCPPrivateServiceConnectConsumer(nil), spec.GetConsumerAcceptList()...),
 				})
 			}
+		case "gcp_enable_global_access_api_gateway":
+			// Write-shape intent maps onto the differently-named read-shape status.
+			cl.SetGcpGlobalAccessApiGatewayEnabled(upd.GetGcpEnableGlobalAccessApiGateway())
 		case "cloud_storage":
 			if upd.HasCloudStorage() {
 				if cl.CloudStorage == nil {

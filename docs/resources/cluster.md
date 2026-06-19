@@ -29,13 +29,13 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 
 - `allow_deletion` (Boolean) Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.
 - `api_gateway_access` (String) Network access mode for an endpoint.
-- `aws_private_link` (Attributes) AWS Private Link configuration (see [below for nested schema](#nestedatt--aws_private_link))
+- `aws_private_link` (Attributes) AWS PrivateLink specification. (see [below for nested schema](#nestedatt--aws_private_link))
 - `azure_private_link` (Attributes) Azure Private Link configuration (see [below for nested schema](#nestedatt--azure_private_link))
 - `cloud_storage` (Attributes) Cloud Storage configuration (see [below for nested schema](#nestedatt--cloud_storage))
 - `cluster_configuration` (Attributes) Cluster Configuration configuration (see [below for nested schema](#nestedatt--cluster_configuration))
 - `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated.
 - `customer_managed_resources` (Attributes) The cloud resources created by user. (see [below for nested schema](#nestedatt--customer_managed_resources))
-- `gcp_global_access_api_gateway_enabled` (Boolean) gcp_global_access_api_gateway_enabled reports whether global access is enabled on the internal load balancer serving the Console/API Gateway endpoint. Applicable only for GCP.
+- `gcp_enable_global_access_api_gateway` (Boolean) gcp_enable_global_access_api_gateway controls if global access is enabled on the internal load balancer serving the Console/API Gateway endpoint. Applicable only for GCP. Default is false.
 - `gcp_private_service_connect` (Attributes) GCP Private Service Connect configuration (see [below for nested schema](#nestedatt--gcp_private_service_connect))
 - `http_proxy` (Attributes) HTTP Proxy properties. (see [below for nested schema](#nestedatt--http_proxy))
 - `kafka_api` (Attributes) Cluster's Kafka API properties. (see [below for nested schema](#nestedatt--kafka_api))
@@ -43,7 +43,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `maintenance_window_config` (Attributes) Resource describing the maintenance window configuration of a cluster. (see [below for nested schema](#nestedatt--maintenance_window_config))
 - `read_replica_cluster_ids` (List of String) IDs of clusters which may create read-only topics from this cluster. Must have at most 100 items. Items must be unique.
 - `redpanda_node_count` (Number) Number of Redpanda broker nodes. Must be at least 0.
-- `redpanda_version` (String) Redpanda Version
+- `redpanda_version` (String) Cluster's Redpanda version. Only `major.minor` semver is supported, e.g. `24.1`.
 - `rpsql` (Attributes) Rpsql configuration (see [below for nested schema](#nestedatt--rpsql))
 - `schema_registry` (Attributes) Cluster's Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
 - `tags` (Map of String) Tags placed on cloud resources. Server-managed keys (prefixed with `redpanda-`) are filtered out of state.
@@ -55,6 +55,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `current_redpanda_version` (String) Current Redpanda version of the cluster.
 - `dataplane_api` (Attributes) Cluster's Data Plane API properties. (see [below for nested schema](#nestedatt--dataplane_api))
 - `desired_redpanda_version` (String) Desired Redpanda version of the cluster.
+- `gcp_global_access_api_gateway_enabled` (Boolean) gcp_global_access_api_gateway_enabled reports whether global access is enabled on the internal load balancer serving the Console/API Gateway endpoint. Applicable only for GCP.
 - `gcp_global_access_enabled` (Boolean) gcp_enable_global_access control if global access is enabled on the seed load balancer, applicable only for GCP. Default is false
 - `id` (String) ID of the cluster. ID is an output from the Create Cluster endpoint and cannot be set by the caller.
 - `nat_gateways` (List of String) NAT gateway information for the cluster.

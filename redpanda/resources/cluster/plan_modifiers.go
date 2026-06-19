@@ -83,6 +83,49 @@ func releasePinForServerAssign(planEnabled, stateEnabled types.Bool, stateValue 
 	return rise && noRetained
 }
 
+// gcpGatewayStatePin is the gcp_global_access_api_gateway_enabled plan modifier
+// referenced by the generated schema. The status field is server-reported and
+// coupled to the gcp_enable_global_access_api_gateway intent input: it pins the
+// prior state value (UseStateForUnknown semantics) UNLESS that input differs
+// between plan and state, in which case the value is re-derived server-side and
+// must stay "known after apply". Plain UseStateForUnknown would pin the stale
+// value and trip an inconsistent-result error when the input is toggled.
+func gcpGatewayStatePin() planmodifier.Bool {
+	return pinBoolStateUnlessSiblingDiffers{sibling: path.Root("gcp_enable_global_access_api_gateway")}
+}
+
+type pinBoolStateUnlessSiblingDiffers struct {
+	sibling path.Path
+}
+
+func (pinBoolStateUnlessSiblingDiffers) Description(_ context.Context) string {
+	return "Pins the prior state value unless the sibling input differs, re-deriving this attribute server-side."
+}
+
+func (m pinBoolStateUnlessSiblingDiffers) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+// PlanModifyBool implements planmodifier.Bool.
+func (m pinBoolStateUnlessSiblingDiffers) PlanModifyBool(ctx context.Context, req planmodifier.BoolRequest, resp *planmodifier.BoolResponse) {
+	if req.State.Raw.IsNull() {
+		return
+	}
+	if !req.PlanValue.IsUnknown() {
+		return
+	}
+	var planSib, stateSib types.Bool
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, m.sibling, &planSib)...)
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, m.sibling, &stateSib)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if planSib.IsUnknown() || !planSib.Equal(stateSib) {
+		return
+	}
+	resp.PlanValue = req.StateValue
+}
+
 // rpsqlStringStatePin is the rpsql.url / rpsql.version plan modifier referenced
 // by the generated schema. Same fresh-enable release as rpsqlZonesStatePin: the
 // control plane derives these server-side on enable, so the leaf must stay
