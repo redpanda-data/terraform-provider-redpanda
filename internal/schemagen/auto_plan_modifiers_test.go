@@ -275,12 +275,16 @@ func TestMerge_MaskContract_NoDoubleAddAndAliases(t *testing.T) {
 		Name: "Thing",
 		Fields: []ProtoField{
 			{Name: "partition_count", Kind: KindInt32, Cardinality: "singular"},
+			{Name: "frozen_count", Kind: KindInt32, Cardinality: "singular"},
+			{Name: "immutable_field", Kind: KindString, Cardinality: "singular"},
 			{Name: "cloud_provider_tags", Kind: KindMap, MapValKind: KindString, Cardinality: KindMap},
 		},
 	}
 	cfg := &Config{
 		Fields: map[string]FieldConfig{
 			"partition_count":     {PlanModifiers: []string{"RequiresReplaceIfShrinking"}},
+			"frozen_count":        {PlanModifiers: []string{"RequiresReplaceIfShrinking"}},
+			"immutable_field":     {PlanModifiers: []string{"RequiresReplace"}},
 			"cloud_provider_tags": {ProtoOnly: true},
 			"tags": {
 				Extra: true, Type: "map", FromProto: "cloud_provider_tags",
@@ -297,6 +301,9 @@ func TestMerge_MaskContract_NoDoubleAddAndAliases(t *testing.T) {
 	}
 	contract := maskContractFor()
 	contract.TopLevel["gcp_enable_global_access_api_gateway"] = true
+	// partition_count is updatable in place (grow); its conditional shrink-only
+	// replace is intentional, so it stays in-contract and unmutated.
+	contract.TopLevel["partition_count"] = true
 	cfg.SetMaskContract(contract)
 	attrs, _, _, errs := Merge(proto, cfg, "resource", nil)
 	if len(errs) != 0 {
@@ -313,11 +320,28 @@ func TestMerge_MaskContract_NoDoubleAddAndAliases(t *testing.T) {
 				t.Errorf("gateway_orphan (write-input, out of contract) should derive RequiresReplace; got %q", a.PlanModifiers)
 			}
 		case "partition_count":
+			// In-contract conditional: grow updates in place, shrink replaces.
 			if !strings.Contains(a.PlanModifiers, "RequiresReplaceIf(") {
 				t.Errorf("partition_count must keep its RequiresReplaceIf; got %q", a.PlanModifiers)
 			}
 			if strings.Contains(a.PlanModifiers, "RequiresReplace()") {
-				t.Errorf("partition_count must not gain a second plain RequiresReplace; got %q", a.PlanModifiers)
+				t.Errorf("partition_count (in contract) must not gain an unconditional RequiresReplace; got %q", a.PlanModifiers)
+			}
+		case "frozen_count":
+			// Out-of-contract conditional: the control plane cannot update it in
+			// place at all, so a shrink-only conditional is insufficient — an
+			// unconditional RequiresReplace is derived alongside it.
+			if !strings.Contains(a.PlanModifiers, "RequiresReplaceIf(") {
+				t.Errorf("frozen_count must keep its conditional RequiresReplaceIf; got %q", a.PlanModifiers)
+			}
+			if !strings.Contains(a.PlanModifiers, "RequiresReplace()") {
+				t.Errorf("frozen_count (out of contract, conditional-only) must derive an unconditional RequiresReplace; got %q", a.PlanModifiers)
+			}
+		case "immutable_field":
+			// Out-of-contract with an exact plain RequiresReplace: already
+			// covered, so the derivation must not double-add.
+			if n := strings.Count(a.PlanModifiers, "RequiresReplace()"); n != 1 {
+				t.Errorf("immutable_field must keep exactly one RequiresReplace; got %d in %q", n, a.PlanModifiers)
 			}
 		case "tags":
 			if strings.Contains(a.PlanModifiers, "RequiresReplace") {
@@ -377,6 +401,7 @@ func TestMerge_MaskContract_WarnOnly_BothDirections(t *testing.T) {
 		{Name: "region", ProtoName: "region", Optional: true},                                                                 // not in payload, no RR → Direction B
 		{Name: "tags", ProtoName: "tags", Optional: true},                                                                     // in-payload, no RR → silent
 		{Name: "cloud_provider", ProtoName: "cloud_provider", Required: true, PlanModifierNames: []string{"RequiresReplace"}}, // not in payload + RR → silent
+		{Name: "frozen", ProtoName: "frozen", Optional: true, PlanModifierNames: []string{"RequiresReplaceIfShrinking"}},      // not in payload, conditional-only → Direction B (conditional ≠ coverage)
 		{Name: "id", ProtoName: "id", Computed: true},                                                                         // not optional/required → skipped
 	}
 	contract := &MaskContract{TopLevel: map[string]bool{nameField: true, "tags": true}, WarnOnly: true}
@@ -393,10 +418,10 @@ func TestMerge_MaskContract_WarnOnly_BothDirections(t *testing.T) {
 		t.Errorf("warn-only must not auto-add RequiresReplace to region; got %v", attrs[1].PlanModifierNames)
 	}
 
-	if len(warns) != 2 {
-		t.Fatalf("expected exactly 2 warnings (Direction A + B), got %d: %v", len(warns), warns)
+	if len(warns) != 3 {
+		t.Fatalf("expected exactly 3 warnings (Direction A + two Direction B), got %d: %v", len(warns), warns)
 	}
-	var sawA, sawB bool
+	var sawA, sawB, sawFrozen bool
 	for _, w := range warns {
 		if strings.Contains(w, "Thing.name") && strings.Contains(w, "is in the update payload") {
 			sawA = true
@@ -404,12 +429,18 @@ func TestMerge_MaskContract_WarnOnly_BothDirections(t *testing.T) {
 		if strings.Contains(w, "Thing.region") && strings.Contains(w, "missing RequiresReplace") {
 			sawB = true
 		}
+		if strings.Contains(w, "Thing.frozen") && strings.Contains(w, "missing RequiresReplace") {
+			sawFrozen = true
+		}
 	}
 	if !sawA {
 		t.Errorf("missing Direction-A warning for name; got %v", warns)
 	}
 	if !sawB {
 		t.Errorf("missing Direction-B warning for region; got %v", warns)
+	}
+	if !sawFrozen {
+		t.Errorf("missing Direction-B warning for frozen (conditional-only out of contract); got %v", warns)
 	}
 }
 
