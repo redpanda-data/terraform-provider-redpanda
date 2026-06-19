@@ -15,10 +15,6 @@
 
 package schemagen
 
-import (
-	"strings"
-)
-
 type maskContractVerdict int
 
 const (
@@ -29,10 +25,13 @@ const (
 )
 
 // maskContractVerdictFor classifies a top-level attr against the update-mask
-// contract: out-of-contract fields without RequiresReplace derive it; an
-// explicit RequiresReplace on an out-of-contract field is redundant (the
-// derivation covers it); RequiresReplace on an in-contract field contradicts
-// the contract and is kept but warned about.
+// contract: out-of-contract fields without an unconditional RequiresReplace
+// derive it; an explicit unconditional RequiresReplace on an out-of-contract
+// field is redundant (the derivation covers it); an unconditional
+// RequiresReplace on an in-contract field contradicts the contract and is kept
+// but warned about. hasRequiresReplace counts only the exact plain
+// RequiresReplace — a conditional RequiresReplaceIf* leaves non-triggering edits
+// going to the update path, so it does not cover an out-of-contract field.
 func maskContractVerdictFor(inContract, hasRequiresReplace bool) maskContractVerdict {
 	switch {
 	case !inContract && !hasRequiresReplace:
@@ -78,7 +77,10 @@ func deriveMaskContractRequiresReplace(attrs []SchemaAttr, fields map[string]Fie
 		inContract := contract.TopLevel[key] || contract.Leaf[key]
 		hasRR := false
 		for _, m := range a.PlanModifierNames {
-			if strings.HasPrefix(m, "RequiresReplace") {
+			// Exact plain RequiresReplace only — a conditional RequiresReplaceIf*
+			// still lets non-triggering edits reach the update path, so it does
+			// not cover an out-of-contract field.
+			if m == "RequiresReplace" {
 				hasRR = true
 				break
 			}
