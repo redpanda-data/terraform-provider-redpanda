@@ -121,6 +121,67 @@ func TestMerge_CommonDescriptionOnExtraField(t *testing.T) {
 	}
 }
 
+// descTestIndexWithWriteRoot mirrors descTestIndex but adds a write-shape root
+// ("FooCreate") carrying a write-only field plus a field also present on the
+// read root, to exercise read-primary/write-fallback resolution.
+func descTestIndexWithWriteRoot() *apidesc.Index {
+	return apidesc.FromFile(&apidesc.File{
+		Schemas: map[string]*apidesc.Node{
+			"Foo": {
+				Fields: map[string]*apidesc.Node{
+					"name":   {Description: "Read text for name."},
+					"shared": {Description: "Read text for shared."},
+				},
+			},
+			"FooCreate": {
+				Fields: map[string]*apidesc.Node{
+					"enable_widget": {Description: "Controls whether the widget is enabled. Applicable only for GCP"},
+					"shared":        {Description: "Write text for shared."},
+				},
+			},
+		},
+	}, "test-fixture")
+}
+
+// TestMerge_WriteShapeDescriptionFallback — a write-only input field
+// (expand_proto_name, absent from the read shape) sources its description from
+// the api_write_schemas fallback root, not the humanize fallback.
+func TestMerge_WriteShapeDescriptionFallback(t *testing.T) {
+	tru := true
+	proto := &ProtoMessage{
+		Name: "Foo",
+		Fields: []ProtoField{
+			{Name: "name", Kind: KindString, Cardinality: "singular"},
+			{Name: "shared", Kind: KindString, Cardinality: "singular"},
+		},
+	}
+	cfg := &Config{
+		APISchema:       "Foo",
+		APIWriteSchemas: []string{"FooCreate"},
+		Fields: map[string]FieldConfig{
+			"enable_widget": {
+				Extra: true, Type: "bool", Optional: &tru,
+				ExpandProtoName: "enable_widget", FlattenSkip: true,
+			},
+		},
+	}
+	attrs, _, _, errs := Merge(proto, cfg, "resource", descTestIndexWithWriteRoot())
+	if len(errs) != 0 {
+		t.Fatalf("unexpected errors: %v", errs)
+	}
+	got := map[string]string{}
+	for _, a := range attrs {
+		got[a.Name] = a.Description
+	}
+	if got["enable_widget"] != "Controls whether the widget is enabled. Applicable only for GCP" {
+		t.Errorf("enable_widget: want write-root fallback text; got %q", got["enable_widget"])
+	}
+	// Read root wins for a field present on both.
+	if got["shared"] != "Read text for shared." {
+		t.Errorf("shared: read root must win over write fallback; got %q", got["shared"])
+	}
+}
+
 // TestMerge_ScopedDescriptionOnExtraField — the Cluster.tags shape: an extra
 // field with a scoped entry uses it over the plain-name/mechanical text.
 func TestMerge_ScopedDescriptionOnExtraField(t *testing.T) {

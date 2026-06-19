@@ -220,8 +220,9 @@ func collectAPISchemas(resourceDir string) (map[string]*apiSchemaRef, error) {
 			return nil, fmt.Errorf("read %s: %w", p, err)
 		}
 		var header struct {
-			APISchema          string `yaml:"api_schema"`
-			StripOpenAPIPrefix string `yaml:"strip_openapi_prefix"`
+			APISchema          string   `yaml:"api_schema"`
+			APIWriteSchemas    []string `yaml:"api_write_schemas"`
+			StripOpenAPIPrefix string   `yaml:"strip_openapi_prefix"`
 		}
 		if err := yaml.Unmarshal(data, &header); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", p, err)
@@ -229,18 +230,27 @@ func collectAPISchemas(resourceDir string) (map[string]*apiSchemaRef, error) {
 		if header.APISchema == "" {
 			continue
 		}
-		ref, ok := out[header.APISchema]
-		if !ok {
-			ref = &apiSchemaRef{prefix: header.StripOpenAPIPrefix}
-			out[header.APISchema] = ref
+		register := func(root string) error {
+			ref, ok := out[root]
+			if !ok {
+				ref = &apiSchemaRef{prefix: header.StripOpenAPIPrefix}
+				out[root] = ref
+			}
+			ref.files = append(ref.files, p)
+			if ref.prefix == "" && header.StripOpenAPIPrefix != "" {
+				ref.prefix = header.StripOpenAPIPrefix
+			}
+			if header.StripOpenAPIPrefix != "" && ref.prefix != "" && ref.prefix != header.StripOpenAPIPrefix {
+				return fmt.Errorf("api_schema %q has conflicting strip_openapi_prefix values (%q vs %q)",
+					root, ref.prefix, header.StripOpenAPIPrefix)
+			}
+			return nil
 		}
-		ref.files = append(ref.files, p)
-		if ref.prefix == "" && header.StripOpenAPIPrefix != "" {
-			ref.prefix = header.StripOpenAPIPrefix
-		}
-		if header.StripOpenAPIPrefix != "" && ref.prefix != "" && ref.prefix != header.StripOpenAPIPrefix {
-			return nil, fmt.Errorf("api_schema %q has conflicting strip_openapi_prefix values (%q vs %q)",
-				header.APISchema, ref.prefix, header.StripOpenAPIPrefix)
+		// Read shape (primary) plus any write-shape fallback roots.
+		for _, root := range append([]string{header.APISchema}, header.APIWriteSchemas...) {
+			if err := register(root); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return out, nil
