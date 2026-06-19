@@ -287,15 +287,31 @@ func TestMerge_MaskContract_NoDoubleAddAndAliases(t *testing.T) {
 				Optional: &tru, Computed: &tru,
 			},
 			"synthetic_only": {Extra: true, Type: "string", Optional: &tru},
+			// Write-only input field keyed by its write-shape proto name: in
+			// contract -> updatable, no RequiresReplace.
+			"gateway_intent": {Extra: true, Type: "bool", Optional: &tru, ExpandProtoName: "gcp_enable_global_access_api_gateway"},
+			// Same shape but its write name is absent from the contract -> the
+			// CP cannot update it in place, so it derives RequiresReplace.
+			"gateway_orphan": {Extra: true, Type: "bool", Optional: &tru, ExpandProtoName: "not_in_contract"},
 		},
 	}
-	cfg.SetMaskContract(maskContractFor())
+	contract := maskContractFor()
+	contract.TopLevel["gcp_enable_global_access_api_gateway"] = true
+	cfg.SetMaskContract(contract)
 	attrs, _, _, errs := Merge(proto, cfg, "resource", nil)
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
 	for _, a := range attrs {
 		switch a.Name {
+		case "gateway_intent":
+			if strings.Contains(a.PlanModifiers, "RequiresReplace") {
+				t.Errorf("gateway_intent (write-input, in contract) must not gain RequiresReplace; got %q", a.PlanModifiers)
+			}
+		case "gateway_orphan":
+			if !strings.Contains(a.PlanModifiers, "RequiresReplace()") {
+				t.Errorf("gateway_orphan (write-input, out of contract) should derive RequiresReplace; got %q", a.PlanModifiers)
+			}
 		case "partition_count":
 			if !strings.Contains(a.PlanModifiers, "RequiresReplaceIf(") {
 				t.Errorf("partition_count must keep its RequiresReplaceIf; got %q", a.PlanModifiers)

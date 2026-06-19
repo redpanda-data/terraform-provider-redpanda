@@ -67,6 +67,11 @@ func deriveMaskContractRequiresReplace(attrs []SchemaAttr, fields map[string]Fie
 		if key == "" {
 			key = fields[a.Name].FromProto
 		}
+		if wp := fields[a.Name].ExpandProtoName; wp != "" {
+			// A write-only input field is keyed by its write-shape proto name;
+			// that is the name the update contract knows it by.
+			key = wp
+		}
 		if key == "" {
 			continue
 		}

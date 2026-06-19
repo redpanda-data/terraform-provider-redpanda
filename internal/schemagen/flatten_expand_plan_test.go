@@ -168,6 +168,88 @@ func TestPlanFlattenExpandUser(t *testing.T) {
 	mustContain(t, got, "enums.StringToSASLMechanism(m.Mechanism.ValueString())")
 }
 
+// TestPlanWriteOnlyInputField pins the expand_proto_name directive: an input
+// attribute absent from the read shape that maps to a write-shape proto field
+// on create AND update, with no flatten (value carried from prev). Models the
+// gcp_enable_global_access_api_gateway intent field, distinct from the
+// gcp_global_access_api_gateway_enabled status field on the read shape.
+func TestPlanWriteOnlyInputField(t *testing.T) {
+	cfg := &Config{
+		TFName:            "Cluster",
+		ExcludeOperations: []string{"delete"},
+		Fields: map[string]FieldConfig{
+			"name": {Required: true},
+			"gcp_enable_global_access_api_gateway": {
+				Extra:           true,
+				Type:            "bool",
+				Optional:        boolPtr(true),
+				ExpandProtoName: "gcp_enable_global_access_api_gateway",
+				FlattenSkip:     true,
+			},
+		},
+		API: &APIConfig{
+			Create: &RPCConfig{
+				RPC:          "CreateCluster",
+				Request:      "CreateClusterRequest",
+				PayloadField: "cluster",
+				PayloadType:  "ClusterCreate",
+			},
+			Update: &RPCConfig{
+				RPC:          "UpdateCluster",
+				Request:      "UpdateClusterRequest",
+				PayloadField: "cluster",
+				PayloadType:  "ClusterUpdate",
+			},
+			ResponseInterface: &ResponseInterfaceConfig{Name: "ClusterResponse"},
+		},
+	}
+	// Read shape has NO gcp_enable_global_access_api_gateway field.
+	proto := &ProtoMessage{
+		Name: "Cluster",
+		Fields: []ProtoField{
+			{Name: "name", Kind: "string", Cardinality: "singular"},
+		},
+	}
+	attrs := []SchemaAttr{
+		{Name: "name", AttrType: AttrTypeString, Required: true},
+		{Name: "gcp_enable_global_access_api_gateway", AttrType: AttrTypeBool, Optional: true},
+	}
+
+	writeField := ProtoField{Name: "gcp_enable_global_access_api_gateway", Kind: "bool", Cardinality: "singular"}
+	payloadFields := []ProtoField{{Name: "name", Kind: "string", Cardinality: "singular"}, writeField}
+	lookup := func(name string) (*ProtoMessage, error) {
+		switch name {
+		case "ClusterCreate":
+			return &ProtoMessage{Name: "ClusterCreate", GoName: "ClusterCreate", Fields: payloadFields}, nil
+		case "ClusterUpdate":
+			return &ProtoMessage{Name: "ClusterUpdate", GoName: "ClusterUpdate", Fields: payloadFields}, nil
+		default:
+			return nil, nil
+		}
+	}
+
+	data, err := PlanFlattenExpand(attrs, cfg, proto, "cluster", "controlplanev1",
+		"buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1",
+		"resource", lookup)
+	if err != nil {
+		t.Fatalf("PlanFlattenExpand: %v", err)
+	}
+	src, err := GenerateFlattenExpand(data)
+	if err != nil {
+		t.Fatalf("GenerateFlattenExpand: %v\nGOT:\n%s", err, src)
+	}
+	got := string(src)
+
+	// Expanded into BOTH create and update payloads as a plain-bool setter.
+	mustContain(t, normalize(got), normalize("GcpEnableGlobalAccessApiGateway: m.GCPEnableGlobalAccessAPIGateway.ValueBool(),"))
+	mustContain(t, got, "payload := &controlplanev1.ClusterCreate{")
+	mustContain(t, got, "payload := &controlplanev1.ClusterUpdate{")
+
+	// No flatten / read-side coupling: not on the response interface, no getter.
+	mustNotContain(t, got, "GetGcpEnableGlobalAccessApiGateway")
+	mustNotContain(t, got, "m.GCPEnableGlobalAccessAPIGateway = types.BoolValue")
+}
+
 func mustContain(t *testing.T, src, sub string) {
 	t.Helper()
 	if !strings.Contains(src, sub) {

@@ -725,6 +725,20 @@ func planField(a *SchemaAttr, fc *FieldConfig, protoByName map[string]*ProtoFiel
 				conv.ProtoGoName = toProtoGoName(pf.Name)
 			}
 		}
+		if fc.ExpandProtoName != "" {
+			// Write-only input field: expands to a write-shape proto field
+			// absent from the read shape. In the expand context protoByName is
+			// the write payload and resolves the field; in the flatten context
+			// (read dict) it does not — fall through to the pure-extra preserve
+			// below so the value is carried from prev with no flatten.
+			if pf, ok := protoByName[fc.ExpandProtoName]; ok {
+				conv.Kind = FieldKindScalar
+				conv.ProtoField = pf.Name
+				conv.ProtoGoName = toProtoGoName(pf.Name)
+				conv.ExpandExpr = scalarExpandExpr(conv, pf, scalarShapes[a.AttrType])
+				return conv, nil
+			}
+		}
 		if fc.Extra && fc.FromProto == "" && fc.FlattenVia == "" && fc.ExpandVia == "" {
 			conv.Preserve = true
 			conv.NullExpr = nullExpr
@@ -1115,7 +1129,7 @@ func planExpander(kind string, rpc *RPCConfig, attrs []SchemaAttr, cfg *Config, 
 		if fc != nil && fc.Exclude {
 			continue
 		}
-		if fc != nil && fc.Extra && fc.ExpandVia == "" && fc.FromProto == "" {
+		if fc != nil && fc.Extra && fc.ExpandVia == "" && fc.FromProto == "" && fc.ExpandProtoName == "" {
 			continue
 		}
 
@@ -1125,6 +1139,9 @@ func planExpander(kind string, rpc *RPCConfig, attrs []SchemaAttr, cfg *Config, 
 		}
 		if fc != nil && fc.FromProto != "" {
 			protoName = fc.FromProto
+		}
+		if fc != nil && fc.ExpandProtoName != "" {
+			protoName = fc.ExpandProtoName
 		}
 		pf, ok := payloadProtoByName[protoName]
 		if !ok {

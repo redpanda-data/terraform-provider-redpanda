@@ -51,7 +51,7 @@ func Merge(proto *ProtoMessage, cfg *Config, schemaType string, apiIndex *apides
 	applyScopedDescriptions(attrs, cfg.APISchema, "")
 
 	if apiIndex != nil && cfg.APISchema != "" {
-		stats = applyAPIDescriptions(attrs, cfg.APISchema, "", apiIndex)
+		stats = applyAPIDescriptions(attrs, cfg.APISchema, cfg.APIWriteSchemas, "", apiIndex)
 	}
 
 	applyAutoDescriptions(attrs, "")
@@ -63,6 +63,9 @@ func Merge(proto *ProtoMessage, cfg *Config, schemaType string, apiIndex *apides
 		deriveValidators: opts.deriveValidators,
 		resourceLabel:    classifierResourceLabel(cfg),
 		source:           cfg.Source(),
+		apiIndex:         apiIndex,
+		apiPrimary:       cfg.APISchema,
+		apiWriteSchemas:  cfg.APIWriteSchemas,
 	}
 	applyFieldConfigs(&attrs, cfg.Fields, proto, "", mc)
 
@@ -129,18 +132,39 @@ func applyScopedDescriptions(attrs []SchemaAttr, scope, parentPath string) {
 	})
 }
 
-func applyAPIDescriptions(attrs []SchemaAttr, rootSchema, parentPath string, idx *apidesc.Index) apidesc.Stats {
+func applyAPIDescriptions(attrs []SchemaAttr, rootSchema string, writeRoots []string, parentPath string, idx *apidesc.Index) apidesc.Stats {
 	var s apidesc.Stats
 	walkAttrs(attrs, parentPath, func(a *SchemaAttr, parentPath string) {
 		s.Attempted++
 		if a.Description == "" {
-			if desc, ok := idx.Lookup(rootSchema + "." + joinPath(parentPath, a.Name)); ok {
+			path := joinPath(parentPath, a.Name)
+			if desc, ok := lookupAPIDescription(idx, rootSchema, writeRoots, path, path); ok {
 				a.Description = desc
 				s.Matched++
 			}
 		}
 	})
 	return s
+}
+
+// lookupAPIDescription resolves a field description read-shape-primary,
+// write-shape-fallback: it tries "<primary>.<readPath>" first, then each
+// write root "<root>.<writeKey>" in order. writeKey lets write-only input
+// fields (expand_proto_name) key off their write-shape name when it differs
+// from the read path.
+func lookupAPIDescription(idx *apidesc.Index, primary string, writeRoots []string, readPath, writeKey string) (string, bool) {
+	if idx == nil || primary == "" {
+		return "", false
+	}
+	if desc, ok := idx.Lookup(primary + "." + readPath); ok {
+		return desc, true
+	}
+	for _, root := range writeRoots {
+		if desc, ok := idx.Lookup(root + "." + writeKey); ok {
+			return desc, true
+		}
+	}
+	return "", false
 }
 
 type mergeCtx struct {
@@ -151,6 +175,11 @@ type mergeCtx struct {
 	ancestors        []ancestorFrame
 	resourceLabel    string
 	source           string
+	// apiIndex + roots resolve extra-field descriptions (which are added after
+	// the base applyAPIDescriptions pass) read-primary, write-fallback.
+	apiIndex        *apidesc.Index
+	apiPrimary      string
+	apiWriteSchemas []string
 	// warnf sinks diagnostic warnings; nil routes to os.Stderr. Tests inject a
 	// collector to assert mask-contract verdicts without capturing stderr.
 	warnf func(format string, args ...any)
@@ -216,7 +245,19 @@ func applyFieldConfigs(attrs *[]SchemaAttr, fields map[string]FieldConfig, proto
 			}
 			synth := syntheticToSchemaAttr(name, fc, path, mc)
 			if synth.Description == "" {
-				synth.Description = curatedDescription(mc.resourceLabel, path, name, synth.AttrType)
+				// Precedence: scoped (provider-behavior) > apidesc (read root,
+				// then write fallbacks) > mechanical humanize.
+				writeKey := path
+				if fc.ExpandProtoName != "" {
+					writeKey = fc.ExpandProtoName
+				}
+				if desc, ok := scopedDescriptions[mc.resourceLabel+"."+path]; ok {
+					synth.Description = desc
+				} else if desc, ok := lookupAPIDescription(mc.apiIndex, mc.apiPrimary, mc.apiWriteSchemas, path, writeKey); ok {
+					synth.Description = desc
+				} else {
+					synth.Description = curatedDescription(mc.resourceLabel, path, name, synth.AttrType)
+				}
 			}
 
 			if len(fc.Fields) > 0 {

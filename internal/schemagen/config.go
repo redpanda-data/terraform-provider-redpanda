@@ -28,6 +28,11 @@ type Config struct {
 
 	APISchema string `yaml:"api_schema,omitempty"`
 
+	// APIWriteSchemas names create/update payload roots whose apidesc entries
+	// serve as description fallbacks for fields absent from the read shape
+	// (api_schema). Read root wins; these are tried in order after it.
+	APIWriteSchemas []string `yaml:"api_write_schemas,omitempty"`
+
 	StripOpenAPIPrefix string `yaml:"strip_openapi_prefix,omitempty"`
 
 	Timeouts []string `yaml:"timeouts,omitempty"`
@@ -176,6 +181,14 @@ type FieldConfig struct {
 
 	FromProto string `yaml:"from_proto,omitempty"`
 
+	// ExpandProtoName names a write-shape proto field for an input attribute
+	// that is absent from the read shape. The attribute expands to this field
+	// on create/update but has no flatten (use with flatten_skip). Use when the
+	// desired-state input and the server-reported status are distinct proto
+	// fields with different names (e.g. gcp_enable_global_access_api_gateway on
+	// ClusterCreate/Update vs gcp_global_access_api_gateway_enabled on Cluster).
+	ExpandProtoName string `yaml:"expand_proto_name,omitempty"`
+
 	FlattenSkip bool `yaml:"flatten_skip,omitempty"`
 
 	ExpandSkip bool `yaml:"expand_skip,omitempty"`
@@ -245,6 +258,7 @@ func LoadConfig(path string) (*Config, error) {
 	appendStringList(&cfg.Timeouts, raw, "timeouts")
 	assignScalar(&cfg.ComputedDefault, raw, "computed_default")
 	assignScalar(&cfg.APISchema, raw, "api_schema")
+	appendStringList(&cfg.APIWriteSchemas, raw, "api_write_schemas")
 	assignScalar(&cfg.TFName, raw, "tf_name")
 	assignScalar(&cfg.StripOpenAPIPrefix, raw, "strip_openapi_prefix")
 	appendStringList(&cfg.ExcludeOperations, raw, "exclude_operations")
@@ -274,7 +288,7 @@ func LoadConfig(path string) (*Config, error) {
 		"message": true, "timeouts": true,
 		"computed_default": true, "api_schema": true, "tf_name": true,
 		"strip_openapi_prefix": true, "version": true,
-		"api": true, "exclude_operations": true,
+		"api": true, "exclude_operations": true, "api_write_schemas": true,
 	}
 	for key, val := range raw {
 		if reservedKeys[key] {
