@@ -52,6 +52,7 @@ const (
 	mockSchemaClusterIDb = "mockschemaclusteridb"
 	mockSchemaClusterIDc = "mockschemaclusteridc"
 	mockSchemaClusterIDd = "mockschemaclusteridd"
+	mockSchemaClusterIDe = "mockschemaclusteride"
 
 	avroSchemaV1 = `{"type":"record","name":"TestRecord","fields":[{"name":"id","type":"int"}]}`
 	avroSchemaV2 = `{"type":"record","name":"TestRecord","fields":[{"name":"id","type":"int"},{"name":"name","type":"string"}]}`
@@ -240,6 +241,28 @@ resource "redpanda_schema" "test" {
 `, clusterID, subject, schemaBody, refName, refSubject, refVersion)
 }
 
+// schemaCfgWithEmptyRefs returns HCL with an explicit empty references list.
+// A configured [] must round-trip as [] (not null), since references is
+// Optional and not Computed.
+func schemaCfgWithEmptyRefs(clusterID, subject, schemaBody string) string {
+	return fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_schema" "test" {
+  cluster_id     = %q
+  subject        = %q
+  schema         = %q
+  schema_type    = "AVRO"
+  compatibility  = "BACKWARD"
+  username       = "mock-user"
+  password       = "mock-pass"
+  allow_deletion = true
+
+  references = []
+}
+`, clusterID, subject, schemaBody)
+}
+
 // TestIntegration_Schema_CreateAndRefresh proves the full create + noop cycle. Every
 // non-write-only leaf is asserted at exact value. The two CompareValue wires
 // (id, version) are the UseStateForUnknown / stable-on-noop proof — the SR
@@ -419,10 +442,11 @@ func TestIntegration_Schema_RequiresReplace_ClusterID(t *testing.T) {
 
 // TestIntegration_Schema_NestedMatrix_References_Full covers the Full density of the
 // references list. Null density is covered by CreateAndRefresh (references is
-// Null there). Empty and Partial densities are unsatisfiable: references'
-// sub-fields (name, subject, version) are all Required at the schema level,
-// so an empty references entry or one with null sub-fields would fail
-// framework validation. Only Null and Full are applicable.
+// Null there); Empty density (references = []) by NestedMatrix_References_Empty.
+// Partial density is unsatisfiable: references' sub-fields (name, subject,
+// version) are all Required, so an entry with null sub-fields fails framework
+// validation. An empty *list* (zero entries) is distinct from an empty *entry*
+// and is valid.
 //
 // The SR fake stores references as-is without resolution, so the referenced
 // subject does not need to exist in the fake. The noop step proves the
@@ -450,6 +474,30 @@ func TestIntegration_Schema_NestedMatrix_References_Full(t *testing.T) {
 				statecheck.ExpectKnownValue(schemaAddr, tfjsonpath.New("references").AtSliceIndex(0).AtMapKey("name"), knownvalue.StringExact(refName)),
 				statecheck.ExpectKnownValue(schemaAddr, tfjsonpath.New("references").AtSliceIndex(0).AtMapKey("subject"), knownvalue.StringExact(refSubject)),
 				statecheck.ExpectKnownValue(schemaAddr, tfjsonpath.New("references").AtSliceIndex(0).AtMapKey("version"), knownvalue.Int64Exact(int64(refVersion))),
+			}),
+		},
+	})
+}
+
+// TestIntegration_Schema_NestedMatrix_References_Empty covers the Empty density:
+// a configured `references = []` must round-trip as an empty list, not collapse
+// to null. Since references is Optional (not Computed), a []->null coercion in
+// the read path trips the post-apply consistency check. The noop step proves
+// the empty list is stable across re-apply.
+func TestIntegration_Schema_NestedMatrix_References_Empty(t *testing.T) {
+	_, factories := schemaSetup(t, mockSchemaClusterIDe)
+
+	subject := "tfrp-mock-schema-refs-empty"
+	cfg := schemaCfgWithEmptyRefs(mockSchemaClusterIDe, subject, avroUserV1)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(schemaAddr, cfg, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(schemaAddr, tfjsonpath.New("references"), knownvalue.ListSizeExact(0)),
+			}),
+			integration.NoopReapplyStep(schemaAddr, cfg, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(schemaAddr, tfjsonpath.New("references"), knownvalue.ListSizeExact(0)),
 			}),
 		},
 	})

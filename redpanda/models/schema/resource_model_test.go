@@ -3,10 +3,60 @@ package schema
 import (
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/twmb/franz-go/pkg/sr"
 )
+
+// referencesObjType mirrors the object type emitted by the schema resource for
+// the references list.
+var referencesObjType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"name":    types.StringType,
+		"subject": types.StringType,
+		"version": types.Int64Type,
+	},
+}
+
+// A configured empty references list must survive a refresh/update that
+// returns no references. Coercing []->null trips Terraform's post-apply
+// consistency check (references is Optional, not Computed, so the empty list
+// the user set must round-trip).
+func TestResourceModel_UpdateFromSchema_EmptyReferencesPreservesShape(t *testing.T) {
+	t.Run("configured empty list stays empty", func(t *testing.T) {
+		emptyList, d := types.ListValue(referencesObjType, []attr.Value{})
+		require.False(t, d.HasError())
+
+		model := &ResourceModel{
+			Schema:     types.StringValue(`{"type":"string"}`),
+			SchemaType: types.StringValue("AVRO"),
+			References: emptyList,
+		}
+		model.UpdateFromSchema(sr.SubjectSchema{
+			Schema: sr.Schema{Schema: `{"type":"string"}`, Type: sr.TypeAvro},
+		})
+
+		assert.False(t, model.References.IsNull(),
+			"configured [] must not become null after apply")
+		assert.Equal(t, 0, len(model.References.Elements()))
+	})
+
+	t.Run("omitted (null) references stays null", func(t *testing.T) {
+		model := &ResourceModel{
+			Schema:     types.StringValue(`{"type":"string"}`),
+			SchemaType: types.StringValue("AVRO"),
+			References: types.ListNull(referencesObjType),
+		}
+		model.UpdateFromSchema(sr.SubjectSchema{
+			Schema: sr.Schema{Schema: `{"type":"string"}`, Type: sr.TypeAvro},
+		})
+
+		assert.True(t, model.References.IsNull(),
+			"omitted references must stay null after apply")
+	})
+}
 
 func TestResourceModel_GetID(t *testing.T) {
 	model := &ResourceModel{

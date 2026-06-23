@@ -82,13 +82,17 @@ func (r *ResourceModel) UpdateFromSchema(schemaResp sr.SubjectSchema) diag.Diagn
 	}
 
 	r.SchemaType = types.StringValue(strings.ToUpper(schemaResp.Type.String()))
-	refsList, diags := r.convertReferencesToTerraform(schemaResp.References)
+	refsList, diags := r.convertReferencesToTerraform(schemaResp.References, r.References)
 	r.References = refsList
 	return diags
 }
 
-// convertReferencesToTerraform converts sr.SchemaReference slice to Terraform List type
-func (*ResourceModel) convertReferencesToTerraform(refs []sr.SchemaReference) (types.List, diag.Diagnostics) {
+// convertReferencesToTerraform converts sr.SchemaReference slice to Terraform
+// List type. When the registry returns no references, the prior list's shape
+// is preserved: a configured empty list stays empty, an omitted (null) block
+// stays null. Coercing []->null trips Terraform's post-apply consistency check
+// (references is Optional, not Computed).
+func (*ResourceModel) convertReferencesToTerraform(refs []sr.SchemaReference, prior types.List) (types.List, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	objType := types.ObjectType{
 		AttrTypes: map[string]attr.Type{
@@ -98,6 +102,9 @@ func (*ResourceModel) convertReferencesToTerraform(refs []sr.SchemaReference) (t
 		},
 	}
 	if len(refs) == 0 {
+		if !prior.IsNull() && !prior.IsUnknown() {
+			return types.ListValueMust(objType, []attr.Value{}), diags
+		}
 		return types.ListNull(objType), diags
 	}
 
