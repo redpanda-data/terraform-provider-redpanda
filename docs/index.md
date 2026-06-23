@@ -258,6 +258,29 @@ resource "redpanda_schema" "product_schema" {
   ]
 }
 
+resource "redpanda_schema" "protobuf_roundtrip" {
+  cluster_id     = redpanda_cluster.test.id
+  subject        = "${var.topic_name}-protobuf-value"
+  schema_type    = "PROTOBUF"
+  schema         = var.protobuf_schema_definition
+  references     = []
+  allow_deletion = true
+
+  depends_on = [
+    redpanda_acl.cluster_admin,
+    redpanda_acl.schema_registry_admin,
+    redpanda_acl.cluster_action,
+    redpanda_acl.topic_access,
+    redpanda_schema_registry_acl.provider_bootstrap_subject,
+    redpanda_schema_registry_acl.provider_bootstrap_registry,
+    redpanda_schema_registry_acl.all_test_topic,
+    redpanda_schema_registry_acl.describe_registry,
+    redpanda_schema_registry_acl.alter_configs_registry,
+    redpanda_schema_registry_acl.read_registry,
+    redpanda_schema_registry_acl.write_registry
+  ]
+}
+
 resource "redpanda_acl" "cluster_admin" {
   resource_type         = "CLUSTER"
   resource_name         = "kafka-cluster"
@@ -649,6 +672,29 @@ resource "redpanda_schema" "product_schema" {
   ]
 }
 
+
+resource "redpanda_schema" "protobuf_roundtrip" {
+  cluster_id     = redpanda_cluster.test.id
+  subject        = "${var.topic_name}-protobuf-value"
+  schema_type    = "PROTOBUF"
+  schema         = var.protobuf_schema_definition
+  references     = []
+  allow_deletion = true
+
+  depends_on = [
+    redpanda_acl.cluster_admin,
+    redpanda_acl.schema_registry_admin,
+    redpanda_acl.cluster_action,
+    redpanda_acl.topic_access,
+    redpanda_schema_registry_acl.provider_bootstrap_subject,
+    redpanda_schema_registry_acl.provider_bootstrap_registry,
+    redpanda_schema_registry_acl.all_test_topic,
+    redpanda_schema_registry_acl.describe_registry,
+    redpanda_schema_registry_acl.alter_configs_registry,
+    redpanda_schema_registry_acl.read_registry,
+    redpanda_schema_registry_acl.write_registry
+  ]
+}
 
 resource "redpanda_acl" "cluster_admin" {
   resource_type         = "CLUSTER"

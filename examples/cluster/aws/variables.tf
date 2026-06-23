@@ -196,6 +196,28 @@ variable "compatibility_level" {
   default     = "FULL"
 }
 
+# Authored message-first with a package-relative type reference. Schema Registry
+# canonicalizes protobuf on write (reorders the enum ahead of the message and
+# fully-qualifies the type reference), so the stored body differs from this
+# input. The provider must preserve this form to reach a clean plan.
+variable "protobuf_schema_definition" {
+  description = "The PROTOBUF schema definition used to exercise canonicalization round-trip"
+  default     = <<EOF
+syntax = "proto3";
+package tfrp.acc.v1;
+
+message Event {
+  Status status = 1;
+  string id = 2;
+}
+
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_ACTIVE = 1;
+}
+EOF
+}
+
 variable "cluster_allow_deletion" {
   description = "Allow deletion of cluster resource"
   type        = bool

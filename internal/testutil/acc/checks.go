@@ -136,6 +136,17 @@ func BuildTestCheckFuncs(testDir, name string, hasPrivateNetworking ...bool) ([]
 		)
 	}
 
+	if strings.Contains(testFileStr, `resource "redpanda_schema" "protobuf_roundtrip"`) {
+		checkFuncs = append(checkFuncs,
+			resource.TestCheckResourceAttr(SchemaProtobufResourceName, "subject", name+"-protobuf-value"),
+			resource.TestCheckResourceAttr(SchemaProtobufResourceName, "schema_type", "PROTOBUF"),
+			// Empty references must survive as an empty list, not collapse to null.
+			resource.TestCheckResourceAttr(SchemaProtobufResourceName, "references.#", "0"),
+			resource.TestCheckResourceAttrSet(SchemaProtobufResourceName, "id"),
+			resource.TestCheckResourceAttrSet(SchemaProtobufResourceName, "version"),
+		)
+	}
+
 	if strings.Contains(testFileStr, `resource "redpanda_schema_registry_acl" "read_product"`) {
 		checkFuncs = append(checkFuncs,
 			resource.TestCheckResourceAttrSet("redpanda_schema_registry_acl.read_product", "id"),

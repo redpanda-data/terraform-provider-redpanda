@@ -57,6 +57,7 @@ const (
 	SchemaResourceName                 = "redpanda_schema.user_schema"
 	SchemaEventResourceName            = "redpanda_schema.user_event_schema"
 	SchemaProductResourceName          = "redpanda_schema.product_schema"
+	SchemaProtobufResourceName         = "redpanda_schema.protobuf_roundtrip"
 	ClusterAdminACLResourceName        = "redpanda_acl.cluster_admin"
 	TopicAccessACLResourceName         = "redpanda_acl.topic_access"
 	RoleTopicReadACLResourceName       = "redpanda_acl.role_topic_read"
