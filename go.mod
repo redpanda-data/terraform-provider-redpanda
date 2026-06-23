@@ -11,6 +11,7 @@ require (
 	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.11-20260429204409-5d8d126492a6.1
 	buf.build/go/protovalidate v1.2.0
 	github.com/bufbuild/protocompile v0.14.1
+	github.com/emicklei/proto v1.14.3
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
