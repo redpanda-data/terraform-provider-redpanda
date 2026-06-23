@@ -58,6 +58,47 @@ func TestResourceModel_UpdateFromSchema_EmptyReferencesPreservesShape(t *testing
 	})
 }
 
+// Schema Registry canonicalizes protobuf bodies on write (reorders enums
+// before messages, fully-qualifies in-package type references). The user's
+// planned form must be preserved when the only difference is that
+// canonicalization; otherwise every apply trips the post-apply consistency
+// check and state is never saved.
+func TestResourceModel_UpdateFromSchema_ProtobufCanonicalizationPreservesUserForm(t *testing.T) {
+	userForm := `syntax = "proto3";
+package fulfillment.activity_feed.v1;
+
+message ActivityFeedEvent {
+  ActivityType type = 1;
+}
+
+enum ActivityType {
+  ACTIVITY_TYPE_UNSPECIFIED = 0;
+  ACTIVITY_TYPE_CREATED = 1;
+}
+`
+	registryForm := `syntax = "proto3";
+package fulfillment.activity_feed.v1;
+
+enum ActivityType {
+  ACTIVITY_TYPE_UNSPECIFIED = 0;
+  ACTIVITY_TYPE_CREATED = 1;
+}
+message ActivityFeedEvent {
+  .fulfillment.activity_feed.v1.ActivityType type = 1;
+}
+`
+	model := &ResourceModel{
+		Schema:     types.StringValue(userForm),
+		SchemaType: types.StringValue("PROTOBUF"),
+	}
+	model.UpdateFromSchema(sr.SubjectSchema{
+		Schema: sr.Schema{Schema: registryForm, Type: sr.TypeProtobuf},
+	})
+
+	assert.Equal(t, userForm, model.Schema.ValueString(),
+		"user's protobuf form must be preserved when registry only canonicalized")
+}
+
 func TestResourceModel_GetID(t *testing.T) {
 	model := &ResourceModel{
 		ID: types.Int64Value(54321),
@@ -226,7 +267,7 @@ func TestResourceModel_PlanApplyComparison(t *testing.T) {
 				Schema: types.StringValue(tt.currentSchema),
 			}
 
-			result := model.normalizeJSON(tt.registrySchema)
+			result := model.preserveUserSchemaBody(tt.registrySchema)
 
 			if tt.expectNormalization {
 				assert.Equal(t, tt.currentSchema, result, tt.description)

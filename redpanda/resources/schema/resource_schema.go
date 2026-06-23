@@ -280,15 +280,22 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 	planReq := plan.ToSchemaRequest()
 	stateReq := state.ToSchemaRequest()
 
-	// Body equivalence: strict-equal first, then Avro-canonical for the
-	// FQN-vs-namespace-relative case (Schema Registry collapses
-	// in-namespace type references on write; user's FQN form persists in
-	// plan). Without the Avro fallback, every plan after the first apply
-	// sees plan.Schema != state.Schema and Update fires unnecessarily —
-	// eventually tripping the framework's post-apply consistency check.
+	// Body equivalence: strict-equal first, then a per-format canonical
+	// fallback for the cases Schema Registry rewrites on write (Avro collapses
+	// in-namespace type references; protobuf reorders definitions and
+	// fully-qualifies in-package type refs). The user's original form persists
+	// in plan. Without the fallback, every plan after the first apply sees
+	// plan.Schema != state.Schema and Update fires unnecessarily — eventually
+	// tripping the framework's post-apply consistency check.
 	bodiesEqual := planReq.Schema == stateReq.Schema
-	if !bodiesEqual && strings.EqualFold(plan.SchemaType.ValueString(), "AVRO") {
-		bodiesEqual = schemamodel.AvroBodiesEquivalent(planReq.Schema, stateReq.Schema)
+	if !bodiesEqual {
+		switch {
+		case strings.EqualFold(plan.SchemaType.ValueString(), "AVRO"):
+			bodiesEqual = schemamodel.AvroBodiesEquivalent(planReq.Schema, stateReq.Schema)
+		case strings.EqualFold(plan.SchemaType.ValueString(), "PROTOBUF"):
+			bodiesEqual = schemamodel.ProtobufBodiesEquivalent(planReq.Schema, stateReq.Schema)
+		default:
+		}
 	}
 
 	// Compare schema content, type, and references

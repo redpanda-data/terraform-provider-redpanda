@@ -1818,6 +1818,12 @@ func TestUnit_Schema_Read(t *testing.T) {
 }
 
 func TestUnit_Schema_Update(t *testing.T) {
+	// protoUserForm and protoRegistryForm are the same schema; the registry
+	// reorders the enum ahead of the message and fully-qualifies the in-package
+	// type reference on write.
+	const protoUserForm = `syntax = "proto3"; package p; message M { E e = 1; } enum E { A = 0; B = 1; }`
+	const protoRegistryForm = `syntax = "proto3"; package p; enum E { A = 0; B = 1; } message M { .p.E e = 1; }`
+
 	tests := []struct {
 		name           string
 		initialState   schemamodel.ResourceModel
@@ -1901,6 +1907,40 @@ func TestUnit_Schema_Update(t *testing.T) {
 			},
 			expectCreate: false,
 		},
+		{
+			name: "protobuf canonicalization is a no-op (enum reorder + FQN)",
+			initialState: schemamodel.ResourceModel{
+				ID:            types.Int64Value(1),
+				ClusterID:     types.StringValue("cluster-1"),
+				Subject:       types.StringValue("test-subject"),
+				Version:       types.Int64Value(1),
+				Schema:        types.StringValue(protoRegistryForm),
+				SchemaType:    types.StringValue("PROTOBUF"),
+				Compatibility: types.StringValue("BACKWARD"),
+				Username:      types.StringValue("user"),
+				Password:      types.StringValue("pass"),
+				References:    types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "subject": types.StringType, "version": types.Int64Type}}),
+			},
+			plan: schemamodel.ResourceModel{
+				ID:            types.Int64Value(1),
+				ClusterID:     types.StringValue("cluster-1"),
+				Subject:       types.StringValue("test-subject"),
+				Version:       types.Int64Value(1),
+				Schema:        types.StringValue(protoUserForm),
+				SchemaType:    types.StringValue("PROTOBUF"),
+				Compatibility: types.StringValue("BACKWARD"),
+				Username:      types.StringValue("user"),
+				Password:      types.StringValue("pass"),
+				References:    types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "subject": types.StringType, "version": types.Int64Type}}),
+			},
+			compatResults: []sr.CompatibilityResult{
+				{
+					Level:   sr.CompatBackward,
+					Subject: "test-subject",
+				},
+			},
+			expectCreate: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1973,7 +2013,9 @@ func TestUnit_Schema_Update(t *testing.T) {
 			} else {
 				assert.Equal(t, tt.initialState.Version, state.Version, "Version should not change")
 				assert.Equal(t, tt.initialState.ID, state.ID, "ID should not change")
-				assert.Equal(t, tt.initialState.Schema, state.Schema, "Schema should not change")
+				// No-op sets state from the plan; the user's schema form is
+				// preserved (registry canonicalization is suppressed).
+				assert.Equal(t, tt.plan.Schema, state.Schema, "Schema should preserve the planned (user) form")
 			}
 
 			// Common assertions - fields that should always match plan (or be preserved)

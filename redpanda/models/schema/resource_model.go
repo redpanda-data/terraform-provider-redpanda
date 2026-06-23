@@ -74,9 +74,8 @@ func (r *ResourceModel) UpdateFromSchema(schemaResp sr.SubjectSchema) diag.Diagn
 	r.ID = types.Int64Value(int64(schemaResp.ID))
 	r.Version = types.Int64Value(int64(schemaResp.Version))
 
-	normalizedSchema := r.normalizeJSON(schemaResp.Schema.Schema)
-	if normalizedSchema != "" {
-		r.Schema = types.StringValue(normalizedSchema)
+	if preserved := r.preserveUserSchemaBody(schemaResp.Schema.Schema); preserved != "" {
+		r.Schema = types.StringValue(preserved)
 	} else {
 		r.Schema = types.StringValue(schemaResp.Schema.Schema)
 	}
@@ -187,26 +186,34 @@ func (r *ResourceModel) parseSchemaReferences() []sr.SchemaReference {
 	return references
 }
 
-// normalizeJSON attempts to preserve the original JSON formatting when the
-// content is semantically equivalent. Two layers of equivalence:
+// preserveUserSchemaBody returns the user's current schema body when it is
+// semantically equivalent to the registry's stored form, so the user's input
+// (formatting, declaration order, FQN-vs-relative type refs) is preserved in
+// state rather than churning to the registry's canonicalized form. Layers:
 //
-//  1. JSON-level: same parsed-then-canonical-encoding (whitespace +
-//     key-order tolerant).
-//  2. Avro-level (only when r.SchemaType is AVRO): same Avro schema
-//     modulo namespace-relative vs FQN type references and non-essential
-//     metadata — the case Schema Registry creates when storing a body
-//     whose field types are written in FQN but reside in the enclosing
-//     record's namespace.
+//  1. PROTOBUF: equal under the protobuf canonicalizer (Schema Registry
+//     reorders definitions and fully-qualifies in-package type refs on write).
+//  2. JSON-level: same parsed-then-canonical-encoding (whitespace + key-order
+//     tolerant) — applies to JSON and Avro bodies.
+//  3. Avro-level (only when r.SchemaType is AVRO): same Avro schema modulo
+//     namespace-relative vs FQN type references and non-essential metadata.
 //
-// If either layer matches, returns the current schema formatting so the
-// user's input is preserved in state. Otherwise returns empty string to
-// signal the caller should use the registry response as-is.
-func (r *ResourceModel) normalizeJSON(registrySchema string) string {
+// Returns empty string when no layer matches, signaling the caller to use the
+// registry response as-is.
+func (r *ResourceModel) preserveUserSchemaBody(registrySchema string) string {
 	if r.Schema.IsNull() || r.Schema.IsUnknown() {
 		return ""
 	}
 
 	currentSchema := r.Schema.ValueString()
+
+	// PROTOBUF bodies are not JSON; compare under the protobuf canonicalizer.
+	if strings.EqualFold(r.SchemaType.ValueString(), "PROTOBUF") {
+		if ProtobufBodiesEquivalent(currentSchema, registrySchema) {
+			return currentSchema
+		}
+		return ""
+	}
 
 	var currentJSON, registryJSON any
 
