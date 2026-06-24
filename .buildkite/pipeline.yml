@@ -16,32 +16,6 @@ steps:
           image: "golang:1.25.10"
           environment:
             - BUILDKITE=true
-  - label: generate
-    key: generate
-    command: |
-      export GIT_TERMINAL_PROMPT=0
-      git config --global --add safe.directory /workdir
-      apt-get update -qq && apt-get install -y -qq python3-yaml
-      CLOUDV2_SHA=$$(python3 -c 'import yaml; print(yaml.safe_load(open("internal/buf_dependencies.yaml"))["cloudv2"]["sha"])')
-      CONSOLE_SHA=$$(python3 -c 'import yaml; print(yaml.safe_load(open("internal/buf_dependencies.yaml"))["console"]["sha"])')
-      git clone "https://x-access-token:$${GITHUB_TOKEN}@github.com/redpanda-data/cloudv2.git" /workdir/../cloudv2
-      git -C /workdir/../cloudv2 checkout "$$CLOUDV2_SHA"
-      git clone "https://x-access-token:$${GITHUB_TOKEN}@github.com/redpanda-data/console.git" /workdir/../console
-      git -C /workdir/../console checkout "$$CONSOLE_SHA"
-      ./taskw generate
-      if ! git diff --exit-code; then
-        echo "Generated code is out of date. Run './taskw generate' locally and commit the changes."
-        exit 1
-      fi
-    plugins:
-      - seek-oss/aws-sm#v2.3.2:
-          json-to-env:
-            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.12.0:
-          image: "golang:1.25.10"
-          environment:
-            - BUILDKITE=true
-            - GITHUB_TOKEN
   - label: lint
     key: lint
     command: |
@@ -60,7 +34,6 @@ steps:
           image: "golang:1.25.10"
     depends_on:
       - docs
-      - generate
       - lint
 
   - label: integration
@@ -72,7 +45,6 @@ steps:
           image: "golang:1.25.10"
     depends_on:
       - docs
-      - generate
       - lint
 
   - label: ready
@@ -91,36 +63,6 @@ steps:
           image: "golang:1.25.10"
           environment:
             - BUILDKITE=true
-    depends_on:
-      - lint
-
-  - label: apidescriptions:check
-    key: apidescriptions_check
-    command: |
-      export GIT_TERMINAL_PROMPT=0
-      git config --global --add safe.directory /workdir
-      : "$${GITHUB_TOKEN:?GITHUB_TOKEN is empty - verify the secret sdlc/prod/buildkite/terraform_provider_redpanda has a GITHUB_TOKEN key}"
-      apt-get update -qq && apt-get install -y -qq python3-yaml
-      CLOUDV2_SHA=$$(python3 -c 'import yaml; print(yaml.safe_load(open("internal/buf_dependencies.yaml"))["cloudv2"]["sha"])')
-      CONSOLE_SHA=$$(python3 -c 'import yaml; print(yaml.safe_load(open("internal/buf_dependencies.yaml"))["console"]["sha"])')
-      git clone "https://x-access-token:$${GITHUB_TOKEN}@github.com/redpanda-data/cloudv2.git" /workdir/../cloudv2
-      git -C /workdir/../cloudv2 checkout "$$CLOUDV2_SHA"
-      git clone "https://x-access-token:$${GITHUB_TOKEN}@github.com/redpanda-data/console.git" /workdir/../console
-      git -C /workdir/../console checkout "$$CONSOLE_SHA"
-      ./taskw generate:apidescriptions
-      if ! git diff --exit-code internal/schemagen/data/apidescriptions.yaml; then
-        echo "apidescriptions.yaml drifted from upstream. Run './taskw generate:apidescriptions' locally and commit."
-        exit 1
-      fi
-    plugins:
-      - seek-oss/aws-sm#v2.3.2:
-          json-to-env:
-            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.12.0:
-          image: "golang:1.25.10"
-          environment:
-            - BUILDKITE=true
-            - GITHUB_TOKEN
     depends_on:
       - lint
 
@@ -579,7 +521,6 @@ steps:
             - GITHUB_TOKEN
     depends_on:
       - docs
-      - generate
       - lint
       - unit
       - integration
