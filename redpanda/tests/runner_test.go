@@ -439,6 +439,48 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 		)
 	}
 
+	// max.compaction.lag.ms regression (issue #355): the broker accepts this
+	// noop config, ignores it, and echoes back a clamped value (LONG_MAX is
+	// stored as the max chrono duration in ms, 9223372036854). The provider
+	// must report the user's value so apply does not fail with "inconsistent
+	// result after apply" and the re-plan is empty. Pair the LONG_MAX step with
+	// a flip back to the basic config (broker reports the unset key with a
+	// non-dynamic source, so it is filtered out of state).
+	if hasTopic {
+		longMaxVars := make(map[string]config.Variable)
+		maps.Copy(longMaxVars, fieldMutationVars)
+		longMaxVars["topic_configuration"] = config.MapVariable(map[string]config.Variable{
+			"cleanup.policy":        config.StringVariable("delete"),
+			"retention.ms":          config.StringVariable("3600000"),
+			"max.compaction.lag.ms": config.StringVariable("9223372036854775807"),
+		})
+
+		steps = append(steps,
+			resource.TestStep{
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          longMaxVars,
+				ProtoV6ProviderFactories: acc.ProtoV6Factories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(acc.TopicResourceName, "configuration.max.compaction.lag.ms", "9223372036854775807"),
+				),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+			},
+			resource.TestStep{
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          fieldMutationVars,
+				ProtoV6ProviderFactories: acc.ProtoV6Factories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr(acc.TopicResourceName, "configuration.max.compaction.lag.ms"),
+				),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+			},
+		)
+	}
+
 	zonesSentinelVars := make(map[string]config.Variable)
 	maps.Copy(zonesSentinelVars, fieldMutationVars)
 	zonesSentinelVars["zones"] = config.ListVariable(

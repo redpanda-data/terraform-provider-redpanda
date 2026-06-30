@@ -868,6 +868,50 @@ func TestUnit_Topic_MergeWithPlannedConfig(t *testing.T) {
 			"the dynamic-source entry should win over a duplicate in allConfigs")
 	})
 
+	t.Run("broker clamps a noop config — planned value wins", func(t *testing.T) {
+		dynamic := []*dataplanev1.Topic_Configuration{
+			mkCfg("compression.type", "gzip"),
+			mkCfg("max.compaction.lag.ms", "9223372036854"),
+		}
+		planned := mkPlanned(map[string]string{
+			"compression.type":      "gzip",
+			"max.compaction.lag.ms": "9223372036854775807",
+		})
+
+		got := mergeWithPlannedConfig(dynamic, dynamic, planned)
+
+		assert.ElementsMatch(t, []string{"compression.type", "max.compaction.lag.ms"}, names(got),
+			"both keys must be present")
+		assert.Equal(t, "9223372036854775807", valueOf(got, "max.compaction.lag.ms"),
+			"a noop config whose broker read-back differs must report the planned value, not the clamped broker value")
+	})
+
+	t.Run("every broker noop config is plan-echoed when read-back differs", func(t *testing.T) {
+		for _, name := range brokerNoopConfigs {
+			dynamic := []*dataplanev1.Topic_Configuration{mkCfg(name, "broker-normalized")}
+			planned := mkPlanned(map[string]string{name: "user-value"})
+
+			got := mergeWithPlannedConfig(dynamic, dynamic, planned)
+
+			assert.Equal(t, "user-value", valueOf(got, name),
+				"%s is in the broker noop allowlist and must report the planned value", name)
+		}
+	})
+
+	t.Run("a non-noop key whose broker value differs — broker value wins", func(t *testing.T) {
+		dynamic := []*dataplanev1.Topic_Configuration{
+			mkCfg("flush.ms", "9223372036854"),
+		}
+		planned := mkPlanned(map[string]string{
+			"flush.ms": "9223372036854775807",
+		})
+
+		got := mergeWithPlannedConfig(dynamic, dynamic, planned)
+
+		assert.Equal(t, "9223372036854", valueOf(got, "flush.ms"),
+			"flush.ms is honored by the broker (not a noop config); its read-back value must win")
+	})
+
 	t.Run("empty dynamic + planned keys present in allConfigs — all reinstated", func(t *testing.T) {
 		all := []*dataplanev1.Topic_Configuration{
 			mkStaticCfg("compression.type", "producer"),
