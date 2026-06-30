@@ -18,6 +18,7 @@ package topic
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
@@ -506,6 +507,31 @@ func filterDynamicConfig(configs []*dataplanev1.Topic_Configuration) []*dataplan
 	return filtered
 }
 
+// brokerNoopConfigs mirrors Redpanda's allowlist_topic_noop_confs: topic
+// configs the broker accepts, ignores, and may echo back with a normalized
+// value (e.g. max.compaction.lag.ms = LONG_MAX clamped to the max chrono
+// duration in ms). For these keys mergeWithPlannedConfig reports the user's
+// planned value so Terraform doesn't raise "inconsistent result after apply".
+//
+// Source (SHA-pinned): https://github.com/redpanda-data/redpanda/blob/62cf52867a72dd291a35b8728794ac5800d4b4b8/src/v/kafka/server/handlers/topics/types.h#L128-L147
+var brokerNoopConfigs = []string{
+	"unclean.leader.election.enable",
+	"message.downconversion.enable",
+	"segment.index.bytes",
+	"segment.jitter.ms",
+	"min.insync.replicas",
+	"min.compaction.lag.ms",
+	"message.timestamp.difference.max.ms",
+	"message.format.version",
+	"max.compaction.lag.ms",
+	"leader.replication.throttled.replicas",
+	"index.interval.bytes",
+	"follower.replication.throttled.replicas",
+	"flush.messages",
+	"file.delete.delay.ms",
+	"preallocate",
+}
+
 // mergeWithPlannedConfig ensures that any configuration keys the user
 // explicitly set in their Terraform config are preserved in the result, even
 // if the server reports them with a non-dynamic source (e.g. when the user-set
@@ -578,6 +604,29 @@ func mergeWithPlannedConfig(dynamicConfigs, allConfigs []*dataplanev1.Topic_Conf
 			Source: dataplanev1.ConfigSource_CONFIG_SOURCE_DYNAMIC_TOPIC_CONFIG,
 		})
 		present[key] = true
+	}
+
+	// prevent inconsistency by keeping broker noop configs to user value
+	for i, cfg := range filtered {
+		if cfg == nil {
+			continue
+		}
+		if !slices.Contains(brokerNoopConfigs, cfg.Name) {
+			continue
+		}
+		planString, ok := planned.Elements()[cfg.Name].(types.String)
+		if !ok || planString.IsNull() || planString.IsUnknown() {
+			continue
+		}
+		val := planString.ValueString()
+		if cfg.Value != nil && *cfg.Value == val {
+			continue
+		}
+		filtered[i] = &dataplanev1.Topic_Configuration{
+			Name:   cfg.Name,
+			Value:  &val,
+			Source: cfg.Source,
+		}
 	}
 	return filtered
 }
