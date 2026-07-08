@@ -23,7 +23,7 @@ import "google.golang.org/protobuf/types/known/fieldmaskpb"
 
 // ExpandLeafPaths rewrites, in place, any top-level mask path listed in
 // LeafExpansions into its leaf paths. The control plane maps those fields
-// (rpsql, kafka_connect) only at leaf granularity, so sending the bare object
+// (kafka_connect, redpanda_connect, rpsql) only at leaf granularity, so sending the bare object
 // path silently drops the update. All other paths pass through unchanged.
 func ExpandLeafPaths(fm *fieldmaskpb.FieldMask) {
 	if fm == nil {
