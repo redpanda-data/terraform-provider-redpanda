@@ -43,6 +43,7 @@ Cluster data source
 - `network_id` (String) Network ID where cluster is placed.
 - `prometheus` (Attributes) Prometheus metrics endpoint properties. (see [below for nested schema](#nestedatt--prometheus))
 - `read_replica_cluster_ids` (List of String) IDs of clusters which may create read-only topics from this cluster.
+- `redpanda_connect` (Attributes) Cluster's Redpanda Connect properties. (see [below for nested schema](#nestedatt--redpanda_connect))
 - `redpanda_console` (Attributes) Cluster's Redpanda Console properties. (see [below for nested schema](#nestedatt--redpanda_console))
 - `redpanda_version` (String) Redpanda Version
 - `region` (String) Region represents the name of the region where the cluster will be provisioned.
@@ -351,6 +352,9 @@ Read-Only:
 - `gke_service_account` (Attributes) GCP service account. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--gke_service_account))
 - `psc_nat_subnet_name` (String) NAT subnet name if GCP Private Service Connect (a.k.a Private Link) is enabled. If it is used for PSC v1, use psc_v2_nat_subnet_name to set NAT subnet name for PSC v2.
 - `redpanda_cluster_service_account` (Attributes) GCP service account. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--redpanda_cluster_service_account))
+- `rpsql_api_service_account` (Attributes) Rpsql API Service Account configuration (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_api_service_account))
+- `rpsql_cloud_storage_bucket` (Attributes) Rpsql Cloud Storage Bucket configuration (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_cloud_storage_bucket))
+- `rpsql_service_account` (Attributes) Rpsql Service Account configuration (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_service_account))
 - `subnet` (Attributes) GCP subnet properties. See the official [GCP API reference](https://cloud.google.com/compute/docs/reference/rest/v1/subnetworks). (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--subnet))
 - `tiered_storage_bucket` (Attributes) GCP storage bucket properties. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--tiered_storage_bucket))
 
@@ -392,6 +396,30 @@ Read-Only:
 Read-Only:
 
 - `email` (String) GCP service account email.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--rpsql_api_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.rpsql_api_service_account`
+
+Read-Only:
+
+- `email` (String) Email address for the rpsql API Service Account
+
+
+<a id="nestedatt--customer_managed_resources--gcp--rpsql_cloud_storage_bucket"></a>
+### Nested Schema for `customer_managed_resources.gcp.rpsql_cloud_storage_bucket`
+
+Read-Only:
+
+- `name` (String) Name of the rpsql Cloud Storage Bucket
+
+
+<a id="nestedatt--customer_managed_resources--gcp--rpsql_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.rpsql_service_account`
+
+Read-Only:
+
+- `email` (String) Email address for the rpsql Service Account
 
 
 <a id="nestedatt--customer_managed_resources--gcp--subnet"></a>
@@ -598,6 +626,25 @@ Read-Only:
 Read-Only:
 
 - `url` (String) Prometheus API URL.
+
+
+<a id="nestedatt--redpanda_connect"></a>
+### Nested Schema for `redpanda_connect`
+
+Read-Only:
+
+- `allowed_destination_cidr_ports` (Attributes List) List of allowed Destination CIDR Ports (see [below for nested schema](#nestedatt--redpanda_connect--allowed_destination_cidr_ports))
+- `version` (String) Version of the Redpanda Connect engine running on the Cluster.
+
+<a id="nestedatt--redpanda_connect--allowed_destination_cidr_ports"></a>
+### Nested Schema for `redpanda_connect.allowed_destination_cidr_ports`
+
+Read-Only:
+
+- `cidr` (String) CIDR
+- `port_end` (Number) Port End
+- `port_start` (Number) Port Start
+
 
 
 <a id="nestedatt--redpanda_console"></a>

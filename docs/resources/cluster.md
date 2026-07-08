@@ -42,6 +42,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `kafka_connect` (Attributes) Kafka Connect configuration (see [below for nested schema](#nestedatt--kafka_connect))
 - `maintenance_window_config` (Attributes) Resource describing the maintenance window configuration of a cluster. (see [below for nested schema](#nestedatt--maintenance_window_config))
 - `read_replica_cluster_ids` (List of String) IDs of clusters which may create read-only topics from this cluster. Must have at most 100 items. Items must be unique.
+- `redpanda_connect` (Attributes) Cluster's Redpanda Connect properties. (see [below for nested schema](#nestedatt--redpanda_connect))
 - `redpanda_node_count` (Number) Number of Redpanda broker nodes. Must be at least 0.
 - `redpanda_version` (String) Cluster's Redpanda version. Only `major.minor` semver is supported, e.g. `24.1`.
 - `rpsql` (Attributes) Rpsql configuration (see [below for nested schema](#nestedatt--rpsql))
@@ -405,6 +406,9 @@ Required:
 Optional:
 
 - `psc_nat_subnet_name` (String) NAT subnet name if GCP Private Service Connect (a.k.a Private Link) is enabled. If it is used for PSC v1, use psc_v2_nat_subnet_name to set NAT subnet name for PSC v2.
+- `rpsql_api_service_account` (Attributes) Rpsql API Service Account configuration (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_api_service_account))
+- `rpsql_cloud_storage_bucket` (Attributes) Rpsql Cloud Storage Bucket configuration (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_cloud_storage_bucket))
+- `rpsql_service_account` (Attributes) Rpsql Service Account configuration (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_service_account))
 
 <a id="nestedatt--customer_managed_resources--gcp--agent_service_account"></a>
 ### Nested Schema for `customer_managed_resources.gcp.agent_service_account`
@@ -479,6 +483,30 @@ Required:
 Required:
 
 - `name` (String) Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--rpsql_api_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.rpsql_api_service_account`
+
+Required:
+
+- `email` (String) Email address for the rpsql API Service Account. Must be a valid email address.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--rpsql_cloud_storage_bucket"></a>
+### Nested Schema for `customer_managed_resources.gcp.rpsql_cloud_storage_bucket`
+
+Required:
+
+- `name` (String) Name of the rpsql Cloud Storage Bucket. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--rpsql_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.rpsql_service_account`
+
+Required:
+
+- `email` (String) Email address for the rpsql Service Account. Must be a valid email address.
 
 
 
@@ -645,6 +673,31 @@ Optional:
 
 - `day_of_week` (String) Represents a day of the week. - MONDAY: Monday - TUESDAY: Tuesday - WEDNESDAY: Wednesday - THURSDAY: Thursday - FRIDAY: Friday - SATURDAY: Saturday - SUNDAY: Sunday
 - `hour_of_day` (Number) always UTC. Must be between 0 and 23 (inclusive).
+
+
+
+<a id="nestedatt--redpanda_connect"></a>
+### Nested Schema for `redpanda_connect`
+
+Optional:
+
+- `allowed_destination_cidr_ports` (Attributes List) List of allowed Destination CIDR Ports. Must have at most 16 items. (see [below for nested schema](#nestedatt--redpanda_connect--allowed_destination_cidr_ports))
+
+Read-Only:
+
+- `version` (String) Version of the Redpanda Connect engine running on the Cluster.
+
+<a id="nestedatt--redpanda_connect--allowed_destination_cidr_ports"></a>
+### Nested Schema for `redpanda_connect.allowed_destination_cidr_ports`
+
+Required:
+
+- `cidr` (String) CIDR. Must match pattern `^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$`.
+- `port_start` (Number) Port Start. Must be between 1 and 65535 (inclusive).
+
+Optional:
+
+- `port_end` (Number) Port End. Must be at most 65535.
 
 
 
