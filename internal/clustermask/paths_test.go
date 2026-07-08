@@ -23,7 +23,7 @@ import (
 // TestFixtureContract pins the hand-maintained cluster field-mask maps to the
 // shape the provider + mock depend on. AcceptedTopLevel is the union of no-dot
 // keys from cloudv2's pathMap and multiListenersPathMap (the latter contributes
-// kafka_api); LeafExpansions is the curated {rpsql, kafka_connect} set. An
+// kafka_api); LeafExpansions is the curated {rpsql, kafka_connect, redpanda_connect} set. An
 // accidental edit to paths.go fails here.
 func TestFixtureContract(t *testing.T) {
 	wantTop := []string{
@@ -44,8 +44,9 @@ func TestFixtureContract(t *testing.T) {
 	}
 
 	wantLeaf := map[string][]string{
-		"kafka_connect": {"kafka_connect.enabled"},
-		"rpsql":         {"rpsql.enabled", "rpsql.replicas", "rpsql.zones"},
+		"kafka_connect":    {"kafka_connect.enabled"},
+		"redpanda_connect": {"redpanda_connect.allowed_destination_cidr_ports"},
+		"rpsql":            {"rpsql.enabled", "rpsql.replicas", "rpsql.zones"},
 	}
 	if !reflect.DeepEqual(LeafExpansions, wantLeaf) {
 		t.Errorf("LeafExpansions = %v, want %v", LeafExpansions, wantLeaf)

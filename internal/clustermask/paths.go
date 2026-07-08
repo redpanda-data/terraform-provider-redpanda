@@ -49,6 +49,7 @@ var AcceptedTopLevel = map[string]bool{
 // granularity to the leaf paths to send instead. The diff emits the bare object
 // path; ExpandLeafPaths rewrites it to these before the UpdateCluster request.
 var LeafExpansions = map[string][]string{
-	"kafka_connect": {"kafka_connect.enabled"},
-	"rpsql":         {"rpsql.enabled", "rpsql.replicas", "rpsql.zones"},
+	"kafka_connect":    {"kafka_connect.enabled"},
+	"redpanda_connect": {"redpanda_connect.allowed_destination_cidr_ports"},
+	"rpsql":            {"rpsql.enabled", "rpsql.replicas", "rpsql.zones"},
 }
