@@ -51,6 +51,7 @@ type DataModel struct {
 	NetworkID                        types.String   `tfsdk:"network_id"`
 	Prometheus                       types.Object   `tfsdk:"prometheus"`
 	ReadReplicaClusterIds            types.List     `tfsdk:"read_replica_cluster_ids"`
+	RedpandaConnect                  types.Object   `tfsdk:"redpanda_connect"`
 	RedpandaConsole                  types.Object   `tfsdk:"redpanda_console"`
 	RedpandaVersion                  types.String   `tfsdk:"redpanda_version"`
 	Region                           types.String   `tfsdk:"region"`
@@ -571,6 +572,23 @@ type DataMaintenanceWindowConfigDayHourModel struct {
 // typed form.
 type DataPrometheusModel struct {
 	URL types.String `tfsdk:"url"`
+}
+
+// DataRedpandaConnectModel mirrors the nested "redpanda_connect" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataRedpandaConnectModel struct {
+	AllowedDestinationCidrPorts types.List   `tfsdk:"allowed_destination_cidr_ports"`
+	Version                     types.String `tfsdk:"version"`
+}
+
+// DataRedpandaConnectAllowedDestinationCidrPortsModel mirrors the nested "redpanda_connect.allowed_destination_cidr_ports" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataRedpandaConnectAllowedDestinationCidrPortsModel struct {
+	Cidr      types.String `tfsdk:"cidr"`
+	PortEnd   types.Int32  `tfsdk:"port_end"`
+	PortStart types.Int32  `tfsdk:"port_start"`
 }
 
 // DataRedpandaConsoleModel mirrors the nested "redpanda_console" attribute. Use the As/To
@@ -1193,6 +1211,25 @@ func DataPrometheusAttrTypes() map[string]attr.Type {
 	}
 }
 
+// DataRedpandaConnectAttrTypes returns the attr.Type map for the "redpanda_connect" nested
+// attribute.
+func DataRedpandaConnectAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"allowed_destination_cidr_ports": types.ListType{ElemType: types.ObjectType{AttrTypes: DataRedpandaConnectAllowedDestinationCidrPortsAttrTypes()}},
+		"version":                        types.StringType,
+	}
+}
+
+// DataRedpandaConnectAllowedDestinationCidrPortsAttrTypes returns the attr.Type map for the "redpanda_connect.allowed_destination_cidr_ports" nested
+// attribute.
+func DataRedpandaConnectAllowedDestinationCidrPortsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"cidr":       types.StringType,
+		"port_end":   types.Int32Type,
+		"port_start": types.Int32Type,
+	}
+}
+
 // DataRedpandaConsoleAttrTypes returns the attr.Type map for the "redpanda_console" nested
 // attribute.
 func DataRedpandaConsoleAttrTypes() map[string]attr.Type {
@@ -1506,6 +1543,29 @@ func DataPrometheusToObject(ctx context.Context, v *DataPrometheusModel) (types.
 		return types.ObjectNull(DataPrometheusAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, DataPrometheusAttrTypes(), v)
+}
+
+// AsRedpandaConnect converts the root redpanda_connect attribute from
+// types.Object into its typed form. Returns (nil, nil) when the object is
+// null or unknown. Use this when you want typed field access without
+// manually unpacking .Attributes().
+func (m *DataModel) AsRedpandaConnect(ctx context.Context) (*DataRedpandaConnectModel, diag.Diagnostics) {
+	if m == nil || m.RedpandaConnect.IsNull() || m.RedpandaConnect.IsUnknown() {
+		return nil, nil
+	}
+	var out DataRedpandaConnectModel
+	d := m.RedpandaConnect.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataRedpandaConnectToObject encodes a typed struct back into the
+// types.Object shape expected by the framework. A nil receiver returns
+// types.ObjectNull with the correct attribute types.
+func DataRedpandaConnectToObject(ctx context.Context, v *DataRedpandaConnectModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataRedpandaConnectAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataRedpandaConnectAttrTypes(), v)
 }
 
 // AsRedpandaConsole converts the root redpanda_console attribute from

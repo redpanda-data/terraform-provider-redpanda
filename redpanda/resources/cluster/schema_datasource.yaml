@@ -189,4 +189,13 @@ sandbox:
 
 # --- New proto fields (auto-added by schemagen -todo) ---
 redpanda_connect:
-  todo: true
+  computed: true
+  fields:
+    version:
+      computed_only: true
+    allowed_destination_cidr_ports:
+      computed: true
+      fields:
+        cidr: {}
+        port_start: {}
+        port_end: {}

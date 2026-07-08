@@ -909,6 +909,37 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 				ElementType: types.StringType,
 			},
 
+			"redpanda_connect": schema.SingleNestedAttribute{
+				Description: "Cluster's Redpanda Connect properties.",
+				Computed:    true,
+				Attributes: map[string]schema.Attribute{
+					"allowed_destination_cidr_ports": schema.ListNestedAttribute{
+						Description: "List of allowed Destination CIDR Ports",
+						Computed:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"cidr": schema.StringAttribute{
+									Description: "CIDR",
+									Computed:    true,
+								},
+								"port_end": schema.Int32Attribute{
+									Description: "Port End",
+									Computed:    true,
+								},
+								"port_start": schema.Int32Attribute{
+									Description: "Port Start",
+									Computed:    true,
+								},
+							},
+						},
+					},
+					"version": schema.StringAttribute{
+						Description: "Version of the Redpanda Connect engine running on the Cluster.",
+						Computed:    true,
+					},
+				},
+			},
+
 			"redpanda_console": schema.SingleNestedAttribute{
 				Description: "Cluster's Redpanda Console properties.",
 				Computed:    true,
