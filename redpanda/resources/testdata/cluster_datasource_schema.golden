@@ -610,6 +610,26 @@ attributes:
       type: ListAttribute
       computed: true
       element_type: basetypes.StringType
+    - name: redpanda_connect
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: allowed_destination_cidr_ports
+          type: ListNestedAttribute
+          computed: true
+          attributes:
+            - name: cidr
+              type: StringAttribute
+              computed: true
+            - name: port_end
+              type: Int32Attribute
+              computed: true
+            - name: port_start
+              type: Int32Attribute
+              computed: true
+        - name: version
+          type: StringAttribute
+          computed: true
     - name: redpanda_console
       type: SingleNestedAttribute
       computed: true

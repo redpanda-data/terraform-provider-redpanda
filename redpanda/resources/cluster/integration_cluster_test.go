@@ -2598,3 +2598,80 @@ func TestIntegration_Cluster_NullPscNatSubnetName_Repro(t *testing.T) {
 		},
 	})
 }
+
+// TestIntegration_Cluster_UpdateLeaf_RedpandaConnect_CidrPorts exercises the
+// full create → update → clear lifecycle for
+// redpanda_connect.allowed_destination_cidr_ports. Proves that the LeafExpansion
+// for "redpanda_connect" sends the granular mask path, the fake applies the
+// update, and the provider round-trips the list through Flatten correctly.
+func TestIntegration_Cluster_UpdateLeaf_RedpandaConnect_CidrPorts(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-rc-cidr"
+
+	idPreserved := statecheck.CompareValue(compare.ValuesSame())
+	cidrPath := tfjsonpath.New("redpanda_connect").AtMapKey("allowed_destination_cidr_ports")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			// Create: set two CIDR+port rules.
+			integration.CreateStep(clusterAddr,
+				awsDedicatedConfig(name, `redpanda_connect = {
+    allowed_destination_cidr_ports = [
+      { cidr = "10.0.0.0/16", port_start = 5432 },
+      { cidr = "20.0.0.0/16", port_start = 5432, port_end = 5500 },
+    ]
+  }`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, cidrPath,
+						knownvalue.ListSizeExact(2)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			// Update: remove one rule (list shrinks to 1).
+			integration.UpdateLeafStep(clusterAddr,
+				awsDedicatedConfig(name, `redpanda_connect = {
+    allowed_destination_cidr_ports = [
+      { cidr = "10.0.0.0/16", port_start = 5432 },
+    ]
+  }`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, cidrPath,
+						knownvalue.ListSizeExact(1)),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			// Update: clear all rules (empty list).
+			integration.UpdateLeafStep(clusterAddr,
+				awsDedicatedConfig(name, `redpanda_connect = {
+    allowed_destination_cidr_ports = []
+  }`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, cidrPath,
+						knownvalue.ListSizeExact(0)),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+		},
+	})
+}
+
+// TestIntegration_Cluster_CidrPortInvalidRange verifies that port_end < port_start
+// is rejected at plan time by the proto-driven ConfigValidator, before any API
+// call is made. Uses UnitTest so TF_ACC is not required.
+func TestIntegration_Cluster_CidrPortInvalidRange(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config: awsDedicatedConfig("invalid-range", `redpanda_connect = {
+    allowed_destination_cidr_ports = [
+      { cidr = "10.0.0.0/16", port_start = 5432, port_end = 5431 },
+    ]
+  }`),
+				ExpectError: regexp.MustCompile(`port_end must be 0`),
+			},
+		},
+	})
+}
