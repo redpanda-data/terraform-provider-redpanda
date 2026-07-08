@@ -597,4 +597,21 @@ sandbox:
 
 # --- New proto fields (auto-added by schemagen -todo) ---
 redpanda_connect:
-  todo: true
+  optional: true
+  computed: true
+  plan_modifiers: [UseStateForUnknown]
+  fields:
+    version:
+      computed_only: true
+    allowed_destination_cidr_ports:
+      optional: true
+      computed: true
+      plan_modifiers: [UseStateForUnknown]
+      fields:
+        cidr:
+          required: true
+        port_start:
+          required: true
+        port_end:
+          optional: true
+          computed: true
