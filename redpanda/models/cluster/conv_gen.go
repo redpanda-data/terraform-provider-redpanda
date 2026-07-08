@@ -2144,6 +2144,9 @@ func FlattenRedpandaConnect(ctx context.Context, proto *controlplanev1.Cluster_R
 	_ = prev
 	m := RedpandaConnectModel{}
 	m.AllowedDestinationCidrPorts = modelconv.ListFromObjectsWithDiags(ctx, proto.GetAllowedDestinationCidrPorts(), RedpandaConnectAllowedDestinationCidrPortsAttrTypes(), FlattenRedpandaConnectAllowedDestinationCidrPorts, &diags)
+	if prev != nil {
+		m.AllowedDestinationCidrPorts = modelconv.ListCarryKnownEmpty(m.AllowedDestinationCidrPorts, prev.AllowedDestinationCidrPorts)
+	}
 	m.Version = types.StringValue(proto.GetVersion())
 	return m, diags
 }

@@ -199,6 +199,20 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 	if in.HasRpsql() {
 		cl.SetRpsql(rpsqlStatus(in.GetRpsql(), in.GetZones()))
 	}
+	if in.HasRedpandaConnect() {
+		src := in.GetRedpandaConnect()
+		ports := make([]*controlplanev1.Cluster_CidrPort, 0, len(src.GetAllowedDestinationCidrPorts()))
+		for _, p := range src.GetAllowedDestinationCidrPorts() {
+			ports = append(ports, &controlplanev1.Cluster_CidrPort{
+				Cidr:      p.GetCidr(),
+				PortStart: p.GetPortStart(),
+				PortEnd:   p.GetPortEnd(),
+			})
+		}
+		cl.SetRedpandaConnect(&controlplanev1.Cluster_RedpandaConnect{
+			AllowedDestinationCidrPorts: ports,
+		})
+	}
 	// Mirror the GCP-only intent input (gcp_enable_global_access_api_gateway on
 	// the write shape) onto the reported status field (different read-shape name).
 	if in.GetCloudProvider() == controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP {
@@ -324,6 +338,28 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 					GlobalAccessEnabled: spec.GetGlobalAccessEnabled(),
 					ConsumerAcceptList:  append([]*controlplanev1.GCPPrivateServiceConnectConsumer(nil), spec.GetConsumerAcceptList()...),
 				})
+			}
+		case "redpanda_connect.allowed_destination_cidr_ports":
+			// LeafExpansions sends this granular path for redpanda_connect updates.
+			// Copy the AllowedDestinationCidrPorts slice from the update payload.
+			// Use a non-nil (possibly empty) slice so the flatten sees an empty list
+			// rather than null when all entries are removed.
+			if upd.HasRedpandaConnect() {
+				src := upd.GetRedpandaConnect()
+				existing := cl.GetRedpandaConnect()
+				if existing == nil {
+					existing = &controlplanev1.Cluster_RedpandaConnect{}
+				}
+				ports := make([]*controlplanev1.Cluster_CidrPort, 0, len(src.GetAllowedDestinationCidrPorts()))
+				for _, p := range src.GetAllowedDestinationCidrPorts() {
+					ports = append(ports, &controlplanev1.Cluster_CidrPort{
+						Cidr:      p.GetCidr(),
+						PortStart: p.GetPortStart(),
+						PortEnd:   p.GetPortEnd(),
+					})
+				}
+				existing.AllowedDestinationCidrPorts = ports
+				cl.SetRedpandaConnect(existing)
 			}
 		case "gcp_enable_global_access_api_gateway":
 			// Write-shape intent maps onto the differently-named read-shape status.

@@ -39,6 +39,9 @@ func Flatten(ctx context.Context, proto TopicResponse, prev *ResourceModel) (*Re
 	m := &ResourceModel{}
 	m.Name = types.StringValue(proto.GetName())
 	m.ReplicaAssignments = modelconv.ListFromObjectsWithDiags(ctx, proto.GetReplicaAssignments(), ReplicaAssignmentsAttrTypes(), FlattenReplicaAssignments, &diags)
+	if prev != nil {
+		m.ReplicaAssignments = modelconv.ListCarryKnownEmpty(m.ReplicaAssignments, prev.ReplicaAssignments)
+	}
 	return m, diags
 }
 

@@ -961,7 +961,6 @@ attributes:
       optional: true
       computed: true
       plan_modifiers:
-        - objectplanmodifier.requiresReplaceIfModifier
         - objectplanmodifier.useStateForUnknownModifier
       attributes:
         - name: allowed_destination_cidr_ports

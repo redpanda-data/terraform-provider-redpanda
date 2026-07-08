@@ -1124,7 +1124,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Description:   "Cluster's Redpanda Connect properties.",
 				Optional:      true,
 				Computed:      true,
-				PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace(), objectplanmodifier.UseStateForUnknown()},
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"allowed_destination_cidr_ports": schema.ListNestedAttribute{
 						Description:   "List of allowed Destination CIDR Ports. Must have at most 16 items.",
