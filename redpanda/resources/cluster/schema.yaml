@@ -400,6 +400,8 @@ http_proxy:
   fields:
     all_urls:
       computed_only: true
+    connections:
+      todo: true
     mtls:
       fields:
         ca_certificates_pem:
@@ -423,6 +425,8 @@ kafka_api:
   fields:
     all_seed_brokers:
       computed_only: true
+    connections:
+      todo: true
     mtls:
       fields:
         ca_certificates_pem:
@@ -541,6 +545,8 @@ schema_registry:
   fields:
     all_urls:
       computed_only: true
+    connections:
+      todo: true
     mtls:
       computed: false
       optional: true

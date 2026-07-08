@@ -55,6 +55,7 @@ type ClusterResponse interface {
 	GetNetworkId() string
 	GetPrometheus() *controlplanev1.Cluster_Prometheus
 	GetReadReplicaClusterIds() []string
+	GetRedpandaConnect() *controlplanev1.Cluster_RedpandaConnect
 	GetRedpandaConsole() *controlplanev1.Cluster_RedpandaConsole
 	GetRedpandaNodeCount() int32
 	GetRegion() string
@@ -122,6 +123,7 @@ func Flatten(ctx context.Context, proto ClusterResponse, prev *ResourceModel) (*
 	m.KafkaAPI = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetKafkaApi(), func() *KafkaAPIModel { v, _ := prev.AsKafkaAPI(ctx); return v }(), KafkaAPIAttrTypes(), FlattenKafkaAPI, &diags)
 	m.KafkaConnect = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetKafkaConnect(), func() *KafkaConnectModel { v, _ := prev.AsKafkaConnect(ctx); return v }(), KafkaConnectAttrTypes(), FlattenKafkaConnect, &diags)
 	m.MaintenanceWindowConfig = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetMaintenanceWindowConfig(), func() *MaintenanceWindowConfigModel { v, _ := prev.AsMaintenanceWindowConfig(ctx); return v }(), MaintenanceWindowConfigAttrTypes(), FlattenMaintenanceWindowConfig, &diags)
+	m.RedpandaConnect = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaConnect(), func() *RedpandaConnectModel { v, _ := prev.AsRedpandaConnect(ctx); return v }(), RedpandaConnectAttrTypes(), FlattenRedpandaConnect, &diags)
 	m.RedpandaNodeCount = types.Int32Value(proto.GetRedpandaNodeCount())
 	m.Rpsql = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpsql(), func() *RpsqlModel { v, _ := prev.AsRpsql(ctx); return v }(), RpsqlAttrTypes(), FlattenRpsql, &diags)
 	m.SchemaRegistry = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetSchemaRegistry(), func() *SchemaRegistryModel { v, _ := prev.AsSchemaRegistry(ctx); return v }(), SchemaRegistryAttrTypes(), FlattenSchemaRegistry, &diags)
@@ -217,6 +219,7 @@ func ExpandCreate(ctx context.Context, m *ResourceModel) (*controlplanev1.Create
 		KafkaApi:                        modelconv.ObjectToMessageWithDiags(ctx, m.KafkaAPI, ExpandCreateKafkaAPI, &diags),
 		KafkaConnect:                    modelconv.ObjectToMessageWithDiags(ctx, m.KafkaConnect, ExpandKafkaConnect, &diags),
 		MaintenanceWindowConfig:         modelconv.ObjectToMessageWithDiags(ctx, m.MaintenanceWindowConfig, ExpandMaintenanceWindowConfig, &diags),
+		RedpandaConnect:                 modelconv.ObjectToMessageWithDiags(ctx, m.RedpandaConnect, ExpandRedpandaConnect, &diags),
 		RedpandaNodeCount:               m.RedpandaNodeCount.ValueInt32(),
 		Rpsql:                           modelconv.ObjectToMessageWithDiags(ctx, m.Rpsql, ExpandRpsql, &diags),
 		SchemaRegistry:                  modelconv.ObjectToMessageWithDiags(ctx, m.SchemaRegistry, ExpandCreateSchemaRegistry, &diags),
@@ -248,6 +251,7 @@ func ExpandUpdate(ctx context.Context, m *ResourceModel) (*controlplanev1.Cluste
 		KafkaApi:                        modelconv.ObjectToMessageWithDiags(ctx, m.KafkaAPI, ExpandUpdateKafkaAPI, &diags),
 		KafkaConnect:                    modelconv.ObjectToMessageWithDiags(ctx, m.KafkaConnect, ExpandKafkaConnect, &diags),
 		MaintenanceWindowConfig:         modelconv.ObjectToMessageWithDiags(ctx, m.MaintenanceWindowConfig, ExpandMaintenanceWindowConfig, &diags),
+		RedpandaConnect:                 modelconv.ObjectToMessageWithDiags(ctx, m.RedpandaConnect, ExpandRedpandaConnect, &diags),
 		RedpandaNodeCount:               m.RedpandaNodeCount.ValueInt32(),
 		Rpsql:                           modelconv.ObjectToMessageWithDiags(ctx, m.Rpsql, ExpandRpsql, &diags),
 		SchemaRegistry:                  modelconv.ObjectToMessageWithDiags(ctx, m.SchemaRegistry, ExpandUpdateSchemaRegistry, &diags),
@@ -928,6 +932,18 @@ func FlattenCustomerManagedResourcesGCP(ctx context.Context, proto *controlplane
 	} else {
 		m.PscNatSubnetName = types.StringNull()
 	}
+	m.RpsqlAPIServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpsqlApiServiceAccount(), func() *CustomerManagedResourcesGCPRpsqlAPIServiceAccountModel {
+		v, _ := DecodeCustomerManagedResourcesGCPRpsqlAPIServiceAccount(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesGCPRpsqlAPIServiceAccountAttrTypes(), FlattenCustomerManagedResourcesGCPRpsqlAPIServiceAccount, &diags)
+	m.RpsqlCloudStorageBucket = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpsqlCloudStorageBucket(), func() *CustomerManagedResourcesGCPRpsqlCloudStorageBucketModel {
+		v, _ := DecodeCustomerManagedResourcesGCPRpsqlCloudStorageBucket(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesGCPRpsqlCloudStorageBucketAttrTypes(), FlattenCustomerManagedResourcesGCPRpsqlCloudStorageBucket, &diags)
+	m.RpsqlServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpsqlServiceAccount(), func() *CustomerManagedResourcesGCPRpsqlServiceAccountModel {
+		v, _ := DecodeCustomerManagedResourcesGCPRpsqlServiceAccount(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesGCPRpsqlServiceAccountAttrTypes(), FlattenCustomerManagedResourcesGCPRpsqlServiceAccount, &diags)
 	return m, diags
 }
 
@@ -946,6 +962,9 @@ func ExpandCustomerManagedResourcesGCP(ctx context.Context, m *CustomerManagedRe
 		Subnet:                        modelconv.ObjectToMessageWithDiags(ctx, m.Subnet, ExpandCustomerManagedResourcesGCPSubnet, &diags),
 		TieredStorageBucket:           modelconv.ObjectToMessageWithDiags(ctx, m.TieredStorageBucket, ExpandCustomerManagedResourcesGCPTieredStorageBucket, &diags),
 		PscNatSubnetName:              m.PscNatSubnetName.ValueString(),
+		RpsqlApiServiceAccount:        modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlAPIServiceAccount, ExpandCustomerManagedResourcesGCPRpsqlAPIServiceAccount, &diags),
+		RpsqlCloudStorageBucket:       modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlCloudStorageBucket, ExpandCustomerManagedResourcesGCPRpsqlCloudStorageBucket, &diags),
+		RpsqlServiceAccount:           modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlServiceAccount, ExpandCustomerManagedResourcesGCPRpsqlServiceAccount, &diags),
 	}
 	return out, diags
 }
@@ -1183,6 +1202,81 @@ func ExpandCustomerManagedResourcesGCPTieredStorageBucket(_ context.Context, m *
 	}
 	out := &controlplanev1.CustomerManagedGoogleCloudStorageBucket{
 		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesGCPRpsqlAPIServiceAccount converts a single proto controlplanev1.GCPServiceAccount into the
+// corresponding nested model. The prev *CustomerManagedResourcesGCPRpsqlAPIServiceAccountModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesGCPRpsqlAPIServiceAccount(_ context.Context, proto *controlplanev1.GCPServiceAccount, prev *CustomerManagedResourcesGCPRpsqlAPIServiceAccountModel) (CustomerManagedResourcesGCPRpsqlAPIServiceAccountModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesGCPRpsqlAPIServiceAccountModel{}
+	m.Email = types.StringValue(proto.GetEmail())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesGCPRpsqlAPIServiceAccount renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesGCPRpsqlAPIServiceAccount(_ context.Context, m *CustomerManagedResourcesGCPRpsqlAPIServiceAccountModel) (*controlplanev1.GCPServiceAccount, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.GCPServiceAccount{
+		Email: m.Email.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesGCPRpsqlCloudStorageBucket converts a single proto controlplanev1.CustomerManagedGoogleCloudStorageBucket into the
+// corresponding nested model. The prev *CustomerManagedResourcesGCPRpsqlCloudStorageBucketModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesGCPRpsqlCloudStorageBucket(_ context.Context, proto *controlplanev1.CustomerManagedGoogleCloudStorageBucket, prev *CustomerManagedResourcesGCPRpsqlCloudStorageBucketModel) (CustomerManagedResourcesGCPRpsqlCloudStorageBucketModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesGCPRpsqlCloudStorageBucketModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesGCPRpsqlCloudStorageBucket renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesGCPRpsqlCloudStorageBucket(_ context.Context, m *CustomerManagedResourcesGCPRpsqlCloudStorageBucketModel) (*controlplanev1.CustomerManagedGoogleCloudStorageBucket, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedGoogleCloudStorageBucket{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesGCPRpsqlServiceAccount converts a single proto controlplanev1.GCPServiceAccount into the
+// corresponding nested model. The prev *CustomerManagedResourcesGCPRpsqlServiceAccountModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesGCPRpsqlServiceAccount(_ context.Context, proto *controlplanev1.GCPServiceAccount, prev *CustomerManagedResourcesGCPRpsqlServiceAccountModel) (CustomerManagedResourcesGCPRpsqlServiceAccountModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesGCPRpsqlServiceAccountModel{}
+	m.Email = types.StringValue(proto.GetEmail())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesGCPRpsqlServiceAccount renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesGCPRpsqlServiceAccount(_ context.Context, m *CustomerManagedResourcesGCPRpsqlServiceAccountModel) (*controlplanev1.GCPServiceAccount, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.GCPServiceAccount{
+		Email: m.Email.ValueString(),
 	}
 	return out, diags
 }
@@ -2036,6 +2130,62 @@ func ExpandMaintenanceWindowConfigDayHour(_ context.Context, m *MaintenanceWindo
 	out := &controlplanev1.MaintenanceWindowConfig_DayHour{
 		DayOfWeek: enums.StringToDayOfWeek(m.DayOfWeek.ValueString()),
 		HourOfDay: m.HourOfDay.ValueInt32(),
+	}
+	return out, diags
+}
+
+// FlattenRedpandaConnect converts a single proto controlplanev1.Cluster_RedpandaConnect into the
+// corresponding nested model. The prev *RedpandaConnectModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenRedpandaConnect(ctx context.Context, proto *controlplanev1.Cluster_RedpandaConnect, prev *RedpandaConnectModel) (RedpandaConnectModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := RedpandaConnectModel{}
+	m.AllowedDestinationCidrPorts = modelconv.ListFromObjectsWithDiags(ctx, proto.GetAllowedDestinationCidrPorts(), RedpandaConnectAllowedDestinationCidrPortsAttrTypes(), FlattenRedpandaConnectAllowedDestinationCidrPorts, &diags)
+	m.Version = types.StringValue(proto.GetVersion())
+	return m, diags
+}
+
+// ExpandRedpandaConnect renders a nested model back into the proto type.
+func ExpandRedpandaConnect(ctx context.Context, m *RedpandaConnectModel) (*controlplanev1.Cluster_RedpandaConnect, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Cluster_RedpandaConnect{
+		AllowedDestinationCidrPorts: modelconv.ListToObjectsWithDiags(ctx, m.AllowedDestinationCidrPorts, ExpandRedpandaConnectAllowedDestinationCidrPorts, &diags),
+		Version:                     m.Version.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenRedpandaConnectAllowedDestinationCidrPorts converts a single proto controlplanev1.Cluster_CidrPort into the
+// corresponding nested model. The prev *RedpandaConnectAllowedDestinationCidrPortsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenRedpandaConnectAllowedDestinationCidrPorts(_ context.Context, proto *controlplanev1.Cluster_CidrPort, prev *RedpandaConnectAllowedDestinationCidrPortsModel) (RedpandaConnectAllowedDestinationCidrPortsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := RedpandaConnectAllowedDestinationCidrPortsModel{}
+	m.Cidr = types.StringValue(proto.GetCidr())
+	m.PortStart = types.Int32Value(proto.GetPortStart())
+	m.PortEnd = types.Int32Value(proto.GetPortEnd())
+	return m, diags
+}
+
+// ExpandRedpandaConnectAllowedDestinationCidrPorts renders a nested model back into the proto type.
+func ExpandRedpandaConnectAllowedDestinationCidrPorts(_ context.Context, m *RedpandaConnectAllowedDestinationCidrPortsModel) (*controlplanev1.Cluster_CidrPort, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Cluster_CidrPort{
+		Cidr:      m.Cidr.ValueString(),
+		PortStart: m.PortStart.ValueInt32(),
+		PortEnd:   m.PortEnd.ValueInt32(),
 	}
 	return out, diags
 }
