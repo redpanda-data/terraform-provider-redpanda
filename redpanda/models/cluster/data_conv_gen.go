@@ -48,6 +48,7 @@ type DataClusterResponse interface {
 	GetNetworkId() string
 	GetPrometheus() *controlplanev1.Cluster_Prometheus
 	GetReadReplicaClusterIds() []string
+	GetRedpandaConnect() *controlplanev1.Cluster_RedpandaConnect
 	GetRedpandaConsole() *controlplanev1.Cluster_RedpandaConsole
 	GetRegion() string
 	GetResourceGroupId() string
@@ -123,6 +124,7 @@ func FlattenData(ctx context.Context, proto DataClusterResponse, prev *DataModel
 	m.NetworkID = types.StringValue(proto.GetNetworkId())
 	m.Prometheus = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetPrometheus(), func() *DataPrometheusModel { v, _ := prev.AsPrometheus(ctx); return v }(), DataPrometheusAttrTypes(), FlattenDataPrometheus, &diags)
 	m.ReadReplicaClusterIds = modelconv.ListFromSliceWithDiags(ctx, proto.GetReadReplicaClusterIds(), types.StringType, &diags)
+	m.RedpandaConnect = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaConnect(), func() *DataRedpandaConnectModel { v, _ := prev.AsRedpandaConnect(ctx); return v }(), DataRedpandaConnectAttrTypes(), FlattenDataRedpandaConnect, &diags)
 	m.RedpandaConsole = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaConsole(), func() *DataRedpandaConsoleModel { v, _ := prev.AsRedpandaConsole(ctx); return v }(), DataRedpandaConsoleAttrTypes(), FlattenDataRedpandaConsole, &diags)
 	m.Region = types.StringValue(proto.GetRegion())
 	m.ResourceGroupID = types.StringValue(proto.GetResourceGroupId())
@@ -1921,6 +1923,62 @@ func ExpandDataPrometheus(_ context.Context, m *DataPrometheusModel) (*controlpl
 	}
 	out := &controlplanev1.Cluster_Prometheus{
 		Url: m.URL.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataRedpandaConnect converts a single proto controlplanev1.Cluster_RedpandaConnect into the
+// corresponding nested model. The prev *DataRedpandaConnectModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataRedpandaConnect(ctx context.Context, proto *controlplanev1.Cluster_RedpandaConnect, prev *DataRedpandaConnectModel) (DataRedpandaConnectModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataRedpandaConnectModel{}
+	m.AllowedDestinationCidrPorts = modelconv.ListFromObjectsWithDiags(ctx, proto.GetAllowedDestinationCidrPorts(), DataRedpandaConnectAllowedDestinationCidrPortsAttrTypes(), FlattenDataRedpandaConnectAllowedDestinationCidrPorts, &diags)
+	m.Version = types.StringValue(proto.GetVersion())
+	return m, diags
+}
+
+// ExpandDataRedpandaConnect renders a nested model back into the proto type.
+func ExpandDataRedpandaConnect(ctx context.Context, m *DataRedpandaConnectModel) (*controlplanev1.Cluster_RedpandaConnect, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Cluster_RedpandaConnect{
+		AllowedDestinationCidrPorts: modelconv.ListToObjectsWithDiags(ctx, m.AllowedDestinationCidrPorts, ExpandDataRedpandaConnectAllowedDestinationCidrPorts, &diags),
+		Version:                     m.Version.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataRedpandaConnectAllowedDestinationCidrPorts converts a single proto controlplanev1.Cluster_CidrPort into the
+// corresponding nested model. The prev *DataRedpandaConnectAllowedDestinationCidrPortsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataRedpandaConnectAllowedDestinationCidrPorts(_ context.Context, proto *controlplanev1.Cluster_CidrPort, prev *DataRedpandaConnectAllowedDestinationCidrPortsModel) (DataRedpandaConnectAllowedDestinationCidrPortsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataRedpandaConnectAllowedDestinationCidrPortsModel{}
+	m.Cidr = types.StringValue(proto.GetCidr())
+	m.PortEnd = types.Int32Value(proto.GetPortEnd())
+	m.PortStart = types.Int32Value(proto.GetPortStart())
+	return m, diags
+}
+
+// ExpandDataRedpandaConnectAllowedDestinationCidrPorts renders a nested model back into the proto type.
+func ExpandDataRedpandaConnectAllowedDestinationCidrPorts(_ context.Context, m *DataRedpandaConnectAllowedDestinationCidrPortsModel) (*controlplanev1.Cluster_CidrPort, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Cluster_CidrPort{
+		Cidr:      m.Cidr.ValueString(),
+		PortEnd:   m.PortEnd.ValueInt32(),
+		PortStart: m.PortStart.ValueInt32(),
 	}
 	return out, diags
 }
