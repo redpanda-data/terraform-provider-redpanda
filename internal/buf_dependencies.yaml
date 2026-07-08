@@ -10,7 +10,7 @@
 
 cloudv2:
     remote: github.com/redpanda-data/cloudv2
-    sha: e5691f2955ac663bdb8f190dcac732653a8ec96b
+    sha: 174f85b16dd29b6fde95468be461ea81e5069d15
 console:
     remote: github.com/redpanda-data/console
     sha: 6ff1a55d3d67b07c4b8049b32f42d6dad85881db

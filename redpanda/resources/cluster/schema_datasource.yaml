@@ -122,8 +122,20 @@ cluster_configuration:
 
     computed_properties:
       todo: true
+http_proxy:
+  fields:
+    connections:
+      todo: true
+
+kafka_api:
+  fields:
+    connections:
+      todo: true
+
 schema_registry:
   fields:
+    connections:
+      todo: true
 
     sasl:
       todo: true

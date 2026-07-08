@@ -398,6 +398,42 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Optional:      true,
 								PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 							},
+							"rpsql_api_service_account": schema.SingleNestedAttribute{
+								Description:   "Rpsql API Service Account configuration",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Description: "Email address for the rpsql API Service Account. Must be a valid email address.",
+										Required:    true,
+									},
+								},
+							},
+							"rpsql_cloud_storage_bucket": schema.SingleNestedAttribute{
+								Description:   "Rpsql Cloud Storage Bucket configuration",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+								Attributes: map[string]schema.Attribute{
+									"name": schema.StringAttribute{
+										Description: "Name of the rpsql Cloud Storage Bucket. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.",
+										Required:    true,
+									},
+								},
+							},
+							"rpsql_service_account": schema.SingleNestedAttribute{
+								Description:   "Rpsql Service Account configuration",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Description: "Email address for the rpsql Service Account. Must be a valid email address.",
+										Required:    true,
+									},
+								},
+							},
 						},
 					},
 				},
@@ -1080,6 +1116,45 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						Description:   "Unspecified configuration",
 						Computed:      true,
 						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+					},
+				},
+			},
+
+			"redpanda_connect": schema.SingleNestedAttribute{
+				Description:   "Cluster's Redpanda Connect properties.",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace(), objectplanmodifier.UseStateForUnknown()},
+				Attributes: map[string]schema.Attribute{
+					"allowed_destination_cidr_ports": schema.ListNestedAttribute{
+						Description:   "List of allowed Destination CIDR Ports. Must have at most 16 items.",
+						Optional:      true,
+						Computed:      true,
+						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+						Validators:    []validator.List{listvalidator.SizeAtMost(16)},
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"cidr": schema.StringAttribute{
+									Description: "CIDR. Must match pattern `^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$`.",
+									Required:    true,
+								},
+								"port_start": schema.Int32Attribute{
+									Description: "Port Start. Must be between 1 and 65535 (inclusive).",
+									Required:    true,
+								},
+								"port_end": schema.Int32Attribute{
+									Description:   "Port End. Must be at most 65535.",
+									Optional:      true,
+									Computed:      true,
+									PlanModifiers: []planmodifier.Int32{int32planmodifier.UseStateForUnknown()},
+								},
+							},
+						},
+					},
+					"version": schema.StringAttribute{
+						Description:   "Version of the Redpanda Connect engine running on the Cluster.",
+						Computed:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 					},
 				},
 			},

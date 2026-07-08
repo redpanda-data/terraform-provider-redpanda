@@ -525,6 +525,36 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 									},
 								},
 							},
+							"rpsql_api_service_account": schema.SingleNestedAttribute{
+								Description: "Rpsql API Service Account configuration",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Description: "Email address for the rpsql API Service Account",
+										Computed:    true,
+									},
+								},
+							},
+							"rpsql_cloud_storage_bucket": schema.SingleNestedAttribute{
+								Description: "Rpsql Cloud Storage Bucket configuration",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"name": schema.StringAttribute{
+										Description: "Name of the rpsql Cloud Storage Bucket",
+										Computed:    true,
+									},
+								},
+							},
+							"rpsql_service_account": schema.SingleNestedAttribute{
+								Description: "Rpsql Service Account configuration",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Description: "Email address for the rpsql Service Account",
+										Computed:    true,
+									},
+								},
+							},
 							"subnet": schema.SingleNestedAttribute{
 								Description: "GCP subnet properties. See the official [GCP API reference](https://cloud.google.com/compute/docs/reference/rest/v1/subnetworks).",
 								Computed:    true,
