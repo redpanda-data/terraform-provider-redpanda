@@ -2676,6 +2676,16 @@ func TestIntegration_Cluster_UpdateLeaf_RedpandaConnect_CidrPorts(t *testing.T) 
 						knownvalue.ListSizeExact(0)),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
+			// Noop: verify plan stabilizes at the empty state.
+			integration.NoopReapplyStep(clusterAddr,
+				awsDedicatedConfig(name, `redpanda_connect = {
+    allowed_destination_cidr_ports = []
+  }`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, cidrPath,
+						knownvalue.ListSizeExact(0)),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
 			// Import: verify redpanda_connect data survives an import.
 			integration.ImportRoundTripStep(clusterAddr, nil, []string{"allow_deletion"}),
 		},
