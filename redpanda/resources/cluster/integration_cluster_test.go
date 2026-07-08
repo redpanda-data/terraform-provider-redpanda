@@ -2626,6 +2626,25 @@ func TestIntegration_Cluster_UpdateLeaf_RedpandaConnect_CidrPorts(t *testing.T) 
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, cidrPath,
 						knownvalue.ListSizeExact(2)),
+					// Verify per-entry field values round-trip correctly.
+					statecheck.ExpectKnownValue(clusterAddr,
+						cidrPath.AtSliceIndex(0).AtMapKey("cidr"),
+						knownvalue.StringExact("10.0.0.0/16")),
+					statecheck.ExpectKnownValue(clusterAddr,
+						cidrPath.AtSliceIndex(0).AtMapKey("port_start"),
+						knownvalue.Int32Exact(5432)),
+					statecheck.ExpectKnownValue(clusterAddr,
+						cidrPath.AtSliceIndex(0).AtMapKey("port_end"),
+						knownvalue.Int32Exact(0)),
+					statecheck.ExpectKnownValue(clusterAddr,
+						cidrPath.AtSliceIndex(1).AtMapKey("cidr"),
+						knownvalue.StringExact("20.0.0.0/16")),
+					statecheck.ExpectKnownValue(clusterAddr,
+						cidrPath.AtSliceIndex(1).AtMapKey("port_start"),
+						knownvalue.Int32Exact(5432)),
+					statecheck.ExpectKnownValue(clusterAddr,
+						cidrPath.AtSliceIndex(1).AtMapKey("port_end"),
+						knownvalue.Int32Exact(5500)),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
@@ -2639,6 +2658,12 @@ func TestIntegration_Cluster_UpdateLeaf_RedpandaConnect_CidrPorts(t *testing.T) 
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, cidrPath,
 						knownvalue.ListSizeExact(1)),
+					statecheck.ExpectKnownValue(clusterAddr,
+						cidrPath.AtSliceIndex(0).AtMapKey("cidr"),
+						knownvalue.StringExact("10.0.0.0/16")),
+					statecheck.ExpectKnownValue(clusterAddr,
+						cidrPath.AtSliceIndex(0).AtMapKey("port_start"),
+						knownvalue.Int32Exact(5432)),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
 			// Update: clear all rules (empty list).
@@ -2651,6 +2676,8 @@ func TestIntegration_Cluster_UpdateLeaf_RedpandaConnect_CidrPorts(t *testing.T) 
 						knownvalue.ListSizeExact(0)),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
+			// Import: verify redpanda_connect data survives an import.
+			integration.ImportRoundTripStep(clusterAddr, nil, []string{"allow_deletion"}),
 		},
 	})
 }
