@@ -83,7 +83,7 @@ func TestAcc_Cluster_RedpandaConnect_CidrPorts(t *testing.T) {
 					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.#", "2"),
 					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.0.cidr", "10.0.0.0/16"),
 					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.0.port_start", "5432"),
-					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.0.port_end", "0"),
+					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.0.port_end", "5432"),
 					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.1.cidr", "20.0.0.0/16"),
 					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.1.port_start", "5432"),
 					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.1.port_end", "5500"),
