@@ -2633,9 +2633,15 @@ func TestIntegration_Cluster_UpdateLeaf_RedpandaConnect_CidrPorts(t *testing.T) 
 					statecheck.ExpectKnownValue(clusterAddr,
 						cidrPath.AtSliceIndex(0).AtMapKey("port_start"),
 						knownvalue.Int32Exact(5432)),
+					// Server-echo contract: the control plane normalizes
+					// port_end=0 to port_start on every read (cloudv2
+					// cidrPortsInternalToPublic); the fake mirrors it.
 					statecheck.ExpectKnownValue(clusterAddr,
 						cidrPath.AtSliceIndex(0).AtMapKey("port_end"),
-						knownvalue.Int32Exact(0)),
+						knownvalue.Int32Exact(5432)),
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("redpanda_connect").AtMapKey("version"),
+						knownvalue.StringExact("mock-connect-v1")),
 					statecheck.ExpectKnownValue(clusterAddr,
 						cidrPath.AtSliceIndex(1).AtMapKey("cidr"),
 						knownvalue.StringExact("20.0.0.0/16")),
@@ -2663,6 +2669,9 @@ func TestIntegration_Cluster_UpdateLeaf_RedpandaConnect_CidrPorts(t *testing.T) 
 						knownvalue.StringExact("10.0.0.0/16")),
 					statecheck.ExpectKnownValue(clusterAddr,
 						cidrPath.AtSliceIndex(0).AtMapKey("port_start"),
+						knownvalue.Int32Exact(5432)),
+					statecheck.ExpectKnownValue(clusterAddr,
+						cidrPath.AtSliceIndex(0).AtMapKey("port_end"),
 						knownvalue.Int32Exact(5432)),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),

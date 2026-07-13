@@ -199,20 +199,10 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 	if in.HasRpsql() {
 		cl.SetRpsql(rpsqlStatus(in.GetRpsql(), in.GetZones()))
 	}
-	if in.HasRedpandaConnect() {
-		src := in.GetRedpandaConnect()
-		ports := make([]*controlplanev1.Cluster_CidrPort, 0, len(src.GetAllowedDestinationCidrPorts()))
-		for _, p := range src.GetAllowedDestinationCidrPorts() {
-			ports = append(ports, &controlplanev1.Cluster_CidrPort{
-				Cidr:      p.GetCidr(),
-				PortStart: p.GetPortStart(),
-				PortEnd:   p.GetPortEnd(),
-			})
-		}
-		cl.SetRedpandaConnect(&controlplanev1.Cluster_RedpandaConnect{
-			AllowedDestinationCidrPorts: ports,
-		})
-	}
+	// Mirror cloudv2 redpandaConnectToPublic: redpanda_connect is populated on
+	// every cluster (Connect ships with each install pack), not only when the
+	// spec sets it.
+	cl.SetRedpandaConnect(redpandaConnectStatus(in.GetRedpandaConnect()))
 	// Mirror the GCP-only intent input (gcp_enable_global_access_api_gateway on
 	// the write shape) onto the reported status field (different read-shape name).
 	if in.GetCloudProvider() == controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP {
@@ -341,25 +331,14 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 			}
 		case "redpanda_connect.allowed_destination_cidr_ports":
 			// LeafExpansions sends this granular path for redpanda_connect updates.
-			// Copy the AllowedDestinationCidrPorts slice from the update payload.
-			// Use a non-nil (possibly empty) slice so the flatten sees an empty list
-			// rather than null when all entries are removed.
+			// Echo through the read-mapper mirror so port_end=0 normalizes.
 			if upd.HasRedpandaConnect() {
-				src := upd.GetRedpandaConnect()
-				existing := cl.GetRedpandaConnect()
-				if existing == nil {
-					existing = &controlplanev1.Cluster_RedpandaConnect{}
+				rc := cl.GetRedpandaConnect()
+				if rc == nil {
+					rc = redpandaConnectStatus(nil)
 				}
-				ports := make([]*controlplanev1.Cluster_CidrPort, 0, len(src.GetAllowedDestinationCidrPorts()))
-				for _, p := range src.GetAllowedDestinationCidrPorts() {
-					ports = append(ports, &controlplanev1.Cluster_CidrPort{
-						Cidr:      p.GetCidr(),
-						PortStart: p.GetPortStart(),
-						PortEnd:   p.GetPortEnd(),
-					})
-				}
-				existing.AllowedDestinationCidrPorts = ports
-				cl.SetRedpandaConnect(existing)
+				rc.AllowedDestinationCidrPorts = normalizeCidrPorts(upd.GetRedpandaConnect().GetAllowedDestinationCidrPorts())
+				cl.SetRedpandaConnect(rc)
 			}
 		case "gcp_enable_global_access_api_gateway":
 			// Write-shape intent maps onto the differently-named read-shape status.
@@ -402,6 +381,34 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 	cl.UpdatedAt = timestamppb.Now()
 
 	return &controlplanev1.UpdateClusterOperation{Operation: completedOp(f.op, upd.GetId())}, nil
+}
+
+// redpandaConnectStatus mirrors cloudv2 redpandaConnectToPublic: the read
+// shape always carries the install-pack Connect version, and stored cidr
+// ports normalize on the way out.
+func redpandaConnectStatus(spec *controlplanev1.Cluster_RedpandaConnect) *controlplanev1.Cluster_RedpandaConnect {
+	return &controlplanev1.Cluster_RedpandaConnect{
+		Version:                     "mock-connect-v1",
+		AllowedDestinationCidrPorts: normalizeCidrPorts(spec.GetAllowedDestinationCidrPorts()),
+	}
+}
+
+// normalizeCidrPorts mirrors cloudv2 cidrPortsInternalToPublic: a stored
+// port_end of 0 (single-port rule) reads back as port_start.
+func normalizeCidrPorts(src []*controlplanev1.Cluster_CidrPort) []*controlplanev1.Cluster_CidrPort {
+	out := make([]*controlplanev1.Cluster_CidrPort, 0, len(src))
+	for _, p := range src {
+		portEnd := p.GetPortEnd()
+		if portEnd == 0 {
+			portEnd = p.GetPortStart()
+		}
+		out = append(out, &controlplanev1.Cluster_CidrPort{
+			Cidr:      p.GetCidr(),
+			PortStart: p.GetPortStart(),
+			PortEnd:   portEnd,
+		})
+	}
+	return out
 }
 
 // rpsqlStatus mirrors the write-shape RPSql onto the read-shape record,
