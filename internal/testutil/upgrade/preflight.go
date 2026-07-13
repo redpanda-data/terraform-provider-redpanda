@@ -30,4 +30,17 @@ func PreCheck(t *testing.T) {
 	if os.Getenv(redpanda.ClientSecretEnv) == "" {
 		t.Fatalf("%s must be set for upgrade tests", redpanda.ClientSecretEnv)
 	}
+
+	// Step 0's released provider resolves its version and cloud env outside
+	// this process; log both so an auth misroute (build 1455 run 1 hit the
+	// prod auth domain with pre credentials) is traceable after the fact.
+	constraint := versionConstraint()
+	if constraint == "" {
+		constraint = "latest (REDPANDA_LAST_VERSION unset)"
+	}
+	env := os.Getenv("REDPANDA_CLOUD_ENVIRONMENT")
+	if env == "" {
+		env = "unset (released provider defaults to prod)"
+	}
+	t.Logf("upgrade step 0: released provider redpanda-data/redpanda @ %s, REDPANDA_CLOUD_ENVIRONMENT=%s", constraint, env)
 }
