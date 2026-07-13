@@ -304,6 +304,29 @@ customer_managed_resources:
             email:
               plan_modifiers: [RequiresReplace]
               required: true
+        # Redpanda SQL BYOVPC infrastructure: only meaningful when rpsql is
+        # enabled, so optional unlike the required siblings.
+        rpsql_api_service_account:
+          computed: false
+          optional: true
+          fields:
+            email:
+              plan_modifiers: [RequiresReplace]
+              required: true
+        rpsql_cloud_storage_bucket:
+          computed: false
+          optional: true
+          fields:
+            name:
+              plan_modifiers: [RequiresReplace]
+              required: true
+        rpsql_service_account:
+          computed: false
+          optional: true
+          fields:
+            email:
+              plan_modifiers: [RequiresReplace]
+              required: true
         subnet:
           required: true
           fields:

@@ -319,13 +319,17 @@ resource "redpanda_cluster" "test" {
 }
 
 // gcpBYOVPCConfig returns the GCP BYOVPC (customer_managed_resources.gcp) HCL.
-// subnetName allows the C10 scenario to mutate cmr.gcp.subnet.name.
+// subnetName allows the C10 scenario to mutate cmr.gcp.subnet.name; extra is
+// appended verbatim inside the gcp block (e.g. rpsql_* fields).
 // psc_nat_subnet_name is always set to a non-empty value because conv_gen.go
 // flattens the unset proto3 string as "" rather than null.
-func gcpBYOVPCConfig(name, subnetName, pscNatSubnet string) string {
+func gcpBYOVPCConfig(name, subnetName, pscNatSubnet, extra string) string {
 	pscLine := ""
 	if pscNatSubnet != "" {
 		pscLine = fmt.Sprintf("\n      psc_nat_subnet_name   = %q", pscNatSubnet)
+	}
+	if extra != "" {
+		pscLine += "\n      " + extra
 	}
 	return fmt.Sprintf(`
 provider "redpanda" {}
@@ -750,7 +754,7 @@ func TestIntegration_Cluster_CreateAndRefresh_GCP_BYOVPC(t *testing.T) {
 		name       = "tfrp-mock-cl-a5"
 		subnetName = "tfrp-subnet-a"
 	)
-	cfg := gcpBYOVPCConfig(name, subnetName, "psc-nat-subnet-test")
+	cfg := gcpBYOVPCConfig(name, subnetName, "psc-nat-subnet-test", "")
 
 	idPreserved := statecheck.CompareValue(compare.ValuesSame())
 
@@ -1840,25 +1844,45 @@ func TestIntegration_Cluster_RequiresReplace_CMR_GCP_Block(t *testing.T) {
 	)
 
 	idChanged := statecheck.CompareValue(compare.ValuesDiffer())
+	rpsqlSAPath := tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("rpsql_service_account").AtMapKey("email")
+
+	rpsqlBlock := func(email string) string {
+		return fmt.Sprintf(`rpsql_api_service_account  = { email = "rpsql-api@tfrp-proj.iam.gserviceaccount.com" }
+      rpsql_cloud_storage_bucket = { name = "tfrp-rpsql-bucket" }
+      rpsql_service_account      = { email = %q }`, email)
+	}
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: factories,
 		Steps: []resource.TestStep{
 			integration.CreateStep(clusterAddr,
-				gcpBYOVPCConfig(name, subnetNameA, "psc-nat-subnet-test"),
+				gcpBYOVPCConfig(name, subnetNameA, "psc-nat-subnet-test", rpsqlBlock("rpsql-a@tfrp-proj.iam.gserviceaccount.com")),
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr,
 						tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("subnet").AtMapKey("name"),
 						knownvalue.StringExact(subnetNameA)),
+					statecheck.ExpectKnownValue(clusterAddr, rpsqlSAPath,
+						knownvalue.StringExact("rpsql-a@tfrp-proj.iam.gserviceaccount.com")),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idChanged.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
 			integration.RequiresReplaceStep(clusterAddr,
-				gcpBYOVPCConfig(name, subnetNameB, "psc-nat-subnet-test"),
+				gcpBYOVPCConfig(name, subnetNameB, "psc-nat-subnet-test", rpsqlBlock("rpsql-a@tfrp-proj.iam.gserviceaccount.com")),
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr,
 						tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("subnet").AtMapKey("name"),
 						knownvalue.StringExact(subnetNameB)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idChanged.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			// The CP update pathMap has no customer_managed_resources.gcp.rpsql_*
+			// entries, so an in-place change would be silently dropped; mutating
+			// only the rpsql email must also destroy-before-create.
+			integration.RequiresReplaceStep(clusterAddr,
+				gcpBYOVPCConfig(name, subnetNameB, "psc-nat-subnet-test", rpsqlBlock("rpsql-b@tfrp-proj.iam.gserviceaccount.com")),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, rpsqlSAPath,
+						knownvalue.StringExact("rpsql-b@tfrp-proj.iam.gserviceaccount.com")),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idChanged.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
@@ -2582,7 +2606,7 @@ func TestIntegration_Cluster_NullPscNatSubnetName_Repro(t *testing.T) {
 	_, factories := clusterSetup(t)
 
 	const name = "tfrp-mock-cl-nullpsc"
-	cfg := gcpBYOVPCConfig(name, "tfrp-subnet-nullpsc", "")
+	cfg := gcpBYOVPCConfig(name, "tfrp-subnet-nullpsc", "", "")
 
 	pscPath := tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("psc_nat_subnet_name")
 
