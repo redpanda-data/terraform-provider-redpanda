@@ -396,6 +396,9 @@ func FlattenConsumerOffsetSyncOptions(ctx context.Context, proto *corev2.Consume
 	_ = prev
 	m := ConsumerOffsetSyncOptionsModel{}
 	m.GroupFilters = modelconv.ListFromObjectsWithDiags(ctx, proto.GetGroupFilters(), ConsumerOffsetSyncOptionsGroupFiltersAttrTypes(), FlattenConsumerOffsetSyncOptionsGroupFilters, &diags)
+	if prev != nil {
+		m.GroupFilters = modelconv.ListCarryKnownEmpty(m.GroupFilters, prev.GroupFilters)
+	}
 	m.Interval = modelconv.StringFromDuration(proto.GetInterval())
 	m.Paused = types.BoolValue(proto.GetPaused())
 	return m, diags
@@ -480,6 +483,9 @@ func FlattenSecuritySyncOptions(ctx context.Context, proto *corev2.SecuritySetti
 	_ = prev
 	m := SecuritySyncOptionsModel{}
 	m.AclFilters = modelconv.ListFromObjectsWithDiags(ctx, proto.GetAclFilters(), SecuritySyncOptionsAclFiltersAttrTypes(), FlattenSecuritySyncOptionsAclFilters, &diags)
+	if prev != nil {
+		m.AclFilters = modelconv.ListCarryKnownEmpty(m.AclFilters, prev.AclFilters)
+	}
 	m.Interval = modelconv.StringFromDuration(proto.GetInterval())
 	m.Paused = types.BoolValue(proto.GetPaused())
 	return m, diags
@@ -602,6 +608,9 @@ func FlattenTopicMetadataSyncOptions(ctx context.Context, proto *corev2.TopicMet
 	_ = prev
 	m := TopicMetadataSyncOptionsModel{}
 	m.AutoCreateShadowTopicFilters = modelconv.ListFromObjectsWithDiags(ctx, proto.GetAutoCreateShadowTopicFilters(), TopicMetadataSyncOptionsAutoCreateShadowTopicFiltersAttrTypes(), FlattenTopicMetadataSyncOptionsAutoCreateShadowTopicFilters, &diags)
+	if prev != nil {
+		m.AutoCreateShadowTopicFilters = modelconv.ListCarryKnownEmpty(m.AutoCreateShadowTopicFilters, prev.AutoCreateShadowTopicFilters)
+	}
 	m.ExcludeDefault = types.BoolValue(proto.GetExcludeDefault())
 	m.Interval = modelconv.StringFromDuration(proto.GetInterval())
 	m.Paused = types.BoolValue(proto.GetPaused())

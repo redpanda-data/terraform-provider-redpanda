@@ -340,6 +340,8 @@ customer_managed_resources:
           todo: true
         redpanda_operator_service_account:
           todo: true
+        rpsql_secret_manager_prefix:
+          todo: true
     azure:
       todo: true
 dataplane_api:
@@ -400,8 +402,6 @@ http_proxy:
   fields:
     all_urls:
       computed_only: true
-    connections:
-      todo: true
     mtls:
       fields:
         ca_certificates_pem:
@@ -418,6 +418,8 @@ http_proxy:
     url:
       computed_only: true
 
+    connections:
+      todo: true
 id:
   computed_only: true
 
@@ -425,8 +427,6 @@ kafka_api:
   fields:
     all_seed_brokers:
       computed_only: true
-    connections:
-      todo: true
     mtls:
       fields:
         ca_certificates_pem:
@@ -443,6 +443,8 @@ kafka_api:
     seed_brokers:
       computed_only: true
 
+    connections:
+      todo: true
 kafka_connect:
   fields:
     enabled:
@@ -545,8 +547,6 @@ schema_registry:
   fields:
     all_urls:
       computed_only: true
-    connections:
-      todo: true
     mtls:
       computed: false
       optional: true
@@ -563,6 +563,8 @@ schema_registry:
       computed_only: true
 
     sasl:
+      todo: true
+    connections:
       todo: true
 state:
   computed_only: true

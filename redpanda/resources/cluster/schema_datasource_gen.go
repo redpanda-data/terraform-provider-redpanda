@@ -526,31 +526,31 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 								},
 							},
 							"rpsql_api_service_account": schema.SingleNestedAttribute{
-								Description: "Rpsql API Service Account configuration",
+								Description: "GCP service account.",
 								Computed:    true,
 								Attributes: map[string]schema.Attribute{
 									"email": schema.StringAttribute{
-										Description: "Email address for the rpsql API Service Account",
+										Description: "GCP service account email.",
 										Computed:    true,
 									},
 								},
 							},
 							"rpsql_cloud_storage_bucket": schema.SingleNestedAttribute{
-								Description: "Rpsql Cloud Storage Bucket configuration",
+								Description: "GCP storage bucket properties.",
 								Computed:    true,
 								Attributes: map[string]schema.Attribute{
 									"name": schema.StringAttribute{
-										Description: "Name of the rpsql Cloud Storage Bucket",
+										Description: "Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions.",
 										Computed:    true,
 									},
 								},
 							},
 							"rpsql_service_account": schema.SingleNestedAttribute{
-								Description: "Rpsql Service Account configuration",
+								Description: "GCP service account.",
 								Computed:    true,
 								Attributes: map[string]schema.Attribute{
 									"email": schema.StringAttribute{
-										Description: "Email address for the rpsql Service Account",
+										Description: "GCP service account email.",
 										Computed:    true,
 									},
 								},
@@ -724,19 +724,19 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 						Computed:    true,
 						Attributes: map[string]schema.Attribute{
 							"mtls": schema.StringAttribute{
-								Description: "URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty.",
+								Description: "URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.",
 								Computed:    true,
 							},
 							"private_link_mtls": schema.StringAttribute{
-								Description: "URL of the seed broker for private link with mTLS. If private link with mTLS is not enabled, the field is empty.",
+								Description: "URL of the endpoint for private link with mTLS. If private link with mTLS is not enabled, the field is empty.",
 								Computed:    true,
 							},
 							"private_link_sasl": schema.StringAttribute{
-								Description: "URL of the seed broker for private link with SASL. If private link with SASL is not enabled, the field is empty.",
+								Description: "URL of the endpoint for private link with SASL. If private link with SASL is not enabled, the field is empty.",
 								Computed:    true,
 							},
 							"sasl": schema.StringAttribute{
-								Description: "URL of the seed broker for SASL. If SASL is not enabled, the field is empty.",
+								Description: "URL of the seed broker for SASL. If SASL is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.",
 								Computed:    true,
 							},
 						},
@@ -772,7 +772,7 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 						},
 					},
 					"url": schema.StringAttribute{
-						Description: "HTTP Proxy URL of cluster.",
+						Description: "HTTP Proxy URL of cluster. Deprecated: use connections[].endpoint instead.",
 						Computed:    true,
 					},
 				},
@@ -787,7 +787,7 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 						Computed:    true,
 						Attributes: map[string]schema.Attribute{
 							"mtls": schema.StringAttribute{
-								Description: "URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty.",
+								Description: "URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.",
 								Computed:    true,
 							},
 							"private_link_mtls": schema.StringAttribute{
@@ -799,7 +799,7 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 								Computed:    true,
 							},
 							"sasl": schema.StringAttribute{
-								Description: "URL of the seed broker for SASL. If SASL is not enabled, the field is empty.",
+								Description: "URL of the seed broker for SASL. If SASL is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.",
 								Computed:    true,
 							},
 						},
@@ -835,7 +835,7 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 						},
 					},
 					"seed_brokers": schema.ListAttribute{
-						Description: "Kafka API Seed Brokers (also known as Bootstrap servers).",
+						Description: "Kafka API Seed Brokers (also known as Bootstrap servers). Deprecated: use connections[].endpoint instead.",
 						Computed:    true,
 						ElementType: types.StringType,
 					},
@@ -914,20 +914,20 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 				Computed:    true,
 				Attributes: map[string]schema.Attribute{
 					"allowed_destination_cidr_ports": schema.ListNestedAttribute{
-						Description: "List of allowed Destination CIDR Ports",
+						Description: "Custom outbound destinations allowed for Connect pipelines. Maximum 16 entries.",
 						Computed:    true,
 						NestedObject: schema.NestedAttributeObject{
 							Attributes: map[string]schema.Attribute{
 								"cidr": schema.StringAttribute{
-									Description: "CIDR",
+									Description: "CIDR notation, e.g. \"10.5.0.0/16\". Must be a valid IPv4 CIDR.",
 									Computed:    true,
 								},
 								"port_end": schema.Int32Attribute{
-									Description: "Port End",
+									Description: "Optional end of the TCP/UDP port range, 0-65535. When 0 (default), only port_start is used. When non-zero, must be >= port_start.",
 									Computed:    true,
 								},
 								"port_start": schema.Int32Attribute{
-									Description: "Port Start",
+									Description: "Start of the TCP/UDP port range, 1-65535.",
 									Computed:    true,
 								},
 							},
@@ -1003,19 +1003,19 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 						Computed:    true,
 						Attributes: map[string]schema.Attribute{
 							"mtls": schema.StringAttribute{
-								Description: "URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty.",
+								Description: "URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.",
 								Computed:    true,
 							},
 							"private_link_mtls": schema.StringAttribute{
-								Description: "URL of the seed broker for private link with mTLS. If private link with mTLS is not enabled, the field is empty.",
+								Description: "URL of the endpoint for private link with mTLS. If private link with mTLS is not enabled, the field is empty.",
 								Computed:    true,
 							},
 							"private_link_sasl": schema.StringAttribute{
-								Description: "URL of the seed broker for private link with SASL. If private link with SASL is not enabled, the field is empty.",
+								Description: "URL of the endpoint for private link with SASL. If private link with SASL is not enabled, the field is empty.",
 								Computed:    true,
 							},
 							"sasl": schema.StringAttribute{
-								Description: "URL of the seed broker for SASL. If SASL is not enabled, the field is empty.",
+								Description: "URL of the seed broker for SASL. If SASL is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.",
 								Computed:    true,
 							},
 						},
@@ -1041,7 +1041,7 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 						},
 					},
 					"url": schema.StringAttribute{
-						Description: "Schema Registry URL.",
+						Description: "Schema Registry URL. Deprecated: use connections[].endpoint instead.",
 						Computed:    true,
 					},
 				},

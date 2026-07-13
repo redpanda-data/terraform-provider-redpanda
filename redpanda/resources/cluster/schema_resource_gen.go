@@ -399,37 +399,37 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 							},
 							"rpsql_api_service_account": schema.SingleNestedAttribute{
-								Description:   "Rpsql API Service Account configuration",
+								Description:   "GCP service account.",
 								Optional:      true,
 								Computed:      true,
 								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 								Attributes: map[string]schema.Attribute{
 									"email": schema.StringAttribute{
-										Description: "Email address for the rpsql API Service Account. Must be a valid email address.",
+										Description: "GCP service account email. Must be a valid email address.",
 										Required:    true,
 									},
 								},
 							},
 							"rpsql_cloud_storage_bucket": schema.SingleNestedAttribute{
-								Description:   "Rpsql Cloud Storage Bucket configuration",
+								Description:   "GCP storage bucket properties.",
 								Optional:      true,
 								Computed:      true,
 								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 								Attributes: map[string]schema.Attribute{
 									"name": schema.StringAttribute{
-										Description: "Name of the rpsql Cloud Storage Bucket. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.",
+										Description: "Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.",
 										Required:    true,
 									},
 								},
 							},
 							"rpsql_service_account": schema.SingleNestedAttribute{
-								Description:   "Rpsql Service Account configuration",
+								Description:   "GCP service account.",
 								Optional:      true,
 								Computed:      true,
 								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 								Attributes: map[string]schema.Attribute{
 									"email": schema.StringAttribute{
-										Description: "Email address for the rpsql Service Account. Must be a valid email address.",
+										Description: "GCP service account email. Must be a valid email address.",
 										Required:    true,
 									},
 								},
@@ -962,29 +962,29 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
 						Attributes: map[string]schema.Attribute{
 							"mtls": schema.StringAttribute{
-								Description:   "URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty.",
+								Description:   "URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.",
 								Computed:      true,
 								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 							"private_link_mtls": schema.StringAttribute{
-								Description:   "URL of the seed broker for private link with mTLS. If private link with mTLS is not enabled, the field is empty.",
+								Description:   "URL of the endpoint for private link with mTLS. If private link with mTLS is not enabled, the field is empty.",
 								Computed:      true,
 								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 							"private_link_sasl": schema.StringAttribute{
-								Description:   "URL of the seed broker for private link with SASL. If private link with SASL is not enabled, the field is empty.",
+								Description:   "URL of the endpoint for private link with SASL. If private link with SASL is not enabled, the field is empty.",
 								Computed:      true,
 								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 							"sasl": schema.StringAttribute{
-								Description:   "URL of the seed broker for SASL. If SASL is not enabled, the field is empty.",
+								Description:   "URL of the seed broker for SASL. If SASL is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.",
 								Computed:      true,
 								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 						},
 					},
 					"url": schema.StringAttribute{
-						Description:   "HTTP Proxy URL of cluster.",
+						Description:   "HTTP Proxy URL of cluster. Deprecated: use connections[].endpoint instead.",
 						Computed:      true,
 						PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 					},
@@ -1041,7 +1041,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
 						Attributes: map[string]schema.Attribute{
 							"mtls": schema.StringAttribute{
-								Description:   "URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty.",
+								Description:   "URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.",
 								Computed:      true,
 								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
@@ -1056,14 +1056,14 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 							"sasl": schema.StringAttribute{
-								Description:   "URL of the seed broker for SASL. If SASL is not enabled, the field is empty.",
+								Description:   "URL of the seed broker for SASL. If SASL is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.",
 								Computed:      true,
 								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 						},
 					},
 					"seed_brokers": schema.ListAttribute{
-						Description:   "Kafka API Seed Brokers (also known as Bootstrap servers).",
+						Description:   "Kafka API Seed Brokers (also known as Bootstrap servers). Deprecated: use connections[].endpoint instead.",
 						Computed:      true,
 						PlanModifiers: []planmodifier.List{listplanmodifier.UseNonNullStateForUnknown()},
 						ElementType:   types.StringType,
@@ -1127,7 +1127,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"allowed_destination_cidr_ports": schema.ListNestedAttribute{
-						Description:   "List of allowed Destination CIDR Ports. Must have at most 16 items.",
+						Description:   "Custom outbound destinations allowed for Connect pipelines. Maximum 16 entries. Must have at most 16 items.",
 						Optional:      true,
 						Computed:      true,
 						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
@@ -1135,15 +1135,15 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						NestedObject: schema.NestedAttributeObject{
 							Attributes: map[string]schema.Attribute{
 								"cidr": schema.StringAttribute{
-									Description: "CIDR. Must match pattern `^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$`.",
+									Description: "CIDR notation, e.g. \"10.5.0.0/16\". Must be a valid IPv4 CIDR. Must match pattern `^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$`.",
 									Required:    true,
 								},
 								"port_start": schema.Int32Attribute{
-									Description: "Port Start. Must be between 1 and 65535 (inclusive).",
+									Description: "Start of the TCP/UDP port range, 1-65535. Must be between 1 and 65535 (inclusive).",
 									Required:    true,
 								},
 								"port_end": schema.Int32Attribute{
-									Description:   "Port End. Must be at most 65535.",
+									Description:   "Optional end of the TCP/UDP port range, 0-65535. When 0 (default), only port_start is used. When non-zero, must be >= port_start. Must be at most 65535.",
 									Optional:      true,
 									Computed:      true,
 									PlanModifiers: []planmodifier.Int32{int32planmodifier.UseStateForUnknown()},
@@ -1241,29 +1241,29 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
 						Attributes: map[string]schema.Attribute{
 							"mtls": schema.StringAttribute{
-								Description:   "URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty.",
+								Description:   "URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.",
 								Computed:      true,
 								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 							"private_link_mtls": schema.StringAttribute{
-								Description:   "URL of the seed broker for private link with mTLS. If private link with mTLS is not enabled, the field is empty.",
+								Description:   "URL of the endpoint for private link with mTLS. If private link with mTLS is not enabled, the field is empty.",
 								Computed:      true,
 								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 							"private_link_sasl": schema.StringAttribute{
-								Description:   "URL of the seed broker for private link with SASL. If private link with SASL is not enabled, the field is empty.",
+								Description:   "URL of the endpoint for private link with SASL. If private link with SASL is not enabled, the field is empty.",
 								Computed:      true,
 								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 							"sasl": schema.StringAttribute{
-								Description:   "URL of the seed broker for SASL. If SASL is not enabled, the field is empty.",
+								Description:   "URL of the seed broker for SASL. If SASL is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.",
 								Computed:      true,
 								PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 							},
 						},
 					},
 					"url": schema.StringAttribute{
-						Description:   "Schema Registry URL.",
+						Description:   "Schema Registry URL. Deprecated: use connections[].endpoint instead.",
 						Computed:      true,
 						PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 					},

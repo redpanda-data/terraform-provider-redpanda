@@ -2724,14 +2724,53 @@ func ExpandUpdateCustomerManagedResourcesAWS(ctx context.Context, m *CustomerMan
 	return out, diags
 }
 
+// ExpandUpdateCustomerManagedResourcesGCPRpsqlAPIServiceAccount renders a nested model back into the proto type.
+func ExpandUpdateCustomerManagedResourcesGCPRpsqlAPIServiceAccount(_ context.Context, m *CustomerManagedResourcesGCPRpsqlAPIServiceAccountModel) (*controlplanev1.GCPServiceAccount, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.GCPServiceAccount{
+		Email: m.Email.ValueString(),
+	}
+	return out, diags
+}
+
+// ExpandUpdateCustomerManagedResourcesGCPRpsqlCloudStorageBucket renders a nested model back into the proto type.
+func ExpandUpdateCustomerManagedResourcesGCPRpsqlCloudStorageBucket(_ context.Context, m *CustomerManagedResourcesGCPRpsqlCloudStorageBucketModel) (*controlplanev1.CustomerManagedGoogleCloudStorageBucket, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedGoogleCloudStorageBucket{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// ExpandUpdateCustomerManagedResourcesGCPRpsqlServiceAccount renders a nested model back into the proto type.
+func ExpandUpdateCustomerManagedResourcesGCPRpsqlServiceAccount(_ context.Context, m *CustomerManagedResourcesGCPRpsqlServiceAccountModel) (*controlplanev1.GCPServiceAccount, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.GCPServiceAccount{
+		Email: m.Email.ValueString(),
+	}
+	return out, diags
+}
+
 // ExpandUpdateCustomerManagedResourcesGCP renders a nested model back into the proto type.
-func ExpandUpdateCustomerManagedResourcesGCP(_ context.Context, m *CustomerManagedResourcesGCPModel) (*controlplanev1.CustomerManagedResourcesUpdate_GCP, diag.Diagnostics) {
+func ExpandUpdateCustomerManagedResourcesGCP(ctx context.Context, m *CustomerManagedResourcesGCPModel) (*controlplanev1.CustomerManagedResourcesUpdate_GCP, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if m == nil {
 		return nil, diags
 	}
 	out := &controlplanev1.CustomerManagedResourcesUpdate_GCP{
-		PscNatSubnetName: m.PscNatSubnetName.ValueString(),
+		PscNatSubnetName:        m.PscNatSubnetName.ValueString(),
+		RpsqlApiServiceAccount:  modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlAPIServiceAccount, ExpandUpdateCustomerManagedResourcesGCPRpsqlAPIServiceAccount, &diags),
+		RpsqlCloudStorageBucket: modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlCloudStorageBucket, ExpandUpdateCustomerManagedResourcesGCPRpsqlCloudStorageBucket, &diags),
+		RpsqlServiceAccount:     modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlServiceAccount, ExpandUpdateCustomerManagedResourcesGCPRpsqlServiceAccount, &diags),
 	}
 	return out, diags
 }
