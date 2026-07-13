@@ -113,3 +113,8 @@ allow_deletion:
 # --- New proto fields (auto-added by schemagen -todo) ---
 ai_gateway:
   todo: true
+
+
+# --- New proto fields (auto-added by schemagen -todo) ---
+quota:
+  todo: true

@@ -406,9 +406,9 @@ Required:
 Optional:
 
 - `psc_nat_subnet_name` (String) NAT subnet name if GCP Private Service Connect (a.k.a Private Link) is enabled. If it is used for PSC v1, use psc_v2_nat_subnet_name to set NAT subnet name for PSC v2.
-- `rpsql_api_service_account` (Attributes) Rpsql API Service Account configuration (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_api_service_account))
-- `rpsql_cloud_storage_bucket` (Attributes) Rpsql Cloud Storage Bucket configuration (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_cloud_storage_bucket))
-- `rpsql_service_account` (Attributes) Rpsql Service Account configuration (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_service_account))
+- `rpsql_api_service_account` (Attributes) GCP service account. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_api_service_account))
+- `rpsql_cloud_storage_bucket` (Attributes) GCP storage bucket properties. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_cloud_storage_bucket))
+- `rpsql_service_account` (Attributes) GCP service account. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_service_account))
 
 <a id="nestedatt--customer_managed_resources--gcp--agent_service_account"></a>
 ### Nested Schema for `customer_managed_resources.gcp.agent_service_account`
@@ -490,7 +490,7 @@ Required:
 
 Required:
 
-- `email` (String) Email address for the rpsql API Service Account. Must be a valid email address.
+- `email` (String) GCP service account email. Must be a valid email address.
 
 
 <a id="nestedatt--customer_managed_resources--gcp--rpsql_cloud_storage_bucket"></a>
@@ -498,7 +498,7 @@ Required:
 
 Required:
 
-- `name` (String) Name of the rpsql Cloud Storage Bucket. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.
+- `name` (String) Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.
 
 
 <a id="nestedatt--customer_managed_resources--gcp--rpsql_service_account"></a>
@@ -506,7 +506,7 @@ Required:
 
 Required:
 
-- `email` (String) Email address for the rpsql Service Account. Must be a valid email address.
+- `email` (String) GCP service account email. Must be a valid email address.
 
 
 
@@ -571,7 +571,7 @@ Optional:
 Read-Only:
 
 - `all_urls` (Attributes) The endpoints of Redpanda HTTP Proxy or Schema Registry. (see [below for nested schema](#nestedatt--http_proxy--all_urls))
-- `url` (String) HTTP Proxy URL of cluster.
+- `url` (String) HTTP Proxy URL of cluster. Deprecated: use connections[].endpoint instead.
 
 <a id="nestedatt--http_proxy--mtls"></a>
 ### Nested Schema for `http_proxy.mtls`
@@ -596,10 +596,10 @@ Optional:
 
 Read-Only:
 
-- `mtls` (String) URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty.
-- `private_link_mtls` (String) URL of the seed broker for private link with mTLS. If private link with mTLS is not enabled, the field is empty.
-- `private_link_sasl` (String) URL of the seed broker for private link with SASL. If private link with SASL is not enabled, the field is empty.
-- `sasl` (String) URL of the seed broker for SASL. If SASL is not enabled, the field is empty.
+- `mtls` (String) URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.
+- `private_link_mtls` (String) URL of the endpoint for private link with mTLS. If private link with mTLS is not enabled, the field is empty.
+- `private_link_sasl` (String) URL of the endpoint for private link with SASL. If private link with SASL is not enabled, the field is empty.
+- `sasl` (String) URL of the seed broker for SASL. If SASL is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.
 
 
 
@@ -614,7 +614,7 @@ Optional:
 Read-Only:
 
 - `all_seed_brokers` (Attributes) Seed brokers of Redpanda Kafka API. (see [below for nested schema](#nestedatt--kafka_api--all_seed_brokers))
-- `seed_brokers` (List of String) Kafka API Seed Brokers (also known as Bootstrap servers).
+- `seed_brokers` (List of String) Kafka API Seed Brokers (also known as Bootstrap servers). Deprecated: use connections[].endpoint instead.
 
 <a id="nestedatt--kafka_api--mtls"></a>
 ### Nested Schema for `kafka_api.mtls`
@@ -639,10 +639,10 @@ Optional:
 
 Read-Only:
 
-- `mtls` (String) URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty.
+- `mtls` (String) URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.
 - `private_link_mtls` (String) URL of the seed broker for private link with mTLS. If private link with mTLS is not enabled, the field is empty.
 - `private_link_sasl` (String) URL of the seed broker for private link with SASL. If private link with SASL is not enabled, the field is empty.
-- `sasl` (String) URL of the seed broker for SASL. If SASL is not enabled, the field is empty.
+- `sasl` (String) URL of the seed broker for SASL. If SASL is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.
 
 
 
@@ -681,7 +681,7 @@ Optional:
 
 Optional:
 
-- `allowed_destination_cidr_ports` (Attributes List) List of allowed Destination CIDR Ports. Must have at most 16 items. (see [below for nested schema](#nestedatt--redpanda_connect--allowed_destination_cidr_ports))
+- `allowed_destination_cidr_ports` (Attributes List) Custom outbound destinations allowed for Connect pipelines. Maximum 16 entries. Must have at most 16 items. (see [below for nested schema](#nestedatt--redpanda_connect--allowed_destination_cidr_ports))
 
 Read-Only:
 
@@ -692,12 +692,12 @@ Read-Only:
 
 Required:
 
-- `cidr` (String) CIDR. Must match pattern `^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$`.
-- `port_start` (Number) Port Start. Must be between 1 and 65535 (inclusive).
+- `cidr` (String) CIDR notation, e.g. "10.5.0.0/16". Must be a valid IPv4 CIDR. Must match pattern `^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$`.
+- `port_start` (Number) Start of the TCP/UDP port range, 1-65535. Must be between 1 and 65535 (inclusive).
 
 Optional:
 
-- `port_end` (Number) Port End. Must be at most 65535.
+- `port_end` (Number) Optional end of the TCP/UDP port range, 0-65535. When 0 (default), only port_start is used. When non-zero, must be >= port_start. Must be at most 65535.
 
 
 
@@ -726,7 +726,7 @@ Optional:
 Read-Only:
 
 - `all_urls` (Attributes) The endpoints of Redpanda HTTP Proxy or Schema Registry. (see [below for nested schema](#nestedatt--schema_registry--all_urls))
-- `url` (String) Schema Registry URL.
+- `url` (String) Schema Registry URL. Deprecated: use connections[].endpoint instead.
 
 <a id="nestedatt--schema_registry--mtls"></a>
 ### Nested Schema for `schema_registry.mtls`
@@ -743,10 +743,10 @@ Optional:
 
 Read-Only:
 
-- `mtls` (String) URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty.
-- `private_link_mtls` (String) URL of the seed broker for private link with mTLS. If private link with mTLS is not enabled, the field is empty.
-- `private_link_sasl` (String) URL of the seed broker for private link with SASL. If private link with SASL is not enabled, the field is empty.
-- `sasl` (String) URL of the seed broker for SASL. If SASL is not enabled, the field is empty.
+- `mtls` (String) URL of the seed broker for mTLS. If mTLS is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.
+- `private_link_mtls` (String) URL of the endpoint for private link with mTLS. If private link with mTLS is not enabled, the field is empty.
+- `private_link_sasl` (String) URL of the endpoint for private link with SASL. If private link with SASL is not enabled, the field is empty.
+- `sasl` (String) URL of the seed broker for SASL. If SASL is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.
 
 
 

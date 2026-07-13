@@ -614,6 +614,25 @@ resource "redpanda_shadow_link" "test" {
 }
 `
 
+	// Explicit empty list: proto3 repeated erases empty-vs-absent on the
+	// wire, so a planned [] reads back as nil; ListCarryKnownEmpty in the
+	// generated flatten preserves the explicit empty.
+	cfg3 := `
+provider "redpanda" {}
+
+resource "redpanda_shadow_link" "test" {
+  name               = "tfrp-mock-sl-gf"
+  shadow_redpanda_id = "shadow-cluster-id-gf"
+  source_redpanda_id = "source-cluster-id-gf"
+  allow_deletion     = true
+  consumer_offset_sync_options = {
+    interval      = "30s"
+    paused        = false
+    group_filters = []
+  }
+}
+`
+
 	idStable := statecheck.CompareValue(compare.ValuesSame())
 
 	resource.UnitTest(t, resource.TestCase{
@@ -629,6 +648,15 @@ resource "redpanda_shadow_link" "test" {
 				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("consumer_offset_sync_options").AtMapKey("group_filters").AtSliceIndex(0).AtMapKey("filter_type"), knownvalue.StringExact("INCLUDE")),
 				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("consumer_offset_sync_options").AtMapKey("group_filters").AtSliceIndex(0).AtMapKey("pattern_type"), knownvalue.StringExact("LITERAL")),
 				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idStable.AddStateValue(shadowLinkAddr, tfjsonpath.New("id")),
+			}),
+			// Clear back to explicit []: red without the flatten carry.
+			integration.UpdateLeafStep(shadowLinkAddr, cfg3, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("consumer_offset_sync_options").AtMapKey("group_filters"), knownvalue.ListSizeExact(0)),
+				idStable.AddStateValue(shadowLinkAddr, tfjsonpath.New("id")),
+			}),
+			integration.NoopReapplyStep(shadowLinkAddr, cfg3, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("consumer_offset_sync_options").AtMapKey("group_filters"), knownvalue.ListSizeExact(0)),
 				idStable.AddStateValue(shadowLinkAddr, tfjsonpath.New("id")),
 			}),
 		},
