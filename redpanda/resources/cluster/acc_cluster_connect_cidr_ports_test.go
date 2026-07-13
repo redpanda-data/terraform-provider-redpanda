@@ -169,7 +169,7 @@ resource "redpanda_network" "test" {
   resource_group_id = %s
   cloud_provider    = "aws"
   region            = "us-east-2"
-  cluster_type      = "byoc"
+  cluster_type      = "dedicated"
   cidr_block        = "10.0.0.0/20"
   timeouts = { create = "20m", delete = "20m" }
 }`, name, rgRef)
@@ -190,10 +190,10 @@ resource "redpanda_cluster" "test" {
   region            = "us-east-2"
   zones             = ["use2-az1", "use2-az2", "use2-az3"]
   throughput_tier   = %q
-  cluster_type      = "byoc"
+  cluster_type      = "dedicated"
   connection_type   = "public"
   allow_deletion    = true
-  timeouts          = { create = "90m", update = "60m" }
+  timeouts          = { create = "150m", update = "60m" }
 %s
 }
 `, rgBlock, networkBlock, name, rgRef, networkRef, throughputTier, extra)

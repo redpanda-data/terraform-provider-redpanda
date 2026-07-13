@@ -488,6 +488,12 @@ steps:
       - test_byoc_aws
       - test_byovpc_aws
       - test_byoc_gcp
+      # The sweeper deletes anything named tfrp-* in the shared pre env, and
+      # the upgrade lanes create tfrp-upgrade-* clusters that take ~45m to
+      # provision. Running cleanup while an upgrade job (or its retry) is
+      # mid-create kills the cluster under it (build 1455).
+      - test_upgrade
+      - test_upgrade_serverless
     allow_dependency_failure: true
     soft_fail: true
     retry:
