@@ -623,3 +623,6 @@ redpanda_connect:
         port_end:
           optional: true
           computed: true
+          # CP stores 0 but echoes port_end=port_start on read; a known 0 in
+          # the plan can never survive apply. Omit port_end for single-port.
+          validator: "Int32AtLeast{n: 1}"

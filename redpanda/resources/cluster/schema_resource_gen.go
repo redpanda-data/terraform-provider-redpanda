@@ -20,6 +20,7 @@ package cluster
 import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -1147,6 +1148,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 									Optional:      true,
 									Computed:      true,
 									PlanModifiers: []planmodifier.Int32{int32planmodifier.UseStateForUnknown()},
+									Validators:    []validator.Int32{int32validator.AtLeast(1)},
 								},
 							},
 						},
