@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -92,7 +93,19 @@ func TestAcc_Cluster_RedpandaConnect_CidrPorts(t *testing.T) {
 					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 				},
 			},
-			// Step 2: remove one rule — in-place update, no cluster recreation.
+			// Step 2: explicit port_end=0 is rejected at plan time (live CP
+			// echoes port_end=port_start for a stored 0, so a known 0 can
+			// never survive apply). Plan-only failure; cluster untouched.
+			{
+				Config: cidrPortsConfig(name, throughputTier, resourceGroupID, networkID, `
+    redpanda_connect = {
+      allowed_destination_cidr_ports = [
+        { cidr = "10.0.0.0/16", port_start = 5432, port_end = 0 },
+      ]
+    }`),
+				ExpectError: regexp.MustCompile(`port_end value\s+must be at least 1`),
+			},
+			// Step 3: remove one rule — in-place update, no cluster recreation.
 			{
 				Config: cidrPortsConfig(name, throughputTier, resourceGroupID, networkID, `
     redpanda_connect = {

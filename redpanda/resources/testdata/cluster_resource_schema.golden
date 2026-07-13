@@ -979,6 +979,8 @@ attributes:
               type: Int32Attribute
               optional: true
               computed: true
+              validators:
+                - int32validator.atLeastValidator
               plan_modifiers:
                 - int32planmodifier.useStateForUnknownModifier
             - name: port_start

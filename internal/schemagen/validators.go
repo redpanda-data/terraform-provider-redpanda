@@ -122,6 +122,18 @@ var validatorRegistry = map[string]ValidatorDef{
 		},
 		AttrType: "String",
 	},
+	"Int32AtLeast": {
+		Parameterized: true,
+		GenFunc: func(_ string, params map[string]string) (string, []string) {
+			n := params["n"]
+			if n == "" {
+				n = "1"
+			}
+			return fmt.Sprintf("int32validator.AtLeast(%s)", n),
+				[]string{"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"}
+		},
+		AttrType: "Int32",
+	},
 	"MemorySharesValidator": {
 		Expr:     "validators.MemorySharesValidator{}",
 		Imports:  []string{validatorsImport},

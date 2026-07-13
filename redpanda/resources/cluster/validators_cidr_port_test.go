@@ -16,11 +16,15 @@
 package cluster
 
 import (
+	"context"
 	"strings"
 	"testing"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	rpvalidate "github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils/protovalidate"
 )
 
@@ -30,8 +34,8 @@ import (
 //	this.port_end == 0 || this.port_end >= this.port_start
 //
 // is enforced by rpvalidate.Validate (the same function the protoValidator
-// calls at plan time). No separate attribute-level validator is needed
-// because ConfigValidators already covers this constraint.
+// calls at plan time). The CEL rule permits 0; the attribute-level
+// Int32AtLeast(1) guard for explicit 0 is pinned separately below.
 func TestCidrPortPortEndProtoValidation(t *testing.T) {
 	cases := []struct {
 		name      string
@@ -104,5 +108,45 @@ func TestCidrPortPortEndProtoValidation(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestCidrPortPortEndSchemaRejectsExplicitZero pins the plan-time guard for
+// explicit port_end = 0. The live control plane stores 0 but echoes
+// port_end = port_start on every read (cloudv2 cidrPortsInternalToPublic),
+// so a known 0 in the plan is a guaranteed "inconsistent result after apply".
+// Single-port rules are expressed by omitting port_end.
+func TestCidrPortPortEndSchemaRejectsExplicitZero(t *testing.T) {
+	ctx := context.Background()
+	s := ResourceClusterSchema(ctx)
+
+	rc, ok := s.Attributes["redpanda_connect"].(schema.SingleNestedAttribute)
+	if !ok {
+		t.Fatal("redpanda_connect attribute missing or wrong type")
+	}
+	list, ok := rc.Attributes["allowed_destination_cidr_ports"].(schema.ListNestedAttribute)
+	if !ok {
+		t.Fatal("allowed_destination_cidr_ports attribute missing or wrong type")
+	}
+	portEnd, ok := list.NestedObject.Attributes["port_end"].(schema.Int32Attribute)
+	if !ok {
+		t.Fatal("port_end attribute missing or wrong type")
+	}
+
+	req := validator.Int32Request{
+		Path: path.Root("redpanda_connect").AtName("allowed_destination_cidr_ports").
+			AtListIndex(0).AtName("port_end"),
+		ConfigValue: types.Int32Value(0),
+	}
+	errored := false
+	for _, v := range portEnd.Int32Validators() {
+		resp := &validator.Int32Response{}
+		v.ValidateInt32(ctx, req, resp)
+		if resp.Diagnostics.HasError() {
+			errored = true
+		}
+	}
+	if !errored {
+		t.Fatal("explicit port_end=0 must be rejected at plan time; no schema validator errored")
 	}
 }

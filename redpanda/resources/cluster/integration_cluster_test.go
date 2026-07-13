@@ -2710,6 +2710,20 @@ func TestIntegration_Cluster_CidrPortInvalidRange(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: factories,
 		Steps: []resource.TestStep{
+			// Explicit port_end=0 is a plan-time error: the control plane
+			// stores 0 but echoes port_end=port_start on read, so a known 0
+			// in the plan can never survive apply. Omit port_end for a
+			// single-port rule. (Ordered first: the framework's post-test
+			// destroy re-plans the last step's config, and attribute
+			// validators run on that path while ConfigValidators do not.)
+			{
+				Config: awsDedicatedConfig("explicit-zero", `redpanda_connect = {
+    allowed_destination_cidr_ports = [
+      { cidr = "10.0.0.0/16", port_start = 5432, port_end = 0 },
+    ]
+  }`),
+				ExpectError: regexp.MustCompile(`port_end value\s+must be at least 1`),
+			},
 			{
 				Config: awsDedicatedConfig("invalid-range", `redpanda_connect = {
     allowed_destination_cidr_ports = [
