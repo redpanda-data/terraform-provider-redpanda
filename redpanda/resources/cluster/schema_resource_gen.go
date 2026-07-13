@@ -400,38 +400,35 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 							},
 							"rpsql_api_service_account": schema.SingleNestedAttribute{
-								Description:   "GCP service account.",
-								Optional:      true,
-								Computed:      true,
-								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+								Description: "GCP service account.",
+								Optional:    true,
 								Attributes: map[string]schema.Attribute{
 									"email": schema.StringAttribute{
-										Description: "GCP service account email. Must be a valid email address.",
-										Required:    true,
+										Description:   "GCP service account email. Must be a valid email address.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
 							"rpsql_cloud_storage_bucket": schema.SingleNestedAttribute{
-								Description:   "GCP storage bucket properties.",
-								Optional:      true,
-								Computed:      true,
-								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+								Description: "GCP storage bucket properties.",
+								Optional:    true,
 								Attributes: map[string]schema.Attribute{
 									"name": schema.StringAttribute{
-										Description: "Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.",
-										Required:    true,
+										Description:   "Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
 							"rpsql_service_account": schema.SingleNestedAttribute{
-								Description:   "GCP service account.",
-								Optional:      true,
-								Computed:      true,
-								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+								Description: "GCP service account.",
+								Optional:    true,
 								Attributes: map[string]schema.Attribute{
 									"email": schema.StringAttribute{
-										Description: "GCP service account email. Must be a valid email address.",
-										Required:    true,
+										Description:   "GCP service account email. Must be a valid email address.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
