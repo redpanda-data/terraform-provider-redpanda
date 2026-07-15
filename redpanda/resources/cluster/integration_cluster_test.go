@@ -377,7 +377,11 @@ resource "redpanda_cluster" "test" {
         secondary_ipv4_range_pods     = { name = "pods-range" }
         secondary_ipv4_range_services = { name = "svc-range" }
       }
-      tiered_storage_bucket = { name = "tfrp-tiered-bucket" }%s
+      tiered_storage_bucket       = { name = "tfrp-tiered-bucket" }
+      rpsql_api_service_account   = { email = "rpsql-api@tfrp-proj.iam.gserviceaccount.com" }
+      rpsql_service_account       = { email = "rpsql@tfrp-proj.iam.gserviceaccount.com" }
+      rpsql_cloud_storage_bucket  = { name = "tfrp-rpsql-storage" }
+      rpsql_secret_manager_prefix = "tfrp-rpsql-"%s
     }
   }
 }
@@ -774,6 +778,18 @@ func TestIntegration_Cluster_CreateAndRefresh_GCP_BYOVPC(t *testing.T) {
 				statecheck.ExpectKnownValue(clusterAddr,
 					tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("tiered_storage_bucket").AtMapKey("name"),
 					knownvalue.StringExact("tfrp-tiered-bucket")),
+				statecheck.ExpectKnownValue(clusterAddr,
+					tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("rpsql_api_service_account").AtMapKey("email"),
+					knownvalue.StringExact("rpsql-api@tfrp-proj.iam.gserviceaccount.com")),
+				statecheck.ExpectKnownValue(clusterAddr,
+					tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("rpsql_service_account").AtMapKey("email"),
+					knownvalue.StringExact("rpsql@tfrp-proj.iam.gserviceaccount.com")),
+				statecheck.ExpectKnownValue(clusterAddr,
+					tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("rpsql_cloud_storage_bucket").AtMapKey("name"),
+					knownvalue.StringExact("tfrp-rpsql-storage")),
+				statecheck.ExpectKnownValue(clusterAddr,
+					tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("rpsql_secret_manager_prefix"),
+					knownvalue.StringExact("tfrp-rpsql-")),
 				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("state"), knownvalue.StringExact("STATE_READY")),
 				idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
