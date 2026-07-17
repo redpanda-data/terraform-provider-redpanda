@@ -99,8 +99,6 @@ customer_managed_resources:
           todo: true
         redpanda_operator_service_account:
           todo: true
-        rpsql_secret_manager_prefix:
-          todo: true
     aws:
       fields:
         rpsql_node_group_instance_profile:

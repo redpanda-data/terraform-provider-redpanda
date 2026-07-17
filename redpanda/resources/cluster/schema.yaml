@@ -323,7 +323,6 @@ customer_managed_resources:
         rpsql_secret_manager_prefix:
           computed: false
           optional: true
-          plan_modifiers: [RequiresReplace]
         rpsql_service_account:
           computed: false
           optional: true

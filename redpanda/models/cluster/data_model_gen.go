@@ -330,6 +330,7 @@ type DataCustomerManagedResourcesGCPModel struct {
 	RedpandaClusterServiceAccount types.Object `tfsdk:"redpanda_cluster_service_account"`
 	RpsqlAPIServiceAccount        types.Object `tfsdk:"rpsql_api_service_account"`
 	RpsqlCloudStorageBucket       types.Object `tfsdk:"rpsql_cloud_storage_bucket"`
+	RpsqlSecretManagerPrefix      types.String `tfsdk:"rpsql_secret_manager_prefix"`
 	RpsqlServiceAccount           types.Object `tfsdk:"rpsql_service_account"`
 	Subnet                        types.Object `tfsdk:"subnet"`
 	TieredStorageBucket           types.Object `tfsdk:"tiered_storage_bucket"`
@@ -937,6 +938,7 @@ func DataCustomerManagedResourcesGCPAttrTypes() map[string]attr.Type {
 		"redpanda_cluster_service_account": types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPRedpandaClusterServiceAccountAttrTypes()},
 		"rpsql_api_service_account":        types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPRpsqlAPIServiceAccountAttrTypes()},
 		"rpsql_cloud_storage_bucket":       types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPRpsqlCloudStorageBucketAttrTypes()},
+		"rpsql_secret_manager_prefix":      types.StringType,
 		"rpsql_service_account":            types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPRpsqlServiceAccountAttrTypes()},
 		"subnet":                           types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPSubnetAttrTypes()},
 		"tiered_storage_bucket":            types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPTieredStorageBucketAttrTypes()},

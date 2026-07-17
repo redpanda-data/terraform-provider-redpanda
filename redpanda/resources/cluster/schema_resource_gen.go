@@ -422,9 +422,8 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								},
 							},
 							"rpsql_secret_manager_prefix": schema.StringAttribute{
-								Description:   "GCP Secret Manager prefix for Redpanda SQL Iceberg catalog credentials. Required when configuring an Iceberg catalog on a BYOVPC cluster. The prefix should be a resource path of the form \"projects/PROJECT/secrets/PREFIX\" where the rpsql API service account has been granted access to all secrets under that prefix.",
-								Optional:      true,
-								PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+								Description: "GCP Secret Manager prefix for Redpanda SQL Iceberg catalog credentials. Required when configuring an Iceberg catalog on a BYOVPC cluster. The prefix should be a resource path of the form \"projects/PROJECT/secrets/PREFIX\" where the rpsql API service account has been granted access to all secrets under that prefix.",
+								Optional:    true,
 							},
 							"rpsql_service_account": schema.SingleNestedAttribute{
 								Description: "GCP service account.",

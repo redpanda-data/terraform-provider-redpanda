@@ -354,6 +354,7 @@ Read-Only:
 - `redpanda_cluster_service_account` (Attributes) GCP service account. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--redpanda_cluster_service_account))
 - `rpsql_api_service_account` (Attributes) GCP service account. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_api_service_account))
 - `rpsql_cloud_storage_bucket` (Attributes) GCP storage bucket properties. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_cloud_storage_bucket))
+- `rpsql_secret_manager_prefix` (String) GCP Secret Manager prefix for Redpanda SQL Iceberg catalog credentials. Required when configuring an Iceberg catalog on a BYOVPC cluster. The prefix should be a resource path of the form "projects/PROJECT/secrets/PREFIX" where the rpsql API service account has been granted access to all secrets under that prefix.
 - `rpsql_service_account` (Attributes) GCP service account. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_service_account))
 - `subnet` (Attributes) GCP subnet properties. See the official [GCP API reference](https://cloud.google.com/compute/docs/reference/rest/v1/subnetworks). (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--subnet))
 - `tiered_storage_bucket` (Attributes) GCP storage bucket properties. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--tiered_storage_bucket))

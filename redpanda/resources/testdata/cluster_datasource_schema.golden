@@ -359,6 +359,9 @@ attributes:
                 - name: name
                   type: StringAttribute
                   computed: true
+            - name: rpsql_secret_manager_prefix
+              type: StringAttribute
+              computed: true
             - name: rpsql_service_account
               type: SingleNestedAttribute
               computed: true
