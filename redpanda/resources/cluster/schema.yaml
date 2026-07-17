@@ -320,6 +320,10 @@ customer_managed_resources:
             name:
               plan_modifiers: [RequiresReplace]
               required: true
+        rpsql_secret_manager_prefix:
+          computed: false
+          optional: true
+          plan_modifiers: [RequiresReplace]
         rpsql_service_account:
           computed: false
           optional: true
@@ -362,8 +366,6 @@ customer_managed_resources:
         redpanda_connect_service_account:
           todo: true
         redpanda_operator_service_account:
-          todo: true
-        rpsql_secret_manager_prefix:
           todo: true
     azure:
       todo: true
