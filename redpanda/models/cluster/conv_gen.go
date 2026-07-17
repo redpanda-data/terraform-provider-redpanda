@@ -940,6 +940,13 @@ func FlattenCustomerManagedResourcesGCP(ctx context.Context, proto *controlplane
 		v, _ := DecodeCustomerManagedResourcesGCPRpsqlCloudStorageBucket(ctx, prev)
 		return v
 	}(), CustomerManagedResourcesGCPRpsqlCloudStorageBucketAttrTypes(), FlattenCustomerManagedResourcesGCPRpsqlCloudStorageBucket, &diags)
+	if v := proto.GetRpsqlSecretManagerPrefix(); v != "" {
+		m.RpsqlSecretManagerPrefix = types.StringValue(v)
+	} else if prev != nil && !prev.RpsqlSecretManagerPrefix.IsUnknown() {
+		m.RpsqlSecretManagerPrefix = prev.RpsqlSecretManagerPrefix
+	} else {
+		m.RpsqlSecretManagerPrefix = types.StringNull()
+	}
 	m.RpsqlServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpsqlServiceAccount(), func() *CustomerManagedResourcesGCPRpsqlServiceAccountModel {
 		v, _ := DecodeCustomerManagedResourcesGCPRpsqlServiceAccount(ctx, prev)
 		return v
@@ -964,6 +971,7 @@ func ExpandCustomerManagedResourcesGCP(ctx context.Context, m *CustomerManagedRe
 		PscNatSubnetName:              m.PscNatSubnetName.ValueString(),
 		RpsqlApiServiceAccount:        modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlAPIServiceAccount, ExpandCustomerManagedResourcesGCPRpsqlAPIServiceAccount, &diags),
 		RpsqlCloudStorageBucket:       modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlCloudStorageBucket, ExpandCustomerManagedResourcesGCPRpsqlCloudStorageBucket, &diags),
+		RpsqlSecretManagerPrefix:      m.RpsqlSecretManagerPrefix.ValueString(),
 		RpsqlServiceAccount:           modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlServiceAccount, ExpandCustomerManagedResourcesGCPRpsqlServiceAccount, &diags),
 	}
 	return out, diags
@@ -2767,10 +2775,11 @@ func ExpandUpdateCustomerManagedResourcesGCP(ctx context.Context, m *CustomerMan
 		return nil, diags
 	}
 	out := &controlplanev1.CustomerManagedResourcesUpdate_GCP{
-		PscNatSubnetName:        m.PscNatSubnetName.ValueString(),
-		RpsqlApiServiceAccount:  modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlAPIServiceAccount, ExpandUpdateCustomerManagedResourcesGCPRpsqlAPIServiceAccount, &diags),
-		RpsqlCloudStorageBucket: modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlCloudStorageBucket, ExpandUpdateCustomerManagedResourcesGCPRpsqlCloudStorageBucket, &diags),
-		RpsqlServiceAccount:     modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlServiceAccount, ExpandUpdateCustomerManagedResourcesGCPRpsqlServiceAccount, &diags),
+		PscNatSubnetName:         m.PscNatSubnetName.ValueString(),
+		RpsqlApiServiceAccount:   modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlAPIServiceAccount, ExpandUpdateCustomerManagedResourcesGCPRpsqlAPIServiceAccount, &diags),
+		RpsqlCloudStorageBucket:  modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlCloudStorageBucket, ExpandUpdateCustomerManagedResourcesGCPRpsqlCloudStorageBucket, &diags),
+		RpsqlSecretManagerPrefix: m.RpsqlSecretManagerPrefix.ValueString(),
+		RpsqlServiceAccount:      modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlServiceAccount, ExpandUpdateCustomerManagedResourcesGCPRpsqlServiceAccount, &diags),
 	}
 	return out, diags
 }
