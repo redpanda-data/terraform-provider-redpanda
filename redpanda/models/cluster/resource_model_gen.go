@@ -247,6 +247,7 @@ type CustomerManagedResourcesGCPModel struct {
 	PscNatSubnetName              types.String `tfsdk:"psc_nat_subnet_name"`
 	RpsqlAPIServiceAccount        types.Object `tfsdk:"rpsql_api_service_account"`
 	RpsqlCloudStorageBucket       types.Object `tfsdk:"rpsql_cloud_storage_bucket"`
+	RpsqlSecretManagerPrefix      types.String `tfsdk:"rpsql_secret_manager_prefix"`
 	RpsqlServiceAccount           types.Object `tfsdk:"rpsql_service_account"`
 }
 
@@ -878,6 +879,7 @@ func CustomerManagedResourcesGCPAttrTypes() map[string]attr.Type {
 		"psc_nat_subnet_name":              types.StringType,
 		"rpsql_api_service_account":        types.ObjectType{AttrTypes: CustomerManagedResourcesGCPRpsqlAPIServiceAccountAttrTypes()},
 		"rpsql_cloud_storage_bucket":       types.ObjectType{AttrTypes: CustomerManagedResourcesGCPRpsqlCloudStorageBucketAttrTypes()},
+		"rpsql_secret_manager_prefix":      types.StringType,
 		"rpsql_service_account":            types.ObjectType{AttrTypes: CustomerManagedResourcesGCPRpsqlServiceAccountAttrTypes()},
 	}
 }
