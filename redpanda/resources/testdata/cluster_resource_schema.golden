@@ -562,8 +562,6 @@ attributes:
             - name: rpsql_secret_manager_prefix
               type: StringAttribute
               optional: true
-              plan_modifiers:
-                - stringplanmodifier.requiresReplaceIfModifier
             - name: rpsql_service_account
               type: SingleNestedAttribute
               optional: true

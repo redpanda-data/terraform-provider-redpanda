@@ -1076,6 +1076,7 @@ func FlattenDataCustomerManagedResourcesGCP(ctx context.Context, proto *controlp
 		v, _ := DecodeDataCustomerManagedResourcesGCPRpsqlCloudStorageBucket(ctx, prev)
 		return v
 	}(), DataCustomerManagedResourcesGCPRpsqlCloudStorageBucketAttrTypes(), FlattenDataCustomerManagedResourcesGCPRpsqlCloudStorageBucket, &diags)
+	m.RpsqlSecretManagerPrefix = types.StringValue(proto.GetRpsqlSecretManagerPrefix())
 	m.RpsqlServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpsqlServiceAccount(), func() *DataCustomerManagedResourcesGCPRpsqlServiceAccountModel {
 		v, _ := DecodeDataCustomerManagedResourcesGCPRpsqlServiceAccount(ctx, prev)
 		return v
@@ -1106,6 +1107,7 @@ func ExpandDataCustomerManagedResourcesGCP(ctx context.Context, m *DataCustomerM
 		RedpandaClusterServiceAccount: modelconv.ObjectToMessageWithDiags(ctx, m.RedpandaClusterServiceAccount, ExpandDataCustomerManagedResourcesGCPRedpandaClusterServiceAccount, &diags),
 		RpsqlApiServiceAccount:        modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlAPIServiceAccount, ExpandDataCustomerManagedResourcesGCPRpsqlAPIServiceAccount, &diags),
 		RpsqlCloudStorageBucket:       modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlCloudStorageBucket, ExpandDataCustomerManagedResourcesGCPRpsqlCloudStorageBucket, &diags),
+		RpsqlSecretManagerPrefix:      m.RpsqlSecretManagerPrefix.ValueString(),
 		RpsqlServiceAccount:           modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlServiceAccount, ExpandDataCustomerManagedResourcesGCPRpsqlServiceAccount, &diags),
 		Subnet:                        modelconv.ObjectToMessageWithDiags(ctx, m.Subnet, ExpandDataCustomerManagedResourcesGCPSubnet, &diags),
 		TieredStorageBucket:           modelconv.ObjectToMessageWithDiags(ctx, m.TieredStorageBucket, ExpandDataCustomerManagedResourcesGCPTieredStorageBucket, &diags),
