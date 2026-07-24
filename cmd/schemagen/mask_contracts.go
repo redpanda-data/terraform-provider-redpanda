@@ -28,13 +28,23 @@ import (
 var maskContracts = map[string]*schemagen.MaskContract{
 	"cluster": {
 		TopLevel: clustermask.AcceptedTopLevel,
-		Leaf:     leafKeys(clustermask.LeafExpansions),
+		// customer_managed_resources is updatable only at leaf granularity, via
+		// the data-dependent clustermask.ExpandCustomerManagedResourceLeaves (not
+		// a static LeafExpansions entry, which would wrongly expand it
+		// unconditionally). Listing it here tells the RequiresReplace derivation
+		// the top-level object is updatable so it is not auto-marked
+		// RequiresReplace; its immutable child leaves keep their yaml-owned
+		// RequiresReplace.
+		Leaf: leafKeys(clustermask.LeafExpansions, "customer_managed_resources"),
 	},
 }
 
-func leafKeys(m map[string][]string) map[string]bool {
-	out := make(map[string]bool, len(m))
+func leafKeys(m map[string][]string, extra ...string) map[string]bool {
+	out := make(map[string]bool, len(m)+len(extra))
 	for k := range m {
+		out[k] = true
+	}
+	for _, k := range extra {
 		out[k] = true
 	}
 	return out

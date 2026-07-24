@@ -190,6 +190,15 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// customer_managed_resources is accepted only at specific leaf paths, and only
+	// for the changed control-plane-updatable leaves; expand the bare top-level
+	// entry the diff emits into those (see internal/clustermask).
+	statePayload, stateDiags := clustermodel.ExpandUpdate(ctx, &state)
+	resp.Diagnostics.Append(stateDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	clustermask.ExpandCustomerManagedResourceLeaves(mask, diffedPayload.GetCustomerManagedResources(), statePayload.GetCustomerManagedResources())
 	// The public-API mapper accepts rpsql and kafka_connect only at leaf
 	// granularity, not the top-level path the diff emits, so expand those before
 	// the request (see internal/clustermask).
