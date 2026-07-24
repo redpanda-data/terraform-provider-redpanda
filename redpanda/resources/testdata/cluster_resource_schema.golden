@@ -350,14 +350,10 @@ attributes:
     - name: customer_managed_resources
       type: SingleNestedAttribute
       optional: true
-      plan_modifiers:
-        - objectplanmodifier.requiresReplaceIfModifier
       attributes:
         - name: aws
           type: SingleNestedAttribute
           optional: true
-          plan_modifiers:
-            - objectplanmodifier.requiresReplaceIfModifier
           attributes:
             - name: agent_instance_profile
               type: SingleNestedAttribute
@@ -366,6 +362,8 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
             - name: cloud_storage_bucket
               type: SingleNestedAttribute
               required: true
@@ -373,6 +371,8 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
             - name: cluster_security_group
               type: SingleNestedAttribute
               required: true
@@ -380,6 +380,8 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
             - name: connectors_node_group_instance_profile
               type: SingleNestedAttribute
               required: true
@@ -387,6 +389,8 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
             - name: connectors_security_group
               type: SingleNestedAttribute
               required: true
@@ -394,6 +398,8 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
             - name: k8s_cluster_role
               type: SingleNestedAttribute
               required: true
@@ -401,6 +407,8 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
             - name: node_security_group
               type: SingleNestedAttribute
               required: true
@@ -408,6 +416,8 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
             - name: permissions_boundary_policy
               type: SingleNestedAttribute
               required: true
@@ -415,6 +425,8 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
             - name: redpanda_agent_security_group
               type: SingleNestedAttribute
               required: true
@@ -422,6 +434,8 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
             - name: redpanda_connect_node_group_instance_profile
               type: SingleNestedAttribute
               optional: true
@@ -443,6 +457,8 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
             - name: redpanda_node_group_security_group
               type: SingleNestedAttribute
               required: true
@@ -450,6 +466,8 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
             - name: rpsql_cloud_storage_bucket
               type: SingleNestedAttribute
               optional: true
@@ -478,6 +496,8 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
             - name: utility_security_group
               type: SingleNestedAttribute
               required: true
@@ -485,11 +505,11 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
         - name: gcp
           type: SingleNestedAttribute
           optional: true
-          plan_modifiers:
-            - objectplanmodifier.requiresReplaceIfModifier
           attributes:
             - name: agent_service_account
               type: SingleNestedAttribute
@@ -530,8 +550,6 @@ attributes:
             - name: psc_nat_subnet_name
               type: StringAttribute
               optional: true
-              plan_modifiers:
-                - stringplanmodifier.requiresReplaceIfModifier
             - name: redpanda_cluster_service_account
               type: SingleNestedAttribute
               required: true
@@ -548,8 +566,6 @@ attributes:
                 - name: email
                   type: StringAttribute
                   required: true
-                  plan_modifiers:
-                    - stringplanmodifier.requiresReplaceIfModifier
             - name: rpsql_cloud_storage_bucket
               type: SingleNestedAttribute
               optional: true
@@ -557,8 +573,6 @@ attributes:
                 - name: name
                   type: StringAttribute
                   required: true
-                  plan_modifiers:
-                    - stringplanmodifier.requiresReplaceIfModifier
             - name: rpsql_secret_manager_prefix
               type: StringAttribute
               optional: true
@@ -569,8 +583,6 @@ attributes:
                 - name: email
                   type: StringAttribute
                   required: true
-                  plan_modifiers:
-                    - stringplanmodifier.requiresReplaceIfModifier
             - name: subnet
               type: SingleNestedAttribute
               required: true
