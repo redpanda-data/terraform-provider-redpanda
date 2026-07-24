@@ -180,6 +180,46 @@ resource "redpanda_cluster" "test" {
 `, name, body)
 }
 
+// azureDedicatedConfig returns the Azure dedicated baseline HCL with the given
+// cluster name and optional extra cluster body lines. The fake does not enforce
+// cloud-specific requirements, so this mirrors awsDedicatedConfig with the
+// azure provider/region/tier.
+func azureDedicatedConfig(name string, extra ...string) string {
+	body := ""
+	for _, e := range extra {
+		body += "\n  " + e
+	}
+	return fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-cl-rg"
+}
+
+resource "redpanda_network" "test" {
+  name              = "tfrp-mock-cl-net"
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = "azure"
+  region            = "eastus"
+  cluster_type      = "dedicated"
+  cidr_block        = "10.0.0.0/20"
+}
+
+resource "redpanda_cluster" "test" {
+  name              = %q
+  resource_group_id = redpanda_resource_group.test.id
+  network_id        = redpanda_network.test.id
+  cloud_provider    = "azure"
+  region            = "eastus"
+  zones             = ["eastus-az1"]
+  throughput_tier   = "tier-1-azure-v3-x86"
+  cluster_type      = "dedicated"
+  connection_type   = "public"
+  allow_deletion    = true%s
+}
+`, name, body)
+}
+
 // gcpDedicatedConfig returns the GCP dedicated baseline HCL.
 func gcpDedicatedConfig(name string, extra ...string) string {
 	body := ""
@@ -1379,6 +1419,49 @@ func TestIntegration_Cluster_UpdateLeaf_AWSPrivateLink_Enabled(t *testing.T) {
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr,
 						tfjsonpath.New("aws_private_link").AtMapKey("enabled"), knownvalue.Bool(true)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+		},
+	})
+}
+
+// TestIntegration_Cluster_UpdateLeaf_AzurePrivateLink_Enabled toggles
+// azure_private_link.enabled in place. Regression guard for the fake's
+// azure_private_link update path: azure_private_link's ClusterUpdate wire type
+// differs from the read shape, so the mask must be applied by an explicit case
+// rather than the panic-prone default reflection branch.
+func TestIntegration_Cluster_UpdateLeaf_AzurePrivateLink_Enabled(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-b13a"
+
+	idPreserved := statecheck.CompareValue(compare.ValuesSame())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				azureDedicatedConfig(name, `azure_private_link = {
+  enabled               = false
+  connect_console       = false
+  allowed_subscriptions = ["00000000-0000-0000-0000-000000000000"]
+}`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("azure_private_link").AtMapKey("enabled"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			integration.UpdateLeafStep(clusterAddr,
+				azureDedicatedConfig(name, `azure_private_link = {
+  enabled               = true
+  connect_console       = false
+  allowed_subscriptions = ["00000000-0000-0000-0000-000000000000"]
+}`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("azure_private_link").AtMapKey("enabled"), knownvalue.Bool(true)),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),

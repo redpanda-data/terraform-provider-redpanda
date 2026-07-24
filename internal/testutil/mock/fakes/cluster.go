@@ -197,6 +197,14 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 			ConsumerAcceptList:  append([]*controlplanev1.GCPPrivateServiceConnectConsumer(nil), spec.GetConsumerAcceptList()...),
 		})
 	}
+	if in.HasAzurePrivateLink() {
+		spec := in.GetAzurePrivateLink()
+		cl.SetAzurePrivateLink(&controlplanev1.Cluster_AzurePrivateLink{
+			Enabled:              spec.GetEnabled(),
+			AllowedSubscriptions: append([]string(nil), spec.GetAllowedSubscriptions()...),
+			ConnectConsole:       spec.GetConnectConsole(),
+		})
+	}
 	if in.HasRpsql() {
 		cl.SetRpsql(rpsqlStatus(in.GetRpsql(), in.GetZones()))
 	}
@@ -306,6 +314,19 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 					AllowedPrincipals: append([]string(nil), spec.GetAllowedPrincipals()...),
 					ConnectConsole:    spec.GetConnectConsole(),
 					SupportedRegions:  append([]string(nil), spec.GetSupportedRegions()...),
+				})
+			}
+		case "azure_private_link":
+			// azure_private_link's ClusterUpdate wire type (AzurePrivateLinkSpec)
+			// differs from the read Cluster_AzurePrivateLink, so it needs an
+			// explicit case — the default reflection branch would panic setting a
+			// mismatched message type (as it does for aws/gcp private link).
+			if upd.HasAzurePrivateLink() {
+				spec := upd.GetAzurePrivateLink()
+				cl.SetAzurePrivateLink(&controlplanev1.Cluster_AzurePrivateLink{
+					Enabled:              spec.GetEnabled(),
+					AllowedSubscriptions: append([]string(nil), spec.GetAllowedSubscriptions()...),
+					ConnectConsole:       spec.GetConnectConsole(),
 				})
 			}
 		case "rpsql.enabled", "rpsql.replicas", "rpsql.zones":
