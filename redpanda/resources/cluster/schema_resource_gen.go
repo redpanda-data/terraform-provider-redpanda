@@ -502,14 +502,14 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						Description:   "List of supported regions in cross-region AWS PrivateLink. Must have at most 50 items. Items must be unique.",
 						Optional:      true,
 						Computed:      true,
-						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.List{privateLinkListPin()},
 						Validators:    []validator.List{listvalidator.SizeAtMost(50), listvalidator.UniqueValues()},
 						ElementType:   types.StringType,
 					},
 					"status": schema.SingleNestedAttribute{
 						Description:   "Status configuration",
 						Computed:      true,
-						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
+						PlanModifiers: []planmodifier.Object{privateLinkStatusPin()},
 						Attributes: map[string]schema.Attribute{
 							"console_port": schema.Int32Attribute{
 								Description:   "The port of Redpanda Console.",
@@ -637,7 +637,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 					"status": schema.SingleNestedAttribute{
 						Description:   "Status configuration",
 						Computed:      true,
-						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
+						PlanModifiers: []planmodifier.Object{privateLinkStatusPin()},
 						Attributes: map[string]schema.Attribute{
 							"approved_subscriptions": schema.ListAttribute{
 								Description:   "These are the approved subscriptions on the private link",
@@ -842,7 +842,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 					"status": schema.SingleNestedAttribute{
 						Description:   "Status configuration",
 						Computed:      true,
-						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
+						PlanModifiers: []planmodifier.Object{privateLinkStatusPin()},
 						Attributes: map[string]schema.Attribute{
 							"connected_endpoints": schema.ListNestedAttribute{
 								Description:   "List of VPC endpoints with established connections to GCP Private Service Connect.",

@@ -34,7 +34,7 @@ attributes:
           type: SingleNestedAttribute
           computed: true
           plan_modifiers:
-            - objectplanmodifier.useNonNullStateForUnknown
+            - cluster.nullObjectWhenSiblingDisabled
           attributes:
             - name: console_port
               type: Int32Attribute
@@ -137,7 +137,7 @@ attributes:
             - listvalidator.sizeAtMostValidator
             - listvalidator.uniqueValuesValidator
           plan_modifiers:
-            - listplanmodifier.useStateForUnknownModifier
+            - cluster.nullListWhenSiblingDisabled
           element_type: basetypes.StringType
     - name: azure_private_link
       type: SingleNestedAttribute
@@ -160,7 +160,7 @@ attributes:
           type: SingleNestedAttribute
           computed: true
           plan_modifiers:
-            - objectplanmodifier.useNonNullStateForUnknown
+            - cluster.nullObjectWhenSiblingDisabled
           attributes:
             - name: approved_subscriptions
               type: ListAttribute
@@ -679,7 +679,7 @@ attributes:
           type: SingleNestedAttribute
           computed: true
           plan_modifiers:
-            - objectplanmodifier.useNonNullStateForUnknown
+            - cluster.nullObjectWhenSiblingDisabled
           attributes:
             - name: connected_endpoints
               type: ListNestedAttribute
