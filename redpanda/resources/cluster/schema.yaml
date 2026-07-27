@@ -50,9 +50,15 @@ aws_private_link:
       required: true
     status:
       computed_only: true
+      # Plans known-null when the block is disabled (the CP returns no
+      # private-link block at all), else UseNonNullStateForUnknown.
+      plan_modifiers: [NullWhenPrivateLinkDisabled]
     supported_regions:
       optional: true
       computed: true
+      # Plans known-null when aws_private_link is disabled, else
+      # UseStateForUnknown.
+      plan_modifiers: [NullWhenPrivateLinkDisabled]
     http_proxy_auth_mode:
       todo: true
     kafka_api_auth_mode:
@@ -72,6 +78,9 @@ azure_private_link:
       required: true
     status:
       computed_only: true
+      # Plans known-null when the block is disabled (the CP returns no
+      # private-link block at all), else UseNonNullStateForUnknown.
+      plan_modifiers: [NullWhenPrivateLinkDisabled]
 
     http_proxy_auth_mode:
       todo: true
@@ -422,6 +431,9 @@ gcp_private_service_connect:
       required: true
     status:
       computed_only: true
+      # Plans known-null when the block is disabled (the CP returns no
+      # private-link block at all), else UseNonNullStateForUnknown.
+      plan_modifiers: [NullWhenPrivateLinkDisabled]
 
     http_proxy_auth_mode:
       todo: true

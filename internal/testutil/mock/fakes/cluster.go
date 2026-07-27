@@ -180,8 +180,7 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 			SkipDestroy: cs.GetSkipDestroy(),
 		}
 	}
-	if in.HasAwsPrivateLink() {
-		spec := in.GetAwsPrivateLink()
+	if spec := in.GetAwsPrivateLink(); spec.GetEnabled() {
 		cl.SetAwsPrivateLink(&controlplanev1.Cluster_AWSPrivateLink{
 			Enabled:           spec.GetEnabled(),
 			AllowedPrincipals: append([]string(nil), spec.GetAllowedPrincipals()...),
@@ -189,16 +188,14 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 			SupportedRegions:  append([]string(nil), spec.GetSupportedRegions()...),
 		})
 	}
-	if in.HasGcpPrivateServiceConnect() {
-		spec := in.GetGcpPrivateServiceConnect()
+	if spec := in.GetGcpPrivateServiceConnect(); spec.GetEnabled() {
 		cl.SetGcpPrivateServiceConnect(&controlplanev1.Cluster_GCPPrivateServiceConnect{
 			Enabled:             spec.GetEnabled(),
 			GlobalAccessEnabled: spec.GetGlobalAccessEnabled(),
 			ConsumerAcceptList:  append([]*controlplanev1.GCPPrivateServiceConnectConsumer(nil), spec.GetConsumerAcceptList()...),
 		})
 	}
-	if in.HasAzurePrivateLink() {
-		spec := in.GetAzurePrivateLink()
+	if spec := in.GetAzurePrivateLink(); spec.GetEnabled() {
 		cl.SetAzurePrivateLink(&controlplanev1.Cluster_AzurePrivateLink{
 			Enabled:              spec.GetEnabled(),
 			AllowedSubscriptions: append([]string(nil), spec.GetAllowedSubscriptions()...),
@@ -306,27 +303,33 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 					cl.GetSchemaRegistry().GetUrl())
 			}
 		case "aws_private_link":
-			if upd.HasAwsPrivateLink() {
-				spec := upd.GetAwsPrivateLink()
+			// The read drops the block entirely when disabled (mapper.go gates it
+			// on PrivateLinkService.GetEnabled()); mirror that so a disable update
+			// clears the stored block rather than storing a disabled one.
+			if spec := upd.GetAwsPrivateLink(); spec.GetEnabled() {
 				cl.SetAwsPrivateLink(&controlplanev1.Cluster_AWSPrivateLink{
 					Enabled:           spec.GetEnabled(),
 					AllowedPrincipals: append([]string(nil), spec.GetAllowedPrincipals()...),
 					ConnectConsole:    spec.GetConnectConsole(),
 					SupportedRegions:  append([]string(nil), spec.GetSupportedRegions()...),
 				})
+			} else if upd.HasAwsPrivateLink() {
+				cl.SetAwsPrivateLink(nil)
 			}
 		case "azure_private_link":
 			// azure_private_link's ClusterUpdate wire type (AzurePrivateLinkSpec)
 			// differs from the read Cluster_AzurePrivateLink, so it needs an
 			// explicit case — the default reflection branch would panic setting a
 			// mismatched message type (as it does for aws/gcp private link).
-			if upd.HasAzurePrivateLink() {
-				spec := upd.GetAzurePrivateLink()
+			// Disabled reads back as no block (see aws_private_link).
+			if spec := upd.GetAzurePrivateLink(); spec.GetEnabled() {
 				cl.SetAzurePrivateLink(&controlplanev1.Cluster_AzurePrivateLink{
 					Enabled:              spec.GetEnabled(),
 					AllowedSubscriptions: append([]string(nil), spec.GetAllowedSubscriptions()...),
 					ConnectConsole:       spec.GetConnectConsole(),
 				})
+			} else if upd.HasAzurePrivateLink() {
+				cl.SetAzurePrivateLink(nil)
 			}
 		case "rpsql.enabled", "rpsql.replicas", "rpsql.zones":
 			// The provider expands the top-level "rpsql" mask into these granular
@@ -363,13 +366,15 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 				dstR.Set(dstR.Descriptor().Fields().ByName("kafka_connect"), srcR.Get(kcFD))
 			}
 		case "gcp_private_service_connect":
-			if upd.HasGcpPrivateServiceConnect() {
-				spec := upd.GetGcpPrivateServiceConnect()
+			// Disabled reads back as no block (see aws_private_link).
+			if spec := upd.GetGcpPrivateServiceConnect(); spec.GetEnabled() {
 				cl.SetGcpPrivateServiceConnect(&controlplanev1.Cluster_GCPPrivateServiceConnect{
 					Enabled:             spec.GetEnabled(),
 					GlobalAccessEnabled: spec.GetGlobalAccessEnabled(),
 					ConsumerAcceptList:  append([]*controlplanev1.GCPPrivateServiceConnectConsumer(nil), spec.GetConsumerAcceptList()...),
 				})
+			} else if upd.HasGcpPrivateServiceConnect() {
+				cl.SetGcpPrivateServiceConnect(nil)
 			}
 		case "redpanda_connect.allowed_destination_cidr_ports":
 			// LeafExpansions sends this granular path for redpanda_connect updates.

@@ -143,6 +143,79 @@ func (m pinInt32StateUnlessSiblingRises) PlanModifyInt32(ctx context.Context, re
 	resp.PlanValue = types.Int32Value(1)
 }
 
+// privateLinkStatusPin is the plan modifier for a private-link block's computed
+// `status` object. The control plane returns no private-link block at all when
+// the block is disabled, so the block's computed children must plan as
+// known-null while enabled=false — otherwise an unknown status is carried into
+// state and the framework rejects it ("must be known after apply"). While
+// enabled, it behaves as UseNonNullStateForUnknown (holds a non-null prior
+// status over an unknown plan). Keyed on the sibling enabled via the modifier's
+// own path, so one modifier serves aws/gcp/azure.
+func privateLinkStatusPin() planmodifier.Object {
+	return nullObjectWhenSiblingDisabled{}
+}
+
+type nullObjectWhenSiblingDisabled struct{}
+
+func (nullObjectWhenSiblingDisabled) Description(_ context.Context) string {
+	return "Plans a known-null value while the sibling enabled flag is false; otherwise holds non-null prior state over an unknown plan."
+}
+
+func (m nullObjectWhenSiblingDisabled) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+func (nullObjectWhenSiblingDisabled) PlanModifyObject(ctx context.Context, req planmodifier.ObjectRequest, resp *planmodifier.ObjectResponse) {
+	var enabled types.Bool
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, req.Path.ParentPath().AtName("enabled"), &enabled)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if !enabled.IsNull() && !enabled.IsUnknown() && !enabled.ValueBool() {
+		resp.PlanValue = types.ObjectNull(req.PlanValue.AttributeTypes(ctx))
+		return
+	}
+	// Enabled (or unknown): UseNonNullStateForUnknown.
+	if !req.PlanValue.IsUnknown() || req.State.Raw.IsNull() || req.StateValue.IsNull() {
+		return
+	}
+	resp.PlanValue = req.StateValue
+}
+
+// privateLinkListPin is the plan modifier for a private-link block's optional
+// computed list children (aws_private_link.supported_regions). Same rationale as
+// privateLinkStatusPin: known-null while disabled, else UseStateForUnknown.
+func privateLinkListPin() planmodifier.List {
+	return nullListWhenSiblingDisabled{}
+}
+
+type nullListWhenSiblingDisabled struct{}
+
+func (nullListWhenSiblingDisabled) Description(_ context.Context) string {
+	return "Plans a known-null value while the sibling enabled flag is false; otherwise holds prior state over an unknown plan."
+}
+
+func (m nullListWhenSiblingDisabled) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+func (nullListWhenSiblingDisabled) PlanModifyList(ctx context.Context, req planmodifier.ListRequest, resp *planmodifier.ListResponse) {
+	var enabled types.Bool
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, req.Path.ParentPath().AtName("enabled"), &enabled)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if !enabled.IsNull() && !enabled.IsUnknown() && !enabled.ValueBool() {
+		resp.PlanValue = types.ListNull(req.PlanValue.ElementType(ctx))
+		return
+	}
+	// Enabled (or unknown): UseStateForUnknown.
+	if !req.PlanValue.IsUnknown() || req.State.Raw.IsNull() {
+		return
+	}
+	resp.PlanValue = req.StateValue
+}
+
 // gcpGatewayStatePin is the gcp_global_access_api_gateway_enabled plan modifier
 // referenced by the generated schema. The status field is server-reported and
 // coupled to the gcp_enable_global_access_api_gateway intent input: it pins the

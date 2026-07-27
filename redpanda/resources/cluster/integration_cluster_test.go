@@ -1421,6 +1421,24 @@ func TestIntegration_Cluster_UpdateLeaf_AWSPrivateLink_Enabled(t *testing.T) {
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
+			// Disable in place: the control plane drops the whole block, so the
+			// computed children (status, supported_regions) must plan known-null
+			// rather than unknown — else "must be known after apply". Guards the
+			// status plan modifier / ModifyPlan reconciliation on the disable path.
+			integration.UpdateLeafStep(clusterAddr,
+				awsDedicatedConfig(name, `aws_private_link = {
+  enabled            = false
+  connect_console    = false
+  allowed_principals = ["arn:aws:iam::123456789012:root"]
+}`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("aws_private_link").AtMapKey("enabled"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("aws_private_link").AtMapKey("status"), knownvalue.Null()),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
 		},
 	})
 }

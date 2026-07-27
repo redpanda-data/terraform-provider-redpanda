@@ -52,4 +52,13 @@ var planModifierRegistry = map[string]planModifierDef{
 		},
 		subsumesStateNullAxis: true,
 	},
+	"NullWhenPrivateLinkDisabled": {
+		expr: func(pkg string) string {
+			if pkg == KindList {
+				return "privateLinkListPin()"
+			}
+			return "privateLinkStatusPin()"
+		},
+		subsumesStateNullAxis: true,
+	},
 }

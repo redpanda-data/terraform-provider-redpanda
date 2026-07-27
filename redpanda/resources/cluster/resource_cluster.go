@@ -348,6 +348,12 @@ func (*Cluster) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, 
 		if planVal.IsNull() || planVal.IsUnknown() {
 			continue
 		}
+		// A disabled block reads back with no server status; the status plan
+		// modifier already set it known-null, so don't re-mark it unknown — that
+		// would leave an unknown in state after the server drops the block.
+		if enabled, ok := planVal.Attributes()["enabled"].(types.Bool); ok && !enabled.IsNull() && !enabled.IsUnknown() && !enabled.ValueBool() {
+			continue
+		}
 		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, pl.blockPath.AtName("status"), types.ObjectUnknown(pl.statusType))...)
 	}
 }
