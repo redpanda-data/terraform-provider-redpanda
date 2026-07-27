@@ -1194,22 +1194,16 @@ func TestIntegration_Cluster_UpdateLeaf_Rpsql(t *testing.T) {
 			integration.CreateStep(clusterAddr,
 				awsDedicatedConfig(name),
 				[]statecheck.StateCheck{
-					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql"), knownvalue.Null()),
-					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
-				}),
-			// Add a disabled block: replicas defaults to 1, url stays empty.
-			integration.UpdateLeafStep(clusterAddr,
-				awsDedicatedConfig(name, `rpsql = { enabled = false }`),
-				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("enabled"), knownvalue.Bool(false)),
-					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("replicas"), knownvalue.Int32Exact(1)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("replicas"), knownvalue.Int32Exact(0)),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("url"), knownvalue.StringExact("")),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
 			// Enable in place: url is re-derived to the provisioned endpoint and
-			// the control plane assigns the first cluster zone. Live finding #1:
-			// before the rise-aware pin, UseStateForUnknown held zones at the
-			// prior null and the server-assigned zone tripped inconsistent-result.
+			// the control plane assigns the first cluster zone. A plain
+			// UseStateForUnknown would hold zones at the prior null and the
+			// server-assigned zone would trip inconsistent-result; the
+			// rise-aware pin exists for this edge.
 			integration.UpdateLeafStep(clusterAddr,
 				awsDedicatedConfig(name, `rpsql = { enabled = true }`),
 				[]statecheck.StateCheck{
@@ -1250,21 +1244,26 @@ func TestIntegration_Cluster_UpdateLeaf_Rpsql(t *testing.T) {
 				Config:      awsDedicatedConfig(name, `rpsql = { enabled = true, replicas = 3, zones = ["use1-az2"] }`),
 				ExpectError: regexp.MustCompile("is not one of the cluster zones"),
 			},
-			// Disable keeps zones pinned (the leaf-expanded mask still carries
-			// rpsql.zones; an unknown here would send empty zones into the
-			// immutability check) and the server clears the url.
+			// Disable clears zones: the control plane replaces the whole spec
+			// with a bare disabled one, so zones read back empty alongside the
+			// cleared url and reset replicas. Pinning the prior zones across
+			// this fall would promise a value the post-apply read contradicts
+			// with null.
+			// (replicas is omitted here: the control plane resets it to 0 on
+			// disable, so a config replicas>0 would fight the server value.)
 			integration.UpdateLeafStep(clusterAddr,
-				awsDedicatedConfig(name, `rpsql = { enabled = false, replicas = 3 }`),
+				awsDedicatedConfig(name, `rpsql = { enabled = false }`),
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("enabled"), knownvalue.Bool(false)),
-					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("zones"),
-						knownvalue.ListExact([]knownvalue.Check{knownvalue.StringExact("use1-az1")})),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("replicas"), knownvalue.Int32Exact(0)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("zones"), knownvalue.Null()),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("url"), knownvalue.StringExact("")),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("version"), knownvalue.StringExact("")),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
-			// Re-enable: zones were retained, so the defaulter has nothing to do
-			// and the pinned value flows straight through.
+			// Re-enable after a disable: the server cleared zones, so this is a
+			// fresh enable again and the defaulter re-assigns the first cluster
+			// zone.
 			integration.UpdateLeafStep(clusterAddr,
 				awsDedicatedConfig(name, `rpsql = { enabled = true, replicas = 3 }`),
 				[]statecheck.StateCheck{
@@ -1966,7 +1965,8 @@ func TestIntegration_Cluster_CMR_AWS(t *testing.T) {
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, clusterSGPath, knownvalue.StringExact(sgA)),
 					statecheck.ExpectKnownValue(clusterAddr, connectPath, knownvalue.StringExact(connectA)),
-					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql"), knownvalue.Null()),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("enabled"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("replicas"), knownvalue.Int32Exact(0)),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idSame.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
@@ -2041,7 +2041,8 @@ func TestIntegration_Cluster_CMR_GCP(t *testing.T) {
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, subnetPath, knownvalue.StringExact(subnetNameA)),
 					statecheck.ExpectKnownValue(clusterAddr, pscPath, knownvalue.StringExact("psc-nat-a")),
-					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql"), knownvalue.Null()),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("enabled"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("replicas"), knownvalue.Int32Exact(0)),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idSame.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),

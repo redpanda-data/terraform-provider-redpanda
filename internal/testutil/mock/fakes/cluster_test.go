@@ -188,9 +188,10 @@ func TestClusterFake_UpdateMaskFidelity(t *testing.T) {
 			},
 		},
 		{
-			// Disable keeps zones (the defaulter never clears; the provider
-			// sends the pinned value) and clears the url.
-			name: "disable retains zones and clears url",
+			// CP defaulter: disabling replaces the whole spec with a bare
+			// {Enabled: false}, so zones, replicas and url are all cleared —
+			// even when the caller still sends the prior zones.
+			name: "disable clears zones replicas and url",
 			seed: &controlplanev1.Cluster{
 				Id: id, Zones: []string{az1},
 				Rpsql: rpsql(true, 3, az1),
@@ -198,12 +199,33 @@ func TestClusterFake_UpdateMaskFidelity(t *testing.T) {
 			update: &controlplanev1.ClusterUpdate{Id: id, Rpsql: rpsql(false, 3, az1)},
 			mask:   []string{"rpsql.enabled"},
 			assert: func(t *testing.T, cl *controlplanev1.Cluster) {
-				z := cl.GetRpsql().GetZones()
-				if len(z) != 1 || z[0] != az1 {
-					t.Fatalf("zones lost on disable: got %v", z)
+				if z := cl.GetRpsql().GetZones(); len(z) != 0 {
+					t.Fatalf("zones retained on disable: got %v", z)
+				}
+				if r := cl.GetRpsql().GetReplicas(); r != 0 {
+					t.Fatalf("replicas not reset on disable: got %d", r)
 				}
 				if cl.GetRpsql().GetUrl() != "" {
 					t.Fatalf("url not cleared on disable: got %q", cl.GetRpsql().GetUrl())
+				}
+			},
+		},
+		{
+			// validateOxlaZonesImmutable early-returns when the update disables,
+			// so dropping zones on the way down is not a blocked "zone change".
+			name: "disable with empty zones not blocked by immutability",
+			seed: &controlplanev1.Cluster{
+				Id: id, Zones: []string{az1},
+				Rpsql: rpsql(true, 3, az1),
+			},
+			update: &controlplanev1.ClusterUpdate{Id: id, Rpsql: rpsql(false, 0)},
+			mask:   []string{"rpsql.enabled", "rpsql.zones"},
+			assert: func(t *testing.T, cl *controlplanev1.Cluster) {
+				if cl.GetRpsql().GetEnabled() {
+					t.Fatal("disable rejected")
+				}
+				if z := cl.GetRpsql().GetZones(); len(z) != 0 {
+					t.Fatalf("zones retained on disable: got %v", z)
 				}
 			},
 		},

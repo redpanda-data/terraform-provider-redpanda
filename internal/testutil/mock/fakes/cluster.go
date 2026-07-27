@@ -205,9 +205,8 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 			ConnectConsole:       spec.GetConnectConsole(),
 		})
 	}
-	if in.HasRpsql() {
-		cl.SetRpsql(rpsqlStatus(in.GetRpsql(), in.GetZones()))
-	}
+	// Every non-Azure cluster reads back a non-nil rpsql block, disabled or not.
+	cl.SetRpsql(rpsqlReadStatus(in.GetRpsql(), in.GetCloudProvider(), in.GetZones()))
 	// Mirror cloudv2 clearOxlaCMROnDisable (also called on the create path): a
 	// cluster created without Redpanda SQL enabled cannot retain rpsql CMR fields.
 	clearRpsqlCMROnDisable(cl)
@@ -345,13 +344,14 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 					}
 				}
 				// validateOxlaZonesImmutable: zones are immutable once set; only
-				// the one-time populate from empty is allowed.
-				if existing := cl.GetRpsql().GetZones(); len(existing) > 0 &&
-					!slices.Equal(existing, effective) {
+				// the one-time populate from empty is allowed. Disabling clears
+				// the zones, which is not a "zone change" to block.
+				if existing := cl.GetRpsql().GetZones(); upd.GetRpsql().GetEnabled() &&
+					len(existing) > 0 && !slices.Equal(existing, effective) {
 					return nil, status.Error(codes.InvalidArgument,
 						"Redpanda SQL zones are immutable and cannot be changed after creation")
 				}
-				cl.SetRpsql(rpsqlStatus(upd.GetRpsql(), cl.GetZones()))
+				cl.SetRpsql(rpsqlReadStatus(upd.GetRpsql(), cl.GetCloudProvider(), cl.GetZones()))
 			}
 		case "kafka_connect.enabled":
 			// The control plane maps kafka_connect only at leaf granularity
@@ -646,27 +646,33 @@ func normalizeCidrPorts(src []*controlplanev1.Cluster_CidrPort) []*controlplanev
 	return out
 }
 
-// rpsqlStatus mirrors the write-shape RPSql onto the read-shape record,
-// assigning a mock endpoint URL when enabled (the real control plane
-// populates url on provisioning; it stays empty while disabled).
-//
-// NOTE: not yet faithful to cloudv2 — the control plane reads back a non-nil
-// disabled rpsql block (replicas 0) for every non-Azure cluster, which surfaces
-// a provider churn bug (schema defaults replicas 1). Tracked as its own fix.
-func rpsqlStatus(spec *controlplanev1.RPSql, clusterZones []string) *controlplanev1.RPSql {
-	if spec == nil {
+// rpsqlReadStatus mirrors cloudv2 ApplyRedpandaOxlaSpec (defaulter.go) +
+// redpandaSqlToPublic (mapper.go): every NON-Azure cluster reads back a non-nil
+// rpsql block even when Redpanda SQL is disabled or omitted, because the
+// defaulter stores a bare disabled spec (replicas 0, no zones); url/version are
+// populated only once enabled (server derives on provisioning). Enabling with
+// replicas 0 defaults to 1 (oxlaDefaultReplicasCount). Azure reads back nil —
+// ApplyRedpandaOxlaSpec early-returns for Azure.
+func rpsqlReadStatus(spec *controlplanev1.RPSql, provider controlplanev1.CloudProvider, clusterZones []string) *controlplanev1.RPSql {
+	if provider == controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE {
 		return nil
 	}
-	out := &controlplanev1.RPSql{
-		Enabled:  spec.GetEnabled(),
-		Replicas: spec.GetReplicas(),
+	if !spec.GetEnabled() {
+		// Disabled: the defaulter replaces the whole spec with a bare
+		// {Enabled: false}, so replicas, zones, url and version are all cleared.
+		return &controlplanev1.RPSql{Enabled: false}
+	}
+	replicas := spec.GetReplicas()
+	if replicas == 0 {
+		replicas = 1
+	}
+	return &controlplanev1.RPSql{
+		Enabled:  true,
+		Replicas: replicas,
 		Zones:    append([]string(nil), oxlaEffectiveZones(spec, clusterZones)...),
+		Url:      "https://mock.rpsql.redpanda.cloud",
+		Version:  "mock-rpsql-v1",
 	}
-	if out.Enabled {
-		out.Url = "https://mock.rpsql.redpanda.cloud"
-		out.Version = "mock-rpsql-v1"
-	}
-	return out
 }
 
 // oxlaEffectiveZones mirrors the control-plane defaulter: enabling Redpanda

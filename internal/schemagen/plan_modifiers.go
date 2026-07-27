@@ -35,10 +35,14 @@ var planModifierRegistry = map[string]planModifierDef{
 	},
 	"PinStateUnlessRpsqlEnables": {
 		expr: func(pkg string) string {
-			if pkg == KindString {
+			switch pkg {
+			case KindString:
 				return "rpsqlStringStatePin()"
+			case KindInt32:
+				return "rpsqlReplicasStatePin()"
+			default:
+				return "rpsqlZonesStatePin()"
 			}
-			return "rpsqlZonesStatePin()"
 		},
 		subsumesStateNullAxis: true,
 	},
