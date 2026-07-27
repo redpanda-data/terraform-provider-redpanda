@@ -26,7 +26,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
@@ -1192,8 +1191,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						Description:   "Replicas",
 						Optional:      true,
 						Computed:      true,
-						Default:       int32default.StaticInt32(1),
-						PlanModifiers: []planmodifier.Int32{int32planmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.Int32{rpsqlReplicasStatePin()},
 					},
 					"zones": schema.ListAttribute{
 						Description:   "Zones. Must have at most 1 items.",
