@@ -219,6 +219,7 @@ func TestUnit_ShadowLink_ExpandCreate_SchemaRegistryShadowingOneofPresence(t *te
 	ctx := context.Background()
 	sr := shadowlinkmodel.SchemaRegistrySyncOptionsModel{
 		ShadowSchemaRegistryTopic: types.BoolValue(true),
+		ShadowSchemaRegistryAPI:   types.ObjectNull(shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAttrTypes()),
 	}
 	srObj, diags := types.ObjectValueFrom(ctx, shadowlinkmodel.SchemaRegistrySyncOptionsAttrTypes(), &sr)
 	require.False(t, diags.HasError(), "%v", diags)

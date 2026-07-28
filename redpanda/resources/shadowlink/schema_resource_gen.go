@@ -321,6 +321,252 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 				Computed:      true,
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
+					"shadow_schema_registry_api": schema.SingleNestedAttribute{
+						Description:   "Replicates selected Schema Registry subjects, configs, modes, and schema IDs over the Schema Registry HTTP API.",
+						Optional:      true,
+						Computed:      true,
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+						Attributes: map[string]schema.Attribute{
+							"auth_options": schema.SingleNestedAttribute{
+								Description:   "Authentication settings for source Schema Registry HTTP requests.",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+								Attributes: map[string]schema.Attribute{
+									"basic": schema.SingleNestedAttribute{
+										Description:   "HTTP Basic auth credentials.",
+										Optional:      true,
+										Computed:      true,
+										PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+										Attributes: map[string]schema.Attribute{
+											"password": schema.StringAttribute{
+												Description:   "HTTP Basic auth password. For Confluent Cloud, this is the API secret.",
+												Optional:      true,
+												Computed:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+											},
+											"password_set": schema.BoolAttribute{
+												Description:   "Indicates that the password has been set.",
+												Optional:      true,
+												Computed:      true,
+												PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+											},
+											"password_set_at": schema.StringAttribute{
+												Description:   "Timestamp of when the password was last set - only valid if password_set is true.",
+												Optional:      true,
+												Computed:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+											},
+											"username": schema.StringAttribute{
+												Description:   "HTTP Basic auth username. For Confluent Cloud, this is the API key.",
+												Optional:      true,
+												Computed:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+											},
+										},
+									},
+								},
+							},
+							"destination": schema.SingleNestedAttribute{
+								Description:   "Destination context mapping for source Schema Registry data.",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+								Attributes: map[string]schema.Attribute{
+									"exact": schema.SingleNestedAttribute{
+										Description:   "Explicit source-to-destination context mappings.",
+										Optional:      true,
+										Computed:      true,
+										PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+										Attributes: map[string]schema.Attribute{
+											"mappings": schema.ListNestedAttribute{
+												Description:   "Explicit source-to-destination context mappings. Every source context in the effective source scope must have exactly one mapping.",
+												Optional:      true,
+												Computed:      true,
+												PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+												NestedObject: schema.NestedAttributeObject{
+													Attributes: map[string]schema.Attribute{
+														"destination": schema.StringAttribute{
+															Description:   "Destination context name.",
+															Optional:      true,
+															Computed:      true,
+															PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+														},
+														"source": schema.StringAttribute{
+															Description:   "Source context name.",
+															Optional:      true,
+															Computed:      true,
+															PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+														},
+													},
+												},
+											},
+										},
+									},
+									"identity": schema.SingleNestedAttribute{
+										Description:   "Preserve source context names in the destination Schema Registry.",
+										Optional:      true,
+										Computed:      true,
+										PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+									},
+								},
+							},
+							"effective_full_sync_interval": schema.StringAttribute{
+								Description:   "The effective interval between full scans.",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+							},
+							"effective_max_source_requests_per_second": schema.Int32Attribute{
+								Description:   "The effective maximum request rate, in requests per second.",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.Int32{int32planmodifier.UseStateForUnknown()},
+							},
+							"effective_tail_interval": schema.StringAttribute{
+								Description:   "The effective interval between incremental polls.",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+							},
+							"full_sync_interval": schema.StringAttribute{
+								Description:   "Interval between full scans of the selected source subjects. If unset or zero, the cluster default of 5m is used.",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+							},
+							"max_source_requests_per_second": schema.Int32Attribute{
+								Description:   "Maximum request rate, in requests per second, for calls to the source Schema Registry. If unset or zero, a default rate limit of 30 requests/s is used.",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.Int32{int32planmodifier.UseStateForUnknown()},
+							},
+							"paused": schema.BoolAttribute{
+								Description:   "Allows the user to pause the Schema Registry sync task. If paused, the task enters the 'paused' state and stops replicating schemas from the source, and the per-context client write protection on the contexts this link owns is lifted.",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+							},
+							"source_filter": schema.SingleNestedAttribute{
+								Description:   "Filter for specific Schema Registry contexts and subjects to select for replication. If unset or empty, the whole source Schema Registry is replicated.",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+								Attributes: map[string]schema.Attribute{
+									"contexts": schema.ListAttribute{
+										Description:   "Source contexts to replicate in full, for example \".\", \".prod\", or \".staging\". If both `contexts` and `subjects` are set, the effective source scope is the union of both selections.",
+										Optional:      true,
+										Computed:      true,
+										PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+										ElementType:   types.StringType,
+									},
+									"subjects": schema.ListAttribute{
+										Description:   "Exact source subjects to replicate, using Schema Registry qualified subject syntax. For example, \"orders-value\" selects the subject in the default context, and \":.prod:orders-value\" selects the subject in context \".prod\". If both `contexts` and `subjects` are set, the union of both selections is replicated. If a subject is also included by `contexts`, it is counted and replicated once.",
+										Optional:      true,
+										Computed:      true,
+										PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+										ElementType:   types.StringType,
+									},
+								},
+							},
+							"source_url": schema.StringAttribute{
+								Description:   "The source Schema Registry URL to use.",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+							},
+							"tail_interval": schema.StringAttribute{
+								Description:   "Interval between incremental polls for new source subjects and subject versions. If unset or zero, the cluster default of 10s is used.",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+							},
+							"tls_settings": schema.SingleNestedAttribute{
+								Description:   "TLS settings",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+								Attributes: map[string]schema.Attribute{
+									"do_not_set_sni_hostname": schema.BoolAttribute{
+										Description:   "If true, the SNI hostname will not be provided when TLS is used",
+										Optional:      true,
+										Computed:      true,
+										PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+									},
+									"enabled": schema.BoolAttribute{
+										Description:   "Whether or not TLS is enabled",
+										Optional:      true,
+										Computed:      true,
+										PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+									},
+									"tls_file_settings": schema.SingleNestedAttribute{
+										Description:   "TLS file settings",
+										Optional:      true,
+										Computed:      true,
+										PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+										Attributes: map[string]schema.Attribute{
+											"ca_path": schema.StringAttribute{
+												Description:   "Path to the CA",
+												Optional:      true,
+												Computed:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+											},
+											"cert_path": schema.StringAttribute{
+												Description:   "Path to the cert",
+												Optional:      true,
+												Computed:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+											},
+											"key_path": schema.StringAttribute{
+												Description:   "Key and Cert are optional but if one is provided, then both must be Path to the key",
+												Optional:      true,
+												Computed:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+											},
+										},
+									},
+									"tls_pem_settings": schema.SingleNestedAttribute{
+										Description:   "Used when providing the TLS information in PEM format",
+										Optional:      true,
+										Computed:      true,
+										PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+										Attributes: map[string]schema.Attribute{
+											"ca": schema.StringAttribute{
+												Description:   "The CA",
+												Optional:      true,
+												Computed:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+											},
+											"cert": schema.StringAttribute{
+												Description:   "The cert",
+												Optional:      true,
+												Computed:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+											},
+											"key": schema.StringAttribute{
+												Description:   "Key and Cert are optional but if one is provided, then both must be The key",
+												Optional:      true,
+												Computed:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+											},
+											"key_fingerprint": schema.StringAttribute{
+												Description:   "The SHA-256 of the key, in base64 format",
+												Optional:      true,
+												Computed:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+											},
+										},
+									},
+								},
+							},
+							"unsupported_schema_feature_policy": schema.StringAttribute{
+								Description:   "Policy for handling source schema features unsupported by the destination. - UNSUPPORTED_SCHEMA_FEATURE_POLICY_FAIL: Fail the sync when an unsupported schema feature is encountered. - UNSUPPORTED_SCHEMA_FEATURE_POLICY_REMOVE: Remove unsupported schema features before writing to the destination.",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+							},
+						},
+					},
 					"shadow_schema_registry_topic": schema.BoolAttribute{
 						Description:   "Shadow the entire source cluster's Schema Registry byte-for-byte. If set, the Shadow Link will attempt to add the `_schemas` topic to the list of Shadow Topics as long as: 1. The `_schemas` topic exists on the source cluster 2. The `_schemas` topic does not exist on the shadow cluster, or it is empty. If either of the above conditions are _not_ met, then the `_schemas` topic will _not_ be shadowed by this cluster. Unsetting this flag will _not_ remove the `_schemas` topic from shadowing if it has already been added. Once made a shadow topic, the `_schemas` topic will be replicated byte-for-byte. To stop shadowing the `_schemas` topic, unset this field, then either fail-over the topic or delete it.",
 						Optional:      true,

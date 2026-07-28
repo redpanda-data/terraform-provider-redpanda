@@ -265,6 +265,240 @@ attributes:
       plan_modifiers:
         - objectplanmodifier.useStateForUnknownModifier
       attributes:
+        - name: shadow_schema_registry_api
+          type: SingleNestedAttribute
+          optional: true
+          computed: true
+          plan_modifiers:
+            - objectplanmodifier.useStateForUnknownModifier
+          attributes:
+            - name: auth_options
+              type: SingleNestedAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - objectplanmodifier.useStateForUnknownModifier
+              attributes:
+                - name: basic
+                  type: SingleNestedAttribute
+                  optional: true
+                  computed: true
+                  plan_modifiers:
+                    - objectplanmodifier.useStateForUnknownModifier
+                  attributes:
+                    - name: password
+                      type: StringAttribute
+                      optional: true
+                      computed: true
+                      plan_modifiers:
+                        - stringplanmodifier.useStateForUnknownModifier
+                    - name: password_set
+                      type: BoolAttribute
+                      optional: true
+                      computed: true
+                      plan_modifiers:
+                        - boolplanmodifier.useStateForUnknownModifier
+                    - name: password_set_at
+                      type: StringAttribute
+                      optional: true
+                      computed: true
+                      plan_modifiers:
+                        - stringplanmodifier.useStateForUnknownModifier
+                    - name: username
+                      type: StringAttribute
+                      optional: true
+                      computed: true
+                      plan_modifiers:
+                        - stringplanmodifier.useStateForUnknownModifier
+            - name: destination
+              type: SingleNestedAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - objectplanmodifier.useStateForUnknownModifier
+              attributes:
+                - name: exact
+                  type: SingleNestedAttribute
+                  optional: true
+                  computed: true
+                  plan_modifiers:
+                    - objectplanmodifier.useStateForUnknownModifier
+                  attributes:
+                    - name: mappings
+                      type: ListNestedAttribute
+                      optional: true
+                      computed: true
+                      plan_modifiers:
+                        - listplanmodifier.useStateForUnknownModifier
+                      attributes:
+                        - name: destination
+                          type: StringAttribute
+                          optional: true
+                          computed: true
+                          plan_modifiers:
+                            - stringplanmodifier.useStateForUnknownModifier
+                        - name: source
+                          type: StringAttribute
+                          optional: true
+                          computed: true
+                          plan_modifiers:
+                            - stringplanmodifier.useStateForUnknownModifier
+                - name: identity
+                  type: SingleNestedAttribute
+                  optional: true
+                  computed: true
+                  plan_modifiers:
+                    - objectplanmodifier.useStateForUnknownModifier
+            - name: effective_full_sync_interval
+              type: StringAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useStateForUnknownModifier
+            - name: effective_max_source_requests_per_second
+              type: Int32Attribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useStateForUnknownModifier
+            - name: effective_tail_interval
+              type: StringAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useStateForUnknownModifier
+            - name: full_sync_interval
+              type: StringAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useStateForUnknownModifier
+            - name: max_source_requests_per_second
+              type: Int32Attribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - int32planmodifier.useStateForUnknownModifier
+            - name: paused
+              type: BoolAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - boolplanmodifier.useStateForUnknownModifier
+            - name: source_filter
+              type: SingleNestedAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - objectplanmodifier.useStateForUnknownModifier
+              attributes:
+                - name: contexts
+                  type: ListAttribute
+                  optional: true
+                  computed: true
+                  plan_modifiers:
+                    - listplanmodifier.useStateForUnknownModifier
+                  element_type: basetypes.StringType
+                - name: subjects
+                  type: ListAttribute
+                  optional: true
+                  computed: true
+                  plan_modifiers:
+                    - listplanmodifier.useStateForUnknownModifier
+                  element_type: basetypes.StringType
+            - name: source_url
+              type: StringAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useStateForUnknownModifier
+            - name: tail_interval
+              type: StringAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useStateForUnknownModifier
+            - name: tls_settings
+              type: SingleNestedAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - objectplanmodifier.useStateForUnknownModifier
+              attributes:
+                - name: do_not_set_sni_hostname
+                  type: BoolAttribute
+                  optional: true
+                  computed: true
+                  plan_modifiers:
+                    - boolplanmodifier.useStateForUnknownModifier
+                - name: enabled
+                  type: BoolAttribute
+                  optional: true
+                  computed: true
+                  plan_modifiers:
+                    - boolplanmodifier.useStateForUnknownModifier
+                - name: tls_file_settings
+                  type: SingleNestedAttribute
+                  optional: true
+                  computed: true
+                  plan_modifiers:
+                    - objectplanmodifier.useStateForUnknownModifier
+                  attributes:
+                    - name: ca_path
+                      type: StringAttribute
+                      optional: true
+                      computed: true
+                      plan_modifiers:
+                        - stringplanmodifier.useStateForUnknownModifier
+                    - name: cert_path
+                      type: StringAttribute
+                      optional: true
+                      computed: true
+                      plan_modifiers:
+                        - stringplanmodifier.useStateForUnknownModifier
+                    - name: key_path
+                      type: StringAttribute
+                      optional: true
+                      computed: true
+                      plan_modifiers:
+                        - stringplanmodifier.useStateForUnknownModifier
+                - name: tls_pem_settings
+                  type: SingleNestedAttribute
+                  optional: true
+                  computed: true
+                  plan_modifiers:
+                    - objectplanmodifier.useStateForUnknownModifier
+                  attributes:
+                    - name: ca
+                      type: StringAttribute
+                      optional: true
+                      computed: true
+                      plan_modifiers:
+                        - stringplanmodifier.useStateForUnknownModifier
+                    - name: cert
+                      type: StringAttribute
+                      optional: true
+                      computed: true
+                      plan_modifiers:
+                        - stringplanmodifier.useStateForUnknownModifier
+                    - name: key
+                      type: StringAttribute
+                      optional: true
+                      computed: true
+                      plan_modifiers:
+                        - stringplanmodifier.useStateForUnknownModifier
+                    - name: key_fingerprint
+                      type: StringAttribute
+                      optional: true
+                      computed: true
+                      plan_modifiers:
+                        - stringplanmodifier.useStateForUnknownModifier
+            - name: unsupported_schema_feature_policy
+              type: StringAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - stringplanmodifier.useStateForUnknownModifier
         - name: shadow_schema_registry_topic
           type: BoolAttribute
           optional: true

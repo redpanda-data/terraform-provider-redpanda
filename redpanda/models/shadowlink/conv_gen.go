@@ -20,6 +20,7 @@ package shadowlink
 import (
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	corev2 "buf.build/gen/go/redpandadata/core/protocolbuffers/go/redpanda/core/admin/v2"
+	commonv1 "buf.build/gen/go/redpandadata/core/protocolbuffers/go/redpanda/core/common/v1"
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -452,23 +453,404 @@ func ExpandConsumerOffsetSyncOptionsGroupFilters(_ context.Context, m *ConsumerO
 // TF-only / sensitive / write-only fields and resolves the proto3
 // null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
 // flatten directly); pass nil when no prior nested state is available.
-func FlattenSchemaRegistrySyncOptions(_ context.Context, proto *corev2.SchemaRegistrySyncOptions, prev *SchemaRegistrySyncOptionsModel) (SchemaRegistrySyncOptionsModel, diag.Diagnostics) {
+func FlattenSchemaRegistrySyncOptions(ctx context.Context, proto *corev2.SchemaRegistrySyncOptions, prev *SchemaRegistrySyncOptionsModel) (SchemaRegistrySyncOptionsModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	_ = prev
 	m := SchemaRegistrySyncOptionsModel{}
+	m.ShadowSchemaRegistryAPI = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetShadowSchemaRegistryApi(), func() *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIModel {
+		v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPI(ctx, prev)
+		return v
+	}(), SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAttrTypes(), FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPI, &diags)
 	m.ShadowSchemaRegistryTopic = modelconv.BoolFromOneofPresence(proto.HasShadowSchemaRegistryTopic())
 	return m, diags
 }
 
 // ExpandSchemaRegistrySyncOptions renders a nested model back into the proto type.
-func ExpandSchemaRegistrySyncOptions(_ context.Context, m *SchemaRegistrySyncOptionsModel) (*corev2.SchemaRegistrySyncOptions, diag.Diagnostics) {
+func ExpandSchemaRegistrySyncOptions(ctx context.Context, m *SchemaRegistrySyncOptionsModel) (*corev2.SchemaRegistrySyncOptions, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if m == nil {
 		return nil, diags
 	}
 	out := &corev2.SchemaRegistrySyncOptions{}
+	if v := modelconv.ObjectToMessageWithDiags(ctx, m.ShadowSchemaRegistryAPI, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPI, &diags); v != nil {
+		out.SetShadowSchemaRegistryApi(v)
+	}
 	if m.ShadowSchemaRegistryTopic.ValueBool() {
 		out.SetShadowSchemaRegistryTopic(&corev2.SchemaRegistrySyncOptions_ShadowSchemaRegistryTopic{})
+	}
+	return out, diags
+}
+
+// FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPI converts a single proto corev2.SchemaRegistrySyncOptions_ShadowSchemaRegistryApi into the
+// corresponding nested model. The prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPI(ctx context.Context, proto *corev2.SchemaRegistrySyncOptions_ShadowSchemaRegistryApi, prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIModel) (SchemaRegistrySyncOptionsShadowSchemaRegistryAPIModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPIModel{}
+	m.AuthOptions = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAuthOptions(), func() *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsModel {
+		v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptions(ctx, prev)
+		return v
+	}(), SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsAttrTypes(), FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptions, &diags)
+	m.Destination = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetDestination(), func() *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationModel {
+		v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestination(ctx, prev)
+		return v
+	}(), SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationAttrTypes(), FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestination, &diags)
+	m.EffectiveFullSyncInterval = modelconv.StringFromDuration(proto.GetEffectiveFullSyncInterval())
+	m.EffectiveMaxSourceRequestsPerSecond = types.Int32Value(proto.GetEffectiveMaxSourceRequestsPerSecond())
+	m.EffectiveTailInterval = modelconv.StringFromDuration(proto.GetEffectiveTailInterval())
+	m.FullSyncInterval = modelconv.StringFromDuration(proto.GetFullSyncInterval())
+	m.MaxSourceRequestsPerSecond = types.Int32Value(proto.GetMaxSourceRequestsPerSecond())
+	m.Paused = types.BoolValue(proto.GetPaused())
+	m.SourceFilter = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetSourceFilter(), func() *SchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilterModel {
+		v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilter(ctx, prev)
+		return v
+	}(), SchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilterAttrTypes(), FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilter, &diags)
+	m.SourceURL = types.StringValue(proto.GetSourceUrl())
+	m.TailInterval = modelconv.StringFromDuration(proto.GetTailInterval())
+	if proto.HasTlsSettings() {
+		m.TLSSettings = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetTlsSettings(), func() *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsModel {
+			v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettings(ctx, prev)
+			return v
+		}(), SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsAttrTypes(), FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettings, &diags)
+	} else if prev != nil && !prev.TLSSettings.IsUnknown() {
+		m.TLSSettings = prev.TLSSettings
+	} else {
+		m.TLSSettings = types.ObjectNull(SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsAttrTypes())
+	}
+	m.UnsupportedSchemaFeaturePolicy = types.StringValue(enums.UnsupportedSchemaFeaturePolicyToString(proto.GetUnsupportedSchemaFeaturePolicy()))
+	return m, diags
+}
+
+// ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPI renders a nested model back into the proto type.
+func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPI(ctx context.Context, m *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIModel) (*corev2.SchemaRegistrySyncOptions_ShadowSchemaRegistryApi, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &corev2.SchemaRegistrySyncOptions_ShadowSchemaRegistryApi{
+		AuthOptions:                         modelconv.ObjectToMessageWithDiags(ctx, m.AuthOptions, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptions, &diags),
+		Destination:                         modelconv.ObjectToMessageWithDiags(ctx, m.Destination, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestination, &diags),
+		EffectiveFullSyncInterval:           modelconv.DurationFromStringWithDiags(m.EffectiveFullSyncInterval, &diags),
+		EffectiveMaxSourceRequestsPerSecond: m.EffectiveMaxSourceRequestsPerSecond.ValueInt32(),
+		EffectiveTailInterval:               modelconv.DurationFromStringWithDiags(m.EffectiveTailInterval, &diags),
+		FullSyncInterval:                    modelconv.DurationFromStringWithDiags(m.FullSyncInterval, &diags),
+		MaxSourceRequestsPerSecond:          m.MaxSourceRequestsPerSecond.ValueInt32(),
+		Paused:                              m.Paused.ValueBool(),
+		SourceFilter:                        modelconv.ObjectToMessageWithDiags(ctx, m.SourceFilter, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilter, &diags),
+		SourceUrl:                           m.SourceURL.ValueString(),
+		TailInterval:                        modelconv.DurationFromStringWithDiags(m.TailInterval, &diags),
+		TlsSettings:                         modelconv.ObjectToMessageWithDiags(ctx, m.TLSSettings, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettings, &diags),
+		UnsupportedSchemaFeaturePolicy:      enums.StringToUnsupportedSchemaFeaturePolicy(m.UnsupportedSchemaFeaturePolicy.ValueString()),
+	}
+	return out, diags
+}
+
+// FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptions converts a single proto corev2.SchemaRegistryAuthOptions into the
+// corresponding nested model. The prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptions(ctx context.Context, proto *corev2.SchemaRegistryAuthOptions, prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsModel) (SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsModel{}
+	m.Basic = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetBasic(), func() *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasicModel {
+		v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasic(ctx, prev)
+		return v
+	}(), SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasicAttrTypes(), FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasic, &diags)
+	return m, diags
+}
+
+// ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptions renders a nested model back into the proto type.
+func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptions(ctx context.Context, m *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsModel) (*corev2.SchemaRegistryAuthOptions, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &corev2.SchemaRegistryAuthOptions{}
+	if v := modelconv.ObjectToMessageWithDiags(ctx, m.Basic, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasic, &diags); v != nil {
+		out.SetBasic(v)
+	}
+	return out, diags
+}
+
+// FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasic converts a single proto corev2.HTTPBasicAuthOptions into the
+// corresponding nested model. The prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasicModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasic(_ context.Context, proto *corev2.HTTPBasicAuthOptions, prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasicModel) (SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasicModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasicModel{}
+	m.Password = types.StringValue(proto.GetPassword())
+	m.PasswordSet = types.BoolValue(proto.GetPasswordSet())
+	m.PasswordSetAt = modelconv.StringFromTimestamp(proto.GetPasswordSetAt())
+	m.Username = types.StringValue(proto.GetUsername())
+	return m, diags
+}
+
+// ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasic renders a nested model back into the proto type.
+func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasic(_ context.Context, m *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasicModel) (*corev2.HTTPBasicAuthOptions, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &corev2.HTTPBasicAuthOptions{
+		Password:      m.Password.ValueString(),
+		PasswordSet:   m.PasswordSet.ValueBool(),
+		PasswordSetAt: modelconv.TimestampFromStringWithDiags(m.PasswordSetAt, &diags),
+		Username:      m.Username.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestination converts a single proto corev2.SchemaRegistryContextDestination into the
+// corresponding nested model. The prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestination(ctx context.Context, proto *corev2.SchemaRegistryContextDestination, prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationModel) (SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationModel{}
+	m.Exact = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetExact(), func() *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactModel {
+		v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExact(ctx, prev)
+		return v
+	}(), SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactAttrTypes(), FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExact, &diags)
+	m.Identity = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetIdentity(), func() *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityModel {
+		v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentity(ctx, prev)
+		return v
+	}(), SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityAttrTypes(), FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentity, &diags)
+	return m, diags
+}
+
+// ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestination renders a nested model back into the proto type.
+func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestination(ctx context.Context, m *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationModel) (*corev2.SchemaRegistryContextDestination, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &corev2.SchemaRegistryContextDestination{}
+	if v := modelconv.ObjectToMessageWithDiags(ctx, m.Exact, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExact, &diags); v != nil {
+		out.SetExact(v)
+	}
+	if v := modelconv.ObjectToMessageWithDiags(ctx, m.Identity, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentity, &diags); v != nil {
+		out.SetIdentity(v)
+	}
+	return out, diags
+}
+
+// FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExact converts a single proto corev2.SchemaRegistryExactContextMappings into the
+// corresponding nested model. The prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExact(ctx context.Context, proto *corev2.SchemaRegistryExactContextMappings, prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactModel) (SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactModel{}
+	m.Mappings = modelconv.ListFromObjectsWithDiags(ctx, proto.GetMappings(), SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactMappingsAttrTypes(), FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactMappings, &diags)
+	if prev != nil {
+		m.Mappings = modelconv.ListCarryKnownEmpty(m.Mappings, prev.Mappings)
+	}
+	return m, diags
+}
+
+// ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExact renders a nested model back into the proto type.
+func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExact(ctx context.Context, m *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactModel) (*corev2.SchemaRegistryExactContextMappings, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &corev2.SchemaRegistryExactContextMappings{
+		Mappings: modelconv.ListToObjectsWithDiags(ctx, m.Mappings, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactMappings, &diags),
+	}
+	return out, diags
+}
+
+// FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactMappings converts a single proto corev2.SchemaRegistryContextMap into the
+// corresponding nested model. The prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactMappingsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactMappings(_ context.Context, proto *corev2.SchemaRegistryContextMap, prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactMappingsModel) (SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactMappingsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactMappingsModel{}
+	m.Destination = types.StringValue(proto.GetDestination())
+	m.Source = types.StringValue(proto.GetSource())
+	return m, diags
+}
+
+// ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactMappings renders a nested model back into the proto type.
+func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactMappings(_ context.Context, m *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactMappingsModel) (*corev2.SchemaRegistryContextMap, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &corev2.SchemaRegistryContextMap{
+		Destination: m.Destination.ValueString(),
+		Source:      m.Source.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentity converts a single proto corev2.SchemaRegistryIdentityContextMapping into the
+// corresponding nested model. The prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentity(_ context.Context, proto *corev2.SchemaRegistryIdentityContextMapping, prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityModel) (SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityModel{}
+	return m, diags
+}
+
+// ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentity renders a nested model back into the proto type.
+func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentity(_ context.Context, m *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityModel) (*corev2.SchemaRegistryIdentityContextMapping, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &corev2.SchemaRegistryIdentityContextMapping{}
+	return out, diags
+}
+
+// FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilter converts a single proto corev2.SchemaRegistrySourceFilter into the
+// corresponding nested model. The prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilterModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilter(ctx context.Context, proto *corev2.SchemaRegistrySourceFilter, prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilterModel) (SchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilterModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilterModel{}
+	m.Contexts = modelconv.ListFromSliceWithDiags(ctx, proto.GetContexts(), types.StringType, &diags)
+	if prev != nil {
+		m.Contexts = modelconv.ListCarryKnownEmpty(m.Contexts, prev.Contexts)
+	}
+	m.Subjects = modelconv.ListFromSliceWithDiags(ctx, proto.GetSubjects(), types.StringType, &diags)
+	if prev != nil {
+		m.Subjects = modelconv.ListCarryKnownEmpty(m.Subjects, prev.Subjects)
+	}
+	return m, diags
+}
+
+// ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilter renders a nested model back into the proto type.
+func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilter(ctx context.Context, m *SchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilterModel) (*corev2.SchemaRegistrySourceFilter, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &corev2.SchemaRegistrySourceFilter{
+		Contexts: modelconv.ListToSliceWithDiags[string](ctx, m.Contexts, &diags),
+		Subjects: modelconv.ListToSliceWithDiags[string](ctx, m.Subjects, &diags),
+	}
+	return out, diags
+}
+
+// FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettings converts a single proto commonv1.TLSSettings into the
+// corresponding nested model. The prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettings(ctx context.Context, proto *commonv1.TLSSettings, prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsModel) (SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsModel{}
+	m.DoNotSetSniHostname = types.BoolValue(proto.GetDoNotSetSniHostname())
+	m.Enabled = types.BoolValue(proto.GetEnabled())
+	m.TLSFileSettings = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetTlsFileSettings(), func() *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel {
+		v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings(ctx, prev)
+		return v
+	}(), SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsAttrTypes(), FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings, &diags)
+	m.TLSPemSettings = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetTlsPemSettings(), func() *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettingsModel {
+		v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettings(ctx, prev)
+		return v
+	}(), SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettingsAttrTypes(), FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettings, &diags)
+	return m, diags
+}
+
+// ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettings renders a nested model back into the proto type.
+func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettings(ctx context.Context, m *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsModel) (*commonv1.TLSSettings, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &commonv1.TLSSettings{
+		DoNotSetSniHostname: m.DoNotSetSniHostname.ValueBool(),
+		Enabled:             m.Enabled.ValueBool(),
+	}
+	if v := modelconv.ObjectToMessageWithDiags(ctx, m.TLSFileSettings, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings, &diags); v != nil {
+		out.SetTlsFileSettings(v)
+	}
+	if v := modelconv.ObjectToMessageWithDiags(ctx, m.TLSPemSettings, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettings, &diags); v != nil {
+		out.SetTlsPemSettings(v)
+	}
+	return out, diags
+}
+
+// FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings converts a single proto commonv1.TLSFileSettings into the
+// corresponding nested model. The prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings(_ context.Context, proto *commonv1.TLSFileSettings, prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel) (SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel{}
+	m.CaPath = types.StringValue(proto.GetCaPath())
+	m.CertPath = types.StringValue(proto.GetCertPath())
+	m.KeyPath = types.StringValue(proto.GetKeyPath())
+	return m, diags
+}
+
+// ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings renders a nested model back into the proto type.
+func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings(_ context.Context, m *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel) (*commonv1.TLSFileSettings, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &commonv1.TLSFileSettings{
+		CaPath:   m.CaPath.ValueString(),
+		CertPath: m.CertPath.ValueString(),
+		KeyPath:  m.KeyPath.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettings converts a single proto commonv1.TLSPEMSettings into the
+// corresponding nested model. The prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettingsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettings(_ context.Context, proto *commonv1.TLSPEMSettings, prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettingsModel) (SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettingsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettingsModel{}
+	m.Ca = types.StringValue(proto.GetCa())
+	m.Cert = types.StringValue(proto.GetCert())
+	m.Key = types.StringValue(proto.GetKey())
+	m.KeyFingerprint = types.StringValue(proto.GetKeyFingerprint())
+	return m, diags
+}
+
+// ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettings renders a nested model back into the proto type.
+func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettings(_ context.Context, m *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettingsModel) (*commonv1.TLSPEMSettings, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &commonv1.TLSPEMSettings{
+		Ca:             m.Ca.ValueString(),
+		Cert:           m.Cert.ValueString(),
+		Key:            m.Key.ValueString(),
+		KeyFingerprint: m.KeyFingerprint.ValueString(),
 	}
 	return out, diags
 }
