@@ -87,6 +87,24 @@ attributes:
               validators:
                 - stringvalidator.regexMatchesValidator
                 - stringvalidator.lengthAtMostValidator
+    - name: egress_spec
+      type: SingleNestedAttribute
+      optional: true
+      attributes:
+        - name: azure
+          type: SingleNestedAttribute
+          optional: true
+          plan_modifiers:
+            - objectplanmodifier.requiresReplaceIfModifier
+          attributes:
+            - name: firewall_private_ip
+              type: StringAttribute
+              required: true
+              validators:
+                - validators.IPAddressValidator
+            - name: hub_vnet_id
+              type: StringAttribute
+              required: true
     - name: id
       type: StringAttribute
       computed: true

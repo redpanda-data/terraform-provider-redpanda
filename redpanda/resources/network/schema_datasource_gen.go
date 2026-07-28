@@ -135,6 +135,27 @@ func DatasourceNetworkSchema(_ context.Context) schema.Schema {
 				},
 			},
 
+			"egress_spec": schema.SingleNestedAttribute{
+				Description: "Egress Spec configuration",
+				Computed:    true,
+				Attributes: map[string]schema.Attribute{
+					"azure": schema.SingleNestedAttribute{
+						Description: "Azure configuration",
+						Computed:    true,
+						Attributes: map[string]schema.Attribute{
+							"firewall_private_ip": schema.StringAttribute{
+								Description: "Firewall Private Ip",
+								Computed:    true,
+							},
+							"hub_vnet_id": schema.StringAttribute{
+								Description: "Hub Vnet ID",
+								Computed:    true,
+							},
+						},
+					},
+				},
+			},
+
 			"name": schema.StringAttribute{
 				Description: "The unique name of the network.",
 				Computed:    true,

@@ -22,6 +22,7 @@ Data source for a Redpanda Cloud network
 - `cloud_provider` (String) Cloud provider where resources are created.
 - `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation.
 - `customer_managed_resources` (Attributes) Cloud resources created by user. (see [below for nested schema](#nestedatt--customer_managed_resources))
+- `egress_spec` (Attributes) Egress Spec configuration (see [below for nested schema](#nestedatt--egress_spec))
 - `name` (String) The unique name of the network.
 - `region` (String) Region where network is placed.
 - `resource_group_id` (String) Resource group ID of the network
@@ -94,6 +95,24 @@ Read-Only:
 Required:
 
 - `name` (String) Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions.
+
+
+
+
+<a id="nestedatt--egress_spec"></a>
+### Nested Schema for `egress_spec`
+
+Read-Only:
+
+- `azure` (Attributes) Azure configuration (see [below for nested schema](#nestedatt--egress_spec--azure))
+
+<a id="nestedatt--egress_spec--azure"></a>
+### Nested Schema for `egress_spec.azure`
+
+Read-Only:
+
+- `firewall_private_ip` (String) Firewall Private Ip
+- `hub_vnet_id` (String) Hub Vnet ID
 
 ## Usage
 

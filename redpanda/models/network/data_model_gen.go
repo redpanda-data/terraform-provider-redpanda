@@ -32,6 +32,7 @@ type DataModel struct {
 	CloudProvider            types.String `tfsdk:"cloud_provider"`
 	ClusterType              types.String `tfsdk:"cluster_type"`
 	CustomerManagedResources types.Object `tfsdk:"customer_managed_resources"`
+	EgressSpec               types.Object `tfsdk:"egress_spec"`
 	ID                       types.String `tfsdk:"id"`
 	Name                     types.String `tfsdk:"name"`
 	Region                   types.String `tfsdk:"region"`
@@ -102,6 +103,21 @@ type DataCustomerManagedResourcesGCPModel struct {
 // typed form.
 type DataCustomerManagedResourcesGCPManagementBucketModel struct {
 	Name types.String `tfsdk:"name"`
+}
+
+// DataEgressSpecModel mirrors the nested "egress_spec" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataEgressSpecModel struct {
+	Azure types.Object `tfsdk:"azure"`
+}
+
+// DataEgressSpecAzureModel mirrors the nested "egress_spec.azure" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataEgressSpecAzureModel struct {
+	FirewallPrivateIp types.String `tfsdk:"firewall_private_ip"`
+	HubVnetID         types.String `tfsdk:"hub_vnet_id"`
 }
 
 // --- AttrType tables for nested types (consumed by types.ObjectValueFrom / ObjectNull) ---
@@ -176,6 +192,23 @@ func DataCustomerManagedResourcesGCPManagementBucketAttrTypes() map[string]attr.
 	}
 }
 
+// DataEgressSpecAttrTypes returns the attr.Type map for the "egress_spec" nested
+// attribute.
+func DataEgressSpecAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"azure": types.ObjectType{AttrTypes: DataEgressSpecAzureAttrTypes()},
+	}
+}
+
+// DataEgressSpecAzureAttrTypes returns the attr.Type map for the "egress_spec.azure" nested
+// attribute.
+func DataEgressSpecAzureAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"firewall_private_ip": types.StringType,
+		"hub_vnet_id":         types.StringType,
+	}
+}
+
 // --- Root-level converters (types.Object ⇄ typed struct ergonomics) ---
 
 // AsCustomerManagedResources converts the root customer_managed_resources attribute from
@@ -199,6 +232,29 @@ func DataCustomerManagedResourcesToObject(ctx context.Context, v *DataCustomerMa
 		return types.ObjectNull(DataCustomerManagedResourcesAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAttrTypes(), v)
+}
+
+// AsEgressSpec converts the root egress_spec attribute from
+// types.Object into its typed form. Returns (nil, nil) when the object is
+// null or unknown. Use this when you want typed field access without
+// manually unpacking .Attributes().
+func (m *DataModel) AsEgressSpec(ctx context.Context) (*DataEgressSpecModel, diag.Diagnostics) {
+	if m == nil || m.EgressSpec.IsNull() || m.EgressSpec.IsUnknown() {
+		return nil, nil
+	}
+	var out DataEgressSpecModel
+	d := m.EgressSpec.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataEgressSpecToObject encodes a typed struct back into the
+// types.Object shape expected by the framework. A nil receiver returns
+// types.ObjectNull with the correct attribute types.
+func DataEgressSpecToObject(ctx context.Context, v *DataEgressSpecModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataEgressSpecAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataEgressSpecAttrTypes(), v)
 }
 
 // --- Sub-level converters (free-standing Decode*/ToObject for types nested beyond root level) ---
@@ -341,4 +397,24 @@ func DataCustomerManagedResourcesGCPManagementBucketToObject(ctx context.Context
 		return types.ObjectNull(DataCustomerManagedResourcesGCPManagementBucketAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesGCPManagementBucketAttrTypes(), v)
+}
+
+// DecodeDataEgressSpecAzure decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataEgressSpecAzure(ctx context.Context, v *DataEgressSpecModel) (*DataEgressSpecAzureModel, diag.Diagnostics) {
+	if v == nil || v.Azure.IsNull() || v.Azure.IsUnknown() {
+		return nil, nil
+	}
+	var out DataEgressSpecAzureModel
+	d := v.Azure.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataEgressSpecAzureToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataEgressSpecAzureToObject(ctx context.Context, v *DataEgressSpecAzureModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataEgressSpecAzureAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataEgressSpecAzureAttrTypes(), v)
 }
