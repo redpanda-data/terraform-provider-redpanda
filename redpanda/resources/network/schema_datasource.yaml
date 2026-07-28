@@ -59,6 +59,14 @@ customer_managed_resources:
 
 # --- New proto fields (auto-added by schemagen -todo) ---
 egress_spec:
-  todo: true
+  fields:
+    aws:
+      todo: true
+    gcp:
+      todo: true
+    azure:
+      fields:
+        hub_vnet_id: {}
+        firewall_private_ip: {}
 cloud_provider_access_id:
   todo: true
