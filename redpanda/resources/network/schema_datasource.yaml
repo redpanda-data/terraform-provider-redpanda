@@ -61,7 +61,8 @@ customer_managed_resources:
 egress_spec:
   fields:
     aws:
-      todo: true
+      fields:
+        transit_gateway_id: {}
     gcp:
       todo: true
     azure:

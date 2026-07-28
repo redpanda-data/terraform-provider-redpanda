@@ -169,6 +169,14 @@ var validatorRegistry = map[string]ValidatorDef{
 		},
 		AttrType: "String",
 	},
+	"TransitGatewayID": {
+		Expr: "stringvalidator.RegexMatches(\n\t\t\t\t\tregexp.MustCompile(`^tgw-[0-9a-f]{8,}$`),\n\t\t\t\t\t\"must be a valid AWS Transit Gateway ID (e.g., tgw-0123456789abcdef0)\",\n\t\t\t\t)",
+		Imports: []string{
+			"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator",
+			"regexp",
+		},
+		AttrType: "String",
+	},
 	"LengthAtMost": {
 		Parameterized: true,
 		GenFunc: func(_ string, params map[string]string) (string, []string) {
