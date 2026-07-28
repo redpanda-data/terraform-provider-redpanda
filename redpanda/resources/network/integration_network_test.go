@@ -603,6 +603,107 @@ func TestIntegration_Network_RequiresReplace_CMR_GCP(t *testing.T) {
 	})
 }
 
+// hubEgressAzureConfig builds an Azure network variant with a hub-VNet egress_spec.
+func hubEgressAzureConfig(name, hubVnetID, firewallIP string) string {
+	return fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-net-rg"
+}
+
+resource "redpanda_network" "test" {
+  name              = %q
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = "azure"
+  region            = "westus2"
+  cluster_type      = "dedicated"
+  cidr_block        = "10.0.0.0/20"
+  egress_spec = {
+    azure = {
+      hub_vnet_id         = %q
+      firewall_private_ip = %q
+    }
+  }
+}
+`, name, hubVnetID, firewallIP)
+}
+
+// TestIntegration_Network_CreateAndRefresh_AzureHubEgress validates the Create +
+// no-op cycle for the Azure hub-VNet egress_spec variant.
+func TestIntegration_Network_CreateAndRefresh_AzureHubEgress(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	const (
+		name       = "tfrp-mock-net-hub-create"
+		hubVnetID  = "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/hub-vnet"
+		firewallIP = "10.1.0.4"
+	)
+	cfg := hubEgressAzureConfig(name, hubVnetID, firewallIP)
+
+	idPreserved := statecheck.CompareValue(compare.ValuesSame())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(networkAddr, cfg, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("name"), knownvalue.StringExact(name)),
+				statecheck.ExpectKnownValue(networkAddr,
+					tfjsonpath.New("egress_spec").AtMapKey("azure").AtMapKey("hub_vnet_id"),
+					knownvalue.StringExact(hubVnetID)),
+				statecheck.ExpectKnownValue(networkAddr,
+					tfjsonpath.New("egress_spec").AtMapKey("azure").AtMapKey("firewall_private_ip"),
+					knownvalue.StringExact(firewallIP)),
+				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idPreserved.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			}),
+			integration.NoopReapplyStep(networkAddr, cfg, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(networkAddr,
+					tfjsonpath.New("egress_spec").AtMapKey("azure").AtMapKey("hub_vnet_id"),
+					knownvalue.StringExact(hubVnetID)),
+				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idPreserved.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			}),
+		},
+	})
+}
+
+// TestIntegration_Network_RequiresReplace_AzureHubEgress mutates
+// egress_spec.azure.firewall_private_ip and asserts DestroyBeforeCreate.
+// egress_spec.azure carries RequiresReplace since Network has no Update RPC.
+func TestIntegration_Network_RequiresReplace_AzureHubEgress(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	const (
+		name        = "tfrp-mock-net-rr-hub"
+		hubVnetID   = "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/hub-vnet"
+		firewallIPA = "10.1.0.4"
+		firewallIPB = "10.1.0.5"
+	)
+
+	idChanged := statecheck.CompareValue(compare.ValuesDiffer())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(networkAddr, hubEgressAzureConfig(name, hubVnetID, firewallIPA), []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(networkAddr,
+					tfjsonpath.New("egress_spec").AtMapKey("azure").AtMapKey("firewall_private_ip"),
+					knownvalue.StringExact(firewallIPA)),
+				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idChanged.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			}),
+			integration.RequiresReplaceStep(networkAddr, hubEgressAzureConfig(name, hubVnetID, firewallIPB), []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(networkAddr,
+					tfjsonpath.New("egress_spec").AtMapKey("azure").AtMapKey("firewall_private_ip"),
+					knownvalue.StringExact(firewallIPB)),
+				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idChanged.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			}),
+		},
+	})
+}
+
 // TestIntegration_Network_ImportRoundTrip exercises the bearer-id import path.
 // Network's ImportState uses ImportStatePassthroughID on the "id" attribute,
 // so the import id is the xid-like string assigned at Create. Network's
