@@ -110,6 +110,7 @@ Required:
 
 Optional:
 
+<<<<<<< HEAD
 - `azure` (Attributes) Azure configuration (see [below for nested schema](#nestedatt--egress_spec--azure))
 
 <a id="nestedatt--egress_spec--azure"></a>
@@ -119,6 +120,16 @@ Required:
 
 - `firewall_private_ip` (String) Firewall Private Ip. Must be a valid IP address.
 - `hub_vnet_id` (String) Hub Vnet ID. Length must be at least 1.
+=======
+- `aws` (Attributes) AWS configuration (see [below for nested schema](#nestedatt--egress_spec--aws))
+
+<a id="nestedatt--egress_spec--aws"></a>
+### Nested Schema for `egress_spec.aws`
+
+Required:
+
+- `transit_gateway_id` (String) Transit Gateway ID. Must match pattern `^tgw-[0-9a-f]{8,}$`.
+>>>>>>> d3c400dd (chore(generate): regenerate network schema, model, golden, and docs)
 
 
 

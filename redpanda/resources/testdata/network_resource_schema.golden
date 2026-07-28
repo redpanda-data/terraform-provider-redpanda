@@ -91,12 +91,17 @@ attributes:
       type: SingleNestedAttribute
       optional: true
       attributes:
+<<<<<<< HEAD
         - name: azure
+=======
+        - name: aws
+>>>>>>> d3c400dd (chore(generate): regenerate network schema, model, golden, and docs)
           type: SingleNestedAttribute
           optional: true
           plan_modifiers:
             - objectplanmodifier.requiresReplaceIfModifier
           attributes:
+<<<<<<< HEAD
             - name: firewall_private_ip
               type: StringAttribute
               required: true
@@ -105,6 +110,13 @@ attributes:
             - name: hub_vnet_id
               type: StringAttribute
               required: true
+=======
+            - name: transit_gateway_id
+              type: StringAttribute
+              required: true
+              validators:
+                - stringvalidator.regexMatchesValidator
+>>>>>>> d3c400dd (chore(generate): regenerate network schema, model, golden, and docs)
     - name: id
       type: StringAttribute
       computed: true

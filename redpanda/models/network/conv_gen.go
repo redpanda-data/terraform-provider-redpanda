@@ -339,7 +339,11 @@ func FlattenEgressSpec(ctx context.Context, proto *controlplanev1.Network_Egress
 	var diags diag.Diagnostics
 	_ = prev
 	m := EgressSpecModel{}
+<<<<<<< HEAD
 	m.Azure = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAzure(), func() *EgressSpecAzureModel { v, _ := DecodeEgressSpecAzure(ctx, prev); return v }(), EgressSpecAzureAttrTypes(), FlattenEgressSpecAzure, &diags)
+=======
+	m.AWS = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAws(), func() *EgressSpecAWSModel { v, _ := DecodeEgressSpecAWS(ctx, prev); return v }(), EgressSpecAWSAttrTypes(), FlattenEgressSpecAWS, &diags)
+>>>>>>> d3c400dd (chore(generate): regenerate network schema, model, golden, and docs)
 	return m, diags
 }
 
@@ -350,12 +354,18 @@ func ExpandEgressSpec(ctx context.Context, m *EgressSpecModel) (*controlplanev1.
 		return nil, diags
 	}
 	out := &controlplanev1.Network_EgressSpec{}
+<<<<<<< HEAD
 	if v := modelconv.ObjectToMessageWithDiags(ctx, m.Azure, ExpandEgressSpecAzure, &diags); v != nil {
 		out.SetAzure(v)
+=======
+	if v := modelconv.ObjectToMessageWithDiags(ctx, m.AWS, ExpandEgressSpecAWS, &diags); v != nil {
+		out.SetAws(v)
+>>>>>>> d3c400dd (chore(generate): regenerate network schema, model, golden, and docs)
 	}
 	return out, diags
 }
 
+<<<<<<< HEAD
 // FlattenEgressSpecAzure converts a single proto controlplanev1.Network_EgressSpec_Azure into the
 // corresponding nested model. The prev *EgressSpecAzureModel arg carries forward
 // TF-only / sensitive / write-only fields and resolves the proto3
@@ -372,13 +382,35 @@ func FlattenEgressSpecAzure(_ context.Context, proto *controlplanev1.Network_Egr
 
 // ExpandEgressSpecAzure renders a nested model back into the proto type.
 func ExpandEgressSpecAzure(_ context.Context, m *EgressSpecAzureModel) (*controlplanev1.Network_EgressSpec_Azure, diag.Diagnostics) {
+=======
+// FlattenEgressSpecAWS converts a single proto controlplanev1.Network_EgressSpec_AWS into the
+// corresponding nested model. The prev *EgressSpecAWSModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenEgressSpecAWS(_ context.Context, proto *controlplanev1.Network_EgressSpec_AWS, prev *EgressSpecAWSModel) (EgressSpecAWSModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := EgressSpecAWSModel{}
+	m.TransitGatewayID = types.StringValue(proto.GetTransitGatewayId())
+	return m, diags
+}
+
+// ExpandEgressSpecAWS renders a nested model back into the proto type.
+func ExpandEgressSpecAWS(_ context.Context, m *EgressSpecAWSModel) (*controlplanev1.Network_EgressSpec_AWS, diag.Diagnostics) {
+>>>>>>> d3c400dd (chore(generate): regenerate network schema, model, golden, and docs)
 	var diags diag.Diagnostics
 	if m == nil {
 		return nil, diags
 	}
+<<<<<<< HEAD
 	out := &controlplanev1.Network_EgressSpec_Azure{
 		FirewallPrivateIp: m.FirewallPrivateIp.ValueString(),
 		HubVnetId:         m.HubVnetID.ValueString(),
+=======
+	out := &controlplanev1.Network_EgressSpec_AWS{
+		TransitGatewayId: m.TransitGatewayID.ValueString(),
+>>>>>>> d3c400dd (chore(generate): regenerate network schema, model, golden, and docs)
 	}
 	return out, diags
 }
