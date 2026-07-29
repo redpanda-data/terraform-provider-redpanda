@@ -75,3 +75,9 @@ variable "metadata_max_age_ms" {
   default     = 10000
   description = "client_options.metadata_max_age_ms; toggled by the partial-update acceptance test step to verify only the changed field-mask path is sent."
 }
+
+variable "sr_tail_interval" {
+  type        = string
+  default     = "10s"
+  description = "shadow_schema_registry_api.tail_interval; toggled by the partial-update acceptance test step. Must be a canonical Go duration string — the provider re-emits durations in canonical form, so \"10m\" would round-trip to \"10m0s\" and fail the plan."
+}

@@ -146,5 +146,37 @@ resource "redpanda_shadow_link" "test" {
     metadata_max_age_ms = var.metadata_max_age_ms
   }
 
+  # Replicates Schema Registry over the HTTP API. source_url points at the
+  # source cluster's own registry so the endpoint is real and reachable rather
+  # than a placeholder the control plane would accept but never resolve.
+  schema_registry_sync_options = {
+    shadow_schema_registry_api = {
+      source_url = redpanda_cluster.source.schema_registry.url
+
+      auth_options = {
+        basic = {
+          username = redpanda_user.shadow_link_user.name
+          password = "$${secrets.${redpanda_secret.source_password.name}}"
+        }
+      }
+
+      tail_interval                  = var.sr_tail_interval
+      full_sync_interval             = "5m0s"
+      max_source_requests_per_second = 30
+
+      source_filter = {
+        contexts = ["."]
+      }
+
+      # identity preserves source context names; the exact arm is the sibling.
+      destination = {
+        identity = true
+      }
+
+      unsupported_schema_feature_policy = "FAIL"
+      paused                            = false
+    }
+  }
+
   allow_deletion = true
 }

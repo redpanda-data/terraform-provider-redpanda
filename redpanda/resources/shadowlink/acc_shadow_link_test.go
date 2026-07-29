@@ -71,11 +71,16 @@ func TestAcc_ShadowLink(t *testing.T) {
 	maps.Copy(partialUpdateVars, origVars)
 	partialUpdateVars["metadata_max_age_ms"] = config.IntegerVariable(15000)
 
+	// SR partial-update vars: bump only shadow_schema_registry_api.tail_interval.
+	srUpdateVars := make(map[string]config.Variable)
+	maps.Copy(srUpdateVars, partialUpdateVars)
+	srUpdateVars["sr_tail_interval"] = config.StringVariable("20s")
+
 	// Shadow-link rename triggers RequiresReplace (delete + create) since
 	// `name` is immutable on the proto.
 	linkRename := strings.ToLower(acc.RandomName(acc.NamePrefix + "shadowlink-rename"))
 	renameVars := make(map[string]config.Variable)
-	maps.Copy(renameVars, partialUpdateVars)
+	maps.Copy(renameVars, srUpdateVars)
 	renameVars["link_name"] = config.StringVariable(linkRename)
 
 	// Final destroy step needs cluster_allow_deletion=true. allow_deletion=false
@@ -125,6 +130,21 @@ func TestAcc_ShadowLink(t *testing.T) {
 					resource.TestCheckResourceAttrSet(acc.ShadowLinkResourceName, "id"),
 					resource.TestCheckResourceAttrSet(acc.ShadowLinkResourceName, "state"),
 					resource.TestCheckResourceAttr(acc.ShadowLinkSecretResourceName, "name", secretName),
+					// shadow_schema_registry_api: the arm the dependency bump added.
+					// Asserting the leaves proves the control plane persists and
+					// returns the whole subtree, not just accepts it.
+					resource.TestCheckResourceAttrSet(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.source_url"),
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.tail_interval", "10s"),
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.full_sync_interval", "5m0s"),
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.max_source_requests_per_second", "30"),
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.unsupported_schema_feature_policy", "FAIL"),
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.destination.identity", "true"),
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.auth_options.basic.username", prefix+"-user"),
+					// Masked on Read by the real backend; a value here means the
+					// provider restored it from prior state rather than blanking it.
+					resource.TestCheckResourceAttrSet(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.auth_options.basic.password"),
+					// Server-derived mirrors, absent from every write payload.
+					resource.TestCheckResourceAttrSet(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.effective_tail_interval"),
 					func(s *terraform.State) error {
 						sourceID, err := acc.ResourceID(s, "redpanda_cluster.source")
 						if err != nil {
@@ -191,6 +211,49 @@ func TestAcc_ShadowLink(t *testing.T) {
 						}
 						if got := sl.GetTopicMetadataSyncOptions().GetPaused(); got != initialPaused {
 							return fmt.Errorf("topic_metadata_sync_options.paused was clobbered by partial update: before=%v after=%v", initialPaused, got)
+						}
+						return nil
+					},
+				),
+			},
+			// Change ONLY shadow_schema_registry_api.tail_interval. Two things
+			// this proves that the mock tier cannot: the control plane accepts a
+			// partial update inside the SR subtree, and basic.password survives
+			// the Read that follows — the real backend masks it, so a blanked
+			// value would surface here as a perpetual diff rather than a clean
+			// apply.
+			{
+				ConfigDirectory:          config.StaticDirectory(acc.ShadowLinkDir),
+				ConfigVariables:          srUpdateVars,
+				ProtoV6ProviderFactories: acc.ProtoV6Factories,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.tail_interval", "20s"),
+					resource.TestCheckResourceAttrSet(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.auth_options.basic.password"),
+					// Untouched leaves in the same subtree must not be clobbered
+					// by the partial update.
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.full_sync_interval", "5m0s"),
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.destination.identity", "true"),
+					func(s *terraform.State) error {
+						linkID, err := acc.ResourceID(s, acc.ShadowLinkResourceName)
+						if err != nil {
+							return err
+						}
+						sl, err := c.ShadowLinkForID(ctx, linkID)
+						if err != nil {
+							return fmt.Errorf("shadow link %q not found via API: %v", linkID, err)
+						}
+						api := sl.GetSchemaRegistrySyncOptions().GetShadowSchemaRegistryApi()
+						if api == nil {
+							return fmt.Errorf("shadow_schema_registry_api missing server-side after update")
+						}
+						if got := api.GetTailInterval().AsDuration().String(); got != "20s" {
+							return fmt.Errorf("expected tail_interval=20s server-side, got %s", got)
+						}
+						if !api.GetAuthOptions().GetBasic().GetPasswordSet() {
+							return fmt.Errorf("basic.password_set is false server-side — the credential did not persist")
+						}
+						if got := sl.GetTopicMetadataSyncOptions().GetPaused(); got != initialPaused {
+							return fmt.Errorf("topic_metadata_sync_options.paused clobbered by SR update: before=%v after=%v", initialPaused, got)
 						}
 						return nil
 					},
