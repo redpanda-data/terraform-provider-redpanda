@@ -335,18 +335,7 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 												Description:   "HTTP Basic auth password. For Confluent Cloud, this is the API secret.",
 												Optional:      true,
 												Computed:      true,
-												PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-											},
-											"password_set": schema.BoolAttribute{
-												Description:   "Indicates that the password has been set.",
-												Optional:      true,
-												Computed:      true,
-												PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
-											},
-											"password_set_at": schema.StringAttribute{
-												Description:   "Timestamp of when the password was last set - only valid if password_set is true.",
-												Optional:      true,
-												Computed:      true,
+												Sensitive:     true,
 												PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 											},
 											"username": schema.StringAttribute{
@@ -354,6 +343,11 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 												Optional:      true,
 												Computed:      true,
 												PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+											},
+											"password_set": schema.BoolAttribute{
+												Description:   "Indicates that the password has been set.",
+												Computed:      true,
+												PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseNonNullStateForUnknown()},
 											},
 										},
 									},
@@ -377,45 +371,24 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 												NestedObject: schema.NestedAttributeObject{
 													Attributes: map[string]schema.Attribute{
 														"destination": schema.StringAttribute{
-															Description:   "Destination context name.",
-															Optional:      true,
-															Computed:      true,
-															PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+															Description: "Destination context name.",
+															Required:    true,
 														},
 														"source": schema.StringAttribute{
-															Description:   "Source context name.",
-															Optional:      true,
-															Computed:      true,
-															PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+															Description: "Source context name.",
+															Required:    true,
 														},
 													},
 												},
 											},
 										},
 									},
-									"identity": schema.SingleNestedAttribute{
+									"identity": schema.BoolAttribute{
 										Description: "Preserve source context names in the destination Schema Registry.",
 										Optional:    true,
+										Validators:  []validator.Bool{boolvalidator.Equals(true)},
 									},
 								},
-							},
-							"effective_full_sync_interval": schema.StringAttribute{
-								Description:   "The effective interval between full scans.",
-								Optional:      true,
-								Computed:      true,
-								PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-							},
-							"effective_max_source_requests_per_second": schema.Int32Attribute{
-								Description:   "The effective maximum request rate, in requests per second.",
-								Optional:      true,
-								Computed:      true,
-								PlanModifiers: []planmodifier.Int32{int32planmodifier.UseStateForUnknown()},
-							},
-							"effective_tail_interval": schema.StringAttribute{
-								Description:   "The effective interval between incremental polls.",
-								Optional:      true,
-								Computed:      true,
-								PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 							},
 							"full_sync_interval": schema.StringAttribute{
 								Description:   "Interval between full scans of the selected source subjects. If unset or zero, the cluster default of 5m is used.",
@@ -519,13 +492,13 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 												Description:   "Key and Cert are optional but if one is provided, then both must be The key",
 												Optional:      true,
 												Computed:      true,
+												Sensitive:     true,
 												PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 											},
 											"key_fingerprint": schema.StringAttribute{
 												Description:   "The SHA-256 of the key, in base64 format",
-												Optional:      true,
 												Computed:      true,
-												PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+												PlanModifiers: []planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()},
 											},
 										},
 									},
@@ -548,6 +521,18 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 								Optional:      true,
 								Computed:      true,
 								PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+							},
+							"effective_full_sync_interval": schema.StringAttribute{
+								Description: "The effective interval between full scans.",
+								Computed:    true,
+							},
+							"effective_max_source_requests_per_second": schema.Int32Attribute{
+								Description: "The effective maximum request rate, in requests per second.",
+								Computed:    true,
+							},
+							"effective_tail_interval": schema.StringAttribute{
+								Description: "The effective interval between incremental polls.",
+								Computed:    true,
 							},
 						},
 					},

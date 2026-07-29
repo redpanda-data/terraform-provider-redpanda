@@ -150,9 +150,6 @@ Optional:
 
 - `auth_options` (Attributes) Authentication settings for source Schema Registry HTTP requests. (see [below for nested schema](#nestedatt--schema_registry_sync_options--shadow_schema_registry_api--auth_options))
 - `destination` (Attributes) Destination context mapping for source Schema Registry data. (see [below for nested schema](#nestedatt--schema_registry_sync_options--shadow_schema_registry_api--destination))
-- `effective_full_sync_interval` (String) The effective interval between full scans.
-- `effective_max_source_requests_per_second` (Number) The effective maximum request rate, in requests per second.
-- `effective_tail_interval` (String) The effective interval between incremental polls.
 - `full_sync_interval` (String) Interval between full scans of the selected source subjects. If unset or zero, the cluster default of 5m is used.
 - `max_source_requests_per_second` (Number) Maximum request rate, in requests per second, for calls to the source Schema Registry. If unset or zero, a default rate limit of 30 requests/s is used.
 - `paused` (Boolean) Allows the user to pause the Schema Registry sync task. If paused, the task enters the 'paused' state and stops replicating schemas from the source, and the per-context client write protection on the contexts this link owns is lifted.
@@ -161,6 +158,12 @@ Optional:
 - `tail_interval` (String) Interval between incremental polls for new source subjects and subject versions. If unset or zero, the cluster default of 10s is used.
 - `tls_settings` (Attributes) TLS settings (see [below for nested schema](#nestedatt--schema_registry_sync_options--shadow_schema_registry_api--tls_settings))
 - `unsupported_schema_feature_policy` (String) Policy for handling source schema features unsupported by the destination. - UNSUPPORTED_SCHEMA_FEATURE_POLICY_FAIL: Fail the sync when an unsupported schema feature is encountered. - UNSUPPORTED_SCHEMA_FEATURE_POLICY_REMOVE: Remove unsupported schema features before writing to the destination.
+
+Read-Only:
+
+- `effective_full_sync_interval` (String) The effective interval between full scans.
+- `effective_max_source_requests_per_second` (Number) The effective maximum request rate, in requests per second.
+- `effective_tail_interval` (String) The effective interval between incremental polls.
 
 <a id="nestedatt--schema_registry_sync_options--shadow_schema_registry_api--auth_options"></a>
 ### Nested Schema for `schema_registry_sync_options.shadow_schema_registry_api.auth_options`
@@ -174,10 +177,12 @@ Optional:
 
 Optional:
 
-- `password` (String) HTTP Basic auth password. For Confluent Cloud, this is the API secret.
-- `password_set` (Boolean) Indicates that the password has been set.
-- `password_set_at` (String) Timestamp of when the password was last set - only valid if password_set is true.
+- `password` (String, Sensitive) HTTP Basic auth password. For Confluent Cloud, this is the API secret.
 - `username` (String) HTTP Basic auth username. For Confluent Cloud, this is the API key.
+
+Read-Only:
+
+- `password_set` (Boolean) Indicates that the password has been set.
 
 
 
@@ -187,7 +192,7 @@ Optional:
 Optional:
 
 - `exact` (Attributes) Explicit source-to-destination context mappings. (see [below for nested schema](#nestedatt--schema_registry_sync_options--shadow_schema_registry_api--destination--exact))
-- `identity` (Attributes) Preserve source context names in the destination Schema Registry. (see [below for nested schema](#nestedatt--schema_registry_sync_options--shadow_schema_registry_api--destination--identity))
+- `identity` (Boolean) Preserve source context names in the destination Schema Registry.
 
 <a id="nestedatt--schema_registry_sync_options--shadow_schema_registry_api--destination--exact"></a>
 ### Nested Schema for `schema_registry_sync_options.shadow_schema_registry_api.destination.exact`
@@ -199,15 +204,11 @@ Optional:
 <a id="nestedatt--schema_registry_sync_options--shadow_schema_registry_api--destination--exact--mappings"></a>
 ### Nested Schema for `schema_registry_sync_options.shadow_schema_registry_api.destination.exact.mappings`
 
-Optional:
+Required:
 
 - `destination` (String) Destination context name.
 - `source` (String) Source context name.
 
-
-
-<a id="nestedatt--schema_registry_sync_options--shadow_schema_registry_api--destination--identity"></a>
-### Nested Schema for `schema_registry_sync_options.shadow_schema_registry_api.destination.identity`
 
 
 
@@ -247,7 +248,10 @@ Optional:
 
 - `ca` (String) The CA
 - `cert` (String) The cert
-- `key` (String) Key and Cert are optional but if one is provided, then both must be The key
+- `key` (String, Sensitive) Key and Cert are optional but if one is provided, then both must be The key
+
+Read-Only:
+
 - `key_fingerprint` (String) The SHA-256 of the key, in base64 format
 
 
@@ -344,6 +348,12 @@ variable "source_password" {
   description = "SCRAM password for the source cluster (will be stored as a dataplane secret)"
 }
 
+variable "source_schema_registry_password" {
+  type        = string
+  sensitive   = true
+  description = "Schema Registry HTTP Basic auth password for the source cluster"
+}
+
 resource "redpanda_resource_group" "example" {
   name = "example-resource-group"
 }
@@ -385,6 +395,16 @@ resource "redpanda_secret" "source_password" {
   allow_deletion      = true
 }
 
+# Schema Registry HTTP Basic auth password, stored alongside the SCRAM password.
+resource "redpanda_secret" "source_schema_registry_password" {
+  name                = "SOURCE_SR_PASSWORD"
+  secret_data         = var.source_schema_registry_password
+  secret_data_version = 1
+  scopes              = ["SCOPE_REDPANDA_CLUSTER"]
+  cluster_api_url     = redpanda_cluster.shadow.cluster_api_url
+  allow_deletion      = true
+}
+
 resource "redpanda_shadow_link" "example" {
   name               = "example-link"
   shadow_redpanda_id = redpanda_cluster.shadow.id
@@ -397,6 +417,40 @@ resource "redpanda_shadow_link" "example" {
         username        = "shadow-link-user"
         password        = "$${secrets.${redpanda_secret.source_password.name}}"
       }
+    }
+  }
+
+  # Replicate Schema Registry over the HTTP API. This is one arm of the
+  # schema_registry_shadowing_mode oneof — set shadow_schema_registry_topic
+  # instead to shadow the `_schemas` topic byte-for-byte.
+  schema_registry_sync_options = {
+    shadow_schema_registry_api = {
+      source_url = "https://source-schema-registry.example.com:8081"
+
+      auth_options = {
+        basic = {
+          username = "schema-registry-user"
+          password = "$${secrets.${redpanda_secret.source_schema_registry_password.name}}"
+        }
+      }
+
+      # Poll for new subjects every 10s; full reconcile every 5 minutes.
+      tail_interval                  = "10s"
+      full_sync_interval             = "5m0s"
+      max_source_requests_per_second = 30
+
+      # Replicate only these contexts; omit source_filter to replicate everything.
+      source_filter = {
+        contexts = [".", ".prod"]
+      }
+
+      # Preserve source context names on the shadow cluster. Use
+      # destination.exact instead to remap them.
+      destination = {
+        identity = true
+      }
+
+      unsupported_schema_feature_policy = "FAIL"
     }
   }
 

@@ -141,9 +141,6 @@ type SchemaRegistrySyncOptionsModel struct {
 type SchemaRegistrySyncOptionsShadowSchemaRegistryAPIModel struct {
 	AuthOptions                         types.Object `tfsdk:"auth_options"`
 	Destination                         types.Object `tfsdk:"destination"`
-	EffectiveFullSyncInterval           types.String `tfsdk:"effective_full_sync_interval"`
-	EffectiveMaxSourceRequestsPerSecond types.Int32  `tfsdk:"effective_max_source_requests_per_second"`
-	EffectiveTailInterval               types.String `tfsdk:"effective_tail_interval"`
 	FullSyncInterval                    types.String `tfsdk:"full_sync_interval"`
 	MaxSourceRequestsPerSecond          types.Int32  `tfsdk:"max_source_requests_per_second"`
 	Paused                              types.Bool   `tfsdk:"paused"`
@@ -152,6 +149,9 @@ type SchemaRegistrySyncOptionsShadowSchemaRegistryAPIModel struct {
 	TailInterval                        types.String `tfsdk:"tail_interval"`
 	TLSSettings                         types.Object `tfsdk:"tls_settings"`
 	UnsupportedSchemaFeaturePolicy      types.String `tfsdk:"unsupported_schema_feature_policy"`
+	EffectiveFullSyncInterval           types.String `tfsdk:"effective_full_sync_interval"`
+	EffectiveMaxSourceRequestsPerSecond types.Int32  `tfsdk:"effective_max_source_requests_per_second"`
+	EffectiveTailInterval               types.String `tfsdk:"effective_tail_interval"`
 }
 
 // SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsModel mirrors the nested "schema_registry_sync_options.shadow_schema_registry_api.auth_options" attribute. Use the As/To
@@ -165,10 +165,9 @@ type SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsModel struct {
 // converters on the parent struct to move between types.Object and this
 // typed form.
 type SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasicModel struct {
-	Password      types.String `tfsdk:"password"`
-	PasswordSet   types.Bool   `tfsdk:"password_set"`
-	PasswordSetAt types.String `tfsdk:"password_set_at"`
-	Username      types.String `tfsdk:"username"`
+	Password    types.String `tfsdk:"password"`
+	Username    types.String `tfsdk:"username"`
+	PasswordSet types.Bool   `tfsdk:"password_set"`
 }
 
 // SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationModel mirrors the nested "schema_registry_sync_options.shadow_schema_registry_api.destination" attribute. Use the As/To
@@ -176,7 +175,7 @@ type SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasicModel struc
 // typed form.
 type SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationModel struct {
 	Exact    types.Object `tfsdk:"exact"`
-	Identity types.Object `tfsdk:"identity"`
+	Identity types.Bool   `tfsdk:"identity"`
 }
 
 // SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactModel mirrors the nested "schema_registry_sync_options.shadow_schema_registry_api.destination.exact" attribute. Use the As/To
@@ -192,12 +191,6 @@ type SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactModel struc
 type SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactMappingsModel struct {
 	Destination types.String `tfsdk:"destination"`
 	Source      types.String `tfsdk:"source"`
-}
-
-// SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityModel mirrors the nested "schema_registry_sync_options.shadow_schema_registry_api.destination.identity" attribute. Use the As/To
-// converters on the parent struct to move between types.Object and this
-// typed form.
-type SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityModel struct {
 }
 
 // SchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilterModel mirrors the nested "schema_registry_sync_options.shadow_schema_registry_api.source_filter" attribute. Use the As/To
@@ -401,9 +394,6 @@ func SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAttrTypes() map[string]attr
 	return map[string]attr.Type{
 		"auth_options":                             types.ObjectType{AttrTypes: SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsAttrTypes()},
 		"destination":                              types.ObjectType{AttrTypes: SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationAttrTypes()},
-		"effective_full_sync_interval":             types.StringType,
-		"effective_max_source_requests_per_second": types.Int32Type,
-		"effective_tail_interval":                  types.StringType,
 		"full_sync_interval":                       types.StringType,
 		"max_source_requests_per_second":           types.Int32Type,
 		"paused":                                   types.BoolType,
@@ -412,6 +402,9 @@ func SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAttrTypes() map[string]attr
 		"tail_interval":                            types.StringType,
 		"tls_settings":                             types.ObjectType{AttrTypes: SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsAttrTypes()},
 		"unsupported_schema_feature_policy":        types.StringType,
+		"effective_full_sync_interval":             types.StringType,
+		"effective_max_source_requests_per_second": types.Int32Type,
+		"effective_tail_interval":                  types.StringType,
 	}
 }
 
@@ -427,10 +420,9 @@ func SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsAttrTypes() map[
 // attribute.
 func SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasicAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"password":        types.StringType,
-		"password_set":    types.BoolType,
-		"password_set_at": types.StringType,
-		"username":        types.StringType,
+		"password":     types.StringType,
+		"username":     types.StringType,
+		"password_set": types.BoolType,
 	}
 }
 
@@ -439,7 +431,7 @@ func SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasicAttrTypes()
 func SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"exact":    types.ObjectType{AttrTypes: SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactAttrTypes()},
-		"identity": types.ObjectType{AttrTypes: SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityAttrTypes()},
+		"identity": types.BoolType,
 	}
 }
 
@@ -458,12 +450,6 @@ func SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactMappingsAtt
 		"destination": types.StringType,
 		"source":      types.StringType,
 	}
-}
-
-// SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityAttrTypes returns the attr.Type map for the "schema_registry_sync_options.shadow_schema_registry_api.destination.identity" nested
-// attribute.
-func SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityAttrTypes() map[string]attr.Type {
-	return map[string]attr.Type{}
 }
 
 // SchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilterAttrTypes returns the attr.Type map for the "schema_registry_sync_options.shadow_schema_registry_api.source_filter" nested
@@ -869,26 +855,6 @@ func SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactToObject(ct
 		return types.ObjectNull(SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactAttrTypes(), v)
-}
-
-// DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentity decodes the sub-field from its parent typed struct.
-// Returns (nil, nil) when the field is null or unknown.
-func DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentity(ctx context.Context, v *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationModel) (*SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityModel, diag.Diagnostics) {
-	if v == nil || v.Identity.IsNull() || v.Identity.IsUnknown() {
-		return nil, nil
-	}
-	var out SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityModel
-	d := v.Identity.As(ctx, &out, basetypes.ObjectAsOptions{})
-	return &out, d
-}
-
-// SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityToObject encodes a typed struct back into types.Object.
-// A nil receiver returns types.ObjectNull with the correct attribute types.
-func SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityToObject(ctx context.Context, v *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityModel) (types.Object, diag.Diagnostics) {
-	if v == nil {
-		return types.ObjectNull(SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityAttrTypes()), nil
-	}
-	return types.ObjectValueFrom(ctx, SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityAttrTypes(), v)
 }
 
 // DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilter decodes the sub-field from its parent typed struct.

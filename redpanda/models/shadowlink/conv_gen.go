@@ -498,9 +498,6 @@ func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPI(ctx context.Context
 		v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestination(ctx, prev)
 		return v
 	}(), SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationAttrTypes(), FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestination, &diags)
-	m.EffectiveFullSyncInterval = modelconv.StringFromDuration(proto.GetEffectiveFullSyncInterval())
-	m.EffectiveMaxSourceRequestsPerSecond = types.Int32Value(proto.GetEffectiveMaxSourceRequestsPerSecond())
-	m.EffectiveTailInterval = modelconv.StringFromDuration(proto.GetEffectiveTailInterval())
 	m.FullSyncInterval = modelconv.StringFromDuration(proto.GetFullSyncInterval())
 	m.MaxSourceRequestsPerSecond = types.Int32Value(proto.GetMaxSourceRequestsPerSecond())
 	m.Paused = types.BoolValue(proto.GetPaused())
@@ -521,6 +518,9 @@ func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPI(ctx context.Context
 		m.TLSSettings = types.ObjectNull(SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsAttrTypes())
 	}
 	m.UnsupportedSchemaFeaturePolicy = types.StringValue(enums.UnsupportedSchemaFeaturePolicyToString(proto.GetUnsupportedSchemaFeaturePolicy()))
+	m.EffectiveFullSyncInterval = modelconv.StringFromDuration(proto.GetEffectiveFullSyncInterval())
+	m.EffectiveMaxSourceRequestsPerSecond = types.Int32Value(proto.GetEffectiveMaxSourceRequestsPerSecond())
+	m.EffectiveTailInterval = modelconv.StringFromDuration(proto.GetEffectiveTailInterval())
 	return m, diags
 }
 
@@ -533,9 +533,6 @@ func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPI(ctx context.Context,
 	out := &corev2.SchemaRegistrySyncOptions_ShadowSchemaRegistryApi{
 		AuthOptions:                         modelconv.ObjectToMessageWithDiags(ctx, m.AuthOptions, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptions, &diags),
 		Destination:                         modelconv.ObjectToMessageWithDiags(ctx, m.Destination, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestination, &diags),
-		EffectiveFullSyncInterval:           modelconv.DurationFromStringWithDiags(m.EffectiveFullSyncInterval, &diags),
-		EffectiveMaxSourceRequestsPerSecond: m.EffectiveMaxSourceRequestsPerSecond.ValueInt32(),
-		EffectiveTailInterval:               modelconv.DurationFromStringWithDiags(m.EffectiveTailInterval, &diags),
 		FullSyncInterval:                    modelconv.DurationFromStringWithDiags(m.FullSyncInterval, &diags),
 		MaxSourceRequestsPerSecond:          m.MaxSourceRequestsPerSecond.ValueInt32(),
 		Paused:                              m.Paused.ValueBool(),
@@ -544,6 +541,9 @@ func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPI(ctx context.Context,
 		TailInterval:                        modelconv.DurationFromStringWithDiags(m.TailInterval, &diags),
 		TlsSettings:                         modelconv.ObjectToMessageWithDiags(ctx, m.TLSSettings, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettings, &diags),
 		UnsupportedSchemaFeaturePolicy:      enums.StringToUnsupportedSchemaFeaturePolicy(m.UnsupportedSchemaFeaturePolicy.ValueString()),
+		EffectiveFullSyncInterval:           modelconv.DurationFromStringWithDiags(m.EffectiveFullSyncInterval, &diags),
+		EffectiveMaxSourceRequestsPerSecond: m.EffectiveMaxSourceRequestsPerSecond.ValueInt32(),
+		EffectiveTailInterval:               modelconv.DurationFromStringWithDiags(m.EffectiveTailInterval, &diags),
 	}
 	return out, diags
 }
@@ -587,9 +587,8 @@ func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasic(_ c
 	_ = prev
 	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasicModel{}
 	m.Password = types.StringValue(proto.GetPassword())
-	m.PasswordSet = types.BoolValue(proto.GetPasswordSet())
-	m.PasswordSetAt = modelconv.StringFromTimestamp(proto.GetPasswordSetAt())
 	m.Username = types.StringValue(proto.GetUsername())
+	m.PasswordSet = types.BoolValue(proto.GetPasswordSet())
 	return m, diags
 }
 
@@ -600,10 +599,9 @@ func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasic(_ co
 		return nil, diags
 	}
 	out := &corev2.HTTPBasicAuthOptions{
-		Password:      m.Password.ValueString(),
-		PasswordSet:   m.PasswordSet.ValueBool(),
-		PasswordSetAt: modelconv.TimestampFromStringWithDiags(m.PasswordSetAt, &diags),
-		Username:      m.Username.ValueString(),
+		Password:    m.Password.ValueString(),
+		Username:    m.Username.ValueString(),
+		PasswordSet: m.PasswordSet.ValueBool(),
 	}
 	return out, diags
 }
@@ -621,10 +619,7 @@ func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestination(ctx cont
 		v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExact(ctx, prev)
 		return v
 	}(), SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactAttrTypes(), FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExact, &diags)
-	m.Identity = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetIdentity(), func() *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityModel {
-		v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentity(ctx, prev)
-		return v
-	}(), SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityAttrTypes(), FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentity, &diags)
+	m.Identity = modelconv.BoolFromOneofPresence(proto.HasIdentity())
 	return m, diags
 }
 
@@ -638,8 +633,8 @@ func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestination(ctx conte
 	if v := modelconv.ObjectToMessageWithDiags(ctx, m.Exact, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExact, &diags); v != nil {
 		out.SetExact(v)
 	}
-	if v := modelconv.ObjectToMessageWithDiags(ctx, m.Identity, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentity, &diags); v != nil {
-		out.SetIdentity(v)
+	if m.Identity.ValueBool() {
+		out.SetIdentity(&corev2.SchemaRegistryIdentityContextMapping{})
 	}
 	return out, diags
 }
@@ -696,28 +691,6 @@ func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationExactMappi
 		Destination: m.Destination.ValueString(),
 		Source:      m.Source.ValueString(),
 	}
-	return out, diags
-}
-
-// FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentity converts a single proto corev2.SchemaRegistryIdentityContextMapping into the
-// corresponding nested model. The prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityModel arg carries forward
-// TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
-// flatten directly); pass nil when no prior nested state is available.
-func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentity(_ context.Context, proto *corev2.SchemaRegistryIdentityContextMapping, prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityModel) (SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityModel, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	_ = prev
-	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityModel{}
-	return m, diags
-}
-
-// ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentity renders a nested model back into the proto type.
-func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentity(_ context.Context, m *SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationIdentityModel) (*corev2.SchemaRegistryIdentityContextMapping, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	if m == nil {
-		return nil, diags
-	}
-	out := &corev2.SchemaRegistryIdentityContextMapping{}
 	return out, diags
 }
 

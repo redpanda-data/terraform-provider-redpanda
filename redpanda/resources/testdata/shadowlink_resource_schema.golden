@@ -278,20 +278,14 @@ attributes:
                       type: StringAttribute
                       optional: true
                       computed: true
+                      sensitive: true
                       plan_modifiers:
                         - stringplanmodifier.useStateForUnknownModifier
                     - name: password_set
                       type: BoolAttribute
-                      optional: true
                       computed: true
                       plan_modifiers:
-                        - boolplanmodifier.useStateForUnknownModifier
-                    - name: password_set_at
-                      type: StringAttribute
-                      optional: true
-                      computed: true
-                      plan_modifiers:
-                        - stringplanmodifier.useStateForUnknownModifier
+                        - boolplanmodifier.useNonNullStateForUnknown
                     - name: username
                       type: StringAttribute
                       optional: true
@@ -318,37 +312,24 @@ attributes:
                       attributes:
                         - name: destination
                           type: StringAttribute
-                          optional: true
-                          computed: true
-                          plan_modifiers:
-                            - stringplanmodifier.useStateForUnknownModifier
+                          required: true
                         - name: source
                           type: StringAttribute
-                          optional: true
-                          computed: true
-                          plan_modifiers:
-                            - stringplanmodifier.useStateForUnknownModifier
+                          required: true
                 - name: identity
-                  type: SingleNestedAttribute
+                  type: BoolAttribute
                   optional: true
+                  validators:
+                    - boolvalidator.equalsValidator
             - name: effective_full_sync_interval
               type: StringAttribute
-              optional: true
               computed: true
-              plan_modifiers:
-                - stringplanmodifier.useStateForUnknownModifier
             - name: effective_max_source_requests_per_second
               type: Int32Attribute
-              optional: true
               computed: true
-              plan_modifiers:
-                - int32planmodifier.useStateForUnknownModifier
             - name: effective_tail_interval
               type: StringAttribute
-              optional: true
               computed: true
-              plan_modifiers:
-                - stringplanmodifier.useStateForUnknownModifier
             - name: full_sync_interval
               type: StringAttribute
               optional: true
@@ -461,14 +442,14 @@ attributes:
                       type: StringAttribute
                       optional: true
                       computed: true
+                      sensitive: true
                       plan_modifiers:
                         - stringplanmodifier.useStateForUnknownModifier
                     - name: key_fingerprint
                       type: StringAttribute
-                      optional: true
                       computed: true
                       plan_modifiers:
-                        - stringplanmodifier.useStateForUnknownModifier
+                        - stringplanmodifier.useNonNullStateForUnknown
             - name: unsupported_schema_feature_policy
               type: StringAttribute
               optional: true
