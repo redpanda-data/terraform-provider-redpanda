@@ -2489,13 +2489,13 @@ provider "redpanda" {}
 
 # Use the Redpanda GCP BYOVPC module
 module "redpanda_gcp" {
-  source  = "redpanda-data/redpanda-byovpc/gcp"
-  service_project_id        = var.project_id
-  region            = var.region
-  unique_identifier = var.environment
-  force_destroy_mgmt_bucket = var.environment == "dev" ? true : false
-  force_destroy_cloud_storage_bucket =  var.environment == "dev" ? true : false
-  network_project_id = var.project_id
+  source                             = "redpanda-data/redpanda-byovpc/gcp"
+  service_project_id                 = var.project_id
+  region                             = var.region
+  unique_identifier                  = var.environment
+  force_destroy_mgmt_bucket          = var.environment == "dev" ? true : false
+  force_destroy_cloud_storage_bucket = var.environment == "dev" ? true : false
+  network_project_id                 = var.project_id
 }
 
 # Redpanda resource group
@@ -2513,7 +2513,7 @@ resource "redpanda_network" "test" {
 
   customer_managed_resources = {
     gcp = {
-      network_name = module.redpanda_gcp.network_name
+      network_name       = module.redpanda_gcp.network_name
       network_project_id = var.project_id
       management_bucket = {
         name = module.redpanda_gcp.management_bucket_name
@@ -2572,8 +2572,30 @@ resource "redpanda_cluster" "test" {
       tiered_storage_bucket = {
         name = module.redpanda_gcp.tiered_storage_bucket_name
       }
+
+      # Redpanda SQL. The byovpc module does not create these yet, so supply
+      # them yourself when enabling rpsql; null leaves rpsql unconfigured.
+      rpsql_api_service_account = var.rpsql_enabled ? {
+        email = var.rpsql_api_service_account_email
+      } : null
+      rpsql_service_account = var.rpsql_enabled ? {
+        email = var.rpsql_service_account_email
+      } : null
+      rpsql_cloud_storage_bucket = var.rpsql_enabled ? {
+        name = var.rpsql_cloud_storage_bucket_name
+      } : null
+      # A bare prefix matching ^[A-Za-z0-9_-]+$, not a full resource path.
+      rpsql_secret_manager_prefix = var.rpsql_enabled ? var.rpsql_secret_manager_prefix : null
     }
   }
+
+  # Enabling Redpanda SQL requires the four rpsql_* customer-managed resources
+  # above. Its value cannot be changed while enabled — disable, then re-enable
+  # with the new value.
+  rpsql = {
+    enabled = var.rpsql_enabled
+  }
+
   depends_on = [redpanda_network.test]
 }
 
