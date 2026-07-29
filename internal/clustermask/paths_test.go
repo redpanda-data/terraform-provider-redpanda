@@ -17,6 +17,7 @@ package clustermask
 
 import (
 	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -50,5 +51,23 @@ func TestFixtureContract(t *testing.T) {
 	}
 	if !reflect.DeepEqual(LeafExpansions, wantLeaf) {
 		t.Errorf("LeafExpansions = %v, want %v", LeafExpansions, wantLeaf)
+	}
+
+	wantCMR := []string{
+		"customer_managed_resources.aws.redpanda_connect_node_group_instance_profile.arn",
+		"customer_managed_resources.aws.redpanda_connect_security_group.arn",
+		"customer_managed_resources.aws.rpsql_cloud_storage_bucket.arn",
+		"customer_managed_resources.aws.rpsql_node_group_instance_profile.arn",
+		"customer_managed_resources.aws.rpsql_security_group.arn",
+		"customer_managed_resources.gcp.psc_nat_subnet_name",
+		"customer_managed_resources.gcp.rpsql_api_service_account.email",
+		"customer_managed_resources.gcp.rpsql_cloud_storage_bucket.name",
+		"customer_managed_resources.gcp.rpsql_secret_manager_prefix",
+		"customer_managed_resources.gcp.rpsql_service_account.email",
+	}
+	gotCMR := append([]string(nil), CMRUpdatableLeafPaths()...)
+	sort.Strings(gotCMR)
+	if !reflect.DeepEqual(gotCMR, wantCMR) {
+		t.Errorf("CMRUpdatableLeafPaths() = %v, want %v", gotCMR, wantCMR)
 	}
 }

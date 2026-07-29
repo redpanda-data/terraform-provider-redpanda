@@ -17,6 +17,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/clustermask"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/schemagen"
@@ -67,7 +68,7 @@ func resolveMaskContract(cfg *schemagen.Config) error {
 // the resource's update payload. clustermask mirrors cloudv2's pathMap, which
 // is server implementation and not derivable — but a key that no longer exists
 // on the update message is stale, and that is derivable.
-func verifyClusterMaskPaths(cfg *schemagen.Config, warn func(string, ...any)) {
+func verifyClusterMaskPaths(cfg *schemagen.Config, attrs []schemagen.SchemaAttr, warn func(string, ...any)) {
 	if cfg.API == nil || cfg.API.Update == nil || cfg.API.Update.MaskContract != "cluster" {
 		return
 	}
@@ -80,6 +81,12 @@ func verifyClusterMaskPaths(cfg *schemagen.Config, warn func(string, ...any)) {
 			warn("WARN clustermask: AcceptedTopLevel %q is not on the update payload — stale after a pin bump?\n", key)
 		}
 	}
+	for _, leaf := range clustermask.CMRUpdatableLeafPaths() {
+		if !idx.Updatable(leaf) {
+			warn("WARN clustermask: CMR updatable leaf %q is not on the update payload — stale after a pin bump?\n", leaf)
+		}
+	}
+	warnUnmappedCMRLeaves(attrs, idx, warn)
 	for key, leaves := range clustermask.LeafExpansions {
 		if !idx.Updatable(key) {
 			warn("WARN clustermask: LeafExpansions key %q is not on the update payload — stale after a pin bump?\n", key)
@@ -90,4 +97,58 @@ func verifyClusterMaskPaths(cfg *schemagen.Config, warn func(string, ...any)) {
 			}
 		}
 	}
+}
+
+// warnUnmappedCMRLeaves reports customer_managed_resources leaves the update
+// payload accepts and the schema exposes as mutable, but cmrUpdatableLeaves
+// omits. ExpandCustomerManagedResourceLeaves cannot name such a leaf, so the
+// mask never carries it: the user's edit applies cleanly and changes nothing.
+//
+// Leaves that force replacement are correctly absent — they never reach the
+// update path.
+func warnUnmappedCMRLeaves(attrs []schemagen.SchemaAttr, idx *schemagen.WriteShapeIndex, warn func(string, ...any)) {
+	mapped := map[string]bool{}
+	for _, p := range clustermask.CMRUpdatableLeafPaths() {
+		mapped[p] = true
+	}
+	var walk func(as []schemagen.SchemaAttr, prefix string)
+	walk = func(as []schemagen.SchemaAttr, prefix string) {
+		for i := range as {
+			a := &as[i]
+			if a.ProtoName == "" {
+				continue
+			}
+			path := prefix + a.ProtoName
+			if len(a.NestedAttrs) > 0 {
+				walk(a.NestedAttrs, path+".")
+				continue
+			}
+			if !a.Optional && !a.Required {
+				continue
+			}
+			if requiresReplace(a.PlanModifierNames) || mapped[path] || !idx.Updatable(path) {
+				continue
+			}
+			warn("WARN clustermask: %q is updatable and mutable but absent from cmrUpdatableLeaves — the mask cannot carry it\n", path)
+		}
+	}
+	for i := range attrs {
+		if attrs[i].ProtoName == cmrAttrName {
+			walk(attrs[i].NestedAttrs, cmrAttrName+".")
+		}
+	}
+}
+
+const cmrAttrName = "customer_managed_resources"
+
+// requiresReplace matches any RequiresReplace form: a conditional one still
+// keeps the leaf off the update path for the cases it triggers on, and the
+// non-triggering cases are the mask's business, not this check's.
+func requiresReplace(names []string) bool {
+	for _, n := range names {
+		if strings.HasPrefix(n, "RequiresReplace") {
+			return true
+		}
+	}
+	return false
 }

@@ -72,6 +72,17 @@ var cmrUpdatableLeaves = []cmrLeaf{
 	}},
 }
 
+// CMRUpdatableLeafPaths returns the mask keys in cmrUpdatableLeaves. schemagen
+// checks them against the update payload so a pin bump that renames or drops a
+// leaf fails the build instead of silently dropping the edit at runtime.
+func CMRUpdatableLeafPaths() []string {
+	out := make([]string, 0, len(cmrUpdatableLeaves))
+	for _, l := range cmrUpdatableLeaves {
+		out = append(out, l.path)
+	}
+	return out
+}
+
 // ExpandCustomerManagedResourceLeaves rewrites, in place, a bare
 // customer_managed_resources mask path into the specific leaf paths (cloudv2
 // pathMap keys) whose value differs between plan and state. It is a no-op when

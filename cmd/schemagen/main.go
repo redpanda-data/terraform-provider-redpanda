@@ -257,7 +257,6 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 	// checked against the real update surface (both directions) without
 	// mutating generated output. The identity field is excluded — it rides the
 	// payload to address the row, not as a mutable field.
-	verifyClusterMaskPaths(cfg, func(f string, a ...any) { fmt.Fprintf(os.Stderr, f, a...) })
 	if cfg.MaskContract() == nil && schemaType != schemagen.SchemaTypeDatasource {
 		if idx := cfg.WriteShapeIndex(); idx.HasUpdate() {
 			topLevel := idx.TopLevelUpdatePaths()
@@ -286,6 +285,7 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 		return fmt.Errorf("schemagen: %d merge error(s) — yaml references fields that no longer exist on the proto, or names a missing validator", len(mergeErrs))
 	}
 	log.Printf("Merged into %d attributes", len(attrs))
+	verifyClusterMaskPaths(cfg, attrs, func(f string, a ...any) { fmt.Fprintf(os.Stderr, f, a...) })
 	if apiIndex != nil && cfg.APISchema != "" && stats.Attempted > 0 {
 		pct := 100 * stats.Matched / stats.Attempted
 		log.Printf("apidesc: %d/%d attrs matched from %s (%d%%)",
