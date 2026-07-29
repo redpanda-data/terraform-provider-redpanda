@@ -11,6 +11,12 @@ vars:
   TIMEOUT_SHORT: '{{.TIMEOUT_SHORT | default "1h"}}'
   VERSION: '{{.VERSION | default "pre"}}'
 
+# Passed through the environment rather than interpolated into command
+# bodies: Task echoes command bodies, which put the secret in CI logs.
+env:
+  REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+  REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+
 tasks:
   unit:
     desc: "Run unit tests"
@@ -50,8 +56,6 @@ tasks:
       - echo "Running network live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -68,8 +72,6 @@ tasks:
       - echo "Running service account live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -86,8 +88,6 @@ tasks:
       - echo "Running shadow link live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -104,8 +104,6 @@ tasks:
       - echo "Running TestAcc_DataSource_Runner..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TEST_AGAINST_EXISTING_CLUSTER=true \
         CLUSTER_ID="{{.DATASOURCE_CLUSTER_ID}}" \
         TF_ACC=true \
@@ -124,8 +122,6 @@ tasks:
       - echo "Running cluster datasource live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -142,8 +138,6 @@ tasks:
       - echo "Running AWS cluster live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -163,8 +157,6 @@ tasks:
       - echo "Running GCP cluster live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -181,8 +173,6 @@ tasks:
       - echo "Running AWS BYOC live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -212,8 +202,6 @@ tasks:
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         AWS_REGION="{{.AWS_REGION}}" \
         AWS_ZONES="$(echo "$INPUTS" | jq -r '.zones')" \
         RP_MANAGEMENT_BUCKET_ARN="$(echo "$INPUTS" | jq -r '.management_bucket_arn')" \
@@ -250,8 +238,6 @@ tasks:
       - echo "Running GCP BYOC live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -268,8 +254,6 @@ tasks:
       - echo "Running AWS serverless public live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -286,8 +270,6 @@ tasks:
       - echo "Running GCP serverless live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -304,8 +286,6 @@ tasks:
       - echo "Running AWS serverless private live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -322,8 +302,6 @@ tasks:
       - echo "Running AWS serverless both live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -340,8 +318,6 @@ tasks:
       - echo "Running serverless regions live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -358,8 +334,6 @@ tasks:
       - echo "Running serverless private link live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -377,8 +351,6 @@ tasks:
       - |
         set -e
         export DEBUG=true
-        export REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}"
-        export REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}"
         export REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}"
         export TF_ACC=true
         export TF_LOG={{.TF_LOG}}
@@ -399,8 +371,6 @@ tasks:
       - |
         set -e
         export DEBUG=true
-        export REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}"
-        export REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}"
         export REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}"
         export TF_ACC=true
         export TF_LOG={{.TF_LOG}}
@@ -417,8 +387,6 @@ tasks:
       - echo "Running provider-upgrade smoke tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
