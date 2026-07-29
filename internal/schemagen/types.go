@@ -59,6 +59,8 @@ const (
 	KindList     = "list"
 	KindSet      = "set"
 
+	fieldMaskMessage = "FieldMask"
+
 	elemTypeString  = "types.StringType"
 	elemTypeBool    = "types.BoolType"
 	elemTypeInt32   = "types.Int32Type"
@@ -164,6 +166,9 @@ type SchemaAttr struct {
 
 	FlattenSkip bool
 	EnumValues  []string
+
+	// IsOneofArm marks an attribute backed by a non-synthetic proto oneof variant.
+	IsOneofArm bool
 }
 
 type protoKindInfo struct {

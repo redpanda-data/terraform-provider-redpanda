@@ -62,3 +62,32 @@ func resolveMaskContract(cfg *schemagen.Config) error {
 	cfg.SetMaskContract(contract)
 	return nil
 }
+
+// verifyClusterMaskPaths checks the hand-maintained clustermask maps against
+// the resource's update payload. clustermask mirrors cloudv2's pathMap, which
+// is server implementation and not derivable — but a key that no longer exists
+// on the update message is stale, and that is derivable.
+func verifyClusterMaskPaths(cfg *schemagen.Config, warn func(string, ...any)) {
+	if cfg.API == nil || cfg.API.Update == nil || cfg.API.Update.MaskContract != "cluster" {
+		return
+	}
+	idx := cfg.WriteShapeIndex()
+	if !idx.Known() {
+		return
+	}
+	for key := range clustermask.AcceptedTopLevel {
+		if !idx.Updatable(key) {
+			warn("WARN clustermask: AcceptedTopLevel %q is not on the update payload — stale after a pin bump?\n", key)
+		}
+	}
+	for key, leaves := range clustermask.LeafExpansions {
+		if !idx.Updatable(key) {
+			warn("WARN clustermask: LeafExpansions key %q is not on the update payload — stale after a pin bump?\n", key)
+		}
+		for _, leaf := range leaves {
+			if !idx.Updatable(leaf) {
+				warn("WARN clustermask: LeafExpansions %q -> %q is not on the update payload — stale after a pin bump?\n", key, leaf)
+			}
+		}
+	}
+}

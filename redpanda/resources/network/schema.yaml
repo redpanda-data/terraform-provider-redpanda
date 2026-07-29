@@ -41,7 +41,6 @@ customer_managed_resources:
   fields:
     aws:
       optional: true
-      computed: false
       plan_modifiers: [RequiresReplace]
       fields:
         management_bucket:

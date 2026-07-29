@@ -233,7 +233,7 @@ func inferRPCPayload(rpc *RPCConfig, lookup ProtoLookup) error {
 		if f.Kind != KindMessage || f.Nested == nil {
 			continue
 		}
-		if f.Nested.Name == "FieldMask" {
+		if f.Nested.Name == fieldMaskMessage {
 			continue
 		}
 		if f.OneofName != "" {
@@ -266,33 +266,11 @@ func inferRPCPayload(rpc *RPCConfig, lookup ProtoLookup) error {
 // FieldMask fields are excluded. cmd/schemagen turns this into a WarnOnly
 // MaskContract for resources without a hand-maintained one.
 func ResolveUpdateContractFields(cfg *Config, lookup ProtoLookup) (map[string]bool, bool) {
-	if cfg == nil || cfg.API == nil || cfg.API.Update == nil || lookup == nil {
+	idx := BuildWriteShapeIndex(nil, cfg, lookup)
+	if !idx.HasUpdate() {
 		return nil, false
 	}
-	// Probe a copy so inferred payload type does not leak into cfg's RPC.
-	probe := *cfg.API.Update
-	if err := inferRPCPayload(&probe, lookup); err != nil {
-		return nil, false
-	}
-	msgName := probe.PayloadType
-	if msgName == "" {
-		msgName = probe.Request
-	}
-	if msgName == "" {
-		return nil, false
-	}
-	msg, err := lookup(msgName)
-	if err != nil || msg == nil {
-		return nil, false
-	}
-	fields := make(map[string]bool, len(msg.Fields))
-	for i := range msg.Fields {
-		f := &msg.Fields[i]
-		if f.Kind == KindMessage && f.Nested != nil && f.Nested.Name == "FieldMask" {
-			continue
-		}
-		fields[f.Name] = true
-	}
+	fields := idx.TopLevelUpdatePaths()
 	return fields, len(fields) > 0
 }
 

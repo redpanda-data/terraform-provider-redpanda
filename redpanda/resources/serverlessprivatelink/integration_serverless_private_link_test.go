@@ -323,6 +323,40 @@ func TestIntegration_ServerlessPrivateLink_UpdateLeaf_AllowedPrincipals(t *testi
 	})
 }
 
+// TestIntegration_ServerlessPrivateLink_OmitAwsConfig_Rejected drops the
+// aws_config oneof arm from config. cloud_provider_config requires exactly one
+// arm, so the generated proto-validator rejects this at plan time rather than
+// letting it reach the API — the arm can be replaced, never cleared.
+func TestIntegration_ServerlessPrivateLink_OmitAwsConfig_Rejected(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	cfg := `
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-spl-rg"
+}
+
+resource "redpanda_serverless_private_link" "test" {
+  name              = "tfrp-mock-spl-omit"
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = "aws"
+  serverless_region = "pro-us-east-1"
+  allow_deletion    = true
+}
+`
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config:      cfg,
+				ExpectError: regexp.MustCompile(`(?s)cloud_provider_config.*exactly one field is required in oneof`),
+			},
+		},
+	})
+}
+
 // TestIntegration_ServerlessPrivateLink_UpdateLeaf_AllowDeletion flips the
 // allow_deletion sentinel true→false→true. The third step restores true
 // so the framework's terminal destroy passes the Delete gate. id is stable

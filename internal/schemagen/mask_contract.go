@@ -80,7 +80,7 @@ func deriveMaskContractRequiresReplace(attrs []SchemaAttr, fields map[string]Fie
 			// Exact plain RequiresReplace only — a conditional RequiresReplaceIf*
 			// still lets non-triggering edits reach the update path, so it does
 			// not cover an out-of-contract field.
-			if m == "RequiresReplace" {
+			if m == modRequiresReplace {
 				hasRR = true
 				break
 			}
@@ -103,7 +103,7 @@ func deriveMaskContractRequiresReplace(attrs []SchemaAttr, fields map[string]Fie
 		}
 		switch verdict {
 		case maskVerdictDerive:
-			a.PlanModifierNames = append([]string{"RequiresReplace"}, a.PlanModifierNames...)
+			a.PlanModifierNames = append([]string{modRequiresReplace}, a.PlanModifierNames...)
 		case maskVerdictRedundant:
 			mc.warn(
 				"INFO mask-contract %s.%s: yaml RequiresReplace is redundant — derived from the update-mask contract; the override can be removed\n",

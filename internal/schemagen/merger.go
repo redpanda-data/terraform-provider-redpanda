@@ -39,7 +39,9 @@ import (
 //
 // When apiIndex is nil or cfg.APISchema is empty, layer 2 is skipped. Yaml
 // `description:` overrides were removed; LoadConfig rejects the key.
-func Merge(proto *ProtoMessage, cfg *Config, schemaType string, apiIndex *apidesc.Index) (attrs []SchemaAttr, extraImports []string, stats apidesc.Stats, errs []error) {
+// warnSink optionally redirects diagnostic warnings away from stderr; tests
+// pass a collector to assert on them.
+func Merge(proto *ProtoMessage, cfg *Config, schemaType string, apiIndex *apidesc.Index, warnSink ...func(format string, args ...any)) (attrs []SchemaAttr, extraImports []string, stats apidesc.Stats, errs []error) {
 	opts := mapOptions{
 		computedDefault:  cfg.ComputedDefault,
 		deriveValidators: schemaType != SchemaTypeDatasource,
@@ -66,8 +68,18 @@ func Merge(proto *ProtoMessage, cfg *Config, schemaType string, apiIndex *apides
 		apiIndex:         apiIndex,
 		apiPrimary:       cfg.APISchema,
 		apiWriteSchemas:  cfg.APIWriteSchemas,
+		writeShape:       cfg.WriteShapeIndex(),
+	}
+	if len(warnSink) > 0 {
+		mc.warnf = warnSink[0]
 	}
 	applyFieldConfigs(&attrs, cfg.Fields, proto, "", mc)
+
+	if !mc.isDatasource {
+		applyOneofArmLifecycle(attrs, cfg.Fields, cfg.WriteShapeIndex(), "")
+		warnWriteShapeDisagreements(attrs, cfg.Fields, cfg.WriteShapeIndex(), mc, "", UpdateContractIdentityProtoField(cfg))
+		warnNestedRequiresReplace(attrs, cfg.Fields, cfg.WriteShapeIndex(), mc, "")
+	}
 
 	if contract := cfg.MaskContract(); contract != nil && !mc.isDatasource {
 		deriveMaskContractRequiresReplace(attrs, cfg.Fields, contract, mc)
@@ -183,6 +195,8 @@ type mergeCtx struct {
 	// warnf sinks diagnostic warnings; nil routes to os.Stderr. Tests inject a
 	// collector to assert mask-contract verdicts without capturing stderr.
 	warnf func(format string, args ...any)
+	// writeShape answers "can the user write this path"; nil when unresolved.
+	writeShape *WriteShapeIndex
 }
 
 // warn emits a diagnostic warning through the injected sink, defaulting to stderr.
@@ -303,6 +317,17 @@ func applyFieldConfigs(attrs *[]SchemaAttr, fields map[string]FieldConfig, proto
 
 		applyFieldConfig(attr, path, fc, mc)
 
+		// Re-introduces the anchor applyOneofArmLifecycle removes. Server-reported
+		// arms are unaffected — they are never planned from config.
+		if !mc.isDatasource && fc.Computed != nil && *fc.Computed && attr.Optional {
+			if pf := protoCtx.FindField(name); pf != nil && pf.OneofName != "" &&
+				attrHasSettableLeaf(attr, path, mc.writeShape) {
+				mc.warn(
+					"WARN oneof %s.%s: computed: true on an arm of oneof %q — UseStateForUnknown will anchor this arm's value, and switching arms then fails with \"inconsistent result after apply\"; drop the override\n",
+					mc.resourceLabel, path, pf.OneofName)
+			}
+		}
+
 		if mc.deriveValidators && !fc.SkipProtoValidation {
 			if pf := protoCtx.FindField(name); pf != nil && pf.ValidateRules.GetRequired() {
 				if fc.Optional != nil && *fc.Optional && !fc.ComputedOnly {
@@ -350,6 +375,7 @@ func mapProtoFields(msg *ProtoMessage, prefix string, opts mapOptions) []SchemaA
 			Optional:  !opts.computedDefault,
 			Computed:  true,
 		}
+		attr.IsOneofArm = f.OneofName != "" && !opts.computedDefault
 
 		switch f.Cardinality {
 		case KindMap:

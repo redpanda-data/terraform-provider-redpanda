@@ -179,6 +179,15 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 		cl.CloudStorage = &controlplanev1.Cluster_CloudStorage{
 			SkipDestroy: cs.GetSkipDestroy(),
 		}
+		// The control plane always reports which provider backs cloud storage.
+		switch in.GetCloudProvider() {
+		case controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS:
+			cl.CloudStorage.SetAws(&controlplanev1.Cluster_CloudStorage_AWS{Arn: "arn:aws:s3:::tfrp-fake-cloud-storage"})
+		case controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP:
+			cl.CloudStorage.SetGcp(&controlplanev1.Cluster_CloudStorage_GCP{Name: "tfrp-fake-cloud-storage"})
+		default:
+			// Azure carries extra fields; model it when a test needs it.
+		}
 	}
 	if spec := in.GetAwsPrivateLink(); spec.GetEnabled() {
 		cl.SetAwsPrivateLink(&controlplanev1.Cluster_AWSPrivateLink{

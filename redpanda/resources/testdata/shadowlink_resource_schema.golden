@@ -22,9 +22,6 @@ attributes:
             - name: plain_configuration
               type: SingleNestedAttribute
               optional: true
-              computed: true
-              plan_modifiers:
-                - objectplanmodifier.useStateForUnknownModifier
               attributes:
                 - name: password
                   type: StringAttribute
@@ -47,9 +44,6 @@ attributes:
             - name: scram_configuration
               type: SingleNestedAttribute
               optional: true
-              computed: true
-              plan_modifiers:
-                - objectplanmodifier.useStateForUnknownModifier
               attributes:
                 - name: password
                   type: StringAttribute
@@ -268,9 +262,6 @@ attributes:
         - name: shadow_schema_registry_api
           type: SingleNestedAttribute
           optional: true
-          computed: true
-          plan_modifiers:
-            - objectplanmodifier.useStateForUnknownModifier
           attributes:
             - name: auth_options
               type: SingleNestedAttribute
@@ -282,9 +273,6 @@ attributes:
                 - name: basic
                   type: SingleNestedAttribute
                   optional: true
-                  computed: true
-                  plan_modifiers:
-                    - objectplanmodifier.useStateForUnknownModifier
                   attributes:
                     - name: password
                       type: StringAttribute
@@ -320,9 +308,6 @@ attributes:
                 - name: exact
                   type: SingleNestedAttribute
                   optional: true
-                  computed: true
-                  plan_modifiers:
-                    - objectplanmodifier.useStateForUnknownModifier
                   attributes:
                     - name: mappings
                       type: ListNestedAttribute
@@ -346,9 +331,6 @@ attributes:
                 - name: identity
                   type: SingleNestedAttribute
                   optional: true
-                  computed: true
-                  plan_modifiers:
-                    - objectplanmodifier.useStateForUnknownModifier
             - name: effective_full_sync_interval
               type: StringAttribute
               optional: true
@@ -440,9 +422,6 @@ attributes:
                 - name: tls_file_settings
                   type: SingleNestedAttribute
                   optional: true
-                  computed: true
-                  plan_modifiers:
-                    - objectplanmodifier.useStateForUnknownModifier
                   attributes:
                     - name: ca_path
                       type: StringAttribute
@@ -465,9 +444,6 @@ attributes:
                 - name: tls_pem_settings
                   type: SingleNestedAttribute
                   optional: true
-                  computed: true
-                  plan_modifiers:
-                    - objectplanmodifier.useStateForUnknownModifier
                   attributes:
                     - name: ca
                       type: StringAttribute
@@ -502,11 +478,8 @@ attributes:
         - name: shadow_schema_registry_topic
           type: BoolAttribute
           optional: true
-          computed: true
           validators:
             - boolvalidator.equalsValidator
-          plan_modifiers:
-            - boolplanmodifier.useStateForUnknownModifier
     - name: security_sync_options
       type: SingleNestedAttribute
       optional: true
@@ -630,25 +603,16 @@ attributes:
         - name: start_at_earliest
           type: BoolAttribute
           optional: true
-          computed: true
           validators:
             - boolvalidator.equalsValidator
-          plan_modifiers:
-            - boolplanmodifier.useStateForUnknownModifier
         - name: start_at_latest
           type: BoolAttribute
           optional: true
-          computed: true
           validators:
             - boolvalidator.equalsValidator
-          plan_modifiers:
-            - boolplanmodifier.useStateForUnknownModifier
         - name: start_at_timestamp
           type: StringAttribute
           optional: true
-          computed: true
-          plan_modifiers:
-            - stringplanmodifier.useStateForUnknownModifier
         - name: synced_shadow_topic_properties
           type: ListAttribute
           optional: true

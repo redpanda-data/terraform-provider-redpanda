@@ -76,10 +76,8 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 						Attributes: map[string]schema.Attribute{
 							"plain_configuration": schema.SingleNestedAttribute{
-								Description:   "PLAIN settings",
-								Optional:      true,
-								Computed:      true,
-								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+								Description: "PLAIN settings",
+								Optional:    true,
 								Attributes: map[string]schema.Attribute{
 									"password": schema.StringAttribute{
 										Description:   "Password",
@@ -102,10 +100,8 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 								},
 							},
 							"scram_configuration": schema.SingleNestedAttribute{
-								Description:   "SCRAM settings",
-								Optional:      true,
-								Computed:      true,
-								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+								Description: "SCRAM settings",
+								Optional:    true,
 								Attributes: map[string]schema.Attribute{
 									"password": schema.StringAttribute{
 										Description:   "Password",
@@ -322,10 +318,8 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"shadow_schema_registry_api": schema.SingleNestedAttribute{
-						Description:   "Replicates selected Schema Registry subjects, configs, modes, and schema IDs over the Schema Registry HTTP API.",
-						Optional:      true,
-						Computed:      true,
-						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+						Description: "Replicates selected Schema Registry subjects, configs, modes, and schema IDs over the Schema Registry HTTP API.",
+						Optional:    true,
 						Attributes: map[string]schema.Attribute{
 							"auth_options": schema.SingleNestedAttribute{
 								Description:   "Authentication settings for source Schema Registry HTTP requests.",
@@ -334,10 +328,8 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 								Attributes: map[string]schema.Attribute{
 									"basic": schema.SingleNestedAttribute{
-										Description:   "HTTP Basic auth credentials.",
-										Optional:      true,
-										Computed:      true,
-										PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+										Description: "HTTP Basic auth credentials.",
+										Optional:    true,
 										Attributes: map[string]schema.Attribute{
 											"password": schema.StringAttribute{
 												Description:   "HTTP Basic auth password. For Confluent Cloud, this is the API secret.",
@@ -374,10 +366,8 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 								Attributes: map[string]schema.Attribute{
 									"exact": schema.SingleNestedAttribute{
-										Description:   "Explicit source-to-destination context mappings.",
-										Optional:      true,
-										Computed:      true,
-										PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+										Description: "Explicit source-to-destination context mappings.",
+										Optional:    true,
 										Attributes: map[string]schema.Attribute{
 											"mappings": schema.ListNestedAttribute{
 												Description:   "Explicit source-to-destination context mappings. Every source context in the effective source scope must have exactly one mapping.",
@@ -404,10 +394,8 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 										},
 									},
 									"identity": schema.SingleNestedAttribute{
-										Description:   "Preserve source context names in the destination Schema Registry.",
-										Optional:      true,
-										Computed:      true,
-										PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+										Description: "Preserve source context names in the destination Schema Registry.",
+										Optional:    true,
 									},
 								},
 							},
@@ -487,23 +475,9 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 								Computed:      true,
 								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 								Attributes: map[string]schema.Attribute{
-									"do_not_set_sni_hostname": schema.BoolAttribute{
-										Description:   "If true, the SNI hostname will not be provided when TLS is used",
-										Optional:      true,
-										Computed:      true,
-										PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
-									},
-									"enabled": schema.BoolAttribute{
-										Description:   "Whether or not TLS is enabled",
-										Optional:      true,
-										Computed:      true,
-										PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
-									},
 									"tls_file_settings": schema.SingleNestedAttribute{
-										Description:   "TLS file settings",
-										Optional:      true,
-										Computed:      true,
-										PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+										Description: "TLS file settings",
+										Optional:    true,
 										Attributes: map[string]schema.Attribute{
 											"ca_path": schema.StringAttribute{
 												Description:   "Path to the CA",
@@ -526,10 +500,8 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 										},
 									},
 									"tls_pem_settings": schema.SingleNestedAttribute{
-										Description:   "Used when providing the TLS information in PEM format",
-										Optional:      true,
-										Computed:      true,
-										PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+										Description: "Used when providing the TLS information in PEM format",
+										Optional:    true,
 										Attributes: map[string]schema.Attribute{
 											"ca": schema.StringAttribute{
 												Description:   "The CA",
@@ -557,6 +529,18 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 											},
 										},
 									},
+									"do_not_set_sni_hostname": schema.BoolAttribute{
+										Description:   "If true, the SNI hostname will not be provided when TLS is used",
+										Optional:      true,
+										Computed:      true,
+										PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+									},
+									"enabled": schema.BoolAttribute{
+										Description:   "Whether or not TLS is enabled",
+										Optional:      true,
+										Computed:      true,
+										PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+									},
 								},
 							},
 							"unsupported_schema_feature_policy": schema.StringAttribute{
@@ -568,11 +552,9 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 						},
 					},
 					"shadow_schema_registry_topic": schema.BoolAttribute{
-						Description:   "Shadow the entire source cluster's Schema Registry byte-for-byte. If set, the Shadow Link will attempt to add the `_schemas` topic to the list of Shadow Topics as long as: 1. The `_schemas` topic exists on the source cluster 2. The `_schemas` topic does not exist on the shadow cluster, or it is empty. If either of the above conditions are _not_ met, then the `_schemas` topic will _not_ be shadowed by this cluster. Unsetting this flag will _not_ remove the `_schemas` topic from shadowing if it has already been added. Once made a shadow topic, the `_schemas` topic will be replicated byte-for-byte. To stop shadowing the `_schemas` topic, unset this field, then either fail-over the topic or delete it.",
-						Optional:      true,
-						Computed:      true,
-						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
-						Validators:    []validator.Bool{boolvalidator.Equals(true)},
+						Description: "Shadow the entire source cluster's Schema Registry byte-for-byte. If set, the Shadow Link will attempt to add the `_schemas` topic to the list of Shadow Topics as long as: 1. The `_schemas` topic exists on the source cluster 2. The `_schemas` topic does not exist on the shadow cluster, or it is empty. If either of the above conditions are _not_ met, then the `_schemas` topic will _not_ be shadowed by this cluster. Unsetting this flag will _not_ remove the `_schemas` topic from shadowing if it has already been added. Once made a shadow topic, the `_schemas` topic will be replicated byte-for-byte. To stop shadowing the `_schemas` topic, unset this field, then either fail-over the topic or delete it.",
+						Optional:    true,
+						Validators:  []validator.Bool{boolvalidator.Equals(true)},
 					},
 				},
 			},
@@ -660,6 +642,20 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 				Computed:      true,
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
+					"start_at_earliest": schema.BoolAttribute{
+						Description: "Start at the earliest offset in the partition.",
+						Optional:    true,
+						Validators:  []validator.Bool{boolvalidator.Equals(true)},
+					},
+					"start_at_latest": schema.BoolAttribute{
+						Description: "Start at the latest offset in the partition.",
+						Optional:    true,
+						Validators:  []validator.Bool{boolvalidator.Equals(true)},
+					},
+					"start_at_timestamp": schema.StringAttribute{
+						Description: "Enables data replication from the first offset on the source topic/partition where the record's timestamp is at or after the specified timestamp.",
+						Optional:    true,
+					},
 					"auto_create_shadow_topic_filters": schema.ListNestedAttribute{
 						Description:   "List of filters that indicate which topics should be automatically created as shadow topics on the shadow cluster. This only controls automatic creation of shadow topics and does not effect the state of the mirror topic once it is created. Literal filters for __consumer_offsets, _redpanda.audit_log and _schemas will be rejected as well as prefix filters to match topics prefixed with _redpanda or __redpanda. Wildcard `*` is permitted only for literal filters and will _not_ match any topics that start with _redpanda or __redpanda. If users wish to shadow topics that start with _redpanda or __redpanda, they should provide a literal filter for those topics.",
 						Optional:      true,
@@ -699,26 +695,6 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 						Optional:      true,
 						Computed:      true,
 						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
-					},
-					"start_at_earliest": schema.BoolAttribute{
-						Description:   "Start at the earliest offset in the partition.",
-						Optional:      true,
-						Computed:      true,
-						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
-						Validators:    []validator.Bool{boolvalidator.Equals(true)},
-					},
-					"start_at_latest": schema.BoolAttribute{
-						Description:   "Start at the latest offset in the partition.",
-						Optional:      true,
-						Computed:      true,
-						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
-						Validators:    []validator.Bool{boolvalidator.Equals(true)},
-					},
-					"start_at_timestamp": schema.StringAttribute{
-						Description:   "Enables data replication from the first offset on the source topic/partition where the record's timestamp is at or after the specified timestamp.",
-						Optional:      true,
-						Computed:      true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"synced_shadow_topic_properties": schema.ListAttribute{
 						Description:   "The following properties are not allowed to be replicated and adding them to this list will result in an error: - `redpanda.remote.readreplica` - `redpanda.remote.recovery` - `redpanda.remote.allowgaps` - `redpanda.virtual.cluster.id` - `redpanda.leaders.preference` - `redpanda.storage.mode` This list is a list of properties in addition to the default properties that will be synced. See `exclude_default`.",

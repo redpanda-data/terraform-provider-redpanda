@@ -192,20 +192,23 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 	}
 	log.Printf("Config has %d field overrides", len(cfg.Fields))
 
+	// The golden records which uncovered fields we already accept as generated
+	// with default treatment, so it filters both the -todo write and the plain
+	// warning. Filtering only in todo mode drowned the signal: schemas that
+	// lean on defaults (datasources especially) warned about every field on
+	// every run, so a genuinely new upstream field looked like more of the same.
 	uncovered := schemagen.FindUncoveredFields(proto, cfg)
-	if todoMode {
-		goldenPath := filepath.Join("testdata", pkgName+"_"+schemaType+"_schema.golden")
-		accepted, gerr := schemagen.ParseGoldenPaths(goldenPath)
-		switch {
-		case gerr != nil:
-			log.Printf("WARNING: could not load golden %s: %v — marking all uncovered fields", goldenPath, gerr)
-		case accepted == nil:
-			log.Printf("No golden found at %s — marking all uncovered fields (bootstrap)", goldenPath)
-		default:
-			before := len(uncovered)
-			uncovered = schemagen.FilterUncoveredByGolden(uncovered, accepted)
-			log.Printf("Golden %s has %d accepted paths; filtered %d uncovered → %d truly-new", goldenPath, len(accepted), before, len(uncovered))
-		}
+	goldenPath := filepath.Join("testdata", pkgName+"_"+schemaType+"_schema.golden")
+	accepted, gerr := schemagen.ParseGoldenPaths(goldenPath)
+	switch {
+	case gerr != nil:
+		log.Printf("WARNING: could not load golden %s: %v — marking all uncovered fields", goldenPath, gerr)
+	case accepted == nil:
+		log.Printf("No golden found at %s — marking all uncovered fields (bootstrap)", goldenPath)
+	default:
+		before := len(uncovered)
+		uncovered = schemagen.FilterUncoveredByGolden(uncovered, accepted)
+		log.Printf("Golden %s has %d accepted paths; filtered %d uncovered → %d truly-new", goldenPath, len(accepted), before, len(uncovered))
 	}
 	if len(uncovered) > 0 {
 		if todoMode {
@@ -216,10 +219,6 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 			cfg, err = schemagen.LoadConfig(configPath)
 			if err != nil {
 				return fmt.Errorf("failed to reload config after adding todos: %w", err)
-			}
-		} else {
-			for _, uf := range uncovered {
-				fmt.Fprintf(os.Stderr, "WARNING: proto field %q has no config entry — run with -todo to add it\n", uf.Path)
 			}
 		}
 	}
@@ -235,6 +234,13 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 	if err := schemagen.ApplyAPIDefaults(cfg, schemaType); err != nil {
 		return fmt.Errorf("apply api defaults: %w", err)
 	}
+	// Must follow ApplyAPIDefaults — that fills in the RPC request and payload
+	// names the index resolves against.
+	cfg.SetWriteShapeIndex(schemagen.BuildWriteShapeIndex(proto, cfg, protoLookup))
+	if err := assertWriteShapeResolved(cfg, schemaType); err != nil {
+		return err
+	}
+	reportUncoveredFields(uncovered, cfg.WriteShapeIndex(), todoMode)
 	if schemaType != schemagen.SchemaTypeDatasource {
 		// Asymmetric APIs carry input rules on the create payload, not the
 		// walked read shape; enrich before Merge so validator and description
@@ -251,8 +257,10 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 	// checked against the real update surface (both directions) without
 	// mutating generated output. The identity field is excluded — it rides the
 	// payload to address the row, not as a mutable field.
+	verifyClusterMaskPaths(cfg, func(f string, a ...any) { fmt.Fprintf(os.Stderr, f, a...) })
 	if cfg.MaskContract() == nil && schemaType != schemagen.SchemaTypeDatasource {
-		if topLevel, ok := schemagen.ResolveUpdateContractFields(cfg, protoLookup); ok {
+		if idx := cfg.WriteShapeIndex(); idx.HasUpdate() {
+			topLevel := idx.TopLevelUpdatePaths()
 			delete(topLevel, schemagen.UpdateContractIdentityProtoField(cfg))
 			// Fields mutated via a side-channel RPC (e.g. pipeline.state via
 			// Start/Stop) are updatable even though the proto payload omits them.
@@ -550,4 +558,70 @@ func resolveConsoleProtoPath(cloudv2Root string) string {
 		return consoleProto
 	}
 	return ""
+}
+
+// reportUncoveredFields warns about proto fields with no config entry, labelled
+// by writability. A new field the user can write lands in the schema as a
+// settable attribute with default lifecycle and no validators; a new
+// server-reported one is inert. Saying which keeps a dependency bump that
+// widens the write surface from reading as routine noise.
+func reportUncoveredFields(uncovered []schemagen.UncoveredField, idx *schemagen.WriteShapeIndex, todoMode bool) {
+	if todoMode {
+		return
+	}
+	for _, uf := range uncovered {
+		kind := "server-reported"
+		switch {
+		case !idx.SettableAuthoritative(uf.Path):
+			kind = "writability unknown"
+		case idx.Settable(uf.Path):
+			kind = "USER-WRITABLE"
+		default:
+		}
+		fmt.Fprintf(os.Stderr, "WARNING: proto field %q (%s) has no config entry — run with -todo to add it\n", uf.Path, kind)
+	}
+}
+
+// assertWriteShapeResolved fails generation when a resource's create or update
+// payload cannot be resolved. The index decides whether a field is user-settable
+// or server-owned; with an empty one the generator falls back to the
+// Optional+Computed default for every oneof arm, which is the schema that
+// breaks arm switching at apply time. An upstream rename on a pin bump is the
+// likely cause, and it must not pass silently.
+//
+// Datasources have no write shape and no plan, so nothing consults the index.
+func assertWriteShapeResolved(cfg *schemagen.Config, schemaType string) error {
+	if schemaType == schemagen.SchemaTypeDatasource {
+		return nil
+	}
+	idx := cfg.WriteShapeIndex()
+	if !idx.Known() {
+		return fmt.Errorf("write shape did not resolve for %s: neither create (%s) nor update (%s) payload could be looked up — did a pin bump rename them?",
+			cfg.APISchema, rpcRequestName(cfg.API, false), rpcRequestName(cfg.API, true))
+	}
+	// Each half is checked on its own: a resolved update payload keeps Known()
+	// true while a missing create half silently narrows Settable.
+	if cfg.API != nil && cfg.API.Create != nil && !idx.HasCreate() {
+		return fmt.Errorf("create payload did not resolve for %s: the schema declares a create RPC (%s) but no payload message was found — did a pin bump rename it?",
+			cfg.APISchema, rpcRequestName(cfg.API, false))
+	}
+	if cfg.API != nil && cfg.API.Update != nil && !idx.HasUpdate() {
+		return fmt.Errorf("update payload did not resolve for %s: the schema declares an update RPC (%s) but no payload message was found — did a pin bump rename it?",
+			cfg.APISchema, rpcRequestName(cfg.API, true))
+	}
+	return nil
+}
+
+func rpcRequestName(api *schemagen.APIConfig, update bool) string {
+	if api == nil {
+		return "<none>"
+	}
+	rpc := api.Create
+	if update {
+		rpc = api.Update
+	}
+	if rpc == nil || rpc.Request == "" {
+		return "<none>"
+	}
+	return rpc.Request
 }

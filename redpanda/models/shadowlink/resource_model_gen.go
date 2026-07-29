@@ -212,10 +212,10 @@ type SchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilterModel struct {
 // converters on the parent struct to move between types.Object and this
 // typed form.
 type SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsModel struct {
-	DoNotSetSniHostname types.Bool   `tfsdk:"do_not_set_sni_hostname"`
-	Enabled             types.Bool   `tfsdk:"enabled"`
 	TLSFileSettings     types.Object `tfsdk:"tls_file_settings"`
 	TLSPemSettings      types.Object `tfsdk:"tls_pem_settings"`
+	DoNotSetSniHostname types.Bool   `tfsdk:"do_not_set_sni_hostname"`
+	Enabled             types.Bool   `tfsdk:"enabled"`
 }
 
 // SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel mirrors the nested "schema_registry_sync_options.shadow_schema_registry_api.tls_settings.tls_file_settings" attribute. Use the As/To
@@ -277,13 +277,13 @@ type SecuritySyncOptionsAclFiltersResourceFilterModel struct {
 // converters on the parent struct to move between types.Object and this
 // typed form.
 type TopicMetadataSyncOptionsModel struct {
+	StartAtEarliest              types.Bool   `tfsdk:"start_at_earliest"`
+	StartAtLatest                types.Bool   `tfsdk:"start_at_latest"`
+	StartAtTimestamp             types.String `tfsdk:"start_at_timestamp"`
 	AutoCreateShadowTopicFilters types.List   `tfsdk:"auto_create_shadow_topic_filters"`
 	ExcludeDefault               types.Bool   `tfsdk:"exclude_default"`
 	Interval                     types.String `tfsdk:"interval"`
 	Paused                       types.Bool   `tfsdk:"paused"`
-	StartAtEarliest              types.Bool   `tfsdk:"start_at_earliest"`
-	StartAtLatest                types.Bool   `tfsdk:"start_at_latest"`
-	StartAtTimestamp             types.String `tfsdk:"start_at_timestamp"`
 	SyncedShadowTopicProperties  types.List   `tfsdk:"synced_shadow_topic_properties"`
 }
 
@@ -479,10 +479,10 @@ func SchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilterAttrTypes() map
 // attribute.
 func SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"do_not_set_sni_hostname": types.BoolType,
-		"enabled":                 types.BoolType,
 		"tls_file_settings":       types.ObjectType{AttrTypes: SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsAttrTypes()},
 		"tls_pem_settings":        types.ObjectType{AttrTypes: SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettingsAttrTypes()},
+		"do_not_set_sni_hostname": types.BoolType,
+		"enabled":                 types.BoolType,
 	}
 }
 
@@ -551,13 +551,13 @@ func SecuritySyncOptionsAclFiltersResourceFilterAttrTypes() map[string]attr.Type
 // attribute.
 func TopicMetadataSyncOptionsAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
+		"start_at_earliest":                types.BoolType,
+		"start_at_latest":                  types.BoolType,
+		"start_at_timestamp":               types.StringType,
 		"auto_create_shadow_topic_filters": types.ListType{ElemType: types.ObjectType{AttrTypes: TopicMetadataSyncOptionsAutoCreateShadowTopicFiltersAttrTypes()}},
 		"exclude_default":                  types.BoolType,
 		"interval":                         types.StringType,
 		"paused":                           types.BoolType,
-		"start_at_earliest":                types.BoolType,
-		"start_at_latest":                  types.BoolType,
-		"start_at_timestamp":               types.StringType,
 		"synced_shadow_topic_properties":   types.ListType{ElemType: types.StringType},
 	}
 }

@@ -763,8 +763,6 @@ func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettings(ctx cont
 	var diags diag.Diagnostics
 	_ = prev
 	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsModel{}
-	m.DoNotSetSniHostname = types.BoolValue(proto.GetDoNotSetSniHostname())
-	m.Enabled = types.BoolValue(proto.GetEnabled())
 	m.TLSFileSettings = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetTlsFileSettings(), func() *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel {
 		v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings(ctx, prev)
 		return v
@@ -773,6 +771,8 @@ func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettings(ctx cont
 		v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettings(ctx, prev)
 		return v
 	}(), SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettingsAttrTypes(), FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettings, &diags)
+	m.DoNotSetSniHostname = types.BoolValue(proto.GetDoNotSetSniHostname())
+	m.Enabled = types.BoolValue(proto.GetEnabled())
 	return m, diags
 }
 
@@ -989,6 +989,9 @@ func FlattenTopicMetadataSyncOptions(ctx context.Context, proto *corev2.TopicMet
 	var diags diag.Diagnostics
 	_ = prev
 	m := TopicMetadataSyncOptionsModel{}
+	m.StartAtEarliest = modelconv.BoolFromOneofPresence(proto.HasStartAtEarliest())
+	m.StartAtLatest = modelconv.BoolFromOneofPresence(proto.HasStartAtLatest())
+	m.StartAtTimestamp = modelconv.StringFromTimestamp(proto.GetStartAtTimestamp())
 	m.AutoCreateShadowTopicFilters = modelconv.ListFromObjectsWithDiags(ctx, proto.GetAutoCreateShadowTopicFilters(), TopicMetadataSyncOptionsAutoCreateShadowTopicFiltersAttrTypes(), FlattenTopicMetadataSyncOptionsAutoCreateShadowTopicFilters, &diags)
 	if prev != nil {
 		m.AutoCreateShadowTopicFilters = modelconv.ListCarryKnownEmpty(m.AutoCreateShadowTopicFilters, prev.AutoCreateShadowTopicFilters)
@@ -996,9 +999,6 @@ func FlattenTopicMetadataSyncOptions(ctx context.Context, proto *corev2.TopicMet
 	m.ExcludeDefault = types.BoolValue(proto.GetExcludeDefault())
 	m.Interval = modelconv.StringFromDuration(proto.GetInterval())
 	m.Paused = types.BoolValue(proto.GetPaused())
-	m.StartAtEarliest = modelconv.BoolFromOneofPresence(proto.HasStartAtEarliest())
-	m.StartAtLatest = modelconv.BoolFromOneofPresence(proto.HasStartAtLatest())
-	m.StartAtTimestamp = modelconv.StringFromTimestamp(proto.GetStartAtTimestamp())
 	m.SyncedShadowTopicProperties = modelconv.ListFromSliceWithDiags(ctx, proto.GetSyncedShadowTopicProperties(), types.StringType, &diags)
 	if prev != nil {
 		m.SyncedShadowTopicProperties = modelconv.ListCarryKnownEmpty(m.SyncedShadowTopicProperties, prev.SyncedShadowTopicProperties)
