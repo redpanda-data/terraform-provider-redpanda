@@ -77,6 +77,7 @@ func Merge(proto *ProtoMessage, cfg *Config, schemaType string, apiIndex *apides
 
 	if !mc.isDatasource {
 		applyOneofArmLifecycle(attrs, cfg.Fields, cfg.WriteShapeIndex(), "")
+		checkOneofArmOverrides(attrs, cfg.Fields, cfg.WriteShapeIndex(), mc, "")
 		warnWriteShapeDisagreements(attrs, cfg.Fields, cfg.WriteShapeIndex(), mc, "", UpdateContractIdentityProtoField(cfg))
 		warnNestedRequiresReplace(attrs, cfg.Fields, cfg.WriteShapeIndex(), mc, "")
 	}
@@ -317,17 +318,6 @@ func applyFieldConfigs(attrs *[]SchemaAttr, fields map[string]FieldConfig, proto
 
 		applyFieldConfig(attr, path, fc, mc)
 
-		// Re-introduces the anchor applyOneofArmLifecycle removes. Server-reported
-		// arms are unaffected — they are never planned from config.
-		if !mc.isDatasource && fc.Computed != nil && *fc.Computed && attr.Optional {
-			if pf := protoCtx.FindField(name); pf != nil && pf.OneofName != "" &&
-				attrHasSettableLeaf(attr, path, mc.writeShape) {
-				mc.warn(
-					"WARN oneof %s.%s: computed: true on an arm of oneof %q — UseStateForUnknown will anchor this arm's value, and switching arms then fails with \"inconsistent result after apply\"; drop the override\n",
-					mc.resourceLabel, path, pf.OneofName)
-			}
-		}
-
 		if mc.deriveValidators && !fc.SkipProtoValidation {
 			if pf := protoCtx.FindField(name); pf != nil && pf.ValidateRules.GetRequired() {
 				if fc.Optional != nil && *fc.Optional && !fc.ComputedOnly {
@@ -372,8 +362,8 @@ func mapProtoFields(msg *ProtoMessage, prefix string, opts mapOptions) []SchemaA
 		attr := SchemaAttr{
 			Name:      f.Name,
 			ProtoName: f.Name,
-			Optional:  !opts.computedDefault,
-			Computed:  true,
+			Optional:  false,
+			Computed:  opts.computedDefault,
 		}
 		attr.IsOneofArm = f.OneofName != "" && !opts.computedDefault
 

@@ -39,7 +39,7 @@ func TestMerge_PlanModifiers_ComposeWithStateNull(t *testing.T) {
 			"type": {PlanModifiers: []string{"RequiresReplace"}},
 		},
 	}
-	attrs, _, _, errs := Merge(proto, cfg, "resource", nil)
+	attrs, _, _, errs := Merge(proto, declareLifecycle(proto, cfg), "resource", nil)
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
@@ -210,7 +210,7 @@ func TestMerge_MaskContract_DerivesRequiresReplace(t *testing.T) {
 		},
 	}
 	cfg.SetMaskContract(maskContractFor())
-	attrs, _, _, errs := Merge(maskContractProto(), cfg, "resource", nil)
+	attrs, _, _, errs := Merge(maskContractProto(), declareLifecycle(maskContractProto(), cfg), "resource", nil)
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
@@ -251,7 +251,7 @@ func TestMerge_MaskContract_ComposesWithStateModifier(t *testing.T) {
 		},
 	}
 	cfg.SetMaskContract(maskContractFor())
-	attrs, _, _, errs := Merge(maskContractProto(), cfg, "resource", nil)
+	attrs, _, _, errs := Merge(maskContractProto(), declareLifecycle(maskContractProto(), cfg), "resource", nil)
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
@@ -305,7 +305,7 @@ func TestMerge_MaskContract_NoDoubleAddAndAliases(t *testing.T) {
 	// replace is intentional, so it stays in-contract and unmutated.
 	contract.TopLevel["partition_count"] = true
 	cfg.SetMaskContract(contract)
-	attrs, _, _, errs := Merge(proto, cfg, "resource", nil)
+	attrs, _, _, errs := Merge(proto, declareLifecycle(proto, cfg), "resource", nil)
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
@@ -483,7 +483,7 @@ func TestMerge_OneofArms_LifecycleFromWriteShape(t *testing.T) {
 	t.Run("selectable arm loses Computed", func(t *testing.T) {
 		cfg := &Config{}
 		cfg.SetWriteShapeIndex(idx)
-		attrs, _, _, errs := Merge(newProto(), cfg, "resource", nil)
+		attrs, _, _, errs := Merge(newProto(), declareLifecycle(newProto(), cfg), "resource", nil)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected errors: %v", errs)
 		}
@@ -507,7 +507,7 @@ func TestMerge_OneofArms_LifecycleFromWriteShape(t *testing.T) {
 	t.Run("server-owned arm keeps Computed", func(t *testing.T) {
 		cfg := &Config{}
 		cfg.SetWriteShapeIndex(idx)
-		attrs, _, _, errs := Merge(newProto(), cfg, "resource", nil)
+		attrs, _, _, errs := Merge(newProto(), declareLifecycle(newProto(), cfg), "resource", nil)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected errors: %v", errs)
 		}
@@ -517,7 +517,7 @@ func TestMerge_OneofArms_LifecycleFromWriteShape(t *testing.T) {
 	})
 
 	t.Run("unknown write shape leaves defaults alone", func(t *testing.T) {
-		attrs, _, _, errs := Merge(newProto(), &Config{}, "resource", nil)
+		attrs, _, _, errs := Merge(newProto(), declareLifecycle(newProto(), &Config{}), "resource", nil)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected errors: %v", errs)
 		}
@@ -568,7 +568,7 @@ func TestMerge_OneofArm_ComputedOverride_Warns(t *testing.T) {
 		hasUpdate: true,
 	})
 	var warns []string
-	Merge(proto, cfg, "resource", nil, func(f string, a ...any) { warns = append(warns, fmt.Sprintf(f, a...)) })
+	Merge(proto, declareLifecycle(proto, cfg), "resource", nil, func(f string, a ...any) { warns = append(warns, fmt.Sprintf(f, a...)) })
 
 	var sawArm, sawStatus bool
 	for _, w := range warns {
@@ -587,6 +587,56 @@ func TestMerge_OneofArm_ComputedOverride_Warns(t *testing.T) {
 	}
 	if sawStatus {
 		t.Errorf("server-owned arm must not warn — it is never planned from config; got %v", warns)
+	}
+}
+
+// An explicit state-pin modifier on a selectable arm is an error, not a
+// warning: nothing downstream clears it, so it survives onto an Optional-only
+// attribute and anchors the outgoing arm — the exact failure the lifecycle pass
+// exists to prevent. A server-owned arm keeps its anchor legitimately.
+func TestMerge_OneofArm_StatePinModifier_Errors(t *testing.T) {
+	proto := &ProtoMessage{
+		Name: "Thing",
+		Fields: []ProtoField{
+			{Name: "start_at_earliest", Kind: KindString, Cardinality: "singular", OneofName: "start_offset"},
+			{Name: "status_arm", Kind: KindString, Cardinality: "singular", OneofName: "status_kind"},
+		},
+	}
+	yes := true
+	cfg := &Config{Fields: map[string]FieldConfig{
+		"start_at_earliest": {Optional: &yes, PlanModifiers: []string{modUseStateForUnknown}},
+		// Server-owned via computed_only, and its own path IS on the write
+		// payload — the shape maintenance_window_config.unspecified has. The
+		// anchor is correct here and must not error.
+		"status_arm": {ComputedOnly: true, PlanModifiers: []string{modUseStateForUnknown}},
+	}}
+	cfg.SetWriteShapeIndex(&WriteShapeIndex{
+		create:    map[string]bool{"start_at_earliest": true, "status_arm": true},
+		update:    map[string]bool{"start_at_earliest": true, "status_arm": true},
+		hasCreate: true,
+		hasUpdate: true,
+	})
+
+	_, _, _, errs := Merge(proto, declareLifecycle(proto, cfg), "resource", nil)
+
+	var sawArm, sawStatus bool
+	for _, e := range errs {
+		msg := e.Error()
+		if !strings.Contains(msg, "selectable oneof arm") {
+			continue
+		}
+		if strings.Contains(msg, "start_at_earliest") {
+			sawArm = true
+		}
+		if strings.Contains(msg, "status_arm") {
+			sawStatus = true
+		}
+	}
+	if !sawArm {
+		t.Errorf("expected an error for a state pin on a selectable arm; got %v", errs)
+	}
+	if sawStatus {
+		t.Errorf("server-owned arm must not error — its anchor is correct; got %v", errs)
 	}
 }
 

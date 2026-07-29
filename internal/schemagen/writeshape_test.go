@@ -149,7 +149,7 @@ func TestMerge_WriteShapeDiagnostics_Fire(t *testing.T) {
 	})
 
 	var warns []string
-	Merge(proto, cfg, "resource", nil, func(f string, a ...any) { warns = append(warns, fmt.Sprintf(f, a...)) })
+	Merge(proto, declareLifecycle(proto, cfg), "resource", nil, func(f string, a ...any) { warns = append(warns, fmt.Sprintf(f, a...)) })
 	joined := strings.Join(warns, "\n")
 
 	// Marked read-only, but the payload accepts it.
@@ -164,4 +164,41 @@ func TestMerge_WriteShapeDiagnostics_Fire(t *testing.T) {
 	if !strings.Contains(joined, "block.guarded") {
 		t.Errorf("conditional RequiresReplace must not count as covered; got:\n%s", joined)
 	}
+}
+
+// declareLifecycle fills Optional+Computed for every proto field the config
+// does not already give a lifecycle, recursing into nested messages. The
+// generator supplies no default, so a fixture has to state one the same way a
+// real schema.yaml does — otherwise it models a schema the generator rejects.
+func declareLifecycle(proto *ProtoMessage, cfg *Config) *Config {
+	if cfg.Fields == nil {
+		cfg.Fields = map[string]FieldConfig{}
+	}
+	cfg.Fields = fillLifecycle(proto, cfg.Fields)
+	return cfg
+}
+
+func fillLifecycle(msg *ProtoMessage, fields map[string]FieldConfig) map[string]FieldConfig {
+	if msg == nil {
+		return fields
+	}
+	if fields == nil {
+		fields = map[string]FieldConfig{}
+	}
+	yes := true
+	for i := range msg.Fields {
+		f := &msg.Fields[i]
+		fc := fields[f.Name]
+		stated := fc.Required || fc.ComputedOnly || fc.Optional != nil || fc.Computed != nil ||
+			fc.Exclude || fc.Todo || fc.ProtoOnly
+		if !stated {
+			fc.Optional = &yes
+			fc.Computed = &yes
+		}
+		if f.Nested != nil && !fc.Exclude && !fc.Todo {
+			fc.Fields = fillLifecycle(f.Nested, fc.Fields)
+		}
+		fields[f.Name] = fc
+	}
+	return fields
 }

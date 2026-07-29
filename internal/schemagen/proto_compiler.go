@@ -123,8 +123,9 @@ func extractMessageFromDescriptor(
 	}
 
 	msg := &ProtoMessage{
-		Name:   string(md.Name()),
-		GoName: messageGoName(md),
+		Name:     string(md.Name()),
+		GoName:   messageGoName(md),
+		FullName: string(md.FullName()),
 	}
 
 	if pkg := string(md.ParentFile().Package()); pkg != "" && pkg != rootPkg {

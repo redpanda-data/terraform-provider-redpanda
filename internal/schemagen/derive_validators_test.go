@@ -318,7 +318,7 @@ func protoWithRepeatedRules() *ProtoMessage {
 // rpvalidate, which defers whenever the config has unknowns.
 func TestDeriveValidators_RepeatedRules(t *testing.T) {
 	cfg := &Config{API: &APIConfig{}}
-	attrs, _, _, errs := Merge(protoWithRepeatedRules(), cfg, "resource", nil)
+	attrs, _, _, errs := Merge(protoWithRepeatedRules(), declareLifecycle(protoWithRepeatedRules(), cfg), "resource", nil)
 	if len(errs) > 0 {
 		t.Fatalf("unexpected errs: %v", errs)
 	}
@@ -367,7 +367,7 @@ func TestDeriveValidators_RepeatedRulesComputedOnly(t *testing.T) {
 		API:    &APIConfig{},
 		Fields: map[string]FieldConfig{"regions": {ComputedOnly: true}},
 	}
-	attrs, _, _, errs := Merge(protoWithRepeatedRules(), cfg, "resource", nil)
+	attrs, _, _, errs := Merge(protoWithRepeatedRules(), declareLifecycle(protoWithRepeatedRules(), cfg), "resource", nil)
 	if len(errs) > 0 {
 		t.Fatalf("unexpected errs: %v", errs)
 	}
@@ -385,7 +385,7 @@ func TestDeriveValidators_RepeatedRulesMergeWithYaml(t *testing.T) {
 			"regions": {Validator: "AWSZoneIDValidator"},
 		},
 	}
-	attrs, _, _, errs := Merge(protoWithRepeatedRules(), cfg, "resource", nil)
+	attrs, _, _, errs := Merge(protoWithRepeatedRules(), declareLifecycle(protoWithRepeatedRules(), cfg), "resource", nil)
 	if len(errs) > 0 {
 		t.Fatalf("unexpected errs: %v", errs)
 	}

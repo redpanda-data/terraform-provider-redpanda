@@ -258,7 +258,7 @@ func TestBridge_MergeEmitsValidators(t *testing.T) {
 	if err := BridgeWriteShapeRules(read, cfg, "resource", lookup); err != nil {
 		t.Fatalf("BridgeWriteShapeRules: %v", err)
 	}
-	attrs, _, _, errs := Merge(read, cfg, "resource", nil)
+	attrs, _, _, errs := Merge(read, declareLifecycle(read, cfg), "resource", nil)
 	if len(errs) > 0 {
 		t.Fatalf("unexpected merge errs (required must not leak from write shape): %v", errs)
 	}

@@ -65,33 +65,41 @@ client_options:
       computed: true
     tls_settings:
       optional: true
+      computed: true
       fields:
         enabled:
           optional: true
           computed: true
         ca:
           optional: true
+          computed: true
         cert:
           optional: true
+          computed: true
         key:
           optional: true
+          computed: true
           sensitive: true
         do_not_set_sni_hostname:
           optional: true
           computed: true
     authentication_configuration:
       optional: true
+      computed: true
       fields:
         scram_configuration:
           optional: true
           fields:
             username:
               optional: true
+              computed: true
             password:
               optional: true
+              computed: true
               sensitive: true
             scram_mechanism:
               optional: true
+              computed: true
             password_set:
               computed_only: true
             password_set_at:
@@ -101,8 +109,10 @@ client_options:
           fields:
             username:
               optional: true
+              computed: true
             password:
               optional: true
+              computed: true
               sensitive: true
             password_set:
               computed_only: true
@@ -164,6 +174,7 @@ topic_metadata_sync_options:
       computed: true
     auto_create_shadow_topic_filters:
       optional: true
+      computed: true
       fields:
         pattern_type:
           required: true
@@ -202,6 +213,7 @@ consumer_offset_sync_options:
       computed: true
     group_filters:
       optional: true
+      computed: true
       fields:
         pattern_type:
           required: true
@@ -224,6 +236,7 @@ security_sync_options:
       computed: true
     acl_filters:
       optional: true
+      computed: true
       fields:
         resource_filter:
           required: true
@@ -264,16 +277,20 @@ schema_registry_sync_options:
       fields:
         source_url:
           optional: true
+          computed: true
         auth_options:
           optional: true
+          computed: true
           fields:
             basic:
               optional: true
               fields:
                 username:
                   optional: true
+                  computed: true
                 password:
                   optional: true
+                  computed: true
                   sensitive: true
                 password_set:
                   computed_only: true
@@ -281,6 +298,7 @@ schema_registry_sync_options:
                   exclude: true
         tls_settings:
           optional: true
+          computed: true
           fields:
             enabled:
               optional: true
@@ -290,19 +308,25 @@ schema_registry_sync_options:
               fields:
                 ca_path:
                   optional: true
+                  computed: true
                 key_path:
                   optional: true
+                  computed: true
                 cert_path:
                   optional: true
+                  computed: true
             tls_pem_settings:
               optional: true
               fields:
                 ca:
                   optional: true
+                  computed: true
                 cert:
                   optional: true
+                  computed: true
                 key:
                   optional: true
+                  computed: true
                   sensitive: true
                 key_fingerprint:
                   computed_only: true
@@ -335,13 +359,17 @@ schema_registry_sync_options:
           plan_modifiers: [None]
         source_filter:
           optional: true
+          computed: true
           fields:
             contexts:
               optional: true
+              computed: true
             subjects:
               optional: true
+              computed: true
         destination:
           optional: true
+          computed: true
           fields:
             identity:
               optional: true
@@ -354,6 +382,7 @@ schema_registry_sync_options:
               fields:
                 mappings:
                   optional: true
+                  computed: true
                   fields:
                     source:
                       required: true

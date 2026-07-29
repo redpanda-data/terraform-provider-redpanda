@@ -163,7 +163,7 @@ func markSharedSubtrees(read, write *ProtoMessage, prefix string, out, seen map[
 	if read == nil || write == nil || depth > maxWriteShapeDepth {
 		return
 	}
-	key := read.GoName + "|" + write.GoName
+	key := read.identityKey() + "|" + write.identityKey()
 	if seen[key] {
 		return
 	}
@@ -177,7 +177,7 @@ func markSharedSubtrees(read, write *ProtoMessage, prefix string, out, seen map[
 			continue
 		}
 		path := joinPath(prefix, rf.Name)
-		if rf.Nested.GoName != "" && rf.Nested.GoName == wf.Nested.GoName {
+		if k := rf.Nested.identityKey(); k != "" && k == wf.Nested.identityKey() {
 			out[path] = true
 			continue
 		}
@@ -266,6 +266,49 @@ func childFields(fc *FieldConfig) map[string]FieldConfig {
 	return fc.Fields
 }
 
+// checkOneofArmOverrides reports yaml overrides that re-introduce the anchor
+// applyOneofArmLifecycle removes from an arm the user selects. Runs post-merge
+// so the subtree it inspects has already had exclude:/todo: pruned.
+//
+// computed: true warns — the lifecycle pass clears it, so the outcome is still
+// correct and the override is merely redundant. An explicit state-pin plan
+// modifier is an error: nothing downstream clears it, so it survives onto an
+// Optional-only attribute and anchors the outgoing arm anyway. Silently
+// stripping it would discard something the author asked for with no feedback.
+func checkOneofArmOverrides(attrs []SchemaAttr, fields map[string]FieldConfig, idx *WriteShapeIndex, mc *mergeCtx, parentPath string) {
+	for i := range attrs {
+		a := &attrs[i]
+		fc := fieldConfigFor(fields, a.Name)
+		path := joinPath(parentPath, protoKey(a, fc))
+		// a.Optional mirrors applyOneofArmLifecycle's own condition: it only
+		// clears Computed from arms the user selects, so only those can end up
+		// with an orphaned pin. A read-only arm keeps its anchor legitimately,
+		// even when its own path appears on a write payload — an empty
+		// presence-only arm always does.
+		if a.IsOneofArm && a.Optional && fc != nil && attrHasSettableLeaf(a, path, idx) {
+			if fc.Computed != nil && *fc.Computed {
+				mc.warn("WARN oneof %s.%s: computed: true on a selectable arm — UseStateForUnknown will anchor it, and switching arms then fails with \"inconsistent result after apply\"; drop the override\n",
+					mc.resourceLabel, path)
+			}
+			if pin := statePinModifier(fc.PlanModifiers); pin != "" {
+				mc.errorf("yaml %s: plan_modifiers lists %s on a selectable oneof arm — it anchors the outgoing arm and switching arms then fails with \"inconsistent result after apply\"; remove it", path, pin)
+			}
+		}
+		checkOneofArmOverrides(a.NestedAttrs, childFields(fc), idx, mc, path)
+	}
+}
+
+// statePinModifier returns the first state-pinning modifier in names, or "".
+// modNone is not a pin — it suppresses the automatic one.
+func statePinModifier(names []string) string {
+	for _, n := range names {
+		if n == modUseStateForUnknown || n == modUseNonNullStateForUnknown {
+			return n
+		}
+	}
+	return ""
+}
+
 // warnWriteShapeDisagreements reports attributes whose lifecycle contradicts
 // the write shape: a read-only attribute the payload accepts, or a user-settable
 // one no payload carries. Diagnostic only — the yaml stays authoritative.
@@ -351,7 +394,7 @@ func collectWritePaths(msg *ProtoMessage, prefix string, out, seen map[string]bo
 	if msg == nil || depth > maxWriteShapeDepth {
 		return
 	}
-	key := msg.GoName
+	key := msg.identityKey()
 	if key == "" {
 		key = msg.Name
 	}
@@ -403,4 +446,25 @@ func hasRequiresReplace(names []string) bool {
 		}
 	}
 	return false
+}
+
+// AttrsWithoutLifecycle returns the paths of attributes stating no lifecycle.
+// Terraform requires at least one of Required/Optional/Computed, and the
+// generator supplies no default, so silence means a proto field arrived that
+// nobody dispositioned.
+func AttrsWithoutLifecycle(attrs []SchemaAttr) []string {
+	var out []string
+	var walk func(as []SchemaAttr, prefix string)
+	walk = func(as []SchemaAttr, prefix string) {
+		for i := range as {
+			a := &as[i]
+			path := joinPath(prefix, a.Name)
+			if !a.Required && !a.Optional && !a.Computed {
+				out = append(out, path)
+			}
+			walk(a.NestedAttrs, path)
+		}
+	}
+	walk(attrs, "")
+	return out
 }

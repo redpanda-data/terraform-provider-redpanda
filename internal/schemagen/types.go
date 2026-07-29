@@ -93,10 +93,31 @@ type ProtoMessage struct {
 
 	GoName string
 
+	// FullName is the fully-qualified proto name. GoName is NOT unique — it
+	// drops the proto package, so two distinct messages can share one
+	// (core.common.v1.TLSSettings and controlplane.v1.TLSSettings are both
+	// reachable from ShadowLink and both render as "TLSSettings"). Anything
+	// establishing message identity must key on this; GoName builds Go type
+	// references in generated code and cannot be qualified.
+	FullName string
+
 	ExternalPkgAlias string
 
 	ExternalPkgImport string
 	Fields            []ProtoField
+}
+
+// identityKey returns a key safe to compare message identity on: the
+// fully-qualified name when the descriptor supplied one, else the Go name for
+// hand-built fixtures.
+func (m *ProtoMessage) identityKey() string {
+	if m == nil {
+		return ""
+	}
+	if m.FullName != "" {
+		return m.FullName
+	}
+	return m.GoName
 }
 
 // FindField returns the proto field with the given snake_case name, or nil

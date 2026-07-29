@@ -286,6 +286,14 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 	}
 	log.Printf("Merged into %d attributes", len(attrs))
 	verifyClusterMaskPaths(cfg, attrs, func(f string, a ...any) { fmt.Fprintf(os.Stderr, f, a...) })
+	if schemaType != schemagen.SchemaTypeDatasource {
+		if missing := schemagen.AttrsWithoutLifecycle(attrs); len(missing) > 0 {
+			for _, m := range missing {
+				fmt.Fprintf(os.Stderr, "schemagen: %s: no lifecycle declared\n", m)
+			}
+			return fmt.Errorf("%d attribute(s) declare no lifecycle — set optional/computed/required/computed_only in yaml, or exclude:/todo: the field out of the schema", len(missing))
+		}
+	}
 	if apiIndex != nil && cfg.APISchema != "" && stats.Attempted > 0 {
 		pct := 100 * stats.Matched / stats.Attempted
 		log.Printf("apidesc: %d/%d attrs matched from %s (%d%%)",

@@ -35,6 +35,8 @@ allow_deletion:
   minimal_default: true
 
 api_gateway_access:
+  optional: true
+  computed: true
 
 aws_private_link:
   optional: true
@@ -106,12 +108,18 @@ tags:
   expand_via: TagsForProto
 
 cloud_storage:
+  optional: true
+  computed: true
   fields:
     aws:
+      optional: true
+      computed: true
       fields:
         arn:
           computed_only: true
     azure:
+      optional: true
+      computed: true
       fields:
         container_name:
           computed_only: true
@@ -126,6 +134,8 @@ cloud_storage:
         subscription_id:
           todo: true
     gcp:
+      optional: true
+      computed: true
       fields:
         name:
           computed_only: true
@@ -140,6 +150,8 @@ cluster_api_url:
   flatten_via: clusterAPIURLFromProto
 
 cluster_configuration:
+  optional: true
+  computed: true
   validator: ClusterConfiguration
   fields:
     custom_properties:
@@ -442,22 +454,32 @@ gcp_private_service_connect:
     schema_registry_auth_mode:
       todo: true
 http_proxy:
+  optional: true
+  computed: true
   fields:
     all_urls:
       computed_only: true
     mtls:
+      optional: true
+      computed: true
       fields:
         ca_certificates_pem:
           computed: false
           optional: true
         enabled:
+          optional: true
+          computed: true
           default: false
         principal_mapping_rules:
           computed: false
           optional: true
     sasl:
+      optional: true
+      computed: true
       fields:
         enabled:
+          optional: true
+          computed: true
     url:
       computed_only: true
 
@@ -467,30 +489,44 @@ id:
   computed_only: true
 
 kafka_api:
+  optional: true
+  computed: true
   fields:
     all_seed_brokers:
       computed_only: true
     mtls:
+      optional: true
+      computed: true
       fields:
         ca_certificates_pem:
           computed: false
           optional: true
         enabled:
+          optional: true
+          computed: true
           default: false
         principal_mapping_rules:
           computed: false
           optional: true
     sasl:
+      optional: true
+      computed: true
       fields:
         enabled:
+          optional: true
+          computed: true
     seed_brokers:
       computed_only: true
 
     connections:
       todo: true
 kafka_connect:
+  optional: true
+  computed: true
   fields:
     enabled:
+      optional: true
+      computed: true
       default: false
 
 rpsql:
@@ -499,8 +535,12 @@ rpsql:
   # would falsely reject an enable that omits replicas (cf. user.mechanism). The
   # control plane still enforces it on the payload.
   skip_proto_validation: true
+  optional: true
+  computed: true
   fields:
     enabled:
+      optional: true
+      computed: true
       default: false
       plan_modifiers: [UseStateForUnknown]
     replicas:
@@ -535,6 +575,8 @@ rpsql:
       plan_modifiers: [PinStateUnlessRpsqlEnables]
 
 maintenance_window_config:
+  optional: true
+  computed: true
   fields:
     anytime:
       computed: false
@@ -578,6 +620,8 @@ redpanda_console:
   computed_only: true
 
 redpanda_node_count:
+  optional: true
+  computed: true
 
 redpanda_version:
   extra: true
@@ -592,6 +636,8 @@ resource_group_id:
   required: true
 
 schema_registry:
+  optional: true
+  computed: true
   fields:
     all_urls:
       computed_only: true
@@ -603,6 +649,8 @@ schema_registry:
           computed: false
           optional: true
         enabled:
+          optional: true
+          computed: true
           default: false
         principal_mapping_rules:
           computed: false
