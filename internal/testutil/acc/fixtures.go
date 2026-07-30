@@ -48,6 +48,7 @@ const (
 	UserResourceName                   = "redpanda_user.test"
 	TestUserResourceName               = "redpanda_user.test_user"
 	TopicResourceName                  = "redpanda_topic.test"
+	SecretResourceName                 = "redpanda_secret.test"
 	ServerlessResourceName             = "redpanda_serverless_cluster.test"
 	ServerlessPrivateLinkResourceName  = "redpanda_serverless_private_link.example"
 	NetworkDataSourceName              = "data.redpanda_network.test"

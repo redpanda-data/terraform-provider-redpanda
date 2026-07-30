@@ -27,16 +27,14 @@ import (
 // VerifySRAuth verifies that the user's password was correctly set by
 // attempting to authenticate against Schema Registry. If password_wo was
 // silently null (the bug), the SR will reject the request with 401.
-func VerifySRAuth(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterName, username, password string) error {
-	cluster, err := cpCl.ClusterForName(ctx, clusterName)
-	if err != nil {
-		return fmt.Errorf("failed to look up cluster by name: %w", err)
-	}
-
+// It takes the cluster ID rather than a name so it serves both cluster shapes:
+// GetSchemaRegistryClientForCluster resolves serverless clusters through its
+// ServerlessClusterService fallback, while a name lookup would not.
+func VerifySRAuth(ctx context.Context, cpCl *cloud.ControlPlaneClientSet, clusterID, username, password string) error {
 	// nil TokenSource so the auth-precedence helper falls through to Basic;
 	// this helper exists to verify the username+password path was wired
 	// correctly.
-	srClient, err := kclients.GetSchemaRegistryClientForCluster(ctx, cpCl, cluster.GetId(), nil, username, password)
+	srClient, err := kclients.GetSchemaRegistryClientForCluster(ctx, cpCl, clusterID, nil, username, password)
 	if err != nil {
 		return fmt.Errorf("failed to create SR client: %w", err)
 	}
