@@ -262,13 +262,63 @@ func AreWeDoneYet(ctx context.Context, op *controlplanev1.Operation, timeout tim
 		}
 
 		if op != nil && op.GetState() == controlplanev1.Operation_STATE_FAILED {
-			return NonRetryableError(fmt.Errorf("operation failed: %s", op.GetError().GetMessage()))
+			return NonRetryableError(fmt.Errorf("operation failed: %s", describeOperationFailure(op)))
 		}
 		if op != nil && op.GetState() != controlplanev1.Operation_STATE_COMPLETED {
-			return RetryableError(fmt.Errorf("expected operation to be completed but was in state %s", op.GetState()))
+			return RetryableError(fmt.Errorf(
+				"expected operation to be completed but was in state %s (%s)",
+				op.GetState(), describeOperationIdentity(op)))
 		}
 		return nil
 	})
+}
+
+// describeOperationFailure renders everything a failed operation carries. The
+// control plane sometimes reports a failure with an empty message, which on its
+// own tells an operator nothing and cannot be chased up; the operation ID, the
+// status code and any details are what make it actionable.
+// describeOperationIdentity names an operation and what it acted on. A wait that
+// times out has to carry this: the operation is only fetchable while it and its
+// resource still exist, and a failed acceptance run is swept soon after, at
+// which point the control plane answers PermissionDenied for the missing record
+// and the reason is gone for good.
+func describeOperationIdentity(op *controlplanev1.Operation) string {
+	var parts []string
+	if id := op.GetId(); id != "" {
+		parts = append(parts, fmt.Sprintf("operation_id=%s", id))
+	}
+	if t := op.GetType(); t != controlplanev1.Operation_TYPE_UNSPECIFIED {
+		parts = append(parts, fmt.Sprintf("type=%s", t))
+	}
+	if rid := op.GetResourceId(); rid != "" {
+		parts = append(parts, fmt.Sprintf("resource_id=%s", rid))
+	}
+	if m := op.GetMetadata(); m != nil && m.GetTypeUrl() != "" {
+		parts = append(parts, fmt.Sprintf("metadata=%s", m.GetTypeUrl()))
+	}
+	return strings.Join(parts, " ")
+}
+
+func describeOperationFailure(op *controlplanev1.Operation) string {
+	var parts []string
+	if identity := describeOperationIdentity(op); identity != "" {
+		parts = append(parts, identity)
+	}
+	if e := op.GetError(); e != nil {
+		if msg := e.GetMessage(); msg != "" {
+			parts = append(parts, msg)
+		}
+		if code := e.GetCode(); code != 0 {
+			parts = append(parts, fmt.Sprintf("code=%d", code))
+		}
+		if d := e.GetDetails(); len(d) > 0 {
+			parts = append(parts, fmt.Sprintf("details=%v", d))
+		}
+	}
+	if len(parts) == 0 {
+		return "no message, code or details reported"
+	}
+	return strings.Join(parts, " ")
 }
 
 // TypeListToStringSlice converts a types.List to a []string, stripping

@@ -26,6 +26,7 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 // TestMain shrinks Retry's backoff floor + ceiling to microseconds so the
@@ -79,6 +80,7 @@ func TestAreWeDoneYet(t *testing.T) {
 				gomock.InOrder(
 					m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1.Operation_STATE_IN_PROGRESS), nil),
 					m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(&controlplanev1.GetOperationResponse{Operation: &controlplanev1.Operation{
+						Id:    "op-under-test",
 						State: controlplanev1.Operation_STATE_FAILED,
 						Result: &controlplanev1.Operation_Error{
 							Error: &status.Status{
@@ -89,7 +91,9 @@ func TestAreWeDoneYet(t *testing.T) {
 					}}, nil))
 			},
 			timeout: 5 * time.Minute,
-			wantErr: "operation failed: operation failed",
+			// The code rides along now; an empty message alone left live failures
+			// with nothing to chase up.
+			wantErr: "operation failed: operation_id=op-under-test operation failed code=1",
 		},
 		{
 			name:    "Operation times out",
@@ -98,7 +102,7 @@ func TestAreWeDoneYet(t *testing.T) {
 			mockSetup: func(m *mocks.MockOperationServiceClient) {
 				m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1.Operation_STATE_IN_PROGRESS), nil).AnyTimes()
 			},
-			wantErr: "timed out after 100ms: expected operation to be completed but was in state STATE_IN_PROGRESS",
+			wantErr: "timed out after 100ms: expected operation to be completed but was in state STATE_IN_PROGRESS (operation_id=op-under-test)",
 		},
 		{
 			name:    "Operation times out with unspecified",
@@ -107,7 +111,7 @@ func TestAreWeDoneYet(t *testing.T) {
 			mockSetup: func(m *mocks.MockOperationServiceClient) {
 				m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1.Operation_STATE_UNSPECIFIED), nil).AnyTimes()
 			},
-			wantErr: "timed out after 100ms: expected operation to be completed but was in state STATE_UNSPECIFIED",
+			wantErr: "timed out after 100ms: expected operation to be completed but was in state STATE_UNSPECIFIED (operation_id=op-under-test)",
 		},
 		{
 			// Long-running async ops can see 10+ consecutive Internals on
@@ -205,6 +209,7 @@ func TestAreWeDoneYet(t *testing.T) {
 func createOpResponse(state controlplanev1.Operation_State) *controlplanev1.GetOperationResponse {
 	return &controlplanev1.GetOperationResponse{
 		Operation: &controlplanev1.Operation{
+			Id:    "op-under-test",
 			State: state,
 		},
 	}
@@ -1722,4 +1727,53 @@ func TestRunSubprocess_RemovesTempDir(t *testing.T) {
 	after, err := filepath.Glob(pattern)
 	require.NoError(t, err)
 	require.Len(t, after, len(before), "runSubprocess leaked a temp dir: before=%v after=%v", before, after)
+}
+
+// TestDescribeOperationFailure covers the case that made a live BYOVPC failure
+// undiagnosable: the control plane reported STATE_FAILED with an empty message,
+// and the provider surfaced "operation failed: " and nothing else.
+func TestDescribeOperationFailure(t *testing.T) {
+	t.Run("empty error still names the operation", func(t *testing.T) {
+		got := describeOperationFailure(&controlplanev1.Operation{
+			Id:     "op-123",
+			Result: &controlplanev1.Operation_Error{Error: &status.Status{}},
+		})
+		assert.Contains(t, got, "op-123")
+	})
+
+	t.Run("nothing at all says so rather than rendering blank", func(t *testing.T) {
+		assert.Equal(t, "no message, code or details reported",
+			describeOperationFailure(&controlplanev1.Operation{}))
+	})
+
+	t.Run("message, code and id are all reported", func(t *testing.T) {
+		got := describeOperationFailure(&controlplanev1.Operation{
+			Id: "op-456",
+			Result: &controlplanev1.Operation_Error{
+				Error: &status.Status{Code: 9, Message: "node group unavailable"},
+			},
+		})
+		assert.Contains(t, got, "op-456")
+		assert.Contains(t, got, "node group unavailable")
+		assert.Contains(t, got, "code=9")
+	})
+
+	// A failed operation can carry code=2 and nothing else, and looking it up
+	// later often fails: once the resource is swept, the control plane answers
+	// PermissionDenied and the record is gone. Whatever the operation carries
+	// has to be rendered while it is in hand, because there is no second
+	// chance to fetch it.
+	t.Run("a bare status still reports what the operation identifies", func(t *testing.T) {
+		got := describeOperationFailure(&controlplanev1.Operation{
+			Id:         "d9lrt6ils685tiko980g",
+			Type:       controlplanev1.Operation_TYPE_UPDATE_CLUSTER,
+			ResourceId: proto.String("d9lra6q7qm42gn9ot160"),
+			State:      controlplanev1.Operation_STATE_FAILED,
+			Result:     &controlplanev1.Operation_Error{Error: &status.Status{Code: 2}},
+		})
+		assert.Contains(t, got, "d9lrt6ils685tiko980g")
+		assert.Contains(t, got, "code=2")
+		assert.Contains(t, got, "d9lra6q7qm42gn9ot160", "the resource it acted on")
+		assert.Contains(t, got, "UPDATE_CLUSTER", "what it was doing")
+	})
 }
