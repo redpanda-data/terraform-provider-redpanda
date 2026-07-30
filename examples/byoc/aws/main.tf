@@ -24,7 +24,7 @@ resource "redpanda_cluster" "test" {
   throughput_tier   = var.throughput_tier
   zones             = var.zones
   allow_deletion    = var.cluster_allow_deletion
-  tags = var.cluster_tags
+  tags              = var.cluster_tags
   # aws_private_link = {
   #   enabled         = true
   #   connect_console = true
@@ -34,14 +34,6 @@ resource "redpanda_cluster" "test" {
   timeouts = {
     create = "90m"
   }
-}
-
-resource "redpanda_user" "test" {
-  name            = var.user_name
-  password        = var.user_pw
-  mechanism       = var.mechanism
-  cluster_api_url = redpanda_cluster.test.cluster_api_url
-  allow_deletion  = var.user_allow_deletion
 }
 
 resource "redpanda_topic" "test" {
@@ -56,15 +48,3 @@ resource "redpanda_topic" "test" {
   }
 }
 
-
-resource "redpanda_acl" "topic_access" {
-  resource_type         = "TOPIC"
-  resource_name         = redpanda_topic.test.name
-  resource_pattern_type = "LITERAL"
-  principal             = "User:${redpanda_user.test.name}"
-  host                  = "*"
-  operation             = "READ"
-  permission_type       = "ALLOW"
-  cluster_api_url       = redpanda_cluster.test.cluster_api_url
-  allow_deletion        = var.acl_allow_deletion
-}
