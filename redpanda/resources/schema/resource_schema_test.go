@@ -2594,7 +2594,9 @@ func TestUnit_Schema_Delete(t *testing.T) {
 			},
 		},
 		{
-			name: "deletion with allow_deletion=false",
+			// The documentation promises destroy refuses until allow_deletion is
+			// true, so this must error before DeleteSubject is reached.
+			name: "deletion refused when allow_deletion=false",
 			initialState: schemamodel.ResourceModel{
 				ID:            types.Int64Value(3),
 				ClusterID:     types.StringValue("cluster-1"),
@@ -2605,6 +2607,7 @@ func TestUnit_Schema_Delete(t *testing.T) {
 				Password:      types.StringValue("pass"),
 				References:    types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "subject": types.StringType, "version": types.Int64Type}}),
 			},
+			wantErr: true,
 		},
 	}
 
@@ -2616,9 +2619,13 @@ func TestUnit_Schema_Delete(t *testing.T) {
 			ctx := context.Background()
 			mockClient := mocks.NewMockSRClienter(ctrl)
 
-			mockClient.EXPECT().
-				DeleteSubject(ctx, tt.initialState.Subject.ValueString(), sr.SoftDelete).
-				Return([]int{int(tt.initialState.Version.ValueInt64())}, nil)
+			// A guard-blocked delete never reaches the client; leaving the
+			// expectation in place would let a regression that deletes anyway pass.
+			if !tt.wantErr {
+				mockClient.EXPECT().
+					DeleteSubject(ctx, tt.initialState.Subject.ValueString(), sr.SoftDelete).
+					Return([]int{int(tt.initialState.Version.ValueInt64())}, nil)
+			}
 
 			s := &Schema{
 				clientFactory: func(_ context.Context, _ *cloud.ControlPlaneClientSet, _ string, _ oauth2.TokenSource, _, _ string) (SRClienter, error) {

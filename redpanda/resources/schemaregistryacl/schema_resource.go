@@ -116,7 +116,7 @@ func ResourceSchemaRegistryACLSchema(_ context.Context) schema.Schema {
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
-				Description: "When set to true, allows the resource to be removed from state even if deletion fails due to permission errors",
+				Description: "Whether Terraform may destroy this ACL. Defaults to false — terraform destroy will refuse until you set this to true. Also allows the resource to be removed from state when deletion fails due to permission errors.",
 			},
 		},
 	}
