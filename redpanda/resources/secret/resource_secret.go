@@ -122,7 +122,15 @@ func (s *Secret) Create(ctx context.Context, req resource.CreateRequest, resp *r
 		return utils.NonRetryableError(rpcErr)
 	})
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to create secret %q", model.Name.ValueString()), utils.DeserializeGrpcError(err))
+		detail := utils.DeserializeGrpcError(err)
+		// A name collision is the operator's to resolve; say how.
+		if utils.IsAlreadyExists(err) {
+			detail = fmt.Sprintf("%s\n\nA secret with this name already exists on the cluster and was not "+
+				"created by this resource. Import it with:\n"+
+				"  terraform import <resource_address> %s,<cluster_id>\n"+
+				"or choose a different name.", detail, model.Name.ValueString())
+		}
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to create secret %q", model.Name.ValueString()), detail)
 		return
 	}
 
