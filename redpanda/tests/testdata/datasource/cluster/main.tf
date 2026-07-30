@@ -69,16 +69,29 @@ resource "redpanda_acl" "test" {
   allow_deletion        = true
 }
 
+# Console-endpoint canary. The topic canary proves the dataplane; the console API
+# is a separate endpoint with separate readiness, so it needs its own. Role is the
+# simplest console resource, and the console resources below wait on it.
+resource "redpanda_role" "console_canary" {
+  name            = "${var.name_prefix}-console-canary"
+  cluster_api_url = redpanda_cluster.test.cluster_api_url
+  allow_deletion  = true
+}
+
 resource "redpanda_role" "test" {
   name            = "${var.name_prefix}-role"
   cluster_api_url = redpanda_cluster.test.cluster_api_url
   allow_deletion  = true
+
+  depends_on = [redpanda_role.console_canary]
 }
 
 resource "redpanda_role_assignment" "test" {
   role_name       = redpanda_role.test.name
   principal       = "User:${redpanda_user.test.name}"
   cluster_api_url = redpanda_cluster.test.cluster_api_url
+
+  depends_on = [redpanda_role.console_canary]
 }
 
 output "datasource_cluster_id" {
