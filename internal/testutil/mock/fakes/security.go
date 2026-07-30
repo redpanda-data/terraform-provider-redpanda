@@ -80,94 +80,81 @@ func (f *SecurityFake) SeedRoleWithMembers(name string, principals ...string) {
 
 // CreateRole stores a new role keyed by name. AlreadyExists if present.
 func (f *SecurityFake) CreateRole(_ context.Context, req *consolev1alpha1.CreateRoleRequest) (*consolev1alpha1.CreateRoleResponse, error) {
-	inner := req.GetRequest()
-	if inner == nil || inner.GetRole() == nil {
+	if req.GetRequest().GetRole() == nil {
 		return nil, status.Error(codes.InvalidArgument, "role is required")
 	}
-	name := inner.GetRole().GetName()
+	name := req.GetRequest().GetRole().GetName()
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if _, ok := f.roles[name]; ok {
 		return nil, status.Errorf(codes.AlreadyExists, "role %q already exists", name)
 	}
 	f.roles[name] = &roleRecord{name: name}
-	return &consolev1alpha1.CreateRoleResponse{Response: &dataplanev1.CreateRoleResponse{
-		Role: &dataplanev1.Role{Name: name},
-	}}, nil
+	return &consolev1alpha1.CreateRoleResponse{
+		Response: &dataplanev1.CreateRoleResponse{Role: &dataplanev1.Role{Name: name}},
+	}, nil
 }
 
 // GetRole returns the role by name. NotFound if absent.
 func (f *SecurityFake) GetRole(_ context.Context, req *consolev1alpha1.GetRoleRequest) (*consolev1alpha1.GetRoleResponse, error) {
-	inner := req.GetRequest()
-	if inner == nil {
-		return nil, status.Error(codes.InvalidArgument, "request is required")
-	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	rec, ok := f.roles[inner.GetRoleName()]
+	rec, ok := f.roles[req.GetRequest().GetRoleName()]
 	if !ok {
-		return nil, status.Errorf(codes.NotFound, "role %q not found", inner.GetRoleName())
+		return nil, status.Errorf(codes.NotFound, "role %q not found", req.GetRequest().GetRoleName())
 	}
-	return &consolev1alpha1.GetRoleResponse{Response: &dataplanev1.GetRoleResponse{
-		Role:    &dataplanev1.Role{Name: rec.name},
-		Members: membersToProto(rec.members),
-	}}, nil
+	return &consolev1alpha1.GetRoleResponse{
+		Response: &dataplanev1.GetRoleResponse{
+			Role:    &dataplanev1.Role{Name: rec.name},
+			Members: membersToProto(rec.members),
+		},
+	}, nil
 }
 
 // DeleteRole removes the role; NotFound if absent.
 func (f *SecurityFake) DeleteRole(_ context.Context, req *consolev1alpha1.DeleteRoleRequest) (*consolev1alpha1.DeleteRoleResponse, error) {
-	inner := req.GetRequest()
-	if inner == nil {
-		return nil, status.Error(codes.InvalidArgument, "request is required")
-	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if _, ok := f.roles[inner.GetRoleName()]; !ok {
-		return nil, status.Errorf(codes.NotFound, "role %q not found", inner.GetRoleName())
+	if _, ok := f.roles[req.GetRequest().GetRoleName()]; !ok {
+		return nil, status.Errorf(codes.NotFound, "role %q not found", req.GetRequest().GetRoleName())
 	}
-	delete(f.roles, inner.GetRoleName())
-	return &consolev1alpha1.DeleteRoleResponse{}, nil
+	delete(f.roles, req.GetRequest().GetRoleName())
+	return &consolev1alpha1.DeleteRoleResponse{Response: &dataplanev1.DeleteRoleResponse{}}, nil
 }
 
 // ListRoleMembers returns the members of a role. NotFound if absent.
 func (f *SecurityFake) ListRoleMembers(_ context.Context, req *consolev1alpha1.ListRoleMembersRequest) (*consolev1alpha1.ListRoleMembersResponse, error) {
-	inner := req.GetRequest()
-	if inner == nil {
-		return nil, status.Error(codes.InvalidArgument, "request is required")
-	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	rec, ok := f.roles[inner.GetRoleName()]
+	rec, ok := f.roles[req.GetRequest().GetRoleName()]
 	if !ok {
-		return nil, status.Errorf(codes.NotFound, "role %q not found", inner.GetRoleName())
+		return nil, status.Errorf(codes.NotFound, "role %q not found", req.GetRequest().GetRoleName())
 	}
-	return &consolev1alpha1.ListRoleMembersResponse{Response: &dataplanev1.ListRoleMembersResponse{
-		RoleName: rec.name,
-		Members:  membersToProto(rec.members),
-	}}, nil
+	return &consolev1alpha1.ListRoleMembersResponse{
+		Response: &dataplanev1.ListRoleMembersResponse{
+			RoleName: rec.name,
+			Members:  membersToProto(rec.members),
+		},
+	}, nil
 }
 
 // UpdateRoleMembership applies add + remove lists to the role's membership.
 // NotFound if the role doesn't exist and inner.Create is false; if Create is
 // true, the role is created and only the Add list is honored.
 func (f *SecurityFake) UpdateRoleMembership(_ context.Context, req *consolev1alpha1.UpdateRoleMembershipRequest) (*consolev1alpha1.UpdateRoleMembershipResponse, error) {
-	inner := req.GetRequest()
-	if inner == nil {
-		return nil, status.Error(codes.InvalidArgument, "request is required")
-	}
-	name := inner.GetRoleName()
+	name := req.GetRequest().GetRoleName()
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	rec, ok := f.roles[name]
 	if !ok {
-		if !inner.GetCreate() {
+		if !req.GetRequest().GetCreate() {
 			return nil, status.Errorf(codes.NotFound, "role %q not found", name)
 		}
 		rec = &roleRecord{name: name}
 		f.roles[name] = rec
 	}
 	var added []*dataplanev1.RoleMembership
-	for _, m := range inner.GetAdd() {
+	for _, m := range req.GetRequest().GetAdd() {
 		p := canonicalizePrincipal(m.GetPrincipal())
 		if !containsString(rec.members, p) {
 			rec.members = append(rec.members, p)
@@ -175,8 +162,8 @@ func (f *SecurityFake) UpdateRoleMembership(_ context.Context, req *consolev1alp
 		}
 	}
 	var removed []*dataplanev1.RoleMembership
-	if !inner.GetCreate() {
-		for _, m := range inner.GetRemove() {
+	if !req.GetRequest().GetCreate() {
+		for _, m := range req.GetRequest().GetRemove() {
 			p := canonicalizePrincipal(m.GetPrincipal())
 			if i := indexOfString(rec.members, p); i >= 0 {
 				rec.members = append(rec.members[:i], rec.members[i+1:]...)
@@ -184,11 +171,13 @@ func (f *SecurityFake) UpdateRoleMembership(_ context.Context, req *consolev1alp
 			}
 		}
 	}
-	return &consolev1alpha1.UpdateRoleMembershipResponse{Response: &dataplanev1.UpdateRoleMembershipResponse{
-		RoleName: name,
-		Added:    added,
-		Removed:  removed,
-	}}, nil
+	return &consolev1alpha1.UpdateRoleMembershipResponse{
+		Response: &dataplanev1.UpdateRoleMembershipResponse{
+			RoleName: name,
+			Added:    added,
+			Removed:  removed,
+		},
+	}, nil
 }
 
 func membersToProto(in []string) []*dataplanev1.RoleMembership {

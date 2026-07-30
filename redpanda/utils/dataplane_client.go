@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"google.golang.org/grpc"
@@ -42,4 +43,19 @@ func NewDataplaneClient[T any](ctx context.Context, pool *cloud.ConnPool, cluste
 		return zero, fmt.Errorf("unable to open a connection with the cluster API: %v", DeserializeGrpcError(err))
 	}
 	return build(annotatingConn{ClientConnInterface: conn, endpoint: clusterURL}), nil
+}
+
+// NewConsoleClient is NewDataplaneClient against a cluster's Console host.
+//
+// SecurityService is reached through Console, not through the cluster's api-
+// host. Sending it to api- returns a bare UNKNOWN with no message, which reads
+// as a warm-up failure and survives every retry — so the endpoint choice is made
+// here, once, rather than at each call site.
+func NewConsoleClient[T any](ctx context.Context, pool *cloud.ConnPool, clusterURL string, build func(grpc.ClientConnInterface) T) (T, error) {
+	return NewDataplaneClient(ctx, pool, ConvertToConsoleURL(clusterURL), build)
+}
+
+// ConvertToConsoleURL maps a cluster's dataplane API URL to its Console URL.
+func ConvertToConsoleURL(clusterAPIURL string) string {
+	return strings.Replace(clusterAPIURL, "://api-", "://console-", 1)
 }

@@ -566,17 +566,6 @@ func NormalizeClusterAPIURL(raw string) string {
 	return "https://" + host
 }
 
-// ConvertToConsoleURL converts a cluster API URL to a console URL for SecurityService operations.
-// This transformation is needed because the SecurityService uses console URLs instead of cluster API URLs.
-//
-// Example:
-//
-//	https://api-123456.cluster-id.byoc.prd.cloud.redpanda.com
-//	-> https://console-123456.cluster-id.byoc.prd.cloud.redpanda.com
-func ConvertToConsoleURL(clusterAPIURL string) string {
-	return strings.Replace(clusterAPIURL, "://api-", "://console-", 1)
-}
-
 // RetryGetCluster retries f against the latest cluster snapshot until f
 // succeeds, ctx expires, or maxTransientRetries Unavailable errors have been
 // observed. Uses a count cap on transient errors rather than the stuck-cap

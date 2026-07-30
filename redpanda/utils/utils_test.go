@@ -1427,44 +1427,6 @@ func TestDeserializeGrpcErrorSurfacesDataplaneAnnotation(t *testing.T) {
 	}
 }
 
-func TestConvertToConsoleURL(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "standard cluster API URL",
-			input:    "https://api-12345.cluster-id.byoc.prd.cloud.redpanda.com",
-			expected: "https://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
-		},
-		{
-			name:     "URL with different cluster ID",
-			input:    "https://api-abcdef.d110a6bu3l09un9dm4jg.byoc.prd.cloud.redpanda.com",
-			expected: "https://console-abcdef.d110a6bu3l09un9dm4jg.byoc.prd.cloud.redpanda.com",
-		},
-		{
-			name:     "URL without api- prefix should not change",
-			input:    "https://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
-			expected: "https://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
-		},
-		{
-			name:     "http protocol",
-			input:    "http://api-12345.cluster-id.byoc.prd.cloud.redpanda.com",
-			expected: "http://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := ConvertToConsoleURL(tt.input)
-			if result != tt.expected {
-				t.Errorf("ConvertToConsoleURL(%q) = %q, expected %q", tt.input, result, tt.expected)
-			}
-		})
-	}
-}
-
 func TestParseCPUToMillicores(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -1776,4 +1738,38 @@ func TestDescribeOperationFailure(t *testing.T) {
 		assert.Contains(t, got, "d9lra6q7qm42gn9ot160", "the resource it acted on")
 		assert.Contains(t, got, "UPDATE_CLUSTER", "what it was doing")
 	})
+}
+
+func TestConvertToConsoleURL(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "standard cluster API URL",
+			input:    "https://api-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+			expected: "https://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+		},
+		{
+			// The host shape the dedicated suites dial.
+			name:     "preprod dedicated URL",
+			input:    "https://api-45ccc47a.d9lra0a7qm42gn9ot130.fmc.ppd.cloud.redpanda.com",
+			expected: "https://console-45ccc47a.d9lra0a7qm42gn9ot130.fmc.ppd.cloud.redpanda.com",
+		},
+		{
+			name:     "URL without api- prefix should not change",
+			input:    "https://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+			expected: "https://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+		},
+		{
+			name:     "http protocol",
+			input:    "http://api-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+			expected: "http://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, ConvertToConsoleURL(tt.input))
+		})
+	}
 }
