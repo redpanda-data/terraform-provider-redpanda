@@ -97,35 +97,26 @@ func (p *Pipeline) Create(ctx context.Context, req resource.CreateRequest, resp 
 		return
 	}
 
-	// A cluster reports Ready before every dataplane service is serving, and
-	// CreatePipeline is usually the first call this resource makes. Without a
-	// retry a bare UNKNOWN from that window fails the apply outright.
-	//
-	// Pipeline IDs are server-generated, so a retry cannot rely on AlreadyExists
-	// the way name-keyed resources do: an attempt whose response was lost would
-	// otherwise be duplicated. Probe by display name before retrying and adopt
-	// what a previous attempt created.
-	var pipeline *dataplanev1.Pipeline
+	// Pipeline IDs are server-generated, so a retry cannot lean on AlreadyExists
+	// to recognise its own earlier attempt; probe by display name instead.
 	displayName := model.DisplayName.ValueString()
-	err = utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
-		createResp, rpcErr := p.PipelineClient.CreatePipeline(ctx, createReq)
-		if rpcErr == nil {
-			pipeline = createResp.GetPipeline()
-			return nil
-		}
-		if !utils.IsTransientDataplaneError(rpcErr) {
-			return utils.NonRetryableError(rpcErr)
-		}
-		if existing := p.findPipelineByDisplayName(ctx, displayName); existing != nil {
-			pipeline = existing
-			return nil
-		}
-		return utils.RetryableError(rpcErr)
-	})
+	createResp, err := utils.DataplaneCall(ctx,
+		func(ctx context.Context) (*dataplanev1.CreatePipelineResponse, error) {
+			return p.PipelineClient.CreatePipeline(ctx, createReq)
+		},
+		utils.WithProbe(func(ctx context.Context) (*dataplanev1.CreatePipelineResponse, bool) {
+			existing := p.findPipelineByDisplayName(ctx, displayName)
+			if existing == nil {
+				return nil, false
+			}
+			return &dataplanev1.CreatePipelineResponse{Pipeline: existing}, true
+		}),
+	)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create pipeline", utils.DeserializeGrpcError(err))
 		return
 	}
+	pipeline := createResp.GetPipeline()
 
 	createTimeout, diags := model.Timeouts.Create(ctx, DefaultPipelineOperationTimeout)
 	resp.Diagnostics.Append(diags...)
@@ -188,8 +179,10 @@ func (p *Pipeline) findPipelineByDisplayName(ctx context.Context, displayName st
 	if displayName == "" {
 		return nil
 	}
-	listResp, err := p.PipelineClient.ListPipelines(ctx, &dataplanev1.ListPipelinesRequest{
-		Filter: &dataplanev1.ListPipelinesRequest_Filter{NameContains: displayName},
+	listResp, err := utils.DataplaneCallOnce(ctx, func(ctx context.Context) (*dataplanev1.ListPipelinesResponse, error) {
+		return p.PipelineClient.ListPipelines(ctx, &dataplanev1.ListPipelinesRequest{
+			Filter: &dataplanev1.ListPipelinesRequest_Filter{NameContains: displayName},
+		})
 	})
 	if err != nil {
 		return nil
@@ -240,8 +233,10 @@ func (p *Pipeline) Read(ctx context.Context, req resource.ReadRequest, resp *res
 		return
 	}
 
-	getResp, err := p.PipelineClient.GetPipeline(ctx, &dataplanev1.GetPipelineRequest{
-		Id: model.ID.ValueString(),
+	getResp, err := utils.DataplaneCall(ctx, func(ctx context.Context) (*dataplanev1.GetPipelineResponse, error) {
+		return p.PipelineClient.GetPipeline(ctx, &dataplanev1.GetPipelineRequest{
+			Id: model.ID.ValueString(),
+		})
 	})
 	if err != nil {
 		if utils.IsNotFound(err) || utils.IsClusterUnreachable(err) {
@@ -309,8 +304,10 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 
 	pipelineID := state.ID.ValueString()
 
-	getResp, err := p.PipelineClient.GetPipeline(ctx, &dataplanev1.GetPipelineRequest{
-		Id: pipelineID,
+	getResp, err := utils.DataplaneCallOnce(ctx, func(ctx context.Context) (*dataplanev1.GetPipelineResponse, error) {
+		return p.PipelineClient.GetPipeline(ctx, &dataplanev1.GetPipelineRequest{
+			Id: pipelineID,
+		})
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to get pipeline %s", pipelineID), utils.DeserializeGrpcError(err))
@@ -328,8 +325,10 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 
 	if isCurrentlyRunning {
 		tflog.Info(ctx, fmt.Sprintf("stopping pipeline %s before update", pipelineID))
-		_, err := p.PipelineClient.StopPipeline(ctx, &dataplanev1.StopPipelineRequest{
-			Id: pipelineID,
+		_, err := utils.DataplaneCall(ctx, func(ctx context.Context) (*dataplanev1.StopPipelineResponse, error) {
+			return p.PipelineClient.StopPipeline(ctx, &dataplanev1.StopPipelineRequest{
+				Id: pipelineID,
+			})
 		})
 		if err != nil {
 			resp.Diagnostics.AddError(fmt.Sprintf("failed to stop pipeline %s before update", pipelineID), utils.DeserializeGrpcError(err))
@@ -384,7 +383,9 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 		updateReq.Pipeline.ServiceAccount = nil
 	}
 
-	updateResp, err := p.PipelineClient.UpdatePipeline(ctx, updateReq)
+	updateResp, err := utils.DataplaneCall(ctx, func(ctx context.Context) (*dataplanev1.UpdatePipelineResponse, error) {
+		return p.PipelineClient.UpdatePipeline(ctx, updateReq)
+	})
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to update pipeline %s", pipelineID), utils.DeserializeGrpcError(err))
 		return
@@ -450,8 +451,10 @@ func (p *Pipeline) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 
 	pipelineID := model.ID.ValueString()
 
-	getResp, err := p.PipelineClient.GetPipeline(ctx, &dataplanev1.GetPipelineRequest{
-		Id: pipelineID,
+	getResp, err := utils.DataplaneCallOnce(ctx, func(ctx context.Context) (*dataplanev1.GetPipelineResponse, error) {
+		return p.PipelineClient.GetPipeline(ctx, &dataplanev1.GetPipelineRequest{
+			Id: pipelineID,
+		})
 	})
 	if err != nil {
 		if utils.IsNotFound(err) {
@@ -478,8 +481,10 @@ func (p *Pipeline) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 		}
 	}
 
-	_, err = p.PipelineClient.DeletePipeline(ctx, &dataplanev1.DeletePipelineRequest{
-		Id: pipelineID,
+	_, err = utils.DataplaneCall(ctx, func(ctx context.Context) (*dataplanev1.DeletePipelineResponse, error) {
+		return p.PipelineClient.DeletePipeline(ctx, &dataplanev1.DeletePipelineRequest{
+			Id: pipelineID,
+		})
 	})
 	if err != nil {
 		if utils.IsNotFound(err) {
@@ -522,8 +527,10 @@ func (p *Pipeline) ImportState(ctx context.Context, req resource.ImportStateRequ
 // Returns the updated pipeline, a warning message (if any), and whether the operation succeeded.
 func (p *Pipeline) startPipeline(ctx context.Context, pipelineID string, timeout time.Duration) (*dataplanev1.Pipeline, string, bool) {
 	tflog.Info(ctx, fmt.Sprintf("starting pipeline %s", pipelineID))
-	_, err := p.PipelineClient.StartPipeline(ctx, &dataplanev1.StartPipelineRequest{
-		Id: pipelineID,
+	_, err := utils.DataplaneCallOnce(ctx, func(ctx context.Context) (*dataplanev1.StartPipelineResponse, error) {
+		return p.PipelineClient.StartPipeline(ctx, &dataplanev1.StartPipelineRequest{
+			Id: pipelineID,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Sprintf("failed to start pipeline: %s", utils.DeserializeGrpcError(err)), false
@@ -534,8 +541,10 @@ func (p *Pipeline) startPipeline(ctx context.Context, pipelineID string, timeout
 		return nil, fmt.Sprintf("timed out waiting for pipeline to reach running state: %s", err.Error()), false
 	}
 
-	getResp, err := p.PipelineClient.GetPipeline(ctx, &dataplanev1.GetPipelineRequest{
-		Id: pipelineID,
+	getResp, err := utils.DataplaneCallOnce(ctx, func(ctx context.Context) (*dataplanev1.GetPipelineResponse, error) {
+		return p.PipelineClient.GetPipeline(ctx, &dataplanev1.GetPipelineRequest{
+			Id: pipelineID,
+		})
 	})
 	if err != nil {
 		// Started, but the post-start refresh failed. Report success (ok=true)
@@ -549,8 +558,10 @@ func (p *Pipeline) startPipeline(ctx context.Context, pipelineID string, timeout
 // Returns the updated pipeline, a warning message (if any), and whether the operation succeeded.
 func (p *Pipeline) stopPipeline(ctx context.Context, pipelineID string, timeout time.Duration) (*dataplanev1.Pipeline, string, bool) {
 	tflog.Info(ctx, fmt.Sprintf("stopping pipeline %s", pipelineID))
-	_, err := p.PipelineClient.StopPipeline(ctx, &dataplanev1.StopPipelineRequest{
-		Id: pipelineID,
+	_, err := utils.DataplaneCallOnce(ctx, func(ctx context.Context) (*dataplanev1.StopPipelineResponse, error) {
+		return p.PipelineClient.StopPipeline(ctx, &dataplanev1.StopPipelineRequest{
+			Id: pipelineID,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Sprintf("failed to stop pipeline: %s", utils.DeserializeGrpcError(err)), false
@@ -561,8 +572,10 @@ func (p *Pipeline) stopPipeline(ctx context.Context, pipelineID string, timeout 
 		return nil, fmt.Sprintf("timed out waiting for pipeline to reach stopped state: %s", err.Error()), false
 	}
 
-	getResp, err := p.PipelineClient.GetPipeline(ctx, &dataplanev1.GetPipelineRequest{
-		Id: pipelineID,
+	getResp, err := utils.DataplaneCallOnce(ctx, func(ctx context.Context) (*dataplanev1.GetPipelineResponse, error) {
+		return p.PipelineClient.GetPipeline(ctx, &dataplanev1.GetPipelineRequest{
+			Id: pipelineID,
+		})
 	})
 	if err != nil {
 		// Stopped, but the post-stop refresh failed. Report success (ok=true)
@@ -599,8 +612,10 @@ func (p *Pipeline) createPipelineClient(ctx context.Context, clusterURL string) 
 
 func (p *Pipeline) waitForPipelineState(ctx context.Context, pipelineID string, targetState dataplanev1.Pipeline_State, timeout time.Duration) error {
 	return utils.Retry(ctx, timeout, func() *utils.RetryError {
-		getResp, err := p.PipelineClient.GetPipeline(ctx, &dataplanev1.GetPipelineRequest{
-			Id: pipelineID,
+		getResp, err := utils.DataplaneCallOnce(ctx, func(ctx context.Context) (*dataplanev1.GetPipelineResponse, error) {
+			return p.PipelineClient.GetPipeline(ctx, &dataplanev1.GetPipelineRequest{
+				Id: pipelineID,
+			})
 		})
 		if err != nil {
 			return utils.NonRetryableError(fmt.Errorf("failed to get pipeline state: %w", err))
