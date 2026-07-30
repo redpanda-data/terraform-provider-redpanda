@@ -53,6 +53,7 @@ const (
 	mockSRACLClusterID10        = "mocksraclcluster0010"
 	mockSRACLClusterID11        = "mocksraclcluster0011"
 	mockSRACLClusterID12        = "mocksraclcluster0012"
+	mockSRACLClusterID13        = "mocksraclcluster0013"
 	mockSRACLClusterIDImport    = "mocksraclclusterimp0"
 	mockSRACLClusterIDErrCreate = "mocksraclclustererrc"
 	mockSRACLClusterIDErrRead   = "mocksraclclustererrr"
@@ -236,6 +237,36 @@ func TestIntegration_SchemaRegistryACL_CreateAndRefresh(t *testing.T) {
 				statecheck.ExpectKnownValue(sraclAddr, tfjsonpath.New("id"), knownvalue.StringExact(wantID)),
 				idPreserved.AddStateValue(sraclAddr, tfjsonpath.New("id")),
 			}),
+		},
+	})
+}
+
+// TestIntegration_SchemaRegistryACL_ErrorPath_AllowDeletionBlocked pins the
+// guard itself. UpdateLeaf_AllowDeletion proves the field round-trips; this
+// proves what the field is for — with allow_deletion=false a destroy must be
+// refused, as it is on every other resource exposing the attribute.
+func TestIntegration_SchemaRegistryACL_ErrorPath_AllowDeletionBlocked(t *testing.T) {
+	_, factories := sraclSetup(t, mockSRACLClusterID13)
+
+	noDelete := sraclCfg(mockSRACLClusterID13, "User:alice", "SUBJECT", "mock-subject-nodel", "LITERAL", "*", "READ", "ALLOW", false)
+	allowDelete := sraclCfg(mockSRACLClusterID13, "User:alice", "SUBJECT", "mock-subject-nodel", "LITERAL", "*", "READ", "ALLOW", true)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config: noDelete,
+				Check:  resource.TestCheckResourceAttr(sraclAddr, "allow_deletion", "false"),
+			},
+			{
+				Config:      noDelete,
+				Destroy:     true,
+				ExpectError: regexp.MustCompile("(?i)deletion.*not allowed|not allowed.*deletion"),
+			},
+			{
+				Config: allowDelete,
+				Check:  resource.TestCheckResourceAttr(sraclAddr, "allow_deletion", "true"),
+			},
 		},
 	})
 }

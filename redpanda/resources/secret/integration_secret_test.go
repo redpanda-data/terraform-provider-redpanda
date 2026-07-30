@@ -276,6 +276,36 @@ func TestIntegration_Secret_UpdateLeaf_AllowDeletion(t *testing.T) {
 	})
 }
 
+// TestIntegration_Secret_ErrorPath_AllowDeletionBlocked pins the guard itself.
+// UpdateLeaf_AllowDeletion proves the field round-trips; this proves what the
+// field is for — with allow_deletion=false a destroy must be refused. The final
+// step re-enables deletion so the framework's terminal destroy can proceed.
+func TestIntegration_Secret_ErrorPath_AllowDeletionBlocked(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	noDelete := mockSecretFullConfig(resourceName, dataValueV1, "bufnet", scopeConnect, 1, false)
+	allowDelete := mockSecretFullConfig(resourceName, dataValueV1, "bufnet", scopeConnect, 1, true)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config: noDelete,
+				Check:  resource.TestCheckResourceAttr(secretAddr, "allow_deletion", "false"),
+			},
+			{
+				Config:      noDelete,
+				Destroy:     true,
+				ExpectError: regexp.MustCompile("secret deletion not allowed"),
+			},
+			{
+				Config: allowDelete,
+				Check:  resource.TestCheckResourceAttr(secretAddr, "allow_deletion", "true"),
+			},
+		},
+	})
+}
+
 // TestIntegration_Secret_UpdateLeaf_Scopes mutates scopes from a 1-element set to a
 // 2-element set in place. The UpdateSecretRequest proto has no FieldMask;
 // the fake's UpdateSecret performs a full replacement of the stored scope

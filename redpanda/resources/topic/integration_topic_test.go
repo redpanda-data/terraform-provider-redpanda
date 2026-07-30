@@ -376,6 +376,36 @@ func TestIntegration_Topic_MergeWithPlannedConfig_PreservesUserNamedRedpandaKey(
 // and SetTopicPartitions (partition_count unchanged) on these flips; only
 // GetTopicConfigurations runs at the tail. id stable. Ends with
 // allow_deletion=true so the terminal cleanup destroy succeeds.
+// TestIntegration_Topic_ErrorPath_AllowDeletionBlocked pins the guard itself.
+// UpdateLeaf_AllowDeletion proves the field round-trips; this proves what the
+// field is for — with allow_deletion=false a destroy must be refused. The final
+// step re-enables deletion so the framework's terminal destroy can proceed.
+func TestIntegration_Topic_ErrorPath_AllowDeletionBlocked(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	noDelete := mockTopicCreateConfig("tfrp-mock-topic-nodel", "bufnet", 3, 1, "", false)
+	allowDelete := mockTopicCreateConfig("tfrp-mock-topic-nodel", "bufnet", 3, 1, "", true)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config: noDelete,
+				Check:  resource.TestCheckResourceAttr(topicAddr, "allow_deletion", "false"),
+			},
+			{
+				Config:      noDelete,
+				Destroy:     true,
+				ExpectError: regexp.MustCompile(`does not allow deletion`),
+			},
+			{
+				Config: allowDelete,
+				Check:  resource.TestCheckResourceAttr(topicAddr, "allow_deletion", "true"),
+			},
+		},
+	})
+}
+
 func TestIntegration_Topic_UpdateLeaf_AllowDeletion(t *testing.T) {
 	_, factories := integration.Setup(t)
 
