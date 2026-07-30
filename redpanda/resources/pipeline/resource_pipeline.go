@@ -97,13 +97,35 @@ func (p *Pipeline) Create(ctx context.Context, req resource.CreateRequest, resp 
 		return
 	}
 
-	createResp, err := p.PipelineClient.CreatePipeline(ctx, createReq)
+	// A cluster reports Ready before every dataplane service is serving, and
+	// CreatePipeline is usually the first call this resource makes. Without a
+	// retry a bare UNKNOWN from that window fails the apply outright.
+	//
+	// Pipeline IDs are server-generated, so a retry cannot rely on AlreadyExists
+	// the way name-keyed resources do: an attempt whose response was lost would
+	// otherwise be duplicated. Probe by display name before retrying and adopt
+	// what a previous attempt created.
+	var pipeline *dataplanev1.Pipeline
+	displayName := model.DisplayName.ValueString()
+	err = utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
+		createResp, rpcErr := p.PipelineClient.CreatePipeline(ctx, createReq)
+		if rpcErr == nil {
+			pipeline = createResp.GetPipeline()
+			return nil
+		}
+		if !utils.IsTransientDataplaneError(rpcErr) {
+			return utils.NonRetryableError(rpcErr)
+		}
+		if existing := p.findPipelineByDisplayName(ctx, displayName); existing != nil {
+			pipeline = existing
+			return nil
+		}
+		return utils.RetryableError(rpcErr)
+	})
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create pipeline", utils.DeserializeGrpcError(err))
 		return
 	}
-
-	pipeline := createResp.GetPipeline()
 
 	createTimeout, diags := model.Timeouts.Create(ctx, DefaultPipelineOperationTimeout)
 	resp.Diagnostics.Append(diags...)
@@ -157,6 +179,29 @@ func (p *Pipeline) Create(ctx context.Context, req resource.CreateRequest, resp 
 }
 
 // Read reads Pipeline resource's values and updates the state
+
+// findPipelineByDisplayName returns a pipeline with exactly this display name,
+// or nil. Used to tell "the create landed but its response was lost" apart from
+// "the create never arrived" before retrying, since pipelines have no
+// client-supplied identity to key on.
+func (p *Pipeline) findPipelineByDisplayName(ctx context.Context, displayName string) *dataplanev1.Pipeline {
+	if displayName == "" {
+		return nil
+	}
+	listResp, err := p.PipelineClient.ListPipelines(ctx, &dataplanev1.ListPipelinesRequest{
+		Filter: &dataplanev1.ListPipelinesRequest_Filter{NameContains: displayName},
+	})
+	if err != nil {
+		return nil
+	}
+	for _, candidate := range listResp.GetPipelines() {
+		if candidate.GetDisplayName() == displayName {
+			return candidate
+		}
+	}
+	return nil
+}
+
 func (p *Pipeline) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var model pipelinemodel.ResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)

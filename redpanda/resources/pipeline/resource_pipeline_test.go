@@ -1120,12 +1120,15 @@ func TestUnit_Pipeline_OperationErrors(t *testing.T) {
 			setupMocks: func(mc *mocks.MockPipelineServiceClient) {
 				mc.EXPECT().
 					CreatePipeline(gomock.Any(), gomock.Any()).
-					Return(nil, errors.New("API unavailable: service temporarily down"))
+					// Deliberately not a transient signal: this case covers the
+					// diagnostic surfacing, and a word like "unavailable" would
+					// send it down the retry-and-probe path instead.
+					Return(nil, errors.New("invalid pipeline configuration"))
 			},
 			inputModel: func() pipelinemodel.ResourceModel {
 				return newModelBuilder().Build()
 			},
-			errorContains: "API unavailable",
+			errorContains: "invalid pipeline configuration",
 		},
 		{
 			name:      "delete_blocked_by_allow_deletion",
