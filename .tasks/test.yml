@@ -403,7 +403,7 @@ tasks:
       - |
         set -e
         export DEBUG=true
-        export REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}"
+        export REDPANDA_CLOUD_ENVIRONMENT="pre"
         export TF_ACC=true
         export TF_LOG={{.TF_LOG}}
         # Fast pass: control-plane + dataplane upgrade tests, skipping the slow dedicated-cluster
@@ -423,7 +423,7 @@ tasks:
       - |
         set -e
         export DEBUG=true
-        export REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}"
+        export REDPANDA_CLOUD_ENVIRONMENT="pre"
         export TF_ACC=true
         export TF_LOG={{.TF_LOG}}
         # Both upgrade tests that provision a serverless cluster: the serverless_cluster
@@ -439,7 +439,7 @@ tasks:
       - echo "Running provider-upgrade smoke tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
+        REDPANDA_CLOUD_ENVIRONMENT="pre" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT_SHORT}} \
