@@ -41,16 +41,10 @@ var perClusterClients = map[string]bool{
 	"SecurityClient": true,
 }
 
-// notYetMigrated records call sites still outside utils.DataplaneCall, so the
-// guard can be enforced now and the list shrunk deliberately rather than the
-// whole check waiting on a full migration. Removing an entry is the point;
-// adding one needs a reason in review.
-var notYetMigrated = map[string]bool{
-	"topic":  true, // classifies via isTransientBrokerError, which delegates
-	"secret": true, // hand-rolled probe-and-adopt, predates the helper
-	"user":   true,
-	"acl":    true,
-}
+// notYetMigrated records call sites still outside utils.DataplaneCall. It is
+// empty: every gRPC resource now goes through the shared policy. An entry here
+// needs a reason in review.
+var notYetMigrated = map[string]bool{}
 
 // outOfScope records resources this guard cannot see. Both reach Schema Registry
 // over HTTP through a local variable rather than a client field, so the AST shape
