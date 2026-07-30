@@ -17,7 +17,6 @@ package role
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -63,15 +62,10 @@ func NewRole() *Role {
 			r.resData = p
 			if r.clientFactory == nil {
 				r.clientFactory = func(ctx context.Context, clusterURL string, _ oauth2.TokenSource, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
-					if r.resData.DataplaneConnPool == nil {
-						return nil, errors.New("provider not configured: dataplane connection pool is nil")
-					}
-					consoleURL := utils.ConvertToConsoleURL(clusterURL)
-					conn, err := r.resData.DataplaneConnPool.GetConnection(ctx, consoleURL)
-					if err != nil {
-						return nil, fmt.Errorf("unable to open a connection with the console API at %s: %v", consoleURL, err)
-					}
-					return consolev1alpha1grpc.NewSecurityServiceClient(conn), nil
+					// Built through NewDataplaneClient so console failures carry
+					// their method and endpoint, like every other API family.
+					return utils.NewDataplaneClient(ctx, r.resData.DataplaneConnPool,
+						utils.ConvertToConsoleURL(clusterURL), consolev1alpha1grpc.NewSecurityServiceClient)
 				}
 			}
 		},
@@ -97,7 +91,26 @@ func (r *Role) Create(ctx context.Context, req resource.CreateRequest, resp *res
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if _, err := r.SecurityClient.CreateRole(ctx, &consolev1alpha1.CreateRoleRequest{Request: innerReq}); err != nil {
+	attempt := 0
+	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
+		attempt++
+		_, rpcErr := r.SecurityClient.CreateRole(ctx, &consolev1alpha1.CreateRoleRequest{Request: innerReq})
+		if rpcErr == nil {
+			return nil
+		}
+		// Only a retry can have landed and lost its response. AlreadyExists on
+		// the first attempt means the role predates this resource, and adopting
+		// it would put a role we did not create under Terraform's management —
+		// where a later destroy would remove it.
+		if attempt > 1 && utils.IsAlreadyExists(rpcErr) {
+			return nil
+		}
+		if utils.IsTransientDataplaneError(rpcErr) {
+			return utils.RetryableError(rpcErr)
+		}
+		return utils.NonRetryableError(rpcErr)
+	})
+	if err != nil {
 		resp.Diagnostics.AddError("Failed to create role", utils.DeserializeGrpcError(err))
 		return
 	}

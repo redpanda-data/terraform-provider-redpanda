@@ -2,7 +2,6 @@ package roleassignment
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -108,7 +107,16 @@ func (r *RoleAssignment) Create(ctx context.Context, req resource.CreateRequest,
 		Request: dataplaneReq,
 	}
 
-	_, err := r.SecurityClient.UpdateRoleMembership(ctx, consoleReq)
+	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
+		_, rpcErr := r.SecurityClient.UpdateRoleMembership(ctx, consoleReq)
+		if rpcErr == nil {
+			return nil
+		}
+		if utils.IsTransientDataplaneError(rpcErr) {
+			return utils.RetryableError(rpcErr)
+		}
+		return utils.NonRetryableError(rpcErr)
+	})
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to assign role", utils.DeserializeGrpcError(err))
 		return
@@ -308,15 +316,13 @@ func (r *RoleAssignment) createSecurityClient(ctx context.Context, clusterURL st
 		return nil
 	}
 
-	if r.resData.DataplaneConnPool == nil {
-		return errors.New("provider not configured: dataplane connection pool is nil")
-	}
-	consoleURL := utils.ConvertToConsoleURL(clusterURL)
-	conn, err := r.resData.DataplaneConnPool.GetConnection(ctx, consoleURL)
+	// Built through NewDataplaneClient so console failures carry their method
+	// and endpoint, like every other API family.
+	client, err := utils.NewDataplaneClient(ctx, r.resData.DataplaneConnPool,
+		utils.ConvertToConsoleURL(clusterURL), consolev1alpha1grpc.NewSecurityServiceClient)
 	if err != nil {
-		return fmt.Errorf("unable to open a connection with the console API at %s: %v", consoleURL, err)
+		return err
 	}
-
-	r.SecurityClient = consolev1alpha1grpc.NewSecurityServiceClient(conn)
+	r.SecurityClient = client
 	return nil
 }
