@@ -635,11 +635,10 @@ func isAlreadyExistsError(err error) bool {
 	return strings.Contains(utils.DeserializeGrpcError(err), "TOPIC_ALREADY_EXISTS") || strings.Contains(utils.DeserializeGrpcError(err), "The topic has already been created")
 }
 
+// isTransientBrokerError defers to the shared dataplane classifier, which owns
+// the broker-churn tokens this used to match on its own.
 func isTransientBrokerError(err error) bool {
-	msg := utils.DeserializeGrpcError(err)
-	return strings.Contains(msg, "broker struct chosen to issue this request has died") ||
-		strings.Contains(msg, "client closed") ||
-		strings.Contains(msg, "context canceled")
+	return utils.IsTransientDataplaneError(err)
 }
 
 func isNotFoundError(err error) bool {

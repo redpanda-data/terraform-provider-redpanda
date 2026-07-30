@@ -122,7 +122,7 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 			return utils.NonRetryableError(rpcErr)
 		}
 		// Probe before retrying so the next attempt doesn't trip AlreadyExists.
-		if utils.IsUnavailable(rpcErr) {
+		if utils.IsTransientDataplaneError(rpcErr) {
 			if existing, findErr := utils.FindUserByName(ctx, model.Name.ValueString(), u.UserClient); findErr == nil {
 				createdUser = existing
 				return nil
@@ -165,7 +165,7 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 		var rpcErr error
 		user, rpcErr = utils.FindUserByName(ctx, userName, u.UserClient)
 		if rpcErr != nil {
-			if utils.IsUnavailable(rpcErr) {
+			if utils.IsTransientDataplaneError(rpcErr) {
 				return utils.RetryableError(rpcErr)
 			}
 			return utils.NonRetryableError(rpcErr)
@@ -229,7 +229,7 @@ func (u *User) Update(ctx context.Context, req resource.UpdateRequest, resp *res
 		var rpcErr error
 		updateResp, rpcErr = u.UserClient.UpdateUser(ctx, pbReq)
 		if rpcErr != nil {
-			if utils.IsUnavailable(rpcErr) {
+			if utils.IsTransientDataplaneError(rpcErr) {
 				return utils.RetryableError(rpcErr)
 			}
 			return utils.NonRetryableError(rpcErr)
@@ -275,7 +275,7 @@ func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		_, rpcErr := u.UserClient.DeleteUser(ctx, pbReq)
 		if rpcErr != nil {
-			if utils.IsUnavailable(rpcErr) {
+			if utils.IsTransientDataplaneError(rpcErr) {
 				return utils.RetryableError(rpcErr)
 			}
 			return utils.NonRetryableError(rpcErr)

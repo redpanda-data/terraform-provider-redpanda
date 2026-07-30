@@ -41,5 +41,5 @@ func NewDataplaneClient[T any](ctx context.Context, pool *cloud.ConnPool, cluste
 	if err != nil {
 		return zero, fmt.Errorf("unable to open a connection with the cluster API: %v", DeserializeGrpcError(err))
 	}
-	return build(conn), nil
+	return build(annotatingConn{ClientConnInterface: conn, endpoint: clusterURL}), nil
 }

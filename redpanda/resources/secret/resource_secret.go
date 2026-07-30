@@ -103,7 +103,7 @@ func (s *Secret) Create(ctx context.Context, req resource.CreateRequest, resp *r
 			return utils.NonRetryableError(rpcErr)
 		}
 		// Probe before retrying so the next attempt doesn't trip AlreadyExists.
-		if utils.IsUnavailable(rpcErr) {
+		if utils.IsTransientDataplaneError(rpcErr) {
 			if got, getErr := s.SecretClient.GetSecret(ctx, &dataplanev1.GetSecretRequest{Id: model.Name.ValueString()}); getErr == nil && got.GetSecret() != nil {
 				createdSecret = got.GetSecret()
 				return nil
@@ -153,7 +153,7 @@ func (s *Secret) Read(ctx context.Context, req resource.ReadRequest, resp *resou
 		var rpcErr error
 		got, rpcErr = s.SecretClient.GetSecret(ctx, &dataplanev1.GetSecretRequest{Id: name})
 		if rpcErr != nil {
-			if utils.IsUnavailable(rpcErr) {
+			if utils.IsTransientDataplaneError(rpcErr) {
 				return utils.RetryableError(rpcErr)
 			}
 			return utils.NonRetryableError(rpcErr)
@@ -231,7 +231,7 @@ func (s *Secret) Update(ctx context.Context, req resource.UpdateRequest, resp *r
 		var rpcErr error
 		updated, rpcErr = s.SecretClient.UpdateSecret(ctx, updateReq)
 		if rpcErr != nil {
-			if utils.IsUnavailable(rpcErr) {
+			if utils.IsTransientDataplaneError(rpcErr) {
 				return utils.RetryableError(rpcErr)
 			}
 			return utils.NonRetryableError(rpcErr)
@@ -279,7 +279,7 @@ func (s *Secret) Delete(ctx context.Context, req resource.DeleteRequest, resp *r
 	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
 		_, rpcErr := s.SecretClient.DeleteSecret(ctx, &dataplanev1.DeleteSecretRequest{Id: name})
 		if rpcErr != nil {
-			if utils.IsUnavailable(rpcErr) {
+			if utils.IsTransientDataplaneError(rpcErr) {
 				return utils.RetryableError(rpcErr)
 			}
 			return utils.NonRetryableError(rpcErr)

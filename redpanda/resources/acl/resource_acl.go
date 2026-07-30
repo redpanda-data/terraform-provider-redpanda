@@ -134,7 +134,7 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 			return utils.NonRetryableError(rpcErr)
 		}
 		// Probe before retrying so the next attempt doesn't trip AlreadyExists.
-		if utils.IsUnavailable(rpcErr) {
+		if utils.IsTransientDataplaneError(rpcErr) {
 			if probeACLExists() {
 				return nil
 			}
@@ -180,7 +180,7 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 		var rpcErr error
 		aclList, rpcErr = a.ACLClient.ListACLs(ctx, &dataplanev1.ListACLsRequest{Filter: filter})
 		if rpcErr != nil {
-			if utils.IsUnavailable(rpcErr) {
+			if utils.IsTransientDataplaneError(rpcErr) {
 				return utils.RetryableError(rpcErr)
 			}
 			return utils.NonRetryableError(rpcErr)
@@ -269,7 +269,7 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 		var rpcErr error
 		deleteResponse, rpcErr = a.ACLClient.DeleteACLs(ctx, pbReq)
 		if rpcErr != nil {
-			if utils.IsUnavailable(rpcErr) {
+			if utils.IsTransientDataplaneError(rpcErr) {
 				return utils.RetryableError(rpcErr)
 			}
 			return utils.NonRetryableError(rpcErr)

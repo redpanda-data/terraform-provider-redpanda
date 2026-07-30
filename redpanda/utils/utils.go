@@ -69,7 +69,7 @@ func IsNotFound(err error) bool {
 	if e, ok := grpcstatus.FromError(err); ok && e.Code() == grpccodes.NotFound {
 		return true
 	}
-	lower := strings.ToLower(err.Error())
+	lower := strings.ToLower(serverMessage(err))
 	return strings.Contains(lower, "not found") ||
 		strings.Contains(lower, "notfound") ||
 		strings.Contains(lower, "404") ||
@@ -98,7 +98,7 @@ func IsPermissionDenied(err error) bool {
 		return true
 	}
 
-	errStr := err.Error()
+	errStr := serverMessage(err)
 	return strings.Contains(strings.ToLower(errStr), "forbidden") ||
 		strings.Contains(strings.ToLower(errStr), "missing required acls") ||
 		strings.Contains(errStr, "403")
@@ -114,7 +114,7 @@ func IsAlreadyExists(err error) bool {
 		return true
 	}
 
-	errStr := strings.ToLower(err.Error())
+	errStr := strings.ToLower(serverMessage(err))
 	return strings.Contains(errStr, "already exists") ||
 		strings.Contains(errStr, "alreadyexists")
 }
@@ -138,7 +138,7 @@ func IsClusterUnreachable(err error) bool {
 		}
 	}
 
-	errStr := err.Error()
+	errStr := serverMessage(err)
 	return strings.Contains(errStr, "name resolver error") &&
 		strings.Contains(errStr, "produced zero addresses")
 }
@@ -155,7 +155,7 @@ func IsUnavailable(err error) bool {
 		return true
 	}
 
-	errStr := err.Error()
+	errStr := serverMessage(err)
 	return strings.Contains(errStr, "503") ||
 		strings.Contains(strings.ToLower(errStr), "service unavailable") ||
 		strings.Contains(strings.ToLower(errStr), "unavailable")
@@ -580,14 +580,14 @@ func DeserializeGrpcError(err error) string {
 	if err == nil {
 		return ""
 	}
-	st, ok := grpcstatus.FromError(err)
+	st, ok := serverStatus(err)
 	if !ok {
 		return err.Error()
 	}
 
 	code := st.Code().String()
 	msg := st.Message()
-	rawErr := err.Error()
+	rawErr := serverMessage(err)
 
 	var result string
 	switch {
@@ -601,6 +601,12 @@ func DeserializeGrpcError(err error) string {
 
 	if len(st.Details()) > 0 {
 		result = fmt.Sprintf("%s\n%v", result, st.Details())
+	}
+
+	// Prepend the method/endpoint annotation on both branches; a bare status
+	// names neither, which is what made the original failure undiagnosable.
+	if annotation := dataplaneAnnotation(err); annotation != "" {
+		result = fmt.Sprintf("%s: %s", annotation, result)
 	}
 
 	return result

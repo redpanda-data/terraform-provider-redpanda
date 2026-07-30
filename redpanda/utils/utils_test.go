@@ -1295,6 +1295,133 @@ func TestIsTransientServerError(t *testing.T) {
 	}
 }
 
+// TestIsTransientDataplaneError pins the classifier every gRPC dataplane
+// resource retries on. The load-bearing pair is bare-vs-messaged UNKNOWN: a
+// cluster reports Ready before its dataplane serves, and calls in that window
+// come back as code 2 with an empty message. An UNKNOWN carrying a message is
+// a server-side verdict and must stay non-retryable.
+func TestIsTransientDataplaneError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{"nil error", nil, false},
+		{"bare Unknown", grpcstatus.Error(codes.Unknown, ""), true},
+		{"bare Unknown, whitespace only", grpcstatus.Error(codes.Unknown, "   "), true},
+		{"Unknown carrying a message", grpcstatus.Error(codes.Unknown, "constraint violated"), false},
+		{"gRPC Unavailable", grpcstatus.Error(codes.Unavailable, "x"), true},
+		{"broker died", errors.New("the internal broker struct chosen to issue this request has died"), true},
+		{"client closed", errors.New("rpc error: code = Internal desc = client closed"), true},
+		{"gRPC NotFound", grpcstatus.Error(codes.NotFound, "no such secret"), false},
+		{"gRPC InvalidArgument", grpcstatus.Error(codes.InvalidArgument, "bad name"), false},
+		{"gRPC PermissionDenied", grpcstatus.Error(codes.PermissionDenied, "nope"), false},
+		{"plain error", errors.New("boom"), false},
+		// A non-status empty error is not a gRPC UNKNOWN and must not be read
+		// as one; only a real status with code 2 qualifies.
+		{"empty non-status error", errors.New(""), false},
+		// The annotation wrapper must be transparent to classification.
+		{
+			"annotated bare Unknown",
+			&DataplaneCallError{
+				Method:   "/redpanda.api.dataplane.v1.SecretService/CreateSecret",
+				Endpoint: "https://api-abc.cloud.redpanda.com",
+				err:      grpcstatus.Error(codes.Unknown, ""),
+			},
+			true,
+		},
+		{
+			"annotated InvalidArgument stays non-retryable",
+			&DataplaneCallError{
+				Method:   "/redpanda.api.dataplane.v1.SecretService/CreateSecret",
+				Endpoint: "https://api-abc.cloud.redpanda.com",
+				err:      grpcstatus.Error(codes.InvalidArgument, "bad name"),
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, IsTransientDataplaneError(tt.err))
+		})
+	}
+}
+
+// TestDataplaneAnnotationDoesNotLeakIntoClassifiers guards the hazard the
+// annotation introduces. The Is* classifiers fall back to matching bare tokens
+// ("404", "503", "unavailable") anywhere in the error string, and cluster
+// endpoints are alphanumeric — so an endpoint or method name that happens to
+// contain one of those tokens must not decide the classification.
+func TestDataplaneAnnotationDoesNotLeakIntoClassifiers(t *testing.T) {
+	annotate := func(endpoint string, err error) error {
+		return &DataplaneCallError{
+			Method:   "/redpanda.api.dataplane.v1.SecretService/GetSecret",
+			Endpoint: endpoint,
+			err:      err,
+		}
+	}
+	// Real cluster IDs are random alphanumerics; these are the collisions.
+	id404 := "https://api-d404ab.cluster.cloud.redpanda.com"
+	id503 := "https://api-e503cd.cluster.cloud.redpanda.com"
+
+	benign := grpcstatus.Error(codes.InvalidArgument, "scopes must not be empty")
+
+	assert.False(t, IsNotFound(annotate(id404, benign)),
+		"an endpoint containing 404 must not read as NotFound")
+	assert.False(t, IsUnavailable(annotate(id503, benign)),
+		"an endpoint containing 503 must not read as Unavailable")
+	assert.False(t, IsTransientDataplaneError(annotate(id503, benign)),
+		"an endpoint containing 503 must not make a verdict retryable")
+
+	// The genuine signals still classify through the wrapper.
+	assert.True(t, IsNotFound(annotate(id503, grpcstatus.Error(codes.NotFound, "absent"))))
+	assert.True(t, IsUnavailable(annotate(id404, grpcstatus.Error(codes.Unavailable, "warming up"))))
+}
+
+// TestFromErrorOverwritesMessageThroughWrapper pins the upstream gRPC behavior
+// the classifiers have to work around: FromError carries the code through a
+// wrapper but replaces the message with the wrapper's full text. If a future
+// grpc-go stops doing this, serverStatus's unwrapping becomes redundant rather
+// than wrong — but the bare-UNKNOWN check depends on knowing which it is.
+func TestFromErrorOverwritesMessageThroughWrapper(t *testing.T) {
+	bare := grpcstatus.Error(codes.Unknown, "")
+	wrapped := fmt.Errorf("some context: %w", bare)
+
+	st, ok := grpcstatus.FromError(wrapped)
+	require.True(t, ok)
+	assert.Equal(t, codes.Unknown, st.Code(), "code survives wrapping")
+	assert.NotEmpty(t, st.Message(), "message is replaced by the wrapper's text")
+
+	// serverStatus sees through the provider's own annotation.
+	annotated := &DataplaneCallError{Method: "/Svc/Call", Endpoint: "https://x", err: bare}
+	got, ok := serverStatus(annotated)
+	require.True(t, ok)
+	assert.Equal(t, codes.Unknown, got.Code())
+	assert.Empty(t, got.Message(), "annotation stripped, server message preserved")
+}
+
+// TestDeserializeGrpcErrorSurfacesDataplaneAnnotation pins the diagnosability
+// half: a bare status names neither the call nor the cluster, which is why the
+// original failure was undiagnosable.
+func TestDeserializeGrpcErrorSurfacesDataplaneAnnotation(t *testing.T) {
+	method := "/redpanda.api.dataplane.v1.SecretService/CreateSecret"
+	endpoint := "https://api-abc.cluster.cloud.redpanda.com"
+
+	for _, tt := range []struct {
+		name string
+		err  error
+	}{
+		{"bare Unknown", grpcstatus.Error(codes.Unknown, "")},
+		{"status carrying a message", grpcstatus.Error(codes.InvalidArgument, "bad name")},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got := DeserializeGrpcError(&DataplaneCallError{Method: method, Endpoint: endpoint, err: tt.err})
+			assert.Contains(t, got, method, "diagnostic must name the failing method")
+			assert.Contains(t, got, endpoint, "diagnostic must name the cluster endpoint")
+		})
+	}
+}
+
 func TestConvertToConsoleURL(t *testing.T) {
 	tests := []struct {
 		name     string
