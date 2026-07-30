@@ -19,7 +19,7 @@ Task runner: [Task](https://taskfile.dev). Use `task` directly (no wrapper).
 - `task test:upgrade:serverless` — serverless provider-upgrade tests (needs creds)
 - `task test:cluster:aws` / `:gcp` — live cluster acc tests
 - `task test:byoc:aws` / `:gcp` — BYOC acc tests
-- `task test:byovpc:aws` — provisions infra, runs test, tears down
+- `task test:byovpc:aws` / `task test:byovpc:gcp` — provisions infra, runs test, tears down
 - `task test:serverless:aws:public` / `:aws:private` / `:aws:both` / `:gcp` / `:regions` / `:privatelink`
 - `task test:datasource:cluster` — datasource acc test (creates cluster + reads)
 - `task test:network` — network resource acc test

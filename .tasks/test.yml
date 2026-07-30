@@ -233,6 +233,55 @@ tasks:
         vars:
           AWS_REGION: '{{.AWS_REGION}}'
 
+  byovpc:gcp:
+    desc: "Provision BYOVPC GCP infra, run TestAcc_Cluster_BYOVPC_GCP, tear down infra (always)"
+    deps:
+      - :tools:install:terraform
+    vars:
+      GCP_REGION: '{{.GCP_REGION | default "us-central1"}}'
+      PROJECT_ID: '{{.PROJECT_ID | default .GCP_PROJECT_ID}}'
+    cmds:
+      - echo "Provisioning BYOVPC GCP test infra..."
+      - |
+        export PATH="{{.BUILD_ROOT}}/bin:$PATH"
+        cd redpanda/tests/testdata/network/gcp
+        terraform init
+        terraform apply -auto-approve \
+          -var "project_id={{.PROJECT_ID}}" \
+          -var "region={{.GCP_REGION}}" \
+          -var "google_credentials_base64=$GOOGLE_CREDENTIALS_BASE64"
+      - echo "Running GCP BYOVPC live-acc tests..."
+      - |
+        set -euo pipefail
+        INPUTS=$(cat redpanda/tests/testdata/network/gcp/inputs.json)
+        DEBUG=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        GCP_REGION="{{.GCP_REGION}}" \
+        GCP_PROJECT_ID="{{.PROJECT_ID}}" \
+        GCP_VPC_NETWORK_NAME="$(echo "$INPUTS" | jq -r '.network_name')" \
+        GCP_SUBNET_NAME="$(echo "$INPUTS" | jq -r '.subnet_name')" \
+        GCP_SECONDARY_IPV4_RANGE_PODS_NAME="$(echo "$INPUTS" | jq -r '.secondary_ipv4_range_pods_name')" \
+        GCP_SECONDARY_IPV4_RANGE_SERVICES_NAME="$(echo "$INPUTS" | jq -r '.secondary_ipv4_range_services_name')" \
+        GCP_K8S_MASTER_IPV4_RANGE="$(echo "$INPUTS" | jq -r '.k8s_master_ipv4_range')" \
+        GCP_MANAGEMENT_BUCKET_NAME="$(echo "$INPUTS" | jq -r '.management_bucket_name')" \
+        GCP_TIERED_STORAGE_BUCKET_NAME="$(echo "$INPUTS" | jq -r '.tiered_storage_bucket_name')" \
+        GCP_AGENT_SERVICE_ACCOUNT_EMAIL="$(echo "$INPUTS" | jq -r '.agent_service_account_email')" \
+        GCP_CONSOLE_SERVICE_ACCOUNT_EMAIL="$(echo "$INPUTS" | jq -r '.console_service_account_email')" \
+        GCP_CONNECTOR_SERVICE_ACCOUNT_EMAIL="$(echo "$INPUTS" | jq -r '.connector_service_account_email')" \
+        GCP_REDPANDA_CLUSTER_SERVICE_ACCOUNT_EMAIL="$(echo "$INPUTS" | jq -r '.redpanda_cluster_service_account_email')" \
+        GCP_GKE_SERVICE_ACCOUNT_EMAIL="$(echo "$INPUTS" | jq -r '.gke_service_account_email')" \
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,byovpc_gcp -v -timeout={{.TIMEOUT}} \
+          ./redpanda/tests/
+      - echo "BYOVPC GCP tests completed successfully"
+    defer:
+      - task: cleanup:gcp:ci
+        vars:
+          PROJECT_ID: '{{.PROJECT_ID}}'
+          GCP_REGION: '{{.GCP_REGION}}'
+
   byoc:gcp:
     desc: "Run GCP BYOC acceptance tests"
     deps:

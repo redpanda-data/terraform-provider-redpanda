@@ -402,6 +402,29 @@ steps:
       - lint
       - unit
       - integration
+  - label: test_byovpc_gcp
+    key: test_byovpc_gcp
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-byoc' || build.pull_request.labels includes 'ci-ready-all')
+    command: |
+      apt-get update && apt-get install -y --no-install-recommends curl unzip jq
+      ./taskw test:byovpc:gcp PROJECT_ID="$$GOOGLE_PROJECT"
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.12.0:
+          image: "golang:1.25.10"
+          environment:
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
+            - TF_LOG=DEBUG
+            - GOOGLE_CREDENTIALS_BASE64
+            - GOOGLE_PROJECT
+            - GCP_REGION=us-central1
+    depends_on:
+      - lint
+      - unit
+      - integration
   - label: cleanup_aws
     key: cleanup_aws
     if: build.tag == null && build.pull_request.labels includes 'ci-ready-byoc'
@@ -453,6 +476,7 @@ steps:
       - test_cluster_gcp
       - test_serverless_cluster_gcp
       - test_byoc_gcp
+      - test_byovpc_gcp
     allow_dependency_failure: true
     soft_fail: true
     retry:
@@ -488,6 +512,7 @@ steps:
       - test_byoc_aws
       - test_byovpc_aws
       - test_byoc_gcp
+      - test_byovpc_gcp
       # The sweeper deletes anything named tfrp-* in the shared pre env, and
       # the upgrade lanes create tfrp-upgrade-* clusters that take ~45m to
       # provision. Running cleanup while an upgrade job (or its retry) is
