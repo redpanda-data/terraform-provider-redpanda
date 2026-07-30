@@ -63,6 +63,11 @@ func TestAcc_Cluster_BYOVPC_AWS(t *testing.T) {
 		"cluster_security_group_arn":                 config.StringVariable(os.Getenv("RP_CLUSTER_SECURITY_GROUP_ARN")),
 		"node_security_group_arn":                    config.StringVariable(os.Getenv("RP_NODE_SECURITY_GROUP_ARN")),
 		"cloud_storage_bucket_arn":                   config.StringVariable(os.Getenv("RP_CLOUD_STORAGE_BUCKET_ARN")),
+		// Redpanda SQL customer-managed resources, produced by
+		// testdata/network/aws/rpsql.tf rather than the byovpc module.
+		"rpsql_cloud_storage_bucket_arn":        config.StringVariable(os.Getenv("RP_RPSQL_CLOUD_STORAGE_BUCKET_ARN")),
+		"rpsql_node_group_instance_profile_arn": config.StringVariable(os.Getenv("RP_RPSQL_NODE_GROUP_INSTANCE_PROFILE_ARN")),
+		"rpsql_security_group_arn":              config.StringVariable(os.Getenv("RP_RPSQL_SECURITY_GROUP_ARN")),
 	}
 
 	if len(privateSubnetArns) > 0 {

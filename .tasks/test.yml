@@ -221,6 +221,9 @@ tasks:
         RP_CLUSTER_SECURITY_GROUP_ARN="$(echo "$INPUTS" | jq -r '.cluster_security_group_arn')" \
         RP_NODE_SECURITY_GROUP_ARN="$(echo "$INPUTS" | jq -r '.node_security_group_arn')" \
         RP_CLOUD_STORAGE_BUCKET_ARN="$(echo "$INPUTS" | jq -r '.cloud_storage_bucket_arn')" \
+        RP_RPSQL_CLOUD_STORAGE_BUCKET_ARN="$(echo "$INPUTS" | jq -r '.rpsql_cloud_storage_bucket_arn')" \
+        RP_RPSQL_NODE_GROUP_INSTANCE_PROFILE_ARN="$(echo "$INPUTS" | jq -r '.rpsql_node_group_instance_profile_arn')" \
+        RP_RPSQL_SECURITY_GROUP_ARN="$(echo "$INPUTS" | jq -r '.rpsql_security_group_arn')" \
         {{.PATH_PREFIX}} go test \
           -count=1 -tags=live_test,byovpc_aws -v -timeout={{.TIMEOUT}} \
           ./redpanda/tests/

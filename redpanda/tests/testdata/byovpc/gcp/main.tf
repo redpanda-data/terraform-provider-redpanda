@@ -76,6 +76,9 @@ resource "redpanda_cluster" "test" {
 }
 
 # # Create Kafka user for the cluster
+# These stay commented out: a BYOVPC dataplane is reachable only from inside the
+# VPC, which CI cannot offer. Dataplane coverage lives on serverless.
+#
 # resource "redpanda_user" "test" {
 #   name            = var.user_name
 #   password        = var.user_pw

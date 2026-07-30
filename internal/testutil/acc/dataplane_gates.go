@@ -36,9 +36,12 @@ import (
 //     The console SecurityService answers Unimplemented on serverless, so RBAC
 //     cannot be exercised anywhere else. Also the max.compaction.lag.ms clamp,
 //     which needs three topic config entries (see TopicClampRegressionSteps).
-//   - byoc/byovpc — topic alone, as a canary proving the dataplane is reachable
+//   - byoc       — topic alone, as a canary proving the dataplane is reachable
 //     at all. Topic is stable and well understood, so a failure there points at
 //     the cluster rather than at the resource under test.
+//   - byovpc     — nothing, not even a canary. Those dataplanes are reachable
+//     only from inside the VPC, which CI cannot offer. BYOVPC covers rpsql
+//     instead, which reads through the control plane.
 //
 // Rationale lives here rather than in the fixtures: examples/ main.tf files are
 // tffile-embedded into published docs, and users have no use for our test

@@ -98,7 +98,7 @@ resource "redpanda_cluster" "test" {
   throughput_tier   = var.throughput_tier
   zones             = var.zones
   allow_deletion    = true
-  tags = var.cluster_tags
+  tags              = var.cluster_tags
   cluster_configuration = {
     custom_properties_json = jsonencode({})
   }
@@ -148,10 +148,30 @@ resource "redpanda_cluster" "test" {
       permissions_boundary_policy = {
         arn = var.permissions_boundary_policy_arn
       }
+      # Produced by testdata/network/aws/rpsql.tf. Sent only when rpsql is
+      # enabled: the control plane drops these while it is off, and the provider
+      # then reads back null against a set config.
+      rpsql_cloud_storage_bucket = var.rpsql_enabled ? {
+        arn = var.rpsql_cloud_storage_bucket_arn
+      } : null
+      rpsql_node_group_instance_profile = var.rpsql_enabled ? {
+        arn = var.rpsql_node_group_instance_profile_arn
+      } : null
+      rpsql_security_group = var.rpsql_enabled ? {
+        arn = var.rpsql_security_group_arn
+      } : null
     }
+  }
+
+  # The rpsql_* values above cannot change while this is enabled.
+  rpsql = {
+    enabled = var.rpsql_enabled
   }
 }
 
+# These stay commented out: a BYOVPC dataplane is reachable only from inside the
+# VPC, which CI cannot offer. Dataplane coverage lives on serverless.
+#
 #
 # resource "redpanda_user" "test" {
 #   name            = var.user_name
@@ -211,4 +231,25 @@ variable "cluster_tags" {
   default = {
     "key" = "value"
   }
+}
+
+variable "rpsql_cloud_storage_bucket_arn" {
+  description = "ARN of the S3 bucket backing Redpanda SQL"
+  type        = string
+}
+
+variable "rpsql_node_group_instance_profile_arn" {
+  description = "ARN of the instance profile for Redpanda SQL node groups"
+  type        = string
+}
+
+variable "rpsql_security_group_arn" {
+  description = "ARN of the security group for Redpanda SQL nodes"
+  type        = string
+}
+
+variable "rpsql_enabled" {
+  description = "Whether Redpanda SQL is enabled. Acceptance tests toggle this."
+  type        = bool
+  default     = false
 }
