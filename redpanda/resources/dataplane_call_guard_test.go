@@ -52,6 +52,19 @@ var notYetMigrated = map[string]bool{
 	"acl":    true,
 }
 
+// outOfScope records resources this guard cannot see. Both reach Schema Registry
+// over HTTP through a local variable rather than a client field, so the AST shape
+// matched below never fires for them — and IsTransientDataplaneError reads gRPC
+// status codes, so the shared policy would not fit them unchanged either.
+//
+// They are listed rather than ignored: TestEveryResourceIsAccountedFor fails when
+// a resource is neither scanned nor named here, so a new one cannot slip past
+// this guard by using a call shape it happens not to match.
+var outOfScope = map[string]string{
+	"schema":            "Schema Registry over HTTP; has no retry at all yet",
+	"schemaregistryacl": "Schema Registry over HTTP",
+}
+
 // TestDataplaneRPCsGoThroughDataplaneCall fails when a resource issues an RPC on
 // a per-cluster client outside utils.DataplaneCall or utils.DataplaneCallOnce.
 //
@@ -158,4 +171,49 @@ func enclosedByDataplaneCall(stack []ast.Node) bool {
 		}
 	}
 	return false
+}
+
+// TestEveryResourceIsAccountedFor makes the guard's blind spots explicit.
+//
+// The RPC check matches calls shaped receiver.ClientField.Method(ctx, ...). A
+// resource that reaches its endpoint some other way — as the Schema Registry
+// ones do, through a local variable — is invisible to it and passes for the
+// wrong reason. This fails when a resource is neither covered nor named, so the
+// decision has to be made rather than defaulted.
+func TestEveryResourceIsAccountedFor(t *testing.T) {
+	entries, err := os.ReadDir(".")
+	require.NoError(t, err)
+
+	var unaccounted []string
+	for _, e := range entries {
+		if !e.IsDir() || e.Name() == "testdata" {
+			continue
+		}
+		name := e.Name()
+		if notYetMigrated[name] || outOfScope[name] != "" {
+			continue
+		}
+		src, rerr := os.ReadFile(filepath.Join(name, "resource_"+name+".go")) // #nosec G304 -- walking this package's own source
+		if rerr != nil {
+			// Datasource-only packages issue no per-cluster writes.
+			continue
+		}
+		usesPerClusterClient := false
+		for field := range perClusterClients {
+			if strings.Contains(string(src), "."+field+".") {
+				usesPerClusterClient = true
+				break
+			}
+		}
+		// A resource reaching a per-cluster endpoint without one of the known
+		// client fields is exactly the invisible case.
+		if !usesPerClusterClient && strings.Contains(string(src), "kclients.") {
+			unaccounted = append(unaccounted, name)
+		}
+	}
+
+	require.Empty(t, unaccounted,
+		"these reach a per-cluster endpoint through a call shape the RPC guard "+
+			"cannot see; add them to outOfScope with a reason, or give them a "+
+			"client field the guard matches: %v", unaccounted)
 }
