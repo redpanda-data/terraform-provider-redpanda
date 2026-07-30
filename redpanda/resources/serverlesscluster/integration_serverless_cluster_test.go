@@ -431,6 +431,35 @@ func TestIntegration_ServerlessCluster_UpdateLeaf_Tags(t *testing.T) {
 // Terraform-level Update, but the provider must short-circuit: no
 // UpdateServerlessCluster RPC should fire, because nothing the backend tracks
 // changed. CallCount == 0 is the load-bearing assertion.
+// TestIntegration_ServerlessCluster_ErrorPath_AllowDeletionBlocked pins the guard
+// itself. AllowDeletionFlip_NoBackendCall proves the flip costs no RPC; this
+// proves what the flag is for — with allow_deletion=false a destroy is refused
+// before the delete RPC is reached.
+func TestIntegration_ServerlessCluster_ErrorPath_AllowDeletionBlocked(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	const name = "tfrp-mock-sc-ep-nodelete"
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config: scAllowDeletionConfig(name, false),
+				Check:  resource.TestCheckResourceAttr(scAddr, "allow_deletion", "false"),
+			},
+			{
+				Config:      scAllowDeletionConfig(name, false),
+				Destroy:     true,
+				ExpectError: regexp.MustCompile("serverless cluster deletion not allowed"),
+			},
+			{
+				Config: scAllowDeletionConfig(name, true),
+				Check:  resource.TestCheckResourceAttr(scAddr, "allow_deletion", "true"),
+			},
+		},
+	})
+}
+
 func TestIntegration_ServerlessCluster_UpdateLeaf_AllowDeletionFlip_NoBackendCall(t *testing.T) {
 	srv, factories := integration.Setup(t)
 
