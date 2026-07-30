@@ -72,6 +72,26 @@ resource "redpanda_cluster" "shadow" {
   }
 }
 
+# Dataplane canaries, one per cluster. Every dataplane resource below waits on
+# the canary for its own cluster, so a dataplane that is not serving yet fails
+# here — on a topic — instead of on whichever resource wins the race. Both
+# clusters need one: the user and ACLs live on source, the secrets on shadow.
+resource "redpanda_topic" "source_canary" {
+  name               = "${var.link_name}-source-canary"
+  partition_count    = 1
+  replication_factor = 3
+  cluster_api_url    = redpanda_cluster.source.cluster_api_url
+  allow_deletion     = true
+}
+
+resource "redpanda_topic" "shadow_canary" {
+  name               = "${var.link_name}-shadow-canary"
+  partition_count    = 1
+  replication_factor = 3
+  cluster_api_url    = redpanda_cluster.shadow.cluster_api_url
+  allow_deletion     = true
+}
+
 # A user on the source cluster that the shadow link will authenticate as.
 resource "redpanda_user" "shadow_link_user" {
   name            = var.user_name
@@ -79,6 +99,8 @@ resource "redpanda_user" "shadow_link_user" {
   mechanism       = "scram-sha-256"
   cluster_api_url = redpanda_cluster.source.cluster_api_url
   allow_deletion  = true
+
+  depends_on = [redpanda_topic.source_canary]
 }
 
 resource "redpanda_acl" "shadow_link_user_read_topics" {
@@ -91,6 +113,8 @@ resource "redpanda_acl" "shadow_link_user_read_topics" {
   permission_type       = "ALLOW"
   cluster_api_url       = redpanda_cluster.source.cluster_api_url
   allow_deletion        = true
+
+  depends_on = [redpanda_topic.source_canary]
 }
 
 resource "redpanda_acl" "shadow_link_user_describe_topics" {
@@ -103,6 +127,8 @@ resource "redpanda_acl" "shadow_link_user_describe_topics" {
   permission_type       = "ALLOW"
   cluster_api_url       = redpanda_cluster.source.cluster_api_url
   allow_deletion        = true
+
+  depends_on = [redpanda_topic.source_canary]
 }
 
 resource "redpanda_acl" "shadow_link_user_describe_cluster" {
@@ -115,6 +141,8 @@ resource "redpanda_acl" "shadow_link_user_describe_cluster" {
   permission_type       = "ALLOW"
   cluster_api_url       = redpanda_cluster.source.cluster_api_url
   allow_deletion        = true
+
+  depends_on = [redpanda_topic.source_canary]
 }
 
 # Stored in the shadow cluster's secret store so the link can reference it via $${secrets.<NAME>}.
@@ -125,6 +153,21 @@ resource "redpanda_secret" "source_password" {
   scopes              = ["SCOPE_REDPANDA_CLUSTER"]
   cluster_api_url     = redpanda_cluster.shadow.cluster_api_url
   allow_deletion      = true
+
+  depends_on = [redpanda_topic.shadow_canary]
+}
+
+# The Schema Registry credential gets its own secret rather than sharing the
+# SCRAM one, so the test can tell the two references apart.
+resource "redpanda_secret" "source_schema_registry_password" {
+  name                = var.sr_secret_name
+  secret_data         = var.user_password
+  secret_data_version = 1
+  scopes              = ["SCOPE_REDPANDA_CLUSTER"]
+  cluster_api_url     = redpanda_cluster.shadow.cluster_api_url
+  allow_deletion      = true
+
+  depends_on = [redpanda_topic.shadow_canary]
 }
 
 resource "redpanda_shadow_link" "test" {
@@ -156,7 +199,7 @@ resource "redpanda_shadow_link" "test" {
       auth_options = {
         basic = {
           username = redpanda_user.shadow_link_user.name
-          password = "$${secrets.${redpanda_secret.source_password.name}}"
+          password = "$${secrets.${redpanda_secret.source_schema_registry_password.name}}"
         }
       }
 

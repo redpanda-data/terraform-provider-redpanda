@@ -49,6 +49,9 @@ func TestAcc_ShadowLink(t *testing.T) {
 	shadowName := prefix + "-shd"
 	linkName := prefix
 	secretName := strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(prefix, "-", "_"), ".", "_"))
+	// The Schema Registry credential gets its own secret so the two references
+	// are distinguishable; sharing one can't prove both were threaded.
+	srSecretName := secretName + "_SR"
 	password := "Tfrp-Test-Password-" + prefix
 
 	origVars := make(map[string]config.Variable)
@@ -61,6 +64,7 @@ func TestAcc_ShadowLink(t *testing.T) {
 	origVars["user_name"] = config.StringVariable(prefix + "-user")
 	origVars["user_password"] = config.StringVariable(password)
 	origVars["secret_name"] = config.StringVariable(secretName)
+	origVars["sr_secret_name"] = config.StringVariable(srSecretName)
 	origVars["link_name"] = config.StringVariable(linkName)
 	if acc.ThroughputTier != "" {
 		origVars["throughput_tier"] = config.StringVariable(acc.ThroughputTier)
@@ -142,7 +146,11 @@ func TestAcc_ShadowLink(t *testing.T) {
 					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.auth_options.basic.username", prefix+"-user"),
 					// Masked on Read by the real backend; a value here means the
 					// provider restored it from prior state rather than blanking it.
-					resource.TestCheckResourceAttrSet(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.auth_options.basic.password"),
+					// Pinned to the SR-specific secret: the SCRAM credential points at a
+					// different one, so an exact match proves both references were
+					// threaded rather than one being reused for both.
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.auth_options.basic.password", fmt.Sprintf("${secrets.%s}", srSecretName)),
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "client_options.authentication_configuration.scram_configuration.password", fmt.Sprintf("${secrets.%s}", secretName)),
 					// Server-derived mirrors, absent from every write payload.
 					resource.TestCheckResourceAttrSet(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.effective_tail_interval"),
 					func(s *terraform.State) error {

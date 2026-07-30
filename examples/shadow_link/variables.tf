@@ -65,6 +65,11 @@ variable "secret_name" {
   description = "Name of the secret in the shadow cluster's secret store (uppercase, A-Z0-9_)"
 }
 
+variable "sr_secret_name" {
+  type        = string
+  description = "Name of the Schema Registry credential secret in the shadow cluster's secret store (uppercase, A-Z0-9_)"
+}
+
 variable "link_name" {
   type        = string
   description = "Name of the shadow link (DNS-1123 subdomain)"
