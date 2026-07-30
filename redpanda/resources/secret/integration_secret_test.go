@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
+	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-testing/compare"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -36,6 +37,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/integration"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/mock"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -548,6 +550,36 @@ func TestIntegration_Secret_ErrorPath_GetFailed(t *testing.T) {
 				},
 				Config:      cfg,
 				ExpectError: regexp.MustCompile("synthetic get failure"),
+			},
+		},
+	})
+}
+
+// TestIntegration_Secret_ErrorPath_CreateAlreadyExists pins that a secret which
+// already exists is not silently taken over.
+//
+// The seed goes through the fake's own CreateSecret so AlreadyExists comes from
+// its real path rather than an injected override — matching the backend, which
+// answers "AlreadyExists ... secret already exists with ID: <name>" and leaves
+// the stored secret_data untouched. Adopting it would put a secret this resource
+// never created under Terraform's management, holding a value the config never
+// supplied — and secret_data is write-only, so the mismatch is invisible. A
+// later destroy then removes it from whoever did create it.
+func TestIntegration_Secret_ErrorPath_CreateAlreadyExists(t *testing.T) {
+	srv, factories := integration.Setup(t)
+
+	_, err := srv.Secret.CreateSecret(context.Background(), &dataplanev1.CreateSecretRequest{
+		Id:     resourceName,
+		Scopes: []dataplanev1.Scope{dataplanev1.Scope_SCOPE_REDPANDA_CONNECT},
+	})
+	require.NoError(t, err)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config:      mockSecretFullConfig(resourceName, dataValueV1, "bufnet", scopeConnect, 1, true),
+				ExpectError: regexp.MustCompile("already exists"),
 			},
 		},
 	})

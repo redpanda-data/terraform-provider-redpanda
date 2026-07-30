@@ -83,7 +83,9 @@ func (s *Secret) Create(ctx context.Context, req resource.CreateRequest, resp *r
 	}
 
 	var createdSecret *dataplanev1.Secret
+	attempt := 0
 	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
+		attempt++
 		created, rpcErr := s.SecretClient.CreateSecret(ctx, &dataplanev1.CreateSecretRequest{
 			Id:         model.Name.ValueString(),
 			Labels:     labels,
@@ -94,11 +96,18 @@ func (s *Secret) Create(ctx context.Context, req resource.CreateRequest, resp *r
 			createdSecret = created.GetSecret()
 			return nil
 		}
-		// Adopt the existing secret on AlreadyExists from a prior retry's lost response.
+		// Adopt only from the second attempt on, where AlreadyExists means an
+		// earlier attempt landed and lost its response. On the first attempt the
+		// secret predates this resource: adopting it would manage a secret we
+		// never created, holding a value the config never supplied — and
+		// secret_data is write-only, so that mismatch is invisible — while a
+		// later destroy would remove it from whoever did create it.
 		if utils.IsAlreadyExists(rpcErr) {
-			if got, getErr := s.SecretClient.GetSecret(ctx, &dataplanev1.GetSecretRequest{Id: model.Name.ValueString()}); getErr == nil && got.GetSecret() != nil {
-				createdSecret = got.GetSecret()
-				return nil
+			if attempt > 1 {
+				if got, getErr := s.SecretClient.GetSecret(ctx, &dataplanev1.GetSecretRequest{Id: model.Name.ValueString()}); getErr == nil && got.GetSecret() != nil {
+					createdSecret = got.GetSecret()
+					return nil
+				}
 			}
 			return utils.NonRetryableError(rpcErr)
 		}
