@@ -68,6 +68,7 @@ func (f *NetworkFake) CreateNetwork(_ context.Context, req *controlplanev1.Creat
 		CidrBlock:                in.GetCidrBlock(),
 		ClusterType:              in.GetClusterType(),
 		CustomerManagedResources: in.GetCustomerManagedResources(),
+		EgressSpec:               in.GetEgressSpec(),
 		State:                    controlplanev1.Network_STATE_READY,
 		CreatedAt:                now,
 		UpdatedAt:                now,

@@ -103,6 +103,22 @@ zones:
 
 # --- New proto fields (auto-added by schemagen -todo) ---
 egress_spec:
-  todo: true
+  optional: true
+  computed: false
+  fields:
+    aws:
+      todo: true
+    gcp:
+      todo: true
+    azure:
+      optional: true
+      computed: false
+      plan_modifiers: [RequiresReplace]
+      fields:
+        hub_vnet_id:
+          required: true
+        firewall_private_ip:
+          required: true
+          validator: IPAddress
 cloud_provider_access_id:
   todo: true

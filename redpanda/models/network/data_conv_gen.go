@@ -31,6 +31,7 @@ type DataNetworkResponse interface {
 	GetCloudProvider() controlplanev1.CloudProvider
 	GetClusterType() controlplanev1.Cluster_Type
 	GetCustomerManagedResources() *controlplanev1.Network_CustomerManagedResources
+	GetEgressSpec() *controlplanev1.Network_EgressSpec
 	GetId() string
 	GetName() string
 	GetRegion() string
@@ -51,6 +52,7 @@ func FlattenData(ctx context.Context, proto DataNetworkResponse, prev *DataModel
 	m.CloudProvider = types.StringValue(enums.CloudProviderToString(proto.GetCloudProvider()))
 	m.ClusterType = types.StringValue(enums.ClusterTypeToString(proto.GetClusterType()))
 	m.CustomerManagedResources = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetCustomerManagedResources(), func() *DataCustomerManagedResourcesModel { v, _ := prev.AsCustomerManagedResources(ctx); return v }(), DataCustomerManagedResourcesAttrTypes(), FlattenDataCustomerManagedResources, &diags)
+	m.EgressSpec = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetEgressSpec(), func() *DataEgressSpecModel { v, _ := prev.AsEgressSpec(ctx); return v }(), DataEgressSpecAttrTypes(), FlattenDataEgressSpec, &diags)
 	m.Name = types.StringValue(proto.GetName())
 	m.Region = types.StringValue(proto.GetRegion())
 	m.ResourceGroupID = types.StringValue(proto.GetResourceGroupId())
@@ -291,6 +293,59 @@ func ExpandDataCustomerManagedResourcesGCPManagementBucket(_ context.Context, m 
 	}
 	out := &controlplanev1.CustomerManagedGoogleCloudStorageBucket{
 		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataEgressSpec converts a single proto controlplanev1.Network_EgressSpec into the
+// corresponding nested model. The prev *DataEgressSpecModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataEgressSpec(ctx context.Context, proto *controlplanev1.Network_EgressSpec, prev *DataEgressSpecModel) (DataEgressSpecModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataEgressSpecModel{}
+	m.Azure = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAzure(), func() *DataEgressSpecAzureModel { v, _ := DecodeDataEgressSpecAzure(ctx, prev); return v }(), DataEgressSpecAzureAttrTypes(), FlattenDataEgressSpecAzure, &diags)
+	return m, diags
+}
+
+// ExpandDataEgressSpec renders a nested model back into the proto type.
+func ExpandDataEgressSpec(ctx context.Context, m *DataEgressSpecModel) (*controlplanev1.Network_EgressSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_EgressSpec{}
+	if v := modelconv.ObjectToMessageWithDiags(ctx, m.Azure, ExpandDataEgressSpecAzure, &diags); v != nil {
+		out.SetAzure(v)
+	}
+	return out, diags
+}
+
+// FlattenDataEgressSpecAzure converts a single proto controlplanev1.Network_EgressSpec_Azure into the
+// corresponding nested model. The prev *DataEgressSpecAzureModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataEgressSpecAzure(_ context.Context, proto *controlplanev1.Network_EgressSpec_Azure, prev *DataEgressSpecAzureModel) (DataEgressSpecAzureModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataEgressSpecAzureModel{}
+	m.FirewallPrivateIp = types.StringValue(proto.GetFirewallPrivateIp())
+	m.HubVnetID = types.StringValue(proto.GetHubVnetId())
+	return m, diags
+}
+
+// ExpandDataEgressSpecAzure renders a nested model back into the proto type.
+func ExpandDataEgressSpecAzure(_ context.Context, m *DataEgressSpecAzureModel) (*controlplanev1.Network_EgressSpec_Azure, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_EgressSpec_Azure{
+		FirewallPrivateIp: m.FirewallPrivateIp.ValueString(),
+		HubVnetId:         m.HubVnetID.ValueString(),
 	}
 	return out, diags
 }

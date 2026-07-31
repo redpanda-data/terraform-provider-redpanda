@@ -31,6 +31,7 @@ type NetworkResponse interface {
 	GetCloudProvider() controlplanev1.CloudProvider
 	GetClusterType() controlplanev1.Cluster_Type
 	GetCustomerManagedResources() *controlplanev1.Network_CustomerManagedResources
+	GetEgressSpec() *controlplanev1.Network_EgressSpec
 	GetId() string
 	GetName() string
 	GetRegion() string
@@ -53,6 +54,7 @@ func Flatten(ctx context.Context, proto NetworkResponse, prev *ResourceModel) (*
 	m.ResourceGroupID = types.StringValue(proto.GetResourceGroupId())
 	m.CidrBlock = cidrBlockFromProto(proto)
 	m.CustomerManagedResources = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetCustomerManagedResources(), func() *CustomerManagedResourcesModel { v, _ := prev.AsCustomerManagedResources(ctx); return v }(), CustomerManagedResourcesAttrTypes(), FlattenCustomerManagedResources, &diags)
+	m.EgressSpec = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetEgressSpec(), func() *EgressSpecModel { v, _ := prev.AsEgressSpec(ctx); return v }(), EgressSpecAttrTypes(), FlattenEgressSpec, &diags)
 	m.ID = types.StringValue(proto.GetId())
 	m.State = types.StringValue(enums.NetworkStateToString(proto.GetState()))
 	m.Zones = modelconv.ListFromSliceWithDiags(ctx, proto.GetZones(), types.StringType, &diags)
@@ -74,6 +76,7 @@ func ExpandCreate(ctx context.Context, m *ResourceModel) (*controlplanev1.Create
 		ResourceGroupId:          m.ResourceGroupID.ValueString(),
 		CidrBlock:                m.CidrBlock.ValueString(),
 		CustomerManagedResources: modelconv.ObjectToMessageWithDiags(ctx, m.CustomerManagedResources, ExpandCustomerManagedResources, &diags),
+		EgressSpec:               modelconv.ObjectToMessageWithDiags(ctx, m.EgressSpec, ExpandEgressSpec, &diags),
 	}
 	req := &controlplanev1.CreateNetworkRequest{
 		Network: payload,
@@ -323,6 +326,59 @@ func ExpandCustomerManagedResourcesGCPManagementBucket(_ context.Context, m *Cus
 	}
 	out := &controlplanev1.CustomerManagedGoogleCloudStorageBucket{
 		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenEgressSpec converts a single proto controlplanev1.Network_EgressSpec into the
+// corresponding nested model. The prev *EgressSpecModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenEgressSpec(ctx context.Context, proto *controlplanev1.Network_EgressSpec, prev *EgressSpecModel) (EgressSpecModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := EgressSpecModel{}
+	m.Azure = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAzure(), func() *EgressSpecAzureModel { v, _ := DecodeEgressSpecAzure(ctx, prev); return v }(), EgressSpecAzureAttrTypes(), FlattenEgressSpecAzure, &diags)
+	return m, diags
+}
+
+// ExpandEgressSpec renders a nested model back into the proto type.
+func ExpandEgressSpec(ctx context.Context, m *EgressSpecModel) (*controlplanev1.Network_EgressSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_EgressSpec{}
+	if v := modelconv.ObjectToMessageWithDiags(ctx, m.Azure, ExpandEgressSpecAzure, &diags); v != nil {
+		out.SetAzure(v)
+	}
+	return out, diags
+}
+
+// FlattenEgressSpecAzure converts a single proto controlplanev1.Network_EgressSpec_Azure into the
+// corresponding nested model. The prev *EgressSpecAzureModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenEgressSpecAzure(_ context.Context, proto *controlplanev1.Network_EgressSpec_Azure, prev *EgressSpecAzureModel) (EgressSpecAzureModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := EgressSpecAzureModel{}
+	m.FirewallPrivateIp = types.StringValue(proto.GetFirewallPrivateIp())
+	m.HubVnetID = types.StringValue(proto.GetHubVnetId())
+	return m, diags
+}
+
+// ExpandEgressSpecAzure renders a nested model back into the proto type.
+func ExpandEgressSpecAzure(_ context.Context, m *EgressSpecAzureModel) (*controlplanev1.Network_EgressSpec_Azure, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_EgressSpec_Azure{
+		FirewallPrivateIp: m.FirewallPrivateIp.ValueString(),
+		HubVnetId:         m.HubVnetID.ValueString(),
 	}
 	return out, diags
 }

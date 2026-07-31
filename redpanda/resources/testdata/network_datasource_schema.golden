@@ -68,6 +68,20 @@ attributes:
             - name: network_project_id
               type: StringAttribute
               computed: true
+    - name: egress_spec
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: azure
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: firewall_private_ip
+              type: StringAttribute
+              computed: true
+            - name: hub_vnet_id
+              type: StringAttribute
+              computed: true
     - name: id
       type: StringAttribute
       required: true

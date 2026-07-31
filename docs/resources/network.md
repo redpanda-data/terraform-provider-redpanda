@@ -26,6 +26,7 @@ Creates a network in the Redpanda Cloud.
 
 - `cidr_block` (String) Network CIDR from where public and private subnets are derived. At least a 21 bits CIDR is required.
 - `customer_managed_resources` (Attributes) Cloud resources created by user. (see [below for nested schema](#nestedatt--customer_managed_resources))
+- `egress_spec` (Attributes) Egress Spec configuration (see [below for nested schema](#nestedatt--egress_spec))
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
@@ -101,6 +102,23 @@ Required:
 
 - `name` (String) Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.
 
+
+
+
+<a id="nestedatt--egress_spec"></a>
+### Nested Schema for `egress_spec`
+
+Optional:
+
+- `azure` (Attributes) Azure configuration (see [below for nested schema](#nestedatt--egress_spec--azure))
+
+<a id="nestedatt--egress_spec--azure"></a>
+### Nested Schema for `egress_spec.azure`
+
+Required:
+
+- `firewall_private_ip` (String) Firewall Private Ip. Must be a valid IP address.
+- `hub_vnet_id` (String) Hub Vnet ID. Length must be at least 1.
 
 
 

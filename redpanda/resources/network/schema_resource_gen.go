@@ -166,6 +166,29 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 				},
 			},
 
+			"egress_spec": schema.SingleNestedAttribute{
+				Description: "Egress Spec configuration",
+				Optional:    true,
+				Attributes: map[string]schema.Attribute{
+					"azure": schema.SingleNestedAttribute{
+						Description:   "Azure configuration",
+						Optional:      true,
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
+						Attributes: map[string]schema.Attribute{
+							"firewall_private_ip": schema.StringAttribute{
+								Description: "Firewall Private Ip. Must be a valid IP address.",
+								Required:    true,
+								Validators:  []validator.String{validators.IPAddressValidator{}},
+							},
+							"hub_vnet_id": schema.StringAttribute{
+								Description: "Hub Vnet ID. Length must be at least 1.",
+								Required:    true,
+							},
+						},
+					},
+				},
+			},
+
 			"id": schema.StringAttribute{
 				Description:   "Network ID. The ID is an output of the Create Network request and cannot be set by the caller. Must match pattern `^[a-v0-9]{20}`.",
 				Computed:      true,

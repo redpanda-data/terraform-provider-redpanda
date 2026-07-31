@@ -194,6 +194,11 @@ var validatorRegistry = map[string]ValidatorDef{
 		Imports:  []string{validatorsImport},
 		AttrType: "String",
 	},
+	"IPAddress": {
+		Expr:     "validators.IPAddressValidator{}",
+		Imports:  []string{validatorsImport},
+		AttrType: "String",
+	},
 	"OneOf": {
 		Parameterized: true,
 		GenFunc: func(_ string, params map[string]string) (string, []string) {
