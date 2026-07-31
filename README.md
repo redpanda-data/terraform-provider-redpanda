@@ -157,9 +157,6 @@ task test:upgrade:serverless
 # Run network tests (requires credentials)
 task test:network
 
-# Run data source tests (requires existing cluster)
-task test:datasource
-
 # Run the cluster datasource test (creates a cluster, then reads via datasource)
 task test:datasource:cluster
 

@@ -31,7 +31,6 @@ var (
 	GcpByocClusterDir              = filepath.Join(RepoRoot(), "examples", "byoc", "gcp")
 	DedicatedNetworkDir            = filepath.Join(RepoRoot(), "examples", "network")
 	DataplaneDir                   = filepath.Join(RepoRoot(), "examples", "dataplane")
-	DataSourcesTestDir             = filepath.Join(RepoRoot(), "examples", "datasource", "standard")
 	NetworkDataSourceDir           = filepath.Join(RepoRoot(), "examples", "datasource", "network")
 	ServerlessRegionsDataSourceDir = filepath.Join(RepoRoot(), "examples", "datasource", "serverless_regions")
 	ClusterDatasourceInfraDir      = filepath.Join(RepoRoot(), "redpanda", "tests", "testdata", "datasource", "cluster")
