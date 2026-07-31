@@ -111,6 +111,7 @@ type DataCustomerManagedResourcesGCPManagementBucketModel struct {
 type DataEgressSpecModel struct {
 	AWS   types.Object `tfsdk:"aws"`
 	Azure types.Object `tfsdk:"azure"`
+	GCP   types.Object `tfsdk:"gcp"`
 }
 
 // DataEgressSpecAWSModel mirrors the nested "egress_spec.aws" attribute. Use the As/To
@@ -126,6 +127,14 @@ type DataEgressSpecAWSModel struct {
 type DataEgressSpecAzureModel struct {
 	FirewallPrivateIp types.String `tfsdk:"firewall_private_ip"`
 	HubVnetID         types.String `tfsdk:"hub_vnet_id"`
+}
+
+// DataEgressSpecGCPModel mirrors the nested "egress_spec.gcp" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataEgressSpecGCPModel struct {
+	HubVPCName    types.String `tfsdk:"hub_vpc_name"`
+	HubVPCProject types.String `tfsdk:"hub_vpc_project"`
 }
 
 // --- AttrType tables for nested types (consumed by types.ObjectValueFrom / ObjectNull) ---
@@ -206,6 +215,7 @@ func DataEgressSpecAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"aws":   types.ObjectType{AttrTypes: DataEgressSpecAWSAttrTypes()},
 		"azure": types.ObjectType{AttrTypes: DataEgressSpecAzureAttrTypes()},
+		"gcp":   types.ObjectType{AttrTypes: DataEgressSpecGCPAttrTypes()},
 	}
 }
 
@@ -223,6 +233,15 @@ func DataEgressSpecAzureAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"firewall_private_ip": types.StringType,
 		"hub_vnet_id":         types.StringType,
+	}
+}
+
+// DataEgressSpecGCPAttrTypes returns the attr.Type map for the "egress_spec.gcp" nested
+// attribute.
+func DataEgressSpecGCPAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"hub_vpc_name":    types.StringType,
+		"hub_vpc_project": types.StringType,
 	}
 }
 
@@ -454,4 +473,24 @@ func DataEgressSpecAzureToObject(ctx context.Context, v *DataEgressSpecAzureMode
 		return types.ObjectNull(DataEgressSpecAzureAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, DataEgressSpecAzureAttrTypes(), v)
+}
+
+// DecodeDataEgressSpecGCP decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataEgressSpecGCP(ctx context.Context, v *DataEgressSpecModel) (*DataEgressSpecGCPModel, diag.Diagnostics) {
+	if v == nil || v.GCP.IsNull() || v.GCP.IsUnknown() {
+		return nil, nil
+	}
+	var out DataEgressSpecGCPModel
+	d := v.GCP.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataEgressSpecGCPToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataEgressSpecGCPToObject(ctx context.Context, v *DataEgressSpecGCPModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataEgressSpecGCPAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataEgressSpecGCPAttrTypes(), v)
 }

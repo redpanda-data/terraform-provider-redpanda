@@ -308,6 +308,7 @@ func FlattenDataEgressSpec(ctx context.Context, proto *controlplanev1.Network_Eg
 	m := DataEgressSpecModel{}
 	m.AWS = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAws(), func() *DataEgressSpecAWSModel { v, _ := DecodeDataEgressSpecAWS(ctx, prev); return v }(), DataEgressSpecAWSAttrTypes(), FlattenDataEgressSpecAWS, &diags)
 	m.Azure = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAzure(), func() *DataEgressSpecAzureModel { v, _ := DecodeDataEgressSpecAzure(ctx, prev); return v }(), DataEgressSpecAzureAttrTypes(), FlattenDataEgressSpecAzure, &diags)
+	m.GCP = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetGcp(), func() *DataEgressSpecGCPModel { v, _ := DecodeDataEgressSpecGCP(ctx, prev); return v }(), DataEgressSpecGCPAttrTypes(), FlattenDataEgressSpecGCP, &diags)
 	return m, diags
 }
 
@@ -323,6 +324,9 @@ func ExpandDataEgressSpec(ctx context.Context, m *DataEgressSpecModel) (*control
 	}
 	if v := modelconv.ObjectToMessageWithDiags(ctx, m.Azure, ExpandDataEgressSpecAzure, &diags); v != nil {
 		out.SetAzure(v)
+	}
+	if v := modelconv.ObjectToMessageWithDiags(ctx, m.GCP, ExpandDataEgressSpecGCP, &diags); v != nil {
+		out.SetGcp(v)
 	}
 	return out, diags
 }
@@ -375,6 +379,33 @@ func ExpandDataEgressSpecAzure(_ context.Context, m *DataEgressSpecAzureModel) (
 	out := &controlplanev1.Network_EgressSpec_Azure{
 		FirewallPrivateIp: m.FirewallPrivateIp.ValueString(),
 		HubVnetId:         m.HubVnetID.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataEgressSpecGCP converts a single proto controlplanev1.Network_EgressSpec_GCP into the
+// corresponding nested model. The prev *DataEgressSpecGCPModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataEgressSpecGCP(_ context.Context, proto *controlplanev1.Network_EgressSpec_GCP, prev *DataEgressSpecGCPModel) (DataEgressSpecGCPModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataEgressSpecGCPModel{}
+	m.HubVPCName = types.StringValue(proto.GetHubVpcName())
+	m.HubVPCProject = types.StringValue(proto.GetHubVpcProject())
+	return m, diags
+}
+
+// ExpandDataEgressSpecGCP renders a nested model back into the proto type.
+func ExpandDataEgressSpecGCP(_ context.Context, m *DataEgressSpecGCPModel) (*controlplanev1.Network_EgressSpec_GCP, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_EgressSpec_GCP{
+		HubVpcName:    m.HubVPCName.ValueString(),
+		HubVpcProject: m.HubVPCProject.ValueString(),
 	}
 	return out, diags
 }

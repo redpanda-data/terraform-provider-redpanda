@@ -115,7 +115,20 @@ egress_spec:
           required: true
           validator: TransitGatewayID
     gcp:
-      todo: true
+      optional: true
+      computed: false
+      plan_modifiers: [RequiresReplace]
+      fields:
+        hub_vpc_project:
+          required: true
+          validator:
+            - GCPResourceName
+            - "LengthAtMost{n: 30}"
+        hub_vpc_name:
+          required: true
+          validator:
+            - GCPResourceName
+            - "LengthAtMost{n: 63}"
     azure:
       optional: true
       computed: false

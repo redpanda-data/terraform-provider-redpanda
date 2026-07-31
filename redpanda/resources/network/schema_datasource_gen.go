@@ -163,6 +163,20 @@ func DatasourceNetworkSchema(_ context.Context) schema.Schema {
 							},
 						},
 					},
+					"gcp": schema.SingleNestedAttribute{
+						Description: "GCP configuration",
+						Computed:    true,
+						Attributes: map[string]schema.Attribute{
+							"hub_vpc_name": schema.StringAttribute{
+								Description: "Hub VPC Name",
+								Computed:    true,
+							},
+							"hub_vpc_project": schema.StringAttribute{
+								Description: "Hub VPC Project",
+								Computed:    true,
+							},
+						},
+					},
 				},
 			},
 

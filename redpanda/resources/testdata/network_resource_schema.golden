@@ -116,6 +116,24 @@ attributes:
             - name: hub_vnet_id
               type: StringAttribute
               required: true
+        - name: gcp
+          type: SingleNestedAttribute
+          optional: true
+          plan_modifiers:
+            - objectplanmodifier.requiresReplaceIfModifier
+          attributes:
+            - name: hub_vpc_name
+              type: StringAttribute
+              required: true
+              validators:
+                - stringvalidator.regexMatchesValidator
+                - stringvalidator.lengthAtMostValidator
+            - name: hub_vpc_project
+              type: StringAttribute
+              required: true
+              validators:
+                - stringvalidator.regexMatchesValidator
+                - stringvalidator.lengthAtMostValidator
     - name: id
       type: StringAttribute
       computed: true
