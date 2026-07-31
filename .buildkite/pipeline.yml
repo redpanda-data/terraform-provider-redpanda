@@ -82,7 +82,7 @@ steps:
 
   - label: "release:snapshot"
     key: release_snapshot
-    if: build.tag == null && (build.branch == "main" || build.pull_request.labels includes 'ci-ready')
+    if: build.tag == null && (build.branch == "main" || build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       git config --global --add safe.directory /workdir
       if ! command -v gpg >/dev/null 2>&1; then
@@ -106,7 +106,7 @@ steps:
 
   - label: test_datasource_cluster
     key: test_datasource_cluster
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw test:datasource:cluster
     plugins:
@@ -125,7 +125,7 @@ steps:
       - integration
   - label: test_service_account
     key: test_service_account
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw test:service_account
     plugins:
@@ -144,7 +144,7 @@ steps:
       - integration
   - label: test_network
     key: test_network
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw test:network
     plugins:
@@ -163,7 +163,7 @@ steps:
       - integration
   - label: test_cluster_aws
     key: test_cluster_aws
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw test:cluster:aws
     plugins:
@@ -182,7 +182,7 @@ steps:
       - integration
   - label: test_cluster_gcp
     key: test_cluster_gcp
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready'
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw test:cluster:gcp
     plugins:
@@ -201,7 +201,7 @@ steps:
       - integration
   - label: test_upgrade
     key: test_upgrade
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready-upgrade'
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-upgrade' || build.pull_request.labels includes 'ci-ready-all')
     timeout_in_minutes: 240
     command: |
       ./taskw test:upgrade
@@ -222,7 +222,7 @@ steps:
       - integration
   - label: test_upgrade_serverless
     key: test_upgrade_serverless
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready-upgrade-serverless'
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-upgrade-serverless' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw test:upgrade:serverless
     plugins:
@@ -242,7 +242,7 @@ steps:
       - integration
   - label: test_serverless_cluster_aws_public
     key: test_serverless_cluster_aws_public
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready-serverless'
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-serverless' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw test:serverless:aws:public
     plugins:
@@ -261,7 +261,7 @@ steps:
       - integration
   - label: test_serverless_cluster_gcp
     key: test_serverless_cluster_gcp
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready-serverless'
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-serverless' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw test:serverless:gcp
     plugins:
@@ -280,7 +280,7 @@ steps:
       - integration
   - label: test_serverless_cluster_aws_private
     key: test_serverless_cluster_aws_private
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready-serverless'
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-serverless' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw test:serverless:aws:private
     plugins:
@@ -299,7 +299,7 @@ steps:
       - integration
   - label: test_serverless_regions
     key: test_serverless_regions
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready-serverless'
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-serverless' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw test:serverless:regions
     plugins:
@@ -318,7 +318,7 @@ steps:
       - integration
   - label: test_serverless_private_link
     key: test_serverless_private_link
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready-serverless'
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-serverless' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw test:serverless:privatelink
     plugins:
@@ -337,7 +337,7 @@ steps:
       - integration
   - label: test_byoc_aws
     key: test_byoc_aws
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready-byoc'
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-byoc' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw test:byoc:aws
     plugins:
@@ -358,7 +358,7 @@ steps:
       - integration
   - label: test_byovpc_aws
     key: test_byovpc_aws
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready-byoc'
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-byoc' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       apt-get update && apt-get install -y --no-install-recommends curl unzip jq python3 pip
       pip install --break-system-packages awscli
@@ -382,7 +382,7 @@ steps:
       - integration
   - label: test_byoc_gcp
     key: test_byoc_gcp
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready-byoc'
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-byoc' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw test:byoc:gcp
     plugins:
@@ -426,7 +426,7 @@ steps:
       - integration
   - label: cleanup_aws
     key: cleanup_aws
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready-byoc'
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-byoc' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw cleanup:aws:ci || echo "AWS cleanup completed with errors (non-blocking)"
     plugins:
@@ -457,7 +457,7 @@ steps:
 
   - label: cleanup_gcp
     key: cleanup_gcp
-    if: build.tag == null && build.pull_request.labels includes 'ci-ready-byoc'
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-byoc' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw cleanup:gcp:ci PROJECT_ID="$$GOOGLE_PROJECT" || echo "GCP cleanup completed with errors (non-blocking)"
     plugins:
@@ -484,7 +484,7 @@ steps:
 
   - label: cleanup_redpanda_cloud
     key: cleanup_redpanda_cloud
-    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-byoc' ||  build.pull_request.labels includes 'ci-ready-serverless')
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-byoc' || build.pull_request.labels includes 'ci-ready-serverless' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw cleanup:redpanda || echo "Redpanda Cloud cleanup completed with errors (non-blocking)"
     plugins:
