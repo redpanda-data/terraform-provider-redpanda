@@ -17,7 +17,6 @@ package schemagen
 
 import (
 	"fmt"
-	"strings"
 
 	bufvalidate "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 )
@@ -130,32 +129,6 @@ func (m *ProtoMessage) FindField(name string) *ProtoField {
 	for i := range m.Fields {
 		if m.Fields[i].Name == name {
 			return &m.Fields[i]
-		}
-	}
-	return nil
-}
-
-// FindPath walks a dot-separated path from this message and returns the
-// terminal field, or nil if any segment fails to resolve. Each non-terminal
-// segment must be a message field (so its Nested can be walked). A nil
-// receiver returns nil.
-func (m *ProtoMessage) FindPath(path string) *ProtoField {
-	if m == nil || path == "" {
-		return nil
-	}
-	cur := m
-	parts := strings.Split(path, ".")
-	for i, part := range parts {
-		f := cur.FindField(part)
-		if f == nil {
-			return nil
-		}
-		if i == len(parts)-1 {
-			return f
-		}
-		cur = f.Nested
-		if cur == nil {
-			return nil
 		}
 	}
 	return nil

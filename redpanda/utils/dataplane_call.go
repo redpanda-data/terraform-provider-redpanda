@@ -121,11 +121,6 @@ func WithProbe[T any](probe func(context.Context) (T, bool)) CallOption[T] {
 	return func(c *callConfig[T]) { c.probe = probe }
 }
 
-// WithBudget overrides how long the call may keep retrying.
-func WithBudget[T any](d time.Duration) CallOption[T] {
-	return func(c *callConfig[T]) { c.budget = d }
-}
-
 // WithClassifier overrides which errors count as transient. The default is
 // IsTransientDataplaneError, which reads gRPC status codes; Schema Registry
 // resources speak HTTP and need their own.

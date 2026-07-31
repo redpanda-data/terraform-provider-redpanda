@@ -35,7 +35,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	rpknet "github.com/redpanda-data/redpanda/src/go/rpk/pkg/net"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	grpccodes "google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
@@ -539,19 +538,6 @@ func FindTopicByName(ctx context.Context, topicName string, client dataplanev1gr
 	return nil, NotFoundError{fmt.Sprintf("topic %s not found", topicName)}
 }
 
-// SplitSchemeDefPort splits the schema from the url and return url+port. If
-// there is no port, we use the provided default.
-func SplitSchemeDefPort(url, def string) (string, error) {
-	_, host, port, err := rpknet.SplitSchemeHostPort(url)
-	if err != nil {
-		return "", err
-	}
-	if port == "" {
-		port = def
-	}
-	return host + ":" + port, nil
-}
-
 // NormalizeClusterAPIURL canonicalizes a cluster API URL to the current
 // scheme-prefixed, port-stripped form (https://host) that the control plane
 // returns. It upgrades the legacy host:443 form and is idempotent on values
@@ -649,30 +635,6 @@ func DeserializeGrpcError(err error) string {
 	}
 
 	return result
-}
-
-// GetObjectFromAttributes is used to pull a Terraform Object out of a attribute map using the name
-func GetObjectFromAttributes(ctx context.Context, key string, att map[string]attr.Value) (types.Object, error) {
-	attVal, ok := att[key].(basetypes.ObjectValue)
-	if !ok {
-		return types.ObjectNull(map[string]attr.Type{}), fmt.Errorf("%s not found: object is missing or malformed for network resource", key)
-	}
-	var keyVal types.Object
-	if err := attVal.As(ctx, &keyVal, basetypes.ObjectAsOptions{
-		UnhandledNullAsEmpty:    true,
-		UnhandledUnknownAsEmpty: true,
-	}); err != nil {
-		return types.ObjectNull(map[string]attr.Type{}), fmt.Errorf("%s not found: value is missing or malformed for network resource", key)
-	}
-	return keyVal, nil
-}
-
-// GetStringFromAttributes is used to pull a Terraform String out of a Terraform attribute map using the name
-func GetStringFromAttributes(key string, attributes map[string]attr.Value) (string, error) {
-	if val, ok := attributes[key].(types.String); ok {
-		return val.ValueString(), nil
-	}
-	return "", fmt.Errorf("%s not found: string value is missing or malformed", key)
 }
 
 // GetARNListFromAttributes is used to pull a Terraform List out of a Terraform attribute map using the name

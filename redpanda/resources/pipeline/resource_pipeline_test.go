@@ -230,21 +230,6 @@ func (b *modelBuilder) WithID(id string) *modelBuilder {
 	return b
 }
 
-func (b *modelBuilder) WithDisplayName(name string) *modelBuilder {
-	b.model.DisplayName = types.StringValue(name)
-	return b
-}
-
-func (b *modelBuilder) WithDescription(desc string) *modelBuilder {
-	b.model.Description = types.StringValue(desc)
-	return b
-}
-
-func (b *modelBuilder) WithConfigYaml(yaml string) *modelBuilder {
-	b.model.ConfigYaml = types.StringValue(yaml)
-	return b
-}
-
 func (b *modelBuilder) WithState(state string) *modelBuilder {
 	b.model.State = types.StringValue(state)
 	return b
@@ -255,23 +240,8 @@ func (b *modelBuilder) WithURL(url string) *modelBuilder {
 	return b
 }
 
-func (b *modelBuilder) WithResources(cpu, memory string) *modelBuilder {
-	b.model.Resources = createResourcesObject(cpu, memory)
-	return b
-}
-
-func (b *modelBuilder) WithTags(tags map[string]string) *modelBuilder {
-	b.model.Tags = createTagsMap(tags)
-	return b
-}
-
 func (b *modelBuilder) WithAllowDeletion(allow bool) *modelBuilder {
 	b.model.AllowDeletion = types.BoolValue(allow)
-	return b
-}
-
-func (b *modelBuilder) WithTimeouts(timeoutsVal timeouts.Value) *modelBuilder {
-	b.model.Timeouts = timeoutsVal
 	return b
 }
 

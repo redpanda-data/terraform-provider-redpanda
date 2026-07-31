@@ -179,27 +179,6 @@ func ListToObjectsWithDiags[Model any, Proto any](
 	return out
 }
 
-// ObjectFromMessage converts a single proto message into types.Object using
-// the supplied per-element flattener. Returns ObjectNull when proto is nil.
-func ObjectFromMessage[Proto any, Model any](
-	ctx context.Context,
-	proto *Proto,
-	attrTypes map[string]attr.Type,
-	flatten func(context.Context, *Proto) (Model, diag.Diagnostics),
-) (types.Object, diag.Diagnostics) {
-	objType := types.ObjectType{AttrTypes: attrTypes}
-	if proto == nil {
-		return types.ObjectNull(attrTypes), nil
-	}
-	m, diags := flatten(ctx, proto)
-	if diags.HasError() {
-		return types.ObjectNull(attrTypes), diags
-	}
-	out, d := types.ObjectValueFrom(ctx, objType.AttrTypes, m)
-	diags.Append(d...)
-	return out, diags
-}
-
 // ObjectToMessage decodes a types.Object into a typed model via obj.As, then
 // maps to a proto pointer via the supplied expander. Returns nil for null /
 // unknown objects so callers don't accidentally send zero protos upstream.
@@ -225,23 +204,8 @@ func ObjectToMessage[Model any, Proto any](
 	return out, diags
 }
 
-// ObjectFromMessageWithDiags is the assignment-friendly variant of ObjectFromMessage.
-func ObjectFromMessageWithDiags[Proto any, Model any](
-	ctx context.Context,
-	proto *Proto,
-	attrTypes map[string]attr.Type,
-	flatten func(context.Context, *Proto) (Model, diag.Diagnostics),
-	diags *diag.Diagnostics,
-) types.Object {
-	out, d := ObjectFromMessage(ctx, proto, attrTypes, flatten)
-	if diags != nil {
-		diags.Append(d...)
-	}
-	return out
-}
-
-// ObjectFromMessageWithDiagsAndPrev is the prev-aware variant of
-// ObjectFromMessageWithDiags. The flatten function receives the prior
+// ObjectFromMessageWithDiagsAndPrev converts a single proto message into
+// types.Object, appending diagnostics. The flatten function receives the prior
 // per-resource Model state so Flatten can preserve user-supplied
 // null-vs-empty distinctions for fields whose proto3 wire shape is
 // ambiguous (e.g. Optional-only strings backed by non-optional proto3

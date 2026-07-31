@@ -30,22 +30,6 @@ import (
 
 const maxNestingDepth = 8
 
-// CompileProto compiles a .proto file using protocompile and extracts both
-// field structure and comments for a named message. Returns the same
-// ProtoMessage type used by the merger, plus a map of field paths to
-// descriptions extracted from proto comments.
-//
-// For multi-message lookups (flat-request walking, per-RPC payload type
-// divergence) call CompileProtoFiles + ExtractMessage instead of compiling
-// the package once per message.
-func CompileProto(cloudv2Root, protoPkg, messageName string, extraImportPaths []string) (*ProtoMessage, map[string]string, error) {
-	files, err := CompileProtoFiles(cloudv2Root, protoPkg, extraImportPaths)
-	if err != nil {
-		return nil, nil, err
-	}
-	return ExtractMessage(files, messageName, protoPkg)
-}
-
 // CompileProtoFiles compiles every .proto file under cloudv2Root/proto/.../<protoPkg>
 // (plus any extraImportPaths) and returns the resolved file set. Files that
 // fail to compile (e.g. because of unresolvable imports) are skipped with a
