@@ -201,6 +201,29 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 							},
 						},
 					},
+					"gcp": schema.SingleNestedAttribute{
+						Description:   "GCP configuration",
+						Optional:      true,
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
+						Attributes: map[string]schema.Attribute{
+							"hub_vpc_name": schema.StringAttribute{
+								Description: "Hub VPC Name. Length must be at least 1.",
+								Required:    true,
+								Validators: []validator.String{stringvalidator.RegexMatches(
+									regexp.MustCompile(`^[a-z]([-a-z0-9]*[a-z0-9])?$`),
+									"must start with a lowercase letter and can only contain lowercase letters, numbers, and hyphens, and must end with a letter or number",
+								), stringvalidator.LengthAtMost(63)},
+							},
+							"hub_vpc_project": schema.StringAttribute{
+								Description: "Hub VPC Project. Length must be at least 1.",
+								Required:    true,
+								Validators: []validator.String{stringvalidator.RegexMatches(
+									regexp.MustCompile(`^[a-z]([-a-z0-9]*[a-z0-9])?$`),
+									"must start with a lowercase letter and can only contain lowercase letters, numbers, and hyphens, and must end with a letter or number",
+								), stringvalidator.LengthAtMost(30)},
+							},
+						},
+					},
 				},
 			},
 

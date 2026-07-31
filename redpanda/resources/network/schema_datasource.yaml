@@ -64,7 +64,9 @@ egress_spec:
       fields:
         transit_gateway_id: {}
     gcp:
-      todo: true
+      fields:
+        hub_vpc_project: {}
+        hub_vpc_name: {}
     azure:
       fields:
         hub_vnet_id: {}

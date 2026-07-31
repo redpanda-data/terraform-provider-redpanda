@@ -112,6 +112,7 @@ Optional:
 
 - `aws` (Attributes) AWS configuration (see [below for nested schema](#nestedatt--egress_spec--aws))
 - `azure` (Attributes) Azure configuration (see [below for nested schema](#nestedatt--egress_spec--azure))
+- `gcp` (Attributes) GCP configuration (see [below for nested schema](#nestedatt--egress_spec--gcp))
 
 <a id="nestedatt--egress_spec--aws"></a>
 ### Nested Schema for `egress_spec.aws`
@@ -128,6 +129,15 @@ Required:
 
 - `firewall_private_ip` (String) Firewall Private Ip. Must be a valid IP address.
 - `hub_vnet_id` (String) Hub Vnet ID. Length must be at least 1.
+
+
+<a id="nestedatt--egress_spec--gcp"></a>
+### Nested Schema for `egress_spec.gcp`
+
+Required:
+
+- `hub_vpc_name` (String) Hub VPC Name. Length must be at least 1.
+- `hub_vpc_project` (String) Hub VPC Project. Length must be at least 1.
 
 
 

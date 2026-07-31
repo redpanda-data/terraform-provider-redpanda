@@ -89,6 +89,16 @@ attributes:
             - name: hub_vnet_id
               type: StringAttribute
               computed: true
+        - name: gcp
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: hub_vpc_name
+              type: StringAttribute
+              computed: true
+            - name: hub_vpc_project
+              type: StringAttribute
+              computed: true
     - name: id
       type: StringAttribute
       required: true

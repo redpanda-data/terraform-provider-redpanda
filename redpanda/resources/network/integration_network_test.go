@@ -799,6 +799,107 @@ func TestIntegration_Network_RequiresReplace_AzureHubEgress(t *testing.T) {
 	})
 }
 
+// hubEgressGCPConfig builds a GCP network variant with a VPC Hub egress_spec.
+func hubEgressGCPConfig(name, hubProject, hubName string) string {
+	return fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-net-rg"
+}
+
+resource "redpanda_network" "test" {
+  name              = %q
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = "gcp"
+  region            = "us-central1"
+  cluster_type      = "dedicated"
+  cidr_block        = "10.0.0.0/20"
+  egress_spec = {
+    gcp = {
+      hub_vpc_project = %q
+      hub_vpc_name    = %q
+    }
+  }
+}
+`, name, hubProject, hubName)
+}
+
+// TestIntegration_Network_CreateAndRefresh_GCPHubEgress validates the Create +
+// no-op cycle for the GCP VPC Hub egress_spec variant.
+func TestIntegration_Network_CreateAndRefresh_GCPHubEgress(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	const (
+		name       = "tfrp-mock-net-hub-create"
+		hubProject = "tfrp-hub-proj"
+		hubName    = "tfrp-hub-vpc"
+	)
+	cfg := hubEgressGCPConfig(name, hubProject, hubName)
+
+	idPreserved := statecheck.CompareValue(compare.ValuesSame())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(networkAddr, cfg, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("name"), knownvalue.StringExact(name)),
+				statecheck.ExpectKnownValue(networkAddr,
+					tfjsonpath.New("egress_spec").AtMapKey("gcp").AtMapKey("hub_vpc_project"),
+					knownvalue.StringExact(hubProject)),
+				statecheck.ExpectKnownValue(networkAddr,
+					tfjsonpath.New("egress_spec").AtMapKey("gcp").AtMapKey("hub_vpc_name"),
+					knownvalue.StringExact(hubName)),
+				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idPreserved.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			}),
+			integration.NoopReapplyStep(networkAddr, cfg, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(networkAddr,
+					tfjsonpath.New("egress_spec").AtMapKey("gcp").AtMapKey("hub_vpc_project"),
+					knownvalue.StringExact(hubProject)),
+				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idPreserved.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			}),
+		},
+	})
+}
+
+// TestIntegration_Network_RequiresReplace_GCPHubEgress mutates
+// egress_spec.gcp.hub_vpc_name and asserts DestroyBeforeCreate.
+// egress_spec.gcp carries RequiresReplace since Network has no Update RPC.
+func TestIntegration_Network_RequiresReplace_GCPHubEgress(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	const (
+		name       = "tfrp-mock-net-rr-hub"
+		hubProject = "tfrp-hub-proj"
+		hubNameA   = "tfrp-hub-vpc-a"
+		hubNameB   = "tfrp-hub-vpc-b"
+	)
+
+	idChanged := statecheck.CompareValue(compare.ValuesDiffer())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(networkAddr, hubEgressGCPConfig(name, hubProject, hubNameA), []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(networkAddr,
+					tfjsonpath.New("egress_spec").AtMapKey("gcp").AtMapKey("hub_vpc_name"),
+					knownvalue.StringExact(hubNameA)),
+				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idChanged.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			}),
+			integration.RequiresReplaceStep(networkAddr, hubEgressGCPConfig(name, hubProject, hubNameB), []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(networkAddr,
+					tfjsonpath.New("egress_spec").AtMapKey("gcp").AtMapKey("hub_vpc_name"),
+					knownvalue.StringExact(hubNameB)),
+				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idChanged.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			}),
+		},
+	})
+}
+
 // TestIntegration_Network_ImportRoundTrip exercises the bearer-id import path.
 // Network's ImportState uses ImportStatePassthroughID on the "id" attribute,
 // so the import id is the xid-like string assigned at Create. Network's

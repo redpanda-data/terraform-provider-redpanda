@@ -106,6 +106,7 @@ Read-Only:
 
 - `aws` (Attributes) AWS configuration (see [below for nested schema](#nestedatt--egress_spec--aws))
 - `azure` (Attributes) Azure configuration (see [below for nested schema](#nestedatt--egress_spec--azure))
+- `gcp` (Attributes) GCP configuration (see [below for nested schema](#nestedatt--egress_spec--gcp))
 
 <a id="nestedatt--egress_spec--aws"></a>
 ### Nested Schema for `egress_spec.aws`
@@ -122,6 +123,15 @@ Read-Only:
 
 - `firewall_private_ip` (String) Firewall Private Ip
 - `hub_vnet_id` (String) Hub Vnet ID
+
+
+<a id="nestedatt--egress_spec--gcp"></a>
+### Nested Schema for `egress_spec.gcp`
+
+Read-Only:
+
+- `hub_vpc_name` (String) Hub VPC Name
+- `hub_vpc_project` (String) Hub VPC Project
 
 ## Usage
 
