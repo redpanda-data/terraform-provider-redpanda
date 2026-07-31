@@ -110,7 +110,16 @@ Required:
 
 Optional:
 
+- `aws` (Attributes) AWS configuration (see [below for nested schema](#nestedatt--egress_spec--aws))
 - `azure` (Attributes) Azure configuration (see [below for nested schema](#nestedatt--egress_spec--azure))
+
+<a id="nestedatt--egress_spec--aws"></a>
+### Nested Schema for `egress_spec.aws`
+
+Required:
+
+- `transit_gateway_id` (String) Transit Gateway ID. Must match pattern `^tgw-[0-9a-f]{8,}$`.
+
 
 <a id="nestedatt--egress_spec--azure"></a>
 ### Nested Schema for `egress_spec.azure`

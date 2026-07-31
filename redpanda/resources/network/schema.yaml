@@ -107,7 +107,13 @@ egress_spec:
   computed: false
   fields:
     aws:
-      todo: true
+      optional: true
+      computed: false
+      plan_modifiers: [RequiresReplace]
+      fields:
+        transit_gateway_id:
+          required: true
+          validator: TransitGatewayID
     gcp:
       todo: true
     azure:

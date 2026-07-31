@@ -139,6 +139,16 @@ func DatasourceNetworkSchema(_ context.Context) schema.Schema {
 				Description: "Egress Spec configuration",
 				Computed:    true,
 				Attributes: map[string]schema.Attribute{
+					"aws": schema.SingleNestedAttribute{
+						Description: "AWS configuration",
+						Computed:    true,
+						Attributes: map[string]schema.Attribute{
+							"transit_gateway_id": schema.StringAttribute{
+								Description: "Transit Gateway ID",
+								Computed:    true,
+							},
+						},
+					},
 					"azure": schema.SingleNestedAttribute{
 						Description: "Azure configuration",
 						Computed:    true,

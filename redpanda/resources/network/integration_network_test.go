@@ -603,6 +603,101 @@ func TestIntegration_Network_RequiresReplace_CMR_GCP(t *testing.T) {
 	})
 }
 
+// tgwAWSConfig builds an AWS network variant with a Transit Gateway egress_spec.
+func tgwAWSConfig(name, tgwID string) string {
+	return fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-net-rg"
+}
+
+resource "redpanda_network" "test" {
+  name              = %q
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = "aws"
+  region            = "us-east-1"
+  cluster_type      = "dedicated"
+  cidr_block        = "10.0.0.0/20"
+  egress_spec = {
+    aws = {
+      transit_gateway_id = %q
+    }
+  }
+}
+`, name, tgwID)
+}
+
+// TestIntegration_Network_CreateAndRefresh_TGW validates the Create + no-op cycle
+// for the AWS Transit Gateway egress_spec variant.
+func TestIntegration_Network_CreateAndRefresh_TGW(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	const (
+		name  = "tfrp-mock-net-tgw-create"
+		tgwID = "tgw-0123456789abcdef0"
+	)
+	cfg := tgwAWSConfig(name, tgwID)
+
+	idPreserved := statecheck.CompareValue(compare.ValuesSame())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(networkAddr, cfg, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("name"), knownvalue.StringExact(name)),
+				statecheck.ExpectKnownValue(networkAddr,
+					tfjsonpath.New("egress_spec").AtMapKey("aws").AtMapKey("transit_gateway_id"),
+					knownvalue.StringExact(tgwID)),
+				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idPreserved.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			}),
+			integration.NoopReapplyStep(networkAddr, cfg, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(networkAddr,
+					tfjsonpath.New("egress_spec").AtMapKey("aws").AtMapKey("transit_gateway_id"),
+					knownvalue.StringExact(tgwID)),
+				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idPreserved.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			}),
+		},
+	})
+}
+
+// TestIntegration_Network_RequiresReplace_TGW mutates egress_spec.aws.transit_gateway_id
+// and asserts DestroyBeforeCreate. egress_spec.aws carries RequiresReplace since
+// Network has no Update RPC.
+func TestIntegration_Network_RequiresReplace_TGW(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	const (
+		name   = "tfrp-mock-net-rr-tgw"
+		tgwIDA = "tgw-0123456789abcdef0"
+		tgwIDB = "tgw-fedcba9876543210f"
+	)
+
+	idChanged := statecheck.CompareValue(compare.ValuesDiffer())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(networkAddr, tgwAWSConfig(name, tgwIDA), []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(networkAddr,
+					tfjsonpath.New("egress_spec").AtMapKey("aws").AtMapKey("transit_gateway_id"),
+					knownvalue.StringExact(tgwIDA)),
+				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idChanged.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			}),
+			integration.RequiresReplaceStep(networkAddr, tgwAWSConfig(name, tgwIDB), []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(networkAddr,
+					tfjsonpath.New("egress_spec").AtMapKey("aws").AtMapKey("transit_gateway_id"),
+					knownvalue.StringExact(tgwIDB)),
+				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idChanged.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			}),
+		},
+	})
+}
+
 // hubEgressAzureConfig builds an Azure network variant with a hub-VNet egress_spec.
 func hubEgressAzureConfig(name, hubVnetID, firewallIP string) string {
 	return fmt.Sprintf(`

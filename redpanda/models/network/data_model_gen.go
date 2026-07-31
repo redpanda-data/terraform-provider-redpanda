@@ -109,7 +109,15 @@ type DataCustomerManagedResourcesGCPManagementBucketModel struct {
 // converters on the parent struct to move between types.Object and this
 // typed form.
 type DataEgressSpecModel struct {
+	AWS   types.Object `tfsdk:"aws"`
 	Azure types.Object `tfsdk:"azure"`
+}
+
+// DataEgressSpecAWSModel mirrors the nested "egress_spec.aws" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataEgressSpecAWSModel struct {
+	TransitGatewayID types.String `tfsdk:"transit_gateway_id"`
 }
 
 // DataEgressSpecAzureModel mirrors the nested "egress_spec.azure" attribute. Use the As/To
@@ -196,7 +204,16 @@ func DataCustomerManagedResourcesGCPManagementBucketAttrTypes() map[string]attr.
 // attribute.
 func DataEgressSpecAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
+		"aws":   types.ObjectType{AttrTypes: DataEgressSpecAWSAttrTypes()},
 		"azure": types.ObjectType{AttrTypes: DataEgressSpecAzureAttrTypes()},
+	}
+}
+
+// DataEgressSpecAWSAttrTypes returns the attr.Type map for the "egress_spec.aws" nested
+// attribute.
+func DataEgressSpecAWSAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"transit_gateway_id": types.StringType,
 	}
 }
 
@@ -397,6 +414,26 @@ func DataCustomerManagedResourcesGCPManagementBucketToObject(ctx context.Context
 		return types.ObjectNull(DataCustomerManagedResourcesGCPManagementBucketAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesGCPManagementBucketAttrTypes(), v)
+}
+
+// DecodeDataEgressSpecAWS decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataEgressSpecAWS(ctx context.Context, v *DataEgressSpecModel) (*DataEgressSpecAWSModel, diag.Diagnostics) {
+	if v == nil || v.AWS.IsNull() || v.AWS.IsUnknown() {
+		return nil, nil
+	}
+	var out DataEgressSpecAWSModel
+	d := v.AWS.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataEgressSpecAWSToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataEgressSpecAWSToObject(ctx context.Context, v *DataEgressSpecAWSModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataEgressSpecAWSAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataEgressSpecAWSAttrTypes(), v)
 }
 
 // DecodeDataEgressSpecAzure decodes the sub-field from its parent typed struct.

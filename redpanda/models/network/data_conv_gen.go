@@ -306,6 +306,7 @@ func FlattenDataEgressSpec(ctx context.Context, proto *controlplanev1.Network_Eg
 	var diags diag.Diagnostics
 	_ = prev
 	m := DataEgressSpecModel{}
+	m.AWS = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAws(), func() *DataEgressSpecAWSModel { v, _ := DecodeDataEgressSpecAWS(ctx, prev); return v }(), DataEgressSpecAWSAttrTypes(), FlattenDataEgressSpecAWS, &diags)
 	m.Azure = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAzure(), func() *DataEgressSpecAzureModel { v, _ := DecodeDataEgressSpecAzure(ctx, prev); return v }(), DataEgressSpecAzureAttrTypes(), FlattenDataEgressSpecAzure, &diags)
 	return m, diags
 }
@@ -317,8 +318,36 @@ func ExpandDataEgressSpec(ctx context.Context, m *DataEgressSpecModel) (*control
 		return nil, diags
 	}
 	out := &controlplanev1.Network_EgressSpec{}
+	if v := modelconv.ObjectToMessageWithDiags(ctx, m.AWS, ExpandDataEgressSpecAWS, &diags); v != nil {
+		out.SetAws(v)
+	}
 	if v := modelconv.ObjectToMessageWithDiags(ctx, m.Azure, ExpandDataEgressSpecAzure, &diags); v != nil {
 		out.SetAzure(v)
+	}
+	return out, diags
+}
+
+// FlattenDataEgressSpecAWS converts a single proto controlplanev1.Network_EgressSpec_AWS into the
+// corresponding nested model. The prev *DataEgressSpecAWSModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataEgressSpecAWS(_ context.Context, proto *controlplanev1.Network_EgressSpec_AWS, prev *DataEgressSpecAWSModel) (DataEgressSpecAWSModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataEgressSpecAWSModel{}
+	m.TransitGatewayID = types.StringValue(proto.GetTransitGatewayId())
+	return m, diags
+}
+
+// ExpandDataEgressSpecAWS renders a nested model back into the proto type.
+func ExpandDataEgressSpecAWS(_ context.Context, m *DataEgressSpecAWSModel) (*controlplanev1.Network_EgressSpec_AWS, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_EgressSpec_AWS{
+		TransitGatewayId: m.TransitGatewayID.ValueString(),
 	}
 	return out, diags
 }

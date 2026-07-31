@@ -91,6 +91,17 @@ attributes:
       type: SingleNestedAttribute
       optional: true
       attributes:
+        - name: aws
+          type: SingleNestedAttribute
+          optional: true
+          plan_modifiers:
+            - objectplanmodifier.requiresReplaceIfModifier
+          attributes:
+            - name: transit_gateway_id
+              type: StringAttribute
+              required: true
+              validators:
+                - stringvalidator.regexMatchesValidator
         - name: azure
           type: SingleNestedAttribute
           optional: true

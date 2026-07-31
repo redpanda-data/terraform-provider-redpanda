@@ -104,7 +104,16 @@ Required:
 
 Read-Only:
 
+- `aws` (Attributes) AWS configuration (see [below for nested schema](#nestedatt--egress_spec--aws))
 - `azure` (Attributes) Azure configuration (see [below for nested schema](#nestedatt--egress_spec--azure))
+
+<a id="nestedatt--egress_spec--aws"></a>
+### Nested Schema for `egress_spec.aws`
+
+Read-Only:
+
+- `transit_gateway_id` (String) Transit Gateway ID
+
 
 <a id="nestedatt--egress_spec--azure"></a>
 ### Nested Schema for `egress_spec.azure`

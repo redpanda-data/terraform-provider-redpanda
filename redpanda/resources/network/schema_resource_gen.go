@@ -170,6 +170,21 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 				Description: "Egress Spec configuration",
 				Optional:    true,
 				Attributes: map[string]schema.Attribute{
+					"aws": schema.SingleNestedAttribute{
+						Description:   "AWS configuration",
+						Optional:      true,
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
+						Attributes: map[string]schema.Attribute{
+							"transit_gateway_id": schema.StringAttribute{
+								Description: "Transit Gateway ID. Must match pattern `^tgw-[0-9a-f]{8,}$`.",
+								Required:    true,
+								Validators: []validator.String{stringvalidator.RegexMatches(
+									regexp.MustCompile(`^tgw-[0-9a-f]{8,}$`),
+									"must be a valid AWS Transit Gateway ID (e.g., tgw-0123456789abcdef0)",
+								)},
+							},
+						},
+					},
 					"azure": schema.SingleNestedAttribute{
 						Description:   "Azure configuration",
 						Optional:      true,
