@@ -1053,6 +1053,8 @@ attributes:
           type: Int32Attribute
           optional: true
           computed: true
+          validators:
+            - validators.ClearedWhenDisabledInt32Validator
           plan_modifiers:
             - cluster.pinInt32StateUnlessSiblingRises
         - name: url
@@ -1070,6 +1072,7 @@ attributes:
           optional: true
           computed: true
           validators:
+            - validators.ClearedWhenDisabledListValidator
             - listvalidator.sizeAtMostValidator
           plan_modifiers:
             - cluster.pinStateUnlessSiblingRises

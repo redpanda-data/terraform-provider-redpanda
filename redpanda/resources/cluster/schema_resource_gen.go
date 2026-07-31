@@ -23,6 +23,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
@@ -1192,13 +1193,14 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						Optional:      true,
 						Computed:      true,
 						PlanModifiers: []planmodifier.Int32{rpsqlReplicasStatePin()},
+						Validators:    []validator.Int32{validators.ClearedWhenDisabledInt32Validator{Enabled: path.Root("rpsql").AtName("enabled")}},
 					},
 					"zones": schema.ListAttribute{
 						Description:   "Zones. Must have at most 1 items.",
 						Optional:      true,
 						Computed:      true,
 						PlanModifiers: []planmodifier.List{rpsqlZonesStatePin()},
-						Validators:    []validator.List{listvalidator.SizeAtMost(1)},
+						Validators:    append([]validator.List{validators.ClearedWhenDisabledListValidator{Enabled: path.Root("rpsql").AtName("enabled")}}, listvalidator.SizeAtMost(1)),
 						ElementType:   types.StringType,
 					},
 					"url": schema.StringAttribute{

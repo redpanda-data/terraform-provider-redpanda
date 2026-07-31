@@ -1264,6 +1264,20 @@ func TestIntegration_Cluster_UpdateLeaf_Rpsql(t *testing.T) {
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("version"), knownvalue.StringExact("")),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
+			// Explicit zones alongside enabled=false are rejected at plan time:
+			// the control plane would clear them, and Terraform requires
+			// plan==config for a known Optional value, so no plan modifier can
+			// reconcile the pair — only a config validator.
+			{
+				Config:      awsDedicatedConfig(name, `rpsql = { enabled = false, zones = ["use1-az1"] }`),
+				ExpectError: regexp.MustCompile("cannot be set while"),
+			},
+			// Same for a non-zero replicas; an explicit 0 stays legal because it
+			// matches the server's cleared value.
+			{
+				Config:      awsDedicatedConfig(name, `rpsql = { enabled = false, replicas = 3 }`),
+				ExpectError: regexp.MustCompile("cannot be set while"),
+			},
 			// Re-enable after a disable: the server cleared zones, so this is a
 			// fresh enable again and the defaulter re-assigns the first cluster
 			// zone.

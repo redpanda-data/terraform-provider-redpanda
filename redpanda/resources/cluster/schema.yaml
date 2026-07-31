@@ -552,6 +552,10 @@ rpsql:
       computed: true
       optional: true
       plan_modifiers: [PinStateUnlessRpsqlEnables]
+      # Non-zero replicas cannot ride a disabled spec: the control plane
+      # resets replicas to 0 on disable and plan==config would contradict it.
+      validator:
+        - "ClearedWhenDisabledInt32{enabled: rpsql.enabled}"
     url:
       computed_only: true
       # Server derives on enable. Same sibling-rise pin as zones: stays unknown
@@ -567,12 +571,14 @@ rpsql:
     zones:
       optional: true
       computed: true
-      # The control plane assigns the first cluster zone on enable, so the
-      # leaf must plan unknown across the enable rise for that value to land;
-      # every other plan pins state (null included). Disable keeps the pin:
-      # the leaf-expanded mask always carries rpsql.zones and an empty value
-      # would trip the control plane's immutability check.
+      # The control plane assigns the first cluster zone on enable and clears
+      # zones on disable, so the leaf must plan unknown across both edges for
+      # the server value to land; steady-state plans pin prior state (null
+      # included). Config zones alongside enabled=false can never converge
+      # (plan==config vs the server's clear), hence the validator.
       plan_modifiers: [PinStateUnlessRpsqlEnables]
+      validator:
+        - "ClearedWhenDisabledList{enabled: rpsql.enabled}"
 
 maintenance_window_config:
   optional: true
