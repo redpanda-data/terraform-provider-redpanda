@@ -307,6 +307,7 @@ type awsBYOVPCOpts struct {
 	connectSGARN string // redpanda_connect_security_group.arn (freely in-place updatable)
 	rpsql        bool   // enable Redpanda SQL and emit the rpsql_* CMR leaves
 	rpsqlSGARN   string // rpsql_security_group.arn (immutable while rpsql enabled)
+	omitRpsqlCMR bool   // with rpsql: suppress the rpsql_* CMR leaves (invalid; pins the CP rejection)
 }
 
 func awsBYOVPCConfig(o awsBYOVPCOpts) string {
@@ -316,10 +317,12 @@ func awsBYOVPCConfig(o awsBYOVPCOpts) string {
 	if o.rpsql {
 		rpsqlSG := orDefault(o.rpsqlSGARN, "arn:aws:ec2:us-east-1:123456789012:security-group/sg-rpsql")
 		rpsqlBlock = "\n  rpsql             = { enabled = true }"
-		rpsqlCMR = fmt.Sprintf(`
+		if !o.omitRpsqlCMR {
+			rpsqlCMR = fmt.Sprintf(`
       rpsql_cloud_storage_bucket               = { arn = "arn:aws:s3:::tfrp-rpsql-storage" }
       rpsql_node_group_instance_profile        = { arn = "arn:aws:iam::123456789012:instance-profile/tfrp-rpsql-ng" }
       rpsql_security_group                     = { arn = %q }`, rpsqlSG)
+		}
 	}
 	return fmt.Sprintf(`
 provider "redpanda" {}
@@ -1988,6 +1991,15 @@ func TestIntegration_Cluster_CMR_AWS(t *testing.T) {
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idSame.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
+			// 2a. Enabling rpsql WITHOUT the rpsql CMR leaves is rejected
+			// (cloudv2 validateRPSqlCMRFields on the merged BYOVPC spec).
+			{
+				Config: awsBYOVPCConfig(awsBYOVPCOpts{
+					name: name, clusterSGARN: sgA, connectSGARN: connectA,
+					rpsql: true, omitRpsqlCMR: true,
+				}),
+				ExpectError: regexp.MustCompile("rpsql_node_group_instance_profile is required"),
+			},
 			// 2. Enable rpsql AND supply the rpsql CMR leaves in one apply: in-place.
 			integration.UpdateLeafStep(clusterAddr,
 				awsBYOVPCConfig(awsBYOVPCOpts{name: name, clusterSGARN: sgA, connectSGARN: connectA, rpsql: true, rpsqlSGARN: rpsqlSGA}),

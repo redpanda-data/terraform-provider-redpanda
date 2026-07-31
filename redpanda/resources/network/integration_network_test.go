@@ -909,18 +909,59 @@ func TestIntegration_Network_RequiresReplace_GCPHubEgress(t *testing.T) {
 func TestIntegration_Network_ImportRoundTrip(t *testing.T) {
 	_, factories := integration.Setup(t)
 
-	const name = "tfrp-mock-net-import"
+	const (
+		name  = "tfrp-mock-net-import"
+		tgwID = "tgw-0123456789abcdef0"
+	)
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: factories,
 		Steps: []resource.TestStep{
 			integration.CreateStep(networkAddr,
-				inPlaceConfig(name, "aws", "dedicated", "us-east-1", "10.0.0.0/20"),
+				tgwAWSConfig(name, tgwID),
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("name"), knownvalue.StringExact(name)),
+					statecheck.ExpectKnownValue(networkAddr,
+						tfjsonpath.New("egress_spec").AtMapKey("aws").AtMapKey("transit_gateway_id"),
+						knownvalue.StringExact(tgwID)),
 					statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 				}),
 			integration.ImportRoundTripStep(networkAddr, nil, nil),
+		},
+	})
+}
+
+// TestIntegration_NetworkDataSource_Read covers the network datasource against
+// the fake, including the egress_spec mirror: the datasource must surface what
+// the resource created.
+func TestIntegration_NetworkDataSource_Read(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	const (
+		name    = "tfrp-mock-net-ds"
+		tgwID   = "tgw-0123456789abcdef0"
+		dsAddr  = "data.redpanda_network.test"
+		dsBlock = `
+data "redpanda_network" "test" {
+  id = redpanda_network.test.id
+}
+`
+	)
+	cfg := tgwAWSConfig(name, tgwID) + dsBlock
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config: cfg,
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(dsAddr, tfjsonpath.New("name"), knownvalue.StringExact(name)),
+					statecheck.ExpectKnownValue(dsAddr, tfjsonpath.New("cloud_provider"), knownvalue.StringExact("aws")),
+					statecheck.ExpectKnownValue(dsAddr,
+						tfjsonpath.New("egress_spec").AtMapKey("aws").AtMapKey("transit_gateway_id"),
+						knownvalue.StringExact(tgwID)),
+				},
+			},
 		},
 	})
 }
@@ -988,6 +1029,83 @@ func TestIntegration_Network_ErrorPath_CreateAlreadyExists(t *testing.T) {
 				inPlaceConfig(name, "aws", "dedicated", "us-east-1", "10.0.0.0/20"),
 				"already exists",
 			),
+		},
+	})
+}
+
+// TestIntegration_Network_ErrorPath_EgressArmMismatch pins the control plane's
+// CEL rule that the egress_spec arm must match the network's cloud_provider
+// (network.proto: egress_spec.matches_cloud_provider). The generated
+// protovalidate pass rejects it client-side with the proto's own message; the
+// fake mirrors the control-plane rejection as backstop.
+func TestIntegration_Network_ErrorPath_EgressArmMismatch(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	cfg := `
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-net-rg"
+}
+
+resource "redpanda_network" "test" {
+  name              = "tfrp-mock-net-egress-mismatch"
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = "gcp"
+  region            = "us-central1"
+  cluster_type      = "dedicated"
+  cidr_block        = "10.0.0.0/20"
+  egress_spec = {
+    aws = {
+      transit_gateway_id = "tgw-0123456789abcdef0"
+    }
+  }
+}
+`
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config:      cfg,
+				ExpectError: regexp.MustCompile("egress_spec.cloud_provider must match cloud_provider"),
+			},
+		},
+	})
+}
+
+// TestIntegration_Network_ErrorPath_EgressEmpty pins rejection of an
+// egress_spec block with no arm set. The CEL matches_cloud_provider rule
+// covers it (no arm ever matches cloud_provider), surfacing through the same
+// protovalidate path; the oneof-required rule backs it at the control plane.
+func TestIntegration_Network_ErrorPath_EgressEmpty(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	cfg := `
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-net-rg"
+}
+
+resource "redpanda_network" "test" {
+  name              = "tfrp-mock-net-egress-empty"
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = "aws"
+  region            = "us-east-1"
+  cluster_type      = "dedicated"
+  cidr_block        = "10.0.0.0/20"
+  egress_spec       = {}
+}
+`
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config:      cfg,
+				ExpectError: regexp.MustCompile("egress_spec.cloud_provider must match cloud_provider"),
+			},
 		},
 	})
 }

@@ -280,6 +280,9 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 	if err := rpsqlCMRImmutability(cl, upd, req.GetUpdateMask().GetPaths()); err != nil {
 		return nil, err
 	}
+	if err := rpsqlCMRRequiredOnEnable(cl, upd, req.GetUpdateMask().GetPaths()); err != nil {
+		return nil, err
+	}
 
 	// Fields whose wire type differs between ClusterUpdate and Cluster are
 	// handled explicitly; the remaining type-matched fields use proto reflection.
@@ -603,6 +606,46 @@ func rpsqlCMRImmutability(cl *controlplanev1.Cluster, upd *controlplanev1.Cluste
 		if oldV := leaf.old(oldCMR); oldV != "" && oldV != leaf.updated(newCMR) {
 			return status.Errorf(codes.InvalidArgument,
 				"%s is immutable while Redpanda SQL is enabled", leaf.name)
+		}
+	}
+	return nil
+}
+
+// rpsqlCMRRequiredOnEnable mirrors cloudv2 validateRPSqlCMRFields (mapper.go):
+// when the merged state enables Redpanda SQL on a BYOVPC cluster, every rpsql
+// CMR leaf of the cluster's arm must be non-empty in the effective spec —
+// existing value overlaid with the masked update delta. Runs before any
+// mutation so a rejection leaves the stored record untouched.
+func rpsqlCMRRequiredOnEnable(cl *controlplanev1.Cluster, upd *controlplanev1.ClusterUpdate, paths []string) error {
+	mergedEnabled := cl.GetRpsql().GetEnabled()
+	if slices.Contains(paths, "rpsql.enabled") && upd.HasRpsql() {
+		mergedEnabled = upd.GetRpsql().GetEnabled()
+	}
+	if !mergedEnabled {
+		return nil
+	}
+	oldCMR := cl.GetCustomerManagedResources()
+	newCMR := upd.GetCustomerManagedResources()
+	var arm string
+	switch {
+	case oldCMR.GetAws() != nil:
+		arm = "customer_managed_resources.aws."
+	case oldCMR.GetGcp() != nil:
+		arm = "customer_managed_resources.gcp."
+	default:
+		return nil
+	}
+	for _, leaf := range rpsqlImmutableLeaves {
+		if !strings.HasPrefix(leaf.path, arm) {
+			continue
+		}
+		effective := leaf.old(oldCMR)
+		if slices.Contains(paths, leaf.path) {
+			effective = leaf.updated(newCMR)
+		}
+		if effective == "" {
+			return status.Errorf(codes.InvalidArgument,
+				"%s is required when Redpanda SQL is enabled in BYOVPC mode", leaf.name)
 		}
 	}
 	return nil
