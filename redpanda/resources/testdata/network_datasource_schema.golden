@@ -72,7 +72,13 @@ attributes:
       type: SingleNestedAttribute
       computed: true
       attributes:
-<<<<<<< HEAD
+        - name: aws
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: transit_gateway_id
+              type: StringAttribute
+              computed: true
         - name: azure
           type: SingleNestedAttribute
           computed: true
@@ -81,13 +87,6 @@ attributes:
               type: StringAttribute
               computed: true
             - name: hub_vnet_id
-=======
-        - name: aws
-          type: SingleNestedAttribute
-          computed: true
-          attributes:
-            - name: transit_gateway_id
->>>>>>> d3c400dd (chore(generate): regenerate network schema, model, golden, and docs)
               type: StringAttribute
               computed: true
     - name: id

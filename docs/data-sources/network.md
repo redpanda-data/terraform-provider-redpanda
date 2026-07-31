@@ -104,8 +104,16 @@ Required:
 
 Read-Only:
 
-<<<<<<< HEAD
+- `aws` (Attributes) AWS configuration (see [below for nested schema](#nestedatt--egress_spec--aws))
 - `azure` (Attributes) Azure configuration (see [below for nested schema](#nestedatt--egress_spec--azure))
+
+<a id="nestedatt--egress_spec--aws"></a>
+### Nested Schema for `egress_spec.aws`
+
+Read-Only:
+
+- `transit_gateway_id` (String) Transit Gateway ID
+
 
 <a id="nestedatt--egress_spec--azure"></a>
 ### Nested Schema for `egress_spec.azure`
@@ -114,16 +122,6 @@ Read-Only:
 
 - `firewall_private_ip` (String) Firewall Private Ip
 - `hub_vnet_id` (String) Hub Vnet ID
-=======
-- `aws` (Attributes) AWS configuration (see [below for nested schema](#nestedatt--egress_spec--aws))
-
-<a id="nestedatt--egress_spec--aws"></a>
-### Nested Schema for `egress_spec.aws`
-
-Read-Only:
-
-- `transit_gateway_id` (String) Transit Gateway ID
->>>>>>> d3c400dd (chore(generate): regenerate network schema, model, golden, and docs)
 
 ## Usage
 

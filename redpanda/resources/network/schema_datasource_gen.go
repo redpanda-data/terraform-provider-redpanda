@@ -139,7 +139,16 @@ func DatasourceNetworkSchema(_ context.Context) schema.Schema {
 				Description: "Egress Spec configuration",
 				Computed:    true,
 				Attributes: map[string]schema.Attribute{
-<<<<<<< HEAD
+					"aws": schema.SingleNestedAttribute{
+						Description: "AWS configuration",
+						Computed:    true,
+						Attributes: map[string]schema.Attribute{
+							"transit_gateway_id": schema.StringAttribute{
+								Description: "Transit Gateway ID",
+								Computed:    true,
+							},
+						},
+					},
 					"azure": schema.SingleNestedAttribute{
 						Description: "Azure configuration",
 						Computed:    true,
@@ -150,14 +159,6 @@ func DatasourceNetworkSchema(_ context.Context) schema.Schema {
 							},
 							"hub_vnet_id": schema.StringAttribute{
 								Description: "Hub Vnet ID",
-=======
-					"aws": schema.SingleNestedAttribute{
-						Description: "AWS configuration",
-						Computed:    true,
-						Attributes: map[string]schema.Attribute{
-							"transit_gateway_id": schema.StringAttribute{
-								Description: "Transit Gateway ID",
->>>>>>> d3c400dd (chore(generate): regenerate network schema, model, golden, and docs)
 								Computed:    true,
 							},
 						},
