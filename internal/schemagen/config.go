@@ -52,6 +52,20 @@ type Config struct {
 	sourcePath string
 
 	maskContract *MaskContract
+
+	writeShape *WriteShapeIndex
+}
+
+// SetWriteShapeIndex attaches the create/update path index; cmd/schemagen
+// builds it from the proto descriptors before Merge.
+func (c *Config) SetWriteShapeIndex(idx *WriteShapeIndex) { c.writeShape = idx }
+
+// WriteShapeIndex returns the attached index, or nil when none was built.
+func (c *Config) WriteShapeIndex() *WriteShapeIndex {
+	if c == nil {
+		return nil
+	}
+	return c.writeShape
 }
 
 // Source returns the path this config was loaded from, or "" if hand-built.

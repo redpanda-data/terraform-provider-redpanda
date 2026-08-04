@@ -1,0 +1,213 @@
+// Copyright 2025 Redpanda Data, Inc.
+//
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
+package resources_test
+
+import (
+	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+// perClusterClients are the client fields whose RPCs cross a per-cluster
+// endpoint. Those endpoints are not serving the moment a cluster reports Ready,
+// so every call through them needs the shared retry policy.
+var perClusterClients = map[string]bool{
+	"SecretClient":   true,
+	"UserClient":     true,
+	"ACLClient":      true,
+	"TopicClient":    true,
+	"PipelineClient": true,
+	"SecurityClient": true,
+}
+
+// notYetMigrated records call sites still outside utils.DataplaneCall. It is
+// empty: every gRPC resource now goes through the shared policy. An entry here
+// needs a reason in review.
+var notYetMigrated = map[string]bool{}
+
+// outOfScope records resources this guard cannot see. Both reach Schema Registry
+// over HTTP through a local variable rather than a client field, so the AST shape
+// matched below never fires for them — and IsTransientDataplaneError reads gRPC
+// status codes, so the shared policy would not fit them unchanged either.
+//
+// They are listed rather than ignored: TestEveryResourceIsAccountedFor fails when
+// a resource is neither scanned nor named here, so a new one cannot slip past
+// this guard by using a call shape it happens not to match.
+var outOfScope = map[string]string{
+	"schema":            "Schema Registry over HTTP; has no retry at all yet",
+	"schemaregistryacl": "Schema Registry over HTTP",
+}
+
+// TestDataplaneRPCsGoThroughDataplaneCall fails when a resource issues an RPC on
+// a per-cluster client outside utils.DataplaneCall or utils.DataplaneCallOnce.
+//
+// Every retry defect found so far was a call site deciding policy for itself:
+// redpanda_pipeline's create had no retry and failed on a warm-up window;
+// redpanda_role had none and blocked three acceptance suites; redpanda_secret
+// adopted AlreadyExists unconditionally and took over another stack's secret.
+// Each was caught by a live failure. This catches the next one at unit tier.
+func TestDataplaneRPCsGoThroughDataplaneCall(t *testing.T) {
+	offenders := map[string][]string{}
+
+	// Walk this package's own tree; a relative path never contains the repo
+	// prefix, so filtering on one silently matches nothing.
+	err := filepath.WalkDir(".", func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		resource := filepath.Base(filepath.Dir(path))
+		if notYetMigrated[resource] {
+			return nil
+		}
+
+		fset := token.NewFileSet()
+		file, perr := parser.ParseFile(fset, path, nil, 0)
+		if perr != nil {
+			return perr
+		}
+
+		// Walk with a stack so each RPC call can be tested for an enclosing
+		// DataplaneCall argument.
+		var stack []ast.Node
+		ast.Inspect(file, func(n ast.Node) bool {
+			if n == nil {
+				stack = stack[:len(stack)-1]
+				return true
+			}
+			stack = append(stack, n)
+
+			call, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			sel, ok := call.Fun.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			field, ok := sel.X.(*ast.SelectorExpr)
+			if !ok || !perClusterClients[field.Sel.Name] {
+				return true
+			}
+			if enclosedByDataplaneCall(stack) {
+				return true
+			}
+			pos := fset.Position(call.Pos())
+			offenders[resource] = append(offenders[resource],
+				fmt.Sprintf("%s:%d %s", filepath.Base(path), pos.Line, sel.Sel.Name))
+			return true
+		})
+		return nil
+	})
+	require.NoError(t, err)
+
+	if len(offenders) == 0 {
+		return
+	}
+	keys := make([]string, 0, len(offenders))
+	for k := range offenders {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var report []string
+	for _, k := range keys {
+		report = append(report, k+": "+strings.Join(offenders[k], ", "))
+	}
+	t.Fatalf("per-cluster RPCs outside utils.DataplaneCall — wrap them, or use "+
+		"utils.DataplaneCallOnce if the call must not retry:\n  %s",
+		strings.Join(report, "\n  "))
+}
+
+// enclosedByDataplaneCall reports whether any ancestor is a utils.DataplaneCall
+// or utils.DataplaneCallOnce invocation.
+func enclosedByDataplaneCall(stack []ast.Node) bool {
+	for _, n := range stack {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			continue
+		}
+		sel, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok {
+			continue
+		}
+		if sel.Sel.Name == "DataplaneCall" || sel.Sel.Name == "DataplaneCallOnce" {
+			return true
+		}
+		// Generic instantiation renders as DataplaneCall[T](...).
+		if idx, ok := call.Fun.(*ast.IndexExpr); ok {
+			if s, ok := idx.X.(*ast.SelectorExpr); ok &&
+				(s.Sel.Name == "DataplaneCall" || s.Sel.Name == "DataplaneCallOnce") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// TestEveryResourceIsAccountedFor makes the guard's blind spots explicit.
+//
+// The RPC check matches calls shaped receiver.ClientField.Method(ctx, ...). A
+// resource that reaches its endpoint some other way — as the Schema Registry
+// ones do, through a local variable — is invisible to it and passes for the
+// wrong reason. This fails when a resource is neither covered nor named, so the
+// decision has to be made rather than defaulted.
+func TestEveryResourceIsAccountedFor(t *testing.T) {
+	entries, err := os.ReadDir(".")
+	require.NoError(t, err)
+
+	var unaccounted []string
+	for _, e := range entries {
+		if !e.IsDir() || e.Name() == "testdata" {
+			continue
+		}
+		name := e.Name()
+		if notYetMigrated[name] || outOfScope[name] != "" {
+			continue
+		}
+		src, rerr := os.ReadFile(filepath.Join(name, "resource_"+name+".go")) // #nosec G304 -- walking this package's own source
+		if rerr != nil {
+			// Datasource-only packages issue no per-cluster writes.
+			continue
+		}
+		usesPerClusterClient := false
+		for field := range perClusterClients {
+			if strings.Contains(string(src), "."+field+".") {
+				usesPerClusterClient = true
+				break
+			}
+		}
+		// A resource reaching a per-cluster endpoint without one of the known
+		// client fields is exactly the invisible case.
+		if !usesPerClusterClient && strings.Contains(string(src), "kclients.") {
+			unaccounted = append(unaccounted, name)
+		}
+	}
+
+	require.Empty(t, unaccounted,
+		"these reach a per-cluster endpoint through a call shape the RPC guard "+
+			"cannot see; add them to outOfScope with a reason, or give them a "+
+			"client field the guard matches: %v", unaccounted)
+}

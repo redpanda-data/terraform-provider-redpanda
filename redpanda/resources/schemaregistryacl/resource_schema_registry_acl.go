@@ -187,6 +187,11 @@ func (s *SchemaRegistryACL) Delete(ctx context.Context, request resource.DeleteR
 		return
 	}
 
+	if !model.AllowDeletion.IsNull() && !model.AllowDeletion.ValueBool() {
+		response.Diagnostics.AddError("schema registry ACL deletion not allowed", "allow_deletion is set to false")
+		return
+	}
+
 	client, err := s.getSchemaRegistryClient(ctx, &model)
 	if err != nil {
 		_, diags := utils.HandleGracefulRemoval(ctx, "schema registry ACL", model.GenerateID(), model.AllowDeletion, err, "create schema registry client")

@@ -66,38 +66,6 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	maps.Copy(compatibilityUpdateVars, updateTestCaseVars)
 	compatibilityUpdateVars["compatibility_level"] = config.StringVariable("FORWARD")
 
-	userAllowDeletionFalseVars := make(map[string]config.Variable)
-	maps.Copy(userAllowDeletionFalseVars, updateTestCaseVars)
-	userAllowDeletionFalseVars["user_allow_deletion"] = config.BoolVariable(false)
-
-	userAllowDeletionTrueVars := make(map[string]config.Variable)
-	maps.Copy(userAllowDeletionTrueVars, updateTestCaseVars)
-	userAllowDeletionTrueVars["user_allow_deletion"] = config.BoolVariable(true)
-
-	aclAllowDeletionFalseVars := make(map[string]config.Variable)
-	maps.Copy(aclAllowDeletionFalseVars, updateTestCaseVars)
-	aclAllowDeletionFalseVars["acl_allow_deletion"] = config.BoolVariable(false)
-
-	aclAllowDeletionTrueVars := make(map[string]config.Variable)
-	maps.Copy(aclAllowDeletionTrueVars, updateTestCaseVars)
-	aclAllowDeletionTrueVars["acl_allow_deletion"] = config.BoolVariable(true)
-
-	srACLAllowDeletionFalseVars := make(map[string]config.Variable)
-	maps.Copy(srACLAllowDeletionFalseVars, updateTestCaseVars)
-	srACLAllowDeletionFalseVars["sr_acl_allow_deletion"] = config.BoolVariable(false)
-
-	srACLAllowDeletionTrueVars := make(map[string]config.Variable)
-	maps.Copy(srACLAllowDeletionTrueVars, updateTestCaseVars)
-	srACLAllowDeletionTrueVars["sr_acl_allow_deletion"] = config.BoolVariable(true)
-
-	pipelineRunningVars := make(map[string]config.Variable)
-	maps.Copy(pipelineRunningVars, updateTestCaseVars)
-	pipelineRunningVars["pipeline_state"] = config.StringVariable("running")
-
-	pipelineAllowDeletionTrueVars := make(map[string]config.Variable)
-	maps.Copy(pipelineAllowDeletionTrueVars, pipelineRunningVars)
-	pipelineAllowDeletionTrueVars["pipeline_allow_deletion"] = config.BoolVariable(true)
-
 	c, err := acc.NewTestClients(ctx, acc.ClientID, acc.ClientSecret, acc.CloudEnv)
 	if err != nil {
 		t.Fatal(err)
@@ -125,13 +93,25 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	if err != nil {
 		t.Fatal(fmt.Errorf("failed to read test file: %w", err))
 	}
-	hasSchemaRegistryACL := strings.Contains(string(testFileContent), `resource "redpanda_schema_registry_acl" "read_product"`)
-	hasSchema := strings.Contains(string(testFileContent), `resource "redpanda_schema" "user_schema"`)
-	hasRole := strings.Contains(string(testFileContent), `resource "redpanda_role" "developer"`)
-	hasTopic := strings.Contains(string(testFileContent), `resource "redpanda_topic" "test"`)
-	hasPipeline := strings.Contains(string(testFileContent), `resource "redpanda_pipeline" "test"`)
-	hasPasswordWo := strings.Contains(string(testFileContent), "var.user_password_wo")
 	hasMaintenanceWindow := strings.Contains(string(testFileContent), "maintenance_window_config")
+
+	// Dataplane steps are shared with the serverless runner and gated on what
+	// this fixture actually declares.
+	dp, err := newDataplaneFixture(testFile, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The cluster ID is stable across the rename; only the lookup name changes.
+	clusterIDByName := func(lookup string) clusterIDFunc {
+		return func() (string, error) {
+			cluster, err := c.ClusterForName(ctx, lookup)
+			if err != nil {
+				return "", errors.New("test error: unable to get cluster by name")
+			}
+			return cluster.GetId(), nil
+		}
+	}
+	idBeforeRename, idAfterRename := clusterIDByName(name), clusterIDByName(rename)
 
 	if hasMaintenanceWindow {
 		checkFuncs = append(checkFuncs,
@@ -148,80 +128,10 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 			},
 		},
-		{
-			ResourceName:    acc.UserResourceName,
-			ConfigDirectory: config.StaticDirectory(testFile),
-			ConfigVariables: origTestCaseVars,
-			ImportState:     true,
-			ImportStateIdFunc: func(_ *terraform.State) (string, error) {
-				i, err := c.ClusterForName(ctx, name)
-				if err != nil {
-					return "", errors.New("test error: unable to get cluster by name")
-				}
-				importID := fmt.Sprintf("%v,%v", name, i.GetId())
-				return importID, nil
-			},
-			ImportStateCheck: func(state []*terraform.InstanceState) error {
-				attr := state[0].Attributes
-				id, user := attr["id"], attr["name"]
-				if user != name {
-					return fmt.Errorf("expected user %q; got %q", name, user)
-				}
-				if id != name {
-					return fmt.Errorf("expected ID %q; got %q", name, id)
-				}
-				if cloudURL := attr["cluster_api_url"]; cloudURL == "" {
-					return errors.New("unexpected empty cloud URL")
-				}
-				if pw, ok := attr["password"]; ok {
-					return fmt.Errorf("expected empty password; got %q", pw)
-				}
-				if allowDeletion := attr["allow_deletion"]; allowDeletion != acc.AllowDeletionFalseValue {
-					return fmt.Errorf("expected allow_deletion to default to false; got %q", allowDeletion)
-				}
-				return nil
-			},
-			ImportStateVerifyIgnore:  []string{"tags"},
-			ProtoV6ProviderFactories: acc.ProtoV6Factories,
-		},
-		{
-			ResourceName:    acc.UserResourceName,
-			ConfigDirectory: config.StaticDirectory(testFile),
-			ConfigVariables: origTestCaseVars,
-			ImportState:     true,
-			ImportStateIdFunc: func(_ *terraform.State) (string, error) {
-				i, err := c.ClusterForName(ctx, name)
-				if err != nil {
-					return "", errors.New("test error: unable to get cluster by name")
-				}
-				importID := fmt.Sprintf("%v,%v,test-password,SCRAM-SHA-256", name, i.GetId())
-				return importID, nil
-			},
-			ImportStateCheck: func(state []*terraform.InstanceState) error {
-				attr := state[0].Attributes
-				if attr["name"] != name {
-					return fmt.Errorf("expected user name %q; got %q", name, attr["name"])
-				}
-				if attr["id"] != name {
-					return fmt.Errorf("expected ID %q; got %q", name, attr["id"])
-				}
-				if attr["password"] != "test-password" {
-					return fmt.Errorf("expected password 'test-password'; got %q", attr["password"])
-				}
-				if !strings.EqualFold(attr["mechanism"], "SCRAM-SHA-256") {
-					return fmt.Errorf("expected mechanism 'scram-sha-256' (case-insensitive); got %q", attr["mechanism"])
-				}
-				if cloudURL := attr["cluster_api_url"]; cloudURL == "" {
-					return errors.New("unexpected empty cloud URL")
-				}
-				if allowDeletion := attr["allow_deletion"]; allowDeletion != acc.AllowDeletionFalseValue {
-					return fmt.Errorf("expected allow_deletion to default to false; got %q", allowDeletion)
-				}
-				return nil
-			},
-			ImportStateVerifyIgnore:  []string{"tags"},
-			ProtoV6ProviderFactories: acc.ProtoV6Factories,
-		},
+	}
+	// Pre-rename: the user import resolves the cluster by its original name.
+	steps = append(steps, dp.UserImportSteps(origTestCaseVars, idBeforeRename)...)
+	steps = append(steps, []resource.TestStep{
 		{
 			ResourceName:             acc.ClusterResourceName,
 			ConfigDirectory:          config.StaticDirectory(testFile),
@@ -244,108 +154,8 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 			},
 		},
-		{
-			ConfigDirectory:          config.StaticDirectory(testFile),
-			ConfigVariables:          userAllowDeletionFalseVars,
-			ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			Check: resource.ComposeAggregateTestCheckFunc(
-				resource.TestCheckResourceAttr(acc.UserResourceName, "allow_deletion", "false"),
-				resource.TestCheckResourceAttr(acc.ClusterResourceName, "name", rename),
-			),
-		},
-		{
-			ConfigDirectory:          config.StaticDirectory(testFile),
-			ConfigVariables:          userAllowDeletionTrueVars,
-			ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			Check: resource.ComposeAggregateTestCheckFunc(
-				resource.TestCheckResourceAttr(acc.UserResourceName, "allow_deletion", "true"),
-				resource.TestCheckResourceAttr(acc.ClusterResourceName, "name", rename),
-			),
-		},
-		{
-			ConfigDirectory:          config.StaticDirectory(testFile),
-			ConfigVariables:          aclAllowDeletionFalseVars,
-			ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			Check: resource.ComposeAggregateTestCheckFunc(
-				func() resource.TestCheckFunc {
-					testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
-					if err != nil {
-						return func(_ *terraform.State) error {
-							return fmt.Errorf("failed to read test file: %w", err)
-						}
-					}
-					aclResourceName := acc.ClusterAdminACLResourceName
-					if strings.Contains(string(testFileContent), `resource "redpanda_acl" "topic_access"`) {
-						aclResourceName = acc.TopicAccessACLResourceName
-					}
-					return resource.TestCheckResourceAttr(aclResourceName, "allow_deletion", "false")
-				}(),
-				resource.TestCheckResourceAttr(acc.UserResourceName, "allow_deletion", "true"),
-			),
-		},
-		{
-			ConfigDirectory:          config.StaticDirectory(testFile),
-			ConfigVariables:          aclAllowDeletionTrueVars,
-			ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			Check: resource.ComposeAggregateTestCheckFunc(
-				func() resource.TestCheckFunc {
-					testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
-					if err != nil {
-						return func(_ *terraform.State) error {
-							return fmt.Errorf("failed to read test file: %w", err)
-						}
-					}
-					aclResourceName := acc.ClusterAdminACLResourceName
-					if strings.Contains(string(testFileContent), `resource "redpanda_acl" "topic_access"`) {
-						aclResourceName = acc.TopicAccessACLResourceName
-					}
-					return resource.TestCheckResourceAttr(aclResourceName, "allow_deletion", "true")
-				}(),
-				resource.TestCheckResourceAttr(acc.UserResourceName, "allow_deletion", "true"),
-			),
-		},
-		{
-			ConfigDirectory:          config.StaticDirectory(testFile),
-			ConfigVariables:          srACLAllowDeletionFalseVars,
-			ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			Check: resource.ComposeAggregateTestCheckFunc(
-				func() resource.TestCheckFunc {
-					testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
-					if err != nil {
-						return func(_ *terraform.State) error {
-							return fmt.Errorf("failed to read test file: %w", err)
-						}
-					}
-					if strings.Contains(string(testFileContent), `resource "redpanda_schema_registry_acl" "read_product"`) {
-						return resource.TestCheckResourceAttr(acc.SchemaRegistryACLReadProductName, "allow_deletion", "false")
-					}
-					return func(_ *terraform.State) error {
-						return nil
-					}
-				}(),
-			),
-		},
-		{
-			ConfigDirectory:          config.StaticDirectory(testFile),
-			ConfigVariables:          srACLAllowDeletionTrueVars,
-			ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			Check: resource.ComposeAggregateTestCheckFunc(
-				func() resource.TestCheckFunc {
-					testFileContent, err := os.ReadFile(testFile + "/main.tf") // #nosec G304 -- testFile is controlled by test constants
-					if err != nil {
-						return func(_ *terraform.State) error {
-							return fmt.Errorf("failed to read test file: %w", err)
-						}
-					}
-					if strings.Contains(string(testFileContent), `resource "redpanda_schema_registry_acl" "read_product"`) {
-						return resource.TestCheckResourceAttr(acc.SchemaRegistryACLReadProductName, "allow_deletion", "true")
-					}
-					return func(_ *terraform.State) error {
-						return nil
-					}
-				}(),
-			),
-		},
+	}...)
+	steps = append(steps, []resource.TestStep{
 		{
 			ConfigDirectory:          config.StaticDirectory(testFile),
 			ConfigVariables:          compatibilityUpdateVars,
@@ -370,7 +180,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 				}(),
 			),
 		},
-	}
+	}...)
 
 	fieldMutationVars := make(map[string]config.Variable)
 	maps.Copy(fieldMutationVars, updateTestCaseVars)
@@ -387,7 +197,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 		fieldMutationChecks = append(fieldMutationChecks,
 			resource.TestCheckResourceAttr(acc.ClusterResourceName, "maintenance_window_config.day_hour.hour_of_day", "3"))
 	}
-	if hasTopic {
+	if dp.Topic {
 		fieldMutationVars["partition_count"] = config.IntegerVariable(6)
 		fieldMutationVars["topic_retention_ms"] = config.StringVariable("3600000")
 		fieldMutationChecks = append(fieldMutationChecks,
@@ -402,84 +212,10 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 		Check:                    resource.ComposeAggregateTestCheckFunc(fieldMutationChecks...),
 	})
 
-	// Topic-configuration empty-plan-guard pair: flip topic_configuration to {}
-	// then back to the basic config. Both steps assert ExpectEmptyPlan to pin
-	// the redpanda.* strip branch in mergeWithPlannedConfig — without it, the
-	// post-v26.1.1 broker injection of redpanda.storage.mode would force a
-	// perpetual plan diff.
-	if hasTopic {
-		topicNoConfigVars := make(map[string]config.Variable)
-		maps.Copy(topicNoConfigVars, fieldMutationVars)
-		topicNoConfigVars["topic_configuration"] = config.MapVariable(map[string]config.Variable{})
-
-		steps = append(steps,
-			resource.TestStep{
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          topicNoConfigVars,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(acc.TopicResourceName, "configuration.%", "0"),
-				),
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
-				},
-			},
-			resource.TestStep{
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          fieldMutationVars,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(acc.TopicResourceName, "configuration.cleanup.policy", "delete"),
-					resource.TestCheckResourceAttr(acc.TopicResourceName, "configuration.retention.ms", "3600000"),
-				),
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
-				},
-			},
-		)
-	}
-
-	// max.compaction.lag.ms regression (issue #355): the broker accepts this
-	// noop config, ignores it, and echoes back a clamped value (LONG_MAX is
-	// stored as the max chrono duration in ms, 9223372036854). The provider
-	// must report the user's value so apply does not fail with "inconsistent
-	// result after apply" and the re-plan is empty. Pair the LONG_MAX step with
-	// a flip back to the basic config (broker reports the unset key with a
-	// non-dynamic source, so it is filtered out of state).
-	if hasTopic {
-		longMaxVars := make(map[string]config.Variable)
-		maps.Copy(longMaxVars, fieldMutationVars)
-		longMaxVars["topic_configuration"] = config.MapVariable(map[string]config.Variable{
-			"cleanup.policy":        config.StringVariable("delete"),
-			"retention.ms":          config.StringVariable("3600000"),
-			"max.compaction.lag.ms": config.StringVariable("9223372036854775807"),
-		})
-
-		steps = append(steps,
-			resource.TestStep{
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          longMaxVars,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(acc.TopicResourceName, "configuration.max.compaction.lag.ms", "9223372036854775807"),
-				),
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
-				},
-			},
-			resource.TestStep{
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          fieldMutationVars,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckNoResourceAttr(acc.TopicResourceName, "configuration.max.compaction.lag.ms"),
-				),
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
-				},
-			},
-		)
-	}
+	// Topic-configuration regressions: the redpanda.* strip branch and the
+	// max.compaction.lag.ms clamp (issue #355). Both pin ExpectEmptyPlan.
+	steps = append(steps, dp.TopicConfigSteps(fieldMutationVars)...)
+	steps = append(steps, dp.TopicClampRegressionSteps(fieldMutationVars)...)
 
 	zonesSentinelVars := make(map[string]config.Variable)
 	maps.Copy(zonesSentinelVars, fieldMutationVars)
@@ -506,7 +242,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 		ProtoV6ProviderFactories: acc.ProtoV6Factories,
 	})
 
-	if hasTopic {
+	if dp.Topic {
 		rfSentinelVars := make(map[string]config.Variable)
 		maps.Copy(rfSentinelVars, fieldMutationVars)
 		rfSentinelVars["replication_factor"] = config.IntegerVariable(1)
@@ -519,277 +255,19 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 		})
 	}
 
-	if hasSchemaRegistryACL {
-		steps = append(steps, resource.TestStep{
-			ResourceName:    acc.SchemaRegistryACLReadProductName,
-			ConfigDirectory: config.StaticDirectory(testFile),
-			ConfigVariables: updateTestCaseVars,
-			ImportState:     true,
-			ImportStateIdFunc: func(state *terraform.State) (string, error) {
-				rs, ok := state.RootModule().Resources[acc.SchemaRegistryACLReadProductName]
-				if !ok {
-					return "", errors.New("schema registry ACL resource not found in state")
-				}
+	// Post-rename: every remaining dataplane import resolves the cluster by its
+	// new name. Gated per resource, so a scope that dropped one drops its import.
+	steps = append(steps, dp.ImportSteps(updateTestCaseVars, idAfterRename)...)
 
-				clusterID := rs.Primary.Attributes["cluster_id"]
-				principal := rs.Primary.Attributes["principal"]
-				resourceType := rs.Primary.Attributes["resource_type"]
-				resourceName := rs.Primary.Attributes["resource_name"]
-				patternType := rs.Primary.Attributes["pattern_type"]
-				host := rs.Primary.Attributes["host"]
-				operation := rs.Primary.Attributes["operation"]
-				permission := rs.Primary.Attributes["permission"]
-				username := rs.Primary.Attributes["username"]
-				password := rs.Primary.Attributes["password"]
+	steps = append(steps, dp.PasswordWoRotationStep(fieldMutationVars, func(password string) error {
+		id, err := idAfterRename()
+		if err != nil {
+			return err
+		}
+		return acc.VerifySRAuth(ctx, c, id, name, password)
+	})...)
 
-				// Bearer-primary: 8-field form when the fixture didn't set
-				// username/password. Basic auth appends ,username,password.
-				if username == "" && password == "" {
-					return fmt.Sprintf("%s,%s,%s,%s,%s,%s,%s,%s",
-						clusterID, principal, resourceType, resourceName, patternType, host, operation, permission), nil
-				}
-				return fmt.Sprintf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s",
-					clusterID, principal, resourceType, resourceName, patternType, host, operation, permission, username, password), nil
-			},
-			ImportStateCheck: func(state []*terraform.InstanceState) error {
-				attr := state[0].Attributes
-				if attr["cluster_id"] == "" {
-					return errors.New("expected non-empty cluster_id")
-				}
-				if attr["principal"] == "" {
-					return errors.New("expected non-empty principal")
-				}
-				if attr["resource_type"] != "SUBJECT" {
-					return fmt.Errorf("expected resource_type SUBJECT; got %q", attr["resource_type"])
-				}
-				if attr["resource_name"] != "product-" {
-					return fmt.Errorf("expected resource_name 'product-'; got %q", attr["resource_name"])
-				}
-				if attr["pattern_type"] != "PREFIXED" {
-					return fmt.Errorf("expected pattern_type PREFIXED; got %q", attr["pattern_type"])
-				}
-				if attr["host"] == "" {
-					return errors.New("expected non-empty host")
-				}
-				if attr["operation"] != "READ" {
-					return fmt.Errorf("expected operation READ; got %q", attr["operation"])
-				}
-				if attr["permission"] != "ALLOW" {
-					return fmt.Errorf("expected permission ALLOW; got %q", attr["permission"])
-				}
-				if attr["id"] == "" {
-					return errors.New("expected non-empty id")
-				}
-				if allowDeletion := attr["allow_deletion"]; allowDeletion != acc.AllowDeletionFalseValue {
-					return fmt.Errorf("expected allow_deletion to default to false; got %q", allowDeletion)
-				}
-				return nil
-			},
-			ProtoV6ProviderFactories: acc.ProtoV6Factories,
-		})
-	}
-
-	if hasSchema {
-		steps = append(steps, resource.TestStep{
-			ResourceName:    acc.SchemaResourceName,
-			ConfigDirectory: config.StaticDirectory(testFile),
-			ConfigVariables: updateTestCaseVars,
-			ImportState:     true,
-			ImportStateIdFunc: func(state *terraform.State) (string, error) {
-				rs, ok := state.RootModule().Resources[acc.SchemaResourceName]
-				if !ok {
-					return "", errors.New("schema resource not found in state")
-				}
-
-				clusterID := rs.Primary.Attributes["cluster_id"]
-				subject := rs.Primary.Attributes["subject"]
-				version := rs.Primary.Attributes["version"]
-				username := rs.Primary.Attributes["username"]
-				password := rs.Primary.Attributes["password"]
-
-				// Bearer-primary: 3-field form when the fixture didn't set
-				// username/password. Basic auth appends ,username,password.
-				if username == "" && password == "" {
-					return fmt.Sprintf("%s,%s,%s", clusterID, subject, version), nil
-				}
-				return fmt.Sprintf("%s,%s,%s,%s,%s",
-					clusterID, subject, version, username, password), nil
-			},
-			ImportStateCheck: func(state []*terraform.InstanceState) error {
-				attr := state[0].Attributes
-				if attr["subject"] != name+"-value" {
-					return fmt.Errorf("expected subject %q; got %q", name+"-value", attr["subject"])
-				}
-				if attr["schema_type"] != "AVRO" {
-					return fmt.Errorf("expected schema_type AVRO; got %q", attr["schema_type"])
-				}
-				if attr["version"] == "" {
-					return errors.New("expected non-empty version")
-				}
-				if attr["id"] == "" {
-					return errors.New("expected non-empty id")
-				}
-				if attr["cluster_id"] == "" {
-					return errors.New("expected non-empty cluster_id")
-				}
-				if allowDeletion := attr["allow_deletion"]; allowDeletion != acc.AllowDeletionFalseValue {
-					return fmt.Errorf("expected allow_deletion to default to false; got %q", allowDeletion)
-				}
-				return nil
-			},
-			ProtoV6ProviderFactories: acc.ProtoV6Factories,
-		})
-	}
-
-	if hasRole {
-		steps = append(steps, resource.TestStep{
-			ResourceName:    acc.RoleResourceName,
-			ConfigDirectory: config.StaticDirectory(testFile),
-			ConfigVariables: updateTestCaseVars,
-			ImportState:     true,
-			ImportStateIdFunc: func(_ *terraform.State) (string, error) {
-				cluster, err := c.ClusterForName(ctx, rename)
-				if err != nil {
-					return "", errors.New("test error: unable to get cluster by name")
-				}
-				importID := fmt.Sprintf("developer,%v", cluster.GetId())
-				return importID, nil
-			},
-			ImportStateCheck: func(state []*terraform.InstanceState) error {
-				attr := state[0].Attributes
-				if attr["name"] != "developer" {
-					return fmt.Errorf("expected role name 'developer'; got %q", attr["name"])
-				}
-				if attr["id"] != "developer" {
-					return fmt.Errorf("expected ID 'developer'; got %q", attr["id"])
-				}
-				if cloudURL := attr["cluster_api_url"]; cloudURL == "" {
-					return errors.New("expected cluster_api_url to be set after import")
-				}
-				if allowDeletion := attr["allow_deletion"]; allowDeletion != acc.AllowDeletionFalseValue {
-					return fmt.Errorf("expected allow_deletion to default to false; got %q", allowDeletion)
-				}
-				return nil
-			},
-			ImportStateVerifyIgnore:  []string{"tags"},
-			ProtoV6ProviderFactories: acc.ProtoV6Factories,
-		})
-	}
-
-	if hasTopic {
-		steps = append(steps, resource.TestStep{
-			ResourceName:    acc.TopicResourceName,
-			ConfigDirectory: config.StaticDirectory(testFile),
-			ConfigVariables: updateTestCaseVars,
-			ImportState:     true,
-			ImportStateIdFunc: func(_ *terraform.State) (string, error) {
-				cluster, err := c.ClusterForName(ctx, rename)
-				if err != nil {
-					return "", errors.New("test error: unable to get cluster by name")
-				}
-				importID := fmt.Sprintf("%s,%v", name, cluster.GetId())
-				return importID, nil
-			},
-			ImportStateCheck: func(state []*terraform.InstanceState) error {
-				attr := state[0].Attributes
-				if attr["name"] != name {
-					return fmt.Errorf("expected topic name %q; got %q", name, attr["name"])
-				}
-				if attr["id"] != name {
-					return fmt.Errorf("expected ID %q; got %q", name, attr["id"])
-				}
-				if cloudURL := attr["cluster_api_url"]; cloudURL == "" {
-					return errors.New("expected cluster_api_url to be set after import")
-				}
-				if allowDeletion := attr["allow_deletion"]; allowDeletion != acc.AllowDeletionFalseValue {
-					return fmt.Errorf("expected allow_deletion to default to false; got %q", allowDeletion)
-				}
-				return nil
-			},
-			ImportStateVerifyIgnore:  []string{"tags"},
-			ProtoV6ProviderFactories: acc.ProtoV6Factories,
-		})
-	}
-
-	if hasPasswordWo {
-		passwordWoRotationVars := make(map[string]config.Variable)
-		maps.Copy(passwordWoRotationVars, fieldMutationVars)
-		passwordWoRotationVars["user_password_wo"] = config.StringVariable("rotated-secret-v1")
-		passwordWoRotationVars["user_password_wo_version"] = config.IntegerVariable(1)
-		steps = append(steps, resource.TestStep{
-			ConfigDirectory:          config.StaticDirectory(testFile),
-			ConfigVariables:          passwordWoRotationVars,
-			ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			Check: resource.ComposeAggregateTestCheckFunc(
-				resource.TestCheckResourceAttr(acc.UserResourceName, "password_wo_version", "1"),
-				func(_ *terraform.State) error {
-					return acc.VerifySRAuth(ctx, c, rename, name, "rotated-secret-v1")
-				},
-			),
-			ConfigPlanChecks: resource.ConfigPlanChecks{
-				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
-			},
-		})
-	}
-
-	if hasPipeline {
-		steps = append(steps,
-			resource.TestStep{
-				ResourceName:    acc.PipelineResourceName,
-				ConfigDirectory: config.StaticDirectory(testFile),
-				ConfigVariables: updateTestCaseVars,
-				ImportState:     true,
-				ImportStateIdFunc: func(state *terraform.State) (string, error) {
-					rs, ok := state.RootModule().Resources[acc.PipelineResourceName]
-					if !ok {
-						return "", errors.New("pipeline resource not found in state")
-					}
-					pipelineID := rs.Primary.Attributes["id"]
-					cluster, err := c.ClusterForName(ctx, rename)
-					if err != nil {
-						return "", errors.New("test error: unable to get cluster by name")
-					}
-					importID := fmt.Sprintf("%s,%v", pipelineID, cluster.GetId())
-					return importID, nil
-				},
-				ImportStateCheck: func(state []*terraform.InstanceState) error {
-					attr := state[0].Attributes
-					if attr["id"] == "" {
-						return errors.New("expected non-empty id")
-					}
-					if attr["display_name"] != "test-pipeline" {
-						return fmt.Errorf("expected display_name 'test-pipeline'; got %q", attr["display_name"])
-					}
-					if cloudURL := attr["cluster_api_url"]; cloudURL == "" {
-						return errors.New("expected cluster_api_url to be set after import")
-					}
-					if attr["state"] == "" {
-						return errors.New("expected non-empty state")
-					}
-					return nil
-				},
-				ImportStateVerifyIgnore:  []string{"config_yaml", "description", "resources", "tags"},
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			},
-			resource.TestStep{
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          pipelineRunningVars,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(acc.PipelineResourceName, "state", "running"),
-				),
-			},
-			// Enable deletion for cleanup - pipeline defaults to allow_deletion=false
-			resource.TestStep{
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          pipelineAllowDeletionTrueVars,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(acc.PipelineResourceName, "allow_deletion", "true"),
-				),
-			},
-		)
-	}
+	steps = append(steps, dp.PipelineSteps(updateTestCaseVars, idAfterRename)...)
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { acc.PreCheck(t) },

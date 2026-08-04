@@ -35,6 +35,8 @@ allow_deletion:
   minimal_default: true
 
 api_gateway_access:
+  optional: true
+  computed: true
 
 aws_private_link:
   optional: true
@@ -50,9 +52,15 @@ aws_private_link:
       required: true
     status:
       computed_only: true
+      # Plans known-null when the block is disabled (the CP returns no
+      # private-link block at all), else UseNonNullStateForUnknown.
+      plan_modifiers: [NullWhenPrivateLinkDisabled]
     supported_regions:
       optional: true
       computed: true
+      # Plans known-null when aws_private_link is disabled, else
+      # UseStateForUnknown.
+      plan_modifiers: [NullWhenPrivateLinkDisabled]
     http_proxy_auth_mode:
       todo: true
     kafka_api_auth_mode:
@@ -72,6 +80,9 @@ azure_private_link:
       required: true
     status:
       computed_only: true
+      # Plans known-null when the block is disabled (the CP returns no
+      # private-link block at all), else UseNonNullStateForUnknown.
+      plan_modifiers: [NullWhenPrivateLinkDisabled]
 
     http_proxy_auth_mode:
       todo: true
@@ -97,12 +108,18 @@ tags:
   expand_via: TagsForProto
 
 cloud_storage:
+  optional: true
+  computed: true
   fields:
     aws:
+      optional: true
+      computed: true
       fields:
         arn:
           computed_only: true
     azure:
+      optional: true
+      computed: true
       fields:
         container_name:
           computed_only: true
@@ -117,6 +134,8 @@ cloud_storage:
         subscription_id:
           todo: true
     gcp:
+      optional: true
+      computed: true
       fields:
         name:
           computed_only: true
@@ -131,6 +150,8 @@ cluster_api_url:
   flatten_via: clusterAPIURLFromProto
 
 cluster_configuration:
+  optional: true
+  computed: true
   validator: ClusterConfiguration
   fields:
     custom_properties:
@@ -165,53 +186,61 @@ customer_managed_resources:
   fields:
     aws:
       computed: false
-      plan_modifiers: [RequiresReplace]
       optional: true
       fields:
         agent_instance_profile:
           required: true
           fields:
             arn:
+              plan_modifiers: [RequiresReplace]
               required: true
         cloud_storage_bucket:
           required: true
           fields:
             arn:
+              plan_modifiers: [RequiresReplace]
               required: true
         cluster_security_group:
           required: true
           fields:
             arn:
+              plan_modifiers: [RequiresReplace]
               required: true
         connectors_node_group_instance_profile:
           required: true
           fields:
             arn:
+              plan_modifiers: [RequiresReplace]
               required: true
         connectors_security_group:
           required: true
           fields:
             arn:
+              plan_modifiers: [RequiresReplace]
               required: true
         k8s_cluster_role:
           required: true
           fields:
             arn:
+              plan_modifiers: [RequiresReplace]
               required: true
         node_security_group:
           required: true
           fields:
             arn:
+              plan_modifiers: [RequiresReplace]
               required: true
         permissions_boundary_policy:
           required: true
           fields:
             arn:
+              plan_modifiers: [RequiresReplace]
               required: true
         redpanda_agent_security_group:
           required: true
           fields:
             arn:
+              plan_modifiers: [RequiresReplace]
               required: true
         redpanda_connect_node_group_instance_profile:
           computed: false
@@ -229,21 +258,25 @@ customer_managed_resources:
           required: true
           fields:
             arn:
+              plan_modifiers: [RequiresReplace]
               required: true
         redpanda_node_group_security_group:
           required: true
           fields:
             arn:
+              plan_modifiers: [RequiresReplace]
               required: true
         utility_node_group_instance_profile:
           required: true
           fields:
             arn:
+              plan_modifiers: [RequiresReplace]
               required: true
         utility_security_group:
           required: true
           fields:
             arn:
+              plan_modifiers: [RequiresReplace]
               required: true
         # Redpanda SQL BYOVPC infrastructure: only meaningful when rpsql is
         # enabled, so optional unlike the required siblings.
@@ -267,7 +300,6 @@ customer_managed_resources:
               required: true
     gcp:
       computed: false
-      plan_modifiers: [RequiresReplace]
       optional: true
       fields:
         agent_service_account:
@@ -296,7 +328,6 @@ customer_managed_resources:
               required: true
         psc_nat_subnet_name:
           computed: false
-          plan_modifiers: [RequiresReplace]
           optional: true
         redpanda_cluster_service_account:
           required: true
@@ -311,14 +342,12 @@ customer_managed_resources:
           optional: true
           fields:
             email:
-              plan_modifiers: [RequiresReplace]
               required: true
         rpsql_cloud_storage_bucket:
           computed: false
           optional: true
           fields:
             name:
-              plan_modifiers: [RequiresReplace]
               required: true
         rpsql_secret_manager_prefix:
           computed: false
@@ -328,7 +357,6 @@ customer_managed_resources:
           optional: true
           fields:
             email:
-              plan_modifiers: [RequiresReplace]
               required: true
         subnet:
           required: true
@@ -415,6 +443,9 @@ gcp_private_service_connect:
       required: true
     status:
       computed_only: true
+      # Plans known-null when the block is disabled (the CP returns no
+      # private-link block at all), else UseNonNullStateForUnknown.
+      plan_modifiers: [NullWhenPrivateLinkDisabled]
 
     http_proxy_auth_mode:
       todo: true
@@ -423,22 +454,32 @@ gcp_private_service_connect:
     schema_registry_auth_mode:
       todo: true
 http_proxy:
+  optional: true
+  computed: true
   fields:
     all_urls:
       computed_only: true
     mtls:
+      optional: true
+      computed: true
       fields:
         ca_certificates_pem:
           computed: false
           optional: true
         enabled:
+          optional: true
+          computed: true
           default: false
         principal_mapping_rules:
           computed: false
           optional: true
     sasl:
+      optional: true
+      computed: true
       fields:
         enabled:
+          optional: true
+          computed: true
     url:
       computed_only: true
 
@@ -448,46 +489,73 @@ id:
   computed_only: true
 
 kafka_api:
+  optional: true
+  computed: true
   fields:
     all_seed_brokers:
       computed_only: true
     mtls:
+      optional: true
+      computed: true
       fields:
         ca_certificates_pem:
           computed: false
           optional: true
         enabled:
+          optional: true
+          computed: true
           default: false
         principal_mapping_rules:
           computed: false
           optional: true
     sasl:
+      optional: true
+      computed: true
       fields:
         enabled:
+          optional: true
+          computed: true
     seed_brokers:
       computed_only: true
 
     connections:
       todo: true
 kafka_connect:
+  optional: true
+  computed: true
   fields:
     enabled:
+      optional: true
+      computed: true
       default: false
 
 rpsql:
   # Defer the message CEL rule (replicas>=1 when enabled) to apply: it runs on
-  # raw config, before the replicas Default, so it would falsely reject configs
-  # relying on the default (cf. user.mechanism).
+  # raw config before rpsqlReplicasStatePin seeds replicas=1 on enable, so it
+  # would falsely reject an enable that omits replicas (cf. user.mechanism). The
+  # control plane still enforces it on the payload.
   skip_proto_validation: true
+  optional: true
+  computed: true
   fields:
-    # Default seeds on create; UseStateForUnknown carries the value across
-    # updates when omitted (else replicas plans <1 and trips the CEL rule).
     enabled:
+      optional: true
+      computed: true
       default: false
       plan_modifiers: [UseStateForUnknown]
     replicas:
-      default: 1
-      plan_modifiers: [UseStateForUnknown]
+      # No static default: the control plane reports replicas 0 while Redpanda
+      # SQL is disabled (bare oxla spec) and defaults to 1 on enable, so the leaf
+      # must reflect the server value. The pin holds prior state (0 while
+      # disabled) but stays unknown across an enable rise so the server default
+      # lands; the deferred CEL (replicas>=1 when enabled) is enforced server-side.
+      computed: true
+      optional: true
+      plan_modifiers: [PinStateUnlessRpsqlEnables]
+      # Non-zero replicas cannot ride a disabled spec: the control plane
+      # resets replicas to 0 on disable and plan==config would contradict it.
+      validator:
+        - "ClearedWhenDisabledInt32{enabled: rpsql.enabled}"
     url:
       computed_only: true
       # Server derives on enable. Same sibling-rise pin as zones: stays unknown
@@ -503,14 +571,18 @@ rpsql:
     zones:
       optional: true
       computed: true
-      # The control plane assigns the first cluster zone on enable, so the
-      # leaf must plan unknown across the enable rise for that value to land;
-      # every other plan pins state (null included). Disable keeps the pin:
-      # the leaf-expanded mask always carries rpsql.zones and an empty value
-      # would trip the control plane's immutability check.
+      # The control plane assigns the first cluster zone on enable and clears
+      # zones on disable, so the leaf must plan unknown across both edges for
+      # the server value to land; steady-state plans pin prior state (null
+      # included). Config zones alongside enabled=false can never converge
+      # (plan==config vs the server's clear), hence the validator.
       plan_modifiers: [PinStateUnlessRpsqlEnables]
+      validator:
+        - "ClearedWhenDisabledList{enabled: rpsql.enabled}"
 
 maintenance_window_config:
+  optional: true
+  computed: true
   fields:
     anytime:
       computed: false
@@ -554,6 +626,8 @@ redpanda_console:
   computed_only: true
 
 redpanda_node_count:
+  optional: true
+  computed: true
 
 redpanda_version:
   extra: true
@@ -568,6 +642,8 @@ resource_group_id:
   required: true
 
 schema_registry:
+  optional: true
+  computed: true
   fields:
     all_urls:
       computed_only: true
@@ -579,6 +655,8 @@ schema_registry:
           computed: false
           optional: true
         enabled:
+          optional: true
+          computed: true
           default: false
         principal_mapping_rules:
           computed: false

@@ -17,7 +17,6 @@ package role
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -63,15 +62,8 @@ func NewRole() *Role {
 			r.resData = p
 			if r.clientFactory == nil {
 				r.clientFactory = func(ctx context.Context, clusterURL string, _ oauth2.TokenSource, _, _ string) (consolev1alpha1grpc.SecurityServiceClient, error) {
-					if r.resData.DataplaneConnPool == nil {
-						return nil, errors.New("provider not configured: dataplane connection pool is nil")
-					}
-					consoleURL := utils.ConvertToConsoleURL(clusterURL)
-					conn, err := r.resData.DataplaneConnPool.GetConnection(ctx, consoleURL)
-					if err != nil {
-						return nil, fmt.Errorf("unable to open a connection with the console API at %s: %v", consoleURL, err)
-					}
-					return consolev1alpha1grpc.NewSecurityServiceClient(conn), nil
+					return utils.NewConsoleClient(ctx, r.resData.DataplaneConnPool,
+						clusterURL, consolev1alpha1grpc.NewSecurityServiceClient)
 				}
 			}
 		},
@@ -97,7 +89,19 @@ func (r *Role) Create(ctx context.Context, req resource.CreateRequest, resp *res
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if _, err := r.SecurityClient.CreateRole(ctx, &consolev1alpha1.CreateRoleRequest{Request: innerReq}); err != nil {
+	roleName := model.Name.ValueString()
+	_, err := utils.DataplaneCall(ctx,
+		func(ctx context.Context) (*consolev1alpha1.CreateRoleResponse, error) {
+			return r.SecurityClient.CreateRole(ctx, &consolev1alpha1.CreateRoleRequest{Request: innerReq})
+		},
+		// Recognises a role an earlier attempt created; DataplaneCall only
+		// consults it from the second attempt on.
+		utils.WithProbe(func(ctx context.Context) (*consolev1alpha1.CreateRoleResponse, bool) {
+			exists, probeErr := r.roleExists(ctx, roleName)
+			return nil, probeErr == nil && exists
+		}),
+	)
+	if err != nil {
 		resp.Diagnostics.AddError("Failed to create role", utils.DeserializeGrpcError(err))
 		return
 	}
@@ -196,7 +200,10 @@ func (r *Role) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if _, err := r.SecurityClient.DeleteRole(ctx, &consolev1alpha1.DeleteRoleRequest{Request: innerReq}); err != nil {
+	_, err := utils.DataplaneCall(ctx, func(ctx context.Context) (*consolev1alpha1.DeleteRoleResponse, error) {
+		return r.SecurityClient.DeleteRole(ctx, &consolev1alpha1.DeleteRoleRequest{Request: innerReq})
+	})
+	if err != nil {
 		_, ddiags := utils.HandleGracefulRemoval(ctx, "role", roleName, model.AllowDeletion, err, "delete role")
 		resp.Diagnostics.Append(ddiags...)
 		return
@@ -232,14 +239,13 @@ func (r *Role) ImportState(ctx context.Context, req resource.ImportStateRequest,
 
 // roleExists checks if a role exists
 func (r *Role) roleExists(ctx context.Context, roleName string) (bool, error) {
-	dataplaneReq := &dataplanev1.GetRoleRequest{
-		RoleName: roleName,
-	}
-	consoleReq := &consolev1alpha1.GetRoleRequest{
-		Request: dataplaneReq,
-	}
-
-	_, err := r.SecurityClient.GetRole(ctx, consoleReq)
+	// One shot: this is the probe DataplaneCall consults between attempts, so
+	// the retry belongs to the caller.
+	_, err := utils.DataplaneCallOnce(ctx, func(ctx context.Context) (*consolev1alpha1.GetRoleResponse, error) {
+		return r.SecurityClient.GetRole(ctx, &consolev1alpha1.GetRoleRequest{
+			Request: &dataplanev1.GetRoleRequest{RoleName: roleName},
+		})
+	})
 	if err != nil {
 		if utils.IsNotFound(err) || strings.Contains(strings.ToLower(err.Error()), "unknown role") {
 			return false, nil

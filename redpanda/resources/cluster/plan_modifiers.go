@@ -26,12 +26,11 @@ import (
 // rpsqlZonesStatePin is the rpsql.zones plan modifier referenced by the
 // generated schema. It pins the prior state value (null included) over an
 // unknown planned value — UseStateForUnknown semantics — UNLESS rpsql.enabled
-// is rising in this plan with no retained zones: the control plane assigns
-// the first cluster zone on a fresh enable, so the leaf must stay "known
-// after apply" for that value to land. Every other transition keeps the pin:
-// the leaf-expanded update mask always carries rpsql.zones, and sending empty
-// zones on disable or re-enable would let the defaulter pick a zone that
-// trips the control plane's immutability check.
+// changes in a way that makes the server re-derive the leaf: a rise with no
+// retained zones (the control plane assigns the first cluster zone on a fresh
+// enable) or a fall (the control plane clears zones on disable). Both must stay
+// "known after apply" for the server's value to land. Steady states keep the
+// pin so an unrelated update plan does not churn the leaf.
 func rpsqlZonesStatePin() planmodifier.List {
 	return pinStateUnlessSiblingRises{sibling: path.Root("rpsql").AtName("enabled")}
 }
@@ -73,14 +72,148 @@ func (m pinStateUnlessSiblingRises) PlanModifyList(ctx context.Context, req plan
 
 // releasePinForServerAssign reports whether the planned value should stay
 // unknown: the sibling enabled flag is rising (or unknown) and there is no
-// retained value for the server to keep — the fresh-enable defaulter case.
+// retained value for the server to keep — the fresh-enable defaulter case — or
+// it is falling, which clears zones control-plane side.
 func releasePinForServerAssign(planEnabled, stateEnabled types.Bool, stateValue types.List) bool {
 	if planEnabled.IsUnknown() {
+		return true
+	}
+	// Disabling replaces the whole server-side spec with a bare disabled one, so
+	// zones come back empty; a pinned prior value would contradict that read.
+	if stateEnabled.ValueBool() && !planEnabled.ValueBool() {
 		return true
 	}
 	rise := planEnabled.ValueBool() && !stateEnabled.ValueBool()
 	noRetained := stateValue.IsNull() || len(stateValue.Elements()) == 0
 	return rise && noRetained
+}
+
+// rpsqlReplicasStatePin is the rpsql.replicas plan modifier. It derives replicas
+// from the sibling rpsql.enabled instead of a static default, because the control
+// plane reports replicas 0 while Redpanda SQL is disabled and defaults to 1 on
+// enable — a static default of 1 churns every disabled cluster, and no default
+// sends replicas 0 on enable and trips the CEL (replicas>=1 when enabled). When
+// the config supplies replicas, that value wins. Otherwise: disabled → 0;
+// enabling (create-enable or rise) → 1; steady enabled → prior state.
+func rpsqlReplicasStatePin() planmodifier.Int32 {
+	return pinInt32StateUnlessSiblingRises{sibling: path.Root("rpsql").AtName("enabled")}
+}
+
+type pinInt32StateUnlessSiblingRises struct {
+	sibling path.Path
+}
+
+func (pinInt32StateUnlessSiblingRises) Description(_ context.Context) string {
+	return "Derives replicas from the sibling enabled flag: 0 while disabled, 1 on enable, prior state while steady-enabled."
+}
+
+func (m pinInt32StateUnlessSiblingRises) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+// PlanModifyInt32 implements planmodifier.Int32.
+func (m pinInt32StateUnlessSiblingRises) PlanModifyInt32(ctx context.Context, req planmodifier.Int32Request, resp *planmodifier.Int32Response) {
+	// Config-supplied replicas (known plan value) wins.
+	if !req.PlanValue.IsUnknown() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	var planEnabled types.Bool
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, m.sibling, &planEnabled)...)
+	if resp.Diagnostics.HasError() || planEnabled.IsNull() || planEnabled.IsUnknown() {
+		return
+	}
+	if !planEnabled.ValueBool() {
+		resp.PlanValue = types.Int32Value(0) // disabled: server reports 0
+		return
+	}
+	// Enabled and no config value: pin the prior count only while it was already
+	// enabled (steady); on create-enable or a disabled->enabled rise, seed the
+	// server default 1 so the payload satisfies the replicas>=1 CEL.
+	if !req.State.Raw.IsNull() {
+		var stateEnabled types.Bool
+		resp.Diagnostics.Append(req.State.GetAttribute(ctx, m.sibling, &stateEnabled)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		if stateEnabled.ValueBool() && !req.StateValue.IsNull() {
+			resp.PlanValue = req.StateValue
+			return
+		}
+	}
+	resp.PlanValue = types.Int32Value(1)
+}
+
+// privateLinkStatusPin is the plan modifier for a private-link block's computed
+// `status` object. The control plane returns no private-link block at all when
+// the block is disabled, so the block's computed children must plan as
+// known-null while enabled=false — otherwise an unknown status is carried into
+// state and the framework rejects it ("must be known after apply"). While
+// enabled, it behaves as UseNonNullStateForUnknown (holds a non-null prior
+// status over an unknown plan). Keyed on the sibling enabled via the modifier's
+// own path, so one modifier serves aws/gcp/azure.
+func privateLinkStatusPin() planmodifier.Object {
+	return nullObjectWhenSiblingDisabled{}
+}
+
+type nullObjectWhenSiblingDisabled struct{}
+
+func (nullObjectWhenSiblingDisabled) Description(_ context.Context) string {
+	return "Plans a known-null value while the sibling enabled flag is false; otherwise holds non-null prior state over an unknown plan."
+}
+
+func (m nullObjectWhenSiblingDisabled) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+func (nullObjectWhenSiblingDisabled) PlanModifyObject(ctx context.Context, req planmodifier.ObjectRequest, resp *planmodifier.ObjectResponse) {
+	var enabled types.Bool
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, req.Path.ParentPath().AtName("enabled"), &enabled)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if !enabled.IsNull() && !enabled.IsUnknown() && !enabled.ValueBool() {
+		resp.PlanValue = types.ObjectNull(req.PlanValue.AttributeTypes(ctx))
+		return
+	}
+	// Enabled (or unknown): UseNonNullStateForUnknown.
+	if !req.PlanValue.IsUnknown() || req.State.Raw.IsNull() || req.StateValue.IsNull() {
+		return
+	}
+	resp.PlanValue = req.StateValue
+}
+
+// privateLinkListPin is the plan modifier for a private-link block's optional
+// computed list children (aws_private_link.supported_regions). Same rationale as
+// privateLinkStatusPin: known-null while disabled, else UseStateForUnknown.
+func privateLinkListPin() planmodifier.List {
+	return nullListWhenSiblingDisabled{}
+}
+
+type nullListWhenSiblingDisabled struct{}
+
+func (nullListWhenSiblingDisabled) Description(_ context.Context) string {
+	return "Plans a known-null value while the sibling enabled flag is false; otherwise holds prior state over an unknown plan."
+}
+
+func (m nullListWhenSiblingDisabled) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+func (nullListWhenSiblingDisabled) PlanModifyList(ctx context.Context, req planmodifier.ListRequest, resp *planmodifier.ListResponse) {
+	var enabled types.Bool
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, req.Path.ParentPath().AtName("enabled"), &enabled)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if !enabled.IsNull() && !enabled.IsUnknown() && !enabled.ValueBool() {
+		resp.PlanValue = types.ListNull(req.PlanValue.ElementType(ctx))
+		return
+	}
+	// Enabled (or unknown): UseStateForUnknown.
+	if !req.PlanValue.IsUnknown() || req.State.Raw.IsNull() {
+		return
+	}
+	resp.PlanValue = req.StateValue
 }
 
 // gcpGatewayStatePin is the gcp_global_access_api_gateway_enabled plan modifier

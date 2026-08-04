@@ -190,6 +190,15 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// customer_managed_resources is accepted only at specific leaf paths, and only
+	// for the changed control-plane-updatable leaves; expand the bare top-level
+	// entry the diff emits into those (see internal/clustermask).
+	statePayload, stateDiags := clustermodel.ExpandUpdate(ctx, &state)
+	resp.Diagnostics.Append(stateDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	clustermask.ExpandCustomerManagedResourceLeaves(mask, diffedPayload.GetCustomerManagedResources(), statePayload.GetCustomerManagedResources())
 	// The public-API mapper accepts rpsql and kafka_connect only at leaf
 	// granularity, not the top-level path the diff emits, so expand those before
 	// the request (see internal/clustermask).
@@ -337,6 +346,12 @@ func (*Cluster) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, 
 			return
 		}
 		if planVal.IsNull() || planVal.IsUnknown() {
+			continue
+		}
+		// A disabled block reads back with no server status; the status plan
+		// modifier already set it known-null, so don't re-mark it unknown — that
+		// would leave an unknown in state after the server drops the block.
+		if enabled, ok := planVal.Attributes()["enabled"].(types.Bool); ok && !enabled.IsNull() && !enabled.IsUnknown() && !enabled.ValueBool() {
 			continue
 		}
 		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, pl.blockPath.AtName("status"), types.ObjectUnknown(pl.statusType))...)

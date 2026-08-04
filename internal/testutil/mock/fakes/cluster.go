@@ -18,6 +18,7 @@ package fakes
 import (
 	"context"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -178,9 +179,17 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 		cl.CloudStorage = &controlplanev1.Cluster_CloudStorage{
 			SkipDestroy: cs.GetSkipDestroy(),
 		}
+		// The control plane always reports which provider backs cloud storage.
+		switch in.GetCloudProvider() {
+		case controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS:
+			cl.CloudStorage.SetAws(&controlplanev1.Cluster_CloudStorage_AWS{Arn: "arn:aws:s3:::tfrp-fake-cloud-storage"})
+		case controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP:
+			cl.CloudStorage.SetGcp(&controlplanev1.Cluster_CloudStorage_GCP{Name: "tfrp-fake-cloud-storage"})
+		default:
+			// Azure carries extra fields; model it when a test needs it.
+		}
 	}
-	if in.HasAwsPrivateLink() {
-		spec := in.GetAwsPrivateLink()
+	if spec := in.GetAwsPrivateLink(); spec.GetEnabled() {
 		cl.SetAwsPrivateLink(&controlplanev1.Cluster_AWSPrivateLink{
 			Enabled:           spec.GetEnabled(),
 			AllowedPrincipals: append([]string(nil), spec.GetAllowedPrincipals()...),
@@ -188,17 +197,25 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 			SupportedRegions:  append([]string(nil), spec.GetSupportedRegions()...),
 		})
 	}
-	if in.HasGcpPrivateServiceConnect() {
-		spec := in.GetGcpPrivateServiceConnect()
+	if spec := in.GetGcpPrivateServiceConnect(); spec.GetEnabled() {
 		cl.SetGcpPrivateServiceConnect(&controlplanev1.Cluster_GCPPrivateServiceConnect{
 			Enabled:             spec.GetEnabled(),
 			GlobalAccessEnabled: spec.GetGlobalAccessEnabled(),
 			ConsumerAcceptList:  append([]*controlplanev1.GCPPrivateServiceConnectConsumer(nil), spec.GetConsumerAcceptList()...),
 		})
 	}
-	if in.HasRpsql() {
-		cl.SetRpsql(rpsqlStatus(in.GetRpsql(), in.GetZones()))
+	if spec := in.GetAzurePrivateLink(); spec.GetEnabled() {
+		cl.SetAzurePrivateLink(&controlplanev1.Cluster_AzurePrivateLink{
+			Enabled:              spec.GetEnabled(),
+			AllowedSubscriptions: append([]string(nil), spec.GetAllowedSubscriptions()...),
+			ConnectConsole:       spec.GetConnectConsole(),
+		})
 	}
+	// Every non-Azure cluster reads back a non-nil rpsql block, disabled or not.
+	cl.SetRpsql(rpsqlReadStatus(in.GetRpsql(), in.GetCloudProvider(), in.GetZones()))
+	// Mirror cloudv2 clearOxlaCMROnDisable (also called on the create path): a
+	// cluster created without Redpanda SQL enabled cannot retain rpsql CMR fields.
+	clearRpsqlCMROnDisable(cl)
 	// Mirror cloudv2 redpandaConnectToPublic: redpanda_connect is populated on
 	// every cluster (Connect ships with each install pack), not only when the
 	// spec sets it.
@@ -256,11 +273,31 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 		return nil, status.Errorf(codes.NotFound, "cluster %q not found", upd.GetId())
 	}
 
+	// Mirror cloudv2 validateRPSqlCMRImmutability: reject a changed already-set
+	// rpsql CMR leaf while Redpanda SQL is (or becomes) enabled. Runs before any
+	// mutation so a rejection leaves the stored record untouched, matching the CP
+	// validating the merged spec before persisting.
+	if err := rpsqlCMRImmutability(cl, upd, req.GetUpdateMask().GetPaths()); err != nil {
+		return nil, err
+	}
+	if err := rpsqlCMRRequiredOnEnable(cl, upd, req.GetUpdateMask().GetPaths()); err != nil {
+		return nil, err
+	}
+
 	// Fields whose wire type differs between ClusterUpdate and Cluster are
 	// handled explicitly; the remaining type-matched fields use proto reflection.
 	dstR := cl.ProtoReflect()
 	srcR := upd.ProtoReflect()
 	for _, path := range req.GetUpdateMask().GetPaths() {
+		if strings.HasPrefix(path, "customer_managed_resources.") {
+			// The provider expands the top-level "customer_managed_resources" mask
+			// into the specific control-plane-updatable leaf paths (see
+			// internal/clustermask.ExpandCustomerManagedResourceLeaves). Mirror
+			// cloudv2's handleCustomerManagedResources: apply the changed leaf from
+			// the update payload onto the stored read-shape record.
+			applyCMRLeafUpdate(cl, upd.GetCustomerManagedResources(), path)
+			continue
+		}
 		switch path {
 		case "kafka_api":
 			if upd.HasKafkaApi() {
@@ -278,14 +315,33 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 					cl.GetSchemaRegistry().GetUrl())
 			}
 		case "aws_private_link":
-			if upd.HasAwsPrivateLink() {
-				spec := upd.GetAwsPrivateLink()
+			// The read drops the block entirely when disabled (mapper.go gates it
+			// on PrivateLinkService.GetEnabled()); mirror that so a disable update
+			// clears the stored block rather than storing a disabled one.
+			if spec := upd.GetAwsPrivateLink(); spec.GetEnabled() {
 				cl.SetAwsPrivateLink(&controlplanev1.Cluster_AWSPrivateLink{
 					Enabled:           spec.GetEnabled(),
 					AllowedPrincipals: append([]string(nil), spec.GetAllowedPrincipals()...),
 					ConnectConsole:    spec.GetConnectConsole(),
 					SupportedRegions:  append([]string(nil), spec.GetSupportedRegions()...),
 				})
+			} else if upd.HasAwsPrivateLink() {
+				cl.SetAwsPrivateLink(nil)
+			}
+		case "azure_private_link":
+			// azure_private_link's ClusterUpdate wire type (AzurePrivateLinkSpec)
+			// differs from the read Cluster_AzurePrivateLink, so it needs an
+			// explicit case — the default reflection branch would panic setting a
+			// mismatched message type (as it does for aws/gcp private link).
+			// Disabled reads back as no block (see aws_private_link).
+			if spec := upd.GetAzurePrivateLink(); spec.GetEnabled() {
+				cl.SetAzurePrivateLink(&controlplanev1.Cluster_AzurePrivateLink{
+					Enabled:              spec.GetEnabled(),
+					AllowedSubscriptions: append([]string(nil), spec.GetAllowedSubscriptions()...),
+					ConnectConsole:       spec.GetConnectConsole(),
+				})
+			} else if upd.HasAzurePrivateLink() {
+				cl.SetAzurePrivateLink(nil)
 			}
 		case "rpsql.enabled", "rpsql.replicas", "rpsql.zones":
 			// The provider expands the top-level "rpsql" mask into these granular
@@ -303,13 +359,14 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 					}
 				}
 				// validateOxlaZonesImmutable: zones are immutable once set; only
-				// the one-time populate from empty is allowed.
-				if existing := cl.GetRpsql().GetZones(); len(existing) > 0 &&
-					!slices.Equal(existing, effective) {
+				// the one-time populate from empty is allowed. Disabling clears
+				// the zones, which is not a "zone change" to block.
+				if existing := cl.GetRpsql().GetZones(); upd.GetRpsql().GetEnabled() &&
+					len(existing) > 0 && !slices.Equal(existing, effective) {
 					return nil, status.Error(codes.InvalidArgument,
 						"Redpanda SQL zones are immutable and cannot be changed after creation")
 				}
-				cl.SetRpsql(rpsqlStatus(upd.GetRpsql(), cl.GetZones()))
+				cl.SetRpsql(rpsqlReadStatus(upd.GetRpsql(), cl.GetCloudProvider(), cl.GetZones()))
 			}
 		case "kafka_connect.enabled":
 			// The control plane maps kafka_connect only at leaf granularity
@@ -321,13 +378,15 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 				dstR.Set(dstR.Descriptor().Fields().ByName("kafka_connect"), srcR.Get(kcFD))
 			}
 		case "gcp_private_service_connect":
-			if upd.HasGcpPrivateServiceConnect() {
-				spec := upd.GetGcpPrivateServiceConnect()
+			// Disabled reads back as no block (see aws_private_link).
+			if spec := upd.GetGcpPrivateServiceConnect(); spec.GetEnabled() {
 				cl.SetGcpPrivateServiceConnect(&controlplanev1.Cluster_GCPPrivateServiceConnect{
 					Enabled:             spec.GetEnabled(),
 					GlobalAccessEnabled: spec.GetGlobalAccessEnabled(),
 					ConsumerAcceptList:  append([]*controlplanev1.GCPPrivateServiceConnectConsumer(nil), spec.GetConsumerAcceptList()...),
 				})
+			} else if upd.HasGcpPrivateServiceConnect() {
+				cl.SetGcpPrivateServiceConnect(nil)
 			}
 		case "redpanda_connect.allowed_destination_cidr_ports":
 			// LeafExpansions sends this granular path for redpanda_connect updates.
@@ -378,9 +437,242 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 			dstR.Set(dstFD, srcR.Get(srcFD))
 		}
 	}
+	// Mirror cloudv2 clearOxlaCMROnDisable (called on the merged spec before
+	// persisting): a disabled cluster cannot retain rpsql CMR fields.
+	clearRpsqlCMROnDisable(cl)
 	cl.UpdatedAt = timestamppb.Now()
 
 	return &controlplanev1.UpdateClusterOperation{Operation: completedOp(f.op, upd.GetId())}, nil
+}
+
+// applyCMRLeafUpdate mirrors cloudv2's handleCustomerManagedResources: it copies
+// the changed control-plane-updatable CMR leaf from the update payload
+// (CustomerManagedResourcesUpdate, rpsql_* fields) onto the stored read-shape
+// record. Every leaf is keyed by its public proto field name (cloudv2 maps the
+// rpsql_* keys onto its internal oxla_* spec paths on its side).
+func applyCMRLeafUpdate(cl *controlplanev1.Cluster, upd *controlplanev1.CustomerManagedResourcesUpdate, path string) {
+	if upd == nil {
+		return
+	}
+	cmr := cl.GetCustomerManagedResources()
+	if cmr == nil {
+		cmr = &controlplanev1.CustomerManagedResources{}
+		cl.SetCustomerManagedResources(cmr)
+	}
+	switch path {
+	case "customer_managed_resources.gcp.psc_nat_subnet_name":
+		cmrReadGCP(cmr).SetPscNatSubnetName(upd.GetGcp().GetPscNatSubnetName())
+	case "customer_managed_resources.gcp.rpsql_api_service_account.email":
+		cmrReadGCP(cmr).SetRpsqlApiServiceAccount(&controlplanev1.GCPServiceAccount{Email: upd.GetGcp().GetRpsqlApiServiceAccount().GetEmail()})
+	case "customer_managed_resources.gcp.rpsql_service_account.email":
+		cmrReadGCP(cmr).SetRpsqlServiceAccount(&controlplanev1.GCPServiceAccount{Email: upd.GetGcp().GetRpsqlServiceAccount().GetEmail()})
+	case "customer_managed_resources.gcp.rpsql_cloud_storage_bucket.name":
+		cmrReadGCP(cmr).SetRpsqlCloudStorageBucket(&controlplanev1.CustomerManagedGoogleCloudStorageBucket{Name: upd.GetGcp().GetRpsqlCloudStorageBucket().GetName()})
+	case "customer_managed_resources.gcp.rpsql_secret_manager_prefix":
+		cmrReadGCP(cmr).SetRpsqlSecretManagerPrefix(upd.GetGcp().GetRpsqlSecretManagerPrefix())
+	case "customer_managed_resources.aws.redpanda_connect_node_group_instance_profile.arn":
+		cmrReadAWS(cmr).SetRedpandaConnectNodeGroupInstanceProfile(&controlplanev1.AWSInstanceProfile{Arn: upd.GetAws().GetRedpandaConnectNodeGroupInstanceProfile().GetArn()})
+	case "customer_managed_resources.aws.redpanda_connect_security_group.arn":
+		cmrReadAWS(cmr).SetRedpandaConnectSecurityGroup(&controlplanev1.AWSSecurityGroup{Arn: upd.GetAws().GetRedpandaConnectSecurityGroup().GetArn()})
+	case "customer_managed_resources.aws.rpsql_node_group_instance_profile.arn":
+		cmrReadAWS(cmr).SetRpsqlNodeGroupInstanceProfile(&controlplanev1.AWSInstanceProfile{Arn: upd.GetAws().GetRpsqlNodeGroupInstanceProfile().GetArn()})
+	case "customer_managed_resources.aws.rpsql_security_group.arn":
+		cmrReadAWS(cmr).SetRpsqlSecurityGroup(&controlplanev1.AWSSecurityGroup{Arn: upd.GetAws().GetRpsqlSecurityGroup().GetArn()})
+	case "customer_managed_resources.aws.rpsql_cloud_storage_bucket.arn":
+		cmrReadAWS(cmr).SetRpsqlCloudStorageBucket(&controlplanev1.CustomerManagedAWSCloudStorageBucket{Arn: upd.GetAws().GetRpsqlCloudStorageBucket().GetArn()})
+	default:
+		// Unknown CMR leaf path: no-op, mirroring the control plane dropping an
+		// unmapped mask path.
+	}
+}
+
+// cmrReadGCP returns the read-shape GCP sub-record, creating it if absent.
+func cmrReadGCP(cmr *controlplanev1.CustomerManagedResources) *controlplanev1.CustomerManagedResources_GCP {
+	gcp := cmr.GetGcp()
+	if gcp == nil {
+		gcp = &controlplanev1.CustomerManagedResources_GCP{}
+		cmr.SetGcp(gcp)
+	}
+	return gcp
+}
+
+// cmrReadAWS returns the read-shape AWS sub-record, creating it if absent.
+func cmrReadAWS(cmr *controlplanev1.CustomerManagedResources) *controlplanev1.CustomerManagedResources_AWS {
+	aws := cmr.GetAws()
+	if aws == nil {
+		aws = &controlplanev1.CustomerManagedResources_AWS{}
+		cmr.SetAws(aws)
+	}
+	return aws
+}
+
+// rpsqlImmutableLeaf pairs an rpsql CMR leaf's public mask path with readers for
+// its existing (read-shape) and incoming (update-shape) scalar. Mirrors the field
+// lists in cloudv2 pkg/rpsqlcmr/{aws,gcp}.go.
+type rpsqlImmutableLeaf struct {
+	path    string
+	name    string
+	old     func(*controlplanev1.CustomerManagedResources) string
+	updated func(*controlplanev1.CustomerManagedResourcesUpdate) string
+}
+
+var rpsqlImmutableLeaves = []rpsqlImmutableLeaf{
+	{
+		"customer_managed_resources.aws.rpsql_node_group_instance_profile.arn", "rpsql_node_group_instance_profile",
+		func(c *controlplanev1.CustomerManagedResources) string {
+			return c.GetAws().GetRpsqlNodeGroupInstanceProfile().GetArn()
+		},
+		func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+			return c.GetAws().GetRpsqlNodeGroupInstanceProfile().GetArn()
+		},
+	},
+	{
+		"customer_managed_resources.aws.rpsql_security_group.arn", "rpsql_security_group",
+		func(c *controlplanev1.CustomerManagedResources) string {
+			return c.GetAws().GetRpsqlSecurityGroup().GetArn()
+		},
+		func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+			return c.GetAws().GetRpsqlSecurityGroup().GetArn()
+		},
+	},
+	{
+		"customer_managed_resources.aws.rpsql_cloud_storage_bucket.arn", "rpsql_cloud_storage_bucket",
+		func(c *controlplanev1.CustomerManagedResources) string {
+			return c.GetAws().GetRpsqlCloudStorageBucket().GetArn()
+		},
+		func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+			return c.GetAws().GetRpsqlCloudStorageBucket().GetArn()
+		},
+	},
+	{
+		"customer_managed_resources.gcp.rpsql_api_service_account.email", "rpsql_api_service_account",
+		func(c *controlplanev1.CustomerManagedResources) string {
+			return c.GetGcp().GetRpsqlApiServiceAccount().GetEmail()
+		},
+		func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+			return c.GetGcp().GetRpsqlApiServiceAccount().GetEmail()
+		},
+	},
+	{
+		"customer_managed_resources.gcp.rpsql_service_account.email", "rpsql_service_account",
+		func(c *controlplanev1.CustomerManagedResources) string {
+			return c.GetGcp().GetRpsqlServiceAccount().GetEmail()
+		},
+		func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+			return c.GetGcp().GetRpsqlServiceAccount().GetEmail()
+		},
+	},
+	{
+		"customer_managed_resources.gcp.rpsql_cloud_storage_bucket.name", "rpsql_cloud_storage_bucket",
+		func(c *controlplanev1.CustomerManagedResources) string {
+			return c.GetGcp().GetRpsqlCloudStorageBucket().GetName()
+		},
+		func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+			return c.GetGcp().GetRpsqlCloudStorageBucket().GetName()
+		},
+	},
+	{
+		"customer_managed_resources.gcp.rpsql_secret_manager_prefix", "rpsql_secret_manager_prefix",
+		func(c *controlplanev1.CustomerManagedResources) string {
+			return c.GetGcp().GetRpsqlSecretManagerPrefix()
+		},
+		func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+			return c.GetGcp().GetRpsqlSecretManagerPrefix()
+		},
+	},
+}
+
+// rpsqlCMRImmutability mirrors cloudv2 validateRPSqlCMRImmutability
+// (redpanda_service.go): while Redpanda SQL is enabled in the merged state, an
+// already-set (non-empty) rpsql CMR leaf cannot change to a different value.
+// The gate is the post-update enabled state — an update may toggle rpsql.enabled
+// in the same request. Only masked leaves are compared (an unmasked leaf keeps
+// its old value, so it can never violate). empty->value (first set) and no-op
+// same-value writes are allowed.
+func rpsqlCMRImmutability(cl *controlplanev1.Cluster, upd *controlplanev1.ClusterUpdate, paths []string) error {
+	mergedEnabled := cl.GetRpsql().GetEnabled()
+	if slices.Contains(paths, "rpsql.enabled") && upd.HasRpsql() {
+		mergedEnabled = upd.GetRpsql().GetEnabled()
+	}
+	if !mergedEnabled {
+		return nil
+	}
+	oldCMR := cl.GetCustomerManagedResources()
+	newCMR := upd.GetCustomerManagedResources()
+	for _, leaf := range rpsqlImmutableLeaves {
+		if !slices.Contains(paths, leaf.path) {
+			continue
+		}
+		if oldV := leaf.old(oldCMR); oldV != "" && oldV != leaf.updated(newCMR) {
+			return status.Errorf(codes.InvalidArgument,
+				"%s is immutable while Redpanda SQL is enabled", leaf.name)
+		}
+	}
+	return nil
+}
+
+// rpsqlCMRRequiredOnEnable mirrors cloudv2 validateRPSqlCMRFields (mapper.go):
+// when the merged state enables Redpanda SQL on a BYOVPC cluster, every rpsql
+// CMR leaf of the cluster's arm must be non-empty in the effective spec —
+// existing value overlaid with the masked update delta. Runs before any
+// mutation so a rejection leaves the stored record untouched.
+func rpsqlCMRRequiredOnEnable(cl *controlplanev1.Cluster, upd *controlplanev1.ClusterUpdate, paths []string) error {
+	mergedEnabled := cl.GetRpsql().GetEnabled()
+	if slices.Contains(paths, "rpsql.enabled") && upd.HasRpsql() {
+		mergedEnabled = upd.GetRpsql().GetEnabled()
+	}
+	if !mergedEnabled {
+		return nil
+	}
+	oldCMR := cl.GetCustomerManagedResources()
+	newCMR := upd.GetCustomerManagedResources()
+	var arm string
+	switch {
+	case oldCMR.GetAws() != nil:
+		arm = "customer_managed_resources.aws."
+	case oldCMR.GetGcp() != nil:
+		arm = "customer_managed_resources.gcp."
+	default:
+		return nil
+	}
+	for _, leaf := range rpsqlImmutableLeaves {
+		if !strings.HasPrefix(leaf.path, arm) {
+			continue
+		}
+		effective := leaf.old(oldCMR)
+		if slices.Contains(paths, leaf.path) {
+			effective = leaf.updated(newCMR)
+		}
+		if effective == "" {
+			return status.Errorf(codes.InvalidArgument,
+				"%s is required when Redpanda SQL is enabled in BYOVPC mode", leaf.name)
+		}
+	}
+	return nil
+}
+
+// clearRpsqlCMROnDisable mirrors cloudv2 clearOxlaCMROnDisable: when Redpanda SQL
+// is not enabled, the control plane nulls the rpsql CMR leaves so a disabled
+// cluster cannot retain them. The surrounding (non-rpsql) CMR is untouched.
+func clearRpsqlCMROnDisable(cl *controlplanev1.Cluster) {
+	if cl.GetRpsql().GetEnabled() {
+		return
+	}
+	cmr := cl.GetCustomerManagedResources()
+	if cmr == nil {
+		return
+	}
+	if aws := cmr.GetAws(); aws != nil {
+		aws.SetRpsqlNodeGroupInstanceProfile(nil)
+		aws.SetRpsqlSecurityGroup(nil)
+		aws.SetRpsqlCloudStorageBucket(nil)
+	}
+	if gcp := cmr.GetGcp(); gcp != nil {
+		gcp.SetRpsqlApiServiceAccount(nil)
+		gcp.SetRpsqlServiceAccount(nil)
+		gcp.SetRpsqlCloudStorageBucket(nil)
+		gcp.SetRpsqlSecretManagerPrefix("")
+	}
 }
 
 // redpandaConnectStatus mirrors cloudv2 redpandaConnectToPublic: the read
@@ -411,23 +703,33 @@ func normalizeCidrPorts(src []*controlplanev1.Cluster_CidrPort) []*controlplanev
 	return out
 }
 
-// rpsqlStatus mirrors the write-shape RPSql onto the read-shape record,
-// assigning a mock endpoint URL when enabled (the real control plane
-// populates url on provisioning; it stays empty while disabled).
-func rpsqlStatus(spec *controlplanev1.RPSql, clusterZones []string) *controlplanev1.RPSql {
-	if spec == nil {
+// rpsqlReadStatus mirrors cloudv2 ApplyRedpandaOxlaSpec (defaulter.go) +
+// redpandaSqlToPublic (mapper.go): every NON-Azure cluster reads back a non-nil
+// rpsql block even when Redpanda SQL is disabled or omitted, because the
+// defaulter stores a bare disabled spec (replicas 0, no zones); url/version are
+// populated only once enabled (server derives on provisioning). Enabling with
+// replicas 0 defaults to 1 (oxlaDefaultReplicasCount). Azure reads back nil —
+// ApplyRedpandaOxlaSpec early-returns for Azure.
+func rpsqlReadStatus(spec *controlplanev1.RPSql, provider controlplanev1.CloudProvider, clusterZones []string) *controlplanev1.RPSql {
+	if provider == controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE {
 		return nil
 	}
-	out := &controlplanev1.RPSql{
-		Enabled:  spec.GetEnabled(),
-		Replicas: spec.GetReplicas(),
+	if !spec.GetEnabled() {
+		// Disabled: the defaulter replaces the whole spec with a bare
+		// {Enabled: false}, so replicas, zones, url and version are all cleared.
+		return &controlplanev1.RPSql{Enabled: false}
+	}
+	replicas := spec.GetReplicas()
+	if replicas == 0 {
+		replicas = 1
+	}
+	return &controlplanev1.RPSql{
+		Enabled:  true,
+		Replicas: replicas,
 		Zones:    append([]string(nil), oxlaEffectiveZones(spec, clusterZones)...),
+		Url:      "https://mock.rpsql.redpanda.cloud",
+		Version:  "mock-rpsql-v1",
 	}
-	if out.Enabled {
-		out.Url = "https://mock.rpsql.redpanda.cloud"
-		out.Version = "mock-rpsql-v1"
-	}
-	return out
 }
 
 // oxlaEffectiveZones mirrors the control-plane defaulter: enabling Redpanda

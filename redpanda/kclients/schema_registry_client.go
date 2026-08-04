@@ -123,26 +123,6 @@ func schemaRegistryAuthOption(ts oauth2.TokenSource, username, password string) 
 	return nil, errors.New("no schema registry credentials available: provide username+password, or rely on the provider's cloud authentication")
 }
 
-// FetchSchema fetches a schema by subject and optional version
-// If version is nil, it returns the latest version
-func FetchSchema(ctx context.Context, client *sr.Client, subject string, version *int) (sr.SubjectSchema, error) {
-	if version != nil {
-		// Fetch specific version
-		return client.SchemaByVersion(ctx, subject, *version)
-	}
-
-	schemas, err := client.Schemas(ctx, subject)
-	if err != nil {
-		return sr.SubjectSchema{}, err
-	}
-
-	if len(schemas) == 0 {
-		return sr.SubjectSchema{}, fmt.Errorf("no schemas found for subject %s", subject)
-	}
-
-	return schemas[len(schemas)-1], nil
-}
-
 // SetSubjectCompatibility sets the compatibility level for a subject
 func SetSubjectCompatibility(ctx context.Context, client *sr.Client, subject, compatibility string) error {
 	if compatibility == "" {
@@ -161,28 +141,4 @@ func SetSubjectCompatibility(ctx context.Context, client *sr.Client, subject, co
 		}
 	}
 	return nil
-}
-
-// GetSubjectCompatibility gets the compatibility level for a subject
-func GetSubjectCompatibility(ctx context.Context, client *sr.Client, subject string) (string, error) {
-	// Use Compatibility method to get subject compatibility
-	results := client.Compatibility(ctx, subject)
-
-	// Check results for the subject
-	for _, result := range results {
-		if result.Err != nil {
-			return "", fmt.Errorf("failed to get compatibility for subject %s: %w", subject, result.Err)
-		}
-		if result.Subject == subject {
-			return result.Level.String(), nil
-		}
-	}
-
-	// If no specific result found, check if we have any results
-	if len(results) > 0 && results[0].Err == nil {
-		return results[0].Level.String(), nil
-	}
-
-	// No compatibility level found for the subject
-	return "", fmt.Errorf("no compatibility level found for subject %s", subject)
 }

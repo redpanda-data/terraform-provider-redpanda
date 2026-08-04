@@ -40,7 +40,6 @@ serverless_region:
 # ExpandCreateAwsConfig / ExpandUpdateAwsConfig.
 aws_config:
   optional: true
-  computed: true
   fields:
     allowed_principals:
       required: true

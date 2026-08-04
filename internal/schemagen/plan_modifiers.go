@@ -35,16 +35,29 @@ var planModifierRegistry = map[string]planModifierDef{
 	},
 	"PinStateUnlessRpsqlEnables": {
 		expr: func(pkg string) string {
-			if pkg == KindString {
+			switch pkg {
+			case KindString:
 				return "rpsqlStringStatePin()"
+			case KindInt32:
+				return "rpsqlReplicasStatePin()"
+			default:
+				return "rpsqlZonesStatePin()"
 			}
-			return "rpsqlZonesStatePin()"
 		},
 		subsumesStateNullAxis: true,
 	},
 	"PinStateUnlessGatewayChanges": {
 		expr: func(_ string) string {
 			return "gcpGatewayStatePin()"
+		},
+		subsumesStateNullAxis: true,
+	},
+	"NullWhenPrivateLinkDisabled": {
+		expr: func(pkg string) string {
+			if pkg == KindList {
+				return "privateLinkListPin()"
+			}
+			return "privateLinkStatusPin()"
 		},
 		subsumesStateNullAxis: true,
 	},

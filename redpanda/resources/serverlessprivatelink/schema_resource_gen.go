@@ -62,6 +62,19 @@ func ResourceServerlessPrivateLinkSchema(ctx context.Context) schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
+			"aws_config": schema.SingleNestedAttribute{
+				Description: "AWS-specific configuration. Required when cloud_provider is `aws`.",
+				Optional:    true,
+				Attributes: map[string]schema.Attribute{
+					"allowed_principals": schema.ListAttribute{
+						Description: "Allowed Principals. Must have at least 1 items.",
+						Required:    true,
+						Validators:  []validator.List{listvalidator.SizeAtLeast(1)},
+						ElementType: types.StringType,
+					},
+				},
+			},
+
 			"cloud_provider_config": schema.SingleNestedAttribute{
 				Description:        "Cloud Provider Config configuration",
 				Optional:           true,
@@ -87,21 +100,6 @@ func ResourceServerlessPrivateLinkSchema(ctx context.Context) schema.Schema {
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
-			},
-
-			"aws_config": schema.SingleNestedAttribute{
-				Description:   "AWS-specific configuration. Required when cloud_provider is `aws`.",
-				Optional:      true,
-				Computed:      true,
-				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
-				Attributes: map[string]schema.Attribute{
-					"allowed_principals": schema.ListAttribute{
-						Description: "Allowed Principals. Must have at least 1 items.",
-						Required:    true,
-						Validators:  []validator.List{listvalidator.SizeAtLeast(1)},
-						ElementType: types.StringType,
-					},
-				},
 			},
 
 			"id": schema.StringAttribute{

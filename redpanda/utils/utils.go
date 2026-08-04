@@ -35,7 +35,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	rpknet "github.com/redpanda-data/redpanda/src/go/rpk/pkg/net"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	grpccodes "google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
@@ -69,7 +68,7 @@ func IsNotFound(err error) bool {
 	if e, ok := grpcstatus.FromError(err); ok && e.Code() == grpccodes.NotFound {
 		return true
 	}
-	lower := strings.ToLower(err.Error())
+	lower := strings.ToLower(serverMessage(err))
 	return strings.Contains(lower, "not found") ||
 		strings.Contains(lower, "notfound") ||
 		strings.Contains(lower, "404") ||
@@ -98,7 +97,7 @@ func IsPermissionDenied(err error) bool {
 		return true
 	}
 
-	errStr := err.Error()
+	errStr := serverMessage(err)
 	return strings.Contains(strings.ToLower(errStr), "forbidden") ||
 		strings.Contains(strings.ToLower(errStr), "missing required acls") ||
 		strings.Contains(errStr, "403")
@@ -114,7 +113,7 @@ func IsAlreadyExists(err error) bool {
 		return true
 	}
 
-	errStr := strings.ToLower(err.Error())
+	errStr := strings.ToLower(serverMessage(err))
 	return strings.Contains(errStr, "already exists") ||
 		strings.Contains(errStr, "alreadyexists")
 }
@@ -138,7 +137,7 @@ func IsClusterUnreachable(err error) bool {
 		}
 	}
 
-	errStr := err.Error()
+	errStr := serverMessage(err)
 	return strings.Contains(errStr, "name resolver error") &&
 		strings.Contains(errStr, "produced zero addresses")
 }
@@ -155,7 +154,7 @@ func IsUnavailable(err error) bool {
 		return true
 	}
 
-	errStr := err.Error()
+	errStr := serverMessage(err)
 	return strings.Contains(errStr, "503") ||
 		strings.Contains(strings.ToLower(errStr), "service unavailable") ||
 		strings.Contains(strings.ToLower(errStr), "unavailable")
@@ -262,13 +261,63 @@ func AreWeDoneYet(ctx context.Context, op *controlplanev1.Operation, timeout tim
 		}
 
 		if op != nil && op.GetState() == controlplanev1.Operation_STATE_FAILED {
-			return NonRetryableError(fmt.Errorf("operation failed: %s", op.GetError().GetMessage()))
+			return NonRetryableError(fmt.Errorf("operation failed: %s", describeOperationFailure(op)))
 		}
 		if op != nil && op.GetState() != controlplanev1.Operation_STATE_COMPLETED {
-			return RetryableError(fmt.Errorf("expected operation to be completed but was in state %s", op.GetState()))
+			return RetryableError(fmt.Errorf(
+				"expected operation to be completed but was in state %s (%s)",
+				op.GetState(), describeOperationIdentity(op)))
 		}
 		return nil
 	})
+}
+
+// describeOperationFailure renders everything a failed operation carries. The
+// control plane sometimes reports a failure with an empty message, which on its
+// own tells an operator nothing and cannot be chased up; the operation ID, the
+// status code and any details are what make it actionable.
+// describeOperationIdentity names an operation and what it acted on. A wait that
+// times out has to carry this: the operation is only fetchable while it and its
+// resource still exist, and a failed acceptance run is swept soon after, at
+// which point the control plane answers PermissionDenied for the missing record
+// and the reason is gone for good.
+func describeOperationIdentity(op *controlplanev1.Operation) string {
+	var parts []string
+	if id := op.GetId(); id != "" {
+		parts = append(parts, fmt.Sprintf("operation_id=%s", id))
+	}
+	if t := op.GetType(); t != controlplanev1.Operation_TYPE_UNSPECIFIED {
+		parts = append(parts, fmt.Sprintf("type=%s", t))
+	}
+	if rid := op.GetResourceId(); rid != "" {
+		parts = append(parts, fmt.Sprintf("resource_id=%s", rid))
+	}
+	if m := op.GetMetadata(); m != nil && m.GetTypeUrl() != "" {
+		parts = append(parts, fmt.Sprintf("metadata=%s", m.GetTypeUrl()))
+	}
+	return strings.Join(parts, " ")
+}
+
+func describeOperationFailure(op *controlplanev1.Operation) string {
+	var parts []string
+	if identity := describeOperationIdentity(op); identity != "" {
+		parts = append(parts, identity)
+	}
+	if e := op.GetError(); e != nil {
+		if msg := e.GetMessage(); msg != "" {
+			parts = append(parts, msg)
+		}
+		if code := e.GetCode(); code != 0 {
+			parts = append(parts, fmt.Sprintf("code=%d", code))
+		}
+		if d := e.GetDetails(); len(d) > 0 {
+			parts = append(parts, fmt.Sprintf("details=%v", d))
+		}
+	}
+	if len(parts) == 0 {
+		return "no message, code or details reported"
+	}
+	return strings.Join(parts, " ")
 }
 
 // TypeListToStringSlice converts a types.List to a []string, stripping
@@ -489,19 +538,6 @@ func FindTopicByName(ctx context.Context, topicName string, client dataplanev1gr
 	return nil, NotFoundError{fmt.Sprintf("topic %s not found", topicName)}
 }
 
-// SplitSchemeDefPort splits the schema from the url and return url+port. If
-// there is no port, we use the provided default.
-func SplitSchemeDefPort(url, def string) (string, error) {
-	_, host, port, err := rpknet.SplitSchemeHostPort(url)
-	if err != nil {
-		return "", err
-	}
-	if port == "" {
-		port = def
-	}
-	return host + ":" + port, nil
-}
-
 // NormalizeClusterAPIURL canonicalizes a cluster API URL to the current
 // scheme-prefixed, port-stripped form (https://host) that the control plane
 // returns. It upgrades the legacy host:443 form and is idempotent on values
@@ -514,17 +550,6 @@ func NormalizeClusterAPIURL(raw string) string {
 	host = strings.TrimSuffix(host, "/")
 	host = strings.TrimSuffix(host, ":443")
 	return "https://" + host
-}
-
-// ConvertToConsoleURL converts a cluster API URL to a console URL for SecurityService operations.
-// This transformation is needed because the SecurityService uses console URLs instead of cluster API URLs.
-//
-// Example:
-//
-//	https://api-123456.cluster-id.byoc.prd.cloud.redpanda.com
-//	-> https://console-123456.cluster-id.byoc.prd.cloud.redpanda.com
-func ConvertToConsoleURL(clusterAPIURL string) string {
-	return strings.Replace(clusterAPIURL, "://api-", "://console-", 1)
 }
 
 // RetryGetCluster retries f against the latest cluster snapshot until f
@@ -580,14 +605,14 @@ func DeserializeGrpcError(err error) string {
 	if err == nil {
 		return ""
 	}
-	st, ok := grpcstatus.FromError(err)
+	st, ok := serverStatus(err)
 	if !ok {
 		return err.Error()
 	}
 
 	code := st.Code().String()
 	msg := st.Message()
-	rawErr := err.Error()
+	rawErr := serverMessage(err)
 
 	var result string
 	switch {
@@ -603,31 +628,13 @@ func DeserializeGrpcError(err error) string {
 		result = fmt.Sprintf("%s\n%v", result, st.Details())
 	}
 
+	// Prepend the method/endpoint annotation on both branches; a bare status
+	// names neither, which is what made the original failure undiagnosable.
+	if annotation := dataplaneAnnotation(err); annotation != "" {
+		result = fmt.Sprintf("%s: %s", annotation, result)
+	}
+
 	return result
-}
-
-// GetObjectFromAttributes is used to pull a Terraform Object out of a attribute map using the name
-func GetObjectFromAttributes(ctx context.Context, key string, att map[string]attr.Value) (types.Object, error) {
-	attVal, ok := att[key].(basetypes.ObjectValue)
-	if !ok {
-		return types.ObjectNull(map[string]attr.Type{}), fmt.Errorf("%s not found: object is missing or malformed for network resource", key)
-	}
-	var keyVal types.Object
-	if err := attVal.As(ctx, &keyVal, basetypes.ObjectAsOptions{
-		UnhandledNullAsEmpty:    true,
-		UnhandledUnknownAsEmpty: true,
-	}); err != nil {
-		return types.ObjectNull(map[string]attr.Type{}), fmt.Errorf("%s not found: value is missing or malformed for network resource", key)
-	}
-	return keyVal, nil
-}
-
-// GetStringFromAttributes is used to pull a Terraform String out of a Terraform attribute map using the name
-func GetStringFromAttributes(key string, attributes map[string]attr.Value) (string, error) {
-	if val, ok := attributes[key].(types.String); ok {
-		return val.ValueString(), nil
-	}
-	return "", fmt.Errorf("%s not found: string value is missing or malformed", key)
 }
 
 // GetARNListFromAttributes is used to pull a Terraform List out of a Terraform attribute map using the name

@@ -57,6 +57,18 @@ func (f *NetworkFake) CreateNetwork(_ context.Context, req *controlplanev1.Creat
 	if in == nil {
 		return nil, status.Error(codes.InvalidArgument, "network is required")
 	}
+	if es := in.GetEgressSpec(); es != nil {
+		if es.GetGcp() == nil && es.GetAws() == nil && es.GetAzure() == nil {
+			return nil, status.Error(codes.InvalidArgument, "egress_spec.cloud_provider: exactly one field is required in oneof")
+		}
+		cp := in.GetCloudProvider()
+		armMatches := (cp == controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS && es.GetAws() != nil) ||
+			(cp == controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP && es.GetGcp() != nil) ||
+			(cp == controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE && es.GetAzure() != nil)
+		if !armMatches {
+			return nil, status.Error(codes.InvalidArgument, "egress_spec.cloud_provider must match cloud_provider")
+		}
+	}
 	id := xidLike(networkIDBase + f.seq.Add(1))
 	now := timestamppb.Now()
 	nw := &controlplanev1.Network{

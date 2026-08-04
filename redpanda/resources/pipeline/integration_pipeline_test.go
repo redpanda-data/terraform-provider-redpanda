@@ -435,6 +435,36 @@ func TestIntegration_Pipeline_UpdateLeaf_Tags(t *testing.T) {
 // plans ResourceActionUpdate (not Replace) and id is stable across all 3
 // steps. End with allow_deletion=true so the TestCase's terminal cleanup
 // destroy succeeds (Delete blocks when allow_deletion=false).
+// TestIntegration_Pipeline_ErrorPath_AllowDeletionBlocked pins the guard itself.
+// UpdateLeaf_AllowDeletion proves the field round-trips; this proves what the
+// field is for — with allow_deletion=false a destroy must be refused. The final
+// step re-enables deletion so the framework's terminal destroy can proceed.
+func TestIntegration_Pipeline_ErrorPath_AllowDeletionBlocked(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	noDelete := mockPipelineBaseConfig("tfrp-mock-pipe-nodel", "test description", "stopped", "bufnet", false, `{ env = "test" }`, minimalPipelineConfigYaml)
+	allowDelete := mockPipelineBaseConfig("tfrp-mock-pipe-nodel", "test description", "stopped", "bufnet", true, `{ env = "test" }`, minimalPipelineConfigYaml)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config: noDelete,
+				Check:  resource.TestCheckResourceAttr(pipelineAddr, "allow_deletion", "false"),
+			},
+			{
+				Config:      noDelete,
+				Destroy:     true,
+				ExpectError: regexp.MustCompile(`Deletion Not Allowed`),
+			},
+			{
+				Config: allowDelete,
+				Check:  resource.TestCheckResourceAttr(pipelineAddr, "allow_deletion", "true"),
+			},
+		},
+	})
+}
+
 func TestIntegration_Pipeline_UpdateLeaf_AllowDeletion(t *testing.T) {
 	_, factories := integration.Setup(t)
 

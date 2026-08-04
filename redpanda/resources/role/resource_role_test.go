@@ -122,7 +122,7 @@ func TestUnit_Role_Create(t *testing.T) {
 					CreateRole(ctx, gomock.Any(), gomock.Any()).
 					DoAndReturn(func(_ context.Context, req *consolev1alpha1.CreateRoleRequest, _ ...grpc.CallOption) (*consolev1alpha1.CreateRoleResponse, error) {
 						// Validate request
-						assert.Equal(t, tt.input.Name.ValueString(), req.Request.Role.Name, "Role name should match")
+						assert.Equal(t, tt.input.Name.ValueString(), req.GetRequest().GetRole().GetName(), "Role name should match")
 						return &consolev1alpha1.CreateRoleResponse{}, nil
 					})
 			}
@@ -580,7 +580,7 @@ func TestUnit_Role_Delete(t *testing.T) {
 				m.EXPECT().
 					DeleteRole(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(_ context.Context, req *consolev1alpha1.DeleteRoleRequest, _ ...grpc.CallOption) (*consolev1alpha1.DeleteRoleResponse, error) {
-						assert.Equal(t, "test-role", req.Request.RoleName, "Role name should match")
+						assert.Equal(t, "test-role", req.GetRequest().GetRoleName(), "Role name should match")
 						return &consolev1alpha1.DeleteRoleResponse{}, nil
 					})
 			},

@@ -37,11 +37,22 @@ import (
 var objOpts = basetypes.ObjectAsOptions{UnhandledNullAsEmpty: true, UnhandledUnknownAsEmpty: true}
 
 // preserveSensitiveFromPrev copies sensitive fields (tls key, scram/plain
-// password) from prev into state after Flatten. The Read API masks these,
-// so Flatten alone would zero them and force perpetual drift.
+// password, schema-registry basic password and PEM key) from prev into state
+// after Flatten. The Read API masks these, so Flatten alone would zero them
+// and force perpetual drift.
 func preserveSensitiveFromPrev(ctx context.Context, state, prev *shadowlinkmodel.ResourceModel) diag.Diagnostics {
 	var diags diag.Diagnostics
-	if prev == nil || prev.ClientOptions.IsNull() || prev.ClientOptions.IsUnknown() {
+	if prev == nil {
+		return diags
+	}
+	diags.Append(preserveClientOptionsSecrets(ctx, state, prev)...)
+	diags.Append(preserveSchemaRegistrySecrets(ctx, state, prev)...)
+	return diags
+}
+
+func preserveClientOptionsSecrets(ctx context.Context, state, prev *shadowlinkmodel.ResourceModel) diag.Diagnostics {
+	var diags diag.Diagnostics
+	if prev.ClientOptions.IsNull() || prev.ClientOptions.IsUnknown() {
 		return diags
 	}
 	if state.ClientOptions.IsNull() || state.ClientOptions.IsUnknown() {
@@ -95,29 +106,120 @@ func preserveSensitiveFromPrev(ctx context.Context, state, prev *shadowlinkmodel
 
 func preserveAuthPassword(ctx context.Context, state, prev *shadowlinkmodel.ClientOptionsAuthenticationConfigurationModel, diags *diag.Diagnostics) {
 	if !prev.ScramConfiguration.IsNull() && !state.ScramConfiguration.IsNull() {
-		state.ScramConfiguration = preservePassword(ctx, state.ScramConfiguration, prev.ScramConfiguration,
-			shadowlinkmodel.ClientOptionsAuthenticationConfigurationScramConfigurationAttrTypes(), diags)
+		state.ScramConfiguration = preserveMaskedAttr(ctx, state.ScramConfiguration, prev.ScramConfiguration,
+			shadowlinkmodel.ClientOptionsAuthenticationConfigurationScramConfigurationAttrTypes(), "password", diags)
 	}
 	if !prev.PlainConfiguration.IsNull() && !state.PlainConfiguration.IsNull() {
-		state.PlainConfiguration = preservePassword(ctx, state.PlainConfiguration, prev.PlainConfiguration,
-			shadowlinkmodel.ClientOptionsAuthenticationConfigurationPlainConfigurationAttrTypes(), diags)
+		state.PlainConfiguration = preserveMaskedAttr(ctx, state.PlainConfiguration, prev.PlainConfiguration,
+			shadowlinkmodel.ClientOptionsAuthenticationConfigurationPlainConfigurationAttrTypes(), "password", diags)
 	}
 }
 
-func preservePassword(_ context.Context, stateObj, prevObj types.Object, attrTypes map[string]attr.Type, diags *diag.Diagnostics) types.Object {
+func preserveMaskedAttr(_ context.Context, stateObj, prevObj types.Object, attrTypes map[string]attr.Type, name string, diags *diag.Diagnostics) types.Object {
 	stateAttrs := stateObj.Attributes()
 	prevAttrs := prevObj.Attributes()
-	prevPW, ok := prevAttrs["password"].(types.String)
-	if !ok || prevPW.IsNull() || prevPW.IsUnknown() {
+	prevVal, ok := prevAttrs[name].(types.String)
+	if !ok || prevVal.IsNull() || prevVal.IsUnknown() {
 		return stateObj
 	}
-	stateAttrs["password"] = prevPW
+	stateAttrs[name] = prevVal
 	obj, d := types.ObjectValue(attrTypes, stateAttrs)
 	diags.Append(d...)
 	if d.HasError() {
 		return stateObj
 	}
 	return obj
+}
+
+// preserveSchemaRegistrySecrets restores the shadow_schema_registry_api
+// credentials the Read API masks: auth_options.basic.password and
+// tls_settings.tls_pem_settings.key.
+func preserveSchemaRegistrySecrets(ctx context.Context, state, prev *shadowlinkmodel.ResourceModel) diag.Diagnostics {
+	var diags diag.Diagnostics
+	if prev.SchemaRegistrySyncOptions.IsNull() || prev.SchemaRegistrySyncOptions.IsUnknown() {
+		return diags
+	}
+	if state.SchemaRegistrySyncOptions.IsNull() || state.SchemaRegistrySyncOptions.IsUnknown() {
+		return diags
+	}
+
+	var prevSR, stateSR shadowlinkmodel.SchemaRegistrySyncOptionsModel
+	diags.Append(prev.SchemaRegistrySyncOptions.As(ctx, &prevSR, objOpts)...)
+	diags.Append(state.SchemaRegistrySyncOptions.As(ctx, &stateSR, objOpts)...)
+	if diags.HasError() {
+		return diags
+	}
+	if prevSR.ShadowSchemaRegistryAPI.IsNull() || prevSR.ShadowSchemaRegistryAPI.IsUnknown() {
+		return diags
+	}
+	if stateSR.ShadowSchemaRegistryAPI.IsNull() || stateSR.ShadowSchemaRegistryAPI.IsUnknown() {
+		return diags
+	}
+
+	var prevAPI, stateAPI shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPIModel
+	diags.Append(prevSR.ShadowSchemaRegistryAPI.As(ctx, &prevAPI, objOpts)...)
+	diags.Append(stateSR.ShadowSchemaRegistryAPI.As(ctx, &stateAPI, objOpts)...)
+	if diags.HasError() {
+		return diags
+	}
+
+	preserveBasicPassword(ctx, &stateAPI, &prevAPI, &diags)
+	preservePemKey(ctx, &stateAPI, &prevAPI, &diags)
+	if diags.HasError() {
+		return diags
+	}
+
+	apiObj, d := types.ObjectValueFrom(ctx, shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAttrTypes(), &stateAPI)
+	diags.Append(d...)
+	if d.HasError() {
+		return diags
+	}
+	stateSR.ShadowSchemaRegistryAPI = apiObj
+
+	srObj, d := types.ObjectValueFrom(ctx, shadowlinkmodel.SchemaRegistrySyncOptionsAttrTypes(), &stateSR)
+	diags.Append(d...)
+	if !d.HasError() {
+		state.SchemaRegistrySyncOptions = srObj
+	}
+	return diags
+}
+
+func preserveBasicPassword(ctx context.Context, state, prev *shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPIModel, diags *diag.Diagnostics) {
+	if prev.AuthOptions.IsNull() || prev.AuthOptions.IsUnknown() || state.AuthOptions.IsNull() || state.AuthOptions.IsUnknown() {
+		return
+	}
+	var prevAuth, stateAuth shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsModel
+	diags.Append(prev.AuthOptions.As(ctx, &prevAuth, objOpts)...)
+	diags.Append(state.AuthOptions.As(ctx, &stateAuth, objOpts)...)
+	if diags.HasError() || prevAuth.Basic.IsNull() || stateAuth.Basic.IsNull() {
+		return
+	}
+	stateAuth.Basic = preserveMaskedAttr(ctx, stateAuth.Basic, prevAuth.Basic,
+		shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasicAttrTypes(), "password", diags)
+	obj, d := types.ObjectValueFrom(ctx, shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsAttrTypes(), &stateAuth)
+	diags.Append(d...)
+	if !d.HasError() {
+		state.AuthOptions = obj
+	}
+}
+
+func preservePemKey(ctx context.Context, state, prev *shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPIModel, diags *diag.Diagnostics) {
+	if prev.TLSSettings.IsNull() || prev.TLSSettings.IsUnknown() || state.TLSSettings.IsNull() || state.TLSSettings.IsUnknown() {
+		return
+	}
+	var prevTLS, stateTLS shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsModel
+	diags.Append(prev.TLSSettings.As(ctx, &prevTLS, objOpts)...)
+	diags.Append(state.TLSSettings.As(ctx, &stateTLS, objOpts)...)
+	if diags.HasError() || prevTLS.TLSPemSettings.IsNull() || stateTLS.TLSPemSettings.IsNull() {
+		return
+	}
+	stateTLS.TLSPemSettings = preserveMaskedAttr(ctx, stateTLS.TLSPemSettings, prevTLS.TLSPemSettings,
+		shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettingsAttrTypes(), "key", diags)
+	obj, d := types.ObjectValueFrom(ctx, shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsAttrTypes(), &stateTLS)
+	diags.Append(d...)
+	if !d.HasError() {
+		state.TLSSettings = obj
+	}
 }
 
 var (

@@ -19,6 +19,7 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1/controlplanev1grpc"
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
@@ -26,6 +27,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -77,6 +79,8 @@ func (f *ShadowLinkFake) CreateShadowLink(_ context.Context, req *controlplanev1
 		UpdatedAt:                 now,
 	}
 
+	populateServerOwned(sl)
+
 	f.mu.Lock()
 	f.links[id] = sl
 	f.mu.Unlock()
@@ -84,16 +88,55 @@ func (f *ShadowLinkFake) CreateShadowLink(_ context.Context, req *controlplanev1
 	return &controlplanev1.CreateShadowLinkOperation{Operation: completedOp(f.op, id)}, nil
 }
 
-// maskSensitiveClientOptions returns a clone of sl with sensitive fields
-// zeroed, mirroring the real backend's behavior on Read.
-func maskSensitiveClientOptions(sl *controlplanev1.ShadowLink) *controlplanev1.ShadowLink {
+// populateServerOwned fills the OUTPUT_ONLY fields the control plane derives.
+// Leaving them empty lets a test pass while the provider mishandles them.
+func populateServerOwned(sl *controlplanev1.ShadowLink) {
+	if co := sl.GetClientOptions(); co != nil {
+		co.ClientId = "tfrp-fake-client-id"
+	}
+	api := sl.GetSchemaRegistrySyncOptions().GetShadowSchemaRegistryApi()
+	if api == nil {
+		return
+	}
+	api.EffectiveTailInterval = durationOr(api.GetTailInterval(), 10)
+	api.EffectiveFullSyncInterval = durationOr(api.GetFullSyncInterval(), 300)
+	api.EffectiveMaxSourceRequestsPerSecond = api.GetMaxSourceRequestsPerSecond()
+	if api.EffectiveMaxSourceRequestsPerSecond == 0 {
+		api.EffectiveMaxSourceRequestsPerSecond = 30
+	}
+	if basic := api.GetAuthOptions().GetBasic(); basic != nil && basic.GetPassword() != "" {
+		basic.PasswordSet = true
+	}
+	if pem := api.GetTlsSettings().GetTlsPemSettings(); pem != nil && pem.GetKey() != "" {
+		pem.KeyFingerprint = "sha256:tfrp-fake-fingerprint"
+	}
+}
+
+// durationOr returns d, or fallbackSeconds when d is unset — mirroring the
+// control plane applying its own default to the effective_* mirrors.
+func durationOr(d *durationpb.Duration, fallbackSeconds int64) *durationpb.Duration {
+	if d != nil && (d.GetSeconds() != 0 || d.GetNanos() != 0) {
+		return d
+	}
+	return durationpb.New(time.Duration(fallbackSeconds) * time.Second)
+}
+
+// maskSensitive returns a clone of sl with sensitive fields zeroed, mirroring
+// the real backend's behavior on Read.
+func maskSensitive(sl *controlplanev1.ShadowLink) *controlplanev1.ShadowLink {
 	out, ok := proto.Clone(sl).(*controlplanev1.ShadowLink)
 	if !ok {
 		return sl
 	}
-	co := out.GetClientOptions()
+	maskClientOptions(out)
+	maskSchemaRegistrySync(out)
+	return out
+}
+
+func maskClientOptions(sl *controlplanev1.ShadowLink) {
+	co := sl.GetClientOptions()
 	if co == nil {
-		return out
+		return
 	}
 	if tls := co.GetTlsSettings(); tls != nil {
 		tls.Key = ""
@@ -106,12 +149,25 @@ func maskSensitiveClientOptions(sl *controlplanev1.ShadowLink) *controlplanev1.S
 			plain.Password = ""
 		}
 	}
-	return out
+}
+
+func maskSchemaRegistrySync(sl *controlplanev1.ShadowLink) {
+	api := sl.GetSchemaRegistrySyncOptions().GetShadowSchemaRegistryApi()
+	if api == nil {
+		return
+	}
+	if basic := api.GetAuthOptions().GetBasic(); basic != nil {
+		basic.Password = ""
+	}
+	if pem := api.GetTlsSettings().GetTlsPemSettings(); pem != nil {
+		pem.Key = ""
+	}
 }
 
 // GetShadowLink returns the stored shadow link with sensitive fields masked,
 // mirroring the real backend's behavior (tls.key, scram.password,
-// plain.password are never returned on Read).
+// plain.password, and the shadow_schema_registry_api basic password / PEM key
+// are never returned on Read).
 func (f *ShadowLinkFake) GetShadowLink(_ context.Context, req *controlplanev1.GetShadowLinkRequest) (*controlplanev1.GetShadowLinkResponse, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -119,7 +175,7 @@ func (f *ShadowLinkFake) GetShadowLink(_ context.Context, req *controlplanev1.Ge
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "shadow_link %q not found", req.GetId())
 	}
-	return &controlplanev1.GetShadowLinkResponse{ShadowLink: maskSensitiveClientOptions(sl)}, nil
+	return &controlplanev1.GetShadowLinkResponse{ShadowLink: maskSensitive(sl)}, nil
 }
 
 // UpdateShadowLink applies req.UpdateMask.Paths against the stored record:
@@ -148,6 +204,7 @@ func (f *ShadowLinkFake) UpdateShadowLink(_ context.Context, req *controlplanev1
 		}
 		dstR.Set(dstFD, srcR.Get(srcFD))
 	}
+	populateServerOwned(sl)
 	sl.UpdatedAt = timestamppb.Now()
 
 	return &controlplanev1.UpdateShadowLinkOperation{Operation: completedOp(f.op, upd.GetId())}, nil

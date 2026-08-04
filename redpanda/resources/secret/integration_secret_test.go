@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
+	dataplanev1 "buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go/redpanda/api/dataplane/v1"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-testing/compare"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -36,6 +37,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/integration"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/mock"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -272,6 +274,36 @@ func TestIntegration_Secret_UpdateLeaf_AllowDeletion(t *testing.T) {
 				statecheck.ExpectKnownValue(secretAddr, tfjsonpath.New("id"), knownvalue.StringExact(resourceName)),
 				idStable.AddStateValue(secretAddr, tfjsonpath.New("id")),
 			}),
+		},
+	})
+}
+
+// TestIntegration_Secret_ErrorPath_AllowDeletionBlocked pins the guard itself.
+// UpdateLeaf_AllowDeletion proves the field round-trips; this proves what the
+// field is for — with allow_deletion=false a destroy must be refused. The final
+// step re-enables deletion so the framework's terminal destroy can proceed.
+func TestIntegration_Secret_ErrorPath_AllowDeletionBlocked(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	noDelete := mockSecretFullConfig(resourceName, dataValueV1, "bufnet", scopeConnect, 1, false)
+	allowDelete := mockSecretFullConfig(resourceName, dataValueV1, "bufnet", scopeConnect, 1, true)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config: noDelete,
+				Check:  resource.TestCheckResourceAttr(secretAddr, "allow_deletion", "false"),
+			},
+			{
+				Config:      noDelete,
+				Destroy:     true,
+				ExpectError: regexp.MustCompile("secret deletion not allowed"),
+			},
+			{
+				Config: allowDelete,
+				Check:  resource.TestCheckResourceAttr(secretAddr, "allow_deletion", "true"),
+			},
 		},
 	})
 }
@@ -518,6 +550,36 @@ func TestIntegration_Secret_ErrorPath_GetFailed(t *testing.T) {
 				},
 				Config:      cfg,
 				ExpectError: regexp.MustCompile("synthetic get failure"),
+			},
+		},
+	})
+}
+
+// TestIntegration_Secret_ErrorPath_CreateAlreadyExists pins that a secret which
+// already exists is not silently taken over.
+//
+// The seed goes through the fake's own CreateSecret so AlreadyExists comes from
+// its real path rather than an injected override — matching the backend, which
+// answers "AlreadyExists ... secret already exists with ID: <name>" and leaves
+// the stored secret_data untouched. Adopting it would put a secret this resource
+// never created under Terraform's management, holding a value the config never
+// supplied — and secret_data is write-only, so the mismatch is invisible. A
+// later destroy then removes it from whoever did create it.
+func TestIntegration_Secret_ErrorPath_CreateAlreadyExists(t *testing.T) {
+	srv, factories := integration.Setup(t)
+
+	_, err := srv.Secret.CreateSecret(context.Background(), &dataplanev1.CreateSecretRequest{
+		Id:     resourceName,
+		Scopes: []dataplanev1.Scope{dataplanev1.Scope_SCOPE_REDPANDA_CONNECT},
+	})
+	require.NoError(t, err)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config:      mockSecretFullConfig(resourceName, dataValueV1, "bufnet", scopeConnect, 1, true),
+				ExpectError: regexp.MustCompile("already exists"),
 			},
 		},
 	})

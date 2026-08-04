@@ -27,9 +27,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/mocks"
 	secretmodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/secret"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc"
+	grpccodes "google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 func setConfig(ctx context.Context, s schema.Schema, val any) (tfsdk.Config, diag.Diagnostics) {
@@ -98,37 +102,88 @@ func TestUnit_Secret_Create_WriteOnlySecretData(t *testing.T) {
 }
 
 func TestUnit_Secret_Create_APIError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	ctx := context.Background()
+	utils.SetTestModeWaits()
 
-	mockClient := mocks.NewMockSecretServiceClient(ctrl)
-	mockClient.EXPECT().
-		CreateSecret(ctx, gomock.Any()).
-		Return(nil, errors.New("boom"))
+	for _, tt := range []struct {
+		name string
+		// rpcErr is what CreateSecret answers with until succeedOnAttempt.
+		rpcErr error
+		// succeedOnAttempt is the 1-based attempt that returns a secret; 0
+		// means every attempt fails.
+		succeedOnAttempt int
+		wantCalls        int
+		wantErr          bool
+	}{
+		{
+			name:      "opaque error is not retried",
+			rpcErr:    errors.New("boom"),
+			wantCalls: 1,
+			wantErr:   true,
+		},
+		{
+			// A dataplane that is reachable but not yet serving answers with a
+			// bare UNKNOWN — code 2, empty message. That is a warm-up signal,
+			// not a verdict, so the 2-minute budget has to cover it.
+			name:             "bare Unknown is retried until the dataplane serves",
+			rpcErr:           grpcstatus.Error(grpccodes.Unknown, ""),
+			succeedOnAttempt: 2,
+			wantCalls:        2,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			ctx := context.Background()
 
-	s := &Secret{SecretClient: mockClient}
-	schemaResp := resource.SchemaResponse{}
-	schemaResp.Schema = ResourceSecretSchema()
+			calls := 0
+			mockClient := mocks.NewMockSecretServiceClient(ctrl)
+			mockClient.EXPECT().
+				CreateSecret(gomock.Any(), gomock.Any()).
+				DoAndReturn(func(context.Context, *dataplanev1.CreateSecretRequest, ...grpc.CallOption) (*dataplanev1.CreateSecretResponse, error) {
+					calls++
+					if tt.succeedOnAttempt > 0 && calls >= tt.succeedOnAttempt {
+						return &dataplanev1.CreateSecretResponse{
+							Secret: &dataplanev1.Secret{Id: "MY_SECRET"},
+						}, nil
+					}
+					return nil, tt.rpcErr
+				}).AnyTimes()
+			// A retry may probe with GetSecret so the next attempt doesn't
+			// trip AlreadyExists. Nothing exists yet.
+			mockClient.EXPECT().
+				GetSecret(gomock.Any(), gomock.Any()).
+				Return(nil, grpcstatus.Error(grpccodes.NotFound, "no such secret")).
+				AnyTimes()
 
-	plan := secretmodel.ResourceModel{
-		Name:          types.StringValue("MY_SECRET"),
-		ClusterAPIURL: types.StringValue("http://localhost:9644"),
-		Scopes:        scopesList(ctx, t, "SCOPE_REDPANDA_CLUSTER"),
-		SecretData:    types.StringNull(),
-		Labels:        types.MapNull(types.StringType),
+			s := &Secret{SecretClient: mockClient}
+			schemaResp := resource.SchemaResponse{}
+			schemaResp.Schema = ResourceSecretSchema()
+
+			plan := secretmodel.ResourceModel{
+				Name:          types.StringValue("MY_SECRET"),
+				ClusterAPIURL: types.StringValue("http://localhost:9644"),
+				Scopes:        scopesList(ctx, t, "SCOPE_REDPANDA_CLUSTER"),
+				SecretData:    types.StringNull(),
+				Labels:        types.MapNull(types.StringType),
+			}
+			cfg := plan
+			cfg.SecretData = types.StringValue("v")
+
+			req := resource.CreateRequest{Plan: tfsdk.Plan{Schema: schemaResp.Schema}}
+			require.False(t, req.Plan.Set(ctx, &plan).HasError())
+			req.Config, _ = setConfig(ctx, schemaResp.Schema, &cfg)
+			resp := resource.CreateResponse{State: tfsdk.State{Schema: schemaResp.Schema}}
+			s.Create(ctx, req, &resp)
+
+			assert.Equal(t, tt.wantCalls, calls, "CreateSecret attempts")
+			if tt.wantErr {
+				require.True(t, resp.Diagnostics.HasError())
+				assert.Contains(t, resp.Diagnostics.Errors()[0].Summary(), "failed to create secret")
+				return
+			}
+			require.False(t, resp.Diagnostics.HasError(), "unexpected: %v", resp.Diagnostics)
+		})
 	}
-	cfg := plan
-	cfg.SecretData = types.StringValue("v")
-
-	req := resource.CreateRequest{Plan: tfsdk.Plan{Schema: schemaResp.Schema}}
-	require.False(t, req.Plan.Set(ctx, &plan).HasError())
-	req.Config, _ = setConfig(ctx, schemaResp.Schema, &cfg)
-	resp := resource.CreateResponse{State: tfsdk.State{Schema: schemaResp.Schema}}
-	s.Create(ctx, req, &resp)
-
-	require.True(t, resp.Diagnostics.HasError())
-	assert.Contains(t, resp.Diagnostics.Errors()[0].Summary(), "failed to create secret")
 }
 
 func TestUnit_Secret_Update_VersionTriggersWrite(t *testing.T) {

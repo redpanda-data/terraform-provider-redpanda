@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"testing"
 
@@ -90,6 +91,25 @@ func runServerlessClusterVariantTest(t *testing.T, testSuffix, region string, pu
 		t.Fatal(err)
 	}
 
+	// Dataplane lifecycle steps come from the same builder the dedicated runner
+	// uses. Serverless is where dataplane coverage belongs: it stands up in
+	// seconds, so a dataplane regression no longer costs a cluster-creation cycle.
+	dp, err := newDataplaneFixture(dir, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The cluster ID is stable across the rename; only the lookup name changes.
+	serverlessIDByName := func(lookup string) clusterIDFunc {
+		return func() (string, error) {
+			cluster, err := c.ServerlessClusterForName(ctx, lookup)
+			if err != nil {
+				return "", errors.New("test error: unable to get serverless cluster by name")
+			}
+			return cluster.GetId(), nil
+		}
+	}
+	idBeforeRename, idAfterRename := serverlessIDByName(name), serverlessIDByName(rename)
+
 	acc.Register(acc.KindCluster, acc.CleanupFunc(func(_ context.Context) error {
 		return sweep.Cluster{ClusterName: name, Client: c}.SweepServerlessCluster("")
 	}))
@@ -105,34 +125,51 @@ func runServerlessClusterVariantTest(t *testing.T, testSuffix, region string, pu
 		return sweep.ResourceGroup{ResourceGroupName: name, Client: c}.SweepResourceGroup("")
 	}))
 
-	resource.ParallelTest(t, resource.TestCase{
-		PreCheck: func() { acc.PreCheck(t) },
-		Steps: []resource.TestStep{
-			{
-				ConfigDirectory:          config.StaticDirectory(dir),
-				ConfigVariables:          origTestCaseVars,
-				Check:                    resource.ComposeAggregateTestCheckFunc(checkFuncs...),
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
-				},
-			},
-			{
-				ConfigDirectory:          config.StaticDirectory(dir),
-				ConfigVariables:          allowDeleteVars,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
-				},
-			},
-			{
-				ConfigDirectory:          config.StaticDirectory(dir),
-				ConfigVariables:          updateTestCaseVars,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
-				},
+	steps := []resource.TestStep{
+		{
+			ConfigDirectory:          config.StaticDirectory(dir),
+			ConfigVariables:          origTestCaseVars,
+			Check:                    resource.ComposeAggregateTestCheckFunc(checkFuncs...),
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			ConfigPlanChecks: resource.ConfigPlanChecks{
+				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 			},
 		},
+	}
+	// Pre-rename: the user import resolves the cluster by its original name.
+	steps = append(steps, dp.UserImportSteps(origTestCaseVars, idBeforeRename)...)
+	steps = append(steps, []resource.TestStep{
+		{
+			ConfigDirectory:          config.StaticDirectory(dir),
+			ConfigVariables:          allowDeleteVars,
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			ConfigPlanChecks: resource.ConfigPlanChecks{
+				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+			},
+		},
+		{
+			ConfigDirectory:          config.StaticDirectory(dir),
+			ConfigVariables:          updateTestCaseVars,
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			ConfigPlanChecks: resource.ConfigPlanChecks{
+				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+			},
+		},
+	}...)
+	steps = append(steps, dp.TopicConfigSteps(updateTestCaseVars)...)
+	// Post-rename: every remaining dataplane import resolves by the new name.
+	steps = append(steps, dp.ImportSteps(updateTestCaseVars, idAfterRename)...)
+	steps = append(steps, dp.PipelineSteps(updateTestCaseVars, idAfterRename)...)
+	steps = append(steps, dp.PasswordWoRotationStep(updateTestCaseVars, func(password string) error {
+		id, err := idAfterRename()
+		if err != nil {
+			return err
+		}
+		return acc.VerifySRAuth(ctx, c, id, name, password)
+	})...)
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { acc.PreCheck(t) },
+		Steps:    steps,
 	})
 }

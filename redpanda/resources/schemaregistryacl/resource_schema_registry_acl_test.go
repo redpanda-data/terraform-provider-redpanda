@@ -872,7 +872,9 @@ func TestUnit_SchemaRegistryACL_Delete(t *testing.T) {
 			},
 		},
 		{
-			name: "deletion with allow_deletion=false",
+			// allow_deletion=false must refuse before any client call, matching
+			// every other resource exposing the attribute.
+			name: "deletion refused when allow_deletion=false",
 			initialState: schemaregistryaclmodel.ResourceModel{
 				ID:            types.StringValue("cluster-1:User:carol:SUBJECT:test:LITERAL:*:DELETE:ALLOW"),
 				ClusterID:     types.StringValue("cluster-1"),
@@ -885,6 +887,7 @@ func TestUnit_SchemaRegistryACL_Delete(t *testing.T) {
 				Permission:    types.StringValue("ALLOW"),
 				AllowDeletion: types.BoolValue(false),
 			},
+			wantErr: true,
 		},
 		{
 			name: "deletion with allow_deletion unset (null)",
@@ -926,11 +929,15 @@ func TestUnit_SchemaRegistryACL_Delete(t *testing.T) {
 			ctx := context.Background()
 			mockClient := mocks.NewMockSchemaRegistryACLClientInterface(ctrl)
 
-			if tt.mockError != nil {
+			switch {
+			case tt.mockError != nil:
 				mockClient.EXPECT().
 					DeleteACL(ctx, gomock.Any()).
 					Return(tt.mockError)
-			} else {
+			case tt.wantErr:
+				// Refused before the client is reached: no DeleteACL expectation,
+				// so gomock fails the test if one is issued anyway.
+			default:
 				mockClient.EXPECT().
 					DeleteACL(ctx, gomock.Any()).
 					Return(nil)

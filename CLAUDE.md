@@ -19,7 +19,7 @@ Task runner: [Task](https://taskfile.dev). Use `task` directly (no wrapper).
 - `task test:upgrade:serverless` — serverless provider-upgrade tests (needs creds)
 - `task test:cluster:aws` / `:gcp` — live cluster acc tests
 - `task test:byoc:aws` / `:gcp` — BYOC acc tests
-- `task test:byovpc:aws` — provisions infra, runs test, tears down
+- `task test:byovpc:aws` / `task test:byovpc:gcp` — provisions infra, runs test, tears down
 - `task test:serverless:aws:public` / `:aws:private` / `:aws:both` / `:gcp` / `:regions` / `:privatelink`
 - `task test:datasource:cluster` — datasource acc test (creates cluster + reads)
 - `task test:network` — network resource acc test
@@ -89,6 +89,41 @@ Three tiers. Pick the narrowest that exercises the behavior.
 | Live acc | `redpanda/tests/*_test.go` via `task test:<scope>` | Cluster lifecycle, BYOC, BYOVPC, cross-resource end-to-end flows | `REDPANDA_CLIENT_ID/SECRET` + cloud-provider creds |
 
 Prefer unit tests with gomock clients for anything that can be exercised in-process. Reach for live acc only when the behavior genuinely requires a real cluster.
+
+### Fixtures must model reachable state
+
+Be thorough, but don't test the impossible. A fixture that constructs a state production can't produce proves nothing, and it passes — which is worse than failing, because it reads as coverage.
+
+Build fixtures the way production builds them. If a type has an invariant — a flag set whenever a collection is populated, a field the server always returns — honor it, or you are asserting against a shape that will never reach the code.
+
+When tightening an invariant turns a test red, ask first whether the fixture was modeling something impossible. Usually it was: **fix the fixture, don't relax the invariant.** That the test failed is the invariant working.
+
+A test modeling an unreachable state is a *fixture* bug, not a redundant test. Correct it in place — deleting or skipping it still needs explicit approval, same as any other test.
+
+The same failure wears other costumes, all seen in this repo:
+
+- a fake that doesn't populate what the control plane always populates, so the provider is never asked to handle it
+- a golden that agrees with the generated output because both are wrong
+- a diagnostic that never fires, read as "clean" when it was inert
+
+If a test passes, make it fail once on purpose to prove it was testing something.
+
+## Before implementing a feature
+
+Read the API and the fake first. Both have repeatedly been the source of bugs that no test tier caught.
+
+**The API (`../cloudv2`, `../console`).** Read the actual proto, not just the field list:
+
+- Compare the **read, create, and update messages**. A field's writability is whatever the write shapes say — a field absent from both is server-owned, and one present only on create needs `RequiresReplace`. Don't infer it from the field name or from `field_behavior` annotations, which have proven unreliable here.
+- Note `oneof` blocks. Arms are mutually exclusive, must not be `Computed` when the user selects them, and each pair needs an arm-switch test.
+- Note which messages are **shared** between read and write shapes. Where they are, diffing tells you nothing and the yaml annotation carries the decision.
+- Check `buf.validate` rules and whether the control plane rejects a change in some states (not just whether the field is sendable).
+
+**The fake (`internal/testutil/mock/fakes/`).** A lenient fake makes tests pass against a broken provider. Before trusting a green run, confirm the fake:
+
+- populates every field the control plane derives (status blocks, `effective_*` mirrors, generated IDs, fingerprints) — on **both** Create and Update
+- masks on Read whatever the real backend masks (passwords, keys)
+- rejects what the real backend rejects
 
 ## Code Generation
 

@@ -202,6 +202,35 @@ const (
 // request — with aws_config unchanged. The plan is a Terraform-level Update,
 // but the provider must short-circuit: no UpdateServerlessPrivateLink RPC
 // should fire. CallCount == 0 is the load-bearing assertion.
+// TestIntegration_ServerlessPrivateLink_ErrorPath_AllowDeletionBlocked pins the
+// guard itself. AllowDeletionFlip_NoBackendCall proves the flip costs no RPC;
+// this proves what the flag is for — with allow_deletion=false a destroy is
+// refused before the delete RPC is reached.
+func TestIntegration_ServerlessPrivateLink_ErrorPath_AllowDeletionBlocked(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	const name = "tfrp-mock-spl-ep-nodelete"
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config: splConfig(name, "pro-us-east-1", splPrincipals1, false),
+				Check:  resource.TestCheckResourceAttr(splAddr, "allow_deletion", "false"),
+			},
+			{
+				Config:      splConfig(name, "pro-us-east-1", splPrincipals1, false),
+				Destroy:     true,
+				ExpectError: regexp.MustCompile("serverless private link deletion not allowed"),
+			},
+			{
+				Config: splConfig(name, "pro-us-east-1", splPrincipals1, true),
+				Check:  resource.TestCheckResourceAttr(splAddr, "allow_deletion", "true"),
+			},
+		},
+	})
+}
+
 func TestIntegration_ServerlessPrivateLink_AllowDeletionFlip_NoBackendCall(t *testing.T) {
 	srv, factories := integration.Setup(t)
 
@@ -319,6 +348,40 @@ func TestIntegration_ServerlessPrivateLink_UpdateLeaf_AllowedPrincipals(t *testi
 					statecheck.ExpectKnownValue(splAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idStable.AddStateValue(splAddr, tfjsonpath.New("id")),
 				}),
+		},
+	})
+}
+
+// TestIntegration_ServerlessPrivateLink_OmitAwsConfig_Rejected drops the
+// aws_config oneof arm from config. cloud_provider_config requires exactly one
+// arm, so the generated proto-validator rejects this at plan time rather than
+// letting it reach the API — the arm can be replaced, never cleared.
+func TestIntegration_ServerlessPrivateLink_OmitAwsConfig_Rejected(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	cfg := `
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-spl-rg"
+}
+
+resource "redpanda_serverless_private_link" "test" {
+  name              = "tfrp-mock-spl-omit"
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = "aws"
+  serverless_region = "pro-us-east-1"
+  allow_deletion    = true
+}
+`
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config:      cfg,
+				ExpectError: regexp.MustCompile(`(?s)cloud_provider_config.*exactly one field is required in oneof`),
+			},
 		},
 	})
 }

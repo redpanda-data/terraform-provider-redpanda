@@ -395,6 +395,11 @@ func (s *Schema) Delete(ctx context.Context, request resource.DeleteRequest, res
 		return
 	}
 
+	if !state.AllowDeletion.IsNull() && !state.AllowDeletion.ValueBool() {
+		response.Diagnostics.AddError("schema deletion not allowed", "allow_deletion is set to false")
+		return
+	}
+
 	client, err := s.getClient(ctx, state.ClusterID.ValueString(), s.resData.TokenSource, state.Username.ValueString(), state.GetEffectivePassword())
 	if err != nil {
 		if utils.IsPermissionDenied(err) || utils.IsClusterUnreachable(err) {

@@ -575,6 +575,36 @@ func TestIntegration_User_ErrorPath_DeleteUser_Failed(t *testing.T) {
 // state upgrade through the provider server's UpgradeResourceState RPC and
 // asserts the legacy host:443 cluster_api_url is rewritten to https://host so
 // the format change alone no longer forces replacement.
+// TestIntegration_User_ErrorPath_AllowDeletionBlocked pins the guard itself.
+// UpdateLeaf_AllowDeletion proves the field round-trips; this proves what the
+// field is for — with allow_deletion=false a destroy must be refused. The final
+// step re-enables deletion so the framework's terminal destroy can proceed.
+func TestIntegration_User_ErrorPath_AllowDeletionBlocked(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	noDelete := mockUserConfigFull("tfrp-mock-user-nodel", "scram-sha-256", "bufnet", 1, false)
+	allowDelete := mockUserConfigFull("tfrp-mock-user-nodel", "scram-sha-256", "bufnet", 1, true)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config: noDelete,
+				Check:  resource.TestCheckResourceAttr(userAddr, "allow_deletion", "false"),
+			},
+			{
+				Config:      noDelete,
+				Destroy:     true,
+				ExpectError: regexp.MustCompile(`user deletion not allowed`),
+			},
+			{
+				Config: allowDelete,
+				Check:  resource.TestCheckResourceAttr(userAddr, "allow_deletion", "true"),
+			},
+		},
+	})
+}
+
 func TestIntegration_User_UpgradeState_NormalizesClusterApiUrl(t *testing.T) {
 	_, factories := integration.Setup(t)
 	ctx := context.Background()

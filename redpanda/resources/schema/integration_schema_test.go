@@ -39,20 +39,21 @@ import (
 )
 
 const (
-	mockSchemaClusterID  = "mockschemaclusterid0"
-	mockSchemaClusterID2 = "mockschemaclusterid2"
-	mockSchemaClusterID3 = "mockschemaclusterid3"
-	mockSchemaClusterID4 = "mockschemaclusterid4"
-	mockSchemaClusterID5 = "mockschemaclusterid5"
-	mockSchemaClusterID6 = "mockschemaclusterid6"
-	mockSchemaClusterID7 = "mockschemaclusterid7"
-	mockSchemaClusterID8 = "mockschemaclusterid8"
-	mockSchemaClusterID9 = "mockschemaclusterid9"
-	mockSchemaClusterIDa = "mockschemaclusterida"
-	mockSchemaClusterIDb = "mockschemaclusteridb"
-	mockSchemaClusterIDc = "mockschemaclusteridc"
-	mockSchemaClusterIDd = "mockschemaclusteridd"
-	mockSchemaClusterIDe = "mockschemaclusteride"
+	mockSchemaClusterID   = "mockschemaclusterid0"
+	mockSchemaClusterID2  = "mockschemaclusterid2"
+	mockSchemaClusterID3  = "mockschemaclusterid3"
+	mockSchemaClusterID4  = "mockschemaclusterid4"
+	mockSchemaClusterID5  = "mockschemaclusterid5"
+	mockSchemaClusterID6  = "mockschemaclusterid6"
+	mockSchemaClusterID7  = "mockschemaclusterid7"
+	mockSchemaClusterID8  = "mockschemaclusterid8"
+	mockSchemaClusterID9  = "mockschemaclusterid9"
+	mockSchemaClusterID10 = "mockschemaclustrid10"
+	mockSchemaClusterIDa  = "mockschemaclusterida"
+	mockSchemaClusterIDb  = "mockschemaclusteridb"
+	mockSchemaClusterIDc  = "mockschemaclusteridc"
+	mockSchemaClusterIDd  = "mockschemaclusteridd"
+	mockSchemaClusterIDe  = "mockschemaclusteride"
 
 	avroSchemaV1 = `{"type":"record","name":"TestRecord","fields":[{"name":"id","type":"int"}]}`
 	avroSchemaV2 = `{"type":"record","name":"TestRecord","fields":[{"name":"id","type":"int"},{"name":"name","type":"string"}]}`
@@ -705,6 +706,38 @@ data "redpanda_schema" "test" {
 
 // TestIntegration_SchemaDataSource_ReadSpecificVersion verifies the datasource fetches
 // a specific version when the version attribute is set.
+// TestIntegration_Schema_ErrorPath_AllowDeletionBlocked pins the guard the
+// documentation already promises: "terraform destroy will refuse until you set
+// this to true". Delete called DeleteSubject unconditionally and only consulted
+// allow_deletion afterwards, inside the permission-denied/unreachable branch, to
+// decide whether to drop the resource from state.
+func TestIntegration_Schema_ErrorPath_AllowDeletionBlocked(t *testing.T) {
+	_, factories := schemaSetup(t, mockSchemaClusterID10)
+
+	const subject = "mock-subject-nodel"
+	noDelete := schemaCfg(mockSchemaClusterID10, subject, avroSchemaV1, "AVRO", "BACKWARD", false)
+	allowDelete := schemaCfg(mockSchemaClusterID10, subject, avroSchemaV1, "AVRO", "BACKWARD", true)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config: noDelete,
+				Check:  resource.TestCheckResourceAttr(schemaAddr, "allow_deletion", "false"),
+			},
+			{
+				Config:      noDelete,
+				Destroy:     true,
+				ExpectError: regexp.MustCompile("(?i)deletion|not allowed"),
+			},
+			{
+				Config: allowDelete,
+				Check:  resource.TestCheckResourceAttr(schemaAddr, "allow_deletion", "true"),
+			},
+		},
+	})
+}
+
 func TestIntegration_SchemaDataSource_ReadSpecificVersion(t *testing.T) {
 	_, factories := schemaSetup(t, mockSchemaClusterIDd)
 

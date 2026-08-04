@@ -275,6 +275,36 @@ func TestIntegration_Role_RequiresReplace_ClusterAPIURL(t *testing.T) {
 // stable across all four steps — proof that the in-place path actually
 // runs. We end with allow_deletion=true so the terminal cleanup destroy
 // succeeds (Delete blocks when allow_deletion=false).
+// TestIntegration_Role_ErrorPath_AllowDeletionBlocked pins the guard itself.
+// UpdateLeaf_AllowDeletion proves the field round-trips; this proves what the
+// field is for — with allow_deletion=false a destroy must be refused. The final
+// step re-enables deletion so the framework's terminal destroy can proceed.
+func TestIntegration_Role_ErrorPath_AllowDeletionBlocked(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	noDelete := mockRoleConfig(false)
+	allowDelete := mockRoleConfig(true)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config: noDelete,
+				Check:  resource.TestCheckResourceAttr(roleAddr, "allow_deletion", "false"),
+			},
+			{
+				Config:      noDelete,
+				Destroy:     true,
+				ExpectError: regexp.MustCompile(`role deletion not allowed`),
+			},
+			{
+				Config: allowDelete,
+				Check:  resource.TestCheckResourceAttr(roleAddr, "allow_deletion", "true"),
+			},
+		},
+	})
+}
+
 func TestIntegration_Role_UpdateLeaf_AllowDeletion(t *testing.T) {
 	_, factories := integration.Setup(t)
 

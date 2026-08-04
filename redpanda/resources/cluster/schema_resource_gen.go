@@ -23,10 +23,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
@@ -94,22 +94,21 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"customer_managed_resources": schema.SingleNestedAttribute{
-				Description:   "The cloud resources created by user.",
-				Optional:      true,
-				PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
+				Description: "The cloud resources created by user.",
+				Optional:    true,
 				Attributes: map[string]schema.Attribute{
 					"aws": schema.SingleNestedAttribute{
-						Description:   "AWS resources created and managed by user, and required to deploy the Redpanda cluster.",
-						Optional:      true,
-						PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
+						Description: "AWS resources created and managed by user, and required to deploy the Redpanda cluster.",
+						Optional:    true,
 						Attributes: map[string]schema.Attribute{
 							"agent_instance_profile": schema.SingleNestedAttribute{
 								Description: "AWS instance profile.",
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description: "AWS instance profile ARN.",
-										Required:    true,
+										Description:   "AWS instance profile ARN.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
@@ -118,8 +117,9 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description: "AWS storage bucket identifier.",
-										Required:    true,
+										Description:   "AWS storage bucket identifier.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
@@ -128,8 +128,9 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description: "AWS security group ARN.",
-										Required:    true,
+										Description:   "AWS security group ARN.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
@@ -138,8 +139,9 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description: "AWS instance profile ARN.",
-										Required:    true,
+										Description:   "AWS instance profile ARN.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
@@ -148,8 +150,9 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description: "AWS security group ARN.",
-										Required:    true,
+										Description:   "AWS security group ARN.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
@@ -158,8 +161,9 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description: "AWS role ARN.",
-										Required:    true,
+										Description:   "AWS role ARN.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
@@ -168,8 +172,9 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description: "AWS security group ARN.",
-										Required:    true,
+										Description:   "AWS security group ARN.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
@@ -178,8 +183,9 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description: "AWS policy ARN.",
-										Required:    true,
+										Description:   "AWS policy ARN.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
@@ -188,8 +194,9 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description: "AWS security group ARN.",
-										Required:    true,
+										Description:   "AWS security group ARN.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
@@ -198,8 +205,9 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description: "AWS instance profile ARN.",
-										Required:    true,
+										Description:   "AWS instance profile ARN.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
@@ -208,8 +216,9 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description: "AWS security group ARN.",
-										Required:    true,
+										Description:   "AWS security group ARN.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
@@ -218,8 +227,9 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description: "AWS instance profile ARN.",
-										Required:    true,
+										Description:   "AWS instance profile ARN.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
@@ -228,8 +238,9 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description: "AWS security group ARN.",
-										Required:    true,
+										Description:   "AWS security group ARN.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
@@ -286,9 +297,8 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						},
 					},
 					"gcp": schema.SingleNestedAttribute{
-						Description:   "GCP resources created and managed by user, and required to deploy the Redpanda cluster. See [Create a BYOVPC Cluster on GCP](https://docs.redpanda.com/redpanda-cloud/get-started/cluster-types/byoc/gcp/vpc-byo-gcp/).",
-						Optional:      true,
-						PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
+						Description: "GCP resources created and managed by user, and required to deploy the Redpanda cluster. See [Create a BYOVPC Cluster on GCP](https://docs.redpanda.com/redpanda-cloud/get-started/cluster-types/byoc/gcp/vpc-byo-gcp/).",
+						Optional:    true,
 						Attributes: map[string]schema.Attribute{
 							"agent_service_account": schema.SingleNestedAttribute{
 								Description: "GCP service account.",
@@ -395,18 +405,16 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								},
 							},
 							"psc_nat_subnet_name": schema.StringAttribute{
-								Description:   "NAT subnet name if GCP Private Service Connect (a.k.a Private Link) is enabled. If it is used for PSC v1, use psc_v2_nat_subnet_name to set NAT subnet name for PSC v2.",
-								Optional:      true,
-								PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+								Description: "NAT subnet name if GCP Private Service Connect (a.k.a Private Link) is enabled. If it is used for PSC v1, use psc_v2_nat_subnet_name to set NAT subnet name for PSC v2.",
+								Optional:    true,
 							},
 							"rpsql_api_service_account": schema.SingleNestedAttribute{
 								Description: "GCP service account.",
 								Optional:    true,
 								Attributes: map[string]schema.Attribute{
 									"email": schema.StringAttribute{
-										Description:   "GCP service account email. Must be a valid email address.",
-										Required:      true,
-										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+										Description: "GCP service account email. Must be a valid email address.",
+										Required:    true,
 									},
 								},
 							},
@@ -415,14 +423,13 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Optional:    true,
 								Attributes: map[string]schema.Attribute{
 									"name": schema.StringAttribute{
-										Description:   "Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.",
-										Required:      true,
-										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+										Description: "Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.",
+										Required:    true,
 									},
 								},
 							},
 							"rpsql_secret_manager_prefix": schema.StringAttribute{
-								Description: "GCP Secret Manager prefix for Redpanda SQL Iceberg catalog credentials. Required when configuring an Iceberg catalog on a BYOVPC cluster. The prefix should be a resource path of the form \"projects/PROJECT/secrets/PREFIX\" where the rpsql API service account has been granted access to all secrets under that prefix.",
+								Description: "GCP Secret Manager prefix for Redpanda SQL Iceberg catalog credentials. Length must be at most 255. Must match pattern `^[A-Za-z0-9_-]+$`.",
 								Optional:    true,
 							},
 							"rpsql_service_account": schema.SingleNestedAttribute{
@@ -430,9 +437,8 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Optional:    true,
 								Attributes: map[string]schema.Attribute{
 									"email": schema.StringAttribute{
-										Description:   "GCP service account email. Must be a valid email address.",
-										Required:      true,
-										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+										Description: "GCP service account email. Must be a valid email address.",
+										Required:    true,
 									},
 								},
 							},
@@ -497,14 +503,14 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						Description:   "List of supported regions in cross-region AWS PrivateLink. Must have at most 50 items. Items must be unique.",
 						Optional:      true,
 						Computed:      true,
-						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.List{privateLinkListPin()},
 						Validators:    []validator.List{listvalidator.SizeAtMost(50), listvalidator.UniqueValues()},
 						ElementType:   types.StringType,
 					},
 					"status": schema.SingleNestedAttribute{
 						Description:   "Status configuration",
 						Computed:      true,
-						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
+						PlanModifiers: []planmodifier.Object{privateLinkStatusPin()},
 						Attributes: map[string]schema.Attribute{
 							"console_port": schema.Int32Attribute{
 								Description:   "The port of Redpanda Console.",
@@ -632,7 +638,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 					"status": schema.SingleNestedAttribute{
 						Description:   "Status configuration",
 						Computed:      true,
-						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
+						PlanModifiers: []planmodifier.Object{privateLinkStatusPin()},
 						Attributes: map[string]schema.Attribute{
 							"approved_subscriptions": schema.ListAttribute{
 								Description:   "These are the approved subscriptions on the private link",
@@ -837,7 +843,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 					"status": schema.SingleNestedAttribute{
 						Description:   "Status configuration",
 						Computed:      true,
-						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseNonNullStateForUnknown()},
+						PlanModifiers: []planmodifier.Object{privateLinkStatusPin()},
 						Attributes: map[string]schema.Attribute{
 							"connected_endpoints": schema.ListNestedAttribute{
 								Description:   "List of VPC endpoints with established connections to GCP Private Service Connect.",
@@ -1186,15 +1192,15 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						Description:   "Replicas",
 						Optional:      true,
 						Computed:      true,
-						Default:       int32default.StaticInt32(1),
-						PlanModifiers: []planmodifier.Int32{int32planmodifier.UseStateForUnknown()},
+						PlanModifiers: []planmodifier.Int32{rpsqlReplicasStatePin()},
+						Validators:    []validator.Int32{validators.ClearedWhenDisabledInt32Validator{Enabled: path.Root("rpsql").AtName("enabled")}},
 					},
 					"zones": schema.ListAttribute{
 						Description:   "Zones. Must have at most 1 items.",
 						Optional:      true,
 						Computed:      true,
 						PlanModifiers: []planmodifier.List{rpsqlZonesStatePin()},
-						Validators:    []validator.List{listvalidator.SizeAtMost(1)},
+						Validators:    append([]validator.List{validators.ClearedWhenDisabledListValidator{Enabled: path.Root("rpsql").AtName("enabled")}}, listvalidator.SizeAtMost(1)),
 						ElementType:   types.StringType,
 					},
 					"url": schema.StringAttribute{

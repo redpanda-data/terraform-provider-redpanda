@@ -802,6 +802,25 @@ resource "redpanda_shadow_link" "test" {
 }
 `
 
+	// Switching to the sibling arm of the start_offset oneof. The proto applies
+	// start_offset to new shadow topic partitions, so this is an ongoing
+	// operation, not a create-time-only knob.
+	cfg3 := `
+provider "redpanda" {}
+
+resource "redpanda_shadow_link" "test" {
+  name               = "tfrp-mock-sl-earliest"
+  shadow_redpanda_id = "shadow-cluster-id-earliest"
+  source_redpanda_id = "source-cluster-id-earliest"
+  allow_deletion     = true
+  topic_metadata_sync_options = {
+    interval        = "30s"
+    paused          = false
+    start_at_latest = true
+  }
+}
+`
+
 	idStable := statecheck.CompareValue(compare.ValuesSame())
 
 	resource.UnitTest(t, resource.TestCase{
@@ -813,6 +832,18 @@ resource "redpanda_shadow_link" "test" {
 			}),
 			integration.UpdateLeafStep(shadowLinkAddr, cfg2, []statecheck.StateCheck{
 				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("topic_metadata_sync_options").AtMapKey("start_at_earliest"), knownvalue.Bool(true)),
+				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idStable.AddStateValue(shadowLinkAddr, tfjsonpath.New("id")),
+			}),
+			integration.UpdateLeafStep(shadowLinkAddr, cfg3, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("topic_metadata_sync_options").AtMapKey("start_at_latest"), knownvalue.Bool(true)),
+				// The abandoned arm must go null, not keep its anchored value.
+				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("topic_metadata_sync_options").AtMapKey("start_at_earliest"), knownvalue.Null()),
+				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idStable.AddStateValue(shadowLinkAddr, tfjsonpath.New("id")),
+			}),
+			integration.NoopReapplyStep(shadowLinkAddr, cfg3, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("topic_metadata_sync_options").AtMapKey("start_at_latest"), knownvalue.Bool(true)),
 				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 				idStable.AddStateValue(shadowLinkAddr, tfjsonpath.New("id")),
 			}),
@@ -1086,6 +1117,63 @@ resource "redpanda_shadow_link" "test" {
 
 // TestIntegration_ShadowLink_UpdateLeaf_ScramPassword exercises the sensitive
 // scram.password write path.
+// TestIntegration_ShadowLink_AuthArmSwitch flips the authentication oneof from
+// scram to plain. The abandoned arm must go null rather than keep the value a
+// state pin would hold.
+func TestIntegration_ShadowLink_AuthArmSwitch(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	authCfg := func(block string) string {
+		return fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_shadow_link" "test" {
+  name               = "tfrp-mock-sl-authswitch"
+  shadow_redpanda_id = "shadow-cluster-id-authswitch"
+  allow_deletion     = true
+  client_options = {
+    bootstrap_servers = ["broker:9092"]
+    authentication_configuration = {
+%s
+    }
+  }
+}
+`, block)
+	}
+	scram := authCfg(`      scram_configuration = {
+        username        = "user1"
+        scram_mechanism = "SCRAM_SHA_256"
+        password        = "$${secrets.scram_pw}"
+      }`)
+	plain := authCfg(`      plain_configuration = {
+        username = "user1"
+        password = "$${secrets.plain_pw}"
+      }`)
+
+	authKey := func(arm string, leaf ...string) tfjsonpath.Path {
+		p := tfjsonpath.New("client_options").AtMapKey("authentication_configuration").AtMapKey(arm)
+		for _, l := range leaf {
+			p = p.AtMapKey(l)
+		}
+		return p
+	}
+	plainChecks := []statecheck.StateCheck{
+		statecheck.ExpectKnownValue(shadowLinkAddr, authKey("plain_configuration", "password"), knownvalue.StringExact(`${secrets.plain_pw}`)),
+		statecheck.ExpectKnownValue(shadowLinkAddr, authKey("scram_configuration"), knownvalue.Null()),
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(shadowLinkAddr, scram, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(shadowLinkAddr, authKey("scram_configuration", "password"), knownvalue.StringExact(`${secrets.scram_pw}`)),
+			}),
+			integration.UpdateLeafStep(shadowLinkAddr, plain, plainChecks),
+			integration.NoopReapplyStep(shadowLinkAddr, plain, plainChecks),
+		},
+	})
+}
+
 func TestIntegration_ShadowLink_UpdateLeaf_ScramPassword(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -1591,6 +1679,151 @@ resource "redpanda_shadow_link" "test" {
 }
 `
 
+	// shadow_schema_registry_api is the other arm of the
+	// schema_registry_shadowing_mode oneof. cfgPem and cfgFile between them
+	// cover every leaf of the subtree: the tls_settings and destination oneofs
+	// each admit only one arm per config.
+	cfgPem := `
+provider "redpanda" {}
+
+resource "redpanda_shadow_link" "test" {
+  name               = "tfrp-mock-sl-sr-dense"
+  shadow_redpanda_id = "shadow-cluster-id-sr-dense"
+  source_redpanda_id = "source-cluster-id-sr-dense"
+  allow_deletion     = true
+  schema_registry_sync_options = {
+    shadow_schema_registry_api = {
+      source_url = "https://source-sr.example.com"
+      auth_options = {
+        basic = {
+          username = "sr-api-key"
+          password = "$${secrets.sr_api_secret}"
+        }
+      }
+      tls_settings = {
+        enabled                 = true
+        do_not_set_sni_hostname = true
+        tls_pem_settings = {
+          ca   = "-----BEGIN CERTIFICATE-----\nMIIBkTCB+w==\n-----END CERTIFICATE-----"
+          cert = "-----BEGIN CERTIFICATE-----\nMIIBkTCB+x==\n-----END CERTIFICATE-----"
+          key  = "$${secrets.sr_pem_key}"
+        }
+      }
+      tail_interval                  = "15s"
+      full_sync_interval             = "10m0s"
+      max_source_requests_per_second = 50
+      source_filter = {
+        contexts = [".", ".prod"]
+        subjects = ["orders-value", ":.prod:orders-value"]
+      }
+      destination = {
+        exact = {
+          mappings = [
+            {
+              source      = ".prod"
+              destination = ".shadow-prod"
+            },
+          ]
+        }
+      }
+      unsupported_schema_feature_policy = "REMOVE"
+      paused                            = true
+    }
+  }
+}
+`
+	cfgFile := `
+provider "redpanda" {}
+
+resource "redpanda_shadow_link" "test" {
+  name               = "tfrp-mock-sl-sr-dense"
+  shadow_redpanda_id = "shadow-cluster-id-sr-dense"
+  source_redpanda_id = "source-cluster-id-sr-dense"
+  allow_deletion     = true
+  schema_registry_sync_options = {
+    shadow_schema_registry_api = {
+      source_url = "https://source-sr.example.com"
+      auth_options = {
+        basic = {
+          username = "sr-api-key"
+          password = "$${secrets.sr_api_secret}"
+        }
+      }
+      tls_settings = {
+        enabled                 = true
+        do_not_set_sni_hostname = false
+        tls_file_settings = {
+          ca_path   = "/etc/ssl/certs/ca.pem"
+          cert_path = "/etc/ssl/certs/client.pem"
+          key_path  = "/etc/ssl/private/client-key.pem"
+        }
+      }
+      tail_interval                  = "20s"
+      full_sync_interval             = "5m0s"
+      max_source_requests_per_second = 30
+      source_filter = {
+        contexts = [".staging"]
+        subjects = ["payments-value"]
+      }
+      destination = {
+        identity = true
+      }
+      unsupported_schema_feature_policy = "FAIL"
+      paused                            = false
+    }
+  }
+}
+`
+
+	apiKey := func(leaf ...string) tfjsonpath.Path {
+		p := tfjsonpath.New("schema_registry_sync_options").AtMapKey("shadow_schema_registry_api")
+		for _, l := range leaf {
+			p = p.AtMapKey(l)
+		}
+		return p
+	}
+	pemChecks := []statecheck.StateCheck{
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("source_url"), knownvalue.StringExact("https://source-sr.example.com")),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("auth_options", "basic", "username"), knownvalue.StringExact("sr-api-key")),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("auth_options", "basic", "password"), knownvalue.StringExact(`${secrets.sr_api_secret}`)),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("auth_options", "basic", "password_set"), knownvalue.NotNull()),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("tls_settings", "enabled"), knownvalue.Bool(true)),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("tls_settings", "do_not_set_sni_hostname"), knownvalue.Bool(true)),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("tls_settings", "tls_pem_settings", "ca"), knownvalue.NotNull()),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("tls_settings", "tls_pem_settings", "cert"), knownvalue.NotNull()),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("tls_settings", "tls_pem_settings", "key"), knownvalue.StringExact(`${secrets.sr_pem_key}`)),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("tls_settings", "tls_pem_settings", "key_fingerprint"), knownvalue.NotNull()),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("tail_interval"), knownvalue.StringExact("15s")),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("full_sync_interval"), knownvalue.StringExact("10m0s")),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("max_source_requests_per_second"), knownvalue.Int32Exact(50)),
+		// The server-derived mirrors: absent from every write payload, so they
+		// only ever arrive via Read.
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("effective_tail_interval"), knownvalue.StringExact("15s")),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("effective_full_sync_interval"), knownvalue.StringExact("10m0s")),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("effective_max_source_requests_per_second"), knownvalue.Int32Exact(50)),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("source_filter", "contexts"), knownvalue.ListSizeExact(2)),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("source_filter", "subjects"), knownvalue.ListSizeExact(2)),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("destination", "exact", "mappings"), knownvalue.ListSizeExact(1)),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("unsupported_schema_feature_policy"), knownvalue.StringExact("REMOVE")),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("paused"), knownvalue.Bool(true)),
+		statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+	}
+	fileChecks := []statecheck.StateCheck{
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("tls_settings", "tls_file_settings", "ca_path"), knownvalue.StringExact("/etc/ssl/certs/ca.pem")),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("tls_settings", "tls_file_settings", "cert_path"), knownvalue.StringExact("/etc/ssl/certs/client.pem")),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("tls_settings", "tls_file_settings", "key_path"), knownvalue.StringExact("/etc/ssl/private/client-key.pem")),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("destination", "identity"), knownvalue.Bool(true)),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("tail_interval"), knownvalue.StringExact("20s")),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("full_sync_interval"), knownvalue.StringExact("5m0s")),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("max_source_requests_per_second"), knownvalue.Int32Exact(30)),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("effective_tail_interval"), knownvalue.StringExact("20s")),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("effective_full_sync_interval"), knownvalue.StringExact("5m0s")),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("effective_max_source_requests_per_second"), knownvalue.Int32Exact(30)),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("unsupported_schema_feature_policy"), knownvalue.StringExact("FAIL")),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("paused"), knownvalue.Bool(false)),
+		statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+	}
+
 	idStable := statecheck.CompareValue(compare.ValuesSame())
 
 	resource.UnitTest(t, resource.TestCase{
@@ -1606,6 +1839,14 @@ resource "redpanda_shadow_link" "test" {
 				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 				idStable.AddStateValue(shadowLinkAddr, tfjsonpath.New("id")),
 			}),
+			// Flip the oneof to the api arm, densely populated.
+			integration.UpdateLeafStep(shadowLinkAddr, cfgPem, pemChecks),
+			// The reapply is the load-bearing step: the fake masks
+			// basic.password and tls_pem_settings.key on Read, so a clean plan
+			// here proves preserveSchemaRegistrySecrets restored both.
+			integration.NoopReapplyStep(shadowLinkAddr, cfgPem, pemChecks),
+			integration.UpdateLeafStep(shadowLinkAddr, cfgFile, fileChecks),
+			integration.NoopReapplyStep(shadowLinkAddr, cfgFile, fileChecks),
 		},
 	})
 }

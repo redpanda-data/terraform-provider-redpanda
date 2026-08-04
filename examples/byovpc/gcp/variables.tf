@@ -99,3 +99,33 @@ variable "acl_allow_deletion" {
   type        = bool
   default     = true
 }
+
+variable "rpsql_enabled" {
+  default     = false
+  description = "Enable Redpanda SQL. Requires the rpsql_* customer-managed resources to be set."
+  type        = bool
+}
+
+variable "rpsql_secret_manager_prefix" {
+  default     = "redpanda-rpsql"
+  description = "GCP Secret Manager prefix for the Redpanda SQL Iceberg catalog credentials. Must match ^[A-Za-z0-9_-]+$ — a bare prefix, not a full resource path."
+  type        = string
+}
+
+variable "rpsql_api_service_account_email" {
+  default     = ""
+  description = "Email of the Redpanda SQL API service account. Required when rpsql_enabled."
+  type        = string
+}
+
+variable "rpsql_service_account_email" {
+  default     = ""
+  description = "Email of the Redpanda SQL service account. Required when rpsql_enabled."
+  type        = string
+}
+
+variable "rpsql_cloud_storage_bucket_name" {
+  default     = ""
+  description = "Name of the GCS bucket backing Redpanda SQL. Required when rpsql_enabled."
+  type        = string
+}

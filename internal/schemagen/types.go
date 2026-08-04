@@ -17,7 +17,6 @@ package schemagen
 
 import (
 	"fmt"
-	"strings"
 
 	bufvalidate "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 )
@@ -59,6 +58,8 @@ const (
 	KindList     = "list"
 	KindSet      = "set"
 
+	fieldMaskMessage = "FieldMask"
+
 	elemTypeString  = "types.StringType"
 	elemTypeBool    = "types.BoolType"
 	elemTypeInt32   = "types.Int32Type"
@@ -91,10 +92,31 @@ type ProtoMessage struct {
 
 	GoName string
 
+	// FullName is the fully-qualified proto name. GoName is NOT unique — it
+	// drops the proto package, so two distinct messages can share one
+	// (core.common.v1.TLSSettings and controlplane.v1.TLSSettings are both
+	// reachable from ShadowLink and both render as "TLSSettings"). Anything
+	// establishing message identity must key on this; GoName builds Go type
+	// references in generated code and cannot be qualified.
+	FullName string
+
 	ExternalPkgAlias string
 
 	ExternalPkgImport string
 	Fields            []ProtoField
+}
+
+// identityKey returns a key safe to compare message identity on: the
+// fully-qualified name when the descriptor supplied one, else the Go name for
+// hand-built fixtures.
+func (m *ProtoMessage) identityKey() string {
+	if m == nil {
+		return ""
+	}
+	if m.FullName != "" {
+		return m.FullName
+	}
+	return m.GoName
 }
 
 // FindField returns the proto field with the given snake_case name, or nil
@@ -107,32 +129,6 @@ func (m *ProtoMessage) FindField(name string) *ProtoField {
 	for i := range m.Fields {
 		if m.Fields[i].Name == name {
 			return &m.Fields[i]
-		}
-	}
-	return nil
-}
-
-// FindPath walks a dot-separated path from this message and returns the
-// terminal field, or nil if any segment fails to resolve. Each non-terminal
-// segment must be a message field (so its Nested can be walked). A nil
-// receiver returns nil.
-func (m *ProtoMessage) FindPath(path string) *ProtoField {
-	if m == nil || path == "" {
-		return nil
-	}
-	cur := m
-	parts := strings.Split(path, ".")
-	for i, part := range parts {
-		f := cur.FindField(part)
-		if f == nil {
-			return nil
-		}
-		if i == len(parts)-1 {
-			return f
-		}
-		cur = f.Nested
-		if cur == nil {
-			return nil
 		}
 	}
 	return nil
@@ -164,6 +160,9 @@ type SchemaAttr struct {
 
 	FlattenSkip bool
 	EnumValues  []string
+
+	// IsOneofArm marks an attribute backed by a non-synthetic proto oneof variant.
+	IsOneofArm bool
 }
 
 type protoKindInfo struct {

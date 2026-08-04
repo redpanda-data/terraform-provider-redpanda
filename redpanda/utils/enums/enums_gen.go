@@ -236,6 +236,20 @@ func StringToPatternType(s string) corev2.PatternType {
 	return corev2.PatternType_PATTERN_TYPE_UNSPECIFIED
 }
 
+// SchemaRegistrySyncTypeToString maps a proto enum value to its TF string form.
+func SchemaRegistrySyncTypeToString(e corev2.SchemaRegistrySyncType) string {
+	return strings.TrimPrefix(e.String(), "SCHEMA_REGISTRY_SYNC_TYPE_")
+}
+
+// StringToSchemaRegistrySyncType maps a TF string back to the proto enum.
+// Returns the UNSPECIFIED value for unknown inputs.
+func StringToSchemaRegistrySyncType(s string) corev2.SchemaRegistrySyncType {
+	if v, ok := corev2.SchemaRegistrySyncType_value["SCHEMA_REGISTRY_SYNC_TYPE_"+s]; ok {
+		return corev2.SchemaRegistrySyncType(v)
+	}
+	return corev2.SchemaRegistrySyncType_SCHEMA_REGISTRY_SYNC_TYPE_UNSPECIFIED
+}
+
 // ScramMechanismToString maps a proto enum value to its TF string form.
 func ScramMechanismToString(e corev2.ScramMechanism) string {
 	return strings.TrimPrefix(e.String(), "SCRAM_MECHANISM_")
@@ -290,6 +304,20 @@ func StringToTaskState(s string) corev2.TaskState {
 		return corev2.TaskState(v)
 	}
 	return corev2.TaskState_TASK_STATE_UNSPECIFIED
+}
+
+// UnsupportedSchemaFeaturePolicyToString maps a proto enum value to its TF string form.
+func UnsupportedSchemaFeaturePolicyToString(e corev2.UnsupportedSchemaFeaturePolicy) string {
+	return strings.TrimPrefix(e.String(), "UNSUPPORTED_SCHEMA_FEATURE_POLICY_")
+}
+
+// StringToUnsupportedSchemaFeaturePolicy maps a TF string back to the proto enum.
+// Returns the UNSPECIFIED value for unknown inputs.
+func StringToUnsupportedSchemaFeaturePolicy(s string) corev2.UnsupportedSchemaFeaturePolicy {
+	if v, ok := corev2.UnsupportedSchemaFeaturePolicy_value["UNSUPPORTED_SCHEMA_FEATURE_POLICY_"+s]; ok {
+		return corev2.UnsupportedSchemaFeaturePolicy(v)
+	}
+	return corev2.UnsupportedSchemaFeaturePolicy_UNSUPPORTED_SCHEMA_FEATURE_POLICY_UNSPECIFIED
 }
 
 // ACLOperationToString maps a proto enum value to its TF string form.

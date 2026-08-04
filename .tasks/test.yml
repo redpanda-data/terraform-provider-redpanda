@@ -5,11 +5,16 @@ vars:
   REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET | default ""}}'
   REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT | default "pre"}}'
   CLUSTER_ID: '{{.CLUSTER_ID | default ""}}'
-  DATASOURCE_CLUSTER_ID: '{{.DATASOURCE_CLUSTER_ID | default ""}}'
   TF_LOG: '{{.TF_LOG | default "WARN"}}'
   TIMEOUT: '{{.TIMEOUT | default "6h"}}'
   TIMEOUT_SHORT: '{{.TIMEOUT_SHORT | default "1h"}}'
   VERSION: '{{.VERSION | default "pre"}}'
+
+# Passed through the environment rather than interpolated into command
+# bodies: Task echoes command bodies, which put the secret in CI logs.
+env:
+  REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+  REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
 
 tasks:
   unit:
@@ -50,8 +55,6 @@ tasks:
       - echo "Running network live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -68,8 +71,6 @@ tasks:
       - echo "Running service account live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -86,8 +87,6 @@ tasks:
       - echo "Running shadow link live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -95,26 +94,6 @@ tasks:
           -count=1 -tags=live_test,shadowlink -v -timeout={{.TIMEOUT}} \
           ./redpanda/resources/shadowlink/...
       - echo "Shadow link tests completed successfully"
-
-  datasource:
-    desc: "Run datasource tests against existing cluster (parametric mode; stays env-driven)"
-    deps:
-      - :tools:install:terraform
-    cmds:
-      - echo "Running TestAcc_DataSource_Runner..."
-      - |
-        DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        TEST_AGAINST_EXISTING_CLUSTER=true \
-        CLUSTER_ID="{{.DATASOURCE_CLUSTER_ID}}" \
-        TF_ACC=true \
-        TF_LOG={{.TF_LOG}} \
-        VERSION={{.VERSION}} \
-        {{.PATH_PREFIX}} go test \
-          -count=1 -v -timeout={{.TIMEOUT_SHORT}} -run TestAcc_DataSource_Runner \
-          ./redpanda/tests
-      - echo "Datasource tests completed successfully"
 
   datasource:cluster:
     desc: "Run cluster datasource acceptance test (creates cluster + reads via datasource)"
@@ -124,8 +103,6 @@ tasks:
       - echo "Running cluster datasource live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -142,8 +119,6 @@ tasks:
       - echo "Running AWS cluster live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -163,8 +138,6 @@ tasks:
       - echo "Running GCP cluster live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -181,8 +154,6 @@ tasks:
       - echo "Running AWS BYOC live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -192,7 +163,7 @@ tasks:
       - echo "AWS BYOC tests completed successfully"
 
   byovpc:aws:
-    desc: "Provision BYOVPC AWS infra, run TestAcc_Cluster_BYOVPC_AWS, tear down infra (always)"
+    desc: "Provision BYOVPC AWS infra and run TestAcc_Cluster_BYOVPC_AWS"
     deps:
       - :tools:install:terraform
     vars:
@@ -212,8 +183,6 @@ tasks:
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         AWS_REGION="{{.AWS_REGION}}" \
         AWS_ZONES="$(echo "$INPUTS" | jq -r '.zones')" \
         RP_MANAGEMENT_BUCKET_ARN="$(echo "$INPUTS" | jq -r '.management_bucket_arn')" \
@@ -233,14 +202,63 @@ tasks:
         RP_CLUSTER_SECURITY_GROUP_ARN="$(echo "$INPUTS" | jq -r '.cluster_security_group_arn')" \
         RP_NODE_SECURITY_GROUP_ARN="$(echo "$INPUTS" | jq -r '.node_security_group_arn')" \
         RP_CLOUD_STORAGE_BUCKET_ARN="$(echo "$INPUTS" | jq -r '.cloud_storage_bucket_arn')" \
+        RP_RPSQL_CLOUD_STORAGE_BUCKET_ARN="$(echo "$INPUTS" | jq -r '.rpsql_cloud_storage_bucket_arn')" \
+        RP_RPSQL_NODE_GROUP_INSTANCE_PROFILE_ARN="$(echo "$INPUTS" | jq -r '.rpsql_node_group_instance_profile_arn')" \
+        RP_RPSQL_SECURITY_GROUP_ARN="$(echo "$INPUTS" | jq -r '.rpsql_security_group_arn')" \
         {{.PATH_PREFIX}} go test \
           -count=1 -tags=live_test,byovpc_aws -v -timeout={{.TIMEOUT}} \
           ./redpanda/tests/
       - echo "BYOVPC AWS tests completed successfully"
-    defer:
-      - task: cleanup:aws:ci
-        vars:
-          AWS_REGION: '{{.AWS_REGION}}'
+
+  byovpc:gcp:
+    desc: "Provision BYOVPC GCP infra and run TestAcc_Cluster_BYOVPC_GCP"
+    deps:
+      - :tools:install:terraform
+    vars:
+      GCP_REGION: '{{.GCP_REGION | default "us-central1"}}'
+      PROJECT_ID: '{{.PROJECT_ID | default .GCP_PROJECT_ID}}'
+      # 1-9 chars, non-empty: the module's operator service account is
+      # "rp-op<postfix>" and underruns GCP's 6-char account_id minimum without it.
+      # Per-run so concurrent builds do not collide; sweepable by prefix afterwards.
+      UNIQUE_IDENTIFIER:
+        sh: echo "${UNIQUE_IDENTIFIER:-${BUILDKITE_BUILD_NUMBER:-local}}"
+    cmds:
+      - echo "Provisioning BYOVPC GCP test infra..."
+      - |
+        export PATH="{{.BUILD_ROOT}}/bin:$PATH"
+        cd redpanda/tests/testdata/network/gcp
+        terraform init
+        terraform apply -auto-approve \
+          -var "project_id={{.PROJECT_ID}}" \
+          -var "region={{.GCP_REGION}}" \
+          -var "unique_identifier={{.UNIQUE_IDENTIFIER}}" \
+          -var "google_credentials_base64=$GOOGLE_CREDENTIALS_BASE64"
+      - echo "Running GCP BYOVPC live-acc tests..."
+      - |
+        set -euo pipefail
+        INPUTS=$(cat redpanda/tests/testdata/network/gcp/inputs.json)
+        DEBUG=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        GCP_REGION="{{.GCP_REGION}}" \
+        GCP_PROJECT_ID="{{.PROJECT_ID}}" \
+        GCP_VPC_NETWORK_NAME="$(echo "$INPUTS" | jq -r '.network_name')" \
+        GCP_SUBNET_NAME="$(echo "$INPUTS" | jq -r '.subnet_name')" \
+        GCP_SECONDARY_IPV4_RANGE_PODS_NAME="$(echo "$INPUTS" | jq -r '.secondary_ipv4_range_pods_name')" \
+        GCP_SECONDARY_IPV4_RANGE_SERVICES_NAME="$(echo "$INPUTS" | jq -r '.secondary_ipv4_range_services_name')" \
+        GCP_K8S_MASTER_IPV4_RANGE="$(echo "$INPUTS" | jq -r '.k8s_master_ipv4_range')" \
+        GCP_MANAGEMENT_BUCKET_NAME="$(echo "$INPUTS" | jq -r '.management_bucket_name')" \
+        GCP_TIERED_STORAGE_BUCKET_NAME="$(echo "$INPUTS" | jq -r '.tiered_storage_bucket_name')" \
+        GCP_AGENT_SERVICE_ACCOUNT_EMAIL="$(echo "$INPUTS" | jq -r '.agent_service_account_email')" \
+        GCP_CONSOLE_SERVICE_ACCOUNT_EMAIL="$(echo "$INPUTS" | jq -r '.console_service_account_email')" \
+        GCP_CONNECTOR_SERVICE_ACCOUNT_EMAIL="$(echo "$INPUTS" | jq -r '.connector_service_account_email')" \
+        GCP_REDPANDA_CLUSTER_SERVICE_ACCOUNT_EMAIL="$(echo "$INPUTS" | jq -r '.redpanda_cluster_service_account_email')" \
+        GCP_GKE_SERVICE_ACCOUNT_EMAIL="$(echo "$INPUTS" | jq -r '.gke_service_account_email')" \
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,byovpc_gcp -v -timeout={{.TIMEOUT}} \
+          ./redpanda/tests/
+      - echo "BYOVPC GCP tests completed successfully"
 
   byoc:gcp:
     desc: "Run GCP BYOC acceptance tests"
@@ -250,8 +268,6 @@ tasks:
       - echo "Running GCP BYOC live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -268,8 +284,6 @@ tasks:
       - echo "Running AWS serverless public live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -286,8 +300,6 @@ tasks:
       - echo "Running GCP serverless live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -304,8 +316,6 @@ tasks:
       - echo "Running AWS serverless private live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -322,8 +332,6 @@ tasks:
       - echo "Running AWS serverless both live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -340,8 +348,6 @@ tasks:
       - echo "Running serverless regions live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -358,8 +364,6 @@ tasks:
       - echo "Running serverless private link live-acc tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         VERSION={{.VERSION}} \
@@ -377,14 +381,12 @@ tasks:
       - |
         set -e
         export DEBUG=true
-        export REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}"
-        export REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}"
-        export REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}"
+        export REDPANDA_CLOUD_ENVIRONMENT="pre"
         export TF_ACC=true
         export TF_LOG={{.TF_LOG}}
         # Fast pass: control-plane + dataplane upgrade tests, skipping the slow dedicated-cluster
         # lifecycle (own pass below) and the serverless tests (task test:upgrade:serverless).
-        {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT_SHORT}} -skip '^(TestUpgrade_Cluster|TestUpgrade_ServerlessCluster|TestUpgrade_DataplaneClusterAPIURLMigration)$' ./redpanda/resources/... ./redpanda/tests/...
+        {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT_SHORT}} -skip '^(TestUpgrade_Cluster|TestUpgrade_ServerlessCluster|TestUpgrade_DataplaneResourcesNoChurn)$' ./redpanda/resources/... ./redpanda/tests/...
         # Slow pass: dedicated-cluster create+delete in its own single-package invocation so output streams live
         # and gets a timeout above the resource's own 1h30m create budget (TIMEOUT_SHORT=1h is too short).
         {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT}} -run '^TestUpgrade_Cluster$' ./redpanda/resources/cluster/...
@@ -399,14 +401,12 @@ tasks:
       - |
         set -e
         export DEBUG=true
-        export REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}"
-        export REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}"
-        export REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}"
+        export REDPANDA_CLOUD_ENVIRONMENT="pre"
         export TF_ACC=true
         export TF_LOG={{.TF_LOG}}
         # Both upgrade tests that provision a serverless cluster: the serverless_cluster
-        # resource itself and the dataplane cluster_api_url migration (serverless-backed).
-        {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT_SHORT}} -run '^(TestUpgrade_ServerlessCluster|TestUpgrade_DataplaneClusterAPIURLMigration)$' ./redpanda/resources/serverlesscluster/... ./redpanda/tests/...
+        # resource itself and the dataplane no-churn guard (serverless-backed).
+        {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT_SHORT}} -run '^(TestUpgrade_ServerlessCluster|TestUpgrade_DataplaneResourcesNoChurn)$' ./redpanda/resources/serverlesscluster/... ./redpanda/tests/...
       - echo "Serverless provider-upgrade tests completed successfully"
 
   upgrade:smoke:
@@ -417,9 +417,7 @@ tasks:
       - echo "Running provider-upgrade smoke tests..."
       - |
         DEBUG=true \
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
-        REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
+        REDPANDA_CLOUD_ENVIRONMENT="pre" \
         TF_ACC=true \
         TF_LOG={{.TF_LOG}} \
         {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT_SHORT}} \

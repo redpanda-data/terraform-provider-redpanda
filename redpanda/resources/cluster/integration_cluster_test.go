@@ -180,6 +180,46 @@ resource "redpanda_cluster" "test" {
 `, name, body)
 }
 
+// azureDedicatedConfig returns the Azure dedicated baseline HCL with the given
+// cluster name and optional extra cluster body lines. The fake does not enforce
+// cloud-specific requirements, so this mirrors awsDedicatedConfig with the
+// azure provider/region/tier.
+func azureDedicatedConfig(name string, extra ...string) string {
+	body := ""
+	for _, e := range extra {
+		body += "\n  " + e
+	}
+	return fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-cl-rg"
+}
+
+resource "redpanda_network" "test" {
+  name              = "tfrp-mock-cl-net"
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = "azure"
+  region            = "eastus"
+  cluster_type      = "dedicated"
+  cidr_block        = "10.0.0.0/20"
+}
+
+resource "redpanda_cluster" "test" {
+  name              = %q
+  resource_group_id = redpanda_resource_group.test.id
+  network_id        = redpanda_network.test.id
+  cloud_provider    = "azure"
+  region            = "eastus"
+  zones             = ["eastus-az1"]
+  throughput_tier   = "tier-1-azure-v3-x86"
+  cluster_type      = "dedicated"
+  connection_type   = "public"
+  allow_deletion    = true%s
+}
+`, name, body)
+}
+
 // gcpDedicatedConfig returns the GCP dedicated baseline HCL.
 func gcpDedicatedConfig(name string, extra ...string) string {
 	body := ""
@@ -257,9 +297,33 @@ resource "redpanda_cluster" "test" {
 `, name)
 }
 
-// awsBYOVPCConfig returns the AWS BYOVPC (customer_managed_resources.aws) HCL.
-// securityGroupARN allows the C9 scenario to mutate cluster_security_group.arn.
-func awsBYOVPCConfig(name, securityGroupARN string) string {
+// awsBYOVPCOpts configures awsBYOVPCConfig. rpsql gates both the top-level
+// rpsql block and the rpsql_* CMR leaves — the control plane clears rpsql CMR
+// when Redpanda SQL is disabled, so they are only realistic together. Blank
+// ARN fields fall back to their default.
+type awsBYOVPCOpts struct {
+	name         string
+	clusterSGARN string // immutable cluster_security_group.arn (RequiresReplace)
+	connectSGARN string // redpanda_connect_security_group.arn (freely in-place updatable)
+	rpsql        bool   // enable Redpanda SQL and emit the rpsql_* CMR leaves
+	rpsqlSGARN   string // rpsql_security_group.arn (immutable while rpsql enabled)
+	omitRpsqlCMR bool   // with rpsql: suppress the rpsql_* CMR leaves (invalid; pins the CP rejection)
+}
+
+func awsBYOVPCConfig(o awsBYOVPCOpts) string {
+	clusterSG := orDefault(o.clusterSGARN, "arn:aws:ec2:us-east-1:123456789012:security-group/sg-cluster")
+	connectSG := orDefault(o.connectSGARN, "arn:aws:ec2:us-east-1:123456789012:security-group/sg-rp-connect")
+	rpsqlBlock, rpsqlCMR := "", ""
+	if o.rpsql {
+		rpsqlSG := orDefault(o.rpsqlSGARN, "arn:aws:ec2:us-east-1:123456789012:security-group/sg-rpsql")
+		rpsqlBlock = "\n  rpsql             = { enabled = true }"
+		if !o.omitRpsqlCMR {
+			rpsqlCMR = fmt.Sprintf(`
+      rpsql_cloud_storage_bucket               = { arn = "arn:aws:s3:::tfrp-rpsql-storage" }
+      rpsql_node_group_instance_profile        = { arn = "arn:aws:iam::123456789012:instance-profile/tfrp-rpsql-ng" }
+      rpsql_security_group                     = { arn = %q }`, rpsqlSG)
+		}
+	}
 	return fmt.Sprintf(`
 provider "redpanda" {}
 
@@ -293,7 +357,7 @@ resource "redpanda_cluster" "test" {
   throughput_tier   = "tier-1-aws-v3-arm"
   cluster_type      = "byoc"
   connection_type   = "private"
-  allow_deletion    = true
+  allow_deletion    = true%s
   customer_managed_resources = {
     aws = {
       agent_instance_profile                   = { arn = "arn:aws:iam::123456789012:instance-profile/tfrp-agent" }
@@ -305,31 +369,53 @@ resource "redpanda_cluster" "test" {
       node_security_group                      = { arn = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-nodes" }
       permissions_boundary_policy              = { arn = "arn:aws:iam::123456789012:policy/tfrp-permissions-boundary" }
       redpanda_agent_security_group            = { arn = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-rp-agent" }
+      redpanda_connect_security_group          = { arn = %q }
       redpanda_node_group_instance_profile     = { arn = "arn:aws:iam::123456789012:instance-profile/tfrp-rp-ng" }
       redpanda_node_group_security_group       = { arn = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-rp-ng" }
-      rpsql_cloud_storage_bucket               = { arn = "arn:aws:s3:::tfrp-rpsql-storage" }
-      rpsql_node_group_instance_profile        = { arn = "arn:aws:iam::123456789012:instance-profile/tfrp-rpsql-ng" }
-      rpsql_security_group                     = { arn = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-rpsql" }
       utility_node_group_instance_profile      = { arn = "arn:aws:iam::123456789012:instance-profile/tfrp-utility-ng" }
-      utility_security_group                   = { arn = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-utility" }
+      utility_security_group                   = { arn = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-utility" }%s
     }
   }
 }
-`, name, securityGroupARN)
+`, o.name, rpsqlBlock, clusterSG, connectSG, rpsqlCMR)
 }
 
-// gcpBYOVPCConfig returns the GCP BYOVPC (customer_managed_resources.gcp) HCL.
-// subnetName allows the C10 scenario to mutate cmr.gcp.subnet.name; extra is
-// appended verbatim inside the gcp block (e.g. rpsql_* fields).
-// psc_nat_subnet_name is always set to a non-empty value because conv_gen.go
-// flattens the unset proto3 string as "" rather than null.
-func gcpBYOVPCConfig(name, subnetName, pscNatSubnet, extra string) string {
-	pscLine := ""
-	if pscNatSubnet != "" {
-		pscLine = fmt.Sprintf("\n      psc_nat_subnet_name   = %q", pscNatSubnet)
+// orDefault returns v when non-empty, else def.
+func orDefault(v, def string) string {
+	if v == "" {
+		return def
 	}
-	if extra != "" {
-		pscLine += "\n      " + extra
+	return v
+}
+
+// gcpBYOVPCOpts configures gcpBYOVPCConfig. rpsql gates both the top-level rpsql
+// block and the rpsql_* CMR leaves (the control plane clears rpsql CMR when
+// Redpanda SQL is disabled). pscNat, when non-empty, sets the in-place-updatable
+// psc_nat_subnet_name; empty omits it (stays null). Blank fields fall back to
+// their default.
+type gcpBYOVPCOpts struct {
+	name         string
+	subnetName   string // immutable subnet.name (RequiresReplace)
+	pscNat       string // psc_nat_subnet_name (freely in-place updatable); "" omits it
+	rpsql        bool   // enable Redpanda SQL and emit the rpsql_* CMR leaves
+	rpsqlSAEmail string // rpsql_service_account.email (immutable while rpsql enabled)
+}
+
+func gcpBYOVPCConfig(o gcpBYOVPCOpts) string {
+	subnetName := orDefault(o.subnetName, "tfrp-subnet-a")
+	extra := ""
+	if o.pscNat != "" {
+		extra += fmt.Sprintf("\n      psc_nat_subnet_name   = %q", o.pscNat)
+	}
+	rpsqlBlock := ""
+	if o.rpsql {
+		rpsqlSA := orDefault(o.rpsqlSAEmail, "rpsql@tfrp-proj.iam.gserviceaccount.com")
+		rpsqlBlock = "\n  rpsql             = { enabled = true }"
+		extra += fmt.Sprintf(`
+      rpsql_api_service_account   = { email = "rpsql-api@tfrp-proj.iam.gserviceaccount.com" }
+      rpsql_service_account       = { email = %q }
+      rpsql_cloud_storage_bucket  = { name = "tfrp-rpsql-storage" }
+      rpsql_secret_manager_prefix = "tfrp-rpsql-"`, rpsqlSA)
 	}
 	return fmt.Sprintf(`
 provider "redpanda" {}
@@ -363,7 +449,7 @@ resource "redpanda_cluster" "test" {
   throughput_tier   = "tier-1-gcp-um4g"
   cluster_type      = "byoc"
   connection_type   = "private"
-  allow_deletion    = true
+  allow_deletion    = true%s
   customer_managed_resources = {
     gcp = {
       agent_service_account     = { email = "agent@tfrp-proj.iam.gserviceaccount.com" }
@@ -377,15 +463,11 @@ resource "redpanda_cluster" "test" {
         secondary_ipv4_range_pods     = { name = "pods-range" }
         secondary_ipv4_range_services = { name = "svc-range" }
       }
-      tiered_storage_bucket       = { name = "tfrp-tiered-bucket" }
-      rpsql_api_service_account   = { email = "rpsql-api@tfrp-proj.iam.gserviceaccount.com" }
-      rpsql_service_account       = { email = "rpsql@tfrp-proj.iam.gserviceaccount.com" }
-      rpsql_cloud_storage_bucket  = { name = "tfrp-rpsql-storage" }
-      rpsql_secret_manager_prefix = "tfrp-rpsql-"%s
+      tiered_storage_bucket       = { name = "tfrp-tiered-bucket" }%s
     }
   }
 }
-`, name, subnetName, pscLine)
+`, o.name, rpsqlBlock, subnetName, extra)
 }
 
 // twoRGConfig declares two resource_groups; rgLabel selects which one the
@@ -695,7 +777,7 @@ func TestIntegration_Cluster_CreateAndRefresh_AWS_BYOVPC(t *testing.T) {
 		name  = "tfrp-mock-cl-a4"
 		sgARN = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-cluster"
 	)
-	cfg := awsBYOVPCConfig(name, sgARN)
+	cfg := awsBYOVPCConfig(awsBYOVPCOpts{name: name, clusterSGARN: sgARN, rpsql: true})
 
 	idPreserved := statecheck.CompareValue(compare.ValuesSame())
 
@@ -758,7 +840,7 @@ func TestIntegration_Cluster_CreateAndRefresh_GCP_BYOVPC(t *testing.T) {
 		name       = "tfrp-mock-cl-a5"
 		subnetName = "tfrp-subnet-a"
 	)
-	cfg := gcpBYOVPCConfig(name, subnetName, "psc-nat-subnet-test", "")
+	cfg := gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, subnetName: subnetName, pscNat: "psc-nat-subnet-test", rpsql: true})
 
 	idPreserved := statecheck.CompareValue(compare.ValuesSame())
 
@@ -1115,22 +1197,16 @@ func TestIntegration_Cluster_UpdateLeaf_Rpsql(t *testing.T) {
 			integration.CreateStep(clusterAddr,
 				awsDedicatedConfig(name),
 				[]statecheck.StateCheck{
-					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql"), knownvalue.Null()),
-					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
-				}),
-			// Add a disabled block: replicas defaults to 1, url stays empty.
-			integration.UpdateLeafStep(clusterAddr,
-				awsDedicatedConfig(name, `rpsql = { enabled = false }`),
-				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("enabled"), knownvalue.Bool(false)),
-					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("replicas"), knownvalue.Int32Exact(1)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("replicas"), knownvalue.Int32Exact(0)),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("url"), knownvalue.StringExact("")),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
 			// Enable in place: url is re-derived to the provisioned endpoint and
-			// the control plane assigns the first cluster zone. Live finding #1:
-			// before the rise-aware pin, UseStateForUnknown held zones at the
-			// prior null and the server-assigned zone tripped inconsistent-result.
+			// the control plane assigns the first cluster zone. A plain
+			// UseStateForUnknown would hold zones at the prior null and the
+			// server-assigned zone would trip inconsistent-result; the
+			// rise-aware pin exists for this edge.
 			integration.UpdateLeafStep(clusterAddr,
 				awsDedicatedConfig(name, `rpsql = { enabled = true }`),
 				[]statecheck.StateCheck{
@@ -1171,21 +1247,40 @@ func TestIntegration_Cluster_UpdateLeaf_Rpsql(t *testing.T) {
 				Config:      awsDedicatedConfig(name, `rpsql = { enabled = true, replicas = 3, zones = ["use1-az2"] }`),
 				ExpectError: regexp.MustCompile("is not one of the cluster zones"),
 			},
-			// Disable keeps zones pinned (the leaf-expanded mask still carries
-			// rpsql.zones; an unknown here would send empty zones into the
-			// immutability check) and the server clears the url.
+			// Disable clears zones: the control plane replaces the whole spec
+			// with a bare disabled one, so zones read back empty alongside the
+			// cleared url and reset replicas. Pinning the prior zones across
+			// this fall would promise a value the post-apply read contradicts
+			// with null.
+			// (replicas is omitted here: the control plane resets it to 0 on
+			// disable, so a config replicas>0 would fight the server value.)
 			integration.UpdateLeafStep(clusterAddr,
-				awsDedicatedConfig(name, `rpsql = { enabled = false, replicas = 3 }`),
+				awsDedicatedConfig(name, `rpsql = { enabled = false }`),
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("enabled"), knownvalue.Bool(false)),
-					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("zones"),
-						knownvalue.ListExact([]knownvalue.Check{knownvalue.StringExact("use1-az1")})),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("replicas"), knownvalue.Int32Exact(0)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("zones"), knownvalue.Null()),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("url"), knownvalue.StringExact("")),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("version"), knownvalue.StringExact("")),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
-			// Re-enable: zones were retained, so the defaulter has nothing to do
-			// and the pinned value flows straight through.
+			// Explicit zones alongside enabled=false are rejected at plan time:
+			// the control plane would clear them, and Terraform requires
+			// plan==config for a known Optional value, so no plan modifier can
+			// reconcile the pair — only a config validator.
+			{
+				Config:      awsDedicatedConfig(name, `rpsql = { enabled = false, zones = ["use1-az1"] }`),
+				ExpectError: regexp.MustCompile("cannot be set while"),
+			},
+			// Same for a non-zero replicas; an explicit 0 stays legal because it
+			// matches the server's cleared value.
+			{
+				Config:      awsDedicatedConfig(name, `rpsql = { enabled = false, replicas = 3 }`),
+				ExpectError: regexp.MustCompile("cannot be set while"),
+			},
+			// Re-enable after a disable: the server cleared zones, so this is a
+			// fresh enable again and the defaulter re-assigns the first cluster
+			// zone.
 			integration.UpdateLeafStep(clusterAddr,
 				awsDedicatedConfig(name, `rpsql = { enabled = true, replicas = 3 }`),
 				[]statecheck.StateCheck{
@@ -1340,6 +1435,67 @@ func TestIntegration_Cluster_UpdateLeaf_AWSPrivateLink_Enabled(t *testing.T) {
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr,
 						tfjsonpath.New("aws_private_link").AtMapKey("enabled"), knownvalue.Bool(true)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			// Disable in place: the control plane drops the whole block, so the
+			// computed children (status, supported_regions) must plan known-null
+			// rather than unknown — else "must be known after apply". Guards the
+			// status plan modifier / ModifyPlan reconciliation on the disable path.
+			integration.UpdateLeafStep(clusterAddr,
+				awsDedicatedConfig(name, `aws_private_link = {
+  enabled            = false
+  connect_console    = false
+  allowed_principals = ["arn:aws:iam::123456789012:root"]
+}`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("aws_private_link").AtMapKey("enabled"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("aws_private_link").AtMapKey("status"), knownvalue.Null()),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+		},
+	})
+}
+
+// TestIntegration_Cluster_UpdateLeaf_AzurePrivateLink_Enabled toggles
+// azure_private_link.enabled in place. Regression guard for the fake's
+// azure_private_link update path: azure_private_link's ClusterUpdate wire type
+// differs from the read shape, so the mask must be applied by an explicit case
+// rather than the panic-prone default reflection branch.
+func TestIntegration_Cluster_UpdateLeaf_AzurePrivateLink_Enabled(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-b13a"
+
+	idPreserved := statecheck.CompareValue(compare.ValuesSame())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				azureDedicatedConfig(name, `azure_private_link = {
+  enabled               = false
+  connect_console       = false
+  allowed_subscriptions = ["00000000-0000-0000-0000-000000000000"]
+}`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("azure_private_link").AtMapKey("enabled"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			integration.UpdateLeafStep(clusterAddr,
+				azureDedicatedConfig(name, `azure_private_link = {
+  enabled               = true
+  connect_console       = false
+  allowed_subscriptions = ["00000000-0000-0000-0000-000000000000"]
+}`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("azure_private_link").AtMapKey("enabled"), knownvalue.Bool(true)),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
@@ -1808,38 +1964,86 @@ func TestIntegration_Cluster_RequiresReplace_RedpandaVersion(t *testing.T) {
 	})
 }
 
-// TestIntegration_Cluster_RequiresReplace_CMR_AWS_Block mutates one inner ARN inside
-// customer_managed_resources.aws. The block-level RequiresReplace fires
-// destroy-before-create. idChanged proves it.
-func TestIntegration_Cluster_RequiresReplace_CMR_AWS_Block(t *testing.T) {
+// TestIntegration_Cluster_CMR_AWS exercises the full customer_managed_resources.aws
+// update contract against the cloudv2-faithful fake:
+//  1. enable Redpanda SQL and supply the rpsql CMR leaves in one apply (empty->value)
+//     — an in-place update, not a destroy (the fix in cloudv2 74f27f5efe);
+//  2. changing an already-set rpsql leaf while rpsql is enabled is rejected as
+//     immutable (validateRPSqlCMRImmutability);
+//  3. the non-rpsql redpanda_connect_security_group updates freely in place;
+//  4. the immutable cluster_security_group still forces destroy-before-create.
+func TestIntegration_Cluster_CMR_AWS(t *testing.T) {
 	_, factories := clusterSetup(t)
 
 	const (
-		name = "tfrp-mock-cl-c9"
-		sgA  = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-cluster-a"
-		sgB  = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-cluster-b"
+		name     = "tfrp-mock-cl-c9"
+		sgA      = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-cluster-a"
+		sgB      = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-cluster-b"
+		connectA = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-connect-a"
+		connectB = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-connect-b"
+		rpsqlSGA = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-rpsql-a"
+		rpsqlSGB = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-rpsql-b"
 	)
+	clusterSGPath := tfjsonpath.New("customer_managed_resources").AtMapKey("aws").AtMapKey("cluster_security_group").AtMapKey("arn")
+	connectPath := tfjsonpath.New("customer_managed_resources").AtMapKey("aws").AtMapKey("redpanda_connect_security_group").AtMapKey("arn")
+	rpsqlSGPath := tfjsonpath.New("customer_managed_resources").AtMapKey("aws").AtMapKey("rpsql_security_group").AtMapKey("arn")
 
 	idChanged := statecheck.CompareValue(compare.ValuesDiffer())
+	idSame := statecheck.CompareValue(compare.ValuesSame())
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: factories,
 		Steps: []resource.TestStep{
+			// 1. Create without Redpanda SQL. rpsql CMR absent; redpanda_connect set.
 			integration.CreateStep(clusterAddr,
-				awsBYOVPCConfig(name, sgA),
+				awsBYOVPCConfig(awsBYOVPCOpts{name: name, clusterSGARN: sgA, connectSGARN: connectA}),
 				[]statecheck.StateCheck{
-					statecheck.ExpectKnownValue(clusterAddr,
-						tfjsonpath.New("customer_managed_resources").AtMapKey("aws").AtMapKey("cluster_security_group").AtMapKey("arn"),
-						knownvalue.StringExact(sgA)),
+					statecheck.ExpectKnownValue(clusterAddr, clusterSGPath, knownvalue.StringExact(sgA)),
+					statecheck.ExpectKnownValue(clusterAddr, connectPath, knownvalue.StringExact(connectA)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("enabled"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("replicas"), knownvalue.Int32Exact(0)),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idSame.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			// 2a. Enabling rpsql WITHOUT the rpsql CMR leaves is rejected
+			// (cloudv2 validateRPSqlCMRFields on the merged BYOVPC spec).
+			{
+				Config: awsBYOVPCConfig(awsBYOVPCOpts{
+					name: name, clusterSGARN: sgA, connectSGARN: connectA,
+					rpsql: true, omitRpsqlCMR: true,
+				}),
+				ExpectError: regexp.MustCompile("rpsql_node_group_instance_profile is required"),
+			},
+			// 2. Enable rpsql AND supply the rpsql CMR leaves in one apply: in-place.
+			integration.UpdateLeafStep(clusterAddr,
+				awsBYOVPCConfig(awsBYOVPCOpts{name: name, clusterSGARN: sgA, connectSGARN: connectA, rpsql: true, rpsqlSGARN: rpsqlSGA}),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("enabled"), knownvalue.Bool(true)),
+					statecheck.ExpectKnownValue(clusterAddr, rpsqlSGPath, knownvalue.StringExact(rpsqlSGA)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idSame.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			// 3. Changing an already-set rpsql leaf while enabled is rejected.
+			{
+				Config: awsBYOVPCConfig(awsBYOVPCOpts{name: name, clusterSGARN: sgA, connectSGARN: connectA, rpsql: true, rpsqlSGARN: rpsqlSGB}),
+				// Substring kept short so the framework's ~76-col detail wrapping
+				// cannot split it (the full message ends "...Redpanda SQL is enabled").
+				ExpectError: regexp.MustCompile("rpsql_security_group is immutable"),
+			},
+			// 4. Non-rpsql redpanda_connect leaf updates freely in place.
+			integration.UpdateLeafStep(clusterAddr,
+				awsBYOVPCConfig(awsBYOVPCOpts{name: name, clusterSGARN: sgA, connectSGARN: connectB, rpsql: true, rpsqlSGARN: rpsqlSGA}),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, connectPath, knownvalue.StringExact(connectB)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idSame.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 					idChanged.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
+			// 5. Immutable cluster_security_group: destroy-before-create.
 			integration.RequiresReplaceStep(clusterAddr,
-				awsBYOVPCConfig(name, sgB),
+				awsBYOVPCConfig(awsBYOVPCOpts{name: name, clusterSGARN: sgB, connectSGARN: connectB, rpsql: true, rpsqlSGARN: rpsqlSGA}),
 				[]statecheck.StateCheck{
-					statecheck.ExpectKnownValue(clusterAddr,
-						tfjsonpath.New("customer_managed_resources").AtMapKey("aws").AtMapKey("cluster_security_group").AtMapKey("arn"),
-						knownvalue.StringExact(sgB)),
+					statecheck.ExpectKnownValue(clusterAddr, clusterSGPath, knownvalue.StringExact(sgB)),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idChanged.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
@@ -1847,58 +2051,75 @@ func TestIntegration_Cluster_RequiresReplace_CMR_AWS_Block(t *testing.T) {
 	})
 }
 
-// TestIntegration_Cluster_RequiresReplace_CMR_GCP_Block mutates cmr.gcp.subnet.name.
-// The block-level RequiresReplace fires destroy-before-create. idChanged proves it.
-// gcpBYOVPCConfig always sets psc_nat_subnet_name (see helper for why).
-func TestIntegration_Cluster_RequiresReplace_CMR_GCP_Block(t *testing.T) {
+// TestIntegration_Cluster_CMR_GCP exercises the full customer_managed_resources.gcp
+// update contract against the cloudv2-faithful fake, mirroring the AWS case:
+//  1. enable Redpanda SQL and supply the rpsql CMR leaves in one apply (empty->value)
+//     — an in-place update, not a destroy;
+//  2. changing an already-set rpsql leaf while rpsql is enabled is rejected as
+//     immutable;
+//  3. the non-rpsql psc_nat_subnet_name updates freely in place;
+//  4. the immutable subnet.name still forces destroy-before-create.
+func TestIntegration_Cluster_CMR_GCP(t *testing.T) {
 	_, factories := clusterSetup(t)
 
 	const (
 		name        = "tfrp-mock-cl-c10"
 		subnetNameA = "tfrp-subnet-a"
 		subnetNameB = "tfrp-subnet-b"
+		saA         = "rpsql-a@tfrp-proj.iam.gserviceaccount.com"
+		saB         = "rpsql-b@tfrp-proj.iam.gserviceaccount.com"
 	)
-
-	idChanged := statecheck.CompareValue(compare.ValuesDiffer())
+	subnetPath := tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("subnet").AtMapKey("name")
+	pscPath := tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("psc_nat_subnet_name")
 	rpsqlSAPath := tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("rpsql_service_account").AtMapKey("email")
 
-	rpsqlBlock := func(email string) string {
-		return fmt.Sprintf(`rpsql_api_service_account  = { email = "rpsql-api@tfrp-proj.iam.gserviceaccount.com" }
-      rpsql_cloud_storage_bucket = { name = "tfrp-rpsql-bucket" }
-      rpsql_service_account      = { email = %q }`, email)
-	}
+	idChanged := statecheck.CompareValue(compare.ValuesDiffer())
+	idSame := statecheck.CompareValue(compare.ValuesSame())
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: factories,
 		Steps: []resource.TestStep{
+			// 1. Create without Redpanda SQL. rpsql CMR absent; psc_nat set.
 			integration.CreateStep(clusterAddr,
-				gcpBYOVPCConfig(name, subnetNameA, "psc-nat-subnet-test", rpsqlBlock("rpsql-a@tfrp-proj.iam.gserviceaccount.com")),
+				gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, subnetName: subnetNameA, pscNat: "psc-nat-a"}),
 				[]statecheck.StateCheck{
-					statecheck.ExpectKnownValue(clusterAddr,
-						tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("subnet").AtMapKey("name"),
-						knownvalue.StringExact(subnetNameA)),
-					statecheck.ExpectKnownValue(clusterAddr, rpsqlSAPath,
-						knownvalue.StringExact("rpsql-a@tfrp-proj.iam.gserviceaccount.com")),
+					statecheck.ExpectKnownValue(clusterAddr, subnetPath, knownvalue.StringExact(subnetNameA)),
+					statecheck.ExpectKnownValue(clusterAddr, pscPath, knownvalue.StringExact("psc-nat-a")),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("enabled"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("replicas"), knownvalue.Int32Exact(0)),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idSame.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			// 2. Enable rpsql AND supply the rpsql CMR leaves in one apply: in-place.
+			integration.UpdateLeafStep(clusterAddr,
+				gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, subnetName: subnetNameA, pscNat: "psc-nat-a", rpsql: true, rpsqlSAEmail: saA}),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("enabled"), knownvalue.Bool(true)),
+					statecheck.ExpectKnownValue(clusterAddr, rpsqlSAPath, knownvalue.StringExact(saA)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idSame.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			// 3. Changing an already-set rpsql leaf while enabled is rejected.
+			{
+				Config: gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, subnetName: subnetNameA, pscNat: "psc-nat-a", rpsql: true, rpsqlSAEmail: saB}),
+				// Substring kept short so the framework's ~76-col detail wrapping
+				// cannot split it (the full message ends "...Redpanda SQL is enabled").
+				ExpectError: regexp.MustCompile("rpsql_service_account is immutable"),
+			},
+			// 4. Non-rpsql psc_nat_subnet_name updates freely in place.
+			integration.UpdateLeafStep(clusterAddr,
+				gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, subnetName: subnetNameA, pscNat: "psc-nat-b", rpsql: true, rpsqlSAEmail: saA}),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, pscPath, knownvalue.StringExact("psc-nat-b")),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idSame.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 					idChanged.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
+			// 5. Immutable subnet.name: destroy-before-create.
 			integration.RequiresReplaceStep(clusterAddr,
-				gcpBYOVPCConfig(name, subnetNameB, "psc-nat-subnet-test", rpsqlBlock("rpsql-a@tfrp-proj.iam.gserviceaccount.com")),
+				gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, subnetName: subnetNameB, pscNat: "psc-nat-b", rpsql: true, rpsqlSAEmail: saA}),
 				[]statecheck.StateCheck{
-					statecheck.ExpectKnownValue(clusterAddr,
-						tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("subnet").AtMapKey("name"),
-						knownvalue.StringExact(subnetNameB)),
-					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
-					idChanged.AddStateValue(clusterAddr, tfjsonpath.New("id")),
-				}),
-			// The CP update pathMap has no customer_managed_resources.gcp.rpsql_*
-			// entries, so an in-place change would be silently dropped; mutating
-			// only the rpsql email must also destroy-before-create.
-			integration.RequiresReplaceStep(clusterAddr,
-				gcpBYOVPCConfig(name, subnetNameB, "psc-nat-subnet-test", rpsqlBlock("rpsql-b@tfrp-proj.iam.gserviceaccount.com")),
-				[]statecheck.StateCheck{
-					statecheck.ExpectKnownValue(clusterAddr, rpsqlSAPath,
-						knownvalue.StringExact("rpsql-b@tfrp-proj.iam.gserviceaccount.com")),
+					statecheck.ExpectKnownValue(clusterAddr, subnetPath, knownvalue.StringExact(subnetNameB)),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idChanged.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
@@ -2622,7 +2843,7 @@ func TestIntegration_Cluster_NullPscNatSubnetName_Repro(t *testing.T) {
 	_, factories := clusterSetup(t)
 
 	const name = "tfrp-mock-cl-nullpsc"
-	cfg := gcpBYOVPCConfig(name, "tfrp-subnet-nullpsc", "", "")
+	cfg := gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, subnetName: "tfrp-subnet-nullpsc"})
 
 	pscPath := tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("psc_nat_subnet_name")
 

@@ -106,31 +106,21 @@ func (u *User) Create(ctx context.Context, req resource.CreateRequest, resp *res
 		return
 	}
 
-	var createdUser usermodel.UserResponse
-	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
-		created, rpcErr := u.UserClient.CreateUser(ctx, pbReq)
-		if rpcErr == nil {
-			createdUser = created.GetUser()
-			return nil
-		}
-		// Adopt the existing user on AlreadyExists from a prior retry's lost response.
-		if utils.IsAlreadyExists(rpcErr) {
-			if existing, findErr := utils.FindUserByName(ctx, model.Name.ValueString(), u.UserClient); findErr == nil {
-				createdUser = existing
-				return nil
-			}
-			return utils.NonRetryableError(rpcErr)
-		}
-		// Probe before retrying so the next attempt doesn't trip AlreadyExists.
-		if utils.IsUnavailable(rpcErr) {
-			if existing, findErr := utils.FindUserByName(ctx, model.Name.ValueString(), u.UserClient); findErr == nil {
-				createdUser = existing
-				return nil
-			}
-			return utils.RetryableError(rpcErr)
-		}
-		return utils.NonRetryableError(rpcErr)
-	})
+	userName := model.Name.ValueString()
+	createdUser, err := utils.DataplaneCall(ctx,
+		func(ctx context.Context) (usermodel.UserResponse, error) {
+			created, rpcErr := u.UserClient.CreateUser(ctx, pbReq)
+			return created.GetUser(), rpcErr
+		},
+		// Recognises a user an earlier attempt created. DataplaneCall only
+		// consults it from the second attempt on: a first-attempt AlreadyExists
+		// means the user predates this resource, and adopting it would put a user
+		// Terraform did not create under its management.
+		utils.WithProbe(func(ctx context.Context) (usermodel.UserResponse, bool) {
+			existing, findErr := utils.FindUserByName(ctx, userName, u.UserClient)
+			return existing, findErr == nil
+		}),
+	)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create user", utils.DeserializeGrpcError(err))
 		return
@@ -160,17 +150,8 @@ func (u *User) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 		return
 	}
 
-	var user *dataplanev1.ListUsersResponse_User
-	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
-		var rpcErr error
-		user, rpcErr = utils.FindUserByName(ctx, userName, u.UserClient)
-		if rpcErr != nil {
-			if utils.IsUnavailable(rpcErr) {
-				return utils.RetryableError(rpcErr)
-			}
-			return utils.NonRetryableError(rpcErr)
-		}
-		return nil
+	user, err := utils.DataplaneCall(ctx, func(ctx context.Context) (*dataplanev1.ListUsersResponse_User, error) {
+		return utils.FindUserByName(ctx, userName, u.UserClient)
 	})
 	if err != nil {
 		action, diags := utils.HandleGracefulRemoval(ctx, "user", userName, model.AllowDeletion, err, "find user")
@@ -224,17 +205,8 @@ func (u *User) Update(ctx context.Context, req resource.UpdateRequest, resp *res
 		return
 	}
 
-	var updateResp *dataplanev1.UpdateUserResponse
-	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
-		var rpcErr error
-		updateResp, rpcErr = u.UserClient.UpdateUser(ctx, pbReq)
-		if rpcErr != nil {
-			if utils.IsUnavailable(rpcErr) {
-				return utils.RetryableError(rpcErr)
-			}
-			return utils.NonRetryableError(rpcErr)
-		}
-		return nil
+	updateResp, err := utils.DataplaneCall(ctx, func(ctx context.Context) (*dataplanev1.UpdateUserResponse, error) {
+		return u.UserClient.UpdateUser(ctx, pbReq)
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update user", utils.DeserializeGrpcError(err))
@@ -272,15 +244,8 @@ func (u *User) Delete(ctx context.Context, req resource.DeleteRequest, resp *res
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
-		_, rpcErr := u.UserClient.DeleteUser(ctx, pbReq)
-		if rpcErr != nil {
-			if utils.IsUnavailable(rpcErr) {
-				return utils.RetryableError(rpcErr)
-			}
-			return utils.NonRetryableError(rpcErr)
-		}
-		return nil
+	_, err := utils.DataplaneCall(ctx, func(ctx context.Context) (*dataplanev1.DeleteUserResponse, error) {
+		return u.UserClient.DeleteUser(ctx, pbReq)
 	})
 	if err != nil {
 		_, ddiags := utils.HandleGracefulRemoval(ctx, "user", userName, model.AllowDeletion, err, "delete user")

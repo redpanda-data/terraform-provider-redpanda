@@ -31,7 +31,7 @@ The principal must already be in the canonical `User:<name>` or `Group:<name>` f
 - The principal must be specified in the Kafka-style prefixed form: `"User:<name>"` for an end user or `"Group:<name>"` for an IdP group. The value is preserved verbatim in state — no prefix stripping or normalization is performed. Bare names (without a prefix) are rejected at plan time.
 - A user can have multiple role assignments simultaneously. Permissions from all assigned roles are combined.
 - Role assignments are atomic operations - you cannot update an existing assignment. To change a role assignment, delete and recreate the resource.
-- The resource uses the Redpanda gRPC SecurityService (via console endpoint) for role management operations.
+- The resource uses the Data Plane API SecurityService for role management operations.
 
 ## API Reference
 

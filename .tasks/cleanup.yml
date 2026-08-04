@@ -15,13 +15,17 @@ vars:
   PROJECT_ID: '{{.PROJECT_ID | default ""}}'
   GCP_REGION: '{{.GCP_REGION | default "us-central1"}}'
 
+# Passed through the environment rather than interpolated into command
+# bodies: Task echoes command bodies, which put the secret in CI logs.
+env:
+  REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+  REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+
 tasks:
   redpanda:status:
     desc: "Show current state of test resources with 'tfrp-' prefix"
     cmds:
       - |
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
         {{.PATH_PREFIX}} go run ./scripts/cleanup_test_resources.go --status
 
@@ -29,8 +33,6 @@ tasks:
     desc: "Delete test resources with 'tfrp-' prefix from Redpanda Cloud"
     cmds:
       - |
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
         {{.PATH_PREFIX}} go run ./scripts/cleanup_test_resources.go
 
@@ -38,8 +40,6 @@ tasks:
     desc: "Dry run - show what test resources would be deleted (does not actually delete)"
     cmds:
       - |
-        REDPANDA_CLIENT_ID="{{.REDPANDA_CLIENT_ID}}" \
-        REDPANDA_CLIENT_SECRET="{{.REDPANDA_CLIENT_SECRET}}" \
         REDPANDA_CLOUD_ENVIRONMENT="{{.REDPANDA_CLOUD_ENVIRONMENT}}" \
         {{.PATH_PREFIX}} go run ./scripts/cleanup_test_resources.go --dry-run
 

@@ -244,6 +244,36 @@ func TestIntegration_ACL_CreateAndRefresh(t *testing.T) {
 // across all three steps — proof that the in-place path actually runs. We
 // end with allow_deletion=true so the terminal cleanup destroy succeeds
 // (Delete blocks when allow_deletion=false before any RPC call).
+// TestIntegration_ACL_ErrorPath_AllowDeletionBlocked pins the guard itself.
+// UpdateLeaf_AllowDeletion proves the field round-trips; this proves what the
+// field is for — with allow_deletion=false a destroy must be refused. The final
+// step re-enables deletion so the framework's terminal destroy can proceed.
+func TestIntegration_ACL_ErrorPath_AllowDeletionBlocked(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	noDelete := mockACLConfig(false)
+	allowDelete := mockACLConfig(true)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config: noDelete,
+				Check:  resource.TestCheckResourceAttr(aclAddr, "allow_deletion", "false"),
+			},
+			{
+				Config:      noDelete,
+				Destroy:     true,
+				ExpectError: regexp.MustCompile(`Cannot delete ACL`),
+			},
+			{
+				Config: allowDelete,
+				Check:  resource.TestCheckResourceAttr(aclAddr, "allow_deletion", "true"),
+			},
+		},
+	})
+}
+
 func TestIntegration_ACL_UpdateLeaf_AllowDeletion(t *testing.T) {
 	_, factories := integration.Setup(t)
 

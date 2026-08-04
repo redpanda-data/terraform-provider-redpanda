@@ -82,38 +82,36 @@ func (s *Secret) Create(ctx context.Context, req resource.CreateRequest, resp *r
 		return
 	}
 
-	var createdSecret *dataplanev1.Secret
-	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
-		created, rpcErr := s.SecretClient.CreateSecret(ctx, &dataplanev1.CreateSecretRequest{
-			Id:         model.Name.ValueString(),
-			Labels:     labels,
-			Scopes:     scopes,
-			SecretData: []byte(cfg.SecretData.ValueString()),
-		})
-		if rpcErr == nil {
-			createdSecret = created.GetSecret()
-			return nil
-		}
-		// Adopt the existing secret on AlreadyExists from a prior retry's lost response.
-		if utils.IsAlreadyExists(rpcErr) {
-			if got, getErr := s.SecretClient.GetSecret(ctx, &dataplanev1.GetSecretRequest{Id: model.Name.ValueString()}); getErr == nil && got.GetSecret() != nil {
-				createdSecret = got.GetSecret()
-				return nil
-			}
-			return utils.NonRetryableError(rpcErr)
-		}
-		// Probe before retrying so the next attempt doesn't trip AlreadyExists.
-		if utils.IsUnavailable(rpcErr) {
-			if got, getErr := s.SecretClient.GetSecret(ctx, &dataplanev1.GetSecretRequest{Id: model.Name.ValueString()}); getErr == nil && got.GetSecret() != nil {
-				createdSecret = got.GetSecret()
-				return nil
-			}
-			return utils.RetryableError(rpcErr)
-		}
-		return utils.NonRetryableError(rpcErr)
-	})
+	secretName := model.Name.ValueString()
+	createdSecret, err := utils.DataplaneCall(ctx,
+		func(ctx context.Context) (*dataplanev1.Secret, error) {
+			created, rpcErr := s.SecretClient.CreateSecret(ctx, &dataplanev1.CreateSecretRequest{
+				Id:         secretName,
+				Labels:     labels,
+				Scopes:     scopes,
+				SecretData: []byte(cfg.SecretData.ValueString()),
+			})
+			return created.GetSecret(), rpcErr
+		},
+		// Recognises a secret an earlier attempt created. Only consulted from the
+		// second attempt on: a first-attempt AlreadyExists means the secret
+		// predates this resource, holds a value the config never supplied, and
+		// secret_data is write-only so that mismatch would be invisible.
+		utils.WithProbe(func(ctx context.Context) (*dataplanev1.Secret, bool) {
+			got, getErr := s.SecretClient.GetSecret(ctx, &dataplanev1.GetSecretRequest{Id: secretName})
+			return got.GetSecret(), getErr == nil && got.GetSecret() != nil
+		}),
+	)
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to create secret %q", model.Name.ValueString()), utils.DeserializeGrpcError(err))
+		detail := utils.DeserializeGrpcError(err)
+		// A name collision is the operator's to resolve; say how.
+		if utils.IsAlreadyExists(err) {
+			detail = fmt.Sprintf("%s\n\nA secret with this name already exists on the cluster and was not "+
+				"created by this resource. Import it with:\n"+
+				"  terraform import <resource_address> %s,<cluster_id>\n"+
+				"or choose a different name.", detail, model.Name.ValueString())
+		}
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to create secret %q", model.Name.ValueString()), detail)
 		return
 	}
 
@@ -148,17 +146,8 @@ func (s *Secret) Read(ctx context.Context, req resource.ReadRequest, resp *resou
 		return
 	}
 
-	var got *dataplanev1.GetSecretResponse
-	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
-		var rpcErr error
-		got, rpcErr = s.SecretClient.GetSecret(ctx, &dataplanev1.GetSecretRequest{Id: name})
-		if rpcErr != nil {
-			if utils.IsUnavailable(rpcErr) {
-				return utils.RetryableError(rpcErr)
-			}
-			return utils.NonRetryableError(rpcErr)
-		}
-		return nil
+	got, err := utils.DataplaneCall(ctx, func(ctx context.Context) (*dataplanev1.GetSecretResponse, error) {
+		return s.SecretClient.GetSecret(ctx, &dataplanev1.GetSecretRequest{Id: name})
 	})
 	if err != nil {
 		action, diags := utils.HandleGracefulRemoval(ctx, "secret", name, model.AllowDeletion, err, "get secret")
@@ -226,17 +215,8 @@ func (s *Secret) Update(ctx context.Context, req resource.UpdateRequest, resp *r
 		updateReq.SecretData = []byte(cfg.SecretData.ValueString())
 	}
 
-	var updated *dataplanev1.UpdateSecretResponse
-	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
-		var rpcErr error
-		updated, rpcErr = s.SecretClient.UpdateSecret(ctx, updateReq)
-		if rpcErr != nil {
-			if utils.IsUnavailable(rpcErr) {
-				return utils.RetryableError(rpcErr)
-			}
-			return utils.NonRetryableError(rpcErr)
-		}
-		return nil
+	updated, err := utils.DataplaneCall(ctx, func(ctx context.Context) (*dataplanev1.UpdateSecretResponse, error) {
+		return s.SecretClient.UpdateSecret(ctx, updateReq)
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to update secret %q", plan.Name.ValueString()), utils.DeserializeGrpcError(err))
@@ -276,15 +256,8 @@ func (s *Secret) Delete(ctx context.Context, req resource.DeleteRequest, resp *r
 		return
 	}
 
-	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
-		_, rpcErr := s.SecretClient.DeleteSecret(ctx, &dataplanev1.DeleteSecretRequest{Id: name})
-		if rpcErr != nil {
-			if utils.IsUnavailable(rpcErr) {
-				return utils.RetryableError(rpcErr)
-			}
-			return utils.NonRetryableError(rpcErr)
-		}
-		return nil
+	_, err := utils.DataplaneCall(ctx, func(ctx context.Context) (*dataplanev1.DeleteSecretResponse, error) {
+		return s.SecretClient.DeleteSecret(ctx, &dataplanev1.DeleteSecretRequest{Id: name})
 	})
 	if err != nil {
 		_, diags := utils.HandleGracefulRemoval(ctx, "secret", name, model.AllowDeletion, err, "delete secret")

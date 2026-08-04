@@ -23,10 +23,10 @@ import (
 )
 
 // TestReleasePinForServerAssign pins the rpsql.zones release matrix: the pin
-// only opens on a fresh enable (rise with no retained zones), where the
-// control plane assigns the first cluster zone. Everything else pins so the
-// leaf-expanded update mask never carries empty zones into the control
-// plane's defaulter + immutability checks.
+// opens on a fresh enable (rise with no retained zones), where the control
+// plane assigns the first cluster zone, and on a disable, where the control
+// plane clears zones. Steady states pin so an unrelated update plan does not
+// churn the leaf to "known after apply".
 func TestReleasePinForServerAssign(t *testing.T) {
 	ctx := context.Background()
 	null := types.ListNull(types.StringType)
@@ -52,7 +52,7 @@ func TestReleasePinForServerAssign(t *testing.T) {
 		{"re-enable with retained zones pins", types.BoolValue(true), types.BoolValue(false), retained, false},
 		{"steady enabled pins", types.BoolValue(true), types.BoolValue(true), retained, false},
 		{"steady disabled pins null", types.BoolValue(false), types.BoolValue(false), null, false},
-		{"disable pins retained zones", types.BoolValue(false), types.BoolValue(true), retained, false},
+		{"disable releases, server clears zones", types.BoolValue(false), types.BoolValue(true), retained, true},
 		{"unknown plan enabled stays unknown", types.BoolUnknown(), types.BoolValue(false), null, true},
 	}
 	for _, tc := range cases {

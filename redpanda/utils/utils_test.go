@@ -26,6 +26,7 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 // TestMain shrinks Retry's backoff floor + ceiling to microseconds so the
@@ -79,6 +80,7 @@ func TestAreWeDoneYet(t *testing.T) {
 				gomock.InOrder(
 					m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1.Operation_STATE_IN_PROGRESS), nil),
 					m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(&controlplanev1.GetOperationResponse{Operation: &controlplanev1.Operation{
+						Id:    "op-under-test",
 						State: controlplanev1.Operation_STATE_FAILED,
 						Result: &controlplanev1.Operation_Error{
 							Error: &status.Status{
@@ -89,7 +91,9 @@ func TestAreWeDoneYet(t *testing.T) {
 					}}, nil))
 			},
 			timeout: 5 * time.Minute,
-			wantErr: "operation failed: operation failed",
+			// The code rides along now; an empty message alone left live failures
+			// with nothing to chase up.
+			wantErr: "operation failed: operation_id=op-under-test operation failed code=1",
 		},
 		{
 			name:    "Operation times out",
@@ -98,7 +102,7 @@ func TestAreWeDoneYet(t *testing.T) {
 			mockSetup: func(m *mocks.MockOperationServiceClient) {
 				m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1.Operation_STATE_IN_PROGRESS), nil).AnyTimes()
 			},
-			wantErr: "timed out after 100ms: expected operation to be completed but was in state STATE_IN_PROGRESS",
+			wantErr: "timed out after 100ms: expected operation to be completed but was in state STATE_IN_PROGRESS (operation_id=op-under-test)",
 		},
 		{
 			name:    "Operation times out with unspecified",
@@ -107,7 +111,7 @@ func TestAreWeDoneYet(t *testing.T) {
 			mockSetup: func(m *mocks.MockOperationServiceClient) {
 				m.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(createOpResponse(controlplanev1.Operation_STATE_UNSPECIFIED), nil).AnyTimes()
 			},
-			wantErr: "timed out after 100ms: expected operation to be completed but was in state STATE_UNSPECIFIED",
+			wantErr: "timed out after 100ms: expected operation to be completed but was in state STATE_UNSPECIFIED (operation_id=op-under-test)",
 		},
 		{
 			// Long-running async ops can see 10+ consecutive Internals on
@@ -205,6 +209,7 @@ func TestAreWeDoneYet(t *testing.T) {
 func createOpResponse(state controlplanev1.Operation_State) *controlplanev1.GetOperationResponse {
 	return &controlplanev1.GetOperationResponse{
 		Operation: &controlplanev1.Operation{
+			Id:    "op-under-test",
 			State: state,
 		},
 	}
@@ -1295,40 +1300,129 @@ func TestIsTransientServerError(t *testing.T) {
 	}
 }
 
-func TestConvertToConsoleURL(t *testing.T) {
+// TestIsTransientDataplaneError pins the classifier every gRPC dataplane
+// resource retries on. The load-bearing pair is bare-vs-messaged UNKNOWN: a
+// cluster reports Ready before its dataplane serves, and calls in that window
+// come back as code 2 with an empty message. An UNKNOWN carrying a message is
+// a server-side verdict and must stay non-retryable.
+func TestIsTransientDataplaneError(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    string
-		expected string
+		err      error
+		expected bool
 	}{
+		{"nil error", nil, false},
+		{"bare Unknown", grpcstatus.Error(codes.Unknown, ""), true},
+		{"bare Unknown, whitespace only", grpcstatus.Error(codes.Unknown, "   "), true},
+		{"Unknown carrying a message", grpcstatus.Error(codes.Unknown, "constraint violated"), false},
+		{"gRPC Unavailable", grpcstatus.Error(codes.Unavailable, "x"), true},
+		{"broker died", errors.New("the internal broker struct chosen to issue this request has died"), true},
+		{"client closed", errors.New("rpc error: code = Internal desc = client closed"), true},
+		{"gRPC NotFound", grpcstatus.Error(codes.NotFound, "no such secret"), false},
+		{"gRPC InvalidArgument", grpcstatus.Error(codes.InvalidArgument, "bad name"), false},
+		{"gRPC PermissionDenied", grpcstatus.Error(codes.PermissionDenied, "nope"), false},
+		{"plain error", errors.New("boom"), false},
+		// A non-status empty error is not a gRPC UNKNOWN and must not be read
+		// as one; only a real status with code 2 qualifies.
+		{"empty non-status error", errors.New(""), false},
+		// The annotation wrapper must be transparent to classification.
 		{
-			name:     "standard cluster API URL",
-			input:    "https://api-12345.cluster-id.byoc.prd.cloud.redpanda.com",
-			expected: "https://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+			"annotated bare Unknown",
+			&DataplaneCallError{
+				Method:   "/redpanda.api.dataplane.v1.SecretService/CreateSecret",
+				Endpoint: "https://api-abc.cloud.redpanda.com",
+				err:      grpcstatus.Error(codes.Unknown, ""),
+			},
+			true,
 		},
 		{
-			name:     "URL with different cluster ID",
-			input:    "https://api-abcdef.d110a6bu3l09un9dm4jg.byoc.prd.cloud.redpanda.com",
-			expected: "https://console-abcdef.d110a6bu3l09un9dm4jg.byoc.prd.cloud.redpanda.com",
-		},
-		{
-			name:     "URL without api- prefix should not change",
-			input:    "https://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
-			expected: "https://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
-		},
-		{
-			name:     "http protocol",
-			input:    "http://api-12345.cluster-id.byoc.prd.cloud.redpanda.com",
-			expected: "http://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+			"annotated InvalidArgument stays non-retryable",
+			&DataplaneCallError{
+				Method:   "/redpanda.api.dataplane.v1.SecretService/CreateSecret",
+				Endpoint: "https://api-abc.cloud.redpanda.com",
+				err:      grpcstatus.Error(codes.InvalidArgument, "bad name"),
+			},
+			false,
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ConvertToConsoleURL(tt.input)
-			if result != tt.expected {
-				t.Errorf("ConvertToConsoleURL(%q) = %q, expected %q", tt.input, result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, IsTransientDataplaneError(tt.err))
+		})
+	}
+}
+
+// TestDataplaneAnnotationDoesNotLeakIntoClassifiers guards the hazard the
+// annotation introduces. The Is* classifiers fall back to matching bare tokens
+// ("404", "503", "unavailable") anywhere in the error string, and cluster
+// endpoints are alphanumeric — so an endpoint or method name that happens to
+// contain one of those tokens must not decide the classification.
+func TestDataplaneAnnotationDoesNotLeakIntoClassifiers(t *testing.T) {
+	annotate := func(endpoint string, err error) error {
+		return &DataplaneCallError{
+			Method:   "/redpanda.api.dataplane.v1.SecretService/GetSecret",
+			Endpoint: endpoint,
+			err:      err,
+		}
+	}
+	// Real cluster IDs are random alphanumerics; these are the collisions.
+	id404 := "https://api-d404ab.cluster.cloud.redpanda.com"
+	id503 := "https://api-e503cd.cluster.cloud.redpanda.com"
+
+	benign := grpcstatus.Error(codes.InvalidArgument, "scopes must not be empty")
+
+	assert.False(t, IsNotFound(annotate(id404, benign)),
+		"an endpoint containing 404 must not read as NotFound")
+	assert.False(t, IsUnavailable(annotate(id503, benign)),
+		"an endpoint containing 503 must not read as Unavailable")
+	assert.False(t, IsTransientDataplaneError(annotate(id503, benign)),
+		"an endpoint containing 503 must not make a verdict retryable")
+
+	// The genuine signals still classify through the wrapper.
+	assert.True(t, IsNotFound(annotate(id503, grpcstatus.Error(codes.NotFound, "absent"))))
+	assert.True(t, IsUnavailable(annotate(id404, grpcstatus.Error(codes.Unavailable, "warming up"))))
+}
+
+// TestFromErrorOverwritesMessageThroughWrapper pins the upstream gRPC behavior
+// the classifiers have to work around: FromError carries the code through a
+// wrapper but replaces the message with the wrapper's full text. If a future
+// grpc-go stops doing this, serverStatus's unwrapping becomes redundant rather
+// than wrong — but the bare-UNKNOWN check depends on knowing which it is.
+func TestFromErrorOverwritesMessageThroughWrapper(t *testing.T) {
+	bare := grpcstatus.Error(codes.Unknown, "")
+	wrapped := fmt.Errorf("some context: %w", bare)
+
+	st, ok := grpcstatus.FromError(wrapped)
+	require.True(t, ok)
+	assert.Equal(t, codes.Unknown, st.Code(), "code survives wrapping")
+	assert.NotEmpty(t, st.Message(), "message is replaced by the wrapper's text")
+
+	// serverStatus sees through the provider's own annotation.
+	annotated := &DataplaneCallError{Method: "/Svc/Call", Endpoint: "https://x", err: bare}
+	got, ok := serverStatus(annotated)
+	require.True(t, ok)
+	assert.Equal(t, codes.Unknown, got.Code())
+	assert.Empty(t, got.Message(), "annotation stripped, server message preserved")
+}
+
+// TestDeserializeGrpcErrorSurfacesDataplaneAnnotation pins the diagnosability
+// half: a bare status names neither the call nor the cluster, which is why the
+// original failure was undiagnosable.
+func TestDeserializeGrpcErrorSurfacesDataplaneAnnotation(t *testing.T) {
+	method := "/redpanda.api.dataplane.v1.SecretService/CreateSecret"
+	endpoint := "https://api-abc.cluster.cloud.redpanda.com"
+
+	for _, tt := range []struct {
+		name string
+		err  error
+	}{
+		{"bare Unknown", grpcstatus.Error(codes.Unknown, "")},
+		{"status carrying a message", grpcstatus.Error(codes.InvalidArgument, "bad name")},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got := DeserializeGrpcError(&DataplaneCallError{Method: method, Endpoint: endpoint, err: tt.err})
+			assert.Contains(t, got, method, "diagnostic must name the failing method")
+			assert.Contains(t, got, endpoint, "diagnostic must name the cluster endpoint")
 		})
 	}
 }
@@ -1595,4 +1689,87 @@ func TestRunSubprocess_RemovesTempDir(t *testing.T) {
 	after, err := filepath.Glob(pattern)
 	require.NoError(t, err)
 	require.Len(t, after, len(before), "runSubprocess leaked a temp dir: before=%v after=%v", before, after)
+}
+
+// TestDescribeOperationFailure covers the case that made a live BYOVPC failure
+// undiagnosable: the control plane reported STATE_FAILED with an empty message,
+// and the provider surfaced "operation failed: " and nothing else.
+func TestDescribeOperationFailure(t *testing.T) {
+	t.Run("empty error still names the operation", func(t *testing.T) {
+		got := describeOperationFailure(&controlplanev1.Operation{
+			Id:     "op-123",
+			Result: &controlplanev1.Operation_Error{Error: &status.Status{}},
+		})
+		assert.Contains(t, got, "op-123")
+	})
+
+	t.Run("nothing at all says so rather than rendering blank", func(t *testing.T) {
+		assert.Equal(t, "no message, code or details reported",
+			describeOperationFailure(&controlplanev1.Operation{}))
+	})
+
+	t.Run("message, code and id are all reported", func(t *testing.T) {
+		got := describeOperationFailure(&controlplanev1.Operation{
+			Id: "op-456",
+			Result: &controlplanev1.Operation_Error{
+				Error: &status.Status{Code: 9, Message: "node group unavailable"},
+			},
+		})
+		assert.Contains(t, got, "op-456")
+		assert.Contains(t, got, "node group unavailable")
+		assert.Contains(t, got, "code=9")
+	})
+
+	// A failed operation can carry code=2 and nothing else, and looking it up
+	// later often fails: once the resource is swept, the control plane answers
+	// PermissionDenied and the record is gone. Whatever the operation carries
+	// has to be rendered while it is in hand, because there is no second
+	// chance to fetch it.
+	t.Run("a bare status still reports what the operation identifies", func(t *testing.T) {
+		got := describeOperationFailure(&controlplanev1.Operation{
+			Id:         "d9lrt6ils685tiko980g",
+			Type:       controlplanev1.Operation_TYPE_UPDATE_CLUSTER,
+			ResourceId: proto.String("d9lra6q7qm42gn9ot160"),
+			State:      controlplanev1.Operation_STATE_FAILED,
+			Result:     &controlplanev1.Operation_Error{Error: &status.Status{Code: 2}},
+		})
+		assert.Contains(t, got, "d9lrt6ils685tiko980g")
+		assert.Contains(t, got, "code=2")
+		assert.Contains(t, got, "d9lra6q7qm42gn9ot160", "the resource it acted on")
+		assert.Contains(t, got, "UPDATE_CLUSTER", "what it was doing")
+	})
+}
+
+func TestConvertToConsoleURL(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "standard cluster API URL",
+			input:    "https://api-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+			expected: "https://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+		},
+		{
+			// The host shape the dedicated suites dial.
+			name:     "preprod dedicated URL",
+			input:    "https://api-45ccc47a.d9lra0a7qm42gn9ot130.fmc.ppd.cloud.redpanda.com",
+			expected: "https://console-45ccc47a.d9lra0a7qm42gn9ot130.fmc.ppd.cloud.redpanda.com",
+		},
+		{
+			name:     "URL without api- prefix should not change",
+			input:    "https://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+			expected: "https://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+		},
+		{
+			name:     "http protocol",
+			input:    "http://api-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+			expected: "http://console-12345.cluster-id.byoc.prd.cloud.redpanda.com",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, ConvertToConsoleURL(tt.input))
+		})
+	}
 }

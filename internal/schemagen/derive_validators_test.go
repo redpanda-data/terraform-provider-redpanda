@@ -16,6 +16,7 @@
 package schemagen
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -318,7 +319,7 @@ func protoWithRepeatedRules() *ProtoMessage {
 // rpvalidate, which defers whenever the config has unknowns.
 func TestDeriveValidators_RepeatedRules(t *testing.T) {
 	cfg := &Config{API: &APIConfig{}}
-	attrs, _, _, errs := Merge(protoWithRepeatedRules(), cfg, "resource", nil)
+	attrs, _, _, errs := Merge(protoWithRepeatedRules(), declareLifecycle(protoWithRepeatedRules(), cfg), "resource", nil)
 	if len(errs) > 0 {
 		t.Fatalf("unexpected errs: %v", errs)
 	}
@@ -367,7 +368,7 @@ func TestDeriveValidators_RepeatedRulesComputedOnly(t *testing.T) {
 		API:    &APIConfig{},
 		Fields: map[string]FieldConfig{"regions": {ComputedOnly: true}},
 	}
-	attrs, _, _, errs := Merge(protoWithRepeatedRules(), cfg, "resource", nil)
+	attrs, _, _, errs := Merge(protoWithRepeatedRules(), declareLifecycle(protoWithRepeatedRules(), cfg), "resource", nil)
 	if len(errs) > 0 {
 		t.Fatalf("unexpected errs: %v", errs)
 	}
@@ -385,7 +386,7 @@ func TestDeriveValidators_RepeatedRulesMergeWithYaml(t *testing.T) {
 			"regions": {Validator: "AWSZoneIDValidator"},
 		},
 	}
-	attrs, _, _, errs := Merge(protoWithRepeatedRules(), cfg, "resource", nil)
+	attrs, _, _, errs := Merge(protoWithRepeatedRules(), declareLifecycle(protoWithRepeatedRules(), cfg), "resource", nil)
 	if len(errs) > 0 {
 		t.Fatalf("unexpected errs: %v", errs)
 	}
@@ -400,5 +401,51 @@ func TestDeriveValidators_RepeatedRulesMergeWithYaml(t *testing.T) {
 		if !strings.Contains(r.Validators, want) {
 			t.Errorf("merged validators missing %s; got %q", want, r.Validators)
 		}
+	}
+}
+
+// TestSchemaYAMLValidatorsResolveAgainstRepo sweeps every schema yaml under
+// redpanda/resources and resolves each validator: reference against the
+// registry, so an unknown or malformed validator name fails `task test:unit`
+// instead of surfacing only at the next `task generate:models`.
+func TestSchemaYAMLValidatorsResolveAgainstRepo(t *testing.T) {
+	paths, err := filepath.Glob(filepath.Join("..", "..", "redpanda", "resources", "*", "schema*.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) == 0 {
+		t.Fatal("no schema yamls found; the sweep would be vacuous")
+	}
+
+	seen := 0
+	var walk func(t *testing.T, yamlPath, fieldPath string, fc FieldConfig)
+	walk = func(t *testing.T, yamlPath, fieldPath string, fc FieldConfig) {
+		for _, name := range fc.ValidatorNames() {
+			seen++
+			if _, _, _, err := resolveValidator(name, fieldPath, ""); err != nil {
+				t.Errorf("%s: field %q: %v", yamlPath, fieldPath, err)
+			}
+		}
+		for child, cfc := range fc.Fields {
+			walk(t, yamlPath, fieldPath+"."+child, cfc)
+		}
+	}
+
+	for _, p := range paths {
+		cfg, err := LoadConfig(p)
+		if err != nil {
+			t.Fatalf("%s: %v", p, err)
+		}
+		for name, fc := range cfg.Fields {
+			walk(t, p, name, fc)
+		}
+	}
+
+	if seen == 0 {
+		t.Fatal("no validator references found across schema yamls; the sweep would be vacuous")
+	}
+
+	if _, _, _, err := resolveValidator("DefinitelyUnknownValidator", "x", ""); err == nil {
+		t.Fatal("resolveValidator accepted an unknown name; the sweep cannot detect anything")
 	}
 }

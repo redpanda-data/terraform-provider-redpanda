@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/config"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/acc"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/acc/sweep"
 )
@@ -58,6 +59,23 @@ func testRunnerClusterWithAwsPrivateLinkToggle(ctx context.Context, name, rename
 	toggleTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(toggleTestCaseVars, updateTestCaseVars)
 	toggleTestCaseVars["aws_private_link_enabled"] = config.BoolVariable(false)
+
+	// rpsql needs BYOVPC customer-managed resources, and reads through the
+	// control plane, so this is the only tier that can exercise it.
+	rpsqlEnabledVars := make(map[string]config.Variable)
+	maps.Copy(rpsqlEnabledVars, updateTestCaseVars)
+	rpsqlEnabledVars["rpsql_enabled"] = config.BoolVariable(true)
+
+	// The control plane rejects an rpsql_* change while enabled, so this is
+	// asserted plan-only rather than applied.
+	rpsqlCMRChangeVars := make(map[string]config.Variable)
+	maps.Copy(rpsqlCMRChangeVars, rpsqlEnabledVars)
+	rpsqlCMRChangeVars["rpsql_security_group_arn"] = config.StringVariable(
+		"arn:aws:ec2:us-east-2:000000000000:security-group/sg-rpsqlsentinel")
+
+	rpsqlDisabledVars := make(map[string]config.Variable)
+	maps.Copy(rpsqlDisabledVars, updateTestCaseVars)
+	rpsqlDisabledVars["rpsql_enabled"] = config.BoolVariable(false)
 
 	c, err := acc.NewTestClients(ctx, acc.ClientID, acc.ClientSecret, acc.CloudEnv)
 	if err != nil {
@@ -114,6 +132,42 @@ func testRunnerClusterWithAwsPrivateLinkToggle(ctx context.Context, name, rename
 				ConfigVariables:          toggleTestCaseVars,
 				PlanOnly:                 true,
 				ExpectNonEmptyPlan:       true,
+				ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			},
+			// Create left rpsql off; enabling provisions the SQL node group.
+			{
+				ConfigDirectory: config.StaticDirectory(testFile),
+				ConfigVariables: rpsqlEnabledVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(acc.ClusterResourceName, "rpsql.enabled", "true"),
+					// Server-owned: populated only if the config was accepted.
+					resource.TestCheckResourceAttrSet(acc.ClusterResourceName, "rpsql.replicas"),
+					resource.TestCheckResourceAttrSet(acc.ClusterResourceName, "rpsql.url"),
+					resource.TestCheckResourceAttrSet(acc.ClusterResourceName, "rpsql.version"),
+				),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+				ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			},
+			// The change must register as a diff, not be silently dropped.
+			{
+				ConfigDirectory:          config.StaticDirectory(testFile),
+				ConfigVariables:          rpsqlCMRChangeVars,
+				PlanOnly:                 true,
+				ExpectNonEmptyPlan:       true,
+				ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			},
+			// Disable again: covers the off path and unblocks teardown.
+			{
+				ConfigDirectory: config.StaticDirectory(testFile),
+				ConfigVariables: rpsqlDisabledVars,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(acc.ClusterResourceName, "rpsql.enabled", "false"),
+				),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
 				ProtoV6ProviderFactories: acc.ProtoV6Factories,
 			},
 		},

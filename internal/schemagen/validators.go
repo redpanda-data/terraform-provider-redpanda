@@ -226,6 +226,33 @@ var validatorRegistry = map[string]ValidatorDef{
 		Imports:  []string{"github.com/hashicorp/terraform-plugin-framework-validators/boolvalidator"},
 		AttrType: "Bool",
 	},
+	"ClearedWhenDisabledList": {
+		Parameterized: true,
+		GenFunc: func(_ string, params map[string]string) (string, []string) {
+			return fmt.Sprintf("validators.ClearedWhenDisabledListValidator{Enabled: %s}", pathExprFromDotted(params["enabled"])),
+				[]string{validatorsImport, "github.com/hashicorp/terraform-plugin-framework/path"}
+		},
+		AttrType: "List",
+	},
+	"ClearedWhenDisabledInt32": {
+		Parameterized: true,
+		GenFunc: func(_ string, params map[string]string) (string, []string) {
+			return fmt.Sprintf("validators.ClearedWhenDisabledInt32Validator{Enabled: %s}", pathExprFromDotted(params["enabled"])),
+				[]string{validatorsImport, "github.com/hashicorp/terraform-plugin-framework/path"}
+		},
+		AttrType: "Int32",
+	},
+}
+
+// pathExprFromDotted renders a dotted attribute path ("rpsql.enabled") as a
+// framework path expression (`path.Root("rpsql").AtName("enabled")`).
+func pathExprFromDotted(dotted string) string {
+	parts := strings.Split(strings.TrimSpace(dotted), ".")
+	expr := fmt.Sprintf("path.Root(%q)", parts[0])
+	for _, p := range parts[1:] {
+		expr += fmt.Sprintf(".AtName(%q)", p)
+	}
+	return expr
 }
 
 func resolveValidator(name, fieldPath, _ string) (expr string, imports []string, returnsSlice bool, err error) {

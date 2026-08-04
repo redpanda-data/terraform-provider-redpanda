@@ -35,6 +35,10 @@ func frameForAttr(attr *SchemaAttr) ancestorFrame {
 }
 
 const (
+	// modRequiresReplace is the unconditional marker. A conditional
+	// RequiresReplaceIf* still lets non-triggering edits reach the update path,
+	// so it never counts as coverage.
+	modRequiresReplace           = "RequiresReplace"
 	modUseStateForUnknown        = "UseStateForUnknown"
 	modUseNonNullStateForUnknown = "UseNonNullStateForUnknown"
 	// modNone is a sentinel meaning "emit no plan modifier" — it suppresses the

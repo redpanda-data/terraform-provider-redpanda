@@ -29,7 +29,7 @@ Creates Access Control Lists (ACLs) for Redpanda Schema Registry resources. Sche
 
 > **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
 
-- `allow_deletion` (Boolean) When set to true, allows the resource to be removed from state even if deletion fails due to permission errors
+- `allow_deletion` (Boolean) Whether Terraform may destroy this ACL. Defaults to false — terraform destroy will refuse until you set this to true. Also allows the resource to be removed from state when deletion fails due to permission errors.
 - `password` (String, Sensitive) SASL password for Schema Registry HTTP Basic authentication. Pair with username when you need writes attributed to a specific SASL identity instead of the provider's cloud Bearer token. Stored in Terraform state.
 - `password_wo` (String, Deprecated, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Deprecated. The Terraform Plugin Framework does not persist write-only attributes to state, leaving the provider unable to authenticate to Schema Registry during refresh — this attribute cannot reliably manage ACLs. Use the default cloud Bearer authentication (omit username and password) or the regular `password` attribute.
 - `password_wo_version` (Number, Deprecated) Deprecated. Version counter for password_wo, which is itself deprecated for this resource.

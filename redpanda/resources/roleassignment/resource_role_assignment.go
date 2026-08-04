@@ -2,7 +2,6 @@ package roleassignment
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -104,11 +103,15 @@ func (r *RoleAssignment) Create(ctx context.Context, req resource.CreateRequest,
 		RoleName: roleName,
 		Add:      []*dataplanev1.RoleMembership{{Principal: principal}},
 	}
-	consoleReq := &consolev1alpha1.UpdateRoleMembershipRequest{
-		Request: dataplaneReq,
-	}
-
-	_, err := r.SecurityClient.UpdateRoleMembership(ctx, consoleReq)
+	_, err := utils.DataplaneCall(ctx,
+		func(ctx context.Context) (*consolev1alpha1.UpdateRoleMembershipResponse, error) {
+			return r.SecurityClient.UpdateRoleMembership(ctx, &consolev1alpha1.UpdateRoleMembershipRequest{Request: dataplaneReq})
+		},
+		utils.WithProbe(func(ctx context.Context) (*consolev1alpha1.UpdateRoleMembershipResponse, bool) {
+			assigned, probeErr := r.roleAssignmentExists(ctx, roleName, principal)
+			return nil, probeErr == nil && assigned
+		}),
+	)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to assign role", utils.DeserializeGrpcError(err))
 		return
@@ -223,11 +226,9 @@ func (r *RoleAssignment) Delete(ctx context.Context, req resource.DeleteRequest,
 		RoleName: roleName,
 		Remove:   []*dataplanev1.RoleMembership{{Principal: principal}},
 	}
-	consoleReq := &consolev1alpha1.UpdateRoleMembershipRequest{
-		Request: dataplaneReq,
-	}
-
-	_, err := r.SecurityClient.UpdateRoleMembership(ctx, consoleReq)
+	_, err := utils.DataplaneCall(ctx, func(ctx context.Context) (*consolev1alpha1.UpdateRoleMembershipResponse, error) {
+		return r.SecurityClient.UpdateRoleMembership(ctx, &consolev1alpha1.UpdateRoleMembershipRequest{Request: dataplaneReq})
+	})
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to unassign role", utils.DeserializeGrpcError(err))
 		return
@@ -274,12 +275,11 @@ func (r *RoleAssignment) roleAssignmentExists(ctx context.Context, roleName, pri
 	dataplaneReq := &dataplanev1.ListRoleMembersRequest{
 		RoleName: roleName,
 	}
-	consoleReq := &consolev1alpha1.ListRoleMembersRequest{
-		Request: dataplaneReq,
-	}
-
 	// Execute the request
-	resp, err := r.SecurityClient.ListRoleMembers(ctx, consoleReq)
+	// One shot: this is the probe DataplaneCall consults between attempts.
+	resp, err := utils.DataplaneCallOnce(ctx, func(ctx context.Context) (*consolev1alpha1.ListRoleMembersResponse, error) {
+		return r.SecurityClient.ListRoleMembers(ctx, &consolev1alpha1.ListRoleMembersRequest{Request: dataplaneReq})
+	})
 	if err != nil {
 		if utils.IsNotFound(err) || strings.Contains(strings.ToLower(err.Error()), "unknown role") {
 			return false, nil
@@ -291,11 +291,9 @@ func (r *RoleAssignment) roleAssignmentExists(ctx context.Context, roleName, pri
 	// Check if the principal is in the role members.
 	// Principal comparison is verbatim — both client and server use the same
 	// "User:" / "Group:" prefixed form.
-	if resp.Response != nil && resp.Response.Members != nil {
-		for _, member := range resp.Response.Members {
-			if member.Principal == principal {
-				return true, nil
-			}
+	for _, member := range resp.GetResponse().GetMembers() {
+		if member.GetPrincipal() == principal {
+			return true, nil
 		}
 	}
 
@@ -308,15 +306,11 @@ func (r *RoleAssignment) createSecurityClient(ctx context.Context, clusterURL st
 		return nil
 	}
 
-	if r.resData.DataplaneConnPool == nil {
-		return errors.New("provider not configured: dataplane connection pool is nil")
-	}
-	consoleURL := utils.ConvertToConsoleURL(clusterURL)
-	conn, err := r.resData.DataplaneConnPool.GetConnection(ctx, consoleURL)
+	client, err := utils.NewConsoleClient(ctx, r.resData.DataplaneConnPool,
+		clusterURL, consolev1alpha1grpc.NewSecurityServiceClient)
 	if err != nil {
-		return fmt.Errorf("unable to open a connection with the console API at %s: %v", consoleURL, err)
+		return err
 	}
-
-	r.SecurityClient = consolev1alpha1grpc.NewSecurityServiceClient(conn)
+	r.SecurityClient = client
 	return nil
 }

@@ -44,6 +44,13 @@ type ResourceModel struct {
 
 // --- Nested typed structs (one per nested message in the proto tree) ---
 
+// AWSConfigModel mirrors the nested "aws_config" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type AWSConfigModel struct {
+	AllowedPrincipals types.List `tfsdk:"allowed_principals"`
+}
+
 // CloudProviderConfigModel mirrors the nested "cloud_provider_config" attribute. Use the As/To
 // converters on the parent struct to move between types.Object and this
 // typed form.
@@ -55,13 +62,6 @@ type CloudProviderConfigModel struct {
 // converters on the parent struct to move between types.Object and this
 // typed form.
 type CloudProviderConfigAWSModel struct {
-	AllowedPrincipals types.List `tfsdk:"allowed_principals"`
-}
-
-// AWSConfigModel mirrors the nested "aws_config" attribute. Use the As/To
-// converters on the parent struct to move between types.Object and this
-// typed form.
-type AWSConfigModel struct {
 	AllowedPrincipals types.List `tfsdk:"allowed_principals"`
 }
 
@@ -82,6 +82,14 @@ type StatusAWSModel struct {
 
 // --- AttrType tables for nested types (consumed by types.ObjectValueFrom / ObjectNull) ---
 
+// AWSConfigAttrTypes returns the attr.Type map for the "aws_config" nested
+// attribute.
+func AWSConfigAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"allowed_principals": types.ListType{ElemType: types.StringType},
+	}
+}
+
 // CloudProviderConfigAttrTypes returns the attr.Type map for the "cloud_provider_config" nested
 // attribute.
 func CloudProviderConfigAttrTypes() map[string]attr.Type {
@@ -93,14 +101,6 @@ func CloudProviderConfigAttrTypes() map[string]attr.Type {
 // CloudProviderConfigAWSAttrTypes returns the attr.Type map for the "cloud_provider_config.aws" nested
 // attribute.
 func CloudProviderConfigAWSAttrTypes() map[string]attr.Type {
-	return map[string]attr.Type{
-		"allowed_principals": types.ListType{ElemType: types.StringType},
-	}
-}
-
-// AWSConfigAttrTypes returns the attr.Type map for the "aws_config" nested
-// attribute.
-func AWSConfigAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"allowed_principals": types.ListType{ElemType: types.StringType},
 	}
@@ -125,29 +125,6 @@ func StatusAWSAttrTypes() map[string]attr.Type {
 
 // --- Root-level converters (types.Object ⇄ typed struct ergonomics) ---
 
-// AsCloudProviderConfig converts the root cloud_provider_config attribute from
-// types.Object into its typed form. Returns (nil, nil) when the object is
-// null or unknown. Use this when you want typed field access without
-// manually unpacking .Attributes().
-func (m *ResourceModel) AsCloudProviderConfig(ctx context.Context) (*CloudProviderConfigModel, diag.Diagnostics) {
-	if m == nil || m.CloudProviderConfig.IsNull() || m.CloudProviderConfig.IsUnknown() {
-		return nil, nil
-	}
-	var out CloudProviderConfigModel
-	d := m.CloudProviderConfig.As(ctx, &out, basetypes.ObjectAsOptions{})
-	return &out, d
-}
-
-// CloudProviderConfigToObject encodes a typed struct back into the
-// types.Object shape expected by the framework. A nil receiver returns
-// types.ObjectNull with the correct attribute types.
-func CloudProviderConfigToObject(ctx context.Context, v *CloudProviderConfigModel) (types.Object, diag.Diagnostics) {
-	if v == nil {
-		return types.ObjectNull(CloudProviderConfigAttrTypes()), nil
-	}
-	return types.ObjectValueFrom(ctx, CloudProviderConfigAttrTypes(), v)
-}
-
 // AsAWSConfig converts the root aws_config attribute from
 // types.Object into its typed form. Returns (nil, nil) when the object is
 // null or unknown. Use this when you want typed field access without
@@ -169,6 +146,29 @@ func AWSConfigToObject(ctx context.Context, v *AWSConfigModel) (types.Object, di
 		return types.ObjectNull(AWSConfigAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, AWSConfigAttrTypes(), v)
+}
+
+// AsCloudProviderConfig converts the root cloud_provider_config attribute from
+// types.Object into its typed form. Returns (nil, nil) when the object is
+// null or unknown. Use this when you want typed field access without
+// manually unpacking .Attributes().
+func (m *ResourceModel) AsCloudProviderConfig(ctx context.Context) (*CloudProviderConfigModel, diag.Diagnostics) {
+	if m == nil || m.CloudProviderConfig.IsNull() || m.CloudProviderConfig.IsUnknown() {
+		return nil, nil
+	}
+	var out CloudProviderConfigModel
+	d := m.CloudProviderConfig.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CloudProviderConfigToObject encodes a typed struct back into the
+// types.Object shape expected by the framework. A nil receiver returns
+// types.ObjectNull with the correct attribute types.
+func CloudProviderConfigToObject(ctx context.Context, v *CloudProviderConfigModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CloudProviderConfigAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CloudProviderConfigAttrTypes(), v)
 }
 
 // AsStatus converts the root status attribute from

@@ -39,7 +39,7 @@ func TestMerge_PlanModifiers_ComposeWithStateNull(t *testing.T) {
 			"type": {PlanModifiers: []string{"RequiresReplace"}},
 		},
 	}
-	attrs, _, _, errs := Merge(proto, cfg, "resource", nil)
+	attrs, _, _, errs := Merge(proto, declareLifecycle(proto, cfg), "resource", nil)
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
@@ -210,7 +210,7 @@ func TestMerge_MaskContract_DerivesRequiresReplace(t *testing.T) {
 		},
 	}
 	cfg.SetMaskContract(maskContractFor())
-	attrs, _, _, errs := Merge(maskContractProto(), cfg, "resource", nil)
+	attrs, _, _, errs := Merge(maskContractProto(), declareLifecycle(maskContractProto(), cfg), "resource", nil)
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
@@ -251,7 +251,7 @@ func TestMerge_MaskContract_ComposesWithStateModifier(t *testing.T) {
 		},
 	}
 	cfg.SetMaskContract(maskContractFor())
-	attrs, _, _, errs := Merge(maskContractProto(), cfg, "resource", nil)
+	attrs, _, _, errs := Merge(maskContractProto(), declareLifecycle(maskContractProto(), cfg), "resource", nil)
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
@@ -305,7 +305,7 @@ func TestMerge_MaskContract_NoDoubleAddAndAliases(t *testing.T) {
 	// replace is intentional, so it stays in-contract and unmutated.
 	contract.TopLevel["partition_count"] = true
 	cfg.SetMaskContract(contract)
-	attrs, _, _, errs := Merge(proto, cfg, "resource", nil)
+	attrs, _, _, errs := Merge(proto, declareLifecycle(proto, cfg), "resource", nil)
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
@@ -441,6 +441,234 @@ func TestMerge_MaskContract_WarnOnly_BothDirections(t *testing.T) {
 	}
 	if !sawFrozen {
 		t.Errorf("missing Direction-B warning for frozen (conditional-only out of contract); got %v", warns)
+	}
+}
+
+// An arm the user selects must not be Computed — UseStateForUnknown would
+// anchor the outgoing arm and break switching. A server-reported arm keeps it.
+func TestMerge_OneofArms_LifecycleFromWriteShape(t *testing.T) {
+	// status_arm mirrors cluster cloud_storage: its only leaf is server-owned.
+	newProto := func() *ProtoMessage {
+		return &ProtoMessage{
+			Name: "Thing",
+			Fields: []ProtoField{
+				{Name: "start_at_earliest", Kind: KindString, Cardinality: "singular", OneofName: "start_offset"},
+				{
+					Name: "status_arm", Kind: KindMessage, Cardinality: "singular", OneofName: "status_kind",
+					Nested: &ProtoMessage{Name: "StatusArm", Fields: []ProtoField{
+						{Name: "arn", Kind: KindString, Cardinality: "singular"},
+					}},
+				},
+				{Name: "interval", Kind: KindString, Cardinality: "singular"},
+			},
+		}
+	}
+	idx := &WriteShapeIndex{
+		create:    map[string]bool{"start_at_earliest": true, "status_arm": true, "interval": true},
+		update:    map[string]bool{"start_at_earliest": true, "status_arm": true, "interval": true},
+		hasCreate: true,
+		hasUpdate: true,
+	}
+	find := func(t *testing.T, attrs []SchemaAttr, name string) SchemaAttr {
+		t.Helper()
+		for _, a := range attrs {
+			if a.Name == name {
+				return a
+			}
+		}
+		t.Fatalf("attr %q not found", name)
+		return SchemaAttr{}
+	}
+
+	t.Run("selectable arm loses Computed", func(t *testing.T) {
+		cfg := &Config{}
+		cfg.SetWriteShapeIndex(idx)
+		attrs, _, _, errs := Merge(newProto(), declareLifecycle(newProto(), cfg), "resource", nil)
+		if len(errs) != 0 {
+			t.Fatalf("unexpected errors: %v", errs)
+		}
+		a := find(t, attrs, "start_at_earliest")
+		if a.Computed {
+			t.Error("selectable oneof arm must not be Computed")
+		}
+		if !a.Optional {
+			t.Error("selectable oneof arm must stay Optional")
+		}
+		if strings.Contains(a.PlanModifiers, "UseStateForUnknown") {
+			t.Errorf("selectable arm must not get UseStateForUnknown; got %q", a.PlanModifiers)
+		}
+		if c := find(t, attrs, "interval"); !c.Computed {
+			t.Error("non-oneof field must keep the Optional+Computed default")
+		}
+	})
+
+	// Guards cluster cloud_storage: ".cloud_storage.aws: was null, but now
+	// cty.ObjectVal(...)" if the anchor is dropped.
+	t.Run("server-owned arm keeps Computed", func(t *testing.T) {
+		cfg := &Config{}
+		cfg.SetWriteShapeIndex(idx)
+		attrs, _, _, errs := Merge(newProto(), declareLifecycle(newProto(), cfg), "resource", nil)
+		if len(errs) != 0 {
+			t.Fatalf("unexpected errors: %v", errs)
+		}
+		if a := find(t, attrs, "status_arm"); !a.Computed {
+			t.Error("arm whose only leaf is absent from every write shape must stay Computed")
+		}
+	})
+
+	t.Run("unknown write shape leaves defaults alone", func(t *testing.T) {
+		attrs, _, _, errs := Merge(newProto(), declareLifecycle(newProto(), &Config{}), "resource", nil)
+		if len(errs) != 0 {
+			t.Fatalf("unexpected errors: %v", errs)
+		}
+		if a := find(t, attrs, "start_at_earliest"); !a.Computed {
+			t.Error("without an index the Optional+Computed default must survive")
+		}
+	})
+
+	t.Run("datasource untouched", func(t *testing.T) {
+		cfg := &Config{ComputedDefault: true}
+		cfg.SetWriteShapeIndex(idx)
+		attrs, _, _, errs := Merge(newProto(), cfg, "datasource", nil)
+		if len(errs) != 0 {
+			t.Fatalf("unexpected errors: %v", errs)
+		}
+		if a := find(t, attrs, "start_at_earliest"); !a.Computed {
+			t.Error("datasource oneof arm must stay Computed")
+		}
+	})
+}
+
+// computed: true on a selectable arm re-introduces the anchor and warns; a
+// server-owned arm does not.
+func TestMerge_OneofArm_ComputedOverride_Warns(t *testing.T) {
+	proto := &ProtoMessage{
+		Name: "Thing",
+		Fields: []ProtoField{
+			{Name: "start_at_earliest", Kind: KindString, Cardinality: "singular", OneofName: "start_offset"},
+			{
+				Name: "status_arm", Kind: KindMessage, Cardinality: "singular", OneofName: "status_kind",
+				Nested: &ProtoMessage{Name: "StatusArm", Fields: []ProtoField{
+					{Name: "arn", Kind: KindString, Cardinality: "singular"},
+				}},
+			},
+		},
+	}
+	yes := true
+	cfg := &Config{
+		Fields: map[string]FieldConfig{
+			"start_at_earliest": {Optional: &yes, Computed: &yes},
+			"status_arm":        {Optional: &yes, Computed: &yes},
+		},
+	}
+	cfg.SetWriteShapeIndex(&WriteShapeIndex{
+		create:    map[string]bool{"start_at_earliest": true, "status_arm": true},
+		update:    map[string]bool{"start_at_earliest": true, "status_arm": true},
+		hasCreate: true,
+		hasUpdate: true,
+	})
+	var warns []string
+	Merge(proto, declareLifecycle(proto, cfg), "resource", nil, func(f string, a ...any) { warns = append(warns, fmt.Sprintf(f, a...)) })
+
+	var sawArm, sawStatus bool
+	for _, w := range warns {
+		if !strings.Contains(w, "WARN oneof") {
+			continue
+		}
+		if strings.Contains(w, "start_at_earliest") {
+			sawArm = true
+		}
+		if strings.Contains(w, "status_arm") {
+			sawStatus = true
+		}
+	}
+	if !sawArm {
+		t.Errorf("expected a oneof warning for the selectable arm; got %v", warns)
+	}
+	if sawStatus {
+		t.Errorf("server-owned arm must not warn — it is never planned from config; got %v", warns)
+	}
+}
+
+// An explicit state-pin modifier on a selectable arm is an error, not a
+// warning: nothing downstream clears it, so it survives onto an Optional-only
+// attribute and anchors the outgoing arm — the exact failure the lifecycle pass
+// exists to prevent. A server-owned arm keeps its anchor legitimately.
+func TestMerge_OneofArm_StatePinModifier_Errors(t *testing.T) {
+	proto := &ProtoMessage{
+		Name: "Thing",
+		Fields: []ProtoField{
+			{Name: "start_at_earliest", Kind: KindString, Cardinality: "singular", OneofName: "start_offset"},
+			{Name: "status_arm", Kind: KindString, Cardinality: "singular", OneofName: "status_kind"},
+		},
+	}
+	yes := true
+	cfg := &Config{Fields: map[string]FieldConfig{
+		"start_at_earliest": {Optional: &yes, PlanModifiers: []string{modUseStateForUnknown}},
+		// Server-owned via computed_only, and its own path IS on the write
+		// payload — the shape maintenance_window_config.unspecified has. The
+		// anchor is correct here and must not error.
+		"status_arm": {ComputedOnly: true, PlanModifiers: []string{modUseStateForUnknown}},
+	}}
+	cfg.SetWriteShapeIndex(&WriteShapeIndex{
+		create:    map[string]bool{"start_at_earliest": true, "status_arm": true},
+		update:    map[string]bool{"start_at_earliest": true, "status_arm": true},
+		hasCreate: true,
+		hasUpdate: true,
+	})
+
+	_, _, _, errs := Merge(proto, declareLifecycle(proto, cfg), "resource", nil)
+
+	var sawArm, sawStatus bool
+	for _, e := range errs {
+		msg := e.Error()
+		if !strings.Contains(msg, "selectable oneof arm") {
+			continue
+		}
+		if strings.Contains(msg, "start_at_earliest") {
+			sawArm = true
+		}
+		if strings.Contains(msg, "status_arm") {
+			sawStatus = true
+		}
+	}
+	if !sawArm {
+		t.Errorf("expected an error for a state pin on a selectable arm; got %v", errs)
+	}
+	if sawStatus {
+		t.Errorf("server-owned arm must not error — its anchor is correct; got %v", errs)
+	}
+}
+
+// The walk produces dotted paths and survives a self-referential message.
+func TestCollectWritePaths_RecursesAndBreaksCycles(t *testing.T) {
+	self := &ProtoMessage{Name: "Node"}
+	self.Fields = []ProtoField{
+		{Name: "label", Kind: KindString, Cardinality: "singular"},
+		{Name: "child", Kind: KindMessage, Cardinality: "singular", Nested: self},
+	}
+	msg := &ProtoMessage{Name: "Payload", Fields: []ProtoField{
+		{
+			Name: "cloud_storage", Kind: KindMessage, Cardinality: "singular",
+			Nested: &ProtoMessage{Name: "CloudStorage", Fields: []ProtoField{
+				{Name: "skip_destroy", Kind: KindBool, Cardinality: "singular"},
+				{Name: "aws", Kind: KindMessage, Cardinality: "singular", OneofName: "cloud_provider", Nested: &ProtoMessage{Name: "AWS"}},
+			}},
+		},
+		{Name: "root", Kind: KindMessage, Cardinality: "singular", Nested: self},
+	}}
+
+	out := map[string]bool{}
+	collectWritePaths(msg, "", out, map[string]bool{}, 0)
+
+	for _, want := range []string{"cloud_storage", "cloud_storage.skip_destroy", "cloud_storage.aws", "root", "root.label", "root.child"} {
+		if !out[want] {
+			t.Errorf("missing path %q; got %v", want, out)
+		}
+	}
+	// The empty AWS message contributes no leaf; that absence marks arn server-owned.
+	if out["cloud_storage.aws.arn"] {
+		t.Error("cloud_storage.aws.arn must not appear — the write-shape AWS message is empty")
 	}
 }
 

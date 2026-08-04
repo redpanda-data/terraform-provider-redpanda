@@ -107,7 +107,10 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 
 	listFilter := buildACLFilter(&model)
 	probeACLExists := func() bool {
-		listResp, listErr := a.ACLClient.ListACLs(ctx, &dataplanev1.ListACLsRequest{Filter: listFilter})
+		// One shot: this is the probe DataplaneCall consults between attempts.
+		listResp, listErr := utils.DataplaneCallOnce(ctx, func(ctx context.Context) (*dataplanev1.ListACLsResponse, error) {
+			return a.ACLClient.ListACLs(ctx, &dataplanev1.ListACLsRequest{Filter: listFilter})
+		})
 		if listErr != nil {
 			return false
 		}
@@ -121,27 +124,17 @@ func (a *ACL) Create(ctx context.Context, request resource.CreateRequest, respon
 		return false
 	}
 
-	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
-		_, rpcErr := a.ACLClient.CreateACL(ctx, pbReq)
-		if rpcErr == nil {
-			return nil
-		}
-		// Adopt the existing ACL on AlreadyExists from a prior retry's lost response.
-		if utils.IsAlreadyExists(rpcErr) {
-			if probeACLExists() {
-				return nil
-			}
-			return utils.NonRetryableError(rpcErr)
-		}
-		// Probe before retrying so the next attempt doesn't trip AlreadyExists.
-		if utils.IsUnavailable(rpcErr) {
-			if probeACLExists() {
-				return nil
-			}
-			return utils.RetryableError(rpcErr)
-		}
-		return utils.NonRetryableError(rpcErr)
-	})
+	_, err := utils.DataplaneCall(ctx,
+		func(ctx context.Context) (*dataplanev1.CreateACLResponse, error) {
+			return a.ACLClient.CreateACL(ctx, pbReq)
+		},
+		// Recognises an ACL an earlier attempt created. DataplaneCall only
+		// consults it from the second attempt on: a first-attempt AlreadyExists
+		// means the ACL predates this resource.
+		utils.WithProbe(func(context.Context) (*dataplanev1.CreateACLResponse, bool) {
+			return nil, probeACLExists()
+		}),
+	)
 	if err != nil {
 		response.Diagnostics.AddError("Failed to create ACL", utils.DeserializeGrpcError(err))
 		return
@@ -175,17 +168,8 @@ func (a *ACL) Read(ctx context.Context, request resource.ReadRequest, response *
 	}
 
 	filter := buildACLFilter(&model)
-	var aclList *dataplanev1.ListACLsResponse
-	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
-		var rpcErr error
-		aclList, rpcErr = a.ACLClient.ListACLs(ctx, &dataplanev1.ListACLsRequest{Filter: filter})
-		if rpcErr != nil {
-			if utils.IsUnavailable(rpcErr) {
-				return utils.RetryableError(rpcErr)
-			}
-			return utils.NonRetryableError(rpcErr)
-		}
-		return nil
+	aclList, err := utils.DataplaneCall(ctx, func(ctx context.Context) (*dataplanev1.ListACLsResponse, error) {
+		return a.ACLClient.ListACLs(ctx, &dataplanev1.ListACLsRequest{Filter: filter})
 	})
 	if err != nil {
 		action, diags := utils.HandleGracefulRemoval(ctx, "ACL", model.GenerateID(), model.AllowDeletion, err, "list ACLs")
@@ -264,17 +248,8 @@ func (a *ACL) Delete(ctx context.Context, request resource.DeleteRequest, respon
 		return
 	}
 
-	var deleteResponse *dataplanev1.DeleteACLsResponse
-	err := utils.Retry(ctx, utils.DefaultDataplaneRetryTimeout, func() *utils.RetryError {
-		var rpcErr error
-		deleteResponse, rpcErr = a.ACLClient.DeleteACLs(ctx, pbReq)
-		if rpcErr != nil {
-			if utils.IsUnavailable(rpcErr) {
-				return utils.RetryableError(rpcErr)
-			}
-			return utils.NonRetryableError(rpcErr)
-		}
-		return nil
+	deleteResponse, err := utils.DataplaneCall(ctx, func(ctx context.Context) (*dataplanev1.DeleteACLsResponse, error) {
+		return a.ACLClient.DeleteACLs(ctx, pbReq)
 	})
 	if err != nil {
 		_, ddiags := utils.HandleGracefulRemoval(ctx, "ACL", aclID, model.AllowDeletion, err, "delete ACL")

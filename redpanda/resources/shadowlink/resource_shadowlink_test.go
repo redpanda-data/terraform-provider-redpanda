@@ -162,6 +162,125 @@ func TestUnit_ShadowLink_Flatten_PreservesSensitivePasswordFromPriorState(t *tes
 	assert.Equal(t, "ACTIVE", persist.State.ValueString())
 }
 
+// The shadow_schema_registry_api arm carries the same class of masked-on-read
+// credentials as client_options: basic.password and tls_pem_settings.key are
+// INPUT_ONLY on the proto and come back empty from Get.
+func TestUnit_ShadowLink_Flatten_PreservesSchemaRegistrySecretsFromPriorState(t *testing.T) {
+	ctx := context.Background()
+
+	basic, d := types.ObjectValue(shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasicAttrTypes(), map[string]attr.Value{
+		"username":     types.StringValue("sr-key"),
+		"password":     types.StringValue("${secrets.SR_PW}"),
+		"password_set": types.BoolValue(true),
+	})
+	require.False(t, d.HasError(), "%v", d)
+	authOpts, d := types.ObjectValue(shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsAttrTypes(), map[string]attr.Value{
+		"basic": basic,
+	})
+	require.False(t, d.HasError(), "%v", d)
+
+	pem, d := types.ObjectValue(shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettingsAttrTypes(), map[string]attr.Value{
+		"ca":              types.StringValue("ca-pem"),
+		"cert":            types.StringValue("cert-pem"),
+		"key":             types.StringValue("${secrets.SR_KEY}"),
+		"key_fingerprint": types.StringNull(),
+	})
+	require.False(t, d.HasError(), "%v", d)
+	tlsSettings, d := types.ObjectValue(shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsAttrTypes(), map[string]attr.Value{
+		"enabled":                 types.BoolValue(true),
+		"do_not_set_sni_hostname": types.BoolValue(false),
+		"tls_file_settings":       types.ObjectNull(shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsAttrTypes()),
+		"tls_pem_settings":        pem,
+	})
+	require.False(t, d.HasError(), "%v", d)
+
+	prevAPI := shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPIModel{
+		SourceURL:                           types.StringValue("https://sr.example.com"),
+		AuthOptions:                         authOpts,
+		TLSSettings:                         tlsSettings,
+		Destination:                         types.ObjectNull(shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPIDestinationAttrTypes()),
+		SourceFilter:                        types.ObjectNull(shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilterAttrTypes()),
+		FullSyncInterval:                    types.StringNull(),
+		TailInterval:                        types.StringNull(),
+		MaxSourceRequestsPerSecond:          types.Int32Null(),
+		Paused:                              types.BoolValue(false),
+		UnsupportedSchemaFeaturePolicy:      types.StringNull(),
+		EffectiveFullSyncInterval:           types.StringNull(),
+		EffectiveTailInterval:               types.StringNull(),
+		EffectiveMaxSourceRequestsPerSecond: types.Int32Null(),
+	}
+	prevAPIObj, d := types.ObjectValueFrom(ctx, shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAttrTypes(), &prevAPI)
+	require.False(t, d.HasError(), "%v", d)
+	prevSR, d := types.ObjectValue(shadowlinkmodel.SchemaRegistrySyncOptionsAttrTypes(), map[string]attr.Value{
+		"shadow_schema_registry_api":   prevAPIObj,
+		"shadow_schema_registry_topic": types.BoolNull(),
+	})
+	require.False(t, d.HasError(), "%v", d)
+
+	prev := &shadowlinkmodel.ResourceModel{
+		ClientOptions:             types.ObjectNull(shadowlinkmodel.ClientOptionsAttrTypes()),
+		SchemaRegistrySyncOptions: prevSR,
+	}
+
+	// Mirrors the masked Get: password and PEM key come back empty.
+	apiResp := &controlplanev1.ShadowLink{
+		Id:               "link-id",
+		Name:             "link-sr",
+		ShadowRedpandaId: "shadow-id",
+		State:            controlplanev1.ShadowLink_STATE_ACTIVE,
+		SchemaRegistrySyncOptions: &corev2.SchemaRegistrySyncOptions{
+			SchemaRegistryShadowingMode: &corev2.SchemaRegistrySyncOptions_ShadowSchemaRegistryApi_{
+				ShadowSchemaRegistryApi: &corev2.SchemaRegistrySyncOptions_ShadowSchemaRegistryApi{
+					SourceUrl: "https://sr.example.com",
+					AuthOptions: &corev2.SchemaRegistryAuthOptions{
+						AuthOptions: &corev2.SchemaRegistryAuthOptions_Basic{
+							Basic: &corev2.HTTPBasicAuthOptions{
+								Username:    "sr-key",
+								Password:    "",
+								PasswordSet: true,
+							},
+						},
+					},
+					TlsSettings: &commonv1.TLSSettings{
+						Enabled: true,
+						TlsSettings: &commonv1.TLSSettings_TlsPemSettings{
+							TlsPemSettings: &commonv1.TLSPEMSettings{
+								Ca:   "ca-pem",
+								Cert: "cert-pem",
+								Key:  "",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	persist, diags := shadowlinkmodel.Flatten(ctx, apiResp, prev)
+	require.False(t, diags.HasError(), "%v", diags)
+	preserveDiags := preserveSensitiveFromPrev(ctx, persist, prev)
+	require.False(t, preserveDiags.HasError(), "%v", preserveDiags)
+
+	var sr shadowlinkmodel.SchemaRegistrySyncOptionsModel
+	require.False(t, persist.SchemaRegistrySyncOptions.As(ctx, &sr, basetypesObjOpts).HasError())
+	var gotAPI shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPIModel
+	require.False(t, sr.ShadowSchemaRegistryAPI.As(ctx, &gotAPI, basetypesObjOpts).HasError())
+
+	var gotAuth shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsModel
+	require.False(t, gotAPI.AuthOptions.As(ctx, &gotAuth, basetypesObjOpts).HasError())
+	var gotBasic shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAuthOptionsBasicModel
+	require.False(t, gotAuth.Basic.As(ctx, &gotBasic, basetypesObjOpts).HasError())
+	assert.Equal(t, "${secrets.SR_PW}", gotBasic.Password.ValueString(), "basic password must come from prior state, not API")
+	assert.True(t, gotBasic.PasswordSet.ValueBool())
+
+	var gotTLS shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsModel
+	require.False(t, gotAPI.TLSSettings.As(ctx, &gotTLS, basetypesObjOpts).HasError())
+	var gotPem shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettingsModel
+	require.False(t, gotTLS.TLSPemSettings.As(ctx, &gotPem, basetypesObjOpts).HasError())
+	assert.Equal(t, "${secrets.SR_KEY}", gotPem.Key.ValueString(), "PEM key must come from prior state, not API")
+	assert.Equal(t, "ca-pem", gotPem.Ca.ValueString())
+}
+
 func TestUnit_ShadowLink_ExpandCreate_SecurityACLFilter(t *testing.T) {
 	ctx := context.Background()
 	rf, d := types.ObjectValue(shadowlinkmodel.SecuritySyncOptionsAclFiltersResourceFilterAttrTypes(), map[string]attr.Value{
@@ -219,6 +338,7 @@ func TestUnit_ShadowLink_ExpandCreate_SchemaRegistryShadowingOneofPresence(t *te
 	ctx := context.Background()
 	sr := shadowlinkmodel.SchemaRegistrySyncOptionsModel{
 		ShadowSchemaRegistryTopic: types.BoolValue(true),
+		ShadowSchemaRegistryAPI:   types.ObjectNull(shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPIAttrTypes()),
 	}
 	srObj, diags := types.ObjectValueFrom(ctx, shadowlinkmodel.SchemaRegistrySyncOptionsAttrTypes(), &sr)
 	require.False(t, diags.HasError(), "%v", diags)
