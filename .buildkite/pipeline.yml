@@ -420,6 +420,9 @@ steps:
             - GOOGLE_CREDENTIALS_BASE64
             - GOOGLE_PROJECT
             - GCP_REGION=us-central1
+            # the byovpc:gcp task derives UNIQUE_IDENTIFIER from this; without it
+            # every CI run falls back to "local" and concurrent builds collide
+            - BUILDKITE_BUILD_NUMBER
     depends_on:
       - lint
       - unit

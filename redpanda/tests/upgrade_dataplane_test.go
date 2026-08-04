@@ -25,31 +25,34 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/upgrade"
 )
 
-// TestUpgrade_DataplaneClusterAPIURLMigration is the self-contained, CI-runnable
-// guard for the cluster_api_url format migration. It provisions its own public
-// serverless cluster (no fixture dependency) with the latest released provider,
-// storing the dataplane resources' cluster_api_url in the legacy host:443 form;
-// the local build then re-plans with the canonical https://host form. The three
-// dataplane resources planning as no-op proves schema-version-1 UpgradeState
-// rewrote the value in place rather than forcing replacement, and exercises the
-// UpgradeResourceState PriorSchema decode against real released-provider state.
+// TestUpgrade_DataplaneResourcesNoChurn is the self-contained, CI-runnable guard
+// that upgrading from the latest released provider to the local build produces
+// no churn on the dataplane resources. It provisions its own public serverless
+// cluster (no fixture dependency) with the released provider, then re-plans with
+// the local build and asserts user/acl/topic plan as no-op. All three have
+// RequiresReplace on cluster_api_url, so any drift in how the local build reads
+// or normalizes that value shows up here as a destructive plan.
 //
-// host:443 is the cluster's real endpoint in legacy notation (host + the HTTPS
-// port); the dataplane dialer accepts a scheme-less host:port, so the released
-// provider creates the resources for real. Both URL forms are derived
-// symmetrically from the cluster's own output so the assertion holds regardless
-// of the format the live API returns.
+// This test previously asserted the schema-version-0-to-1 cluster_api_url format
+// migration by writing the legacy host:443 form in step 1. That premise is dead:
+// Version: 1 shipped in v2.0.0, so the released provider is already at version 1,
+// Terraform sees no version delta, and UpgradeResourceState is never called —
+// step 2 planned delete+create every run. The migration itself is covered by
+// TestIntegration_{User,Topic,ACL}_UpgradeState_NormalizesClusterApiUrl, which
+// drive the real UpgradeResourceState RPC at version 0, plus unit tests on each
+// resource's UpgradeState. The URL is still derived from the cluster's own
+// output, so this holds regardless of the format the live API returns.
 //
-// The assertion is per-resource (user/acl/topic no-op) rather than whole-plan
-// empty: serverless_cluster gained the provider-only allow_deletion field after
-// the released version, so the managed cluster shows a benign update on upgrade.
-// Step 1 applies that update (allow_deletion=true) so teardown can destroy the
-// cluster. Covers all three RequiresReplace dataplane resources; acl is
-// load-bearing since it has no ImportState.
+// The assertion is per-resource rather than whole-plan empty: step 0 omits
+// serverless_cluster's allow_deletion so the config still applies under
+// REDPANDA_LAST_VERSION pins that predate the field (≤v1.9.0), and step 1
+// setting it true (so teardown can destroy the cluster) then plans as a benign
+// update on the managed cluster. acl is load-bearing since it has no
+// ImportState.
 //
 // Requires REDPANDA_CLIENT_ID + REDPANDA_CLIENT_SECRET; self-provisions the
 // cluster, so no KAFKA_CLUSTER_* fixture is needed.
-func TestUpgrade_DataplaneClusterAPIURLMigration(t *testing.T) {
+func TestUpgrade_DataplaneResourcesNoChurn(t *testing.T) {
 	n := dataplaneUpgradeNames{
 		rg:      upgrade.RandomName("tfrp-upg-rg"),
 		cluster: upgrade.RandomName("tfrp-upg-sl"),
@@ -58,8 +61,8 @@ func TestUpgrade_DataplaneClusterAPIURLMigration(t *testing.T) {
 		acl:     upgrade.RandomName("tfrp-upg-acl"),
 	}
 	upgrade.CreateAndRunMigrationApplyTest(t,
-		dataplaneMigrationConfig(n, true),  // released provider stores legacy host:443
-		dataplaneMigrationConfig(n, false), // local build re-plans with canonical https://host
+		dataplaneUpgradeConfig(n, true),  // released provider creates the resources
+		dataplaneUpgradeConfig(n, false), // local build re-plans the same config
 		[]plancheck.PlanCheck{
 			plancheck.ExpectResourceAction("redpanda_user.test", plancheck.ResourceActionNoop),
 			plancheck.ExpectResourceAction("redpanda_acl.test", plancheck.ResourceActionNoop),
@@ -72,12 +75,15 @@ type dataplaneUpgradeNames struct {
 	rg, cluster, user, topic, acl string
 }
 
-func dataplaneMigrationConfig(n dataplaneUpgradeNames, legacy bool) string {
-	// canonical (local build) sets allow_deletion=true so teardown can destroy
-	// the cluster; the released provider has no such field, so legacy omits it.
+func dataplaneUpgradeConfig(n dataplaneUpgradeNames, released bool) string {
+	// the local build sets allow_deletion=true so teardown can destroy the
+	// cluster; step 0 omits it so the config also applies under
+	// REDPANDA_LAST_VERSION pins that predate the field. The cluster_api_url is
+	// canonical in both steps — the two providers must agree on it or
+	// RequiresReplace fires.
 	apiURL, clusterAllowDeletion := `"https://${local.host}"`, "\n  allow_deletion    = true"
-	if legacy {
-		apiURL, clusterAllowDeletion = `"${local.host}:443"`, ""
+	if released {
+		clusterAllowDeletion = ""
 	}
 	return fmt.Sprintf(`
 provider "redpanda" {}

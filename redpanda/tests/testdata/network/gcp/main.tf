@@ -6,11 +6,26 @@ provider "google" {
 
 
 # Use the Redpanda GCP BYOVPC module
+# unique_identifier is required and must be 1-9 characters. The module derives
+# local.postfix from it and builds the operator service account as
+# "rp-op${local.postfix}" — an empty postfix leaves "rp-op", 5 characters, under
+# GCP's 6-character account_id minimum. The upper bound comes from the longest
+# name, "redpanda-connect-api-<id>", against the 30-character maximum.
 variable "unique_identifier" {
-  default = ""
+  type = string
+
+  validation {
+    condition     = length(var.unique_identifier) >= 1 && length(var.unique_identifier) <= 9
+    error_message = "unique_identifier must be 1-9 characters; see the comment above."
+  }
 }
 module "redpanda_gcp" {
-  source                             = "redpanda-data/redpanda-byovpc/gcp"
+  // Git-ref pin, mirroring the AWS stack: the latest registry release (1.0.3)
+  // predates the module's rpsql support (enable_redpanda_sql, #16/#17), the
+  // BigLake IAM grants (#18) and the operator workload-identity fix (#19). An
+  // unpinned source would also silently adopt new releases in CI.
+  // Re-pin once a registry release containing those ships.
+  source                             = "git::https://github.com/redpanda-data/terraform-gcp-redpanda-byovpc.git?ref=6b660cb4bb0668a1f6979a5c7cb35aca4d9943bb"
   service_project_id                 = var.project_id
   region                             = var.region
   unique_identifier                  = var.unique_identifier

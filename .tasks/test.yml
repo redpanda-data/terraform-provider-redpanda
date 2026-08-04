@@ -163,7 +163,7 @@ tasks:
       - echo "AWS BYOC tests completed successfully"
 
   byovpc:aws:
-    desc: "Provision BYOVPC AWS infra, run TestAcc_Cluster_BYOVPC_AWS, tear down infra (always)"
+    desc: "Provision BYOVPC AWS infra and run TestAcc_Cluster_BYOVPC_AWS"
     deps:
       - :tools:install:terraform
     vars:
@@ -209,18 +209,19 @@ tasks:
           -count=1 -tags=live_test,byovpc_aws -v -timeout={{.TIMEOUT}} \
           ./redpanda/tests/
       - echo "BYOVPC AWS tests completed successfully"
-    defer:
-      - task: cleanup:aws:ci
-        vars:
-          AWS_REGION: '{{.AWS_REGION}}'
 
   byovpc:gcp:
-    desc: "Provision BYOVPC GCP infra, run TestAcc_Cluster_BYOVPC_GCP, tear down infra (always)"
+    desc: "Provision BYOVPC GCP infra and run TestAcc_Cluster_BYOVPC_GCP"
     deps:
       - :tools:install:terraform
     vars:
       GCP_REGION: '{{.GCP_REGION | default "us-central1"}}'
       PROJECT_ID: '{{.PROJECT_ID | default .GCP_PROJECT_ID}}'
+      # 1-9 chars, non-empty: the module's operator service account is
+      # "rp-op<postfix>" and underruns GCP's 6-char account_id minimum without it.
+      # Per-run so concurrent builds do not collide; sweepable by prefix afterwards.
+      UNIQUE_IDENTIFIER:
+        sh: echo "${UNIQUE_IDENTIFIER:-${BUILDKITE_BUILD_NUMBER:-local}}"
     cmds:
       - echo "Provisioning BYOVPC GCP test infra..."
       - |
@@ -230,6 +231,7 @@ tasks:
         terraform apply -auto-approve \
           -var "project_id={{.PROJECT_ID}}" \
           -var "region={{.GCP_REGION}}" \
+          -var "unique_identifier={{.UNIQUE_IDENTIFIER}}" \
           -var "google_credentials_base64=$GOOGLE_CREDENTIALS_BASE64"
       - echo "Running GCP BYOVPC live-acc tests..."
       - |
@@ -257,11 +259,6 @@ tasks:
           -count=1 -tags=live_test,byovpc_gcp -v -timeout={{.TIMEOUT}} \
           ./redpanda/tests/
       - echo "BYOVPC GCP tests completed successfully"
-    defer:
-      - task: cleanup:gcp:ci
-        vars:
-          PROJECT_ID: '{{.PROJECT_ID}}'
-          GCP_REGION: '{{.GCP_REGION}}'
 
   byoc:gcp:
     desc: "Run GCP BYOC acceptance tests"
@@ -389,7 +386,7 @@ tasks:
         export TF_LOG={{.TF_LOG}}
         # Fast pass: control-plane + dataplane upgrade tests, skipping the slow dedicated-cluster
         # lifecycle (own pass below) and the serverless tests (task test:upgrade:serverless).
-        {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT_SHORT}} -skip '^(TestUpgrade_Cluster|TestUpgrade_ServerlessCluster|TestUpgrade_DataplaneClusterAPIURLMigration)$' ./redpanda/resources/... ./redpanda/tests/...
+        {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT_SHORT}} -skip '^(TestUpgrade_Cluster|TestUpgrade_ServerlessCluster|TestUpgrade_DataplaneResourcesNoChurn)$' ./redpanda/resources/... ./redpanda/tests/...
         # Slow pass: dedicated-cluster create+delete in its own single-package invocation so output streams live
         # and gets a timeout above the resource's own 1h30m create budget (TIMEOUT_SHORT=1h is too short).
         {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT}} -run '^TestUpgrade_Cluster$' ./redpanda/resources/cluster/...
@@ -408,8 +405,8 @@ tasks:
         export TF_ACC=true
         export TF_LOG={{.TF_LOG}}
         # Both upgrade tests that provision a serverless cluster: the serverless_cluster
-        # resource itself and the dataplane cluster_api_url migration (serverless-backed).
-        {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT_SHORT}} -run '^(TestUpgrade_ServerlessCluster|TestUpgrade_DataplaneClusterAPIURLMigration)$' ./redpanda/resources/serverlesscluster/... ./redpanda/tests/...
+        # resource itself and the dataplane no-churn guard (serverless-backed).
+        {{.PATH_PREFIX}} go test -v -tags=upgrade -timeout={{.TIMEOUT_SHORT}} -run '^(TestUpgrade_ServerlessCluster|TestUpgrade_DataplaneResourcesNoChurn)$' ./redpanda/resources/serverlesscluster/... ./redpanda/tests/...
       - echo "Serverless provider-upgrade tests completed successfully"
 
   upgrade:smoke:

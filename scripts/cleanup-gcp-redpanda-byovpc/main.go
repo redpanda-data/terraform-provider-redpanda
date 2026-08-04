@@ -38,9 +38,16 @@ type GCPClients struct {
 	Address              *compute.AddressesClient
 	Subnetwork           *compute.SubnetworksClient
 	Network              *compute.NetworksClient
+	NetworkEndpointGroup *compute.NetworkEndpointGroupsClient
 	IAM                  *iam.Service
 	Storage              *storage.Client
 }
+
+// customRoleLimit is GCP's per-project cap on custom roles. It is a hard limit
+// and cannot be raised. A deleted role keeps its slot for 7 days before GCP
+// permanently removes it, so a project that churns BYOC clusters can exhaust
+// the cap even with an aggressive sweeper.
+const customRoleLimit = 300
 
 var (
 	red    = color.New(color.FgRed).SprintFunc()
@@ -116,6 +123,12 @@ func main() {
 		errorCount++
 	}
 
+	// must precede subnetwork and network deletion — a leftover NEG holds the VPC
+	if err := deleteNetworkEndpointGroups(ctx, clients, cfg); err != nil {
+		fmt.Printf("%s Failed to delete network endpoint groups: %v\n", red("ERROR:"), err)
+		errorCount++
+	}
+
 	if err := deleteFirewallRules(ctx, clients, cfg); err != nil {
 		fmt.Printf("%s Failed to delete firewall rules: %v\n", red("ERROR:"), err)
 		errorCount++
@@ -146,10 +159,17 @@ func main() {
 		errorCount++
 	}
 
+	if err := deleteCustomRoles(clients, cfg); err != nil {
+		fmt.Printf("%s Failed to delete custom IAM roles: %v\n", red("ERROR:"), err)
+		errorCount++
+	}
+
 	if err := deleteStorageBuckets(ctx, clients, cfg); err != nil {
 		fmt.Printf("%s Failed to delete storage buckets: %v\n", red("ERROR:"), err)
 		errorCount++
 	}
+
+	reportCustomRoleQuota(clients, cfg)
 
 	if errorCount > 0 {
 		os.Exit(1)
@@ -212,6 +232,11 @@ func initializeClients(ctx context.Context) (*GCPClients, error) {
 		return nil, err
 	}
 
+	negClient, err := compute.NewNetworkEndpointGroupsRESTClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	iamService, err := iam.NewService(ctx)
 	if err != nil {
 		return nil, err
@@ -231,6 +256,7 @@ func initializeClients(ctx context.Context) (*GCPClients, error) {
 		Address:              addressClient,
 		Subnetwork:           subnetworkClient,
 		Network:              networkClient,
+		NetworkEndpointGroup: negClient,
 		IAM:                  iamService,
 		Storage:              storageClient,
 	}, nil
@@ -260,6 +286,9 @@ func closeClients(clients *GCPClients) {
 	}
 	if clients.Network != nil {
 		clients.Network.Close()
+	}
+	if clients.NetworkEndpointGroup != nil {
+		clients.NetworkEndpointGroup.Close()
 	}
 	if clients.Storage != nil {
 		clients.Storage.Close()
@@ -421,6 +450,29 @@ func listResources(ctx context.Context, clients *GCPClients, cfg *CleanupConfig)
 		}
 	}
 
+	negReq := &computepb.AggregatedListNetworkEndpointGroupsRequest{
+		Project: cfg.ProjectID,
+	}
+	negIt := clients.NetworkEndpointGroup.AggregatedList(ctx, negReq)
+	for {
+		pair, err := negIt.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			fmt.Printf("%s Failed to list network endpoint groups: %v\n", yellow("WARNING:"), err)
+			break
+		}
+		for _, neg := range pair.Value.NetworkEndpointGroups {
+			network := getNameFromURL(neg.GetNetwork())
+			if matchesRedpandaResource(network, cfg.CommonPrefix) {
+				totalCount++
+				fmt.Printf("  - Network Endpoint Group: %s (zone: %s, network: %s)\n",
+					neg.GetName(), getZoneFromURL(neg.GetZone()), network)
+			}
+		}
+	}
+
 	saList, err := clients.IAM.Projects.ServiceAccounts.List(fmt.Sprintf("projects/%s", cfg.ProjectID)).Do()
 	if err != nil {
 		fmt.Printf("%s Failed to list service accounts: %v\n", yellow("WARNING:"), err)
@@ -429,6 +481,19 @@ func listResources(ctx context.Context, clients *GCPClients, cfg *CleanupConfig)
 			if matchesRedpandaResource(sa.Email, cfg.CommonPrefix) {
 				totalCount++
 				fmt.Printf("  - Service Account: %s\n", sa.Email)
+			}
+		}
+	}
+
+	customRoles, err := listCustomRoles(clients, cfg, false)
+	if err != nil {
+		fmt.Printf("%s Failed to list custom roles: %v\n", yellow("WARNING:"), err)
+	} else {
+		for _, role := range customRoles {
+			roleID := roleIDFromName(role.Name)
+			if matchesRedpandaRole(roleID, cfg.CommonPrefix) {
+				totalCount++
+				fmt.Printf("  - Custom IAM Role: %s\n", roleID)
 			}
 		}
 	}
@@ -547,11 +612,213 @@ func getRegionFromURL(url string) string {
 	return url
 }
 
+func getNameFromURL(url string) string {
+	parts := strings.Split(url, "/")
+	if len(parts) > 0 {
+		return parts[len(parts)-1]
+	}
+	return url
+}
+
 func matchesRedpandaResource(name, commonPrefix string) bool {
 	if strings.Contains(strings.ToLower(name), "devex") {
 		return false
 	}
 	return strings.HasPrefix(name, commonPrefix) || strings.HasPrefix(name, "rp-")
+}
+
+// customRolePrefixes are the role-ID prefixes the BYOC agent and the BYOVPC
+// module create. Matching is case-insensitive because the agent mixes cases
+// across families (RedpandaAgent* vs redpandaUtility*), and policyMaterializer*
+// carries no redpanda prefix at all.
+var customRolePrefixes = []string{
+	"redpanda",
+	"rp-",
+	"rp_",
+	"policymaterializer",
+	"byovpc_",
+}
+
+// matchesRedpandaRole decides whether a custom role ID was created by Redpanda
+// test infrastructure. Roles are project-global with no network or cluster to
+// scope them, so the ID is the only signal available.
+func matchesRedpandaRole(roleID, commonPrefix string) bool {
+	lower := strings.ToLower(roleID)
+	if strings.Contains(lower, "devex") {
+		return false
+	}
+	if strings.HasPrefix(lower, strings.ToLower(commonPrefix)) {
+		return true
+	}
+	for _, p := range customRolePrefixes {
+		if strings.HasPrefix(lower, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func roleIDFromName(name string) string {
+	parts := strings.Split(name, "/roles/")
+	if len(parts) == 2 {
+		return parts[1]
+	}
+	return name
+}
+
+// listCustomRoles returns every custom role in the project. showDeleted
+// includes soft-deleted roles, which still consume the per-project limit.
+func listCustomRoles(clients *GCPClients, cfg *CleanupConfig, showDeleted bool) ([]*iam.Role, error) {
+	parent := fmt.Sprintf("projects/%s", cfg.ProjectID)
+	var roles []*iam.Role
+	pageToken := ""
+	for {
+		call := clients.IAM.Projects.Roles.List(parent).ShowDeleted(showDeleted).PageSize(1000)
+		if pageToken != "" {
+			call = call.PageToken(pageToken)
+		}
+		resp, err := call.Do()
+		if err != nil {
+			return nil, err
+		}
+		roles = append(roles, resp.Roles...)
+		if resp.NextPageToken == "" {
+			return roles, nil
+		}
+		pageToken = resp.NextPageToken
+	}
+}
+
+// reportCustomRoleQuota surfaces the per-project custom-role headroom. Soft
+// deleted roles are called out separately because deleting more roles will not
+// reclaim their slots — only the 7-day purge does — and a project sitting at the
+// cap fails cluster creation with a 429 that reads like a transient rate limit.
+func reportCustomRoleQuota(clients *GCPClients, cfg *CleanupConfig) {
+	all, err := listCustomRoles(clients, cfg, true)
+	if err != nil {
+		fmt.Printf("%s Failed to list custom roles for quota check: %v\n", yellow("WARNING:"), err)
+		return
+	}
+
+	var active, softDeleted int
+	for _, r := range all {
+		if r.Deleted {
+			softDeleted++
+			continue
+		}
+		active++
+	}
+	total := active + softDeleted
+
+	fmt.Printf("\n%s Custom role usage: %d/%d (active: %d, soft-deleted: %d)\n",
+		cyan("INFO:"), total, customRoleLimit, active, softDeleted)
+
+	if softDeleted > 0 {
+		fmt.Printf("  %s %d soft-deleted role(s) still hold a slot; GCP purges them 7 days after deletion\n",
+			yellow("NOTE:"), softDeleted)
+	}
+	if total >= customRoleLimit {
+		fmt.Printf("  %s Project is AT the hard limit of %d. Cluster creation will fail with\n",
+			red("ERROR:"), customRoleLimit)
+		fmt.Print("         'Error 429: Maximum number of roles reached'. The limit cannot be raised;\n")
+		fmt.Print("         wait out the 7-day purge or run BYOC tests in a different project.\n")
+	} else if total >= customRoleLimit*9/10 {
+		fmt.Printf("  %s Within 10%% of the hard limit of %d\n", yellow("WARNING:"), customRoleLimit)
+	}
+}
+
+// deleteCustomRoles removes the per-cluster IAM roles the BYOC agent and BYOVPC
+// module leave behind. Nothing else in this sweeper deletes them, and because
+// they are project-scoped they survive every network and cluster teardown.
+func deleteCustomRoles(clients *GCPClients, cfg *CleanupConfig) error {
+	fmt.Printf("%s Deleting custom IAM roles...\n", cyan("INFO:"))
+
+	roles, err := listCustomRoles(clients, cfg, false)
+	if err != nil {
+		return err
+	}
+
+	for _, role := range roles {
+		roleID := roleIDFromName(role.Name)
+		if !matchesRedpandaRole(roleID, cfg.CommonPrefix) {
+			continue
+		}
+		if cfg.DryRun {
+			fmt.Printf("  [DRY RUN] Would delete custom role: %s\n", roleID)
+			continue
+		}
+		if _, err := clients.IAM.Projects.Roles.Delete(role.Name).Do(); err != nil {
+			if isNotFoundError(err) {
+				fmt.Printf("  %s Custom role already deleted: %s\n", green("✓"), roleID)
+			} else {
+				fmt.Printf("%s Failed to delete custom role %s: %v\n", yellow("WARNING:"), roleID, err)
+			}
+			continue
+		}
+		fmt.Printf("  %s Deleted custom role: %s\n", green("✓"), roleID)
+	}
+
+	return nil
+}
+
+// deleteNetworkEndpointGroups removes NEGs left behind by GKE ingress. They are
+// matched by their attached network rather than their own name, which is a
+// generated k8s2-* string with no redpanda prefix. A leftover NEG blocks VPC
+// deletion with "already being used by ... networkEndpointGroups/...", so this
+// must run before deleteSubnetworks and deleteNetworks.
+func deleteNetworkEndpointGroups(ctx context.Context, clients *GCPClients, cfg *CleanupConfig) error {
+	fmt.Printf("%s Deleting network endpoint groups...\n", cyan("INFO:"))
+
+	req := &computepb.AggregatedListNetworkEndpointGroupsRequest{
+		Project: cfg.ProjectID,
+	}
+	it := clients.NetworkEndpointGroup.AggregatedList(ctx, req)
+	for {
+		pair, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			if isNotFoundError(err) {
+				fmt.Printf("  %s No network endpoint groups found (already deleted)\n", green("✓"))
+				break
+			}
+			return err
+		}
+		for _, neg := range pair.Value.NetworkEndpointGroups {
+			network := getNameFromURL(neg.GetNetwork())
+			if !matchesRedpandaResource(network, cfg.CommonPrefix) {
+				continue
+			}
+			name := neg.GetName()
+			zone := getZoneFromURL(neg.GetZone())
+			if cfg.DryRun {
+				fmt.Printf("  [DRY RUN] Would delete network endpoint group: %s (zone: %s, network: %s)\n", name, zone, network)
+				continue
+			}
+			deleteReq := &computepb.DeleteNetworkEndpointGroupRequest{
+				Project:              cfg.ProjectID,
+				Zone:                 zone,
+				NetworkEndpointGroup: name,
+			}
+			op, err := clients.NetworkEndpointGroup.Delete(ctx, deleteReq)
+			if err != nil {
+				if isNotFoundError(err) {
+					fmt.Printf("  %s Network endpoint group already deleted: %s\n", green("✓"), name)
+				} else {
+					fmt.Printf("%s Failed to delete network endpoint group %s: %v\n", yellow("WARNING:"), name, err)
+				}
+				continue
+			}
+			if err := op.Wait(ctx); err != nil {
+				fmt.Printf("%s Failed to wait for network endpoint group %s deletion: %v\n", yellow("WARNING:"), name, err)
+				continue
+			}
+			fmt.Printf("  %s Deleted network endpoint group: %s (zone: %s)\n", green("✓"), name, zone)
+		}
+	}
+
+	return nil
 }
 
 func deleteComputeInstances(ctx context.Context, clients *GCPClients, cfg *CleanupConfig) error {
