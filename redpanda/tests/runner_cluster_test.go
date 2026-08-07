@@ -89,7 +89,7 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 				ConfigVariables:          origTestCaseVars,
 				ImportState:              true,
 				ImportStateVerify:        true,
-				ImportStateVerifyIgnore:  []string{"tags"},
+				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
 				ProtoV6ProviderFactories: acc.ProtoV6Factories,
 			},
 			{
