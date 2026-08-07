@@ -42,6 +42,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/topic"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -283,15 +284,26 @@ func TestIntegration_Topic_CreateAndRefresh_WithConfiguration(t *testing.T) {
 
 // TestIntegration_Topic_UpdateLeaf_Configuration proves that adding a configuration
 // entry triggers in-place Update (SetTopicConfigurations RPC). id is stable
-// (id = name; name unchanged across the update).
+// (id = name; name unchanged across the update). The update step first hits a
+// one-shot broker throttle (Kafka error 89 as the gateway emits it:
+// ResourceExhausted + ErrorInfo retriable=true) and must retry through it.
 func TestIntegration_Topic_UpdateLeaf_Configuration(t *testing.T) {
-	_, factories := integration.Setup(t)
+	srv, factories := integration.Setup(t)
 
 	const name = "tfrp-mock-topic-cfg"
 	cfgEmpty := mockTopicCreateConfig(name, "bufnet", 3, 1, "", true)
 	cfgWithCfg := mockTopicCreateConfig(name, "bufnet", 3, 1, "  configuration = {\n    \"retention.ms\" = \"86400000\"\n  }\n", true)
 
 	idStable := statecheck.CompareValue(compare.ValuesSame())
+
+	updateStep := integration.UpdateLeafStep(topicAddr, cfgWithCfg, []statecheck.StateCheck{
+		statecheck.ExpectKnownValue(topicAddr, tfjsonpath.New("name"), knownvalue.StringExact(name)),
+		statecheck.ExpectKnownValue(topicAddr, tfjsonpath.New("configuration").AtMapKey("retention.ms"), knownvalue.StringExact("86400000")),
+		idStable.AddStateValue(topicAddr, tfjsonpath.New("id")),
+	})
+	updateStep.PreConfig = func() {
+		srv.OverrideOnce(dataplanev1grpc.TopicService_SetTopicConfigurations_FullMethodName, throttleQuotaExceededErr(t))
+	}
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: factories,
@@ -300,13 +312,30 @@ func TestIntegration_Topic_UpdateLeaf_Configuration(t *testing.T) {
 				statecheck.ExpectKnownValue(topicAddr, tfjsonpath.New("name"), knownvalue.StringExact(name)),
 				idStable.AddStateValue(topicAddr, tfjsonpath.New("id")),
 			}),
-			integration.UpdateLeafStep(topicAddr, cfgWithCfg, []statecheck.StateCheck{
-				statecheck.ExpectKnownValue(topicAddr, tfjsonpath.New("name"), knownvalue.StringExact(name)),
-				statecheck.ExpectKnownValue(topicAddr, tfjsonpath.New("configuration").AtMapKey("retention.ms"), knownvalue.StringExact("86400000")),
-				idStable.AddStateValue(topicAddr, tfjsonpath.New("id")),
-			}),
+			updateStep,
 		},
 	})
+}
+
+// throttleQuotaExceededErr reproduces the dataplane gateway's translation of
+// Kafka error 89 (THROTTLING_QUOTA_EXCEEDED).
+func throttleQuotaExceededErr(t *testing.T) error {
+	t.Helper()
+	st, err := status.New(codes.ResourceExhausted, "Request declined due to exceeded requests quotas").
+		WithDetails(
+			&errdetails.ErrorInfo{Reason: "REASON_KAFKA_API_ERROR", Domain: "redpanda.com/dataplane"},
+			&errdetails.ErrorInfo{
+				Reason: "THROTTLING_QUOTA_EXCEEDED",
+				Domain: "redpanda.com/dataplane/kafka",
+				Metadata: map[string]string{
+					"kafka_error_code":        "89",
+					"kafka_error_description": "The throttling quota has been exceeded.",
+					"retriable":               "true",
+				},
+			},
+		)
+	require.NoError(t, err)
+	return st.Err()
 }
 
 // TestIntegration_Topic_MergeWithPlannedConfig_StripsServerInjectedRedpandaKey

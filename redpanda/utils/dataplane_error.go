@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	grpccodes "google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
@@ -108,13 +109,30 @@ func IsTransientDataplaneError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return IsUnavailable(err) || isBareUnknown(err) || isBrokerChurn(err)
+	return IsUnavailable(err) || isBareUnknown(err) || isBrokerChurn(err) || isRetriableThrottle(err)
 }
 
 // isBareUnknown matches gRPC code Unknown with no message.
 func isBareUnknown(err error) bool {
 	st, ok := serverStatus(err)
 	return ok && st.Code() == grpccodes.Unknown && strings.TrimSpace(st.Message()) == ""
+}
+
+// isRetriableThrottle matches ResourceExhausted statuses whose ErrorInfo
+// details mark the failure retriable — the gateway's translation of Kafka
+// error 89 (THROTTLING_QUOTA_EXCEEDED). A ResourceExhausted without that hint
+// (e.g. gRPC max-message-size) is terminal and must not burn the retry budget.
+func isRetriableThrottle(err error) bool {
+	st, ok := serverStatus(err)
+	if !ok || st.Code() != grpccodes.ResourceExhausted {
+		return false
+	}
+	for _, detail := range st.Details() {
+		if info, ok := detail.(*errdetails.ErrorInfo); ok && info.GetMetadata()["retriable"] == "true" {
+			return true
+		}
+	}
+	return false
 }
 
 // isBrokerChurn matches broker-side failures raised while the Kafka API's view
