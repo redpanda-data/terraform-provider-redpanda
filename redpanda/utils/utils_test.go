@@ -1306,6 +1306,30 @@ func TestIsTransientServerError(t *testing.T) {
 // come back as code 2 with an empty message. An UNKNOWN carrying a message is
 // a server-side verdict and must stay non-retryable.
 func TestIsTransientDataplaneError(t *testing.T) {
+	// The dataplane gateway's translation of Kafka error 89: ResourceExhausted
+	// with two ErrorInfo details, the second carrying retriable=true metadata.
+	throttleSt, dErr := grpcstatus.New(codes.ResourceExhausted, "Request declined due to exceeded requests quotas").
+		WithDetails(
+			&errdetails.ErrorInfo{Reason: "REASON_KAFKA_API_ERROR", Domain: "redpanda.com/dataplane"},
+			&errdetails.ErrorInfo{
+				Reason: "THROTTLING_QUOTA_EXCEEDED",
+				Domain: "redpanda.com/dataplane/kafka",
+				Metadata: map[string]string{
+					"kafka_error_code":        "89",
+					"kafka_error_description": "The throttling quota has been exceeded.",
+					"retriable":               "true",
+				},
+			},
+		)
+	require.NoError(t, dErr)
+	nonRetriableSt, dErr := grpcstatus.New(codes.ResourceExhausted, "quota permanently exceeded").
+		WithDetails(&errdetails.ErrorInfo{
+			Reason:   "QUOTA_EXCEEDED",
+			Domain:   "redpanda.com/dataplane",
+			Metadata: map[string]string{"retriable": "false"},
+		})
+	require.NoError(t, dErr)
+
 	tests := []struct {
 		name     string
 		err      error
@@ -1318,6 +1342,18 @@ func TestIsTransientDataplaneError(t *testing.T) {
 		{"gRPC Unavailable", grpcstatus.Error(codes.Unavailable, "x"), true},
 		{"broker died", errors.New("the internal broker struct chosen to issue this request has died"), true},
 		{"client closed", errors.New("rpc error: code = Internal desc = client closed"), true},
+		{"ResourceExhausted with retriable=true detail", throttleSt.Err(), true},
+		{"ResourceExhausted without details", grpcstatus.Error(codes.ResourceExhausted, "received message larger than max"), false},
+		{"ResourceExhausted with retriable=false detail", nonRetriableSt.Err(), false},
+		{
+			"annotated retriable throttle",
+			&DataplaneCallError{
+				Method:   "/redpanda.api.dataplane.v1.TopicService/SetTopicConfigurations",
+				Endpoint: "https://api-abc.cloud.redpanda.com",
+				err:      throttleSt.Err(),
+			},
+			true,
+		},
 		{"gRPC NotFound", grpcstatus.Error(codes.NotFound, "no such secret"), false},
 		{"gRPC InvalidArgument", grpcstatus.Error(codes.InvalidArgument, "bad name"), false},
 		{"gRPC PermissionDenied", grpcstatus.Error(codes.PermissionDenied, "nope"), false},
