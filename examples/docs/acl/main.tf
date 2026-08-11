@@ -50,3 +50,22 @@ resource "redpanda_acl" "example" {
   permission_type       = "ALLOW"
   cluster_api_url       = redpanda_cluster.example.cluster_api_url
 }
+
+# ACLs can also be scoped to a role instead of an individual user by using
+# the "RedpandaRole:" principal prefix.
+resource "redpanda_role" "example" {
+  name            = "example-role"
+  cluster_api_url = redpanda_cluster.example.cluster_api_url
+  allow_deletion  = true
+}
+
+resource "redpanda_acl" "example_role" {
+  resource_type         = "TOPIC"
+  resource_name         = redpanda_topic.example.name
+  resource_pattern_type = "LITERAL"
+  principal             = "RedpandaRole:${redpanda_role.example.name}"
+  host                  = "*"
+  operation             = "READ"
+  permission_type       = "ALLOW"
+  cluster_api_url       = redpanda_cluster.example.cluster_api_url
+}
