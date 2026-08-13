@@ -30,7 +30,7 @@ var avroPrimitives = map[string]bool{
 
 // AvroBodiesEquivalent reports whether two Avro JSON schema bodies represent
 // the same schema after canonicalization (resolves namespace-relative refs,
-// strips non-essential keys, normalizes JSON key order + whitespace).
+// normalizes JSON key order + whitespace).
 func AvroBodiesEquivalent(a, b string) bool {
 	if a == b {
 		return true
@@ -65,13 +65,6 @@ func canonicalizeAvroBody(body string) (string, error) {
 	return strings.TrimRight(buf.String(), "\n"), nil
 }
 
-var nonEssentialKeys = map[string]bool{
-	"doc":     true,
-	"aliases": true,
-	"default": true,
-	"order":   true,
-}
-
 func resolveTypeRefs(v any, ns string) {
 	switch x := v.(type) {
 	case map[string]any:
@@ -82,11 +75,6 @@ func resolveTypeRefs(v any, ns string) {
 		} else if name, ok := x["name"].(string); ok {
 			if idx := strings.LastIndex(name, "."); idx > 0 {
 				current = name[:idx]
-			}
-		}
-		for k := range x {
-			if nonEssentialKeys[k] {
-				delete(x, k)
 			}
 		}
 		for k, val := range x {

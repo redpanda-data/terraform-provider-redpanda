@@ -55,10 +55,28 @@ func TestAvroBodiesEquivalent(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "non-essential metadata (doc) stripped by canonical form",
+			name:     "doc-only change — not equivalent",
 			a:        `{"type":"record","name":"User","namespace":"tfrp.v7","doc":"a user","fields":[{"name":"id","type":"string"}]}`,
 			b:        `{"type":"record","name":"User","namespace":"tfrp.v7","fields":[{"name":"id","type":"string"}]}`,
-			expected: true,
+			expected: false,
+		},
+		{
+			name:     "default-only change — not equivalent",
+			a:        `{"type":"record","name":"User","namespace":"tfrp.v7","fields":[{"name":"n","type":"int","default":0}]}`,
+			b:        `{"type":"record","name":"User","namespace":"tfrp.v7","fields":[{"name":"n","type":"int","default":5}]}`,
+			expected: false,
+		},
+		{
+			name:     "aliases-only change — not equivalent",
+			a:        `{"type":"record","name":"User","namespace":"tfrp.v7","fields":[{"name":"id","type":"string","aliases":["ident"]}]}`,
+			b:        `{"type":"record","name":"User","namespace":"tfrp.v7","fields":[{"name":"id","type":"string"}]}`,
+			expected: false,
+		},
+		{
+			name:     "order-only change — not equivalent",
+			a:        `{"type":"record","name":"User","namespace":"tfrp.v7","fields":[{"name":"id","type":"string","order":"ascending"}]}`,
+			b:        `{"type":"record","name":"User","namespace":"tfrp.v7","fields":[{"name":"id","type":"string","order":"descending"}]}`,
+			expected: false,
 		},
 		{
 			name:     "different field set — not equivalent",
