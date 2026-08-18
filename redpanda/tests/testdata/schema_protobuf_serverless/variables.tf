@@ -13,3 +13,11 @@ variable "region" {
 variable "protobuf_schema_definition" {
   type = string
 }
+
+variable "avro_schema_definition" {
+  type = string
+}
+
+variable "json_schema_definition" {
+  type = string
+}
