@@ -3,10 +3,10 @@ module github.com/redpanda-data/terraform-provider-redpanda
 go 1.25.10
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260709200747-435963d16310.1
-	buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.2-20260725003819-a1f95b69d01c.1
-	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.11-20260725003819-a1f95b69d01c.1
-	buf.build/gen/go/redpandadata/core/protocolbuffers/go v1.36.11-20260714112317-973b760dcc8a.1
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260709200747-435963d16310.1
+	buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.2-20260817162420-6033b8c28212.1
+	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.12-20260817162420-6033b8c28212.1
+	buf.build/gen/go/redpandadata/core/protocolbuffers/go v1.36.12-20260714112317-973b760dcc8a.1
 	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.6.2-20260728155109-06b241672bab.1
 	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.11-20260728155109-06b241672bab.1
 	buf.build/go/protovalidate v1.2.0
@@ -36,14 +36,14 @@ require (
 	google.golang.org/genproto v0.0.0-20250313205543-e70fdf4c4cb4
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171
 	google.golang.org/grpc v1.81.0
-	google.golang.org/protobuf v1.36.11
+	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/apimachinery v0.34.3
 )
 
 require (
-	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.11-20260416204259-4836b6d55230.1 // indirect
-	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.11-20260323171043-6e06f84ad823.1 // indirect
+	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.12-20221127060915-a1ecdc58eccd.1 // indirect
+	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.12-20260323171043-6e06f84ad823.1 // indirect
 	cel.dev/expr v0.25.1 // indirect
 	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c // indirect
