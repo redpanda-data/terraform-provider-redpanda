@@ -162,6 +162,10 @@ func (f *SchemaRegistryFake) handleRegisterSchema(w http.ResponseWriter, r *http
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	existing := f.subjects[subject]
+	// Dedup is exact-string, stricter than real SR's canonical-form dedup.
+	// Deliberate: the provider must skip equivalent bodies client-side
+	// (comment-only protobuf changes), and a canonicalizing fake would mask
+	// a regression in that skip.
 	for _, e := range existing {
 		if e.schema.Schema == body.Schema && e.schema.Type == body.Type {
 			writeJSON(w, map[string]int{"id": e.id})
