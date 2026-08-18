@@ -196,7 +196,7 @@ func (r *ResourceModel) parseSchemaReferences() []sr.SchemaReference {
 //  2. JSON-level: same parsed-then-canonical-encoding (whitespace + key-order
 //     tolerant) — applies to JSON and Avro bodies.
 //  3. Avro-level (only when r.SchemaType is AVRO): same Avro schema modulo
-//     namespace-relative vs FQN type references and non-essential metadata.
+//     namespace-relative vs FQN type references.
 //
 // Returns empty string when no layer matches, signaling the caller to use the
 // registry response as-is.

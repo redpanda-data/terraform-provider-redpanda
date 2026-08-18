@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
@@ -58,12 +59,21 @@ const (
 	avroSchemaV1 = `{"type":"record","name":"TestRecord","fields":[{"name":"id","type":"int"}]}`
 	avroSchemaV2 = `{"type":"record","name":"TestRecord","fields":[{"name":"id","type":"int"},{"name":"name","type":"string"}]}`
 
-	avroUserV1  = `{"type":"record","name":"User","fields":[{"name":"id","type":"int"}]}`
-	avroEventV1 = `{"type":"record","name":"Event","fields":[{"name":"ts","type":"long"}]}`
-	avroEventV2 = `{"type":"record","name":"Event","fields":[{"name":"ts","type":"long"},{"name":"source","type":"string"}]}`
+	avroUserV1     = `{"type":"record","name":"User","fields":[{"name":"id","type":"int"}]}`
+	avroEventV1    = `{"type":"record","name":"Event","fields":[{"name":"ts","type":"long"}]}`
+	avroEventV2    = `{"type":"record","name":"Event","fields":[{"name":"ts","type":"long"},{"name":"source","type":"string"}]}`
+	avroEventV2Doc = `{"type":"record","name":"Event","doc":"event stream record","fields":[{"name":"ts","type":"long"},{"name":"source","type":"string"}]}`
+
+	protoOrderV1 = "syntax = \"proto3\";\npackage tfrp.mock.v1;\n\nmessage Order {\n  string id = 1;\n}\n"
 
 	schemaAddr = "redpanda_schema.test"
 )
+
+// protoOrderV1Comment differs from V1 only by a comment — derived so the
+// premise holds by construction. Schema Registry's protobuf canonical form
+// drops comments, so the provider must judge the bodies equivalent and skip
+// registration.
+var protoOrderV1Comment = strings.Replace(protoOrderV1, "message Order", "// comment-only change: must not version\nmessage Order", 1)
 
 // TestIntegration_Schema exercises redpanda_schema end-to-end against the
 // httptest-backed Schema Registry fake. The cluster fake is pre-seeded with
@@ -314,12 +324,15 @@ func TestIntegration_Schema_CreateAndRefresh(t *testing.T) {
 // per-subject version. Both id and version use ValuesDiffer to assert the
 // change actually happened — the id check is the load-bearing proof that the
 // fake registered a new schema entry rather than returning the dedup cache.
+// The final step changes only the doc field: doc-only changes must register a
+// new version, not be judged equivalent and skipped.
 func TestIntegration_Schema_UpdateLeaf_Schema(t *testing.T) {
 	_, factories := schemaSetup(t, mockSchemaClusterID3)
 
 	subject := "tfrp-mock-schema-upd-body"
 	cfgV1 := schemaCfg(mockSchemaClusterID3, subject, avroEventV1, "AVRO", "BACKWARD", true)
 	cfgV2 := schemaCfg(mockSchemaClusterID3, subject, avroEventV2, "AVRO", "BACKWARD", true)
+	cfgV2Doc := schemaCfg(mockSchemaClusterID3, subject, avroEventV2Doc, "AVRO", "BACKWARD", true)
 
 	versionBumped := statecheck.CompareValue(compare.ValuesDiffer())
 	idDiffers := statecheck.CompareValue(compare.ValuesDiffer())
@@ -338,6 +351,44 @@ func TestIntegration_Schema_UpdateLeaf_Schema(t *testing.T) {
 				statecheck.ExpectKnownValue(schemaAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 				versionBumped.AddStateValue(schemaAddr, tfjsonpath.New("version")),
 				idDiffers.AddStateValue(schemaAddr, tfjsonpath.New("id")),
+			}),
+			integration.UpdateLeafStep(schemaAddr, cfgV2Doc, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(schemaAddr, tfjsonpath.New("version"), knownvalue.Int64Exact(3)),
+				statecheck.ExpectKnownValue(schemaAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				versionBumped.AddStateValue(schemaAddr, tfjsonpath.New("version")),
+				idDiffers.AddStateValue(schemaAddr, tfjsonpath.New("id")),
+			}),
+		},
+	})
+}
+
+// TestIntegration_Schema_UpdateLeaf_Schema_ProtobufCommentOnly pins the
+// inverse contract: a comment-only protobuf change plans as an Update (the
+// config string differs) but must NOT register a new version — id and version
+// stay put, and the plan is clean after apply.
+func TestIntegration_Schema_UpdateLeaf_Schema_ProtobufCommentOnly(t *testing.T) {
+	_, factories := schemaSetup(t, mockSchemaClusterID3)
+
+	subject := "tfrp-mock-schema-upd-proto-comment"
+	cfgV1 := schemaCfg(mockSchemaClusterID3, subject, protoOrderV1, "PROTOBUF", "NONE", true)
+	cfgV1Comment := schemaCfg(mockSchemaClusterID3, subject, protoOrderV1Comment, "PROTOBUF", "NONE", true)
+
+	versionStable := statecheck.CompareValue(compare.ValuesSame())
+	idStable := statecheck.CompareValue(compare.ValuesSame())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(schemaAddr, cfgV1, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(schemaAddr, tfjsonpath.New("version"), knownvalue.Int64Exact(1)),
+				statecheck.ExpectKnownValue(schemaAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				versionStable.AddStateValue(schemaAddr, tfjsonpath.New("version")),
+				idStable.AddStateValue(schemaAddr, tfjsonpath.New("id")),
+			}),
+			integration.UpdateLeafStep(schemaAddr, cfgV1Comment, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(schemaAddr, tfjsonpath.New("version"), knownvalue.Int64Exact(1)),
+				versionStable.AddStateValue(schemaAddr, tfjsonpath.New("version")),
+				idStable.AddStateValue(schemaAddr, tfjsonpath.New("id")),
 			}),
 		},
 	})
