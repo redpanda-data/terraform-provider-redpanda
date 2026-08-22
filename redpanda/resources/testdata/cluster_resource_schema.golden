@@ -332,15 +332,18 @@ attributes:
       validators:
         - stringvalidator.oneOfValidator
       plan_modifiers:
-        - stringplanmodifier.requiresReplaceIfModifier
         - stringplanmodifier.useStateForUnknownModifier
+        - stringplanmodifier.requiresReplaceIfModifier
     - name: connection_type
       type: StringAttribute
-      required: true
+      optional: true
+      computed: true
+      deprecation_message: Use the connections field on kafka_api, http_proxy, and schema_registry instead.
       validators:
         - stringvalidator.oneOfValidator
         - validators.RequirePrivateConnectionValidator
       plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
         - stringplanmodifier.requiresReplaceIfModifier
     - name: current_redpanda_version
       type: StringAttribute
@@ -781,6 +784,44 @@ attributes:
               computed: true
               plan_modifiers:
                 - stringplanmodifier.useNonNullStateForUnknown
+        - name: connections
+          type: ListNestedAttribute
+          optional: true
+          computed: true
+          validators:
+            - listvalidator.sizeAtLeastValidator
+            - listvalidator.sizeAtMostValidator
+          plan_modifiers:
+            - listplanmodifier.useStateForUnknownModifier
+          attributes:
+            - name: auth
+              type: SingleNestedAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - objectplanmodifier.useStateForUnknownModifier
+              attributes:
+                - name: mode
+                  type: StringAttribute
+                  optional: true
+                  computed: true
+                  validators:
+                    - stringvalidator.oneOfValidator
+                  plan_modifiers:
+                    - stringplanmodifier.useStateForUnknownModifier
+            - name: endpoint
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - cluster.connectionEndpointStatePin
+            - name: type
+              type: StringAttribute
+              optional: true
+              computed: true
+              validators:
+                - stringvalidator.oneOfValidator
+              plan_modifiers:
+                - stringplanmodifier.useStateForUnknownModifier
         - name: mtls
           type: SingleNestedAttribute
           optional: true
@@ -857,6 +898,44 @@ attributes:
               computed: true
               plan_modifiers:
                 - stringplanmodifier.useNonNullStateForUnknown
+        - name: connections
+          type: ListNestedAttribute
+          optional: true
+          computed: true
+          validators:
+            - listvalidator.sizeAtLeastValidator
+            - listvalidator.sizeAtMostValidator
+          plan_modifiers:
+            - listplanmodifier.useStateForUnknownModifier
+          attributes:
+            - name: auth
+              type: SingleNestedAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - objectplanmodifier.useStateForUnknownModifier
+              attributes:
+                - name: mode
+                  type: StringAttribute
+                  optional: true
+                  computed: true
+                  validators:
+                    - stringvalidator.oneOfValidator
+                  plan_modifiers:
+                    - stringplanmodifier.useStateForUnknownModifier
+            - name: endpoint
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - cluster.connectionEndpointStatePin
+            - name: type
+              type: StringAttribute
+              optional: true
+              computed: true
+              validators:
+                - stringvalidator.oneOfValidator
+              plan_modifiers:
+                - stringplanmodifier.useStateForUnknownModifier
         - name: mtls
           type: SingleNestedAttribute
           optional: true
@@ -1110,6 +1189,44 @@ attributes:
               computed: true
               plan_modifiers:
                 - stringplanmodifier.useNonNullStateForUnknown
+        - name: connections
+          type: ListNestedAttribute
+          optional: true
+          computed: true
+          validators:
+            - listvalidator.sizeAtLeastValidator
+            - listvalidator.sizeAtMostValidator
+          plan_modifiers:
+            - listplanmodifier.useStateForUnknownModifier
+          attributes:
+            - name: auth
+              type: SingleNestedAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - objectplanmodifier.useStateForUnknownModifier
+              attributes:
+                - name: mode
+                  type: StringAttribute
+                  optional: true
+                  computed: true
+                  validators:
+                    - stringvalidator.oneOfValidator
+                  plan_modifiers:
+                    - stringplanmodifier.useStateForUnknownModifier
+            - name: endpoint
+              type: StringAttribute
+              computed: true
+              plan_modifiers:
+                - cluster.connectionEndpointStatePin
+            - name: type
+              type: StringAttribute
+              optional: true
+              computed: true
+              validators:
+                - stringvalidator.oneOfValidator
+              plan_modifiers:
+                - stringplanmodifier.useStateForUnknownModifier
         - name: mtls
           type: SingleNestedAttribute
           optional: true

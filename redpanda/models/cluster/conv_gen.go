@@ -82,7 +82,6 @@ func Flatten(ctx context.Context, proto ClusterResponse, prev *ResourceModel) (*
 	var diags diag.Diagnostics
 	m := &ResourceModel{}
 	m.CloudProvider = types.StringValue(enums.CloudProviderToString(proto.GetCloudProvider()))
-	m.ConnectionType = types.StringValue(enums.ClusterConnectionTypeToString(proto.GetConnectionType()))
 	m.Name = types.StringValue(proto.GetName())
 	m.NetworkID = types.StringValue(proto.GetNetworkId())
 	m.Region = types.StringValue(proto.GetRegion())
@@ -112,6 +111,7 @@ func Flatten(ctx context.Context, proto ClusterResponse, prev *ResourceModel) (*
 	m.CloudStorage = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetCloudStorage(), func() *CloudStorageModel { v, _ := prev.AsCloudStorage(ctx); return v }(), CloudStorageAttrTypes(), FlattenCloudStorage, &diags)
 	m.ClusterConfiguration = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetClusterConfiguration(), func() *ClusterConfigurationModel { v, _ := prev.AsClusterConfiguration(ctx); return v }(), ClusterConfigurationAttrTypes(), FlattenClusterConfiguration, &diags)
 	m.ClusterType = types.StringValue(enums.ClusterTypeToString(proto.GetType()))
+	m.ConnectionType = types.StringValue(enums.ClusterConnectionTypeToString(proto.GetConnectionType()))
 	if proto.HasGcpPrivateServiceConnect() {
 		m.GCPPrivateServiceConnect = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetGcpPrivateServiceConnect(), func() *GCPPrivateServiceConnectModel { v, _ := prev.AsGCPPrivateServiceConnect(ctx); return v }(), GCPPrivateServiceConnectAttrTypes(), FlattenGCPPrivateServiceConnect, &diags)
 	} else if prev != nil && !prev.GCPPrivateServiceConnect.IsUnknown() {
@@ -189,6 +189,9 @@ func Flatten(ctx context.Context, proto ClusterResponse, prev *ResourceModel) (*
 			}
 		}
 	}
+	if prev != nil && !prev.ConnectionType.IsNull() && !prev.ConnectionType.IsUnknown() {
+		m.ConnectionType = prev.ConnectionType
+	}
 	return m, diags
 }
 
@@ -198,7 +201,6 @@ func ExpandCreate(ctx context.Context, m *ResourceModel) (*controlplanev1.Create
 	var diags diag.Diagnostics
 	payload := &controlplanev1.ClusterCreate{
 		CloudProvider:                   enums.StringToCloudProvider(m.CloudProvider.ValueString()),
-		ConnectionType:                  enums.StringToClusterConnectionType(m.ConnectionType.ValueString()),
 		Name:                            m.Name.ValueString(),
 		NetworkId:                       m.NetworkID.ValueString(),
 		Region:                          m.Region.ValueString(),
@@ -214,6 +216,7 @@ func ExpandCreate(ctx context.Context, m *ResourceModel) (*controlplanev1.Create
 		CloudStorage:                    modelconv.ObjectToMessageWithDiags(ctx, m.CloudStorage, ExpandCreateCloudStorage, &diags),
 		ClusterConfiguration:            modelconv.ObjectToMessageWithDiags(ctx, m.ClusterConfiguration, ExpandCreateClusterConfiguration, &diags),
 		Type:                            enums.StringToClusterType(m.ClusterType.ValueString()),
+		ConnectionType:                  enums.StringToClusterConnectionType(m.ConnectionType.ValueString()),
 		GcpPrivateServiceConnect:        modelconv.ObjectToMessageWithDiags(ctx, m.GCPPrivateServiceConnect, ExpandCreateGCPPrivateServiceConnect, &diags),
 		HttpProxy:                       modelconv.ObjectToMessageWithDiags(ctx, m.HTTPProxy, ExpandCreateHTTPProxy, &diags),
 		KafkaApi:                        modelconv.ObjectToMessageWithDiags(ctx, m.KafkaAPI, ExpandCreateKafkaAPI, &diags),
@@ -1818,6 +1821,12 @@ func FlattenHTTPProxy(ctx context.Context, proto *controlplanev1.Cluster_HTTPPro
 	var diags diag.Diagnostics
 	_ = prev
 	m := HTTPProxyModel{}
+	m.Connections = modelconv.ListFromObjectsReorderedByIdentityWithDiags(ctx, proto.GetConnections(), func() types.List {
+		if prev != nil {
+			return prev.Connections
+		}
+		return types.List{}
+	}(), HTTPProxyConnectionsAttrTypes(), FlattenHTTPProxyConnections, []string{"auth.mode", "type"}, &diags)
 	m.Mtls = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetMtls(), func() *HTTPProxyMtlsModel { v, _ := DecodeHTTPProxyMtls(ctx, prev); return v }(), HTTPProxyMtlsAttrTypes(), FlattenHTTPProxyMtls, &diags)
 	m.Sasl = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetSasl(), func() *HTTPProxySaslModel { v, _ := DecodeHTTPProxySasl(ctx, prev); return v }(), HTTPProxySaslAttrTypes(), FlattenHTTPProxySasl, &diags)
 	m.AllUrls = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAllUrls(), func() *HTTPProxyAllUrlsModel { v, _ := DecodeHTTPProxyAllUrls(ctx, prev); return v }(), HTTPProxyAllUrlsAttrTypes(), FlattenHTTPProxyAllUrls, &diags)
@@ -1836,6 +1845,56 @@ func ExpandHTTPProxy(ctx context.Context, m *HTTPProxyModel) (*controlplanev1.Cl
 		Sasl:    modelconv.ObjectToMessageWithDiags(ctx, m.Sasl, ExpandHTTPProxySasl, &diags),
 		AllUrls: modelconv.ObjectToMessageWithDiags(ctx, m.AllUrls, ExpandHTTPProxyAllUrls, &diags),
 		Url:     m.URL.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenHTTPProxyConnections converts a single proto controlplanev1.ConnectionStatus into the
+// corresponding nested model. The prev *HTTPProxyConnectionsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenHTTPProxyConnections(ctx context.Context, proto *controlplanev1.ConnectionStatus, prev *HTTPProxyConnectionsModel) (HTTPProxyConnectionsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := HTTPProxyConnectionsModel{}
+	m.Auth = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetConfig().GetAuth(), func() *HTTPProxyConnectionsAuthModel { v, _ := DecodeHTTPProxyConnectionsAuth(ctx, prev); return v }(), HTTPProxyConnectionsAuthAttrTypes(), FlattenHTTPProxyConnectionsAuth, &diags)
+	m.Type = types.StringValue(enums.ClusterConnectionTypeToString(proto.GetConfig().GetType()))
+	m.Endpoint = types.StringValue(proto.GetEndpoint())
+	return m, diags
+}
+
+// ExpandHTTPProxyConnections renders a nested model back into the proto type.
+func ExpandHTTPProxyConnections(_ context.Context, m *HTTPProxyConnectionsModel) (*controlplanev1.ConnectionStatus, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.ConnectionStatus{}
+	return out, diags
+}
+
+// FlattenHTTPProxyConnectionsAuth converts a single proto controlplanev1.AuthSpec into the
+// corresponding nested model. The prev *HTTPProxyConnectionsAuthModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenHTTPProxyConnectionsAuth(_ context.Context, proto *controlplanev1.AuthSpec, prev *HTTPProxyConnectionsAuthModel) (HTTPProxyConnectionsAuthModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := HTTPProxyConnectionsAuthModel{}
+	m.Mode = types.StringValue(enums.AuthModeToString(proto.GetMode()))
+	return m, diags
+}
+
+// ExpandHTTPProxyConnectionsAuth renders a nested model back into the proto type.
+func ExpandHTTPProxyConnectionsAuth(_ context.Context, m *HTTPProxyConnectionsAuthModel) (*controlplanev1.AuthSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.AuthSpec{
+		Mode: enums.StringToAuthMode(m.Mode.ValueString()),
 	}
 	return out, diags
 }
@@ -1940,6 +1999,12 @@ func FlattenKafkaAPI(ctx context.Context, proto *controlplanev1.Cluster_KafkaAPI
 	var diags diag.Diagnostics
 	_ = prev
 	m := KafkaAPIModel{}
+	m.Connections = modelconv.ListFromObjectsReorderedByIdentityWithDiags(ctx, proto.GetConnections(), func() types.List {
+		if prev != nil {
+			return prev.Connections
+		}
+		return types.List{}
+	}(), KafkaAPIConnectionsAttrTypes(), FlattenKafkaAPIConnections, []string{"auth.mode", "type"}, &diags)
 	m.Mtls = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetMtls(), func() *KafkaAPIMtlsModel { v, _ := DecodeKafkaAPIMtls(ctx, prev); return v }(), KafkaAPIMtlsAttrTypes(), FlattenKafkaAPIMtls, &diags)
 	m.Sasl = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetSasl(), func() *KafkaAPISaslModel { v, _ := DecodeKafkaAPISasl(ctx, prev); return v }(), KafkaAPISaslAttrTypes(), FlattenKafkaAPISasl, &diags)
 	m.AllSeedBrokers = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAllSeedBrokers(), func() *KafkaAPIAllSeedBrokersModel { v, _ := DecodeKafkaAPIAllSeedBrokers(ctx, prev); return v }(), KafkaAPIAllSeedBrokersAttrTypes(), FlattenKafkaAPIAllSeedBrokers, &diags)
@@ -1958,6 +2023,56 @@ func ExpandKafkaAPI(ctx context.Context, m *KafkaAPIModel) (*controlplanev1.Clus
 		Sasl:           modelconv.ObjectToMessageWithDiags(ctx, m.Sasl, ExpandKafkaAPISasl, &diags),
 		AllSeedBrokers: modelconv.ObjectToMessageWithDiags(ctx, m.AllSeedBrokers, ExpandKafkaAPIAllSeedBrokers, &diags),
 		SeedBrokers:    modelconv.ListToSliceWithDiags[string](ctx, m.SeedBrokers, &diags),
+	}
+	return out, diags
+}
+
+// FlattenKafkaAPIConnections converts a single proto controlplanev1.ConnectionStatus into the
+// corresponding nested model. The prev *KafkaAPIConnectionsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenKafkaAPIConnections(ctx context.Context, proto *controlplanev1.ConnectionStatus, prev *KafkaAPIConnectionsModel) (KafkaAPIConnectionsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := KafkaAPIConnectionsModel{}
+	m.Auth = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetConfig().GetAuth(), func() *KafkaAPIConnectionsAuthModel { v, _ := DecodeKafkaAPIConnectionsAuth(ctx, prev); return v }(), KafkaAPIConnectionsAuthAttrTypes(), FlattenKafkaAPIConnectionsAuth, &diags)
+	m.Type = types.StringValue(enums.ClusterConnectionTypeToString(proto.GetConfig().GetType()))
+	m.Endpoint = types.StringValue(proto.GetEndpoint())
+	return m, diags
+}
+
+// ExpandKafkaAPIConnections renders a nested model back into the proto type.
+func ExpandKafkaAPIConnections(_ context.Context, m *KafkaAPIConnectionsModel) (*controlplanev1.ConnectionStatus, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.ConnectionStatus{}
+	return out, diags
+}
+
+// FlattenKafkaAPIConnectionsAuth converts a single proto controlplanev1.AuthSpec into the
+// corresponding nested model. The prev *KafkaAPIConnectionsAuthModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenKafkaAPIConnectionsAuth(_ context.Context, proto *controlplanev1.AuthSpec, prev *KafkaAPIConnectionsAuthModel) (KafkaAPIConnectionsAuthModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := KafkaAPIConnectionsAuthModel{}
+	m.Mode = types.StringValue(enums.AuthModeToString(proto.GetMode()))
+	return m, diags
+}
+
+// ExpandKafkaAPIConnectionsAuth renders a nested model back into the proto type.
+func ExpandKafkaAPIConnectionsAuth(_ context.Context, m *KafkaAPIConnectionsAuthModel) (*controlplanev1.AuthSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.AuthSpec{
+		Mode: enums.StringToAuthMode(m.Mode.ValueString()),
 	}
 	return out, diags
 }
@@ -2247,6 +2362,12 @@ func FlattenSchemaRegistry(ctx context.Context, proto *controlplanev1.Cluster_Sc
 	_ = prev
 	m := SchemaRegistryModel{}
 	m.Mtls = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetMtls(), func() *SchemaRegistryMtlsModel { v, _ := DecodeSchemaRegistryMtls(ctx, prev); return v }(), SchemaRegistryMtlsAttrTypes(), FlattenSchemaRegistryMtls, &diags)
+	m.Connections = modelconv.ListFromObjectsReorderedByIdentityWithDiags(ctx, proto.GetConnections(), func() types.List {
+		if prev != nil {
+			return prev.Connections
+		}
+		return types.List{}
+	}(), SchemaRegistryConnectionsAttrTypes(), FlattenSchemaRegistryConnections, []string{"auth.mode", "type"}, &diags)
 	m.AllUrls = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAllUrls(), func() *SchemaRegistryAllUrlsModel { v, _ := DecodeSchemaRegistryAllUrls(ctx, prev); return v }(), SchemaRegistryAllUrlsAttrTypes(), FlattenSchemaRegistryAllUrls, &diags)
 	m.URL = types.StringValue(proto.GetUrl())
 	return m, diags
@@ -2297,6 +2418,59 @@ func ExpandSchemaRegistryMtls(ctx context.Context, m *SchemaRegistryMtlsModel) (
 		CaCertificatesPem:     modelconv.ListToSliceWithDiags[string](ctx, m.CaCertificatesPem, &diags),
 		PrincipalMappingRules: modelconv.ListToSliceWithDiags[string](ctx, m.PrincipalMappingRules, &diags),
 		Enabled:               m.Enabled.ValueBool(),
+	}
+	return out, diags
+}
+
+// FlattenSchemaRegistryConnections converts a single proto controlplanev1.ConnectionStatus into the
+// corresponding nested model. The prev *SchemaRegistryConnectionsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenSchemaRegistryConnections(ctx context.Context, proto *controlplanev1.ConnectionStatus, prev *SchemaRegistryConnectionsModel) (SchemaRegistryConnectionsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := SchemaRegistryConnectionsModel{}
+	m.Auth = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetConfig().GetAuth(), func() *SchemaRegistryConnectionsAuthModel {
+		v, _ := DecodeSchemaRegistryConnectionsAuth(ctx, prev)
+		return v
+	}(), SchemaRegistryConnectionsAuthAttrTypes(), FlattenSchemaRegistryConnectionsAuth, &diags)
+	m.Type = types.StringValue(enums.ClusterConnectionTypeToString(proto.GetConfig().GetType()))
+	m.Endpoint = types.StringValue(proto.GetEndpoint())
+	return m, diags
+}
+
+// ExpandSchemaRegistryConnections renders a nested model back into the proto type.
+func ExpandSchemaRegistryConnections(_ context.Context, m *SchemaRegistryConnectionsModel) (*controlplanev1.ConnectionStatus, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.ConnectionStatus{}
+	return out, diags
+}
+
+// FlattenSchemaRegistryConnectionsAuth converts a single proto controlplanev1.AuthSpec into the
+// corresponding nested model. The prev *SchemaRegistryConnectionsAuthModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenSchemaRegistryConnectionsAuth(_ context.Context, proto *controlplanev1.AuthSpec, prev *SchemaRegistryConnectionsAuthModel) (SchemaRegistryConnectionsAuthModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := SchemaRegistryConnectionsAuthModel{}
+	m.Mode = types.StringValue(enums.AuthModeToString(proto.GetMode()))
+	return m, diags
+}
+
+// ExpandSchemaRegistryConnectionsAuth renders a nested model back into the proto type.
+func ExpandSchemaRegistryConnectionsAuth(_ context.Context, m *SchemaRegistryConnectionsAuthModel) (*controlplanev1.AuthSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.AuthSpec{
+		Mode: enums.StringToAuthMode(m.Mode.ValueString()),
 	}
 	return out, diags
 }
@@ -2552,6 +2726,31 @@ func ExpandCreateGCPPrivateServiceConnect(ctx context.Context, m *GCPPrivateServ
 	return out, diags
 }
 
+// ExpandCreateHTTPProxyConnectionsAuth renders a nested model back into the proto type.
+func ExpandCreateHTTPProxyConnectionsAuth(_ context.Context, m *HTTPProxyConnectionsAuthModel) (*controlplanev1.AuthSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.AuthSpec{
+		Mode: enums.StringToAuthMode(m.Mode.ValueString()),
+	}
+	return out, diags
+}
+
+// ExpandCreateHTTPProxyConnections renders a nested model back into the proto type.
+func ExpandCreateHTTPProxyConnections(ctx context.Context, m *HTTPProxyConnectionsModel) (*controlplanev1.ConnectionSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.ConnectionSpec{
+		Auth: modelconv.ObjectToMessageWithDiags(ctx, m.Auth, ExpandCreateHTTPProxyConnectionsAuth, &diags),
+		Type: enums.StringToClusterConnectionType(m.Type.ValueString()),
+	}
+	return out, diags
+}
+
 // ExpandCreateHTTPProxyMtls renders a nested model back into the proto type.
 func ExpandCreateHTTPProxyMtls(ctx context.Context, m *HTTPProxyMtlsModel) (*controlplanev1.MTLSSpec, diag.Diagnostics) {
 	var diags diag.Diagnostics
@@ -2585,8 +2784,34 @@ func ExpandCreateHTTPProxy(ctx context.Context, m *HTTPProxyModel) (*controlplan
 		return nil, diags
 	}
 	out := &controlplanev1.HTTPProxySpec{
-		Mtls: modelconv.ObjectToMessageWithDiags(ctx, m.Mtls, ExpandCreateHTTPProxyMtls, &diags),
-		Sasl: modelconv.ObjectToMessageWithDiags(ctx, m.Sasl, ExpandCreateHTTPProxySasl, &diags),
+		Connections: modelconv.ListToObjectsWithDiags(ctx, m.Connections, ExpandCreateHTTPProxyConnections, &diags),
+		Mtls:        modelconv.ObjectToMessageWithDiags(ctx, m.Mtls, ExpandCreateHTTPProxyMtls, &diags),
+		Sasl:        modelconv.ObjectToMessageWithDiags(ctx, m.Sasl, ExpandCreateHTTPProxySasl, &diags),
+	}
+	return out, diags
+}
+
+// ExpandCreateKafkaAPIConnectionsAuth renders a nested model back into the proto type.
+func ExpandCreateKafkaAPIConnectionsAuth(_ context.Context, m *KafkaAPIConnectionsAuthModel) (*controlplanev1.AuthSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.AuthSpec{
+		Mode: enums.StringToAuthMode(m.Mode.ValueString()),
+	}
+	return out, diags
+}
+
+// ExpandCreateKafkaAPIConnections renders a nested model back into the proto type.
+func ExpandCreateKafkaAPIConnections(ctx context.Context, m *KafkaAPIConnectionsModel) (*controlplanev1.ConnectionSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.ConnectionSpec{
+		Auth: modelconv.ObjectToMessageWithDiags(ctx, m.Auth, ExpandCreateKafkaAPIConnectionsAuth, &diags),
+		Type: enums.StringToClusterConnectionType(m.Type.ValueString()),
 	}
 	return out, diags
 }
@@ -2624,8 +2849,9 @@ func ExpandCreateKafkaAPI(ctx context.Context, m *KafkaAPIModel) (*controlplanev
 		return nil, diags
 	}
 	out := &controlplanev1.KafkaAPISpec{
-		Mtls: modelconv.ObjectToMessageWithDiags(ctx, m.Mtls, ExpandCreateKafkaAPIMtls, &diags),
-		Sasl: modelconv.ObjectToMessageWithDiags(ctx, m.Sasl, ExpandCreateKafkaAPISasl, &diags),
+		Connections: modelconv.ListToObjectsWithDiags(ctx, m.Connections, ExpandCreateKafkaAPIConnections, &diags),
+		Mtls:        modelconv.ObjectToMessageWithDiags(ctx, m.Mtls, ExpandCreateKafkaAPIMtls, &diags),
+		Sasl:        modelconv.ObjectToMessageWithDiags(ctx, m.Sasl, ExpandCreateKafkaAPISasl, &diags),
 	}
 	return out, diags
 }
@@ -2644,6 +2870,31 @@ func ExpandCreateSchemaRegistryMtls(ctx context.Context, m *SchemaRegistryMtlsMo
 	return out, diags
 }
 
+// ExpandCreateSchemaRegistryConnectionsAuth renders a nested model back into the proto type.
+func ExpandCreateSchemaRegistryConnectionsAuth(_ context.Context, m *SchemaRegistryConnectionsAuthModel) (*controlplanev1.AuthSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.AuthSpec{
+		Mode: enums.StringToAuthMode(m.Mode.ValueString()),
+	}
+	return out, diags
+}
+
+// ExpandCreateSchemaRegistryConnections renders a nested model back into the proto type.
+func ExpandCreateSchemaRegistryConnections(ctx context.Context, m *SchemaRegistryConnectionsModel) (*controlplanev1.ConnectionSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.ConnectionSpec{
+		Auth: modelconv.ObjectToMessageWithDiags(ctx, m.Auth, ExpandCreateSchemaRegistryConnectionsAuth, &diags),
+		Type: enums.StringToClusterConnectionType(m.Type.ValueString()),
+	}
+	return out, diags
+}
+
 // ExpandCreateSchemaRegistry renders a nested model back into the proto type.
 func ExpandCreateSchemaRegistry(ctx context.Context, m *SchemaRegistryModel) (*controlplanev1.SchemaRegistrySpec, diag.Diagnostics) {
 	var diags diag.Diagnostics
@@ -2651,7 +2902,8 @@ func ExpandCreateSchemaRegistry(ctx context.Context, m *SchemaRegistryModel) (*c
 		return nil, diags
 	}
 	out := &controlplanev1.SchemaRegistrySpec{
-		Mtls: modelconv.ObjectToMessageWithDiags(ctx, m.Mtls, ExpandCreateSchemaRegistryMtls, &diags),
+		Mtls:        modelconv.ObjectToMessageWithDiags(ctx, m.Mtls, ExpandCreateSchemaRegistryMtls, &diags),
+		Connections: modelconv.ListToObjectsWithDiags(ctx, m.Connections, ExpandCreateSchemaRegistryConnections, &diags),
 	}
 	return out, diags
 }
@@ -2918,6 +3170,31 @@ func ExpandUpdateGCPPrivateServiceConnect(ctx context.Context, m *GCPPrivateServ
 	return out, diags
 }
 
+// ExpandUpdateHTTPProxyConnectionsAuth renders a nested model back into the proto type.
+func ExpandUpdateHTTPProxyConnectionsAuth(_ context.Context, m *HTTPProxyConnectionsAuthModel) (*controlplanev1.AuthSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.AuthSpec{
+		Mode: enums.StringToAuthMode(m.Mode.ValueString()),
+	}
+	return out, diags
+}
+
+// ExpandUpdateHTTPProxyConnections renders a nested model back into the proto type.
+func ExpandUpdateHTTPProxyConnections(ctx context.Context, m *HTTPProxyConnectionsModel) (*controlplanev1.ConnectionSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.ConnectionSpec{
+		Auth: modelconv.ObjectToMessageWithDiags(ctx, m.Auth, ExpandUpdateHTTPProxyConnectionsAuth, &diags),
+		Type: enums.StringToClusterConnectionType(m.Type.ValueString()),
+	}
+	return out, diags
+}
+
 // ExpandUpdateHTTPProxyMtls renders a nested model back into the proto type.
 func ExpandUpdateHTTPProxyMtls(ctx context.Context, m *HTTPProxyMtlsModel) (*controlplanev1.MTLSSpec, diag.Diagnostics) {
 	var diags diag.Diagnostics
@@ -2951,8 +3228,34 @@ func ExpandUpdateHTTPProxy(ctx context.Context, m *HTTPProxyModel) (*controlplan
 		return nil, diags
 	}
 	out := &controlplanev1.HTTPProxySpec{
-		Mtls: modelconv.ObjectToMessageWithDiags(ctx, m.Mtls, ExpandUpdateHTTPProxyMtls, &diags),
-		Sasl: modelconv.ObjectToMessageWithDiags(ctx, m.Sasl, ExpandUpdateHTTPProxySasl, &diags),
+		Connections: modelconv.ListToObjectsWithDiags(ctx, m.Connections, ExpandUpdateHTTPProxyConnections, &diags),
+		Mtls:        modelconv.ObjectToMessageWithDiags(ctx, m.Mtls, ExpandUpdateHTTPProxyMtls, &diags),
+		Sasl:        modelconv.ObjectToMessageWithDiags(ctx, m.Sasl, ExpandUpdateHTTPProxySasl, &diags),
+	}
+	return out, diags
+}
+
+// ExpandUpdateKafkaAPIConnectionsAuth renders a nested model back into the proto type.
+func ExpandUpdateKafkaAPIConnectionsAuth(_ context.Context, m *KafkaAPIConnectionsAuthModel) (*controlplanev1.AuthSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.AuthSpec{
+		Mode: enums.StringToAuthMode(m.Mode.ValueString()),
+	}
+	return out, diags
+}
+
+// ExpandUpdateKafkaAPIConnections renders a nested model back into the proto type.
+func ExpandUpdateKafkaAPIConnections(ctx context.Context, m *KafkaAPIConnectionsModel) (*controlplanev1.ConnectionSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.ConnectionSpec{
+		Auth: modelconv.ObjectToMessageWithDiags(ctx, m.Auth, ExpandUpdateKafkaAPIConnectionsAuth, &diags),
+		Type: enums.StringToClusterConnectionType(m.Type.ValueString()),
 	}
 	return out, diags
 }
@@ -2990,8 +3293,9 @@ func ExpandUpdateKafkaAPI(ctx context.Context, m *KafkaAPIModel) (*controlplanev
 		return nil, diags
 	}
 	out := &controlplanev1.KafkaAPISpec{
-		Mtls: modelconv.ObjectToMessageWithDiags(ctx, m.Mtls, ExpandUpdateKafkaAPIMtls, &diags),
-		Sasl: modelconv.ObjectToMessageWithDiags(ctx, m.Sasl, ExpandUpdateKafkaAPISasl, &diags),
+		Connections: modelconv.ListToObjectsWithDiags(ctx, m.Connections, ExpandUpdateKafkaAPIConnections, &diags),
+		Mtls:        modelconv.ObjectToMessageWithDiags(ctx, m.Mtls, ExpandUpdateKafkaAPIMtls, &diags),
+		Sasl:        modelconv.ObjectToMessageWithDiags(ctx, m.Sasl, ExpandUpdateKafkaAPISasl, &diags),
 	}
 	return out, diags
 }
@@ -3010,6 +3314,31 @@ func ExpandUpdateSchemaRegistryMtls(ctx context.Context, m *SchemaRegistryMtlsMo
 	return out, diags
 }
 
+// ExpandUpdateSchemaRegistryConnectionsAuth renders a nested model back into the proto type.
+func ExpandUpdateSchemaRegistryConnectionsAuth(_ context.Context, m *SchemaRegistryConnectionsAuthModel) (*controlplanev1.AuthSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.AuthSpec{
+		Mode: enums.StringToAuthMode(m.Mode.ValueString()),
+	}
+	return out, diags
+}
+
+// ExpandUpdateSchemaRegistryConnections renders a nested model back into the proto type.
+func ExpandUpdateSchemaRegistryConnections(ctx context.Context, m *SchemaRegistryConnectionsModel) (*controlplanev1.ConnectionSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.ConnectionSpec{
+		Auth: modelconv.ObjectToMessageWithDiags(ctx, m.Auth, ExpandUpdateSchemaRegistryConnectionsAuth, &diags),
+		Type: enums.StringToClusterConnectionType(m.Type.ValueString()),
+	}
+	return out, diags
+}
+
 // ExpandUpdateSchemaRegistry renders a nested model back into the proto type.
 func ExpandUpdateSchemaRegistry(ctx context.Context, m *SchemaRegistryModel) (*controlplanev1.SchemaRegistrySpec, diag.Diagnostics) {
 	var diags diag.Diagnostics
@@ -3017,7 +3346,8 @@ func ExpandUpdateSchemaRegistry(ctx context.Context, m *SchemaRegistryModel) (*c
 		return nil, diags
 	}
 	out := &controlplanev1.SchemaRegistrySpec{
-		Mtls: modelconv.ObjectToMessageWithDiags(ctx, m.Mtls, ExpandUpdateSchemaRegistryMtls, &diags),
+		Mtls:        modelconv.ObjectToMessageWithDiags(ctx, m.Mtls, ExpandUpdateSchemaRegistryMtls, &diags),
+		Connections: modelconv.ListToObjectsWithDiags(ctx, m.Connections, ExpandUpdateSchemaRegistryConnections, &diags),
 	}
 	return out, diags
 }

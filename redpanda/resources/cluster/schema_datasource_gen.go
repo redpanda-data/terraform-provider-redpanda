@@ -745,6 +745,32 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 							},
 						},
 					},
+					"connections": schema.ListNestedAttribute{
+						Description: "List of connections",
+						Computed:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"auth": schema.SingleNestedAttribute{
+									Description: "Auth configuration",
+									Computed:    true,
+									Attributes: map[string]schema.Attribute{
+										"mode": schema.StringAttribute{
+											Description: "Mode",
+											Computed:    true,
+										},
+									},
+								},
+								"endpoint": schema.StringAttribute{
+									Description: "Endpoint",
+									Computed:    true,
+								},
+								"type": schema.StringAttribute{
+									Description: "Type",
+									Computed:    true,
+								},
+							},
+						},
+					},
 					"mtls": schema.SingleNestedAttribute{
 						Description: "mTLS configuration.",
 						Computed:    true,
@@ -805,6 +831,32 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 							"sasl": schema.StringAttribute{
 								Description: "URL of the seed broker for SASL. If SASL is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.",
 								Computed:    true,
+							},
+						},
+					},
+					"connections": schema.ListNestedAttribute{
+						Description: "List of connections",
+						Computed:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"auth": schema.SingleNestedAttribute{
+									Description: "Auth configuration",
+									Computed:    true,
+									Attributes: map[string]schema.Attribute{
+										"mode": schema.StringAttribute{
+											Description: "Mode",
+											Computed:    true,
+										},
+									},
+								},
+								"endpoint": schema.StringAttribute{
+									Description: "Endpoint",
+									Computed:    true,
+								},
+								"type": schema.StringAttribute{
+									Description: "Type",
+									Computed:    true,
+								},
 							},
 						},
 					},
@@ -1021,6 +1073,32 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 							"sasl": schema.StringAttribute{
 								Description: "URL of the seed broker for SASL. If SASL is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.",
 								Computed:    true,
+							},
+						},
+					},
+					"connections": schema.ListNestedAttribute{
+						Description: "List of connections",
+						Computed:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"auth": schema.SingleNestedAttribute{
+									Description: "Auth configuration",
+									Computed:    true,
+									Attributes: map[string]schema.Attribute{
+										"mode": schema.StringAttribute{
+											Description: "Mode",
+											Computed:    true,
+										},
+									},
+								},
+								"endpoint": schema.StringAttribute{
+									Description: "Endpoint",
+									Computed:    true,
+								},
+								"type": schema.StringAttribute{
+									Description: "Type",
+									Computed:    true,
+								},
 							},
 						},
 					},

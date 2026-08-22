@@ -71,5 +71,14 @@ func (protoValidator) ValidateResource(ctx context.Context, req resource.Validat
 		return
 	}
 	resp.Diagnostics.Append(rpvalidate.Validate(path.Empty(), payload.GetCluster(),
-		"rpsql")...)
+		"http_proxy.connections.auth",
+		"http_proxy.connections.auth.mode",
+		"http_proxy.connections.type",
+		"kafka_api.connections.auth",
+		"kafka_api.connections.auth.mode",
+		"kafka_api.connections.type",
+		"rpsql",
+		"schema_registry.connections.auth",
+		"schema_registry.connections.auth.mode",
+		"schema_registry.connections.type")...)
 }
