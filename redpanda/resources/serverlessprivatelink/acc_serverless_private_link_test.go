@@ -65,9 +65,8 @@ func TestAcc_ServerlessPrivateLink(t *testing.T) {
 		return sweep.ResourceGroup{ResourceGroupName: name, Client: c}.SweepResourceGroup("")
 	}))
 
-	resource.ParallelTest(t, resource.TestCase{
-		PreCheck: func() { acc.PreCheck(t) },
-		Steps: []resource.TestStep{
+	steps := acc.UpgradeEntrySteps(t, acc.ServerlessPrivateLinkDir, origTestCaseVars)
+	steps = append(steps, []resource.TestStep{
 			{
 				ConfigDirectory:          config.StaticDirectory(acc.ServerlessPrivateLinkDir),
 				ConfigVariables:          origTestCaseVars,
@@ -117,6 +116,10 @@ func TestAcc_ServerlessPrivateLink(t *testing.T) {
 				ImportStateVerifyIgnore:  []string{"updated_at", "allow_deletion"},
 				ProtoV6ProviderFactories: acc.ProtoV6Factories,
 			},
-		},
+	}...)
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { acc.PreCheck(t) },
+		Steps:    steps,
 	})
 }

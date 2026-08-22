@@ -59,57 +59,63 @@ func TestAcc_Network(t *testing.T) {
 		return sweep.ResourceGroup{ResourceGroupName: name, Client: c}.SweepResourceGroup("")
 	}))
 
+	steps := acc.UpgradeEntrySteps(t, acc.DedicatedNetworkDir, origTestCaseVars,
+		resource.TestCheckResourceAttr(acc.ResourceGroupName, "name", name),
+		resource.TestCheckResourceAttr(acc.NetworkResourceName, "name", name),
+	)
+	steps = append(steps, []resource.TestStep{
+		{
+			ConfigDirectory:          config.StaticDirectory(acc.DedicatedNetworkDir),
+			ConfigVariables:          origTestCaseVars,
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(acc.ResourceGroupName, "name", name),
+				resource.TestCheckResourceAttr(acc.NetworkResourceName, "name", name),
+				resource.TestCheckResourceAttrSet(acc.NetworkResourceName, "state"),
+				func(_ *terraform.State) error {
+					n, err := c.NetworkForName(ctx, name)
+					if err != nil {
+						return err
+					}
+					if n == nil {
+						return fmt.Errorf("unable to find network %q after creation", name)
+					}
+					t.Logf("Successfully created network %v", name)
+					return nil
+				},
+			),
+		},
+		{
+			ConfigDirectory:          config.StaticDirectory(acc.DedicatedNetworkDir),
+			ConfigVariables:          updateTestCaseVars,
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(acc.ResourceGroupName, "name", name),
+				resource.TestCheckResourceAttr(acc.NetworkResourceName, "name", rename),
+			),
+		},
+		{
+			ResourceName:             acc.NetworkResourceName,
+			ConfigDirectory:          config.StaticDirectory(acc.DedicatedNetworkDir),
+			ConfigVariables:          updateTestCaseVars,
+			ImportState:              true,
+			ImportStateVerify:        true,
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(acc.ResourceGroupName, "name", name),
+				resource.TestCheckResourceAttr(acc.NetworkResourceName, "name", rename),
+			),
+		},
+		{
+			ConfigDirectory:          config.StaticDirectory(acc.DedicatedNetworkDir),
+			ConfigVariables:          updateTestCaseVars,
+			Destroy:                  true,
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		},
+	}...)
+
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { acc.PreCheck(t) },
-		Steps: []resource.TestStep{
-			{
-				ConfigDirectory:          config.StaticDirectory(acc.DedicatedNetworkDir),
-				ConfigVariables:          origTestCaseVars,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(acc.ResourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(acc.NetworkResourceName, "name", name),
-					resource.TestCheckResourceAttrSet(acc.NetworkResourceName, "state"),
-					func(_ *terraform.State) error {
-						n, err := c.NetworkForName(ctx, name)
-						if err != nil {
-							return err
-						}
-						if n == nil {
-							return fmt.Errorf("unable to find network %q after creation", name)
-						}
-						t.Logf("Successfully created network %v", name)
-						return nil
-					},
-				),
-			},
-			{
-				ConfigDirectory:          config.StaticDirectory(acc.DedicatedNetworkDir),
-				ConfigVariables:          updateTestCaseVars,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(acc.ResourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(acc.NetworkResourceName, "name", rename),
-				),
-			},
-			{
-				ResourceName:             acc.NetworkResourceName,
-				ConfigDirectory:          config.StaticDirectory(acc.DedicatedNetworkDir),
-				ConfigVariables:          updateTestCaseVars,
-				ImportState:              true,
-				ImportStateVerify:        true,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(acc.ResourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(acc.NetworkResourceName, "name", rename),
-				),
-			},
-			{
-				ConfigDirectory:          config.StaticDirectory(acc.DedicatedNetworkDir),
-				ConfigVariables:          updateTestCaseVars,
-				Destroy:                  true,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			},
-		},
+		Steps:    steps,
 	})
 }

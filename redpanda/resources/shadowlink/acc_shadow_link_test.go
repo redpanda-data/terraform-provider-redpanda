@@ -121,9 +121,8 @@ func TestAcc_ShadowLink(t *testing.T) {
 		return sweep.ResourceGroup{ResourceGroupName: resourceGroup, Client: c}.SweepResourceGroup("")
 	}))
 
-	resource.ParallelTest(t, resource.TestCase{
-		PreCheck: func() { acc.PreCheck(t) },
-		Steps: []resource.TestStep{
+	steps := acc.UpgradeEntrySteps(t, acc.ShadowLinkDir, origVars)
+	steps = append(steps, []resource.TestStep{
 			// Step 1: Apply, with out-of-band verification of both clusters and the link.
 			{
 				ConfigDirectory:          config.StaticDirectory(acc.ShadowLinkDir),
@@ -327,6 +326,10 @@ func TestAcc_ShadowLink(t *testing.T) {
 				ProtoV6ProviderFactories: acc.ProtoV6Factories,
 				Destroy:                  true,
 			},
-		},
+	}...)
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { acc.PreCheck(t) },
+		Steps:    steps,
 	})
 }

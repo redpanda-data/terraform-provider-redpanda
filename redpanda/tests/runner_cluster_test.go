@@ -28,7 +28,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/acc/sweep"
 )
 
-func testRunnerCluster(ctx context.Context, name, rename, version, testFile string, customVars map[string]config.Variable, t *testing.T) {
+func testRunnerCluster(ctx context.Context, name, rename, version, testFile string, customVars map[string]config.Variable, t *testing.T, opts ...runnerOpt) {
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, acc.ProviderCfgIDSecretVars)
 	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
@@ -70,39 +70,44 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 		return sweep.ResourceGroup{ResourceGroupName: name, Client: c}.SweepResourceGroup("")
 	}))
 
+	var steps []resource.TestStep
+	if !resolveRunnerOpts(opts).skipUpgradeEntry {
+		steps = acc.UpgradeEntrySteps(t, testFile, origTestCaseVars)
+	}
+	steps = append(steps, []resource.TestStep{
+		{
+			ConfigDirectory: config.StaticDirectory(testFile),
+			ConfigVariables: origTestCaseVars,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(acc.ResourceGroupName, "name", name),
+				resource.TestCheckResourceAttr(acc.NetworkResourceName, "name", name),
+				resource.TestCheckResourceAttr(acc.ClusterResourceName, "name", name),
+			),
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		},
+		{
+			ResourceName:             acc.ClusterResourceName,
+			ConfigDirectory:          config.StaticDirectory(testFile),
+			ConfigVariables:          origTestCaseVars,
+			ImportState:              true,
+			ImportStateVerify:        true,
+			ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		},
+		{
+			ConfigDirectory: config.StaticDirectory(testFile),
+			ConfigVariables: updateTestCaseVars,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(acc.ResourceGroupName, "name", name),
+				resource.TestCheckResourceAttr(acc.NetworkResourceName, "name", name),
+				resource.TestCheckResourceAttr(acc.ClusterResourceName, "name", rename),
+			),
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		},
+	}...)
+
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { acc.PreCheck(t) },
-		Steps: []resource.TestStep{
-			{
-				ConfigDirectory: config.StaticDirectory(testFile),
-				ConfigVariables: origTestCaseVars,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(acc.ResourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(acc.NetworkResourceName, "name", name),
-					resource.TestCheckResourceAttr(acc.ClusterResourceName, "name", name),
-				),
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			},
-			{
-				ResourceName:             acc.ClusterResourceName,
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          origTestCaseVars,
-				ImportState:              true,
-				ImportStateVerify:        true,
-				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			},
-			{
-				ConfigDirectory: config.StaticDirectory(testFile),
-				ConfigVariables: updateTestCaseVars,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(acc.ResourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(acc.NetworkResourceName, "name", name),
-					resource.TestCheckResourceAttr(acc.ClusterResourceName, "name", rename),
-				),
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			},
-		},
-	},
-	)
+		Steps:    steps,
+	})
 }

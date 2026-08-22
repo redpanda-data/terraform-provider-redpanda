@@ -73,9 +73,8 @@ func TestAcc_DataSource_Cluster(t *testing.T) {
 		return sweep.ResourceGroup{ResourceGroupName: name, Client: c}.SweepResourceGroup("")
 	}))
 
-	resource.ParallelTest(t, resource.TestCase{
-		PreCheck: func() { acc.PreCheck(t) },
-		Steps: []resource.TestStep{
+	steps := acc.UpgradeEntrySteps(t, acc.ClusterDatasourceInfraDir, origTestCaseVars)
+	steps = append(steps, []resource.TestStep{
 			{
 				ConfigDirectory:          config.StaticDirectory(acc.ClusterDatasourceInfraDir),
 				ConfigVariables:          origTestCaseVars,
@@ -85,6 +84,10 @@ func TestAcc_DataSource_Cluster(t *testing.T) {
 					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 				},
 			},
-		},
+	}...)
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { acc.PreCheck(t) },
+		Steps:    steps,
 	})
 }

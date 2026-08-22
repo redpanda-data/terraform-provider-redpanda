@@ -30,7 +30,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/acc/sweep"
 )
 
-func runServerlessClusterVariantTest(t *testing.T, testSuffix, region string, publicNetworking, privateNetworking bool) {
+func runServerlessClusterVariantTest(t *testing.T, testSuffix, region string, publicNetworking, privateNetworking bool, opts ...runnerOpt) {
 	ctx := context.Background()
 
 	// A public-disabled (private-only) serverless cluster is unreachable from
@@ -125,7 +125,11 @@ func runServerlessClusterVariantTest(t *testing.T, testSuffix, region string, pu
 		return sweep.ResourceGroup{ResourceGroupName: name, Client: c}.SweepResourceGroup("")
 	}))
 
-	steps := []resource.TestStep{
+	var steps []resource.TestStep
+	if !resolveRunnerOpts(opts).skipUpgradeEntry {
+		steps = acc.UpgradeEntrySteps(t, dir, origTestCaseVars)
+	}
+	steps = append(steps, []resource.TestStep{
 		{
 			ConfigDirectory:          config.StaticDirectory(dir),
 			ConfigVariables:          origTestCaseVars,
@@ -135,7 +139,7 @@ func runServerlessClusterVariantTest(t *testing.T, testSuffix, region string, pu
 				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 			},
 		},
-	}
+	}...)
 	// Pre-rename: the user import resolves the cluster by its original name.
 	steps = append(steps, dp.UserImportSteps(origTestCaseVars, idBeforeRename)...)
 	steps = append(steps, []resource.TestStep{

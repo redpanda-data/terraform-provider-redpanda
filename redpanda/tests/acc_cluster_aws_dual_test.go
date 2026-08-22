@@ -46,5 +46,7 @@ func TestAcc_Cluster_AWS_DualListeners(t *testing.T) {
 	customVars := map[string]config.Variable{
 		"dual_listener_connections": config.ListVariable(conn("public"), conn("private")),
 	}
-	testRunner(ctx, name, rename, acc.RedpandaVersion, acc.AwsDedicatedClusterDir, customVars, t)
+	// No upgrade entry: the released provider does not know the connections
+	// schema yet. Remove once a release ships dual listener mode.
+	testRunner(ctx, name, rename, acc.RedpandaVersion, acc.AwsDedicatedClusterDir, customVars, t, withoutUpgradeEntry())
 }
