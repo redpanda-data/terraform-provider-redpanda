@@ -65,15 +65,57 @@ type ClusterFake struct {
 	seq      atomic.Uint64
 	srURL    string
 
+	// dualModel tracks clusters created or updated through the connections
+	// field — the fake's analogue of the control plane's -pub/-prv listener
+	// name suffix detection (usesDualListenerModel).
+	dualModel map[string]bool
+
 	// CreateMutator, when set, is applied to the freshly built cluster just
 	// before it is stored, letting a test simulate server-side defaulting of
 	// computed fields the provider did not send. Fires only at create.
 	CreateMutator func(*controlplanev1.Cluster)
+
+	// PublicPrivateListenersDisabled models an org WITHOUT the
+	// enable-public-private-listeners feature flag: any request using
+	// connections gets PermissionDenied, mirroring cloudv2's
+	// checkPublicPrivateListenersFeatureFlagInUse. Zero value (flag on)
+	// matches the org the tests model.
+	PublicPrivateListenersDisabled bool
 }
 
 // NewClusterFake returns an empty fake bound to op.
 func NewClusterFake(op *OperationFake) *ClusterFake {
-	return &ClusterFake{op: op, clusters: map[string]*controlplanev1.Cluster{}}
+	return &ClusterFake{op: op, clusters: map[string]*controlplanev1.Cluster{}, dualModel: map[string]bool{}}
+}
+
+// FlipToDualOutOfBand rewrites the stored cluster with the given name as if
+// Redpanda fleet operations converted it to the dual listener model outside
+// the public API: every service carries public+private SASL listeners with a
+// projected sasl echo, connection_type reads back private (cloudv2
+// mapper.getConnectionType: any private kafka listener wins), and the cluster
+// is marked dual-model. Returns false when no cluster has that name.
+func (f *ClusterFake) FlipToDualOutOfBand(name string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for id, cl := range f.clusters {
+		if cl.GetName() != name {
+			continue
+		}
+		specs := []*controlplanev1.ConnectionSpec{
+			{Type: connTypePublic, Auth: &controlplanev1.AuthSpec{Mode: controlplanev1.AuthMode_AUTH_MODE_SASL}},
+			{Type: connTypePrivate, Auth: &controlplanev1.AuthSpec{Mode: controlplanev1.AuthMode_AUTH_MODE_SASL}},
+		}
+		cl.GetKafkaApi().Connections = connectionStatusesFromSpec(svcKafkaAPI, specs)
+		cl.GetKafkaApi().Sasl = &controlplanev1.SASLSpec{Enabled: true}
+		cl.GetHttpProxy().Connections = connectionStatusesFromSpec(svcHTTPProxy, specs)
+		cl.GetHttpProxy().Sasl = &controlplanev1.SASLSpec{Enabled: true}
+		cl.GetSchemaRegistry().Connections = connectionStatusesFromSpec(svcSchemaRegistry, specs)
+		cl.GetSchemaRegistry().Sasl = &controlplanev1.SASLSpec{Enabled: true}
+		cl.ConnectionType = connTypePrivate
+		f.dualModel[id] = true
+		return true
+	}
+	return false
 }
 
 // Seed inserts a pre-built cluster directly into the fake's store. Used by
@@ -132,6 +174,9 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 	in := req.GetCluster()
 	if in == nil {
 		return nil, status.Error(codes.InvalidArgument, "cluster is required")
+	}
+	if err := f.validateCreateConnections(in); err != nil {
+		return nil, err
 	}
 	id := xidLike(clusterIDBase + f.seq.Add(1))
 	now := timestamppb.Now()
@@ -226,12 +271,36 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 		cl.SetGcpGlobalAccessApiGatewayEnabled(in.GetGcpEnableGlobalAccessApiGateway())
 	}
 
+	// connections[] is ALWAYS projected on read, legacy clusters included
+	// (cloudv2 mapper.go: read-only derived view of the listeners; only the
+	// connections INPUT is FF-gated).
+	dual := len(in.GetKafkaApi().GetConnections()) > 0
+	if dual {
+		cl.GetKafkaApi().Connections = connectionStatusesFromSpec(svcKafkaAPI, in.GetKafkaApi().GetConnections())
+		cl.GetHttpProxy().Connections = connectionStatusesFromSpec(svcHTTPProxy, in.GetHttpProxy().GetConnections())
+		cl.GetSchemaRegistry().Connections = connectionStatusesFromSpec(svcSchemaRegistry, in.GetSchemaRegistry().GetConnections())
+		cl.ConnectionType = connectionsClusterType(cl.GetKafkaApi().GetConnections(), in.GetConnectionType())
+		// GET always projects a non-nil sasl block per service (mirrors
+		// RedpandaListenersToPublic), which is what forces read-modify-write
+		// clients onto leaf-granular update masks.
+		cl.GetKafkaApi().Sasl = &controlplanev1.SASLSpec{Enabled: hasSASLConnection(in.GetKafkaApi().GetConnections())}
+		cl.GetHttpProxy().Sasl = &controlplanev1.SASLSpec{Enabled: hasSASLConnection(in.GetHttpProxy().GetConnections())}
+		cl.GetSchemaRegistry().Sasl = &controlplanev1.SASLSpec{Enabled: hasSASLConnection(in.GetSchemaRegistry().GetConnections())}
+	} else {
+		cl.GetKafkaApi().Connections = legacyConnectionProjection(in.GetConnectionType(), in.GetKafkaApi().GetMtls().GetEnabled(), "mock-broker-0.mock.redpanda.cloud:9092")
+		cl.GetHttpProxy().Connections = legacyConnectionProjection(in.GetConnectionType(), in.GetHttpProxy().GetMtls().GetEnabled(), "https://mock.http-proxy.redpanda.cloud")
+		cl.GetSchemaRegistry().Connections = legacyConnectionProjection(in.GetConnectionType(), in.GetSchemaRegistry().GetMtls().GetEnabled(), srURL)
+	}
+
 	if f.CreateMutator != nil {
 		f.CreateMutator(cl)
 	}
 
 	f.mu.Lock()
 	f.clusters[id] = cl
+	if dual {
+		f.dualModel[id] = true
+	}
 	f.mu.Unlock()
 
 	// Provider extracts only ResourceId; never polls this op. Skip Operation.Set
@@ -284,11 +353,23 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 		return nil, err
 	}
 
+	// Dual listener mode: run the connections guards and application before
+	// the generic mask loop (mirrors the control plane validating and mapping
+	// connections ahead of the legacy listener paths). Services the
+	// connections update owns are skipped below.
+	ownedByConnections, err := f.applyConnectionsUpdate(cl, upd, req.GetUpdateMask().GetPaths())
+	if err != nil {
+		return nil, err
+	}
+
 	// Fields whose wire type differs between ClusterUpdate and Cluster are
 	// handled explicitly; the remaining type-matched fields use proto reflection.
 	dstR := cl.ProtoReflect()
 	srcR := upd.ProtoReflect()
 	for _, path := range req.GetUpdateMask().GetPaths() {
+		if connectionsOwnedPath(ownedByConnections, path) {
+			continue
+		}
 		if strings.HasPrefix(path, "customer_managed_resources.") {
 			// The provider expands the top-level "customer_managed_resources" mask
 			// into the specific control-plane-updatable leaf paths (see
@@ -303,16 +384,24 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 			if upd.HasKafkaApi() {
 				cl.KafkaApi = specToClusterKafkaAPI(upd.GetKafkaApi(),
 					cl.GetKafkaApi().GetSeedBrokers())
+				// Legacy path only (dual services are owned above): keep the
+				// always-on connections projection in step with the new block.
+				cl.GetKafkaApi().Connections = legacyConnectionProjection(cl.GetConnectionType(),
+					upd.GetKafkaApi().GetMtls().GetEnabled(), firstOrEmpty(cl.GetKafkaApi().GetSeedBrokers()))
 			}
 		case "http_proxy":
 			if upd.HasHttpProxy() {
 				cl.HttpProxy = specToClusterHTTPProxy(upd.GetHttpProxy(),
 					cl.GetHttpProxy().GetUrl())
+				cl.GetHttpProxy().Connections = legacyConnectionProjection(cl.GetConnectionType(),
+					upd.GetHttpProxy().GetMtls().GetEnabled(), cl.GetHttpProxy().GetUrl())
 			}
 		case "schema_registry":
 			if upd.HasSchemaRegistry() {
 				cl.SchemaRegistry = specToClusterSchemaRegistry(upd.GetSchemaRegistry(),
 					cl.GetSchemaRegistry().GetUrl())
+				cl.GetSchemaRegistry().Connections = legacyConnectionProjection(cl.GetConnectionType(),
+					upd.GetSchemaRegistry().GetMtls().GetEnabled(), cl.GetSchemaRegistry().GetUrl())
 			}
 		case "aws_private_link":
 			// The read drops the block entirely when disabled (mapper.go gates it

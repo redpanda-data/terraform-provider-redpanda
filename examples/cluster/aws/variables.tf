@@ -285,3 +285,12 @@ variable "maintenance_hour_of_day" {
   default     = 0
 }
 
+
+variable "dual_listener_connections" {
+  description = "When set, the cluster is created in dual listener mode: this connections list is applied to kafka_api, http_proxy, and schema_registry (the control plane requires all three to match) and connection_type is omitted. Feature-gated (enable-public-private-listeners)."
+  type = list(object({
+    type = string
+    auth = object({ mode = string })
+  }))
+  default = null
+}

@@ -39,3 +39,29 @@ func ExpandLeafPaths(fm *fieldmaskpb.FieldMask) {
 	}
 	fm.Paths = out
 }
+
+// ExpandConnectionLeaves rewrites, in place, a bare listener-service mask path
+// ("kafka_api", "http_proxy", "schema_registry") into leaf granularity
+// ("<svc>.connections", "<svc>.mtls") when the update payload carries
+// connections for that service. GET always projects a non-nil sasl block, so a
+// read-modify-write update under a bare service mask would be rejected by the
+// control plane's "sasl cannot be set together with connections" guard
+// (serviceSASLInMask matches the bare path); the leaf mask scopes the request
+// to what the update actually changes. mtls rides along so the mask-driven
+// merge takes the request's CA/rules whenever connections are in play.
+// Services without connections in the payload keep their bare path (legacy
+// clusters are updated object-level, unchanged).
+func ExpandConnectionLeaves(fm *fieldmaskpb.FieldMask, hasConnections map[string]bool) {
+	if fm == nil {
+		return
+	}
+	out := make([]string, 0, len(fm.Paths)+3)
+	for _, p := range fm.Paths {
+		if hasConnections[p] {
+			out = append(out, p+".connections", p+".mtls")
+			continue
+		}
+		out = append(out, p)
+	}
+	fm.Paths = out
+}

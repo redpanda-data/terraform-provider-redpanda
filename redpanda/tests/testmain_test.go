@@ -1,4 +1,4 @@
-//go:build live_test && (all || cluster_aws || cluster_gcp || byoc_aws || byoc_gcp || byovpc_aws || byovpc_gcp || serverless_aws_public || serverless_aws_private || serverless_aws_both || serverless_gcp)
+//go:build live_test && (all || cluster_aws || cluster_aws_dual || cluster_gcp || byoc_aws || byoc_gcp || byovpc_aws || byovpc_gcp || serverless_aws_public || serverless_aws_private || serverless_aws_both || serverless_gcp)
 
 // Copyright 2026 Redpanda Data, Inc.
 //

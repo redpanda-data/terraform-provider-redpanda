@@ -133,6 +133,11 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 			return
 		}
 		tflog.Info(ctx, "cluster created", map[string]any{"cluster_id": clusterID})
+		// ModifyPlan is skipped on create, so the connections-managed marker
+		// is stamped here.
+		if configManagesConnections(ctx, req.Config, &resp.Diagnostics) {
+			resp.Diagnostics.Append(resp.Private.SetKey(ctx, connectionsManagedKey, []byte(`true`))...)
+		}
 		resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 	}
 }
@@ -203,6 +208,23 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 	// granularity, not the top-level path the diff emits, so expand those before
 	// the request (see internal/clustermask).
 	clustermask.ExpandLeafPaths(mask)
+	// Dual listener mode. connections[] is ALWAYS projected on read, so the
+	// plan echoes it even when the user never configured it; sending that echo
+	// under a mask would silently adopt dual listener mode on a legacy cluster.
+	// Only the CONFIG says whether the user manages connections: strip the echo
+	// for services whose config leaves connections null.
+	stripEchoedConnections(ctx, req.Config, diffedPayload, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	// A service updated through connections must then be masked at leaf
+	// granularity or the control plane rejects the request over the
+	// always-projected sasl block (see clustermask.ExpandConnectionLeaves).
+	clustermask.ExpandConnectionLeaves(mask, map[string]bool{
+		"kafka_api":       len(diffedPayload.GetKafkaApi().GetConnections()) > 0,
+		"http_proxy":      len(diffedPayload.GetHttpProxy().GetConnections()) > 0,
+		"schema_registry": len(diffedPayload.GetSchemaRegistry().GetConnections()) > 0,
+	})
 	diffedPayload.Id = plan.ID.ValueString()
 	updateReq := &controlplanev1.UpdateClusterRequest{
 		Cluster:    diffedPayload,
@@ -322,6 +344,33 @@ func (*Cluster) ImportState(ctx context.Context, req resource.ImportStateRequest
 // handles populated→null.
 func (*Cluster) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+		return
+	}
+	// Reject the dual->legacy attempt before any plan surgery, and keep the
+	// connections-managed marker current.
+	guardConnectionsManaged(ctx, req, resp)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	// Reject adding public listeners to a private-only cluster — the one
+	// topology transition the control plane cannot perform in place.
+	guardPrivateOnlyGainsPublic(ctx, req, resp)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	// connections[] is a projection of the service's listeners, so a legacy
+	// sasl/mtls change re-derives it server-side (e.g. enabling mtls adds an
+	// mTLS entry). The plan carries the prior echo when the user doesn't
+	// manage connections; mark it unknown so the new projection can land.
+	markConnectionsUnknownOnLegacyListenerChange(ctx, req, resp)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	// Mirror image: config-managed connections changes re-derive the sasl
+	// echoes and connection_type server-side; mark them unknown so the new
+	// projection can land.
+	markEchoesUnknownOnConnectionsChange(ctx, req, resp)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 	plChanged, d := privateLinkConfigChanged(ctx, req.State, req.Plan)

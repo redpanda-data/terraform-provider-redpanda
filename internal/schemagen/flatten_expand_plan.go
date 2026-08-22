@@ -544,9 +544,25 @@ func planNestedTypes(
 		if fc, ok := fcs[a.Name]; ok {
 			nestedFc = fc.Fields
 		}
+		// An echo-unwrapped element's model is the hoisted write-element shape
+		// plus the read-only siblings, so its children (and the recursion
+		// below) plan against the merged field set, with hoisted accessors
+		// routed through the echo field.
+		elemFields := pf.Nested.Fields
+		if a.EchoUnwrapGoName != "" {
+			if echo := findEchoField(pf.Nested); echo != nil {
+				merged := append([]ProtoField{}, echo.Nested.Fields...)
+				for j := range pf.Nested.Fields {
+					if pf.Nested.Fields[j].Name != echo.Name {
+						merged = append(merged, pf.Nested.Fields[j])
+					}
+				}
+				elemFields = merged
+			}
+		}
 		nestedProtoByName := map[string]*ProtoField{}
-		for j := range pf.Nested.Fields {
-			nestedProtoByName[pf.Nested.Fields[j].Name] = &pf.Nested.Fields[j]
+		for j := range elemFields {
+			nestedProtoByName[elemFields[j].Name] = &elemFields[j]
 		}
 
 		var conversions []FieldConversion
@@ -562,6 +578,45 @@ func planNestedTypes(
 			}
 			if conv == nil {
 				continue
+			}
+			// A synthetic field's expand_via targets the WRITE shape; the
+			// read-shape nested Expand cannot consume it when read and write
+			// element types differ (e.g. ConnectionStatus vs ConnectionSpec),
+			// so the read-shape Expand leaves the proto field unset.
+			if childFc != nil && childFc.Synthetic && childFc.ExpandVia != "" {
+				conv.ExpandExpr = ""
+			}
+			if a.EchoUnwrapGoName != "" {
+				// Hoisted children read through the echo accessor; the
+				// read-shape element Expand is suppressed entirely (the model
+				// carries no echo wrapper to rebuild — the write shapes plan
+				// separately against the write element, which IS the hoisted
+				// shape).
+				if child.EchoHoisted {
+					accessor := "proto.Get" + a.EchoUnwrapGoName + "()."
+					conv.FlattenExpr = strings.ReplaceAll(conv.FlattenExpr, "proto.Get"+conv.ProtoGoName+"(", accessor+"Get"+conv.ProtoGoName+"(")
+					conv.FlattenExpr = strings.ReplaceAll(conv.FlattenExpr, "proto.Has"+conv.ProtoGoName+"(", accessor+"Has"+conv.ProtoGoName+"(")
+					conv.FlattenStmt = strings.ReplaceAll(conv.FlattenStmt, "proto.Get"+conv.ProtoGoName+"(", accessor+"Get"+conv.ProtoGoName+"(")
+				}
+				conv.ExpandExpr = ""
+				conv.ExpandStmt = ""
+			}
+
+			if child.EchoUnwrapGoName != "" {
+				// The echo list itself: flatten reorders the server echo to
+				// prev order by the identity of the hoisted (user-settable)
+				// leaves — element order is not contractual — and the
+				// read-shape expand is suppressed (write shapes plan
+				// separately against the write element).
+				attrTypesFn := funcSuffix + pathToPascal(child.Name) + "AttrTypes"
+				flattenFn := "Flatten" + funcSuffix + pathToPascal(child.Name)
+				conv.FlattenStmt = ""
+				conv.FlattenExpr = fmt.Sprintf(
+					"modelconv.ListFromObjectsReorderedByIdentityWithDiags(ctx, proto.Get%s(), func() types.List { if prev != nil { return prev.%s }; return types.List{} }(), %s(), %s, %s, &diags)",
+					conv.ProtoGoName, conv.GoName, attrTypesFn, flattenFn, goStringSliceLiteral(echoIdentityKeyPaths(child)),
+				)
+				conv.ExpandExpr = ""
+				conv.ExpandStmt = ""
 			}
 
 			if cp, ok := nestedProtoByName[child.Name]; ok && cp.OneofName != "" {
@@ -591,11 +646,46 @@ func planNestedTypes(
 			EmitExpand:    true,
 		})
 
-		if err := planNestedTypes(a.NestedAttrs, pf.Nested.Fields, nestedFc, protoAlias, funcSuffix, seen, out, externalImports); err != nil {
+		if err := planNestedTypes(a.NestedAttrs, elemFields, nestedFc, protoAlias, funcSuffix, seen, out, externalImports); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// echoIdentityKeyPaths returns the dotted leaf paths of an echo-unwrapped
+// attribute's hoisted children — the element's user-settable identity.
+func echoIdentityKeyPaths(a *SchemaAttr) []string {
+	var out []string
+	var walk func(children []SchemaAttr, prefix string, hoistedOnly bool)
+	walk = func(children []SchemaAttr, prefix string, hoistedOnly bool) {
+		for i := range children {
+			c := &children[i]
+			if hoistedOnly && !c.EchoHoisted {
+				continue
+			}
+			p := c.Name
+			if prefix != "" {
+				p = prefix + "." + c.Name
+			}
+			if len(c.NestedAttrs) > 0 {
+				walk(c.NestedAttrs, p, false)
+				continue
+			}
+			out = append(out, p)
+		}
+	}
+	walk(a.NestedAttrs, "", true)
+	return out
+}
+
+// goStringSliceLiteral renders a []string literal for generated code.
+func goStringSliceLiteral(items []string) string {
+	quoted := make([]string, len(items))
+	for i, it := range items {
+		quoted[i] = fmt.Sprintf("%q", it)
+	}
+	return "[]string{" + strings.Join(quoted, ", ") + "}"
 }
 
 func planField(a *SchemaAttr, fc *FieldConfig, protoByName map[string]*ProtoField, protoAlias, nestedPrefix string, isRoot bool) (*FieldConversion, error) {
@@ -692,7 +782,17 @@ func planField(a *SchemaAttr, fc *FieldConfig, protoByName map[string]*ProtoFiel
 		if fc.FlattenVia != "" || fc.ExpandVia != "" {
 			conv.Kind = FieldKindCustom
 			if fc.FlattenVia != "" {
-				conv.FlattenExpr = fmt.Sprintf("%s(proto)", fc.FlattenVia)
+				if fc.Synthetic && a.AttrType == AttrTypeListNested {
+					// A synthetic list's shape is decoupled from the read
+					// proto; its flatten_via receives the field's prior list so
+					// it can reorder the server echo to prev order (server
+					// element order is not contractual).
+					conv.FlattenExpr = fmt.Sprintf(
+						"%s(proto, func() types.List { if prev != nil { return prev.%s }; return types.List{} }())",
+						fc.FlattenVia, conv.GoName)
+				} else {
+					conv.FlattenExpr = fmt.Sprintf("%s(proto)", fc.FlattenVia)
+				}
 			}
 			if fc.ExpandVia != "" {
 				conv.ExpandExpr = fmt.Sprintf("m.%s()", fc.ExpandVia)

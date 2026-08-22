@@ -156,6 +156,22 @@ func StringToClusterConnectionType(s string) controlplanev1.Cluster_ConnectionTy
 	return controlplanev1.Cluster_CONNECTION_TYPE_UNSPECIFIED
 }
 
+// AuthModeToString returns the lowercase trimmed form ("sasl" / "mtls") for
+// dual-listener connections[].auth.mode, matching the lowercase convention of
+// the sibling type / connection_type values; the default TrimPrefix mapper
+// would emit UPPERCASE and split casing within one element.
+func AuthModeToString(e controlplanev1.AuthMode) string {
+	return strings.ToLower(strings.TrimPrefix(e.String(), "AUTH_MODE_"))
+}
+
+// StringToAuthMode is the reverse direction. Case-insensitive input.
+func StringToAuthMode(s string) controlplanev1.AuthMode {
+	if v, ok := controlplanev1.AuthMode_value["AUTH_MODE_"+strings.ToUpper(s)]; ok {
+		return controlplanev1.AuthMode(v)
+	}
+	return controlplanev1.AuthMode_AUTH_MODE_UNSPECIFIED
+}
+
 // State-family enums preserve the proto's STATE_<x> form because v1.9.0
 // customer state files store the with-prefix UPPERCASE form (STATE_READY,
 // STATE_CREATING, etc.). The default trim-prefix mapper would emit

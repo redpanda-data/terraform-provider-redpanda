@@ -29,6 +29,8 @@ enum_carveouts:
     reason: lowercase friendly forms (dedicated/byoc)
   - enum: Cluster_ConnectionType
     reason: lowercase trimmed (public/private/vpc_peering); v1.9.0 state convention, default uppercase forces replace on upgrade
+  - enum: AuthMode
+    reason: lowercase trimmed (sasl/mtls); keeps casing consistent with the sibling type/connection_type values in connections elements
   - enum: Cluster_State
     reason: with-prefix (STATE_READY/STATE_CREATING/etc.); v1.9.0 state convention, default trim-prefix forces churn on upgrade
   - enum: Network_State

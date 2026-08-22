@@ -316,6 +316,15 @@ func applyFieldConfigs(attrs *[]SchemaAttr, fields map[string]FieldConfig, proto
 			continue
 		}
 
+		nestedCtx := childProtoMessage(protoCtx, name)
+		if fc.EchoUnwrap {
+			merged, ok := unwrapEchoAttr(attr, nestedCtx, path, mc)
+			if !ok {
+				continue
+			}
+			nestedCtx = merged
+		}
+
 		applyFieldConfig(attr, path, fc, mc)
 
 		if mc.deriveValidators && !fc.SkipProtoValidation {
@@ -328,7 +337,7 @@ func applyFieldConfigs(attrs *[]SchemaAttr, fields map[string]FieldConfig, proto
 
 		if len(fc.Fields) > 0 {
 			mc.ancestors = append(mc.ancestors, frameForAttr(attr))
-			applyFieldConfigs(&attr.NestedAttrs, fc.Fields, childProtoMessage(protoCtx, name), path, mc)
+			applyFieldConfigs(&attr.NestedAttrs, fc.Fields, nestedCtx, path, mc)
 			mc.ancestors = mc.ancestors[:len(mc.ancestors)-1]
 		}
 
@@ -708,6 +717,22 @@ func findUncovered(msg *ProtoMessage, fields map[string]FieldConfig, prefix stri
 			if hasConfig {
 				childFields = fc.Fields
 			}
+			// echo_unwrap hoists the echo message's children to the element
+			// level, so coverage walks the merged (hoisted + sibling) shape
+			// the yaml actually addresses.
+			if hasConfig && fc.EchoUnwrap {
+				if echo := findEchoField(f.Nested); echo != nil {
+					merged := &ProtoMessage{Name: f.Nested.Name, GoName: f.Nested.GoName, FullName: f.Nested.FullName}
+					merged.Fields = append(merged.Fields, echo.Nested.Fields...)
+					for j := range f.Nested.Fields {
+						if f.Nested.Fields[j].Name != echo.Name {
+							merged.Fields = append(merged.Fields, f.Nested.Fields[j])
+						}
+					}
+					findUncovered(merged, childFields, path, uncovered)
+					continue
+				}
+			}
 			findUncovered(f.Nested, childFields, path, uncovered)
 		}
 	}
@@ -905,4 +930,85 @@ func childProtoMessage(parent *ProtoMessage, name string) *ProtoMessage {
 		return nil
 	}
 	return f.Nested
+}
+
+// findEchoField locates the single singular message field of an element
+// message — the "spec echo" that echo_unwrap hoists. Returns nil when the
+// element has zero or more than one candidate (the pattern doesn't hold).
+func findEchoField(elem *ProtoMessage) *ProtoField {
+	var echo *ProtoField
+	for i := range elem.Fields {
+		f := &elem.Fields[i]
+		if f.Kind == KindMessage && f.Cardinality != "repeated" && f.Cardinality != KindMap && f.Nested != nil {
+			if echo != nil {
+				return nil
+			}
+			echo = f
+		}
+	}
+	return echo
+}
+
+// unwrapEchoAttr rewrites an echo-pattern repeated attribute in place: the
+// echo message's already-walked children are hoisted to the element level
+// (user-settable), the remaining children become computed-only server
+// siblings, and the attribute records the echo accessor for conversion
+// planning. Returns a merged element message (hoisted fields + siblings) for
+// the nested yaml recursion, so field lookups and derived validators keep
+// working against the hoisted shape.
+func unwrapEchoAttr(attr *SchemaAttr, elem *ProtoMessage, path string, mc *mergeCtx) (*ProtoMessage, bool) {
+	if attr.AttrType != AttrTypeListNested || elem == nil {
+		mc.errorf("yaml %s: echo_unwrap requires a repeated message field", path)
+		return nil, false
+	}
+	echo := findEchoField(elem)
+	if echo == nil {
+		mc.errorf("yaml %s: echo_unwrap — element %s must contain exactly one singular message field (the write-element echo)", path, protoMessageName(elem))
+		return nil, false
+	}
+
+	var hoisted, siblings []SchemaAttr
+	for i := range attr.NestedAttrs {
+		child := attr.NestedAttrs[i]
+		if child.Name == echo.Name {
+			for j := range child.NestedAttrs {
+				h := child.NestedAttrs[j]
+				h.EchoHoisted = true
+				hoisted = append(hoisted, h)
+			}
+			continue
+		}
+		forceComputedOnly(&child)
+		siblings = append(siblings, child)
+	}
+	if hoisted == nil {
+		mc.errorf("yaml %s: echo_unwrap — echo field %q has no walked children", path, echo.Name)
+		return nil, false
+	}
+	hoisted = append(hoisted, siblings...)
+	attr.NestedAttrs = hoisted
+	attr.EchoUnwrapGoName = toProtoGoName(echo.Name)
+
+	merged := &ProtoMessage{
+		Name:     elem.Name,
+		GoName:   elem.GoName,
+		FullName: elem.FullName + "+echo_unwrap",
+	}
+	merged.Fields = append([]ProtoField{}, echo.Nested.Fields...)
+	for i := range elem.Fields {
+		if elem.Fields[i].Name != echo.Name {
+			merged.Fields = append(merged.Fields, elem.Fields[i])
+		}
+	}
+	return merged, true
+}
+
+// forceComputedOnly marks an attribute subtree server-owned.
+func forceComputedOnly(a *SchemaAttr) {
+	a.Computed = true
+	a.Optional = false
+	a.Required = false
+	for i := range a.NestedAttrs {
+		forceComputedOnly(&a.NestedAttrs[i])
+	}
 }

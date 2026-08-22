@@ -130,6 +130,23 @@ tasks:
           ./redpanda/resources/user/...
       - echo "AWS cluster tests completed successfully"
 
+  cluster:aws:duallisteners:
+    desc: "Run the AWS dual-listener-mode cluster acceptance test (requires enable-public-private-listeners on the test org)"
+    deps:
+      - :tools:install:terraform
+    cmds:
+      - echo "Running AWS dual-listener cluster live-acc test..."
+      - |
+        DEBUG=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,cluster_aws_dual -v -timeout={{.TIMEOUT}} \
+          -run TestAcc_Cluster_AWS_DualListeners \
+          ./redpanda/tests/
+      - echo "AWS dual-listener cluster test completed successfully"
+
   cluster:gcp:
     desc: "Run GCP cluster acceptance tests"
     deps:
