@@ -50,13 +50,6 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Validators:    validators.CloudProviders(),
 			},
 
-			"connection_type": schema.StringAttribute{
-				Description:   "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, **Private** is best-practice.",
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Validators:    []validator.String{stringvalidator.OneOf("", "public", "private"), validators.RequirePrivateConnectionValidator{}},
-			},
-
 			"name": schema.StringAttribute{
 				Description: "Unique name of the cluster. Length must be between 3 and 128. Must match pattern `^[A-Za-z0-9-:_]+$`.",
 				Required:    true,
@@ -809,8 +802,17 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Description:   "Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated.",
 				Optional:      true,
 				Computed:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace(), stringplanmodifier.UseStateForUnknown()},
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
 				Validators:    validators.ClusterTypes(),
+			},
+
+			"connection_type": schema.StringAttribute{
+				Description:        "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, **Private** is best-practice.",
+				Optional:           true,
+				Computed:           true,
+				DeprecationMessage: "Use the connections field on kafka_api, http_proxy, and schema_registry instead.",
+				PlanModifiers:      []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
+				Validators:         []validator.String{stringvalidator.OneOf("public", "private"), validators.RequirePrivateConnectionValidator{}},
 			},
 
 			"gcp_private_service_connect": schema.SingleNestedAttribute{
@@ -926,6 +928,44 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Computed:      true,
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
+					"connections": schema.ListNestedAttribute{
+						Description:   "List of connections. Must have at most 4 items.",
+						Optional:      true,
+						Computed:      true,
+						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+						Validators:    append([]validator.List{listvalidator.SizeAtLeast(1)}, listvalidator.SizeAtMost(4)),
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"auth": schema.SingleNestedAttribute{
+									Description:   "Auth configuration",
+									Optional:      true,
+									Computed:      true,
+									PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+									Attributes: map[string]schema.Attribute{
+										"mode": schema.StringAttribute{
+											Description:   "Mode",
+											Optional:      true,
+											Computed:      true,
+											PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+											Validators:    []validator.String{stringvalidator.OneOf("sasl", "mtls")},
+										},
+									},
+								},
+								"type": schema.StringAttribute{
+									Description:   "Type",
+									Optional:      true,
+									Computed:      true,
+									PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+									Validators:    []validator.String{stringvalidator.OneOf("public", "private")},
+								},
+								"endpoint": schema.StringAttribute{
+									Description:   "Endpoint",
+									Computed:      true,
+									PlanModifiers: []planmodifier.String{connectionEndpointFromState()},
+								},
+							},
+						},
+					},
 					"mtls": schema.SingleNestedAttribute{
 						Description:   "mTLS configuration.",
 						Optional:      true,
@@ -1005,6 +1045,44 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Computed:      true,
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
+					"connections": schema.ListNestedAttribute{
+						Description:   "List of connections. Must have at most 4 items.",
+						Optional:      true,
+						Computed:      true,
+						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+						Validators:    append([]validator.List{listvalidator.SizeAtLeast(1)}, listvalidator.SizeAtMost(4)),
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"auth": schema.SingleNestedAttribute{
+									Description:   "Auth configuration",
+									Optional:      true,
+									Computed:      true,
+									PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+									Attributes: map[string]schema.Attribute{
+										"mode": schema.StringAttribute{
+											Description:   "Mode",
+											Optional:      true,
+											Computed:      true,
+											PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+											Validators:    []validator.String{stringvalidator.OneOf("sasl", "mtls")},
+										},
+									},
+								},
+								"type": schema.StringAttribute{
+									Description:   "Type",
+									Optional:      true,
+									Computed:      true,
+									PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+									Validators:    []validator.String{stringvalidator.OneOf("public", "private")},
+								},
+								"endpoint": schema.StringAttribute{
+									Description:   "Endpoint",
+									Computed:      true,
+									PlanModifiers: []planmodifier.String{connectionEndpointFromState()},
+								},
+							},
+						},
+					},
 					"mtls": schema.SingleNestedAttribute{
 						Description:   "mTLS configuration.",
 						Optional:      true,
@@ -1241,6 +1319,44 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Optional:    true,
 								Computed:    true,
 								Default:     booldefault.StaticBool(false),
+							},
+						},
+					},
+					"connections": schema.ListNestedAttribute{
+						Description:   "List of connections. Must have at most 4 items.",
+						Optional:      true,
+						Computed:      true,
+						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+						Validators:    append([]validator.List{listvalidator.SizeAtLeast(1)}, listvalidator.SizeAtMost(4)),
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"auth": schema.SingleNestedAttribute{
+									Description:   "Auth configuration",
+									Optional:      true,
+									Computed:      true,
+									PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+									Attributes: map[string]schema.Attribute{
+										"mode": schema.StringAttribute{
+											Description:   "Mode",
+											Optional:      true,
+											Computed:      true,
+											PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+											Validators:    []validator.String{stringvalidator.OneOf("sasl", "mtls")},
+										},
+									},
+								},
+								"type": schema.StringAttribute{
+									Description:   "Type",
+									Optional:      true,
+									Computed:      true,
+									PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+									Validators:    []validator.String{stringvalidator.OneOf("public", "private")},
+								},
+								"endpoint": schema.StringAttribute{
+									Description:   "Endpoint",
+									Computed:      true,
+									PlanModifiers: []planmodifier.String{connectionEndpointFromState()},
+								},
 							},
 						},
 					},

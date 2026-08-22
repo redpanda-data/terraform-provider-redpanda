@@ -17,7 +17,6 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 ### Required
 
 - `cloud_provider` (String) Cloud provider where resources are created.
-- `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, **Private** is best-practice.
 - `name` (String) Unique name of the cluster. Length must be between 3 and 128. Must match pattern `^[A-Za-z0-9-:_]+$`.
 - `network_id` (String) Network ID where cluster is placed. Must match pattern `^[a-v0-9]{20}`.
 - `region` (String) Region represents the name of the region where the cluster will be provisioned.
@@ -34,6 +33,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `cloud_storage` (Attributes) Cloud Storage configuration (see [below for nested schema](#nestedatt--cloud_storage))
 - `cluster_configuration` (Attributes) Cluster Configuration configuration (see [below for nested schema](#nestedatt--cluster_configuration))
 - `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated.
+- `connection_type` (String, Deprecated) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, **Private** is best-practice.
 - `customer_managed_resources` (Attributes) The cloud resources created by user. (see [below for nested schema](#nestedatt--customer_managed_resources))
 - `gcp_enable_global_access_api_gateway` (Boolean) gcp_enable_global_access_api_gateway controls if global access is enabled on the internal load balancer serving the Console/API Gateway endpoint. Applicable only for GCP. Default is false.
 - `gcp_private_service_connect` (Attributes) GCP Private Service Connect configuration (see [below for nested schema](#nestedatt--gcp_private_service_connect))
@@ -566,6 +566,7 @@ Read-Only:
 
 Optional:
 
+- `connections` (Attributes List) List of connections. Must have at most 4 items. (see [below for nested schema](#nestedatt--http_proxy--connections))
 - `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--http_proxy--mtls))
 - `sasl` (Attributes) SASL configuration (see [below for nested schema](#nestedatt--http_proxy--sasl))
 
@@ -573,6 +574,27 @@ Read-Only:
 
 - `all_urls` (Attributes) The endpoints of Redpanda HTTP Proxy or Schema Registry. (see [below for nested schema](#nestedatt--http_proxy--all_urls))
 - `url` (String) HTTP Proxy URL of cluster. Deprecated: use connections[].endpoint instead.
+
+<a id="nestedatt--http_proxy--connections"></a>
+### Nested Schema for `http_proxy.connections`
+
+Optional:
+
+- `auth` (Attributes) Auth configuration (see [below for nested schema](#nestedatt--http_proxy--connections--auth))
+- `type` (String) Type
+
+Read-Only:
+
+- `endpoint` (String) Endpoint
+
+<a id="nestedatt--http_proxy--connections--auth"></a>
+### Nested Schema for `http_proxy.connections.auth`
+
+Optional:
+
+- `mode` (String) Mode
+
+
 
 <a id="nestedatt--http_proxy--mtls"></a>
 ### Nested Schema for `http_proxy.mtls`
@@ -609,6 +631,7 @@ Read-Only:
 
 Optional:
 
+- `connections` (Attributes List) List of connections. Must have at most 4 items. (see [below for nested schema](#nestedatt--kafka_api--connections))
 - `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--kafka_api--mtls))
 - `sasl` (Attributes) SASL configuration (see [below for nested schema](#nestedatt--kafka_api--sasl))
 
@@ -616,6 +639,27 @@ Read-Only:
 
 - `all_seed_brokers` (Attributes) Seed brokers of Redpanda Kafka API. (see [below for nested schema](#nestedatt--kafka_api--all_seed_brokers))
 - `seed_brokers` (List of String) Kafka API Seed Brokers (also known as Bootstrap servers). Deprecated: use connections[].endpoint instead.
+
+<a id="nestedatt--kafka_api--connections"></a>
+### Nested Schema for `kafka_api.connections`
+
+Optional:
+
+- `auth` (Attributes) Auth configuration (see [below for nested schema](#nestedatt--kafka_api--connections--auth))
+- `type` (String) Type
+
+Read-Only:
+
+- `endpoint` (String) Endpoint
+
+<a id="nestedatt--kafka_api--connections--auth"></a>
+### Nested Schema for `kafka_api.connections.auth`
+
+Optional:
+
+- `mode` (String) Mode
+
+
 
 <a id="nestedatt--kafka_api--mtls"></a>
 ### Nested Schema for `kafka_api.mtls`
@@ -722,12 +766,34 @@ Read-Only:
 
 Optional:
 
+- `connections` (Attributes List) List of connections. Must have at most 4 items. (see [below for nested schema](#nestedatt--schema_registry--connections))
 - `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--schema_registry--mtls))
 
 Read-Only:
 
 - `all_urls` (Attributes) The endpoints of Redpanda HTTP Proxy or Schema Registry. (see [below for nested schema](#nestedatt--schema_registry--all_urls))
 - `url` (String) Schema Registry URL. Deprecated: use connections[].endpoint instead.
+
+<a id="nestedatt--schema_registry--connections"></a>
+### Nested Schema for `schema_registry.connections`
+
+Optional:
+
+- `auth` (Attributes) Auth configuration (see [below for nested schema](#nestedatt--schema_registry--connections--auth))
+- `type` (String) Type
+
+Read-Only:
+
+- `endpoint` (String) Endpoint
+
+<a id="nestedatt--schema_registry--connections--auth"></a>
+### Nested Schema for `schema_registry.connections.auth`
+
+Optional:
+
+- `mode` (String) Mode
+
+
 
 <a id="nestedatt--schema_registry--mtls"></a>
 ### Nested Schema for `schema_registry.mtls`
@@ -821,6 +887,40 @@ resource "redpanda_cluster" "example" {
   connection_type   = "public"
   throughput_tier   = "tier-1-aws-v2-arm"
   zones             = ["us-west-2a", "us-west-2b", "us-west-2c"]
+}
+
+# Dual listener mode (preview, feature-gated). connections must be set on all
+# three services with the same public/private topology; auth may differ per
+# service. endpoint is server-assigned. Omit connection_type when using
+# connections.
+resource "redpanda_cluster" "dual_listeners" {
+  name              = "example-dual-listener-cluster"
+  resource_group_id = redpanda_resource_group.example.id
+  network_id        = redpanda_network.example.id
+  cloud_provider    = "aws"
+  region            = "us-west-2"
+  cluster_type      = "dedicated"
+  throughput_tier   = "tier-1-aws-v2-arm"
+  zones             = ["us-west-2a", "us-west-2b", "us-west-2c"]
+
+  kafka_api = {
+    connections = [
+      { type = "public", auth = { mode = "sasl" } },
+      { type = "private", auth = { mode = "sasl" } },
+    ]
+  }
+  http_proxy = {
+    connections = [
+      { type = "public", auth = { mode = "sasl" } },
+      { type = "private", auth = { mode = "sasl" } },
+    ]
+  }
+  schema_registry = {
+    connections = [
+      { type = "public", auth = { mode = "sasl" } },
+      { type = "private", auth = { mode = "sasl" } },
+    ]
+  }
 }
 ```
 
@@ -1012,7 +1112,7 @@ resource "redpanda_cluster" "test" {
   #     ]
   #   }
   timeouts = {
-    create = "90m"
+    create = "150m"
   }
 }
 
@@ -1555,11 +1655,20 @@ resource "redpanda_cluster" "test" {
   cloud_provider    = redpanda_network.test.cloud_provider
   region            = redpanda_network.test.region
   cluster_type      = redpanda_network.test.cluster_type
-  connection_type   = "public"
-  throughput_tier   = var.throughput_tier
-  zones             = var.zones
-  allow_deletion    = var.cluster_allow_deletion
-  tags              = var.cluster_tags
+  connection_type   = var.dual_listener_connections == null ? "public" : null
+  kafka_api = var.dual_listener_connections == null ? null : {
+    connections = var.dual_listener_connections
+  }
+  http_proxy = var.dual_listener_connections == null ? null : {
+    connections = var.dual_listener_connections
+  }
+  schema_registry = var.dual_listener_connections == null ? null : {
+    connections = var.dual_listener_connections
+  }
+  throughput_tier = var.throughput_tier
+  zones           = var.zones
+  allow_deletion  = var.cluster_allow_deletion
+  tags            = var.cluster_tags
   # aws_private_link = {
   #   enabled         = true
   #   connect_console = true
@@ -1567,7 +1676,7 @@ resource "redpanda_cluster" "test" {
   # }
 
   timeouts = {
-    create = "90m"
+    create = var.cluster_create_timeout
   }
 }
 

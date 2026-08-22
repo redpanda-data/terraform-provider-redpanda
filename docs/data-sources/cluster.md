@@ -520,6 +520,7 @@ Read-Only:
 Read-Only:
 
 - `all_urls` (Attributes) The endpoints of Redpanda HTTP Proxy or Schema Registry. (see [below for nested schema](#nestedatt--http_proxy--all_urls))
+- `connections` (Attributes List) List of connections (see [below for nested schema](#nestedatt--http_proxy--connections))
 - `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--http_proxy--mtls))
 - `sasl` (Attributes) SASL configuration (see [below for nested schema](#nestedatt--http_proxy--sasl))
 - `url` (String) HTTP Proxy URL of cluster. Deprecated: use connections[].endpoint instead.
@@ -533,6 +534,24 @@ Read-Only:
 - `private_link_mtls` (String) URL of the endpoint for private link with mTLS. If private link with mTLS is not enabled, the field is empty.
 - `private_link_sasl` (String) URL of the endpoint for private link with SASL. If private link with SASL is not enabled, the field is empty.
 - `sasl` (String) URL of the seed broker for SASL. If SASL is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.
+
+
+<a id="nestedatt--http_proxy--connections"></a>
+### Nested Schema for `http_proxy.connections`
+
+Read-Only:
+
+- `auth` (Attributes) Auth configuration (see [below for nested schema](#nestedatt--http_proxy--connections--auth))
+- `endpoint` (String) Endpoint
+- `type` (String) Type
+
+<a id="nestedatt--http_proxy--connections--auth"></a>
+### Nested Schema for `http_proxy.connections.auth`
+
+Read-Only:
+
+- `mode` (String) Mode
+
 
 
 <a id="nestedatt--http_proxy--mtls"></a>
@@ -560,6 +579,7 @@ Read-Only:
 Read-Only:
 
 - `all_seed_brokers` (Attributes) Seed brokers of Redpanda Kafka API. (see [below for nested schema](#nestedatt--kafka_api--all_seed_brokers))
+- `connections` (Attributes List) List of connections (see [below for nested schema](#nestedatt--kafka_api--connections))
 - `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--kafka_api--mtls))
 - `sasl` (Attributes) SASL configuration (see [below for nested schema](#nestedatt--kafka_api--sasl))
 - `seed_brokers` (List of String) Kafka API Seed Brokers (also known as Bootstrap servers). Deprecated: use connections[].endpoint instead.
@@ -573,6 +593,24 @@ Read-Only:
 - `private_link_mtls` (String) URL of the seed broker for private link with mTLS. If private link with mTLS is not enabled, the field is empty.
 - `private_link_sasl` (String) URL of the seed broker for private link with SASL. If private link with SASL is not enabled, the field is empty.
 - `sasl` (String) URL of the seed broker for SASL. If SASL is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.
+
+
+<a id="nestedatt--kafka_api--connections"></a>
+### Nested Schema for `kafka_api.connections`
+
+Read-Only:
+
+- `auth` (Attributes) Auth configuration (see [below for nested schema](#nestedatt--kafka_api--connections--auth))
+- `endpoint` (String) Endpoint
+- `type` (String) Type
+
+<a id="nestedatt--kafka_api--connections--auth"></a>
+### Nested Schema for `kafka_api.connections.auth`
+
+Read-Only:
+
+- `mode` (String) Mode
+
 
 
 <a id="nestedatt--kafka_api--mtls"></a>
@@ -674,6 +712,7 @@ Read-Only:
 Read-Only:
 
 - `all_urls` (Attributes) The endpoints of Redpanda HTTP Proxy or Schema Registry. (see [below for nested schema](#nestedatt--schema_registry--all_urls))
+- `connections` (Attributes List) List of connections (see [below for nested schema](#nestedatt--schema_registry--connections))
 - `mtls` (Attributes) mTLS configuration. (see [below for nested schema](#nestedatt--schema_registry--mtls))
 - `url` (String) Schema Registry URL. Deprecated: use connections[].endpoint instead.
 
@@ -686,6 +725,24 @@ Read-Only:
 - `private_link_mtls` (String) URL of the endpoint for private link with mTLS. If private link with mTLS is not enabled, the field is empty.
 - `private_link_sasl` (String) URL of the endpoint for private link with SASL. If private link with SASL is not enabled, the field is empty.
 - `sasl` (String) URL of the seed broker for SASL. If SASL is not enabled, the field is empty. Deprecated: use connections[].endpoint instead.
+
+
+<a id="nestedatt--schema_registry--connections"></a>
+### Nested Schema for `schema_registry.connections`
+
+Read-Only:
+
+- `auth` (Attributes) Auth configuration (see [below for nested schema](#nestedatt--schema_registry--connections--auth))
+- `endpoint` (String) Endpoint
+- `type` (String) Type
+
+<a id="nestedatt--schema_registry--connections--auth"></a>
+### Nested Schema for `schema_registry.connections.auth`
+
+Read-Only:
+
+- `mode` (String) Mode
+
 
 
 <a id="nestedatt--schema_registry--mtls"></a>

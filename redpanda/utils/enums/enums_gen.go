@@ -82,20 +82,6 @@ func StringToCommonACLResource(s string) commonv1.ACLResource {
 	return commonv1.ACLResource_ACL_RESOURCE_UNSPECIFIED
 }
 
-// AuthModeToString maps a proto enum value to its TF string form.
-func AuthModeToString(e controlplanev1.AuthMode) string {
-	return strings.TrimPrefix(e.String(), "AUTH_MODE_")
-}
-
-// StringToAuthMode maps a TF string back to the proto enum.
-// Returns the UNSPECIFIED value for unknown inputs.
-func StringToAuthMode(s string) controlplanev1.AuthMode {
-	if v, ok := controlplanev1.AuthMode_value["AUTH_MODE_"+s]; ok {
-		return controlplanev1.AuthMode(v)
-	}
-	return controlplanev1.AuthMode_AUTH_MODE_UNSPECIFIED
-}
-
 // CloudProviderAccessStateToString maps a proto enum value to its TF string form.
 func CloudProviderAccessStateToString(e controlplanev1.CloudProviderAccess_State) string {
 	return strings.TrimPrefix(e.String(), "STATE_")

@@ -476,10 +476,11 @@ type DataGCPPrivateServiceConnectStatusConnectedEndpointsModel struct {
 // converters on the parent struct to move between types.Object and this
 // typed form.
 type DataHTTPProxyModel struct {
-	AllUrls types.Object `tfsdk:"all_urls"`
-	Mtls    types.Object `tfsdk:"mtls"`
-	Sasl    types.Object `tfsdk:"sasl"`
-	URL     types.String `tfsdk:"url"`
+	AllUrls     types.Object `tfsdk:"all_urls"`
+	Connections types.List   `tfsdk:"connections"`
+	Mtls        types.Object `tfsdk:"mtls"`
+	Sasl        types.Object `tfsdk:"sasl"`
+	URL         types.String `tfsdk:"url"`
 }
 
 // DataHTTPProxyAllUrlsModel mirrors the nested "http_proxy.all_urls" attribute. Use the As/To
@@ -490,6 +491,22 @@ type DataHTTPProxyAllUrlsModel struct {
 	PrivateLinkMtls types.String `tfsdk:"private_link_mtls"`
 	PrivateLinkSasl types.String `tfsdk:"private_link_sasl"`
 	Sasl            types.String `tfsdk:"sasl"`
+}
+
+// DataHTTPProxyConnectionsModel mirrors the nested "http_proxy.connections" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataHTTPProxyConnectionsModel struct {
+	Auth     types.Object `tfsdk:"auth"`
+	Endpoint types.String `tfsdk:"endpoint"`
+	Type     types.String `tfsdk:"type"`
+}
+
+// DataHTTPProxyConnectionsAuthModel mirrors the nested "http_proxy.connections.auth" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataHTTPProxyConnectionsAuthModel struct {
+	Mode types.String `tfsdk:"mode"`
 }
 
 // DataHTTPProxyMtlsModel mirrors the nested "http_proxy.mtls" attribute. Use the As/To
@@ -513,6 +530,7 @@ type DataHTTPProxySaslModel struct {
 // typed form.
 type DataKafkaAPIModel struct {
 	AllSeedBrokers types.Object `tfsdk:"all_seed_brokers"`
+	Connections    types.List   `tfsdk:"connections"`
 	Mtls           types.Object `tfsdk:"mtls"`
 	Sasl           types.Object `tfsdk:"sasl"`
 	SeedBrokers    types.List   `tfsdk:"seed_brokers"`
@@ -526,6 +544,22 @@ type DataKafkaAPIAllSeedBrokersModel struct {
 	PrivateLinkMtls types.String `tfsdk:"private_link_mtls"`
 	PrivateLinkSasl types.String `tfsdk:"private_link_sasl"`
 	Sasl            types.String `tfsdk:"sasl"`
+}
+
+// DataKafkaAPIConnectionsModel mirrors the nested "kafka_api.connections" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataKafkaAPIConnectionsModel struct {
+	Auth     types.Object `tfsdk:"auth"`
+	Endpoint types.String `tfsdk:"endpoint"`
+	Type     types.String `tfsdk:"type"`
+}
+
+// DataKafkaAPIConnectionsAuthModel mirrors the nested "kafka_api.connections.auth" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataKafkaAPIConnectionsAuthModel struct {
+	Mode types.String `tfsdk:"mode"`
 }
 
 // DataKafkaAPIMtlsModel mirrors the nested "kafka_api.mtls" attribute. Use the As/To
@@ -614,9 +648,10 @@ type DataRpsqlModel struct {
 // converters on the parent struct to move between types.Object and this
 // typed form.
 type DataSchemaRegistryModel struct {
-	AllUrls types.Object `tfsdk:"all_urls"`
-	Mtls    types.Object `tfsdk:"mtls"`
-	URL     types.String `tfsdk:"url"`
+	AllUrls     types.Object `tfsdk:"all_urls"`
+	Connections types.List   `tfsdk:"connections"`
+	Mtls        types.Object `tfsdk:"mtls"`
+	URL         types.String `tfsdk:"url"`
 }
 
 // DataSchemaRegistryAllUrlsModel mirrors the nested "schema_registry.all_urls" attribute. Use the As/To
@@ -627,6 +662,22 @@ type DataSchemaRegistryAllUrlsModel struct {
 	PrivateLinkMtls types.String `tfsdk:"private_link_mtls"`
 	PrivateLinkSasl types.String `tfsdk:"private_link_sasl"`
 	Sasl            types.String `tfsdk:"sasl"`
+}
+
+// DataSchemaRegistryConnectionsModel mirrors the nested "schema_registry.connections" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataSchemaRegistryConnectionsModel struct {
+	Auth     types.Object `tfsdk:"auth"`
+	Endpoint types.String `tfsdk:"endpoint"`
+	Type     types.String `tfsdk:"type"`
+}
+
+// DataSchemaRegistryConnectionsAuthModel mirrors the nested "schema_registry.connections.auth" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataSchemaRegistryConnectionsAuthModel struct {
+	Mode types.String `tfsdk:"mode"`
 }
 
 // DataSchemaRegistryMtlsModel mirrors the nested "schema_registry.mtls" attribute. Use the As/To
@@ -1102,10 +1153,11 @@ func DataGCPPrivateServiceConnectStatusConnectedEndpointsAttrTypes() map[string]
 // attribute.
 func DataHTTPProxyAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"all_urls": types.ObjectType{AttrTypes: DataHTTPProxyAllUrlsAttrTypes()},
-		"mtls":     types.ObjectType{AttrTypes: DataHTTPProxyMtlsAttrTypes()},
-		"sasl":     types.ObjectType{AttrTypes: DataHTTPProxySaslAttrTypes()},
-		"url":      types.StringType,
+		"all_urls":    types.ObjectType{AttrTypes: DataHTTPProxyAllUrlsAttrTypes()},
+		"connections": types.ListType{ElemType: types.ObjectType{AttrTypes: DataHTTPProxyConnectionsAttrTypes()}},
+		"mtls":        types.ObjectType{AttrTypes: DataHTTPProxyMtlsAttrTypes()},
+		"sasl":        types.ObjectType{AttrTypes: DataHTTPProxySaslAttrTypes()},
+		"url":         types.StringType,
 	}
 }
 
@@ -1117,6 +1169,24 @@ func DataHTTPProxyAllUrlsAttrTypes() map[string]attr.Type {
 		"private_link_mtls": types.StringType,
 		"private_link_sasl": types.StringType,
 		"sasl":              types.StringType,
+	}
+}
+
+// DataHTTPProxyConnectionsAttrTypes returns the attr.Type map for the "http_proxy.connections" nested
+// attribute.
+func DataHTTPProxyConnectionsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"auth":     types.ObjectType{AttrTypes: DataHTTPProxyConnectionsAuthAttrTypes()},
+		"endpoint": types.StringType,
+		"type":     types.StringType,
+	}
+}
+
+// DataHTTPProxyConnectionsAuthAttrTypes returns the attr.Type map for the "http_proxy.connections.auth" nested
+// attribute.
+func DataHTTPProxyConnectionsAuthAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"mode": types.StringType,
 	}
 }
 
@@ -1143,6 +1213,7 @@ func DataHTTPProxySaslAttrTypes() map[string]attr.Type {
 func DataKafkaAPIAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"all_seed_brokers": types.ObjectType{AttrTypes: DataKafkaAPIAllSeedBrokersAttrTypes()},
+		"connections":      types.ListType{ElemType: types.ObjectType{AttrTypes: DataKafkaAPIConnectionsAttrTypes()}},
 		"mtls":             types.ObjectType{AttrTypes: DataKafkaAPIMtlsAttrTypes()},
 		"sasl":             types.ObjectType{AttrTypes: DataKafkaAPISaslAttrTypes()},
 		"seed_brokers":     types.ListType{ElemType: types.StringType},
@@ -1157,6 +1228,24 @@ func DataKafkaAPIAllSeedBrokersAttrTypes() map[string]attr.Type {
 		"private_link_mtls": types.StringType,
 		"private_link_sasl": types.StringType,
 		"sasl":              types.StringType,
+	}
+}
+
+// DataKafkaAPIConnectionsAttrTypes returns the attr.Type map for the "kafka_api.connections" nested
+// attribute.
+func DataKafkaAPIConnectionsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"auth":     types.ObjectType{AttrTypes: DataKafkaAPIConnectionsAuthAttrTypes()},
+		"endpoint": types.StringType,
+		"type":     types.StringType,
+	}
+}
+
+// DataKafkaAPIConnectionsAuthAttrTypes returns the attr.Type map for the "kafka_api.connections.auth" nested
+// attribute.
+func DataKafkaAPIConnectionsAuthAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"mode": types.StringType,
 	}
 }
 
@@ -1256,9 +1345,10 @@ func DataRpsqlAttrTypes() map[string]attr.Type {
 // attribute.
 func DataSchemaRegistryAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"all_urls": types.ObjectType{AttrTypes: DataSchemaRegistryAllUrlsAttrTypes()},
-		"mtls":     types.ObjectType{AttrTypes: DataSchemaRegistryMtlsAttrTypes()},
-		"url":      types.StringType,
+		"all_urls":    types.ObjectType{AttrTypes: DataSchemaRegistryAllUrlsAttrTypes()},
+		"connections": types.ListType{ElemType: types.ObjectType{AttrTypes: DataSchemaRegistryConnectionsAttrTypes()}},
+		"mtls":        types.ObjectType{AttrTypes: DataSchemaRegistryMtlsAttrTypes()},
+		"url":         types.StringType,
 	}
 }
 
@@ -1270,6 +1360,24 @@ func DataSchemaRegistryAllUrlsAttrTypes() map[string]attr.Type {
 		"private_link_mtls": types.StringType,
 		"private_link_sasl": types.StringType,
 		"sasl":              types.StringType,
+	}
+}
+
+// DataSchemaRegistryConnectionsAttrTypes returns the attr.Type map for the "schema_registry.connections" nested
+// attribute.
+func DataSchemaRegistryConnectionsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"auth":     types.ObjectType{AttrTypes: DataSchemaRegistryConnectionsAuthAttrTypes()},
+		"endpoint": types.StringType,
+		"type":     types.StringType,
+	}
+}
+
+// DataSchemaRegistryConnectionsAuthAttrTypes returns the attr.Type map for the "schema_registry.connections.auth" nested
+// attribute.
+func DataSchemaRegistryConnectionsAuthAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"mode": types.StringType,
 	}
 }
 
@@ -2384,6 +2492,26 @@ func DataHTTPProxyAllUrlsToObject(ctx context.Context, v *DataHTTPProxyAllUrlsMo
 	return types.ObjectValueFrom(ctx, DataHTTPProxyAllUrlsAttrTypes(), v)
 }
 
+// DecodeDataHTTPProxyConnectionsAuth decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataHTTPProxyConnectionsAuth(ctx context.Context, v *DataHTTPProxyConnectionsModel) (*DataHTTPProxyConnectionsAuthModel, diag.Diagnostics) {
+	if v == nil || v.Auth.IsNull() || v.Auth.IsUnknown() {
+		return nil, nil
+	}
+	var out DataHTTPProxyConnectionsAuthModel
+	d := v.Auth.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataHTTPProxyConnectionsAuthToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataHTTPProxyConnectionsAuthToObject(ctx context.Context, v *DataHTTPProxyConnectionsAuthModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataHTTPProxyConnectionsAuthAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataHTTPProxyConnectionsAuthAttrTypes(), v)
+}
+
 // DecodeDataHTTPProxyMtls decodes the sub-field from its parent typed struct.
 // Returns (nil, nil) when the field is null or unknown.
 func DecodeDataHTTPProxyMtls(ctx context.Context, v *DataHTTPProxyModel) (*DataHTTPProxyMtlsModel, diag.Diagnostics) {
@@ -2442,6 +2570,26 @@ func DataKafkaAPIAllSeedBrokersToObject(ctx context.Context, v *DataKafkaAPIAllS
 		return types.ObjectNull(DataKafkaAPIAllSeedBrokersAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, DataKafkaAPIAllSeedBrokersAttrTypes(), v)
+}
+
+// DecodeDataKafkaAPIConnectionsAuth decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataKafkaAPIConnectionsAuth(ctx context.Context, v *DataKafkaAPIConnectionsModel) (*DataKafkaAPIConnectionsAuthModel, diag.Diagnostics) {
+	if v == nil || v.Auth.IsNull() || v.Auth.IsUnknown() {
+		return nil, nil
+	}
+	var out DataKafkaAPIConnectionsAuthModel
+	d := v.Auth.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataKafkaAPIConnectionsAuthToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataKafkaAPIConnectionsAuthToObject(ctx context.Context, v *DataKafkaAPIConnectionsAuthModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataKafkaAPIConnectionsAuthAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataKafkaAPIConnectionsAuthAttrTypes(), v)
 }
 
 // DecodeDataKafkaAPIMtls decodes the sub-field from its parent typed struct.
@@ -2522,6 +2670,26 @@ func DataSchemaRegistryAllUrlsToObject(ctx context.Context, v *DataSchemaRegistr
 		return types.ObjectNull(DataSchemaRegistryAllUrlsAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, DataSchemaRegistryAllUrlsAttrTypes(), v)
+}
+
+// DecodeDataSchemaRegistryConnectionsAuth decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataSchemaRegistryConnectionsAuth(ctx context.Context, v *DataSchemaRegistryConnectionsModel) (*DataSchemaRegistryConnectionsAuthModel, diag.Diagnostics) {
+	if v == nil || v.Auth.IsNull() || v.Auth.IsUnknown() {
+		return nil, nil
+	}
+	var out DataSchemaRegistryConnectionsAuthModel
+	d := v.Auth.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataSchemaRegistryConnectionsAuthToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataSchemaRegistryConnectionsAuthToObject(ctx context.Context, v *DataSchemaRegistryConnectionsAuthModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataSchemaRegistryConnectionsAuthAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataSchemaRegistryConnectionsAuthAttrTypes(), v)
 }
 
 // DecodeDataSchemaRegistryMtls decodes the sub-field from its parent typed struct.

@@ -84,14 +84,14 @@ func ResourceTopicSchema(_ context.Context) schema.Schema {
 				Description:   "The number of partitions for the topic. Increases are fully supported without data loss. Decreases will destroy and recreate the topic if allow_deletion is set to true (defaults to false). Must be at least -1.",
 				Optional:      true,
 				Computed:      true,
-				PlanModifiers: []planmodifier.Number{numberplanmodifier.RequiresReplaceIf(partitionRequiresReplaceWhenShrinking, "Decreasing partition count requires recreating the topic", "Decreasing partition count requires recreating the topic"), numberplanmodifier.UseStateForUnknown()},
+				PlanModifiers: []planmodifier.Number{numberplanmodifier.UseStateForUnknown(), numberplanmodifier.RequiresReplaceIf(partitionRequiresReplaceWhenShrinking, "Decreasing partition count requires recreating the topic", "Decreasing partition count requires recreating the topic")},
 			},
 
 			"replication_factor": schema.NumberAttribute{
 				Description:   "The number of replicas every partition must have. If specifying partitions manually (see `replica_assignments`), set to -1. Or, to use the cluster default replication factor, set to null. Must be between -1 and 5 (inclusive).",
 				Optional:      true,
 				Computed:      true,
-				PlanModifiers: []planmodifier.Number{numberplanmodifier.RequiresReplace(), numberplanmodifier.UseStateForUnknown()},
+				PlanModifiers: []planmodifier.Number{numberplanmodifier.UseStateForUnknown(), numberplanmodifier.RequiresReplace()},
 			},
 
 			"id": schema.StringAttribute{
