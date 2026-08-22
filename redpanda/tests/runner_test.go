@@ -34,7 +34,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/acc/sweep"
 )
 
-func testRunner(ctx context.Context, name, rename, version, testFile string, customVars map[string]config.Variable, t *testing.T) {
+func testRunner(ctx context.Context, name, rename, version, testFile string, customVars map[string]config.Variable, t *testing.T, opts ...runnerOpt) {
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, acc.ProviderCfgIDSecretVars)
 	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
@@ -118,17 +118,22 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 			resource.TestCheckResourceAttr(acc.ClusterResourceName, "maintenance_window_config.day_hour.hour_of_day", "0"))
 	}
 
-	steps := []resource.TestStep{
-		{
-			ConfigDirectory:          config.StaticDirectory(testFile),
-			ConfigVariables:          origTestCaseVars,
-			Check:                    resource.ComposeAggregateTestCheckFunc(checkFuncs...),
-			ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			ConfigPlanChecks: resource.ConfigPlanChecks{
-				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
-			},
-		},
+	var steps []resource.TestStep
+	if !resolveRunnerOpts(opts).skipUpgradeEntry {
+		// Provider-upgrade entry: the released provider creates the stack,
+		// the local build must re-plan it empty. The first step below then
+		// applies a no-op and runs the create-time checks.
+		steps = acc.UpgradeEntrySteps(t, testFile, origTestCaseVars)
 	}
+	steps = append(steps, resource.TestStep{
+		ConfigDirectory:          config.StaticDirectory(testFile),
+		ConfigVariables:          origTestCaseVars,
+		Check:                    resource.ComposeAggregateTestCheckFunc(checkFuncs...),
+		ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		ConfigPlanChecks: resource.ConfigPlanChecks{
+			PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+		},
+	})
 	// Pre-rename: the user import resolves the cluster by its original name.
 	steps = append(steps, dp.UserImportSteps(origTestCaseVars, idBeforeRename)...)
 	steps = append(steps, []resource.TestStep{

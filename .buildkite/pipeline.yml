@@ -118,6 +118,8 @@ steps:
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLOUD_ENVIRONMENT
+            - REDPANDA_LAST_VERSION
             - TF_LOG=DEBUG
     depends_on:
       - lint
@@ -137,6 +139,8 @@ steps:
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLOUD_ENVIRONMENT
+            - REDPANDA_LAST_VERSION
             - TF_LOG=DEBUG
     depends_on:
       - lint
@@ -144,7 +148,9 @@ steps:
       - integration
   - label: test_network
     key: test_network
-    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-all')
+    # ci-ready-upgrade: cheapest step exercising the provider-upgrade entry
+    # that fronts every acceptance test.
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-upgrade' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw test:network
     plugins:
@@ -156,6 +162,8 @@ steps:
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLOUD_ENVIRONMENT
+            - REDPANDA_LAST_VERSION
             - TF_LOG=DEBUG
     depends_on:
       - lint
@@ -175,6 +183,8 @@ steps:
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLOUD_ENVIRONMENT
+            - REDPANDA_LAST_VERSION
             - TF_LOG=DEBUG
     depends_on:
       - lint
@@ -194,46 +204,7 @@ steps:
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
-            - TF_LOG=DEBUG
-    depends_on:
-      - lint
-      - unit
-      - integration
-  - label: test_upgrade
-    key: test_upgrade
-    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-upgrade' || build.pull_request.labels includes 'ci-ready-all')
-    timeout_in_minutes: 240
-    command: |
-      ./taskw test:upgrade
-    plugins:
-      - seek-oss/aws-sm#v2.3.2:
-          json-to-env:
-            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.12.0:
-          image: "golang:1.25.10"
-          environment:
-            - REDPANDA_CLIENT_ID
-            - REDPANDA_CLIENT_SECRET
-            - REDPANDA_LAST_VERSION
-            - TF_LOG=DEBUG
-    depends_on:
-      - lint
-      - unit
-      - integration
-  - label: test_upgrade_serverless
-    key: test_upgrade_serverless
-    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-upgrade-serverless' || build.pull_request.labels includes 'ci-ready-all')
-    command: |
-      ./taskw test:upgrade:serverless
-    plugins:
-      - seek-oss/aws-sm#v2.3.2:
-          json-to-env:
-            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
-      - docker#v5.12.0:
-          image: "golang:1.25.10"
-          environment:
-            - REDPANDA_CLIENT_ID
-            - REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLOUD_ENVIRONMENT
             - REDPANDA_LAST_VERSION
             - TF_LOG=DEBUG
     depends_on:
@@ -242,7 +213,9 @@ steps:
       - integration
   - label: test_serverless_cluster_aws_public
     key: test_serverless_cluster_aws_public
-    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-serverless' || build.pull_request.labels includes 'ci-ready-all')
+    # ci-ready-upgrade-serverless: serverless upgrade coverage via this
+    # step's provider-upgrade entry.
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-serverless' || build.pull_request.labels includes 'ci-ready-upgrade-serverless' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw test:serverless:aws:public
     plugins:
@@ -254,6 +227,8 @@ steps:
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLOUD_ENVIRONMENT
+            - REDPANDA_LAST_VERSION
             - TF_LOG=DEBUG
     depends_on:
       - lint
@@ -273,6 +248,8 @@ steps:
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLOUD_ENVIRONMENT
+            - REDPANDA_LAST_VERSION
             - TF_LOG=DEBUG
     depends_on:
       - lint
@@ -292,6 +269,8 @@ steps:
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLOUD_ENVIRONMENT
+            - REDPANDA_LAST_VERSION
             - TF_LOG=DEBUG
     depends_on:
       - lint
@@ -311,6 +290,8 @@ steps:
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLOUD_ENVIRONMENT
+            - REDPANDA_LAST_VERSION
             - TF_LOG=DEBUG
     depends_on:
       - lint
@@ -330,6 +311,8 @@ steps:
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLOUD_ENVIRONMENT
+            - REDPANDA_LAST_VERSION
             - TF_LOG=DEBUG
     depends_on:
       - lint
@@ -349,6 +332,8 @@ steps:
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLOUD_ENVIRONMENT
+            - REDPANDA_LAST_VERSION
             - TF_LOG=DEBUG
             - AWS_ACCESS_KEY_ID
             - AWS_SECRET_ACCESS_KEY
@@ -372,6 +357,8 @@ steps:
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLOUD_ENVIRONMENT
+            - REDPANDA_LAST_VERSION
             - TF_LOG=DEBUG
             - AWS_ACCESS_KEY_ID
             - AWS_SECRET_ACCESS_KEY
@@ -394,6 +381,8 @@ steps:
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLOUD_ENVIRONMENT
+            - REDPANDA_LAST_VERSION
             - TF_LOG=DEBUG
             - GOOGLE_CREDENTIALS_BASE64
             - GOOGLE_PROJECT
@@ -416,6 +405,8 @@ steps:
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLOUD_ENVIRONMENT
+            - REDPANDA_LAST_VERSION
             - TF_LOG=DEBUG
             - GOOGLE_CREDENTIALS_BASE64
             - GOOGLE_PROJECT
@@ -499,6 +490,8 @@ steps:
           environment:
             - REDPANDA_CLIENT_ID
             - REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLOUD_ENVIRONMENT
+            - REDPANDA_LAST_VERSION
             - REDPANDA_CLOUD_ENVIRONMENT=pre
             - CI=true
     depends_on:
@@ -515,12 +508,6 @@ steps:
       - test_byovpc_aws
       - test_byoc_gcp
       - test_byovpc_gcp
-      # The sweeper deletes anything named tfrp-* in the shared pre env, and
-      # the upgrade lanes create tfrp-upgrade-* clusters that take ~45m to
-      # provision. Running cleanup while an upgrade job (or its retry) is
-      # mid-create kills the cluster under it (build 1455).
-      - test_upgrade
-      - test_upgrade_serverless
     allow_dependency_failure: true
     soft_fail: true
     retry:

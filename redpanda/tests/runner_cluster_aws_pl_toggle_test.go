@@ -32,7 +32,7 @@ import (
 // testRunnerClusterWithAwsPrivateLinkToggle runs the standard lifecycle then
 // toggles PL from true to false — regression guard for
 // terraform-plugin-framework#1211.
-func testRunnerClusterWithAwsPrivateLinkToggle(ctx context.Context, name, rename, version, testFile string, customVars map[string]config.Variable, t *testing.T) {
+func testRunnerClusterWithAwsPrivateLinkToggle(ctx context.Context, name, rename, version, testFile string, customVars map[string]config.Variable, t *testing.T, opts ...runnerOpt) {
 	origTestCaseVars := make(map[string]config.Variable)
 	maps.Copy(origTestCaseVars, acc.ProviderCfgIDSecretVars)
 	origTestCaseVars["resource_group_name"] = config.StringVariable(name)
@@ -95,82 +95,87 @@ func testRunnerClusterWithAwsPrivateLinkToggle(ctx context.Context, name, rename
 		return sweep.ResourceGroup{ResourceGroupName: name, Client: c}.SweepResourceGroup("")
 	}))
 
+	var steps []resource.TestStep
+	if !resolveRunnerOpts(opts).skipUpgradeEntry {
+		steps = acc.UpgradeEntrySteps(t, testFile, origTestCaseVars)
+	}
+	steps = append(steps, []resource.TestStep{
+		{
+			ConfigDirectory: config.StaticDirectory(testFile),
+			ConfigVariables: origTestCaseVars,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(acc.ResourceGroupName, "name", name),
+				resource.TestCheckResourceAttr(acc.NetworkResourceName, "name", name),
+				resource.TestCheckResourceAttr(acc.ClusterResourceName, "name", name),
+			),
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		},
+		{
+			ResourceName:             acc.ClusterResourceName,
+			ConfigDirectory:          config.StaticDirectory(testFile),
+			ConfigVariables:          origTestCaseVars,
+			ImportState:              true,
+			ImportStateVerify:        true,
+			ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		},
+		{
+			ConfigDirectory: config.StaticDirectory(testFile),
+			ConfigVariables: updateTestCaseVars,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(acc.ResourceGroupName, "name", name),
+				resource.TestCheckResourceAttr(acc.NetworkResourceName, "name", name),
+				resource.TestCheckResourceAttr(acc.ClusterResourceName, "name", rename),
+			),
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		},
+		{
+			ConfigDirectory:          config.StaticDirectory(testFile),
+			ConfigVariables:          toggleTestCaseVars,
+			PlanOnly:                 true,
+			ExpectNonEmptyPlan:       true,
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		},
+		// Create left rpsql off; enabling provisions the SQL node group.
+		{
+			ConfigDirectory: config.StaticDirectory(testFile),
+			ConfigVariables: rpsqlEnabledVars,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(acc.ClusterResourceName, "rpsql.enabled", "true"),
+				// Server-owned: populated only if the config was accepted.
+				resource.TestCheckResourceAttrSet(acc.ClusterResourceName, "rpsql.replicas"),
+				resource.TestCheckResourceAttrSet(acc.ClusterResourceName, "rpsql.url"),
+				resource.TestCheckResourceAttrSet(acc.ClusterResourceName, "rpsql.version"),
+			),
+			ConfigPlanChecks: resource.ConfigPlanChecks{
+				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+			},
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		},
+		// The change must register as a diff, not be silently dropped.
+		{
+			ConfigDirectory:          config.StaticDirectory(testFile),
+			ConfigVariables:          rpsqlCMRChangeVars,
+			PlanOnly:                 true,
+			ExpectNonEmptyPlan:       true,
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		},
+		// Disable again: covers the off path and unblocks teardown.
+		{
+			ConfigDirectory: config.StaticDirectory(testFile),
+			ConfigVariables: rpsqlDisabledVars,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(acc.ClusterResourceName, "rpsql.enabled", "false"),
+			),
+			ConfigPlanChecks: resource.ConfigPlanChecks{
+				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+			},
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		},
+	}...)
+
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { acc.PreCheck(t) },
-		Steps: []resource.TestStep{
-			{
-				ConfigDirectory: config.StaticDirectory(testFile),
-				ConfigVariables: origTestCaseVars,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(acc.ResourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(acc.NetworkResourceName, "name", name),
-					resource.TestCheckResourceAttr(acc.ClusterResourceName, "name", name),
-				),
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			},
-			{
-				ResourceName:             acc.ClusterResourceName,
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          origTestCaseVars,
-				ImportState:              true,
-				ImportStateVerify:        true,
-				ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			},
-			{
-				ConfigDirectory: config.StaticDirectory(testFile),
-				ConfigVariables: updateTestCaseVars,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(acc.ResourceGroupName, "name", name),
-					resource.TestCheckResourceAttr(acc.NetworkResourceName, "name", name),
-					resource.TestCheckResourceAttr(acc.ClusterResourceName, "name", rename),
-				),
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			},
-			{
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          toggleTestCaseVars,
-				PlanOnly:                 true,
-				ExpectNonEmptyPlan:       true,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			},
-			// Create left rpsql off; enabling provisions the SQL node group.
-			{
-				ConfigDirectory: config.StaticDirectory(testFile),
-				ConfigVariables: rpsqlEnabledVars,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(acc.ClusterResourceName, "rpsql.enabled", "true"),
-					// Server-owned: populated only if the config was accepted.
-					resource.TestCheckResourceAttrSet(acc.ClusterResourceName, "rpsql.replicas"),
-					resource.TestCheckResourceAttrSet(acc.ClusterResourceName, "rpsql.url"),
-					resource.TestCheckResourceAttrSet(acc.ClusterResourceName, "rpsql.version"),
-				),
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
-				},
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			},
-			// The change must register as a diff, not be silently dropped.
-			{
-				ConfigDirectory:          config.StaticDirectory(testFile),
-				ConfigVariables:          rpsqlCMRChangeVars,
-				PlanOnly:                 true,
-				ExpectNonEmptyPlan:       true,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			},
-			// Disable again: covers the off path and unblocks teardown.
-			{
-				ConfigDirectory: config.StaticDirectory(testFile),
-				ConfigVariables: rpsqlDisabledVars,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(acc.ClusterResourceName, "rpsql.enabled", "false"),
-				),
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
-				},
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			},
-		},
-	},
-	)
+		Steps:    steps,
+	})
 }

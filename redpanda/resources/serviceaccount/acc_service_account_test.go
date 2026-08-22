@@ -47,9 +47,8 @@ func TestAcc_ServiceAccount(t *testing.T) {
 	clientSecretPath := tfjsonpath.New("auth0_client_credentials").AtMapKey("client_secret")
 	secretPin := statecheck.CompareValue(compare.ValuesSame())
 
-	resource.ParallelTest(t, resource.TestCase{
-		PreCheck: func() { acc.PreCheck(t) },
-		Steps: []resource.TestStep{
+	steps := acc.UpgradeEntrySteps(t, acc.ServiceAccountDir, createVars)
+	steps = append(steps, []resource.TestStep{
 			{
 				ConfigDirectory:          config.StaticDirectory(acc.ServiceAccountDir),
 				ConfigVariables:          createVars,
@@ -100,6 +99,10 @@ func TestAcc_ServiceAccount(t *testing.T) {
 					return rs.Primary.ID + ":" + secret, nil
 				},
 			},
-		},
+	}...)
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { acc.PreCheck(t) },
+		Steps:    steps,
 	})
 }

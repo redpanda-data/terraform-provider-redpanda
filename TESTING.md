@@ -167,7 +167,6 @@ We commit to:
 - `TestIntegration*` — integration tier (no creds, no `TF_ACC`, runs against fake
   server via `resource.UnitTest`).
 - `TestAcc*` — live acceptance against real cloud + real Redpanda Cloud.
-- `TestUpgrade*` — provider-upgrade tests against the previously-released provider.
 
 Snowflake's `pkg/architests/` (Go tests that fail CI if a function has the
 wrong prefix) is overkill at our size. CODEOWNERS + review suffices.
@@ -218,7 +217,6 @@ wrong prefix) is overkill at our size. CODEOWNERS + review suffices.
 | Unit | `TestUnit*` | none | none | Every PR, every push |
 | Integration | `TestIntegration*` | none | none | Every PR |
 | Live acceptance | `TestAcc*` | `live_test && (all \| <group>)` | `TF_ACC=1` + cloud + Redpanda | PR label, by hand |
-| Provider upgrade | `TestUpgrade*` | `upgrade` | `TF_ACC=1` + cloud + Redpanda | PR label, by hand |
 
 `TF_ACC=1` is the line between "doesn't touch a Terraform runtime" and
 "runs `resource.TestCase`." The framework enforces it for us via
@@ -240,7 +238,6 @@ redpanda/
     resource_<resource>_test.go              # unit (TestUnit*) — gomock
     integration_<resource>_test.go                  # integration (TestIntegration*) — fake server
     acc_<resource>_<cloud>_test.go           # live (TestAcc*) — per-cloud variants
-    upgrade_<resource>_test.go               # provider-upgrade (TestUpgrade*)
   tests/
     runner_*_test.go                         # cross-resource matrix runners (cross-cutting only)
   internal/testutil/
@@ -359,7 +356,7 @@ both layers, the manual testing rig is the discovery point.
 - **`ci-ready-byoc` label**: triggers the BYOC + BYOVPC live-acc suite (AWS + GCP).
 - **`ci-ready-serverless` label**: triggers the serverless live-acc suite.
 - Every live-acc job ends with the cleanup postscript (§5.4) regardless of test outcome.
-- Provider-upgrade tests (`TestUpgrade_*`) currently run only via `task test:upgrade` locally; a pipeline step is not yet wired (tracked as a follow-up).
+- Provider-upgrade coverage rides every live-acc test: step 0 applies with the released provider, step 1 re-plans with the local build and requires an empty plan (`internal/testutil/acc/upgrade_entry.go`; disable with `REDPANDA_UPGRADE_ENTRY=off`).
 
 No cron. No nightly. No matrix expansion the human didn't ask for.
 
@@ -387,21 +384,25 @@ No cron. No nightly. No matrix expansion the human didn't ask for.
 - Consolidated `TestCase`s (§3.7): one cluster, many `TestStep`s
   exercising resource + datasource + dependent resources.
 
-### 5.8 Provider-upgrade tests
+### 5.8 Provider-upgrade entry
 
-- `internal/testutil/upgrade/external_providers.go` exposes
-  `upgrade.CreateAndRunTest(t, basicTestCase)`. Step 0 uses
-  `ExternalProviders` to fetch the previously-released `redpanda-data/redpanda`
-  from the Registry, version from `REDPANDA_LAST_VERSION`. Step 1 swaps in
-  the local build with `ExpectEmptyPlan`.
-- One `TestUpgrade*` per resource that has had a schema change in the last
-  two minor releases.
+- `internal/testutil/acc/upgrade_entry.go` exposes
+  `acc.UpgradeEntrySteps(t, dir, vars, checks...)` (and an `Inline` variant).
+  Every acceptance test prepends the result: step 0 applies the test's own
+  first config with the previously-released `redpanda-data/redpanda` from the
+  Registry (version from `REDPANDA_LAST_VERSION`, default latest), step 1
+  re-plans with the local build and requires an empty plan. The remaining
+  steps run unchanged on the local build.
+- `REDPANDA_UPGRADE_ENTRY=off` disables the entry: local runs with
+  dev_overrides, configs the released provider can't parse yet (a runner
+  caller passes `withoutUpgradeEntry()`), and release-validation runs that
+  want the local build's create path exercised live.
 - Pre-flight rejects `TF_CLI_CONFIG_FILE` (Atlas pattern) so a dev-override
   doesn't silently mask the released provider.
 
 ### 5.9 Skipping
 
-Env-var gates and the `live_test` / `upgrade` build tags. Helpers in
+Env-var gates and the `live_test` build tag. Helpers in
 `internal/testutil/acc/skip.go`:
 
 - `acc.SkipUnlessAWS(t)`, `SkipUnlessGCP(t)`, `SkipUnlessAzure(t)`
@@ -465,9 +466,9 @@ independently shippable.
     cluster + network + service_account + datasource_cluster), `ci-ready-byoc`
     (BYOC + BYOVPC), and `ci-ready-serverless` (serverless suite). Each maps
     to one build-tag group + the cleanup postscript.
-11. **`upgrade` package** with `internal/testutil/upgrade/external_providers.go`
-    and one `TestUpgrade*` per resource that has had a schema change in the
-    last two minor releases. Pre-flight rejects `TF_CLI_CONFIG_FILE`.
+11. **Provider-upgrade entry** (`internal/testutil/acc/upgrade_entry.go`)
+    prepended to every acceptance test: released-provider apply, then a
+    strict local-build empty re-plan. Pre-flight rejects `TF_CLI_CONFIG_FILE`.
 
 ---
 

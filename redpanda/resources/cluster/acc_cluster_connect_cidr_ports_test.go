@@ -67,82 +67,91 @@ func TestAcc_Cluster_RedpandaConnect_CidrPorts(t *testing.T) {
 		throughputTier = acc.ThroughputTier
 	}
 
-	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acc.PreCheck(t) },
-		ProtoV6ProviderFactories: acc.ProtoV6Factories,
-		Steps: []resource.TestStep{
-			// Step 1: create cluster with two CIDR+port rules.
-			{
-				Config: cidrPortsConfig(name, throughputTier, resourceGroupID, networkID, `
+	firstCfg := cidrPortsConfig(name, throughputTier, resourceGroupID, networkID, `
     redpanda_connect = {
       allowed_destination_cidr_ports = [
         { cidr = "10.0.0.0/16", port_start = 5432 },
         { cidr = "20.0.0.0/16", port_start = 5432, port_end = 5500 },
       ]
-    }`),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.#", "2"),
-					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.0.cidr", "10.0.0.0/16"),
-					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.0.port_start", "5432"),
-					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.0.port_end", "5432"),
-					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.1.cidr", "20.0.0.0/16"),
-					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.1.port_start", "5432"),
-					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.1.port_end", "5500"),
-				),
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
-				},
+    }`)
+
+	steps := acc.UpgradeEntryStepsInline(t, firstCfg, nil)
+	steps = append(steps, []resource.TestStep{
+		// Step 1: create cluster with two CIDR+port rules.
+		{
+			Config:                   firstCfg,
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.#", "2"),
+				resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.0.cidr", "10.0.0.0/16"),
+				resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.0.port_start", "5432"),
+				resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.0.port_end", "5432"),
+				resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.1.cidr", "20.0.0.0/16"),
+				resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.1.port_start", "5432"),
+				resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.1.port_end", "5500"),
+			),
+			ConfigPlanChecks: resource.ConfigPlanChecks{
+				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 			},
-			// Step 2: explicit port_end=0 is rejected at plan time (live CP
-			// echoes port_end=port_start for a stored 0, so a known 0 can
-			// never survive apply). Plan-only failure; cluster untouched.
-			{
-				Config: cidrPortsConfig(name, throughputTier, resourceGroupID, networkID, `
+		},
+		// Step 2: explicit port_end=0 is rejected at plan time (live CP
+		// echoes port_end=port_start for a stored 0, so a known 0 can
+		// never survive apply). Plan-only failure; cluster untouched.
+		{
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			Config: cidrPortsConfig(name, throughputTier, resourceGroupID, networkID, `
     redpanda_connect = {
       allowed_destination_cidr_ports = [
         { cidr = "10.0.0.0/16", port_start = 5432, port_end = 0 },
       ]
     }`),
-				ExpectError: regexp.MustCompile(`port_end value\s+must be at least 1`),
-			},
-			// Step 3: remove one rule — in-place update, no cluster recreation.
-			{
-				Config: cidrPortsConfig(name, throughputTier, resourceGroupID, networkID, `
+			ExpectError: regexp.MustCompile(`port_end value\s+must be at least 1`),
+		},
+		// Step 3: remove one rule — in-place update, no cluster recreation.
+		{
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			Config: cidrPortsConfig(name, throughputTier, resourceGroupID, networkID, `
     redpanda_connect = {
       allowed_destination_cidr_ports = [
         { cidr = "10.0.0.0/16", port_start = 5432 },
       ]
     }`),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.#", "1"),
-					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.0.cidr", "10.0.0.0/16"),
-					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.0.port_start", "5432"),
-				),
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
-				},
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.#", "1"),
+				resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.0.cidr", "10.0.0.0/16"),
+				resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.0.port_start", "5432"),
+			),
+			ConfigPlanChecks: resource.ConfigPlanChecks{
+				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 			},
-			// Step 3: clear all rules.
-			{
-				Config: cidrPortsConfig(name, throughputTier, resourceGroupID, networkID, `
+		},
+		// Step 3: clear all rules.
+		{
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			Config: cidrPortsConfig(name, throughputTier, resourceGroupID, networkID, `
     redpanda_connect = {
       allowed_destination_cidr_ports = []
     }`),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.#", "0"),
-				),
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
-				},
-			},
-			// Step 4: import — verify redpanda_connect survives state import.
-			{
-				ResourceName:            clusterAddr,
-				ImportState:             true,
-				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"allow_deletion"},
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(clusterAddr, "redpanda_connect.allowed_destination_cidr_ports.#", "0"),
+			),
+			ConfigPlanChecks: resource.ConfigPlanChecks{
+				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 			},
 		},
+		// Step 4: import — verify redpanda_connect survives state import.
+		{
+			ResourceName:             clusterAddr,
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			ImportState:              true,
+			ImportStateVerify:        true,
+			ImportStateVerifyIgnore:  []string{"allow_deletion"},
+		},
+	}...)
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() { acc.PreCheck(t) },
+		Steps:    steps,
 	})
 }
 

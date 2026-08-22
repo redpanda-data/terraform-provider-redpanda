@@ -14,9 +14,6 @@ Task runner: [Task](https://taskfile.dev). Use `task` directly (no wrapper).
 ### Tests
 - `task test:unit` — race-detector unit tests, no cloud creds. `integration_*_test.go` files are gated by the `integration` build tag and excluded here.
 - `task test:integration` — race-detector colocated integration tier; bufconn-backed CRUD / import / drift flows in `redpanda/resources/*/integration_*_test.go`. Built with `-tags=integration` and filtered to `TestIntegration_*`. No cloud creds.
-- `task test:upgrade:smoke` — provider-upgrade regression tests; no cluster (resource_group + network)
-- `task test:upgrade` — non-serverless provider-upgrade test suite (build tag `upgrade`; needs creds)
-- `task test:upgrade:serverless` — serverless provider-upgrade tests (needs creds)
 - `task test:cluster:aws` / `:gcp` — live cluster acc tests
 - `task test:byoc:aws` / `:gcp` — BYOC acc tests
 - `task test:byovpc:aws` / `task test:byovpc:gcp` — provisions infra, runs test, tears down
@@ -26,6 +23,8 @@ Task runner: [Task](https://taskfile.dev). Use `task` directly (no wrapper).
 - `task test:service_account` / `task test:shadowlink` — focused acc tests for these resources
 
 Live acc tests require `REDPANDA_CLIENT_ID` + `REDPANDA_CLIENT_SECRET` and cloud-provider creds.
+
+Every acceptance test starts with a **provider-upgrade entry**: step 0 applies its config with the released provider from the registry (pin via `REDPANDA_LAST_VERSION`, default latest), step 1 re-plans with the local build and requires an empty plan, then the normal steps run on the local build. `REDPANDA_UPGRADE_ENTRY=off` disables the entry (needed for local runs with dev_overrides, configs the released provider can't parse yet, and release-validation runs that want the local build's create path exercised live). `task test:network` is the cheapest upgrade check (no cluster). There is no standalone upgrade tier.
 
 ### Cleanup (for stuck/leaked resources)
 - `task cleanup:aws:ci` — nuke BYOVPC AWS resources (auto-approve, CI-safe)
