@@ -77,6 +77,18 @@ func TestIntegration_Cluster(t *testing.T) {
 					resource.TestCheckResourceAttrSet(addr, "id"),
 					resource.TestCheckResourceAttrSet(addr, "cluster_api_url"),
 					resource.TestCheckResourceAttrSet(addr, "current_redpanda_version"),
+					// connections[] is ALWAYS projected on read, legacy
+					// clusters included (cloudv2 mapper.go): one SASL entry of
+					// the cluster's connection type, endpoint mirroring the
+					// deprecated seed_brokers/url fields. The surrounding
+					// ExpectEmptyPlan proves the projection causes no drift.
+					resource.TestCheckResourceAttr(addr, "kafka_api.connections.#", "1"),
+					resource.TestCheckResourceAttr(addr, "kafka_api.connections.0.type", "public"),
+					resource.TestCheckResourceAttr(addr, "kafka_api.connections.0.auth.mode", "sasl"),
+					resource.TestCheckResourceAttr(addr, "kafka_api.connections.0.endpoint", "mock-broker-0.mock.redpanda.cloud:9092"),
+					resource.TestCheckResourceAttr(addr, "http_proxy.connections.#", "1"),
+					resource.TestCheckResourceAttr(addr, "http_proxy.connections.0.endpoint", "https://mock.http-proxy.redpanda.cloud"),
+					resource.TestCheckResourceAttr(addr, "schema_registry.connections.#", "1"),
 				),
 			},
 			{
@@ -2992,6 +3004,849 @@ func TestIntegration_Cluster_CidrPortInvalidRange(t *testing.T) {
     ]
   }`),
 				ExpectError: regexp.MustCompile(`port_end must be 0`),
+			},
+		},
+	})
+}
+
+// awsDedicatedNoConnTypeConfig is awsDedicatedConfig without connection_type,
+// for dual-listener configs (the control plane rejects connection_type set
+// alongside connections).
+func awsDedicatedNoConnTypeConfig(name string, extra ...string) string {
+	body := ""
+	for _, e := range extra {
+		body += "\n  " + e
+	}
+	return fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-cl-rg"
+}
+
+resource "redpanda_network" "test" {
+  name              = "tfrp-mock-cl-net"
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = "aws"
+  region            = "us-east-1"
+  cluster_type      = "dedicated"
+  cidr_block        = "10.0.0.0/20"
+}
+
+resource "redpanda_cluster" "test" {
+  name              = %q
+  resource_group_id = redpanda_resource_group.test.id
+  network_id        = redpanda_network.test.id
+  cloud_provider    = "aws"
+  region            = "us-east-1"
+  zones             = ["use1-az1"]
+  throughput_tier   = "tier-1-aws-v3-arm"
+  cluster_type      = "dedicated"
+  allow_deletion    = true%s
+}
+`, name, body)
+}
+
+// azureDedicatedNoConnTypeConfig is azureDedicatedConfig without connection_type.
+func azureDedicatedNoConnTypeConfig(name string, extra ...string) string {
+	body := ""
+	for _, e := range extra {
+		body += "\n  " + e
+	}
+	return fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-cl-rg"
+}
+
+resource "redpanda_network" "test" {
+  name              = "tfrp-mock-cl-net"
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = "azure"
+  region            = "eastus"
+  cluster_type      = "dedicated"
+  cidr_block        = "10.0.0.0/20"
+}
+
+resource "redpanda_cluster" "test" {
+  name              = %q
+  resource_group_id = redpanda_resource_group.test.id
+  network_id        = redpanda_network.test.id
+  cloud_provider    = "azure"
+  region            = "eastus"
+  zones             = ["eastus-az1"]
+  throughput_tier   = "tier-1-azure-v3-x86"
+  cluster_type      = "dedicated"
+  allow_deletion    = true%s
+}
+`, name, body)
+}
+
+const dualSaslConns = `connections = [
+      { type = "public",  auth = { mode = "sasl" } },
+      { type = "private", auth = { mode = "sasl" } },
+    ]`
+
+const testCAPem = `-----BEGIN CERTIFICATE-----\nMIIBkTCB+w==\n-----END CERTIFICATE-----`
+
+// dualAllServices returns the three service blocks each carrying conns.
+func dualAllServices(conns string) []string {
+	return []string{
+		"kafka_api = {\n    " + conns + "\n  }",
+		"http_proxy = {\n    " + conns + "\n  }",
+		"schema_registry = {\n    " + conns + "\n  }",
+	}
+}
+
+// TestIntegration_Cluster_DualListenerConnections exercises dual listener mode:
+// create with public+private SASL connections on all three services (no
+// connection_type), verify the projected entries and per-listener endpoints,
+// then switch the kafka public connection to mTLS in place and verify the
+// endpoint survives the auth switch (the control plane renames the listener,
+// preserving its DNS).
+func TestIntegration_Cluster_DualListenerConnections(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-dual"
+	kafkaConns := tfjsonpath.New("kafka_api").AtMapKey("connections")
+	proxyConns := tfjsonpath.New("http_proxy").AtMapKey("connections")
+	srConns := tfjsonpath.New("schema_registry").AtMapKey("connections")
+
+	idPreserved := statecheck.CompareValue(compare.ValuesSame())
+	pubEndpointPreserved := statecheck.CompareValue(compare.ValuesSame())
+
+	kafkaMTLSSwitch := []string{
+		`kafka_api = {
+    mtls = {
+      enabled             = true
+      ca_certificates_pem = ["` + testCAPem + `"]
+    }
+    connections = [
+      { type = "public",  auth = { mode = "mtls" } },
+      { type = "private", auth = { mode = "sasl" } },
+    ]
+  }`,
+		"http_proxy = {\n    " + dualSaslConns + "\n  }",
+		"schema_registry = {\n    " + dualSaslConns + "\n  }",
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, dualAllServices(dualSaslConns)...),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns, knownvalue.ListSizeExact(2)),
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(0).AtMapKey("type"), knownvalue.StringExact("public")),
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(0).AtMapKey("auth").AtMapKey("mode"), knownvalue.StringExact("sasl")),
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(1).AtMapKey("type"), knownvalue.StringExact("private")),
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(1).AtMapKey("auth").AtMapKey("mode"), knownvalue.StringExact("sasl")),
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(0).AtMapKey("endpoint"), knownvalue.StringExact("mock-broker-0-pub-sasl.mock.redpanda.cloud:9092")),
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(1).AtMapKey("endpoint"), knownvalue.StringExact("mock-broker-0-prv-sasl.mock.redpanda.cloud:9092")),
+					statecheck.ExpectKnownValue(clusterAddr, proxyConns, knownvalue.ListSizeExact(2)),
+					statecheck.ExpectKnownValue(clusterAddr, proxyConns.AtSliceIndex(0).AtMapKey("type"), knownvalue.StringExact("public")),
+					statecheck.ExpectKnownValue(clusterAddr, proxyConns.AtSliceIndex(0).AtMapKey("auth").AtMapKey("mode"), knownvalue.StringExact("sasl")),
+					statecheck.ExpectKnownValue(clusterAddr, proxyConns.AtSliceIndex(0).AtMapKey("endpoint"), knownvalue.StringExact("https://mock-pub-sasl.http-proxy.redpanda.cloud")),
+					statecheck.ExpectKnownValue(clusterAddr, srConns, knownvalue.ListSizeExact(2)),
+					statecheck.ExpectKnownValue(clusterAddr, srConns.AtSliceIndex(0).AtMapKey("type"), knownvalue.StringExact("public")),
+					statecheck.ExpectKnownValue(clusterAddr, srConns.AtSliceIndex(0).AtMapKey("auth").AtMapKey("mode"), knownvalue.StringExact("sasl")),
+					statecheck.ExpectKnownValue(clusterAddr, srConns.AtSliceIndex(0).AtMapKey("endpoint"), knownvalue.StringExact("https://mock-pub-sasl.schema-registry.redpanda.cloud")),
+					// A dual cluster reads back connection_type "private"
+					// (cloudv2 getConnectionType: any private listener wins).
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("connection_type"), knownvalue.StringExact("private")),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+					pubEndpointPreserved.AddStateValue(clusterAddr, kafkaConns.AtSliceIndex(0).AtMapKey("endpoint")),
+				}),
+			integration.NoopReapplyStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, dualAllServices(dualSaslConns)...),
+				[]statecheck.StateCheck{
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			integration.UpdateLeafStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, kafkaMTLSSwitch...),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(0).AtMapKey("type"), knownvalue.StringExact("public")),
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(0).AtMapKey("auth").AtMapKey("mode"), knownvalue.StringExact("mtls")),
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(1).AtMapKey("auth").AtMapKey("mode"), knownvalue.StringExact("sasl")),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("kafka_api").AtMapKey("mtls").AtMapKey("enabled"), knownvalue.Bool(true)),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+					// The renamed listener keeps its DNS: same endpoint as the
+					// SASL listener it replaced.
+					pubEndpointPreserved.AddStateValue(clusterAddr, kafkaConns.AtSliceIndex(0).AtMapKey("endpoint")),
+				}),
+			// Import while state order matches server order — import has no
+			// prior state to reorder against, so it lands in server order by
+			// design (a reordered config converges on the next apply).
+			integration.ImportRoundTripStep(clusterAddr, nil, []string{"allow_deletion"}),
+			// Reorder the config lists (private first). The fake echoes the
+			// STORED listener order (public first, like the control plane), so
+			// this step passes only if flatten reorders the echo to config
+			// order by the (type, auth.mode) key.
+			integration.UpdateLeafStep(clusterAddr,
+				awsByocNoConnTypeConfig(name,
+					`kafka_api = {
+    mtls = {
+      enabled             = true
+      ca_certificates_pem = ["`+testCAPem+`"]
+    }
+    connections = [
+      { type = "private", auth = { mode = "sasl" } },
+      { type = "public",  auth = { mode = "mtls" } },
+    ]
+  }`,
+					`http_proxy = {
+    connections = [
+      { type = "private", auth = { mode = "sasl" } },
+      { type = "public",  auth = { mode = "sasl" } },
+    ]
+  }`,
+					`schema_registry = {
+    connections = [
+      { type = "private", auth = { mode = "sasl" } },
+      { type = "public",  auth = { mode = "sasl" } },
+    ]
+  }`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(0).AtMapKey("type"), knownvalue.StringExact("private")),
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(1).AtMapKey("type"), knownvalue.StringExact("public")),
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(1).AtMapKey("auth").AtMapKey("mode"), knownvalue.StringExact("mtls")),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+					// Same public listener, now at index 1 — endpoint unchanged.
+					pubEndpointPreserved.AddStateValue(clusterAddr, kafkaConns.AtSliceIndex(1).AtMapKey("endpoint")),
+				}),
+		},
+	})
+}
+
+// publicOnlySaslConns is the single-listener starting point for topology
+// transition tests.
+const publicOnlySaslConns = `connections = [
+      { type = "public", auth = { mode = "sasl" } },
+    ]`
+
+// awsByocConfig is a legacy (connection_type "public") BYOC cluster config,
+// the starting point for legacy-to-dual migration tests.
+func awsByocConfig(name string, extra ...string) string {
+	return awsByocLegacyConfig(name, "public", extra...)
+}
+
+// awsByocLegacyConfig is a legacy BYOC cluster config with the given
+// connection_type.
+func awsByocLegacyConfig(name, connType string, extra ...string) string {
+	body := ""
+	for _, e := range extra {
+		body += "\n  " + e
+	}
+	return fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-cl-rg"
+}
+
+resource "redpanda_network" "test" {
+  name              = "tfrp-mock-cl-net"
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = "aws"
+  region            = "us-east-1"
+  cluster_type      = "byoc"
+  cidr_block        = "10.0.0.0/20"
+}
+
+resource "redpanda_cluster" "test" {
+  name              = %q
+  resource_group_id = redpanda_resource_group.test.id
+  network_id        = redpanda_network.test.id
+  cloud_provider    = "aws"
+  region            = "us-east-1"
+  zones             = ["use1-az1"]
+  throughput_tier   = "tier-1-aws-v3-arm"
+  cluster_type      = "byoc"
+  connection_type   = %q
+  allow_deletion    = true%s
+}
+`, name, connType, body)
+}
+
+// awsByocNoConnTypeConfig is awsByocConfig without connection_type — the
+// certified envelope for dual listener mode.
+func awsByocNoConnTypeConfig(name string, extra ...string) string {
+	body := ""
+	for _, e := range extra {
+		body += "\n  " + e
+	}
+	return fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-cl-rg"
+}
+
+resource "redpanda_network" "test" {
+  name              = "tfrp-mock-cl-net"
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = "aws"
+  region            = "us-east-1"
+  cluster_type      = "byoc"
+  cidr_block        = "10.0.0.0/20"
+}
+
+resource "redpanda_cluster" "test" {
+  name              = %q
+  resource_group_id = redpanda_resource_group.test.id
+  network_id        = redpanda_network.test.id
+  cloud_provider    = "aws"
+  region            = "us-east-1"
+  zones             = ["use1-az1"]
+  throughput_tier   = "tier-1-aws-v3-arm"
+  cluster_type      = "byoc"
+  allow_deletion    = true%s
+}
+`, name, body)
+}
+
+// gcpDedicatedConfigNoConnType is gcpDedicatedConfig without connection_type,
+// for envelope rejection tests (connection_type would trip the
+// cannot-be-set-together rule first).
+func gcpDedicatedConfigNoConnType(name string, extra ...string) string {
+	body := ""
+	for _, e := range extra {
+		body += "\n  " + e
+	}
+	return fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-cl-rg"
+}
+
+resource "redpanda_network" "test" {
+  name              = "tfrp-mock-cl-net"
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = "gcp"
+  region            = "us-central1"
+  cluster_type      = "dedicated"
+  cidr_block        = "10.0.0.0/20"
+}
+
+resource "redpanda_cluster" "test" {
+  name              = %q
+  resource_group_id = redpanda_resource_group.test.id
+  network_id        = redpanda_network.test.id
+  cloud_provider    = "gcp"
+  region            = "us-central1"
+  zones             = ["us-central1-a"]
+  throughput_tier   = "tier-1-gcp-um4g"
+  cluster_type      = "dedicated"
+  allow_deletion    = true%s
+}
+`, name, body)
+}
+
+// TestIntegration_Cluster_Connections_TopologyDecisionRequired pins the
+// plan-time gate replacing connection_type's dropped Required: a config with
+// neither connection_type nor connections must not silently create a cluster
+// whose exposure the user never chose (UNSPECIFIED resolves toward public
+// listeners server-side).
+func TestIntegration_Cluster_Connections_TopologyDecisionRequired(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config:      awsDedicatedNoConnTypeConfig("no-topology"),
+				ExpectError: regexp.MustCompile(`(?s)set\s+connection_type\s+or\s+configure\s+connections`),
+			},
+		},
+	})
+}
+
+// TestIntegration_Cluster_Connections_EmptyEnumRejected pins that "" is not a
+// valid connections type or auth.mode: it buckets as public/unset downstream
+// and previously sailed through every plan gate to fail only at apply.
+func TestIntegration_Cluster_Connections_EmptyEnumRejected(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config: awsByocNoConnTypeConfig("empty-type",
+					dualAllServices(`connections = [
+      { type = "", auth = { mode = "sasl" } },
+      { type = "private", auth = { mode = "sasl" } },
+    ]`)...),
+				ExpectError: regexp.MustCompile(`(?s)type value must be one\s+of`),
+			},
+			{
+				Config: awsByocNoConnTypeConfig("empty-mode",
+					dualAllServices(`connections = [
+      { type = "public", auth = { mode = "" } },
+      { type = "private", auth = { mode = "sasl" } },
+    ]`)...),
+				ExpectError: regexp.MustCompile(`(?s)mode value must be one\s+of`),
+			},
+		},
+	})
+}
+
+// TestIntegration_Cluster_Connections_EnvelopeRejected pins the certified
+// envelope for dual listener mode: AWS BYOC only. The cloud API rejects only
+// Azure, so without this gate a GCP or Dedicated config passes plan and apply
+// and comes up broken/uncertified.
+func TestIntegration_Cluster_Connections_EnvelopeRejected(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config: gcpDedicatedConfigNoConnType("envelope-gcp",
+					dualAllServices(dualSaslConns)...),
+				ExpectError: regexp.MustCompile(`(?s)supported only on AWS BYOC`),
+			},
+			{
+				Config: awsDedicatedNoConnTypeConfig("envelope-dedicated",
+					dualAllServices(dualSaslConns)...),
+				ExpectError: regexp.MustCompile(`(?s)supported only on AWS BYOC`),
+			},
+		},
+	})
+}
+
+// TestIntegration_Cluster_Connections_UnknownLeafDefers pins that the
+// connections validators defer on unknown leaves instead of raising false
+// positives: a type driven by another resource's computed attribute is
+// unknown at plan and must not trip the cross-service topology rule.
+func TestIntegration_Cluster_Connections_UnknownLeafDefers(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	kafkaUnknownType := `kafka_api = {
+    connections = [
+      { type = "public", auth = { mode = "sasl" } },
+      { type = length(redpanda_resource_group.aux.id) >= 0 ? "private" : "private", auth = { mode = "sasl" } },
+    ]
+  }`
+	aux := `
+resource "redpanda_resource_group" "aux" {
+  name = "tfrp-mock-cl-rg-aux"
+}
+`
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				awsByocNoConnTypeConfig("unknown-leaf",
+					kafkaUnknownType,
+					"http_proxy = {\n    "+dualSaslConns+"\n  }",
+					"schema_registry = {\n    "+dualSaslConns+"\n  }")+aux,
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("connection_type"), knownvalue.StringExact("private")),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("kafka_api").AtMapKey("connections"), knownvalue.ListSizeExact(2)),
+				}),
+		},
+	})
+}
+
+// TestIntegration_Cluster_DualListener_PublicOnlyToDual pins the
+// connection_type echo re-plan: adding a private connection to a public-only
+// dual cluster flips the server-derived connection_type from "public" to
+// "private", so the plan must not carry the prior state value as known.
+func TestIntegration_Cluster_DualListener_PublicOnlyToDual(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-dual-topo"
+	idPreserved := statecheck.CompareValue(compare.ValuesSame())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, dualAllServices(publicOnlySaslConns)...),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("connection_type"), knownvalue.StringExact("public")),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("kafka_api").AtMapKey("connections"), knownvalue.ListSizeExact(1)),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			integration.UpdateLeafStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, dualAllServices(dualSaslConns)...),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("connection_type"), knownvalue.StringExact("private")),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("kafka_api").AtMapKey("connections"), knownvalue.ListSizeExact(2)),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			integration.NoopReapplyStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, dualAllServices(dualSaslConns)...),
+				[]statecheck.StateCheck{
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+		},
+	})
+}
+
+// TestIntegration_Cluster_DualListener_LegacyMigration pins the
+// deprecation-recommended migration path: a legacy connection_type="public"
+// cluster moves to config-managed connections including a private listener.
+// The server re-derives connection_type "private"; the carried echo must not
+// fail the apply.
+func TestIntegration_Cluster_DualListener_LegacyMigration(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-dual-migrate"
+	idPreserved := statecheck.CompareValue(compare.ValuesSame())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				awsByocConfig(name),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("connection_type"), knownvalue.StringExact("public")),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			integration.UpdateLeafStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, dualAllServices(dualSaslConns)...),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("connection_type"), knownvalue.StringExact("private")),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("kafka_api").AtMapKey("connections"), knownvalue.ListSizeExact(2)),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			integration.NoopReapplyStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, dualAllServices(dualSaslConns)...),
+				[]statecheck.StateCheck{
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+		},
+	})
+}
+
+// TestIntegration_Cluster_DualListener_SASLEchoFlip pins the per-service sasl
+// echo re-plan: switching every kafka connection from SASL to mTLS flips the
+// server-projected kafka_api.sasl.enabled to false, so the plan must not carry
+// the prior echo as known.
+func TestIntegration_Cluster_DualListener_SASLEchoFlip(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-dual-saslflip"
+	idPreserved := statecheck.CompareValue(compare.ValuesSame())
+
+	kafkaAllMTLS := []string{
+		`kafka_api = {
+    mtls = {
+      enabled             = true
+      ca_certificates_pem = ["` + testCAPem + `"]
+    }
+    connections = [
+      { type = "public",  auth = { mode = "mtls" } },
+      { type = "private", auth = { mode = "mtls" } },
+    ]
+  }`,
+		"http_proxy = {\n    " + dualSaslConns + "\n  }",
+		"schema_registry = {\n    " + dualSaslConns + "\n  }",
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, dualAllServices(dualSaslConns)...),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("kafka_api").AtMapKey("sasl").AtMapKey("enabled"), knownvalue.Bool(true)),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			integration.UpdateLeafStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, kafkaAllMTLS...),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("kafka_api").AtMapKey("sasl").AtMapKey("enabled"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("kafka_api").AtMapKey("mtls").AtMapKey("enabled"), knownvalue.Bool(true)),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			integration.NoopReapplyStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, kafkaAllMTLS...),
+				[]statecheck.StateCheck{
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+		},
+	})
+}
+
+// TestIntegration_Cluster_Connections_DualRemovalRejected pins that removing
+// connections from a dual cluster's config is never silent: the bare removal
+// trips the plan-time topology gate, and the dual->legacy attempt (swapping
+// connections for a matching connection_type) trips the connections-managed
+// guard instead of applying as a no-op that changes nothing.
+func TestIntegration_Cluster_Connections_DualRemovalRejected(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-dual-removal"
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, dualAllServices(dualSaslConns)...),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("connection_type"), knownvalue.StringExact("private")),
+				}),
+			{
+				// Bare removal: neither connection_type nor connections.
+				Config:      awsByocNoConnTypeConfig(name),
+				ExpectError: regexp.MustCompile(`(?s)set\s+connection_type\s+or\s+configure\s+connections`),
+			},
+			{
+				// Dual->legacy attempt: connections dropped, connection_type
+				// set to the projected value. Without the guard this is a
+				// silent empty plan.
+				Config:      awsByocLegacyConfig(name, "private"),
+				ExpectError: regexp.MustCompile(`(?s)managed\s+through\s+connections.*not\s+supported`),
+			},
+			// Valid config last: the post-test destroy re-plans the final
+			// step's config.
+			{
+				Config:   awsByocNoConnTypeConfig(name, dualAllServices(dualSaslConns)...),
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
+// privateOnlySaslConns is the private-only counterpart of publicOnlySaslConns.
+const privateOnlySaslConns = `connections = [
+      { type = "private", auth = { mode = "sasl" } },
+    ]`
+
+// TestIntegration_Cluster_Connections_PrivateOnlyGainsPublicRejected pins the
+// plan-time guard for the one topology transition the control plane cannot
+// perform in place: a private-only cluster gaining public listeners. The rule
+// depends on stored cluster state, so ValidateConfig cannot see it — the
+// guard lives in ModifyPlan, which can.
+func TestIntegration_Cluster_Connections_PrivateOnlyGainsPublicRejected(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const legacyName = "tfrp-mock-cl-prv-legacy"
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			// Legacy private cluster -> dual public+private.
+			integration.CreateStep(clusterAddr, awsByocLegacyConfig(legacyName, "private"), []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("connection_type"), knownvalue.StringExact("private")),
+			}),
+			{
+				Config:      awsByocNoConnTypeConfig(legacyName, dualAllServices(dualSaslConns)...),
+				ExpectError: regexp.MustCompile(`(?s)private-only.*cannot\s+gain\s+public\s+listeners`),
+			},
+			// Valid config last for the destroy re-plan.
+			{
+				Config:   awsByocLegacyConfig(legacyName, "private"),
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
+// TestIntegration_Cluster_Connections_DualPrivateOnlyGainsPublicRejected is
+// the connections-managed variant: a dual cluster created private-only also
+// cannot gain public listeners in place.
+func TestIntegration_Cluster_Connections_DualPrivateOnlyGainsPublicRejected(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-prv-dual"
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, dualAllServices(privateOnlySaslConns)...),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("connection_type"), knownvalue.StringExact("private")),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("kafka_api").AtMapKey("connections"), knownvalue.ListSizeExact(1)),
+				}),
+			{
+				Config:      awsByocNoConnTypeConfig(name, dualAllServices(dualSaslConns)...),
+				ExpectError: regexp.MustCompile(`(?s)private-only.*cannot\s+gain\s+public\s+listeners`),
+			},
+			{
+				Config:   awsByocNoConnTypeConfig(name, dualAllServices(privateOnlySaslConns)...),
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
+// TestIntegration_Cluster_DualListener_OutOfBandFlip pins the fleet-flip
+// hazard: connection_type is server-derived on read (cloudv2
+// mapper.getConnectionType — any private kafka listener reads back "private")
+// and private<->dual is a fleet operation performed outside the public API,
+// so a legacy connection_type="public" cluster can start reading back
+// "private" under an unchanged config. With RequiresReplace on the attribute,
+// surfacing that drift would plan an unprompted cluster destroy; state must
+// instead stay pinned to the last user-applied value.
+func TestIntegration_Cluster_DualListener_OutOfBandFlip(t *testing.T) {
+	srv, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-dual-flip"
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr, awsByocConfig(name), []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("connection_type"), knownvalue.StringExact("public")),
+			}),
+			{
+				PreConfig: func() {
+					if !srv.Cluster.FlipToDualOutOfBand(name) {
+						t.Fatal("no stored cluster to flip")
+					}
+				},
+				Config:   awsByocConfig(name),
+				PlanOnly: true,
+			},
+			// Adopting the flipped topology 1:1 into config-managed
+			// connections is a no-op: the projected state already matches.
+			integration.NoopReapplyStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, dualAllServices(dualSaslConns)...),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("kafka_api").AtMapKey("connections"), knownvalue.ListSizeExact(2)),
+				}),
+			// From the adopted state, topology changes flow normally and the
+			// echo re-plan pass lets connection_type re-derive.
+			integration.UpdateLeafStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, dualAllServices(publicOnlySaslConns)...),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("connection_type"), knownvalue.StringExact("public")),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("kafka_api").AtMapKey("connections"), knownvalue.ListSizeExact(1)),
+				}),
+		},
+	})
+}
+
+// TestIntegration_Cluster_DualListenerConnections_ConfigErrors pins the
+// plan-time validators mirroring the control plane's cross-service connections
+// rules (cloudv2 dual_mode_connections.go), which are enforced only in server
+// code — not buf.validate — and so would otherwise surface as opaque apply
+// errors.
+func TestIntegration_Cluster_DualListenerConnections_ConfigErrors(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	kafkaOnly := "kafka_api = {\n    " + dualSaslConns + "\n  }"
+	steps := []resource.TestStep{
+		{
+			// connection_type is the legacy topology selector; connections
+			// supersede it.
+			Config: awsByocConfig("dual-conn-type",
+				dualAllServices(dualSaslConns)...),
+			ExpectError: regexp.MustCompile(`connection_type cannot be set together with\s+connections`),
+		},
+		{
+			// All three services or none.
+			Config:      awsByocNoConnTypeConfig("dual-partial", kafkaOnly),
+			ExpectError: regexp.MustCompile(`(?s)must be set on all\s+services`),
+		},
+		{
+			// Topology must match across services.
+			Config: awsByocNoConnTypeConfig("dual-topology",
+				"kafka_api = {\n    "+dualSaslConns+"\n  }",
+				`http_proxy = {
+    connections = [{ type = "public", auth = { mode = "sasl" } }]
+  }`,
+				"schema_registry = {\n    "+dualSaslConns+"\n  }"),
+			ExpectError: regexp.MustCompile(`same connection network\s+types`),
+		},
+		{
+			// Duplicate (type, auth) pair.
+			Config: awsByocNoConnTypeConfig("dual-dup",
+				dualAllServices(`connections = [
+      { type = "public", auth = { mode = "sasl" } },
+      { type = "public", auth = { mode = "sasl" } },
+    ]`)...),
+			ExpectError: regexp.MustCompile(`at most one connection entry per \(connection\s+type, auth mode\) pair`),
+		},
+		{
+			// Empty list can never be applied (a cluster on connections must
+			// keep at least one; legacy clusters simply omit the attribute).
+			Config: awsByocNoConnTypeConfig("dual-empty",
+				dualAllServices(`connections = []`)...),
+			ExpectError: regexp.MustCompile(`at least 1`),
+		},
+		{
+			// mTLS connection requires the service mtls block with a CA.
+			Config: awsByocNoConnTypeConfig("dual-mtls-no-ca",
+				`kafka_api = {
+    connections = [
+      { type = "public",  auth = { mode = "mtls" } },
+      { type = "private", auth = { mode = "sasl" } },
+    ]
+  }`,
+				"http_proxy = {\n    "+dualSaslConns+"\n  }",
+				"schema_registry = {\n    "+dualSaslConns+"\n  }"),
+			ExpectError: regexp.MustCompile(`ca_certificates_pem`),
+		},
+		{
+			// A meaningful mtls block with no mTLS connection has no listener
+			// to apply to.
+			Config: awsByocNoConnTypeConfig("dual-mtls-orphan",
+				`kafka_api = {
+    mtls = {
+      enabled             = true
+      ca_certificates_pem = ["`+testCAPem+`"]
+    }
+    `+dualSaslConns+`
+  }`,
+				"http_proxy = {\n    "+dualSaslConns+"\n  }",
+				"schema_registry = {\n    "+dualSaslConns+"\n  }"),
+			ExpectError: regexp.MustCompile(`no connection uses mTLS\s+auth`),
+		},
+		{
+			// Legacy sasl block cannot coexist with connections.
+			Config: awsByocNoConnTypeConfig("dual-sasl-coexist",
+				`kafka_api = {
+    sasl = { enabled = true }
+    `+dualSaslConns+`
+  }`,
+				"http_proxy = {\n    "+dualSaslConns+"\n  }",
+				"schema_registry = {\n    "+dualSaslConns+"\n  }"),
+			ExpectError: regexp.MustCompile(`sasl cannot be set together\s+with`),
+		},
+		{
+			// Azure does not support dual listener mode.
+			Config: azureDedicatedNoConnTypeConfig("dual-azure",
+				dualAllServices(dualSaslConns)...),
+			ExpectError: regexp.MustCompile(`supported only on AWS BYOC`),
+		},
+		{
+			// Valid config last: the framework's post-test destroy re-plans
+			// the final step's config, and ValidateConfig runs on that path —
+			// an invalid final config would fail the destroy.
+			Config:             awsByocNoConnTypeConfig("dual-valid", dualAllServices(dualSaslConns)...),
+			PlanOnly:           true,
+			ExpectNonEmptyPlan: true,
+		},
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps:                    steps,
+	})
+}
+
+// TestIntegration_Cluster_DualListenerConnections_FeatureFlagOff verifies the
+// provider surfaces the control plane's PermissionDenied for an org without
+// enable-public-private-listeners, rather than masking or retrying it.
+func TestIntegration_Cluster_DualListenerConnections_FeatureFlagOff(t *testing.T) {
+	srv, factories := clusterSetup(t)
+	srv.Cluster.PublicPrivateListenersDisabled = true
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config: awsByocNoConnTypeConfig("dual-ff-off",
+					dualAllServices(dualSaslConns)...),
+				ExpectError: regexp.MustCompile(`not enabled for this\s+organization`),
 			},
 		},
 	})

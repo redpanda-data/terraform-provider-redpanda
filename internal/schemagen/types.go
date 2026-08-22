@@ -163,6 +163,16 @@ type SchemaAttr struct {
 
 	// IsOneofArm marks an attribute backed by a non-synthetic proto oneof variant.
 	IsOneofArm bool
+
+	// EchoUnwrapGoName, on a repeated-message attribute, is the Go accessor
+	// name of the READ element's echo field (the single message field wrapping
+	// the write element, e.g. "Config"). Non-empty means the element was
+	// unwrapped: hoisted children carry EchoHoisted and flatten through the
+	// echo accessor; the remaining children are server-owned siblings.
+	EchoUnwrapGoName string
+
+	// EchoHoisted marks a child hoisted out of an echo-unwrapped element.
+	EchoHoisted bool
 }
 
 type protoKindInfo struct {

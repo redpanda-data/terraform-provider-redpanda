@@ -211,6 +211,17 @@ type FieldConfig struct {
 
 	FlattenFromPrev bool `yaml:"flatten_from_prev,omitempty"`
 
+	// EchoUnwrap marks a repeated-message field whose READ element wraps the
+	// WRITE element in a single message field (the "spec echo" pattern, e.g.
+	// ConnectionStatus{config ConnectionSpec, endpoint}). The generator hoists
+	// the echo message's fields to the element level (user-settable), marks
+	// the sibling fields computed-only, flattens through the echo accessor,
+	// and reorders the server echo to prev order by the identity of the
+	// hoisted leaves (element order is treated as non-contractual). The write
+	// shapes need no special handling: the hoisted element IS the write
+	// element.
+	EchoUnwrap bool `yaml:"echo_unwrap,omitempty"`
+
 	ProtoOnly bool `yaml:"proto_only,omitempty"`
 
 	// UpdatableOutOfBand marks a field that is mutable in place via a

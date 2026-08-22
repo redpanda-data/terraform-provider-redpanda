@@ -18,6 +18,7 @@ package modelconv
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -411,4 +412,89 @@ func ProtoStructFromStringWithDiags(v types.String, diags *diag.Diagnostics) *st
 		diags.Append(d...)
 	}
 	return out
+}
+
+// ListFromObjectsReorderedByIdentityWithDiags is ListFromObjectsWithDiags for
+// repeated fields whose server-reported element ORDER is not contractual (the
+// backend may reorder in place, e.g. a listener rename): after flattening, the
+// elements are reordered to match prev's element order, matching elements by
+// IDENTITY — the values at keyPaths, the element's user-settable leaves
+// (dotted paths into nested objects). Elements with no identity match in prev
+// append afterward in server order. A null/unknown/invalid prev leaves server
+// order untouched. Identity keys are unique by server contract; a duplicate
+// key matches greedily in order.
+func ListFromObjectsReorderedByIdentityWithDiags[Proto any, Model any](
+	ctx context.Context,
+	protos []Proto,
+	prev types.List,
+	attrTypes map[string]attr.Type,
+	flatten func(context.Context, Proto, *Model) (Model, diag.Diagnostics),
+	keyPaths []string,
+	diags *diag.Diagnostics,
+) types.List {
+	out := ListFromObjectsWithDiags(ctx, protos, attrTypes, flatten, diags)
+	if out.IsNull() || out.IsUnknown() || prev.IsNull() || prev.IsUnknown() {
+		return out
+	}
+
+	elems := out.Elements()
+	consumed := make([]bool, len(elems))
+	ordered := make([]attr.Value, 0, len(elems))
+	for _, prevEl := range prev.Elements() {
+		want, ok := identityKey(prevEl, keyPaths)
+		if !ok {
+			continue
+		}
+		for i, el := range elems {
+			if consumed[i] {
+				continue
+			}
+			if got, ok := identityKey(el, keyPaths); ok && got == want {
+				ordered = append(ordered, el)
+				consumed[i] = true
+				break
+			}
+		}
+	}
+	for i, el := range elems {
+		if !consumed[i] {
+			ordered = append(ordered, el)
+		}
+	}
+	reordered, d := types.ListValue(types.ObjectType{AttrTypes: attrTypes}, ordered)
+	if d.HasError() {
+		if diags != nil {
+			diags.Append(d...)
+		}
+		return out
+	}
+	return reordered
+}
+
+// identityKey renders an element's identity: the joined string values at
+// keyPaths (dotted paths into nested objects). ok is false when the element or
+// any addressed value is null, unknown, or not addressable.
+func identityKey(el attr.Value, keyPaths []string) (string, bool) {
+	var b strings.Builder
+	for _, p := range keyPaths {
+		v := el
+		for _, seg := range strings.Split(p, ".") {
+			obj, isObj := v.(types.Object)
+			if !isObj || obj.IsNull() || obj.IsUnknown() {
+				return "", false
+			}
+			var found bool
+			v, found = obj.Attributes()[seg]
+			if !found {
+				return "", false
+			}
+		}
+		s, isStr := v.(types.String)
+		if !isStr || s.IsNull() || s.IsUnknown() {
+			return "", false
+		}
+		b.WriteString(s.ValueString())
+		b.WriteString("\x1f")
+	}
+	return b.String(), true
 }

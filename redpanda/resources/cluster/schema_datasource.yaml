@@ -126,12 +126,12 @@ http_proxy:
   fields:
 
     connections:
-      todo: true
+      echo_unwrap: true
 kafka_api:
   fields:
 
     connections:
-      todo: true
+      echo_unwrap: true
 schema_registry:
   fields:
 
@@ -140,7 +140,7 @@ schema_registry:
 
 
     connections:
-      todo: true
+      echo_unwrap: true
 maintenance_window_config:
   fields:
     anytime:

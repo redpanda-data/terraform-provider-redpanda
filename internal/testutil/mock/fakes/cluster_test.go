@@ -17,6 +17,7 @@ package fakes
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
@@ -284,5 +285,114 @@ func TestClusterFake_UpdateMaskFidelity(t *testing.T) {
 			}
 			tc.assert(t, resp.GetCluster())
 		})
+	}
+}
+
+const (
+	testPubEP = "pub-ep"
+	testPrvEP = "prv-ep"
+)
+
+func connSpec(t controlplanev1.Cluster_ConnectionType, m controlplanev1.AuthMode) *controlplanev1.ConnectionSpec {
+	return &controlplanev1.ConnectionSpec{Type: t, Auth: &controlplanev1.AuthSpec{Mode: m}}
+}
+
+// TestReconcileConnections pins the fake's mirror of the control plane's
+// listener reconcile (apiConnectionsToListenersForUpdateCluster): retained and
+// auth-switched entries keep their stored POSITION and ENDPOINT, new entries
+// append in request order, undesired entries drop — so the echoed order
+// deliberately diverges from request order, like the real backend.
+func TestReconcileConnections(t *testing.T) {
+	pubSASL := connSpec(controlplanev1.Cluster_CONNECTION_TYPE_PUBLIC, controlplanev1.AuthMode_AUTH_MODE_SASL)
+	prvSASL := connSpec(controlplanev1.Cluster_CONNECTION_TYPE_PRIVATE, controlplanev1.AuthMode_AUTH_MODE_SASL)
+	pubMTLS := connSpec(controlplanev1.Cluster_CONNECTION_TYPE_PUBLIC, controlplanev1.AuthMode_AUTH_MODE_MTLS)
+
+	stored := []*controlplanev1.ConnectionStatus{
+		{Config: pubSASL, Endpoint: testPubEP},
+		{Config: prvSASL, Endpoint: testPrvEP},
+	}
+
+	t.Run("auth switch preserves endpoint and position", func(t *testing.T) {
+		got := reconcileConnections("kafka_api", stored, []*controlplanev1.ConnectionSpec{pubMTLS, prvSASL})
+		if len(got) != 2 {
+			t.Fatalf("expected 2 entries, got %d", len(got))
+		}
+		if got[0].GetConfig().GetAuth().GetMode() != controlplanev1.AuthMode_AUTH_MODE_MTLS || got[0].GetEndpoint() != testPubEP {
+			t.Fatalf("entry 0 = %v/%s, want mtls with preserved pub-ep", got[0].GetConfig(), got[0].GetEndpoint())
+		}
+		if got[1].GetEndpoint() != testPrvEP {
+			t.Fatalf("entry 1 endpoint = %s, want prv-ep", got[1].GetEndpoint())
+		}
+	})
+
+	t.Run("request reorder keeps stored order", func(t *testing.T) {
+		got := reconcileConnections("kafka_api", stored, []*controlplanev1.ConnectionSpec{prvSASL, pubSASL})
+		if got[0].GetConfig().GetType() != controlplanev1.Cluster_CONNECTION_TYPE_PUBLIC {
+			t.Fatalf("entry 0 type = %v, want stored-order public first", got[0].GetConfig().GetType())
+		}
+		if got[0].GetEndpoint() != testPubEP || got[1].GetEndpoint() != testPrvEP {
+			t.Fatalf("endpoints = %s/%s, want preserved pub-ep/prv-ep", got[0].GetEndpoint(), got[1].GetEndpoint())
+		}
+	})
+
+	t.Run("add appends and remove drops", func(t *testing.T) {
+		got := reconcileConnections("kafka_api", stored, []*controlplanev1.ConnectionSpec{pubSASL, pubMTLS})
+		if len(got) != 2 {
+			t.Fatalf("expected 2 entries, got %d", len(got))
+		}
+		if got[0].GetEndpoint() != testPubEP {
+			t.Fatalf("entry 0 endpoint = %s, want retained pub-ep", got[0].GetEndpoint())
+		}
+		// prv-sasl dropped; pub-mtls is genuinely new (pub-sasl still desired,
+		// so no rename) — fresh endpoint appended last.
+		if got[1].GetConfig().GetAuth().GetMode() != controlplanev1.AuthMode_AUTH_MODE_MTLS || got[1].GetEndpoint() == testPrvEP {
+			t.Fatalf("entry 1 = %v/%s, want appended fresh mtls", got[1].GetConfig(), got[1].GetEndpoint())
+		}
+	})
+}
+
+// TestClusterFake_PrivateOnlyGainsPublicRejected pins the fake's mirror of the
+// control plane's in-place topology restriction: a cluster whose stored
+// listeners are all private cannot gain a public listener through a
+// connections update.
+func TestClusterFake_PrivateOnlyGainsPublicRejected(t *testing.T) {
+	f := NewClusterFake(NewOperationFake())
+	ctx := context.Background()
+
+	conn := func(ct controlplanev1.Cluster_ConnectionType) *controlplanev1.ConnectionSpec {
+		return &controlplanev1.ConnectionSpec{Type: ct, Auth: &controlplanev1.AuthSpec{Mode: controlplanev1.AuthMode_AUTH_MODE_SASL}}
+	}
+	prv := []*controlplanev1.ConnectionSpec{conn(connTypePrivate)}
+
+	op, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{
+		Cluster: &controlplanev1.ClusterCreate{
+			Name:           "private-only",
+			CloudProvider:  controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS,
+			Type:           controlplanev1.Cluster_TYPE_BYOC,
+			KafkaApi:       &controlplanev1.KafkaAPISpec{Connections: prv},
+			HttpProxy:      &controlplanev1.HTTPProxySpec{Connections: prv},
+			SchemaRegistry: &controlplanev1.SchemaRegistrySpec{Connections: prv},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateCluster: %v", err)
+	}
+	id := op.GetOperation().GetResourceId()
+
+	_, err = f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+		Cluster: &controlplanev1.ClusterUpdate{
+			Id:       id,
+			KafkaApi: &controlplanev1.KafkaAPISpec{Connections: []*controlplanev1.ConnectionSpec{conn(connTypePublic), conn(connTypePrivate)}},
+		},
+		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"kafka_api.connections"}},
+	})
+	if err == nil {
+		t.Fatal("UpdateCluster accepted a public listener on a private-only cluster")
+	}
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "cannot gain public listeners") {
+		t.Fatalf("expected the private-only rejection, got a different error: %v", err)
 	}
 }

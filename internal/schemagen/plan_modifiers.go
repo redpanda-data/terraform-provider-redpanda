@@ -61,4 +61,10 @@ var planModifierRegistry = map[string]planModifierDef{
 		},
 		subsumesStateNullAxis: true,
 	},
+	"ConnectionEndpointFromState": {
+		expr: func(_ string) string {
+			return "connectionEndpointFromState()"
+		},
+		subsumesStateNullAxis: true,
+	},
 }

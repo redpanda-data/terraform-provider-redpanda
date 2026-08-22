@@ -154,3 +154,75 @@ func TestListCarryKnownEmpty(t *testing.T) {
 		require.Equal(t, empty, ListCarryKnownEmpty(empty, populated))
 	})
 }
+
+func reorderObj(t *testing.T, kind, size string) types.Object {
+	t.Helper()
+	return types.ObjectValueMust(map[string]attr.Type{
+		"kind": types.StringType,
+		"size": types.StringType,
+	}, map[string]attr.Value{
+		"kind": types.StringValue(kind),
+		"size": types.StringValue(size),
+	})
+}
+
+// TestListFromObjectsReorderedByIdentity pins the identity reorder used by
+// echo_unwrap fields: prev order wins for identity matches, unmatched elements
+// append in server order, and a null prev leaves server order untouched.
+func TestListFromObjectsReorderedByIdentity(t *testing.T) {
+	type rec struct{ kind, size string }
+	attrTypes := map[string]attr.Type{"kind": types.StringType, "size": types.StringType}
+	flatten := func(_ context.Context, p rec, _ *struct {
+		Kind types.String `tfsdk:"kind"`
+		Size types.String `tfsdk:"size"`
+	}) (struct {
+		Kind types.String `tfsdk:"kind"`
+		Size types.String `tfsdk:"size"`
+	}, diag.Diagnostics,
+	) {
+		return struct {
+			Kind types.String `tfsdk:"kind"`
+			Size types.String `tfsdk:"size"`
+		}{Kind: types.StringValue(p.kind), Size: types.StringValue(p.size)}, nil
+	}
+	server := []rec{{"b", "1"}, {"a", "2"}, {"c", "3"}}
+
+	kindAt := func(l types.List, i int) string {
+		obj, ok := l.Elements()[i].(types.Object)
+		require.True(t, ok)
+		return obj.Attributes()["kind"].(types.String).ValueString()
+	}
+
+	t.Run("null prev keeps server order", func(t *testing.T) {
+		var diags diag.Diagnostics
+		got := ListFromObjectsReorderedByIdentityWithDiags(context.Background(), server,
+			types.ListNull(types.ObjectType{AttrTypes: attrTypes}), attrTypes, flatten, []string{"kind"}, &diags)
+		if diags.HasError() {
+			t.Fatal(diags)
+		}
+		if kindAt(got, 0) != "b" || kindAt(got, 1) != "a" || kindAt(got, 2) != "c" {
+			t.Fatalf("server order not preserved: %v", got)
+		}
+	})
+
+	t.Run("prev order wins, unmatched appends", func(t *testing.T) {
+		prev := types.ListValueMust(types.ObjectType{AttrTypes: attrTypes}, []attr.Value{
+			reorderObj(t, "a", "old"),
+			reorderObj(t, "b", "old"),
+		})
+		var diags diag.Diagnostics
+		got := ListFromObjectsReorderedByIdentityWithDiags(context.Background(), server, prev, attrTypes, flatten, []string{"kind"}, &diags)
+		if diags.HasError() {
+			t.Fatal(diags)
+		}
+		if kindAt(got, 0) != "a" || kindAt(got, 1) != "b" || kindAt(got, 2) != "c" {
+			t.Fatalf("expected prev order a,b then appended c: %v", got)
+		}
+		// size rides from the SERVER element, not prev.
+		first, ok := got.Elements()[0].(types.Object)
+		require.True(t, ok)
+		if first.Attributes()["size"].(types.String).ValueString() != "2" {
+			t.Fatal("matched element must carry server values")
+		}
+	})
+}

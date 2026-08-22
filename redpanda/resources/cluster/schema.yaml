@@ -166,15 +166,31 @@ cluster_configuration:
     computed_properties:
       todo: true
 connection_type:
-  required: true
+  # The control plane rejects connection_type set together with connections,
+  # and a connections-only config must read the server-derived value back
+  # without drift (a dual cluster reads back "private"), so this cannot be
+  # required or plain-optional.
+  optional: true
+  computed: true
+  # Server-derived on read (cloudv2 mapper.getConnectionType: any private
+  # kafka listener reads back "private") and private<->dual is a fleet
+  # operation outside the public API, so the projection can change under an
+  # unchanged config. Surfacing that as drift would trip RequiresReplace and
+  # plan an unprompted cluster destroy; state stays pinned to the last
+  # user-applied value instead. Connections-managed clusters still project
+  # fresh: the echo re-plan pass marks the plan value unknown, which disables
+  # the carry.
+  flatten_from_prev: true
+  deprecation_message: "Use the connections field on kafka_api, http_proxy, and schema_registry instead."
   # OneOf restores plan-time enum-membership validation (cloudv2's proto
   # declares no rule on connection_type, so an invalid value would otherwise
   # silently map to UNSPECIFIED and only fail at apply).
   # RequirePrivateConnectionValidator stays — it enforces a cross-field rule
-  # (connection_type == private when customer_managed_resources is set) that
-  # cloudv2 does not declare via buf.validate CEL.
+  # (private access required when customer_managed_resources is set, satisfied
+  # by connection_type == private or a private connection) that cloudv2 does
+  # not declare via buf.validate CEL.
   validator:
-    - "OneOf{values: |public|private}"
+    - "OneOf{values: public|private}"
     - RequirePrivateConnectionValidator
 
 current_redpanda_version:
@@ -484,7 +500,41 @@ http_proxy:
       computed_only: true
 
     connections:
-      todo: true
+      echo_unwrap: true
+      optional: true
+      computed: true
+      validator:
+        - "ListSizeAtLeast{n: 1}"
+      fields:
+        # type and auth are semantically required, enforced by ValidateConfig.
+        # They must be optional+computed at the schema level: connections is
+        # ALWAYS projected on read (legacy clusters included), and terraform
+        # core only carries that prior echo through a null config if every
+        # populated leaf is computed-capable (objchange.
+        # optionalValueNotComputable) — a required leaf makes core clear the
+        # echo and cascade "(known after apply)" across the resource.
+        # skip_proto_validation: the write element's REQUIRED/enum rules assume
+        # write-shape presence; plan-time enforcement lives in the OneOf
+        # validators and ValidateConfig instead.
+        type:
+          optional: true
+          computed: true
+          skip_proto_validation: true
+          validator:
+            - "OneOf{values: public|private}"
+        auth:
+          optional: true
+          computed: true
+          skip_proto_validation: true
+          fields:
+            mode:
+              optional: true
+              computed: true
+              skip_proto_validation: true
+              validator:
+                - "OneOf{values: sasl|mtls}"
+        endpoint:
+          plan_modifiers: [ConnectionEndpointFromState]
 id:
   computed_only: true
 
@@ -519,7 +569,41 @@ kafka_api:
       computed_only: true
 
     connections:
-      todo: true
+      echo_unwrap: true
+      optional: true
+      computed: true
+      validator:
+        - "ListSizeAtLeast{n: 1}"
+      fields:
+        # type and auth are semantically required, enforced by ValidateConfig.
+        # They must be optional+computed at the schema level: connections is
+        # ALWAYS projected on read (legacy clusters included), and terraform
+        # core only carries that prior echo through a null config if every
+        # populated leaf is computed-capable (objchange.
+        # optionalValueNotComputable) — a required leaf makes core clear the
+        # echo and cascade "(known after apply)" across the resource.
+        # skip_proto_validation: the write element's REQUIRED/enum rules assume
+        # write-shape presence; plan-time enforcement lives in the OneOf
+        # validators and ValidateConfig instead.
+        type:
+          optional: true
+          computed: true
+          skip_proto_validation: true
+          validator:
+            - "OneOf{values: public|private}"
+        auth:
+          optional: true
+          computed: true
+          skip_proto_validation: true
+          fields:
+            mode:
+              optional: true
+              computed: true
+              skip_proto_validation: true
+              validator:
+                - "OneOf{values: sasl|mtls}"
+        endpoint:
+          plan_modifiers: [ConnectionEndpointFromState]
 kafka_connect:
   optional: true
   computed: true
@@ -667,7 +751,41 @@ schema_registry:
     sasl:
       todo: true
     connections:
-      todo: true
+      echo_unwrap: true
+      optional: true
+      computed: true
+      validator:
+        - "ListSizeAtLeast{n: 1}"
+      fields:
+        # type and auth are semantically required, enforced by ValidateConfig.
+        # They must be optional+computed at the schema level: connections is
+        # ALWAYS projected on read (legacy clusters included), and terraform
+        # core only carries that prior echo through a null config if every
+        # populated leaf is computed-capable (objchange.
+        # optionalValueNotComputable) — a required leaf makes core clear the
+        # echo and cascade "(known after apply)" across the resource.
+        # skip_proto_validation: the write element's REQUIRED/enum rules assume
+        # write-shape presence; plan-time enforcement lives in the OneOf
+        # validators and ValidateConfig instead.
+        type:
+          optional: true
+          computed: true
+          skip_proto_validation: true
+          validator:
+            - "OneOf{values: public|private}"
+        auth:
+          optional: true
+          computed: true
+          skip_proto_validation: true
+          fields:
+            mode:
+              optional: true
+              computed: true
+              skip_proto_validation: true
+              validator:
+                - "OneOf{values: sasl|mtls}"
+        endpoint:
+          plan_modifiers: [ConnectionEndpointFromState]
 state:
   computed_only: true
 

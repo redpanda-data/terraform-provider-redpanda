@@ -1,4 +1,4 @@
-//go:build live_test && (all || cluster_aws || cluster_gcp || byoc_aws || byoc_gcp)
+//go:build live_test && (all || cluster_aws || cluster_aws_dual || cluster_gcp || byoc_aws || byoc_gcp)
 
 // Copyright 2023 Redpanda Data, Inc.
 //

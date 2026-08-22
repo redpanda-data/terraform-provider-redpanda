@@ -25,10 +25,19 @@ resource "redpanda_cluster" "test" {
   cloud_provider    = var.cloud_provider
   region            = var.region
   cluster_type      = "dedicated"
-  connection_type   = "public"
-  throughput_tier   = var.throughput_tier
-  zones             = var.zones
-  allow_deletion    = var.cluster_allow_deletion
+  connection_type   = var.dual_listener_connections == null ? "public" : null
+  kafka_api = var.dual_listener_connections == null ? null : {
+    connections = var.dual_listener_connections
+  }
+  http_proxy = var.dual_listener_connections == null ? null : {
+    connections = var.dual_listener_connections
+  }
+  schema_registry = var.dual_listener_connections == null ? null : {
+    connections = var.dual_listener_connections
+  }
+  throughput_tier = var.throughput_tier
+  zones           = var.zones
+  allow_deletion  = var.cluster_allow_deletion
   cluster_configuration = {
     custom_properties_json = jsonencode({
       "enable_shadow_linking"                = var.cluster_enable_shadow_linking
