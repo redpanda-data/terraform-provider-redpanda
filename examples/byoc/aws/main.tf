@@ -20,11 +20,20 @@ resource "redpanda_cluster" "test" {
   cloud_provider    = redpanda_network.test.cloud_provider
   region            = redpanda_network.test.region
   cluster_type      = redpanda_network.test.cluster_type
-  connection_type   = "public"
-  throughput_tier   = var.throughput_tier
-  zones             = var.zones
-  allow_deletion    = var.cluster_allow_deletion
-  tags              = var.cluster_tags
+  connection_type   = var.dual_listener_connections == null ? "public" : null
+  kafka_api = var.dual_listener_connections == null ? null : {
+    connections = var.dual_listener_connections
+  }
+  http_proxy = var.dual_listener_connections == null ? null : {
+    connections = var.dual_listener_connections
+  }
+  schema_registry = var.dual_listener_connections == null ? null : {
+    connections = var.dual_listener_connections
+  }
+  throughput_tier = var.throughput_tier
+  zones           = var.zones
+  allow_deletion  = var.cluster_allow_deletion
+  tags            = var.cluster_tags
   # aws_private_link = {
   #   enabled         = true
   #   connect_console = true
@@ -32,7 +41,7 @@ resource "redpanda_cluster" "test" {
   # }
 
   timeouts = {
-    create = "90m"
+    create = var.cluster_create_timeout
   }
 }
 

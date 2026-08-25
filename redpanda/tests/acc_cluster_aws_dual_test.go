@@ -25,11 +25,11 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/acc"
 )
 
-// TestAcc_Cluster_AWS_DualListeners runs the standard AWS dedicated stack in
-// dual listener mode: public+private SASL connections on all three services,
-// no connection_type. Requires the enable-public-private-listeners feature
-// flag on the test org (preview) — without it the create fails
-// PermissionDenied by design.
+// TestAcc_Cluster_AWS_DualListeners runs the AWS BYOC stack (the certified
+// envelope for dual listener mode) with public+private SASL connections on
+// all three services and no connection_type. Requires the
+// enable-public-private-listeners feature flag on the test org (preview) —
+// without it the create fails PermissionDenied by design.
 func TestAcc_Cluster_AWS_DualListeners(t *testing.T) {
 	ctx := context.Background()
 	name := acc.RandomName(acc.NamePrefix + "aws-dual")
@@ -45,8 +45,9 @@ func TestAcc_Cluster_AWS_DualListeners(t *testing.T) {
 	}
 	customVars := map[string]config.Variable{
 		"dual_listener_connections": config.ListVariable(conn("public"), conn("private")),
+		"cluster_create_timeout":    config.StringVariable("150m"),
 	}
 	// No upgrade entry: the released provider does not know the connections
 	// schema yet. Remove once a release ships dual listener mode.
-	testRunner(ctx, name, rename, acc.RedpandaVersion, acc.AwsDedicatedClusterDir, customVars, t, withoutUpgradeEntry())
+	testRunner(ctx, name, rename, acc.RedpandaVersion, acc.AwsByocClusterDir, customVars, t, withoutUpgradeEntry())
 }
