@@ -189,7 +189,6 @@ func TestUnit_ShadowLink_Flatten_PreservesSchemaRegistrySecretsFromPriorState(t 
 	tlsSettings, d := types.ObjectValue(shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsAttrTypes(), map[string]attr.Value{
 		"enabled":                 types.BoolValue(true),
 		"do_not_set_sni_hostname": types.BoolValue(false),
-		"tls_file_settings":       types.ObjectNull(shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsAttrTypes()),
 		"tls_pem_settings":        pem,
 	})
 	require.False(t, d.HasError(), "%v", d)
@@ -365,7 +364,22 @@ func allNullModel() *shadowlinkmodel.ResourceModel {
 		ConsumerOffsetSyncOptions: types.ObjectNull(shadowlinkmodel.ConsumerOffsetSyncOptionsAttrTypes()),
 		SecuritySyncOptions:       types.ObjectNull(shadowlinkmodel.SecuritySyncOptionsAttrTypes()),
 		SchemaRegistrySyncOptions: types.ObjectNull(shadowlinkmodel.SchemaRegistrySyncOptionsAttrTypes()),
+		RoleSyncOptions:           types.ObjectNull(shadowlinkmodel.RoleSyncOptionsAttrTypes()),
 	}
+}
+
+// roleSyncWithPaused returns a populated role_sync_options Object — used to
+// drive field-mask diff scenarios.
+func roleSyncWithPaused(t *testing.T, paused bool) types.Object {
+	t.Helper()
+	rs := shadowlinkmodel.RoleSyncOptionsModel{
+		Interval:        types.StringValue("45s"),
+		Paused:          types.BoolValue(paused),
+		RoleNameFilters: types.ListNull(types.ObjectType{AttrTypes: shadowlinkmodel.RoleSyncOptionsRoleNameFiltersAttrTypes()}),
+	}
+	obj, diags := types.ObjectValueFrom(context.Background(), shadowlinkmodel.RoleSyncOptionsAttrTypes(), &rs)
+	require.False(t, diags.HasError(), "%v", diags)
+	return obj
 }
 
 // clientOptionsWithMetadataAge returns a populated client_options Object with
@@ -408,6 +422,16 @@ func TestUnit_ShadowLink_UpdateDiff_OnlyClientOptionsChanged(t *testing.T) {
 	assert.Equal(t, []string{"client_options"}, paths)
 	require.NotNil(t, diffed.GetClientOptions())
 	assert.Equal(t, int32(15000), diffed.GetClientOptions().GetMetadataMaxAgeMs())
+}
+
+func TestUnit_ShadowLink_UpdateDiff_OnlyRoleSyncChanged(t *testing.T) {
+	plan := allNullModel()
+	plan.RoleSyncOptions = roleSyncWithPaused(t, true)
+	diffed, paths := diffMask(t, plan, allNullModel())
+	assert.Equal(t, []string{"role_sync_options"}, paths)
+	require.NotNil(t, diffed.GetRoleSyncOptions())
+	assert.True(t, diffed.GetRoleSyncOptions().GetPaused())
+	assert.Equal(t, "45s", diffed.GetRoleSyncOptions().GetInterval().AsDuration().String())
 }
 
 func TestUnit_ShadowLink_UpdateDiff_SubAttrChangeShipsParent(t *testing.T) {

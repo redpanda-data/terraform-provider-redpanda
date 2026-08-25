@@ -75,10 +75,12 @@ func TestAcc_ShadowLink(t *testing.T) {
 	maps.Copy(partialUpdateVars, origVars)
 	partialUpdateVars["metadata_max_age_ms"] = config.IntegerVariable(15000)
 
-	// SR partial-update vars: bump only shadow_schema_registry_api.tail_interval.
+	// SR partial-update vars: bump shadow_schema_registry_api.tail_interval and
+	// flip role_sync_options.paused — two independent subtrees in one update.
 	srUpdateVars := make(map[string]config.Variable)
 	maps.Copy(srUpdateVars, partialUpdateVars)
 	srUpdateVars["sr_tail_interval"] = config.StringVariable("20s")
+	srUpdateVars["role_sync_paused"] = config.BoolVariable(true)
 
 	// Shadow-link rename triggers RequiresReplace (delete + create) since
 	// `name` is immutable on the proto.
@@ -153,6 +155,14 @@ func TestAcc_ShadowLink(t *testing.T) {
 					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "client_options.authentication_configuration.scram_configuration.password", fmt.Sprintf("${secrets.%s}", secretName)),
 					// Server-derived mirrors, absent from every write payload.
 					resource.TestCheckResourceAttrSet(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.effective_tail_interval"),
+					// role_sync_options: deny-by-default semantics — the "*" LITERAL
+					// INCLUDE filter is the documented sync-everything form.
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "role_sync_options.interval", "45s"),
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "role_sync_options.paused", "false"),
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "role_sync_options.role_name_filters.#", "1"),
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "role_sync_options.role_name_filters.0.filter_type", "INCLUDE"),
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "role_sync_options.role_name_filters.0.name", "*"),
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "role_sync_options.role_name_filters.0.pattern_type", "LITERAL"),
 					func(s *terraform.State) error {
 						sourceID, err := acc.ResourceID(s, "redpanda_cluster.source")
 						if err != nil {
@@ -224,12 +234,13 @@ func TestAcc_ShadowLink(t *testing.T) {
 					},
 				),
 			},
-			// Change ONLY shadow_schema_registry_api.tail_interval. Two things
-			// this proves that the mock tier cannot: the control plane accepts a
-			// partial update inside the SR subtree, and basic.password survives
-			// the Read that follows — the real backend masks it, so a blanked
-			// value would surface here as a perpetual diff rather than a clean
-			// apply.
+			// Change shadow_schema_registry_api.tail_interval and
+			// role_sync_options.paused. Three things this proves that the mock
+			// tier cannot: the control plane accepts a partial update inside the
+			// SR subtree, basic.password survives the Read that follows — the
+			// real backend masks it, so a blanked value would surface here as a
+			// perpetual diff rather than a clean apply — and role sync updates
+			// in place.
 			{
 				ConfigDirectory:          config.StaticDirectory(acc.ShadowLinkDir),
 				ConfigVariables:          srUpdateVars,
@@ -241,6 +252,9 @@ func TestAcc_ShadowLink(t *testing.T) {
 					// by the partial update.
 					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.full_sync_interval", "5m0s"),
 					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.destination.identity", "true"),
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "role_sync_options.paused", "true"),
+					// Untouched role leaves must survive the paused flip.
+					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "role_sync_options.role_name_filters.#", "1"),
 					func(s *terraform.State) error {
 						linkID, err := acc.ResourceID(s, acc.ShadowLinkResourceName)
 						if err != nil {
@@ -259,6 +273,16 @@ func TestAcc_ShadowLink(t *testing.T) {
 						}
 						if !api.GetAuthOptions().GetBasic().GetPasswordSet() {
 							return fmt.Errorf("basic.password_set is false server-side — the credential did not persist")
+						}
+						rs := sl.GetRoleSyncOptions()
+						if rs == nil {
+							return fmt.Errorf("role_sync_options missing server-side after update")
+						}
+						if !rs.GetPaused() {
+							return fmt.Errorf("role_sync_options.paused is false server-side — the update did not persist")
+						}
+						if len(rs.GetRoleNameFilters()) != 1 {
+							return fmt.Errorf("role_name_filters clobbered by paused flip: got %d filters", len(rs.GetRoleNameFilters()))
 						}
 						if got := sl.GetTopicMetadataSyncOptions().GetPaused(); got != initialPaused {
 							return fmt.Errorf("topic_metadata_sync_options.paused clobbered by SR update: before=%v after=%v", initialPaused, got)

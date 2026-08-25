@@ -204,6 +204,18 @@ resource "redpanda_shadow_link" "test" {
   schema_registry_sync_options = {
     shadow_schema_registry_topic = true
   }
+
+  role_sync_options = {
+    interval = "45s"
+    paused   = false
+    role_name_filters = [
+      {
+        filter_type  = "INCLUDE"
+        name         = "*"
+        pattern_type = "LITERAL"
+      }
+    ]
+  }
 }
 `, name, shadowID)
 }
@@ -262,6 +274,11 @@ func TestIntegration_ShadowLink_CreateAndRefresh(t *testing.T) {
 				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("security_sync_options").AtMapKey("acl_filters").AtSliceIndex(0).AtMapKey("access_filter").AtMapKey("principal"), knownvalue.StringExact("User:alice")),
 				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("security_sync_options").AtMapKey("acl_filters").AtSliceIndex(0).AtMapKey("access_filter").AtMapKey("host"), knownvalue.StringExact("*")),
 				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("schema_registry_sync_options").AtMapKey("shadow_schema_registry_topic"), knownvalue.Bool(true)),
+				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("role_sync_options").AtMapKey("interval"), knownvalue.StringExact("45s")),
+				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("role_sync_options").AtMapKey("paused"), knownvalue.Bool(false)),
+				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("role_sync_options").AtMapKey("role_name_filters").AtSliceIndex(0).AtMapKey("filter_type"), knownvalue.StringExact("INCLUDE")),
+				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("role_sync_options").AtMapKey("role_name_filters").AtSliceIndex(0).AtMapKey("name"), knownvalue.StringExact("*")),
+				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("role_sync_options").AtMapKey("role_name_filters").AtSliceIndex(0).AtMapKey("pattern_type"), knownvalue.StringExact("LITERAL")),
 				idPreserved.AddStateValue(shadowLinkAddr, tfjsonpath.New("id")),
 			}),
 			integration.NoopReapplyStep(shadowLinkAddr, cfg, []statecheck.StateCheck{
@@ -270,6 +287,7 @@ func TestIntegration_ShadowLink_CreateAndRefresh(t *testing.T) {
 				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("client_options").AtMapKey("metadata_max_age_ms"), knownvalue.Int64Exact(5000)),
 				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("topic_metadata_sync_options").AtMapKey("start_at_earliest"), knownvalue.Bool(true)),
 				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("schema_registry_sync_options").AtMapKey("shadow_schema_registry_topic"), knownvalue.Bool(true)),
+				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("role_sync_options").AtMapKey("role_name_filters").AtSliceIndex(0).AtMapKey("name"), knownvalue.StringExact("*")),
 				idPreserved.AddStateValue(shadowLinkAddr, tfjsonpath.New("id")),
 			}),
 		},
@@ -495,6 +513,93 @@ resource "redpanda_shadow_link" "test" {
 			integration.UpdateLeafStep(shadowLinkAddr, makeCfg(true), []statecheck.StateCheck{
 				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("security_sync_options").AtMapKey("paused"), knownvalue.Bool(true)),
 				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idStable.AddStateValue(shadowLinkAddr, tfjsonpath.New("id")),
+			}),
+		},
+	})
+}
+
+// TestIntegration_ShadowLink_UpdateLeaf_RoleSync flips role_sync_options.paused,
+// grows role_name_filters from one to two, then clears back to an explicit
+// empty list (deny-by-default: empty syncs nothing, so [] must round-trip).
+func TestIntegration_ShadowLink_UpdateLeaf_RoleSync(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	makeCfg := func(paused bool, filters string) string {
+		return fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_shadow_link" "test" {
+  name               = "tfrp-mock-sl-role"
+  shadow_redpanda_id = "shadow-cluster-id-role"
+  source_redpanda_id = "source-cluster-id-role"
+  allow_deletion     = true
+  role_sync_options = {
+    interval          = "45s"
+    paused            = %t
+    role_name_filters = %s
+  }
+}
+`, paused, filters)
+	}
+
+	oneFilter := `[
+      {
+        filter_type  = "INCLUDE"
+        name         = "*"
+        pattern_type = "LITERAL"
+      }
+    ]`
+	twoFilters := `[
+      {
+        filter_type  = "INCLUDE"
+        name         = "ops-"
+        pattern_type = "PREFIX"
+      },
+      {
+        filter_type  = "EXCLUDE"
+        name         = "ops-admin"
+        pattern_type = "LITERAL"
+      }
+    ]`
+
+	rolePath := func(leaf ...string) tfjsonpath.Path {
+		p := tfjsonpath.New("role_sync_options")
+		for _, l := range leaf {
+			p = p.AtMapKey(l)
+		}
+		return p
+	}
+
+	idStable := statecheck.CompareValue(compare.ValuesSame())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(shadowLinkAddr, makeCfg(false, oneFilter), []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(shadowLinkAddr, rolePath("interval"), knownvalue.StringExact("45s")),
+				statecheck.ExpectKnownValue(shadowLinkAddr, rolePath("paused"), knownvalue.Bool(false)),
+				statecheck.ExpectKnownValue(shadowLinkAddr, rolePath("role_name_filters").AtSliceIndex(0).AtMapKey("filter_type"), knownvalue.StringExact("INCLUDE")),
+				statecheck.ExpectKnownValue(shadowLinkAddr, rolePath("role_name_filters").AtSliceIndex(0).AtMapKey("name"), knownvalue.StringExact("*")),
+				statecheck.ExpectKnownValue(shadowLinkAddr, rolePath("role_name_filters").AtSliceIndex(0).AtMapKey("pattern_type"), knownvalue.StringExact("LITERAL")),
+				statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				idStable.AddStateValue(shadowLinkAddr, tfjsonpath.New("id")),
+			}),
+			integration.UpdateLeafStep(shadowLinkAddr, makeCfg(true, twoFilters), []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(shadowLinkAddr, rolePath("paused"), knownvalue.Bool(true)),
+				statecheck.ExpectKnownValue(shadowLinkAddr, rolePath("role_name_filters"), knownvalue.ListSizeExact(2)),
+				statecheck.ExpectKnownValue(shadowLinkAddr, rolePath("role_name_filters").AtSliceIndex(0).AtMapKey("name"), knownvalue.StringExact("ops-")),
+				statecheck.ExpectKnownValue(shadowLinkAddr, rolePath("role_name_filters").AtSliceIndex(0).AtMapKey("pattern_type"), knownvalue.StringExact("PREFIX")),
+				statecheck.ExpectKnownValue(shadowLinkAddr, rolePath("role_name_filters").AtSliceIndex(1).AtMapKey("filter_type"), knownvalue.StringExact("EXCLUDE")),
+				statecheck.ExpectKnownValue(shadowLinkAddr, rolePath("role_name_filters").AtSliceIndex(1).AtMapKey("name"), knownvalue.StringExact("ops-admin")),
+				idStable.AddStateValue(shadowLinkAddr, tfjsonpath.New("id")),
+			}),
+			integration.UpdateLeafStep(shadowLinkAddr, makeCfg(true, "[]"), []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(shadowLinkAddr, rolePath("role_name_filters"), knownvalue.ListSizeExact(0)),
+				idStable.AddStateValue(shadowLinkAddr, tfjsonpath.New("id")),
+			}),
+			integration.NoopReapplyStep(shadowLinkAddr, makeCfg(true, "[]"), []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(shadowLinkAddr, rolePath("role_name_filters"), knownvalue.ListSizeExact(0)),
 				idStable.AddStateValue(shadowLinkAddr, tfjsonpath.New("id")),
 			}),
 		},
@@ -940,6 +1045,113 @@ resource "redpanda_shadow_link" "test" {
 			{
 				Config:      cfg,
 				ExpectError: regexp.MustCompile(`(?s)shadow_schema_registry_topic.*Value\s+must be "true",\s+got:\s+false`),
+			},
+		},
+	})
+}
+
+// TestIntegration_ShadowLink_RoleFilter_AliasedPatternTypeRejected pins the
+// plan-time rejection of "PREFIXED": the proto aliases PREFIX==PREFIXED==2 but
+// flatten always emits "PREFIX", so the aliased spelling can never round-trip
+// and must be rejected before apply.
+func TestIntegration_ShadowLink_RoleFilter_AliasedPatternTypeRejected(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	cfg := `
+provider "redpanda" {}
+
+resource "redpanda_shadow_link" "test" {
+  name               = "tfrp-mock-sl-role-prefixed-rej"
+  shadow_redpanda_id = "shadow-cluster-id-role-prefixed-rej"
+  source_redpanda_id = "source-cluster-id-role-prefixed-rej"
+  allow_deletion     = true
+  role_sync_options = {
+    role_name_filters = [
+      {
+        filter_type  = "INCLUDE"
+        name         = "ops-"
+        pattern_type = "PREFIXED"
+      }
+    ]
+  }
+}
+`
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config:      cfg,
+				ExpectError: regexp.MustCompile(`(?s)pattern_type\s+value\s+must\s+be\s+one\s+of.*"PREFIXED"`),
+			},
+		},
+	})
+}
+
+// TestIntegration_ShadowLink_RoleFilter_LongFormFilterTypeRejected pins the
+// plan-time rejection of the proto-long spelling "FILTER_TYPE_INCLUDE", which
+// the mapper would otherwise silently coerce to FILTER_TYPE_UNSPECIFIED.
+func TestIntegration_ShadowLink_RoleFilter_LongFormFilterTypeRejected(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	cfg := `
+provider "redpanda" {}
+
+resource "redpanda_shadow_link" "test" {
+  name               = "tfrp-mock-sl-role-longform-rej"
+  shadow_redpanda_id = "shadow-cluster-id-role-longform-rej"
+  source_redpanda_id = "source-cluster-id-role-longform-rej"
+  allow_deletion     = true
+  role_sync_options = {
+    role_name_filters = [
+      {
+        filter_type  = "FILTER_TYPE_INCLUDE"
+        name         = "*"
+        pattern_type = "LITERAL"
+      }
+    ]
+  }
+}
+`
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config:      cfg,
+				ExpectError: regexp.MustCompile(`(?s)filter_type\s+value\s+must\s+be\s+one\s+of.*"FILTER_TYPE_INCLUDE"`),
+			},
+		},
+	})
+}
+
+// TestIntegration_ShadowLink_RoleSyncInterval_NonCanonicalRejected pins the
+// plan-time rejection of non-canonical duration strings: "1m" round-trips
+// through durationpb to "1m0s" and would fail every apply with an
+// inconsistent-result error.
+func TestIntegration_ShadowLink_RoleSyncInterval_NonCanonicalRejected(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	cfg := `
+provider "redpanda" {}
+
+resource "redpanda_shadow_link" "test" {
+  name               = "tfrp-mock-sl-role-dur-rej"
+  shadow_redpanda_id = "shadow-cluster-id-role-dur-rej"
+  source_redpanda_id = "source-cluster-id-role-dur-rej"
+  allow_deletion     = true
+  role_sync_options = {
+    interval = "1m"
+  }
+}
+`
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config:      cfg,
+				ExpectError: regexp.MustCompile(`(?s)Non-Canonical\s+Duration.*canonical\s+Go\s+duration.*"1m0s"\s+instead\s+of\s+"1m"`),
 			},
 		},
 	})
@@ -1680,9 +1892,11 @@ resource "redpanda_shadow_link" "test" {
 `
 
 	// shadow_schema_registry_api is the other arm of the
-	// schema_registry_shadowing_mode oneof. cfgPem and cfgFile between them
-	// cover every leaf of the subtree: the tls_settings and destination oneofs
-	// each admit only one arm per config.
+	// schema_registry_shadowing_mode oneof. cfgPem and cfgAlt between them
+	// cover every leaf of the subtree: the destination oneof admits only one
+	// arm per config, and cfgAlt exercises tls_settings with no PEM arm set
+	// (tls_file_settings is not schema-representable for the SR API — the
+	// control plane rejects it).
 	cfgPem := `
 provider "redpanda" {}
 
@@ -1732,7 +1946,7 @@ resource "redpanda_shadow_link" "test" {
   }
 }
 `
-	cfgFile := `
+	cfgAlt := `
 provider "redpanda" {}
 
 resource "redpanda_shadow_link" "test" {
@@ -1752,11 +1966,6 @@ resource "redpanda_shadow_link" "test" {
       tls_settings = {
         enabled                 = true
         do_not_set_sni_hostname = false
-        tls_file_settings = {
-          ca_path   = "/etc/ssl/certs/ca.pem"
-          cert_path = "/etc/ssl/certs/client.pem"
-          key_path  = "/etc/ssl/private/client-key.pem"
-        }
       }
       tail_interval                  = "20s"
       full_sync_interval             = "5m0s"
@@ -1808,10 +2017,10 @@ resource "redpanda_shadow_link" "test" {
 		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("paused"), knownvalue.Bool(true)),
 		statecheck.ExpectKnownValue(shadowLinkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 	}
-	fileChecks := []statecheck.StateCheck{
-		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("tls_settings", "tls_file_settings", "ca_path"), knownvalue.StringExact("/etc/ssl/certs/ca.pem")),
-		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("tls_settings", "tls_file_settings", "cert_path"), knownvalue.StringExact("/etc/ssl/certs/client.pem")),
-		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("tls_settings", "tls_file_settings", "key_path"), knownvalue.StringExact("/etc/ssl/private/client-key.pem")),
+	altChecks := []statecheck.StateCheck{
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("tls_settings", "enabled"), knownvalue.Bool(true)),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("tls_settings", "do_not_set_sni_hostname"), knownvalue.Bool(false)),
+		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("tls_settings", "tls_pem_settings"), knownvalue.Null()),
 		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("destination", "identity"), knownvalue.Bool(true)),
 		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("tail_interval"), knownvalue.StringExact("20s")),
 		statecheck.ExpectKnownValue(shadowLinkAddr, apiKey("full_sync_interval"), knownvalue.StringExact("5m0s")),
@@ -1845,8 +2054,8 @@ resource "redpanda_shadow_link" "test" {
 			// basic.password and tls_pem_settings.key on Read, so a clean plan
 			// here proves preserveSchemaRegistrySecrets restored both.
 			integration.NoopReapplyStep(shadowLinkAddr, cfgPem, pemChecks),
-			integration.UpdateLeafStep(shadowLinkAddr, cfgFile, fileChecks),
-			integration.NoopReapplyStep(shadowLinkAddr, cfgFile, fileChecks),
+			integration.UpdateLeafStep(shadowLinkAddr, cfgAlt, altChecks),
+			integration.NoopReapplyStep(shadowLinkAddr, cfgAlt, altChecks),
 		},
 	})
 }

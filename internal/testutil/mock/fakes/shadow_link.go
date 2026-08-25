@@ -23,6 +23,7 @@ import (
 
 	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1/controlplanev1grpc"
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
+	corev2 "buf.build/gen/go/redpandadata/core/protocolbuffers/go/redpanda/core/admin/v2"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -41,7 +42,8 @@ const shadowLinkIDBase uint64 = 0x7000_0000_0000_0000
 // shadow_link payload are written through; unmasked fields retain their prior
 // stored value. The mask paths come from utils.GenerateProtobufDiffAndUpdateMask
 // which produces top-level field names (client_options, topic_metadata_sync_options,
-// consumer_offset_sync_options, security_sync_options, schema_registry_sync_options).
+// consumer_offset_sync_options, security_sync_options, schema_registry_sync_options,
+// role_sync_options).
 type ShadowLinkFake struct {
 	controlplanev1grpc.UnimplementedShadowLinkServiceServer
 
@@ -74,11 +76,15 @@ func (f *ShadowLinkFake) CreateShadowLink(_ context.Context, req *controlplanev1
 		ConsumerOffsetSyncOptions: in.GetConsumerOffsetSyncOptions(),
 		SecuritySyncOptions:       in.GetSecuritySyncOptions(),
 		SchemaRegistrySyncOptions: in.GetSchemaRegistrySyncOptions(),
+		RoleSyncOptions:           in.GetRoleSyncOptions(),
 		State:                     controlplanev1.ShadowLink_STATE_ACTIVE,
 		CreatedAt:                 now,
 		UpdatedAt:                 now,
 	}
 
+	if err := validateNameFilters(sl); err != nil {
+		return nil, err
+	}
 	populateServerOwned(sl)
 
 	f.mu.Lock()
@@ -88,12 +94,40 @@ func (f *ShadowLinkFake) CreateShadowLink(_ context.Context, req *controlplanev1
 	return &controlplanev1.CreateShadowLinkOperation{Operation: completedOp(f.op, id)}, nil
 }
 
+// validateNameFilters mirrors the backend's documented NameFilter constraint
+// on every surface that carries one: a "*" name must be the only character
+// and requires PATTERN_TYPE_LITERAL.
+func validateNameFilters(sl *controlplanev1.ShadowLink) error {
+	surfaces := []struct {
+		path    string
+		filters []*corev2.NameFilter
+	}{
+		{"role_sync_options.role_name_filters", sl.GetRoleSyncOptions().GetRoleNameFilters()},
+		{"consumer_offset_sync_options.group_filters", sl.GetConsumerOffsetSyncOptions().GetGroupFilters()},
+		{"topic_metadata_sync_options.auto_create_shadow_topic_filters", sl.GetTopicMetadataSyncOptions().GetAutoCreateShadowTopicFilters()},
+	}
+	for _, s := range surfaces {
+		for i, nf := range s.filters {
+			if nf.GetName() == "*" && nf.GetPatternType() != corev2.PatternType_PATTERN_TYPE_LITERAL {
+				return status.Errorf(codes.InvalidArgument, "%s[%d]: wildcard name \"*\" requires pattern_type PATTERN_TYPE_LITERAL", s.path, i)
+			}
+		}
+	}
+	return nil
+}
+
 // populateServerOwned fills the OUTPUT_ONLY fields the control plane derives.
 // Leaving them empty lets a test pass while the provider mishandles them.
 func populateServerOwned(sl *controlplanev1.ShadowLink) {
 	if co := sl.GetClientOptions(); co != nil {
 		co.ClientId = "tfrp-fake-client-id"
 	}
+	// The CP mapper returns a non-nil role_sync_options on every GET — even
+	// for links that never configured it — to carry effective_interval.
+	if sl.GetRoleSyncOptions() == nil {
+		sl.RoleSyncOptions = &corev2.RoleSyncOptions{}
+	}
+	sl.RoleSyncOptions.EffectiveInterval = durationOr(sl.RoleSyncOptions.GetInterval(), 30)
 	api := sl.GetSchemaRegistrySyncOptions().GetShadowSchemaRegistryApi()
 	if api == nil {
 		return
@@ -194,7 +228,11 @@ func (f *ShadowLinkFake) UpdateShadowLink(_ context.Context, req *controlplanev1
 		return nil, status.Errorf(codes.NotFound, "shadow_link %q not found", upd.GetId())
 	}
 
-	dstR := sl.ProtoReflect()
+	merged, isSL := proto.Clone(sl).(*controlplanev1.ShadowLink)
+	if !isSL {
+		return nil, status.Error(codes.Internal, "clone returned unexpected type")
+	}
+	dstR := merged.ProtoReflect()
 	srcR := upd.ProtoReflect()
 	for _, path := range req.GetUpdateMask().GetPaths() {
 		dstFD := dstR.Descriptor().Fields().ByName(protoreflect.Name(path))
@@ -204,8 +242,12 @@ func (f *ShadowLinkFake) UpdateShadowLink(_ context.Context, req *controlplanev1
 		}
 		dstR.Set(dstFD, srcR.Get(srcFD))
 	}
-	populateServerOwned(sl)
-	sl.UpdatedAt = timestamppb.Now()
+	if err := validateNameFilters(merged); err != nil {
+		return nil, err
+	}
+	populateServerOwned(merged)
+	merged.UpdatedAt = timestamppb.Now()
+	f.links[upd.GetId()] = merged
 
 	return &controlplanev1.UpdateShadowLinkOperation{Operation: completedOp(f.op, upd.GetId())}, nil
 }
