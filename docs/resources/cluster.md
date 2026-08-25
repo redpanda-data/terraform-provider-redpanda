@@ -1112,7 +1112,7 @@ resource "redpanda_cluster" "test" {
   #     ]
   #   }
   timeouts = {
-    create = "150m"
+    create = "90m"
   }
 }
 
@@ -1655,6 +1655,9 @@ resource "redpanda_cluster" "test" {
   cloud_provider    = redpanda_network.test.cloud_provider
   region            = redpanda_network.test.region
   cluster_type      = redpanda_network.test.cluster_type
+  # Dual listener mode: feature-gated, AWS BYOC only. A private-only cluster
+  # cannot gain public listeners in place — the provider rejects that at plan
+  # time. See the cluster docs "Limitations" section.
   connection_type   = var.dual_listener_connections == null ? "public" : null
   kafka_api = var.dual_listener_connections == null ? null : {
     connections = var.dual_listener_connections
@@ -2134,6 +2137,15 @@ resource "redpanda_acl" "test" {
 ## Limitations
 
 We are not currently able to support Azure BYOVPC clusters.
+
+### Dual listener mode (connections)
+
+Dual listener mode — the `connections` field on `kafka_api`, `http_proxy`, and `schema_registry` — is feature-gated and currently supported only on AWS BYOC clusters. Two transitions are not supported in place:
+
+- A cluster created private-only cannot gain public listeners in place. The provider rejects the change at plan time; the control plane enforces the same rule at apply. Recreate the cluster with the desired topology instead.
+- A cluster managed through `connections` cannot return to `connection_type`-managed (legacy) networking. The provider rejects the attempt at plan time once it has applied a `connections` configuration for the cluster; for a freshly imported cluster that check arms on the first `connections`-managed apply.
+
+Migrating a legacy public cluster to `connections` (including adding a private listener) is supported: remove `connection_type` and set `connections` on all three services in the same apply.
 
 ### Node Count Configuration
 
