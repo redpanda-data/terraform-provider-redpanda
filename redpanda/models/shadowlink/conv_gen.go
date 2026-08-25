@@ -36,6 +36,7 @@ type ShadowLinkResponse interface {
 	GetId() string
 	GetName() string
 	GetReason() string
+	GetRoleSyncOptions() *corev2.RoleSyncOptions
 	GetSchemaRegistrySyncOptions() *corev2.SchemaRegistrySyncOptions
 	GetSecuritySyncOptions() *corev2.SecuritySettingsSyncOptions
 	GetShadowRedpandaId() string
@@ -54,6 +55,7 @@ func Flatten(ctx context.Context, proto ShadowLinkResponse, prev *ResourceModel)
 	m.ShadowRedpandaID = types.StringValue(proto.GetShadowRedpandaId())
 	m.ClientOptions = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetClientOptions(), func() *ClientOptionsModel { v, _ := prev.AsClientOptions(ctx); return v }(), ClientOptionsAttrTypes(), FlattenClientOptions, &diags)
 	m.ConsumerOffsetSyncOptions = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetConsumerOffsetSyncOptions(), func() *ConsumerOffsetSyncOptionsModel { v, _ := prev.AsConsumerOffsetSyncOptions(ctx); return v }(), ConsumerOffsetSyncOptionsAttrTypes(), FlattenConsumerOffsetSyncOptions, &diags)
+	m.RoleSyncOptions = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRoleSyncOptions(), func() *RoleSyncOptionsModel { v, _ := prev.AsRoleSyncOptions(ctx); return v }(), RoleSyncOptionsAttrTypes(), FlattenRoleSyncOptions, &diags)
 	m.SchemaRegistrySyncOptions = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetSchemaRegistrySyncOptions(), func() *SchemaRegistrySyncOptionsModel { v, _ := prev.AsSchemaRegistrySyncOptions(ctx); return v }(), SchemaRegistrySyncOptionsAttrTypes(), FlattenSchemaRegistrySyncOptions, &diags)
 	m.SecuritySyncOptions = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetSecuritySyncOptions(), func() *SecuritySyncOptionsModel { v, _ := prev.AsSecuritySyncOptions(ctx); return v }(), SecuritySyncOptionsAttrTypes(), FlattenSecuritySyncOptions, &diags)
 	m.TopicMetadataSyncOptions = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetTopicMetadataSyncOptions(), func() *TopicMetadataSyncOptionsModel { v, _ := prev.AsTopicMetadataSyncOptions(ctx); return v }(), TopicMetadataSyncOptionsAttrTypes(), FlattenTopicMetadataSyncOptions, &diags)
@@ -138,6 +140,7 @@ func ExpandCreate(ctx context.Context, m *ResourceModel) (*controlplanev1.Create
 		ShadowRedpandaId:          m.ShadowRedpandaID.ValueString(),
 		ClientOptions:             modelconv.ObjectToMessageWithDiags(ctx, m.ClientOptions, ExpandClientOptions, &diags),
 		ConsumerOffsetSyncOptions: modelconv.ObjectToMessageWithDiags(ctx, m.ConsumerOffsetSyncOptions, ExpandConsumerOffsetSyncOptions, &diags),
+		RoleSyncOptions:           modelconv.ObjectToMessageWithDiags(ctx, m.RoleSyncOptions, ExpandRoleSyncOptions, &diags),
 		SchemaRegistrySyncOptions: modelconv.ObjectToMessageWithDiags(ctx, m.SchemaRegistrySyncOptions, ExpandSchemaRegistrySyncOptions, &diags),
 		SecuritySyncOptions:       modelconv.ObjectToMessageWithDiags(ctx, m.SecuritySyncOptions, ExpandSecuritySyncOptions, &diags),
 		TopicMetadataSyncOptions:  modelconv.ObjectToMessageWithDiags(ctx, m.TopicMetadataSyncOptions, ExpandTopicMetadataSyncOptions, &diags),
@@ -155,6 +158,7 @@ func ExpandUpdate(ctx context.Context, m *ResourceModel) (*controlplanev1.Shadow
 	payload := &controlplanev1.ShadowLinkUpdate{
 		ClientOptions:             modelconv.ObjectToMessageWithDiags(ctx, m.ClientOptions, ExpandClientOptions, &diags),
 		ConsumerOffsetSyncOptions: modelconv.ObjectToMessageWithDiags(ctx, m.ConsumerOffsetSyncOptions, ExpandConsumerOffsetSyncOptions, &diags),
+		RoleSyncOptions:           modelconv.ObjectToMessageWithDiags(ctx, m.RoleSyncOptions, ExpandRoleSyncOptions, &diags),
 		SchemaRegistrySyncOptions: modelconv.ObjectToMessageWithDiags(ctx, m.SchemaRegistrySyncOptions, ExpandSchemaRegistrySyncOptions, &diags),
 		SecuritySyncOptions:       modelconv.ObjectToMessageWithDiags(ctx, m.SecuritySyncOptions, ExpandSecuritySyncOptions, &diags),
 		TopicMetadataSyncOptions:  modelconv.ObjectToMessageWithDiags(ctx, m.TopicMetadataSyncOptions, ExpandTopicMetadataSyncOptions, &diags),
@@ -436,6 +440,67 @@ func FlattenConsumerOffsetSyncOptionsGroupFilters(_ context.Context, proto *core
 
 // ExpandConsumerOffsetSyncOptionsGroupFilters renders a nested model back into the proto type.
 func ExpandConsumerOffsetSyncOptionsGroupFilters(_ context.Context, m *ConsumerOffsetSyncOptionsGroupFiltersModel) (*corev2.NameFilter, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &corev2.NameFilter{
+		FilterType:  enums.StringToFilterType(m.FilterType.ValueString()),
+		Name:        m.Name.ValueString(),
+		PatternType: enums.StringToPatternType(m.PatternType.ValueString()),
+	}
+	return out, diags
+}
+
+// FlattenRoleSyncOptions converts a single proto corev2.RoleSyncOptions into the
+// corresponding nested model. The prev *RoleSyncOptionsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenRoleSyncOptions(ctx context.Context, proto *corev2.RoleSyncOptions, prev *RoleSyncOptionsModel) (RoleSyncOptionsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := RoleSyncOptionsModel{}
+	m.Interval = modelconv.StringFromDuration(proto.GetInterval())
+	m.Paused = types.BoolValue(proto.GetPaused())
+	m.RoleNameFilters = modelconv.ListFromObjectsWithDiags(ctx, proto.GetRoleNameFilters(), RoleSyncOptionsRoleNameFiltersAttrTypes(), FlattenRoleSyncOptionsRoleNameFilters, &diags)
+	if prev != nil {
+		m.RoleNameFilters = modelconv.ListCarryKnownEmpty(m.RoleNameFilters, prev.RoleNameFilters)
+	}
+	return m, diags
+}
+
+// ExpandRoleSyncOptions renders a nested model back into the proto type.
+func ExpandRoleSyncOptions(ctx context.Context, m *RoleSyncOptionsModel) (*corev2.RoleSyncOptions, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &corev2.RoleSyncOptions{
+		Interval:        modelconv.DurationFromStringWithDiags(m.Interval, &diags),
+		Paused:          m.Paused.ValueBool(),
+		RoleNameFilters: modelconv.ListToObjectsWithDiags(ctx, m.RoleNameFilters, ExpandRoleSyncOptionsRoleNameFilters, &diags),
+	}
+	return out, diags
+}
+
+// FlattenRoleSyncOptionsRoleNameFilters converts a single proto corev2.NameFilter into the
+// corresponding nested model. The prev *RoleSyncOptionsRoleNameFiltersModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenRoleSyncOptionsRoleNameFilters(_ context.Context, proto *corev2.NameFilter, prev *RoleSyncOptionsRoleNameFiltersModel) (RoleSyncOptionsRoleNameFiltersModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := RoleSyncOptionsRoleNameFiltersModel{}
+	m.FilterType = types.StringValue(enums.FilterTypeToString(proto.GetFilterType()))
+	m.Name = types.StringValue(proto.GetName())
+	m.PatternType = types.StringValue(enums.PatternTypeToString(proto.GetPatternType()))
+	return m, diags
+}
+
+// ExpandRoleSyncOptionsRoleNameFilters renders a nested model back into the proto type.
+func ExpandRoleSyncOptionsRoleNameFilters(_ context.Context, m *RoleSyncOptionsRoleNameFiltersModel) (*corev2.NameFilter, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if m == nil {
 		return nil, diags
@@ -736,10 +801,6 @@ func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettings(ctx cont
 	var diags diag.Diagnostics
 	_ = prev
 	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsModel{}
-	m.TLSFileSettings = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetTlsFileSettings(), func() *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel {
-		v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings(ctx, prev)
-		return v
-	}(), SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsAttrTypes(), FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings, &diags)
 	m.TLSPemSettings = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetTlsPemSettings(), func() *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettingsModel {
 		v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettings(ctx, prev)
 		return v
@@ -759,40 +820,8 @@ func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettings(ctx conte
 		DoNotSetSniHostname: m.DoNotSetSniHostname.ValueBool(),
 		Enabled:             m.Enabled.ValueBool(),
 	}
-	if v := modelconv.ObjectToMessageWithDiags(ctx, m.TLSFileSettings, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings, &diags); v != nil {
-		out.SetTlsFileSettings(v)
-	}
 	if v := modelconv.ObjectToMessageWithDiags(ctx, m.TLSPemSettings, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettings, &diags); v != nil {
 		out.SetTlsPemSettings(v)
-	}
-	return out, diags
-}
-
-// FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings converts a single proto commonv1.TLSFileSettings into the
-// corresponding nested model. The prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel arg carries forward
-// TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
-// flatten directly); pass nil when no prior nested state is available.
-func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings(_ context.Context, proto *commonv1.TLSFileSettings, prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel) (SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	_ = prev
-	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel{}
-	m.CaPath = types.StringValue(proto.GetCaPath())
-	m.CertPath = types.StringValue(proto.GetCertPath())
-	m.KeyPath = types.StringValue(proto.GetKeyPath())
-	return m, diags
-}
-
-// ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings renders a nested model back into the proto type.
-func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings(_ context.Context, m *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel) (*commonv1.TLSFileSettings, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	if m == nil {
-		return nil, diags
-	}
-	out := &commonv1.TLSFileSettings{
-		CaPath:   m.CaPath.ValueString(),
-		CertPath: m.CertPath.ValueString(),
-		KeyPath:  m.KeyPath.ValueString(),
 	}
 	return out, diags
 }

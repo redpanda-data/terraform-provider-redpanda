@@ -26,6 +26,7 @@ A shadow link is configuration on the destination ("shadow") cluster — no infr
 - `allow_deletion` (Boolean) Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.
 - `client_options` (Attributes) ShadowLinkClientOptions configures the Kafka client connection settings. (see [below for nested schema](#nestedatt--client_options))
 - `consumer_offset_sync_options` (Attributes) Options for syncing consumer offsets (see [below for nested schema](#nestedatt--consumer_offset_sync_options))
+- `role_sync_options` (Attributes) Options for syncing RBAC roles (see [below for nested schema](#nestedatt--role_sync_options))
 - `schema_registry_sync_options` (Attributes) Options for how the Schema Registry is synced. (see [below for nested schema](#nestedatt--schema_registry_sync_options))
 - `security_sync_options` (Attributes) Options for syncing security settings (see [below for nested schema](#nestedatt--security_sync_options))
 - `source_redpanda_id` (String) Source Redpanda ID
@@ -135,6 +136,26 @@ Required:
 
 
 
+<a id="nestedatt--role_sync_options"></a>
+### Nested Schema for `role_sync_options`
+
+Optional:
+
+- `interval` (String) Sync interval If 0 provided, defaults to 30 seconds
+- `paused` (Boolean) Allows user to pause the role sync task. If paused, then the task will enter the 'paused' state and will not sync roles from the source cluster
+- `role_name_filters` (Attributes List) Filters selecting which roles to shadow by name. Defaults to empty: no roles are synced until at least one include filter is added (see [below for nested schema](#nestedatt--role_sync_options--role_name_filters))
+
+<a id="nestedatt--role_sync_options--role_name_filters"></a>
+### Nested Schema for `role_sync_options.role_name_filters`
+
+Required:
+
+- `filter_type` (String) - FILTER_TYPE_INCLUDE: Include the items that match the filter - FILTER_TYPE_EXCLUDE: Exclude the items that match the filter
+- `name` (String) The resource name, or "*" Note if "*", must be the _only_ character and `pattern_type` must be `PATTERN_TYPE_LITERAL`
+- `pattern_type` (String) - PATTERN_TYPE_LITERAL: Must match the filter exactly - PATTERN_TYPE_PREFIX: Will match anything that starts with filter - PATTERN_TYPE_PREFIXED: Will match anything that starts with filter
+
+
+
 <a id="nestedatt--schema_registry_sync_options"></a>
 ### Nested Schema for `schema_registry_sync_options`
 
@@ -228,18 +249,7 @@ Optional:
 
 - `do_not_set_sni_hostname` (Boolean) If true, the SNI hostname will not be provided when TLS is used
 - `enabled` (Boolean) Whether or not TLS is enabled
-- `tls_file_settings` (Attributes) TLS file settings (see [below for nested schema](#nestedatt--schema_registry_sync_options--shadow_schema_registry_api--tls_settings--tls_file_settings))
 - `tls_pem_settings` (Attributes) Used when providing the TLS information in PEM format (see [below for nested schema](#nestedatt--schema_registry_sync_options--shadow_schema_registry_api--tls_settings--tls_pem_settings))
-
-<a id="nestedatt--schema_registry_sync_options--shadow_schema_registry_api--tls_settings--tls_file_settings"></a>
-### Nested Schema for `schema_registry_sync_options.shadow_schema_registry_api.tls_settings.tls_file_settings`
-
-Optional:
-
-- `ca_path` (String) Path to the CA
-- `cert_path` (String) Path to the cert
-- `key_path` (String) Key and Cert are optional but if one is provided, then both must be Path to the key
-
 
 <a id="nestedatt--schema_registry_sync_options--shadow_schema_registry_api--tls_settings--tls_pem_settings"></a>
 ### Nested Schema for `schema_registry_sync_options.shadow_schema_registry_api.tls_settings.tls_pem_settings`
