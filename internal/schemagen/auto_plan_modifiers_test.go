@@ -241,8 +241,10 @@ func TestMerge_MaskContract_DerivesRequiresReplace(t *testing.T) {
 }
 
 // TestMerge_MaskContract_ComposesWithStateModifier — an Optional+Computed
-// out-of-contract field renders RequiresReplace before the classifier's state
-// modifier.
+// out-of-contract field renders the classifier's state modifier BEFORE
+// RequiresReplace: the framework marks every null-config computed attr unknown
+// before modifiers run, so a RequiresReplace that fires first sees
+// unknown != state and arms the replace path on every plan.
 func TestMerge_MaskContract_ComposesWithStateModifier(t *testing.T) {
 	tru := true
 	cfg := &Config{
@@ -259,7 +261,7 @@ func TestMerge_MaskContract_ComposesWithStateModifier(t *testing.T) {
 		if a.Name != "region" {
 			continue
 		}
-		want := "[]planmodifier.String{stringplanmodifier.RequiresReplace(), stringplanmodifier.UseStateForUnknown()}"
+		want := "[]planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()}"
 		if a.PlanModifiers != want {
 			t.Errorf("region modifiers: got %q, want %q", a.PlanModifiers, want)
 		}

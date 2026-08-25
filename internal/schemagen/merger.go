@@ -794,7 +794,12 @@ func applyAutoPlanModifiers(attrs []SchemaAttr, ancestors []ancestorFrame, mc *m
 			leafIsUserInput := attrs[i].Optional && attrs[i].Computed
 			verdict := chooseStateModifier(ancestors, leafIsUserInput)
 			debugClassify(mc.resourceLabel, childPath, verdict, ancestors, leafIsUserInput)
-			names = append(names, verdict)
+			// Prepended: the framework marks every null-config computed attr
+			// unknown BEFORE modifiers run, so a value-comparing modifier
+			// (RequiresReplace) that fires first sees unknown != state and
+			// arms the replace path on every plan. The state modifier must
+			// restore the carried value before anything compares.
+			names = append([]string{verdict}, names...)
 		}
 		if len(names) > 0 {
 			expr, err := planModifierExpr(attrs[i].AttrType, names)

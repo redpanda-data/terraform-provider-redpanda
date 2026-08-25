@@ -103,7 +103,12 @@ func deriveMaskContractRequiresReplace(attrs []SchemaAttr, fields map[string]Fie
 		}
 		switch verdict {
 		case maskVerdictDerive:
-			a.PlanModifierNames = append([]string{modRequiresReplace}, a.PlanModifierNames...)
+			// Appended AFTER UseStateForUnknown: the framework marks every
+			// null-config computed attr unknown before modifiers run, so a
+			// RequiresReplace that fires first sees unknown != state and arms
+			// the replace path on every plan. UseStateForUnknown must restore
+			// the carried value before RequiresReplace compares.
+			a.PlanModifierNames = append(a.PlanModifierNames, modRequiresReplace)
 		case maskVerdictRedundant:
 			mc.warn(
 				"INFO mask-contract %s.%s: yaml RequiresReplace is redundant — derived from the update-mask contract; the override can be removed\n",
