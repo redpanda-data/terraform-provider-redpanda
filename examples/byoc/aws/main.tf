@@ -20,6 +20,9 @@ resource "redpanda_cluster" "test" {
   cloud_provider    = redpanda_network.test.cloud_provider
   region            = redpanda_network.test.region
   cluster_type      = redpanda_network.test.cluster_type
+  # Dual listener mode: feature-gated, AWS BYOC only. A private-only cluster
+  # cannot gain public listeners in place — the provider rejects that at plan
+  # time. See the cluster docs "Limitations" section.
   connection_type   = var.dual_listener_connections == null ? "public" : null
   kafka_api = var.dual_listener_connections == null ? null : {
     connections = var.dual_listener_connections
