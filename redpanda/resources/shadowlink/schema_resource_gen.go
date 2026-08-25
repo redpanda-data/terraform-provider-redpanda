@@ -21,6 +21,7 @@ import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/boolvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
@@ -31,6 +32,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
 // ResourceShadowLinkSchema returns the Terraform schema for the shadowlink resource.
@@ -311,6 +313,52 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 				},
 			},
 
+			"role_sync_options": schema.SingleNestedAttribute{
+				Description:   "Options for syncing RBAC roles",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Attributes: map[string]schema.Attribute{
+					"interval": schema.StringAttribute{
+						Description:   "Sync interval If 0 provided, defaults to 30 seconds",
+						Optional:      true,
+						Computed:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						Validators:    []validator.String{validators.DurationCanonicalValidator{}},
+					},
+					"paused": schema.BoolAttribute{
+						Description:   "Allows user to pause the role sync task. If paused, then the task will enter the 'paused' state and will not sync roles from the source cluster",
+						Optional:      true,
+						Computed:      true,
+						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+					},
+					"role_name_filters": schema.ListNestedAttribute{
+						Description:   "Filters selecting which roles to shadow by name. Defaults to empty: no roles are synced until at least one include filter is added",
+						Optional:      true,
+						Computed:      true,
+						PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"filter_type": schema.StringAttribute{
+									Description: "- FILTER_TYPE_INCLUDE: Include the items that match the filter - FILTER_TYPE_EXCLUDE: Exclude the items that match the filter",
+									Required:    true,
+									Validators:  []validator.String{stringvalidator.OneOf("INCLUDE", "EXCLUDE")},
+								},
+								"name": schema.StringAttribute{
+									Description: "The resource name, or \"*\" Note if \"*\", must be the _only_ character and `pattern_type` must be `PATTERN_TYPE_LITERAL`",
+									Required:    true,
+								},
+								"pattern_type": schema.StringAttribute{
+									Description: "- PATTERN_TYPE_LITERAL: Must match the filter exactly - PATTERN_TYPE_PREFIX: Will match anything that starts with filter - PATTERN_TYPE_PREFIXED: Will match anything that starts with filter",
+									Required:    true,
+									Validators:  []validator.String{stringvalidator.OneOf("LITERAL", "PREFIX")},
+								},
+							},
+						},
+					},
+				},
+			},
+
 			"schema_registry_sync_options": schema.SingleNestedAttribute{
 				Description:   "Options for how the Schema Registry is synced.",
 				Optional:      true,
@@ -448,30 +496,6 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 								Computed:      true,
 								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 								Attributes: map[string]schema.Attribute{
-									"tls_file_settings": schema.SingleNestedAttribute{
-										Description: "TLS file settings",
-										Optional:    true,
-										Attributes: map[string]schema.Attribute{
-											"ca_path": schema.StringAttribute{
-												Description:   "Path to the CA",
-												Optional:      true,
-												Computed:      true,
-												PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-											},
-											"cert_path": schema.StringAttribute{
-												Description:   "Path to the cert",
-												Optional:      true,
-												Computed:      true,
-												PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-											},
-											"key_path": schema.StringAttribute{
-												Description:   "Key and Cert are optional but if one is provided, then both must be Path to the key",
-												Optional:      true,
-												Computed:      true,
-												PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-											},
-										},
-									},
 									"tls_pem_settings": schema.SingleNestedAttribute{
 										Description: "Used when providing the TLS information in PEM format",
 										Optional:    true,

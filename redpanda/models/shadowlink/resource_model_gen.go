@@ -35,6 +35,7 @@ type ResourceModel struct {
 	ID                        types.String   `tfsdk:"id"`
 	Name                      types.String   `tfsdk:"name"`
 	Reason                    types.String   `tfsdk:"reason"`
+	RoleSyncOptions           types.Object   `tfsdk:"role_sync_options"`
 	SchemaRegistrySyncOptions types.Object   `tfsdk:"schema_registry_sync_options"`
 	SecuritySyncOptions       types.Object   `tfsdk:"security_sync_options"`
 	ShadowRedpandaID          types.String   `tfsdk:"shadow_redpanda_id"`
@@ -127,6 +128,24 @@ type ConsumerOffsetSyncOptionsGroupFiltersModel struct {
 	PatternType types.String `tfsdk:"pattern_type"`
 }
 
+// RoleSyncOptionsModel mirrors the nested "role_sync_options" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type RoleSyncOptionsModel struct {
+	Interval        types.String `tfsdk:"interval"`
+	Paused          types.Bool   `tfsdk:"paused"`
+	RoleNameFilters types.List   `tfsdk:"role_name_filters"`
+}
+
+// RoleSyncOptionsRoleNameFiltersModel mirrors the nested "role_sync_options.role_name_filters" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type RoleSyncOptionsRoleNameFiltersModel struct {
+	FilterType  types.String `tfsdk:"filter_type"`
+	Name        types.String `tfsdk:"name"`
+	PatternType types.String `tfsdk:"pattern_type"`
+}
+
 // SchemaRegistrySyncOptionsModel mirrors the nested "schema_registry_sync_options" attribute. Use the As/To
 // converters on the parent struct to move between types.Object and this
 // typed form.
@@ -205,19 +224,9 @@ type SchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilterModel struct {
 // converters on the parent struct to move between types.Object and this
 // typed form.
 type SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsModel struct {
-	TLSFileSettings     types.Object `tfsdk:"tls_file_settings"`
 	TLSPemSettings      types.Object `tfsdk:"tls_pem_settings"`
 	DoNotSetSniHostname types.Bool   `tfsdk:"do_not_set_sni_hostname"`
 	Enabled             types.Bool   `tfsdk:"enabled"`
-}
-
-// SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel mirrors the nested "schema_registry_sync_options.shadow_schema_registry_api.tls_settings.tls_file_settings" attribute. Use the As/To
-// converters on the parent struct to move between types.Object and this
-// typed form.
-type SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel struct {
-	CaPath   types.String `tfsdk:"ca_path"`
-	CertPath types.String `tfsdk:"cert_path"`
-	KeyPath  types.String `tfsdk:"key_path"`
 }
 
 // SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettingsModel mirrors the nested "schema_registry_sync_options.shadow_schema_registry_api.tls_settings.tls_pem_settings" attribute. Use the As/To
@@ -379,6 +388,26 @@ func ConsumerOffsetSyncOptionsGroupFiltersAttrTypes() map[string]attr.Type {
 	}
 }
 
+// RoleSyncOptionsAttrTypes returns the attr.Type map for the "role_sync_options" nested
+// attribute.
+func RoleSyncOptionsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"interval":          types.StringType,
+		"paused":            types.BoolType,
+		"role_name_filters": types.ListType{ElemType: types.ObjectType{AttrTypes: RoleSyncOptionsRoleNameFiltersAttrTypes()}},
+	}
+}
+
+// RoleSyncOptionsRoleNameFiltersAttrTypes returns the attr.Type map for the "role_sync_options.role_name_filters" nested
+// attribute.
+func RoleSyncOptionsRoleNameFiltersAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"filter_type":  types.StringType,
+		"name":         types.StringType,
+		"pattern_type": types.StringType,
+	}
+}
+
 // SchemaRegistrySyncOptionsAttrTypes returns the attr.Type map for the "schema_registry_sync_options" nested
 // attribute.
 func SchemaRegistrySyncOptionsAttrTypes() map[string]attr.Type {
@@ -465,20 +494,9 @@ func SchemaRegistrySyncOptionsShadowSchemaRegistryAPISourceFilterAttrTypes() map
 // attribute.
 func SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"tls_file_settings":       types.ObjectType{AttrTypes: SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsAttrTypes()},
 		"tls_pem_settings":        types.ObjectType{AttrTypes: SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettingsAttrTypes()},
 		"do_not_set_sni_hostname": types.BoolType,
 		"enabled":                 types.BoolType,
-	}
-}
-
-// SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsAttrTypes returns the attr.Type map for the "schema_registry_sync_options.shadow_schema_registry_api.tls_settings.tls_file_settings" nested
-// attribute.
-func SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsAttrTypes() map[string]attr.Type {
-	return map[string]attr.Type{
-		"ca_path":   types.StringType,
-		"cert_path": types.StringType,
-		"key_path":  types.StringType,
 	}
 }
 
@@ -604,6 +622,29 @@ func ConsumerOffsetSyncOptionsToObject(ctx context.Context, v *ConsumerOffsetSyn
 		return types.ObjectNull(ConsumerOffsetSyncOptionsAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, ConsumerOffsetSyncOptionsAttrTypes(), v)
+}
+
+// AsRoleSyncOptions converts the root role_sync_options attribute from
+// types.Object into its typed form. Returns (nil, nil) when the object is
+// null or unknown. Use this when you want typed field access without
+// manually unpacking .Attributes().
+func (m *ResourceModel) AsRoleSyncOptions(ctx context.Context) (*RoleSyncOptionsModel, diag.Diagnostics) {
+	if m == nil || m.RoleSyncOptions.IsNull() || m.RoleSyncOptions.IsUnknown() {
+		return nil, nil
+	}
+	var out RoleSyncOptionsModel
+	d := m.RoleSyncOptions.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// RoleSyncOptionsToObject encodes a typed struct back into the
+// types.Object shape expected by the framework. A nil receiver returns
+// types.ObjectNull with the correct attribute types.
+func RoleSyncOptionsToObject(ctx context.Context, v *RoleSyncOptionsModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(RoleSyncOptionsAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, RoleSyncOptionsAttrTypes(), v)
 }
 
 // AsSchemaRegistrySyncOptions converts the root schema_registry_sync_options attribute from
@@ -897,26 +938,6 @@ func SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsToObject(ctx con
 	return types.ObjectValueFrom(ctx, SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsAttrTypes(), v)
 }
 
-// DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings decodes the sub-field from its parent typed struct.
-// Returns (nil, nil) when the field is null or unknown.
-func DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings(ctx context.Context, v *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsModel) (*SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel, diag.Diagnostics) {
-	if v == nil || v.TLSFileSettings.IsNull() || v.TLSFileSettings.IsUnknown() {
-		return nil, nil
-	}
-	var out SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel
-	d := v.TLSFileSettings.As(ctx, &out, basetypes.ObjectAsOptions{})
-	return &out, d
-}
-
-// SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsToObject encodes a typed struct back into types.Object.
-// A nil receiver returns types.ObjectNull with the correct attribute types.
-func SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsToObject(ctx context.Context, v *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel) (types.Object, diag.Diagnostics) {
-	if v == nil {
-		return types.ObjectNull(SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsAttrTypes()), nil
-	}
-	return types.ObjectValueFrom(ctx, SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsAttrTypes(), v)
-}
-
 // DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettings decodes the sub-field from its parent typed struct.
 // Returns (nil, nil) when the field is null or unknown.
 func DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettings(ctx context.Context, v *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsModel) (*SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettingsModel, diag.Diagnostics) {
@@ -989,6 +1010,7 @@ func GenerateMinimalResourceModel(id types.String, timeout timeouts.Value) *Reso
 		ID:                        id,
 		Name:                      types.StringNull(),
 		Reason:                    types.StringNull(),
+		RoleSyncOptions:           types.ObjectNull(RoleSyncOptionsAttrTypes()),
 		SchemaRegistrySyncOptions: types.ObjectNull(SchemaRegistrySyncOptionsAttrTypes()),
 		SecuritySyncOptions:       types.ObjectNull(SecuritySyncOptionsAttrTypes()),
 		ShadowRedpandaID:          types.StringNull(),
