@@ -86,3 +86,9 @@ variable "sr_tail_interval" {
   default     = "10s"
   description = "shadow_schema_registry_api.tail_interval; toggled by the partial-update acceptance test step. Must be a canonical Go duration string — the provider re-emits durations in canonical form, so \"10m\" would round-trip to \"10m0s\" and fail the plan."
 }
+
+variable "role_sync_paused" {
+  type        = bool
+  default     = false
+  description = "role_sync_options.paused; toggled by the partial-update acceptance test step to verify role sync updates in place."
+}

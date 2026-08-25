@@ -221,5 +221,20 @@ resource "redpanda_shadow_link" "test" {
     }
   }
 
+  # Role shadowing is deny-by-default: nothing syncs until at least one
+  # include filter is present, and "sync everything" is exactly one LITERAL
+  # INCLUDE filter named "*".
+  role_sync_options = {
+    interval = "45s"
+    paused   = var.role_sync_paused
+    role_name_filters = [
+      {
+        filter_type  = "INCLUDE"
+        name         = "*"
+        pattern_type = "LITERAL"
+      }
+    ]
+  }
+
   allow_deletion = true
 }

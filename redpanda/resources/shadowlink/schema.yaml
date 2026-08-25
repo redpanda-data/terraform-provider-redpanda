@@ -303,18 +303,10 @@ schema_registry_sync_options:
             enabled:
               optional: true
               computed: true
+            # tls_file_settings is deliberately not mapped: the control plane
+            # rejects it for the SR API arm (sr_api_tls_file_settings_not_supported).
             tls_file_settings:
-              optional: true
-              fields:
-                ca_path:
-                  optional: true
-                  computed: true
-                key_path:
-                  optional: true
-                  computed: true
-                cert_path:
-                  optional: true
-                  computed: true
+              exclude: true
             tls_pem_settings:
               optional: true
               fields:
@@ -394,6 +386,40 @@ schema_registry_sync_options:
         paused:
           optional: true
           computed: true
+
+role_sync_options:
+  optional: true
+  computed: true
+  fields:
+    interval:
+      optional: true
+      computed: true
+      # Non-canonical spellings ("1m", "0") read back canonicalized and fail
+      # apply with an inconsistent-result error.
+      validator:
+        - DurationCanonical
+    effective_interval:
+      exclude: true
+    paused:
+      optional: true
+      computed: true
+    role_name_filters:
+      optional: true
+      computed: true
+      fields:
+        pattern_type:
+          required: true
+          # Round-trippable spellings only: the proto aliases
+          # PREFIX==PREFIXED==2 but flatten always emits "PREFIX", and the
+          # mapper coerces anything else (long forms, typos) to UNSPECIFIED.
+          validator:
+            - "OneOf{values: LITERAL|PREFIX}"
+        filter_type:
+          required: true
+          validator:
+            - "OneOf{values: INCLUDE|EXCLUDE}"
+        name:
+          required: true
 
 state:
   computed_only: true
