@@ -53,7 +53,7 @@ resource "redpanda_cluster" "test" {
   #     ]
   #   }
   timeouts = {
-    create = "90m"
+    create = "150m"
   }
 }
 

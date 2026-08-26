@@ -123,7 +123,7 @@ resource "redpanda_cluster" "test" {
   }
   tags = var.cluster_tags
   timeouts = {
-    create = "90m"
+    create = "150m"
   }
 }
 
@@ -261,7 +261,7 @@ resource "redpanda_cluster" "test" {
   #     ]
   #   }
   timeouts = {
-    create = "90m"
+    create = "150m"
   }
 }
 

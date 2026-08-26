@@ -33,7 +33,7 @@ resource "redpanda_cluster" "test" {
     "purpose" = "datasource-cluster-test"
   }
   timeouts = {
-    create = "90m"
+    create = "150m"
   }
 }
 
