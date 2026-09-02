@@ -24,11 +24,17 @@ tasks:
       - echo "Linting completed successfully"
 
   fix:
-    desc: "Run linting with auto-fix"
+    desc: "Run linting with auto-fix (license headers first: goheader's own fix writes the year regexp literally)"
     cmds:
+      - ./scripts/license-headers.sh
       - task: default
         vars:
           CLI_ARGS: "--fix"
+
+  headers:
+    desc: "Insert missing license headers (current year) and normalize existing ones (year kept)"
+    cmds:
+      - ./scripts/license-headers.sh
 
   comments:
     desc: "Fail on Go comments carrying ticket/PR refs or review chatter; --report lists long blocks"
