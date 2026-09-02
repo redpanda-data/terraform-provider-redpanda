@@ -542,22 +542,10 @@ func TestIntegration_Topic_RequiresReplace_ReplicationFactor(t *testing.T) {
 	})
 }
 
-// TestIntegration_Topic_RequiresReplaceIf_PartitionCount_Shrink is THE canonical
-// positive-branch test for the partitionRequiresReplaceWhenShrinking
-// predicate. Step 1 creates with partition_count=5; Step 2 reduces to 3.
-// The predicate fires (plan<state) → DestroyBeforeCreate. id stays the
-// same because id=name and name is unchanged; the PreApply plancheck is
-// the sole load-bearing proof of replacement.
-//
-// Two-axis mutation discipline (verified manually before commit):
-//
-//	(a) Flipping plancheck.ResourceActionDestroyBeforeCreate to
-//	    ResourceActionUpdate fails the test — confirming the predicate
-//	    truly fires on shrink.
-//	(b) Flipping the step-2 partition_count from 3 to 7 (a grow relative
-//	    to state=5) also fails the DestroyBeforeCreate assertion —
-//	    confirming the assertion is keyed on the partition_count
-//	    direction, not the resource-action keyword.
+// TestIntegration_Topic_RequiresReplaceIf_PartitionCount_Shrink pins that
+// partitionRequiresReplaceWhenShrinking fires on a partition_count decrease.
+// id equals name and does not change, so the DestroyBeforeCreate plancheck
+// is the only proof of replacement.
 func TestIntegration_Topic_RequiresReplaceIf_PartitionCount_Shrink(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -581,21 +569,9 @@ func TestIntegration_Topic_RequiresReplaceIf_PartitionCount_Shrink(t *testing.T)
 	})
 }
 
-// TestIntegration_Topic_RequiresReplaceIf_PartitionCount_Grow is THE canonical
-// negative-branch test for the partitionRequiresReplaceWhenShrinking
-// predicate. Step 1 creates with partition_count=3; Step 2 grows to 5.
-// The predicate does NOT fire (plan>state) → ResourceActionUpdate
-// (in-place). The Update path calls SetTopicPartitions on the fake.
-//
-// Two-axis mutation discipline (verified manually before commit):
-//
-//	(a) Flipping plancheck.ResourceActionUpdate to
-//	    ResourceActionDestroyBeforeCreate fails the test — confirming
-//	    the predicate truly does not fire on grow.
-//	(b) Flipping the step-2 partition_count from 5 to 1 (a shrink
-//	    relative to state=3) also fails the ResourceActionUpdate
-//	    assertion — confirming the assertion is keyed on the
-//	    partition_count direction, not the resource-action keyword.
+// TestIntegration_Topic_RequiresReplaceIf_PartitionCount_Grow pins that
+// partitionRequiresReplaceWhenShrinking stays quiet on a partition_count
+// increase, so the plan is an in-place update.
 func TestIntegration_Topic_RequiresReplaceIf_PartitionCount_Grow(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -851,7 +827,7 @@ func TestIntegration_Topic_ErrorPath_DeleteFailed(t *testing.T) {
 // TestIntegration_Topic_UpgradeState_NormalizesClusterApiUrl drives the v0->v1
 // state upgrade through the provider server's UpgradeResourceState RPC and
 // asserts the legacy host:443 cluster_api_url is rewritten to https://host so
-// the format change alone no longer forces replacement.
+// the format change alone does not force replacement.
 func TestIntegration_Topic_UpgradeState_NormalizesClusterApiUrl(t *testing.T) {
 	_, factories := integration.Setup(t)
 	ctx := context.Background()

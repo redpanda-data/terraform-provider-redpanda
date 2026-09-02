@@ -24,25 +24,10 @@ import (
 	"golang.org/x/oauth2/clientcredentials"
 )
 
-// BuildTokenSource composes the layered TokenSource used to acquire
-// access tokens for Redpanda Cloud. Layers (outermost first):
-//
-//  1. cachingTokenSource — on-disk cache keyed by audience:clientID.
-//     Skipped entirely when REDPANDA_TOKEN_CACHE_DISABLE=1.
-//  2. clientcredentials.Config.TokenSource — the standard client_credentials
-//     fetch, using a retryablehttp client that handles transient 429s on
-//     the token endpoint.
-//
-// The mutex inside cachingTokenSource serializes concurrent Token() calls
-// in-process; the read-modify-write of the cache file gives cross-process
-// eventual consistency.
-//
-// The ctx parameter is used only for construction-time logging; it is
-// intentionally NOT propagated into the returned TokenSource because the
-// TokenSource's lifetime exceeds any single request (provider Configure's
-// ctx is canceled before resource RPCs fire, so capturing it here would
-// cancel every subsequent token fetch). The HTTP client lookup is rooted
-// on context.Background() instead.
+// BuildTokenSource wraps the client_credentials TokenSource in an on-disk cache
+// keyed by audience:clientID, unless REDPANDA_TOKEN_CACHE_DISABLE=1. A package
+// mutex serialises Token() calls in-process; the cache file's read-modify-write
+// gives cross-process eventual consistency. ctx is for construction logging only.
 func BuildTokenSource(ctx context.Context, tokenURL, audience, clientID, clientSecret string) (oauth2.TokenSource, error) {
 	if clientID == "" {
 		return nil, errors.New("client id is empty")

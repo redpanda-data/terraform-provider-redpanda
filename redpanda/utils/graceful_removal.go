@@ -35,27 +35,10 @@ const (
 	ErrorNotHandled
 )
 
-// HandleGracefulRemoval handles the common pattern when a resource cannot be
-// accessed due to NotFound, ClusterUnreachable, or PermissionDenied errors.
-//
-// Parameters:
-//   - ctx: Context for logging
-//   - resourceType: e.g., "pipeline", "topic", "user"
-//   - resourceID: The resource identifier for messages
-//   - allowDeletion: The allow_deletion attribute value
-//   - err: The original error
-//   - operation: Description of the failed operation (e.g., "find user", "create client", "delete topic")
-//
-// Returns:
-//   - RemovalAction: RemoveFromState, KeepInState, or ErrorNotHandled
-//   - diag.Diagnostics: Warning (if removing), Error (if blocked or unhandled error)
-//
-// Behavior:
-//   - For NotFound, ClusterUnreachable, PermissionDenied, or nil errors:
-//   - If allowDeletion is null or true: Logs info, returns (RemoveFromState, warning or none)
-//   - If allowDeletion is explicitly false: Logs warning, returns (KeepInState, error)
-//   - NotFound and nil errors don't produce warnings (clean removal)
-//   - For other errors: Returns (ErrorNotHandled, error diagnostic with "failed to {operation}: {err}")
+// HandleGracefulRemoval maps NotFound, ClusterUnreachable, PermissionDenied, and
+// nil errors to a state decision: remove when allow_deletion is null or true, keep
+// with an error when it is false. Removal warns only when the resource may still
+// exist (unreachable, permission denied). Other errors return ErrorNotHandled.
 func HandleGracefulRemoval(
 	ctx context.Context,
 	resourceType, resourceID string,

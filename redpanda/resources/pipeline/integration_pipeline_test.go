@@ -426,18 +426,8 @@ func TestIntegration_Pipeline_UpdateLeaf_Tags(t *testing.T) {
 	})
 }
 
-// TestIntegration_Pipeline_UpdateLeaf_AllowDeletion flips allow_deletion
-// true→false→true. Unlike role (no Update RPC), pipeline's Update DOES call
-// UpdatePipeline on every Update path — but allow_deletion is a TF-local
-// sentinel that doesn't appear in the proto, so the gRPC payload is
-// effectively unchanged on these flips. The assertion is that the framework
-// plans ResourceActionUpdate (not Replace) and id is stable across all 3
-// steps. End with allow_deletion=true so the TestCase's terminal cleanup
-// destroy succeeds (Delete blocks when allow_deletion=false).
-// TestIntegration_Pipeline_ErrorPath_AllowDeletionBlocked pins the guard itself.
-// UpdateLeaf_AllowDeletion proves the field round-trips; this proves what the
-// field is for — with allow_deletion=false a destroy must be refused. The final
-// step re-enables deletion so the framework's terminal destroy can proceed.
+// TestIntegration_Pipeline_ErrorPath_AllowDeletionBlocked pins that a destroy
+// is refused while allow_deletion=false.
 func TestIntegration_Pipeline_ErrorPath_AllowDeletionBlocked(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -464,6 +454,9 @@ func TestIntegration_Pipeline_ErrorPath_AllowDeletionBlocked(t *testing.T) {
 	})
 }
 
+// TestIntegration_Pipeline_UpdateLeaf_AllowDeletion pins allow_deletion as an
+// in-place update with a stable id; the field is TF-local, so the
+// UpdatePipeline payload does not change on a flip.
 func TestIntegration_Pipeline_UpdateLeaf_AllowDeletion(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -521,27 +514,10 @@ func TestIntegration_Pipeline_NestedMatrix_Resources_Null(t *testing.T) {
 	})
 }
 
-// TestIntegration_Pipeline_NestedMatrix_Resources_Full sets both cpu_shares and
-// memory_shares. The PipelineFake's `pipelineRecord` struct does NOT store
-// resources, so the API echo returns nil Resources. The Flatten guard
-// restores prev.Resources from prior state when prev is non-null — that's
-// what makes this scenario tractable. State carries the user-supplied
-// values forward across Create + Noop.
-//
-// cpu_shares="500m" (CPUSharesValidator requires multiple of 100m).
-// memory_shares="512Mi" (MemorySharesValidator accepts Ki/Mi/Gi units).
-//
-// Partial density (one of {cpu_shares, memory_shares} set, the other null)
-// is intentionally NOT exercised. Both fields carry the proto-field REQUIRED
-// annotation (`(google.api.field_behavior) = REQUIRED` →
-// `\xe0A\x02` in the descriptor; `(buf.validate.field).required = true` →
-// `\xc8\x01\x01`), so the protovalidate interceptor rejects a Resources
-// message with either sub-field empty. The TF schema marks both Optional,
-// but the cross-field "if resources present, both sub-fields must be set"
-// constraint lives at the proto layer. The _Full + _Null pair covers both
-// leaves (cpu_shares + memory_shares) end-to-end; no Partial scenario can
-// satisfy proto validation without already being structurally equivalent
-// to _Full.
+// TestIntegration_Pipeline_NestedMatrix_Resources_Full pins that resources
+// survive Create and Noop when the fake echoes nil Resources; Flatten carries
+// the prior state forward. No Partial scenario exists because proto validation
+// requires both cpu_shares and memory_shares whenever resources is set.
 func TestIntegration_Pipeline_NestedMatrix_Resources_Full(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -568,21 +544,10 @@ func TestIntegration_Pipeline_NestedMatrix_Resources_Full(t *testing.T) {
 	})
 }
 
-// TestIntegration_Pipeline_NestedMatrix_ServiceAccount_Full sets client_id +
-// client_secret + secret_version. After Create:
-//   - client_id is echoed back by the fake; visible in state.
-//   - client_secret is WriteOnly: stripped from state by the framework, ends
-//     up Null.
-//   - secret_version is preserved via UseStateForUnknown + the Flatten guard
-//     that restores prev.SecretVersion.
-//
-// state="stopped" avoids the Read-path running-time SA-omit complexity.
-//
-// Note: NestedMatrix_ServiceAccount_Empty / _Null are NOT exercised at this
-// path. client_id + client_secret are Required-within-block, so the Empty
-// density is unsatisfiable. The block-level Null case is covered implicitly
-// by every other scenario in this file that omits service_account from
-// config (asserted as service_account=Null in CreateAndRefresh).
+// TestIntegration_Pipeline_NestedMatrix_ServiceAccount_Full pins the
+// service_account block after Create: client_id echoed, client_secret null
+// (write-only), secret_version carried from prior state. No Empty scenario
+// exists because client_id and client_secret are required within the block.
 func TestIntegration_Pipeline_NestedMatrix_ServiceAccount_Full(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -615,18 +580,9 @@ func TestIntegration_Pipeline_NestedMatrix_ServiceAccount_Full(t *testing.T) {
 	})
 }
 
-// TestIntegration_Pipeline_NestedMatrix_ServiceAccount_SecretVersionBump exercises
-// the Update path's "rewrite the write-only client_secret" trigger. The
-// provider's Update only sends the service account in the UpdatePipeline
-// payload when:
-//   - state.ServiceAccount was previously null (first-add), or
-//   - client_id changed, or
-//   - secret_version changed.
-//
-// Bumping secret_version 1 → 2 triggers the third branch. Asserts:
-//   - secret_version=2 in state,
-//   - client_secret still Null (WriteOnly contract),
-//   - id stable (in-place update, not replace).
+// TestIntegration_Pipeline_NestedMatrix_ServiceAccount_SecretVersionBump pins
+// that a secret_version change alone makes Update resend the service account
+// in place, with client_secret staying null and id stable.
 func TestIntegration_Pipeline_NestedMatrix_ServiceAccount_SecretVersionBump(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -723,19 +679,10 @@ func TestIntegration_Pipeline_ImportRoundTrip(t *testing.T) {
 	})
 }
 
-// TestIntegration_Pipeline_ErrorPath_GetPipeline_NotFound covers the Read→NotFound
-// path. After a successful Create, the pipeline is removed from the fake's
-// store out-of-band via the fake's own DeletePipeline RPC so the next
-// GetPipeline naturally returns NotFound. The provider's Read sees NotFound,
-// calls RemoveResource, and the next plan sees the resource missing → re-
-// Create. PreApply asserts ResourceActionCreate; PostApplyPostRefresh asserts
-// an empty plan after the re-create lands.
-//
-// Pipeline id is server-generated, so we capture it from step-1 state via a
-// TestCheckFunc closure that records the post-Create id into a local string.
-// The step-2 PreConfig uses the captured id to call DeletePipeline directly.
-// Using the Check hook here is the simplest closure-write path; the modern
-// statecheck-based alternative would require a custom StateCheck implementation.
+// TestIntegration_Pipeline_ErrorPath_GetPipeline_NotFound pins that Read
+// removes a pipeline deleted out of band and the next plan re-creates it.
+// The id is server-generated, so a Check closure captures it for the
+// PreConfig delete.
 func TestIntegration_Pipeline_ErrorPath_GetPipeline_NotFound(t *testing.T) {
 	srv, factories := integration.Setup(t)
 
@@ -849,18 +796,10 @@ func TestIntegration_Pipeline_ErrorPath_UpdatePipeline_Failed(t *testing.T) {
 	})
 }
 
-// TestIntegration_Pipeline_ErrorPath_DeletePipeline_Failed covers the destroy-failed
-// path. After a successful Create, an Internal-coded error is injected on
-// the next DeletePipeline RPC. Pipeline's Delete handler does NOT route the
-// DeletePipeline RPC error through utils.HandleGracefulRemoval — that helper
-// is only called when createPipelineClient fails. The DeletePipeline error
-// surfaces directly via resp.Diagnostics.AddError, so Internal correctly
-// produces a visible diagnostic.
-//
-// The Delete handler also issues a preceding GetPipeline (to check current
-// state for stop-before-delete) and a possible StopPipeline call; the
-// pipeline created in step 1 is in STATE_STOPPED so StopPipeline isn't
-// issued. The override targets DeletePipeline only.
+// TestIntegration_Pipeline_ErrorPath_DeletePipeline_Failed pins that a
+// DeletePipeline error surfaces as a diagnostic; Delete only routes client
+// construction failures through HandleGracefulRemoval. The pipeline is
+// STOPPED, so no StopPipeline call precedes the overridden RPC.
 func TestIntegration_Pipeline_ErrorPath_DeletePipeline_Failed(t *testing.T) {
 	srv, factories := integration.Setup(t)
 
@@ -888,10 +827,10 @@ func TestIntegration_Pipeline_ErrorPath_DeletePipeline_Failed(t *testing.T) {
 	})
 }
 
-// TestIntegration_Pipeline_NullDescription_Repro pins the null-vs-empty fix
+// TestIntegration_Pipeline_NullDescription_Repro pins null-vs-empty handling
 // for description. Flatten emits types.StringNull() when the proto description
-// is empty and prev is null, so omitting description from HCL no longer causes
-// a plan/state consistency error.
+// is empty and prev is null, so omitting description from HCL yields a
+// consistent plan and state.
 func TestIntegration_Pipeline_NullDescription_Repro(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -921,7 +860,7 @@ resource "redpanda_pipeline" "test" {
 }
 
 // TestIntegration_Pipeline_ServiceAccount_PreservedAcrossRunningState pins the
-// Read-path restore hook. The fake now omits ServiceAccount from GetPipeline
+// Read-path restore hook. The fake omits ServiceAccount from GetPipeline
 // responses when state=STATE_RUNNING (matching production). Without the hook at
 // resource_pipeline.go Read, Flatten drops the SA wrapper from state and the
 // next plan surfaces a spurious "+ service_account" diff. This test proves the

@@ -60,7 +60,7 @@ var (
 )
 
 // UpgradeState migrates v0 state to v1, normalizing the legacy host:443
-// cluster_api_url form to the canonical https://host the control plane now
+// cluster_api_url form to the canonical https://host the control plane
 // returns so the RequiresReplace plan modifier does not fire on the format
 // change alone.
 func (*ACL) UpgradeState(ctx context.Context) map[int64]resource.StateUpgrader {

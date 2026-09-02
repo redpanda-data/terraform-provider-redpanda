@@ -41,7 +41,7 @@ var perClusterClients = map[string]bool{
 }
 
 // notYetMigrated records call sites still outside utils.DataplaneCall. It is
-// empty: every gRPC resource now goes through the shared policy. An entry here
+// empty: every gRPC resource goes through the shared policy. An entry here
 // needs a reason in review.
 var notYetMigrated = map[string]bool{}
 

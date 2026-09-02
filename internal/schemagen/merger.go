@@ -23,23 +23,12 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/apidesc"
 )
 
-// Merge combines proto fields with YAML config to produce a final list of
-// SchemaAttrs ready for code generation. Returns the attrs, any extra imports
-// needed (from validators/defaults), API description coverage stats, and any
-// merge-time errors. The caller (cmd/schemagen) treats a non-empty errs slice
-// as a hard failure — errors surface yaml entries that have drifted out of
-// alignment with the proto (unknown rename target, missing from_proto field,
-// unknown validator).
-//
-// Description precedence (highest wins):
-//  1. scopedDescriptions["<cfg.APISchema>.<path>"] — provider-behavior text
-//  2. apiIndex lookup by "<cfg.APISchema>.<proto.path>" (when both are set)
-//  3. commonDescriptions / mechanical defaults from descriptions.go
-//
-// When apiIndex is nil or cfg.APISchema is empty, layer 2 is skipped. Yaml
-// `description:` overrides were removed; LoadConfig rejects the key.
-// warnSink optionally redirects diagnostic warnings away from stderr; tests
-// pass a collector to assert on them.
+// Merge combines proto fields with the yaml config into SchemaAttrs. A
+// non-empty errs means the yaml drifted from the proto (unknown rename target,
+// missing from_proto field, unknown validator) and cmd/schemagen fails hard.
+// Description precedence, highest first: scopedDescriptions, then apiIndex
+// (only when apiIndex and cfg.APISchema are both set), then descriptions.go.
+// warnSink redirects warnings away from stderr so tests can assert on them.
 func Merge(proto *ProtoMessage, cfg *Config, schemaType string, apiIndex *apidesc.Index, warnSink ...func(format string, args ...any)) (attrs []SchemaAttr, extraImports []string, stats apidesc.Stats, errs []error) {
 	opts := mapOptions{
 		computedDefault:  cfg.ComputedDefault,

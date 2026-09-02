@@ -363,21 +363,10 @@ func TestIntegration_User_RequiresReplace_ClusterApiUrl(t *testing.T) {
 	})
 }
 
-// TestIntegration_User_ImportRoundTrip exercises the composite import ID format
-// "<user_name>,<cluster_id>". The user resource's ImportState calls
-// ClusterForID (a controlplane GetCluster RPC) to resolve cluster_api_url from
-// the cluster's DataplaneApi.Url. The cluster fake is seeded with a known id
-// and DataplaneApi.Url="bufnet" so the import path resolves to the same URL
-// as the create config.
-//
-// ImportStateVerifyIgnore covers:
-//   - password_wo: write-only, never in state (verify expects every config
-//     attr to roundtrip; write-only requires an explicit ignore).
-//   - password_wo_version: not restored by ImportState (the import ID format
-//     only carries user_name + cluster_id + optional password + mechanism).
-//   - allow_deletion: ImportState writes the schema default (false) via
-//     ImportStateBoolFromSchemaDefault, but the test config sets it to true
-//     so the framework's terminal cleanup destroy succeeds.
+// TestIntegration_User_ImportRoundTrip pins the "<user_name>,<cluster_id>"
+// import ID. ImportState resolves cluster_api_url through GetCluster, so the
+// cluster fake is seeded with DataplaneApi.Url="bufnet" to match the config.
+// Verify ignores the password and allow_deletion attributes import cannot recover.
 func TestIntegration_User_ImportRoundTrip(t *testing.T) {
 	srv, factories := integration.Setup(t)
 
@@ -489,18 +478,10 @@ func TestIntegration_User_ErrorPath_CreateUser_AlreadyExists(t *testing.T) {
 	})
 }
 
-// TestIntegration_User_ErrorPath_UpdateUser_Failed injects an Internal-coded error on
-// the next UpdateUser RPC. After a successful Create, the second step flips
-// mechanism (in-place update) — the override is consumed by the UpdateUser
-// call, which surfaces as a "failed to update user" diagnostic. ExpectError
-// matches the regexp.
-//
-// Why Internal (not Unavailable): the provider retries on Unavailable via
-// utils.Retry with a 2-minute budget. A single OverrideOnce(Unavailable)
-// would cause one failed attempt then the second attempt would fall through
-// to the real fake and succeed — masking the error. Internal is non-retryable
-// and correctly exercises the resp.Diagnostics.AddError path. Do not flip
-// this to Unavailable.
+// TestIntegration_User_ErrorPath_UpdateUser_Failed pins that an UpdateUser
+// error surfaces as a diagnostic. The injected code must stay Internal:
+// Unavailable is retried, and the second attempt would reach the fake and
+// succeed.
 func TestIntegration_User_ErrorPath_UpdateUser_Failed(t *testing.T) {
 	srv, factories := integration.Setup(t)
 
@@ -528,20 +509,10 @@ func TestIntegration_User_ErrorPath_UpdateUser_Failed(t *testing.T) {
 	})
 }
 
-// TestIntegration_User_ErrorPath_DeleteUser_Failed covers the destroy-failed path.
-// After a successful Create, an Internal-coded error is injected on the next
-// DeleteUser. The Destroy:true step triggers the destroy plan; ExpectError
-// matches the error regexp. After this step the override is consumed; the
-// TestCase's terminal cleanup destroy runs against the untainted fake and
-// removes the resource cleanly.
-//
-// Why Internal (not PermissionDenied): the provider's Delete path runs the
-// error through HandleGracefulRemoval, which treats NotFound,
-// ClusterUnreachable, and PermissionDenied as graceful-removal cases (with
-// allow_deletion=true they become RemoveFromState warnings, no error
-// diagnostic). Internal is NOT in the graceful list so it surfaces as an
-// "Failed to delete user" error diagnostic — which is the test-visible path
-// we want to exercise. Do not flip this to PermissionDenied.
+// TestIntegration_User_ErrorPath_DeleteUser_Failed pins that a DeleteUser
+// error surfaces as a diagnostic. The injected code must stay Internal:
+// HandleGracefulRemoval turns NotFound, ClusterUnreachable, and
+// PermissionDenied into a state removal with no error.
 func TestIntegration_User_ErrorPath_DeleteUser_Failed(t *testing.T) {
 	srv, factories := integration.Setup(t)
 
@@ -570,10 +541,6 @@ func TestIntegration_User_ErrorPath_DeleteUser_Failed(t *testing.T) {
 	})
 }
 
-// TestIntegration_User_UpgradeState_NormalizesClusterApiUrl drives the v0->v1
-// state upgrade through the provider server's UpgradeResourceState RPC and
-// asserts the legacy host:443 cluster_api_url is rewritten to https://host so
-// the format change alone no longer forces replacement.
 // TestIntegration_User_ErrorPath_AllowDeletionBlocked pins the guard itself.
 // UpdateLeaf_AllowDeletion proves the field round-trips; this proves what the
 // field is for — with allow_deletion=false a destroy must be refused. The final
@@ -604,6 +571,10 @@ func TestIntegration_User_ErrorPath_AllowDeletionBlocked(t *testing.T) {
 	})
 }
 
+// TestIntegration_User_UpgradeState_NormalizesClusterApiUrl drives the v0->v1
+// state upgrade through the provider server's UpgradeResourceState RPC and
+// asserts the legacy host:443 cluster_api_url is rewritten to https://host so
+// the format change alone does not force replacement.
 func TestIntegration_User_UpgradeState_NormalizesClusterApiUrl(t *testing.T) {
 	_, factories := integration.Setup(t)
 	ctx := context.Background()

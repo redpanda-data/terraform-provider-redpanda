@@ -2215,22 +2215,9 @@ resource "redpanda_shadow_link" "test" {
 	})
 }
 
-// TestIntegration_ShadowLink_UpdateLeaf_TLSKey_PreservedAcrossMaskedRead
-// exercises the preserveSensitiveFromPrev hook end-to-end against the fake.
-//
-// The fake's GetShadowLink masks tls_settings.key to "" (mirroring real
-// backend behavior). preserveSensitiveFromPrev must restore the value from
-// prior plan/state on every Read; otherwise the NoopReapply step detects
-// drift and plans an update.
-//
-// Sequence:
-//  1. Create with key = A — fake stores A, returns "" on Read, hook restores A
-//     from plan → state holds A. ExpectEmptyPlan confirms no drift.
-//  2. UpdateLeaf key A → B — fake stores B, returns "" on Read, hook restores B
-//     from plan → state holds B. ExpectEmptyPlan confirms no drift.
-//  3. NoopReapply — fake still returns "" on Read, hook restores B from state
-//     → plan is empty. This step is the regression assertion: if the hook is
-//     removed, this step fails because config has B but Read returned "".
+// TestIntegration_ShadowLink_UpdateLeaf_TLSKey_PreservedAcrossMaskedRead pins
+// preserveSensitiveFromPrev: the fake masks tls_settings.key to "" on Read, as
+// the backend does, so without the hook the NoopReapply step plans an update.
 func TestIntegration_ShadowLink_UpdateLeaf_TLSKey_PreservedAcrossMaskedRead(t *testing.T) {
 	_, factories := integration.Setup(t)
 

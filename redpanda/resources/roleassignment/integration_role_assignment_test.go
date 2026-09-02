@@ -427,18 +427,10 @@ func TestIntegration_RoleAssignment_RequiresReplace_ClusterAPIURL(t *testing.T) 
 	})
 }
 
-// TestIntegration_RoleAssignment_Import covers the composite-ID import parser
-// under two scenarios:
-//
-//   - "RoundTrip" — canonical "<role>:User:<name>" round-trips verbatim.
-//     cluster_api_url is in ImportStateVerifyIgnore because the composite ID
-//     does not carry the URL and ListRoleMembers cannot recover it; Read
-//     skips the API check when the URL is empty so refresh succeeds.
-//   - "LegacyBarePrincipal_SelfHeals" — a state file produced by a
-//     pre-validator provider may carry a bare principal (e.g. "alice"). The
-//     SecurityService canonicalizes to "User:alice"; Read canonicalizes
-//     state before lookup and writes the canonical form back, so legacy
-//     bare state self-heals to an empty plan.
+// TestIntegration_RoleAssignment_Import pins the "<role>:User:<name>" import ID.
+// cluster_api_url is not in the ID and Read skips the API check when it is
+// empty, so verify ignores it. A legacy bare principal ("alice") self-heals:
+// Read canonicalizes to "User:alice" before lookup and writes it back.
 func TestIntegration_RoleAssignment_Import(t *testing.T) {
 	t.Run("RoundTrip", func(t *testing.T) {
 		_, factories := integration.Setup(t)

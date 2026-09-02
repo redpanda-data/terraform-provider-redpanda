@@ -265,19 +265,8 @@ func TestIntegration_Role_RequiresReplace_ClusterAPIURL(t *testing.T) {
 	})
 }
 
-// TestIntegration_Role_UpdateLeaf_AllowDeletion exercises the in-place Update path
-// for the TF-only `allow_deletion` and `delete_acls` extras. Role has no
-// UpdateRole RPC (roles are immutable); the Update handler in
-// resource_role.go just writes plan to state. Flipping allow_deletion
-// true→false→true and then delete_acls false→true must each produce
-// ResourceActionUpdate (not DestroyBeforeCreate) and the id must remain
-// stable across all four steps — proof that the in-place path actually
-// runs. We end with allow_deletion=true so the terminal cleanup destroy
-// succeeds (Delete blocks when allow_deletion=false).
-// TestIntegration_Role_ErrorPath_AllowDeletionBlocked pins the guard itself.
-// UpdateLeaf_AllowDeletion proves the field round-trips; this proves what the
-// field is for — with allow_deletion=false a destroy must be refused. The final
-// step re-enables deletion so the framework's terminal destroy can proceed.
+// TestIntegration_Role_ErrorPath_AllowDeletionBlocked pins that a destroy is
+// refused while allow_deletion=false.
 func TestIntegration_Role_ErrorPath_AllowDeletionBlocked(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -304,6 +293,9 @@ func TestIntegration_Role_ErrorPath_AllowDeletionBlocked(t *testing.T) {
 	})
 }
 
+// TestIntegration_Role_UpdateLeaf_AllowDeletion pins allow_deletion and
+// delete_acls as in-place updates with a stable id. Roles have no update
+// RPC, so Update writes plan straight to state.
 func TestIntegration_Role_UpdateLeaf_AllowDeletion(t *testing.T) {
 	_, factories := integration.Setup(t)
 
