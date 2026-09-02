@@ -31,7 +31,7 @@ const defaultCompatibility = "BACKWARD"
 
 // SchemaRegistryFake is an httptest-backed in-memory Schema Registry. It also
 // serves the rpsr ACL endpoints (/security/acls) so a single fake backs both
-// redpanda_schema and redpanda_schema_registry_acl. No auth validation — the
+// redpanda_schema and redpanda_schema_registry_acl. No auth validation: the
 // integration tests pass Basic creds in HCL purely to satisfy the provider's
 // schemaRegistryAuthOption gate; the fake ignores the headers.
 type SchemaRegistryFake struct {
@@ -60,7 +60,7 @@ type httpOverride struct {
 // NewSchemaRegistryFake starts the httptest server and registers cleanup. The
 // httptest server is wrapped with overrideMiddleware so OverrideOnceHTTP can
 // intercept matching requests before the mux dispatches them. On t.Cleanup the
-// fake fails the test if any registered override was never consumed — a typo
+// fake fails the test if any registered override was never consumed: a typo
 // in the path argument is otherwise silent.
 func NewSchemaRegistryFake(t testing.TB) *SchemaRegistryFake {
 	t.Helper()

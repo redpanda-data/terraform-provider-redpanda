@@ -44,8 +44,8 @@ func FindRepoRoot() (string, error) {
 	}
 }
 
-// ResolveCloudv2Root locates a cloudv2 checkout — a directory containing
-// proto/public/cloud — preferring the flag value, then $CLOUDV2_ROOT, then
+// ResolveCloudv2Root locates a cloudv2 checkout (a directory containing
+// proto/public/cloud), preferring the flag value, then $CLOUDV2_ROOT, then
 // common relative paths. Returns "" if none validate.
 func ResolveCloudv2Root(flagValue string) string {
 	if flagValue != "" {

@@ -33,7 +33,7 @@ const networkIDBase uint64 = 0x4000_0000_0000_0000
 // NetworkFake is a stateful in-memory implementation of NetworkService. The
 // schema has no Update RPC (all configurable fields are RequiresReplace), so
 // Create + Get + Delete is the entire mutable surface. Create and Delete are
-// async — both publish a completed Operation via op.Set so the provider's
+// async: both publish a completed Operation via op.Set so the provider's
 // AreWeDoneYet polling loop resolves on the first GetOperation call.
 type NetworkFake struct {
 	controlplanev1grpc.UnimplementedNetworkServiceServer

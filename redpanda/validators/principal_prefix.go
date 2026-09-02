@@ -43,7 +43,7 @@ func PrincipalPrefix() validator.String {
 // would take on the wire: an input already carrying a "User:", "Group:",
 // or "RedpandaRole:" prefix is returned unchanged; any other input has
 // "User:" prepended. Empty string is returned unchanged so callers can
-// preserve "no value yet" semantics — the validator rejects empty before
+// preserve "no value yet" semantics. The validator rejects empty before
 // runtime canonicalization ever sees one.
 //
 // Used by the role_assignment Read and Delete handlers to bring legacy

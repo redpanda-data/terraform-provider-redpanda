@@ -29,7 +29,7 @@ import (
 )
 
 // testRunnerClusterWithAwsPrivateLinkToggle runs the standard lifecycle then
-// toggles PL from true to false — regression guard for
+// toggles PL from true to false, a regression guard for
 // terraform-plugin-framework#1211.
 func testRunnerClusterWithAwsPrivateLinkToggle(ctx context.Context, name, rename, version, testFile string, customVars map[string]config.Variable, t *testing.T, opts ...runnerOpt) {
 	origTestCaseVars := make(map[string]config.Variable)

@@ -47,7 +47,7 @@ const splAddr = "redpanda_serverless_private_link.test"
 // AzureConfig proto type exists. The CloudProviders() validator accepts
 // "gcp"/"azure" but those values have no destination config block. As a
 // result there is no _CreateAndRefresh_GCP variant scenario and no
-// _RequiresReplace_CloudProvider scenario — both would have no executable
+// _RequiresReplace_CloudProvider scenario: both would have no executable
 // HCL form. This reflects product reality (AWS-only backend support).
 
 // TestIntegration_ServerlessPrivateLink exercises redpanda_serverless_private_link
@@ -197,13 +197,13 @@ const (
 )
 
 // TestIntegration_ServerlessPrivateLink_AllowDeletionFlip_NoBackendCall flips
-// allow_deletion — a provider-only attribute absent from the proto update
-// request — with aws_config unchanged. The plan is a Terraform-level Update,
+// allow_deletion (a provider-only attribute absent from the proto update
+// request) with aws_config unchanged. The plan is a Terraform-level Update,
 // but the provider must short-circuit: no UpdateServerlessPrivateLink RPC
 // should fire. CallCount == 0 is the load-bearing assertion.
 // TestIntegration_ServerlessPrivateLink_ErrorPath_AllowDeletionBlocked pins the
 // guard itself. AllowDeletionFlip_NoBackendCall proves the flip costs no RPC;
-// this proves what the flag is for — with allow_deletion=false a destroy is
+// this proves what the flag is for: with allow_deletion=false a destroy is
 // refused before the delete RPC is reached.
 func TestIntegration_ServerlessPrivateLink_ErrorPath_AllowDeletionBlocked(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -315,8 +315,8 @@ func TestIntegration_ServerlessPrivateLink_CreateAndRefresh(t *testing.T) {
 }
 
 // TestIntegration_ServerlessPrivateLink_UpdateLeaf_AllowedPrincipals mutates the
-// principals list in place. The Update RPC has no FieldMask — aws_config
-// is full-replacement — so the fake overwrites the list wholesale. id is
+// principals list in place. The Update RPC has no FieldMask (aws_config
+// is full-replacement), so the fake overwrites the list wholesale. id is
 // stable via the shared CompareValue(ValuesSame()).
 func TestIntegration_ServerlessPrivateLink_UpdateLeaf_AllowedPrincipals(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -354,7 +354,7 @@ func TestIntegration_ServerlessPrivateLink_UpdateLeaf_AllowedPrincipals(t *testi
 // TestIntegration_ServerlessPrivateLink_OmitAwsConfig_Rejected drops the
 // aws_config oneof arm from config. cloud_provider_config requires exactly one
 // arm, so the generated proto-validator rejects this at plan time rather than
-// letting it reach the API — the arm can be replaced, never cleared.
+// letting it reach the API: the arm can be replaced, never cleared.
 func TestIntegration_ServerlessPrivateLink_OmitAwsConfig_Rejected(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -521,7 +521,7 @@ func TestIntegration_ServerlessPrivateLink_RequiresReplace_ServerlessRegion(t *t
 }
 
 // TestIntegration_ServerlessPrivateLink_ImportRoundTrip verifies the id-passthrough
-// import path. ImportState calls resource.ImportStatePassthroughID — no live
+// import path. ImportState calls resource.ImportStatePassthroughID: no live
 // controlplane lookup, no composite ID.
 //
 // verifyIgnore includes "allow_deletion" because ImportState hardcodes
@@ -592,7 +592,7 @@ func TestIntegration_ServerlessPrivateLink_ErrorPath_GetNotFound(t *testing.T) {
 
 // TestIntegration_ServerlessPrivateLink_ErrorPath_CreateFailed injects AlreadyExists
 // on CreateServerlessPrivateLink. The provider's Create has no adoption
-// branch — the error surfaces directly as a diagnostic. ExpectError matches
+// branch, so the error surfaces directly as a diagnostic. ExpectError matches
 // the regexp against the diagnostic text.
 func TestIntegration_ServerlessPrivateLink_ErrorPath_CreateFailed(t *testing.T) {
 	srv, factories := integration.Setup(t)
@@ -614,7 +614,7 @@ func TestIntegration_ServerlessPrivateLink_ErrorPath_CreateFailed(t *testing.T) 
 
 // TestIntegration_ServerlessPrivateLink_ErrorPath_UpdateFailed injects Internal on
 // UpdateServerlessPrivateLink for the next call. codes.Internal is
-// non-retryable — the override fires once and the diagnostic surfaces
+// non-retryable, so the override fires once and the diagnostic surfaces
 // immediately as "failed to update serverless private link" wrapping the
 // synthetic error message.
 func TestIntegration_ServerlessPrivateLink_ErrorPath_UpdateFailed(t *testing.T) {
@@ -646,7 +646,7 @@ func TestIntegration_ServerlessPrivateLink_ErrorPath_UpdateFailed(t *testing.T) 
 
 // TestIntegration_ServerlessPrivateLink_ErrorPath_DeleteFailed covers the
 // destroy-failed path. The SPL Delete handler does NOT use
-// HandleGracefulRemoval — the error surfaces directly. codes.Internal is
+// HandleGracefulRemoval, so the error surfaces directly. codes.Internal is
 // non-retryable; the override fires once and the diagnostic surfaces.
 func TestIntegration_ServerlessPrivateLink_ErrorPath_DeleteFailed(t *testing.T) {
 	srv, factories := integration.Setup(t)

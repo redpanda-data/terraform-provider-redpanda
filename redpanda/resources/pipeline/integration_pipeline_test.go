@@ -617,14 +617,14 @@ func TestIntegration_Pipeline_NestedMatrix_ServiceAccount_SecretVersionBump(t *t
 }
 
 // TestIntegration_Pipeline_RequiresReplace_ClusterApiUrl mutates the only
-// RequiresReplace leaf. The bufconn dialer is address-agnostic — it ignores
-// the URL string and routes through the in-memory listener — so changing
+// RequiresReplace leaf. The bufconn dialer is address-agnostic: it ignores
+// the URL string and routes through the in-memory listener, so changing
 // "bufnet" → "bufnet2" triggers the plan-level DestroyBeforeCreate and the
 // Create on the new resource still succeeds.
 //
 // Pipeline id is server-generated (the fake emits sequential
 // "tfrp-mock-pipeline-<N>"), so destroy+recreate allocates a NEW id different
-// from the original. ValuesDiffer on id is the load-bearing proof — distinct
+// from the original. ValuesDiffer on id is the load-bearing proof, distinct
 // from role/user where id was name-derived and unchanged across this scenario.
 func TestIntegration_Pipeline_RequiresReplace_ClusterApiUrl(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -760,7 +760,7 @@ func TestIntegration_Pipeline_ErrorPath_CreatePipeline_AlreadyExists(t *testing.
 
 // TestIntegration_Pipeline_ErrorPath_UpdatePipeline_Failed injects an Internal-coded
 // error on the next UpdatePipeline RPC. After a successful Create, the second
-// step bumps config_yaml — the Update path issues GetPipeline (succeeds, the
+// step bumps config_yaml, so the Update path issues GetPipeline (succeeds, the
 // override doesn't match), then UpdatePipeline (the override matches and
 // returns Internal), which surfaces as a "failed to update pipeline"
 // diagnostic. ExpectError matches the regexp.
@@ -835,7 +835,7 @@ func TestIntegration_Pipeline_NullDescription_Repro(t *testing.T) {
 	_, factories := integration.Setup(t)
 
 	const name = "tfrp-mock-pipe-nulldesc"
-	// description NOT set in HCL — null in plan; Flatten preserves null via the
+	// description NOT set in HCL, so null in plan; Flatten preserves null via the
 	// null-vs-empty-vs-prev guard so state stays null and no drift surfaces.
 	cfg := fmt.Sprintf(`
 provider "redpanda" {}
@@ -865,7 +865,7 @@ resource "redpanda_pipeline" "test" {
 // resource_pipeline.go Read, Flatten drops the SA wrapper from state and the
 // next plan surfaces a spurious "+ service_account" diff. This test proves the
 // hook keeps state stable: Create (stopped, SA set) → Start (running, fake
-// returns nil SA) → NoopReapply (plan must be empty — hook restored SA).
+// returns nil SA) → NoopReapply (plan must be empty: hook restored SA).
 func TestIntegration_Pipeline_ServiceAccount_PreservedAcrossRunningState(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -882,7 +882,7 @@ func TestIntegration_Pipeline_ServiceAccount_PreservedAcrossRunningState(t *test
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: factories,
 		Steps: []resource.TestStep{
-			// Step 1: Create stopped — fake returns SA; state carries client_id.
+			// Step 1: Create stopped. The fake returns SA; state carries client_id.
 			integration.CreateStep(pipelineAddr, cfgStopped, []statecheck.StateCheck{
 				statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("state"), knownvalue.StringExact("stopped")),
 				statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("service_account").AtMapKey("client_id"), knownvalue.StringExact(clientID)),
@@ -891,7 +891,7 @@ func TestIntegration_Pipeline_ServiceAccount_PreservedAcrossRunningState(t *test
 				statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 				idStable.AddStateValue(pipelineAddr, tfjsonpath.New("id")),
 			}),
-			// Step 2: Transition to running — fake omits SA in GetPipeline;
+			// Step 2: Transition to running. The fake omits SA in GetPipeline;
 			// hook restores SA from prev state. Plan must be empty afterward.
 			integration.UpdateLeafStep(pipelineAddr, cfgRunning, []statecheck.StateCheck{
 				statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("state"), knownvalue.StringExact("running")),
@@ -901,7 +901,7 @@ func TestIntegration_Pipeline_ServiceAccount_PreservedAcrossRunningState(t *test
 				statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 				idStable.AddStateValue(pipelineAddr, tfjsonpath.New("id")),
 			}),
-			// Step 3: NoopReapply — config unchanged; fake still omits SA (still running).
+			// Step 3: NoopReapply with config unchanged; fake still omits SA (still running).
 			// Hook must restore SA so no diff surfaces.
 			integration.NoopReapplyStep(pipelineAddr, cfgRunning, []statecheck.StateCheck{
 				statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("state"), knownvalue.StringExact("running")),

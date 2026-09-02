@@ -38,7 +38,7 @@ type TFScalar interface {
 }
 
 // ListFromSliceWithDiags wraps a slice of any TFScalar T as a types.List of
-// elemType (which must match T — caller passes types.StringType for []string,
+// elemType (which must match T: caller passes types.StringType for []string,
 // types.BoolType for []bool, etc.). Nil slices yield ListNull so "unset" vs
 // "explicitly cleared" round-trips correctly. Encoding diagnostics are
 // appended to diags.
@@ -57,7 +57,7 @@ func ListFromSliceWithDiags[T TFScalar](ctx context.Context, v []T, elemType att
 // list, else cur. proto3 repeated fields erase empty-vs-absent on the wire, so
 // a planned [] reads back as a nil slice that flattens to null; carrying the
 // known-empty prev preserves the explicit empty. A populated prev never
-// overrides cur — a genuinely cleared server value must surface as drift.
+// overrides cur: a genuinely cleared server value must surface as drift.
 func ListCarryKnownEmpty(cur, prev types.List) types.List {
 	if cur.IsNull() && !prev.IsNull() && !prev.IsUnknown() && len(prev.Elements()) == 0 {
 		return prev
@@ -86,7 +86,7 @@ func ListToSliceWithDiags[T TFScalar](ctx context.Context, v types.List, diags *
 // off the supplied attr-types map.
 //
 // The flatten function takes a prev *Model argument for symmetry with
-// ObjectFromMessageWithDiagsAndPrev — list elements have no natural prev
+// ObjectFromMessageWithDiagsAndPrev, since list elements have no natural prev
 // mapping (the prev list may differ in length / order from the proto list),
 // so this helper always passes nil. Per-element prev-state preservation
 // across list reorderings is out of scope.
@@ -209,7 +209,7 @@ func ObjectToMessage[Model any, Proto any](
 // per-resource Model state so Flatten can preserve user-supplied
 // null-vs-empty distinctions for fields whose proto3 wire shape is
 // ambiguous (e.g. Optional-only strings backed by non-optional proto3
-// strings — see the schemagen flatten emitter's prev-state-preservation
+// strings: see the schemagen flatten emitter's prev-state-preservation
 // block). prev may be nil; the flatten function must handle that.
 func ObjectFromMessageWithDiagsAndPrev[Proto any, Model any](
 	ctx context.Context,
@@ -290,7 +290,7 @@ func MapToStringsWithDiags(ctx context.Context, v types.Map, diags *diag.Diagnos
 
 // BoolFromOneofPresence converts the result of proto.HasX() for an
 // empty-message oneof variant into a types.Bool. Returns BoolValue(true)
-// when present, BoolNull() when absent — emitting BoolValue(false) would
+// when present, BoolNull() when absent, because emitting BoolValue(false) would
 // cause "Provider produced inconsistent result after apply" when the user's
 // config omits the unselected variant (config-null vs state-false diverge).
 func BoolFromOneofPresence(present bool) types.Bool {
@@ -417,7 +417,7 @@ func ProtoStructFromStringWithDiags(v types.String, diags *diag.Diagnostics) *st
 // repeated fields whose server-reported element ORDER is not contractual (the
 // backend may reorder in place, e.g. a listener rename): after flattening, the
 // elements are reordered to match prev's element order, matching elements by
-// IDENTITY — the values at keyPaths, the element's user-settable leaves
+// IDENTITY: the values at keyPaths, the element's user-settable leaves
 // (dotted paths into nested objects). Elements with no identity match in prev
 // append afterward in server order. A null/unknown/invalid prev leaves server
 // order untouched. Identity keys are unique by server contract; a duplicate

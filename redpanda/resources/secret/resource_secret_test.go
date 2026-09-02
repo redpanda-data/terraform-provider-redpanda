@@ -122,7 +122,7 @@ func TestUnit_Secret_Create_APIError(t *testing.T) {
 		},
 		{
 			// A dataplane that is reachable but not yet serving answers with a
-			// bare UNKNOWN — code 2, empty message. That is a warm-up signal,
+			// bare UNKNOWN (code 2, empty message). That is a warm-up signal,
 			// not a verdict, so the 2-minute budget has to cover it.
 			name:             "bare Unknown is retried until the dataplane serves",
 			rpcErr:           grpcstatus.Error(grpccodes.Unknown, ""),

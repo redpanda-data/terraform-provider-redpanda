@@ -32,7 +32,7 @@ const maxNestingDepth = 8
 // CompileProtoFiles compiles every .proto file under cloudv2Root/proto/.../<protoPkg>
 // (plus any extraImportPaths) and returns the resolved file set. Files that
 // fail to compile (e.g. because of unresolvable imports) are skipped with a
-// log line — same forgiving behavior the original CompileProto used.
+// log line, the same forgiving behavior the original CompileProto used.
 func CompileProtoFiles(cloudv2Root, protoPkg string, extraImportPaths []string) (linker.Files, error) {
 	importPaths := []string{
 		filepath.Join(cloudv2Root, "proto", "public", "cloud"),

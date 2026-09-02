@@ -36,7 +36,7 @@ type ResourceModel struct {
 
 // serverManagedLabelKeys names label keys that the Cloud API auto-injects
 // on Create. The provider strips them in Flatten so the user's planned
-// `labels` map round-trips cleanly through Refresh — otherwise the
+// `labels` map round-trips cleanly through Refresh. Otherwise the
 // framework reports `Provider produced inconsistent result after apply`.
 var serverManagedLabelKeys = map[string]bool{"owner": true}
 

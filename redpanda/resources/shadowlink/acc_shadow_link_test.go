@@ -75,7 +75,7 @@ func TestAcc_ShadowLink(t *testing.T) {
 	partialUpdateVars["metadata_max_age_ms"] = config.IntegerVariable(15000)
 
 	// SR partial-update vars: bump shadow_schema_registry_api.tail_interval and
-	// flip role_sync_options.paused — two independent subtrees in one update.
+	// flip role_sync_options.paused, two independent subtrees in one update.
 	srUpdateVars := make(map[string]config.Variable)
 	maps.Copy(srUpdateVars, partialUpdateVars)
 	srUpdateVars["sr_tail_interval"] = config.StringVariable("20s")
@@ -153,7 +153,7 @@ func TestAcc_ShadowLink(t *testing.T) {
 					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "client_options.authentication_configuration.scram_configuration.password", fmt.Sprintf("${secrets.%s}", secretName)),
 					// Server-derived mirrors, absent from every write payload.
 					resource.TestCheckResourceAttrSet(acc.ShadowLinkResourceName, "schema_registry_sync_options.shadow_schema_registry_api.effective_tail_interval"),
-					// role_sync_options: deny-by-default semantics — the "*" LITERAL
+					// role_sync_options: deny-by-default semantics, so the "*" LITERAL
 					// INCLUDE filter is the documented sync-everything form.
 					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "role_sync_options.interval", "45s"),
 					resource.TestCheckResourceAttr(acc.ShadowLinkResourceName, "role_sync_options.paused", "false"),
@@ -235,9 +235,9 @@ func TestAcc_ShadowLink(t *testing.T) {
 			// Change shadow_schema_registry_api.tail_interval and
 			// role_sync_options.paused. Three things this proves that the mock
 			// tier cannot: the control plane accepts a partial update inside the
-			// SR subtree, basic.password survives the Read that follows — the
+			// SR subtree, basic.password survives the Read that follows (the
 			// real backend masks it, so a blanked value would surface here as a
-			// perpetual diff rather than a clean apply — and role sync updates
+			// perpetual diff rather than a clean apply), and role sync updates
 			// in place.
 			{
 				ConfigDirectory:          config.StaticDirectory(acc.ShadowLinkDir),

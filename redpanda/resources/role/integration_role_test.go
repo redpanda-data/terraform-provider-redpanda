@@ -147,7 +147,7 @@ resource "redpanda_role" "test" {
 // TestIntegration_Role_CreateAndRefresh covers the canonical Create + NoopReapply
 // cycle and pins every leaf to an exact value. The load-bearing proof for the
 // id leaf's UseStateForUnknown plan modifier is that the server-derived id
-// (which equals name per Create) is IDENTICAL across the two steps — a single
+// (which equals name per Create) is IDENTICAL across the two steps: a single
 // CompareValue(ValuesSame()) shared between both steps' ConfigStateChecks
 // accumulates the values and the comparer asserts equality.
 func TestIntegration_Role_CreateAndRefresh(t *testing.T) {
@@ -187,7 +187,7 @@ func TestIntegration_Role_CreateAndRefresh(t *testing.T) {
 // TestIntegration_Role_RequiresReplace_Name mutates the RequiresReplace `name` leaf
 // and asserts the framework plans DestroyBeforeCreate. The load-bearing proof
 // that the resource was actually destroyed and recreated (not updated
-// in-place) is that the id DIFFERS between the two steps — id == name per
+// in-place) is that the id DIFFERS between the two steps: id == name per
 // Create, so the comparer captures "tfrp-mock-role-a" then "tfrp-mock-role-b"
 // and ValuesDiffer asserts they are not equal.
 func TestIntegration_Role_RequiresReplace_Name(t *testing.T) {
@@ -225,8 +225,8 @@ func TestIntegration_Role_RequiresReplace_Name(t *testing.T) {
 }
 
 // TestIntegration_Role_RequiresReplace_ClusterAPIURL mutates the RequiresReplace
-// `cluster_api_url` leaf. The bufconn dialer is address-agnostic — it ignores
-// the URL string and routes through the in-memory listener — so changing
+// `cluster_api_url` leaf. The bufconn dialer is address-agnostic (it ignores
+// the URL string and routes through the in-memory listener), so changing
 // "bufnet" → "bufnet2" triggers the plan-level DestroyBeforeCreate. id is
 // name-derived and name is unchanged, so ValuesSame holds on id across the
 // destroy+create; the RR proof is the PreApply ResourceActionDestroyBeforeCreate
@@ -437,7 +437,7 @@ func TestIntegration_Role_ErrorPath_CreateAlreadyExists(t *testing.T) {
 // After a successful Create, an Internal-coded error is injected on the next
 // DeleteRole RPC. Internal is NOT one of the graceful-removal codes
 // (NotFound / ClusterUnreachable / PermissionDenied) that
-// utils.HandleGracefulRemoval treats as a clean drop-from-state — it falls
+// utils.HandleGracefulRemoval treats as a clean drop-from-state, so it falls
 // through to the ErrorNotHandled branch and surfaces as a TF diagnostic.
 // The Destroy:true step triggers the destroy plan; ExpectError matches the
 // regexp. After the failing step the override is consumed; the TestCase's

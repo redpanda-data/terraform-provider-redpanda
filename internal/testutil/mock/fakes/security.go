@@ -48,7 +48,7 @@ type roleRecord struct {
 
 // SecurityFake is a stateful in-memory implementation of the console
 // SecurityService RPCs. Backs both redpanda_role and redpanda_role_assignment
-// resources — membership state lives under the owning role record.
+// resources: membership state lives under the owning role record.
 type SecurityFake struct {
 	consolev1alpha1grpc.UnimplementedSecurityServiceServer
 

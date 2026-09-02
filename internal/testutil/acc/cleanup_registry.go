@@ -23,7 +23,7 @@ import (
 // ResourceKind controls cleanup ordering. Lower values are cleaned up first
 // (reverse-dependency order: shadow_links → clusters → serverless_private_links
 // → networks → resource_groups). A serverless cluster references its private
-// link, so the cluster must be deleted before the link — the backend rejects
+// link, so the cluster must be deleted before the link: the backend rejects
 // deleting a private link still associated with a cluster.
 type ResourceKind int
 

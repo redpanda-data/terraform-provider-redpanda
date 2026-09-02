@@ -105,7 +105,7 @@ func main() {
 	}
 	fmt.Printf("Resources with prefix: %s\n", prefix)
 
-	// Shadow Link handler. Run BEFORE clusters — `REASON_SHADOW_LINK_PREVENTS_DELETION`
+	// Shadow Link handler. Run BEFORE clusters, because `REASON_SHADOW_LINK_PREVENTS_DELETION`
 	// blocks shadow cluster deletes while any shadow_link exists against them.
 	// ListShadowLinks doesn't filter by name (only by shadow_redpanda_id /
 	// resource_group_id), so filter the prefix client-side.
@@ -169,7 +169,7 @@ func main() {
 		},
 	}
 
-	// Serverless cluster handler. Run BEFORE resource groups — serverless
+	// Serverless cluster handler. Run BEFORE resource groups, because serverless
 	// clusters live inside resource groups.
 	serverlessHandler := resourceHandler[controlplanev1.ServerlessCluster]{
 		name:       "serverless cluster",

@@ -179,7 +179,7 @@ func (f *dataplaneFixture) TopicConfigSteps(base map[string]config.Variable) []r
 // "inconsistent result after apply".
 //
 // Dedicated/BYOC only, and not by preference. Serverless rejects any topic
-// carrying three or more configuration entries — on both create and update —
+// carrying three or more configuration entries, on both create and update,
 // with `Internal : unexpected number of resources in alter configs response`
 // (REASON_CONSOLE_ERROR, retrieved_results=2). Reproduced with a benign third
 // key, so it is a backend limit rather than anything about this config.

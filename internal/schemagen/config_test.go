@@ -116,7 +116,7 @@ api:
 	}
 }
 
-// TestLoadConfig_RejectsDescriptionKey — yaml description overrides were
+// TestLoadConfig_RejectsDescriptionKey: yaml description overrides were
 // removed; any description: key inside a field-config map fails loudly.
 // Fields NAMED description (proto fields) still load.
 func TestLoadConfig_RejectsDescriptionKey(t *testing.T) {

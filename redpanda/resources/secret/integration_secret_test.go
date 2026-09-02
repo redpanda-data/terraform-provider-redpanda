@@ -195,7 +195,7 @@ resource "redpanda_secret" "test" {
 // cycle. Every leaf is asserted at an exact value. secret_data is asserted
 // Null in state across both steps (WriteOnly contract). The load-bearing
 // proof for the id leaf's UseStateForUnknown plan modifier is that id is
-// IDENTICAL across the two steps — a single CompareValue(ValuesSame())
+// IDENTICAL across the two steps: a single CompareValue(ValuesSame())
 // shared between both steps' ConfigStateChecks accumulates the values and
 // the comparer asserts equality. id is derived from name (id == name) so
 // it must be "TFRP_MOCK_SECRET" exactly.
@@ -279,7 +279,7 @@ func TestIntegration_Secret_UpdateLeaf_AllowDeletion(t *testing.T) {
 
 // TestIntegration_Secret_ErrorPath_AllowDeletionBlocked pins the guard itself.
 // UpdateLeaf_AllowDeletion proves the field round-trips; this proves what the
-// field is for — with allow_deletion=false a destroy must be refused. The final
+// field is for: with allow_deletion=false a destroy must be refused. The final
 // step re-enables deletion so the framework's terminal destroy can proceed.
 func TestIntegration_Secret_ErrorPath_AllowDeletionBlocked(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -312,7 +312,7 @@ func TestIntegration_Secret_ErrorPath_AllowDeletionBlocked(t *testing.T) {
 // the fake's UpdateSecret performs a full replacement of the stored scope
 // slice (fakes/secret.go:89-105). ResourceActionUpdate proves no replace;
 // id stable confirms (id == name unchanged). secret_data_version is held at
-// 1 so no secret_data is sent — only the scopes flip drives the RPC.
+// 1 so no secret_data is sent; only the scopes flip drives the RPC.
 func TestIntegration_Secret_UpdateLeaf_Scopes(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -406,7 +406,7 @@ func TestIntegration_Secret_RequiresReplace_Name(t *testing.T) {
 // map, then mutates the map in place. labels is backend-mutable
 // (UpdateSecretRequest carries a labels field), so each change is an in-place
 // ResourceActionUpdate, not a replace. id == name and name is unchanged, so id
-// is SAME across both updates — the idStable ValuesSame comparer is the inverse
+// is SAME across both updates; the idStable ValuesSame comparer is the inverse
 // witness that the resource is not being recreated.
 func TestIntegration_Secret_UpdateLabels(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -440,8 +440,8 @@ func TestIntegration_Secret_UpdateLabels(t *testing.T) {
 }
 
 // TestIntegration_Secret_RequiresReplace_ClusterApiUrl mutates cluster_api_url from
-// bufnet to bufnet2. The bufconn dialer is address-agnostic — it ignores
-// the URL string and routes through the in-memory listener — so the value
+// bufnet to bufnet2. The bufconn dialer is address-agnostic: it ignores
+// the URL string and routes through the in-memory listener, so the value
 // flip triggers RequiresReplace and the Create on the new resource still
 // succeeds. cluster_api_url is not part of the id formula, so id is SAME
 // across the replace. The load-bearing proof is the
@@ -473,7 +473,7 @@ func TestIntegration_Secret_RequiresReplace_ClusterApiUrl(t *testing.T) {
 // WriteOnly contract for secret_data: it must be Null in state both after
 // Create (when the user supplied a value in config) and after an explicit
 // RefreshState round-trip (which calls GetSecret and re-populates state
-// from the fake's response — the fake doesn't return secret_data because
+// from the fake's response; the fake doesn't return secret_data because
 // the proto Secret message has no such field; the WriteOnly attribute is
 // always Null in state).
 func TestIntegration_Secret_WriteOnly_SecretData_Preservation(t *testing.T) {
@@ -526,7 +526,7 @@ func TestIntegration_Secret_ImportRoundTrip(t *testing.T) {
 // set (utils.IsUnavailable check fails) so it surfaces via
 // utils.NonRetryableError. The Read handler then calls
 // utils.HandleGracefulRemoval, but Internal is NOT one of the
-// graceful-removal codes — it falls through to ErrorNotHandled and emits
+// graceful-removal codes, so it falls through to ErrorNotHandled and emits
 // a TF diagnostic.
 func TestIntegration_Secret_ErrorPath_GetFailed(t *testing.T) {
 	srv, factories := integration.Setup(t)
@@ -558,11 +558,11 @@ func TestIntegration_Secret_ErrorPath_GetFailed(t *testing.T) {
 // already exists is not silently taken over.
 //
 // The seed goes through the fake's own CreateSecret so AlreadyExists comes from
-// its real path rather than an injected override — matching the backend, which
+// its real path rather than an injected override, matching the backend, which
 // answers "AlreadyExists ... secret already exists with ID: <name>" and leaves
 // the stored secret_data untouched. Adopting it would put a secret this resource
 // never created under Terraform's management, holding a value the config never
-// supplied — and secret_data is write-only, so the mismatch is invisible. A
+// supplied, and secret_data is write-only, so the mismatch is invisible. A
 // later destroy then removes it from whoever did create it.
 func TestIntegration_Secret_ErrorPath_CreateAlreadyExists(t *testing.T) {
 	srv, factories := integration.Setup(t)
@@ -609,7 +609,7 @@ func TestIntegration_Secret_ErrorPath_CreateFailed(t *testing.T) {
 // TestIntegration_Secret_ErrorPath_UpdateFailed injects Internal on UpdateSecret
 // during a secret_data_version bump (1→2). The Update handler's
 // versionChanged path enters the UpdateSecret RPC and the override returns
-// Internal. Same non-retryable surface as Create — the diagnostic message
+// Internal. Same non-retryable surface as Create: the diagnostic message
 // reaches the apply.
 func TestIntegration_Secret_ErrorPath_UpdateFailed(t *testing.T) {
 	srv, factories := integration.Setup(t)
@@ -641,7 +641,7 @@ func TestIntegration_Secret_ErrorPath_UpdateFailed(t *testing.T) {
 // TestIntegration_Secret_ErrorPath_DeleteFailed covers the destroy-failed path.
 // After a successful Create, an Internal-coded error is injected on the
 // next DeleteSecret RPC. Internal is NOT one of the graceful-removal codes
-// (NotFound / ClusterUnreachable / PermissionDenied) — it falls through to
+// (NotFound / ClusterUnreachable / PermissionDenied), so it falls through to
 // utils.HandleGracefulRemoval's ErrorNotHandled branch and surfaces as a
 // TF diagnostic. The config uses allow_deletion=true so the in-resource
 // guard at resource_secret.go:264 passes and DeleteSecret is actually

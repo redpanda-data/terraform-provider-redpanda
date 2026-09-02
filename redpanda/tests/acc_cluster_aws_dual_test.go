@@ -27,7 +27,7 @@ import (
 // TestAcc_Cluster_AWS_DualListeners runs the AWS BYOC stack (the certified
 // envelope for dual listener mode) with public+private SASL connections on
 // all three services and no connection_type. Requires the
-// enable-public-private-listeners feature flag on the test org (preview) —
+// enable-public-private-listeners feature flag on the test org (preview), since
 // without it the create fails PermissionDenied by design.
 func TestAcc_Cluster_AWS_DualListeners(t *testing.T) {
 	ctx := context.Background()

@@ -309,7 +309,7 @@ resource "redpanda_cluster" "test" {
 }
 
 // awsBYOVPCOpts configures awsBYOVPCConfig. rpsql gates both the top-level
-// rpsql block and the rpsql_* CMR leaves — the control plane clears rpsql CMR
+// rpsql block and the rpsql_* CMR leaves: the control plane clears rpsql CMR
 // when Redpanda SQL is disabled, so they are only realistic together. Blank
 // ARN fields fall back to their default.
 type awsBYOVPCOpts struct {
@@ -1190,7 +1190,7 @@ func TestIntegration_Cluster_UpdateLeaf_KafkaConnect_Enabled(t *testing.T) {
 
 // TestIntegration_Cluster_UpdateLeaf_Rpsql exercises the rpsql block in place:
 // enable (null→enabled), enable-after-disable (re-derives the computed url),
-// a replicas scale, and a zones set — all as ResourceActionUpdate. The scale
+// a replicas scale, and a zones set, all as ResourceActionUpdate. The scale
 // and zones steps prove clustermask.ExpandLeafPaths round-trips the granular
 // mask paths (rpsql.enabled / rpsql.replicas / rpsql.zones).
 func TestIntegration_Cluster_UpdateLeaf_Rpsql(t *testing.T) {
@@ -1251,7 +1251,7 @@ func TestIntegration_Cluster_UpdateLeaf_Rpsql(t *testing.T) {
 						knownvalue.ListExact([]knownvalue.Check{knownvalue.StringExact("use1-az1")})),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
-			// Changing the zone is rejected by the control plane — on this
+			// Changing the zone is rejected by the control plane: on this
 			// single-zone cluster the membership check fires first (the exact
 			// rejection live validation observed); state survives the failure.
 			{
@@ -1278,7 +1278,7 @@ func TestIntegration_Cluster_UpdateLeaf_Rpsql(t *testing.T) {
 			// Explicit zones alongside enabled=false are rejected at plan time:
 			// the control plane would clear them, and Terraform requires
 			// plan==config for a known Optional value, so no plan modifier can
-			// reconcile the pair — only a config validator.
+			// reconcile the pair; only a config validator can.
 			{
 				Config:      awsDedicatedConfig(name, `rpsql = { enabled = false, zones = ["use1-az1"] }`),
 				ExpectError: regexp.MustCompile("cannot be set while"),
@@ -1451,7 +1451,7 @@ func TestIntegration_Cluster_UpdateLeaf_AWSPrivateLink_Enabled(t *testing.T) {
 				}),
 			// Disable in place: the control plane drops the whole block, so the
 			// computed children (status, supported_regions) must plan known-null
-			// rather than unknown — else "must be known after apply". Guards the
+			// rather than unknown, or else "must be known after apply". Guards the
 			// status plan modifier / ModifyPlan reconciliation on the disable path.
 			integration.UpdateLeafStep(clusterAddr,
 				awsDedicatedConfig(name, `aws_private_link = {
@@ -1968,7 +1968,7 @@ func TestIntegration_Cluster_RequiresReplace_RedpandaVersion(t *testing.T) {
 // TestIntegration_Cluster_CMR_AWS exercises the full customer_managed_resources.aws
 // update contract against the cloudv2-faithful fake:
 //  1. enable Redpanda SQL and supply the rpsql CMR leaves in one apply (empty->value)
-//     — an in-place update, not a destroy (the fix in cloudv2 74f27f5efe);
+//     as an in-place update, not a destroy (the fix in cloudv2 74f27f5efe);
 //  2. changing an already-set rpsql leaf while rpsql is enabled is rejected as
 //     immutable (validateRPSqlCMRImmutability);
 //  3. the non-rpsql redpanda_connect_security_group updates freely in place;
@@ -2055,7 +2055,7 @@ func TestIntegration_Cluster_CMR_AWS(t *testing.T) {
 // TestIntegration_Cluster_CMR_GCP exercises the full customer_managed_resources.gcp
 // update contract against the cloudv2-faithful fake, mirroring the AWS case:
 //  1. enable Redpanda SQL and supply the rpsql CMR leaves in one apply (empty->value)
-//     — an in-place update, not a destroy;
+//     as an in-place update, not a destroy;
 //  2. changing an already-set rpsql leaf while rpsql is enabled is rejected as
 //     immutable;
 //  3. the non-rpsql psc_nat_subnet_name updates freely in place;
@@ -3164,7 +3164,7 @@ func TestIntegration_Cluster_DualListenerConnections(t *testing.T) {
 					// SASL listener it replaced.
 					pubEndpointPreserved.AddStateValue(clusterAddr, kafkaConns.AtSliceIndex(0).AtMapKey("endpoint")),
 				}),
-			// Import while state order matches server order — import has no
+			// Import while state order matches server order: import has no
 			// prior state to reorder against, so it lands in server order by
 			// design (a reordered config converges on the next apply).
 			integration.ImportRoundTripStep(clusterAddr, nil, []string{"allow_deletion"}),
@@ -3201,7 +3201,7 @@ func TestIntegration_Cluster_DualListenerConnections(t *testing.T) {
 					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(1).AtMapKey("type"), knownvalue.StringExact("public")),
 					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(1).AtMapKey("auth").AtMapKey("mode"), knownvalue.StringExact("mtls")),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
-					// Same public listener, now at index 1 — endpoint unchanged.
+					// Same public listener, now at index 1; endpoint unchanged.
 					pubEndpointPreserved.AddStateValue(clusterAddr, kafkaConns.AtSliceIndex(1).AtMapKey("endpoint")),
 				}),
 		},
@@ -3258,7 +3258,7 @@ resource "redpanda_cluster" "test" {
 `, name, connType, body)
 }
 
-// awsByocNoConnTypeConfig is awsByocConfig without connection_type — the
+// awsByocNoConnTypeConfig is awsByocConfig without connection_type, the
 // certified envelope for dual listener mode.
 func awsByocNoConnTypeConfig(name string, extra ...string) string {
 	body := ""
@@ -3610,7 +3610,7 @@ const privateOnlySaslConns = `connections = [
 // TestIntegration_Cluster_Connections_PrivateOnlyGainsPublicRejected pins the
 // plan-time guard for the one topology transition the control plane cannot
 // perform in place: a private-only cluster gaining public listeners. The rule
-// depends on stored cluster state, so ValidateConfig cannot see it — the
+// depends on stored cluster state, so ValidateConfig cannot see it; the
 // guard lives in ModifyPlan, which can.
 func TestIntegration_Cluster_Connections_PrivateOnlyGainsPublicRejected(t *testing.T) {
 	_, factories := clusterSetup(t)
@@ -3668,7 +3668,7 @@ func TestIntegration_Cluster_Connections_DualPrivateOnlyGainsPublicRejected(t *t
 
 // TestIntegration_Cluster_DualListener_OutOfBandFlip pins the fleet-flip
 // hazard: connection_type is server-derived on read (cloudv2
-// mapper.getConnectionType — any private kafka listener reads back "private")
+// mapper.getConnectionType: any private kafka listener reads back "private")
 // and private<->dual is a fleet operation performed outside the public API,
 // so a legacy connection_type="public" cluster can start reading back
 // "private" under an unchanged config. With RequiresReplace on the attribute,
@@ -3716,7 +3716,7 @@ func TestIntegration_Cluster_DualListener_OutOfBandFlip(t *testing.T) {
 // TestIntegration_Cluster_DualListenerConnections_ConfigErrors pins the
 // plan-time validators mirroring the control plane's cross-service connections
 // rules (cloudv2 dual_mode_connections.go), which are enforced only in server
-// code — not buf.validate — and so would otherwise surface as opaque apply
+// code, not buf.validate, and so would otherwise surface as opaque apply
 // errors.
 func TestIntegration_Cluster_DualListenerConnections_ConfigErrors(t *testing.T) {
 	_, factories := clusterSetup(t)
@@ -3808,7 +3808,7 @@ func TestIntegration_Cluster_DualListenerConnections_ConfigErrors(t *testing.T) 
 		},
 		{
 			// Valid config last: the framework's post-test destroy re-plans
-			// the final step's config, and ValidateConfig runs on that path —
+			// the final step's config, and ValidateConfig runs on that path, so
 			// an invalid final config would fail the destroy.
 			Config:             awsByocNoConnTypeConfig("dual-valid", dualAllServices(dualSaslConns)...),
 			PlanOnly:           true,

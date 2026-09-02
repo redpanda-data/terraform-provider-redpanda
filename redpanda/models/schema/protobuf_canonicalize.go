@@ -24,8 +24,8 @@ import (
 
 // ProtobufBodiesEquivalent reports whether two PROTOBUF schema bodies represent
 // the same schema after canonicalization. Schema Registry canonicalizes
-// protobuf on write — it reorders top-level definitions (enums before
-// messages) and fully-qualifies in-package type references — so the stored
+// protobuf on write: it reorders top-level definitions (enums before
+// messages) and fully-qualifies in-package type references, so the stored
 // body differs textually from the user's input even when nothing changed.
 //
 // Both bodies are parsed and reduced to an order-independent canonical form

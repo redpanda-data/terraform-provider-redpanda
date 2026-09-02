@@ -15,7 +15,7 @@
 package apidesc
 
 // FilterByRoots returns a subset tree containing only the named top-level
-// schemas. Child subtrees are unchanged — Flatten already inlined referenced
+// schemas. Child subtrees are unchanged: Flatten already inlined referenced
 // schemas at every use site, so reachability from the kept roots is
 // preserved without needing their standalone entries.
 func FilterByRoots(tree map[string]*Node, roots []string) map[string]*Node {

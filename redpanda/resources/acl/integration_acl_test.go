@@ -181,7 +181,7 @@ func aclID(resourceType, resourceName, resourcePatternType, principal, host, ope
 // TestIntegration_ACL_CreateAndRefresh covers the canonical Create + NoopReapply
 // cycle and pins every leaf to an exact value. The load-bearing proof for the
 // id leaf's UseStateForUnknown plan modifier is that id (a composite of the 7
-// identity fields per GenerateID) is IDENTICAL across the two steps — a
+// identity fields per GenerateID) is IDENTICAL across the two steps: a
 // single CompareValue(ValuesSame()) shared between both steps'
 // ConfigStateChecks accumulates the values and the comparer asserts equality.
 func TestIntegration_ACL_CreateAndRefresh(t *testing.T) {
@@ -307,7 +307,7 @@ func TestIntegration_ACL_UpdateLeaf_AllowDeletion(t *testing.T) {
 
 // requiresReplaceIdentityTest runs a RequiresReplace scenario for a single
 // identity field. Every identity field is part of GenerateID's composite, so
-// mutating any one of them causes id to DIFFER — that ValuesDiffer assertion
+// mutating any one of them causes id to DIFFER, and that ValuesDiffer assertion
 // is the load-bearing proof that the destroy-then-create cycle ran (alongside
 // the ResourceActionDestroyBeforeCreate plancheck baked into
 // RequiresReplaceStep).
@@ -417,7 +417,7 @@ func TestIntegration_ACL_RequiresReplace_Principal(t *testing.T) {
 // TestIntegration_ACL_RequiresReplace_Host mutates the RequiresReplace `host` leaf
 // (wildcard "*" → IPv4 literal "10.0.0.1"). id changes because host is field
 // #5 in GenerateID's composite. The proto validator on host accepts only "*"
-// or a valid IP address, so a hostname like "localhost" is rejected — an IPv4
+// or a valid IP address, so a hostname like "localhost" is rejected, so an IPv4
 // literal is the unambiguous alternative.
 func TestIntegration_ACL_RequiresReplace_Host(t *testing.T) {
 	requiresReplaceIdentityTest(t,
@@ -531,7 +531,7 @@ func TestIntegration_ACL_ImportRoundTrip(t *testing.T) {
 				// ACL schema has no `id` attribute and no `cluster_id` attribute; the
 				// composite-import ID is "<cluster_id>,<rt>,<rn>,<rpt>,<princ>,<host>,<op>,<perm>"
 				// and the ImportState handler sets `cluster_api_url` (the resolved
-				// dataplane URL) — that's the only stable identifier in post-import state.
+				// dataplane URL), which is the only stable identifier in post-import state.
 				ImportStateVerifyIdentifierAttribute: "cluster_api_url",
 				ImportStateIdFunc: func(s *terraform.State) (string, error) {
 					rs, ok := s.RootModule().Resources[aclAddr]
@@ -653,7 +653,7 @@ func TestIntegration_ACL_ErrorPath_CreateAlreadyExists(t *testing.T) {
 // successful Create, an Internal-coded error is injected on the next
 // DeleteACLs RPC. Internal is NOT one of the graceful-removal codes
 // (NotFound / ClusterUnreachable / PermissionDenied) that
-// utils.HandleGracefulRemoval treats as a clean drop-from-state — it falls
+// utils.HandleGracefulRemoval treats as a clean drop-from-state, so it falls
 // through to the ErrorNotHandled branch and surfaces as a TF diagnostic. The
 // config uses allow_deletion=true so the in-resource guard at
 // resource_acl.go:228 passes and the DeleteACLs RPC is actually called. After

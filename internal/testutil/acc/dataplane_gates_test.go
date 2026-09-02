@@ -66,7 +66,7 @@ resource "redpanda_pipeline" "test" {}
 		assert.Equal(t, TopicAccessACLResourceName, topic.ACLResourceName)
 
 		// The flip steps assert against ACLResourceName, so a fixture declaring
-		// only the RedpandaRole-principal ACL must resolve to that one — not to
+		// only the RedpandaRole-principal ACL must resolve to that one, not to
 		// a better-known name it never declared.
 		role := ParseDataplaneGates(`resource "redpanda_acl" "role_topic_read" {}`)
 		assert.True(t, role.ACL)
@@ -136,8 +136,8 @@ func TestDataplaneGatesForFixtures(t *testing.T) {
 			},
 		},
 		{
-			// Only what serverless cannot serve: RBAC — role, role_assignment and
-			// the RedpandaRole-principal ACL — plus the user they bind to, and the
+			// Only what serverless cannot serve: RBAC (role, role_assignment and
+			// the RedpandaRole-principal ACL) plus the user they bind to, and the
 			// topic canary. Everything else is exercised on serverless.
 			name: "cluster aws declares rbac and the topic canary",
 			dir:  AwsDedicatedClusterDir,

@@ -1079,7 +1079,7 @@ func returnPayloadUpdateGoldenCase() goldenCase {
 }
 
 // withMaskSparseGoldenCase exercises diff_mask: sparse on a return_payload
-// update — the cluster/shadowlink shape. ExpandUpdateWithMask returns the
+// update, the cluster/shadowlink shape. ExpandUpdateWithMask returns the
 // sparse diff payload via utils.GenerateProtobufDiffAndUpdateMask.
 func withMaskSparseGoldenCase() goldenCase {
 	return goldenCase{
@@ -1145,7 +1145,7 @@ func withMaskSparseGoldenCase() goldenCase {
 	}
 }
 
-// withMaskFullGoldenCase exercises diff_mask: full on a flat update request —
+// withMaskFullGoldenCase exercises diff_mask: full on a flat update request,
 // the serverless shape (no payload sub-message, no FieldMask field in the
 // request). ExpandUpdateWithMask returns the full plan request via
 // utils.PlanPayloadWithUpdateMask; the caller reads the mask only to decide

@@ -957,7 +957,7 @@ resource "redpanda_shadow_link" "test" {
 
 // TestIntegration_ShadowLink_StartAtEarliest_FalseRejected proves the boolvalidator
 // rejects `start_at_earliest = false` at config-validation time. The proto
-// backing the field is a oneof variant (presence-only) — `false` has no
+// backing the field is a oneof variant (presence-only), so `false` has no
 // representable state on the wire, so the schema-level validator forces
 // users to either set `true` or omit the field.
 func TestIntegration_ShadowLink_StartAtEarliest_FalseRejected(t *testing.T) {
@@ -988,8 +988,8 @@ resource "redpanda_shadow_link" "test" {
 	})
 }
 
-// TestIntegration_ShadowLink_StartAtLatest_FalseRejected — same oneof-presence
-// rejection as start_at_earliest, but for start_at_latest.
+// TestIntegration_ShadowLink_StartAtLatest_FalseRejected pins the same
+// oneof-presence rejection as start_at_earliest, but for start_at_latest.
 func TestIntegration_ShadowLink_StartAtLatest_FalseRejected(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -1018,9 +1018,9 @@ resource "redpanda_shadow_link" "test" {
 	})
 }
 
-// TestIntegration_ShadowLink_ShadowSchemaRegistryTopic_FalseRejected — same
-// oneof-presence rejection as start_at_earliest, but for the schema-registry
-// sync option.
+// TestIntegration_ShadowLink_ShadowSchemaRegistryTopic_FalseRejected pins the
+// same oneof-presence rejection as start_at_earliest, but for the
+// schema-registry sync option.
 func TestIntegration_ShadowLink_ShadowSchemaRegistryTopic_FalseRejected(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -1274,7 +1274,7 @@ resource "redpanda_shadow_link" "test" {
 // TestIntegration_ShadowLink_UpdateLeaf_TLSKey exercises the sensitive
 // tls_settings.key write path. The proto requires the key to be a
 // `${secrets.<SECRET_ID>}` reference (not raw PEM), and "key and cert must
-// both be provided or both be empty" — so we provide both in the same
+// both be provided or both be empty", so we provide both in the same
 // matched-pair format.
 func TestIntegration_ShadowLink_UpdateLeaf_TLSKey(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -1894,7 +1894,7 @@ resource "redpanda_shadow_link" "test" {
 	// schema_registry_shadowing_mode oneof. cfgPem and cfgAlt between them
 	// cover every leaf of the subtree: the destination oneof admits only one
 	// arm per config, and cfgAlt exercises tls_settings with no PEM arm set
-	// (tls_file_settings is not schema-representable for the SR API — the
+	// (tls_file_settings is not schema-representable for the SR API because the
 	// control plane rejects it).
 	cfgPem := `
 provider "redpanda" {}

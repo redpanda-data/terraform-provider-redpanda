@@ -42,7 +42,7 @@ type DataplaneGates struct {
 
 	// TopicConfigurable is set when the fixture threads var.topic_configuration
 	// into the topic. The topic-config regression steps mutate that variable, so
-	// a fixture that hardcodes its configuration cannot satisfy them — gating on
+	// a fixture that hardcodes its configuration cannot satisfy them. Gating on
 	// Topic alone would emit steps whose assertions can never pass.
 	TopicConfigurable bool
 

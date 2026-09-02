@@ -23,13 +23,13 @@ const maxWriteShapeDepth = 12
 // payload messages expose.
 //
 // Settable and Updatable are not interchangeable: region and zones are on the
-// create shape but not the update shape — user input that requires replacement
+// create shape but not the update shape: user input that requires replacement
 // to change.
 type WriteShapeIndex struct {
 	create map[string]bool
 	update map[string]bool
 	// sharedCreate/sharedUpdate hold paths whose message type is identical on
-	// the read shape and that payload. Diffing says nothing there — every field
+	// the read shape and that payload. Diffing says nothing there, since every field
 	// is trivially present. The two are tracked separately because a subtree can
 	// be shared with create and still diverge on update: cluster's
 	// customer_managed_resources is CustomerManagedResources on both read and
@@ -98,7 +98,7 @@ func (i *WriteShapeIndex) HasCreate() bool { return i != nil && i.hasCreate }
 // HasUpdate reports whether an update payload resolved.
 func (i *WriteShapeIndex) HasUpdate() bool { return i != nil && i.hasUpdate }
 
-// TopLevelUpdatePaths returns the update-shape paths with no parent — the
+// TopLevelUpdatePaths returns the update-shape paths with no parent, the
 // granularity the update-mask contract works at.
 func (i *WriteShapeIndex) TopLevelUpdatePaths() map[string]bool {
 	out := map[string]bool{}
@@ -269,7 +269,7 @@ func childFields(fc *FieldConfig) map[string]FieldConfig {
 // applyOneofArmLifecycle removes from an arm the user selects. Runs post-merge
 // so the subtree it inspects has already had exclude:/todo: pruned.
 //
-// computed: true warns — the lifecycle pass clears it, so the outcome is still
+// computed: true warns. The lifecycle pass clears it, so the outcome is still
 // correct and the override is merely redundant. An explicit state-pin plan
 // modifier is an error: nothing downstream clears it, so it survives onto an
 // Optional-only attribute and anchors the outgoing arm anyway. Silently
@@ -282,7 +282,7 @@ func checkOneofArmOverrides(attrs []SchemaAttr, fields map[string]FieldConfig, i
 		// a.Optional mirrors applyOneofArmLifecycle's own condition: it only
 		// clears Computed from arms the user selects, so only those can end up
 		// with an orphaned pin. A read-only arm keeps its anchor legitimately,
-		// even when its own path appears on a write payload — an empty
+		// even when its own path appears on a write payload, as an empty
 		// presence-only arm always does.
 		if a.IsOneofArm && a.Optional && fc != nil && attrHasSettableLeaf(a, path, idx) {
 			if fc.Computed != nil && *fc.Computed {
@@ -298,7 +298,7 @@ func checkOneofArmOverrides(attrs []SchemaAttr, fields map[string]FieldConfig, i
 }
 
 // statePinModifier returns the first state-pinning modifier in names, or "".
-// modNone is not a pin — it suppresses the automatic one.
+// modNone is not a pin: it suppresses the automatic one.
 func statePinModifier(names []string) string {
 	for _, n := range names {
 		if n == modUseStateForUnknown || n == modUseNonNullStateForUnknown {
@@ -310,7 +310,7 @@ func statePinModifier(names []string) string {
 
 // warnWriteShapeDisagreements reports attributes whose lifecycle contradicts
 // the write shape: a read-only attribute the payload accepts, or a user-settable
-// one no payload carries. Diagnostic only — the yaml stays authoritative.
+// one no payload carries. Diagnostic only: the yaml stays authoritative.
 //
 // Synthetic attributes have no proto path to check. The identity field rides
 // the update payload to address the row, not as a mutable field.

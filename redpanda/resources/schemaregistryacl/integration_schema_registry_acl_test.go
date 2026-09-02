@@ -242,7 +242,7 @@ func TestIntegration_SchemaRegistryACL_CreateAndRefresh(t *testing.T) {
 
 // TestIntegration_SchemaRegistryACL_ErrorPath_AllowDeletionBlocked pins the
 // guard itself. UpdateLeaf_AllowDeletion proves the field round-trips; this
-// proves what the field is for — with allow_deletion=false a destroy must be
+// proves what the field is for: with allow_deletion=false a destroy must be
 // refused, as it is on every other resource exposing the attribute.
 func TestIntegration_SchemaRegistryACL_ErrorPath_AllowDeletionBlocked(t *testing.T) {
 	_, factories := sraclSetup(t, mockSRACLClusterID13)
@@ -488,7 +488,7 @@ func TestIntegration_SchemaRegistryACL_ImportRoundTrip(t *testing.T) {
 				statecheck.ExpectKnownValue(sraclAddr, tfjsonpath.New("username"), knownvalue.StringExact("mock-user")),
 				statecheck.ExpectKnownValue(sraclAddr, tfjsonpath.New("password"), knownvalue.StringExact("mock-pass")),
 			}),
-			// ImportRoundTrip pins the fix — do NOT add username or password to verifyIgnore without re-tracking the regression.
+			// ImportRoundTrip pins the fix, so do NOT add username or password to verifyIgnore without re-tracking the regression.
 			{
 				ResourceName:                         sraclAddr,
 				ImportState:                          true,

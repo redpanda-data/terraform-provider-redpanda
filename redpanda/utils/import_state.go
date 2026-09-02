@@ -27,7 +27,7 @@ import (
 
 // ImportStateBoolFromSchemaDefault writes the schema-level Default of a bool
 // attribute into state. Use this in ImportState handlers for TF-only fields
-// (no proto correspondence) whose Read() path doesn't populate them — without
+// (no proto correspondence) whose Read() path doesn't populate them. Without
 // the bootstrap the post-import plan shows a null→default heal diff. Pulling
 // the value from the schema avoids drift if the default ever changes.
 func ImportStateBoolFromSchemaDefault(ctx context.Context, sch schema.Schema, state *tfsdk.State, attrName string) diag.Diagnostics {

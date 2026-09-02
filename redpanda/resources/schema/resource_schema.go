@@ -299,7 +299,7 @@ func (s *Schema) Update(ctx context.Context, request resource.UpdateRequest, res
 	// in-namespace type references; protobuf reorders definitions and
 	// fully-qualifies in-package type refs). The user's original form persists
 	// in plan. Without the fallback, every plan after the first apply sees
-	// plan.Schema != state.Schema and Update fires unnecessarily — eventually
+	// plan.Schema != state.Schema and Update fires unnecessarily, eventually
 	// tripping the framework's post-apply consistency check.
 	bodiesEqual := planReq.Schema == stateReq.Schema
 	if !bodiesEqual {

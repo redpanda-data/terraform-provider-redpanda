@@ -100,7 +100,7 @@ func bridgeConfigAndLookup(read, write *ProtoMessage) (*Config, ProtoLookup) {
 	return cfg, lookup
 }
 
-// TestBridgeWriteShapeRules_CopiesWriteRules — write-shape repeated rules land
+// TestBridgeWriteShapeRules_CopiesWriteRules: write-shape repeated rules land
 // on rule-less read fields (recursing through divergently-typed nested
 // messages); required-only rules strip to nothing; read-only fields with no
 // write counterpart stay untouched.
@@ -131,7 +131,7 @@ func TestBridgeWriteShapeRules_CopiesWriteRules(t *testing.T) {
 	}
 }
 
-// TestBridgeWriteShapeRules_ReadRulesUntouched — a read field carrying its own
+// TestBridgeWriteShapeRules_ReadRulesUntouched: a read field carrying its own
 // rules keeps them verbatim (no piecemeal merge with the write shape).
 func TestBridgeWriteShapeRules_ReadRulesUntouched(t *testing.T) {
 	read, write := bridgeShapes()
@@ -151,7 +151,7 @@ func TestBridgeWriteShapeRules_ReadRulesUntouched(t *testing.T) {
 	}
 }
 
-// TestBridgeWriteShapeRules_KindMismatchSkips — same field name with a
+// TestBridgeWriteShapeRules_KindMismatchSkips: same field name with a
 // different shape (singular string vs repeated string) must not copy rules.
 func TestBridgeWriteShapeRules_KindMismatchSkips(t *testing.T) {
 	read, write := bridgeShapes()
@@ -166,7 +166,7 @@ func TestBridgeWriteShapeRules_KindMismatchSkips(t *testing.T) {
 	}
 }
 
-// TestBridgeWriteShapeRules_WalkedIsWriteShape — resources that already walk
+// TestBridgeWriteShapeRules_WalkedIsWriteShape: resources that already walk
 // the create payload (user/topic style) must be a strict no-op.
 func TestBridgeWriteShapeRules_WalkedIsWriteShape(t *testing.T) {
 	_, write := bridgeShapes()
@@ -186,7 +186,7 @@ func TestBridgeWriteShapeRules_WalkedIsWriteShape(t *testing.T) {
 	}
 }
 
-// TestBridgeWriteShapeRules_NoCreateOrDatasource — datasources and configs
+// TestBridgeWriteShapeRules_NoCreateOrDatasource: datasources and configs
 // without a create RPC are no-ops with a nil error.
 func TestBridgeWriteShapeRules_NoCreateOrDatasource(t *testing.T) {
 	read, write := bridgeShapes()
@@ -214,7 +214,7 @@ func TestBridgeWriteShapeRules_NoCreateOrDatasource(t *testing.T) {
 	}
 }
 
-// TestBridgeWriteShapeRules_LookupErrorPropagates — a broken create-request
+// TestBridgeWriteShapeRules_LookupErrorPropagates: a broken create-request
 // lookup is pin/yaml drift; the bridge hard-fails rather than masking it.
 func TestBridgeWriteShapeRules_LookupErrorPropagates(t *testing.T) {
 	read, write := bridgeShapes()
@@ -226,7 +226,7 @@ func TestBridgeWriteShapeRules_LookupErrorPropagates(t *testing.T) {
 	}
 }
 
-// TestBridgeWriteShapeRules_CloneIsolation — mutating bridged rules on the
+// TestBridgeWriteShapeRules_CloneIsolation: mutating bridged rules on the
 // read tree must not write through to the write tree.
 func TestBridgeWriteShapeRules_CloneIsolation(t *testing.T) {
 	read, write := bridgeShapes()
@@ -243,7 +243,7 @@ func TestBridgeWriteShapeRules_CloneIsolation(t *testing.T) {
 	}
 }
 
-// TestBridge_MergeEmitsValidators — end-to-end through Merge: bridged rules
+// TestBridge_MergeEmitsValidators runs end-to-end through Merge: bridged rules
 // produce list validators and description suffixes, never Required flips, and
 // a yaml optional override on a write-required field raises no drift error.
 func TestBridge_MergeEmitsValidators(t *testing.T) {

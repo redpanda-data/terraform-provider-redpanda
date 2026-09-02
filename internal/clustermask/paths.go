@@ -15,7 +15,7 @@
 package clustermask
 
 // These maps mirror cloudv2's cluster field-mask path maps, hand-maintained.
-// Source of truth: apps/public-api-go/internal/services/cluster/v1/mapper.go —
+// Source of truth: apps/public-api-go/internal/services/cluster/v1/mapper.go,
 // the `pathMap` and `multiListenersPathMap` literals. The set is small and rarely
 // changes; when bumping the cloudv2 pin, eyeball those two maps and update here.
 // TestFixtureContract pins the expected shape so an accidental edit fails loudly.
@@ -24,7 +24,7 @@ package clustermask
 // control plane accepts at the object level in either listener mode (the no-dot
 // keys of pathMap and multiListenersPathMap; the latter contributes kafka_api).
 // A path absent here is silently dropped by the control plane unless sent at leaf
-// granularity — see LeafExpansions.
+// granularity (see LeafExpansions).
 var AcceptedTopLevel = map[string]bool{
 	"api_gateway_access":                   true,
 	"aws_private_link":                     true,

@@ -46,7 +46,7 @@ func refRoots(t *testing.T, dir string) []string {
 	return out
 }
 
-// TestCollectAPISchemas_WriteSchemasScoped — api_write_schemas roots are
+// TestCollectAPISchemas_WriteSchemasScoped: api_write_schemas roots are
 // registered as additional scoped roots alongside the api_schema read root.
 func TestCollectAPISchemas_WriteSchemasScoped(t *testing.T) {
 	dir := t.TempDir()
@@ -65,7 +65,7 @@ func TestCollectAPISchemas_WriteSchemasScoped(t *testing.T) {
 	}
 }
 
-// TestCollectAPISchemas_NoWriteSchemas — a resource without api_write_schemas
+// TestCollectAPISchemas_NoWriteSchemas: a resource without api_write_schemas
 // registers only its read root (the existing single-root behavior).
 func TestCollectAPISchemas_NoWriteSchemas(t *testing.T) {
 	dir := t.TempDir()
@@ -77,7 +77,7 @@ func TestCollectAPISchemas_NoWriteSchemas(t *testing.T) {
 	}
 }
 
-// TestCollectAPISchemas_WriteSchemasInheritPrefix — strip_openapi_prefix applies
+// TestCollectAPISchemas_WriteSchemasInheritPrefix: strip_openapi_prefix applies
 // to the write roots too, so they resolve against the prefixed openapi index.
 func TestCollectAPISchemas_WriteSchemasInheritPrefix(t *testing.T) {
 	dir := t.TempDir()

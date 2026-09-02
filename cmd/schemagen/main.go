@@ -234,7 +234,7 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 	if err := schemagen.ApplyAPIDefaults(cfg, schemaType); err != nil {
 		return fmt.Errorf("apply api defaults: %w", err)
 	}
-	// Must follow ApplyAPIDefaults — that fills in the RPC request and payload
+	// Must follow ApplyAPIDefaults, which fills in the RPC request and payload
 	// names the index resolves against.
 	cfg.SetWriteShapeIndex(schemagen.BuildWriteShapeIndex(proto, cfg, protoLookup))
 	if err := assertWriteShapeResolved(cfg, schemaType); err != nil {
@@ -255,7 +255,7 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 	// Resources without a hand-maintained contract get a WarnOnly contract
 	// derived from their update payload proto, so RequiresReplace markers are
 	// checked against the real update surface (both directions) without
-	// mutating generated output. The identity field is excluded — it rides the
+	// mutating generated output. The identity field is excluded: it rides the
 	// payload to address the row, not as a mutable field.
 	if cfg.MaskContract() == nil && schemaType != schemagen.SchemaTypeDatasource {
 		if idx := cfg.WriteShapeIndex(); idx.HasUpdate() {

@@ -165,7 +165,7 @@ resource "redpanda_service_account" "test" {
 `, name, description, roleName, resourceID)
 }
 
-// mockServiceAccountConfigNoBindings renders an SA without role_bindings —
+// mockServiceAccountConfigNoBindings renders an SA without role_bindings,
 // the shape the backend rejects at create.
 func mockServiceAccountConfigNoBindings(name, description string) string {
 	return fmt.Sprintf(`
@@ -287,7 +287,7 @@ func TestIntegration_ServiceAccount_NoOpUpdate_PreservesClientSecret(t *testing.
 // PostApplyPostRefresh ExpectEmptyPlan plus the secretPreserved
 // CompareValue(ValuesSame()) prove unmasked fields (client_secret,
 // client_id, name) survive the partial update. id is identical across
-// both steps via idUnchanged — proves the change was in-place, not a
+// both steps via idUnchanged, which proves the change was in-place, not a
 // replace.
 func TestIntegration_ServiceAccount_UpdateLeaf_Description(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -324,7 +324,7 @@ func TestIntegration_ServiceAccount_UpdateLeaf_Description(t *testing.T) {
 
 // TestIntegration_ServiceAccount_UpdateLeaf_Name mutates name in place. id is the
 // server-assigned 20-char UUID (NOT name-derived), so an in-place name
-// update must leave id identical — idUnchanged (ValuesSame) pins this.
+// update must leave id identical, and idUnchanged (ValuesSame) pins this.
 // secretPreserved (ValuesSame) proves the FieldMask=[name] update doesn't
 // disturb the unmasked client_secret.
 func TestIntegration_ServiceAccount_UpdateLeaf_Name(t *testing.T) {
@@ -369,7 +369,7 @@ func TestIntegration_ServiceAccount_UpdateLeaf_Name(t *testing.T) {
 // once on Create and never echoed by subsequent reads, so the operator must
 // supply the secret they captured at creation time as the second segment of
 // the import ID. With the composite form, post-import state contains the
-// secret verbatim and ImportStateVerify confirms the round-trip — every leaf,
+// secret verbatim and ImportStateVerify confirms the round-trip: every leaf,
 // including client_secret, matches the pre-import state. role_bindings is
 // ignored: it is Create-only, never echoed by the server, and therefore null
 // after import by design.
@@ -580,13 +580,13 @@ func TestIntegration_ServiceAccount_ErrorPath_CreateSA_Internal(t *testing.T) {
 // TestIntegration_ServiceAccount_ErrorPath_UpdateSA_Internal injects an
 // Internal-coded error on the next UpdateServiceAccount RPC. After a
 // successful Create, the second step flips description (in-place update)
-// — the override is consumed by the UpdateServiceAccount call, which
+// so the override is consumed by the UpdateServiceAccount call, which
 // surfaces as a "failed to update service account" diagnostic.
 //
 // Why Internal (not Unavailable): the provider retries on Unavailable
 // via utils.Retry with a 2-minute budget. A single OverrideOnce(Unavailable)
 // would cause one failed attempt then the second attempt would fall
-// through to the real fake and succeed — masking the error. Internal is
+// through to the real fake and succeed, masking the error. Internal is
 // non-retryable and correctly exercises the diagnostic path.
 func TestIntegration_ServiceAccount_ErrorPath_UpdateSA_Internal(t *testing.T) {
 	srv, factories := integration.Setup(t)

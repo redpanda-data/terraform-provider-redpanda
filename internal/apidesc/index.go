@@ -48,7 +48,7 @@ type Stats struct {
 }
 
 // Load reads and parses an apidescriptions.yaml file. Returns (nil, nil) if
-// the file does not exist — callers should treat a missing index as "skip
+// the file does not exist, so callers should treat a missing index as "skip
 // the API description pass" and fall back to mechanical defaults.
 func Load(path string) (*Index, error) {
 	data, err := fileutil.ReadFile(path)
