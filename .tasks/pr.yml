@@ -1,0 +1,7 @@
+version: '3'
+
+tasks:
+  status:
+    desc: "Triage a PR: CI failures with extracted log lines, then unresolved review threads. Usage: task pr:status -- [PR number]"
+    cmds:
+      - go run ./cmd/prstatus {{.CLI_ARGS}}
