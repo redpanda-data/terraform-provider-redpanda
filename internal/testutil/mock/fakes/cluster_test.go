@@ -102,7 +102,7 @@ func TestClusterFake_UpdateMaskFidelity(t *testing.T) {
 		},
 		{
 			// kafka_connect.enabled IS in pathMap → API applies it. The fake
-			// must too (it currently has no handler and would drop it).
+			// must too.
 			name:   "kafka_connect.enabled leaf applied",
 			seed:   &controlplanev1.Cluster{Id: id},
 			update: &controlplanev1.ClusterUpdate{Id: id, KafkaConnect: &controlplanev1.KafkaConnect{Enabled: true}},

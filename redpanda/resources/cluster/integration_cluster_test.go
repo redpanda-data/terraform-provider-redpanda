@@ -1514,20 +1514,10 @@ func TestIntegration_Cluster_UpdateLeaf_AzurePrivateLink_Enabled(t *testing.T) {
 	})
 }
 
-// TestIntegration_Cluster_AWSPrivateLink_SupportedRegions is the regression
-// guard for the unset path. With aws_private_link enabled and supported_regions
-// unset, the Optional+Computed leaf plans as "known after apply"; before the fix
-// it was a plain Optional whose planned value was null, which mismatched the
-// server's empty/absent list and tripped "Provider produced inconsistent result
-// after apply: was null, but now cty.ListValEmpty". UseStateForUnknown then
-// holds the value across replans — and because the value lands null, this also
-// pins the modifier choice over the classifier default UseNonNullStateForUnknown
-// (which would leave a null leaf perpetually "known after apply" and churn).
-//
-// A proto3 repeated field cannot distinguish empty from absent on the wire, so
-// the server's "[]" arrives as a nil slice that the provider flattens to null;
-// the nil->null boundary itself is pinned by the model-level
-// TestFlattenAWSPrivateLink_SupportedRegions_* tests.
+// TestIntegration_Cluster_AWSPrivateLink_SupportedRegions pins supported_regions
+// as Optional+Computed with UseStateForUnknown when unset. A proto3 repeated
+// field cannot distinguish empty from absent, so the server's "[]" flattens to
+// null; a plain Optional leaf or UseNonNullStateForUnknown would churn every plan.
 func TestIntegration_Cluster_AWSPrivateLink_SupportedRegions(t *testing.T) {
 	_, factories := clusterSetup(t)
 
@@ -3364,7 +3354,7 @@ func TestIntegration_Cluster_Connections_TopologyDecisionRequired(t *testing.T) 
 
 // TestIntegration_Cluster_Connections_EmptyEnumRejected pins that "" is not a
 // valid connections type or auth.mode: it buckets as public/unset downstream
-// and previously sailed through every plan gate to fail only at apply.
+// and, unguarded, fails only at apply.
 func TestIntegration_Cluster_Connections_EmptyEnumRejected(t *testing.T) {
 	_, factories := clusterSetup(t)
 

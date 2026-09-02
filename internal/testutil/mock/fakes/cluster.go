@@ -39,22 +39,12 @@ func schemaRegistryURL(override string) string {
 	return "https://mock.schema-registry.redpanda.cloud"
 }
 
-// ClusterFake is a stateful in-memory implementation of ClusterService.
-//
-// The cluster CRUD flow diverges from the other async fakes — the provider
-// uses RetryGetCluster (not AreWeDoneYet) for both Create and Delete, polling
-// GetCluster until terminal state. So:
-//
-//   - CreateCluster stores the cluster in STATE_READY immediately and returns
-//     an Operation whose ResourceId the provider extracts; the Operation is
-//     never polled (CreateCluster's returned op skips Operation.Set).
-//   - DeleteCluster removes the stored cluster; subsequent GetCluster returns
-//     NotFound, which RetryGetCluster recognizes as termination.
-//   - UpdateCluster is the only path that uses AreWeDoneYet — the returned
-//     Operation IS published via completedOp.
-//
-// UpdateCluster honors UpdateMask via proto reflection on top-level fields,
-// matching what utils.GenerateProtobufDiffAndUpdateMask emits.
+// ClusterFake is a stateful in-memory ClusterService. The provider polls
+// GetCluster for Create and Delete rather than the Operation, so Create stores
+// the cluster READY without publishing its op and Delete makes GetCluster
+// return NotFound; only Update publishes an Operation for AreWeDoneYet.
+// UpdateMask is honored on top-level fields, matching what
+// utils.GenerateProtobufDiffAndUpdateMask emits.
 type ClusterFake struct {
 	controlplanev1grpc.UnimplementedClusterServiceServer
 

@@ -105,7 +105,7 @@ func TestAreWeDoneYet(t *testing.T) {
 					}}, nil))
 			},
 			timeout: 5 * time.Minute,
-			// The code rides along now; an empty message alone left live failures
+			// The code rides along; an empty message alone leaves live failures
 			// with nothing to chase up.
 			wantErr: "operation failed: operation_id=op-under-test operation failed code=1",
 		},
@@ -1289,10 +1289,9 @@ func TestIsUnavailable(t *testing.T) {
 }
 
 // TestIsTransientServerError covers the AreWeDoneYet retry classifier. It
-// extends IsUnavailable to also include gRPC Internal, which the v6/v7 live
-// cycles hit three times during serverless tag-mutation operation polling
-// (mutation succeeded; read transiently glitched). Pin: Unavailable stays
-// in, Internal now also in, NotFound stays out.
+// extends IsUnavailable to also include gRPC Internal, which serverless
+// tag-mutation operation polling returns transiently (mutation succeeded;
+// read glitched). Pin: Unavailable in, Internal in, NotFound out.
 func TestIsTransientServerError(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1710,9 +1709,9 @@ func TestNormalizeClusterAPIURL(t *testing.T) {
 }
 
 // TestGetARNListFromAttributes_ErrorMessage pins that the not-found errors are
-// well-formed. They previously used fmt.Errorf(fmt.Sprintf(...), suffix), which
-// dropped the suffix as a stray EXTRA arg; go vet can't catch it because the
-// format string is a function call rather than a literal.
+// well-formed. fmt.Errorf(fmt.Sprintf(...), suffix) drops the suffix as a stray
+// EXTRA arg, and go vet can't catch it because the format string is a call
+// rather than a literal.
 func TestGetARNListFromAttributes_ErrorMessage(t *testing.T) {
 	_, err := GetARNListFromAttributes("subnet", map[string]attr.Value{})
 	require.Error(t, err)
@@ -1729,8 +1728,7 @@ func TestGetARNListFromAttributes_ErrorMessage(t *testing.T) {
 }
 
 // TestRunSubprocess_RemovesTempDir pins that runSubprocess cleans up the temp
-// working directory it creates. It previously leaked one dir per invocation
-// (no defer os.RemoveAll).
+// working directory it creates.
 func TestRunSubprocess_RemovesTempDir(t *testing.T) {
 	pattern := filepath.Join(os.TempDir(), "terraform-provider-redpanda-byoc*")
 	before, err := filepath.Glob(pattern)

@@ -136,23 +136,10 @@ func emitScalarFlattenExpand(conv *FieldConversion, pf *ProtoField, a *SchemaAtt
 // error if a path actually requires one.
 type ProtoLookup func(messageName string) (*ProtoMessage, error)
 
-// ApplyAPIDefaults materializes cfg.API and fills convention-based defaults
-// from cfg.TFName for any field the yaml didn't declare:
-//
-//   - cfg.API.Create/Update/Delete: instantiated for every op in `supported`
-//     (defaults [create, read, update, delete] for resources, [read] for
-//     datasources, minus exclude_operations). Each gets
-//     RPC = "<Verb><TFName>" and Request = "<Verb><TFName>Request".
-//   - cfg.API.ResponseInterface: defaulted to {Name: "<TFName>Response"}.
-//   - cfg.API.ResourceType: defaulted to cfg.TFName.
-//
-// Yaml-declared values always win. TFName is required when any CUD op is
-// supported; datasources tolerate empty TFName when response_interface is
-// fully declared.
-//
-// Exported so cmd/schemagen can run defaulting before emitting the
-// proto-validator (which needs cfg.API.ResourceType). Idempotent;
-// PlanFlattenExpand calls it again internally.
+// ApplyAPIDefaults fills cfg.API from cfg.TFName for anything the yaml leaves
+// unset; yaml-declared values win. Exported because cmd/schemagen needs
+// cfg.API.ResourceType before emitting the proto-validator. Idempotent, so
+// PlanFlattenExpand calling it again is harmless.
 func ApplyAPIDefaults(cfg *Config, schemaType string) error {
 	supported, err := cfg.SupportedOperations(schemaType)
 	if err != nil {

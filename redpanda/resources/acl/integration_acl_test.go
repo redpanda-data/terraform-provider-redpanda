@@ -235,18 +235,8 @@ func TestIntegration_ACL_CreateAndRefresh(t *testing.T) {
 	})
 }
 
-// TestIntegration_ACL_UpdateLeaf_AllowDeletion exercises the in-place Update path
-// for the TF-only `allow_deletion` extra. ACL has no UpdateACL RPC (ACLs are
-// immutable); the Update handler in resource_acl.go just writes plan to
-// state. Flipping allow_deletion true→false→true must produce
-// ResourceActionUpdate (not DestroyBeforeCreate) and id must remain stable
-// across all three steps — proof that the in-place path actually runs. We
-// end with allow_deletion=true so the terminal cleanup destroy succeeds
-// (Delete blocks when allow_deletion=false before any RPC call).
-// TestIntegration_ACL_ErrorPath_AllowDeletionBlocked pins the guard itself.
-// UpdateLeaf_AllowDeletion proves the field round-trips; this proves what the
-// field is for — with allow_deletion=false a destroy must be refused. The final
-// step re-enables deletion so the framework's terminal destroy can proceed.
+// TestIntegration_ACL_ErrorPath_AllowDeletionBlocked pins that a destroy is
+// refused while allow_deletion=false, before any RPC is issued.
 func TestIntegration_ACL_ErrorPath_AllowDeletionBlocked(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -273,6 +263,9 @@ func TestIntegration_ACL_ErrorPath_AllowDeletionBlocked(t *testing.T) {
 	})
 }
 
+// TestIntegration_ACL_UpdateLeaf_AllowDeletion pins allow_deletion as an
+// in-place update with a stable id. ACLs have no update RPC, so Update
+// writes plan straight to state.
 func TestIntegration_ACL_UpdateLeaf_AllowDeletion(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -468,18 +461,10 @@ func TestIntegration_ACL_RequiresReplace_PermissionType(t *testing.T) {
 	)
 }
 
-// TestIntegration_ACL_RequiresReplace_ClusterApiUrl mutates the RequiresReplace
-// `cluster_api_url` leaf (bufnet→bufnet2). The bufconn dialer is
-// address-agnostic — it ignores the URL string and routes through the
-// in-memory listener — so changing the value triggers the plan-level
-// DestroyBeforeCreate and the Create on the new resource still succeeds.
-//
-// Unlike the 7 identity-field RR scenarios, cluster_api_url is NOT in the
-// GenerateID composite, so id stays identical across the replace. The
-// load-bearing proof that RequiresReplace fired is the
-// ResourceActionDestroyBeforeCreate plancheck baked into
-// RequiresReplaceStep; idStable's ValuesSame check is the inverse witness
-// confirming the id formula isn't affected by the url change.
+// TestIntegration_ACL_RequiresReplace_ClusterApiUrl pins RequiresReplace on
+// cluster_api_url. The bufconn dialer ignores the address, so the replacement
+// Create succeeds; cluster_api_url is not part of the GenerateID composite, so
+// id stays identical and the DestroyBeforeCreate plancheck is the only proof.
 func TestIntegration_ACL_RequiresReplace_ClusterApiUrl(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -715,7 +700,7 @@ func TestIntegration_ACL_ErrorPath_DeleteFailed(t *testing.T) {
 // TestIntegration_ACL_UpgradeState_NormalizesClusterApiUrl drives the v0->v1
 // state upgrade through the provider server's UpgradeResourceState RPC and
 // asserts the legacy host:443 cluster_api_url is rewritten to https://host so
-// the format change alone no longer forces replacement. Notably acl has
+// the format change alone does not force replacement. Notably acl has
 // no ImportState, so the upgrader is its only in-place migration path.
 func TestIntegration_ACL_UpgradeState_NormalizesClusterApiUrl(t *testing.T) {
 	_, factories := integration.Setup(t)

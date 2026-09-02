@@ -92,7 +92,7 @@ func runServerlessClusterVariantTest(t *testing.T, testSuffix, region string, pu
 
 	// Dataplane lifecycle steps come from the same builder the dedicated runner
 	// uses. Serverless is where dataplane coverage belongs: it stands up in
-	// seconds, so a dataplane regression no longer costs a cluster-creation cycle.
+	// seconds, so a dataplane regression costs seconds, not a cluster-creation cycle.
 	dp, err := newDataplaneFixture(dir, name)
 	if err != nil {
 		t.Fatal(err)

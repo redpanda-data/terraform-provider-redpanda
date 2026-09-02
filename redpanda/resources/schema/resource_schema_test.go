@@ -1962,7 +1962,7 @@ func TestUnit_Schema_Update(t *testing.T) {
 					Return(tt.compatResults)
 			}
 
-			// After any operation, we now verify compatibility
+			// Every write is followed by a Compatibility call
 			if len(tt.compatResults) > 0 {
 				mockClient.EXPECT().
 					Compatibility(ctx, tt.plan.Subject.ValueString()).

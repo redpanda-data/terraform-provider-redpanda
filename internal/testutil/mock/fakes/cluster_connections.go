@@ -508,7 +508,7 @@ func (f *ClusterFake) applyConnectionsUpdate(cl *controlplanev1.Cluster, upd *co
 	}
 	if !touched {
 		// A legacy sasl/mtls mutation on a dual-model cluster cannot ride the
-		// legacy path — its bare listener names no longer exist.
+		// legacy path: a dual-model cluster has no bare listener names.
 		if dual {
 			for _, s := range svcs {
 				if maskHasLegacyListenerPath(paths, s.name) && len(s.conns) == 0 {
