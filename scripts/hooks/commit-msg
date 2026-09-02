@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# commit-msg hook: enforces the commit message policy in CLAUDE.md.
+set -euo pipefail
+
+msg_file="$1"
+title=$(grep -v '^#' "$msg_file" | sed -n '1p')
+
+case "$title" in
+  "Merge "*|"Revert \""*|"fixup! "*|"squash! "*|"amend! "*) exit 0 ;;
+esac
+
+fail() { echo "commit-msg: $1" >&2; echo "  title: $title" >&2; exit 1; }
+
+[[ "$title" =~ ^(feat|fix|test|docs|chore|ci)(\([a-z0-9_/-]+\))?!?:\ .+$ ]] \
+  || fail "title must be 'type(scope): summary' with type in feat|fix|test|docs|chore|ci"
+desc="${title#*: }"
+[[ "$desc" =~ ^[a-z0-9] ]] || fail "summary must start lowercase"
+[[ "$desc" != *. ]] || fail "summary must not end with a period"
+[ ${#title} -le 72 ] || fail "title is ${#title} characters; limit is 72"
+
+if grep -v '^#' "$msg_file" | grep -qE '\b(ENG|K8S|CORE|DEVEX|OPS)-[0-9]+\b'; then
+  fail "no ticket IDs in commit messages"
+fi

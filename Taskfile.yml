@@ -38,6 +38,11 @@ tasks:
       - task --list-all
     silent: true
 
+  hooks:install:
+    desc: "Point git at the committed hooks (commit-msg policy check)"
+    cmds:
+      - git config core.hooksPath scripts/hooks
+
   ready:
-    desc: "Prepare code for commit (docs, lint, tidy)"
-    deps: [docs:default, lint:default, build:tidy]
+    desc: "Prepare code for commit (hooks, docs, lint, tidy)"
+    deps: [hooks:install, docs:default, lint:default, build:tidy]
