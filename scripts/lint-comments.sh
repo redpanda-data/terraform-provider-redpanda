@@ -11,6 +11,7 @@ PATTERN='\b(ENG|K8S|CORE|DEVEX|OPS)-[0-9]+\b'
 PATTERN+='|\bPR ?#?[0-9]+\b|\bpull request\b|\bthis (PR|commit|branch|session|conversation)\b'
 PATTERN+='|\bper (discussion|review|feedback|the (thread|call|sync|chat|reviewer))\b|\bas (discussed|agreed)\b'
 PATTERN+='|[Cc]laude|\bAI[: ]|\bagent:'
+PATTERN+='|—'
 
 if [ "${1:-}" = "--report" ]; then
   min="${REPORT_MIN_LINES:-12}"
@@ -25,7 +26,7 @@ fi
 
 hits=$("${FIND[@]}" | xargs grep -nE '^\s*//' | grep -E "$PATTERN" || true)
 if [ -n "$hits" ]; then
-  echo "lint-comments: process context in Go comments (ticket/PR refs, review chatter, session context):"
+  echo "lint-comments: process context or em-dashes in Go comments (ticket/PR refs, review chatter, session context, —):"
   echo "$hits"
   exit 1
 fi
