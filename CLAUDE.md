@@ -23,7 +23,8 @@ User-level skills some maintainers carry (`monitor-logs`, `branch-loc-count`) ar
 Task runner: [Task](https://taskfile.dev). Use `task` directly (no wrapper).
 
 ### Safe to run without asking
-- `task ready` — docs + lint + `go mod tidy`; run before every commit
+- `task ready` — hooks + docs + lint + `go mod tidy`; run before every commit. `task hooks:install` points git at `scripts/hooks/`, whose `commit-msg` enforces the commit policy below.
+- `task pr:status -- [N]` — bounded triage summary on stdout: failing CI jobs with their extracted failure lines, then unresolved review threads. Full job logs land in `.logs/pr-<N>/<job>.log.cld`; grep those, never cat them. Buildkite access needs `BUILDKITE_API_TOKEN`.
 - `task lint` / `task lint:fix` — golangci-lint, preceded by `scripts/lint-comments.sh`
 - `task lint:comments` — the comment check alone; `task lint:comments -- --report` lists comment blocks of 12+ lines
 - `task lint:headers` — insert or normalize license headers. The year is the file's creation year and is never bumped; `goheader` in `task lint` accepts any year but rejects a missing or malformed header. Generators keep an existing file's year on regeneration.
@@ -84,7 +85,7 @@ When a skill spawns sonnet exploration agents or generates audit reports, they g
 - **Not every resource is schemagen'd.** `roleassignment`, `schema`, `schemaregistryacl`, `secret`, and the list datasources (`regions`, `serverlessregions`, `throughputtiers`) are hand-written end to end. The registry in `schemagen.go` is the authoritative list of what is generated.
 - **Two test trees, split by tier, not by resource.** `redpanda/resources/<r>/integration_*_test.go` (package `<r>_test`, build tag `integration`) is the in-process bufconn tier against `internal/testutil/mock/fakes/`. `redpanda/tests/` is live-only. Shared harness code is `internal/testutil/{acc,integration,mock,upgrade}/`.
 - **The fakes decide what the integration tier can catch.** A fake that doesn't populate what the control plane populates, or accepts what it rejects, makes a broken provider pass. Read `internal/testutil/mock/fakes/` before trusting a green integration run.
-- **`cmd/` is codegen, not the provider.** The provider entrypoint is `main.go` at the root, wiring `redpanda/redpanda.go` (`New`). `cmd/` holds `schemagen`, `enumgen`, `apidesc-import`.
+- **`cmd/` is tooling, not the provider.** The provider entrypoint is `main.go` at the root, wiring `redpanda/redpanda.go` (`New`). `cmd/` holds the codegen binaries (`schemagen`, `enumgen`, `apidesc-import`) and `prstatus`. `internal/schemagen/` has its own `CLAUDE.md`.
 - **`docs/` is generated** from schema descriptions plus `examples/` via `templates/`. `examples/` is the input; `docs/` is the output.
 - **The API lives in sibling checkouts.** `../cloudv2` (control plane protos) and `../console` (dataplane). The schemagen buf pin in `internal/buf_dependencies.yaml` selects which proto revision codegen sees.
 - **`redpanda/tests/testdata/network/{aws,gcp}/`** are the BYOVPC infra-producer Terraform stacks the byovpc lanes apply before the cluster.
@@ -190,6 +191,7 @@ Before every commit: `task ready` (or at minimum `task lint`).
 - When reporting/fixing bugs: write a failing test first, show the red, *then* discuss fix scope separately.
 - Clarifying questions from the user ("wait, is that correct?") are not pushback. Verify and answer — don't withdraw a correct finding.
 - Never delete files or large blocks of code without summarizing and asking first.
+- Synthetic identifiers only in tests, fixtures, examples, and docs: no real customer org names, cluster IDs, or emails.
 
 ## Troubleshooting
 
