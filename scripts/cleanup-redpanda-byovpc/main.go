@@ -320,7 +320,7 @@ func main() {
 			fmt.Printf("%s Failed to list VPCs: %v\n", red("ERROR:"), err)
 			errorCount++
 		} else if len(detectedVPCs) == 0 {
-			fmt.Printf("%s No non-default VPCs found\n", yellow("INFO:"), )
+			fmt.Printf("%s No non-default VPCs found\n", yellow("INFO:"))
 		} else {
 			fmt.Printf("%s Found %d non-default VPC(s) to destroy\n", red("WARNING:"), len(detectedVPCs))
 			vpcsToClean = detectedVPCs
