@@ -12,20 +12,20 @@ task generate:golden           # update golden baselines (requires explicit user
 task generate:clean            # delete all *_gen.go files (then regen)
 ```
 
-`task ready` (run before every commit) chains `docs:default + lint:default + build:tidy`. Run `task generate:models` before `task ready` when schemas change. Per memory `feedback_lint_regularly.md`, run lint frequently during dev — don't save it all for the pre-commit pass.
+`task ready` (run before every commit) chains `docs:default + lint:default + build:tidy`. Run `task generate:models` before `task ready` when schemas change. Run lint frequently during dev — don't save it all for the pre-commit pass.
 
 ## Proto sources
 
-Per memory `project_proto_sources.md`: schemagen resolves protos from **two** sibling repos, not just one.
+Schemagen resolves protos from **two** sibling repos, not just one.
 
 - **`../cloudv2`** — controlplane protos: Cluster, Network, ResourceGroup, Region, ServerlessCluster, etc.
 - **`../console`** — dataplane protos: User, Topic, ACL, Schema, SchemaRegistryACL, Pipeline, etc.
 
-The `-cloudv2` flag (or `CLOUDV2_ROOT` env var) points the schemagen binary at cloudv2; console is resolved via cloudv2's buf dependency on `buf.build/redpandadata/dataplane`. Per memory `reference_redpanda_repos.md`, the canonical local paths are:
+The `-cloudv2` flag (or `CLOUDV2_ROOT` env var) points the schemagen binary at cloudv2; console is resolved via cloudv2's buf dependency on `buf.build/redpandadata/dataplane`. The sibling checkouts are:
 
-- `~/GolandProjects/cloudv2`
-- `~/GolandProjects/console`
-- `~/GolandProjects/documentation` (for terminology cross-reference when authoring `Description:` fields)
+- `../cloudv2` (`redpanda-data/cloudv2` on GitHub)
+- `../console` (`redpanda-data/console` on GitHub)
+- `../documentation` (`redpanda-data/documentation` on GitHub; for terminology cross-reference when authoring `Description:` fields)
 
 If the sibling checkout is missing or stale, `task generate:models` fails with proto resolution errors. Fix the checkout, don't paper over the failure.
 
@@ -60,15 +60,15 @@ A clean small-field-extend diff touches exactly:
 - `INFO classifier: ...` — your override matches what the classifier would emit anyway. The override is redundant; remove it.
 - `WARN classifier: ...` — your override **conflicts** with what the classifier inferred. Investigate before continuing.
 
-Pipe regen output through `grep -E 'INFO|WARN'` to surface these. Per memory `feedback_golden_files.md`, never swallow warnings.
+Pipe regen output through `grep -E 'INFO|WARN'` to surface these. See `CLAUDE.md`: never swallow warnings or errors from codegen.
 
 `apidesc: X/Y attrs matched` also appears — a drop in the ratio after adding a field means the description is missing. Either run `task generate:apidescriptions` or add an inline `description:` override.
 
 ## Golden files (`*.golden`)
 
-These are **sacred** — memory `feedback_golden_files.md`. Never edit by hand to make a test pass. They pin the schema contract that drifts silently otherwise. (Descriptions are not golden-tested; they flow from `apidescriptions.yaml` and are validated via `task docs`.)
+These are **sacred** (see `CLAUDE.md`): never modify without explicit user approval. Never edit by hand to make a test pass. They pin the schema contract that drifts silently otherwise. (Descriptions are not golden-tested; they flow from `apidescriptions.yaml` and are validated via `task docs`.)
 
-When a golden test fails, per memory `feedback_show_golden_diffs.md`: **paste the raw diff to the user before any summary or interpretation.** The user needs to see exactly which lines changed before deciding whether the change is intentional or a regression. Running `task generate:golden` to "fix" a failing test without showing the diff first is exactly the wrong move.
+When a golden test fails, **paste the raw diff to the user before any summary or interpretation.** The user needs to see exactly which lines changed before deciding whether the change is intentional or a regression. Running `task generate:golden` to "fix" a failing test without showing the diff first is exactly the wrong move.
 
 ### Workflow
 

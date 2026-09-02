@@ -11,7 +11,7 @@ For brand-new resource scaffolding (no existing `redpanda/resources/<name>/` pac
 
 ## Hard rule: extend existing tests, do not create new ones
 
-Per memory `feedback_extend_existing_tests.md` — this is the rule agents most reliably break.
+This is the rule agents most reliably break.
 
 When extending a resource, the test default is **modify the existing test**, not create a new one. Add a `stateChecks` entry. Append a step. Extend a table-driven case. Open the closest existing test function and grow it.
 
@@ -26,7 +26,7 @@ If you find yourself reaching for a new `TestIntegration_<Name>_*` function: sto
 
 ## Plan first: use the sonnet exploration pattern for non-trivial extends
 
-Per memory `feedback_sonnet_agent_exploration_pattern.md` — when the extend is non-trivial (touches a complex nested block, requires careful YAML directive selection, has cross-resource implications, or you don't already know the relevant code paths cold):
+When the extend is non-trivial (touches a complex nested block, requires careful YAML directive selection, has cross-resource implications, or you don't already know the relevant code paths cold):
 
 1. Spawn 1–2 sonnet agents in parallel to explore. Common phases to delegate:
    - Schema/codegen: "How is field X currently modeled? Which directives apply? Where does Flatten/Expand land?"
@@ -63,7 +63,7 @@ Extend-specific discipline:
 - **Don't reorder existing entries.** Insert into the existing tree in proximity-relevant order — diff noise hides the real change.
 - **Required: true on a new attribute is a breaking change** for existing users. Confirm with the user before adding. Use `optional: true` or `optional+computed` instead.
 - **If the field was `todo: true`**, the edit is a replacement: remove `todo: true` and add the correct lifecycle.
-- **Server-defaulted proto fields** → `optional+computed+UseStateForUnknown` (memory `feedback_server_default_optional_computed.md`). The classifier auto-emits `UseStateForUnknown` for top-level optional+computed; only override when the server returns null and would create perpetual churn.
+- **Server-defaulted proto fields** → `optional+computed+UseStateForUnknown`. The classifier auto-emits `UseStateForUnknown` for top-level optional+computed; only override when the server returns null and would create perpetual churn.
 
 If the proto field is new, `task generate:apidescriptions` first to pull the description from cloudv2. Inline `description:` is rejected; gaps go in the curated tables in `internal/schemagen/descriptions.go` or upstream into cloudv2 proto comments.
 
@@ -120,7 +120,7 @@ See [`../_shared/testing-tiers.md`](../_shared/testing-tiers.md). **Re-read the 
 
 ### Hard rule: the new leaf must be exercised in Tier 2 — no exceptions without informed authorization
 
-Per memory `feedback_test_all_leaves.md`: the new attribute you're adding must be covered by the colocated integration test (Tier 2). Coverage means at minimum a `stateChecks` assertion in the Create step (value or explicit null), plus exercise in an UpdateLeaf step if mutable, plus a NestedMatrix entry if it sits inside a block.
+The new attribute you're adding must be covered by the colocated integration test (Tier 2). Coverage means at minimum a `stateChecks` assertion in the Create step (value or explicit null), plus exercise in an UpdateLeaf step if mutable, plus a NestedMatrix entry if it sits inside a block.
 
 This rule is non-negotiable because skipped leaves cause `Error: Provider produced inconsistent result after apply` at runtime — only surfaced when a user happens to set the attribute. The integration tier exists specifically to catch these before they ship.
 
@@ -170,7 +170,7 @@ See [`../_shared/docs-and-examples.md`](../_shared/docs-and-examples.md). Most e
 task ready    # docs + lint + go mod tidy
 ```
 
-Per memory `feedback_lint_before_commit.md`. Address any lint findings immediately.
+See `CLAUDE.md`: run `task ready` (or at minimum `task lint`) before every commit. Address any lint findings immediately.
 
 ## 9. Manual validation — upgrade scenario (load-bearing)
 
@@ -190,28 +190,28 @@ What "no spurious diff" means in 0b:
 
 `terraform state replace-provider registry.terraform.io/redpanda-data/redpanda hashicorp/redpanda` is the most common trip-hazard. Without it, plan fails with "Missing required provider."
 
-Cluster reuse is even more important for extend than for add — per memory `feedback_keep_cluster_alive.md`, never destroy between cycles. Per `feedback_summary_md_detail.md`, log a detailed `manual-tests/SUMMARY.md` entry tagged as "extension test."
+Cluster reuse is even more important for extend than for add: never destroy between cycles. Log a detailed `manual-tests/SUMMARY.md` entry tagged as "extension test."
 
 ## When you get stuck or surprised
 
-Per memory `feedback_ask_when_unsure.md`: when the actual state diverges from what your plan assumed (a directive doesn't behave as expected, the regen diff isn't what you predicted, a test you thought existed doesn't), **stop and ask** with concrete options. Extend work is small-blast-radius by nature — there's no premium on charging ahead with a misread.
+When the actual state diverges from what your plan assumed (a directive doesn't behave as expected, the regen diff isn't what you predicted, a test you thought existed doesn't), **stop and ask** with concrete options. Extend work is small-blast-radius by nature — there's no premium on charging ahead with a misread.
 
-Per memory `feedback_test_first_bug_proof.md`: if you find a bug in the existing resource during extend work (not just an incomplete feature), write a failing test that proves it first. Show the user the red, then discuss fix scope separately. Don't roll the bug fix into the extend silently.
+If you find a bug in the existing resource during extend work (not just an incomplete feature), write a failing test that proves it first (see `CLAUDE.md`). Show the user the red, then discuss fix scope separately. Don't roll the bug fix into the extend silently.
 
 ## Don'ts (project-specific)
 
 - **Don't hand-edit `*_gen.go` files** — fix the generator or the YAML.
-- **Don't add `//nolint` or `#nosec`** without explicit user approval (memory `feedback_no_nolint_without_permission.md`).
-- **Don't run `task generate:golden` without explicit user approval** — goldens are sacred (memory `feedback_golden_files.md`).
-- **Don't add code comments** beyond load-bearing traps (memory `feedback_no_code_comments.md`).
-- **Don't `git push`** without explicit per-push approval (memory `feedback_no_push_without_permission.md`).
+- **Don't add `//nolint` or `#nosec`** without explicit user approval (see `CLAUDE.md`).
+- **Don't run `task generate:golden` without explicit user approval** — goldens are sacred (see `CLAUDE.md`).
+- **Don't add code comments** beyond load-bearing traps (see `CLAUDE.md`).
+- **Don't `git push`** without explicit per-push approval (see `CLAUDE.md`).
 - **Don't add `Required: true`** to a new attribute on an existing resource without confirming with the user — it's a breaking change.
-- **Don't create new test files or functions** without explicit user authorization in the current session — extend existing tests instead (memory `feedback_extend_existing_tests.md`).
-- **Don't ship a new leaf without Tier 2 coverage** — every leaf in the resource's golden must be exercised in the integration test. Skipping requires explicit per-leaf authorization after the user is informed of the inconsistency-bug risk (memory `feedback_test_all_leaves.md`).
+- **Don't create new test files or functions** without explicit user authorization in the current session — extend existing tests instead.
+- **Don't ship a new leaf without Tier 2 coverage** — every leaf in the resource's golden must be exercised in the integration test. Skipping requires explicit per-leaf authorization after the user is informed of the inconsistency-bug risk.
 
 ## Commit shape
 
-Per memory `feedback_single_pr_with_folded_fixes.md`: fixes for code introduced on the same branch fold into the introducing commit. Per `feedback_review_shape_commits.md`: generated files get their own commit, placed last.
+Fixes for code introduced on the same branch fold into the introducing commit. Generated files get their own commit, placed last.
 
 Suggested commit order for a field-add extend:
 
