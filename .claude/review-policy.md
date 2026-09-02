@@ -8,7 +8,8 @@ Flag only high-signal issues:
 
 - A clear `CLAUDE.md` or skill violation where you can quote the rule broken: hand-edited `*_gen.go`, a modified golden without approval, a `//nolint`, a deleted or skipped test, a fixture modeling unreachable state, a lenient fake change.
 - Schema-contract mistakes: a `oneof` arm marked `Computed`, `RequiresReplace` missing on a create-only field or present on an updatable one, a server-default field that isn't Optional+Computed, a state modifier ordered after `RequiresReplace`.
-- Bugs and security issues: nil dereferences, swallowed diagnostics, retries that mask errors, secrets in fixtures or logs, drift-invisible flatten paths.
+- Bugs and security issues: nil dereferences, swallowed diagnostics, retries that mask errors, drift-invisible flatten paths.
+- Secrets: a credential-shaped literal anywhere in code, fixtures, examples, or logs, or a tracked secret-shaped file (`.env*`, `*.pem`, `*.key`, `*.p12`, `*.tfvars`, anything under `secrets/` or `credentials/`, credential or service-account JSON), templates ending in `.example`, `.sample`, or `.tmpl` excepted. Report the path and line, never the value. This is always the first finding.
 - Test-tier mismatch: a behavior that could be a unit or integration test landing as live acc, or a live-only behavior with no acc coverage.
 - Commit-shape violations: regenerated output mixed into a hand-written commit, ticket or PR numbers in messages.
 
