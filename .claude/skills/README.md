@@ -7,6 +7,7 @@ Skills committed here apply to anyone working in this repo via Claude Code. Each
 - **`add-redpanda-resource/`** — scaffolding a brand-new resource or datasource (new `redpanda/resources/<name>/` directory).
 - **`extend-redpanda-resource/`** — adding or modifying fields on an existing resource or datasource.
 - **`resolve-redpanda-bug/`** — diagnosing and fixing a bug, either from a user report or via a proactive coverage audit. Calibrated for the "mock-loop passes but live fails" bug class.
+- **`manual-test-redpanda-resource/`** — validating a change against a live Redpanda Cloud cluster: CRUD, no-op plan, import, drift, and the upgrade scenario. The live step of add/extend. Ships its `.tf` and `.terraformrc` templates in `templates/`.
 - **`writing-code-comments/`** — the gate every comment passes before it is written or reviewed. Pairs with `scripts/lint-comments.sh`, which fails the build on ticket/PR refs and review chatter.
 - **`live-acctest-orchestration.md`** — driving a multi-target live-acc campaign against preprod (per-target logs, notifications, bug delegation, cleanup discipline). A single-file skill, not a subdir.
 - **`_shared/`** — focused reference docs (schema-authoring, codegen-workflow, crud-glue, provider-registration, testing-tiers, docs-and-examples, manual-validation) that the entry skills cross-reference. Not invoked directly.

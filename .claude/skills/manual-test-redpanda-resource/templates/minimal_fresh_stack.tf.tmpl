@@ -1,0 +1,60 @@
+# Template: minimal manual-test stack that creates a FRESH cluster.
+# Use when the test IS the cluster lifecycle (cluster, network, resource_group
+# as resources; serverless_cluster; BYOC; BYOVPC; serverless_private_link), or
+# when no reusable cluster is available.
+#
+# Substitute:
+#   <name>            e.g. network, cluster, serverless_cluster
+#   <test-prefix>     e.g. tfrp-manual-<name>  (sweepers key on tfrp-* prefix)
+#
+# Pair with:
+#   .terraformrc   (dev_overrides — see SKILL.md §4)
+#   variables.tf   (declares any field-specific vars)
+#   terraform.tfvars  (gitignored)
+#
+# Defaults to AWS dedicated us-west-2 per the skill's "pick the target" rules.
+# Override for serverless / BYOC / non-AWS as needed.
+#
+# Live values that drift:
+# - throughput_tier: "tier-1-aws" is gone; "tier-1-aws-v2-x86" is the current
+#   small tier in us-west-2. If unsure, read `data.redpanda_throughput_tiers`.
+# - dedicated cluster zones in us-west-2 use AZ IDs (usw2-az1/2/3), not AZ
+#   names (us-west-2a/b/c). The `zones` validator enforces this.
+# - Serverless cluster regions are SEPARATE from dedicated regions. AWS
+#   serverless is `eu-west-1`; GCP serverless is `us-central1`. Read
+#   `data.redpanda_serverless_regions { cloud_provider = "aws" }` if unsure.
+
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "example" {
+  name = "<test-prefix>-rg"
+}
+
+resource "redpanda_network" "example" {
+  name              = "<test-prefix>-net"
+  resource_group_id = redpanda_resource_group.example.id
+  cloud_provider    = "aws"
+  region            = "us-west-2"
+  cluster_type      = "dedicated"
+  cidr_block        = "10.0.0.0/20"
+}
+
+resource "redpanda_cluster" "example" {
+  name              = "<test-prefix>-cluster"
+  resource_group_id = redpanda_resource_group.example.id
+  network_id        = redpanda_network.example.id
+  cloud_provider    = "aws"
+  region            = "us-west-2"
+  cluster_type      = "dedicated"
+  connection_type   = "public"
+  throughput_tier   = "tier-1-aws-v2-x86"
+  zones             = ["usw2-az1", "usw2-az2", "usw2-az3"]
+  allow_deletion    = true
+}
+
+# TODO: replace with the resource under test. Wire to the cluster above (or
+# another parent), set allow_deletion = true, give it a tfrp-* name so the
+# sweeper catches it if destroy fails.
+resource "redpanda_<name>" "test" {
+  # TODO
+}
