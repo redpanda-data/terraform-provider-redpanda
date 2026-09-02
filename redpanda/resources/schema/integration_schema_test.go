@@ -68,7 +68,7 @@ const (
 	schemaAddr = "redpanda_schema.test"
 )
 
-// protoOrderV1Comment differs from V1 only by a comment — derived so the
+// protoOrderV1Comment differs from V1 only by a comment, derived so the
 // premise holds by construction. Schema Registry's protobuf canonical form
 // drops comments, so the provider must judge the bodies equivalent and skip
 // registration.
@@ -275,7 +275,7 @@ resource "redpanda_schema" "test" {
 
 // TestIntegration_Schema_CreateAndRefresh proves the full create + noop cycle. Every
 // non-write-only leaf is asserted at exact value. The two CompareValue wires
-// (id, version) are the UseStateForUnknown / stable-on-noop proof — the SR
+// (id, version) are the UseStateForUnknown / stable-on-noop proof: the SR
 // fake dedupes on body+type, so a clean re-apply does not allocate a new
 // schema id.
 func TestIntegration_Schema_CreateAndRefresh(t *testing.T) {
@@ -321,7 +321,7 @@ func TestIntegration_Schema_CreateAndRefresh(t *testing.T) {
 // TestIntegration_Schema_UpdateLeaf_Schema mutates the schema body in place. The SR
 // fake's handleRegisterSchema allocates a new id on body change AND bumps the
 // per-subject version. Both id and version use ValuesDiffer to assert the
-// change actually happened — the id check is the load-bearing proof that the
+// change actually happened. The id check is the load-bearing proof that the
 // fake registered a new schema entry rather than returning the dedup cache.
 // The final step changes only the doc field: doc-only changes must register a
 // new version, not be judged equivalent and skipped.
@@ -363,7 +363,7 @@ func TestIntegration_Schema_UpdateLeaf_Schema(t *testing.T) {
 
 // TestIntegration_Schema_UpdateLeaf_Schema_ProtobufCommentOnly pins the
 // inverse contract: a comment-only protobuf change plans as an Update (the
-// config string differs) but must NOT register a new version — id and version
+// config string differs) but must NOT register a new version, so id and version
 // stay put, and the plan is clean after apply.
 func TestIntegration_Schema_UpdateLeaf_Schema_ProtobufCommentOnly(t *testing.T) {
 	_, factories := schemaSetup(t, mockSchemaClusterID3)
@@ -556,7 +556,7 @@ func TestIntegration_Schema_NestedMatrix_References_Empty(t *testing.T) {
 
 // TestIntegration_Schema_ImportRoundTrip verifies the Bearer-form composite import
 // path (cluster_id:subject:version). ImportState is hand-written and does not
-// call a live ControlPlane — it's pure string parsing + attribute setting.
+// call a live ControlPlane: it's pure string parsing + attribute setting.
 //
 // verifyIgnore covers:
 //   - allow_deletion: ImportState hardcodes false; pre-import state has true
@@ -792,7 +792,7 @@ func TestIntegration_SchemaDataSource_ReadSpecificVersion(t *testing.T) {
 	_, factories := schemaSetup(t, mockSchemaClusterIDd)
 
 	subject := "tfrp-mock-ds-schema-version"
-	// Register V2; then the datasource reads V1 — both co-exist in the fake.
+	// Register V2; then the datasource reads V1: both co-exist in the fake.
 	cfgV2WithDsV1 := schemaCfgAndDatasourceWithVersion(mockSchemaClusterIDd, subject, avroEventV2, 1)
 	cfgV1Only := schemaCfg(mockSchemaClusterIDd, subject, avroEventV1, "AVRO", "BACKWARD", true)
 

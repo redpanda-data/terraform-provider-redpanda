@@ -28,7 +28,7 @@ import (
 // representative scalar case (proto-optional bool, server populates a
 // default). Apply-time consistency is handled by the plan modifier, so
 // Flatten always defers to the proto when proto.HasGcpGlobalAccessEnabled()
-// is true — including the null-prev case that the framework zero-initializes
+// is true, including the null-prev case that the framework zero-initializes
 // on the first Read after ImportState.
 
 func stringifyBool(b types.Bool) string {
@@ -137,7 +137,7 @@ func TestExpandGCPEnableGlobalAccessAPIGateway(t *testing.T) {
 
 // TestFlattenGCPGlobalAccessAPIGatewayStatusAndInputCarry verifies the status
 // field reads from the proto while the write-only input is carried from prev
-// (flatten_skip — it never appears on the read shape).
+// (flatten_skip: it never appears on the read shape).
 func TestFlattenGCPGlobalAccessAPIGatewayStatusAndInputCarry(t *testing.T) {
 	ctx := context.Background()
 	status := true

@@ -25,7 +25,7 @@ import (
 // Regression matrix for aws_private_link's Flatten behavior under the
 // Optional+Computed + UseStateForUnknown contract. The framework's plan
 // modifier handles the apply-time consistency check, so Flatten always
-// defers to the proto when proto.HasAwsPrivateLink() is true — including
+// defers to the proto when proto.HasAwsPrivateLink() is true, including
 // the case where prev.AWSPrivateLink is Null (the framework's zero-init
 // on the first Read after ImportState).
 
@@ -102,7 +102,7 @@ func TestFlattenAWSPrivateLink_PopulatedPrev_NoProto_PreservesPrev(t *testing.T)
 // null planned value and tripped "Provider produced inconsistent result after
 // apply: was null, but now cty.ListValEmpty". A proto3 repeated field
 // also can't distinguish empty from absent on the wire, so the server's "[]"
-// arrives as a nil slice — this is the only boundary the provider controls.
+// arrives as a nil slice, and this is the only boundary the provider controls.
 func TestFlattenAWSPrivateLink_SupportedRegions_NilToNull(t *testing.T) {
 	pl := &controlplanev1.Cluster_AWSPrivateLink{Enabled: true}
 	out, diags := FlattenAWSPrivateLink(context.Background(), pl, nil)
@@ -137,7 +137,7 @@ func TestFlattenAWSPrivateLink_SupportedRegions_PopulatedToList(t *testing.T) {
 
 // The carve-out to NilToNull: when prev carries a known empty list (the user
 // planned an explicit []), the nil wire slice flattens back to that [] instead
-// of null — proto3 can't distinguish the two, and only prev knows the intent.
+// of null: proto3 can't distinguish the two, and only prev knows the intent.
 func TestFlattenAWSPrivateLink_SupportedRegions_NilCarriesKnownEmptyPrev(t *testing.T) {
 	ctx := context.Background()
 	empty, d := types.ListValueFrom(ctx, types.StringType, []string{})

@@ -31,7 +31,7 @@ const splIDBase uint64 = 0x5000_0000_0000_0000
 
 // ServerlessPrivateLinkFake is a stateful in-memory implementation of
 // ServerlessPrivateLinkService. All three mutating RPCs (Create/Update/Delete)
-// are async — each publishes a completed Operation via op.Set.
+// are async: each publishes a completed Operation via op.Set.
 //
 // UpdateServerlessPrivateLinkRequest has no FieldMask: the cloud_provider_config
 // oneof is full-replacement, so Update overwrites aws_config.allowed_principals

@@ -303,7 +303,7 @@ func (r *RoleAssignment) roleAssignmentExists(ctx context.Context, roleName, pri
 	}
 
 	// Check if the principal is in the role members.
-	// Principal comparison is verbatim — both client and server use the same
+	// Principal comparison is verbatim because both client and server use the same
 	// "User:" / "Group:" prefixed form.
 	for _, member := range resp.GetResponse().GetMembers() {
 		if member.GetPrincipal() == principal {

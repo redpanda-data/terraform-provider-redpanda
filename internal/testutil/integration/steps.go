@@ -72,7 +72,7 @@ func UpdateLeafStep(addr, config string, stateChecks []statecheck.StateCheck) re
 }
 
 // UpdateLeafStepWithPlanChecks is UpdateLeafStep with extra PreApply plan
-// checks appended after the action assertion — e.g. ExpectKnownValue on a
+// checks appended after the action assertion, e.g. ExpectKnownValue on a
 // state-pinned computed leaf to prove it does not churn to "known after
 // apply" inside an unrelated update plan.
 func UpdateLeafStepWithPlanChecks(addr, config string, extraPreApply []plancheck.PlanCheck, stateChecks []statecheck.StateCheck) resource.TestStep {

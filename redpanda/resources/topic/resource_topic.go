@@ -164,7 +164,7 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		return
 	}
 
-	// Configuration sync — separate Get-after-Create RPC, then update state.
+	// Configuration sync: separate Get-after-Create RPC, then update state.
 	tpCfgRes, err := utils.DataplaneCall(ctx, func(ctx context.Context) (*dataplanev1.GetTopicConfigurationsResponse, error) {
 		return t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: state.Name.ValueString()})
 	})
@@ -384,7 +384,7 @@ func (t *Topic) createTopicClient(ctx context.Context, clusterURL string) error 
 }
 
 // flattenInputAfterCreate normalizes the post-create proto state into a
-// *CreateTopicRequest_Topic — the type the generated Flatten consumes.
+// *CreateTopicRequest_Topic, the type the generated Flatten consumes.
 // Uses the CreateTopic response when available; otherwise re-reads the
 // topic via FindTopicByName (the CreateTopic call may have succeeded on
 // the server but failed the client retry).
@@ -513,7 +513,7 @@ func mergeWithPlannedConfig(dynamicConfigs, allConfigs []*dataplanev1.Topic_Conf
 		// Broker didn't echo the key in either the dynamic or full config
 		// response (some keys like min.insync.replicas are server-silent on
 		// reflection). Synthesize a topic-config entry from the plan so the
-		// state contains what the user asked for — without this Terraform
+		// state contains what the user asked for; without this Terraform
 		// reports "element has vanished from configurations".
 		planString, ok := planVal.(types.String)
 		if !ok || planString.IsNull() || planString.IsUnknown() {

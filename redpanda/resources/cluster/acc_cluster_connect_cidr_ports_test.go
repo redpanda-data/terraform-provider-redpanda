@@ -106,7 +106,7 @@ func TestAcc_Cluster_RedpandaConnect_CidrPorts(t *testing.T) {
     }`),
 			ExpectError: regexp.MustCompile(`port_end value\s+must be at least 1`),
 		},
-		// Step 3: remove one rule — in-place update, no cluster recreation.
+		// Step 3: remove one rule, an in-place update with no cluster recreation.
 		{
 			ProtoV6ProviderFactories: acc.ProtoV6Factories,
 			Config: cidrPortsConfig(name, throughputTier, resourceGroupID, networkID, `
@@ -138,7 +138,7 @@ func TestAcc_Cluster_RedpandaConnect_CidrPorts(t *testing.T) {
 				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 			},
 		},
-		// Step 4: import — verify redpanda_connect survives state import.
+		// Step 4: import, verifying redpanda_connect survives state import.
 		{
 			ResourceName:             clusterAddr,
 			ProtoV6ProviderFactories: acc.ProtoV6Factories,

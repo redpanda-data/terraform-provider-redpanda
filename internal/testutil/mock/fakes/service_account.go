@@ -62,7 +62,7 @@ func NewServiceAccountFake() *ServiceAccountFake {
 
 // CreateServiceAccount stores a new service account with a deterministic
 // UUID and synthetic Auth0 client credentials. The returned response
-// includes ClientSecret — the one-time exposure. Mirrors the backend's
+// includes ClientSecret, the one-time exposure. Mirrors the backend's
 // create contract: at least one role binding is required.
 func (f *ServiceAccountFake) CreateServiceAccount(_ context.Context, req *iamv1.CreateServiceAccountRequest) (*iamv1.CreateServiceAccountResponse, error) {
 	in := req.GetServiceAccount()

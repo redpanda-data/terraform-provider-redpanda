@@ -29,7 +29,7 @@ import (
 )
 
 // The two tests below pin the composite-ID format used by
-// (*aclmodel.ResourceModel).GenerateID — it's part of the public state
+// (*aclmodel.ResourceModel).GenerateID because it's part of the public state
 // shape and changing it would break end users.
 
 func Test_generateACLCompositeID(t *testing.T) {

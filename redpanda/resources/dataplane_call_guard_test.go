@@ -47,7 +47,7 @@ var notYetMigrated = map[string]bool{}
 
 // outOfScope records resources this guard cannot see. Both reach Schema Registry
 // over HTTP through a local variable rather than a client field, so the AST shape
-// matched below never fires for them — and IsTransientDataplaneError reads gRPC
+// matched below never fires for them, and IsTransientDataplaneError reads gRPC
 // status codes, so the shared policy would not fit them unchanged either.
 //
 // They are listed rather than ignored: TestEveryResourceIsAccountedFor fails when
@@ -169,8 +169,8 @@ func enclosedByDataplaneCall(stack []ast.Node) bool {
 // TestEveryResourceIsAccountedFor makes the guard's blind spots explicit.
 //
 // The RPC check matches calls shaped receiver.ClientField.Method(ctx, ...). A
-// resource that reaches its endpoint some other way — as the Schema Registry
-// ones do, through a local variable — is invisible to it and passes for the
+// resource that reaches its endpoint some other way (as the Schema Registry
+// ones do, through a local variable) is invisible to it and passes for the
 // wrong reason. This fails when a resource is neither covered nor named, so the
 // decision has to be made rather than defaulted.
 func TestEveryResourceIsAccountedFor(t *testing.T) {

@@ -26,8 +26,8 @@ import (
 
 // NewDataplaneClient opens a pooled connection to clusterURL and builds a typed
 // dataplane/console service client via build (e.g. dataplanev1grpc.NewUserServiceClient).
-// It applies the guards every per-resource client constructor needs — empty URL
-// and unconfigured pool — and wraps connection failures with the deserialized
+// It applies the guards every per-resource client constructor needs (empty URL
+// and unconfigured pool) and wraps connection failures with the deserialized
 // gRPC message, so all resources surface these the same way.
 func NewDataplaneClient[T any](ctx context.Context, pool *cloud.ConnPool, clusterURL string, build func(grpc.ClientConnInterface) T) (T, error) {
 	var zero T
@@ -48,7 +48,7 @@ func NewDataplaneClient[T any](ctx context.Context, pool *cloud.ConnPool, cluste
 //
 // SecurityService is reached through Console, not through the cluster's api-
 // host. Sending it to api- returns a bare UNKNOWN with no message, which reads
-// as a warm-up failure and survives every retry — so the endpoint choice is made
+// as a warm-up failure and survives every retry, so the endpoint choice is made
 // here, once, rather than at each call site.
 func NewConsoleClient[T any](ctx context.Context, pool *cloud.ConnPool, clusterURL string, build func(grpc.ClientConnInterface) T) (T, error) {
 	return NewDataplaneClient(ctx, pool, ConvertToConsoleURL(clusterURL), build)

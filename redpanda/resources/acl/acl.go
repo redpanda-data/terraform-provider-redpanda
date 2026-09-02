@@ -28,7 +28,7 @@ import (
 // auto-generated _name map. Referenced from schema_resource_gen.go via
 // the ACL{ResourceTypes,PatternTypes,Operations,Permissions} entries in
 // the schemagen validator registry, which emit the raw expression
-// `aclXValidator()` rather than an import path — so the helpers must
+// `aclXValidator()` rather than an import path, so the helpers must
 // stay package-local.
 
 const (

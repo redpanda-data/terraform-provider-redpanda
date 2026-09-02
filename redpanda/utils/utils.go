@@ -162,7 +162,7 @@ func IsUnavailable(err error) bool {
 // IsTransientServerError returns true for gRPC error codes that we consider
 // safe to retry on the read side (GetOperation polling). Covers Unavailable
 // (load balancer / restart) plus Internal (observed three times during
-// serverless tag-mutation polling — the underlying mutation succeeded each
+// serverless tag-mutation polling: the underlying mutation succeeded each
 // time; only the GetOperation read transiently glitched). Callers must cap
 // the retry count to avoid masking real bugs surfaced as Internal.
 func IsTransientServerError(err error) bool {
@@ -209,7 +209,7 @@ func IsRetryableByocError(err error) bool {
 // AreWeDoneYet checks an operation's state until one of completion, failure
 // or timeout is reached. Transient errors (Unavailable/Internal) on
 // GetOperation are tolerated within a stuck-cap window derived from the
-// caller's `timeout` — the cap fires when there has been no successful
+// caller's `timeout`: the cap fires when there has been no successful
 // poll for stuckCap = min(5min, timeout/6) of wall-clock time. The window
 // resets on any successful poll, so an op with intermittent transients
 // keeps retrying within the overall timeout; only a sustained burst with
@@ -397,7 +397,7 @@ func StringToStringPointer(s string) *string {
 	return &s
 }
 
-// TypesNullable is the subset of attr.Value used by PointerOrNil — every
+// TypesNullable is the subset of attr.Value used by PointerOrNil: every
 // types.String / types.Bool / types.Int32 / types.Int64 / types.Float64
 // satisfies it.
 type TypesNullable interface {

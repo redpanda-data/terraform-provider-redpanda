@@ -31,9 +31,9 @@ import (
 const rpsqlExample = "examples/byovpc/gcp/main.tf"
 
 // TestRpsqlExampleMatchesSchema guards the published Redpanda SQL example
-// against schema drift. terraform validate cannot run on this example — the
+// against schema drift. terraform validate cannot run on this example: the
 // upstream BYOVPC module declares the wrong provider namespace
-// (hashicorp/redpanda), so init never completes — which leaves the example
+// (hashicorp/redpanda), so init never completes, which leaves the example
 // otherwise unchecked. Renaming or removing an rpsql attribute would silently
 // leave users copying config the provider rejects.
 func TestRpsqlExampleMatchesSchema(t *testing.T) {

@@ -496,7 +496,7 @@ func TestInferRPCPayload(t *testing.T) {
 }
 
 // TestFlattenFromPrev_TopLevelDirective covers the per-field directive on a
-// top-level proto-backed field — the planner sets OverrideFromPrev=true on
+// top-level proto-backed field: the planner sets OverrideFromPrev=true on
 // the conversion.
 func TestFlattenFromPrev_TopLevelDirective(t *testing.T) {
 	cfg := flattenFromPrevTestCfg(map[string]FieldConfig{
@@ -802,7 +802,7 @@ func TestWrapperSuffix(t *testing.T) {
 }
 
 // TestRenderScalarHeuristicFlatten covers the three-arm FlattenStmt emitted
-// for TF-Optional + proto-no-presence scalar leaves — the path that resolves
+// for TF-Optional + proto-no-presence scalar leaves, the path that resolves
 // Bugs 004 / 009 / 023 (null-vs-zero drift). Cases drawn from
 // scalar_mix_conv golden: description (String), enabled (Bool), max_count
 // (Int32), weight (Int64), price (Float64).

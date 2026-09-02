@@ -29,7 +29,7 @@ const (
 // field is redundant (the derivation covers it); an unconditional
 // RequiresReplace on an in-contract field contradicts the contract and is kept
 // but warned about. hasRequiresReplace counts only the exact plain
-// RequiresReplace — a conditional RequiresReplaceIf* leaves non-triggering edits
+// RequiresReplace: a conditional RequiresReplaceIf* leaves non-triggering edits
 // going to the update path, so it does not cover an out-of-contract field.
 func maskContractVerdictFor(inContract, hasRequiresReplace bool) maskContractVerdict {
 	switch {
@@ -52,7 +52,7 @@ func maskContractVerdictFor(inContract, hasRequiresReplace bool) maskContractVer
 //
 // A hand-maintained (non-WarnOnly) contract auto-derives RequiresReplace for
 // out-of-contract fields and only flags genuine contradictions. A WarnOnly
-// contract — derived from the update payload proto descriptor — never mutates
+// contract (derived from the update payload proto descriptor) never mutates
 // plan modifiers; it warns in both directions instead (Direction A: a payload
 // field marked RequiresReplace; Direction B: a non-payload field missing it).
 func deriveMaskContractRequiresReplace(attrs []SchemaAttr, fields map[string]FieldConfig, contract *MaskContract, mc *mergeCtx) {
@@ -76,7 +76,7 @@ func deriveMaskContractRequiresReplace(attrs []SchemaAttr, fields map[string]Fie
 		inContract := contract.TopLevel[key] || contract.Leaf[key]
 		hasRR := false
 		for _, m := range a.PlanModifierNames {
-			// Exact plain RequiresReplace only — a conditional RequiresReplaceIf*
+			// Exact plain RequiresReplace only: a conditional RequiresReplaceIf*
 			// still lets non-triggering edits reach the update path, so it does
 			// not cover an out-of-contract field.
 			if m == modRequiresReplace {

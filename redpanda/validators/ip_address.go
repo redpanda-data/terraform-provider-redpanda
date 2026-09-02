@@ -25,7 +25,7 @@ var _ validator.String = IPAddressValidator{}
 
 // IPAddressValidator ensures the value parses as a valid IPv4 or IPv6 address
 // literal, mirroring the API's buf.validate (buf.validate.field).string.ip
-// constraint (net.ParseIP semantics — no CIDR suffix).
+// constraint (net.ParseIP semantics, so no CIDR suffix).
 type IPAddressValidator struct{}
 
 // Description provides a description of the validator.

@@ -117,12 +117,12 @@ type Server struct {
 
 	// ShadowLink is the async fake for ShadowLinkService. All three mutating
 	// RPCs publish completed Operations; UpdateShadowLink honors the
-	// FieldMask via proto reflection (top-level paths only — matches what
+	// FieldMask via proto reflection (top-level paths only, matching what
 	// utils.GenerateProtobufDiffAndUpdateMask emits).
 	ShadowLink *fakes.ShadowLinkFake
 
 	// Cluster is the async fake for ClusterService. CreateCluster and
-	// DeleteCluster diverge from the other async fakes — the provider uses
+	// DeleteCluster diverge from the other async fakes because the provider uses
 	// RetryGetCluster (polling GetCluster), not AreWeDoneYet, for completion
 	// detection. Only UpdateCluster goes through AreWeDoneYet. dataplane_api.url
 	// is populated with the "bufnet" sentinel.

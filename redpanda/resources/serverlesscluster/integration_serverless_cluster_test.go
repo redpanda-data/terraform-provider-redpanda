@@ -157,7 +157,7 @@ resource "redpanda_serverless_cluster" "test" {
 }
 
 // scWithNetworkingConfig builds a serverless_cluster HCL with an explicit
-// networking_config block. plinkID is included when non-empty — required by
+// networking_config block. plinkID is included when non-empty, as required by
 // the `private_link_id_required` cross-field constraint when private is
 // STATE_ENABLED. Used by the UpdateLeaf_NetworkingConfig scenario.
 func scWithNetworkingConfig(name, region, public, private, plinkID string) string {
@@ -253,7 +253,7 @@ resource "redpanda_serverless_cluster" "test" {
 }
 
 // TestIntegration_ServerlessCluster_CreateAndRefresh validates the Create + no-op
-// cycle. Every leaf is asserted — Required inputs, Optional defaults populated
+// cycle. Every leaf is asserted: Required inputs, Optional defaults populated
 // by the fake (networking_config), and Computed-only outputs. id stability
 // across the noop is the load-bearing UseStateForUnknown proof via
 // CompareValue(ValuesSame()).
@@ -313,7 +313,7 @@ func TestIntegration_ServerlessCluster_CreateAndRefresh(t *testing.T) {
 
 // TestIntegration_ServerlessCluster_RequiresReplace_Name mutates `name` and asserts
 // DestroyBeforeCreate. The shared CompareValue(ValuesDiffer()) on id is the
-// load-bearing proof that a fresh server-assigned id replaces the prior one —
+// load-bearing proof that a fresh server-assigned id replaces the prior one,
 // proving the framework destroyed and recreated rather than renaming in place.
 func TestIntegration_ServerlessCluster_RequiresReplace_Name(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -394,7 +394,7 @@ func TestIntegration_ServerlessCluster_RequiresReplace_ServerlessRegion(t *testi
 }
 
 // TestIntegration_ServerlessCluster_UpdateLeaf_Tags mutates `tags` in-place. id stays
-// SAME across the update — the load-bearing proof that this is an in-place
+// SAME across the update, the load-bearing proof that this is an in-place
 // update, not a destroy-recreate. Update has no FieldMask so the request
 // carries the full new tag map; the fake replaces wholesale.
 func TestIntegration_ServerlessCluster_UpdateLeaf_Tags(t *testing.T) {
@@ -425,14 +425,14 @@ func TestIntegration_ServerlessCluster_UpdateLeaf_Tags(t *testing.T) {
 }
 
 // TestIntegration_ServerlessCluster_UpdateLeaf_AllowDeletionFlip_NoBackendCall
-// flips allow_deletion — a provider-only attribute absent from the proto update
-// request — with every backend-relevant field unchanged. The plan is a
+// flips allow_deletion (a provider-only attribute absent from the proto update
+// request) with every backend-relevant field unchanged. The plan is a
 // Terraform-level Update, but the provider must short-circuit: no
 // UpdateServerlessCluster RPC should fire, because nothing the backend tracks
 // changed. CallCount == 0 is the load-bearing assertion.
 // TestIntegration_ServerlessCluster_ErrorPath_AllowDeletionBlocked pins the guard
 // itself. AllowDeletionFlip_NoBackendCall proves the flip costs no RPC; this
-// proves what the flag is for — with allow_deletion=false a destroy is refused
+// proves what the flag is for: with allow_deletion=false a destroy is refused
 // before the delete RPC is reached.
 func TestIntegration_ServerlessCluster_ErrorPath_AllowDeletionBlocked(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -507,7 +507,7 @@ func TestIntegration_ServerlessCluster_UpdateLeaf_AllowDeletionFlip_NoBackendCal
 //   - Step 1: public=ENABLED, private=DISABLED (default; no private_link_id)
 //   - Step 2: public=ENABLED, private=ENABLED + private_link_id set
 //
-// id is SAME across both — confirms in-place update.
+// id is SAME across both, which confirms in-place update.
 func TestIntegration_ServerlessCluster_UpdateLeaf_NetworkingConfig(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -544,7 +544,7 @@ func TestIntegration_ServerlessCluster_UpdateLeaf_NetworkingConfig(t *testing.T)
 // Step 1: omitted in HCL → state Null
 // Step 2: set to value A → state A
 // Step 3: changed to value B → state B
-// id is SAME across all three transitions — proves truly in-place. The hand-
+// id is SAME across all three transitions, proving truly in-place. The hand-
 // picked values (...0001, ...0002) satisfy the `^[a-v0-9]{20}$` description.
 func TestIntegration_ServerlessCluster_UpdateLeaf_PrivateLinkID(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -580,7 +580,7 @@ func TestIntegration_ServerlessCluster_UpdateLeaf_PrivateLinkID(t *testing.T) {
 }
 
 // TestIntegration_ServerlessCluster_ImportRoundTrip exercises the bearer-id import
-// path. ImportState uses ImportStatePassthroughID — no live controlplane
+// path. ImportState uses ImportStatePassthroughID: no live controlplane
 // lookup. allow_deletion is verifyIgnore'd because import resets it to the
 // schema default (false), while the config has it true.
 func TestIntegration_ServerlessCluster_ImportRoundTrip(t *testing.T) {
@@ -755,7 +755,7 @@ resource "redpanda_serverless_cluster" "test" {
 }
 
 // TestIntegration_ServerlessCluster_ErrorPath_DeleteFailed injects Internal on
-// DeleteServerlessCluster. Delete does NOT use HandleGracefulRemoval — the
+// DeleteServerlessCluster. Delete does NOT use HandleGracefulRemoval, so the
 // error surfaces via resp.Diagnostics.AddError. codes.Internal is non-retryable.
 func TestIntegration_ServerlessCluster_ErrorPath_DeleteFailed(t *testing.T) {
 	srv, factories := integration.Setup(t)

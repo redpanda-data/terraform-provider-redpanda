@@ -181,7 +181,7 @@ func CompareBufModules(pinned, current map[string]string) []string {
 		p, c := pinned[k], current[k]
 		switch {
 		case p == c:
-			// match — nothing to report
+			// match, nothing to report
 		case p == "" && c != "":
 			msgs = append(msgs, fmt.Sprintf("buf module %s present in go.mod (%s) but not in pin file", k, c))
 		case p != "" && c == "":

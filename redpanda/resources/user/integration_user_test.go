@@ -181,7 +181,7 @@ resource "redpanda_user" "test" {
 // TestIntegration_User_CreateAndRefresh validates the Create + no-op re-plan cycle.
 // Every leaf is asserted at exact value post-create. The id leaf is Computed +
 // UseStateForUnknown; mechanism is Optional+Computed+UseStateForUnknown. Both
-// are pinned across the noop step via CompareValue(ValuesSame()) instances —
+// are pinned across the noop step via CompareValue(ValuesSame()) instances:
 // the framework calls CheckState once per step, the checker accumulates
 // values, and the comparer asserts equality once two values are present.
 // password is Null (not set in config); password_wo is Null (WriteOnly, never
@@ -227,7 +227,7 @@ func TestIntegration_User_CreateAndRefresh(t *testing.T) {
 // TestIntegration_User_UpdateLeaf_Mechanism mutates mechanism in-place (scram-sha-256
 // → scram-sha-512) and asserts the framework plans Update. The load-bearing
 // proof that the resource was updated in-place (not replaced) is that id is
-// IDENTICAL across both steps — a single CompareValue(ValuesSame()) instance
+// IDENTICAL across both steps: a single CompareValue(ValuesSame()) instance
 // captures the pre- and post-update ids and the comparer asserts equality.
 func TestIntegration_User_UpdateLeaf_Mechanism(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -295,7 +295,7 @@ func TestIntegration_User_UpdateLeaf_Password(t *testing.T) {
 // TestIntegration_User_RequiresReplace_Name mutates the RequiresReplace `name` leaf
 // and asserts the framework plans DestroyBeforeCreate. The load-bearing proof
 // that the resource was actually destroyed and recreated (rather than updated
-// in-place) is that the server-assigned id DIFFERS between the two steps — a
+// in-place) is that the server-assigned id DIFFERS between the two steps: a
 // single CompareValue(ValuesDiffer()) instance shared across both steps
 // captures the pre- and post-replace ids and the comparer asserts they are not
 // equal. id is the user's name (Flatten copies name → id), so a name change
@@ -330,8 +330,8 @@ func TestIntegration_User_RequiresReplace_Name(t *testing.T) {
 }
 
 // TestIntegration_User_RequiresReplace_ClusterApiUrl mutates the RequiresReplace
-// `cluster_api_url` leaf. The bufconn dialer is address-agnostic — it ignores
-// the URL string and routes through the in-memory listener — so changing
+// `cluster_api_url` leaf. The bufconn dialer is address-agnostic (it ignores
+// the URL string and routes through the in-memory listener), so changing
 // "bufnet" → "bufnet2" triggers the plan-level DestroyBeforeCreate and the
 // Create on the new resource still succeeds. id is name-derived (Flatten
 // copies name → id) and name doesn't change in this test, so ValuesSame
@@ -410,7 +410,7 @@ func TestIntegration_User_ImportRoundTrip(t *testing.T) {
 // TestIntegration_User_ErrorPath_GetUser_NotFound covers the Read→NotFound path. The
 // user is deleted from the fake's store out-of-band via the fake's own
 // DeleteUser RPC so the next ListUsers (driven by FindUserByName) returns an
-// empty list — which the provider's FindUserByName converts to a NotFound
+// empty list, which the provider's FindUserByName converts to a NotFound
 // error. HandleGracefulRemoval recognizes NotFound and returns RemoveFromState
 // regardless of allow_deletion, so the provider's Read drops the resource
 // from state and the next plan sees the resource missing → re-Create.
@@ -543,7 +543,7 @@ func TestIntegration_User_ErrorPath_DeleteUser_Failed(t *testing.T) {
 
 // TestIntegration_User_ErrorPath_AllowDeletionBlocked pins the guard itself.
 // UpdateLeaf_AllowDeletion proves the field round-trips; this proves what the
-// field is for — with allow_deletion=false a destroy must be refused. The final
+// field is for: with allow_deletion=false a destroy must be refused. The final
 // step re-enables deletion so the framework's terminal destroy can proceed.
 func TestIntegration_User_ErrorPath_AllowDeletionBlocked(t *testing.T) {
 	_, factories := integration.Setup(t)

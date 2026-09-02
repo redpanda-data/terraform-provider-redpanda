@@ -65,7 +65,7 @@ func resolveMaskContract(cfg *schemagen.Config) error {
 
 // verifyClusterMaskPaths checks the hand-maintained clustermask maps against
 // the resource's update payload. clustermask mirrors cloudv2's pathMap, which
-// is server implementation and not derivable — but a key that no longer exists
+// is server implementation and not derivable, but a key that no longer exists
 // on the update message is stale, and that is derivable.
 func verifyClusterMaskPaths(cfg *schemagen.Config, attrs []schemagen.SchemaAttr, warn func(string, ...any)) {
 	if cfg.API == nil || cfg.API.Update == nil || cfg.API.Update.MaskContract != "cluster" {
@@ -103,7 +103,7 @@ func verifyClusterMaskPaths(cfg *schemagen.Config, attrs []schemagen.SchemaAttr,
 // omits. ExpandCustomerManagedResourceLeaves cannot name such a leaf, so the
 // mask never carries it: the user's edit applies cleanly and changes nothing.
 //
-// Leaves that force replacement are correctly absent — they never reach the
+// Leaves that force replacement are correctly absent: they never reach the
 // update path.
 func warnUnmappedCMRLeaves(attrs []schemagen.SchemaAttr, idx *schemagen.WriteShapeIndex, warn func(string, ...any)) {
 	mapped := map[string]bool{}

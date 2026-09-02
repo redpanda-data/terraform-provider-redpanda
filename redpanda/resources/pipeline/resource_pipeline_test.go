@@ -1578,7 +1578,7 @@ func TestUnit_Pipeline_ServiceAccountNoUpdateWhenVersionUnchanged(t *testing.T) 
 
 	// When Update omits ServiceAccount (to protect write-only client_secret),
 	// the server echoes SA=nil. Post-apply state must still carry the prior
-	// SA block — otherwise the consistency check rejects with `... but now null`.
+	// SA block; otherwise the consistency check rejects with `... but now null`.
 	var resultState pipelinemodel.ResourceModel
 	diags = updateResp.State.Get(ctx, &resultState)
 	require.False(t, diags.HasError(), "State.Get: %v", diags)
@@ -1599,7 +1599,7 @@ func TestUnit_Pipeline_ReadPreservesServiceAccountWhenServerOmits(t *testing.T) 
 	ctx := context.Background()
 	mockClient := mocks.NewMockPipelineServiceClient(ctrl)
 
-	// Server response with SA=nil — exactly what the running-pipeline RPC returns.
+	// Server response with SA=nil, exactly what the running-pipeline RPC returns.
 	runningPipeline := createMockPipeline(
 		testPipelineID, testDisplayName, testDescription, testConfigYaml, testPipelineURL,
 		dataplanev1.Pipeline_STATE_RUNNING, nil, nil,

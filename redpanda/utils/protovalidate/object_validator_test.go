@@ -52,7 +52,7 @@ func TestValidate_EmptyClusterCreate(t *testing.T) {
 // than fit a unit test); instead we rely on a payload that is empty enough
 // to fail to assert the failure case is the only signal.
 //
-// (A nil message is the simplest pass case — protovalidate.Validate(nil)
+// (A nil message is the simplest pass case: protovalidate.Validate(nil)
 // is a no-op.)
 func TestValidate_NilMessagePasses(t *testing.T) {
 	diags := rpvalidate.Validate(path.Empty(), nil)

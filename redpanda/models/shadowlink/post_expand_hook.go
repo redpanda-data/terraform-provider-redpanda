@@ -24,7 +24,7 @@ import (
 // ThreadCreateExtras lifts TF-only fields onto the CreateShadowLinkRequest
 // payload after ExpandCreate has run. Plugged into the schemagen
 // post_expand_hook so the same code path runs in both
-// resource_shadowlink.go::Create() and the generated proto-validator —
+// resource_shadowlink.go::Create() and the generated proto-validator:
 // the validator's payload then matches what the API actually receives,
 // no spurious "either source_redpanda_id or bootstrap_servers" diagnostic
 // at plan time.

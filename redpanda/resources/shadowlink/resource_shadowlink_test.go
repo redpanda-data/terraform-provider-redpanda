@@ -144,7 +144,7 @@ func TestUnit_ShadowLink_Flatten_PreservesSensitivePasswordFromPriorState(t *tes
 	persist, diags := shadowlinkmodel.Flatten(ctx, apiResp, prev)
 	require.False(t, diags.HasError(), "%v", diags)
 	// preserveSensitiveFromPrev is the resource-side hook the Create/Read/
-	// Update handlers run after Flatten — the schemagen-emitted Flatten
+	// Update handlers run after Flatten, because the schemagen-emitted Flatten
 	// alone doesn't carry sensitive nested fields across, so the resource
 	// code threads them through.
 	preserveDiags := preserveSensitiveFromPrev(ctx, persist, prev)
@@ -368,7 +368,7 @@ func allNullModel() *shadowlinkmodel.ResourceModel {
 	}
 }
 
-// roleSyncWithPaused returns a populated role_sync_options Object — used to
+// roleSyncWithPaused returns a populated role_sync_options Object, used to
 // drive field-mask diff scenarios.
 func roleSyncWithPaused(t *testing.T, paused bool) types.Object {
 	t.Helper()
@@ -383,7 +383,7 @@ func roleSyncWithPaused(t *testing.T, paused bool) types.Object {
 }
 
 // clientOptionsWithMetadataAge returns a populated client_options Object with
-// the given metadata_max_age_ms — used to drive field-mask diff scenarios.
+// the given metadata_max_age_ms, used to drive field-mask diff scenarios.
 func clientOptionsWithMetadataAge(t *testing.T, ageMs int32) types.Object {
 	t.Helper()
 	co := shadowlinkmodel.ClientOptionsModel{

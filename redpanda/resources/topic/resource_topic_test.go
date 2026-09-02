@@ -156,7 +156,7 @@ func TestUnit_Topic_Create(t *testing.T) {
 				}),
 			},
 			setup: func(m *mocks.MockTopicServiceClient) {
-				// Times(1) is implicit — gomock fails the test if Create retries.
+				// Times(1) is implicit, so gomock fails the test if Create retries.
 				m.EXPECT().
 					CreateTopic(gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(nil, grpcstatus.Error(codes.PermissionDenied, "Unauthorized"))

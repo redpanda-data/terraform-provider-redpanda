@@ -28,7 +28,7 @@ import (
 )
 
 // TestCidrPortPortEndProtoValidation proves that the buf.validate CEL
-// constraint on Cluster_CidrPort —
+// constraint on Cluster_CidrPort,
 //
 //	this.port_end == 0 || this.port_end >= this.port_start
 //

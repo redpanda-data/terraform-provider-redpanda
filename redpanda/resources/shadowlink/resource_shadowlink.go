@@ -259,7 +259,7 @@ func (s *ShadowLink) Create(ctx context.Context, req resource.CreateRequest, res
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Same hook the schemagen-emitted proto-validator calls — single
+	// Same hook the schemagen-emitted proto-validator calls: single
 	// source of truth for payload mutations (source_redpanda_id is
 	// `extra: true` because it only exists on the Create payload, not
 	// the read ShadowLink; the hook lifts it onto the payload).

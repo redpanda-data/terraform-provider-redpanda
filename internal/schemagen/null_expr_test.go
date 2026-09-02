@@ -194,7 +194,7 @@ func TestNullExprUnknownAttrType(t *testing.T) {
 // TestNullExprAttrTypeCoverage is a coverage tripwire: it enumerates every
 // AttrType constant defined in this package and asserts NullExpr handles each.
 // Adding a new AttrType constant without extending NullExpr will fail this
-// test (the new constant won't be in the list — add it here and to NullExpr).
+// test (the new constant won't be in the list, so add it here and to NullExpr).
 func TestNullExprAttrTypeCoverage(t *testing.T) {
 	allAttrTypes := []string{
 		AttrTypeString, AttrTypeBool, AttrTypeInt32, AttrTypeInt64,

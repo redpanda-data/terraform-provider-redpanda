@@ -32,7 +32,7 @@ import (
 // storms that cause i/o timeouts under parallel resource operations.
 //
 // The pool uses singleflight to deduplicate concurrent connection attempts for
-// the same URL, and only holds the mutex for fast map operations — never across
+// the same URL, and only holds the mutex for fast map operations, never across
 // network calls. This ensures that a slow dial to one cluster does not block
 // connections to other clusters.
 type ConnPool struct {
@@ -133,7 +133,7 @@ func (p *ConnPool) GetConnection(ctx context.Context, url string) (*grpc.ClientC
 }
 
 // CloseAll closes all connections in the pool. This method exists for
-// completeness but is intentionally not called during normal operation — the
+// completeness but is intentionally not called during normal operation: the
 // Terraform plugin framework has no provider-level teardown hook, so
 // connections are cleaned up when the process exits.
 func (p *ConnPool) CloseAll() {

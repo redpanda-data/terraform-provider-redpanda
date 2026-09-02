@@ -25,7 +25,7 @@ import (
 // differing fields. If there are no differing fields, it returns a ProtoMessage object
 // with no fields set and a FieldMask with an empty Paths slice.
 //
-// Use this when the server tolerates a sparse Update payload — cluster and
+// Use this when the server tolerates a sparse Update payload: cluster and
 // shadowlink rely on it today. For APIs whose `buf.validate.field` rules run
 // on the full message regardless of FieldMask (and would reject zero-valued
 // unchanged required fields), use PlanPayloadWithUpdateMask instead.
@@ -50,7 +50,7 @@ func GenerateProtobufDiffAndUpdateMask[T any, P interface {
 		if newHas != oldHas {
 			// Presence change: one side has the field set, other doesn't.
 			// For singular message fields, Get() returns the same zero-value
-			// on both sides even when one pointer is nil — Has() catches this.
+			// on both sides even when one pointer is nil, but Has() catches this.
 			if newHas {
 				diffMsg.ProtoReflect().Set(field, newMsg.ProtoReflect().Get(field))
 			} else {

@@ -30,8 +30,8 @@ import (
 )
 
 // TestGetSchemaRegistryClientForCluster_ServerlessFallback proves that a
-// serverless cluster ID — which the dedicated ClusterService rejects
-// (PermissionDenied live, NotFound against the fake) — still resolves its
+// serverless cluster ID, which the dedicated ClusterService rejects
+// (PermissionDenied live, NotFound against the fake), still resolves its
 // Schema Registry URL via the ServerlessClusterService fallback, rather than
 // failing because GetSchemaRegistryClientForCluster only calls ClusterForID.
 func TestGetSchemaRegistryClientForCluster_ServerlessFallback(t *testing.T) {

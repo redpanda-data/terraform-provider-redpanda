@@ -33,7 +33,7 @@ import (
 // referenced by the generated schema. Endpoint is server-owned, so a config-set
 // connections list plans it unknown every time; that would churn "(known after
 // apply)" on every plan. The modifier restores the state endpoint of the
-// element with the SAME (type, auth.mode) identity — not the same index: the
+// element with the SAME (type, auth.mode) identity, not the same index: the
 // list may be reordered, and index-based UseStateForUnknown would pin a public
 // endpoint onto a connection the user just flipped to private. An element with
 // no identity match in state (new connection, auth switch) stays unknown so the
@@ -116,7 +116,7 @@ func stateConnectionParts(el attr.Value) (connType, authMode string, endpoint ty
 // list unknown when its legacy sasl/mtls config changes and the user does not
 // manage connections for it: the read projection re-derives from the listeners
 // (an mtls enable adds an mTLS entry), so the carried prior echo cannot
-// survive the apply. Services with connections in CONFIG are untouched — their
+// survive the apply. Services with connections in CONFIG are untouched: their
 // plan is user intent, and sasl coexistence is rejected at validate anyway.
 func markConnectionsUnknownOnLegacyListenerChange(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	for _, svc := range []struct {
@@ -166,7 +166,7 @@ func markConnectionsUnknownOnLegacyListenerChange(ctx context.Context, req resou
 
 // connectionsManagedKey marks, in framework private state, a cluster whose
 // listeners are managed through config-set connections. Once set it never
-// clears — the control plane has no dual->legacy path. Imported dual clusters
+// clears: the control plane has no dual->legacy path. Imported dual clusters
 // lack the marker until their first connections-managed plan stamps it, so
 // the guard below degrades to today's silent behavior in that window rather
 // than ever misfiring on a legacy cluster.
@@ -194,7 +194,7 @@ func configManagesConnections(ctx context.Context, cfg tfsdk.Config, diags *diag
 // connections-managed marker. A marked cluster whose config drops connections
 // and sets connection_type would otherwise plan as a silent no-op: the
 // conflict validator sees no connections, connection_type matches the
-// projected state, and stripEchoedConnections empties the payload — the user's
+// projected state, and stripEchoedConnections empties the payload: the user's
 // intent is discarded without a word. The bare removal (neither field) is
 // rejected by ValidateConfig's topology gate instead.
 func guardConnectionsManaged(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
@@ -314,8 +314,8 @@ func connIdentities(list types.List) (map[string]int, bool) {
 // markEchoesUnknownOnConnectionsChange is the mirror image of
 // markConnectionsUnknownOnLegacyListenerChange: when a service's config-set
 // connections change identity (its multiset of type/auth pairs), the server
-// re-derives the per-service sasl echo — and, for kafka, the root
-// connection_type (any private kafka listener reads back "private") — so the
+// re-derives the per-service sasl echo and, for kafka, the root
+// connection_type (any private kafka listener reads back "private"), so the
 // carried prior values cannot survive the apply. Identity comparison, not
 // value comparison: config elements never carry endpoints, and a value diff
 // would mark echoes unknown on every no-op plan.

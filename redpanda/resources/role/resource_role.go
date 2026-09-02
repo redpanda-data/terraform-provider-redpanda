@@ -162,7 +162,7 @@ func (r *Role) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 // Update is a no-op for the proto-derived attrs (roles are immutable;
 // every mutable schema attr is RequiresReplace). The TF-only extras
 // allow_deletion and delete_acls can flip without recreation, so the
-// plan is written to state directly — without this, the framework
+// plan is written to state directly. Without this, the framework
 // raises "provider produced inconsistent result after apply".
 func (*Role) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var plan rolemodel.ResourceModel

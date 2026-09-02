@@ -425,7 +425,7 @@ func runSubprocess(ctx context.Context, env []string, executable string, args ..
 	go func() { defer wg.Done(); forwardLogs(ctx, stderr, lastLogs) }()
 
 	// Per exec.Cmd.StdoutPipe's contract, all reads from the pipes must
-	// complete before Wait — Wait closes them on process exit.
+	// complete before Wait because Wait closes them on process exit.
 	wg.Wait()
 
 	if err := cmd.Wait(); err != nil {

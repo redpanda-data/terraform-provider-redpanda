@@ -926,7 +926,7 @@ func childProtoMessage(parent *ProtoMessage, name string) *ProtoMessage {
 }
 
 // findEchoField locates the single singular message field of an element
-// message — the "spec echo" that echo_unwrap hoists. Returns nil when the
+// message, the "spec echo" that echo_unwrap hoists. Returns nil when the
 // element has zero or more than one candidate (the pattern doesn't hold).
 func findEchoField(elem *ProtoMessage) *ProtoField {
 	var echo *ProtoField

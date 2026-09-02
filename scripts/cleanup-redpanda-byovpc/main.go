@@ -1287,7 +1287,7 @@ func deleteIAMResources(ctx context.Context, clients *AWSClients, cfg *CleanupCo
 	}
 	// Surface policy-sweep failures as a returned error so the caller's
 	// errorCount catches them. Per project memory: don't swallow failures
-	// — leaking customer-managed policies across runs accumulates IAM debt
+	// because leaking customer-managed policies across runs accumulates IAM debt
 	// and eventually trips the IAM policy quota.
 	if err := deletePoliciesMatchingAnyPrefix(ctx, clients.IAM, policyPrefixes, cfg.DryRun); err != nil {
 		fmt.Printf("%s Failed to delete policies: %v\n", yellow("WARNING:"), err)
@@ -1497,7 +1497,7 @@ func detachPolicyFromAllEntities(ctx context.Context, iamClient *iam.Client, pol
 
 // deleteNonDefaultPolicyVersions deletes every non-default version of the
 // given customer-managed policy. The default version cannot be deleted
-// standalone — it goes when the policy itself is deleted.
+// standalone: it goes when the policy itself is deleted.
 func deleteNonDefaultPolicyVersions(ctx context.Context, iamClient *iam.Client, policyArn string) error {
 	versions, err := iamClient.ListPolicyVersions(ctx, &iam.ListPolicyVersionsInput{
 		PolicyArn: aws.String(policyArn),
@@ -1798,7 +1798,7 @@ func deleteNATGateways(ctx context.Context, clients *AWSClients, cfg *CleanupCon
 	}
 
 	// Wait for NAT gateways to be deleted before releasing EIPs. A fixed
-	// sleep isn't enough — NAT gateway deletion can take several minutes,
+	// sleep isn't enough because NAT gateway deletion can take several minutes,
 	// and until it reaches "deleted" state the associated EIP stays mapped
 	// and blocks downstream IGW detach.
 	if !cfg.DryRun && len(result.NatGateways) > 0 {

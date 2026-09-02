@@ -137,7 +137,7 @@ func main() {
 		errorCount++
 	}
 
-	// must precede subnetwork and network deletion — a leftover NEG holds the VPC
+	// must precede subnetwork and network deletion: a leftover NEG holds the VPC
 	if err := deleteNetworkEndpointGroups(ctx, clients, cfg); err != nil {
 		fmt.Printf("%s Failed to delete network endpoint groups: %v\n", red("ERROR:"), err)
 		errorCount++
@@ -705,7 +705,7 @@ func listCustomRoles(clients *GCPClients, cfg *CleanupConfig, showDeleted bool) 
 
 // reportCustomRoleQuota surfaces the per-project custom-role headroom. Soft
 // deleted roles are called out separately because deleting more roles will not
-// reclaim their slots — only the 7-day purge does — and a project sitting at the
+// reclaim their slots (only the 7-day purge does) and a project sitting at the
 // cap fails cluster creation with a 429 that reads like a transient rate limit.
 func reportCustomRoleQuota(clients *GCPClients, cfg *CleanupConfig) {
 	all, err := listCustomRoles(clients, cfg, true)

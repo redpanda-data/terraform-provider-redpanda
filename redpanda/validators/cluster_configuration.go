@@ -48,7 +48,7 @@ var allowedClusterConfigurationKeys = map[string]bool{
 
 // ValidateObject validates that cluster_configuration contains only allowed
 // keys (custom_properties / custom_properties_json) and that at least one of
-// them is present in the object. Null values for those keys are accepted —
+// them is present in the object. Null values for those keys are accepted,
 // matching the long-standing behavior of treating presence-of-key, not
 // presence-of-value, as the required check.
 func (ClusterConfigurationValidator) ValidateObject(_ context.Context, req validator.ObjectRequest, resp *validator.ObjectResponse) {

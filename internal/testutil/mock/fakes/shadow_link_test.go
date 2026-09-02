@@ -26,8 +26,8 @@ import (
 
 // TestShadowLinkFake_RoleSyncEchoAlwaysPopulated pins fake parity with the
 // control plane's shadowLinkRoleSyncOptionsCPToPublicAPI, which returns a
-// non-nil role_sync_options on every GET — even for links that never
-// configured it — specifically to carry effective_interval.
+// non-nil role_sync_options on every GET (even for links that never
+// configured it) specifically to carry effective_interval.
 func TestShadowLinkFake_RoleSyncEchoAlwaysPopulated(t *testing.T) {
 	f := NewShadowLinkFake(NewOperationFake())
 	ctx := context.Background()

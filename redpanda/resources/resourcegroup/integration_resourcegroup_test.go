@@ -121,7 +121,7 @@ func TestIntegration_ResourceGroup(t *testing.T) {
 // cycle. The id leaf is Computed + UseStateForUnknown; the load-bearing
 // assertion is that id is IDENTICAL across the Create step and the noop
 // re-apply step. A single CompareValue(ValuesSame()) instance is shared
-// between the two steps' ConfigStateChecks — the framework calls CheckState
+// between the two steps' ConfigStateChecks: the framework calls CheckState
 // once per step, the checker accumulates values, and the comparer asserts
 // equality once two values are present.
 func TestIntegration_ResourceGroup_CreateAndRefresh(t *testing.T) {
@@ -153,7 +153,7 @@ func TestIntegration_ResourceGroup_CreateAndRefresh(t *testing.T) {
 // framework plans an in-place ResourceActionUpdate: UpdateResourceGroup carries
 // a name field, so a rename is a backend update, not a destroy+recreate. The
 // load-bearing proof that the resource was NOT recreated is that the
-// server-assigned id is the SAME across both steps — a shared
+// server-assigned id is the SAME across both steps: a shared
 // CompareValue(ValuesSame()) instance captures the pre- and post-update ids and
 // asserts they are equal.
 func TestIntegration_ResourceGroup_UpdateName(t *testing.T) {

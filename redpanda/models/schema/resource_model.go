@@ -136,7 +136,7 @@ func (r *ResourceModel) ToSchemaRequest() sr.Schema {
 
 // convertSchemaType converts a string schema type to sr.SchemaType. Accepts
 // both the friendly form ("AVRO"/"JSON"/"PROTOBUF") and the proto-style
-// form ("SCHEMA_TYPE_AVRO"/...) — state written by earlier provider
+// form ("SCHEMA_TYPE_AVRO"/...) because state written by earlier provider
 // versions, or configs that pasted the proto-form value, must round-trip
 // cleanly. Unknown input falls back to Avro for backward compatibility.
 func (r *ResourceModel) convertSchemaType() sr.SchemaType {
@@ -228,7 +228,7 @@ func (r *ResourceModel) preserveUserSchemaBody(registrySchema string) string {
 		return currentSchema
 	}
 
-	// JSON-level not equal — for Avro, the registry may have canonicalized
+	// JSON-level not equal. For Avro, the registry may have canonicalized
 	// FQN type references to their namespace-relative form. Compare under
 	// our Avro canonicalizer.
 	if strings.EqualFold(r.SchemaType.ValueString(), "AVRO") &&

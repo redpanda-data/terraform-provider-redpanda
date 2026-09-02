@@ -29,7 +29,7 @@ import (
 const serverlessClusterIDBase uint64 = 0x6000_0000_0000_0000
 
 // ServerlessClusterFake is a stateful in-memory implementation of
-// ServerlessClusterService. All three mutating RPCs are async — each publishes
+// ServerlessClusterService. All three mutating RPCs are async: each publishes
 // a completed Operation via op.Set.
 //
 // UpdateServerlessClusterRequest has no FieldMask; networking_config, tags, and

@@ -129,7 +129,7 @@ func TestAreWeDoneYet(t *testing.T) {
 		},
 		{
 			// Long-running async ops can see 10+ consecutive Internals on
-			// GetOperation while the server-side mutation completes — the
+			// GetOperation while the server-side mutation completes. The
 			// old hard count cap (10) tripped in production on a tag
 			// mutation that succeeded server-side. The time-based stuck
 			// cap (min(5m, timeout/6)) lets the 25 errors run through
@@ -1404,7 +1404,7 @@ func TestIsTransientDataplaneError(t *testing.T) {
 // TestDataplaneAnnotationDoesNotLeakIntoClassifiers guards the hazard the
 // annotation introduces. The Is* classifiers fall back to matching bare tokens
 // ("404", "503", "unavailable") anywhere in the error string, and cluster
-// endpoints are alphanumeric — so an endpoint or method name that happens to
+// endpoints are alphanumeric, so an endpoint or method name that happens to
 // contain one of those tokens must not decide the classification.
 func TestDataplaneAnnotationDoesNotLeakIntoClassifiers(t *testing.T) {
 	annotate := func(endpoint string, err error) error {
@@ -1436,7 +1436,7 @@ func TestDataplaneAnnotationDoesNotLeakIntoClassifiers(t *testing.T) {
 // the classifiers have to work around: FromError carries the code through a
 // wrapper but replaces the message with the wrapper's full text. If a future
 // grpc-go stops doing this, serverStatus's unwrapping becomes redundant rather
-// than wrong — but the bare-UNKNOWN check depends on knowing which it is.
+// than wrong, but the bare-UNKNOWN check depends on knowing which it is.
 func TestFromErrorOverwritesMessageThroughWrapper(t *testing.T) {
 	bare := grpcstatus.Error(codes.Unknown, "")
 	wrapped := fmt.Errorf("some context: %w", bare)

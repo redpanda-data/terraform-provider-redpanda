@@ -90,7 +90,7 @@ message Request {
 
 // TestExtractMessage_SyntheticOneofNotExposed verifies that proto3-optional
 // fields (which use synthetic oneofs internally) have IsOptional=true but
-// OneofName="" — synthetic oneofs must not leak as real oneof membership.
+// OneofName="": synthetic oneofs must not leak as real oneof membership.
 func TestExtractMessage_SyntheticOneofNotExposed(t *testing.T) {
 	src := strings.TrimSpace(`
 syntax = "proto3";

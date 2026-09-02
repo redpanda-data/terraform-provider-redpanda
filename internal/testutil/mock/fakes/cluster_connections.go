@@ -319,7 +319,7 @@ func legacyConnectionProjection(connType controlplanev1.Cluster_ConnectionType, 
 
 // reconcileConnections mirrors apiConnectionsToListenersForUpdateCluster's
 // order semantics: retained and renamed-in-place listeners keep their stored
-// position (and their endpoint — renaming preserves DNS), genuinely new
+// position (and their endpoint, since renaming preserves DNS), genuinely new
 // listeners append in request order, undesired listeners are removed. The
 // resulting order deliberately DIVERGES from request order after a
 // rename/removal cycle, exactly like the control plane.
@@ -346,7 +346,7 @@ func reconcileConnections(service string, stored []*controlplanev1.ConnectionSta
 			continue
 		}
 		// Auth switch: a same-network-type other-auth stored listener that is
-		// not itself desired is renamed in place — endpoint preserved.
+		// not itself desired is renamed in place with its endpoint preserved.
 		if !slices.Contains(desiredKeys, key) {
 			switched := -1
 			for i, d := range desired {
@@ -487,7 +487,7 @@ func (f *ClusterFake) applyConnectionsUpdate(cl *controlplanev1.Cluster, upd *co
 	for _, s := range svcs {
 		s.masked = maskHasService(paths, s.name)
 		s.leafMasked = maskHasConnectionsLeaf(paths, s.name)
-		// Unmasked connections in the body are cleared before mapping — the
+		// Unmasked connections in the body are cleared before mapping because the
 		// mask is authoritative (mirrors validateConnectionsUpdate).
 		if !s.masked {
 			s.conns = nil
@@ -637,7 +637,7 @@ func (f *ClusterFake) applyConnectionsUpdate(cl *controlplanev1.Cluster, upd *co
 			}
 		}
 		// GET always projects a non-nil sasl block ({enabled:false} for an
-		// mTLS-only service, {enabled:true} otherwise) — the projection that
+		// mTLS-only service, {enabled:true} otherwise), the projection that
 		// forces read-modify-write clients onto leaf-granular masks.
 		newSASL := &controlplanev1.SASLSpec{Enabled: hasSASLConnection(s.conns)}
 		switch s.name {

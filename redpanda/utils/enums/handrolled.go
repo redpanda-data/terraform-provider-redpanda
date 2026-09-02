@@ -296,7 +296,7 @@ func StringToSASLMechanism(s string) dataplanev1.SASLMechanism {
 // are cheap; adding more google.type enums = add another carve-out.
 //
 // google.type.DayOfWeek's values are `DAY_OF_WEEK_UNSPECIFIED`, `MONDAY`,
-// `TUESDAY`, …, `SUNDAY` — Google's convention doesn't prefix values
+// `TUESDAY`, …, `SUNDAY`. Google's convention doesn't prefix values
 // with the enum name, so .String() and _value[s] round-trip directly
 // without TrimPrefix.
 

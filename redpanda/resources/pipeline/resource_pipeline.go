@@ -416,7 +416,7 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 
 	// When we omit ServiceAccount from the Update request (to protect the
 	// write-only client_secret), the server response echoes
-	// SA=nil and Flatten drops the wrapper from state — even though
+	// SA=nil and Flatten drops the wrapper from state, even though
 	// nothing on the SA changed. Restore the prior-state block so the
 	// framework's post-apply consistency check sees it unchanged.
 	if updateReq.Pipeline.ServiceAccount == nil && !state.ServiceAccount.IsNull() {
@@ -633,7 +633,7 @@ func (p *Pipeline) waitForPipelineState(ctx context.Context, pipelineID string, 
 
 // restoreServiceAccountClientSecret copies cfg.ServiceAccount.ClientSecret
 // into model.ServiceAccount.ClientSecret. client_secret is WriteOnly so the
-// framework strips it from Plan/State per its contract — but the server's
+// framework strips it from Plan/State per its contract, but the server's
 // regex validator requires the `${secrets.NAME}` value to reach the API on
 // Create/Update. Same pattern as `redpanda_schema`'s `password_wo` handling.
 // No-op when cfg has no service_account block; safe to call unconditionally.

@@ -58,7 +58,7 @@ func xidLike(seq uint64) string {
 // completedOp builds a COMPLETED Operation wrapping resourceID and registers
 // it on the OperationFake. Async Create/Update/Delete fakes call this so the
 // provider's AreWeDoneYet polling loop terminates on the first GetOperation.
-// Shared with the per-fake files (network, shadow_link, serverless_*) — the
+// Shared with the per-fake files (network, shadow_link, serverless_*): the
 // alternative was a copy per fake, which obscures the contract that every
 // async fake must publish its operation here.
 func completedOp(op *OperationFake, resourceID string) *controlplanev1.Operation {

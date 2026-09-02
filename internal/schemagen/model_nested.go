@@ -151,11 +151,11 @@ func collectSubConverters(root []SchemaAttr, prefix string) []SubConverter {
 			childPath := joinPath(path, a.Name)
 			fullPascal := prefix + pathToPascal(childPath)
 			nestedType := fullPascal + "Model"
-			// Decode helpers exist only for SingleNested fields — their
+			// Decode helpers exist only for SingleNested fields, because their
 			// parent struct exposes a typed types.Object that can be unpacked
 			// in a single helper call. List/Set/Map containers use ranged
 			// element iteration instead, so they don't get a Decode emitted
-			// here — but we still walk INTO their element types so SingleNested
+			// here, but we still walk INTO their element types so SingleNested
 			// fields nested inside list/set/map elements get Decode helpers.
 			if a.AttrType == AttrTypeSingleNested {
 				decodeName := "Decode" + prefix + pathToPascal(childPath)
