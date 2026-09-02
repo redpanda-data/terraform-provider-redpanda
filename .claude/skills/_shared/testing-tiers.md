@@ -11,7 +11,7 @@ Four distinct test tiers, each with a specific cost/coverage tradeoff. Most reso
 
 Upgrade tests are a parallel track: `redpanda/resources/<name>/upgrade_<name>_test.go`, build tag `upgrade`, run via `task test:upgrade`.
 
-Memory `project_colocated_test_cycle.md`: colocated test files must use external `<name>_test` package — internal `<name>` package creates a root-provider import cycle. Model tests (Tier 1) use internal package because they don't import the provider.
+Colocated test files must use external `<name>_test` package — internal `<name>` package creates a root-provider import cycle. Model tests (Tier 1) use internal package because they don't import the provider.
 
 ## Tier 1: Model unit (`redpanda/models/<name>/*_test.go`)
 
@@ -28,7 +28,7 @@ The day-to-day test tier. Real Terraform lifecycle (`Create → NoopReapply → 
 
 ### Leaf-coverage rule (non-negotiable)
 
-Per memory `feedback_test_all_leaves.md`: **every leaf in the resource's `*.golden` file must be exercised here.** Coverage means a `stateChecks` assertion (value or explicit null) in the Create step, plus exercise in an UpdateLeaf step if mutable, plus a NestedMatrix entry if nested.
+**Every leaf in the resource's `*.golden` file must be exercised here.** Coverage means a `stateChecks` assertion (value or explicit null) in the Create step, plus exercise in an UpdateLeaf step if mutable, plus a NestedMatrix entry if nested.
 
 Missing leaves cause `Error: Provider produced inconsistent result after apply` at runtime — opaque, painful, only surfaces when a user happens to set the uncovered attribute. The integration tier is specifically designed to catch these before they ship.
 
@@ -78,7 +78,7 @@ Each step asserts `plancheck.ExpectEmptyPlan()` automatically.
 
 ### When extending — modify first, create only with authorization
 
-Per memory `feedback_extend_existing_tests.md`: **default to modifying existing tests, not creating new ones.** Agents reliably break this rule and produce duplicate coverage.
+**Default to modifying existing tests, not creating new ones.** Agents reliably break this rule and produce duplicate coverage.
 
 - **Default**: add a `stateChecks` entry to the existing `TestIntegration_<Name>_CreateAndRefresh` (or equivalent primary test).
 - **Default for mutable fields**: append a step to an existing `TestIntegration_<Name>_UpdateLeaf_*` function.
@@ -98,9 +98,9 @@ For dataplane resources (topic, user, acl, schema*), the dataplane fake infrastr
 
 Real provider against Redpanda Cloud. Use only for behavior that the integration tier cannot exercise: real API rate limits, server-enforced constraints, async timing.
 
-When a live acc test hangs or leaves dangling cloud resources, per memory `feedback_use_taskfile_cleanup.md`: **kill the test process and run `task cleanup:aws:ci`** (or `cleanup:gcp:ci`) directly. Don't wait on the test framework's destroy — it often can't complete cleanup once the test process is wedged.
+When a live acc test hangs or leaves dangling cloud resources, **kill the test process and run `task cleanup:aws:ci`** (or `cleanup:gcp:ci`) directly (see `CLAUDE.md`). Don't wait on the test framework's destroy — it often can't complete cleanup once the test process is wedged.
 
-Memory `feedback_allow_deletion.md`: cluster tests set `allow_deletion = false` intentionally — it's a canary that surfaces test failures rather than masking them. When a cluster test fails because `allow_deletion = false` blocks destroy, **fix the upstream failure that caused destroy to be needed**, don't flip the flag.
+See `CLAUDE.md`: cluster tests set `allow_deletion = false` intentionally — it's a canary that surfaces test failures rather than masking them. When a cluster test fails because `allow_deletion = false` blocks destroy, **fix the upstream failure that caused destroy to be needed**, don't flip the flag.
 
 ### Setup pattern
 
@@ -154,7 +154,7 @@ Each colocated acc test needs an entry in `.tasks/test.yml`:
 
 Cluster lifecycle, BYOC, BYOVPC, serverless — multi-resource end-to-end flows that need a real cluster running. New resources rarely add to this tier unless they're cluster-adjacent infra.
 
-Memory `project_missing_resource_pkg_unit_tests.md`: cluster/network/serverless_cluster/serverless_private_link still need resource-pkg gomock CRUD tests — followup after the integration tier is fully fleshed out.
+Followup after the integration tier is fully fleshed out: cluster/network/serverless_cluster/serverless_private_link still need resource-pkg gomock CRUD tests; crib from `redpanda/resources/pipeline/resource_pipeline_test.go`.
 
 ## Upgrade tests (`upgrade_<name>_test.go`)
 

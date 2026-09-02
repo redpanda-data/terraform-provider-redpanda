@@ -85,7 +85,7 @@ For 2-4 targets, just launch each as a separate `Bash run_in_background: true` t
 Pros: parallel execution, no script needed, harness handles notifications.
 Cons: no built-in heartbeats; you have to check process state on demand.
 
-The 2026-05-27 session used Shape A for the initial 12-target full run, then switched to Shape B after the queue was paused mid-flight for bug investigation.
+Start a full multi-target run with Shape A. If the queue has to be paused mid-flight for a bug investigation, finish the remaining targets with Shape B rather than restarting the queue.
 
 ### Sample go test invocation (post-gotestsum)
 

@@ -55,12 +55,12 @@ That prints all `tfrp-*`-prefixed clusters in the preprod env. If something's be
 Required env vars:
 
 - `REDPANDA_CLIENT_ID`, `REDPANDA_CLIENT_SECRET` — Redpanda Cloud
-- `REDPANDA_CLOUD_ENVIRONMENT` — set to `pre` for preprod (the default for the test creds in memory)
-- AWS: `AWS_PROFILE=default` (per the test-creds memory), or `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (and `AWS_SESSION_TOKEN` if assumed-role)
+- `REDPANDA_CLOUD_ENVIRONMENT` — set to `pre` for preprod (the preprod test creds fail auth against prod)
+- AWS: an `AWS_PROFILE` for the test account (SSO profiles need `aws sso login` first; the user must run it), or `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (and `AWS_SESSION_TOKEN` if assumed-role)
 - GCP: `GOOGLE_APPLICATION_CREDENTIALS` pointing at a service-account JSON key
 - Azure: `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`
 
-If the user has authorized preprod creds saved in memory (see `reference_redpanda_test_creds.md`), use those. Otherwise: **stop and ask the user.** Don't assume defaults, don't try to read AWS profiles you weren't told about, don't skip the manual test. Use a clear prompt naming exactly which vars you need.
+Preprod runs require `REDPANDA_CLIENT_ID` / `REDPANDA_CLIENT_SECRET` for the preprod org with `REDPANDA_CLOUD_ENVIRONMENT=pre`; pass them via exported vars in a script file, never inline on the command line. If they are not already in the environment: **stop and ask the user.** Don't assume defaults, don't try to read AWS profiles you weren't told about, don't skip the manual test. Use a clear prompt naming exactly which vars you need.
 
 ## 4. Set up the work directory
 
@@ -69,7 +69,7 @@ mkdir -p manual-tests/<name>
 grep -q '^manual-tests/' .gitignore || echo 'manual-tests/' >> .gitignore
 ```
 
-**Versioned workdir naming.** For cycles you'll run more than once (refactor-branch re-tests, upgrade-scenario reruns after a fix lands), suffix the workdir with a version: `manual-tests/<name>-v2/`, `-v3/`, `-v4b/`, etc. Use a matching `tfrp-graceful-raccoon-v4-*` resource name prefix so the sweep tool and your live state never collide with leftovers from prior cycles (especially when one cycle's destroy timed out client-side but server-side eventually completed — see §8's "stuck server-side resource" failure mode).
+**Versioned workdir naming.** For cycles you'll run more than once (refactor-branch re-tests, upgrade-scenario reruns after a fix lands), suffix the workdir with a version: `manual-tests/<name>-v2/`, `-v3/`, `-v4b/`, etc. Use a matching `tfrp-<name>-vN-*` resource name prefix so the sweep tool and your live state never collide with leftovers from prior cycles (especially when one cycle's destroy timed out client-side but server-side eventually completed — see §8's "stuck server-side resource" failure mode).
 
 **Parallel cycles.** Independent workdirs (different name prefixes, no shared cluster) can run apply + plan + destroy concurrently. Use this when you have several resources to verify and the wall-clock cost of cluster spin is the bottleneck.
 
@@ -108,7 +108,7 @@ cp .claude/skills/manual-test-redpanda-resource/templates/dot_terraformrc.tmpl \
 
 Run terraform with `TF_CLI_CONFIG_FILE=.terraformrc` from inside `manual-tests/<name>/`.
 
-Critical (per `reference_local_dev_provider.md` memory):
+Critical:
 
 - The dev override key is `hashicorp/redpanda`. Either omit `required_providers` (terraform defaults to that) or write `source = "hashicorp/redpanda"` explicitly. **Don't use `redpanda-data/redpanda`** as the source — terraform will silently fall back to the registry build and you'll spend an hour wondering why your code change doesn't show up.
 - The dev_overrides value is a **directory path** (the directory containing the `terraform-provider-redpanda` binary), **not the binary path itself**. `"../../"` if your binary is at `<repo>/terraform-provider-redpanda` and you're running from `<repo>/manual-tests/<name>/`.
@@ -120,7 +120,7 @@ Copy `templates/manual_test_results.md.tmpl` from this skill to `manual-tests/<n
 
 ## 4.5 Datasource testing pattern (cluster-reuse)
 
-Datasources are read-only — the test loop is much lighter than resources. Bundle every datasource test into a single workdir that targets a still-alive cluster (per `feedback_keep_cluster_alive.md`, you'll usually have one from a resource cycle).
+Datasources are read-only — the test loop is much lighter than resources. Bundle every datasource test into a single workdir that targets a still-alive cluster (you'll usually have one from a resource cycle).
 
 Pattern per datasource:
 
@@ -145,42 +145,15 @@ Pattern per datasource:
 
 A single workdir covering 7+ datasources runs in well under a minute against a live cluster. Worth doing alongside every cluster-resource cycle that the datasources cover.
 
-### Datasource backlog (per current branch)
+### Datasource shapes to know
 
-| Datasource | Tested live? | Notes |
-|---|---|---|
-| `redpanda_cluster` | ✅ v13 | Full nested `kafka_api` block verified (seed brokers, mtls, sasl) |
-| `redpanda_network` | ✅ v13 | `cidr_block = 10.0.0.0/20` confirmed |
-| `redpanda_resource_group` | ✅ v13 | Name lookup correct |
-| `redpanda_serverless_cluster` | ❌ | Same shape as resource — never bundled in v13 (no live serverless workdir at the time) |
-| `redpanda_region` | ✅ v13 | Takes `cloud_provider + name`, returns `zones` list |
-| `redpanda_regions` | ✅ v13 | Takes `cloud_provider`, returns `regions` list (18 entries for aws) |
-| `redpanda_serverless_regions` | ✅ v13 | Returns `serverless_regions` (not `regions` — see datasource-schema-verify rule) |
-| `redpanda_throughput_tiers` | ✅ v13 | Returns `throughput_tiers` list (34 entries for aws) |
+- `redpanda_region` takes `cloud_provider` + `name` and returns `zones`.
+- `redpanda_regions` takes `cloud_provider` and returns `regions`.
+- `redpanda_serverless_regions` returns `serverless_regions`, not `regions`.
+- `redpanda_throughput_tiers` returns `throughput_tiers`.
+- `redpanda_cluster` returns the full nested `kafka_api` block (seed brokers, mtls, sasl); assert on the nested leaves, not just the id.
 
-**Datasource-schema-verify rule** (from v13 cycle drift): datasource field names diverge from their resource counterparts in ways that aren't obvious — `redpanda_region` takes `cloud_provider + name` (not `region` like the resource), `redpanda_regions` takes only `cloud_provider` (no `cluster_type`), `serverless_regions` exports `serverless_regions` (not `regions`). Always grep `docs/data-sources/*.md` for the actual field shape before writing the test workdir.
-
-## 4.6 Resource backlog (untested or under-tested as of cluster-v6 cycle)
-
-These are tracked here so the manual-test plan stays honest about gaps. Update as cycles fill them in.
-
-| Resource | Status | Notes |
-|---|---|---|
-| `redpanda_role` + `redpanda_role_assignment` | ✅ v13 | First live test in v13-roles workdir |
-| `redpanda_pipeline` | ✅ v12 Phase 2 | End-to-end including `flatten_from_prev` directive verification |
-| `redpanda_pipeline.service_account` | ❌ deferred | Needs Redpanda Cloud SA creds (no provider resource creates SAs) |
-| `redpanda_shadow_link` | ⚠️ partial | Apply path verified v9–v12 with all four sync-options blocks; cross-region replication blocked by server-side stuck-Delete + AWS endpoint plumbing (see `FINDINGS.md` open issues) |
-| `redpanda_schema` | ✅ v13 | Schema references, compatibility, Bearer auth (post-FINDING P fix) — `password_wo` deprecated for this resource |
-| `redpanda_schema_registry_acl` | ✅ v13 | SUBJECT LITERAL + PREFIXED, multiple ops |
-| BYOC AWS | ✅ v12 byoc-aws | 131 AWS resources via external module + cluster ✅ |
-| BYOC GCP | ✅ v12 byoc-gcp | First-ever GCP coverage |
-| BYOVPC AWS | ✅ v11–v12 | v1.9.0 apply + 131 AWS resources + cluster verified |
-| Azure cluster + Azure PrivateLink | ❌ deferred | Blocked on Azure SP creds |
-| `cluster.customer_managed_resources.gcp/azure` | ❌ never | BYOC GCP exercised the AWS path; gcp/azure-specific subtrees still unverified |
-| `cluster.kafka_api.mtls` / `http_proxy.mtls/sasl` / `schema_registry.mtls/sasl` | ❌ | Cert setup overhead |
-| `topic.replica_assignments` | ❌ | Broker IDs not exposed via TF |
-| `acl` field-mutation coverage | ⚠️ structurally limited | every field is `RequiresReplace`; only `allow_deletion` is in-place mutable |
-| `acl.resource_type = DELEGATION_TOKEN` | ❌ | Server-side gap (Kafka API doesn't implement; see `FINDINGS.md`) |
+**Datasource-schema-verify rule**: datasource field names diverge from their resource counterparts in ways that aren't obvious — `redpanda_region` takes `cloud_provider + name` (not `region` like the resource), `redpanda_regions` takes only `cloud_provider` (no `cluster_type`), `serverless_regions` exports `serverless_regions` (not `regions`). Always grep `docs/data-sources/*.md` for the actual field shape before writing the test workdir.
 
 ## 5. Test plan
 
@@ -198,7 +171,7 @@ Run each step. Record outcome and a relevant output snippet in `results.md` imme
 | 8 | Re-import: `terraform import redpanda_<name>.test <id>[,<cluster_id>]` | Import succeeds. Subsequent `terraform plan` reports `No changes`. |
 | 9 | Drift detection: mutate the resource out-of-band (rpk / console / API) → `terraform plan` | Plan detects the drift. (For some immutable attributes this means RequiresReplace.) |
 | 10 | `terraform destroy` | Fresh: resource and cluster torn down. **Reuse: only the resource(s) you added are destroyed — the cluster stays up.** Verify in the Cloud console before declaring step 10 done. |
-| 11 | Cleanup verification: `REDPANDA_CLOUD_ENVIRONMENT=pre task cleanup:redpanda:dry` | No stale `tfrp-*` clusters. If any, run `task cleanup:redpanda` and `task cleanup:aws:ci`. **Always set `REDPANDA_CLOUD_ENVIRONMENT=pre` for cleanup** (per `reference_redpanda_test_creds.md` — the taskfile defaults `REDPANDA_CLOUD_ENVIRONMENT` to `prod` for cleanup targets, which will fail auth with preprod creds). |
+| 11 | Cleanup verification: `REDPANDA_CLOUD_ENVIRONMENT=pre task cleanup:redpanda:dry` | No stale `tfrp-*` clusters. If any, run `task cleanup:redpanda` and `task cleanup:aws:ci`. **Always set `REDPANDA_CLOUD_ENVIRONMENT=pre` for cleanup** (the taskfile defaults `REDPANDA_CLOUD_ENVIRONMENT` to `prod` for cleanup targets, which will fail auth with preprod creds). |
 
 ## 6. Upgrade scenario (required for extension or refactor branches)
 
@@ -286,7 +259,7 @@ Before spending 50 minutes on a live cluster, do a static-diff pass for the chan
 
 - **Hand-written vs generated AttrTypes** — when a refactor moves a resource from hand-written `Get*Type()` attribute-type helpers to schemagen-emitted `*AttrTypes()` functions, the two map definitions must match field-for-field. A 30-line Python brace-counting parser comparing the two maps catches divergence in seconds. Worth running before the cluster spin.
 - **Schema vs proto field set** — `task generate` followed by `git diff` on `*_gen.go` files surfaces any `todo: true` / `exclude: true` mismatches between schema yaml and the actual proto shape.
-- **`grep` for known footguns** — `id: RequiresReplace` (should be `UseStateForUnknown` for computed-only ids); `optional+computed` attrs without an explicit plan_modifier (perpetual diff loops); orphan helpers in `object_definitions.go` after a migration.
+- **`grep` for known footguns** — `id: RequiresReplace` (should be `UseStateForUnknown` for computed-only ids); `optional+computed` attrs without an explicit plan_modifier (perpetual diff loops); orphan helpers in `object_definitions.go` after a migration. Two leaves cannot be exercised from Terraform and should be marked as such rather than left as gaps: `topic.replica_assignments` (broker IDs are not exposed) and `acl.resource_type = DELEGATION_TOKEN` (not implemented server side).
 
 Static signals are cheap and complementary to live tests. They catch field-set drift and shape regressions that live tests would only stumble onto when the specific field is non-null in state. For surgical fixes (a 1-line template addition, a one-key validator update), code review + targeted live re-verification of the specific failure mode is often enough — full upgrade-scenario re-spins are wasteful.
 
@@ -298,16 +271,16 @@ These bite repeatedly across iterations of the same test. Fix them once at the s
 - **Leftover state from a previous run.** `terraform.tfstate` in `manual-tests/<name>/` survives across test cycles. After step 10's destroy, `rm -f terraform.tfstate*` to start fresh next iteration. If you skip this and the previous run failed mid-apply, you'll get spurious "resource already exists" errors.
 - **`.terraform/` cache mismatched with current binary.** After rebuilding, `rm -rf .terraform .terraform.lock.hcl` in the work dir before re-applying. The dev_overrides bypass the lock file but `.terraform/` can still hold a stale provider download from a prior `terraform init` that did consult the registry.
 - **dev_overrides path is wrong.** If you set the value to the binary file (`"../../terraform-provider-redpanda"`) instead of the directory (`"../../"`), terraform silently falls back to the registry. The "Provider development overrides are in effect" warning is your tripwire — if it's missing, your override isn't loaded.
-- **Mixing dev_overrides and `task build:install`.** Pick one. Running both can leave stale binaries in two places that fight each other depending on which `.terraformrc` terraform reads. The dev_overrides approach (per `reference_local_dev_provider.md`) is the canonical recipe and what the rest of this skill assumes.
+- **Mixing dev_overrides and `task build:install`.** Pick one. Running both can leave stale binaries in two places that fight each other depending on which `.terraformrc` terraform reads. The dev_overrides approach is the canonical recipe and what the rest of this skill assumes.
 - **Required-providers source typo.** If `main.tf` has `required_providers { redpanda = { source = "redpanda-data/redpanda" } }`, the override (which keys on `hashicorp/redpanda`) won't match. Either remove the `required_providers` block or change the source string to `hashicorp/redpanda`.
 
 ## 8. Common failure modes
 
 - **No-op plan shows a diff** → a Computed attribute is being unset by Read, a plan modifier is missing `UseStateForUnknown`, or a default isn't applied consistently between Create and Read.
 - **Import leaves attributes empty** → `ImportState` doesn't seed enough state for `Read` to fully hydrate. Dataplane resources must seed `cluster_api_url`.
-- **Destroy hangs or errors** → `allow_deletion=false` (canary). Either the resource didn't get the flip in the test config, or there's a real bug — don't flip the canary to silence it (see `feedback_allow_deletion`).
+- **Destroy hangs or errors** → `allow_deletion=false` (canary). Either the resource didn't get the flip in the test config, or there's a real bug — don't flip the canary to silence it (see `CLAUDE.md`).
 - **Cluster won't tear down** → kill terraform, then `REDPANDA_CLOUD_ENVIRONMENT=pre task cleanup:aws:ci` + `REDPANDA_CLOUD_ENVIRONMENT=pre task cleanup:redpanda`. The framework's destroy can't always recover.
-- **`terraform init` fails with "provider redpanda-data/redpanda not found"** → wrong source string in `required_providers`. Use `hashicorp/redpanda` or omit the block entirely (per `reference_local_dev_provider.md`).
+- **`terraform init` fails with "provider redpanda-data/redpanda not found"** → wrong source string in `required_providers`. Use `hashicorp/redpanda` or omit the block entirely.
 - **Auth error against `auth.prd.cloud.redpanda.com`** → preprod creds, prod env. Set `REDPANDA_CLOUD_ENVIRONMENT=pre`.
 - **`Plan: 0 to add, 1 to change, 0 to destroy` immediately after apply** (with `-detailed-exitcode` returning 0) → an `optional+computed` attribute is missing `[UseStateForUnknown]`. The planner recomputes it to `(known after apply)` each cycle even though no real change is needed. Apply fires a no-op Update RPC every time. Fix in the schema yaml.
 - **`Value Conversion Error: Path: timeouts` with `Received tftypes.Object[]`** → the generated Flatten dropped `prev.Timeouts`. Schemagen needs `m.Timeouts = prev.Timeouts` inside the `prev != nil` carry-over for any resource declaring a `timeouts:` block.
@@ -355,7 +328,7 @@ NEW issues with severity, reproducer, fix sketch. Also update FINDINGS.md in the
 Which prior findings flipped status this cycle. NOT the full table — that's FINDINGS.md's job.
 
 ### Resources left alive
-IDs + workdirs + intent for reuse (per `feedback_keep_cluster_alive.md`).
+IDs + workdirs + intent for reuse (keep the cluster alive across cycles).
 
 ### Next-cycle gating
 What the next cycle is blocked on, what's safe to proceed with.
