@@ -11,6 +11,7 @@ tasks:
       - :tools:install:go
       - :tools:install:golangci-lint
     cmds:
+      - ./scripts/lint-comments.sh
       - echo "Running linting..."
       - |
         if [ "$BUILDKITE" = "true" ]; then
@@ -28,3 +29,8 @@ tasks:
       - task: default
         vars:
           CLI_ARGS: "--fix"
+
+  comments:
+    desc: "Fail on Go comments carrying ticket/PR refs or review chatter; --report lists long blocks"
+    cmds:
+      - ./scripts/lint-comments.sh {{.CLI_ARGS}}
