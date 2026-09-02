@@ -29,6 +29,7 @@ includes:
   mock: .tasks/mock.yml
   release: .tasks/release.yml
   test: .tasks/test.yml
+  pr: .tasks/pr.yml
   tools: .tasks/tools.yml
 
 tasks:
