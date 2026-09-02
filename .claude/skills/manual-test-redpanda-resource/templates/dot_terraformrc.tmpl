@@ -1,0 +1,16 @@
+# Template: manual-tests/<name>/.terraformrc
+# Run terraform with TF_CLI_CONFIG_FILE=.terraformrc from inside manual-tests/<name>/.
+#
+# The dev_overrides key is `hashicorp/redpanda` (NOT redpanda-data/redpanda).
+# The value is a DIRECTORY path containing the terraform-provider-redpanda
+# binary — not the binary path itself.
+#
+# Path is relative to this file. For manual-tests/<name>/.terraformrc, the
+# repo root containing the binary is "../../".
+
+provider_installation {
+  dev_overrides {
+    "hashicorp/redpanda" = "../../"
+  }
+  direct {}
+}

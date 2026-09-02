@@ -174,7 +174,7 @@ Per memory `feedback_lint_before_commit.md`. Address any lint findings immediate
 
 ## 9. Manual validation — upgrade scenario (load-bearing)
 
-See [`../_shared/manual-validation.md`](../_shared/manual-validation.md). The §6 upgrade scenario from the user-level `manual-test-redpanda-resource` skill is the **only** check that cannot be replaced by automated tests:
+See [`../_shared/manual-validation.md`](../_shared/manual-validation.md). The §6 upgrade scenario from the `manual-test-redpanda-resource` skill is the **only** check that cannot be replaced by automated tests:
 
 **0a.** Apply with released provider, config **without** the new field. Represents existing users.
 
