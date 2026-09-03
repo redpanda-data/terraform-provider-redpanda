@@ -107,6 +107,22 @@ func (f *ClusterFake) FlipToDualOutOfBand(name string) bool {
 	return false
 }
 
+// EnableMTLSOutOfBand turns mTLS on for the named cluster's kafka_api the way
+// an operator would outside Terraform, so a following refresh reads it back.
+func (f *ClusterFake) EnableMTLSOutOfBand(name, caPEM string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, cl := range f.clusters {
+		if cl.GetName() != name {
+			continue
+		}
+		cl.GetKafkaApi().Mtls = &controlplanev1.MTLSSpec{Enabled: true, CaCertificatesPem: []string{caPEM}}
+		cl.GetKafkaApi().Connections = legacyConnectionProjection(cl.GetConnectionType(), true, firstOrEmpty(cl.GetKafkaApi().GetSeedBrokers()))
+		return true
+	}
+	return false
+}
+
 // Seed inserts a pre-built cluster directly into the fake's store. Used by
 // dependent-resource tests (schema, schema_registry_acl) that need a cluster
 // to exist without going through CreateCluster's TestStep cycle. If the fake

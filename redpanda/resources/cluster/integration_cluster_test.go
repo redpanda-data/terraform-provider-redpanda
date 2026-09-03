@@ -30,6 +30,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/provider"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/integration"
@@ -1149,6 +1150,32 @@ func TestIntegration_Cluster_UpdateLeaf_HTTPProxy_MTLS_Enabled(t *testing.T) {
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
+		},
+	})
+}
+
+// TestIntegration_Cluster_LegacyMTLS_BlockRemovalRejected pins that dropping a
+// service's mtls block while mTLS is enabled is rejected at plan time, and that
+// an explicit enabled = false remains the way to disable it.
+func TestIntegration_Cluster_LegacyMTLS_BlockRemovalRejected(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-mtls-rm"
+	enabled := tfjsonpath.New("kafka_api").AtMapKey("mtls").AtMapKey("enabled")
+	withMTLS := `kafka_api = { mtls = { enabled = true, ca_certificates_pem = ["` + testCAPem + `"] } }`
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr, awsDedicatedConfig(name, withMTLS),
+				[]statecheck.StateCheck{statecheck.ExpectKnownValue(clusterAddr, enabled, knownvalue.Bool(true))}),
+			{
+				Config:      awsDedicatedConfig(name),
+				ExpectError: regexp.MustCompile(`(?s)Ambiguous mTLS Removal.*kafka_api\.mtls\.enabled\s*=\s*false`),
+			},
+			integration.UpdateLeafStep(clusterAddr, awsDedicatedConfig(name, `kafka_api = { mtls = { enabled = false } }`),
+				[]statecheck.StateCheck{statecheck.ExpectKnownValue(clusterAddr, enabled, knownvalue.Bool(false))}),
+			integration.NoopReapplyStep(clusterAddr, awsDedicatedConfig(name), nil),
 		},
 	})
 }
@@ -3892,6 +3919,106 @@ func TestIntegration_Cluster_DualListenerConnections_FeatureFlagOff(t *testing.T
 				Config: awsByocNoConnTypeConfig("dual-ff-off",
 					dualAllServices(dualSaslConns)...),
 				ExpectError: regexp.MustCompile(`not enabled for this\s+organization`),
+			},
+		},
+	})
+}
+
+// TestIntegration_Cluster_LegacyMTLS_ImportWithoutBlockPlansClean pins that a
+// cluster imported with mTLS enabled, under a config that never had an mtls
+// block, is adopted without a removal error: import leaves no marker, so there
+// is no removal to report. The import lands on a second address because the
+// framework cannot import over an address already in state.
+func TestIntegration_Cluster_LegacyMTLS_ImportWithoutBlockPlansClean(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-mtls-import"
+	const importedAddr = "redpanda_cluster.imported"
+	enabled := tfjsonpath.New("kafka_api").AtMapKey("mtls").AtMapKey("enabled")
+	withMTLS := `kafka_api = { mtls = { enabled = true, ca_certificates_pem = ["` + testCAPem + `"] } }`
+	withImported := awsDedicatedConfig(name, withMTLS) + fmt.Sprintf(`
+resource "redpanda_cluster" "imported" {
+  name              = %q
+  resource_group_id = redpanda_resource_group.test.id
+  network_id        = redpanda_network.test.id
+  cloud_provider    = "aws"
+  region            = "us-east-1"
+  zones             = ["use1-az1"]
+  throughput_tier   = "tier-1-aws-v3-arm"
+  cluster_type      = "dedicated"
+  connection_type   = "public"
+  allow_deletion    = true
+}
+`, name)
+	idOfTest := func(s *terraform.State) (string, error) {
+		rs, ok := s.RootModule().Resources[clusterAddr]
+		if !ok {
+			return "", fmt.Errorf("%s not in state", clusterAddr)
+		}
+		return rs.Primary.ID, nil
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr, awsDedicatedConfig(name, withMTLS),
+				[]statecheck.StateCheck{statecheck.ExpectKnownValue(clusterAddr, enabled, knownvalue.Bool(true))}),
+			{
+				ResourceName:       importedAddr,
+				ImportState:        true,
+				ImportStateIdFunc:  idOfTest,
+				ImportStatePersist: true,
+				Config:             withImported,
+			},
+			{
+				Config: withImported,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply:             []plancheck.PlanCheck{plancheck.ExpectResourceAction(clusterAddr, plancheck.ResourceActionNoop)},
+					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(importedAddr, enabled, knownvalue.Bool(true)),
+				},
+			},
+			// Forget the second address before teardown so the one cluster is
+			// deleted once rather than raced by two parallel destroys.
+			{
+				Config: awsDedicatedConfig(name, withMTLS) + `
+removed {
+  from = redpanda_cluster.imported
+  lifecycle {
+    destroy = false
+  }
+}
+`,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+			},
+		},
+	})
+}
+
+// TestIntegration_Cluster_LegacyMTLS_OutOfBandEnablePlansClean pins that mTLS
+// enabled outside Terraform on a cluster whose config never set the block is
+// adopted on refresh without a removal error.
+func TestIntegration_Cluster_LegacyMTLS_OutOfBandEnablePlansClean(t *testing.T) {
+	srv, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-mtls-oob"
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr, awsDedicatedConfig(name), nil),
+			{
+				PreConfig: func() {
+					if !srv.Cluster.EnableMTLSOutOfBand(name, testCAPem) {
+						t.Fatal("no stored cluster to modify")
+					}
+				},
+				Config:   awsDedicatedConfig(name),
+				PlanOnly: true,
 			},
 		},
 	})

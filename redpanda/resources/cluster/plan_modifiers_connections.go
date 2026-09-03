@@ -16,6 +16,7 @@ package cluster
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"strings"
 
@@ -220,6 +221,87 @@ func guardConnectionsManaged(ctx context.Context, req resource.ModifyPlanRequest
 		resp.Diagnostics.AddAttributeError(path.Root("connection_type"),
 			"Cluster Managed Through Connections",
 			"this cluster's listeners are managed through connections; returning to connection_type networking is not supported — remove connection_type and restore the connections blocks on kafka_api, http_proxy, and schema_registry")
+	}
+}
+
+// mtlsConfiguredKey names the private-state marker recording whether svc's
+// mtls block was in the config at the last applied change. Import and
+// out-of-band changes leave no marker, so the removal guard stays quiet for
+// them; a cluster from before the marker existed gains it at its next applied
+// change.
+func mtlsConfiguredKey(svc string) string { return "mtls_configured/" + svc }
+
+type privateReader interface {
+	GetKey(ctx context.Context, key string) ([]byte, diag.Diagnostics)
+}
+
+type privateWriter interface {
+	SetKey(ctx context.Context, key string, value []byte) diag.Diagnostics
+}
+
+// guardLegacyMTLSRemoval rejects dropping a service's mtls block while state
+// has mTLS enabled and the service is not connections-managed. The block is
+// optional+computed with UseStateForUnknown, so its removal plans as no change
+// and the control plane treats a nil mtls as no change too: mTLS would stay on
+// with no signal. An explicit enabled = false is the disable path.
+func guardLegacyMTLSRemoval(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	checkLegacyMTLSRemoval(ctx, req.Config, req.State, req.Private, resp.Private, &resp.Diagnostics)
+}
+
+func checkLegacyMTLSRemoval(ctx context.Context, cfg tfsdk.Config, state tfsdk.State, prev privateReader, next privateWriter, diags *diag.Diagnostics) {
+	for _, svc := range []string{"kafka_api", "http_proxy", "schema_registry"} {
+		var cfgMTLS, stateMTLS types.Object
+		var cfgConns types.List
+		if d := cfg.GetAttribute(ctx, path.Root(svc).AtName("mtls"), &cfgMTLS); d.HasError() {
+			diags.Append(d...)
+			return
+		}
+		if d := cfg.GetAttribute(ctx, path.Root(svc).AtName("connections"), &cfgConns); d.HasError() {
+			diags.Append(d...)
+			return
+		}
+		if d := state.GetAttribute(ctx, path.Root(svc).AtName("mtls"), &stateMTLS); d.HasError() {
+			diags.Append(d...)
+			return
+		}
+		if !cfgMTLS.IsNull() {
+			diags.Append(next.SetKey(ctx, mtlsConfiguredKey(svc), []byte(`true`))...)
+			continue
+		}
+		marker, d := prev.GetKey(ctx, mtlsConfiguredKey(svc))
+		diags.Append(d...)
+		if d.HasError() {
+			return
+		}
+		removed := string(marker) == "true" && cfgConns.IsNull() && !stateMTLS.IsNull() && !stateMTLS.IsUnknown()
+		if removed {
+			enabled, ok := stateMTLS.Attributes()["enabled"].(types.Bool)
+			removed = ok && enabled.ValueBool()
+		}
+		if !removed {
+			diags.Append(next.SetKey(ctx, mtlsConfiguredKey(svc), []byte(`false`))...)
+			continue
+		}
+		diags.AddAttributeError(path.Root(svc).AtName("mtls"),
+			"Ambiguous mTLS Removal",
+			fmt.Sprintf("%s.mtls was removed from the configuration while mTLS is enabled on the cluster; removing the block does not disable mTLS. Set %s.mtls.enabled = false to disable it, or restore the block to keep it.", svc, svc))
+	}
+}
+
+// stampMTLSConfigured records which services carry an mtls block in cfg.
+// Create calls it because ModifyPlan's private state is not carried into the
+// first apply.
+func stampMTLSConfigured(ctx context.Context, cfg tfsdk.Config, next privateWriter, diags *diag.Diagnostics) {
+	for _, svc := range []string{"kafka_api", "http_proxy", "schema_registry"} {
+		var cfgMTLS types.Object
+		d := cfg.GetAttribute(ctx, path.Root(svc).AtName("mtls"), &cfgMTLS)
+		diags.Append(d...)
+		if d.HasError() {
+			return
+		}
+		if !cfgMTLS.IsNull() {
+			diags.Append(next.SetKey(ctx, mtlsConfiguredKey(svc), []byte(`true`))...)
+		}
 	}
 }
 
