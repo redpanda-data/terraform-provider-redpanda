@@ -33,7 +33,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `cloud_storage` (Attributes) Cloud Storage configuration (see [below for nested schema](#nestedatt--cloud_storage))
 - `cluster_configuration` (Attributes) Cluster Configuration configuration (see [below for nested schema](#nestedatt--cluster_configuration))
 - `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated.
-- `connection_type` (String, Deprecated) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, **Private** is best-practice.
+- `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, **Private** is best-practice.
 - `customer_managed_resources` (Attributes) The cloud resources created by user. (see [below for nested schema](#nestedatt--customer_managed_resources))
 - `gcp_enable_global_access_api_gateway` (Boolean) gcp_enable_global_access_api_gateway controls if global access is enabled on the internal load balancer serving the Console/API Gateway endpoint. Applicable only for GCP. Default is false.
 - `gcp_private_service_connect` (Attributes) GCP Private Service Connect configuration (see [below for nested schema](#nestedatt--gcp_private_service_connect))
@@ -2140,12 +2140,14 @@ We are not currently able to support Azure BYOVPC clusters.
 
 ### Dual listener mode (connections)
 
-Dual listener mode — the `connections` field on `kafka_api`, `http_proxy`, and `schema_registry` — is feature-gated and currently supported only on AWS BYOC clusters. Two transitions are not supported in place:
+Dual listener mode — the `connections` field on `kafka_api`, `http_proxy`, and `schema_registry` — is feature-gated and currently supported only on AWS BYOC clusters. This restriction is enforced by the provider rather than the API: dual listener mode is rolled out on AWS BYOC only, and the provider rejects it elsewhere so a cluster is not created without its second listener. It will be lifted as support reaches other cluster types. Two transitions are not supported in place:
 
 - A cluster created private-only cannot gain public listeners in place. The provider rejects the change at plan time; the control plane enforces the same rule at apply. Recreate the cluster with the desired topology instead.
 - A cluster managed through `connections` cannot return to `connection_type`-managed (legacy) networking. The provider rejects the attempt at plan time once it has applied a `connections` configuration for the cluster; for a freshly imported cluster that check arms on the first `connections`-managed apply.
 
 Migrating a legacy public cluster to `connections` (including adding a private listener) is supported: remove `connection_type` and set `connections` on all three services in the same apply.
+
+On AWS BYOC clusters `connection_type` is deprecated in favour of `connections`, and the provider warns at plan time while it is set. On every other cluster envelope `connection_type` remains the supported way to choose the network topology.
 
 ### Node Count Configuration
 
