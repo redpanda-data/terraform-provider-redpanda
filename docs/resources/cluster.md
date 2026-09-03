@@ -2149,6 +2149,10 @@ Migrating a legacy public cluster to `connections` (including adding a private l
 
 On AWS BYOC clusters `connection_type` is deprecated in favour of `connections`, and the provider warns at plan time while it is set. On every other cluster envelope `connection_type` remains the supported way to choose the network topology.
 
+### Disabling mTLS
+
+Removing a service's `mtls` block from the configuration does not disable mTLS: the provider rejects the change at plan time. Set `mtls.enabled = false` on the service to disable it, or restore the block to keep it.
+
 ### Node Count Configuration
 
 The `redpanda_node_count` attribute is an experimental feature and is not available for all customers by default. To enable this feature for your account, contact your Redpanda account team.
