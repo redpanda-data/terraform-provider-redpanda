@@ -180,9 +180,9 @@ func validateDualListenerConnections(ctx context.Context, cfg tfsdk.Config, resp
 	if !getAttr(ctx, cfg, path.Root("cluster_type"), &clusterType, resp) {
 		return
 	}
-	// Certified envelope (cloudv2 #29143): AWS BYOC only. The cloud API
-	// rejects only Azure, so an uncertified combination would otherwise pass
-	// plan and apply and come up broken.
+	// Certified envelope: AWS BYOC only. The cloud API rejects only Azure, so
+	// an uncertified combination would otherwise pass plan and apply and come
+	// up broken.
 	if !cloudProvider.IsUnknown() && !clusterType.IsUnknown() &&
 		(cloudProvider.ValueString() != "aws" || clusterType.ValueString() != "byoc") {
 		resp.Diagnostics.AddAttributeError(path.Root("kafka_api").AtName("connections"),
