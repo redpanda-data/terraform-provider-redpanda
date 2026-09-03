@@ -137,6 +137,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		if configManagesConnections(ctx, req.Config, &resp.Diagnostics) {
 			resp.Diagnostics.Append(resp.Private.SetKey(ctx, connectionsManagedKey, []byte(`true`))...)
 		}
+		stampMTLSConfigured(ctx, req.Config, resp.Private, &resp.Diagnostics)
 		resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 	}
 }
@@ -354,6 +355,12 @@ func (*Cluster) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, 
 	// Reject adding public listeners to a private-only cluster, the one
 	// topology transition the control plane cannot perform in place.
 	guardPrivateOnlyGainsPublic(ctx, req, resp)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	// A removed mtls block plans as no change; reject it rather than leave
+	// mTLS on silently.
+	guardLegacyMTLSRemoval(ctx, req, resp)
 	if resp.Diagnostics.HasError() {
 		return
 	}

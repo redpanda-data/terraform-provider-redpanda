@@ -44,6 +44,18 @@ func clusterConfig(t *testing.T, set map[string]string) tfsdk.Config {
 	return tfsdk.Config{Schema: s, Raw: tftypes.NewValue(objType, vals)}
 }
 
+// nullsExcept builds an object value with every attribute null except set.
+func nullsExcept(obj tftypes.Object, set map[string]tftypes.Value) tftypes.Value {
+	vals := make(map[string]tftypes.Value, len(obj.AttributeTypes))
+	for name, at := range obj.AttributeTypes {
+		vals[name] = tftypes.NewValue(at, nil)
+	}
+	for name, v := range set {
+		vals[name] = v
+	}
+	return tftypes.NewValue(obj, vals)
+}
+
 // mustTFType narrows a schema-derived tftypes.Type, failing the test on a
 // schema shape the helper does not expect.
 func mustTFType[T tftypes.Type](t *testing.T, v tftypes.Type) T {
@@ -64,16 +76,6 @@ func clusterConfigWithConnections(t *testing.T, cloudProvider, clusterType strin
 	objType, ok := s.Type().TerraformType(ctx).(tftypes.Object)
 	if !ok {
 		t.Fatalf("schema type is %T, want tftypes.Object", s.Type().TerraformType(ctx))
-	}
-	nullsExcept := func(obj tftypes.Object, set map[string]tftypes.Value) tftypes.Value {
-		vals := make(map[string]tftypes.Value, len(obj.AttributeTypes))
-		for name, at := range obj.AttributeTypes {
-			vals[name] = tftypes.NewValue(at, nil)
-		}
-		for name, v := range set {
-			vals[name] = v
-		}
-		return tftypes.NewValue(obj, vals)
 	}
 	service := func(name string) tftypes.Value {
 		svc := mustTFType[tftypes.Object](t, objType.AttributeTypes[name])
