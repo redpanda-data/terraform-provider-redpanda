@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -79,10 +78,10 @@ func (c *Config) Source() string {
 // MaskContract mirrors the control plane's update-mask path map for one
 // resource: TopLevel names are accepted at object granularity, Leaf names
 // only at leaf granularity (the provider expands them). A top-level field in
-// neither set cannot be updated in place — it requires replace.
+// neither set cannot be updated in place, so it requires replace.
 //
 // WarnOnly contracts are derived automatically from the update payload proto
-// descriptor (not hand-maintained). They never mutate plan modifiers — a
+// descriptor (not hand-maintained). They never mutate plan modifiers: a
 // disagreement only emits a warning, because a proto descriptor cannot be
 // trusted to mutate generated output the way the curated cluster contract can.
 type MaskContract struct {
@@ -151,7 +150,7 @@ type RPCConfig struct {
 
 // ResponseInterfaceConfig declares a Go interface synthesized over the
 // API's response payload types so Flatten can take a single argument.
-// The interface is duck-typed — methods are inferred from the schema's
+// The interface is duck-typed: methods are inferred from the schema's
 // field conversions, and any proto type with matching getter shapes
 // satisfies it. Only the interface name is configurable here.
 type ResponseInterfaceConfig struct {
@@ -442,7 +441,7 @@ func (c *Config) SupportedOperations(schemaType string) (map[string]bool, error)
 // rejectDescriptionOverrides errors on a description: key inside a
 // field-config map (recursing through fields:). Yaml description overrides
 // were removed; without this tombstone the non-strict parse would silently
-// ignore stale keys. Fields NAMED description are fine — they appear as keys
+// ignore stale keys. Fields NAMED description are fine: they appear as keys
 // of a fields: map, never as a config key.
 func rejectDescriptionOverrides(path string, val any) error {
 	m, ok := val.(map[string]any)

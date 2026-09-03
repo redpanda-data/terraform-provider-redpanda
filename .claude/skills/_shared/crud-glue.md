@@ -2,7 +2,7 @@
 
 Schemagen produces schema + model + Flatten/Expand. CRUD methods (`Create`, `Read`, `Update`, `Delete`, `ImportState`) stay hand-written — this file is the canonical guide.
 
-Per memory `project_schemagen_scope.md`: this scope split is intentional and durable — CRUD is always hand-written. Don't propose moving CRUD into schemagen. Per memory `feedback_no_manual_codegen_fixes.md`: if Flatten/Expand misses a case, fix the generator (or the YAML directive that drives it), don't paper over by hand-editing `conv_gen.go`.
+This scope split is intentional and durable — CRUD is always hand-written. Don't propose moving CRUD into schemagen. If Flatten/Expand misses a case, fix the generator (or the YAML directive that drives it), don't paper over by hand-editing `conv_gen.go`.
 
 ## Default position: zero CRUD changes when extending
 
@@ -181,7 +181,7 @@ The auto-preserve infrastructure doesn't cover this case; the resource must hand
 
 Datasources have `Read` only — no Create/Update/Delete/ImportState. The `Read` pattern is the same as the resource's `Read` minus the `RemoveResource` branch — on not-found, call `resp.Diagnostics.AddError`, don't silently drop.
 
-Per memory `feedback_verify_datasource_schema.md`: **datasource attribute names often diverge from resource attribute names** — they're not automatic mirrors. Before authoring datasource HCL (for examples, tests, or docs), grep `docs/data-sources/<name>.md` to confirm the exact attribute names. Don't assume parity with the resource.
+**Datasource attribute names often diverge from resource attribute names** — they're not automatic mirrors. Before authoring datasource HCL (for examples, tests, or docs), grep `docs/data-sources/<name>.md` to confirm the exact attribute names. Don't assume parity with the resource.
 
 ## See also
 

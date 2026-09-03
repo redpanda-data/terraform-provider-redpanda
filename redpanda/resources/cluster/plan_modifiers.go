@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -25,7 +24,7 @@ import (
 
 // rpsqlZonesStatePin is the rpsql.zones plan modifier referenced by the
 // generated schema. It pins the prior state value (null included) over an
-// unknown planned value — UseStateForUnknown semantics — UNLESS rpsql.enabled
+// unknown planned value (UseStateForUnknown semantics) UNLESS rpsql.enabled
 // changes in a way that makes the server re-derive the leaf: a rise with no
 // retained zones (the control plane assigns the first cluster zone on a fresh
 // enable) or a fall (the control plane clears zones on disable). Both must stay
@@ -72,7 +71,7 @@ func (m pinStateUnlessSiblingRises) PlanModifyList(ctx context.Context, req plan
 
 // releasePinForServerAssign reports whether the planned value should stay
 // unknown: the sibling enabled flag is rising (or unknown) and there is no
-// retained value for the server to keep — the fresh-enable defaulter case — or
+// retained value for the server to keep (the fresh-enable defaulter case), or
 // it is falling, which clears zones control-plane side.
 func releasePinForServerAssign(planEnabled, stateEnabled types.Bool, stateValue types.List) bool {
 	if planEnabled.IsUnknown() {
@@ -91,7 +90,7 @@ func releasePinForServerAssign(planEnabled, stateEnabled types.Bool, stateValue 
 // rpsqlReplicasStatePin is the rpsql.replicas plan modifier. It derives replicas
 // from the sibling rpsql.enabled instead of a static default, because the control
 // plane reports replicas 0 while Redpanda SQL is disabled and defaults to 1 on
-// enable — a static default of 1 churns every disabled cluster, and no default
+// enable: a static default of 1 churns every disabled cluster, and no default
 // sends replicas 0 on enable and trips the CEL (replicas>=1 when enabled). When
 // the config supplies replicas, that value wins. Otherwise: disabled → 0;
 // enabling (create-enable or rise) → 1; steady enabled → prior state.
@@ -146,7 +145,7 @@ func (m pinInt32StateUnlessSiblingRises) PlanModifyInt32(ctx context.Context, re
 // privateLinkStatusPin is the plan modifier for a private-link block's computed
 // `status` object. The control plane returns no private-link block at all when
 // the block is disabled, so the block's computed children must plan as
-// known-null while enabled=false — otherwise an unknown status is carried into
+// known-null while enabled=false; otherwise an unknown status is carried into
 // state and the framework rejects it ("must be known after apply"). While
 // enabled, it behaves as UseNonNullStateForUnknown (holds a non-null prior
 // status over an unknown plan). Keyed on the sibling enabled via the modifier's

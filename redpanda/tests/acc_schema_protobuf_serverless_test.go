@@ -2,7 +2,6 @@
 
 // Copyright 2025 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -94,10 +93,10 @@ enum Status {
 	jsonDefaultBodyV3 = `{"type":"object","description":"v2 desc","properties":{"id":{"type":"integer","default":0}}}`
 )
 
-// protobufBodyV3Comment is protobufBodyV3 plus a comment — derived so the
+// protobufBodyV3Comment is protobufBodyV3 plus a comment, derived so the
 // comment-only premise holds by construction. Schema Registry's protobuf
 // canonical form drops comments, so a comment-only change must NOT mint a
-// new version — and the provider's equivalence check must plan clean after
+// new version, and the provider's equivalence check must plan clean after
 // applying it.
 var protobufBodyV3Comment = strings.Replace(protobufBodyV3, "message Event", "// comment-only change: must not version\nmessage Event", 1)
 

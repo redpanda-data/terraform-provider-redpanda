@@ -2,7 +2,6 @@
 
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -958,7 +957,7 @@ resource "redpanda_shadow_link" "test" {
 
 // TestIntegration_ShadowLink_StartAtEarliest_FalseRejected proves the boolvalidator
 // rejects `start_at_earliest = false` at config-validation time. The proto
-// backing the field is a oneof variant (presence-only) — `false` has no
+// backing the field is a oneof variant (presence-only), so `false` has no
 // representable state on the wire, so the schema-level validator forces
 // users to either set `true` or omit the field.
 func TestIntegration_ShadowLink_StartAtEarliest_FalseRejected(t *testing.T) {
@@ -989,8 +988,8 @@ resource "redpanda_shadow_link" "test" {
 	})
 }
 
-// TestIntegration_ShadowLink_StartAtLatest_FalseRejected — same oneof-presence
-// rejection as start_at_earliest, but for start_at_latest.
+// TestIntegration_ShadowLink_StartAtLatest_FalseRejected pins the same
+// oneof-presence rejection as start_at_earliest, but for start_at_latest.
 func TestIntegration_ShadowLink_StartAtLatest_FalseRejected(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -1019,9 +1018,9 @@ resource "redpanda_shadow_link" "test" {
 	})
 }
 
-// TestIntegration_ShadowLink_ShadowSchemaRegistryTopic_FalseRejected — same
-// oneof-presence rejection as start_at_earliest, but for the schema-registry
-// sync option.
+// TestIntegration_ShadowLink_ShadowSchemaRegistryTopic_FalseRejected pins the
+// same oneof-presence rejection as start_at_earliest, but for the
+// schema-registry sync option.
 func TestIntegration_ShadowLink_ShadowSchemaRegistryTopic_FalseRejected(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -1275,7 +1274,7 @@ resource "redpanda_shadow_link" "test" {
 // TestIntegration_ShadowLink_UpdateLeaf_TLSKey exercises the sensitive
 // tls_settings.key write path. The proto requires the key to be a
 // `${secrets.<SECRET_ID>}` reference (not raw PEM), and "key and cert must
-// both be provided or both be empty" — so we provide both in the same
+// both be provided or both be empty", so we provide both in the same
 // matched-pair format.
 func TestIntegration_ShadowLink_UpdateLeaf_TLSKey(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -1895,7 +1894,7 @@ resource "redpanda_shadow_link" "test" {
 	// schema_registry_shadowing_mode oneof. cfgPem and cfgAlt between them
 	// cover every leaf of the subtree: the destination oneof admits only one
 	// arm per config, and cfgAlt exercises tls_settings with no PEM arm set
-	// (tls_file_settings is not schema-representable for the SR API — the
+	// (tls_file_settings is not schema-representable for the SR API because the
 	// control plane rejects it).
 	cfgPem := `
 provider "redpanda" {}
@@ -2216,22 +2215,9 @@ resource "redpanda_shadow_link" "test" {
 	})
 }
 
-// TestIntegration_ShadowLink_UpdateLeaf_TLSKey_PreservedAcrossMaskedRead
-// exercises the preserveSensitiveFromPrev hook end-to-end against the fake.
-//
-// The fake's GetShadowLink masks tls_settings.key to "" (mirroring real
-// backend behavior). preserveSensitiveFromPrev must restore the value from
-// prior plan/state on every Read; otherwise the NoopReapply step detects
-// drift and plans an update.
-//
-// Sequence:
-//  1. Create with key = A — fake stores A, returns "" on Read, hook restores A
-//     from plan → state holds A. ExpectEmptyPlan confirms no drift.
-//  2. UpdateLeaf key A → B — fake stores B, returns "" on Read, hook restores B
-//     from plan → state holds B. ExpectEmptyPlan confirms no drift.
-//  3. NoopReapply — fake still returns "" on Read, hook restores B from state
-//     → plan is empty. This step is the regression assertion: if the hook is
-//     removed, this step fails because config has B but Read returned "".
+// TestIntegration_ShadowLink_UpdateLeaf_TLSKey_PreservedAcrossMaskedRead pins
+// preserveSensitiveFromPrev: the fake masks tls_settings.key to "" on Read, as
+// the backend does, so without the hook the NoopReapply step plans an update.
 func TestIntegration_ShadowLink_UpdateLeaf_TLSKey_PreservedAcrossMaskedRead(t *testing.T) {
 	_, factories := integration.Setup(t)
 

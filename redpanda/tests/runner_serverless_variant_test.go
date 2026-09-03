@@ -2,7 +2,6 @@
 
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -93,7 +92,7 @@ func runServerlessClusterVariantTest(t *testing.T, testSuffix, region string, pu
 
 	// Dataplane lifecycle steps come from the same builder the dedicated runner
 	// uses. Serverless is where dataplane coverage belongs: it stands up in
-	// seconds, so a dataplane regression no longer costs a cluster-creation cycle.
+	// seconds, so a dataplane regression costs seconds, not a cluster-creation cycle.
 	dp, err := newDataplaneFixture(dir, name)
 	if err != nil {
 		t.Fatal(err)

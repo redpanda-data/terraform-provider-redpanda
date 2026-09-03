@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -49,7 +48,7 @@ type Stats struct {
 }
 
 // Load reads and parses an apidescriptions.yaml file. Returns (nil, nil) if
-// the file does not exist — callers should treat a missing index as "skip
+// the file does not exist, so callers should treat a missing index as "skip
 // the API description pass" and fall back to mechanical defaults.
 func Load(path string) (*Index, error) {
 	data, err := fileutil.ReadFile(path)

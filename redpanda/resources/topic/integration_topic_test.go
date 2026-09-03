@@ -2,7 +2,6 @@
 
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -253,7 +252,7 @@ func TestIntegration_Topic_CreateAndRefresh(t *testing.T) {
 // then re-applies the same config. The no-op reapply guard is the load-bearing
 // assertion: it proves that the GetTopicConfigurations → mergeWithPlannedConfig
 // → state cycle produces a map that re-plans cleanly. retention.ms is a
-// kafka-side key (not redpanda.*) so the strip branch is not involved here —
+// kafka-side key (not redpanda.*) so the strip branch is not involved here;
 // this is the plain happy-path counterpart to the no-config CreateAndRefresh.
 func TestIntegration_Topic_CreateAndRefresh_WithConfiguration(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -341,7 +340,7 @@ func throttleQuotaExceededErr(t *testing.T) error {
 // TestIntegration_Topic_MergeWithPlannedConfig_StripsServerInjectedRedpandaKey
 // proves the broker-injected redpanda.* strip branch of mergeWithPlannedConfig
 // (resource_topic.go:526) end-to-end. The fake is configured to inject
-// redpanda.storage.mode="unset" on every GetTopicConfigurations response —
+// redpanda.storage.mode="unset" on every GetTopicConfigurations response,
 // mirroring the post-v26.1.1 broker. Without the strip, plan-twice would see
 // the key "appear" in state and try to remove it on the next apply, producing
 // a perpetual diff. The NoopReapplyStep is the load-bearing assertion: if the
@@ -372,7 +371,7 @@ func TestIntegration_Topic_MergeWithPlannedConfig_StripsServerInjectedRedpandaKe
 // TestIntegration_Topic_MergeWithPlannedConfig_PreservesUserNamedRedpandaKey
 // proves the other half of the strip branch: when the user explicitly names
 // a redpanda.* key in their plan, mergeWithPlannedConfig must keep it. The
-// fake is also configured to inject the same key — exercising the "user
+// fake is also configured to inject the same key, exercising the "user
 // supersedes server injection" path in TopicFake.GetTopicConfigurations
 // (the key sits in rec.configs, so the injection is skipped) and confirming
 // the merged state reports the user's value.
@@ -407,7 +406,7 @@ func TestIntegration_Topic_MergeWithPlannedConfig_PreservesUserNamedRedpandaKey(
 // allow_deletion=true so the terminal cleanup destroy succeeds.
 // TestIntegration_Topic_ErrorPath_AllowDeletionBlocked pins the guard itself.
 // UpdateLeaf_AllowDeletion proves the field round-trips; this proves what the
-// field is for — with allow_deletion=false a destroy must be refused. The final
+// field is for: with allow_deletion=false a destroy must be refused. The final
 // step re-enables deletion so the framework's terminal destroy can proceed.
 func TestIntegration_Topic_ErrorPath_AllowDeletionBlocked(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -464,7 +463,7 @@ func TestIntegration_Topic_UpdateLeaf_AllowDeletion(t *testing.T) {
 }
 
 // TestIntegration_Topic_RequiresReplace_Name mutates the topic name. Since id=name,
-// the id DIFFERS across the replace — both the plancheck
+// the id DIFFERS across the replace; both the plancheck
 // (DestroyBeforeCreate) and the ValuesDiffer id comparer pin the behavior.
 func TestIntegration_Topic_RequiresReplace_Name(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -491,7 +490,7 @@ func TestIntegration_Topic_RequiresReplace_Name(t *testing.T) {
 
 // TestIntegration_Topic_RequiresReplace_ClusterApiUrl mutates cluster_api_url
 // bufnet→bufnet2. The plancheck (DestroyBeforeCreate) is the load-bearing
-// proof of replacement — id is unchanged because id=name and the name is
+// proof of replacement; id is unchanged because id=name and the name is
 // unchanged. ValuesSame on id confirms that property.
 func TestIntegration_Topic_RequiresReplace_ClusterApiUrl(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -543,22 +542,10 @@ func TestIntegration_Topic_RequiresReplace_ReplicationFactor(t *testing.T) {
 	})
 }
 
-// TestIntegration_Topic_RequiresReplaceIf_PartitionCount_Shrink is THE canonical
-// positive-branch test for the partitionRequiresReplaceWhenShrinking
-// predicate. Step 1 creates with partition_count=5; Step 2 reduces to 3.
-// The predicate fires (plan<state) → DestroyBeforeCreate. id stays the
-// same because id=name and name is unchanged; the PreApply plancheck is
-// the sole load-bearing proof of replacement.
-//
-// Two-axis mutation discipline (verified manually before commit):
-//
-//	(a) Flipping plancheck.ResourceActionDestroyBeforeCreate to
-//	    ResourceActionUpdate fails the test — confirming the predicate
-//	    truly fires on shrink.
-//	(b) Flipping the step-2 partition_count from 3 to 7 (a grow relative
-//	    to state=5) also fails the DestroyBeforeCreate assertion —
-//	    confirming the assertion is keyed on the partition_count
-//	    direction, not the resource-action keyword.
+// TestIntegration_Topic_RequiresReplaceIf_PartitionCount_Shrink pins that
+// partitionRequiresReplaceWhenShrinking fires on a partition_count decrease.
+// id equals name and does not change, so the DestroyBeforeCreate plancheck
+// is the only proof of replacement.
 func TestIntegration_Topic_RequiresReplaceIf_PartitionCount_Shrink(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -582,21 +569,9 @@ func TestIntegration_Topic_RequiresReplaceIf_PartitionCount_Shrink(t *testing.T)
 	})
 }
 
-// TestIntegration_Topic_RequiresReplaceIf_PartitionCount_Grow is THE canonical
-// negative-branch test for the partitionRequiresReplaceWhenShrinking
-// predicate. Step 1 creates with partition_count=3; Step 2 grows to 5.
-// The predicate does NOT fire (plan>state) → ResourceActionUpdate
-// (in-place). The Update path calls SetTopicPartitions on the fake.
-//
-// Two-axis mutation discipline (verified manually before commit):
-//
-//	(a) Flipping plancheck.ResourceActionUpdate to
-//	    ResourceActionDestroyBeforeCreate fails the test — confirming
-//	    the predicate truly does not fire on grow.
-//	(b) Flipping the step-2 partition_count from 5 to 1 (a shrink
-//	    relative to state=3) also fails the ResourceActionUpdate
-//	    assertion — confirming the assertion is keyed on the
-//	    partition_count direction, not the resource-action keyword.
+// TestIntegration_Topic_RequiresReplaceIf_PartitionCount_Grow pins that
+// partitionRequiresReplaceWhenShrinking stays quiet on a partition_count
+// increase, so the plan is an in-place update.
 func TestIntegration_Topic_RequiresReplaceIf_PartitionCount_Grow(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -730,8 +705,8 @@ func TestIntegration_Topic_ImportRoundTrip(t *testing.T) {
 // post-create Refresh causes the provider to remove the resource from
 // state and re-plan a Create. After Create, the topic is deleted out-of-band
 // directly from the fake's store via srv.Topic.DeleteTopic. The next plan's
-// Refresh calls utils.FindTopicByName — confirmed at redpanda/utils/utils.go:452
-// to issue client.ListTopics with a name-contains filter — which returns an
+// Refresh calls utils.FindTopicByName (confirmed at redpanda/utils/utils.go:452
+// to issue client.ListTopics with a name-contains filter), which returns an
 // empty list and FindTopicByName returns a NotFound error. The provider's
 // Read routes that error through utils.HandleGracefulRemoval, which
 // recognizes NotFound and removes the resource from state regardless of
@@ -826,7 +801,7 @@ func TestIntegration_Topic_ErrorPath_UpdateFailed(t *testing.T) {
 // TestIntegration_Topic_ErrorPath_DeleteFailed injects Internal on DeleteTopic.
 // The provider routes the DeleteTopic error through
 // utils.HandleGracefulRemoval, which swallows NotFound /
-// ClusterUnreachable / PermissionDenied but surfaces all other errors —
+// ClusterUnreachable / PermissionDenied but surfaces all other errors, and
 // codes.Internal is in the surface set.
 func TestIntegration_Topic_ErrorPath_DeleteFailed(t *testing.T) {
 	srv, factories := integration.Setup(t)
@@ -852,7 +827,7 @@ func TestIntegration_Topic_ErrorPath_DeleteFailed(t *testing.T) {
 // TestIntegration_Topic_UpgradeState_NormalizesClusterApiUrl drives the v0->v1
 // state upgrade through the provider server's UpgradeResourceState RPC and
 // asserts the legacy host:443 cluster_api_url is rewritten to https://host so
-// the format change alone no longer forces replacement.
+// the format change alone does not force replacement.
 func TestIntegration_Topic_UpgradeState_NormalizesClusterApiUrl(t *testing.T) {
 	_, factories := integration.Setup(t)
 	ctx := context.Background()

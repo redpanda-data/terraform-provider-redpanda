@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -182,7 +181,7 @@ func CompareBufModules(pinned, current map[string]string) []string {
 		p, c := pinned[k], current[k]
 		switch {
 		case p == c:
-			// match — nothing to report
+			// match, nothing to report
 		case p == "" && c != "":
 			msgs = append(msgs, fmt.Sprintf("buf module %s present in go.mod (%s) but not in pin file", k, c))
 		case p != "" && c == "":

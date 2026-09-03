@@ -1,6 +1,5 @@
 // Copyright 2025 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -21,31 +20,15 @@ import (
 	"strings"
 )
 
-// DataplaneGates records which dataplane resources a fixture declares.
+// DataplaneGates records which dataplane resources a fixture declares, so an
+// acceptance runner that drops a resource drops its steps with it.
 //
-// Acceptance runners gate their dataplane steps on these so a scope that drops a
-// resource drops its steps with it, rather than asserting against something that
-// isn't there.
-//
-// Where dataplane coverage lives, and why:
-//
-//   - serverless — the default home. Stands up in seconds, so a dataplane
-//     regression costs a short run rather than a cluster build. Carries user,
-//     acl, topic, secret, pipeline, schema.
-//   - dedicated  — role and role_assignment only, plus the user they bind to.
-//     The console SecurityService answers Unimplemented on serverless, so RBAC
-//     cannot be exercised anywhere else. Also the max.compaction.lag.ms clamp,
-//     which needs three topic config entries (see TopicClampRegressionSteps).
-//   - byoc       — topic alone, as a canary proving the dataplane is reachable
-//     at all. Topic is stable and well understood, so a failure there points at
-//     the cluster rather than at the resource under test.
-//   - byovpc     — nothing, not even a canary. Those dataplanes are reachable
-//     only from inside the VPC, which CI cannot offer. BYOVPC covers rpsql
-//     instead, which reads through the control plane.
-//
-// Rationale lives here rather than in the fixtures: examples/ main.tf files are
-// tffile-embedded into published docs, and users have no use for our test
-// strategy.
+// Coverage placement: serverless is the default home because it stands up in
+// seconds. Dedicated alone carries role and role_assignment because the console
+// SecurityService is Unimplemented on serverless. BYOC carries only topic, as a
+// canary that the dataplane is reachable. BYOVPC carries none: its dataplane is
+// reachable only from inside the VPC, which CI cannot offer. This lives here
+// rather than in examples/ because those files are embedded into published docs.
 type DataplaneGates struct {
 	User              bool
 	ACL               bool
@@ -59,7 +42,7 @@ type DataplaneGates struct {
 
 	// TopicConfigurable is set when the fixture threads var.topic_configuration
 	// into the topic. The topic-config regression steps mutate that variable, so
-	// a fixture that hardcodes its configuration cannot satisfy them — gating on
+	// a fixture that hardcodes its configuration cannot satisfy them. Gating on
 	// Topic alone would emit steps whose assertions can never pass.
 	TopicConfigurable bool
 

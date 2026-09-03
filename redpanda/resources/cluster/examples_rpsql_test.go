@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -32,9 +31,9 @@ import (
 const rpsqlExample = "examples/byovpc/gcp/main.tf"
 
 // TestRpsqlExampleMatchesSchema guards the published Redpanda SQL example
-// against schema drift. terraform validate cannot run on this example — the
+// against schema drift. terraform validate cannot run on this example: the
 // upstream BYOVPC module declares the wrong provider namespace
-// (hashicorp/redpanda), so init never completes — which leaves the example
+// (hashicorp/redpanda), so init never completes, which leaves the example
 // otherwise unchecked. Renaming or removing an rpsql attribute would silently
 // leave users copying config the provider rejects.
 func TestRpsqlExampleMatchesSchema(t *testing.T) {

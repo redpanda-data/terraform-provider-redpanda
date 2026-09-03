@@ -1,16 +1,16 @@
 // Copyright 2025 Redpanda Data, Inc.
 //
-//	Licensed under the Apache License, Version 2.0 (the "License");
-//	you may not use this file except in compliance with the License.
-//	You may obtain a copy of the License at
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
 //
-//	  http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
-//	Unless required by applicable law or agreed to in writing, software
-//	distributed under the License is distributed on an "AS IS" BASIS,
-//	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//	See the License for the specific language governing permissions and
-//	limitations under the License.
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
 
 // Package shadowlink implements the redpanda_shadow_link resource.
 package shadowlink
@@ -259,7 +259,7 @@ func (s *ShadowLink) Create(ctx context.Context, req resource.CreateRequest, res
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Same hook the schemagen-emitted proto-validator calls — single
+	// Same hook the schemagen-emitted proto-validator calls: single
 	// source of truth for payload mutations (source_redpanda_id is
 	// `extra: true` because it only exists on the Create payload, not
 	// the read ShadowLink; the hook lifts it onto the payload).

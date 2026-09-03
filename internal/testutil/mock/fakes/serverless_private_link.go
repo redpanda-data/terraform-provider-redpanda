@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -32,7 +31,7 @@ const splIDBase uint64 = 0x5000_0000_0000_0000
 
 // ServerlessPrivateLinkFake is a stateful in-memory implementation of
 // ServerlessPrivateLinkService. All three mutating RPCs (Create/Update/Delete)
-// are async — each publishes a completed Operation via op.Set.
+// are async: each publishes a completed Operation via op.Set.
 //
 // UpdateServerlessPrivateLinkRequest has no FieldMask: the cloud_provider_config
 // oneof is full-replacement, so Update overwrites aws_config.allowed_principals

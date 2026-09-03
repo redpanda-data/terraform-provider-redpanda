@@ -1,0 +1,114 @@
+# Manual smoke test: redpanda_<name>
+
+Fill in this file as you run §11 of the add-redpanda-resource skill. It doubles as your run journal and the report you'll send back to the user.
+
+## Setup
+
+| Field | Value |
+|-------|-------|
+| Resource / datasource | `redpanda_<name>` |
+| Cluster strategy | **reuse** \| fresh |
+| Cluster id (if reuse) |  |
+| Cluster API URL (if reuse) |  |
+| Cloud provider | aws \| gcp \| azure |
+| Cluster type | dedicated \| serverless \| byoc |
+| Region |  |
+| Cluster name (if fresh) | tfrp-... |
+| Provider build | output of `task build:install` |
+| Date (UTC) |  |
+| Tester |  |
+
+### Pre-flight
+
+- [ ] `REDPANDA_CLIENT_ID` and `REDPANDA_CLIENT_SECRET` set
+- [ ] Cloud provider creds set (matrix in SKILL.md §11)
+- [ ] `task build:install` succeeded; `~/.terraform.d/plugins/...` contains the dev build
+- [ ] `manual-tests/` is in `.gitignore`
+- [ ] `manual-tests/<name>/main.tf` references the new resource/datasource
+
+## Test plan
+
+For each step: record status (PASS / FAIL / SKIPPED with reason) and a short evidence snippet (last few lines of relevant output, or a one-line observation). On FAIL, stop and fix before continuing.
+
+### 1. terraform init
+
+- Status:
+- Output:
+- Notes:
+
+### 2. terraform apply (initial create)
+
+- Status:
+- Apply summary (resources added/changed/destroyed):
+- Wall-clock time:
+- Notes:
+
+### 3. Feature validation
+
+- What I checked:
+- How I checked (rpk command / gRPC call / console screenshot / API call):
+- Result:
+
+### 4. terraform plan immediately after apply (no-op)
+
+- Status (must be `No changes`):
+- If diff: paste the diff and link the cause (which attribute, which schema/Read code path):
+- Notes:
+
+### 5. terraform apply — update path
+
+- Attribute changed:
+- Expected behavior (in-place update / RequiresReplace):
+- Status:
+- Apply summary:
+- Notes:
+
+### 6. terraform plan after update (no-op)
+
+- Status:
+- Notes:
+
+### 7. terraform state rm
+
+- Command: `terraform state rm redpanda_<name>.test`
+- Status:
+- Verified resource still exists in cloud (how):
+- Notes:
+
+### 8. terraform import
+
+- Command: `terraform import redpanda_<name>.test <id>[,<cluster_id>]`
+- Status:
+- Subsequent `terraform plan` reports `No changes`: yes / no
+- If no: which attributes drifted, and whether ImportState is missing seed values:
+- Notes:
+
+### 9. Drift detection
+
+- Out-of-band mutation (rpk / console / API):
+- `terraform plan` detected drift: yes / no
+- If no: explain why (e.g. attribute is RequiresReplace and was not changed; expected):
+- Notes:
+
+### 10. terraform destroy
+
+- Status:
+- Fresh runs: cluster fully torn down (verified in console / API):
+- Reuse runs: confirmed **only** `redpanda_<name>.test` (and helpers you added) were destroyed; cluster still up:
+- Wall-clock time:
+- Notes:
+
+### 11. Cleanup verification
+
+- `task cleanup:redpanda:dry` output (stale `tfrp-*` clusters?):
+- If stale resources remain: ran `task cleanup:redpanda` / `task cleanup:aws:ci` (yes / no, results):
+- Reuse runs: confirmed reusable cluster is healthy and ready for next test:
+- Notes:
+
+## Summary
+
+- **Overall result:** PASS / FAIL
+- **Issues found:** (numbered list)
+- **Action items:** (commits/PRs needed before merging)
+- **Time spent:**
+- **Cost note:** (cluster lifecycle cost incurred, if relevant)

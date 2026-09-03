@@ -1,3 +1,17 @@
+// Copyright 2026 Redpanda Data, Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
 package utils
 
 import (
@@ -124,11 +138,11 @@ func TestGenerateProtobufDiffAndUpdateMask(t *testing.T) {
 }
 
 // Returned payload must be the plan message untouched (full field set)
-// while the mask names only the diffed fields — required for APIs whose
+// while the mask names only the diffed fields, as required for APIs whose
 // buf.validate.field rules run on the whole message regardless of FieldMask.
 func TestPlanPayloadWithUpdateMask(t *testing.T) {
 	t.Run("plan payload preserved when unchanged field is required", func(t *testing.T) {
-		// name must stay populated when only aws_private_link changes —
+		// name must stay populated when only aws_private_link changes:
 		// sparse helper would zero it out; this helper must not.
 		old := &controlplanev1.ClusterUpdate{Name: "svc"}
 		newMsg := &controlplanev1.ClusterUpdate{
@@ -138,7 +152,7 @@ func TestPlanPayloadWithUpdateMask(t *testing.T) {
 
 		payload, mask := PlanPayloadWithUpdateMask(newMsg, old)
 
-		// Payload is the plan message — same pointer, no field stripping.
+		// Payload is the plan message: same pointer, no field stripping.
 		assert.Same(t, newMsg, payload, "PlanPayloadWithUpdateMask must return the plan message unchanged")
 		assert.Equal(t, "svc", payload.GetName(), "Name must remain populated")
 		assert.True(t, payload.GetAwsPrivateLink().GetEnabled(), "AwsPrivateLink must remain populated")
@@ -151,7 +165,7 @@ func TestPlanPayloadWithUpdateMask(t *testing.T) {
 	t.Run("mask paths match GenerateProtobufDiffAndUpdateMask", func(t *testing.T) {
 		// The new helper reuses the sparse helper's mask-building logic.
 		// Equivalence on the mask side is the contract we want to lock in
-		// — only the payload shape differs.
+		// because only the payload shape differs.
 		old := &controlplanev1.ClusterUpdate{Name: "old"}
 		newMsg := &controlplanev1.ClusterUpdate{
 			Name:           "new",

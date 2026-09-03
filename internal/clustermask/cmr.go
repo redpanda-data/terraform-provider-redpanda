@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -86,8 +85,8 @@ func CMRUpdatableLeafPaths() []string {
 // ExpandCustomerManagedResourceLeaves rewrites, in place, a bare
 // customer_managed_resources mask path into the specific leaf paths (cloudv2
 // pathMap keys) whose value differs between plan and state. It is a no-op when
-// the mask carries no CMR path. Immutable CMR leaves never reach here — they
-// force RequiresReplace — so only the control-plane-updatable leaves are
+// the mask carries no CMR path. Immutable CMR leaves never reach here because
+// they force RequiresReplace, so only the control-plane-updatable leaves are
 // considered. See cmrUpdatableLeaves.
 func ExpandCustomerManagedResourceLeaves(fm *fieldmaskpb.FieldMask, plan, state *controlplanev1.CustomerManagedResourcesUpdate) {
 	if fm == nil {

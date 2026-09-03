@@ -32,7 +32,7 @@ Both tracks converge here.
 
 ## Phase 0: Plan first
 
-Per memory `feedback_sonnet_agent_exploration_pattern.md` — when the bug touches code you don't know cold, spawn sonnet exploration agents in parallel before diving in. Useful exploration questions:
+When the bug touches code you don't know cold, spawn sonnet exploration agents in parallel before diving in. Useful exploration questions:
 
 - "Walk `<resource>/<file>.go` end-to-end. What does Read do on not-found? On equality checks? On state set?"
 - "What does the fake at `internal/testutil/mock/fakes/<service>.go` do on the relevant RPCs? Find the half-implemented paths."
@@ -57,10 +57,10 @@ A 200-line CRUD method takes 5 minutes to read. Time spent here pays for itself 
 
 1. **Runtime contract**: read the resource handler end-to-end (Phase 1). Confirm the user's theory matches what the code actually does.
 2. **Git history of the file**: `git log --all -p -S "<keyword>" -- <path>`. Look for recent contract tightenings (e.g. "normalizePrincipal removed entirely"). The bug is often a fixture or test that lags behind a deliberate provider change. The schema description usually matches the new contract; the test fixtures usually don't.
-3. **Real backend behavior**: search proto comments and cloudv2/console backend handlers for the relevant normalization or shaping behavior. Per memory `project_proto_sources.md`: controlplane = `~/GolandProjects/cloudv2`, dataplane = `~/GolandProjects/console`. Confirm what the real API does to the value (`strings.HasPrefix`, `strings.ToLower`, canonical-form-builder, etc.).
+3. **Real backend behavior**: search proto comments and cloudv2/console backend handlers for the relevant normalization or shaping behavior. Controlplane protos live in the `../cloudv2` sibling checkout, dataplane protos in `../console`. Confirm what the real API does to the value (`strings.HasPrefix`, `strings.ToLower`, canonical-form-builder, etc.).
 4. **Sibling check**: if the function is one of N similarly-shaped helpers (sweepers, fakes, validators, resource CRUD methods sharing a pattern), grep the other N-1 for the same pattern. If they got it right, your fix is one line and the bug is scoped. If they all got it wrong, the fix is repo-wide and the report has a different shape. The resource_group sweeper UUID bug was found this way — the four sibling sweepers (`network.go`, `cluster.go`, `serverless_private_link.go`, `shadow_link.go`) all used `GetId()` correctly; only `resource_group.go` had `rg.Name`.
 
-If steps 1–4 all confirm the theory, proceed to Phase 3. If any contradict, **stop and ask the user** (memory `feedback_ask_when_unsure.md`) — the theory needs revision before you write tests.
+If steps 1–4 all confirm the theory, proceed to Phase 3. If any contradict, **stop and ask the user** — the theory needs revision before you write tests.
 
 **Track B — define.** You don't have a runtime failure to verify; you have a function whose behavior needs proving. For each branch identified in Phase 1, articulate:
 
@@ -110,9 +110,9 @@ For each tier, ask: "if this bug shipped, would this tier catch it?" If the answ
 
 ## Phase 5: Write red tests first
 
-Per memory `feedback_test_first_bug_proof.md`: write the failing test before the fix. Show the user the red. Then discuss fix scope separately.
+See `CLAUDE.md`: write the failing test before the fix. Show the user the red. Then discuss fix scope separately.
 
-Per memory `feedback_extend_existing_tests.md`: extend existing tests, do not create new ones. New test functions or files require explicit per-case user authorization. Open the closest existing test and add a subtest or step.
+Extend existing tests, do not create new ones. New test functions or files require explicit per-case user authorization. Open the closest existing test and add a subtest or step.
 
 Red tests typically come in pairs:
 
@@ -166,7 +166,7 @@ Cascading fixes go in their own commit, separate from the production fix. Review
 
 ## Hard rule: extend existing tests, especially at the acceptance tier
 
-Per memory `feedback_extend_existing_tests.md` (general) and `feedback_dataplane_extends_existing_runner.md` (acceptance-tier specific, the sharper rule):
+Two forms of the same rule, the second sharper:
 
 - At Tier 1 and Tier 2: extend existing test functions, don't create new ones. Adding a `stateChecks` entry, a subtest under `t.Run`, or an extra step is the default. New test functions require explicit per-case user authorization.
 - **At Tier 4 (cluster runner) for dataplane resources, this rule is absolute.** A `task test:cluster:aws` run takes 45 minutes to 2 hours because the control-plane infrastructure (resource_group + network + cluster) is expensive to provision. Dataplane operations (topic, user, acl, role, role_assignment, schema, schemaregistryacl, serviceaccount) take seconds once the cluster is up. **Never create a new acc test file for a dataplane resource that spins up its own cluster — always extend the existing `testRunner` in `redpanda/tests/runner_test.go`** with steps inside the existing `if hasFoo { ... }` blocks (or add a new `hasNewResource` flag).
@@ -177,23 +177,23 @@ Carve-out: colocated `acc_<name>_test.go` is fine for resources that don't need 
 
 ## Hard rule: leaf coverage and golden discipline still apply
 
-Per memory `feedback_test_all_leaves.md`: when the bug fix adds or modifies an attribute (validator, default, plan modifier), confirm every affected leaf is exercised in Tier 2. Per memory `feedback_show_golden_diffs.md`: if a golden test fails as a side effect, paste the raw diff to the user before any "fix." Per memory `feedback_golden_files.md`: never run `task generate:golden` without explicit user approval.
+When the bug fix adds or modifies an attribute (validator, default, plan modifier), confirm every affected leaf is exercised in Tier 2. If a golden test fails as a side effect, paste the raw diff to the user before any "fix." Never run `task generate:golden` without explicit user approval (see `CLAUDE.md`).
 
 ## Don'ts (project-specific)
 
-- **Don't hand-patch generated files** (memory `feedback_no_manual_codegen_fixes.md`) — if Flatten/Expand misses a case, fix the YAML directive or the generator.
-- **Don't add `//nolint` or `#nosec`** without explicit user approval (memory `feedback_no_nolint_without_permission.md`).
-- **Don't add code comments** beyond load-bearing traps (memory `feedback_no_code_comments.md`).
-- **Don't `git push`** without explicit per-push approval (memory `feedback_no_push_without_permission.md`).
+- **Don't hand-patch generated files** — if Flatten/Expand misses a case, fix the YAML directive or the generator.
+- **Don't add `//nolint` or `#nosec`** without explicit user approval (see `CLAUDE.md`).
+- **Don't add code comments** beyond load-bearing traps (see `CLAUDE.md`).
+- **Don't `git push`** without explicit per-push approval (see `CLAUDE.md`).
 - **Don't add inline `stringvalidator.RegexMatches` in schemas** when a named validator in `redpanda/validators/<name>.go` would do the same job — the named-validator pattern is house style.
 - **Don't declare a state-shape-drift bug fixed** without checking what happens to state that's already wrong (Phase 7).
 - **Don't pivot to a test-mechanic workaround** when the workaround is papering over a real UX bug (Phase 8).
-- **Don't spin up a new cluster** for dataplane resource acc coverage — extend `testRunner` (memory `feedback_dataplane_extends_existing_runner.md`).
+- **Don't spin up a new cluster** for dataplane resource acc coverage — extend `testRunner`.
 - **Don't accept a red proof whose error code differs from the live symptom.** If the fake emits `NotFound` but the live symptom was `PermissionDenied`, force the real code via `OverrideOnce` (Phase 3) — a structurally-right but code-wrong reproduction leaves the guard blind to code-specific regressions.
 
 ## Commit shape
 
-Per memory `feedback_review_shape_commits.md` and `feedback_single_pr_with_folded_fixes.md`. For a bug fix that lands multiple layers, suggested commit order:
+Generated files get their own commit, placed last; fixes for code introduced on the same branch fold into the introducing commit. For a bug fix that lands multiple layers, suggested commit order:
 
 1. Validator + named-validator file + unit test
 2. Production fix: Read self-heal + Delete canonicalize + ImportState extension (if any)
@@ -207,9 +207,9 @@ Reviewer reads the production fix in commit 2, sees the regression guards in com
 
 ## Phase 10: Commit the bug fix (and only the bug fix)
 
-Once the fix is verified — red tests now green, regression guards in place, `task ready` clean — commit the bug fix to the branch. **Commit only the bug-fix artifacts.** Do NOT include any skill or memory edits in this commit; those land separately after the report (Phase 11) and require explicit per-file user approval.
+Once the fix is verified — red tests now green, regression guards in place, `task ready` clean — commit the bug fix to the branch. **Commit only the bug-fix artifacts.** Do NOT include any skill edits in this commit; those land separately after the report (Phase 11) and require explicit per-file user approval.
 
-Per memory `feedback_no_push_without_permission.md`: commit locally; do not push without explicit per-push approval. Commit ordering follows the [Commit shape](#commit-shape) guidance below — typically 5–7 commits covering validator → production fix → fake parity → tests → cascading updates → generated.
+See `CLAUDE.md`: commit locally; do not push without explicit per-push approval. Commit ordering follows the [Commit shape](#commit-shape) guidance below — typically 5–7 commits covering validator → production fix → fake parity → tests → cascading updates → generated.
 
 ### The load-bearing commit message: production-fix commit
 
@@ -265,11 +265,10 @@ The four-section structure makes the commit function as a mini-postmortem readab
 ### What NOT to include in the bug-fix commits
 
 - **Skill edits** (`.claude/skills/*`) — land in separate commits after Phase 11's report and per-file human approval
-- **Memory edits** (`~/.claude/projects/.../memory/*`) — separate, also after approval
 - **Unrelated cleanups** discovered during the hunt — note them for the user and queue for a follow-up PR; don't bundle into the bug fix
 - **Speculative refactors** the bug "made you think of" — out of scope; the bug fix should be the smallest change that resolves the symptom + lays the regression guards
 
-Memory `feedback_single_pr_with_folded_fixes.md`: fixes for code introduced on the *same branch* fold into the introducing commit. Bug fixes against code on main are their own commit sequence — don't fold them into unrelated branch work.
+Fixes for code introduced on the *same branch* fold into the introducing commit. Bug fixes against code on main are their own commit sequence — don't fold them into unrelated branch work.
 
 ## Phase 11: Write the bug-hunt report and use it to update this skill
 
@@ -283,7 +282,7 @@ Report shape (narrative, not bullet-point summary — the value is in capturing 
 - **The mock/fake parity gap** — if applicable, the specific RPC path that lied
 - **Red tests first** — what you wrote, what failure looked like
 - **Layered defenses landed** — the 4–5 layer template, mapped to files and test functions
-- **Files touched** — categorized (production / test infra / fixtures / docs / memory)
+- **Files touched** — categorized (production / test infra / fixtures / docs)
 - **Distilled lessons / "pattern for a future skill file"** — the trigger phrases and steps that, with the next bug of the same shape, would let a future Claude move faster
 
 Future Claude instances learn diagnostic moves by reading prior reports, not by reading the skill in isolation. The reports are the long-form ground truth; the skill is the compressed playbook.
@@ -310,22 +309,21 @@ Bug-hunt reports are the highest-quality calibration source the repo has. Lesson
 - **Docs / example gotchas** (datasource attribute-name divergence, template phrasing that ages badly with contract changes) → [`../_shared/docs-and-examples.md`](../_shared/docs-and-examples.md)
 - **Manual-validation patterns** (a new upgrade-scenario step, a new dev-overrides trap) → [`../_shared/manual-validation.md`](../_shared/manual-validation.md)
 - **Workflow changes for the resource-authoring flows** (a phase that should be added or reordered in the add/extend skills) → [`../add-redpanda-resource/SKILL.md`](../add-redpanda-resource/SKILL.md), [`../extend-redpanda-resource/SKILL.md`](../extend-redpanda-resource/SKILL.md)
-- **Durable preferences or anti-patterns** the user surfaced during the hunt → propose a new memory file under `~/.claude/projects/.../memory/` and an entry in `MEMORY.md`
+- **Durable preferences or anti-patterns** the user surfaced during the hunt → record them in `manual-tests/<bug-slug>/SUMMARY.md` (gitignored)
 
 ### Surface the proposed edits to the human operator
 
-**Present all proposed edits — this skill plus any other skills plus any memory updates — to the user as a single batch with a brief rationale per file.** The format:
+**Present all proposed edits — this skill plus any other skills — to the user as a single batch with a brief rationale per file.** The format:
 
-> Based on the `<bug-slug>` report, I propose these skill/memory updates:
+> Based on the `<bug-slug>` report, I propose these skill updates:
 >
 > - **`resolve-redpanda-bug/SKILL.md`** — adding `<symptom>` to Track A; new Phase-3 carve-out about `<topic>`. Rationale: <one sentence>.
 > - **`_shared/testing-tiers.md`** — documenting `<new helper>` introduced in `<file>`. Rationale: <one sentence>.
 > - **`extend-redpanda-resource/SKILL.md`** — no change; the bug was in `<area>` not covered by this skill.
-> - **New memory `feedback_<slug>.md`** — captures the rule `<rule>` the user articulated during the hunt.
 >
 > Approve, redirect, or request changes before I apply.
 
-**Wait for explicit approval before applying any edit.** These files are committed code that shapes future Claude behavior — a thoughtless edit propagates across every future session in this repo. The human operator in the loop is non-negotiable: even if every individual change looks small, the user makes the call on which lessons are durable and which were one-off context. Approval is per-file, not per-batch — the user may approve the bug-skill edit and defer the memory addition, or vice versa.
+**Wait for explicit approval before applying any edit.** These files are committed code that shapes future Claude behavior — a thoughtless edit propagates across every future session in this repo. The human operator in the loop is non-negotiable: even if every individual change looks small, the user makes the call on which lessons are durable and which were one-off context. Approval is per-file, not per-batch — the user may approve the bug-skill edit and defer another skill's edit, or vice versa.
 
 If a proposed edit conflicts with an existing rule or contradicts something the user has said before, **flag the conflict explicitly** in the proposal. Don't quietly overwrite — the contradiction is often where the most useful conversation happens.
 
@@ -340,7 +338,7 @@ Seven questions to answer before declaring the bug fully closed:
 3. **Fake parity restored?** Every RPC the production calls should be modeled faithfully (Phase 3).
 4. **Tier coverage at every level?** If a future commit weakens the validator, breaks the canonicalize helper, breaks the import parse, or makes the fake regress to verbatim storage, **which test fires first?** If the answer is "none," there's a tier-by-tier guard missing.
 5. **Cascading updates clean?** Fixtures, templates, docs all match the new contract. `task ready` clean.
-6. **Bug fix committed (and only the bug fix)?** Phase 10 — production fix commit has the four-section structured message (how found / cause / resolution / regression guards). Skill and memory edits are NOT in any of the fix commits.
-7. **Bug-hunt report written and skill updates proposed?** Phase 11 — the report lives in `manual-tests/bug hunt reports/<slug>.md`, and any updates to this skill, the other skills under `.claude/skills/`, or memory have been proposed to the user as a single batch with rationales. Approval is per-file; the user makes the call.
+6. **Bug fix committed (and only the bug fix)?** Phase 10 — production fix commit has the four-section structured message (how found / cause / resolution / regression guards). Skill edits are NOT in any of the fix commits.
+7. **Bug-hunt report written and skill updates proposed?** Phase 11 — the report lives in `manual-tests/bug hunt reports/<slug>.md`, and any updates to this skill or the other skills under `.claude/skills/` have been proposed to the user as a single batch with rationales. Approval is per-file; the user makes the call.
 
 If all seven answer yes, summarize the layers landed and the files touched (the role-assignment report's "What's now in the test infrastructure" section is a good template) in the PR description.

@@ -1,6 +1,5 @@
 // Copyright 2025 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -25,8 +24,8 @@ import (
 
 // ProtobufBodiesEquivalent reports whether two PROTOBUF schema bodies represent
 // the same schema after canonicalization. Schema Registry canonicalizes
-// protobuf on write — it reorders top-level definitions (enums before
-// messages) and fully-qualifies in-package type references — so the stored
+// protobuf on write: it reorders top-level definitions (enums before
+// messages) and fully-qualifies in-package type references, so the stored
 // body differs textually from the user's input even when nothing changed.
 //
 // Both bodies are parsed and reduced to an order-independent canonical form

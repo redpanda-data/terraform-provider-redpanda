@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -16,7 +15,7 @@
 package apidesc
 
 // FilterByRoots returns a subset tree containing only the named top-level
-// schemas. Child subtrees are unchanged — Flatten already inlined referenced
+// schemas. Child subtrees are unchanged: Flatten already inlined referenced
 // schemas at every use site, so reachability from the kept roots is
 // preserved without needing their standalone entries.
 func FilterByRoots(tree map[string]*Node, roots []string) map[string]*Node {

@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -28,7 +27,7 @@ import (
 
 // ImportStateBoolFromSchemaDefault writes the schema-level Default of a bool
 // attribute into state. Use this in ImportState handlers for TF-only fields
-// (no proto correspondence) whose Read() path doesn't populate them — without
+// (no proto correspondence) whose Read() path doesn't populate them. Without
 // the bootstrap the post-import plan shows a null→default heal diff. Pulling
 // the value from the schema avoids drift if the default ever changes.
 func ImportStateBoolFromSchemaDefault(ctx context.Context, sch schema.Schema, state *tfsdk.State, attrName string) diag.Diagnostics {

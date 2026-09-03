@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -352,7 +351,7 @@ func (*Cluster) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Reject adding public listeners to a private-only cluster — the one
+	// Reject adding public listeners to a private-only cluster, the one
 	// topology transition the control plane cannot perform in place.
 	guardPrivateOnlyGainsPublic(ctx, req, resp)
 	if resp.Diagnostics.HasError() {
@@ -398,7 +397,7 @@ func (*Cluster) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, 
 			continue
 		}
 		// A disabled block reads back with no server status; the status plan
-		// modifier already set it known-null, so don't re-mark it unknown — that
+		// modifier already set it known-null, so don't re-mark it unknown; that
 		// would leave an unknown in state after the server drops the block.
 		if enabled, ok := planVal.Attributes()["enabled"].(types.Bool); ok && !enabled.IsNull() && !enabled.IsUnknown() && !enabled.ValueBool() {
 			continue
@@ -442,7 +441,7 @@ func privateLinkConfigChanged(ctx context.Context, state tfsdk.State, plan tfsdk
 
 // logPrivateLinkResponse emits DEBUG-level presence flags for the
 // PrivateLink-adjacent fields on a cluster response. URL values are
-// intentionally omitted — endpoint FQDNs identify the customer's
+// intentionally omitted because endpoint FQDNs identify the customer's
 // PrivateLink service.
 func logPrivateLinkResponse(ctx context.Context, cl *controlplanev1.Cluster) {
 	if pl := cl.GetAwsPrivateLink(); pl != nil {

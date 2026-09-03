@@ -1,16 +1,16 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//	Licensed under the Apache License, Version 2.0 (the "License");
-//	you may not use this file except in compliance with the License.
-//	You may obtain a copy of the License at
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
 //
-//	  http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
-//	Unless required by applicable law or agreed to in writing, software
-//	distributed under the License is distributed on an "AS IS" BASIS,
-//	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//	See the License for the specific language governing permissions and
-//	limitations under the License.
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
 
 package pipeline
 
@@ -1578,7 +1578,7 @@ func TestUnit_Pipeline_ServiceAccountNoUpdateWhenVersionUnchanged(t *testing.T) 
 
 	// When Update omits ServiceAccount (to protect write-only client_secret),
 	// the server echoes SA=nil. Post-apply state must still carry the prior
-	// SA block — otherwise the consistency check rejects with `... but now null`.
+	// SA block; otherwise the consistency check rejects with `... but now null`.
 	var resultState pipelinemodel.ResourceModel
 	diags = updateResp.State.Get(ctx, &resultState)
 	require.False(t, diags.HasError(), "State.Get: %v", diags)
@@ -1599,7 +1599,7 @@ func TestUnit_Pipeline_ReadPreservesServiceAccountWhenServerOmits(t *testing.T) 
 	ctx := context.Background()
 	mockClient := mocks.NewMockPipelineServiceClient(ctrl)
 
-	// Server response with SA=nil — exactly what the running-pipeline RPC returns.
+	// Server response with SA=nil, exactly what the running-pipeline RPC returns.
 	runningPipeline := createMockPipeline(
 		testPipelineID, testDisplayName, testDescription, testConfigYaml, testPipelineURL,
 		dataplanev1.Pipeline_STATE_RUNNING, nil, nil,

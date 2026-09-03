@@ -1,6 +1,6 @@
 # Manual validation (live cluster smoke test)
 
-When automated test tiers (model unit, colocated integration, colocated acc) aren't enough — drift detection, provider-upgrade compatibility, real API behavior. Delegates most of the recipe to the user-level `manual-test-redpanda-resource` skill; this file is the project-side index.
+When automated test tiers (model unit, colocated integration, colocated acc) aren't enough — drift detection, provider-upgrade compatibility, real API behavior. Delegates most of the recipe to the `manual-test-redpanda-resource` skill; this file is the project-side index.
 
 ## When manual validation is required
 
@@ -21,11 +21,11 @@ cd manual-tests/<name>
 # Each cycle gets a versioned suffix: <name>-v2, <name>-v3, ...
 ```
 
-Per memory `feedback_summary_md_detail.md`: append a detailed entry to `manual-tests/SUMMARY.md` after every cycle covering scope / setup / cycle log / new findings / cross-cycle status / resources alive / next-cycle gating. Tag extend cycles as "extension test."
+Append a detailed entry to `manual-tests/SUMMARY.md` after every cycle covering scope / setup / cycle log / new findings / cross-cycle status / resources alive / next-cycle gating. Tag extend cycles as "extension test."
 
 ## Cluster strategy
 
-Per memories `feedback_cluster_reuse.md` and `feedback_keep_cluster_alive.md`: **reuse first.**
+**Reuse first.**
 
 - **Dataplane resources** (topic, user, acl, schema, serviceaccount, pipeline) — always reuse an existing `tfrp-*` cluster. `task cleanup:redpanda:dry` lists them.
 - **Infra resources** (cluster, network, resource_group, BYOVPC) — fresh creation IS the test. Even then, keep the cluster alive across cycles unless the cycle specifically tests destroy.
@@ -35,7 +35,7 @@ For add-flow new dataplane resources, reuse a cluster. For add-flow new infra re
 
 ## Credentials
 
-Per memory `reference_redpanda_test_creds.md`:
+Requires `REDPANDA_CLIENT_ID` / `REDPANDA_CLIENT_SECRET` for the preprod org, with `REDPANDA_CLOUD_ENVIRONMENT=pre`:
 
 ```bash
 export REDPANDA_CLIENT_ID=<authorized id>
@@ -44,13 +44,13 @@ export REDPANDA_CLOUD_ENVIRONMENT=pre    # required — defaults to prod otherwi
 # Plus AWS/GCP creds per target
 ```
 
-The exact preprod credentials are in memory. **Don't proceed without `REDPANDA_CLOUD_ENVIRONMENT=pre`** — production credentials in a test cycle is a memory-load away from accidental real-customer impact.
+Pass creds via exported vars in a script file, never inline on the command line. **Don't proceed without `REDPANDA_CLOUD_ENVIRONMENT=pre`**: production credentials in a test cycle are one mistaken export away from accidental real-customer impact.
 
 ## Dev overrides wiring
 
-Per memory `reference_local_dev_provider.md` — today the dev-override key is `hashicorp/redpanda`, **not** `redpanda-data/redpanda`, because `.tasks/local.yml` and TESTING.md still wire it that way. Get this wrong and `terraform plan` won't pick up local changes.
+Today the dev-override key is `hashicorp/redpanda`, **not** `redpanda-data/redpanda`, because `.tasks/local.yml` and TESTING.md still wire it that way. Get this wrong and `terraform plan` won't pick up local changes.
 
-> Known wart (memory `project_namespace_redpanda_data.md`): the correct key is `redpanda-data/redpanda` to match the registry source. A separate PR will flip `local.yml`/TESTING.md; once it lands, use `redpanda-data/redpanda` here and the `terraform state replace-provider` step below becomes unnecessary.
+> Known wart: the correct key is `redpanda-data/redpanda` to match the registry source. A separate PR will flip `local.yml`/TESTING.md; once it lands, use `redpanda-data/redpanda` here and the `terraform state replace-provider` step below becomes unnecessary.
 
 ```bash
 # Build local binary
@@ -60,7 +60,7 @@ go build -o terraform-provider-redpanda .
 cat > ~/.terraformrc <<'EOF'
 provider_installation {
   dev_overrides {
-    "hashicorp/redpanda" = "/Users/gene/GolandProjects/terraform-provider-redpanda"
+    "hashicorp/redpanda" = "<absolute path to this repo root>"
   }
   direct {}
 }
@@ -73,7 +73,7 @@ Alternative: `task build:install` installs to the local TF plugin cache, no `.te
 
 ## When a cycle hangs or leaves resources
 
-Per memory `feedback_use_taskfile_cleanup.md`: kill the terraform process and run `task cleanup:aws:ci` / `cleanup:gcp:ci` / `task cleanup:redpanda` directly. Don't wait for `terraform destroy` to recover — it usually can't once state is wedged.
+See `CLAUDE.md`: kill the terraform process and run `task cleanup:aws:ci` / `cleanup:gcp:ci` / `task cleanup:redpanda` directly. Don't wait for `terraform destroy` to recover — it usually can't once state is wedged.
 
 ## Standard CRUD sequence (add flow)
 
@@ -133,9 +133,9 @@ For new resources that also have a datasource: bundle the datasource test in the
 
 ## Bundling with the manual-test skill
 
-When you invoke this skill's flow, the user-level `manual-test-redpanda-resource` skill (at `~/.claude/skills/manual-test-redpanda-resource/`) is the canonical step-by-step recipe with templates. The project skills delegate to it rather than duplicating.
+When you invoke this skill's flow, the `manual-test-redpanda-resource` skill (at `../manual-test-redpanda-resource/`) is the canonical step-by-step recipe with templates. The project skills delegate to it rather than duplicating.
 
 ## See also
 
 - [testing-tiers](testing-tiers.md) — what manual validation does and doesn't replace
-- `~/.claude/skills/manual-test-redpanda-resource/SKILL.md` — the full recipe
+- [manual-test-redpanda-resource](../manual-test-redpanda-resource/SKILL.md) — the full recipe

@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -29,7 +28,7 @@ import (
 )
 
 // TestCidrPortPortEndProtoValidation proves that the buf.validate CEL
-// constraint on Cluster_CidrPort —
+// constraint on Cluster_CidrPort,
 //
 //	this.port_end == 0 || this.port_end >= this.port_start
 //

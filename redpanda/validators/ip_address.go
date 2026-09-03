@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -26,7 +25,7 @@ var _ validator.String = IPAddressValidator{}
 
 // IPAddressValidator ensures the value parses as a valid IPv4 or IPv6 address
 // literal, mirroring the API's buf.validate (buf.validate.field).string.ip
-// constraint (net.ParseIP semantics — no CIDR suffix).
+// constraint (net.ParseIP semantics, so no CIDR suffix).
 type IPAddressValidator struct{}
 
 // Description provides a description of the validator.

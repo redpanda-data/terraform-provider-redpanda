@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -37,7 +36,7 @@ type goldenSchema struct {
 
 // ParseGoldenPaths loads the golden YAML at path and returns the set of
 // dotted attribute paths it contains (e.g. "aws_private_link.allowed_principals").
-// Returns (nil, nil) if the file does not exist — callers should treat that
+// Returns (nil, nil) if the file does not exist, so callers should treat that
 // as "no baseline available" and fall back to marking all uncovered fields.
 func ParseGoldenPaths(path string) (map[string]struct{}, error) {
 	data, err := fileutil.ReadFile(path)

@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -24,6 +23,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/redpanda-data/terraform-provider-redpanda/internal/fileutil"
 )
 
 var updateGolden = flag.Bool("update-golden", false, "update golden fixtures in internal/schemagen/testdata/")
@@ -76,6 +77,7 @@ func TestFlattenExpandGolden(t *testing.T) {
 			if err != nil {
 				t.Fatalf("PlanFlattenExpand: %v", err)
 			}
+			data.License = fileutil.LicenseHeaderYear(2023)
 			src, err := GenerateFlattenExpand(data)
 			if err != nil {
 				t.Fatalf("GenerateFlattenExpand: %v", err)
@@ -1077,7 +1079,7 @@ func returnPayloadUpdateGoldenCase() goldenCase {
 }
 
 // withMaskSparseGoldenCase exercises diff_mask: sparse on a return_payload
-// update — the cluster/shadowlink shape. ExpandUpdateWithMask returns the
+// update, the cluster/shadowlink shape. ExpandUpdateWithMask returns the
 // sparse diff payload via utils.GenerateProtobufDiffAndUpdateMask.
 func withMaskSparseGoldenCase() goldenCase {
 	return goldenCase{
@@ -1143,7 +1145,7 @@ func withMaskSparseGoldenCase() goldenCase {
 	}
 }
 
-// withMaskFullGoldenCase exercises diff_mask: full on a flat update request —
+// withMaskFullGoldenCase exercises diff_mask: full on a flat update request,
 // the serverless shape (no payload sub-message, no FieldMask field in the
 // request). ExpandUpdateWithMask returns the full plan request via
 // utils.PlanPayloadWithUpdateMask; the caller reads the mask only to decide

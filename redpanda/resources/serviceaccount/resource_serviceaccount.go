@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -191,7 +190,7 @@ func (s *ServiceAccount) Delete(ctx context.Context, req resource.DeleteRequest,
 
 // ImportState imports a ServiceAccount via "<id>:<client_secret>". client_secret
 // is server-issued exactly once on Create and never echoed by subsequent reads,
-// so an import without it would leave state with a null secret — silently
+// so an import without it would leave state with a null secret, silently
 // breaking any downstream output that consumes it. The composite ID requires
 // the operator to supply the secret they captured at creation time; Read fills
 // in name, description, and client_id from the server.

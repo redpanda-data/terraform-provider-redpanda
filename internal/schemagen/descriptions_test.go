@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -47,7 +46,7 @@ func withScopedDescription(t *testing.T, key, text string) {
 	})
 }
 
-// TestMerge_ScopedDescriptionBeatsAPIDesc — scoped table entries describe
+// TestMerge_ScopedDescriptionBeatsAPIDesc: scoped table entries describe
 // provider behavior the API cannot know; they must win over apidesc text.
 func TestMerge_ScopedDescriptionBeatsAPIDesc(t *testing.T) {
 	withScopedDescription(t, "Foo.bounded", "Provider-behavior text.")
@@ -78,7 +77,7 @@ func TestMerge_ScopedDescriptionBeatsAPIDesc(t *testing.T) {
 	}
 }
 
-// TestMerge_CommonDescriptionOnExtraField — TF-only fields take the shared
+// TestMerge_CommonDescriptionOnExtraField: TF-only fields take the shared
 // plain-name table text, including nested extras.
 func TestMerge_CommonDescriptionOnExtraField(t *testing.T) {
 	tru := true
@@ -143,7 +142,7 @@ func descTestIndexWithWriteRoot() *apidesc.Index {
 	}, "test-fixture")
 }
 
-// TestMerge_WriteShapeDescriptionFallback — a write-only input field
+// TestMerge_WriteShapeDescriptionFallback: a write-only input field
 // (expand_proto_name, absent from the read shape) sources its description from
 // the api_write_schemas fallback root, not the humanize fallback.
 func TestMerge_WriteShapeDescriptionFallback(t *testing.T) {
@@ -182,7 +181,7 @@ func TestMerge_WriteShapeDescriptionFallback(t *testing.T) {
 	}
 }
 
-// TestMerge_ScopedDescriptionOnExtraField — the Cluster.tags shape: an extra
+// TestMerge_ScopedDescriptionOnExtraField pins the Cluster.tags shape: an extra
 // field with a scoped entry uses it over the plain-name/mechanical text.
 func TestMerge_ScopedDescriptionOnExtraField(t *testing.T) {
 	withScopedDescription(t, "Foo.tags", "Tags with provider-side filtering.")

@@ -21,7 +21,7 @@ Confirm with the user:
 
 ## Plan first: use the sonnet exploration pattern
 
-Per memory `feedback_sonnet_agent_exploration_pattern.md` — scaffolding a new resource touches every phase (schema, codegen, CRUD, registration, tests, examples, docs, manual validation). Don't try to hold all of that in working memory.
+Scaffolding a new resource touches every phase (schema, codegen, CRUD, registration, tests, examples, docs, manual validation). Don't try to hold all of that in working memory.
 
 1. Spawn sonnet agents in parallel to explore. One per phase the user hasn't already nailed down, e.g.:
    - "How does serviceaccount handle the `flatten_skip:` + Create-only pattern? Find the exact code."
@@ -69,7 +69,7 @@ A datasource directive adds `redpanda/resources/<name>/schema_datasource_gen.go`
 Then create the golden baseline:
 
 ```bash
-task generate:golden    # requires user approval per memory feedback_golden_files.md
+task generate:golden    # requires explicit user approval (see CLAUDE.md)
 ```
 
 ## 4. CRUD glue
@@ -82,7 +82,7 @@ For hand-written conversion functions referenced by `flatten_via:` / `expand_via
 
 ### Hard rule: every leaf in the schema must be exercised in Tier 2
 
-Per memory `feedback_test_all_leaves.md`: every attribute that appears in the resource's `*.golden` file — at every nesting level — must be covered by the colocated integration test (Tier 2). Coverage means at least a `stateChecks` assertion (value or explicit null) in the Create step, plus an UpdateLeaf step if mutable, plus a NestedMatrix entry if it lives inside a block.
+Every attribute that appears in the resource's `*.golden` file — at every nesting level — must be covered by the colocated integration test (Tier 2). Coverage means at least a `stateChecks` assertion (value or explicit null) in the Create step, plus an UpdateLeaf step if mutable, plus a NestedMatrix entry if it lives inside a block.
 
 Missing leaves cause `Error: Provider produced inconsistent result after apply` at runtime — opaque, painful for users, and only surfaces when someone happens to set the uncovered attribute. The integration tier exists specifically to catch these before they ship.
 
@@ -133,30 +133,30 @@ See [`../_shared/manual-validation.md`](../_shared/manual-validation.md). For gr
 3. State rm → Import → No-op plan
 4. Drift mutation → Plan detects
 
-Use the user-level `manual-test-redpanda-resource` skill for the detailed recipe and templates.
+Use the `manual-test-redpanda-resource` skill for the detailed recipe and templates.
 
 ## When you get stuck or surprised
 
-Per memory `feedback_ask_when_unsure.md`: when the actual state diverges from what your plan assumed (a file isn't where you expected, an existing pattern doesn't match what you were going to copy, codegen output isn't what you predicted), **stop and ask** with concrete options. Don't guess your way out — guesses compound, and the right answer is usually a small clarification away.
+When the actual state diverges from what your plan assumed (a file isn't where you expected, an existing pattern doesn't match what you were going to copy, codegen output isn't what you predicted), **stop and ask** with concrete options. Don't guess your way out — guesses compound, and the right answer is usually a small clarification away.
 
-Per memory `feedback_test_first_bug_proof.md`: if you find a bug during the add work (existing behavior is wrong, not just incomplete), write a failing test that proves it first. Show the user the red, then discuss fix scope separately. Don't roll the bug fix into the add silently.
+If you find a bug during the add work (existing behavior is wrong, not just incomplete), write a failing test that proves it first (see `CLAUDE.md`). Show the user the red, then discuss fix scope separately. Don't roll the bug fix into the add silently.
 
 ## Don'ts (project-specific)
 
 - **Don't hand-edit `*_gen.go` files** — fix the generator or the YAML.
-- **Don't add `//nolint` or `#nosec`** without explicit user approval (memory `feedback_no_nolint_without_permission.md`).
+- **Don't add `//nolint` or `#nosec`** without explicit user approval (see `CLAUDE.md`).
 - **Don't reorder existing schema YAML entries** when editing — diff noise hides real changes.
-- **Don't add code comments** beyond load-bearing traps (memory `feedback_no_code_comments.md`).
-- **Don't `git push`** without explicit per-push approval (memory `feedback_no_push_without_permission.md`).
-- **Don't run `task generate:golden` without explicit user approval** — goldens are sacred (memory `feedback_golden_files.md`).
-- **Don't fabricate parallel test functions** — for a new resource, write the *minimum* set of test functions needed to cover the four tiers. If you find yourself adding `TestIntegration_<Name>_Extra` or `TestIntegration_<Name>_v2`, stop and ask whether it belongs as additional steps in the primary lifecycle test (memory `feedback_extend_existing_tests.md` — the rule applies less aggressively for new resources, but the duplication antipattern is the same).
-- **Don't skip leaves in Tier 2 integration tests** — every leaf in the resource's golden must be exercised. Skipping a leaf requires explicit user authorization after they're informed of the runtime inconsistency risk (memory `feedback_test_all_leaves.md`).
+- **Don't add code comments** beyond load-bearing traps (see `CLAUDE.md`).
+- **Don't `git push`** without explicit per-push approval (see `CLAUDE.md`).
+- **Don't run `task generate:golden` without explicit user approval** — goldens are sacred (see `CLAUDE.md`).
+- **Don't fabricate parallel test functions** — for a new resource, write the *minimum* set of test functions needed to cover the four tiers. If you find yourself adding `TestIntegration_<Name>_Extra` or `TestIntegration_<Name>_v2`, stop and ask whether it belongs as additional steps in the primary lifecycle test (the extend-existing-tests rule applies less aggressively for new resources, but the duplication antipattern is the same).
+- **Don't skip leaves in Tier 2 integration tests** — every leaf in the resource's golden must be exercised. Skipping a leaf requires explicit user authorization after they're informed of the runtime inconsistency risk.
 
 ## Commit shape
 
-Per memory `feedback_review_shape_commits.md`:
+Commit boundaries optimize for reviewability:
 - Generated files (`*_gen.go`, `.golden`, regenerated `docs/`) get their own commit, **placed last** so reviewers can skim and skip.
-- For new-resource scaffolding, prefer one bundled PR over several small ones (memory `feedback_single_pr_with_folded_fixes.md`).
+- For new-resource scaffolding, prefer one bundled PR over several small ones.
 
 Suggested commit order:
 1. Schema YAML + provider registration + schemagen line + golden_test entry

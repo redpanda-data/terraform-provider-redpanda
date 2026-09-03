@@ -2,7 +2,6 @@
 
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -30,7 +29,7 @@ import (
 )
 
 // testRunnerClusterWithAwsPrivateLinkToggle runs the standard lifecycle then
-// toggles PL from true to false — regression guard for
+// toggles PL from true to false, a regression guard for
 // terraform-plugin-framework#1211.
 func testRunnerClusterWithAwsPrivateLinkToggle(ctx context.Context, name, rename, version, testFile string, customVars map[string]config.Variable, t *testing.T, opts ...runnerOpt) {
 	origTestCaseVars := make(map[string]config.Variable)

@@ -57,3 +57,6 @@ manual-tests/
 
 # Local Claude Code scratch / per-user settings — committed: .claude/skills/, .claude/settings.json (if present)
 .claude/settings.local.json
+
+# goreleaser output
+dist/

@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -31,7 +30,7 @@ import (
 // apps/public-api-go/internal/services/cluster/v1/mapper.go pathMap): the API
 // translates the public mask via exact-match lookup and SILENTLY DROPS any path
 // without a mapping. Crucially, rpsql and kafka_connect have NO top-level
-// pathMap entry — the API accepts them only at leaf granularity. A fake that
+// pathMap entry: the API accepts them only at leaf granularity. A fake that
 // applies the bare object path by reflection is more permissive than the API,
 // so a provider that emits the wrong (un-expanded) mask would pass tests the
 // real API would reject. This test makes the fake reject what the API rejects.
@@ -103,7 +102,7 @@ func TestClusterFake_UpdateMaskFidelity(t *testing.T) {
 		},
 		{
 			// kafka_connect.enabled IS in pathMap → API applies it. The fake
-			// must too (it currently has no handler and would drop it).
+			// must too.
 			name:   "kafka_connect.enabled leaf applied",
 			seed:   &controlplanev1.Cluster{Id: id},
 			update: &controlplanev1.ClusterUpdate{Id: id, KafkaConnect: &controlplanev1.KafkaConnect{Enabled: true}},
@@ -128,7 +127,7 @@ func TestClusterFake_UpdateMaskFidelity(t *testing.T) {
 		},
 		{
 			// The CP's top-level aws_private_link mapping covers the whole
-			// spec.private_link_service subtree, supported_regions included —
+			// spec.private_link_service subtree, supported_regions included, so
 			// the fake must apply the incoming value, not preserve the old one.
 			name: "aws_private_link supported_regions applied",
 			seed: &controlplanev1.Cluster{Id: id, AwsPrivateLink: &controlplanev1.Cluster_AWSPrivateLink{
@@ -190,7 +189,7 @@ func TestClusterFake_UpdateMaskFidelity(t *testing.T) {
 		},
 		{
 			// CP defaulter: disabling replaces the whole spec with a bare
-			// {Enabled: false}, so zones, replicas and url are all cleared —
+			// {Enabled: false}, so zones, replicas and url are all cleared,
 			// even when the caller still sends the prior zones.
 			name: "disable clears zones replicas and url",
 			seed: &controlplanev1.Cluster{
@@ -231,7 +230,7 @@ func TestClusterFake_UpdateMaskFidelity(t *testing.T) {
 			},
 		},
 		{
-			// validateOxlaZones: the zone must be one of the cluster's zones —
+			// validateOxlaZones: the zone must be one of the cluster's zones,
 			// the rejection live validation observed on a single-AZ cluster.
 			name:    "zone outside cluster zones rejected",
 			seed:    &controlplanev1.Cluster{Id: id, Zones: []string{az1}},
@@ -300,7 +299,7 @@ func connSpec(t controlplanev1.Cluster_ConnectionType, m controlplanev1.AuthMode
 // TestReconcileConnections pins the fake's mirror of the control plane's
 // listener reconcile (apiConnectionsToListenersForUpdateCluster): retained and
 // auth-switched entries keep their stored POSITION and ENDPOINT, new entries
-// append in request order, undesired entries drop — so the echoed order
+// append in request order, undesired entries drop, so the echoed order
 // deliberately diverges from request order, like the real backend.
 func TestReconcileConnections(t *testing.T) {
 	pubSASL := connSpec(controlplanev1.Cluster_CONNECTION_TYPE_PUBLIC, controlplanev1.AuthMode_AUTH_MODE_SASL)
@@ -344,7 +343,7 @@ func TestReconcileConnections(t *testing.T) {
 			t.Fatalf("entry 0 endpoint = %s, want retained pub-ep", got[0].GetEndpoint())
 		}
 		// prv-sasl dropped; pub-mtls is genuinely new (pub-sasl still desired,
-		// so no rename) — fresh endpoint appended last.
+		// so no rename) with a fresh endpoint appended last.
 		if got[1].GetConfig().GetAuth().GetMode() != controlplanev1.AuthMode_AUTH_MODE_MTLS || got[1].GetEndpoint() == testPrvEP {
 			t.Fatalf("entry 1 = %v/%s, want appended fresh mtls", got[1].GetConfig(), got[1].GetEndpoint())
 		}

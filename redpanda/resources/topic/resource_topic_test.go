@@ -1,3 +1,17 @@
+// Copyright 2026 Redpanda Data, Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
 package topic
 
 import (
@@ -142,7 +156,7 @@ func TestUnit_Topic_Create(t *testing.T) {
 				}),
 			},
 			setup: func(m *mocks.MockTopicServiceClient) {
-				// Times(1) is implicit — gomock fails the test if Create retries.
+				// Times(1) is implicit, so gomock fails the test if Create retries.
 				m.EXPECT().
 					CreateTopic(gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(nil, grpcstatus.Error(codes.PermissionDenied, "Unauthorized"))

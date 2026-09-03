@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -32,7 +31,7 @@ const defaultCompatibility = "BACKWARD"
 
 // SchemaRegistryFake is an httptest-backed in-memory Schema Registry. It also
 // serves the rpsr ACL endpoints (/security/acls) so a single fake backs both
-// redpanda_schema and redpanda_schema_registry_acl. No auth validation — the
+// redpanda_schema and redpanda_schema_registry_acl. No auth validation: the
 // integration tests pass Basic creds in HCL purely to satisfy the provider's
 // schemaRegistryAuthOption gate; the fake ignores the headers.
 type SchemaRegistryFake struct {
@@ -61,7 +60,7 @@ type httpOverride struct {
 // NewSchemaRegistryFake starts the httptest server and registers cleanup. The
 // httptest server is wrapped with overrideMiddleware so OverrideOnceHTTP can
 // intercept matching requests before the mux dispatches them. On t.Cleanup the
-// fake fails the test if any registered override was never consumed — a typo
+// fake fails the test if any registered override was never consumed: a typo
 // in the path argument is otherwise silent.
 func NewSchemaRegistryFake(t testing.TB) *SchemaRegistryFake {
 	t.Helper()
@@ -99,20 +98,11 @@ func NewSchemaRegistryFake(t testing.TB) *SchemaRegistryFake {
 	return f
 }
 
-// OverrideOnceHTTP arranges that the next request whose method and path match
-// the given key returns the given status code and body instead of dispatching
-// to the route handler. Consumed on first match; subsequent requests fall
-// through to the registered handler. Calling OverrideOnceHTTP again for the
-// same (method, path) before the first override fires replaces it.
-//
-// path is the EXPANDED literal URL path that the client will send, e.g.
-// "/subjects/my-subject/versions/3", NOT a mux pattern with placeholders like
-// "/subjects/{subject}/versions/{version}". A typo or mismatched path is
-// flagged at t.Cleanup as an unconsumed override.
-//
-// body is written verbatim as the response body; the caller is responsible for
-// the content (typically the Schema Registry error JSON shape, but the hook is
-// payload-agnostic). Content-Type is set to the SR JSON media type.
+// OverrideOnceHTTP makes the next request matching method and path return
+// statusCode and body verbatim instead of reaching the route handler; a repeat
+// registration for the same key replaces the pending one. path is the literal
+// path the client sends ("/subjects/my-subject/versions/3"), not a mux pattern;
+// one that never matches is reported at t.Cleanup as unconsumed.
 func (f *SchemaRegistryFake) OverrideOnceHTTP(method, path string, statusCode int, body string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

@@ -1,6 +1,5 @@
 // Copyright 2025 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -45,8 +44,8 @@ func FindRepoRoot() (string, error) {
 	}
 }
 
-// ResolveCloudv2Root locates a cloudv2 checkout — a directory containing
-// proto/public/cloud — preferring the flag value, then $CLOUDV2_ROOT, then
+// ResolveCloudv2Root locates a cloudv2 checkout (a directory containing
+// proto/public/cloud), preferring the flag value, then $CLOUDV2_ROOT, then
 // common relative paths. Returns "" if none validate.
 func ResolveCloudv2Root(flagValue string) string {
 	if flagValue != "" {

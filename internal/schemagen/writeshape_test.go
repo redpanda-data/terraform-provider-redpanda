@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -105,7 +104,7 @@ func TestWriteShapeIndex_AuthoritySplitPerShape(t *testing.T) {
 }
 
 // Without an update payload, "absent from the update shape" means unknown, not
-// immutable — otherwise every attribute on a create-only resource is flagged.
+// immutable. Otherwise every attribute on a create-only resource is flagged.
 func TestWriteShapeIndex_NoUpdatePayload(t *testing.T) {
 	idx := &WriteShapeIndex{
 		create: map[string]bool{"name": true}, update: map[string]bool{},
@@ -169,7 +168,7 @@ func TestMerge_WriteShapeDiagnostics_Fire(t *testing.T) {
 // declareLifecycle fills Optional+Computed for every proto field the config
 // does not already give a lifecycle, recursing into nested messages. The
 // generator supplies no default, so a fixture has to state one the same way a
-// real schema.yaml does — otherwise it models a schema the generator rejects.
+// real schema.yaml does. Otherwise it models a schema the generator rejects.
 func declareLifecycle(proto *ProtoMessage, cfg *Config) *Config {
 	if cfg.Fields == nil {
 		cfg.Fields = map[string]FieldConfig{}

@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -210,7 +209,7 @@ func TestUnit_RoleAssignment_ImportIDFormat_WithURL(t *testing.T) {
 	}
 }
 
-// parseImportIDSim mirrors the parse logic in ImportState — kept here so
+// parseImportIDSim mirrors the parse logic in ImportState, kept here so
 // the unit test pins the parser shape without needing to construct a full
 // resource.ImportStateRequest/Response pair. Drift between this helper and
 // ImportState is caught by the integration test's Import subtests.

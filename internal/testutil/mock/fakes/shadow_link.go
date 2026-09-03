@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -35,7 +34,7 @@ import (
 const shadowLinkIDBase uint64 = 0x7000_0000_0000_0000
 
 // ShadowLinkFake is a stateful in-memory implementation of ShadowLinkService.
-// All three mutating RPCs (Create/Update/Delete) are async — each publishes a
+// All three mutating RPCs (Create/Update/Delete) are async: each publishes a
 // completed Operation via op.Set so AreWeDoneYet resolves on the first poll.
 //
 // UpdateShadowLink honors UpdateMask: only the listed top-level fields on the
@@ -122,8 +121,8 @@ func populateServerOwned(sl *controlplanev1.ShadowLink) {
 	if co := sl.GetClientOptions(); co != nil {
 		co.ClientId = "tfrp-fake-client-id"
 	}
-	// The CP mapper returns a non-nil role_sync_options on every GET — even
-	// for links that never configured it — to carry effective_interval.
+	// The CP mapper returns a non-nil role_sync_options on every GET (even
+	// for links that never configured it) to carry effective_interval.
 	if sl.GetRoleSyncOptions() == nil {
 		sl.RoleSyncOptions = &corev2.RoleSyncOptions{}
 	}
@@ -146,7 +145,7 @@ func populateServerOwned(sl *controlplanev1.ShadowLink) {
 	}
 }
 
-// durationOr returns d, or fallbackSeconds when d is unset — mirroring the
+// durationOr returns d, or fallbackSeconds when d is unset, mirroring the
 // control plane applying its own default to the effective_* mirrors.
 func durationOr(d *durationpb.Duration, fallbackSeconds int64) *durationpb.Duration {
 	if d != nil && (d.GetSeconds() != 0 || d.GetNanos() != 0) {
