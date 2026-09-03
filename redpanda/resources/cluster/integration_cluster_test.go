@@ -3394,12 +3394,12 @@ func TestIntegration_Cluster_Connections_EnvelopeRejected(t *testing.T) {
 			{
 				Config: gcpDedicatedConfigNoConnType("envelope-gcp",
 					dualAllServices(dualSaslConns)...),
-				ExpectError: regexp.MustCompile(`(?s)supported only on AWS BYOC`),
+				ExpectError: regexp.MustCompile(`(?s)supported only on AWS\s+BYOC`),
 			},
 			{
 				Config: awsDedicatedNoConnTypeConfig("envelope-dedicated",
 					dualAllServices(dualSaslConns)...),
-				ExpectError: regexp.MustCompile(`(?s)supported only on AWS BYOC`),
+				ExpectError: regexp.MustCompile(`(?s)supported only on AWS\s+BYOC`),
 			},
 		},
 	})
@@ -3804,7 +3804,7 @@ func TestIntegration_Cluster_DualListenerConnections_ConfigErrors(t *testing.T) 
 			// Azure does not support dual listener mode.
 			Config: azureDedicatedNoConnTypeConfig("dual-azure",
 				dualAllServices(dualSaslConns)...),
-			ExpectError: regexp.MustCompile(`supported only on AWS BYOC`),
+			ExpectError: regexp.MustCompile(`supported only on AWS\s+BYOC`),
 		},
 		{
 			// Valid config last: the framework's post-test destroy re-plans

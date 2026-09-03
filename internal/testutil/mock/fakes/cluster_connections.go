@@ -58,8 +58,13 @@ func (f *ClusterFake) checkConnectionsFlag(inUse bool) error {
 	return nil
 }
 
-func connectionsEnvelopeErr() error {
-	return connInvalidf("dual listener mode (connections) is supported only on AWS BYOC clusters")
+// connectionsNotSupportedOnAzureErr is the control plane's only envelope
+// rejection for connections (cloudv2 dual_mode_connections.go, create and
+// update). The provider's narrower AWS-BYOC certification gate is a
+// ValidateConfig rule and deliberately not mirrored here, so an integration
+// test cannot pass on this fake's rejection once that gate is lost.
+func connectionsNotSupportedOnAzureErr() error {
+	return connInvalidf("dual listener mode (connections) is not supported on Azure")
 }
 
 // hasPublicConnection reports whether any spec is a public listener.
@@ -182,8 +187,8 @@ func (f *ClusterFake) validateCreateConnections(in *controlplanev1.ClusterCreate
 	if !inUse {
 		return nil
 	}
-	if in.GetCloudProvider() != controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS || in.GetType() != controlplanev1.Cluster_TYPE_BYOC {
-		return connectionsEnvelopeErr()
+	if in.GetCloudProvider() == controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE {
+		return connectionsNotSupportedOnAzureErr()
 	}
 
 	for _, s := range services {
@@ -519,8 +524,8 @@ func (f *ClusterFake) applyConnectionsUpdate(cl *controlplanev1.Cluster, upd *co
 		return nil, nil
 	}
 
-	if cl.GetCloudProvider() != controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS || cl.GetType() != controlplanev1.Cluster_TYPE_BYOC {
-		return nil, connectionsEnvelopeErr()
+	if cl.GetCloudProvider() == controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE {
+		return nil, connectionsNotSupportedOnAzureErr()
 	}
 	// A private-only cluster's network has no public infrastructure; adding
 	// public listeners in place is rejected (the CP enforces this in

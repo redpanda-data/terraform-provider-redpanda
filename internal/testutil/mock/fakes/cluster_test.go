@@ -350,6 +350,94 @@ func TestReconcileConnections(t *testing.T) {
 	})
 }
 
+// TestClusterFake_ConnectionsEnvelopeMatchesControlPlane pins the control
+// plane's envelope rule for connections: only Azure is rejected, on create and
+// on update. The provider's AWS-BYOC gate belongs to ValidateConfig alone.
+func TestClusterFake_ConnectionsEnvelopeMatchesControlPlane(t *testing.T) {
+	ctx := context.Background()
+	sasl := func(ct controlplanev1.Cluster_ConnectionType) *controlplanev1.ConnectionSpec {
+		return &controlplanev1.ConnectionSpec{Type: ct, Auth: &controlplanev1.AuthSpec{Mode: controlplanev1.AuthMode_AUTH_MODE_SASL}}
+	}
+	dual := []*controlplanev1.ConnectionSpec{sasl(connTypePublic), sasl(connTypePrivate)}
+	dualCreate := func(name string, cp controlplanev1.CloudProvider, ct controlplanev1.Cluster_Type) *controlplanev1.ClusterCreate {
+		return &controlplanev1.ClusterCreate{
+			Name:           name,
+			CloudProvider:  cp,
+			Type:           ct,
+			KafkaApi:       &controlplanev1.KafkaAPISpec{Connections: dual},
+			HttpProxy:      &controlplanev1.HTTPProxySpec{Connections: dual},
+			SchemaRegistry: &controlplanev1.SchemaRegistrySpec{Connections: dual},
+		}
+	}
+
+	t.Run("create accepts GCP BYOC and AWS dedicated", func(t *testing.T) {
+		f := NewClusterFake(NewOperationFake())
+		for _, c := range []*controlplanev1.ClusterCreate{
+			dualCreate("gcp-byoc", controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP, controlplanev1.Cluster_TYPE_BYOC),
+			dualCreate("aws-dedicated", controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS, controlplanev1.Cluster_TYPE_DEDICATED),
+		} {
+			if _, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{Cluster: c}); err != nil {
+				t.Errorf("CreateCluster(%s) with connections: %v; the control plane rejects only Azure", c.GetName(), err)
+			}
+		}
+	})
+
+	t.Run("create rejects Azure", func(t *testing.T) {
+		f := NewClusterFake(NewOperationFake())
+		_, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{
+			Cluster: dualCreate("azure", controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE, controlplanev1.Cluster_TYPE_DEDICATED),
+		})
+		if status.Code(err) != codes.InvalidArgument || !strings.Contains(err.Error(), "Azure") {
+			t.Fatalf("expected the control plane's Azure rejection, got %v", err)
+		}
+	})
+
+	t.Run("update accepts GCP BYOC", func(t *testing.T) {
+		f := NewClusterFake(NewOperationFake())
+		op, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{
+			Cluster: dualCreate("gcp-byoc", controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP, controlplanev1.Cluster_TYPE_BYOC),
+		})
+		if err != nil {
+			t.Fatalf("CreateCluster: %v", err)
+		}
+		_, err = f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+			Cluster: &controlplanev1.ClusterUpdate{
+				Id:       op.GetOperation().GetResourceId(),
+				KafkaApi: &controlplanev1.KafkaAPISpec{Connections: dual},
+			},
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"kafka_api.connections"}},
+		})
+		if err != nil {
+			t.Fatalf("UpdateCluster connections on GCP BYOC: %v; the control plane rejects only Azure", err)
+		}
+	})
+
+	t.Run("update rejects Azure", func(t *testing.T) {
+		f := NewClusterFake(NewOperationFake())
+		op, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{
+			Cluster: &controlplanev1.ClusterCreate{
+				Name:           "azure-legacy",
+				CloudProvider:  controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE,
+				Type:           controlplanev1.Cluster_TYPE_DEDICATED,
+				ConnectionType: connTypePublic,
+			},
+		})
+		if err != nil {
+			t.Fatalf("CreateCluster: %v", err)
+		}
+		_, err = f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+			Cluster: &controlplanev1.ClusterUpdate{
+				Id:       op.GetOperation().GetResourceId(),
+				KafkaApi: &controlplanev1.KafkaAPISpec{Connections: dual},
+			},
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"kafka_api.connections"}},
+		})
+		if status.Code(err) != codes.InvalidArgument || !strings.Contains(err.Error(), "Azure") {
+			t.Fatalf("expected the control plane's Azure rejection, got %v", err)
+		}
+	})
+}
+
 // TestClusterFake_PrivateOnlyGainsPublicRejected pins the fake's mirror of the
 // control plane's in-place topology restriction: a cluster whose stored
 // listeners are all private cannot gain a public listener through a
