@@ -222,6 +222,8 @@ attributes:
             - name: name
               type: StringAttribute
               required: true
+              validators:
+                - validators.NameFilterWildcardValidator
             - name: pattern_type
               type: StringAttribute
               required: true
@@ -288,6 +290,8 @@ attributes:
             - name: name
               type: StringAttribute
               required: true
+              validators:
+                - validators.NameFilterWildcardValidator
             - name: pattern_type
               type: StringAttribute
               required: true
@@ -579,6 +583,8 @@ attributes:
             - name: name
               type: StringAttribute
               required: true
+              validators:
+                - validators.NameFilterWildcardValidator
             - name: pattern_type
               type: StringAttribute
               required: true
