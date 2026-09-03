@@ -289,6 +289,7 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 								"name": schema.StringAttribute{
 									Description: "The resource name, or \"*\" Note if \"*\", must be the _only_ character and `pattern_type` must be `PATTERN_TYPE_LITERAL`",
 									Required:    true,
+									Validators:  []validator.String{validators.NameFilterWildcardValidator{}},
 								},
 								"pattern_type": schema.StringAttribute{
 									Description: "- PATTERN_TYPE_LITERAL: Must match the filter exactly - PATTERN_TYPE_PREFIX: Will match anything that starts with filter - PATTERN_TYPE_PREFIXED: Will match anything that starts with filter",
@@ -346,6 +347,7 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 								"name": schema.StringAttribute{
 									Description: "The resource name, or \"*\" Note if \"*\", must be the _only_ character and `pattern_type` must be `PATTERN_TYPE_LITERAL`",
 									Required:    true,
+									Validators:  []validator.String{validators.NameFilterWildcardValidator{}},
 								},
 								"pattern_type": schema.StringAttribute{
 									Description: "- PATTERN_TYPE_LITERAL: Must match the filter exactly - PATTERN_TYPE_PREFIX: Will match anything that starts with filter - PATTERN_TYPE_PREFIXED: Will match anything that starts with filter",
@@ -678,6 +680,7 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 								"name": schema.StringAttribute{
 									Description: "The resource name, or \"*\" Note if \"*\", must be the _only_ character and `pattern_type` must be `PATTERN_TYPE_LITERAL`",
 									Required:    true,
+									Validators:  []validator.String{validators.NameFilterWildcardValidator{}},
 								},
 								"pattern_type": schema.StringAttribute{
 									Description: "- PATTERN_TYPE_LITERAL: Must match the filter exactly - PATTERN_TYPE_PREFIX: Will match anything that starts with filter - PATTERN_TYPE_PREFIXED: Will match anything that starts with filter",
