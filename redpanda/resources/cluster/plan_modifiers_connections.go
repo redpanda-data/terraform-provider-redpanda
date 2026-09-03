@@ -16,6 +16,7 @@ package cluster
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"strings"
 
@@ -220,6 +221,40 @@ func guardConnectionsManaged(ctx context.Context, req resource.ModifyPlanRequest
 		resp.Diagnostics.AddAttributeError(path.Root("connection_type"),
 			"Cluster Managed Through Connections",
 			"this cluster's listeners are managed through connections; returning to connection_type networking is not supported — remove connection_type and restore the connections blocks on kafka_api, http_proxy, and schema_registry")
+	}
+}
+
+// guardLegacyMTLSRemoval rejects dropping a service's mtls block while state
+// has mTLS enabled and the service is not connections-managed. The block is
+// optional+computed with UseStateForUnknown, so its removal plans as no change
+// and the control plane treats a nil mtls as no change too: mTLS would stay on
+// with no signal. An explicit enabled = false is the disable path.
+func guardLegacyMTLSRemoval(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	for _, svc := range []string{"kafka_api", "http_proxy", "schema_registry"} {
+		var cfgMTLS, stateMTLS types.Object
+		var cfgConns types.List
+		if d := req.Config.GetAttribute(ctx, path.Root(svc).AtName("mtls"), &cfgMTLS); d.HasError() {
+			resp.Diagnostics.Append(d...)
+			return
+		}
+		if d := req.Config.GetAttribute(ctx, path.Root(svc).AtName("connections"), &cfgConns); d.HasError() {
+			resp.Diagnostics.Append(d...)
+			return
+		}
+		if d := req.State.GetAttribute(ctx, path.Root(svc).AtName("mtls"), &stateMTLS); d.HasError() {
+			resp.Diagnostics.Append(d...)
+			return
+		}
+		if !cfgMTLS.IsNull() || !cfgConns.IsNull() || stateMTLS.IsNull() || stateMTLS.IsUnknown() {
+			continue
+		}
+		enabled, ok := stateMTLS.Attributes()["enabled"].(types.Bool)
+		if !ok || !enabled.ValueBool() {
+			continue
+		}
+		resp.Diagnostics.AddAttributeError(path.Root(svc).AtName("mtls"),
+			"Ambiguous mTLS Removal",
+			fmt.Sprintf("%s.mtls was removed from the configuration while mTLS is enabled on the cluster; removing the block does not disable mTLS. Set %s.mtls.enabled = false to disable it, or restore the block to keep it.", svc, svc))
 	}
 }
 

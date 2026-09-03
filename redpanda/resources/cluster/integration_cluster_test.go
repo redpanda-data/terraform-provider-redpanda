@@ -1153,6 +1153,32 @@ func TestIntegration_Cluster_UpdateLeaf_HTTPProxy_MTLS_Enabled(t *testing.T) {
 	})
 }
 
+// TestIntegration_Cluster_LegacyMTLS_BlockRemovalRejected pins that dropping a
+// service's mtls block while mTLS is enabled is rejected at plan time, and that
+// an explicit enabled = false remains the way to disable it.
+func TestIntegration_Cluster_LegacyMTLS_BlockRemovalRejected(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-mtls-rm"
+	enabled := tfjsonpath.New("kafka_api").AtMapKey("mtls").AtMapKey("enabled")
+	withMTLS := `kafka_api = { mtls = { enabled = true, ca_certificates_pem = ["` + testCAPem + `"] } }`
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr, awsDedicatedConfig(name, withMTLS),
+				[]statecheck.StateCheck{statecheck.ExpectKnownValue(clusterAddr, enabled, knownvalue.Bool(true))}),
+			{
+				Config:      awsDedicatedConfig(name),
+				ExpectError: regexp.MustCompile(`(?s)Ambiguous mTLS Removal.*kafka_api\.mtls\.enabled\s*=\s*false`),
+			},
+			integration.UpdateLeafStep(clusterAddr, awsDedicatedConfig(name, `kafka_api = { mtls = { enabled = false } }`),
+				[]statecheck.StateCheck{statecheck.ExpectKnownValue(clusterAddr, enabled, knownvalue.Bool(false))}),
+			integration.NoopReapplyStep(clusterAddr, awsDedicatedConfig(name), nil),
+		},
+	})
+}
+
 // TestIntegration_Cluster_UpdateLeaf_KafkaConnect_Enabled proves that
 // GenerateProtobufDiffAndUpdateMask correctly detects the presence change when
 // the user adds a kafka_connect block (null → { enabled = false }). The
