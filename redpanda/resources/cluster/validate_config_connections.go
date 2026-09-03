@@ -38,6 +38,57 @@ var _ resource.ResourceWithValidateConfig = &Cluster{}
 // are deliberately left to the API, which distinguishes create from update.
 func (*Cluster) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
 	validateDualListenerConnections(ctx, req.Config, resp)
+	warnLegacyConnectionTypeOnCertifiedEnvelope(ctx, req.Config, resp)
+}
+
+// envelopeVerdict is the provider's certification scope for dual listener
+// mode, read from cloud_provider and cluster_type.
+type envelopeVerdict int
+
+const (
+	envelopeUnknown envelopeVerdict = iota
+	envelopeCertified
+	envelopeUncertified
+)
+
+// connectionsEnvelope decides whether dual listener mode is certified on a
+// cluster's envelope. The cloud API rejects connections only on Azure, but the
+// data plane builds the second listener on AWS alone, so an uncertified
+// combination would pass plan and apply and come up broken. Both the
+// connections gate and the connection_type deprecation read this one verdict
+// so that widening certification moves them together.
+//
+// The cloud side states the scope in ../cloudv2
+// apps/public-api-go/e2e/suites/certification/matrix.go (dual listener
+// cases: AWS only, GCP has no dual data-plane support) and enforces it in
+// apps/controlplane-api/defaults/multi_listeners.go (baseSeedWritable,
+// NetworkMissingPublicSubnetsForDual). Widen this verdict when those change.
+func connectionsEnvelope(cloudProvider, clusterType types.String) envelopeVerdict {
+	if cloudProvider.IsUnknown() || clusterType.IsUnknown() {
+		return envelopeUnknown
+	}
+	if cloudProvider.ValueString() == "aws" && clusterType.ValueString() == "byoc" {
+		return envelopeCertified
+	}
+	return envelopeUncertified
+}
+
+// warnLegacyConnectionTypeOnCertifiedEnvelope deprecates connection_type only
+// where connections can replace it; a schema-wide deprecation would tell every
+// other cluster to migrate to a field the provider rejects for it.
+func warnLegacyConnectionTypeOnCertifiedEnvelope(ctx context.Context, cfg tfsdk.Config, resp *resource.ValidateConfigResponse) {
+	var connType, cloudProvider, clusterType types.String
+	if !getAttr(ctx, cfg, path.Root("connection_type"), &connType, resp) ||
+		!getAttr(ctx, cfg, path.Root("cloud_provider"), &cloudProvider, resp) ||
+		!getAttr(ctx, cfg, path.Root("cluster_type"), &clusterType, resp) {
+		return
+	}
+	if connType.IsNull() || connType.IsUnknown() || connectionsEnvelope(cloudProvider, clusterType) != envelopeCertified {
+		return
+	}
+	resp.Diagnostics.AddAttributeWarning(path.Root("connection_type"),
+		"Deprecated Attribute",
+		"connection_type is deprecated on AWS BYOC clusters: use the connections field on kafka_api, http_proxy, and schema_registry instead")
 }
 
 // connService is one service's config view for the cross-service rules.
@@ -180,11 +231,7 @@ func validateDualListenerConnections(ctx context.Context, cfg tfsdk.Config, resp
 	if !getAttr(ctx, cfg, path.Root("cluster_type"), &clusterType, resp) {
 		return
 	}
-	// Certified envelope: AWS BYOC only. The cloud API rejects only Azure, so
-	// an uncertified combination would otherwise pass plan and apply and come
-	// up broken.
-	if !cloudProvider.IsUnknown() && !clusterType.IsUnknown() &&
-		(cloudProvider.ValueString() != "aws" || clusterType.ValueString() != "byoc") {
+	if connectionsEnvelope(cloudProvider, clusterType) == envelopeUncertified {
 		resp.Diagnostics.AddAttributeError(path.Root("kafka_api").AtName("connections"),
 			"Unsupported Cluster Envelope",
 			"dual listener mode (connections) is supported only on AWS BYOC clusters")
