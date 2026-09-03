@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 
 	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1/controlplanev1grpc"
@@ -1085,6 +1086,48 @@ resource "redpanda_shadow_link" "test" {
 			},
 		},
 	})
+}
+
+// TestIntegration_ShadowLink_NameFilter_WildcardPrefixRejected pins the
+// plan-time rejection of a "*" name with a non-literal pattern on every
+// NameFilter surface; the control plane and agent pass the filter through
+// unvalidated.
+func TestIntegration_ShadowLink_NameFilter_WildcardPrefixRejected(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	const filter = `[{ filter_type = "INCLUDE", name = "*", pattern_type = "PREFIX" }]`
+	cases := []struct {
+		name  string
+		block string
+	}{
+		{"role_name_filters", "role_sync_options = { role_name_filters = " + filter + " }"},
+		{"group_filters", "consumer_offset_sync_options = { group_filters = " + filter + " }"},
+		{"auto_create_shadow_topic_filters", "topic_metadata_sync_options = { auto_create_shadow_topic_filters = " + filter + " }"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := `
+provider "redpanda" {}
+
+resource "redpanda_shadow_link" "test" {
+  name               = "tfrp-mock-sl-wildcard-` + strings.ReplaceAll(tc.name, "_", "-") + `"
+  shadow_redpanda_id = "shadow-cluster-id-wildcard"
+  source_redpanda_id = "source-cluster-id-wildcard"
+  allow_deletion     = true
+  ` + tc.block + `
+}
+`
+			resource.UnitTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: factories,
+				Steps: []resource.TestStep{
+					{
+						Config:      cfg,
+						ExpectError: regexp.MustCompile(`(?s)Invalid Name Filter.*requires pattern_type "LITERAL"`),
+					},
+				},
+			})
+		})
+	}
 }
 
 // TestIntegration_ShadowLink_RoleFilter_LongFormFilterTypeRejected pins the
