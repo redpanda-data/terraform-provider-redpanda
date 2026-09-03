@@ -196,6 +196,11 @@ var validatorRegistry = map[string]ValidatorDef{
 		},
 		AttrType: "String",
 	},
+	"NameFilterWildcard": {
+		Expr:     "validators.NameFilterWildcardValidator{}",
+		Imports:  []string{validatorsImport},
+		AttrType: "String",
+	},
 	"PSCConsumerSource": {
 		Expr:     "validators.PSCConsumerSourceValidator{}",
 		Imports:  []string{validatorsImport},

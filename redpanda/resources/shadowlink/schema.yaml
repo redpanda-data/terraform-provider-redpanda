@@ -182,6 +182,7 @@ topic_metadata_sync_options:
           required: true
         name:
           required: true
+          validator: NameFilterWildcard
     start_at_earliest:
       optional: true
       force_type: BoolAttribute
@@ -221,6 +222,7 @@ consumer_offset_sync_options:
           required: true
         name:
           required: true
+          validator: NameFilterWildcard
 
 security_sync_options:
   optional: true
@@ -420,6 +422,7 @@ role_sync_options:
             - "OneOf{values: INCLUDE|EXCLUDE}"
         name:
           required: true
+          validator: NameFilterWildcard
 
 state:
   computed_only: true
