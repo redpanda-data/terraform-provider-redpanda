@@ -337,6 +337,11 @@ func reconcileConnections(service string, stored []*controlplanev1.ConnectionSta
 		desiredKeys[i] = specKey(d)
 	}
 
+	storedKeys := make([]string, len(stored))
+	for i, e := range stored {
+		storedKeys[i] = specKey(e.GetConfig())
+	}
+
 	consumedDesired := map[int]bool{}
 	out := make([]*controlplanev1.ConnectionStatus, 0, len(desired))
 	for _, e := range stored {
@@ -352,10 +357,13 @@ func reconcileConnections(service string, stored []*controlplanev1.ConnectionSta
 		}
 		// Auth switch: a same-network-type other-auth stored listener that is
 		// not itself desired is renamed in place with its endpoint preserved.
+		// A desired listener that already exists is never a rename target:
+		// the control plane keeps it and drops the sibling.
 		if !slices.Contains(desiredKeys, key) {
 			switched := -1
 			for i, d := range desired {
-				if !consumedDesired[i] && d.GetType() == e.GetConfig().GetType() &&
+				if !consumedDesired[i] && !slices.Contains(storedKeys, desiredKeys[i]) &&
+					d.GetType() == e.GetConfig().GetType() &&
 					d.GetAuth().GetMode() != e.GetConfig().GetAuth().GetMode() {
 					switched = i
 					break
