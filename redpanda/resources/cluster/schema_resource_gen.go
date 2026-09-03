@@ -806,12 +806,11 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"connection_type": schema.StringAttribute{
-				Description:        "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, **Private** is best-practice.",
-				Optional:           true,
-				Computed:           true,
-				DeprecationMessage: "Use the connections field on kafka_api, http_proxy, and schema_registry instead.",
-				PlanModifiers:      []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
-				Validators:         []validator.String{stringvalidator.OneOf("public", "private"), validators.RequirePrivateConnectionValidator{}},
+				Description:   "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, **Private** is best-practice.",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{stringvalidator.OneOf("public", "private"), validators.RequirePrivateConnectionValidator{}},
 			},
 
 			"gcp_private_service_connect": schema.SingleNestedAttribute{
