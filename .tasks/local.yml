@@ -48,7 +48,7 @@ tasks:
       - |
         echo 'provider_installation {
           dev_overrides {
-            "hashicorp/redpanda" = "../../../"
+            "redpanda-data/redpanda" = "../../../"
           }
           direct {}
         }' > .terraformrc
@@ -80,7 +80,7 @@ tasks:
       - |
         echo 'provider_installation {
           dev_overrides {
-            "hashicorp/redpanda" = "../../../"
+            "redpanda-data/redpanda" = "../../../"
           }
           direct {}
         }' > .terraformrc
@@ -113,7 +113,7 @@ tasks:
       - |
         echo 'provider_installation {
           dev_overrides {
-            "hashicorp/redpanda" = "../../../"
+            "redpanda-data/redpanda" = "../../../"
           }
           direct {}
         }' > .terraformrc
@@ -146,7 +146,7 @@ tasks:
       - |
         echo 'provider_installation {
           dev_overrides {
-            "hashicorp/redpanda" = "../../../"
+            "redpanda-data/redpanda" = "../../../"
           }
           direct {}
         }' > .terraformrc
@@ -180,7 +180,7 @@ tasks:
       - |
         echo 'provider_installation {
           dev_overrides {
-            "hashicorp/redpanda" = "../../../"
+            "redpanda-data/redpanda" = "../../../"
           }
           direct {}
         }' > .terraformrc
@@ -215,7 +215,7 @@ tasks:
       - |
         echo 'provider_installation {
           dev_overrides {
-            "hashicorp/redpanda" = "../../../"
+            "redpanda-data/redpanda" = "../../../"
           }
           direct {}
         }' > .terraformrc
@@ -249,7 +249,7 @@ tasks:
       - |
         echo 'provider_installation {
           dev_overrides {
-            "hashicorp/redpanda" = "../../../"
+            "redpanda-data/redpanda" = "../../../"
           }
           direct {}
         }' > .terraformrc
@@ -282,7 +282,7 @@ tasks:
       - |
         echo 'provider_installation {
           dev_overrides {
-            "hashicorp/redpanda" = "../../../"
+            "redpanda-data/redpanda" = "../../../"
           }
           direct {}
         }' > .terraformrc
@@ -316,7 +316,7 @@ tasks:
       - |
         echo 'provider_installation {
           dev_overrides {
-            "hashicorp/redpanda" = "../../../"
+            "redpanda-data/redpanda" = "../../../"
           }
           direct {}
         }' > .terraformrc
@@ -351,7 +351,7 @@ tasks:
       - |
         echo 'provider_installation {
           dev_overrides {
-            "hashicorp/redpanda" = "../../../"
+            "redpanda-data/redpanda" = "../../../"
           }
           direct {}
         }' > .terraformrc
@@ -389,7 +389,7 @@ tasks:
       - |
         echo 'provider_installation {
           dev_overrides {
-            "hashicorp/redpanda" = "../../../"
+            "redpanda-data/redpanda" = "../../../"
           }
           direct {}
         }' > .terraformrc
@@ -429,7 +429,7 @@ tasks:
       - |
         echo 'provider_installation {
           dev_overrides {
-            "hashicorp/redpanda" = "../../../"
+            "redpanda-data/redpanda" = "../../../"
           }
           direct {}
         }' > .terraformrc
@@ -466,7 +466,7 @@ tasks:
       - |
         echo 'provider_installation {
           dev_overrides {
-            "hashicorp/redpanda" = "../../../"
+            "redpanda-data/redpanda" = "../../../"
           }
           direct {}
         }' > .terraformrc
@@ -502,7 +502,7 @@ tasks:
       - |
         echo 'provider_installation {
           dev_overrides {
-            "hashicorp/redpanda" = "../../../"
+            "redpanda-data/redpanda" = "../../../"
           }
           direct {}
         }' > .terraformrc
