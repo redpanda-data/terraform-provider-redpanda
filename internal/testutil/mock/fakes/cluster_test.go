@@ -334,6 +334,24 @@ func TestReconcileConnections(t *testing.T) {
 		}
 	})
 
+	t.Run("dropping the other-auth sibling keeps the survivor's own endpoint", func(t *testing.T) {
+		// The control plane skips the auth-switch rename when the desired
+		// listener already exists; the removed sibling is dropped, not
+		// renamed onto the survivor.
+		const mtlsEP = "pub-mtls-ep"
+		both := []*controlplanev1.ConnectionStatus{
+			{Config: pubSASL, Endpoint: testPubEP},
+			{Config: pubMTLS, Endpoint: mtlsEP},
+		}
+		got := reconcileConnections("kafka_api", both, []*controlplanev1.ConnectionSpec{pubMTLS})
+		if len(got) != 1 {
+			t.Fatalf("expected 1 entry, got %d", len(got))
+		}
+		if got[0].GetConfig().GetAuth().GetMode() != controlplanev1.AuthMode_AUTH_MODE_MTLS || got[0].GetEndpoint() != mtlsEP {
+			t.Fatalf("entry 0 = %v/%s, want mtls with its own endpoint %s", got[0].GetConfig(), got[0].GetEndpoint(), mtlsEP)
+		}
+	})
+
 	t.Run("add appends and remove drops", func(t *testing.T) {
 		got := reconcileConnections("kafka_api", stored, []*controlplanev1.ConnectionSpec{pubSASL, pubMTLS})
 		if len(got) != 2 {

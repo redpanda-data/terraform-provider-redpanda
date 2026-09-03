@@ -3208,6 +3208,62 @@ func TestIntegration_Cluster_DualListenerConnections(t *testing.T) {
 	})
 }
 
+// TestIntegration_Cluster_DualListener_DropAuthSibling pins the control
+// plane's reconcile when a service drops one of two auth modes on the same
+// network type: the survivor keeps its own endpoint, which the plan pins from
+// state.
+func TestIntegration_Cluster_DualListener_DropAuthSibling(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-drop-sibling"
+	kafkaConns := tfjsonpath.New("kafka_api").AtMapKey("connections")
+	const mtlsEndpoint = "mock-broker-0-pub-mtls.mock.redpanda.cloud:9092"
+
+	kafkaBothAuth := `kafka_api = {
+    mtls = {
+      enabled             = true
+      ca_certificates_pem = ["` + testCAPem + `"]
+    }
+    connections = [
+      { type = "public", auth = { mode = "sasl" } },
+      { type = "public", auth = { mode = "mtls" } },
+    ]
+  }`
+	kafkaMTLSOnly := `kafka_api = {
+    mtls = {
+      enabled             = true
+      ca_certificates_pem = ["` + testCAPem + `"]
+    }
+    connections = [
+      { type = "public", auth = { mode = "mtls" } },
+    ]
+  }`
+	others := []string{
+		"http_proxy = {\n    " + publicOnlySaslConns + "\n  }",
+		"schema_registry = {\n    " + publicOnlySaslConns + "\n  }",
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, append([]string{kafkaBothAuth}, others...)...),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns, knownvalue.ListSizeExact(2)),
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(1).AtMapKey("auth").AtMapKey("mode"), knownvalue.StringExact("mtls")),
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(1).AtMapKey("endpoint"), knownvalue.StringExact(mtlsEndpoint)),
+				}),
+			integration.UpdateLeafStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, append([]string{kafkaMTLSOnly}, others...)...),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns, knownvalue.ListSizeExact(1)),
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(0).AtMapKey("auth").AtMapKey("mode"), knownvalue.StringExact("mtls")),
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(0).AtMapKey("endpoint"), knownvalue.StringExact(mtlsEndpoint)),
+				}),
+		},
+	})
+}
+
 // publicOnlySaslConns is the single-listener starting point for topology
 // transition tests.
 const publicOnlySaslConns = `connections = [
