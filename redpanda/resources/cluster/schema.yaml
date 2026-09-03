@@ -181,7 +181,8 @@ connection_type:
   # fresh: the echo re-plan pass marks the plan value unknown, which disables
   # the carry.
   flatten_from_prev: true
-  deprecation_message: "Use the connections field on kafka_api, http_proxy, and schema_registry instead."
+  # No schema-level deprecation: connections is accepted only on AWS BYOC, so
+  # the deprecation is scoped to that envelope in ValidateConfig.
   # OneOf restores plan-time enum-membership validation (cloudv2's proto
   # declares no rule on connection_type, so an invalid value would otherwise
   # silently map to UNSPECIFIED and only fail at apply).
