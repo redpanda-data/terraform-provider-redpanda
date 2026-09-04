@@ -305,10 +305,26 @@ schema_registry_sync_options:
             enabled:
               optional: true
               computed: true
-            # tls_file_settings is deliberately not mapped: the control plane
-            # rejects it for the SR API arm (sr_api_tls_file_settings_not_supported).
+            # Tombstone: the control plane rejects tls_file_settings on this
+            # arm (sr_api_tls_file_settings_not_supported) and Terraform
+            # silently ignores an unknown nested key, so the block stays in
+            # the schema only so a stale 2.2.1 configuration reaches that CEL
+            # rule at plan time instead of losing its TLS settings silently.
             tls_file_settings:
-              exclude: true
+              synthetic: true
+              optional: true
+              deprecation_message: |-
+                tls_file_settings is not supported on shadow_schema_registry_api: the control plane rejects it for that arm. Use tls_pem_settings instead and supply the key as a ${secrets.<SECRET_ID>} reference.
+              fields:
+                ca_path:
+                  optional: true
+                  type: string
+                cert_path:
+                  optional: true
+                  type: string
+                key_path:
+                  optional: true
+                  type: string
             tls_pem_settings:
               optional: true
               fields:

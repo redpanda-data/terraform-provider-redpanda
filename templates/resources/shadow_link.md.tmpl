@@ -84,6 +84,8 @@ Mirrors source ACLs to the shadow cluster.
 
 - **`shadow_schema_registry_topic`** — when `true`, the shadow link will add the `_schemas` topic to its shadow set if (a) it exists on the source AND (b) it is absent or empty on the shadow. Toggling off after enablement does not undo the shadowing — fail it over or delete it explicitly.
 
+The `shadow_schema_registry_api` arm does not accept `tls_file_settings`; the control plane rejects it for that arm. Use `tls_pem_settings` and supply the key as a `${secrets.<SECRET_ID>}` reference. A configuration from provider 2.2.1 that set `tls_file_settings` there fails at plan with a migration message until it is moved; Terraform would otherwise drop the unknown nested block silently.
+
 ## Kafka Client Tuning
 
 `client_options` exposes the full set of Kafka client tuning fields (`metadata_max_age_ms`, `connection_timeout_ms`, `retry_backoff_ms`, `fetch_wait_max_ms`, `fetch_min_bytes`, `fetch_max_bytes`, `fetch_partition_max_bytes`). Each has a sibling `effective_*` Computed-only attribute reflecting the value the controlplane resolved (defaults applied when 0/unset). All are mutable via Update.

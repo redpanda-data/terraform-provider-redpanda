@@ -1088,6 +1088,46 @@ resource "redpanda_shadow_link" "test" {
 	})
 }
 
+// TestIntegration_ShadowLink_SRAPI_TLSFileSettingsRejected pins the plan-time
+// rejection of tls_file_settings on the SR API arm through the control plane's
+// own CEL rule. Terraform ignores an unknown nested key, so without the
+// tombstone attribute a stale configuration would silently lose its TLS
+// settings instead of failing.
+func TestIntegration_ShadowLink_SRAPI_TLSFileSettingsRejected(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	cfg := `
+provider "redpanda" {}
+
+resource "redpanda_shadow_link" "test" {
+  name               = "tfrp-mock-sl-tls-file"
+  shadow_redpanda_id = "shadow-cluster-id-tls-file"
+  source_redpanda_id = "source-cluster-id-tls-file"
+  allow_deletion     = true
+  schema_registry_sync_options = {
+    shadow_schema_registry_api = {
+      source_url = "https://source-sr.example.com"
+      tls_settings = {
+        enabled = true
+        tls_file_settings = {
+          ca_path = "/etc/redpanda/ca.pem"
+        }
+      }
+    }
+  }
+}
+`
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config:      cfg,
+				ExpectError: regexp.MustCompile(`(?s)tls_file_settings\s+is not supported.*tls_pem_settings`),
+			},
+		},
+	})
+}
+
 // TestIntegration_ShadowLink_NameFilter_WildcardPrefixRejected pins the
 // plan-time rejection of a "*" name with a non-literal pattern on every
 // NameFilter surface; the control plane and agent pass the filter through
