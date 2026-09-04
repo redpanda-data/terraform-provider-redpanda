@@ -456,6 +456,52 @@ func TestClusterFake_ConnectionsEnvelopeMatchesControlPlane(t *testing.T) {
 	})
 }
 
+// TestClusterFake_LegacyUpdateKeepsUnsentListenerAuth pins the control plane's
+// legacy update rule: a kafka_api update whose payload omits mtls (or sasl)
+// leaves the stored block untouched. Only an explicit enabled = false turns it
+// off.
+func TestClusterFake_LegacyUpdateKeepsUnsentListenerAuth(t *testing.T) {
+	ctx := context.Background()
+	f := NewClusterFake(NewOperationFake())
+	op, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{
+		Cluster: &controlplanev1.ClusterCreate{
+			Name:           "legacy-mtls",
+			CloudProvider:  controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS,
+			Type:           controlplanev1.Cluster_TYPE_DEDICATED,
+			ConnectionType: connTypePublic,
+			KafkaApi: &controlplanev1.KafkaAPISpec{
+				Mtls: &controlplanev1.MTLSSpec{Enabled: true, CaCertificatesPem: []string{"ca"}},
+				Sasl: &controlplanev1.SASLSpec{Enabled: true},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateCluster: %v", err)
+	}
+	id := op.GetOperation().GetResourceId()
+
+	_, err = f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+		Cluster: &controlplanev1.ClusterUpdate{
+			Id:       id,
+			KafkaApi: &controlplanev1.KafkaAPISpec{Sasl: &controlplanev1.SASLSpec{Enabled: true}},
+		},
+		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"kafka_api"}},
+	})
+	if err != nil {
+		t.Fatalf("UpdateCluster: %v", err)
+	}
+	got, err := f.GetCluster(ctx, &controlplanev1.GetClusterRequest{Id: id})
+	if err != nil {
+		t.Fatalf("GetCluster: %v", err)
+	}
+	if !got.GetCluster().GetKafkaApi().GetMtls().GetEnabled() {
+		t.Fatalf("kafka_api.mtls cleared by an update that did not carry it: %v", got.GetCluster().GetKafkaApi())
+	}
+	if len(got.GetCluster().GetKafkaApi().GetConnections()) != 2 {
+		t.Fatalf("legacy connections projection = %v, want sasl and mtls entries", got.GetCluster().GetKafkaApi().GetConnections())
+	}
+}
+
 // TestClusterFake_PrivateOnlyGainsPublicRejected pins the fake's mirror of the
 // control plane's in-place topology restriction: a cluster whose stored
 // listeners are all private cannot gain a public listener through a
