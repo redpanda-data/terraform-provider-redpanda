@@ -497,6 +497,25 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 								Computed:      true,
 								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 								Attributes: map[string]schema.Attribute{
+									"tls_file_settings": schema.SingleNestedAttribute{
+										Description:        "TLS File Settings configuration",
+										Optional:           true,
+										DeprecationMessage: "tls_file_settings is not supported on shadow_schema_registry_api: the control plane rejects it for that arm. Use tls_pem_settings instead and supply the key as a ${secrets.<SECRET_ID>} reference.",
+										Attributes: map[string]schema.Attribute{
+											"ca_path": schema.StringAttribute{
+												Description: "Ca Path",
+												Optional:    true,
+											},
+											"cert_path": schema.StringAttribute{
+												Description: "Cert Path",
+												Optional:    true,
+											},
+											"key_path": schema.StringAttribute{
+												Description: "Key Path",
+												Optional:    true,
+											},
+										},
+									},
 									"tls_pem_settings": schema.SingleNestedAttribute{
 										Description: "Used when providing the TLS information in PEM format",
 										Optional:    true,
