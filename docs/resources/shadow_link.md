@@ -249,7 +249,18 @@ Optional:
 
 - `do_not_set_sni_hostname` (Boolean) If true, the SNI hostname will not be provided when TLS is used
 - `enabled` (Boolean) Whether or not TLS is enabled
+- `tls_file_settings` (Attributes, Deprecated) TLS File Settings configuration (see [below for nested schema](#nestedatt--schema_registry_sync_options--shadow_schema_registry_api--tls_settings--tls_file_settings))
 - `tls_pem_settings` (Attributes) Used when providing the TLS information in PEM format (see [below for nested schema](#nestedatt--schema_registry_sync_options--shadow_schema_registry_api--tls_settings--tls_pem_settings))
+
+<a id="nestedatt--schema_registry_sync_options--shadow_schema_registry_api--tls_settings--tls_file_settings"></a>
+### Nested Schema for `schema_registry_sync_options.shadow_schema_registry_api.tls_settings.tls_file_settings`
+
+Optional:
+
+- `ca_path` (String) Ca Path
+- `cert_path` (String) Cert Path
+- `key_path` (String) Key Path
+
 
 <a id="nestedatt--schema_registry_sync_options--shadow_schema_registry_api--tls_settings--tls_pem_settings"></a>
 ### Nested Schema for `schema_registry_sync_options.shadow_schema_registry_api.tls_settings.tls_pem_settings`
@@ -532,6 +543,8 @@ Mirrors source ACLs to the shadow cluster.
 ### `schema_registry_sync_options`
 
 - **`shadow_schema_registry_topic`** — when `true`, the shadow link will add the `_schemas` topic to its shadow set if (a) it exists on the source AND (b) it is absent or empty on the shadow. Toggling off after enablement does not undo the shadowing — fail it over or delete it explicitly.
+
+The `shadow_schema_registry_api` arm does not accept `tls_file_settings`; the control plane rejects it for that arm. Use `tls_pem_settings` and supply the key as a `${secrets.<SECRET_ID>}` reference. A configuration from provider 2.2.1 that set `tls_file_settings` there fails at plan with a migration message until it is moved; Terraform would otherwise drop the unknown nested block silently.
 
 ## Kafka Client Tuning
 
