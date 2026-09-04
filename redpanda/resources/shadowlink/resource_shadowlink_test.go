@@ -189,6 +189,7 @@ func TestUnit_ShadowLink_Flatten_PreservesSchemaRegistrySecretsFromPriorState(t 
 	tlsSettings, d := types.ObjectValue(shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsAttrTypes(), map[string]attr.Value{
 		"enabled":                 types.BoolValue(true),
 		"do_not_set_sni_hostname": types.BoolValue(false),
+		"tls_file_settings":       types.ObjectNull(shadowlinkmodel.SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsAttrTypes()),
 		"tls_pem_settings":        pem,
 	})
 	require.False(t, d.HasError(), "%v", d)
