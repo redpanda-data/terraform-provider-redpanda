@@ -191,10 +191,10 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 		DesiredRedpandaVersion: "24.3.1",
 		RedpandaNodeCount:      in.GetRedpandaNodeCount(),
 		KafkaApi: specToClusterKafkaAPI(in.GetKafkaApi(),
-			[]string{"mock-broker-0.mock.redpanda.cloud:9092"}),
+			[]string{"mock-broker-0.mock.redpanda.cloud:9092"}, nil),
 		HttpProxy: specToClusterHTTPProxy(in.GetHttpProxy(),
-			"https://mock.http-proxy.redpanda.cloud"),
-		SchemaRegistry: specToClusterSchemaRegistry(in.GetSchemaRegistry(), srURL),
+			"https://mock.http-proxy.redpanda.cloud", nil),
+		SchemaRegistry: specToClusterSchemaRegistry(in.GetSchemaRegistry(), srURL, nil),
 		RedpandaConsole: &controlplanev1.Cluster_RedpandaConsole{
 			Url: "https://mock.console.redpanda.cloud",
 		},
@@ -372,25 +372,25 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 		case "kafka_api":
 			if upd.HasKafkaApi() {
 				cl.KafkaApi = specToClusterKafkaAPI(upd.GetKafkaApi(),
-					cl.GetKafkaApi().GetSeedBrokers())
+					cl.GetKafkaApi().GetSeedBrokers(), cl.GetKafkaApi())
 				// Legacy path only (dual services are owned above): keep the
-				// always-on connections projection in step with the new block.
+				// always-on connections projection in step with the merged block.
 				cl.GetKafkaApi().Connections = legacyConnectionProjection(cl.GetConnectionType(),
-					upd.GetKafkaApi().GetMtls().GetEnabled(), firstOrEmpty(cl.GetKafkaApi().GetSeedBrokers()))
+					cl.GetKafkaApi().GetMtls().GetEnabled(), firstOrEmpty(cl.GetKafkaApi().GetSeedBrokers()))
 			}
 		case "http_proxy":
 			if upd.HasHttpProxy() {
 				cl.HttpProxy = specToClusterHTTPProxy(upd.GetHttpProxy(),
-					cl.GetHttpProxy().GetUrl())
+					cl.GetHttpProxy().GetUrl(), cl.GetHttpProxy())
 				cl.GetHttpProxy().Connections = legacyConnectionProjection(cl.GetConnectionType(),
-					upd.GetHttpProxy().GetMtls().GetEnabled(), cl.GetHttpProxy().GetUrl())
+					cl.GetHttpProxy().GetMtls().GetEnabled(), cl.GetHttpProxy().GetUrl())
 			}
 		case "schema_registry":
 			if upd.HasSchemaRegistry() {
 				cl.SchemaRegistry = specToClusterSchemaRegistry(upd.GetSchemaRegistry(),
-					cl.GetSchemaRegistry().GetUrl())
+					cl.GetSchemaRegistry().GetUrl(), cl.GetSchemaRegistry())
 				cl.GetSchemaRegistry().Connections = legacyConnectionProjection(cl.GetConnectionType(),
-					upd.GetSchemaRegistry().GetMtls().GetEnabled(), cl.GetSchemaRegistry().GetUrl())
+					cl.GetSchemaRegistry().GetMtls().GetEnabled(), cl.GetSchemaRegistry().GetUrl())
 			}
 		case "aws_private_link":
 			// The read drops the block entirely when disabled (mapper.go gates it
@@ -819,39 +819,47 @@ func oxlaEffectiveZones(spec *controlplanev1.RPSql, clusterZones []string) []str
 	return spec.GetZones()
 }
 
+// keepUnsent mirrors the control plane's legacy listener update: a payload
+// that omits mtls or sasl leaves the stored block as it is (cloudv2 mapper
+// apiListenersPublicToPrivateForUpdateCluster returns early on a nil block).
+func keepUnsent[T any](sent, stored *T) *T {
+	if sent == nil {
+		return stored
+	}
+	return sent
+}
+
 // specToClusterKafkaAPI converts a write-shape KafkaAPISpec to the read-shape
-// Cluster_KafkaAPI, preserving the given seed brokers and copying mtls/sasl.
-func specToClusterKafkaAPI(spec *controlplanev1.KafkaAPISpec, seedBrokers []string) *controlplanev1.Cluster_KafkaAPI {
-	out := &controlplanev1.Cluster_KafkaAPI{
+// Cluster_KafkaAPI, preserving the given seed brokers; mtls and sasl come
+// from the spec when sent and from prev otherwise.
+func specToClusterKafkaAPI(spec *controlplanev1.KafkaAPISpec, seedBrokers []string, prev *controlplanev1.Cluster_KafkaAPI) *controlplanev1.Cluster_KafkaAPI {
+	return &controlplanev1.Cluster_KafkaAPI{
 		SeedBrokers: seedBrokers,
+		Mtls:        keepUnsent(spec.GetMtls(), prev.GetMtls()),
+		Sasl:        keepUnsent(spec.GetSasl(), prev.GetSasl()),
 	}
-	if spec != nil {
-		out.Mtls = spec.GetMtls()
-		out.Sasl = spec.GetSasl()
-	}
-	return out
 }
 
 // specToClusterHTTPProxy converts a write-shape HTTPProxySpec to the
-// read-shape Cluster_HTTPProxyStatus, preserving url and copying mtls/sasl.
-func specToClusterHTTPProxy(spec *controlplanev1.HTTPProxySpec, url string) *controlplanev1.Cluster_HTTPProxyStatus {
-	out := &controlplanev1.Cluster_HTTPProxyStatus{Url: url}
-	if spec != nil {
-		out.Mtls = spec.GetMtls()
-		out.Sasl = spec.GetSasl()
+// read-shape Cluster_HTTPProxyStatus, preserving url; mtls and sasl come from
+// the spec when sent and from prev otherwise.
+func specToClusterHTTPProxy(spec *controlplanev1.HTTPProxySpec, url string, prev *controlplanev1.Cluster_HTTPProxyStatus) *controlplanev1.Cluster_HTTPProxyStatus {
+	return &controlplanev1.Cluster_HTTPProxyStatus{
+		Url:  url,
+		Mtls: keepUnsent(spec.GetMtls(), prev.GetMtls()),
+		Sasl: keepUnsent(spec.GetSasl(), prev.GetSasl()),
 	}
-	return out
 }
 
 // specToClusterSchemaRegistry converts a write-shape SchemaRegistrySpec to the
-// read-shape Cluster_SchemaRegistryStatus, preserving url and copying mtls/sasl.
-func specToClusterSchemaRegistry(spec *controlplanev1.SchemaRegistrySpec, url string) *controlplanev1.Cluster_SchemaRegistryStatus {
-	out := &controlplanev1.Cluster_SchemaRegistryStatus{Url: url}
-	if spec != nil {
-		out.Mtls = spec.GetMtls()
-		out.Sasl = spec.GetSasl()
+// read-shape Cluster_SchemaRegistryStatus, preserving url; mtls and sasl come
+// from the spec when sent and from prev otherwise.
+func specToClusterSchemaRegistry(spec *controlplanev1.SchemaRegistrySpec, url string, prev *controlplanev1.Cluster_SchemaRegistryStatus) *controlplanev1.Cluster_SchemaRegistryStatus {
+	return &controlplanev1.Cluster_SchemaRegistryStatus{
+		Url:  url,
+		Mtls: keepUnsent(spec.GetMtls(), prev.GetMtls()),
+		Sasl: keepUnsent(spec.GetSasl(), prev.GetSasl()),
 	}
-	return out
 }
 
 // DeleteCluster removes the stored cluster. The provider's Delete polls
