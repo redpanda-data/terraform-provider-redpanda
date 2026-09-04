@@ -16,6 +16,15 @@ Reach for them in this order, and stop at the first that fits:
 
 Deprecation aliases have no directive; they are built from `proto_only` + `from_proto` + `flatten_via` by hand.
 
+## Retiring an attribute: tombstone, do not exclude
+
+Terraform ignores an unknown key inside a nested attribute, so `exclude: true` on a nested field that a release already shipped makes existing configs silently lose it. Keep the field as a tombstone: `synthetic: true`, `optional: true`, a `deprecation_message` naming the replacement, and `fields:` whose leaf names and `type:` match the released schema so the old config still parses. Then make it fail at plan:
+
+- Field still on the proto: `synthetic` alone. The generated conversion still expands it, so the control plane's `buf.validate` CEL rule fires through `proto_validator_gen.go` with the API's own message. `shadowlink` `shadow_schema_registry_api.tls_settings.tls_file_settings` is the example.
+- Field never on the proto: add `extra: true`, `deprecated: true`, and a hand `validator:` that rejects any non-null value with the migration text. `serverlessprivatelink` `cloud_provider_config` is the example.
+
+Do not combine `extra`/`deprecated` with a proto-backed field: `merger.go` appends the synthetic attribute next to the proto-derived one instead of replacing it, and generation aborts with `no lifecycle declared` on the proto copy. Pin every tombstone with a plan-time `ExpectError` integration test; the schema golden cannot tell a deliberate removal from an accidental one.
+
 ## Rules the generator encodes
 
 - Descriptions come from `internal/apidesc` (`data/apidescriptions.yaml`). A yaml `description:` is rejected. Terraform-only fields use the tables in `descriptions.go`.
