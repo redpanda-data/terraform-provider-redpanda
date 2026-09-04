@@ -308,6 +308,50 @@ func guardPrivateOnlyGainsPublic(ctx context.Context, req resource.ModifyPlanReq
 
 // connIdentity returns the (type, auth.mode) identity of one connections
 // element. ok is false for malformed or not-yet-known elements.
+const (
+	connectionTypePublic  = "public"
+	connectionTypePrivate = "private"
+)
+
+// impliedConnectionType derives connection_type the way the control plane
+// does from a service's projected connections (cloudv2 mapper
+// getConnectionType): any private listener reads back private, otherwise
+// public. ok is false when the list or an element's type is unresolved.
+func impliedConnectionType(conns types.List) (string, bool) {
+	if conns.IsNull() || conns.IsUnknown() {
+		return "", false
+	}
+	implied := connectionTypePublic
+	for _, el := range conns.Elements() {
+		obj, isObj := el.(types.Object)
+		if !isObj || obj.IsNull() || obj.IsUnknown() {
+			return "", false
+		}
+		t, isStr := obj.Attributes()["type"].(types.String)
+		if !isStr || t.IsNull() || t.IsUnknown() {
+			return "", false
+		}
+		if t.ValueString() == connectionTypePrivate {
+			implied = connectionTypePrivate
+		}
+	}
+	return implied, true
+}
+
+// connectionTypeStale reports whether the stored connection_type disagrees
+// with what the stored kafka_api connections imply.
+func connectionTypeStale(ctx context.Context, state tfsdk.State, stateConns types.List) (bool, diag.Diagnostics) {
+	var stored types.String
+	if d := state.GetAttribute(ctx, path.Root("connection_type"), &stored); d.HasError() {
+		return false, d
+	}
+	if stored.IsNull() || stored.IsUnknown() {
+		return false, nil
+	}
+	implied, ok := impliedConnectionType(stateConns)
+	return ok && implied != stored.ValueString(), nil
+}
+
 func connIdentity(el attr.Value) (string, bool) {
 	obj, isObj := el.(types.Object)
 	if !isObj || obj.IsNull() || obj.IsUnknown() {
@@ -383,6 +427,20 @@ func markEchoesUnknownOnConnectionsChange(ctx context.Context, req resource.Modi
 			cfgIDs, cfgOK := connIdentities(cfgConns)
 			stateIDs, stateOK := connIdentities(stateConns)
 			changed = !cfgOK || !stateOK || !maps.Equal(cfgIDs, stateIDs)
+		}
+		if !changed && svc.derivesRoot {
+			// A 1:1 adoption of a fleet-flipped topology changes no identity,
+			// but the carried connection_type can still disagree with what the
+			// projection implies; release it so the re-read takes the API's.
+			stale, d := connectionTypeStale(ctx, req.State, stateConns)
+			resp.Diagnostics.Append(d...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+			if stale {
+				resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("connection_type"), types.StringUnknown())...)
+			}
+			continue
 		}
 		if !changed {
 			continue

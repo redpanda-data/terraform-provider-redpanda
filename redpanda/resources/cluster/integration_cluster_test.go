@@ -3777,11 +3777,17 @@ func TestIntegration_Cluster_DualListener_OutOfBandFlip(t *testing.T) {
 				PlanOnly: true,
 			},
 			// Adopting the flipped topology 1:1 into config-managed
-			// connections is a no-op: the projected state already matches.
-			integration.NoopReapplyStep(clusterAddr,
+			// connections sends nothing (the projected connections already
+			// match) but is one corrective apply: the carried connection_type
+			// disagrees with the projection, so the plan releases it and the
+			// re-read takes the API's value.
+			integration.UpdateLeafStep(clusterAddr,
 				awsByocNoConnTypeConfig(name, dualAllServices(dualSaslConns)...),
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("kafka_api").AtMapKey("connections"), knownvalue.ListSizeExact(2)),
+					// The API reports a dual cluster as private; adoption must not
+					// leave the pre-flip value in state.
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("connection_type"), knownvalue.StringExact("private")),
 				}),
 			// From the adopted state, topology changes flow normally and the
 			// echo re-plan pass lets connection_type re-derive.
