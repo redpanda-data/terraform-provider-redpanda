@@ -58,8 +58,13 @@ func (f *ClusterFake) checkConnectionsFlag(inUse bool) error {
 	return nil
 }
 
-func connectionsEnvelopeErr() error {
-	return connInvalidf("dual listener mode (connections) is supported only on AWS BYOC clusters")
+// connectionsNotSupportedOnAzureErr is the control plane's only envelope
+// rejection for connections (cloudv2 dual_mode_connections.go, create and
+// update). The provider's narrower AWS-BYOC certification gate is a
+// ValidateConfig rule and deliberately not mirrored here, so an integration
+// test cannot pass on this fake's rejection once that gate is lost.
+func connectionsNotSupportedOnAzureErr() error {
+	return connInvalidf("dual listener mode (connections) is not supported on Azure")
 }
 
 // hasPublicConnection reports whether any spec is a public listener.
@@ -182,8 +187,8 @@ func (f *ClusterFake) validateCreateConnections(in *controlplanev1.ClusterCreate
 	if !inUse {
 		return nil
 	}
-	if in.GetCloudProvider() != controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS || in.GetType() != controlplanev1.Cluster_TYPE_BYOC {
-		return connectionsEnvelopeErr()
+	if in.GetCloudProvider() == controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE {
+		return connectionsNotSupportedOnAzureErr()
 	}
 
 	for _, s := range services {
@@ -332,6 +337,11 @@ func reconcileConnections(service string, stored []*controlplanev1.ConnectionSta
 		desiredKeys[i] = specKey(d)
 	}
 
+	storedKeys := make([]string, len(stored))
+	for i, e := range stored {
+		storedKeys[i] = specKey(e.GetConfig())
+	}
+
 	consumedDesired := map[int]bool{}
 	out := make([]*controlplanev1.ConnectionStatus, 0, len(desired))
 	for _, e := range stored {
@@ -347,10 +357,13 @@ func reconcileConnections(service string, stored []*controlplanev1.ConnectionSta
 		}
 		// Auth switch: a same-network-type other-auth stored listener that is
 		// not itself desired is renamed in place with its endpoint preserved.
+		// A desired listener that already exists is never a rename target:
+		// the control plane keeps it and drops the sibling.
 		if !slices.Contains(desiredKeys, key) {
 			switched := -1
 			for i, d := range desired {
-				if !consumedDesired[i] && d.GetType() == e.GetConfig().GetType() &&
+				if !consumedDesired[i] && !slices.Contains(storedKeys, desiredKeys[i]) &&
+					d.GetType() == e.GetConfig().GetType() &&
 					d.GetAuth().GetMode() != e.GetConfig().GetAuth().GetMode() {
 					switched = i
 					break
@@ -519,8 +532,8 @@ func (f *ClusterFake) applyConnectionsUpdate(cl *controlplanev1.Cluster, upd *co
 		return nil, nil
 	}
 
-	if cl.GetCloudProvider() != controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS || cl.GetType() != controlplanev1.Cluster_TYPE_BYOC {
-		return nil, connectionsEnvelopeErr()
+	if cl.GetCloudProvider() == controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE {
+		return nil, connectionsNotSupportedOnAzureErr()
 	}
 	// A private-only cluster's network has no public infrastructure; adding
 	// public listeners in place is rejected (the CP enforces this in

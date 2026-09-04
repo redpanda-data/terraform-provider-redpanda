@@ -222,6 +222,8 @@ attributes:
             - name: name
               type: StringAttribute
               required: true
+              validators:
+                - validators.NameFilterWildcardValidator
             - name: pattern_type
               type: StringAttribute
               required: true
@@ -288,6 +290,8 @@ attributes:
             - name: name
               type: StringAttribute
               required: true
+              validators:
+                - validators.NameFilterWildcardValidator
             - name: pattern_type
               type: StringAttribute
               required: true
@@ -441,6 +445,20 @@ attributes:
                   computed: true
                   plan_modifiers:
                     - boolplanmodifier.useStateForUnknownModifier
+                - name: tls_file_settings
+                  type: SingleNestedAttribute
+                  optional: true
+                  deprecation_message: 'tls_file_settings is not supported on shadow_schema_registry_api: the control plane rejects it for that arm. Use tls_pem_settings instead and supply the key as a ${secrets.<SECRET_ID>} reference.'
+                  attributes:
+                    - name: ca_path
+                      type: StringAttribute
+                      optional: true
+                    - name: cert_path
+                      type: StringAttribute
+                      optional: true
+                    - name: key_path
+                      type: StringAttribute
+                      optional: true
                 - name: tls_pem_settings
                   type: SingleNestedAttribute
                   optional: true
@@ -579,6 +597,8 @@ attributes:
             - name: name
               type: StringAttribute
               required: true
+              validators:
+                - validators.NameFilterWildcardValidator
             - name: pattern_type
               type: StringAttribute
               required: true

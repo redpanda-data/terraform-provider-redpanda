@@ -74,15 +74,15 @@ func TestAcc_DataSource_Cluster(t *testing.T) {
 
 	steps := acc.UpgradeEntrySteps(t, acc.ClusterDatasourceInfraDir, origTestCaseVars)
 	steps = append(steps, []resource.TestStep{
-			{
-				ConfigDirectory:          config.StaticDirectory(acc.ClusterDatasourceInfraDir),
-				ConfigVariables:          origTestCaseVars,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				Check:                    resource.ComposeAggregateTestCheckFunc(checkFuncs...),
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
-				},
+		{
+			ConfigDirectory:          config.StaticDirectory(acc.ClusterDatasourceInfraDir),
+			ConfigVariables:          origTestCaseVars,
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			Check:                    resource.ComposeAggregateTestCheckFunc(checkFuncs...),
+			ConfigPlanChecks: resource.ConfigPlanChecks{
+				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 			},
+		},
 	}...)
 
 	resource.ParallelTest(t, resource.TestCase{

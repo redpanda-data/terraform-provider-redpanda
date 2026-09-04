@@ -334,6 +334,24 @@ func TestReconcileConnections(t *testing.T) {
 		}
 	})
 
+	t.Run("dropping the other-auth sibling keeps the survivor's own endpoint", func(t *testing.T) {
+		// The control plane skips the auth-switch rename when the desired
+		// listener already exists; the removed sibling is dropped, not
+		// renamed onto the survivor.
+		const mtlsEP = "pub-mtls-ep"
+		both := []*controlplanev1.ConnectionStatus{
+			{Config: pubSASL, Endpoint: testPubEP},
+			{Config: pubMTLS, Endpoint: mtlsEP},
+		}
+		got := reconcileConnections("kafka_api", both, []*controlplanev1.ConnectionSpec{pubMTLS})
+		if len(got) != 1 {
+			t.Fatalf("expected 1 entry, got %d", len(got))
+		}
+		if got[0].GetConfig().GetAuth().GetMode() != controlplanev1.AuthMode_AUTH_MODE_MTLS || got[0].GetEndpoint() != mtlsEP {
+			t.Fatalf("entry 0 = %v/%s, want mtls with its own endpoint %s", got[0].GetConfig(), got[0].GetEndpoint(), mtlsEP)
+		}
+	})
+
 	t.Run("add appends and remove drops", func(t *testing.T) {
 		got := reconcileConnections("kafka_api", stored, []*controlplanev1.ConnectionSpec{pubSASL, pubMTLS})
 		if len(got) != 2 {
@@ -348,6 +366,140 @@ func TestReconcileConnections(t *testing.T) {
 			t.Fatalf("entry 1 = %v/%s, want appended fresh mtls", got[1].GetConfig(), got[1].GetEndpoint())
 		}
 	})
+}
+
+// TestClusterFake_ConnectionsEnvelopeMatchesControlPlane pins the control
+// plane's envelope rule for connections: only Azure is rejected, on create and
+// on update. The provider's AWS-BYOC gate belongs to ValidateConfig alone.
+func TestClusterFake_ConnectionsEnvelopeMatchesControlPlane(t *testing.T) {
+	ctx := context.Background()
+	sasl := func(ct controlplanev1.Cluster_ConnectionType) *controlplanev1.ConnectionSpec {
+		return &controlplanev1.ConnectionSpec{Type: ct, Auth: &controlplanev1.AuthSpec{Mode: controlplanev1.AuthMode_AUTH_MODE_SASL}}
+	}
+	dual := []*controlplanev1.ConnectionSpec{sasl(connTypePublic), sasl(connTypePrivate)}
+	dualCreate := func(name string, cp controlplanev1.CloudProvider, ct controlplanev1.Cluster_Type) *controlplanev1.ClusterCreate {
+		return &controlplanev1.ClusterCreate{
+			Name:           name,
+			CloudProvider:  cp,
+			Type:           ct,
+			KafkaApi:       &controlplanev1.KafkaAPISpec{Connections: dual},
+			HttpProxy:      &controlplanev1.HTTPProxySpec{Connections: dual},
+			SchemaRegistry: &controlplanev1.SchemaRegistrySpec{Connections: dual},
+		}
+	}
+
+	t.Run("create accepts GCP BYOC and AWS dedicated", func(t *testing.T) {
+		f := NewClusterFake(NewOperationFake())
+		for _, c := range []*controlplanev1.ClusterCreate{
+			dualCreate("gcp-byoc", controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP, controlplanev1.Cluster_TYPE_BYOC),
+			dualCreate("aws-dedicated", controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS, controlplanev1.Cluster_TYPE_DEDICATED),
+		} {
+			if _, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{Cluster: c}); err != nil {
+				t.Errorf("CreateCluster(%s) with connections: %v; the control plane rejects only Azure", c.GetName(), err)
+			}
+		}
+	})
+
+	t.Run("create rejects Azure", func(t *testing.T) {
+		f := NewClusterFake(NewOperationFake())
+		_, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{
+			Cluster: dualCreate("azure", controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE, controlplanev1.Cluster_TYPE_DEDICATED),
+		})
+		if status.Code(err) != codes.InvalidArgument || !strings.Contains(err.Error(), "Azure") {
+			t.Fatalf("expected the control plane's Azure rejection, got %v", err)
+		}
+	})
+
+	t.Run("update accepts GCP BYOC", func(t *testing.T) {
+		f := NewClusterFake(NewOperationFake())
+		op, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{
+			Cluster: dualCreate("gcp-byoc", controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP, controlplanev1.Cluster_TYPE_BYOC),
+		})
+		if err != nil {
+			t.Fatalf("CreateCluster: %v", err)
+		}
+		_, err = f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+			Cluster: &controlplanev1.ClusterUpdate{
+				Id:       op.GetOperation().GetResourceId(),
+				KafkaApi: &controlplanev1.KafkaAPISpec{Connections: dual},
+			},
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"kafka_api.connections"}},
+		})
+		if err != nil {
+			t.Fatalf("UpdateCluster connections on GCP BYOC: %v; the control plane rejects only Azure", err)
+		}
+	})
+
+	t.Run("update rejects Azure", func(t *testing.T) {
+		f := NewClusterFake(NewOperationFake())
+		op, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{
+			Cluster: &controlplanev1.ClusterCreate{
+				Name:           "azure-legacy",
+				CloudProvider:  controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE,
+				Type:           controlplanev1.Cluster_TYPE_DEDICATED,
+				ConnectionType: connTypePublic,
+			},
+		})
+		if err != nil {
+			t.Fatalf("CreateCluster: %v", err)
+		}
+		_, err = f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+			Cluster: &controlplanev1.ClusterUpdate{
+				Id:       op.GetOperation().GetResourceId(),
+				KafkaApi: &controlplanev1.KafkaAPISpec{Connections: dual},
+			},
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"kafka_api.connections"}},
+		})
+		if status.Code(err) != codes.InvalidArgument || !strings.Contains(err.Error(), "Azure") {
+			t.Fatalf("expected the control plane's Azure rejection, got %v", err)
+		}
+	})
+}
+
+// TestClusterFake_LegacyUpdateKeepsUnsentListenerAuth pins the control plane's
+// legacy update rule: a kafka_api update whose payload omits mtls (or sasl)
+// leaves the stored block untouched. Only an explicit enabled = false turns it
+// off.
+func TestClusterFake_LegacyUpdateKeepsUnsentListenerAuth(t *testing.T) {
+	ctx := context.Background()
+	f := NewClusterFake(NewOperationFake())
+	op, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{
+		Cluster: &controlplanev1.ClusterCreate{
+			Name:           "legacy-mtls",
+			CloudProvider:  controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS,
+			Type:           controlplanev1.Cluster_TYPE_DEDICATED,
+			ConnectionType: connTypePublic,
+			KafkaApi: &controlplanev1.KafkaAPISpec{
+				Mtls: &controlplanev1.MTLSSpec{Enabled: true, CaCertificatesPem: []string{"ca"}},
+				Sasl: &controlplanev1.SASLSpec{Enabled: true},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateCluster: %v", err)
+	}
+	id := op.GetOperation().GetResourceId()
+
+	_, err = f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+		Cluster: &controlplanev1.ClusterUpdate{
+			Id:       id,
+			KafkaApi: &controlplanev1.KafkaAPISpec{Sasl: &controlplanev1.SASLSpec{Enabled: true}},
+		},
+		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"kafka_api"}},
+	})
+	if err != nil {
+		t.Fatalf("UpdateCluster: %v", err)
+	}
+	got, err := f.GetCluster(ctx, &controlplanev1.GetClusterRequest{Id: id})
+	if err != nil {
+		t.Fatalf("GetCluster: %v", err)
+	}
+	if !got.GetCluster().GetKafkaApi().GetMtls().GetEnabled() {
+		t.Fatalf("kafka_api.mtls cleared by an update that did not carry it: %v", got.GetCluster().GetKafkaApi())
+	}
+	if len(got.GetCluster().GetKafkaApi().GetConnections()) != 2 {
+		t.Fatalf("legacy connections projection = %v, want sasl and mtls entries", got.GetCluster().GetKafkaApi().GetConnections())
+	}
 }
 
 // TestClusterFake_PrivateOnlyGainsPublicRejected pins the fake's mirror of the

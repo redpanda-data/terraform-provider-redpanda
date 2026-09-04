@@ -134,6 +134,8 @@ Read the API and the fake first. Both have repeatedly been the source of bugs th
 - Note which messages are **shared** between read and write shapes. Where they are, diffing tells you nothing and the yaml annotation carries the decision.
 - Check `buf.validate` rules and whether the control plane rejects a change in some states (not just whether the field is sendable).
 
+**Retiring a nested attribute needs a tombstone.** Terraform silently drops an unknown key inside a nested attribute object; only an unknown top-level key raises `Unsupported argument`. Deleting a nested attribute from the schema therefore turns every existing config that set it into a silent no-op, not an error. Keep the attribute as a synthetic, deprecated block whose leaves match what shipped, so the config still parses and fails at plan with migration guidance. The recipe and the schemagen trap are in `internal/schemagen/CLAUDE.md`; pin it with a plan-time `ExpectError` integration test, since the schema golden alone would bless a resurrection.
+
 **The fake (`internal/testutil/mock/fakes/`).** A lenient fake makes tests pass against a broken provider. Before trusting a green run, confirm the fake:
 
 - populates every field the control plane derives (status blocks, `effective_*` mirrors, generated IDs, fingerprints) — on **both** Create and Update

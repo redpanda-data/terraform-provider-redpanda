@@ -357,6 +357,12 @@ func (*Cluster) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// A removed mtls block plans as no change; reject it rather than leave
+	// mTLS on silently.
+	guardLegacyMTLSRemoval(ctx, req, resp)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	// connections[] is a projection of the service's listeners, so a legacy
 	// sasl/mtls change re-derives it server-side (e.g. enabling mtls adds an
 	// mTLS entry). The plan carries the prior echo when the user doesn't

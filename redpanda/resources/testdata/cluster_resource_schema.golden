@@ -338,7 +338,6 @@ attributes:
       type: StringAttribute
       optional: true
       computed: true
-      deprecation_message: Use the connections field on kafka_api, http_proxy, and schema_registry instead.
       validators:
         - stringvalidator.oneOfValidator
         - validators.RequirePrivateConnectionValidator

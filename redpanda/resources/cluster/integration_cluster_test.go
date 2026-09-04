@@ -1153,6 +1153,32 @@ func TestIntegration_Cluster_UpdateLeaf_HTTPProxy_MTLS_Enabled(t *testing.T) {
 	})
 }
 
+// TestIntegration_Cluster_LegacyMTLS_BlockRemovalRejected pins that dropping a
+// service's mtls block while mTLS is enabled is rejected at plan time, and that
+// an explicit enabled = false remains the way to disable it.
+func TestIntegration_Cluster_LegacyMTLS_BlockRemovalRejected(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-mtls-rm"
+	enabled := tfjsonpath.New("kafka_api").AtMapKey("mtls").AtMapKey("enabled")
+	withMTLS := `kafka_api = { mtls = { enabled = true, ca_certificates_pem = ["` + testCAPem + `"] } }`
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr, awsDedicatedConfig(name, withMTLS),
+				[]statecheck.StateCheck{statecheck.ExpectKnownValue(clusterAddr, enabled, knownvalue.Bool(true))}),
+			{
+				Config:      awsDedicatedConfig(name),
+				ExpectError: regexp.MustCompile(`(?s)Ambiguous mTLS Removal.*kafka_api\.mtls\.enabled\s*=\s*false`),
+			},
+			integration.UpdateLeafStep(clusterAddr, awsDedicatedConfig(name, `kafka_api = { mtls = { enabled = false } }`),
+				[]statecheck.StateCheck{statecheck.ExpectKnownValue(clusterAddr, enabled, knownvalue.Bool(false))}),
+			integration.NoopReapplyStep(clusterAddr, awsDedicatedConfig(name), nil),
+		},
+	})
+}
+
 // TestIntegration_Cluster_UpdateLeaf_KafkaConnect_Enabled proves that
 // GenerateProtobufDiffAndUpdateMask correctly detects the presence change when
 // the user adds a kafka_connect block (null → { enabled = false }). The
@@ -3208,6 +3234,62 @@ func TestIntegration_Cluster_DualListenerConnections(t *testing.T) {
 	})
 }
 
+// TestIntegration_Cluster_DualListener_DropAuthSibling pins the control
+// plane's reconcile when a service drops one of two auth modes on the same
+// network type: the survivor keeps its own endpoint, which the plan pins from
+// state.
+func TestIntegration_Cluster_DualListener_DropAuthSibling(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-drop-sibling"
+	kafkaConns := tfjsonpath.New("kafka_api").AtMapKey("connections")
+	const mtlsEndpoint = "mock-broker-0-pub-mtls.mock.redpanda.cloud:9092"
+
+	kafkaBothAuth := `kafka_api = {
+    mtls = {
+      enabled             = true
+      ca_certificates_pem = ["` + testCAPem + `"]
+    }
+    connections = [
+      { type = "public", auth = { mode = "sasl" } },
+      { type = "public", auth = { mode = "mtls" } },
+    ]
+  }`
+	kafkaMTLSOnly := `kafka_api = {
+    mtls = {
+      enabled             = true
+      ca_certificates_pem = ["` + testCAPem + `"]
+    }
+    connections = [
+      { type = "public", auth = { mode = "mtls" } },
+    ]
+  }`
+	others := []string{
+		"http_proxy = {\n    " + publicOnlySaslConns + "\n  }",
+		"schema_registry = {\n    " + publicOnlySaslConns + "\n  }",
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, append([]string{kafkaBothAuth}, others...)...),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns, knownvalue.ListSizeExact(2)),
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(1).AtMapKey("auth").AtMapKey("mode"), knownvalue.StringExact("mtls")),
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(1).AtMapKey("endpoint"), knownvalue.StringExact(mtlsEndpoint)),
+				}),
+			integration.UpdateLeafStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, append([]string{kafkaMTLSOnly}, others...)...),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns, knownvalue.ListSizeExact(1)),
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(0).AtMapKey("auth").AtMapKey("mode"), knownvalue.StringExact("mtls")),
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns.AtSliceIndex(0).AtMapKey("endpoint"), knownvalue.StringExact(mtlsEndpoint)),
+				}),
+		},
+	})
+}
+
 // publicOnlySaslConns is the single-listener starting point for topology
 // transition tests.
 const publicOnlySaslConns = `connections = [
@@ -3394,12 +3476,12 @@ func TestIntegration_Cluster_Connections_EnvelopeRejected(t *testing.T) {
 			{
 				Config: gcpDedicatedConfigNoConnType("envelope-gcp",
 					dualAllServices(dualSaslConns)...),
-				ExpectError: regexp.MustCompile(`(?s)supported only on AWS BYOC`),
+				ExpectError: regexp.MustCompile(`(?s)supported only on AWS\s+BYOC`),
 			},
 			{
 				Config: awsDedicatedNoConnTypeConfig("envelope-dedicated",
 					dualAllServices(dualSaslConns)...),
-				ExpectError: regexp.MustCompile(`(?s)supported only on AWS BYOC`),
+				ExpectError: regexp.MustCompile(`(?s)supported only on AWS\s+BYOC`),
 			},
 		},
 	})
@@ -3695,11 +3777,17 @@ func TestIntegration_Cluster_DualListener_OutOfBandFlip(t *testing.T) {
 				PlanOnly: true,
 			},
 			// Adopting the flipped topology 1:1 into config-managed
-			// connections is a no-op: the projected state already matches.
-			integration.NoopReapplyStep(clusterAddr,
+			// connections sends nothing (the projected connections already
+			// match) but is one corrective apply: the carried connection_type
+			// disagrees with the projection, so the plan releases it and the
+			// re-read takes the API's value.
+			integration.UpdateLeafStep(clusterAddr,
 				awsByocNoConnTypeConfig(name, dualAllServices(dualSaslConns)...),
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("kafka_api").AtMapKey("connections"), knownvalue.ListSizeExact(2)),
+					// The API reports a dual cluster as private; adoption must not
+					// leave the pre-flip value in state.
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("connection_type"), knownvalue.StringExact("private")),
 				}),
 			// From the adopted state, topology changes flow normally and the
 			// echo re-plan pass lets connection_type re-derive.
@@ -3804,7 +3892,7 @@ func TestIntegration_Cluster_DualListenerConnections_ConfigErrors(t *testing.T) 
 			// Azure does not support dual listener mode.
 			Config: azureDedicatedNoConnTypeConfig("dual-azure",
 				dualAllServices(dualSaslConns)...),
-			ExpectError: regexp.MustCompile(`supported only on AWS BYOC`),
+			ExpectError: regexp.MustCompile(`supported only on AWS\s+BYOC`),
 		},
 		{
 			// Valid config last: the framework's post-test destroy re-plans

@@ -289,6 +289,7 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 								"name": schema.StringAttribute{
 									Description: "The resource name, or \"*\" Note if \"*\", must be the _only_ character and `pattern_type` must be `PATTERN_TYPE_LITERAL`",
 									Required:    true,
+									Validators:  []validator.String{validators.NameFilterWildcardValidator{}},
 								},
 								"pattern_type": schema.StringAttribute{
 									Description: "- PATTERN_TYPE_LITERAL: Must match the filter exactly - PATTERN_TYPE_PREFIX: Will match anything that starts with filter - PATTERN_TYPE_PREFIXED: Will match anything that starts with filter",
@@ -346,6 +347,7 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 								"name": schema.StringAttribute{
 									Description: "The resource name, or \"*\" Note if \"*\", must be the _only_ character and `pattern_type` must be `PATTERN_TYPE_LITERAL`",
 									Required:    true,
+									Validators:  []validator.String{validators.NameFilterWildcardValidator{}},
 								},
 								"pattern_type": schema.StringAttribute{
 									Description: "- PATTERN_TYPE_LITERAL: Must match the filter exactly - PATTERN_TYPE_PREFIX: Will match anything that starts with filter - PATTERN_TYPE_PREFIXED: Will match anything that starts with filter",
@@ -495,6 +497,25 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 								Computed:      true,
 								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 								Attributes: map[string]schema.Attribute{
+									"tls_file_settings": schema.SingleNestedAttribute{
+										Description:        "TLS File Settings configuration",
+										Optional:           true,
+										DeprecationMessage: "tls_file_settings is not supported on shadow_schema_registry_api: the control plane rejects it for that arm. Use tls_pem_settings instead and supply the key as a ${secrets.<SECRET_ID>} reference.",
+										Attributes: map[string]schema.Attribute{
+											"ca_path": schema.StringAttribute{
+												Description: "Ca Path",
+												Optional:    true,
+											},
+											"cert_path": schema.StringAttribute{
+												Description: "Cert Path",
+												Optional:    true,
+											},
+											"key_path": schema.StringAttribute{
+												Description: "Key Path",
+												Optional:    true,
+											},
+										},
+									},
 									"tls_pem_settings": schema.SingleNestedAttribute{
 										Description: "Used when providing the TLS information in PEM format",
 										Optional:    true,
@@ -678,6 +699,7 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 								"name": schema.StringAttribute{
 									Description: "The resource name, or \"*\" Note if \"*\", must be the _only_ character and `pattern_type` must be `PATTERN_TYPE_LITERAL`",
 									Required:    true,
+									Validators:  []validator.String{validators.NameFilterWildcardValidator{}},
 								},
 								"pattern_type": schema.StringAttribute{
 									Description: "- PATTERN_TYPE_LITERAL: Must match the filter exactly - PATTERN_TYPE_PREFIX: Will match anything that starts with filter - PATTERN_TYPE_PREFIXED: Will match anything that starts with filter",

@@ -233,12 +233,12 @@ func TestAcc_ShadowLink(t *testing.T) {
 			),
 		},
 		// Change shadow_schema_registry_api.tail_interval and
-		// role_sync_options.paused. Three things this proves that the mock
-		// tier cannot: the control plane accepts a partial update inside the
-		// SR subtree, basic.password survives the Read that follows (the
-		// real backend masks it, so a blanked value would surface here as a
-		// perpetual diff rather than a clean apply), and role sync updates
-		// in place.
+		// role_sync_options.paused. Two things this proves against the real
+		// control plane: it accepts a partial update inside the SR subtree,
+		// and basic.password survives the Read that follows (the backend
+		// masks it, so a blanked value would surface here as a perpetual
+		// diff rather than a clean apply). The in-place role sync update is
+		// pinned at the mock tier by TestIntegration_ShadowLink_UpdateLeaf_RoleSync.
 		{
 			ConfigDirectory:          config.StaticDirectory(acc.ShadowLinkDir),
 			ConfigVariables:          srUpdateVars,

@@ -81,9 +81,6 @@ func (f *ShadowLinkFake) CreateShadowLink(_ context.Context, req *controlplanev1
 		UpdatedAt:                 now,
 	}
 
-	if err := validateNameFilters(sl); err != nil {
-		return nil, err
-	}
 	populateServerOwned(sl)
 
 	f.mu.Lock()
@@ -91,28 +88,6 @@ func (f *ShadowLinkFake) CreateShadowLink(_ context.Context, req *controlplanev1
 	f.mu.Unlock()
 
 	return &controlplanev1.CreateShadowLinkOperation{Operation: completedOp(f.op, id)}, nil
-}
-
-// validateNameFilters mirrors the backend's documented NameFilter constraint
-// on every surface that carries one: a "*" name must be the only character
-// and requires PATTERN_TYPE_LITERAL.
-func validateNameFilters(sl *controlplanev1.ShadowLink) error {
-	surfaces := []struct {
-		path    string
-		filters []*corev2.NameFilter
-	}{
-		{"role_sync_options.role_name_filters", sl.GetRoleSyncOptions().GetRoleNameFilters()},
-		{"consumer_offset_sync_options.group_filters", sl.GetConsumerOffsetSyncOptions().GetGroupFilters()},
-		{"topic_metadata_sync_options.auto_create_shadow_topic_filters", sl.GetTopicMetadataSyncOptions().GetAutoCreateShadowTopicFilters()},
-	}
-	for _, s := range surfaces {
-		for i, nf := range s.filters {
-			if nf.GetName() == "*" && nf.GetPatternType() != corev2.PatternType_PATTERN_TYPE_LITERAL {
-				return status.Errorf(codes.InvalidArgument, "%s[%d]: wildcard name \"*\" requires pattern_type PATTERN_TYPE_LITERAL", s.path, i)
-			}
-		}
-	}
-	return nil
 }
 
 // populateServerOwned fills the OUTPUT_ONLY fields the control plane derives.
@@ -240,9 +215,6 @@ func (f *ShadowLinkFake) UpdateShadowLink(_ context.Context, req *controlplanev1
 			continue
 		}
 		dstR.Set(dstFD, srcR.Get(srcFD))
-	}
-	if err := validateNameFilters(merged); err != nil {
-		return nil, err
 	}
 	populateServerOwned(merged)
 	merged.UpdatedAt = timestamppb.Now()

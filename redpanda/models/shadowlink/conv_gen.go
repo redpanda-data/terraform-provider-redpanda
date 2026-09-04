@@ -800,6 +800,10 @@ func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettings(ctx cont
 	var diags diag.Diagnostics
 	_ = prev
 	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsModel{}
+	m.TLSFileSettings = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetTlsFileSettings(), func() *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel {
+		v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings(ctx, prev)
+		return v
+	}(), SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsAttrTypes(), FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings, &diags)
 	m.TLSPemSettings = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetTlsPemSettings(), func() *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettingsModel {
 		v, _ := DecodeSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettings(ctx, prev)
 		return v
@@ -819,8 +823,58 @@ func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettings(ctx conte
 		DoNotSetSniHostname: m.DoNotSetSniHostname.ValueBool(),
 		Enabled:             m.Enabled.ValueBool(),
 	}
+	if v := modelconv.ObjectToMessageWithDiags(ctx, m.TLSFileSettings, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings, &diags); v != nil {
+		out.SetTlsFileSettings(v)
+	}
 	if v := modelconv.ObjectToMessageWithDiags(ctx, m.TLSPemSettings, ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSPemSettings, &diags); v != nil {
 		out.SetTlsPemSettings(v)
+	}
+	return out, diags
+}
+
+// FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings converts a single proto commonv1.TLSFileSettings into the
+// corresponding nested model. The prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings(_ context.Context, proto *commonv1.TLSFileSettings, prev *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel) (SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel{}
+	if v := proto.GetCaPath(); v != "" {
+		m.CaPath = types.StringValue(v)
+	} else if prev != nil && !prev.CaPath.IsUnknown() {
+		m.CaPath = prev.CaPath
+	} else {
+		m.CaPath = types.StringNull()
+	}
+	if v := proto.GetCertPath(); v != "" {
+		m.CertPath = types.StringValue(v)
+	} else if prev != nil && !prev.CertPath.IsUnknown() {
+		m.CertPath = prev.CertPath
+	} else {
+		m.CertPath = types.StringNull()
+	}
+	if v := proto.GetKeyPath(); v != "" {
+		m.KeyPath = types.StringValue(v)
+	} else if prev != nil && !prev.KeyPath.IsUnknown() {
+		m.KeyPath = prev.KeyPath
+	} else {
+		m.KeyPath = types.StringNull()
+	}
+	return m, diags
+}
+
+// ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings renders a nested model back into the proto type.
+func ExpandSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettings(_ context.Context, m *SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel) (*commonv1.TLSFileSettings, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &commonv1.TLSFileSettings{
+		CaPath:   m.CaPath.ValueString(),
+		CertPath: m.CertPath.ValueString(),
+		KeyPath:  m.KeyPath.ValueString(),
 	}
 	return out, diags
 }

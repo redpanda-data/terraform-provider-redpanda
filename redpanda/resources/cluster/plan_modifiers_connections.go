@@ -16,6 +16,7 @@ package cluster
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"strings"
 
@@ -223,6 +224,40 @@ func guardConnectionsManaged(ctx context.Context, req resource.ModifyPlanRequest
 	}
 }
 
+// guardLegacyMTLSRemoval rejects dropping a service's mtls block while state
+// has mTLS enabled and the service is not connections-managed. The block is
+// optional+computed with UseStateForUnknown, so its removal plans as no change
+// and the control plane treats a nil mtls as no change too: mTLS would stay on
+// with no signal. An explicit enabled = false is the disable path.
+func guardLegacyMTLSRemoval(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	for _, svc := range []string{"kafka_api", "http_proxy", "schema_registry"} {
+		var cfgMTLS, stateMTLS types.Object
+		var cfgConns types.List
+		if d := req.Config.GetAttribute(ctx, path.Root(svc).AtName("mtls"), &cfgMTLS); d.HasError() {
+			resp.Diagnostics.Append(d...)
+			return
+		}
+		if d := req.Config.GetAttribute(ctx, path.Root(svc).AtName("connections"), &cfgConns); d.HasError() {
+			resp.Diagnostics.Append(d...)
+			return
+		}
+		if d := req.State.GetAttribute(ctx, path.Root(svc).AtName("mtls"), &stateMTLS); d.HasError() {
+			resp.Diagnostics.Append(d...)
+			return
+		}
+		if !cfgMTLS.IsNull() || !cfgConns.IsNull() || stateMTLS.IsNull() || stateMTLS.IsUnknown() {
+			continue
+		}
+		enabled, ok := stateMTLS.Attributes()["enabled"].(types.Bool)
+		if !ok || !enabled.ValueBool() {
+			continue
+		}
+		resp.Diagnostics.AddAttributeError(path.Root(svc).AtName("mtls"),
+			"Ambiguous mTLS Removal",
+			fmt.Sprintf("%s.mtls was removed from the configuration while mTLS is enabled on the cluster; removing the block does not disable mTLS. Set %s.mtls.enabled = false to disable it, or restore the block to keep it.", svc, svc))
+	}
+}
+
 // guardPrivateOnlyGainsPublic rejects the one topology transition the control
 // plane cannot perform in place: adding public listeners to a cluster whose
 // stored topology is private-only (its network was provisioned without public
@@ -273,6 +308,50 @@ func guardPrivateOnlyGainsPublic(ctx context.Context, req resource.ModifyPlanReq
 
 // connIdentity returns the (type, auth.mode) identity of one connections
 // element. ok is false for malformed or not-yet-known elements.
+const (
+	connectionTypePublic  = "public"
+	connectionTypePrivate = "private"
+)
+
+// impliedConnectionType derives connection_type the way the control plane
+// does from a service's projected connections (cloudv2 mapper
+// getConnectionType): any private listener reads back private, otherwise
+// public. ok is false when the list or an element's type is unresolved.
+func impliedConnectionType(conns types.List) (string, bool) {
+	if conns.IsNull() || conns.IsUnknown() {
+		return "", false
+	}
+	implied := connectionTypePublic
+	for _, el := range conns.Elements() {
+		obj, isObj := el.(types.Object)
+		if !isObj || obj.IsNull() || obj.IsUnknown() {
+			return "", false
+		}
+		t, isStr := obj.Attributes()["type"].(types.String)
+		if !isStr || t.IsNull() || t.IsUnknown() {
+			return "", false
+		}
+		if t.ValueString() == connectionTypePrivate {
+			implied = connectionTypePrivate
+		}
+	}
+	return implied, true
+}
+
+// connectionTypeStale reports whether the stored connection_type disagrees
+// with what the stored kafka_api connections imply.
+func connectionTypeStale(ctx context.Context, state tfsdk.State, stateConns types.List) (bool, diag.Diagnostics) {
+	var stored types.String
+	if d := state.GetAttribute(ctx, path.Root("connection_type"), &stored); d.HasError() {
+		return false, d
+	}
+	if stored.IsNull() || stored.IsUnknown() {
+		return false, nil
+	}
+	implied, ok := impliedConnectionType(stateConns)
+	return ok && implied != stored.ValueString(), nil
+}
+
 func connIdentity(el attr.Value) (string, bool) {
 	obj, isObj := el.(types.Object)
 	if !isObj || obj.IsNull() || obj.IsUnknown() {
@@ -348,6 +427,20 @@ func markEchoesUnknownOnConnectionsChange(ctx context.Context, req resource.Modi
 			cfgIDs, cfgOK := connIdentities(cfgConns)
 			stateIDs, stateOK := connIdentities(stateConns)
 			changed = !cfgOK || !stateOK || !maps.Equal(cfgIDs, stateIDs)
+		}
+		if !changed && svc.derivesRoot {
+			// A 1:1 adoption of a fleet-flipped topology changes no identity,
+			// but the carried connection_type can still disagree with what the
+			// projection implies; release it so the re-read takes the API's.
+			stale, d := connectionTypeStale(ctx, req.State, stateConns)
+			resp.Diagnostics.Append(d...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+			if stale {
+				resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("connection_type"), types.StringUnknown())...)
+			}
+			continue
 		}
 		if !changed {
 			continue
