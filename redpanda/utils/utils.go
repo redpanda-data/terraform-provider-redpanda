@@ -331,8 +331,9 @@ func TypeListToStringSlice(t types.List) []string {
 		if ok {
 			s = append(s, stringval.ValueString())
 		} else {
-			// TODO: issue #173 - ensure this is only called on types.List that actually hold strings
-			s = append(s, strings.Trim(v.String(), "\"")) // it's easier to strip the quotes than type converting until you hit something that doesn't include them
+			// Nothing enforces that callers pass a list of strings; a non-string
+			// element is rendered and its quotes stripped rather than converted.
+			s = append(s, strings.Trim(v.String(), "\""))
 		}
 	}
 	return s

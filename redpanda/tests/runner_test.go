@@ -217,7 +217,7 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 	})
 
 	// Topic-configuration regressions: the redpanda.* strip branch and the
-	// max.compaction.lag.ms clamp (issue #355). Both pin ExpectEmptyPlan.
+	// max.compaction.lag.ms clamp. Both pin ExpectEmptyPlan.
 	steps = append(steps, dp.TopicConfigSteps(fieldMutationVars)...)
 	steps = append(steps, dp.TopicClampRegressionSteps(fieldMutationVars)...)
 
