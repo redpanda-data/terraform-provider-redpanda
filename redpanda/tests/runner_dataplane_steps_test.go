@@ -173,7 +173,7 @@ func (f *dataplaneFixture) TopicConfigSteps(base map[string]config.Variable) []r
 	}
 }
 
-// TopicClampRegressionSteps pins the max.compaction.lag.ms clamp (issue #355):
+// TopicClampRegressionSteps pins the max.compaction.lag.ms clamp:
 // the broker accepts this noop config, ignores it, and echoes back a clamped
 // value, so the provider must report the user's value or apply fails with
 // "inconsistent result after apply".
