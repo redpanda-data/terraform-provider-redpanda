@@ -19,6 +19,12 @@ env:
   # environment ONLY from the process environment and defaults to prod;
   # without this export, pre-env credentials hit the prod auth domain.
   REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+  # One provider plugin cache per run, so the released provider the upgrade
+  # entry fetches is downloaded once instead of once per test working dir.
+  # The generated config only tunes caching; the entry's guard rejects any
+  # config that redirects provider installation.
+  TF_CLI_CONFIG_FILE:
+    sh: ./scripts/acc-plugin-cache.sh "{{.BUILD_ROOT}}"
 
 tasks:
   unit:
