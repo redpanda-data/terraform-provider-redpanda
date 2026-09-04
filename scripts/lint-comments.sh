@@ -9,6 +9,7 @@ FIND=(find "${TREES[@]}" -name '*.go' ! -name '*_gen.go' ! -path '*/mocks/*' ! -
 
 PATTERN='\b(ENG|K8S|CORE|DEVEX|OPS)-[0-9]+\b'
 PATTERN+='|\bPR ?#?[0-9]+\b|\bpull request\b|\bthis (PR|commit|branch|session|conversation)\b'
+PATTERN+='|\b(issues?|cloudv2|console) ?#[0-9]+\b|(^|[^[:alnum:]_])#[0-9]{3,}\b'
 PATTERN+='|\bper (discussion|review|feedback|the (thread|call|sync|chat|reviewer))\b|\bas (discussed|agreed)\b'
 PATTERN+='|[Cc]laude|\bAI[: ]|\bagent:'
 PATTERN+='|—'
