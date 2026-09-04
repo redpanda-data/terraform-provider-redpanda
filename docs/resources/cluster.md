@@ -2147,6 +2147,8 @@ Dual listener mode — the `connections` field on `kafka_api`, `http_proxy`, and
 
 Migrating a legacy public cluster to `connections` (including adding a private listener) is supported: remove `connection_type` and set `connections` on all three services in the same apply.
 
+If Redpanda has already added listeners to the cluster outside Terraform, adopting that topology 1:1 into `connections` plans one update that sends no request: it refreshes `connection_type` to the value the API reports for the new topology.
+
 On AWS BYOC clusters `connection_type` is deprecated in favour of `connections`, and the provider warns at plan time while it is set. On every other cluster envelope `connection_type` remains the supported way to choose the network topology.
 
 ### Disabling mTLS
