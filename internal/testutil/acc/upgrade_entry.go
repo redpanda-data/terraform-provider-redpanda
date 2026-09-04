@@ -15,8 +15,11 @@
 package acc
 
 import (
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -75,31 +78,98 @@ func UpgradeEntrySteps(t testing.TB, dir string, vars map[string]config.Variable
 	if !UpgradeEntryEnabled() {
 		return nil
 	}
-	// dev_overrides would silently mask step 0's registry fetch and make the
-	// step-1 empty-plan assertion meaningless.
-	if v := os.Getenv("TF_CLI_CONFIG_FILE"); v != "" {
-		t.Fatalf(
-			"TF_CLI_CONFIG_FILE=%q is set — the provider-upgrade entry fetches the "+
-				"released provider from the public registry and dev_overrides would "+
-				"silently mask it. Unset TF_CLI_CONFIG_FILE, or set "+
-				"REDPANDA_UPGRADE_ENTRY=off to skip the entry.",
-			v,
-		)
-	}
-	alignReleasedProviderCloudEnv(t)
-
-	constraint := os.Getenv("REDPANDA_LAST_VERSION")
-	if constraint == "" {
-		constraint = "latest (REDPANDA_LAST_VERSION unset)"
-	}
-	t.Logf("provider-upgrade entry: step 0 uses released redpanda-data/redpanda @ %s", constraint)
-
 	// The framework rejects ExternalProviders on ConfigDirectory steps
 	// ("Providers must only be specified within the terraform configuration
 	// files when using TestStep.Config"), so the entry inlines the directory's
 	// .tf files; ConfigVariables still applies. Subsequent steps may keep
 	// using ConfigDirectory.
 	return UpgradeEntryStepsInline(t, inlineConfigFromDir(t, dir), vars, checks...)
+}
+
+// guardReleasedProviderSource fails the test when something on this machine
+// would replace step 0's registry fetch without a message: a CLI config that
+// redirects provider installation, or a redpanda-data/redpanda package in one
+// of Terraform's implied filesystem mirror directories (task build:install
+// writes there), which Terraform prefers over the registry.
+func guardReleasedProviderSource(t testing.TB) {
+	t.Helper()
+	if err := checkCLIConfig(os.Getenv("TF_CLI_CONFIG_FILE")); err != nil {
+		t.Fatalf("provider-upgrade entry: %v. Remove the block, unset TF_CLI_CONFIG_FILE, or set REDPANDA_UPGRADE_ENTRY=off to skip the entry.", err)
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("provider-upgrade entry: resolving the home directory: %v", err)
+	}
+	if mirror, found := staleImpliedMirror(impliedMirrorDirs(home)); found {
+		t.Fatalf("provider-upgrade entry: %s is an implied Terraform filesystem mirror holding redpanda-data/redpanda, which Terraform would use for step 0 instead of the released provider. Move it aside, or set REDPANDA_UPGRADE_ENTRY=off to skip the entry.", mirror)
+	}
+}
+
+// checkCLIConfig accepts an unset path and a config that only tunes caching;
+// it rejects one carrying a provider_installation block (dev_overrides,
+// filesystem or network mirrors), which would redirect step 0 away from the
+// registry. A path that cannot be read is rejected rather than trusted.
+func checkCLIConfig(path string) error {
+	if path == "" {
+		return nil
+	}
+	body, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		return fmt.Errorf("TF_CLI_CONFIG_FILE=%q cannot be read: %w", path, err)
+	}
+	for _, block := range []string{"dev_overrides", "provider_installation"} {
+		if strings.Contains(string(body), block) {
+			return fmt.Errorf("TF_CLI_CONFIG_FILE=%q contains a %s block, which would silently replace the released provider the entry fetches from the registry", path, block)
+		}
+	}
+	return nil
+}
+
+// impliedMirrorDirs lists the directories Terraform treats as implied
+// filesystem mirrors on this platform, the ones it searches before the
+// registry when no provider_installation block is configured.
+func impliedMirrorDirs(home string) []string {
+	dirs := []string{filepath.Join(home, ".terraform.d", "plugins")}
+	switch runtime.GOOS {
+	case "darwin":
+		dirs = append(dirs,
+			filepath.Join(home, "Library", "Application Support", "io.terraform", "plugins"),
+			"/Library/Application Support/io.terraform/plugins")
+	case "windows":
+		if appData := os.Getenv("APPDATA"); appData != "" {
+			dirs = append(dirs,
+				filepath.Join(appData, "terraform.d", "plugins"),
+				filepath.Join(appData, "HashiCorp", "Terraform", "plugins"))
+		}
+	default:
+		dataHome := os.Getenv("XDG_DATA_HOME")
+		if dataHome == "" {
+			dataHome = filepath.Join(home, ".local", "share")
+		}
+		dirs = append(dirs, filepath.Join(dataHome, "terraform", "plugins"))
+		dataDirs := os.Getenv("XDG_DATA_DIRS")
+		if dataDirs == "" {
+			dataDirs = "/usr/local/share:/usr/share"
+		}
+		for _, d := range strings.Split(dataDirs, ":") {
+			if d != "" {
+				dirs = append(dirs, filepath.Join(d, "terraform", "plugins"))
+			}
+		}
+	}
+	return dirs
+}
+
+// staleImpliedMirror reports the first mirror directory that holds a
+// redpanda-data/redpanda package.
+func staleImpliedMirror(dirs []string) (string, bool) {
+	for _, d := range dirs {
+		candidate := filepath.Join(d, "registry.terraform.io", "redpanda-data", "redpanda")
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			return candidate, true
+		}
+	}
+	return "", false
 }
 
 // inlineConfigFromDir concatenates a config directory's .tf files into one
@@ -118,8 +188,9 @@ func inlineConfigFromDir(t testing.TB, dir string) string {
 	}
 	sort.Strings(names)
 	var b strings.Builder
+	fixtures := os.DirFS(dir)
 	for _, n := range names {
-		content, err := os.ReadFile(filepath.Join(dir, n)) // #nosec G304 -- dir comes from test fixture constants
+		content, err := fs.ReadFile(fixtures, n)
 		if err != nil {
 			t.Fatalf("provider-upgrade entry: reading %s: %v", n, err)
 		}
@@ -139,16 +210,15 @@ func UpgradeEntryStepsInline(t testing.TB, cfg string, vars map[string]config.Va
 	if !UpgradeEntryEnabled() {
 		return nil
 	}
-	if v := os.Getenv("TF_CLI_CONFIG_FILE"); v != "" {
-		t.Fatalf(
-			"TF_CLI_CONFIG_FILE=%q is set — the provider-upgrade entry fetches the "+
-				"released provider from the public registry and dev_overrides would "+
-				"silently mask it. Unset TF_CLI_CONFIG_FILE, or set "+
-				"REDPANDA_UPGRADE_ENTRY=off to skip the entry.",
-			v,
-		)
-	}
+	guardReleasedProviderSource(t)
 	alignReleasedProviderCloudEnv(t)
+
+	constraint := os.Getenv("REDPANDA_LAST_VERSION")
+	if constraint == "" {
+		constraint = "latest (REDPANDA_LAST_VERSION unset)"
+	}
+	t.Logf("provider-upgrade entry: step 0 uses released redpanda-data/redpanda @ %s", constraint)
+
 	step0 := resource.TestStep{
 		Config:            cfg,
 		ConfigVariables:   vars,
