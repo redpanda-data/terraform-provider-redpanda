@@ -397,8 +397,12 @@ No cron. No nightly. No matrix expansion the human didn't ask for.
   dev_overrides, configs the released provider can't parse yet (a runner
   caller passes `withoutUpgradeEntry()`), and release-validation runs that
   want the local build's create path exercised live.
-- Pre-flight rejects `TF_CLI_CONFIG_FILE` (Atlas pattern) so a dev-override
-  doesn't silently mask the released provider.
+- Pre-flight inspects the CLI config Terraform will read (the
+  `TF_CLI_CONFIG_FILE` override, or the default file and `~/.terraform.d/*.tfrc`
+  when it is unset) and fails on a `provider_installation` block, so a
+  dev-override doesn't silently mask the released provider. A cache-only
+  config, which `task test:*` always sets, passes. It also fails on a
+  `redpanda-data/redpanda` package in an implied filesystem mirror.
 
 ### 5.9 Skipping
 
@@ -468,7 +472,8 @@ independently shippable.
     to one build-tag group + the cleanup postscript.
 11. **Provider-upgrade entry** (`internal/testutil/acc/upgrade_entry.go`)
     prepended to every acceptance test: released-provider apply, then a
-    strict local-build empty re-plan. Pre-flight rejects `TF_CLI_CONFIG_FILE`.
+    strict local-build empty re-plan. Pre-flight rejects any CLI config that
+    redirects provider installation and any stale implied mirror.
 
 ---
 
