@@ -18,7 +18,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	clustermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/cluster"
 )
 
 // TestReleasePinForServerAssign pins the rpsql.zones release matrix: the pin
@@ -90,6 +92,55 @@ func TestReleaseStringPinForServerAssign(t *testing.T) {
 			got := releaseStringPinForServerAssign(tc.planEnabled, tc.stateEnabled, tc.stateValue)
 			if got != tc.wantRelease {
 				t.Errorf("release = %v, want %v", got, tc.wantRelease)
+			}
+		})
+	}
+}
+
+// TestImpliedConnectionType pins the control plane's derivation of
+// connection_type from a service's projected connections: any private entry
+// reads back private, otherwise public; an unresolved list yields no verdict.
+func TestImpliedConnectionType(t *testing.T) {
+	elemType := types.ObjectType{AttrTypes: clustermodel.KafkaAPIConnectionsAttrTypes()}
+	conn := func(connType string) attr.Value {
+		auth, d := types.ObjectValue(clustermodel.KafkaAPIConnectionsAuthAttrTypes(), map[string]attr.Value{"mode": types.StringValue("sasl")})
+		if d.HasError() {
+			t.Fatalf("auth: %v", d)
+		}
+		obj, d := types.ObjectValue(clustermodel.KafkaAPIConnectionsAttrTypes(), map[string]attr.Value{
+			"type": types.StringValue(connType), "auth": auth, "endpoint": types.StringNull(),
+		})
+		if d.HasError() {
+			t.Fatalf("conn: %v", d)
+		}
+		return obj
+	}
+	list := func(els ...attr.Value) types.List {
+		l, d := types.ListValue(elemType, els)
+		if d.HasError() {
+			t.Fatalf("list: %v", d)
+		}
+		return l
+	}
+	cases := []struct {
+		name   string
+		conns  types.List
+		want   string
+		wantOK bool
+	}{
+		{"public only", list(conn("public")), "public", true},
+		{"private only", list(conn("private")), "private", true},
+		{"dual", list(conn("public"), conn("private")), "private", true},
+		{"empty projects public", list(), "public", true},
+		{"null list no verdict", types.ListNull(elemType), "", false},
+		{"unknown list no verdict", types.ListUnknown(elemType), "", false},
+		{"unknown element no verdict", list(types.ObjectUnknown(clustermodel.KafkaAPIConnectionsAttrTypes())), "", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := impliedConnectionType(tc.conns)
+			if ok != tc.wantOK || got != tc.want {
+				t.Errorf("impliedConnectionType = %q/%v, want %q/%v", got, ok, tc.want, tc.wantOK)
 			}
 		})
 	}
