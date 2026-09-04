@@ -66,55 +66,55 @@ func TestAcc_ServerlessPrivateLink(t *testing.T) {
 
 	steps := acc.UpgradeEntrySteps(t, acc.ServerlessPrivateLinkDir, origTestCaseVars)
 	steps = append(steps, []resource.TestStep{
-			{
-				ConfigDirectory:          config.StaticDirectory(acc.ServerlessPrivateLinkDir),
-				ConfigVariables:          origTestCaseVars,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(acc.ServerlessPrivateLinkResourceName, "name", name),
-					resource.TestCheckResourceAttr(acc.ServerlessPrivateLinkResourceName, "cloud_provider", "aws"),
-					resource.TestCheckResourceAttr(acc.ServerlessPrivateLinkResourceName, "serverless_region", "eu-west-1"),
-					resource.TestCheckResourceAttrSet(acc.ServerlessPrivateLinkResourceName, "id"),
-					resource.TestCheckResourceAttrSet(acc.ServerlessPrivateLinkResourceName, "resource_group_id"),
-					resource.TestCheckResourceAttrSet(acc.ServerlessPrivateLinkResourceName, "state"),
-					resource.TestCheckResourceAttrSet(acc.ServerlessPrivateLinkResourceName, "status.aws.vpc_endpoint_service_name"),
-					resource.TestCheckResourceAttrSet(acc.ServerlessPrivateLinkResourceName, "status.aws.availability_zones.#"),
-					resource.TestCheckResourceAttrSet(acc.ServerlessPrivateLinkResourceName, "status.aws.availability_zones.0"),
-					resource.TestCheckResourceAttr(acc.ServerlessPrivateLinkResourceName, "aws_config.allowed_principals.#", "1"),
-				),
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
-				},
+		{
+			ConfigDirectory:          config.StaticDirectory(acc.ServerlessPrivateLinkDir),
+			ConfigVariables:          origTestCaseVars,
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(acc.ServerlessPrivateLinkResourceName, "name", name),
+				resource.TestCheckResourceAttr(acc.ServerlessPrivateLinkResourceName, "cloud_provider", "aws"),
+				resource.TestCheckResourceAttr(acc.ServerlessPrivateLinkResourceName, "serverless_region", "eu-west-1"),
+				resource.TestCheckResourceAttrSet(acc.ServerlessPrivateLinkResourceName, "id"),
+				resource.TestCheckResourceAttrSet(acc.ServerlessPrivateLinkResourceName, "resource_group_id"),
+				resource.TestCheckResourceAttrSet(acc.ServerlessPrivateLinkResourceName, "state"),
+				resource.TestCheckResourceAttrSet(acc.ServerlessPrivateLinkResourceName, "status.aws.vpc_endpoint_service_name"),
+				resource.TestCheckResourceAttrSet(acc.ServerlessPrivateLinkResourceName, "status.aws.availability_zones.#"),
+				resource.TestCheckResourceAttrSet(acc.ServerlessPrivateLinkResourceName, "status.aws.availability_zones.0"),
+				resource.TestCheckResourceAttr(acc.ServerlessPrivateLinkResourceName, "aws_config.allowed_principals.#", "1"),
+			),
+			ConfigPlanChecks: resource.ConfigPlanChecks{
+				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 			},
-			{
-				ConfigDirectory:          config.StaticDirectory(acc.ServerlessPrivateLinkDir),
-				ConfigVariables:          allowDeleteVars,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
-				},
+		},
+		{
+			ConfigDirectory:          config.StaticDirectory(acc.ServerlessPrivateLinkDir),
+			ConfigVariables:          allowDeleteVars,
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			ConfigPlanChecks: resource.ConfigPlanChecks{
+				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 			},
-			{
-				ConfigDirectory:          config.StaticDirectory(acc.ServerlessPrivateLinkDir),
-				ConfigVariables:          updateTestCaseVars,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(acc.ServerlessPrivateLinkResourceName, "name", name),
-					resource.TestCheckResourceAttr(acc.ServerlessPrivateLinkResourceName, "aws_config.allowed_principals.#", "2"),
-				),
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
-				},
+		},
+		{
+			ConfigDirectory:          config.StaticDirectory(acc.ServerlessPrivateLinkDir),
+			ConfigVariables:          updateTestCaseVars,
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(acc.ServerlessPrivateLinkResourceName, "name", name),
+				resource.TestCheckResourceAttr(acc.ServerlessPrivateLinkResourceName, "aws_config.allowed_principals.#", "2"),
+			),
+			ConfigPlanChecks: resource.ConfigPlanChecks{
+				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 			},
-			{
-				ResourceName:             acc.ServerlessPrivateLinkResourceName,
-				ConfigDirectory:          config.StaticDirectory(acc.ServerlessPrivateLinkDir),
-				ConfigVariables:          updateTestCaseVars,
-				ImportState:              true,
-				ImportStateVerify:        true,
-				ImportStateVerifyIgnore:  []string{"updated_at", "allow_deletion"},
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-			},
+		},
+		{
+			ResourceName:             acc.ServerlessPrivateLinkResourceName,
+			ConfigDirectory:          config.StaticDirectory(acc.ServerlessPrivateLinkDir),
+			ConfigVariables:          updateTestCaseVars,
+			ImportState:              true,
+			ImportStateVerify:        true,
+			ImportStateVerifyIgnore:  []string{"updated_at", "allow_deletion"},
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		},
 	}...)
 
 	resource.ParallelTest(t, resource.TestCase{

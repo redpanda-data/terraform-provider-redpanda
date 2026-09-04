@@ -48,56 +48,56 @@ func TestAcc_ServiceAccount(t *testing.T) {
 
 	steps := acc.UpgradeEntrySteps(t, acc.ServiceAccountDir, createVars)
 	steps = append(steps, []resource.TestStep{
-			{
-				ConfigDirectory:          config.StaticDirectory(acc.ServiceAccountDir),
-				ConfigVariables:          createVars,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet(acc.ServiceAccountResourceName, "id"),
-					resource.TestCheckResourceAttr(acc.ServiceAccountResourceName, "name", name),
-					resource.TestCheckResourceAttr(acc.ServiceAccountResourceName, "description", "acc-test service account, initial description"),
-					resource.TestCheckResourceAttrSet(acc.ServiceAccountResourceName, "auth0_client_credentials.client_id"),
-				),
-				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue(acc.ServiceAccountResourceName, clientSecretPath, knownvalue.NotNull()),
-					secretPin.AddStateValue(acc.ServiceAccountResourceName, clientSecretPath),
-				},
+		{
+			ConfigDirectory:          config.StaticDirectory(acc.ServiceAccountDir),
+			ConfigVariables:          createVars,
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttrSet(acc.ServiceAccountResourceName, "id"),
+				resource.TestCheckResourceAttr(acc.ServiceAccountResourceName, "name", name),
+				resource.TestCheckResourceAttr(acc.ServiceAccountResourceName, "description", "acc-test service account, initial description"),
+				resource.TestCheckResourceAttrSet(acc.ServiceAccountResourceName, "auth0_client_credentials.client_id"),
+			),
+			ConfigStateChecks: []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(acc.ServiceAccountResourceName, clientSecretPath, knownvalue.NotNull()),
+				secretPin.AddStateValue(acc.ServiceAccountResourceName, clientSecretPath),
 			},
-			{
-				ConfigDirectory:          config.StaticDirectory(acc.ServiceAccountDir),
-				ConfigVariables:          updateVars,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(acc.ServiceAccountResourceName, "name", name),
-					resource.TestCheckResourceAttr(acc.ServiceAccountResourceName, "description", "acc-test service account, updated description"),
-				),
-				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue(acc.ServiceAccountResourceName, clientSecretPath, knownvalue.NotNull()),
-					secretPin.AddStateValue(acc.ServiceAccountResourceName, clientSecretPath),
-				},
+		},
+		{
+			ConfigDirectory:          config.StaticDirectory(acc.ServiceAccountDir),
+			ConfigVariables:          updateVars,
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(acc.ServiceAccountResourceName, "name", name),
+				resource.TestCheckResourceAttr(acc.ServiceAccountResourceName, "description", "acc-test service account, updated description"),
+			),
+			ConfigStateChecks: []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(acc.ServiceAccountResourceName, clientSecretPath, knownvalue.NotNull()),
+				secretPin.AddStateValue(acc.ServiceAccountResourceName, clientSecretPath),
 			},
-			{
-				ConfigDirectory:          config.StaticDirectory(acc.ServiceAccountDir),
-				ConfigVariables:          updateVars,
-				ProtoV6ProviderFactories: acc.ProtoV6Factories,
-				ResourceName:             acc.ServiceAccountResourceName,
-				ImportState:              true,
-				ImportStateVerify:        true,
-				// role_bindings is Create-only and never echoed by the
-				// server, so it is null after import by design.
-				ImportStateVerifyIgnore: []string{"role_bindings"},
-				ImportStateIdFunc: func(s *terraform.State) (string, error) {
-					rs, ok := s.RootModule().Resources[acc.ServiceAccountResourceName]
-					if !ok {
-						return "", fmt.Errorf("resource %q not found in state", acc.ServiceAccountResourceName)
-					}
-					secret := rs.Primary.Attributes["auth0_client_credentials.client_secret"]
-					if secret == "" {
-						return "", fmt.Errorf("auth0_client_credentials.client_secret missing from state at import time")
-					}
-					return rs.Primary.ID + ":" + secret, nil
-				},
+		},
+		{
+			ConfigDirectory:          config.StaticDirectory(acc.ServiceAccountDir),
+			ConfigVariables:          updateVars,
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+			ResourceName:             acc.ServiceAccountResourceName,
+			ImportState:              true,
+			ImportStateVerify:        true,
+			// role_bindings is Create-only and never echoed by the
+			// server, so it is null after import by design.
+			ImportStateVerifyIgnore: []string{"role_bindings"},
+			ImportStateIdFunc: func(s *terraform.State) (string, error) {
+				rs, ok := s.RootModule().Resources[acc.ServiceAccountResourceName]
+				if !ok {
+					return "", fmt.Errorf("resource %q not found in state", acc.ServiceAccountResourceName)
+				}
+				secret := rs.Primary.Attributes["auth0_client_credentials.client_secret"]
+				if secret == "" {
+					return "", fmt.Errorf("auth0_client_credentials.client_secret missing from state at import time")
+				}
+				return rs.Primary.ID + ":" + secret, nil
 			},
+		},
 	}...)
 
 	resource.ParallelTest(t, resource.TestCase{
