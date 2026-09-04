@@ -63,6 +63,7 @@ Extend-specific discipline:
 - **Don't reorder existing entries.** Insert into the existing tree in proximity-relevant order — diff noise hides the real change.
 - **Required: true on a new attribute is a breaking change** for existing users. Confirm with the user before adding. Use `optional: true` or `optional+computed` instead.
 - **If the field was `todo: true`**, the edit is a replacement: remove `todo: true` and add the correct lifecycle.
+- **Removing a nested attribute a release already shipped is not `exclude: true`.** Terraform drops unknown nested keys silently, so the old config keeps applying with the value gone. Keep it as a synthetic deprecated tombstone that fails at plan with migration guidance; see "Retiring an attribute" in `internal/schemagen/CLAUDE.md`.
 - **Server-defaulted proto fields** → `optional+computed+UseStateForUnknown`. The classifier auto-emits `UseStateForUnknown` for top-level optional+computed; only override when the server returns null and would create perpetual churn.
 
 If the proto field is new, `task generate:apidescriptions` first to pull the description from cloudv2. Inline `description:` is rejected; gaps go in the curated tables in `internal/schemagen/descriptions.go` or upstream into cloudv2 proto comments.
