@@ -2752,6 +2752,17 @@ func TestIntegration_Cluster_NestedMatrix_SchemaRegistry_Dense(t *testing.T) {
 				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 				idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 			}),
+			// An explicit enabled = false is a user value, not the echo: it
+			// wins over the carried state and plans clean afterwards.
+			integration.UpdateLeafStep(clusterAddr,
+				awsDedicatedConfig(name, `schema_registry = {
+    mtls = { enabled = false }
+  }`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr,
+						tfjsonpath.New("schema_registry").AtMapKey("mtls").AtMapKey("enabled"), knownvalue.Bool(false)),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
 		},
 	})
 }
@@ -3171,6 +3182,11 @@ func TestIntegration_Cluster_DualListenerConnections(t *testing.T) {
 					// A dual cluster reads back connection_type "private"
 					// (cloudv2 getConnectionType: any private listener wins).
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("connection_type"), knownvalue.StringExact("private")),
+					// No config block, no mTLS listener: every service echoes the
+					// control plane's disabled mtls block and the plan stays empty.
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("kafka_api").AtMapKey("mtls").AtMapKey("enabled"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("http_proxy").AtMapKey("mtls").AtMapKey("enabled"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("schema_registry").AtMapKey("mtls").AtMapKey("enabled"), knownvalue.Bool(false)),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 					pubEndpointPreserved.AddStateValue(clusterAddr, kafkaConns.AtSliceIndex(0).AtMapKey("endpoint")),
 				}),
