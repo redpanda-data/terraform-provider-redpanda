@@ -109,7 +109,126 @@ customer_managed_resources:
               plan_modifiers: [RequiresReplace]
 
     azure:
-      todo: true
+      optional: true
+      computed: false
+      fields:
+        management_bucket:
+          required: true
+          fields:
+            storage_account_name:
+              required: true
+              plan_modifiers: [RequiresReplace]
+            storage_container_name:
+              required: true
+              plan_modifiers: [RequiresReplace]
+            # The public read mapper always reports this block, with an empty
+            # name when create omitted it, so it cannot be optional.
+            resource_group:
+              required: true
+              fields:
+                name:
+                  required: true
+                  plan_modifiers: [RequiresReplace]
+        vnet:
+          required: true
+          fields:
+            name:
+              required: true
+              plan_modifiers: [RequiresReplace]
+            resource_group:
+              required: true
+              fields:
+                name:
+                  required: true
+                  plan_modifiers: [RequiresReplace]
+        subnets:
+          required: true
+          fields:
+            rp_agent:
+              required: true
+              fields:
+                name:
+                  required: true
+                  plan_modifiers: [RequiresReplace]
+            rp_0_pods:
+              required: true
+              fields:
+                name:
+                  required: true
+                  plan_modifiers: [RequiresReplace]
+            rp_0_vnet:
+              required: true
+              fields:
+                name:
+                  required: true
+                  plan_modifiers: [RequiresReplace]
+            rp_1_pods:
+              required: true
+              fields:
+                name:
+                  required: true
+                  plan_modifiers: [RequiresReplace]
+            rp_1_vnet:
+              required: true
+              fields:
+                name:
+                  required: true
+                  plan_modifiers: [RequiresReplace]
+            rp_2_pods:
+              required: true
+              fields:
+                name:
+                  required: true
+                  plan_modifiers: [RequiresReplace]
+            rp_2_vnet:
+              required: true
+              fields:
+                name:
+                  required: true
+                  plan_modifiers: [RequiresReplace]
+            rp_connect_pods:
+              required: true
+              fields:
+                name:
+                  required: true
+                  plan_modifiers: [RequiresReplace]
+            rp_connect_vnet:
+              required: true
+              fields:
+                name:
+                  required: true
+                  plan_modifiers: [RequiresReplace]
+            sys_pods:
+              required: true
+              fields:
+                name:
+                  required: true
+                  plan_modifiers: [RequiresReplace]
+            sys_vnet:
+              required: true
+              fields:
+                name:
+                  required: true
+                  plan_modifiers: [RequiresReplace]
+            rp_egress_vnet:
+              required: true
+              fields:
+                name:
+                  required: true
+                  plan_modifiers: [RequiresReplace]
+            kafka_connect_pods:
+              required: true
+              fields:
+                name:
+                  required: true
+                  plan_modifiers: [RequiresReplace]
+            kafka_connect_vnet:
+              required: true
+              fields:
+                name:
+                  required: true
+                  plan_modifiers: [RequiresReplace]
+
 # Response-only fields (present on Network but not NetworkCreate). The
 # per-RPC payload-type divergence pass skips these automatically when
 # emitting the Create expander — no extra wiring needed.

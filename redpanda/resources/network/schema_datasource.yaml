@@ -57,10 +57,6 @@ customer_managed_resources:
             name:
               required: true
 
-    azure:
-      todo: true
-
-
 # --- New proto fields (auto-added by schemagen -todo) ---
 egress_spec:
   fields:
