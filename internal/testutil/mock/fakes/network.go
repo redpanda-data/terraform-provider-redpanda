@@ -104,6 +104,13 @@ func (f *NetworkFake) CreateNetwork(_ context.Context, req *controlplanev1.Creat
 	return &controlplanev1.CreateNetworkOperation{Operation: completedOp(f.op, id)}, nil
 }
 
+// Lookup returns the stored network with the given id, or nil.
+func (f *NetworkFake) Lookup(id string) *controlplanev1.Network {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.networks[id]
+}
+
 // GetNetwork returns the stored network or NotFound.
 func (f *NetworkFake) GetNetwork(_ context.Context, req *controlplanev1.GetNetworkRequest) (*controlplanev1.GetNetworkResponse, error) {
 	f.mu.Lock()

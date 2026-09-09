@@ -269,7 +269,10 @@ resource "redpanda_cluster" "test" {
 `, name, body)
 }
 
-// awsBYOCConfig returns the AWS BYOC baseline HCL.
+// awsBYOCConfig returns the AWS BYOC baseline HCL: a Redpanda-managed network
+// (cidr_block, no customer-managed resources) under a BYOC cluster without them.
+// The control plane refuses a cluster whose customer-managed resources disagree
+// with its network's, so the two must stay paired.
 func awsBYOCConfig(name string) string {
 	return fmt.Sprintf(`
 provider "redpanda" {}
@@ -284,14 +287,7 @@ resource "redpanda_network" "test" {
   cloud_provider    = "aws"
   region            = "us-east-1"
   cluster_type      = "byoc"
-  customer_managed_resources = {
-    aws = {
-      management_bucket = { arn = "arn:aws:s3:::tfrp-bv-mgmt" }
-      dynamodb_table    = { arn = "arn:aws:dynamodb:us-east-1:123456789012:table/tfrp-bv-ddb" }
-      vpc               = { arn = "arn:aws:ec2:us-east-1:123456789012:vpc/vpc-0abc1234def56789a" }
-      private_subnets   = { arns = ["arn:aws:ec2:us-east-1:123456789012:subnet/subnet-0abc1234def56789a"] }
-    }
-  }
+  cidr_block        = "10.0.0.0/20"
 }
 
 resource "redpanda_cluster" "test" {
@@ -582,14 +578,7 @@ resource "redpanda_network" "test" {
   cloud_provider    = "aws"
   region            = "us-east-1"
   cluster_type      = "byoc"
-  customer_managed_resources = {
-    aws = {
-      management_bucket = { arn = "arn:aws:s3:::tfrp-bv-mgmt" }
-      dynamodb_table    = { arn = "arn:aws:dynamodb:us-east-1:123456789012:table/tfrp-bv-ddb" }
-      vpc               = { arn = "arn:aws:ec2:us-east-1:123456789012:vpc/vpc-0abc1234def56789a" }
-      private_subnets   = { arns = ["arn:aws:ec2:us-east-1:123456789012:subnet/subnet-0abc1234def56789a"] }
-    }
-  }
+  cidr_block        = "10.0.0.0/20"
 }
 
 resource "redpanda_cluster" "test" {

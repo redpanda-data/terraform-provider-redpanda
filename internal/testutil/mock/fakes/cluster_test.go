@@ -790,3 +790,58 @@ func TestClusterFake_AzureCloudStorageEcho(t *testing.T) {
 		t.Errorf("cloud_storage.azure: got %q/%q, want the customer-managed tiered storage names", az.GetStorageAccountName(), az.GetContainerName())
 	}
 }
+
+// TestClusterFake_CMREnvelope mirrors cloudv2 validateCustomerManagedResources
+// (controlplane-api redpanda_service.go) on create: customer-managed resources
+// need a BYOC cluster, the cluster and its network must agree on having them,
+// and a GCP arm needs a GCP cluster. With no network lookup wired the
+// cross-resource rules are skipped, so a unit test that seeds only clusters
+// keeps working.
+func TestClusterFake_CMREnvelope(t *testing.T) {
+	azureCMR := &controlplanev1.CustomerManagedResources{CloudProvider: &controlplanev1.CustomerManagedResources_Azure_{
+		Azure: &controlplanev1.CustomerManagedResources_Azure{},
+	}}
+	gcpCMR := &controlplanev1.CustomerManagedResources{CloudProvider: &controlplanev1.CustomerManagedResources_Gcp{
+		Gcp: &controlplanev1.CustomerManagedResources_GCP{},
+	}}
+	network := func(cmr *controlplanev1.Network_CustomerManagedResources) *controlplanev1.Network {
+		return &controlplanev1.Network{Id: "net-1", CustomerManagedResources: cmr}
+	}
+	cluster := func(typ controlplanev1.Cluster_Type, cp controlplanev1.CloudProvider, cmr *controlplanev1.CustomerManagedResources) *controlplanev1.ClusterCreate {
+		return &controlplanev1.ClusterCreate{Name: "c", Type: typ, CloudProvider: cp, NetworkId: "net-1", Region: "eastus", CustomerManagedResources: cmr}
+	}
+	cases := []struct {
+		name    string
+		network *controlplanev1.Network // nil: lookup finds nothing
+		in      *controlplanev1.ClusterCreate
+		wantErr bool
+	}{
+		{"byoc with cmr on cmr network", network(azureNetworkCMRAsCluster()), cluster(controlplanev1.Cluster_TYPE_BYOC, controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE, azureCMR), false},
+		{"dedicated with cmr", network(azureNetworkCMRAsCluster()), cluster(controlplanev1.Cluster_TYPE_DEDICATED, controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE, azureCMR), true},
+		{"cmr cluster on plain network", network(nil), cluster(controlplanev1.Cluster_TYPE_BYOC, controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE, azureCMR), true},
+		{"plain cluster on cmr network", network(azureNetworkCMRAsCluster()), cluster(controlplanev1.Cluster_TYPE_BYOC, controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE, nil), true},
+		{"gcp arm on azure cluster", network(azureNetworkCMRAsCluster()), cluster(controlplanev1.Cluster_TYPE_BYOC, controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE, gcpCMR), true},
+		{"unknown network skips the cross check", nil, cluster(controlplanev1.Cluster_TYPE_BYOC, controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE, azureCMR), false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := NewClusterFake(NewOperationFake())
+			f.NetworkLookup = func(string) *controlplanev1.Network { return tc.network }
+			_, err := f.CreateCluster(context.Background(), &controlplanev1.CreateClusterRequest{Cluster: tc.in})
+			if tc.wantErr && status.Code(err) != codes.InvalidArgument {
+				t.Fatalf("got %v, want InvalidArgument", err)
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+// azureNetworkCMRAsCluster returns any non-nil network CMR; the envelope rules
+// look only at presence and arm.
+func azureNetworkCMRAsCluster() *controlplanev1.Network_CustomerManagedResources {
+	return &controlplanev1.Network_CustomerManagedResources{CloudProvider: &controlplanev1.Network_CustomerManagedResources_Azure_{
+		Azure: &controlplanev1.Network_CustomerManagedResources_Azure{},
+	}}
+}

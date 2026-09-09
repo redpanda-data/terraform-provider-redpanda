@@ -59,6 +59,11 @@ type ClusterFake struct {
 	// name suffix detection (usesDualListenerModel).
 	dualModel map[string]bool
 
+	// NetworkLookup resolves a cluster's network so create can apply the
+	// control plane's cross-resource customer-managed-resources rules; the
+	// mock server wires it to the network fake. Nil skips those rules.
+	NetworkLookup func(id string) *controlplanev1.Network
+
 	// CreateMutator, when set, is applied to the freshly built cluster just
 	// before it is stored, letting a test simulate server-side defaulting of
 	// computed fields the provider did not send. Fires only at create.
@@ -181,6 +186,13 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 		return nil, status.Error(codes.InvalidArgument, "cluster is required")
 	}
 	if err := f.validateCreateConnections(in); err != nil {
+		return nil, err
+	}
+	var nw *controlplanev1.Network
+	if f.NetworkLookup != nil {
+		nw = f.NetworkLookup(in.GetNetworkId())
+	}
+	if err := validateCreateCustomerManagedResources(in, nw); err != nil {
 		return nil, err
 	}
 	id := xidLike(clusterIDBase + f.seq.Add(1))
