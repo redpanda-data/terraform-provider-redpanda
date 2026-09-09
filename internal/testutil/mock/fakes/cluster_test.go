@@ -756,3 +756,37 @@ func TestClusterFake_PrivateLinkStatusMirrorsControlPlane(t *testing.T) {
 		}
 	}
 }
+
+// TestClusterFake_AzureCloudStorageEcho pins that an Azure cluster reads back
+// a cloud_storage.azure block like AWS and GCP clusters read back theirs, and
+// that on a BYOVPC cluster it names the customer's tiered storage account and
+// container, which is what the control plane reports.
+func TestClusterFake_AzureCloudStorageEcho(t *testing.T) {
+	f := NewClusterFake(NewOperationFake())
+	op, err := f.CreateCluster(context.Background(), &controlplanev1.CreateClusterRequest{Cluster: &controlplanev1.ClusterCreate{
+		Name:          "az",
+		CloudProvider: controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE,
+		Type:          controlplanev1.Cluster_TYPE_BYOC,
+		Region:        "eastus",
+		CloudStorage:  &controlplanev1.ClusterCreate_CloudStorage{},
+		CustomerManagedResources: &controlplanev1.CustomerManagedResources{CloudProvider: &controlplanev1.CustomerManagedResources_Azure_{
+			Azure: &controlplanev1.CustomerManagedResources_Azure{
+				TieredCloudStorage: &controlplanev1.CustomerManagedAzureBucketSpec{StorageAccountName: "tieredsa", StorageContainerName: "tiered"},
+			},
+		}},
+	}})
+	if err != nil {
+		t.Fatalf("CreateCluster: %v", err)
+	}
+	got, err := f.GetCluster(context.Background(), &controlplanev1.GetClusterRequest{Id: op.GetOperation().GetResourceId()})
+	if err != nil {
+		t.Fatalf("GetCluster: %v", err)
+	}
+	az := got.GetCluster().GetCloudStorage().GetAzure()
+	if az == nil {
+		t.Fatal("cloud_storage.azure: got nil on an Azure cluster")
+	}
+	if az.GetStorageAccountName() != "tieredsa" || az.GetContainerName() != "tiered" {
+		t.Errorf("cloud_storage.azure: got %q/%q, want the customer-managed tiered storage names", az.GetStorageAccountName(), az.GetContainerName())
+	}
+}

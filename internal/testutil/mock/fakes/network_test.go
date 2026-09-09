@@ -203,3 +203,88 @@ func TestNetworkFake_UpdateNetworkNotFound(t *testing.T) {
 		t.Fatalf("UpdateNetwork on unknown id: got %v, want NotFound", err)
 	}
 }
+
+func azureNetworkCMR() *controlplanev1.Network_CustomerManagedResources {
+	sub := func(n string) *controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet {
+		return &controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet{Name: n}
+	}
+	return &controlplanev1.Network_CustomerManagedResources{
+		CloudProvider: &controlplanev1.Network_CustomerManagedResources_Azure_{
+			Azure: &controlplanev1.Network_CustomerManagedResources_Azure{
+				ManagementBucket: &controlplanev1.CustomerManagedAzureBucketSpec{StorageAccountName: "mgmtsa", StorageContainerName: "mgmt"},
+				Vnet: &controlplanev1.Network_CustomerManagedResources_Azure_Vnet{
+					Name:          "vnet",
+					ResourceGroup: &controlplanev1.CustomerManagedAzureResourceGroupSpec{Name: "net-rg"},
+				},
+				Subnets: &controlplanev1.Network_CustomerManagedResources_Azure_Subnets{
+					RpAgent: sub("agent"), Rp_0Pods: sub("rp0p"), Rp_0Vnet: sub("rp0v"), Rp_1Pods: sub("rp1p"), Rp_1Vnet: sub("rp1v"),
+					Rp_2Pods: sub("rp2p"), Rp_2Vnet: sub("rp2v"), RpConnectPods: sub("rcp"), RpConnectVnet: sub("rcv"),
+					SysPods: sub("sysp"), SysVnet: sub("sysv"), RpEgressVnet: sub("egress"), KafkaConnectPods: sub("kcp"), KafkaConnectVnet: sub("kcv"),
+				},
+			},
+		},
+	}
+}
+
+// TestNetworkFake_AzureCMRRoundTrip pins that every Azure customer-managed
+// leaf written on create reads back on get, rp_egress_vnet included. This is
+// the contract the provider is built against; a control plane that drops the
+// egress subnet on read is a control-plane bug, not something the fake models.
+func TestNetworkFake_AzureCMRRoundTrip(t *testing.T) {
+	f := NewNetworkFake(NewOperationFake())
+	op, err := f.CreateNetwork(context.Background(), &controlplanev1.CreateNetworkRequest{Network: &controlplanev1.NetworkCreate{
+		Name:                     "net",
+		CloudProvider:            controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE,
+		ClusterType:              controlplanev1.Cluster_TYPE_BYOC,
+		Region:                   "eastus",
+		CustomerManagedResources: azureNetworkCMR(),
+	}})
+	if err != nil {
+		t.Fatalf("CreateNetwork: %v", err)
+	}
+	got, err := f.GetNetwork(context.Background(), &controlplanev1.GetNetworkRequest{Id: op.GetOperation().GetResourceId()})
+	if err != nil {
+		t.Fatalf("GetNetwork: %v", err)
+	}
+	az := got.GetNetwork().GetCustomerManagedResources().GetAzure()
+	if az == nil {
+		t.Fatal("Azure arm did not read back")
+	}
+	if n := az.GetSubnets().GetRpEgressVnet().GetName(); n != "egress" {
+		t.Errorf("rp_egress_vnet: got %q, want %q", n, "egress")
+	}
+	if n := az.GetSubnets().GetRp_2Vnet().GetName(); n != "rp2v" {
+		t.Errorf("rp_2_vnet: got %q, want %q", n, "rp2v")
+	}
+	if n := az.GetVnet().GetResourceGroup().GetName(); n != "net-rg" {
+		t.Errorf("vnet.resource_group: got %q, want %q", n, "net-rg")
+	}
+	// The public read mapper (cloudv2 apps/public-api-go network mapper) always
+	// builds management_bucket.resource_group, with an empty name when the
+	// request carried none; a fake that echoes nil hides that on refresh.
+	if rg := az.GetManagementBucket().GetResourceGroup(); rg == nil {
+		t.Error("management_bucket.resource_group: got nil, want an empty spec like the control plane returns")
+	} else if rg.GetName() != "" {
+		t.Errorf("management_bucket.resource_group.name: got %q, want empty for an omitted block", rg.GetName())
+	}
+	if got.GetNetwork().GetCidrBlock() != "0.0.0.0/0" {
+		t.Errorf("cidr_block: got %q, want the control plane's 0.0.0.0/0 placeholder", got.GetNetwork().GetCidrBlock())
+	}
+}
+
+// TestNetworkFake_CMRRequiresBYOC mirrors cloudv2's
+// validateCustomerManagedResources (controlplane-api network_service.go): a
+// network carrying customer_managed_resources must be TYPE_BYOC.
+func TestNetworkFake_CMRRequiresBYOC(t *testing.T) {
+	f := NewNetworkFake(NewOperationFake())
+	_, err := f.CreateNetwork(context.Background(), &controlplanev1.CreateNetworkRequest{Network: &controlplanev1.NetworkCreate{
+		Name:                     "net",
+		CloudProvider:            controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE,
+		ClusterType:              controlplanev1.Cluster_TYPE_DEDICATED,
+		Region:                   "eastus",
+		CustomerManagedResources: azureNetworkCMR(),
+	}})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("CreateNetwork with CMR on a dedicated network: got %v, want InvalidArgument", err)
+	}
+}

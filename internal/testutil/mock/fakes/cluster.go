@@ -235,8 +235,14 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 			cl.CloudStorage.SetAws(&controlplanev1.Cluster_CloudStorage_AWS{Arn: "arn:aws:s3:::tfrp-fake-cloud-storage"})
 		case controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP:
 			cl.CloudStorage.SetGcp(&controlplanev1.Cluster_CloudStorage_GCP{Name: "tfrp-fake-cloud-storage"})
+		case controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE:
+			// A BYOVPC cluster reports the customer's tiered storage names.
+			az := &controlplanev1.Cluster_CloudStorage_Azure{StorageAccountName: "tfrpfakestorage", ContainerName: "tfrp-fake-cloud-storage"}
+			if ts := in.GetCustomerManagedResources().GetAzure().GetTieredCloudStorage(); ts != nil {
+				az.StorageAccountName, az.ContainerName = ts.GetStorageAccountName(), ts.GetStorageContainerName()
+			}
+			cl.CloudStorage.SetAzure(az)
 		default:
-			// Azure carries extra fields; model it when a test needs it.
 		}
 	}
 	if spec := in.GetAwsPrivateLink(); spec.GetEnabled() {

@@ -25,6 +25,7 @@ import (
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -85,7 +86,7 @@ func (f *NetworkFake) CreateNetwork(_ context.Context, req *controlplanev1.Creat
 		Region:                   in.GetRegion(),
 		CidrBlock:                in.GetCidrBlock(),
 		ClusterType:              in.GetClusterType(),
-		CustomerManagedResources: in.GetCustomerManagedResources(),
+		CustomerManagedResources: readShapeCustomerManagedResources(in.GetCustomerManagedResources()),
 		EgressSpec:               in.GetEgressSpec(),
 		State:                    controlplanev1.Network_STATE_READY,
 		CreatedAt:                now,
@@ -206,6 +207,21 @@ func sameStringSet(a, b []string) bool {
 	slices.Sort(a)
 	slices.Sort(b)
 	return slices.Equal(a, b)
+}
+
+// readShapeCustomerManagedResources returns the block as the public read
+// mapper (cloudv2 apps/public-api-go network mapper) reports it: the Azure
+// management bucket always carries a resource_group, with an empty name when
+// the request omitted one.
+func readShapeCustomerManagedResources(cmr *controlplanev1.Network_CustomerManagedResources) *controlplanev1.Network_CustomerManagedResources {
+	if cmr == nil {
+		return nil
+	}
+	out := proto.CloneOf(cmr)
+	if mb := out.GetAzure().GetManagementBucket(); mb != nil && mb.GetResourceGroup() == nil {
+		mb.ResourceGroup = &controlplanev1.CustomerManagedAzureResourceGroupSpec{}
+	}
+	return out
 }
 
 // validateNetworkCreateShape mirrors the control plane's create-time rules
