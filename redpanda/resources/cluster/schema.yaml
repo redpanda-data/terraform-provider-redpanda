@@ -733,8 +733,8 @@ schema_registry:
     all_urls:
       computed_only: true
     mtls:
-      computed: false
       optional: true
+      computed: true
       fields:
         ca_certificates_pem:
           computed: false
