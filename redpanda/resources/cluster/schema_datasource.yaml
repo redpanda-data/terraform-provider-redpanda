@@ -108,8 +108,6 @@ customer_managed_resources:
           fields:
             arn: {}
         rpsql_security_group: {}
-    azure:
-      todo: true
 cluster_configuration:
   fields:
     custom_properties:

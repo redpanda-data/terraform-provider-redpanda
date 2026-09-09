@@ -411,8 +411,152 @@ customer_managed_resources:
           todo: true
         redpanda_operator_service_account:
           todo: true
+    # RequiresReplace on the arm as well as on every leaf: the framework skips
+    # nested modifiers when the planned parent is null, so the arm-level marker
+    # is what covers removing an optional block, and the control plane has no
+    # Azure update arm to carry one in place anyway.
     azure:
-      todo: true
+      computed: false
+      optional: true
+      plan_modifiers: [RequiresReplace]
+      fields:
+        resource_groups:
+          required: true
+          fields:
+            redpanda_resource_group:
+              required: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+            storage_resource_group:
+              required: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+            iam_resource_group:
+              required: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+        user_assigned_identities:
+          required: true
+          fields:
+            agent_user_assigned_identity:
+              required: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+            aks_user_assigned_identity:
+              required: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+            redpanda_cluster_assigned_identity:
+              required: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+            cert_manager_assigned_identity:
+              required: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+            external_dns_assigned_identity:
+              required: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+            redpanda_console_assigned_identity:
+              required: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+            kafka_connect_assigned_identity:
+              required: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+            redpanda_connect_assigned_identity:
+              required: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+            redpanda_connect_api_assigned_identity:
+              required: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+            redpanda_operator_assigned_identity:
+              required: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+        tiered_cloud_storage:
+          required: true
+          fields:
+            storage_account_name:
+              plan_modifiers: [RequiresReplace]
+              required: true
+            storage_container_name:
+              plan_modifiers: [RequiresReplace]
+              required: true
+            # The proto leaves resource_group optional and the control plane
+            # echoes it nil when unset, so it stays optional and not computed.
+            resource_group:
+              computed: false
+              optional: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+        key_vaults:
+          required: true
+          fields:
+            management_vault:
+              required: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+            console_vault:
+              required: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+        security_groups:
+          required: true
+          fields:
+            redpanda_security_group:
+              required: true
+              fields:
+                name:
+                  plan_modifiers: [RequiresReplace]
+                  required: true
+        cidrs:
+          required: true
+          fields:
+            # No buf.validate rule on the proto; the format regex is the only
+            # plan-time check. CIDRBlock is the network-level validator and
+            # cross-checks a sibling, which cannot resolve from inside cidrs.
+            aks_service_cidr:
+              plan_modifiers: [RequiresReplace]
+              required: true
+              validator: CIDRBlockRegex
+
 dataplane_api:
   computed_only: true
 
