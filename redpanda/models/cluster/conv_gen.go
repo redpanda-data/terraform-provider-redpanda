@@ -2360,13 +2360,13 @@ func FlattenSchemaRegistry(ctx context.Context, proto *controlplanev1.Cluster_Sc
 	var diags diag.Diagnostics
 	_ = prev
 	m := SchemaRegistryModel{}
-	m.Mtls = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetMtls(), func() *SchemaRegistryMtlsModel { v, _ := DecodeSchemaRegistryMtls(ctx, prev); return v }(), SchemaRegistryMtlsAttrTypes(), FlattenSchemaRegistryMtls, &diags)
 	m.Connections = modelconv.ListFromObjectsReorderedByIdentityWithDiags(ctx, proto.GetConnections(), func() types.List {
 		if prev != nil {
 			return prev.Connections
 		}
 		return types.List{}
 	}(), SchemaRegistryConnectionsAttrTypes(), FlattenSchemaRegistryConnections, []string{"auth.mode", "type"}, &diags)
+	m.Mtls = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetMtls(), func() *SchemaRegistryMtlsModel { v, _ := DecodeSchemaRegistryMtls(ctx, prev); return v }(), SchemaRegistryMtlsAttrTypes(), FlattenSchemaRegistryMtls, &diags)
 	m.AllUrls = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAllUrls(), func() *SchemaRegistryAllUrlsModel { v, _ := DecodeSchemaRegistryAllUrls(ctx, prev); return v }(), SchemaRegistryAllUrlsAttrTypes(), FlattenSchemaRegistryAllUrls, &diags)
 	m.URL = types.StringValue(proto.GetUrl())
 	return m, diags
@@ -2382,41 +2382,6 @@ func ExpandSchemaRegistry(ctx context.Context, m *SchemaRegistryModel) (*control
 		Mtls:    modelconv.ObjectToMessageWithDiags(ctx, m.Mtls, ExpandSchemaRegistryMtls, &diags),
 		AllUrls: modelconv.ObjectToMessageWithDiags(ctx, m.AllUrls, ExpandSchemaRegistryAllUrls, &diags),
 		Url:     m.URL.ValueString(),
-	}
-	return out, diags
-}
-
-// FlattenSchemaRegistryMtls converts a single proto controlplanev1.MTLSSpec into the
-// corresponding nested model. The prev *SchemaRegistryMtlsModel arg carries forward
-// TF-only / sensitive / write-only fields and resolves the proto3
-// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
-// flatten directly); pass nil when no prior nested state is available.
-func FlattenSchemaRegistryMtls(ctx context.Context, proto *controlplanev1.MTLSSpec, prev *SchemaRegistryMtlsModel) (SchemaRegistryMtlsModel, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	_ = prev
-	m := SchemaRegistryMtlsModel{}
-	m.CaCertificatesPem = modelconv.ListFromSliceWithDiags(ctx, proto.GetCaCertificatesPem(), types.StringType, &diags)
-	if prev != nil {
-		m.CaCertificatesPem = modelconv.ListCarryKnownEmpty(m.CaCertificatesPem, prev.CaCertificatesPem)
-	}
-	m.PrincipalMappingRules = modelconv.ListFromSliceWithDiags(ctx, proto.GetPrincipalMappingRules(), types.StringType, &diags)
-	if prev != nil {
-		m.PrincipalMappingRules = modelconv.ListCarryKnownEmpty(m.PrincipalMappingRules, prev.PrincipalMappingRules)
-	}
-	m.Enabled = types.BoolValue(proto.GetEnabled())
-	return m, diags
-}
-
-// ExpandSchemaRegistryMtls renders a nested model back into the proto type.
-func ExpandSchemaRegistryMtls(ctx context.Context, m *SchemaRegistryMtlsModel) (*controlplanev1.MTLSSpec, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	if m == nil {
-		return nil, diags
-	}
-	out := &controlplanev1.MTLSSpec{
-		CaCertificatesPem:     modelconv.ListToSliceWithDiags[string](ctx, m.CaCertificatesPem, &diags),
-		PrincipalMappingRules: modelconv.ListToSliceWithDiags[string](ctx, m.PrincipalMappingRules, &diags),
-		Enabled:               m.Enabled.ValueBool(),
 	}
 	return out, diags
 }
@@ -2470,6 +2435,41 @@ func ExpandSchemaRegistryConnectionsAuth(_ context.Context, m *SchemaRegistryCon
 	}
 	out := &controlplanev1.AuthSpec{
 		Mode: enums.StringToAuthMode(m.Mode.ValueString()),
+	}
+	return out, diags
+}
+
+// FlattenSchemaRegistryMtls converts a single proto controlplanev1.MTLSSpec into the
+// corresponding nested model. The prev *SchemaRegistryMtlsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenSchemaRegistryMtls(ctx context.Context, proto *controlplanev1.MTLSSpec, prev *SchemaRegistryMtlsModel) (SchemaRegistryMtlsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := SchemaRegistryMtlsModel{}
+	m.CaCertificatesPem = modelconv.ListFromSliceWithDiags(ctx, proto.GetCaCertificatesPem(), types.StringType, &diags)
+	if prev != nil {
+		m.CaCertificatesPem = modelconv.ListCarryKnownEmpty(m.CaCertificatesPem, prev.CaCertificatesPem)
+	}
+	m.PrincipalMappingRules = modelconv.ListFromSliceWithDiags(ctx, proto.GetPrincipalMappingRules(), types.StringType, &diags)
+	if prev != nil {
+		m.PrincipalMappingRules = modelconv.ListCarryKnownEmpty(m.PrincipalMappingRules, prev.PrincipalMappingRules)
+	}
+	m.Enabled = types.BoolValue(proto.GetEnabled())
+	return m, diags
+}
+
+// ExpandSchemaRegistryMtls renders a nested model back into the proto type.
+func ExpandSchemaRegistryMtls(ctx context.Context, m *SchemaRegistryMtlsModel) (*controlplanev1.MTLSSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.MTLSSpec{
+		CaCertificatesPem:     modelconv.ListToSliceWithDiags[string](ctx, m.CaCertificatesPem, &diags),
+		PrincipalMappingRules: modelconv.ListToSliceWithDiags[string](ctx, m.PrincipalMappingRules, &diags),
+		Enabled:               m.Enabled.ValueBool(),
 	}
 	return out, diags
 }
@@ -2855,20 +2855,6 @@ func ExpandCreateKafkaAPI(ctx context.Context, m *KafkaAPIModel) (*controlplanev
 	return out, diags
 }
 
-// ExpandCreateSchemaRegistryMtls renders a nested model back into the proto type.
-func ExpandCreateSchemaRegistryMtls(ctx context.Context, m *SchemaRegistryMtlsModel) (*controlplanev1.MTLSSpec, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	if m == nil {
-		return nil, diags
-	}
-	out := &controlplanev1.MTLSSpec{
-		CaCertificatesPem:     modelconv.ListToSliceWithDiags[string](ctx, m.CaCertificatesPem, &diags),
-		PrincipalMappingRules: modelconv.ListToSliceWithDiags[string](ctx, m.PrincipalMappingRules, &diags),
-		Enabled:               m.Enabled.ValueBool(),
-	}
-	return out, diags
-}
-
 // ExpandCreateSchemaRegistryConnectionsAuth renders a nested model back into the proto type.
 func ExpandCreateSchemaRegistryConnectionsAuth(_ context.Context, m *SchemaRegistryConnectionsAuthModel) (*controlplanev1.AuthSpec, diag.Diagnostics) {
 	var diags diag.Diagnostics
@@ -2894,6 +2880,20 @@ func ExpandCreateSchemaRegistryConnections(ctx context.Context, m *SchemaRegistr
 	return out, diags
 }
 
+// ExpandCreateSchemaRegistryMtls renders a nested model back into the proto type.
+func ExpandCreateSchemaRegistryMtls(ctx context.Context, m *SchemaRegistryMtlsModel) (*controlplanev1.MTLSSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.MTLSSpec{
+		CaCertificatesPem:     modelconv.ListToSliceWithDiags[string](ctx, m.CaCertificatesPem, &diags),
+		PrincipalMappingRules: modelconv.ListToSliceWithDiags[string](ctx, m.PrincipalMappingRules, &diags),
+		Enabled:               m.Enabled.ValueBool(),
+	}
+	return out, diags
+}
+
 // ExpandCreateSchemaRegistry renders a nested model back into the proto type.
 func ExpandCreateSchemaRegistry(ctx context.Context, m *SchemaRegistryModel) (*controlplanev1.SchemaRegistrySpec, diag.Diagnostics) {
 	var diags diag.Diagnostics
@@ -2901,8 +2901,8 @@ func ExpandCreateSchemaRegistry(ctx context.Context, m *SchemaRegistryModel) (*c
 		return nil, diags
 	}
 	out := &controlplanev1.SchemaRegistrySpec{
-		Mtls:        modelconv.ObjectToMessageWithDiags(ctx, m.Mtls, ExpandCreateSchemaRegistryMtls, &diags),
 		Connections: modelconv.ListToObjectsWithDiags(ctx, m.Connections, ExpandCreateSchemaRegistryConnections, &diags),
+		Mtls:        modelconv.ObjectToMessageWithDiags(ctx, m.Mtls, ExpandCreateSchemaRegistryMtls, &diags),
 	}
 	return out, diags
 }
@@ -3299,20 +3299,6 @@ func ExpandUpdateKafkaAPI(ctx context.Context, m *KafkaAPIModel) (*controlplanev
 	return out, diags
 }
 
-// ExpandUpdateSchemaRegistryMtls renders a nested model back into the proto type.
-func ExpandUpdateSchemaRegistryMtls(ctx context.Context, m *SchemaRegistryMtlsModel) (*controlplanev1.MTLSSpec, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	if m == nil {
-		return nil, diags
-	}
-	out := &controlplanev1.MTLSSpec{
-		CaCertificatesPem:     modelconv.ListToSliceWithDiags[string](ctx, m.CaCertificatesPem, &diags),
-		PrincipalMappingRules: modelconv.ListToSliceWithDiags[string](ctx, m.PrincipalMappingRules, &diags),
-		Enabled:               m.Enabled.ValueBool(),
-	}
-	return out, diags
-}
-
 // ExpandUpdateSchemaRegistryConnectionsAuth renders a nested model back into the proto type.
 func ExpandUpdateSchemaRegistryConnectionsAuth(_ context.Context, m *SchemaRegistryConnectionsAuthModel) (*controlplanev1.AuthSpec, diag.Diagnostics) {
 	var diags diag.Diagnostics
@@ -3338,6 +3324,20 @@ func ExpandUpdateSchemaRegistryConnections(ctx context.Context, m *SchemaRegistr
 	return out, diags
 }
 
+// ExpandUpdateSchemaRegistryMtls renders a nested model back into the proto type.
+func ExpandUpdateSchemaRegistryMtls(ctx context.Context, m *SchemaRegistryMtlsModel) (*controlplanev1.MTLSSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.MTLSSpec{
+		CaCertificatesPem:     modelconv.ListToSliceWithDiags[string](ctx, m.CaCertificatesPem, &diags),
+		PrincipalMappingRules: modelconv.ListToSliceWithDiags[string](ctx, m.PrincipalMappingRules, &diags),
+		Enabled:               m.Enabled.ValueBool(),
+	}
+	return out, diags
+}
+
 // ExpandUpdateSchemaRegistry renders a nested model back into the proto type.
 func ExpandUpdateSchemaRegistry(ctx context.Context, m *SchemaRegistryModel) (*controlplanev1.SchemaRegistrySpec, diag.Diagnostics) {
 	var diags diag.Diagnostics
@@ -3345,8 +3345,8 @@ func ExpandUpdateSchemaRegistry(ctx context.Context, m *SchemaRegistryModel) (*c
 		return nil, diags
 	}
 	out := &controlplanev1.SchemaRegistrySpec{
-		Mtls:        modelconv.ObjectToMessageWithDiags(ctx, m.Mtls, ExpandUpdateSchemaRegistryMtls, &diags),
 		Connections: modelconv.ListToObjectsWithDiags(ctx, m.Connections, ExpandUpdateSchemaRegistryConnections, &diags),
+		Mtls:        modelconv.ObjectToMessageWithDiags(ctx, m.Mtls, ExpandUpdateSchemaRegistryMtls, &diags),
 	}
 	return out, diags
 }

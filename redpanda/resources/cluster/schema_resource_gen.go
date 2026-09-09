@@ -1298,28 +1298,6 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 				Computed:      true,
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
-					"mtls": schema.SingleNestedAttribute{
-						Description: "mTLS configuration.",
-						Optional:    true,
-						Attributes: map[string]schema.Attribute{
-							"ca_certificates_pem": schema.ListAttribute{
-								Description: "CA certificate in PEM format.",
-								Optional:    true,
-								ElementType: types.StringType,
-							},
-							"principal_mapping_rules": schema.ListAttribute{
-								Description: "Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on [configuring authentication](https://docs.redpanda.com/redpanda-cloud/security/cloud-authentication/#mtls).",
-								Optional:    true,
-								ElementType: types.StringType,
-							},
-							"enabled": schema.BoolAttribute{
-								Description: "Whether mTLS is enabled.",
-								Optional:    true,
-								Computed:    true,
-								Default:     booldefault.StaticBool(false),
-							},
-						},
-					},
 					"connections": schema.ListNestedAttribute{
 						Description:   "List of connections. Must have at most 4 items.",
 						Optional:      true,
@@ -1355,6 +1333,30 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 									Computed:      true,
 									PlanModifiers: []planmodifier.String{connectionEndpointFromState()},
 								},
+							},
+						},
+					},
+					"mtls": schema.SingleNestedAttribute{
+						Description:   "mTLS configuration.",
+						Optional:      true,
+						Computed:      true,
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+						Attributes: map[string]schema.Attribute{
+							"ca_certificates_pem": schema.ListAttribute{
+								Description: "CA certificate in PEM format.",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"principal_mapping_rules": schema.ListAttribute{
+								Description: "Principal mapping rules for mTLS authentication. Only valid for Kafka API. See the Redpanda documentation on [configuring authentication](https://docs.redpanda.com/redpanda-cloud/security/cloud-authentication/#mtls).",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"enabled": schema.BoolAttribute{
+								Description: "Whether mTLS is enabled.",
+								Optional:    true,
+								Computed:    true,
+								Default:     booldefault.StaticBool(false),
 							},
 						},
 					},
