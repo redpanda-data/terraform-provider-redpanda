@@ -1,4 +1,4 @@
-//go:build live_test && (all || byovpc_gcp)
+//go:build live_test && (all || byovpc_gcp || byovpc_azure)
 
 // Copyright 2023 Redpanda Data, Inc.
 //

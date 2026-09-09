@@ -33,7 +33,7 @@ request. If you've added new functionality, consider adding appropriate unit and
 
 * (optional) Use the label docs to generate documentation
 * Use the `ci-ready` label to trigger the standard live-acc gate (cluster + network + service_account + datasource_cluster on AWS + GCP)
-* Use the `ci-ready-byoc` label to trigger the BYOC + BYOVPC live-acc suite
+* Use the `ci-ready-byoc` label to trigger the BYOC + BYOVPC live-acc suite (AWS, GCP, and Azure BYOVNet)
 * Use the `ci-ready-serverless` label to trigger the serverless live-acc suite
 * Use the `ci-ready-upgrade` / `ci-ready-upgrade-serverless` labels to trigger the provider-upgrade suites
 
@@ -174,6 +174,8 @@ task test:byoc:gcp
 
 # Run BYOVPC tests (provisions infra, runs test, tears down)
 task test:byovpc:aws
+task test:byovpc:gcp PROJECT_ID=<gcp project>
+task test:byovpc:azure   # needs ARM_* or AZURE_* service-principal variables and the az CLI
 
 # Run serverless tests
 task test:serverless:aws:public
