@@ -29,6 +29,19 @@ The `-cloudv2` flag (or `CLOUDV2_ROOT` env var) points the schemagen binary at c
 
 If the sibling checkout is missing or stale, `task generate:models` fails with proto resolution errors. Fix the checkout, don't paper over the failure.
 
+**Sibling checkout ahead of the branch's pin.** `enumgen` and `schemagen` assert that the local cloudv2 checkout is at the SHA in `internal/buf_dependencies.yaml` and stop with `cloudv2 checkout at X, pin requires Y`. This happens whenever the maintainer has rolled a sibling forward for another branch. Do not move the maintainer's checkouts; they may hold work for that other branch. Put detached worktrees of both pins in the session scratchpad and point the tools at them:
+
+```sh
+git -C ../cloudv2 worktree add --detach "$SP/cloudv2-pin" <cloudv2 sha from buf_dependencies.yaml>
+git -C ../console worktree add --detach "$SP/console-pin" <console sha from buf_dependencies.yaml>
+CLOUDV2_ROOT="$SP/cloudv2-pin" CONSOLE_ROOT="$SP/console-pin" \
+  task generate:models CONSOLE_REPO="$SP/console-pin"
+git -C ../cloudv2 worktree remove --force "$SP/cloudv2-pin"
+git -C ../console worktree remove --force "$SP/console-pin"
+```
+
+`CONSOLE_REPO` is the task variable behind `buf export` in `generate:console-protos`; the two env vars feed the Go binaries. Remove the worktrees when done so `git worktree list` in the siblings stays the maintainer's.
+
 ## What gets produced per resource
 
 A `//go:generate` line in `redpanda/resources/schemagen.go` emits **four** files (not five — `resource_model_gen_test.go` does not exist):

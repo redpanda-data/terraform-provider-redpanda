@@ -23,6 +23,7 @@ You have runtime evidence: logs from `task test:cluster:aws`, a customer ticket,
 - `terraform import` produces state that won't `terraform destroy` cleanly
 - Tests pass in `task test:unit` but fail in `task test:cluster:aws`
 - `task cleanup:redpanda:dry` shows orphan resources after a passing test run (sweeper failure)
+- One of N sibling arms misbehaves (`schema_registry.mtls` diffs, `kafka_api.mtls` and `http_proxy.mtls` don't). Before hunting for a normalizer the siblings "must have", diff the arms' schema flags in `schema.yaml` and the generated attributes. The `schema_registry.mtls` echo bug was a missing `computed: true`; the flatten was identical on all three arms and no normalizer existed anywhere.
 
 ### Track B: starting from a proactive coverage audit
 
@@ -90,6 +91,18 @@ real broker: stores them
 → the Create-with-configs path is never exercised
 → the merge function's branch for "config set at create-time" is structurally untested
 ```
+
+Or:
+
+```
+ClusterFake.CreateCluster: copies the create spec's mtls block verbatim (nil stays nil)
+real backend (cloudv2 RedpandaListenersToPublic): projects mtls {enabled:false} on every
+  service with no mTLS listener
+→ a config that omits the block reads nil back from the fake, the one shape the provider handles
+→ 20 integration tests pass against a provider that fails inconsistent-result in production
+```
+
+A fake that copies a create spec verbatim hides every field the backend defaults on read. For each status block, read the backend mapper to its return statement, not just the per-item loop: the default usually sits after the loop.
 
 Walk the fake against every RPC the production calls — not just the ones in your bug's flow. **Every untouched RPC is a latent oracle gap.** Note them; you'll fix them with the bug.
 

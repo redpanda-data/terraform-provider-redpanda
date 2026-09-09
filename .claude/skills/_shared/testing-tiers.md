@@ -94,6 +94,10 @@ A new control-plane resource needs a fake added to `internal/testutil/mock/fakes
 
 For dataplane resources (topic, user, acl, schema*), the dataplane fake infrastructure is in `internal/testutil/mock/fakes/dataplane/`.
 
+### Cluster fake: the listener read contract
+
+`ClusterFake` mirrors the tail of cloudv2 `RedpandaListenersToPublic` on every GetCluster: each of `kafka_api`, `http_proxy`, and `schema_registry` reads back a non-nil `sasl` block and a non-nil `mtls` block, `{enabled:false}` when no listener requires client auth (`projectListenerMTLS` in `fakes/cluster.go`, applied on create and at the end of update). A test that seeds a cluster through the fake and expects a nil `mtls` block is modeling a shape production never returns; fix the test. The provider relies on the schema (`optional+computed`, UseStateForUnknown) to absorb the echo against a config that omits the block, so every listener arm must carry those flags.
+
 ## Tier 3: Colocated live-acc (`acc_<name>_test.go`)
 
 Real provider against Redpanda Cloud. Use only for behavior that the integration tier cannot exercise: real API rate limits, server-enforced constraints, async timing.
