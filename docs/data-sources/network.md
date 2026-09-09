@@ -35,6 +35,7 @@ Data source for a Redpanda Cloud network
 Read-Only:
 
 - `aws` (Attributes) The AWS resources managed by user. (see [below for nested schema](#nestedatt--customer_managed_resources--aws))
+- `azure` (Attributes) The Azure resources managed by user. (see [below for nested schema](#nestedatt--customer_managed_resources--azure))
 - `gcp` (Attributes) GCP resources created and managed by user, and required to deploy the Redpanda cluster. See [Create a BYOVPC Cluster on GCP](https://docs.redpanda.com/redpanda-cloud/get-started/cluster-types/byoc/gcp/vpc-byo-gcp/) for details. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp))
 
 <a id="nestedatt--customer_managed_resources--aws"></a>
@@ -86,6 +87,184 @@ Required:
 Required:
 
 - `arn` (String) AWS VPC identifier.
+
+
+
+<a id="nestedatt--customer_managed_resources--azure"></a>
+### Nested Schema for `customer_managed_resources.azure`
+
+Read-Only:
+
+- `management_bucket` (Attributes) Azure Bucket Specification (see [below for nested schema](#nestedatt--customer_managed_resources--azure--management_bucket))
+- `subnets` (Attributes) Azure subnets used by Redpand cluster deployment. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets))
+- `vnet` (Attributes) Azure VNET. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--vnet))
+
+<a id="nestedatt--customer_managed_resources--azure--management_bucket"></a>
+### Nested Schema for `customer_managed_resources.azure.management_bucket`
+
+Read-Only:
+
+- `resource_group` (Attributes) Azure Resource Group Specification (see [below for nested schema](#nestedatt--customer_managed_resources--azure--management_bucket--resource_group))
+- `storage_account_name` (String) Naming convention: Between 3 and 24 characters and use numbers and lower-case letters only. https://learn.microsoft.com/en-us/rest/api/storagerp/storage-accounts/create?view=rest-storagerp-2023-05-01&tabs=HTTP
+- `storage_container_name` (String) Naming convention: Between 3 and 63 characters and use numbers, lower-case letters and dash (-) only. Every dash (-) character must be immediately preceded and followed by a letter or number. https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/create?view=rest-storagerp-2023-05-01&tabs=HTTP
+
+<a id="nestedatt--customer_managed_resources--azure--management_bucket--resource_group"></a>
+### Nested Schema for `customer_managed_resources.azure.management_bucket.resource_group`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/
+
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets`
+
+Read-Only:
+
+- `kafka_connect_pods` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--kafka_connect_pods))
+- `kafka_connect_vnet` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--kafka_connect_vnet))
+- `rp_0_pods` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_0_pods))
+- `rp_0_vnet` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_0_vnet))
+- `rp_1_pods` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_1_pods))
+- `rp_1_vnet` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_1_vnet))
+- `rp_2_pods` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_2_pods))
+- `rp_2_vnet` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_2_vnet))
+- `rp_agent` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_agent))
+- `rp_connect_pods` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_connect_pods))
+- `rp_connect_vnet` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_connect_vnet))
+- `rp_egress_vnet` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_egress_vnet))
+- `sys_pods` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--sys_pods))
+- `sys_vnet` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--sys_vnet))
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--kafka_connect_pods"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.kafka_connect_pods`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--kafka_connect_vnet"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.kafka_connect_vnet`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_0_pods"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_0_pods`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_0_vnet"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_0_vnet`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_1_pods"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_1_pods`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_1_vnet"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_1_vnet`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_2_pods"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_2_pods`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_2_vnet"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_2_vnet`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_agent"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_agent`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_connect_pods"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_connect_pods`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_connect_vnet"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_connect_vnet`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_egress_vnet"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_egress_vnet`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--sys_pods"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.sys_pods`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--sys_vnet"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.sys_vnet`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+
+
+
+<a id="nestedatt--customer_managed_resources--azure--vnet"></a>
+### Nested Schema for `customer_managed_resources.azure.vnet`
+
+Read-Only:
+
+- `name` (String) The name of Azure VNET. Naming convention: Between 2 and 64 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+- `resource_group` (Attributes) Azure Resource Group Specification (see [below for nested schema](#nestedatt--customer_managed_resources--azure--vnet--resource_group))
+
+<a id="nestedatt--customer_managed_resources--azure--vnet--resource_group"></a>
+### Nested Schema for `customer_managed_resources.azure.vnet.resource_group`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/
+
 
 
 

@@ -78,8 +78,9 @@ type ResourceModel struct {
 // converters on the parent struct to move between types.Object and this
 // typed form.
 type CustomerManagedResourcesModel struct {
-	AWS types.Object `tfsdk:"aws"`
-	GCP types.Object `tfsdk:"gcp"`
+	AWS   types.Object `tfsdk:"aws"`
+	Azure types.Object `tfsdk:"azure"`
+	GCP   types.Object `tfsdk:"gcp"`
 }
 
 // CustomerManagedResourcesAWSModel mirrors the nested "customer_managed_resources.aws" attribute. Use the As/To
@@ -230,6 +231,193 @@ type CustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileModel struct {
 // typed form.
 type CustomerManagedResourcesAWSRpsqlSecurityGroupModel struct {
 	ARN types.String `tfsdk:"arn"`
+}
+
+// CustomerManagedResourcesAzureModel mirrors the nested "customer_managed_resources.azure" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureModel struct {
+	Cidrs                  types.Object `tfsdk:"cidrs"`
+	KeyVaults              types.Object `tfsdk:"key_vaults"`
+	ResourceGroups         types.Object `tfsdk:"resource_groups"`
+	SecurityGroups         types.Object `tfsdk:"security_groups"`
+	TieredCloudStorage     types.Object `tfsdk:"tiered_cloud_storage"`
+	UserAssignedIdentities types.Object `tfsdk:"user_assigned_identities"`
+}
+
+// CustomerManagedResourcesAzureCidrsModel mirrors the nested "customer_managed_resources.azure.cidrs" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureCidrsModel struct {
+	AksServiceCidr types.String `tfsdk:"aks_service_cidr"`
+}
+
+// CustomerManagedResourcesAzureKeyVaultsModel mirrors the nested "customer_managed_resources.azure.key_vaults" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureKeyVaultsModel struct {
+	ConsoleVault    types.Object `tfsdk:"console_vault"`
+	ManagementVault types.Object `tfsdk:"management_vault"`
+}
+
+// CustomerManagedResourcesAzureKeyVaultsConsoleVaultModel mirrors the nested "customer_managed_resources.azure.key_vaults.console_vault" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureKeyVaultsConsoleVaultModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// CustomerManagedResourcesAzureKeyVaultsManagementVaultModel mirrors the nested "customer_managed_resources.azure.key_vaults.management_vault" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureKeyVaultsManagementVaultModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// CustomerManagedResourcesAzureResourceGroupsModel mirrors the nested "customer_managed_resources.azure.resource_groups" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureResourceGroupsModel struct {
+	IamResourceGroup      types.Object `tfsdk:"iam_resource_group"`
+	RedpandaResourceGroup types.Object `tfsdk:"redpanda_resource_group"`
+	StorageResourceGroup  types.Object `tfsdk:"storage_resource_group"`
+}
+
+// CustomerManagedResourcesAzureResourceGroupsIamResourceGroupModel mirrors the nested "customer_managed_resources.azure.resource_groups.iam_resource_group" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureResourceGroupsIamResourceGroupModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// CustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupModel mirrors the nested "customer_managed_resources.azure.resource_groups.redpanda_resource_group" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// CustomerManagedResourcesAzureResourceGroupsStorageResourceGroupModel mirrors the nested "customer_managed_resources.azure.resource_groups.storage_resource_group" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureResourceGroupsStorageResourceGroupModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// CustomerManagedResourcesAzureSecurityGroupsModel mirrors the nested "customer_managed_resources.azure.security_groups" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureSecurityGroupsModel struct {
+	RedpandaSecurityGroup types.Object `tfsdk:"redpanda_security_group"`
+}
+
+// CustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupModel mirrors the nested "customer_managed_resources.azure.security_groups.redpanda_security_group" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// CustomerManagedResourcesAzureTieredCloudStorageModel mirrors the nested "customer_managed_resources.azure.tiered_cloud_storage" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureTieredCloudStorageModel struct {
+	StorageAccountName   types.String `tfsdk:"storage_account_name"`
+	StorageContainerName types.String `tfsdk:"storage_container_name"`
+	ResourceGroup        types.Object `tfsdk:"resource_group"`
+}
+
+// CustomerManagedResourcesAzureTieredCloudStorageResourceGroupModel mirrors the nested "customer_managed_resources.azure.tiered_cloud_storage.resource_group" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureTieredCloudStorageResourceGroupModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesModel mirrors the nested "customer_managed_resources.azure.user_assigned_identities" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureUserAssignedIdentitiesModel struct {
+	AgentUserAssignedIdentity          types.Object `tfsdk:"agent_user_assigned_identity"`
+	AksUserAssignedIdentity            types.Object `tfsdk:"aks_user_assigned_identity"`
+	CertManagerAssignedIdentity        types.Object `tfsdk:"cert_manager_assigned_identity"`
+	ExternalDNSAssignedIdentity        types.Object `tfsdk:"external_dns_assigned_identity"`
+	KafkaConnectAssignedIdentity       types.Object `tfsdk:"kafka_connect_assigned_identity"`
+	RedpandaClusterAssignedIdentity    types.Object `tfsdk:"redpanda_cluster_assigned_identity"`
+	RedpandaConnectAPIAssignedIdentity types.Object `tfsdk:"redpanda_connect_api_assigned_identity"`
+	RedpandaConnectAssignedIdentity    types.Object `tfsdk:"redpanda_connect_assigned_identity"`
+	RedpandaConsoleAssignedIdentity    types.Object `tfsdk:"redpanda_console_assigned_identity"`
+	RedpandaOperatorAssignedIdentity   types.Object `tfsdk:"redpanda_operator_assigned_identity"`
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityModel mirrors the nested "customer_managed_resources.azure.user_assigned_identities.agent_user_assigned_identity" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityModel mirrors the nested "customer_managed_resources.azure.user_assigned_identities.aks_user_assigned_identity" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityModel mirrors the nested "customer_managed_resources.azure.user_assigned_identities.cert_manager_assigned_identity" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityModel mirrors the nested "customer_managed_resources.azure.user_assigned_identities.external_dns_assigned_identity" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityModel mirrors the nested "customer_managed_resources.azure.user_assigned_identities.kafka_connect_assigned_identity" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityModel mirrors the nested "customer_managed_resources.azure.user_assigned_identities.redpanda_cluster_assigned_identity" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityModel mirrors the nested "customer_managed_resources.azure.user_assigned_identities.redpanda_connect_api_assigned_identity" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityModel mirrors the nested "customer_managed_resources.azure.user_assigned_identities.redpanda_connect_assigned_identity" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityModel mirrors the nested "customer_managed_resources.azure.user_assigned_identities.redpanda_console_assigned_identity" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityModel mirrors the nested "customer_managed_resources.azure.user_assigned_identities.redpanda_operator_assigned_identity" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityModel struct {
+	Name types.String `tfsdk:"name"`
 }
 
 // CustomerManagedResourcesGCPModel mirrors the nested "customer_managed_resources.gcp" attribute. Use the As/To
@@ -741,8 +929,9 @@ type StateDescriptionModel struct {
 // attribute.
 func CustomerManagedResourcesAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"aws": types.ObjectType{AttrTypes: CustomerManagedResourcesAWSAttrTypes()},
-		"gcp": types.ObjectType{AttrTypes: CustomerManagedResourcesGCPAttrTypes()},
+		"aws":   types.ObjectType{AttrTypes: CustomerManagedResourcesAWSAttrTypes()},
+		"azure": types.ObjectType{AttrTypes: CustomerManagedResourcesAzureAttrTypes()},
+		"gcp":   types.ObjectType{AttrTypes: CustomerManagedResourcesGCPAttrTypes()},
 	}
 }
 
@@ -912,6 +1101,217 @@ func CustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileAttrTypes() map[str
 func CustomerManagedResourcesAWSRpsqlSecurityGroupAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"arn": types.StringType,
+	}
+}
+
+// CustomerManagedResourcesAzureAttrTypes returns the attr.Type map for the "customer_managed_resources.azure" nested
+// attribute.
+func CustomerManagedResourcesAzureAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"cidrs":                    types.ObjectType{AttrTypes: CustomerManagedResourcesAzureCidrsAttrTypes()},
+		"key_vaults":               types.ObjectType{AttrTypes: CustomerManagedResourcesAzureKeyVaultsAttrTypes()},
+		"resource_groups":          types.ObjectType{AttrTypes: CustomerManagedResourcesAzureResourceGroupsAttrTypes()},
+		"security_groups":          types.ObjectType{AttrTypes: CustomerManagedResourcesAzureSecurityGroupsAttrTypes()},
+		"tiered_cloud_storage":     types.ObjectType{AttrTypes: CustomerManagedResourcesAzureTieredCloudStorageAttrTypes()},
+		"user_assigned_identities": types.ObjectType{AttrTypes: CustomerManagedResourcesAzureUserAssignedIdentitiesAttrTypes()},
+	}
+}
+
+// CustomerManagedResourcesAzureCidrsAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.cidrs" nested
+// attribute.
+func CustomerManagedResourcesAzureCidrsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"aks_service_cidr": types.StringType,
+	}
+}
+
+// CustomerManagedResourcesAzureKeyVaultsAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.key_vaults" nested
+// attribute.
+func CustomerManagedResourcesAzureKeyVaultsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"console_vault":    types.ObjectType{AttrTypes: CustomerManagedResourcesAzureKeyVaultsConsoleVaultAttrTypes()},
+		"management_vault": types.ObjectType{AttrTypes: CustomerManagedResourcesAzureKeyVaultsManagementVaultAttrTypes()},
+	}
+}
+
+// CustomerManagedResourcesAzureKeyVaultsConsoleVaultAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.key_vaults.console_vault" nested
+// attribute.
+func CustomerManagedResourcesAzureKeyVaultsConsoleVaultAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// CustomerManagedResourcesAzureKeyVaultsManagementVaultAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.key_vaults.management_vault" nested
+// attribute.
+func CustomerManagedResourcesAzureKeyVaultsManagementVaultAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// CustomerManagedResourcesAzureResourceGroupsAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.resource_groups" nested
+// attribute.
+func CustomerManagedResourcesAzureResourceGroupsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"iam_resource_group":      types.ObjectType{AttrTypes: CustomerManagedResourcesAzureResourceGroupsIamResourceGroupAttrTypes()},
+		"redpanda_resource_group": types.ObjectType{AttrTypes: CustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupAttrTypes()},
+		"storage_resource_group":  types.ObjectType{AttrTypes: CustomerManagedResourcesAzureResourceGroupsStorageResourceGroupAttrTypes()},
+	}
+}
+
+// CustomerManagedResourcesAzureResourceGroupsIamResourceGroupAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.resource_groups.iam_resource_group" nested
+// attribute.
+func CustomerManagedResourcesAzureResourceGroupsIamResourceGroupAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// CustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.resource_groups.redpanda_resource_group" nested
+// attribute.
+func CustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// CustomerManagedResourcesAzureResourceGroupsStorageResourceGroupAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.resource_groups.storage_resource_group" nested
+// attribute.
+func CustomerManagedResourcesAzureResourceGroupsStorageResourceGroupAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// CustomerManagedResourcesAzureSecurityGroupsAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.security_groups" nested
+// attribute.
+func CustomerManagedResourcesAzureSecurityGroupsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"redpanda_security_group": types.ObjectType{AttrTypes: CustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupAttrTypes()},
+	}
+}
+
+// CustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.security_groups.redpanda_security_group" nested
+// attribute.
+func CustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// CustomerManagedResourcesAzureTieredCloudStorageAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.tiered_cloud_storage" nested
+// attribute.
+func CustomerManagedResourcesAzureTieredCloudStorageAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"storage_account_name":   types.StringType,
+		"storage_container_name": types.StringType,
+		"resource_group":         types.ObjectType{AttrTypes: CustomerManagedResourcesAzureTieredCloudStorageResourceGroupAttrTypes()},
+	}
+}
+
+// CustomerManagedResourcesAzureTieredCloudStorageResourceGroupAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.tiered_cloud_storage.resource_group" nested
+// attribute.
+func CustomerManagedResourcesAzureTieredCloudStorageResourceGroupAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.user_assigned_identities" nested
+// attribute.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"agent_user_assigned_identity":           types.ObjectType{AttrTypes: CustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityAttrTypes()},
+		"aks_user_assigned_identity":             types.ObjectType{AttrTypes: CustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityAttrTypes()},
+		"cert_manager_assigned_identity":         types.ObjectType{AttrTypes: CustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityAttrTypes()},
+		"external_dns_assigned_identity":         types.ObjectType{AttrTypes: CustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityAttrTypes()},
+		"kafka_connect_assigned_identity":        types.ObjectType{AttrTypes: CustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityAttrTypes()},
+		"redpanda_cluster_assigned_identity":     types.ObjectType{AttrTypes: CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityAttrTypes()},
+		"redpanda_connect_api_assigned_identity": types.ObjectType{AttrTypes: CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityAttrTypes()},
+		"redpanda_connect_assigned_identity":     types.ObjectType{AttrTypes: CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityAttrTypes()},
+		"redpanda_console_assigned_identity":     types.ObjectType{AttrTypes: CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityAttrTypes()},
+		"redpanda_operator_assigned_identity":    types.ObjectType{AttrTypes: CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityAttrTypes()},
+	}
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.user_assigned_identities.agent_user_assigned_identity" nested
+// attribute.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.user_assigned_identities.aks_user_assigned_identity" nested
+// attribute.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.user_assigned_identities.cert_manager_assigned_identity" nested
+// attribute.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.user_assigned_identities.external_dns_assigned_identity" nested
+// attribute.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.user_assigned_identities.kafka_connect_assigned_identity" nested
+// attribute.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.user_assigned_identities.redpanda_cluster_assigned_identity" nested
+// attribute.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.user_assigned_identities.redpanda_connect_api_assigned_identity" nested
+// attribute.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.user_assigned_identities.redpanda_connect_assigned_identity" nested
+// attribute.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.user_assigned_identities.redpanda_console_assigned_identity" nested
+// attribute.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.user_assigned_identities.redpanda_operator_assigned_identity" nested
+// attribute.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
 	}
 }
 
@@ -2247,6 +2647,486 @@ func CustomerManagedResourcesAWSRpsqlSecurityGroupToObject(ctx context.Context, 
 		return types.ObjectNull(CustomerManagedResourcesAWSRpsqlSecurityGroupAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAWSRpsqlSecurityGroupAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzure decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzure(ctx context.Context, v *CustomerManagedResourcesModel) (*CustomerManagedResourcesAzureModel, diag.Diagnostics) {
+	if v == nil || v.Azure.IsNull() || v.Azure.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureModel
+	d := v.Azure.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureToObject(ctx context.Context, v *CustomerManagedResourcesAzureModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureCidrs decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureCidrs(ctx context.Context, v *CustomerManagedResourcesAzureModel) (*CustomerManagedResourcesAzureCidrsModel, diag.Diagnostics) {
+	if v == nil || v.Cidrs.IsNull() || v.Cidrs.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureCidrsModel
+	d := v.Cidrs.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureCidrsToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureCidrsToObject(ctx context.Context, v *CustomerManagedResourcesAzureCidrsModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureCidrsAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureCidrsAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureKeyVaults decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureKeyVaults(ctx context.Context, v *CustomerManagedResourcesAzureModel) (*CustomerManagedResourcesAzureKeyVaultsModel, diag.Diagnostics) {
+	if v == nil || v.KeyVaults.IsNull() || v.KeyVaults.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureKeyVaultsModel
+	d := v.KeyVaults.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureKeyVaultsToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureKeyVaultsToObject(ctx context.Context, v *CustomerManagedResourcesAzureKeyVaultsModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureKeyVaultsAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureKeyVaultsAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureKeyVaultsConsoleVault decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureKeyVaultsConsoleVault(ctx context.Context, v *CustomerManagedResourcesAzureKeyVaultsModel) (*CustomerManagedResourcesAzureKeyVaultsConsoleVaultModel, diag.Diagnostics) {
+	if v == nil || v.ConsoleVault.IsNull() || v.ConsoleVault.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureKeyVaultsConsoleVaultModel
+	d := v.ConsoleVault.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureKeyVaultsConsoleVaultToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureKeyVaultsConsoleVaultToObject(ctx context.Context, v *CustomerManagedResourcesAzureKeyVaultsConsoleVaultModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureKeyVaultsConsoleVaultAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureKeyVaultsConsoleVaultAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureKeyVaultsManagementVault decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureKeyVaultsManagementVault(ctx context.Context, v *CustomerManagedResourcesAzureKeyVaultsModel) (*CustomerManagedResourcesAzureKeyVaultsManagementVaultModel, diag.Diagnostics) {
+	if v == nil || v.ManagementVault.IsNull() || v.ManagementVault.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureKeyVaultsManagementVaultModel
+	d := v.ManagementVault.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureKeyVaultsManagementVaultToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureKeyVaultsManagementVaultToObject(ctx context.Context, v *CustomerManagedResourcesAzureKeyVaultsManagementVaultModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureKeyVaultsManagementVaultAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureKeyVaultsManagementVaultAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureResourceGroups decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureResourceGroups(ctx context.Context, v *CustomerManagedResourcesAzureModel) (*CustomerManagedResourcesAzureResourceGroupsModel, diag.Diagnostics) {
+	if v == nil || v.ResourceGroups.IsNull() || v.ResourceGroups.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureResourceGroupsModel
+	d := v.ResourceGroups.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureResourceGroupsToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureResourceGroupsToObject(ctx context.Context, v *CustomerManagedResourcesAzureResourceGroupsModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureResourceGroupsAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureResourceGroupsAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureResourceGroupsIamResourceGroup decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureResourceGroupsIamResourceGroup(ctx context.Context, v *CustomerManagedResourcesAzureResourceGroupsModel) (*CustomerManagedResourcesAzureResourceGroupsIamResourceGroupModel, diag.Diagnostics) {
+	if v == nil || v.IamResourceGroup.IsNull() || v.IamResourceGroup.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureResourceGroupsIamResourceGroupModel
+	d := v.IamResourceGroup.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureResourceGroupsIamResourceGroupToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureResourceGroupsIamResourceGroupToObject(ctx context.Context, v *CustomerManagedResourcesAzureResourceGroupsIamResourceGroupModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureResourceGroupsIamResourceGroupAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureResourceGroupsIamResourceGroupAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroup decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroup(ctx context.Context, v *CustomerManagedResourcesAzureResourceGroupsModel) (*CustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupModel, diag.Diagnostics) {
+	if v == nil || v.RedpandaResourceGroup.IsNull() || v.RedpandaResourceGroup.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupModel
+	d := v.RedpandaResourceGroup.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupToObject(ctx context.Context, v *CustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureResourceGroupsStorageResourceGroup decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureResourceGroupsStorageResourceGroup(ctx context.Context, v *CustomerManagedResourcesAzureResourceGroupsModel) (*CustomerManagedResourcesAzureResourceGroupsStorageResourceGroupModel, diag.Diagnostics) {
+	if v == nil || v.StorageResourceGroup.IsNull() || v.StorageResourceGroup.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureResourceGroupsStorageResourceGroupModel
+	d := v.StorageResourceGroup.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureResourceGroupsStorageResourceGroupToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureResourceGroupsStorageResourceGroupToObject(ctx context.Context, v *CustomerManagedResourcesAzureResourceGroupsStorageResourceGroupModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureResourceGroupsStorageResourceGroupAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureResourceGroupsStorageResourceGroupAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureSecurityGroups decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureSecurityGroups(ctx context.Context, v *CustomerManagedResourcesAzureModel) (*CustomerManagedResourcesAzureSecurityGroupsModel, diag.Diagnostics) {
+	if v == nil || v.SecurityGroups.IsNull() || v.SecurityGroups.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureSecurityGroupsModel
+	d := v.SecurityGroups.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureSecurityGroupsToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureSecurityGroupsToObject(ctx context.Context, v *CustomerManagedResourcesAzureSecurityGroupsModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureSecurityGroupsAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureSecurityGroupsAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroup decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroup(ctx context.Context, v *CustomerManagedResourcesAzureSecurityGroupsModel) (*CustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupModel, diag.Diagnostics) {
+	if v == nil || v.RedpandaSecurityGroup.IsNull() || v.RedpandaSecurityGroup.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupModel
+	d := v.RedpandaSecurityGroup.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupToObject(ctx context.Context, v *CustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureTieredCloudStorage decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureTieredCloudStorage(ctx context.Context, v *CustomerManagedResourcesAzureModel) (*CustomerManagedResourcesAzureTieredCloudStorageModel, diag.Diagnostics) {
+	if v == nil || v.TieredCloudStorage.IsNull() || v.TieredCloudStorage.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureTieredCloudStorageModel
+	d := v.TieredCloudStorage.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureTieredCloudStorageToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureTieredCloudStorageToObject(ctx context.Context, v *CustomerManagedResourcesAzureTieredCloudStorageModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureTieredCloudStorageAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureTieredCloudStorageAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureTieredCloudStorageResourceGroup decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureTieredCloudStorageResourceGroup(ctx context.Context, v *CustomerManagedResourcesAzureTieredCloudStorageModel) (*CustomerManagedResourcesAzureTieredCloudStorageResourceGroupModel, diag.Diagnostics) {
+	if v == nil || v.ResourceGroup.IsNull() || v.ResourceGroup.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureTieredCloudStorageResourceGroupModel
+	d := v.ResourceGroup.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureTieredCloudStorageResourceGroupToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureTieredCloudStorageResourceGroupToObject(ctx context.Context, v *CustomerManagedResourcesAzureTieredCloudStorageResourceGroupModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureTieredCloudStorageResourceGroupAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureTieredCloudStorageResourceGroupAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureUserAssignedIdentities decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureUserAssignedIdentities(ctx context.Context, v *CustomerManagedResourcesAzureModel) (*CustomerManagedResourcesAzureUserAssignedIdentitiesModel, diag.Diagnostics) {
+	if v == nil || v.UserAssignedIdentities.IsNull() || v.UserAssignedIdentities.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureUserAssignedIdentitiesModel
+	d := v.UserAssignedIdentities.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesToObject(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureUserAssignedIdentitiesAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureUserAssignedIdentitiesAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentity decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentity(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesModel) (*CustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityModel, diag.Diagnostics) {
+	if v == nil || v.AgentUserAssignedIdentity.IsNull() || v.AgentUserAssignedIdentity.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityModel
+	d := v.AgentUserAssignedIdentity.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityToObject(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentity decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentity(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesModel) (*CustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityModel, diag.Diagnostics) {
+	if v == nil || v.AksUserAssignedIdentity.IsNull() || v.AksUserAssignedIdentity.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityModel
+	d := v.AksUserAssignedIdentity.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityToObject(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentity decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentity(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesModel) (*CustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityModel, diag.Diagnostics) {
+	if v == nil || v.CertManagerAssignedIdentity.IsNull() || v.CertManagerAssignedIdentity.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityModel
+	d := v.CertManagerAssignedIdentity.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityToObject(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentity decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentity(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesModel) (*CustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityModel, diag.Diagnostics) {
+	if v == nil || v.ExternalDNSAssignedIdentity.IsNull() || v.ExternalDNSAssignedIdentity.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityModel
+	d := v.ExternalDNSAssignedIdentity.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityToObject(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentity decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentity(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesModel) (*CustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityModel, diag.Diagnostics) {
+	if v == nil || v.KafkaConnectAssignedIdentity.IsNull() || v.KafkaConnectAssignedIdentity.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityModel
+	d := v.KafkaConnectAssignedIdentity.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityToObject(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentity decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentity(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesModel) (*CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityModel, diag.Diagnostics) {
+	if v == nil || v.RedpandaClusterAssignedIdentity.IsNull() || v.RedpandaClusterAssignedIdentity.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityModel
+	d := v.RedpandaClusterAssignedIdentity.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityToObject(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentity decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentity(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesModel) (*CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityModel, diag.Diagnostics) {
+	if v == nil || v.RedpandaConnectAPIAssignedIdentity.IsNull() || v.RedpandaConnectAPIAssignedIdentity.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityModel
+	d := v.RedpandaConnectAPIAssignedIdentity.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityToObject(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentity decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentity(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesModel) (*CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityModel, diag.Diagnostics) {
+	if v == nil || v.RedpandaConnectAssignedIdentity.IsNull() || v.RedpandaConnectAssignedIdentity.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityModel
+	d := v.RedpandaConnectAssignedIdentity.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityToObject(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentity decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentity(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesModel) (*CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityModel, diag.Diagnostics) {
+	if v == nil || v.RedpandaConsoleAssignedIdentity.IsNull() || v.RedpandaConsoleAssignedIdentity.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityModel
+	d := v.RedpandaConsoleAssignedIdentity.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityToObject(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityAttrTypes(), v)
+}
+
+// DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentity decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentity(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesModel) (*CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityModel, diag.Diagnostics) {
+	if v == nil || v.RedpandaOperatorAssignedIdentity.IsNull() || v.RedpandaOperatorAssignedIdentity.IsUnknown() {
+		return nil, nil
+	}
+	var out CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityModel
+	d := v.RedpandaOperatorAssignedIdentity.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityToObject(ctx context.Context, v *CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, CustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityAttrTypes(), v)
 }
 
 // DecodeCustomerManagedResourcesGCP decodes the sub-field from its parent typed struct.

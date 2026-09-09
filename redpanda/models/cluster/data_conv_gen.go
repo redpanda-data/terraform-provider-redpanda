@@ -451,6 +451,10 @@ func FlattenDataCustomerManagedResources(ctx context.Context, proto *controlplan
 		v, _ := DecodeDataCustomerManagedResourcesAWS(ctx, prev)
 		return v
 	}(), DataCustomerManagedResourcesAWSAttrTypes(), FlattenDataCustomerManagedResourcesAWS, &diags)
+	m.Azure = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAzure(), func() *DataCustomerManagedResourcesAzureModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzure(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureAttrTypes(), FlattenDataCustomerManagedResourcesAzure, &diags)
 	m.GCP = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetGcp(), func() *DataCustomerManagedResourcesGCPModel {
 		v, _ := DecodeDataCustomerManagedResourcesGCP(ctx, prev)
 		return v
@@ -467,6 +471,9 @@ func ExpandDataCustomerManagedResources(ctx context.Context, m *DataCustomerMana
 	out := &controlplanev1.CustomerManagedResources{}
 	if v := modelconv.ObjectToMessageWithDiags(ctx, m.AWS, ExpandDataCustomerManagedResourcesAWS, &diags); v != nil {
 		out.SetAws(v)
+	}
+	if v := modelconv.ObjectToMessageWithDiags(ctx, m.Azure, ExpandDataCustomerManagedResourcesAzure, &diags); v != nil {
+		out.SetAzure(v)
 	}
 	if v := modelconv.ObjectToMessageWithDiags(ctx, m.GCP, ExpandDataCustomerManagedResourcesGCP, &diags); v != nil {
 		out.SetGcp(v)
@@ -1033,6 +1040,713 @@ func ExpandDataCustomerManagedResourcesAWSUtilitySecurityGroup(_ context.Context
 	}
 	out := &controlplanev1.AWSSecurityGroup{
 		Arn: m.ARN.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzure converts a single proto controlplanev1.CustomerManagedResources_Azure into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzure(ctx context.Context, proto *controlplanev1.CustomerManagedResources_Azure, prev *DataCustomerManagedResourcesAzureModel) (DataCustomerManagedResourcesAzureModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureModel{}
+	m.Cidrs = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetCidrs(), func() *DataCustomerManagedResourcesAzureCidrsModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureCidrs(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureCidrsAttrTypes(), FlattenDataCustomerManagedResourcesAzureCidrs, &diags)
+	m.KeyVaults = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetKeyVaults(), func() *DataCustomerManagedResourcesAzureKeyVaultsModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureKeyVaults(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureKeyVaultsAttrTypes(), FlattenDataCustomerManagedResourcesAzureKeyVaults, &diags)
+	m.ResourceGroups = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetResourceGroups(), func() *DataCustomerManagedResourcesAzureResourceGroupsModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureResourceGroups(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureResourceGroupsAttrTypes(), FlattenDataCustomerManagedResourcesAzureResourceGroups, &diags)
+	m.SecurityGroups = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetSecurityGroups(), func() *DataCustomerManagedResourcesAzureSecurityGroupsModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureSecurityGroups(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureSecurityGroupsAttrTypes(), FlattenDataCustomerManagedResourcesAzureSecurityGroups, &diags)
+	m.TieredCloudStorage = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetTieredCloudStorage(), func() *DataCustomerManagedResourcesAzureTieredCloudStorageModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureTieredCloudStorage(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureTieredCloudStorageAttrTypes(), FlattenDataCustomerManagedResourcesAzureTieredCloudStorage, &diags)
+	m.UserAssignedIdentities = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetUserAssignedIdentities(), func() *DataCustomerManagedResourcesAzureUserAssignedIdentitiesModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureUserAssignedIdentities(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureUserAssignedIdentitiesAttrTypes(), FlattenDataCustomerManagedResourcesAzureUserAssignedIdentities, &diags)
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzure renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzure(ctx context.Context, m *DataCustomerManagedResourcesAzureModel) (*controlplanev1.CustomerManagedResources_Azure, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure{
+		Cidrs:                  modelconv.ObjectToMessageWithDiags(ctx, m.Cidrs, ExpandDataCustomerManagedResourcesAzureCidrs, &diags),
+		KeyVaults:              modelconv.ObjectToMessageWithDiags(ctx, m.KeyVaults, ExpandDataCustomerManagedResourcesAzureKeyVaults, &diags),
+		ResourceGroups:         modelconv.ObjectToMessageWithDiags(ctx, m.ResourceGroups, ExpandDataCustomerManagedResourcesAzureResourceGroups, &diags),
+		SecurityGroups:         modelconv.ObjectToMessageWithDiags(ctx, m.SecurityGroups, ExpandDataCustomerManagedResourcesAzureSecurityGroups, &diags),
+		TieredCloudStorage:     modelconv.ObjectToMessageWithDiags(ctx, m.TieredCloudStorage, ExpandDataCustomerManagedResourcesAzureTieredCloudStorage, &diags),
+		UserAssignedIdentities: modelconv.ObjectToMessageWithDiags(ctx, m.UserAssignedIdentities, ExpandDataCustomerManagedResourcesAzureUserAssignedIdentities, &diags),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureCidrs converts a single proto controlplanev1.CustomerManagedResources_Azure_CIDR into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureCidrsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureCidrs(_ context.Context, proto *controlplanev1.CustomerManagedResources_Azure_CIDR, prev *DataCustomerManagedResourcesAzureCidrsModel) (DataCustomerManagedResourcesAzureCidrsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureCidrsModel{}
+	m.AksServiceCidr = types.StringValue(proto.GetAksServiceCidr())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureCidrs renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureCidrs(_ context.Context, m *DataCustomerManagedResourcesAzureCidrsModel) (*controlplanev1.CustomerManagedResources_Azure_CIDR, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure_CIDR{
+		AksServiceCidr: m.AksServiceCidr.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureKeyVaults converts a single proto controlplanev1.CustomerManagedResources_Azure_KeyVaults into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureKeyVaultsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureKeyVaults(ctx context.Context, proto *controlplanev1.CustomerManagedResources_Azure_KeyVaults, prev *DataCustomerManagedResourcesAzureKeyVaultsModel) (DataCustomerManagedResourcesAzureKeyVaultsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureKeyVaultsModel{}
+	m.ConsoleVault = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetConsoleVault(), func() *DataCustomerManagedResourcesAzureKeyVaultsConsoleVaultModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureKeyVaultsConsoleVault(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureKeyVaultsConsoleVaultAttrTypes(), FlattenDataCustomerManagedResourcesAzureKeyVaultsConsoleVault, &diags)
+	m.ManagementVault = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetManagementVault(), func() *DataCustomerManagedResourcesAzureKeyVaultsManagementVaultModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureKeyVaultsManagementVault(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureKeyVaultsManagementVaultAttrTypes(), FlattenDataCustomerManagedResourcesAzureKeyVaultsManagementVault, &diags)
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureKeyVaults renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureKeyVaults(ctx context.Context, m *DataCustomerManagedResourcesAzureKeyVaultsModel) (*controlplanev1.CustomerManagedResources_Azure_KeyVaults, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure_KeyVaults{
+		ConsoleVault:    modelconv.ObjectToMessageWithDiags(ctx, m.ConsoleVault, ExpandDataCustomerManagedResourcesAzureKeyVaultsConsoleVault, &diags),
+		ManagementVault: modelconv.ObjectToMessageWithDiags(ctx, m.ManagementVault, ExpandDataCustomerManagedResourcesAzureKeyVaultsManagementVault, &diags),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureKeyVaultsConsoleVault converts a single proto controlplanev1.CustomerManagedResources_Azure_KeyVaults_KeyVault into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureKeyVaultsConsoleVaultModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureKeyVaultsConsoleVault(_ context.Context, proto *controlplanev1.CustomerManagedResources_Azure_KeyVaults_KeyVault, prev *DataCustomerManagedResourcesAzureKeyVaultsConsoleVaultModel) (DataCustomerManagedResourcesAzureKeyVaultsConsoleVaultModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureKeyVaultsConsoleVaultModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureKeyVaultsConsoleVault renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureKeyVaultsConsoleVault(_ context.Context, m *DataCustomerManagedResourcesAzureKeyVaultsConsoleVaultModel) (*controlplanev1.CustomerManagedResources_Azure_KeyVaults_KeyVault, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure_KeyVaults_KeyVault{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureKeyVaultsManagementVault converts a single proto controlplanev1.CustomerManagedResources_Azure_KeyVaults_KeyVault into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureKeyVaultsManagementVaultModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureKeyVaultsManagementVault(_ context.Context, proto *controlplanev1.CustomerManagedResources_Azure_KeyVaults_KeyVault, prev *DataCustomerManagedResourcesAzureKeyVaultsManagementVaultModel) (DataCustomerManagedResourcesAzureKeyVaultsManagementVaultModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureKeyVaultsManagementVaultModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureKeyVaultsManagementVault renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureKeyVaultsManagementVault(_ context.Context, m *DataCustomerManagedResourcesAzureKeyVaultsManagementVaultModel) (*controlplanev1.CustomerManagedResources_Azure_KeyVaults_KeyVault, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure_KeyVaults_KeyVault{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureResourceGroups converts a single proto controlplanev1.CustomerManagedResources_Azure_ResourceGroups into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureResourceGroupsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureResourceGroups(ctx context.Context, proto *controlplanev1.CustomerManagedResources_Azure_ResourceGroups, prev *DataCustomerManagedResourcesAzureResourceGroupsModel) (DataCustomerManagedResourcesAzureResourceGroupsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureResourceGroupsModel{}
+	m.IamResourceGroup = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetIamResourceGroup(), func() *DataCustomerManagedResourcesAzureResourceGroupsIamResourceGroupModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureResourceGroupsIamResourceGroup(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureResourceGroupsIamResourceGroupAttrTypes(), FlattenDataCustomerManagedResourcesAzureResourceGroupsIamResourceGroup, &diags)
+	m.RedpandaResourceGroup = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaResourceGroup(), func() *DataCustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroup(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupAttrTypes(), FlattenDataCustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroup, &diags)
+	m.StorageResourceGroup = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetStorageResourceGroup(), func() *DataCustomerManagedResourcesAzureResourceGroupsStorageResourceGroupModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureResourceGroupsStorageResourceGroup(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureResourceGroupsStorageResourceGroupAttrTypes(), FlattenDataCustomerManagedResourcesAzureResourceGroupsStorageResourceGroup, &diags)
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureResourceGroups renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureResourceGroups(ctx context.Context, m *DataCustomerManagedResourcesAzureResourceGroupsModel) (*controlplanev1.CustomerManagedResources_Azure_ResourceGroups, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure_ResourceGroups{
+		IamResourceGroup:      modelconv.ObjectToMessageWithDiags(ctx, m.IamResourceGroup, ExpandDataCustomerManagedResourcesAzureResourceGroupsIamResourceGroup, &diags),
+		RedpandaResourceGroup: modelconv.ObjectToMessageWithDiags(ctx, m.RedpandaResourceGroup, ExpandDataCustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroup, &diags),
+		StorageResourceGroup:  modelconv.ObjectToMessageWithDiags(ctx, m.StorageResourceGroup, ExpandDataCustomerManagedResourcesAzureResourceGroupsStorageResourceGroup, &diags),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureResourceGroupsIamResourceGroup converts a single proto controlplanev1.CustomerManagedAzureResourceGroupSpec into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureResourceGroupsIamResourceGroupModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureResourceGroupsIamResourceGroup(_ context.Context, proto *controlplanev1.CustomerManagedAzureResourceGroupSpec, prev *DataCustomerManagedResourcesAzureResourceGroupsIamResourceGroupModel) (DataCustomerManagedResourcesAzureResourceGroupsIamResourceGroupModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureResourceGroupsIamResourceGroupModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureResourceGroupsIamResourceGroup renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureResourceGroupsIamResourceGroup(_ context.Context, m *DataCustomerManagedResourcesAzureResourceGroupsIamResourceGroupModel) (*controlplanev1.CustomerManagedAzureResourceGroupSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedAzureResourceGroupSpec{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroup converts a single proto controlplanev1.CustomerManagedAzureResourceGroupSpec into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroup(_ context.Context, proto *controlplanev1.CustomerManagedAzureResourceGroupSpec, prev *DataCustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupModel) (DataCustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroup renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroup(_ context.Context, m *DataCustomerManagedResourcesAzureResourceGroupsRedpandaResourceGroupModel) (*controlplanev1.CustomerManagedAzureResourceGroupSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedAzureResourceGroupSpec{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureResourceGroupsStorageResourceGroup converts a single proto controlplanev1.CustomerManagedAzureResourceGroupSpec into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureResourceGroupsStorageResourceGroupModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureResourceGroupsStorageResourceGroup(_ context.Context, proto *controlplanev1.CustomerManagedAzureResourceGroupSpec, prev *DataCustomerManagedResourcesAzureResourceGroupsStorageResourceGroupModel) (DataCustomerManagedResourcesAzureResourceGroupsStorageResourceGroupModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureResourceGroupsStorageResourceGroupModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureResourceGroupsStorageResourceGroup renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureResourceGroupsStorageResourceGroup(_ context.Context, m *DataCustomerManagedResourcesAzureResourceGroupsStorageResourceGroupModel) (*controlplanev1.CustomerManagedAzureResourceGroupSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedAzureResourceGroupSpec{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureSecurityGroups converts a single proto controlplanev1.CustomerManagedResources_Azure_SecurityGroups into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureSecurityGroupsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureSecurityGroups(ctx context.Context, proto *controlplanev1.CustomerManagedResources_Azure_SecurityGroups, prev *DataCustomerManagedResourcesAzureSecurityGroupsModel) (DataCustomerManagedResourcesAzureSecurityGroupsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureSecurityGroupsModel{}
+	m.RedpandaSecurityGroup = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaSecurityGroup(), func() *DataCustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroup(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupAttrTypes(), FlattenDataCustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroup, &diags)
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureSecurityGroups renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureSecurityGroups(ctx context.Context, m *DataCustomerManagedResourcesAzureSecurityGroupsModel) (*controlplanev1.CustomerManagedResources_Azure_SecurityGroups, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure_SecurityGroups{
+		RedpandaSecurityGroup: modelconv.ObjectToMessageWithDiags(ctx, m.RedpandaSecurityGroup, ExpandDataCustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroup, &diags),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroup converts a single proto controlplanev1.CustomerManagedResources_Azure_SecurityGroups_SecurityGroup into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroup(_ context.Context, proto *controlplanev1.CustomerManagedResources_Azure_SecurityGroups_SecurityGroup, prev *DataCustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupModel) (DataCustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroup renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroup(_ context.Context, m *DataCustomerManagedResourcesAzureSecurityGroupsRedpandaSecurityGroupModel) (*controlplanev1.CustomerManagedResources_Azure_SecurityGroups_SecurityGroup, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure_SecurityGroups_SecurityGroup{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureTieredCloudStorage converts a single proto controlplanev1.CustomerManagedAzureBucketSpec into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureTieredCloudStorageModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureTieredCloudStorage(ctx context.Context, proto *controlplanev1.CustomerManagedAzureBucketSpec, prev *DataCustomerManagedResourcesAzureTieredCloudStorageModel) (DataCustomerManagedResourcesAzureTieredCloudStorageModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureTieredCloudStorageModel{}
+	m.ResourceGroup = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetResourceGroup(), func() *DataCustomerManagedResourcesAzureTieredCloudStorageResourceGroupModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureTieredCloudStorageResourceGroup(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureTieredCloudStorageResourceGroupAttrTypes(), FlattenDataCustomerManagedResourcesAzureTieredCloudStorageResourceGroup, &diags)
+	m.StorageAccountName = types.StringValue(proto.GetStorageAccountName())
+	m.StorageContainerName = types.StringValue(proto.GetStorageContainerName())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureTieredCloudStorage renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureTieredCloudStorage(ctx context.Context, m *DataCustomerManagedResourcesAzureTieredCloudStorageModel) (*controlplanev1.CustomerManagedAzureBucketSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedAzureBucketSpec{
+		ResourceGroup:        modelconv.ObjectToMessageWithDiags(ctx, m.ResourceGroup, ExpandDataCustomerManagedResourcesAzureTieredCloudStorageResourceGroup, &diags),
+		StorageAccountName:   m.StorageAccountName.ValueString(),
+		StorageContainerName: m.StorageContainerName.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureTieredCloudStorageResourceGroup converts a single proto controlplanev1.CustomerManagedAzureResourceGroupSpec into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureTieredCloudStorageResourceGroupModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureTieredCloudStorageResourceGroup(_ context.Context, proto *controlplanev1.CustomerManagedAzureResourceGroupSpec, prev *DataCustomerManagedResourcesAzureTieredCloudStorageResourceGroupModel) (DataCustomerManagedResourcesAzureTieredCloudStorageResourceGroupModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureTieredCloudStorageResourceGroupModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureTieredCloudStorageResourceGroup renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureTieredCloudStorageResourceGroup(_ context.Context, m *DataCustomerManagedResourcesAzureTieredCloudStorageResourceGroupModel) (*controlplanev1.CustomerManagedAzureResourceGroupSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedAzureResourceGroupSpec{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureUserAssignedIdentities converts a single proto controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureUserAssignedIdentities(ctx context.Context, proto *controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities, prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesModel) (DataCustomerManagedResourcesAzureUserAssignedIdentitiesModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureUserAssignedIdentitiesModel{}
+	m.AgentUserAssignedIdentity = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAgentUserAssignedIdentity(), func() *DataCustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentity(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityAttrTypes(), FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentity, &diags)
+	m.AksUserAssignedIdentity = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAksUserAssignedIdentity(), func() *DataCustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentity(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityAttrTypes(), FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentity, &diags)
+	m.CertManagerAssignedIdentity = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetCertManagerAssignedIdentity(), func() *DataCustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentity(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityAttrTypes(), FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentity, &diags)
+	m.ExternalDNSAssignedIdentity = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetExternalDnsAssignedIdentity(), func() *DataCustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentity(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityAttrTypes(), FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentity, &diags)
+	m.KafkaConnectAssignedIdentity = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetKafkaConnectAssignedIdentity(), func() *DataCustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentity(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityAttrTypes(), FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentity, &diags)
+	m.RedpandaClusterAssignedIdentity = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaClusterAssignedIdentity(), func() *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentity(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityAttrTypes(), FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentity, &diags)
+	m.RedpandaConnectAPIAssignedIdentity = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaConnectApiAssignedIdentity(), func() *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentity(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityAttrTypes(), FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentity, &diags)
+	m.RedpandaConnectAssignedIdentity = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaConnectAssignedIdentity(), func() *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentity(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityAttrTypes(), FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentity, &diags)
+	m.RedpandaConsoleAssignedIdentity = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaConsoleAssignedIdentity(), func() *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentity(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityAttrTypes(), FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentity, &diags)
+	m.RedpandaOperatorAssignedIdentity = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaOperatorAssignedIdentity(), func() *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityModel {
+		v, _ := DecodeDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentity(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityAttrTypes(), FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentity, &diags)
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureUserAssignedIdentities renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureUserAssignedIdentities(ctx context.Context, m *DataCustomerManagedResourcesAzureUserAssignedIdentitiesModel) (*controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities{
+		AgentUserAssignedIdentity:          modelconv.ObjectToMessageWithDiags(ctx, m.AgentUserAssignedIdentity, ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentity, &diags),
+		AksUserAssignedIdentity:            modelconv.ObjectToMessageWithDiags(ctx, m.AksUserAssignedIdentity, ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentity, &diags),
+		CertManagerAssignedIdentity:        modelconv.ObjectToMessageWithDiags(ctx, m.CertManagerAssignedIdentity, ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentity, &diags),
+		ExternalDnsAssignedIdentity:        modelconv.ObjectToMessageWithDiags(ctx, m.ExternalDNSAssignedIdentity, ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentity, &diags),
+		KafkaConnectAssignedIdentity:       modelconv.ObjectToMessageWithDiags(ctx, m.KafkaConnectAssignedIdentity, ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentity, &diags),
+		RedpandaClusterAssignedIdentity:    modelconv.ObjectToMessageWithDiags(ctx, m.RedpandaClusterAssignedIdentity, ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentity, &diags),
+		RedpandaConnectApiAssignedIdentity: modelconv.ObjectToMessageWithDiags(ctx, m.RedpandaConnectAPIAssignedIdentity, ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentity, &diags),
+		RedpandaConnectAssignedIdentity:    modelconv.ObjectToMessageWithDiags(ctx, m.RedpandaConnectAssignedIdentity, ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentity, &diags),
+		RedpandaConsoleAssignedIdentity:    modelconv.ObjectToMessageWithDiags(ctx, m.RedpandaConsoleAssignedIdentity, ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentity, &diags),
+		RedpandaOperatorAssignedIdentity:   modelconv.ObjectToMessageWithDiags(ctx, m.RedpandaOperatorAssignedIdentity, ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentity, &diags),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentity converts a single proto controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentity(_ context.Context, proto *controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityModel) (DataCustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentity renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentity(_ context.Context, m *DataCustomerManagedResourcesAzureUserAssignedIdentitiesAgentUserAssignedIdentityModel) (*controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentity converts a single proto controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentity(_ context.Context, proto *controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityModel) (DataCustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentity renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentity(_ context.Context, m *DataCustomerManagedResourcesAzureUserAssignedIdentitiesAksUserAssignedIdentityModel) (*controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentity converts a single proto controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentity(_ context.Context, proto *controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityModel) (DataCustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentity renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentity(_ context.Context, m *DataCustomerManagedResourcesAzureUserAssignedIdentitiesCertManagerAssignedIdentityModel) (*controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentity converts a single proto controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentity(_ context.Context, proto *controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityModel) (DataCustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentity renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentity(_ context.Context, m *DataCustomerManagedResourcesAzureUserAssignedIdentitiesExternalDNSAssignedIdentityModel) (*controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentity converts a single proto controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentity(_ context.Context, proto *controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityModel) (DataCustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentity renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentity(_ context.Context, m *DataCustomerManagedResourcesAzureUserAssignedIdentitiesKafkaConnectAssignedIdentityModel) (*controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentity converts a single proto controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentity(_ context.Context, proto *controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityModel) (DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentity renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentity(_ context.Context, m *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaClusterAssignedIdentityModel) (*controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentity converts a single proto controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentity(_ context.Context, proto *controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityModel) (DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentity renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentity(_ context.Context, m *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAPIAssignedIdentityModel) (*controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentity converts a single proto controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentity(_ context.Context, proto *controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityModel) (DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentity renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentity(_ context.Context, m *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConnectAssignedIdentityModel) (*controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentity converts a single proto controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentity(_ context.Context, proto *controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityModel) (DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentity renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentity(_ context.Context, m *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaConsoleAssignedIdentityModel) (*controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentity converts a single proto controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentity(_ context.Context, proto *controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, prev *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityModel) (DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentity renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentity(_ context.Context, m *DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssignedIdentityModel) (*controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedResources_Azure_UserAssignedIdentities_UAISpec{
+		Name: m.Name.ValueString(),
 	}
 	return out, diags
 }

@@ -46,8 +46,9 @@ type DataModel struct {
 // converters on the parent struct to move between types.Object and this
 // typed form.
 type DataCustomerManagedResourcesModel struct {
-	AWS types.Object `tfsdk:"aws"`
-	GCP types.Object `tfsdk:"gcp"`
+	AWS   types.Object `tfsdk:"aws"`
+	Azure types.Object `tfsdk:"azure"`
+	GCP   types.Object `tfsdk:"gcp"`
 }
 
 // DataCustomerManagedResourcesAWSModel mirrors the nested "customer_managed_resources.aws" attribute. Use the As/To
@@ -94,6 +95,164 @@ type DataCustomerManagedResourcesAWSPublicSubnetsModel struct {
 // typed form.
 type DataCustomerManagedResourcesAWSVPCModel struct {
 	ARN types.String `tfsdk:"arn"`
+}
+
+// DataCustomerManagedResourcesAzureModel mirrors the nested "customer_managed_resources.azure" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureModel struct {
+	ManagementBucket types.Object `tfsdk:"management_bucket"`
+	Subnets          types.Object `tfsdk:"subnets"`
+	Vnet             types.Object `tfsdk:"vnet"`
+}
+
+// DataCustomerManagedResourcesAzureManagementBucketModel mirrors the nested "customer_managed_resources.azure.management_bucket" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureManagementBucketModel struct {
+	ResourceGroup        types.Object `tfsdk:"resource_group"`
+	StorageAccountName   types.String `tfsdk:"storage_account_name"`
+	StorageContainerName types.String `tfsdk:"storage_container_name"`
+}
+
+// DataCustomerManagedResourcesAzureManagementBucketResourceGroupModel mirrors the nested "customer_managed_resources.azure.management_bucket.resource_group" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureManagementBucketResourceGroupModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// DataCustomerManagedResourcesAzureSubnetsModel mirrors the nested "customer_managed_resources.azure.subnets" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureSubnetsModel struct {
+	KafkaConnectPods types.Object `tfsdk:"kafka_connect_pods"`
+	KafkaConnectVnet types.Object `tfsdk:"kafka_connect_vnet"`
+	Rp0Pods          types.Object `tfsdk:"rp_0_pods"`
+	Rp0Vnet          types.Object `tfsdk:"rp_0_vnet"`
+	Rp1Pods          types.Object `tfsdk:"rp_1_pods"`
+	Rp1Vnet          types.Object `tfsdk:"rp_1_vnet"`
+	Rp2Pods          types.Object `tfsdk:"rp_2_pods"`
+	Rp2Vnet          types.Object `tfsdk:"rp_2_vnet"`
+	RpAgent          types.Object `tfsdk:"rp_agent"`
+	RpConnectPods    types.Object `tfsdk:"rp_connect_pods"`
+	RpConnectVnet    types.Object `tfsdk:"rp_connect_vnet"`
+	RpEgressVnet     types.Object `tfsdk:"rp_egress_vnet"`
+	SysPods          types.Object `tfsdk:"sys_pods"`
+	SysVnet          types.Object `tfsdk:"sys_vnet"`
+}
+
+// DataCustomerManagedResourcesAzureSubnetsKafkaConnectPodsModel mirrors the nested "customer_managed_resources.azure.subnets.kafka_connect_pods" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureSubnetsKafkaConnectPodsModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// DataCustomerManagedResourcesAzureSubnetsKafkaConnectVnetModel mirrors the nested "customer_managed_resources.azure.subnets.kafka_connect_vnet" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureSubnetsKafkaConnectVnetModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRp0PodsModel mirrors the nested "customer_managed_resources.azure.subnets.rp_0_pods" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureSubnetsRp0PodsModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRp0VnetModel mirrors the nested "customer_managed_resources.azure.subnets.rp_0_vnet" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureSubnetsRp0VnetModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRp1PodsModel mirrors the nested "customer_managed_resources.azure.subnets.rp_1_pods" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureSubnetsRp1PodsModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRp1VnetModel mirrors the nested "customer_managed_resources.azure.subnets.rp_1_vnet" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureSubnetsRp1VnetModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRp2PodsModel mirrors the nested "customer_managed_resources.azure.subnets.rp_2_pods" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureSubnetsRp2PodsModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRp2VnetModel mirrors the nested "customer_managed_resources.azure.subnets.rp_2_vnet" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureSubnetsRp2VnetModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRpAgentModel mirrors the nested "customer_managed_resources.azure.subnets.rp_agent" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureSubnetsRpAgentModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRpConnectPodsModel mirrors the nested "customer_managed_resources.azure.subnets.rp_connect_pods" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureSubnetsRpConnectPodsModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRpConnectVnetModel mirrors the nested "customer_managed_resources.azure.subnets.rp_connect_vnet" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureSubnetsRpConnectVnetModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRpEgressVnetModel mirrors the nested "customer_managed_resources.azure.subnets.rp_egress_vnet" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureSubnetsRpEgressVnetModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// DataCustomerManagedResourcesAzureSubnetsSysPodsModel mirrors the nested "customer_managed_resources.azure.subnets.sys_pods" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureSubnetsSysPodsModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// DataCustomerManagedResourcesAzureSubnetsSysVnetModel mirrors the nested "customer_managed_resources.azure.subnets.sys_vnet" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureSubnetsSysVnetModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+// DataCustomerManagedResourcesAzureVnetModel mirrors the nested "customer_managed_resources.azure.vnet" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureVnetModel struct {
+	Name          types.String `tfsdk:"name"`
+	ResourceGroup types.Object `tfsdk:"resource_group"`
+}
+
+// DataCustomerManagedResourcesAzureVnetResourceGroupModel mirrors the nested "customer_managed_resources.azure.vnet.resource_group" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAzureVnetResourceGroupModel struct {
+	Name types.String `tfsdk:"name"`
 }
 
 // DataCustomerManagedResourcesGCPModel mirrors the nested "customer_managed_resources.gcp" attribute. Use the As/To
@@ -150,8 +309,9 @@ type DataEgressSpecGCPModel struct {
 // attribute.
 func DataCustomerManagedResourcesAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"aws": types.ObjectType{AttrTypes: DataCustomerManagedResourcesAWSAttrTypes()},
-		"gcp": types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPAttrTypes()},
+		"aws":   types.ObjectType{AttrTypes: DataCustomerManagedResourcesAWSAttrTypes()},
+		"azure": types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureAttrTypes()},
+		"gcp":   types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPAttrTypes()},
 	}
 }
 
@@ -204,6 +364,184 @@ func DataCustomerManagedResourcesAWSPublicSubnetsAttrTypes() map[string]attr.Typ
 func DataCustomerManagedResourcesAWSVPCAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"arn": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAzureAttrTypes returns the attr.Type map for the "customer_managed_resources.azure" nested
+// attribute.
+func DataCustomerManagedResourcesAzureAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"management_bucket": types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureManagementBucketAttrTypes()},
+		"subnets":           types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureSubnetsAttrTypes()},
+		"vnet":              types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureVnetAttrTypes()},
+	}
+}
+
+// DataCustomerManagedResourcesAzureManagementBucketAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.management_bucket" nested
+// attribute.
+func DataCustomerManagedResourcesAzureManagementBucketAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"resource_group":         types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureManagementBucketResourceGroupAttrTypes()},
+		"storage_account_name":   types.StringType,
+		"storage_container_name": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAzureManagementBucketResourceGroupAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.management_bucket.resource_group" nested
+// attribute.
+func DataCustomerManagedResourcesAzureManagementBucketResourceGroupAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAzureSubnetsAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.subnets" nested
+// attribute.
+func DataCustomerManagedResourcesAzureSubnetsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"kafka_connect_pods": types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureSubnetsKafkaConnectPodsAttrTypes()},
+		"kafka_connect_vnet": types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureSubnetsKafkaConnectVnetAttrTypes()},
+		"rp_0_pods":          types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureSubnetsRp0PodsAttrTypes()},
+		"rp_0_vnet":          types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureSubnetsRp0VnetAttrTypes()},
+		"rp_1_pods":          types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureSubnetsRp1PodsAttrTypes()},
+		"rp_1_vnet":          types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureSubnetsRp1VnetAttrTypes()},
+		"rp_2_pods":          types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureSubnetsRp2PodsAttrTypes()},
+		"rp_2_vnet":          types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureSubnetsRp2VnetAttrTypes()},
+		"rp_agent":           types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureSubnetsRpAgentAttrTypes()},
+		"rp_connect_pods":    types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureSubnetsRpConnectPodsAttrTypes()},
+		"rp_connect_vnet":    types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureSubnetsRpConnectVnetAttrTypes()},
+		"rp_egress_vnet":     types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureSubnetsRpEgressVnetAttrTypes()},
+		"sys_pods":           types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureSubnetsSysPodsAttrTypes()},
+		"sys_vnet":           types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureSubnetsSysVnetAttrTypes()},
+	}
+}
+
+// DataCustomerManagedResourcesAzureSubnetsKafkaConnectPodsAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.subnets.kafka_connect_pods" nested
+// attribute.
+func DataCustomerManagedResourcesAzureSubnetsKafkaConnectPodsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAzureSubnetsKafkaConnectVnetAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.subnets.kafka_connect_vnet" nested
+// attribute.
+func DataCustomerManagedResourcesAzureSubnetsKafkaConnectVnetAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRp0PodsAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.subnets.rp_0_pods" nested
+// attribute.
+func DataCustomerManagedResourcesAzureSubnetsRp0PodsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRp0VnetAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.subnets.rp_0_vnet" nested
+// attribute.
+func DataCustomerManagedResourcesAzureSubnetsRp0VnetAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRp1PodsAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.subnets.rp_1_pods" nested
+// attribute.
+func DataCustomerManagedResourcesAzureSubnetsRp1PodsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRp1VnetAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.subnets.rp_1_vnet" nested
+// attribute.
+func DataCustomerManagedResourcesAzureSubnetsRp1VnetAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRp2PodsAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.subnets.rp_2_pods" nested
+// attribute.
+func DataCustomerManagedResourcesAzureSubnetsRp2PodsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRp2VnetAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.subnets.rp_2_vnet" nested
+// attribute.
+func DataCustomerManagedResourcesAzureSubnetsRp2VnetAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRpAgentAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.subnets.rp_agent" nested
+// attribute.
+func DataCustomerManagedResourcesAzureSubnetsRpAgentAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRpConnectPodsAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.subnets.rp_connect_pods" nested
+// attribute.
+func DataCustomerManagedResourcesAzureSubnetsRpConnectPodsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRpConnectVnetAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.subnets.rp_connect_vnet" nested
+// attribute.
+func DataCustomerManagedResourcesAzureSubnetsRpConnectVnetAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRpEgressVnetAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.subnets.rp_egress_vnet" nested
+// attribute.
+func DataCustomerManagedResourcesAzureSubnetsRpEgressVnetAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAzureSubnetsSysPodsAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.subnets.sys_pods" nested
+// attribute.
+func DataCustomerManagedResourcesAzureSubnetsSysPodsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAzureSubnetsSysVnetAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.subnets.sys_vnet" nested
+// attribute.
+func DataCustomerManagedResourcesAzureSubnetsSysVnetAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesAzureVnetAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.vnet" nested
+// attribute.
+func DataCustomerManagedResourcesAzureVnetAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name":           types.StringType,
+		"resource_group": types.ObjectType{AttrTypes: DataCustomerManagedResourcesAzureVnetResourceGroupAttrTypes()},
+	}
+}
+
+// DataCustomerManagedResourcesAzureVnetResourceGroupAttrTypes returns the attr.Type map for the "customer_managed_resources.azure.vnet.resource_group" nested
+// attribute.
+func DataCustomerManagedResourcesAzureVnetResourceGroupAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name": types.StringType,
 	}
 }
 
@@ -429,6 +767,406 @@ func DataCustomerManagedResourcesAWSVPCToObject(ctx context.Context, v *DataCust
 		return types.ObjectNull(DataCustomerManagedResourcesAWSVPCAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAWSVPCAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzure decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzure(ctx context.Context, v *DataCustomerManagedResourcesModel) (*DataCustomerManagedResourcesAzureModel, diag.Diagnostics) {
+	if v == nil || v.Azure.IsNull() || v.Azure.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureModel
+	d := v.Azure.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureManagementBucket decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureManagementBucket(ctx context.Context, v *DataCustomerManagedResourcesAzureModel) (*DataCustomerManagedResourcesAzureManagementBucketModel, diag.Diagnostics) {
+	if v == nil || v.ManagementBucket.IsNull() || v.ManagementBucket.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureManagementBucketModel
+	d := v.ManagementBucket.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureManagementBucketToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureManagementBucketToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureManagementBucketModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureManagementBucketAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureManagementBucketAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureManagementBucketResourceGroup decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureManagementBucketResourceGroup(ctx context.Context, v *DataCustomerManagedResourcesAzureManagementBucketModel) (*DataCustomerManagedResourcesAzureManagementBucketResourceGroupModel, diag.Diagnostics) {
+	if v == nil || v.ResourceGroup.IsNull() || v.ResourceGroup.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureManagementBucketResourceGroupModel
+	d := v.ResourceGroup.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureManagementBucketResourceGroupToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureManagementBucketResourceGroupToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureManagementBucketResourceGroupModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureManagementBucketResourceGroupAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureManagementBucketResourceGroupAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureSubnets decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureSubnets(ctx context.Context, v *DataCustomerManagedResourcesAzureModel) (*DataCustomerManagedResourcesAzureSubnetsModel, diag.Diagnostics) {
+	if v == nil || v.Subnets.IsNull() || v.Subnets.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureSubnetsModel
+	d := v.Subnets.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureSubnetsToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureSubnetsToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureSubnetsAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureSubnetsAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureSubnetsKafkaConnectPods decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureSubnetsKafkaConnectPods(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsModel) (*DataCustomerManagedResourcesAzureSubnetsKafkaConnectPodsModel, diag.Diagnostics) {
+	if v == nil || v.KafkaConnectPods.IsNull() || v.KafkaConnectPods.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureSubnetsKafkaConnectPodsModel
+	d := v.KafkaConnectPods.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureSubnetsKafkaConnectPodsToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureSubnetsKafkaConnectPodsToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsKafkaConnectPodsModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureSubnetsKafkaConnectPodsAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureSubnetsKafkaConnectPodsAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureSubnetsKafkaConnectVnet decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureSubnetsKafkaConnectVnet(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsModel) (*DataCustomerManagedResourcesAzureSubnetsKafkaConnectVnetModel, diag.Diagnostics) {
+	if v == nil || v.KafkaConnectVnet.IsNull() || v.KafkaConnectVnet.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureSubnetsKafkaConnectVnetModel
+	d := v.KafkaConnectVnet.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureSubnetsKafkaConnectVnetToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureSubnetsKafkaConnectVnetToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsKafkaConnectVnetModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureSubnetsKafkaConnectVnetAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureSubnetsKafkaConnectVnetAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureSubnetsRp0Pods decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureSubnetsRp0Pods(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsModel) (*DataCustomerManagedResourcesAzureSubnetsRp0PodsModel, diag.Diagnostics) {
+	if v == nil || v.Rp0Pods.IsNull() || v.Rp0Pods.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureSubnetsRp0PodsModel
+	d := v.Rp0Pods.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRp0PodsToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureSubnetsRp0PodsToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsRp0PodsModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureSubnetsRp0PodsAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureSubnetsRp0PodsAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureSubnetsRp0Vnet decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureSubnetsRp0Vnet(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsModel) (*DataCustomerManagedResourcesAzureSubnetsRp0VnetModel, diag.Diagnostics) {
+	if v == nil || v.Rp0Vnet.IsNull() || v.Rp0Vnet.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureSubnetsRp0VnetModel
+	d := v.Rp0Vnet.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRp0VnetToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureSubnetsRp0VnetToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsRp0VnetModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureSubnetsRp0VnetAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureSubnetsRp0VnetAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureSubnetsRp1Pods decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureSubnetsRp1Pods(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsModel) (*DataCustomerManagedResourcesAzureSubnetsRp1PodsModel, diag.Diagnostics) {
+	if v == nil || v.Rp1Pods.IsNull() || v.Rp1Pods.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureSubnetsRp1PodsModel
+	d := v.Rp1Pods.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRp1PodsToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureSubnetsRp1PodsToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsRp1PodsModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureSubnetsRp1PodsAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureSubnetsRp1PodsAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureSubnetsRp1Vnet decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureSubnetsRp1Vnet(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsModel) (*DataCustomerManagedResourcesAzureSubnetsRp1VnetModel, diag.Diagnostics) {
+	if v == nil || v.Rp1Vnet.IsNull() || v.Rp1Vnet.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureSubnetsRp1VnetModel
+	d := v.Rp1Vnet.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRp1VnetToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureSubnetsRp1VnetToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsRp1VnetModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureSubnetsRp1VnetAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureSubnetsRp1VnetAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureSubnetsRp2Pods decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureSubnetsRp2Pods(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsModel) (*DataCustomerManagedResourcesAzureSubnetsRp2PodsModel, diag.Diagnostics) {
+	if v == nil || v.Rp2Pods.IsNull() || v.Rp2Pods.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureSubnetsRp2PodsModel
+	d := v.Rp2Pods.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRp2PodsToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureSubnetsRp2PodsToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsRp2PodsModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureSubnetsRp2PodsAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureSubnetsRp2PodsAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureSubnetsRp2Vnet decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureSubnetsRp2Vnet(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsModel) (*DataCustomerManagedResourcesAzureSubnetsRp2VnetModel, diag.Diagnostics) {
+	if v == nil || v.Rp2Vnet.IsNull() || v.Rp2Vnet.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureSubnetsRp2VnetModel
+	d := v.Rp2Vnet.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRp2VnetToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureSubnetsRp2VnetToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsRp2VnetModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureSubnetsRp2VnetAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureSubnetsRp2VnetAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureSubnetsRpAgent decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureSubnetsRpAgent(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsModel) (*DataCustomerManagedResourcesAzureSubnetsRpAgentModel, diag.Diagnostics) {
+	if v == nil || v.RpAgent.IsNull() || v.RpAgent.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureSubnetsRpAgentModel
+	d := v.RpAgent.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRpAgentToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureSubnetsRpAgentToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsRpAgentModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureSubnetsRpAgentAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureSubnetsRpAgentAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureSubnetsRpConnectPods decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureSubnetsRpConnectPods(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsModel) (*DataCustomerManagedResourcesAzureSubnetsRpConnectPodsModel, diag.Diagnostics) {
+	if v == nil || v.RpConnectPods.IsNull() || v.RpConnectPods.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureSubnetsRpConnectPodsModel
+	d := v.RpConnectPods.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRpConnectPodsToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureSubnetsRpConnectPodsToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsRpConnectPodsModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureSubnetsRpConnectPodsAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureSubnetsRpConnectPodsAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureSubnetsRpConnectVnet decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureSubnetsRpConnectVnet(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsModel) (*DataCustomerManagedResourcesAzureSubnetsRpConnectVnetModel, diag.Diagnostics) {
+	if v == nil || v.RpConnectVnet.IsNull() || v.RpConnectVnet.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureSubnetsRpConnectVnetModel
+	d := v.RpConnectVnet.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRpConnectVnetToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureSubnetsRpConnectVnetToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsRpConnectVnetModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureSubnetsRpConnectVnetAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureSubnetsRpConnectVnetAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureSubnetsRpEgressVnet decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureSubnetsRpEgressVnet(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsModel) (*DataCustomerManagedResourcesAzureSubnetsRpEgressVnetModel, diag.Diagnostics) {
+	if v == nil || v.RpEgressVnet.IsNull() || v.RpEgressVnet.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureSubnetsRpEgressVnetModel
+	d := v.RpEgressVnet.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureSubnetsRpEgressVnetToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureSubnetsRpEgressVnetToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsRpEgressVnetModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureSubnetsRpEgressVnetAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureSubnetsRpEgressVnetAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureSubnetsSysPods decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureSubnetsSysPods(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsModel) (*DataCustomerManagedResourcesAzureSubnetsSysPodsModel, diag.Diagnostics) {
+	if v == nil || v.SysPods.IsNull() || v.SysPods.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureSubnetsSysPodsModel
+	d := v.SysPods.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureSubnetsSysPodsToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureSubnetsSysPodsToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsSysPodsModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureSubnetsSysPodsAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureSubnetsSysPodsAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureSubnetsSysVnet decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureSubnetsSysVnet(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsModel) (*DataCustomerManagedResourcesAzureSubnetsSysVnetModel, diag.Diagnostics) {
+	if v == nil || v.SysVnet.IsNull() || v.SysVnet.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureSubnetsSysVnetModel
+	d := v.SysVnet.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureSubnetsSysVnetToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureSubnetsSysVnetToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureSubnetsSysVnetModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureSubnetsSysVnetAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureSubnetsSysVnetAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureVnet decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureVnet(ctx context.Context, v *DataCustomerManagedResourcesAzureModel) (*DataCustomerManagedResourcesAzureVnetModel, diag.Diagnostics) {
+	if v == nil || v.Vnet.IsNull() || v.Vnet.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureVnetModel
+	d := v.Vnet.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureVnetToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureVnetToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureVnetModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureVnetAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureVnetAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAzureVnetResourceGroup decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAzureVnetResourceGroup(ctx context.Context, v *DataCustomerManagedResourcesAzureVnetModel) (*DataCustomerManagedResourcesAzureVnetResourceGroupModel, diag.Diagnostics) {
+	if v == nil || v.ResourceGroup.IsNull() || v.ResourceGroup.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAzureVnetResourceGroupModel
+	d := v.ResourceGroup.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAzureVnetResourceGroupToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAzureVnetResourceGroupToObject(ctx context.Context, v *DataCustomerManagedResourcesAzureVnetResourceGroupModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAzureVnetResourceGroupAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAzureVnetResourceGroupAttrTypes(), v)
 }
 
 // DecodeDataCustomerManagedResourcesGCP decodes the sub-field from its parent typed struct.

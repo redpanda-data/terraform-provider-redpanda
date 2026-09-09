@@ -146,6 +146,221 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 							},
 						},
 					},
+					"azure": schema.SingleNestedAttribute{
+						Description: "The Azure resources managed by user.",
+						Optional:    true,
+						Attributes: map[string]schema.Attribute{
+							"management_bucket": schema.SingleNestedAttribute{
+								Description: "Azure Bucket Specification",
+								Required:    true,
+								Attributes: map[string]schema.Attribute{
+									"resource_group": schema.SingleNestedAttribute{
+										Description: "Azure Resource Group Specification",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/. Length must be between 1 and 90. Must match pattern `^[-\\w\\._\\(\\)]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"storage_account_name": schema.StringAttribute{
+										Description:   "Naming convention: Between 3 and 24 characters and use numbers and lower-case letters only. https://learn.microsoft.com/en-us/rest/api/storagerp/storage-accounts/create?view=rest-storagerp-2023-05-01&tabs=HTTP. Length must be between 3 and 24. Must match pattern `^[a-z0-9]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+									},
+									"storage_container_name": schema.StringAttribute{
+										Description:   "Naming convention: Between 3 and 63 characters and use numbers, lower-case letters and dash (-) only. Every dash (-) character must be immediately preceded and followed by a letter or number. https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/create?view=rest-storagerp-2023-05-01&tabs=HTTP. Length must be between 3 and 63. Must match pattern `^[a-z0-9]+([-]{0,1}[a-z0-9]+)+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+									},
+								},
+							},
+							"subnets": schema.SingleNestedAttribute{
+								Description: "Azure subnets used by Redpand cluster deployment.",
+								Required:    true,
+								Attributes: map[string]schema.Attribute{
+									"kafka_connect_pods": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\\w)+[-\\._\\w]*[\\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"kafka_connect_vnet": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\\w)+[-\\._\\w]*[\\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"rp_0_pods": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\\w)+[-\\._\\w]*[\\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"rp_0_vnet": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\\w)+[-\\._\\w]*[\\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"rp_1_pods": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\\w)+[-\\._\\w]*[\\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"rp_1_vnet": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\\w)+[-\\._\\w]*[\\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"rp_2_pods": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\\w)+[-\\._\\w]*[\\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"rp_2_vnet": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\\w)+[-\\._\\w]*[\\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"rp_agent": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\\w)+[-\\._\\w]*[\\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"rp_connect_pods": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\\w)+[-\\._\\w]*[\\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"rp_connect_vnet": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\\w)+[-\\._\\w]*[\\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"rp_egress_vnet": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\\w)+[-\\._\\w]*[\\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"sys_pods": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\\w)+[-\\._\\w]*[\\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"sys_vnet": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\\w)+[-\\._\\w]*[\\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+								},
+							},
+							"vnet": schema.SingleNestedAttribute{
+								Description: "Azure VNET.",
+								Required:    true,
+								Attributes: map[string]schema.Attribute{
+									"name": schema.StringAttribute{
+										Description:   "The name of Azure VNET. Naming convention: Between 2 and 64 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 2 and 64. Must match pattern `^(\\w)+[-\\._\\w]*[\\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+									},
+									"resource_group": schema.SingleNestedAttribute{
+										Description: "Azure Resource Group Specification",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/. Length must be between 1 and 90. Must match pattern `^[-\\w\\._\\(\\)]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
 					"gcp": schema.SingleNestedAttribute{
 						Description: "GCP resources created and managed by user, and required to deploy the Redpanda cluster. See [Create a BYOVPC Cluster on GCP](https://docs.redpanda.com/redpanda-cloud/get-started/cluster-types/byoc/gcp/vpc-byo-gcp/) for details.",
 						Optional:    true,

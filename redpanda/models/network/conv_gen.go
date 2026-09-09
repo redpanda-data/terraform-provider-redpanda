@@ -138,6 +138,10 @@ func FlattenCustomerManagedResources(ctx context.Context, proto *controlplanev1.
 		v, _ := DecodeCustomerManagedResourcesAWS(ctx, prev)
 		return v
 	}(), CustomerManagedResourcesAWSAttrTypes(), FlattenCustomerManagedResourcesAWS, &diags)
+	m.Azure = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetAzure(), func() *CustomerManagedResourcesAzureModel {
+		v, _ := DecodeCustomerManagedResourcesAzure(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureAttrTypes(), FlattenCustomerManagedResourcesAzure, &diags)
 	m.GCP = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetGcp(), func() *CustomerManagedResourcesGCPModel {
 		v, _ := DecodeCustomerManagedResourcesGCP(ctx, prev)
 		return v
@@ -154,6 +158,9 @@ func ExpandCustomerManagedResources(ctx context.Context, m *CustomerManagedResou
 	out := &controlplanev1.Network_CustomerManagedResources{}
 	if v := modelconv.ObjectToMessageWithDiags(ctx, m.AWS, ExpandCustomerManagedResourcesAWS, &diags); v != nil {
 		out.SetAws(v)
+	}
+	if v := modelconv.ObjectToMessageWithDiags(ctx, m.Azure, ExpandCustomerManagedResourcesAzure, &diags); v != nil {
+		out.SetAzure(v)
 	}
 	if v := modelconv.ObjectToMessageWithDiags(ctx, m.GCP, ExpandCustomerManagedResourcesGCP, &diags); v != nil {
 		out.SetGcp(v)
@@ -330,6 +337,599 @@ func ExpandCustomerManagedResourcesAWSPublicSubnets(ctx context.Context, m *Cust
 	}
 	out := &controlplanev1.CustomerManagedAWSSubnets{
 		Arns: modelconv.ListToSliceWithDiags[string](ctx, m.Arns, &diags),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzure converts a single proto controlplanev1.Network_CustomerManagedResources_Azure into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzure(ctx context.Context, proto *controlplanev1.Network_CustomerManagedResources_Azure, prev *CustomerManagedResourcesAzureModel) (CustomerManagedResourcesAzureModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureModel{}
+	m.ManagementBucket = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetManagementBucket(), func() *CustomerManagedResourcesAzureManagementBucketModel {
+		v, _ := DecodeCustomerManagedResourcesAzureManagementBucket(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureManagementBucketAttrTypes(), FlattenCustomerManagedResourcesAzureManagementBucket, &diags)
+	m.Subnets = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetSubnets(), func() *CustomerManagedResourcesAzureSubnetsModel {
+		v, _ := DecodeCustomerManagedResourcesAzureSubnets(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureSubnetsAttrTypes(), FlattenCustomerManagedResourcesAzureSubnets, &diags)
+	m.Vnet = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetVnet(), func() *CustomerManagedResourcesAzureVnetModel {
+		v, _ := DecodeCustomerManagedResourcesAzureVnet(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureVnetAttrTypes(), FlattenCustomerManagedResourcesAzureVnet, &diags)
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzure renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzure(ctx context.Context, m *CustomerManagedResourcesAzureModel) (*controlplanev1.Network_CustomerManagedResources_Azure, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_CustomerManagedResources_Azure{
+		ManagementBucket: modelconv.ObjectToMessageWithDiags(ctx, m.ManagementBucket, ExpandCustomerManagedResourcesAzureManagementBucket, &diags),
+		Subnets:          modelconv.ObjectToMessageWithDiags(ctx, m.Subnets, ExpandCustomerManagedResourcesAzureSubnets, &diags),
+		Vnet:             modelconv.ObjectToMessageWithDiags(ctx, m.Vnet, ExpandCustomerManagedResourcesAzureVnet, &diags),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureManagementBucket converts a single proto controlplanev1.CustomerManagedAzureBucketSpec into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureManagementBucketModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureManagementBucket(ctx context.Context, proto *controlplanev1.CustomerManagedAzureBucketSpec, prev *CustomerManagedResourcesAzureManagementBucketModel) (CustomerManagedResourcesAzureManagementBucketModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureManagementBucketModel{}
+	m.ResourceGroup = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetResourceGroup(), func() *CustomerManagedResourcesAzureManagementBucketResourceGroupModel {
+		v, _ := DecodeCustomerManagedResourcesAzureManagementBucketResourceGroup(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureManagementBucketResourceGroupAttrTypes(), FlattenCustomerManagedResourcesAzureManagementBucketResourceGroup, &diags)
+	m.StorageAccountName = types.StringValue(proto.GetStorageAccountName())
+	m.StorageContainerName = types.StringValue(proto.GetStorageContainerName())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureManagementBucket renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureManagementBucket(ctx context.Context, m *CustomerManagedResourcesAzureManagementBucketModel) (*controlplanev1.CustomerManagedAzureBucketSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedAzureBucketSpec{
+		ResourceGroup:        modelconv.ObjectToMessageWithDiags(ctx, m.ResourceGroup, ExpandCustomerManagedResourcesAzureManagementBucketResourceGroup, &diags),
+		StorageAccountName:   m.StorageAccountName.ValueString(),
+		StorageContainerName: m.StorageContainerName.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureManagementBucketResourceGroup converts a single proto controlplanev1.CustomerManagedAzureResourceGroupSpec into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureManagementBucketResourceGroupModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureManagementBucketResourceGroup(_ context.Context, proto *controlplanev1.CustomerManagedAzureResourceGroupSpec, prev *CustomerManagedResourcesAzureManagementBucketResourceGroupModel) (CustomerManagedResourcesAzureManagementBucketResourceGroupModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureManagementBucketResourceGroupModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureManagementBucketResourceGroup renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureManagementBucketResourceGroup(_ context.Context, m *CustomerManagedResourcesAzureManagementBucketResourceGroupModel) (*controlplanev1.CustomerManagedAzureResourceGroupSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedAzureResourceGroupSpec{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureSubnets converts a single proto controlplanev1.Network_CustomerManagedResources_Azure_Subnets into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureSubnetsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureSubnets(ctx context.Context, proto *controlplanev1.Network_CustomerManagedResources_Azure_Subnets, prev *CustomerManagedResourcesAzureSubnetsModel) (CustomerManagedResourcesAzureSubnetsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureSubnetsModel{}
+	m.KafkaConnectPods = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetKafkaConnectPods(), func() *CustomerManagedResourcesAzureSubnetsKafkaConnectPodsModel {
+		v, _ := DecodeCustomerManagedResourcesAzureSubnetsKafkaConnectPods(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureSubnetsKafkaConnectPodsAttrTypes(), FlattenCustomerManagedResourcesAzureSubnetsKafkaConnectPods, &diags)
+	m.KafkaConnectVnet = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetKafkaConnectVnet(), func() *CustomerManagedResourcesAzureSubnetsKafkaConnectVnetModel {
+		v, _ := DecodeCustomerManagedResourcesAzureSubnetsKafkaConnectVnet(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureSubnetsKafkaConnectVnetAttrTypes(), FlattenCustomerManagedResourcesAzureSubnetsKafkaConnectVnet, &diags)
+	m.Rp0Pods = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRp_0Pods(), func() *CustomerManagedResourcesAzureSubnetsRp0PodsModel {
+		v, _ := DecodeCustomerManagedResourcesAzureSubnetsRp0Pods(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureSubnetsRp0PodsAttrTypes(), FlattenCustomerManagedResourcesAzureSubnetsRp0Pods, &diags)
+	m.Rp0Vnet = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRp_0Vnet(), func() *CustomerManagedResourcesAzureSubnetsRp0VnetModel {
+		v, _ := DecodeCustomerManagedResourcesAzureSubnetsRp0Vnet(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureSubnetsRp0VnetAttrTypes(), FlattenCustomerManagedResourcesAzureSubnetsRp0Vnet, &diags)
+	m.Rp1Pods = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRp_1Pods(), func() *CustomerManagedResourcesAzureSubnetsRp1PodsModel {
+		v, _ := DecodeCustomerManagedResourcesAzureSubnetsRp1Pods(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureSubnetsRp1PodsAttrTypes(), FlattenCustomerManagedResourcesAzureSubnetsRp1Pods, &diags)
+	m.Rp1Vnet = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRp_1Vnet(), func() *CustomerManagedResourcesAzureSubnetsRp1VnetModel {
+		v, _ := DecodeCustomerManagedResourcesAzureSubnetsRp1Vnet(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureSubnetsRp1VnetAttrTypes(), FlattenCustomerManagedResourcesAzureSubnetsRp1Vnet, &diags)
+	m.Rp2Pods = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRp_2Pods(), func() *CustomerManagedResourcesAzureSubnetsRp2PodsModel {
+		v, _ := DecodeCustomerManagedResourcesAzureSubnetsRp2Pods(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureSubnetsRp2PodsAttrTypes(), FlattenCustomerManagedResourcesAzureSubnetsRp2Pods, &diags)
+	m.Rp2Vnet = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRp_2Vnet(), func() *CustomerManagedResourcesAzureSubnetsRp2VnetModel {
+		v, _ := DecodeCustomerManagedResourcesAzureSubnetsRp2Vnet(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureSubnetsRp2VnetAttrTypes(), FlattenCustomerManagedResourcesAzureSubnetsRp2Vnet, &diags)
+	m.RpAgent = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpAgent(), func() *CustomerManagedResourcesAzureSubnetsRpAgentModel {
+		v, _ := DecodeCustomerManagedResourcesAzureSubnetsRpAgent(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureSubnetsRpAgentAttrTypes(), FlattenCustomerManagedResourcesAzureSubnetsRpAgent, &diags)
+	m.RpConnectPods = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpConnectPods(), func() *CustomerManagedResourcesAzureSubnetsRpConnectPodsModel {
+		v, _ := DecodeCustomerManagedResourcesAzureSubnetsRpConnectPods(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureSubnetsRpConnectPodsAttrTypes(), FlattenCustomerManagedResourcesAzureSubnetsRpConnectPods, &diags)
+	m.RpConnectVnet = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpConnectVnet(), func() *CustomerManagedResourcesAzureSubnetsRpConnectVnetModel {
+		v, _ := DecodeCustomerManagedResourcesAzureSubnetsRpConnectVnet(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureSubnetsRpConnectVnetAttrTypes(), FlattenCustomerManagedResourcesAzureSubnetsRpConnectVnet, &diags)
+	m.RpEgressVnet = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpEgressVnet(), func() *CustomerManagedResourcesAzureSubnetsRpEgressVnetModel {
+		v, _ := DecodeCustomerManagedResourcesAzureSubnetsRpEgressVnet(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureSubnetsRpEgressVnetAttrTypes(), FlattenCustomerManagedResourcesAzureSubnetsRpEgressVnet, &diags)
+	m.SysPods = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetSysPods(), func() *CustomerManagedResourcesAzureSubnetsSysPodsModel {
+		v, _ := DecodeCustomerManagedResourcesAzureSubnetsSysPods(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureSubnetsSysPodsAttrTypes(), FlattenCustomerManagedResourcesAzureSubnetsSysPods, &diags)
+	m.SysVnet = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetSysVnet(), func() *CustomerManagedResourcesAzureSubnetsSysVnetModel {
+		v, _ := DecodeCustomerManagedResourcesAzureSubnetsSysVnet(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureSubnetsSysVnetAttrTypes(), FlattenCustomerManagedResourcesAzureSubnetsSysVnet, &diags)
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureSubnets renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureSubnets(ctx context.Context, m *CustomerManagedResourcesAzureSubnetsModel) (*controlplanev1.Network_CustomerManagedResources_Azure_Subnets, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_CustomerManagedResources_Azure_Subnets{
+		KafkaConnectPods: modelconv.ObjectToMessageWithDiags(ctx, m.KafkaConnectPods, ExpandCustomerManagedResourcesAzureSubnetsKafkaConnectPods, &diags),
+		KafkaConnectVnet: modelconv.ObjectToMessageWithDiags(ctx, m.KafkaConnectVnet, ExpandCustomerManagedResourcesAzureSubnetsKafkaConnectVnet, &diags),
+		Rp_0Pods:         modelconv.ObjectToMessageWithDiags(ctx, m.Rp0Pods, ExpandCustomerManagedResourcesAzureSubnetsRp0Pods, &diags),
+		Rp_0Vnet:         modelconv.ObjectToMessageWithDiags(ctx, m.Rp0Vnet, ExpandCustomerManagedResourcesAzureSubnetsRp0Vnet, &diags),
+		Rp_1Pods:         modelconv.ObjectToMessageWithDiags(ctx, m.Rp1Pods, ExpandCustomerManagedResourcesAzureSubnetsRp1Pods, &diags),
+		Rp_1Vnet:         modelconv.ObjectToMessageWithDiags(ctx, m.Rp1Vnet, ExpandCustomerManagedResourcesAzureSubnetsRp1Vnet, &diags),
+		Rp_2Pods:         modelconv.ObjectToMessageWithDiags(ctx, m.Rp2Pods, ExpandCustomerManagedResourcesAzureSubnetsRp2Pods, &diags),
+		Rp_2Vnet:         modelconv.ObjectToMessageWithDiags(ctx, m.Rp2Vnet, ExpandCustomerManagedResourcesAzureSubnetsRp2Vnet, &diags),
+		RpAgent:          modelconv.ObjectToMessageWithDiags(ctx, m.RpAgent, ExpandCustomerManagedResourcesAzureSubnetsRpAgent, &diags),
+		RpConnectPods:    modelconv.ObjectToMessageWithDiags(ctx, m.RpConnectPods, ExpandCustomerManagedResourcesAzureSubnetsRpConnectPods, &diags),
+		RpConnectVnet:    modelconv.ObjectToMessageWithDiags(ctx, m.RpConnectVnet, ExpandCustomerManagedResourcesAzureSubnetsRpConnectVnet, &diags),
+		RpEgressVnet:     modelconv.ObjectToMessageWithDiags(ctx, m.RpEgressVnet, ExpandCustomerManagedResourcesAzureSubnetsRpEgressVnet, &diags),
+		SysPods:          modelconv.ObjectToMessageWithDiags(ctx, m.SysPods, ExpandCustomerManagedResourcesAzureSubnetsSysPods, &diags),
+		SysVnet:          modelconv.ObjectToMessageWithDiags(ctx, m.SysVnet, ExpandCustomerManagedResourcesAzureSubnetsSysVnet, &diags),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureSubnetsKafkaConnectPods converts a single proto controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureSubnetsKafkaConnectPodsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureSubnetsKafkaConnectPods(_ context.Context, proto *controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, prev *CustomerManagedResourcesAzureSubnetsKafkaConnectPodsModel) (CustomerManagedResourcesAzureSubnetsKafkaConnectPodsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureSubnetsKafkaConnectPodsModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureSubnetsKafkaConnectPods renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureSubnetsKafkaConnectPods(_ context.Context, m *CustomerManagedResourcesAzureSubnetsKafkaConnectPodsModel) (*controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureSubnetsKafkaConnectVnet converts a single proto controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureSubnetsKafkaConnectVnetModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureSubnetsKafkaConnectVnet(_ context.Context, proto *controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, prev *CustomerManagedResourcesAzureSubnetsKafkaConnectVnetModel) (CustomerManagedResourcesAzureSubnetsKafkaConnectVnetModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureSubnetsKafkaConnectVnetModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureSubnetsKafkaConnectVnet renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureSubnetsKafkaConnectVnet(_ context.Context, m *CustomerManagedResourcesAzureSubnetsKafkaConnectVnetModel) (*controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureSubnetsRp0Pods converts a single proto controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureSubnetsRp0PodsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureSubnetsRp0Pods(_ context.Context, proto *controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, prev *CustomerManagedResourcesAzureSubnetsRp0PodsModel) (CustomerManagedResourcesAzureSubnetsRp0PodsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureSubnetsRp0PodsModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureSubnetsRp0Pods renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureSubnetsRp0Pods(_ context.Context, m *CustomerManagedResourcesAzureSubnetsRp0PodsModel) (*controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureSubnetsRp0Vnet converts a single proto controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureSubnetsRp0VnetModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureSubnetsRp0Vnet(_ context.Context, proto *controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, prev *CustomerManagedResourcesAzureSubnetsRp0VnetModel) (CustomerManagedResourcesAzureSubnetsRp0VnetModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureSubnetsRp0VnetModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureSubnetsRp0Vnet renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureSubnetsRp0Vnet(_ context.Context, m *CustomerManagedResourcesAzureSubnetsRp0VnetModel) (*controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureSubnetsRp1Pods converts a single proto controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureSubnetsRp1PodsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureSubnetsRp1Pods(_ context.Context, proto *controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, prev *CustomerManagedResourcesAzureSubnetsRp1PodsModel) (CustomerManagedResourcesAzureSubnetsRp1PodsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureSubnetsRp1PodsModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureSubnetsRp1Pods renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureSubnetsRp1Pods(_ context.Context, m *CustomerManagedResourcesAzureSubnetsRp1PodsModel) (*controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureSubnetsRp1Vnet converts a single proto controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureSubnetsRp1VnetModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureSubnetsRp1Vnet(_ context.Context, proto *controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, prev *CustomerManagedResourcesAzureSubnetsRp1VnetModel) (CustomerManagedResourcesAzureSubnetsRp1VnetModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureSubnetsRp1VnetModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureSubnetsRp1Vnet renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureSubnetsRp1Vnet(_ context.Context, m *CustomerManagedResourcesAzureSubnetsRp1VnetModel) (*controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureSubnetsRp2Pods converts a single proto controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureSubnetsRp2PodsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureSubnetsRp2Pods(_ context.Context, proto *controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, prev *CustomerManagedResourcesAzureSubnetsRp2PodsModel) (CustomerManagedResourcesAzureSubnetsRp2PodsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureSubnetsRp2PodsModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureSubnetsRp2Pods renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureSubnetsRp2Pods(_ context.Context, m *CustomerManagedResourcesAzureSubnetsRp2PodsModel) (*controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureSubnetsRp2Vnet converts a single proto controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureSubnetsRp2VnetModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureSubnetsRp2Vnet(_ context.Context, proto *controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, prev *CustomerManagedResourcesAzureSubnetsRp2VnetModel) (CustomerManagedResourcesAzureSubnetsRp2VnetModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureSubnetsRp2VnetModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureSubnetsRp2Vnet renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureSubnetsRp2Vnet(_ context.Context, m *CustomerManagedResourcesAzureSubnetsRp2VnetModel) (*controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureSubnetsRpAgent converts a single proto controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureSubnetsRpAgentModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureSubnetsRpAgent(_ context.Context, proto *controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, prev *CustomerManagedResourcesAzureSubnetsRpAgentModel) (CustomerManagedResourcesAzureSubnetsRpAgentModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureSubnetsRpAgentModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureSubnetsRpAgent renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureSubnetsRpAgent(_ context.Context, m *CustomerManagedResourcesAzureSubnetsRpAgentModel) (*controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureSubnetsRpConnectPods converts a single proto controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureSubnetsRpConnectPodsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureSubnetsRpConnectPods(_ context.Context, proto *controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, prev *CustomerManagedResourcesAzureSubnetsRpConnectPodsModel) (CustomerManagedResourcesAzureSubnetsRpConnectPodsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureSubnetsRpConnectPodsModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureSubnetsRpConnectPods renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureSubnetsRpConnectPods(_ context.Context, m *CustomerManagedResourcesAzureSubnetsRpConnectPodsModel) (*controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureSubnetsRpConnectVnet converts a single proto controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureSubnetsRpConnectVnetModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureSubnetsRpConnectVnet(_ context.Context, proto *controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, prev *CustomerManagedResourcesAzureSubnetsRpConnectVnetModel) (CustomerManagedResourcesAzureSubnetsRpConnectVnetModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureSubnetsRpConnectVnetModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureSubnetsRpConnectVnet renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureSubnetsRpConnectVnet(_ context.Context, m *CustomerManagedResourcesAzureSubnetsRpConnectVnetModel) (*controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureSubnetsRpEgressVnet converts a single proto controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureSubnetsRpEgressVnetModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureSubnetsRpEgressVnet(_ context.Context, proto *controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, prev *CustomerManagedResourcesAzureSubnetsRpEgressVnetModel) (CustomerManagedResourcesAzureSubnetsRpEgressVnetModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureSubnetsRpEgressVnetModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureSubnetsRpEgressVnet renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureSubnetsRpEgressVnet(_ context.Context, m *CustomerManagedResourcesAzureSubnetsRpEgressVnetModel) (*controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureSubnetsSysPods converts a single proto controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureSubnetsSysPodsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureSubnetsSysPods(_ context.Context, proto *controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, prev *CustomerManagedResourcesAzureSubnetsSysPodsModel) (CustomerManagedResourcesAzureSubnetsSysPodsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureSubnetsSysPodsModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureSubnetsSysPods renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureSubnetsSysPods(_ context.Context, m *CustomerManagedResourcesAzureSubnetsSysPodsModel) (*controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureSubnetsSysVnet converts a single proto controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureSubnetsSysVnetModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureSubnetsSysVnet(_ context.Context, proto *controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, prev *CustomerManagedResourcesAzureSubnetsSysVnetModel) (CustomerManagedResourcesAzureSubnetsSysVnetModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureSubnetsSysVnetModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureSubnetsSysVnet renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureSubnetsSysVnet(_ context.Context, m *CustomerManagedResourcesAzureSubnetsSysVnetModel) (*controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_CustomerManagedResources_Azure_Subnets_Subnet{
+		Name: m.Name.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureVnet converts a single proto controlplanev1.Network_CustomerManagedResources_Azure_Vnet into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureVnetModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureVnet(ctx context.Context, proto *controlplanev1.Network_CustomerManagedResources_Azure_Vnet, prev *CustomerManagedResourcesAzureVnetModel) (CustomerManagedResourcesAzureVnetModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureVnetModel{}
+	m.Name = types.StringValue(proto.GetName())
+	m.ResourceGroup = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetResourceGroup(), func() *CustomerManagedResourcesAzureVnetResourceGroupModel {
+		v, _ := DecodeCustomerManagedResourcesAzureVnetResourceGroup(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAzureVnetResourceGroupAttrTypes(), FlattenCustomerManagedResourcesAzureVnetResourceGroup, &diags)
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureVnet renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureVnet(ctx context.Context, m *CustomerManagedResourcesAzureVnetModel) (*controlplanev1.Network_CustomerManagedResources_Azure_Vnet, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_CustomerManagedResources_Azure_Vnet{
+		Name:          m.Name.ValueString(),
+		ResourceGroup: modelconv.ObjectToMessageWithDiags(ctx, m.ResourceGroup, ExpandCustomerManagedResourcesAzureVnetResourceGroup, &diags),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAzureVnetResourceGroup converts a single proto controlplanev1.CustomerManagedAzureResourceGroupSpec into the
+// corresponding nested model. The prev *CustomerManagedResourcesAzureVnetResourceGroupModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAzureVnetResourceGroup(_ context.Context, proto *controlplanev1.CustomerManagedAzureResourceGroupSpec, prev *CustomerManagedResourcesAzureVnetResourceGroupModel) (CustomerManagedResourcesAzureVnetResourceGroupModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAzureVnetResourceGroupModel{}
+	m.Name = types.StringValue(proto.GetName())
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAzureVnetResourceGroup renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAzureVnetResourceGroup(_ context.Context, m *CustomerManagedResourcesAzureVnetResourceGroupModel) (*controlplanev1.CustomerManagedAzureResourceGroupSpec, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedAzureResourceGroupSpec{
+		Name: m.Name.ValueString(),
 	}
 	return out, diags
 }

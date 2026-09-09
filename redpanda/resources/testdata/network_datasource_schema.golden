@@ -59,6 +59,143 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+        - name: azure
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: management_bucket
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: resource_group
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: storage_account_name
+                  type: StringAttribute
+                  computed: true
+                - name: storage_container_name
+                  type: StringAttribute
+                  computed: true
+            - name: subnets
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: kafka_connect_pods
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: kafka_connect_vnet
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: rp_0_pods
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: rp_0_vnet
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: rp_1_pods
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: rp_1_vnet
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: rp_2_pods
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: rp_2_vnet
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: rp_agent
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: rp_connect_pods
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: rp_connect_vnet
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: rp_egress_vnet
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: sys_pods
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: sys_vnet
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+            - name: vnet
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: name
+                  type: StringAttribute
+                  computed: true
+                - name: resource_group
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
         - name: gcp
           type: SingleNestedAttribute
           computed: true

@@ -509,6 +509,206 @@ attributes:
                   required: true
                   plan_modifiers:
                     - stringplanmodifier.requiresReplaceIfModifier
+        - name: azure
+          type: SingleNestedAttribute
+          optional: true
+          plan_modifiers:
+            - objectplanmodifier.requiresReplaceIfModifier
+          attributes:
+            - name: cidrs
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: aks_service_cidr
+                  type: StringAttribute
+                  required: true
+                  validators:
+                    - stringvalidator.regexMatchesValidator
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
+            - name: key_vaults
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: console_vault
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: management_vault
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+            - name: resource_groups
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: iam_resource_group
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: redpanda_resource_group
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: storage_resource_group
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+            - name: security_groups
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: redpanda_security_group
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+            - name: tiered_cloud_storage
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: resource_group
+                  type: SingleNestedAttribute
+                  optional: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: storage_account_name
+                  type: StringAttribute
+                  required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
+                - name: storage_container_name
+                  type: StringAttribute
+                  required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
+            - name: user_assigned_identities
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: agent_user_assigned_identity
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: aks_user_assigned_identity
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: cert_manager_assigned_identity
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: external_dns_assigned_identity
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: kafka_connect_assigned_identity
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: redpanda_cluster_assigned_identity
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: redpanda_connect_api_assigned_identity
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: redpanda_connect_assigned_identity
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: redpanda_console_assigned_identity
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: redpanda_operator_assigned_identity
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
         - name: gcp
           type: SingleNestedAttribute
           optional: true

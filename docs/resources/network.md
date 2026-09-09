@@ -41,6 +41,7 @@ Creates a network in the Redpanda Cloud.
 Optional:
 
 - `aws` (Attributes) The AWS resources managed by user. (see [below for nested schema](#nestedatt--customer_managed_resources--aws))
+- `azure` (Attributes) The Azure resources managed by user. (see [below for nested schema](#nestedatt--customer_managed_resources--azure))
 - `gcp` (Attributes) GCP resources created and managed by user, and required to deploy the Redpanda cluster. See [Create a BYOVPC Cluster on GCP](https://docs.redpanda.com/redpanda-cloud/get-started/cluster-types/byoc/gcp/vpc-byo-gcp/) for details. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp))
 
 <a id="nestedatt--customer_managed_resources--aws"></a>
@@ -95,6 +96,184 @@ Required:
 Required:
 
 - `arns` (List of String) Arns. Items must be unique.
+
+
+
+<a id="nestedatt--customer_managed_resources--azure"></a>
+### Nested Schema for `customer_managed_resources.azure`
+
+Required:
+
+- `management_bucket` (Attributes) Azure Bucket Specification (see [below for nested schema](#nestedatt--customer_managed_resources--azure--management_bucket))
+- `subnets` (Attributes) Azure subnets used by Redpand cluster deployment. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets))
+- `vnet` (Attributes) Azure VNET. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--vnet))
+
+<a id="nestedatt--customer_managed_resources--azure--management_bucket"></a>
+### Nested Schema for `customer_managed_resources.azure.management_bucket`
+
+Required:
+
+- `resource_group` (Attributes) Azure Resource Group Specification (see [below for nested schema](#nestedatt--customer_managed_resources--azure--management_bucket--resource_group))
+- `storage_account_name` (String) Naming convention: Between 3 and 24 characters and use numbers and lower-case letters only. https://learn.microsoft.com/en-us/rest/api/storagerp/storage-accounts/create?view=rest-storagerp-2023-05-01&tabs=HTTP. Length must be between 3 and 24. Must match pattern `^[a-z0-9]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `storage_container_name` (String) Naming convention: Between 3 and 63 characters and use numbers, lower-case letters and dash (-) only. Every dash (-) character must be immediately preceded and followed by a letter or number. https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/create?view=rest-storagerp-2023-05-01&tabs=HTTP. Length must be between 3 and 63. Must match pattern `^[a-z0-9]+([-]{0,1}[a-z0-9]+)+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+<a id="nestedatt--customer_managed_resources--azure--management_bucket--resource_group"></a>
+### Nested Schema for `customer_managed_resources.azure.management_bucket.resource_group`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/. Length must be between 1 and 90. Must match pattern `^[-\w\._\(\)]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets`
+
+Required:
+
+- `kafka_connect_pods` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--kafka_connect_pods))
+- `kafka_connect_vnet` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--kafka_connect_vnet))
+- `rp_0_pods` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_0_pods))
+- `rp_0_vnet` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_0_vnet))
+- `rp_1_pods` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_1_pods))
+- `rp_1_vnet` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_1_vnet))
+- `rp_2_pods` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_2_pods))
+- `rp_2_vnet` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_2_vnet))
+- `rp_agent` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_agent))
+- `rp_connect_pods` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_connect_pods))
+- `rp_connect_vnet` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_connect_vnet))
+- `rp_egress_vnet` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--rp_egress_vnet))
+- `sys_pods` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--sys_pods))
+- `sys_vnet` (Attributes) Azure subnet. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--subnets--sys_vnet))
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--kafka_connect_pods"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.kafka_connect_pods`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\w)+[-\._\w]*[\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--kafka_connect_vnet"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.kafka_connect_vnet`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\w)+[-\._\w]*[\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_0_pods"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_0_pods`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\w)+[-\._\w]*[\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_0_vnet"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_0_vnet`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\w)+[-\._\w]*[\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_1_pods"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_1_pods`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\w)+[-\._\w]*[\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_1_vnet"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_1_vnet`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\w)+[-\._\w]*[\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_2_pods"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_2_pods`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\w)+[-\._\w]*[\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_2_vnet"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_2_vnet`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\w)+[-\._\w]*[\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_agent"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_agent`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\w)+[-\._\w]*[\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_connect_pods"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_connect_pods`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\w)+[-\._\w]*[\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_connect_vnet"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_connect_vnet`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\w)+[-\._\w]*[\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--rp_egress_vnet"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.rp_egress_vnet`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\w)+[-\._\w]*[\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--sys_pods"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.sys_pods`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\w)+[-\._\w]*[\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--subnets--sys_vnet"></a>
+### Nested Schema for `customer_managed_resources.azure.subnets.sys_vnet`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\w)+[-\._\w]*[\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+
+<a id="nestedatt--customer_managed_resources--azure--vnet"></a>
+### Nested Schema for `customer_managed_resources.azure.vnet`
+
+Required:
+
+- `name` (String) The name of Azure VNET. Naming convention: Between 2 and 64 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 2 and 64. Must match pattern `^(\w)+[-\._\w]*[\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `resource_group` (Attributes) Azure Resource Group Specification (see [below for nested schema](#nestedatt--customer_managed_resources--azure--vnet--resource_group))
+
+<a id="nestedatt--customer_managed_resources--azure--vnet--resource_group"></a>
+### Nested Schema for `customer_managed_resources.azure.vnet.resource_group`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/. Length must be between 1 and 90. Must match pattern `^[-\w\._\(\)]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
 
 
 

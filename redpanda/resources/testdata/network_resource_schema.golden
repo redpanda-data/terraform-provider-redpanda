@@ -81,6 +81,181 @@ attributes:
                   required: true
                   plan_modifiers:
                     - stringplanmodifier.requiresReplaceIfModifier
+        - name: azure
+          type: SingleNestedAttribute
+          optional: true
+          attributes:
+            - name: management_bucket
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: resource_group
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: storage_account_name
+                  type: StringAttribute
+                  required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
+                - name: storage_container_name
+                  type: StringAttribute
+                  required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
+            - name: subnets
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: kafka_connect_pods
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: kafka_connect_vnet
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: rp_0_pods
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: rp_0_vnet
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: rp_1_pods
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: rp_1_vnet
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: rp_2_pods
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: rp_2_vnet
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: rp_agent
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: rp_connect_pods
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: rp_connect_vnet
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: rp_egress_vnet
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: sys_pods
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+                - name: sys_vnet
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
+            - name: vnet
+              type: SingleNestedAttribute
+              required: true
+              attributes:
+                - name: name
+                  type: StringAttribute
+                  required: true
+                  plan_modifiers:
+                    - stringplanmodifier.requiresReplaceIfModifier
+                - name: resource_group
+                  type: SingleNestedAttribute
+                  required: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      required: true
+                      plan_modifiers:
+                        - stringplanmodifier.requiresReplaceIfModifier
         - name: gcp
           type: SingleNestedAttribute
           optional: true

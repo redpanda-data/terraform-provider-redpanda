@@ -216,6 +216,7 @@ Optional:
 Optional:
 
 - `aws` (Attributes) AWS resources created and managed by user, and required to deploy the Redpanda cluster. (see [below for nested schema](#nestedatt--customer_managed_resources--aws))
+- `azure` (Attributes) Azure resources created and managed by user, and required to deploy the Redpanda cluster. If the value of this attribute changes, Terraform will destroy and recreate the resource. (see [below for nested schema](#nestedatt--customer_managed_resources--azure))
 - `gcp` (Attributes) GCP resources created and managed by user, and required to deploy the Redpanda cluster. See [Create a BYOVPC Cluster on GCP](https://docs.redpanda.com/redpanda-cloud/get-started/cluster-types/byoc/gcp/vpc-byo-gcp/). (see [below for nested schema](#nestedatt--customer_managed_resources--gcp))
 
 <a id="nestedatt--customer_managed_resources--aws"></a>
@@ -387,6 +388,220 @@ Required:
 Required:
 
 - `arn` (String) AWS security group ARN.
+
+
+
+<a id="nestedatt--customer_managed_resources--azure"></a>
+### Nested Schema for `customer_managed_resources.azure`
+
+Required:
+
+- `cidrs` (Attributes) Additional CIDRs allocated to Redpanda cluster. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--cidrs))
+- `key_vaults` (Attributes) Azure key vaults used by Redpanda Cluster. All key vaults shall be in redpanda_resource_group. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--key_vaults))
+- `resource_groups` (Attributes) Azure resource groups holding the Redpanda cluster resources. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--resource_groups))
+- `security_groups` (Attributes) Azure security groups for Redpanda Cluster. All security groups shall be in the network resource group. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--security_groups))
+- `tiered_cloud_storage` (Attributes) Azure Bucket Specification (see [below for nested schema](#nestedatt--customer_managed_resources--azure--tiered_cloud_storage))
+- `user_assigned_identities` (Attributes) Azure user assigned identities used by Redpanda cluster. All identities shall be in iam_resource_group. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities))
+
+<a id="nestedatt--customer_managed_resources--azure--cidrs"></a>
+### Nested Schema for `customer_managed_resources.azure.cidrs`
+
+Required:
+
+- `aks_service_cidr` (String) CIDR used by AKS Kubernetes services. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--key_vaults"></a>
+### Nested Schema for `customer_managed_resources.azure.key_vaults`
+
+Required:
+
+- `console_vault` (Attributes) Azure Key Vault. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--key_vaults--console_vault))
+- `management_vault` (Attributes) Azure Key Vault. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--key_vaults--management_vault))
+
+<a id="nestedatt--customer_managed_resources--azure--key_vaults--console_vault"></a>
+### Nested Schema for `customer_managed_resources.azure.key_vaults.console_vault`
+
+Required:
+
+- `name` (String) Naming convention: Between 3 and 24 characters and begin with a letter, end with a letter or digit, and not contain consecutive hyphens. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 3 and 24. Must match pattern `^[a-zA-Z]+([-]{0,1}(\w)+)+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--key_vaults--management_vault"></a>
+### Nested Schema for `customer_managed_resources.azure.key_vaults.management_vault`
+
+Required:
+
+- `name` (String) Naming convention: Between 3 and 24 characters and begin with a letter, end with a letter or digit, and not contain consecutive hyphens. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 3 and 24. Must match pattern `^[a-zA-Z]+([-]{0,1}(\w)+)+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+
+<a id="nestedatt--customer_managed_resources--azure--resource_groups"></a>
+### Nested Schema for `customer_managed_resources.azure.resource_groups`
+
+Required:
+
+- `iam_resource_group` (Attributes) Azure Resource Group Specification (see [below for nested schema](#nestedatt--customer_managed_resources--azure--resource_groups--iam_resource_group))
+- `redpanda_resource_group` (Attributes) Azure Resource Group Specification (see [below for nested schema](#nestedatt--customer_managed_resources--azure--resource_groups--redpanda_resource_group))
+- `storage_resource_group` (Attributes) Azure Resource Group Specification (see [below for nested schema](#nestedatt--customer_managed_resources--azure--resource_groups--storage_resource_group))
+
+<a id="nestedatt--customer_managed_resources--azure--resource_groups--iam_resource_group"></a>
+### Nested Schema for `customer_managed_resources.azure.resource_groups.iam_resource_group`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/. Length must be between 1 and 90. Must match pattern `^[-\w\._\(\)]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--resource_groups--redpanda_resource_group"></a>
+### Nested Schema for `customer_managed_resources.azure.resource_groups.redpanda_resource_group`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/. Length must be between 1 and 90. Must match pattern `^[-\w\._\(\)]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--resource_groups--storage_resource_group"></a>
+### Nested Schema for `customer_managed_resources.azure.resource_groups.storage_resource_group`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/. Length must be between 1 and 90. Must match pattern `^[-\w\._\(\)]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+
+<a id="nestedatt--customer_managed_resources--azure--security_groups"></a>
+### Nested Schema for `customer_managed_resources.azure.security_groups`
+
+Required:
+
+- `redpanda_security_group` (Attributes) Azure security group. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--security_groups--redpanda_security_group))
+
+<a id="nestedatt--customer_managed_resources--azure--security_groups--redpanda_security_group"></a>
+### Nested Schema for `customer_managed_resources.azure.security_groups.redpanda_security_group`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\w)+[-\._\w]*[\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+
+<a id="nestedatt--customer_managed_resources--azure--tiered_cloud_storage"></a>
+### Nested Schema for `customer_managed_resources.azure.tiered_cloud_storage`
+
+Required:
+
+- `storage_account_name` (String) Naming convention: Between 3 and 24 characters and use numbers and lower-case letters only. https://learn.microsoft.com/en-us/rest/api/storagerp/storage-accounts/create?view=rest-storagerp-2023-05-01&tabs=HTTP. Length must be between 3 and 24. Must match pattern `^[a-z0-9]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `storage_container_name` (String) Naming convention: Between 3 and 63 characters and use numbers, lower-case letters and dash (-) only. Every dash (-) character must be immediately preceded and followed by a letter or number. https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/create?view=rest-storagerp-2023-05-01&tabs=HTTP. Length must be between 3 and 63. Must match pattern `^[a-z0-9]+([-]{0,1}[a-z0-9]+)+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+Optional:
+
+- `resource_group` (Attributes) Azure Resource Group Specification (see [below for nested schema](#nestedatt--customer_managed_resources--azure--tiered_cloud_storage--resource_group))
+
+<a id="nestedatt--customer_managed_resources--azure--tiered_cloud_storage--resource_group"></a>
+### Nested Schema for `customer_managed_resources.azure.tiered_cloud_storage.resource_group`
+
+Required:
+
+- `name` (String) Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/. Length must be between 1 and 90. Must match pattern `^[-\w\._\(\)]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities`
+
+Required:
+
+- `agent_user_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--agent_user_assigned_identity))
+- `aks_user_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--aks_user_assigned_identity))
+- `cert_manager_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--cert_manager_assigned_identity))
+- `external_dns_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--external_dns_assigned_identity))
+- `kafka_connect_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--kafka_connect_assigned_identity))
+- `redpanda_cluster_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_cluster_assigned_identity))
+- `redpanda_connect_api_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_connect_api_assigned_identity))
+- `redpanda_connect_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_connect_assigned_identity))
+- `redpanda_console_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_console_assigned_identity))
+- `redpanda_operator_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_operator_assigned_identity))
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--agent_user_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.agent_user_assigned_identity`
+
+Required:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\w)+[-_\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--aks_user_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.aks_user_assigned_identity`
+
+Required:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\w)+[-_\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--cert_manager_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.cert_manager_assigned_identity`
+
+Required:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\w)+[-_\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--external_dns_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.external_dns_assigned_identity`
+
+Required:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\w)+[-_\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--kafka_connect_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.kafka_connect_assigned_identity`
+
+Required:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\w)+[-_\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_cluster_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.redpanda_cluster_assigned_identity`
+
+Required:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\w)+[-_\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_connect_api_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.redpanda_connect_api_assigned_identity`
+
+Required:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\w)+[-_\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_connect_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.redpanda_connect_assigned_identity`
+
+Required:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\w)+[-_\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_console_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.redpanda_console_assigned_identity`
+
+Required:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\w)+[-_\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_operator_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.redpanda_operator_assigned_identity`
+
+Required:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\w)+[-_\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
 
 
 
@@ -1836,9 +2051,9 @@ resource "redpanda_acl" "topic_access" {
 
 ## BYOVPC
 
-This accepts a network and other elements created by the end user inside their cloud provider account (currently limited to AWS) and builds a Redpanda Cluster inside it.
+This accepts a network and other elements created by the end user inside their cloud provider account and builds a Redpanda Cluster inside it.
 
-There is [a module](https://github.com/redpanda-data/terraform-aws-redpanda-byovpc) provided for convenience of the end user here that handles the necessary setup. It contains outputs for the inputs the provider requires.
+A module per cloud handles the necessary setup and emits outputs for the inputs the provider requires: [AWS](https://github.com/redpanda-data/terraform-aws-redpanda-byovpc), [GCP](https://github.com/redpanda-data/terraform-gcp-redpanda-byovpc), and [Azure](https://github.com/redpanda-data/terraform-azure-redpanda-byovnet).
 
 ### AWS BYOVPC
 
@@ -2267,9 +2482,161 @@ resource "redpanda_acl" "test" {
 }
 ```
 
-## Limitations
+### Azure BYOVPC
 
-We are not currently able to support Azure BYOVPC clusters.
+Has the same requirements as the Azure BYOC Cluster along with the resource groups, identities, storage, key vaults, security group, VNet, and subnets the end user must create. Every `customer_managed_resources.azure` value is fixed at creation: changing one replaces the cluster. The AKS service CIDR is an input to the module rather than an output, so declare it once and pass the same value to both.
+
+```terraform
+provider "azurerm" {
+  features {}
+  subscription_id = var.azure_subscription_id
+  # The module disables shared-key access on its storage accounts; without
+  # this the provider's post-create data-plane check fails with
+  # KeyBasedAuthenticationNotPermitted.
+  storage_use_azuread = true
+}
+
+provider "redpanda" {}
+
+# The AKS service CIDR is a module input, not an output: the module reserves
+# it inside the VNet and the cluster declares the same value, so one local
+# feeds both.
+locals {
+  aks_service_cidr = "10.0.15.0/24"
+}
+
+# Use the Redpanda Azure BYOVNet module
+module "redpanda_byovnet" {
+  source  = "redpanda-data/redpanda-byovnet/azure"
+  version = "~> 1.1"
+
+  region                = var.region
+  azure_tenant_id       = var.azure_tenant_id
+  azure_subscription_id = var.azure_subscription_id
+
+  resource_name_prefix       = var.resource_name_prefix
+  resource_group_name_prefix = var.resource_group_name_prefix
+  reserved_subnet_cidrs      = { "k8s-service" = local.aks_service_cidr }
+
+  # The BYOC agent bootstrap (rpk cloud byoc azure apply, run by the provider)
+  # keeps its Terraform state in the management storage account, which allows
+  # only Entra ID auth; the identity applying this module must hold Storage
+  # Blob Data Contributor on it. This grants that role to the caller.
+  grant_caller_management_storage_access = true
+
+  tags = {
+    "environment" = var.environment
+    "managed-by"  = "terraform"
+  }
+}
+
+# Redpanda resource group
+resource "redpanda_resource_group" "test" {
+  name = var.resource_group_name
+}
+
+# Create Redpanda network with customer managed resources
+resource "redpanda_network" "test" {
+  name              = var.network_name
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = "azure"
+  region            = var.region
+  cluster_type      = "byoc"
+
+  customer_managed_resources = {
+    azure = {
+      management_bucket = {
+        storage_account_name   = module.redpanda_byovnet.management_bucket_storage_account_name
+        storage_container_name = module.redpanda_byovnet.management_bucket_storage_container_name
+        resource_group         = { name = module.redpanda_byovnet.redpanda_resource_group_name }
+      }
+      vnet = {
+        name           = module.redpanda_byovnet.vnet_name
+        resource_group = { name = module.redpanda_byovnet.network_resource_group_name }
+      }
+      subnets = {
+        rp_agent           = { name = module.redpanda_byovnet.agent_private_subnet_name }
+        rp_0_pods          = { name = module.redpanda_byovnet.rp_0_pods_subnet_name }
+        rp_0_vnet          = { name = module.redpanda_byovnet.rp_0_vnet_subnet_name }
+        rp_1_pods          = { name = module.redpanda_byovnet.rp_1_pods_subnet_name }
+        rp_1_vnet          = { name = module.redpanda_byovnet.rp_1_vnet_subnet_name }
+        rp_2_pods          = { name = module.redpanda_byovnet.rp_2_pods_subnet_name }
+        rp_2_vnet          = { name = module.redpanda_byovnet.rp_2_vnet_subnet_name }
+        rp_connect_pods    = { name = module.redpanda_byovnet.rp_connect_pods_subnet_name }
+        rp_connect_vnet    = { name = module.redpanda_byovnet.rp_connect_vnet_subnet_name }
+        kafka_connect_pods = { name = module.redpanda_byovnet.kafka_connect_pods_subnet_name }
+        kafka_connect_vnet = { name = module.redpanda_byovnet.kafka_connect_vnet_subnet_name }
+        sys_pods           = { name = module.redpanda_byovnet.system_pods_subnet_name }
+        sys_vnet           = { name = module.redpanda_byovnet.system_vnet_subnet_name }
+        rp_egress_vnet     = { name = module.redpanda_byovnet.egress_subnet_name }
+      }
+    }
+  }
+  depends_on = [module.redpanda_byovnet]
+}
+
+# Create Redpanda cluster with customer managed resources
+resource "redpanda_cluster" "test" {
+  name              = var.cluster_name
+  resource_group_id = redpanda_resource_group.test.id
+  network_id        = redpanda_network.test.id
+  cloud_provider    = "azure"
+  region            = var.region
+  cluster_type      = "byoc"
+  connection_type   = "private"
+  throughput_tier   = var.throughput_tier
+  zones             = var.zones
+  allow_deletion    = true
+
+  tags = {
+    "environment" = var.environment
+    "managed-by"  = "terraform"
+  }
+
+  # Customer managed resources for Azure. Every leaf is immutable on the
+  # control plane: changing one plans a replacement of the cluster.
+  customer_managed_resources = {
+    azure = {
+      resource_groups = {
+        redpanda_resource_group = { name = module.redpanda_byovnet.redpanda_resource_group_name }
+        storage_resource_group  = { name = module.redpanda_byovnet.storage_resource_group_name }
+        iam_resource_group      = { name = module.redpanda_byovnet.iam_resource_group_name }
+      }
+      user_assigned_identities = {
+        agent_user_assigned_identity           = { name = module.redpanda_byovnet.agent_user_assigned_identity_name }
+        aks_user_assigned_identity             = { name = module.redpanda_byovnet.aks_user_assigned_identity_name }
+        redpanda_cluster_assigned_identity     = { name = module.redpanda_byovnet.cluster_user_assigned_identity_name }
+        cert_manager_assigned_identity         = { name = module.redpanda_byovnet.cert_manager_user_assigned_identity_name }
+        external_dns_assigned_identity         = { name = module.redpanda_byovnet.external_dns_user_assigned_identity_name }
+        redpanda_console_assigned_identity     = { name = module.redpanda_byovnet.console_user_assigned_identity_name }
+        kafka_connect_assigned_identity        = { name = module.redpanda_byovnet.kafka_connect_user_assigned_identity_name }
+        redpanda_connect_assigned_identity     = { name = module.redpanda_byovnet.redpanda_connect_user_assigned_identity_name }
+        redpanda_connect_api_assigned_identity = { name = module.redpanda_byovnet.redpanda_connect_api_user_assigned_identity_name }
+        redpanda_operator_assigned_identity    = { name = module.redpanda_byovnet.redpanda_operator_user_assigned_identity_name }
+      }
+      tiered_cloud_storage = {
+        storage_account_name   = module.redpanda_byovnet.tiered_storage_account_name
+        storage_container_name = module.redpanda_byovnet.tiered_storage_container_name
+        resource_group         = { name = module.redpanda_byovnet.storage_resource_group_name }
+      }
+      key_vaults = {
+        management_vault = { name = module.redpanda_byovnet.management_key_vault_name }
+        console_vault    = { name = module.redpanda_byovnet.console_key_vault_name }
+      }
+      security_groups = {
+        redpanda_security_group = { name = module.redpanda_byovnet.redpanda_security_group_name }
+      }
+      cidrs = {
+        aks_service_cidr = local.aks_service_cidr
+      }
+    }
+  }
+
+  depends_on = [redpanda_network.test]
+}
+```
+
+## Limitations
 
 ### Dual listener mode (connections)
 

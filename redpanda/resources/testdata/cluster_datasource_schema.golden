@@ -303,6 +303,162 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   computed: true
+        - name: azure
+          type: SingleNestedAttribute
+          computed: true
+          attributes:
+            - name: cidrs
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: aks_service_cidr
+                  type: StringAttribute
+                  computed: true
+            - name: key_vaults
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: console_vault
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: management_vault
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+            - name: resource_groups
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: iam_resource_group
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: redpanda_resource_group
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: storage_resource_group
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+            - name: security_groups
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: redpanda_security_group
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+            - name: tiered_cloud_storage
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: resource_group
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: storage_account_name
+                  type: StringAttribute
+                  computed: true
+                - name: storage_container_name
+                  type: StringAttribute
+                  computed: true
+            - name: user_assigned_identities
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: agent_user_assigned_identity
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: aks_user_assigned_identity
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: cert_manager_assigned_identity
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: external_dns_assigned_identity
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: kafka_connect_assigned_identity
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: redpanda_cluster_assigned_identity
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: redpanda_connect_api_assigned_identity
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: redpanda_connect_assigned_identity
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: redpanda_console_assigned_identity
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
+                - name: redpanda_operator_assigned_identity
+                  type: SingleNestedAttribute
+                  computed: true
+                  attributes:
+                    - name: name
+                      type: StringAttribute
+                      computed: true
         - name: gcp
           type: SingleNestedAttribute
           computed: true
