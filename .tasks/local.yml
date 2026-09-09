@@ -364,6 +364,85 @@ tasks:
           -var="google_credentials_base64={{.GOOGLE_CREDENTIALS_BASE64}}"
       - echo "GCP BYOVPC cluster destroyed successfully"
 
+  byovpc:azure:apply:
+    desc: "Apply Azure BYOVNet cluster for local testing"
+    dir: examples/byovpc/azure
+    vars:
+      CLUSTER_NAME: 'tfrp-local-byovpc-azure-{{.LOCAL_NAME_POSTPEND}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-byovpc-azure-{{.LOCAL_NAME_POSTPEND}}'
+      NETWORK_NAME: 'tfrp-local-byovpc-azure-{{.LOCAL_NAME_POSTPEND}}'
+      # Storage-account names take this with dashes removed; keep it short.
+      AZURE_NAME_PREFIX: '{{.AZURE_NAME_PREFIX | default "tfrp-local-"}}'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_CLI_CONFIG_FILE: '.terraformrc'
+      # The azurerm provider and the module read these; the redpanda provider
+      # accepts either AZURE_* or ARM_*.
+      TF_VAR_azure_subscription_id: '{{.ARM_SUBSCRIPTION_ID | default .AZURE_SUBSCRIPTION_ID}}'
+      TF_VAR_azure_tenant_id: '{{.ARM_TENANT_ID | default .AZURE_TENANT_ID}}'
+    cmds:
+      - task: clean-terraform
+        vars:
+          TARGET_DIR: "."
+      - task: build
+      - |
+        echo 'provider_installation {
+          dev_overrides {
+            "redpanda-data/redpanda" = "../../../"
+          }
+          direct {}
+        }' > .terraformrc
+      - echo "Creating Azure BYOVNet cluster {{.CLUSTER_NAME}}"
+      - |
+        terraform apply -auto-approve \
+          -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+          -var="network_name={{.NETWORK_NAME}}" \
+          -var="cluster_name={{.CLUSTER_NAME}}" \
+          -var="resource_name_prefix={{.AZURE_NAME_PREFIX}}" \
+          -var="resource_group_name_prefix={{.AZURE_NAME_PREFIX}}"
+      - echo "Azure BYOVNet cluster created successfully"
+
+  byovpc:azure:destroy:
+    desc: "Destroy Azure BYOVNet cluster from local testing"
+    dir: examples/byovpc/azure
+    vars:
+      CLUSTER_NAME: 'tfrp-local-byovpc-azure-{{.LOCAL_NAME_POSTPEND}}'
+      RESOURCE_GROUP_NAME: 'tfrp-local-byovpc-azure-{{.LOCAL_NAME_POSTPEND}}'
+      NETWORK_NAME: 'tfrp-local-byovpc-azure-{{.LOCAL_NAME_POSTPEND}}'
+      AZURE_NAME_PREFIX: '{{.AZURE_NAME_PREFIX | default "tfrp-local-"}}'
+    env:
+      REDPANDA_CLIENT_ID: '{{.REDPANDA_CLIENT_ID}}'
+      REDPANDA_CLIENT_SECRET: '{{.REDPANDA_CLIENT_SECRET}}'
+      REDPANDA_CLOUD_ENVIRONMENT: '{{.REDPANDA_CLOUD_ENVIRONMENT}}'
+      TF_LOG: '{{.TF_LOG}}'
+      TF_CLI_CONFIG_FILE: '.terraformrc'
+      TF_VAR_azure_subscription_id: '{{.ARM_SUBSCRIPTION_ID | default .AZURE_SUBSCRIPTION_ID}}'
+      TF_VAR_azure_tenant_id: '{{.ARM_TENANT_ID | default .AZURE_TENANT_ID}}'
+    cmds:
+      - task: clean-terraform
+        vars:
+          TARGET_DIR: "."
+      - task: build
+      - |
+        echo 'provider_installation {
+          dev_overrides {
+            "redpanda-data/redpanda" = "../../../"
+          }
+          direct {}
+        }' > .terraformrc
+      - echo "Destroying Azure BYOVNet cluster {{.CLUSTER_NAME}}"
+      - |
+        terraform destroy -auto-approve \
+          -var="resource_group_name={{.RESOURCE_GROUP_NAME}}" \
+          -var="network_name={{.NETWORK_NAME}}" \
+          -var="cluster_name={{.CLUSTER_NAME}}" \
+          -var="resource_name_prefix={{.AZURE_NAME_PREFIX}}" \
+          -var="resource_group_name_prefix={{.AZURE_NAME_PREFIX}}"
+      - echo "Azure BYOVNet cluster destroyed successfully"
+
   serverless:apply:
     desc: "Apply AWS vcluster for local testing"
     dir: examples/cluster/serverless

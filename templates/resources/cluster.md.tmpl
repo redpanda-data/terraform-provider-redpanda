@@ -67,9 +67,9 @@ The account [must have fairly wide ranging permissions](https://docs.redpanda.co
 
 ## BYOVPC
 
-This accepts a network and other elements created by the end user inside their cloud provider account (currently limited to AWS) and builds a Redpanda Cluster inside it.
+This accepts a network and other elements created by the end user inside their cloud provider account and builds a Redpanda Cluster inside it.
 
-There is [a module](https://github.com/redpanda-data/terraform-aws-redpanda-byovpc) provided for convenience of the end user here that handles the necessary setup. It contains outputs for the inputs the provider requires.
+A module per cloud handles the necessary setup and emits outputs for the inputs the provider requires: [AWS](https://github.com/redpanda-data/terraform-aws-redpanda-byovpc), [GCP](https://github.com/redpanda-data/terraform-gcp-redpanda-byovpc), and [Azure](https://github.com/redpanda-data/terraform-azure-redpanda-byovnet).
 
 ### AWS BYOVPC
 
@@ -89,9 +89,13 @@ Has the same requirements as the GCP BYOC Cluster along with the additional requ
 
 {{ tffile "examples/byovpc/gcp/main.tf" }}
 
-## Limitations
+### Azure BYOVPC
 
-We are not currently able to support Azure BYOVPC clusters.
+Has the same requirements as the Azure BYOC Cluster along with the resource groups, identities, storage, key vaults, security group, VNet, and subnets the end user must create. Every `customer_managed_resources.azure` value is fixed at creation: changing one replaces the cluster. The AKS service CIDR is an input to the module rather than an output, so declare it once and pass the same value to both.
+
+{{ tffile "examples/byovpc/azure/main.tf" }}
+
+## Limitations
 
 ### Dual listener mode (connections)
 
