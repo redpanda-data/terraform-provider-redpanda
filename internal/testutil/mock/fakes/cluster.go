@@ -296,6 +296,7 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 		cl.GetHttpProxy().Connections = legacyConnectionProjection(in.GetConnectionType(), in.GetHttpProxy().GetMtls().GetEnabled(), "https://mock.http-proxy.redpanda.cloud")
 		cl.GetSchemaRegistry().Connections = legacyConnectionProjection(in.GetConnectionType(), in.GetSchemaRegistry().GetMtls().GetEnabled(), srURL)
 	}
+	projectListenerMTLS(cl)
 
 	if f.CreateMutator != nil {
 		f.CreateMutator(cl)
@@ -534,6 +535,7 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 	// Mirror cloudv2 clearOxlaCMROnDisable (called on the merged spec before
 	// persisting): a disabled cluster cannot retain rpsql CMR fields.
 	clearRpsqlCMROnDisable(cl)
+	projectListenerMTLS(cl)
 	cl.UpdatedAt = timestamppb.Now()
 
 	return &controlplanev1.UpdateClusterOperation{Operation: completedOp(f.op, upd.GetId())}, nil
@@ -833,6 +835,22 @@ func oxlaEffectiveZones(spec *controlplanev1.RPSql, clusterZones []string) []str
 		return clusterZones[:1]
 	}
 	return spec.GetZones()
+}
+
+// projectListenerMTLS mirrors the tail of cloudv2 RedpandaListenersToPublic:
+// GET projects a non-nil mtls block on every service, {enabled:false} when no
+// listener requires client auth, so a config that omits the block still reads
+// one back.
+func projectListenerMTLS(cl *controlplanev1.Cluster) {
+	if cl.GetKafkaApi() != nil && cl.GetKafkaApi().GetMtls() == nil {
+		cl.GetKafkaApi().Mtls = &controlplanev1.MTLSSpec{Enabled: false}
+	}
+	if cl.GetHttpProxy() != nil && cl.GetHttpProxy().GetMtls() == nil {
+		cl.GetHttpProxy().Mtls = &controlplanev1.MTLSSpec{Enabled: false}
+	}
+	if cl.GetSchemaRegistry() != nil && cl.GetSchemaRegistry().GetMtls() == nil {
+		cl.GetSchemaRegistry().Mtls = &controlplanev1.MTLSSpec{Enabled: false}
+	}
 }
 
 // keepUnsent mirrors the control plane's legacy listener update: a payload

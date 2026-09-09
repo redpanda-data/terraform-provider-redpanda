@@ -428,6 +428,11 @@ func TestClusterFake_ConnectionsEnvelopeMatchesControlPlane(t *testing.T) {
 		if err != nil {
 			t.Fatalf("UpdateCluster connections on GCP BYOC: %v; the control plane rejects only Azure", err)
 		}
+		got, err := f.GetCluster(ctx, &controlplanev1.GetClusterRequest{Id: op.GetOperation().GetResourceId()})
+		if err != nil {
+			t.Fatalf("GetCluster: %v", err)
+		}
+		assertDisabledMTLSProjected(t, got.GetCluster(), svcKafkaAPI, svcHTTPProxy, svcSchemaRegistry)
 	})
 
 	t.Run("update rejects Azure", func(t *testing.T) {
@@ -499,6 +504,29 @@ func TestClusterFake_LegacyUpdateKeepsUnsentListenerAuth(t *testing.T) {
 	}
 	if len(got.GetCluster().GetKafkaApi().GetConnections()) != 2 {
 		t.Fatalf("legacy connections projection = %v, want sasl and mtls entries", got.GetCluster().GetKafkaApi().GetConnections())
+	}
+	assertDisabledMTLSProjected(t, got.GetCluster(), svcHTTPProxy, svcSchemaRegistry)
+}
+
+// assertDisabledMTLSProjected pins the GET projection for services whose
+// listeners never asked for client auth: a non-nil mtls block with enabled
+// false, never a nil one.
+func assertDisabledMTLSProjected(t *testing.T, cl *controlplanev1.Cluster, services ...string) {
+	t.Helper()
+	blocks := map[string]*controlplanev1.MTLSSpec{
+		svcKafkaAPI:       cl.GetKafkaApi().GetMtls(),
+		svcHTTPProxy:      cl.GetHttpProxy().GetMtls(),
+		svcSchemaRegistry: cl.GetSchemaRegistry().GetMtls(),
+	}
+	for _, name := range services {
+		mtls := blocks[name]
+		if mtls == nil {
+			t.Errorf("%s.mtls = nil; the control plane projects {enabled:false} when no listener requires client auth", name)
+			continue
+		}
+		if mtls.GetEnabled() || len(mtls.GetCaCertificatesPem()) != 0 || len(mtls.GetPrincipalMappingRules()) != 0 {
+			t.Errorf("%s.mtls = %v, want {enabled:false} with no CA or rules", name, mtls)
+		}
 	}
 }
 
