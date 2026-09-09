@@ -665,19 +665,10 @@ type RpsqlModel struct {
 // converters on the parent struct to move between types.Object and this
 // typed form.
 type SchemaRegistryModel struct {
-	Mtls        types.Object `tfsdk:"mtls"`
 	Connections types.List   `tfsdk:"connections"`
+	Mtls        types.Object `tfsdk:"mtls"`
 	AllUrls     types.Object `tfsdk:"all_urls"`
 	URL         types.String `tfsdk:"url"`
-}
-
-// SchemaRegistryMtlsModel mirrors the nested "schema_registry.mtls" attribute. Use the As/To
-// converters on the parent struct to move between types.Object and this
-// typed form.
-type SchemaRegistryMtlsModel struct {
-	CaCertificatesPem     types.List `tfsdk:"ca_certificates_pem"`
-	PrincipalMappingRules types.List `tfsdk:"principal_mapping_rules"`
-	Enabled               types.Bool `tfsdk:"enabled"`
 }
 
 // SchemaRegistryConnectionsModel mirrors the nested "schema_registry.connections" attribute. Use the As/To
@@ -694,6 +685,15 @@ type SchemaRegistryConnectionsModel struct {
 // typed form.
 type SchemaRegistryConnectionsAuthModel struct {
 	Mode types.String `tfsdk:"mode"`
+}
+
+// SchemaRegistryMtlsModel mirrors the nested "schema_registry.mtls" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type SchemaRegistryMtlsModel struct {
+	CaCertificatesPem     types.List `tfsdk:"ca_certificates_pem"`
+	PrincipalMappingRules types.List `tfsdk:"principal_mapping_rules"`
+	Enabled               types.Bool `tfsdk:"enabled"`
 }
 
 // SchemaRegistryAllUrlsModel mirrors the nested "schema_registry.all_urls" attribute. Use the As/To
@@ -1395,20 +1395,10 @@ func RpsqlAttrTypes() map[string]attr.Type {
 // attribute.
 func SchemaRegistryAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"mtls":        types.ObjectType{AttrTypes: SchemaRegistryMtlsAttrTypes()},
 		"connections": types.ListType{ElemType: types.ObjectType{AttrTypes: SchemaRegistryConnectionsAttrTypes()}},
+		"mtls":        types.ObjectType{AttrTypes: SchemaRegistryMtlsAttrTypes()},
 		"all_urls":    types.ObjectType{AttrTypes: SchemaRegistryAllUrlsAttrTypes()},
 		"url":         types.StringType,
-	}
-}
-
-// SchemaRegistryMtlsAttrTypes returns the attr.Type map for the "schema_registry.mtls" nested
-// attribute.
-func SchemaRegistryMtlsAttrTypes() map[string]attr.Type {
-	return map[string]attr.Type{
-		"ca_certificates_pem":     types.ListType{ElemType: types.StringType},
-		"principal_mapping_rules": types.ListType{ElemType: types.StringType},
-		"enabled":                 types.BoolType,
 	}
 }
 
@@ -1427,6 +1417,16 @@ func SchemaRegistryConnectionsAttrTypes() map[string]attr.Type {
 func SchemaRegistryConnectionsAuthAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"mode": types.StringType,
+	}
+}
+
+// SchemaRegistryMtlsAttrTypes returns the attr.Type map for the "schema_registry.mtls" nested
+// attribute.
+func SchemaRegistryMtlsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"ca_certificates_pem":     types.ListType{ElemType: types.StringType},
+		"principal_mapping_rules": types.ListType{ElemType: types.StringType},
+		"enabled":                 types.BoolType,
 	}
 }
 
@@ -2809,26 +2809,6 @@ func MaintenanceWindowConfigDayHourToObject(ctx context.Context, v *MaintenanceW
 	return types.ObjectValueFrom(ctx, MaintenanceWindowConfigDayHourAttrTypes(), v)
 }
 
-// DecodeSchemaRegistryMtls decodes the sub-field from its parent typed struct.
-// Returns (nil, nil) when the field is null or unknown.
-func DecodeSchemaRegistryMtls(ctx context.Context, v *SchemaRegistryModel) (*SchemaRegistryMtlsModel, diag.Diagnostics) {
-	if v == nil || v.Mtls.IsNull() || v.Mtls.IsUnknown() {
-		return nil, nil
-	}
-	var out SchemaRegistryMtlsModel
-	d := v.Mtls.As(ctx, &out, basetypes.ObjectAsOptions{})
-	return &out, d
-}
-
-// SchemaRegistryMtlsToObject encodes a typed struct back into types.Object.
-// A nil receiver returns types.ObjectNull with the correct attribute types.
-func SchemaRegistryMtlsToObject(ctx context.Context, v *SchemaRegistryMtlsModel) (types.Object, diag.Diagnostics) {
-	if v == nil {
-		return types.ObjectNull(SchemaRegistryMtlsAttrTypes()), nil
-	}
-	return types.ObjectValueFrom(ctx, SchemaRegistryMtlsAttrTypes(), v)
-}
-
 // DecodeSchemaRegistryConnectionsAuth decodes the sub-field from its parent typed struct.
 // Returns (nil, nil) when the field is null or unknown.
 func DecodeSchemaRegistryConnectionsAuth(ctx context.Context, v *SchemaRegistryConnectionsModel) (*SchemaRegistryConnectionsAuthModel, diag.Diagnostics) {
@@ -2847,6 +2827,26 @@ func SchemaRegistryConnectionsAuthToObject(ctx context.Context, v *SchemaRegistr
 		return types.ObjectNull(SchemaRegistryConnectionsAuthAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, SchemaRegistryConnectionsAuthAttrTypes(), v)
+}
+
+// DecodeSchemaRegistryMtls decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeSchemaRegistryMtls(ctx context.Context, v *SchemaRegistryModel) (*SchemaRegistryMtlsModel, diag.Diagnostics) {
+	if v == nil || v.Mtls.IsNull() || v.Mtls.IsUnknown() {
+		return nil, nil
+	}
+	var out SchemaRegistryMtlsModel
+	d := v.Mtls.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// SchemaRegistryMtlsToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func SchemaRegistryMtlsToObject(ctx context.Context, v *SchemaRegistryMtlsModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(SchemaRegistryMtlsAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, SchemaRegistryMtlsAttrTypes(), v)
 }
 
 // DecodeSchemaRegistryAllUrls decodes the sub-field from its parent typed struct.
