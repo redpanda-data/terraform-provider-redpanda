@@ -26,7 +26,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/compare"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
-	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/integration"
@@ -348,11 +347,11 @@ func TestIntegration_Network_RequiresReplace_CMR_AWS_BlockRemoved(t *testing.T) 
 	})
 }
 
-// Switching the customer-managed arm without changing cloud_provider: the
-// incoming arm's leaves go from null to set, which is a change their
-// RequiresReplace markers see, so the plan is a replacement whose create the
-// control plane then rejects for the provider mismatch.
-func TestIntegration_Network_RequiresReplace_CMR_ArmSwitched(t *testing.T) {
+// Switching the customer-managed arm without changing cloud_provider is
+// rejected at plan by the envelope validator, before the leaves' RequiresReplace
+// markers get a say; the network is untouched and the original config
+// re-applies as a no-op.
+func TestIntegration_Network_ErrorPath_CMR_ArmSwitched(t *testing.T) {
 	_, factories := integration.Setup(t)
 	const name = "tfrp-mock-net-cmr-arm-switch"
 	gcpArm := `customer_managed_resources = {
@@ -369,14 +368,10 @@ func TestIntegration_Network_RequiresReplace_CMR_ArmSwitched(t *testing.T) {
 		Steps: []resource.TestStep{
 			integration.CreateStep(networkAddr, byovpcAWSPublicSubnetsConfig(name, pubSubnetA), nil),
 			{
-				Config: cmrClearedConfig(name, "aws", "us-east-1", gcpArm),
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PreApply: []plancheck.PlanCheck{
-						plancheck.ExpectResourceAction(networkAddr, plancheck.ResourceActionDestroyBeforeCreate),
-					},
-				},
-				ExpectError: regexp.MustCompile("must be CLOUD_PROVIDER_GCP"),
+				Config:      cmrClearedConfig(name, "aws", "us-east-1", gcpArm),
+				ExpectError: regexp.MustCompile(`customer_managed_resources.gcp is set but cloud_provider is "aws"`),
 			},
+			integration.NoopReapplyStep(networkAddr, byovpcAWSPublicSubnetsConfig(name, pubSubnetA), nil),
 		},
 	})
 }

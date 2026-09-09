@@ -18,6 +18,7 @@ package network_test
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/compare"
@@ -49,9 +50,26 @@ var azureSubnetNames = [][2]string{
 	{"kafka_connect_vnet", "tfrp-kafka-connect-vnet"},
 }
 
-// byovpcAzureConfig builds an Azure BYOVPC network. mgmtRG "" omits the
-// optional management_bucket.resource_group.
+// azureNetOpts parameterizes byovpcAzureConfig. mgmtRG "" omits the optional
+// management_bucket.resource_group; cloudProvider and clusterType default to
+// azure and byoc and exist for the envelope error paths.
+type azureNetOpts struct {
+	name, vnetName, mgmtRG, cloudProvider, clusterType string
+}
+
 func byovpcAzureConfig(name, vnetName, mgmtRG string) string {
+	return byovpcAzureConfigWith(azureNetOpts{name: name, vnetName: vnetName, mgmtRG: mgmtRG})
+}
+
+func byovpcAzureConfigWith(o azureNetOpts) string {
+	name, vnetName, mgmtRG := o.name, o.vnetName, o.mgmtRG
+	cp, ct := o.cloudProvider, o.clusterType
+	if cp == "" {
+		cp = "azure"
+	}
+	if ct == "" {
+		ct = "byoc"
+	}
 	subnets := ""
 	for _, s := range azureSubnetNames {
 		subnets += fmt.Sprintf("\n        %-18s = { name = %q }", s[0], s[1])
@@ -70,9 +88,9 @@ resource "redpanda_resource_group" "test" {
 resource "redpanda_network" "test" {
   name              = %q
   resource_group_id = redpanda_resource_group.test.id
-  cloud_provider    = "azure"
+  cloud_provider    = %q
   region            = "eastus"
-  cluster_type      = "byoc"
+  cluster_type      = %q
   customer_managed_resources = {
     azure = {
       management_bucket = {
@@ -88,7 +106,7 @@ resource "redpanda_network" "test" {
     }
   }
 }
-`, name, mgmtRGLine, vnetName, subnets)
+`, name, cp, ct, mgmtRGLine, vnetName, subnets)
 }
 
 func azureNetCMRPath(keys ...string) tfjsonpath.Path {
@@ -194,6 +212,28 @@ func TestIntegration_Network_RequiresReplace_CMR_Azure(t *testing.T) {
 				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 				idChanged.AddStateValue(networkAddr, tfjsonpath.New("id")),
 			}),
+		},
+	})
+}
+
+// TestIntegration_Network_ErrorPath_CMR_Envelope pins the plan-time envelope
+// rules on customer_managed_resources: the arm must match cloud_provider, and
+// the block needs cluster_type "byoc" (the control plane's own rule, moved
+// forward from apply to plan).
+func TestIntegration_Network_ErrorPath_CMR_Envelope(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config:      byovpcAzureConfigWith(azureNetOpts{name: "tfrp-mock-net-az-mismatch", vnetName: "tfrp-vnet", cloudProvider: "gcp"}),
+				ExpectError: regexp.MustCompile(`customer_managed_resources.azure is set but cloud_provider is "gcp"`),
+			},
+			{
+				Config:      byovpcAzureConfigWith(azureNetOpts{name: "tfrp-mock-net-az-dedicated", vnetName: "tfrp-vnet", clusterType: "dedicated"}),
+				ExpectError: regexp.MustCompile(`customer_managed_resources is set but cluster_type is "dedicated"`),
+			},
 		},
 	})
 }

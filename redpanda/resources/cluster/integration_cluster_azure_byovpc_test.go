@@ -46,6 +46,8 @@ type azureBYOVPCOpts struct {
 	aksCIDR        string // cidrs.aks_service_cidr
 	tieredRG       string // tiered_cloud_storage.resource_group.name; "" omits it
 	connectionType string
+	cloudProvider  string // both resources; "" is azure
+	clusterType    string // both resources; "" is byoc
 }
 
 func azureBYOVPCConfig(o azureBYOVPCOpts) string {
@@ -53,6 +55,8 @@ func azureBYOVPCConfig(o azureBYOVPCOpts) string {
 	if !o.mgmtVaultSet {
 		mgmtVault = "tfrp-kv-mgmt"
 	}
+	cp := orDefault(o.cloudProvider, "azure")
+	ct := orDefault(o.clusterType, "byoc")
 	tieredRG := ""
 	if o.tieredRG != "" {
 		tieredRG = fmt.Sprintf("\n        resource_group         = { name = %q }", o.tieredRG)
@@ -67,9 +71,9 @@ resource "redpanda_resource_group" "test" {
 resource "redpanda_network" "test" {
   name              = "tfrp-mock-cl-net"
   resource_group_id = redpanda_resource_group.test.id
-  cloud_provider    = "azure"
+  cloud_provider    = %q
   region            = "eastus"
-  cluster_type      = "byoc"
+  cluster_type      = %q
   customer_managed_resources = {
     azure = {
       management_bucket = {
@@ -105,11 +109,11 @@ resource "redpanda_cluster" "test" {
   name              = %q
   resource_group_id = redpanda_resource_group.test.id
   network_id        = redpanda_network.test.id
-  cloud_provider    = "azure"
+  cloud_provider    = %q
   region            = "eastus"
   zones             = ["eastus-az1"]
   throughput_tier   = "tier-1-azure-v3-x86"
-  cluster_type      = "byoc"
+  cluster_type      = %q
   connection_type   = %q
   allow_deletion    = true
   customer_managed_resources = {
@@ -148,7 +152,7 @@ resource "redpanda_cluster" "test" {
     }
   }
 }
-`, o.name, orDefault(o.connectionType, "private"),
+`, cp, ct, o.name, cp, ct, orDefault(o.connectionType, "private"),
 		orDefault(o.redpandaRG, "tfrp-redpanda-rg"),
 		orDefault(o.agentUAI, "tfrp-agent-uai"),
 		orDefault(o.storageAccount, "tfrptieredsa"), tieredRG,
@@ -350,6 +354,28 @@ func TestIntegration_Cluster_ErrorPath_Azure_BYOVPC_EmptyKeyVaultName(t *testing
 			{
 				Config:      azureBYOVPCConfig(azureBYOVPCOpts{name: "tfrp-mock-cl-az-kv", mgmtVault: "", mgmtVaultSet: true}),
 				ExpectError: regexp.MustCompile(`management_vault`),
+			},
+		},
+	})
+}
+
+// TestIntegration_Cluster_ErrorPath_CMR_Envelope pins the plan-time envelope
+// rules on customer_managed_resources: the arm must match cloud_provider, and
+// the block needs cluster_type "byoc". The control plane enforces the second
+// only at apply and the first only for GCP.
+func TestIntegration_Cluster_ErrorPath_CMR_Envelope(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config:      azureBYOVPCConfig(azureBYOVPCOpts{name: "tfrp-mock-cl-az-mismatch", cloudProvider: "aws"}),
+				ExpectError: regexp.MustCompile(`customer_managed_resources.azure is set but cloud_provider is "aws"`),
+			},
+			{
+				Config:      azureBYOVPCConfig(azureBYOVPCOpts{name: "tfrp-mock-cl-az-dedicated", clusterType: "dedicated"}),
+				ExpectError: regexp.MustCompile(`customer_managed_resources is set but cluster_type is "dedicated"`),
 			},
 		},
 	})
