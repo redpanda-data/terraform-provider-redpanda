@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -41,7 +40,7 @@ const (
 	modRequiresReplace           = "RequiresReplace"
 	modUseStateForUnknown        = "UseStateForUnknown"
 	modUseNonNullStateForUnknown = "UseNonNullStateForUnknown"
-	// modNone is a sentinel meaning "emit no plan modifier" — it suppresses the
+	// modNone is a sentinel meaning "emit no plan modifier": it suppresses the
 	// auto-added state modifier. For a computed leaf whose value changes with a
 	// sibling (e.g. a URL empty until `enabled` flips true), a state-pin modifier
 	// would pin the stale value and trip inconsistent-result.

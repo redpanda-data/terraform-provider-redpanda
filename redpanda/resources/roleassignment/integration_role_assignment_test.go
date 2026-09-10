@@ -2,7 +2,6 @@
 
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -65,13 +64,13 @@ resource "redpanda_role_assignment" "test" {
 }
 
 // mockRATwoRolesConfig co-declares TWO roles (owner_a and owner_b) so a
-// RequiresReplace-on-role_name step can flip between them — both roles must
+// RequiresReplace-on-role_name step can flip between them because both roles must
 // exist simultaneously in the bufconn fake to satisfy the
 // destroy-old-assignment-then-create-new-assignment cycle that
 // DestroyBeforeCreate triggers. activeRoleRef must be a Terraform expression
 // referencing one of the two role resources (e.g.
 // "redpanda_role.owner_a.name") so the framework establishes a graph edge
-// from the assignment to the active role — without that edge, Terraform may
+// from the assignment to the active role. Without that edge, Terraform may
 // create the assignment before the role exists and the assignment Create
 // hits NotFound on UpdateRoleMembership.
 func mockRATwoRolesConfig(roleNameA, roleNameB, activeRoleRef, principal, clusterAPIURL string) string {
@@ -312,7 +311,7 @@ func TestIntegration_RoleAssignment_BarePrincipal_RejectedAtPlan(t *testing.T) {
 // RequiresReplace role_name leaf. Both roles are co-declared so the destroy
 // of the old assignment and the create of the new assignment both find their
 // role in the fake. The load-bearing proof of DestroyBeforeCreate is that id
-// — derived as "<role_name>:<principal>" — DIFFERS between the two steps.
+// (derived as "<role_name>:<principal>") DIFFERS between the two steps.
 func TestIntegration_RoleAssignment_RequiresReplace_RoleName(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -388,8 +387,8 @@ func TestIntegration_RoleAssignment_RequiresReplace_Principal(t *testing.T) {
 
 // TestIntegration_RoleAssignment_RequiresReplace_ClusterAPIURL mutates the
 // RequiresReplace cluster_api_url leaf "bufnet" → "bufnet2". The bufconn
-// dialer is address-agnostic — it routes through the in-memory listener
-// regardless of the URL string — so Create on the new resource still
+// dialer is address-agnostic (it routes through the in-memory listener
+// regardless of the URL string), so Create on the new resource still
 // succeeds. id is "<role_name>:<principal>"-derived and unchanged across
 // this RR, so ValuesSame holds on id; the load-bearing proof of RR is the
 // PreApply ResourceActionDestroyBeforeCreate plancheck baked into
@@ -428,18 +427,10 @@ func TestIntegration_RoleAssignment_RequiresReplace_ClusterAPIURL(t *testing.T) 
 	})
 }
 
-// TestIntegration_RoleAssignment_Import covers the composite-ID import parser
-// under two scenarios:
-//
-//   - "RoundTrip" — canonical "<role>:User:<name>" round-trips verbatim.
-//     cluster_api_url is in ImportStateVerifyIgnore because the composite ID
-//     does not carry the URL and ListRoleMembers cannot recover it; Read
-//     skips the API check when the URL is empty so refresh succeeds.
-//   - "LegacyBarePrincipal_SelfHeals" — a state file produced by a
-//     pre-validator provider may carry a bare principal (e.g. "alice"). The
-//     SecurityService canonicalizes to "User:alice"; Read canonicalizes
-//     state before lookup and writes the canonical form back, so legacy
-//     bare state self-heals to an empty plan.
+// TestIntegration_RoleAssignment_Import pins the "<role>:User:<name>" import ID.
+// cluster_api_url is not in the ID and Read skips the API check when it is
+// empty, so verify ignores it. A legacy bare principal ("alice") self-heals:
+// Read canonicalizes to "User:alice" before lookup and writes it back.
 func TestIntegration_RoleAssignment_Import(t *testing.T) {
 	t.Run("RoundTrip", func(t *testing.T) {
 		_, factories := integration.Setup(t)
@@ -483,7 +474,7 @@ func TestIntegration_RoleAssignment_Import(t *testing.T) {
 		// have written. The import in step 2 uses the new pipe-suffix
 		// format so the imported state is fully populated (no
 		// cluster_api_url gap), then step 3's refresh asserts
-		// ExpectEmptyPlan — proving Read's canonicalization is what closes
+		// ExpectEmptyPlan, proving Read's canonicalization is what closes
 		// the drift, not any RequiresReplace fallout.
 		roleOnly := fmt.Sprintf(`
 provider "redpanda" {}
@@ -594,7 +585,7 @@ func TestIntegration_RoleAssignment_ErrorPath_CreateFails(t *testing.T) {
 //
 // codes.Internal does NOT match the "not found" / "notfound" / "does not
 // exist" / "unknown role" substring checks in resource_role_assignment.go's
-// roleAssignmentExists — those substrings would cause exists=false and a
+// roleAssignmentExists. Those substrings would cause exists=false and a
 // clean state-removal. Internal falls through to the hard-error branch and
 // surfaces as "Could not check if role assignment ... exists" via
 // resp.Diagnostics.AddError. The Config re-apply triggers the Read; the

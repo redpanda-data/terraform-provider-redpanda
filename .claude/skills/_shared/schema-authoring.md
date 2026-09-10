@@ -2,9 +2,9 @@
 
 The schema YAML drives everything downstream — framework schema, model struct, Flatten/Expand, golden contract, docs. Authoring discipline lives here; codegen mechanics live in [codegen-workflow](codegen-workflow.md).
 
-Per memory `project_schemagen_scope.md`: schemagen produces **schema + model + Flatten/Expand only**. CRUD is always hand-written (see [crud-glue](crud-glue.md)). Don't push schemagen scope into CRUD territory.
+Schemagen produces **schema + model + Flatten/Expand only**. CRUD is always hand-written (see [crud-glue](crud-glue.md)). Don't push schemagen scope into CRUD territory.
 
-**Heads-up: not every resource is schemagen-driven.** Per memory `project_roleassignment_kafka_api.md`, `redpanda/resources/roleassignment/` is intentionally hand-written — it talks to the Kafka API surface, not a dataplane proto. Schema changes there go directly into the hand-written files; don't propose a `schema.yaml` migration.
+**Heads-up: not every resource is schemagen-driven.** `redpanda/resources/roleassignment/` is hand-written end to end (no `schema.yaml`); it calls the console SecurityService, which must never be dialled at the `api-` host. Schema changes there go directly into the hand-written files; don't propose a `schema.yaml` migration unasked.
 
 ## File locations
 
@@ -61,12 +61,12 @@ Most common:
 - `[RequiresReplace]` — pair with immutable `optional`-only fields
 - `[UseStateForUnknown]` — anchor server-defaulted optional+computed fields against perpetual diffs (rarely needed manually — classifier emits it for top-level optional+computed)
 
-Memory `feedback_server_default_optional_computed.md`: proto-presence fields with server-populated defaults are `optional+computed+UseStateForUnknown`, not optional-only with Flatten workarounds.
+Proto-presence fields with server-populated defaults are `optional+computed+UseStateForUnknown`, not optional-only with Flatten workarounds.
 
 ### Sensitive / output formatting
 
 - `sensitive: true` — marks attribute sensitive in TF state output (e.g. `serviceaccount.client_secret`)
-- `description: "..."` — inline override for the apidescriptions.yaml description. Use only for gaps; apidesc is the default source. Memory `project_description_redundancy_diagnostic.md`: classifier detects redundant overrides.
+- `description: "..."` — inline override for the apidescriptions.yaml description. Use only for gaps; apidesc is the default source. The classifier detects redundant overrides.
 
 ## Deprecation / canonical-alias pattern
 
@@ -87,11 +87,11 @@ See `redpanda/resources/cluster/schema.yaml` `tags` field for the working exampl
 
 ## Design principle: prefer per-field declarative directives
 
-Per memory `feedback_prefer_per_field_directives.md`: when a reconciliation or override pattern needs to be applied uniformly across multiple fields, propose a per-field declarative YAML directive first. Resource-wide flags or post-hooks are escape hatches, not defaults. Adding a hook for one field reads to a reviewer as "this is a special case" — adding a directive reads as "this is the pattern; here are the fields it applies to."
+When a reconciliation or override pattern needs to be applied uniformly across multiple fields, propose a per-field declarative YAML directive first. Resource-wide flags or post-hooks are escape hatches, not defaults. Adding a hook for one field reads to a reviewer as "this is a special case" — adding a directive reads as "this is the pattern; here are the fields it applies to."
 
 ## Don'ts
 
-- **Don't hand-edit `*_gen.go` files** — fix the generator at `internal/schemagen/` or the YAML, then regenerate (memory `feedback_no_manual_codegen_fixes.md`).
+- **Don't hand-edit `*_gen.go` files** — fix the generator at `internal/schemagen/` or the YAML, then regenerate.
 - **Don't reorder existing entries** — diff noise hides the real change. When extending, insert into the existing tree in proximity-relevant order.
 - **Don't add `description:` overrides that duplicate apidesc.** Run `task generate:apidescriptions` first; the classifier will flag duplicates as INFO.
 

@@ -1,0 +1,14 @@
+# Template: manual-tests/<name>/.terraformrc-released
+# Run terraform with TF_CLI_CONFIG_FILE=.terraformrc-released to use a released
+# provider build unpacked into ~/.terraform.d/plugins (see the upgrade-scenario
+# pre-step in SKILL.md). Path is relative to this file.
+
+provider_installation {
+  filesystem_mirror {
+    path    = "~/.terraform.d/plugins"
+    include = ["registry.terraform.io/redpanda-data/redpanda"]
+  }
+  direct {
+    exclude = ["registry.terraform.io/redpanda-data/redpanda"]
+  }
+}

@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -30,7 +29,7 @@ import (
 const serverlessClusterIDBase uint64 = 0x6000_0000_0000_0000
 
 // ServerlessClusterFake is a stateful in-memory implementation of
-// ServerlessClusterService. All three mutating RPCs are async — each publishes
+// ServerlessClusterService. All three mutating RPCs are async: each publishes
 // a completed Operation via op.Set.
 //
 // UpdateServerlessClusterRequest has no FieldMask; networking_config, tags, and

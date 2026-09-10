@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -126,7 +125,7 @@ func generateDescription(name, parentPath, attrType string) string {
 	case strings.HasSuffix(name, "_at"):
 		return humanize(name)
 	default:
-		// no name-pattern match — try AttrType-specific defaults below
+		// no name-pattern match, so try AttrType-specific defaults below
 	}
 
 	switch attrType {
@@ -141,7 +140,7 @@ func generateDescription(name, parentPath, attrType string) string {
 	case AttrTypeBool:
 		return "Whether " + lowFirst(humanize(name)) + " is enabled"
 	default:
-		// no AttrType-specific description — fall through to generic humanize(name)
+		// no AttrType-specific description, so fall through to generic humanize(name)
 	}
 
 	return humanize(name)

@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -63,7 +62,7 @@ func NewServiceAccountFake() *ServiceAccountFake {
 
 // CreateServiceAccount stores a new service account with a deterministic
 // UUID and synthetic Auth0 client credentials. The returned response
-// includes ClientSecret — the one-time exposure. Mirrors the backend's
+// includes ClientSecret, the one-time exposure. Mirrors the backend's
 // create contract: at least one role binding is required.
 func (f *ServiceAccountFake) CreateServiceAccount(_ context.Context, req *iamv1.CreateServiceAccountRequest) (*iamv1.CreateServiceAccountResponse, error) {
 	in := req.GetServiceAccount()

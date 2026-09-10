@@ -1,16 +1,16 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//	Licensed under the Apache License, Version 2.0 (the "License");
-//	you may not use this file except in compliance with the License.
-//	You may obtain a copy of the License at
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
 //
-//	  http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
-//	Unless required by applicable law or agreed to in writing, software
-//	distributed under the License is distributed on an "AS IS" BASIS,
-//	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//	See the License for the specific language governing permissions and
-//	limitations under the License.
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
 
 // Package topic contains the implementation of the Topic resource following the Terraform framework interfaces.
 package topic
@@ -68,7 +68,7 @@ func NewTopic() *Topic {
 }
 
 // UpgradeState migrates v0 state to v1, normalizing the legacy host:443
-// cluster_api_url form to the canonical https://host the control plane now
+// cluster_api_url form to the canonical https://host the control plane
 // returns so the RequiresReplace plan modifier does not fire on the format
 // change alone.
 func (*Topic) UpgradeState(ctx context.Context) map[int64]resource.StateUpgrader {
@@ -164,7 +164,7 @@ func (t *Topic) Create(ctx context.Context, request resource.CreateRequest, resp
 		return
 	}
 
-	// Configuration sync — separate Get-after-Create RPC, then update state.
+	// Configuration sync: separate Get-after-Create RPC, then update state.
 	tpCfgRes, err := utils.DataplaneCall(ctx, func(ctx context.Context) (*dataplanev1.GetTopicConfigurationsResponse, error) {
 		return t.TopicClient.GetTopicConfigurations(ctx, &dataplanev1.GetTopicConfigurationsRequest{TopicName: state.Name.ValueString()})
 	})
@@ -384,7 +384,7 @@ func (t *Topic) createTopicClient(ctx context.Context, clusterURL string) error 
 }
 
 // flattenInputAfterCreate normalizes the post-create proto state into a
-// *CreateTopicRequest_Topic — the type the generated Flatten consumes.
+// *CreateTopicRequest_Topic, the type the generated Flatten consumes.
 // Uses the CreateTopic response when available; otherwise re-reads the
 // topic via FindTopicByName (the CreateTopic call may have succeeded on
 // the server but failed the client retry).
@@ -461,18 +461,11 @@ var brokerNoopConfigs = []string{
 	"preallocate",
 }
 
-// mergeWithPlannedConfig ensures that any configuration keys the user
-// explicitly set in their Terraform config are preserved in the result, even
-// if the server reports them with a non-dynamic source (e.g. when the user-set
-// value matches the server default). Without this, Terraform sees the key
-// "vanish" and reports an inconsistent result after apply.
-//
-// Also strips server-injected `redpanda.*` config keys the user did not name
-// in their plan. After v26.1.1, the broker injects redpanda.storage.mode =
-// "unset" on every topic; left in state, plan-twice would try to remove the
-// key and the server rejects (the property has no null representation, only
-// local/tiered/cloud/unset). Same shape as tagsFromProto in
-// redpanda/models/cluster/conv.go.
+// mergeWithPlannedConfig keeps every key the user set even when the broker reports
+// it as non-dynamic (user value equals the default), so it does not vanish into an
+// inconsistent result after apply. It drops server-injected redpanda.* keys the
+// user did not name: brokers from v26.1.1 add redpanda.storage.mode=unset to every
+// topic, and the property has no null form, so a plan to remove it is rejected.
 func mergeWithPlannedConfig(dynamicConfigs, allConfigs []*dataplanev1.Topic_Configuration, planned types.Map) []*dataplanev1.Topic_Configuration {
 	plannedKeys := make(map[string]bool, len(planned.Elements()))
 	if !planned.IsNull() && !planned.IsUnknown() {
@@ -520,7 +513,7 @@ func mergeWithPlannedConfig(dynamicConfigs, allConfigs []*dataplanev1.Topic_Conf
 		// Broker didn't echo the key in either the dynamic or full config
 		// response (some keys like min.insync.replicas are server-silent on
 		// reflection). Synthesize a topic-config entry from the plan so the
-		// state contains what the user asked for — without this Terraform
+		// state contains what the user asked for; without this Terraform
 		// reports "element has vanished from configurations".
 		planString, ok := planVal.(types.String)
 		if !ok || planString.IsNull() || planString.IsUnknown() {
@@ -565,7 +558,7 @@ func isAlreadyExistsError(err error) bool {
 }
 
 // isTransientBrokerError defers to the shared dataplane classifier, which owns
-// the broker-churn tokens this used to match on its own.
+// the broker-churn tokens.
 func isTransientBrokerError(err error) bool {
 	return utils.IsTransientDataplaneError(err)
 }

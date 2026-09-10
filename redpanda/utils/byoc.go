@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -426,7 +425,7 @@ func runSubprocess(ctx context.Context, env []string, executable string, args ..
 	go func() { defer wg.Done(); forwardLogs(ctx, stderr, lastLogs) }()
 
 	// Per exec.Cmd.StdoutPipe's contract, all reads from the pipes must
-	// complete before Wait — Wait closes them on process exit.
+	// complete before Wait because Wait closes them on process exit.
 	wg.Wait()
 
 	if err := cmd.Wait(); err != nil {

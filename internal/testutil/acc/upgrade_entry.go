@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -29,7 +28,7 @@ import (
 // The provider-upgrade entry folds the former standalone upgrade tier into
 // every acceptance test: step 0 applies the test's own first config with the
 // RELEASED provider from the registry, step 1 re-plans it with the local build
-// and requires an empty plan — the upgrade contract. The test's existing steps
+// and requires an empty plan, the upgrade contract. The test's existing steps
 // then run unchanged on the local build (the first of them applies a no-op).
 //
 // The step-1 assertion is deliberately strict (whole plan empty, plan-only, so
@@ -39,7 +38,7 @@ import (
 // a comment naming the release, removed after the next release ships.
 
 // UpgradeEntryEnabled reports whether the provider-upgrade entry runs.
-// Default on; REDPANDA_UPGRADE_ENTRY=off disables it — for local runs using
+// Default on; REDPANDA_UPGRADE_ENTRY=off disables it: for local runs using
 // dev_overrides, for configs the released provider cannot parse yet, and for
 // release-validation runs that want the local build's create path exercised
 // live instead.
@@ -173,7 +172,7 @@ func UpgradeEntryStepsInline(t testing.TB, cfg string, vars map[string]config.Va
 // alignReleasedProviderCloudEnv exports REDPANDA_CLOUD_ENVIRONMENT for step
 // 0's released provider binary when unset. The local build receives CloudEnv
 // in-process via the provider factories, but the released binary reads only
-// the environment and defaults to prod — pre-env credentials against the prod
+// the environment and defaults to prod, so pre-env credentials against the prod
 // auth domain fail with oauth2 invalid_request. Process-wide on purpose: entry
 // builders may run from parallel tests, but every caller writes the same
 // value.

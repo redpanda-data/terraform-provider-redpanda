@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -24,7 +23,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// mechanism is the user resource's Optional+Computed proto-presence field —
+// mechanism is the user resource's Optional+Computed proto-presence field: the
 // server populates a default (e.g. SCRAM-SHA-256) when the user leaves it
 // unset. Mirrors cluster's gcp_global_access_enabled matrix; the post-import
 // case (null prev + proto present → use proto) is the load-bearing row.

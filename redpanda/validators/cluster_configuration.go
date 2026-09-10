@@ -1,6 +1,5 @@
 // Copyright 2024 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -49,7 +48,7 @@ var allowedClusterConfigurationKeys = map[string]bool{
 
 // ValidateObject validates that cluster_configuration contains only allowed
 // keys (custom_properties / custom_properties_json) and that at least one of
-// them is present in the object. Null values for those keys are accepted —
+// them is present in the object. Null values for those keys are accepted,
 // matching the long-standing behavior of treating presence-of-key, not
 // presence-of-value, as the required check.
 func (ClusterConfigurationValidator) ValidateObject(_ context.Context, req validator.ObjectRequest, resp *validator.ObjectResponse) {

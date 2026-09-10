@@ -1,6 +1,5 @@
 // Copyright 2025 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -31,8 +30,8 @@ import (
 )
 
 // TestGetSchemaRegistryClientForCluster_ServerlessFallback proves that a
-// serverless cluster ID — which the dedicated ClusterService rejects
-// (PermissionDenied live, NotFound against the fake) — still resolves its
+// serverless cluster ID, which the dedicated ClusterService rejects
+// (PermissionDenied live, NotFound against the fake), still resolves its
 // Schema Registry URL via the ServerlessClusterService fallback, rather than
 // failing because GetSchemaRegistryClientForCluster only calls ClusterForID.
 func TestGetSchemaRegistryClientForCluster_ServerlessFallback(t *testing.T) {

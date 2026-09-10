@@ -1,6 +1,5 @@
 // Copyright 2025 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -20,32 +19,14 @@ import (
 	"time"
 )
 
-// DataplaneCall runs one RPC against a per-cluster endpoint under a single
-// shared retry policy.
+// DataplaneCall runs one RPC against a per-cluster endpoint under the shared
+// retry policy. Per-cluster endpoints keep failing transiently after a cluster
+// reports Ready, so every dataplane RPC goes through here or DataplaneCallOnce.
 //
-// Per-cluster endpoints are not serving the moment a cluster reports Ready, so
-// the first calls against a fresh cluster come back as transient failures that
-// say nothing about the request. Every resource used to decide for itself what
-// to do about that, and they disagreed: some retried, some did not, and the ones
-// that did classified differently. Each disagreement was found by a live failure.
-//
-// The policy applied here:
-//
-//	success                      → return the value
-//	non-transient error          → fail immediately
-//	transient error              → retry until the budget is spent
-//	AlreadyExists, first attempt → fail; the resource predates this call
-//	AlreadyExists, later attempt → adopt via the probe, else fail
-//
-// The AlreadyExists split matters. Only a retry can have landed and lost its
-// response; on the first attempt it means something else created the resource,
-// and adopting it would put a resource Terraform did not create under its
-// management, where a later destroy would remove it.
-//
-// A probe, where supplied, recognises a resource an earlier attempt created. It
-// only runs from the second attempt onwards, for the same reason.
-//
-// Use DataplaneCallOnce for a call that deliberately must not retry.
+// Transient errors retry until the budget is spent. AlreadyExists on the first
+// attempt fails: something else created the resource, and adopting it would let
+// a later destroy delete what Terraform never created. From the second attempt
+// on, the probe recognises a resource an earlier attempt created.
 func DataplaneCall[T any](ctx context.Context, do func(context.Context) (T, error), opts ...CallOption[T]) (T, error) {
 	cfg := callConfig[T]{
 		budget:   DefaultDataplaneRetryTimeout,

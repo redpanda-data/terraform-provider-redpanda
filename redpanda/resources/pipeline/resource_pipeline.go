@@ -1,16 +1,16 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//	Licensed under the Apache License, Version 2.0 (the "License");
-//	you may not use this file except in compliance with the License.
-//	You may obtain a copy of the License at
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
 //
-//	  http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
-//	Unless required by applicable law or agreed to in writing, software
-//	distributed under the License is distributed on an "AS IS" BASIS,
-//	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//	See the License for the specific language governing permissions and
-//	limitations under the License.
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
 
 // Package pipeline contains the implementation of the Pipeline resource following the Terraform framework interfaces.
 package pipeline
@@ -416,7 +416,7 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 
 	// When we omit ServiceAccount from the Update request (to protect the
 	// write-only client_secret), the server response echoes
-	// SA=nil and Flatten drops the wrapper from state — even though
+	// SA=nil and Flatten drops the wrapper from state, even though
 	// nothing on the SA changed. Restore the prior-state block so the
 	// framework's post-apply consistency check sees it unchanged.
 	if updateReq.Pipeline.ServiceAccount == nil && !state.ServiceAccount.IsNull() {
@@ -633,7 +633,7 @@ func (p *Pipeline) waitForPipelineState(ctx context.Context, pipelineID string, 
 
 // restoreServiceAccountClientSecret copies cfg.ServiceAccount.ClientSecret
 // into model.ServiceAccount.ClientSecret. client_secret is WriteOnly so the
-// framework strips it from Plan/State per its contract — but the server's
+// framework strips it from Plan/State per its contract, but the server's
 // regex validator requires the `${secrets.NAME}` value to reach the API on
 // Create/Update. Same pattern as `redpanda_schema`'s `password_wo` handling.
 // No-op when cfg has no service_account block; safe to call unconditionally.

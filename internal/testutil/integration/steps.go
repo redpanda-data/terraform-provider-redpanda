@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -73,7 +72,7 @@ func UpdateLeafStep(addr, config string, stateChecks []statecheck.StateCheck) re
 }
 
 // UpdateLeafStepWithPlanChecks is UpdateLeafStep with extra PreApply plan
-// checks appended after the action assertion — e.g. ExpectKnownValue on a
+// checks appended after the action assertion, e.g. ExpectKnownValue on a
 // state-pinned computed leaf to prove it does not churn to "known after
 // apply" inside an unrelated update plan.
 func UpdateLeafStepWithPlanChecks(addr, config string, extraPreApply []plancheck.PlanCheck, stateChecks []statecheck.StateCheck) resource.TestStep {
@@ -131,19 +130,8 @@ func ErrorPathStep(srv *mock.Server, method string, code codes.Code, config, err
 	}
 }
 
-// RESTErrorPathStep is the REST analog of ErrorPathStep for the
-// SchemaRegistryFake. It injects a one-shot HTTP error via sr.OverrideOnceHTTP
-// and returns a step whose Config triggers that route. The step's ExpectError
-// is set to a regexp built from errorPattern; the framework matches it against
-// the resulting Terraform diagnostic.
-//
-// path is the EXPANDED literal URL path the client will send, e.g.
-// "/subjects/my-subject/versions/3", NOT a mux pattern with placeholders like
-// "/subjects/{subject}/versions/{version}". A path that never matches an
-// incoming request is flagged at t.Cleanup as an unconsumed override.
-//
-// body is written verbatim as the response body (typically the Schema Registry
-// error JSON shape, e.g. `{"error_code":50001,"message":"..."}`).
+// RESTErrorPathStep is the SchemaRegistryFake analog of ErrorPathStep. path is
+// the literal path the client sends, not a mux pattern; see OverrideOnceHTTP.
 func RESTErrorPathStep(sr *fakes.SchemaRegistryFake, method, path string, statusCode int, body, config, errorPattern string) resource.TestStep {
 	sr.OverrideOnceHTTP(method, path, statusCode, body)
 	return resource.TestStep{

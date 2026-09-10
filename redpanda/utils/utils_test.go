@@ -1,3 +1,17 @@
+// Copyright 2026 Redpanda Data, Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
 package utils
 
 import (
@@ -91,7 +105,7 @@ func TestAreWeDoneYet(t *testing.T) {
 					}}, nil))
 			},
 			timeout: 5 * time.Minute,
-			// The code rides along now; an empty message alone left live failures
+			// The code rides along; an empty message alone leaves live failures
 			// with nothing to chase up.
 			wantErr: "operation failed: operation_id=op-under-test operation failed code=1",
 		},
@@ -115,7 +129,7 @@ func TestAreWeDoneYet(t *testing.T) {
 		},
 		{
 			// Long-running async ops can see 10+ consecutive Internals on
-			// GetOperation while the server-side mutation completes — the
+			// GetOperation while the server-side mutation completes. The
 			// old hard count cap (10) tripped in production on a tag
 			// mutation that succeeded server-side. The time-based stuck
 			// cap (min(5m, timeout/6)) lets the 25 errors run through
@@ -1275,10 +1289,9 @@ func TestIsUnavailable(t *testing.T) {
 }
 
 // TestIsTransientServerError covers the AreWeDoneYet retry classifier. It
-// extends IsUnavailable to also include gRPC Internal, which the v6/v7 live
-// cycles hit three times during serverless tag-mutation operation polling
-// (mutation succeeded; read transiently glitched). Pin: Unavailable stays
-// in, Internal now also in, NotFound stays out.
+// extends IsUnavailable to also include gRPC Internal, which serverless
+// tag-mutation operation polling returns transiently (mutation succeeded;
+// read glitched). Pin: Unavailable in, Internal in, NotFound out.
 func TestIsTransientServerError(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1391,7 +1404,7 @@ func TestIsTransientDataplaneError(t *testing.T) {
 // TestDataplaneAnnotationDoesNotLeakIntoClassifiers guards the hazard the
 // annotation introduces. The Is* classifiers fall back to matching bare tokens
 // ("404", "503", "unavailable") anywhere in the error string, and cluster
-// endpoints are alphanumeric — so an endpoint or method name that happens to
+// endpoints are alphanumeric, so an endpoint or method name that happens to
 // contain one of those tokens must not decide the classification.
 func TestDataplaneAnnotationDoesNotLeakIntoClassifiers(t *testing.T) {
 	annotate := func(endpoint string, err error) error {
@@ -1423,7 +1436,7 @@ func TestDataplaneAnnotationDoesNotLeakIntoClassifiers(t *testing.T) {
 // the classifiers have to work around: FromError carries the code through a
 // wrapper but replaces the message with the wrapper's full text. If a future
 // grpc-go stops doing this, serverStatus's unwrapping becomes redundant rather
-// than wrong — but the bare-UNKNOWN check depends on knowing which it is.
+// than wrong, but the bare-UNKNOWN check depends on knowing which it is.
 func TestFromErrorOverwritesMessageThroughWrapper(t *testing.T) {
 	bare := grpcstatus.Error(codes.Unknown, "")
 	wrapped := fmt.Errorf("some context: %w", bare)
@@ -1696,9 +1709,9 @@ func TestNormalizeClusterAPIURL(t *testing.T) {
 }
 
 // TestGetARNListFromAttributes_ErrorMessage pins that the not-found errors are
-// well-formed. They previously used fmt.Errorf(fmt.Sprintf(...), suffix), which
-// dropped the suffix as a stray EXTRA arg; go vet can't catch it because the
-// format string is a function call rather than a literal.
+// well-formed. fmt.Errorf(fmt.Sprintf(...), suffix) drops the suffix as a stray
+// EXTRA arg, and go vet can't catch it because the format string is a call
+// rather than a literal.
 func TestGetARNListFromAttributes_ErrorMessage(t *testing.T) {
 	_, err := GetARNListFromAttributes("subnet", map[string]attr.Value{})
 	require.Error(t, err)
@@ -1715,8 +1728,7 @@ func TestGetARNListFromAttributes_ErrorMessage(t *testing.T) {
 }
 
 // TestRunSubprocess_RemovesTempDir pins that runSubprocess cleans up the temp
-// working directory it creates. It previously leaked one dir per invocation
-// (no defer os.RemoveAll).
+// working directory it creates.
 func TestRunSubprocess_RemovesTempDir(t *testing.T) {
 	pattern := filepath.Join(os.TempDir(), "terraform-provider-redpanda-byoc*")
 	before, err := filepath.Glob(pattern)

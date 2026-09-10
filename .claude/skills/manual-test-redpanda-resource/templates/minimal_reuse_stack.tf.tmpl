@@ -1,0 +1,40 @@
+# Template: minimal manual-test stack against an EXISTING cluster.
+# Use when the resource under test is dataplane (topic, user, acl, role,
+# schema, schema_registry_acl, role_assignment, pipeline) or a datasource that
+# reads existing cluster state.
+#
+# Substitute:
+#   <name>      e.g. topic, user, secret, shadow_link
+#
+# Pair with:
+#   .terraformrc   (dev_overrides — see SKILL.md §4)
+#   variables.tf   (declares cluster_id and any field-specific vars)
+#   terraform.tfvars  (gitignored — holds the cluster_id value)
+
+terraform {
+  # Either omit required_providers entirely, OR if you must declare it:
+  # required_providers {
+  #   redpanda = {
+  #     source = "hashicorp/redpanda"   # NOT redpanda-data/redpanda
+  #   }
+  # }
+}
+
+provider "redpanda" {}
+
+variable "cluster_id" {
+  type        = string
+  description = "ID of an existing Redpanda cluster to reuse for this test"
+}
+
+data "redpanda_cluster" "test" {
+  id = var.cluster_id
+}
+
+# TODO: replace with your resource. Plumb cluster_api_url from the datasource.
+resource "redpanda_<name>" "test" {
+  name            = "manual-test-<name>"
+  cluster_api_url = data.redpanda_cluster.test.cluster_api_url
+  # TODO: required attributes for your resource
+  allow_deletion  = true
+}

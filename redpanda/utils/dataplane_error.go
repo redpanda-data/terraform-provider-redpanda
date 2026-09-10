@@ -1,6 +1,5 @@
 // Copyright 2025 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -78,7 +77,7 @@ func unannotated(err error) error {
 //
 // Those heuristics match bare tokens such as "404" and "unavailable" anywhere in
 // the string. Endpoints and method names are provider prose, and cluster IDs are
-// alphanumeric — an endpoint containing "404" must not make IsNotFound fire.
+// alphanumeric, so an endpoint containing "404" must not make IsNotFound fire.
 func serverMessage(err error) string {
 	return unannotated(err).Error()
 }
@@ -89,7 +88,7 @@ func serverMessage(err error) string {
 // through a wrapper, but when it locates the status by unwrapping it overwrites
 // the message with the wrapper's full text (status.go: p.Message = err.Error()).
 // Read straight off an annotated error, a bare UNKNOWN therefore looks like it
-// carries a message — which is the difference between retrying and not.
+// carries a message, which is the difference between retrying and not.
 func serverStatus(err error) (*grpcstatus.Status, bool) {
 	return grpcstatus.FromError(unannotated(err))
 }
@@ -99,7 +98,7 @@ func serverStatus(err error) (*grpcstatus.Status, bool) {
 //
 // A cluster reports Ready before its dataplane serves traffic. Calls made in
 // that window come back as Unavailable, as broker-churn errors, or as a bare
-// UNKNOWN — code 2 with an empty message, which asserts nothing about the
+// UNKNOWN: code 2 with an empty message, which asserts nothing about the
 // request and is the signature observed when the endpoint is reachable but not
 // yet serving.
 //
@@ -119,7 +118,7 @@ func isBareUnknown(err error) bool {
 }
 
 // isRetriableThrottle matches ResourceExhausted statuses whose ErrorInfo
-// details mark the failure retriable — the gateway's translation of Kafka
+// details mark the failure retriable, the gateway's translation of Kafka
 // error 89 (THROTTLING_QUOTA_EXCEEDED). A ResourceExhausted without that hint
 // (e.g. gRPC max-message-size) is terminal and must not burn the retry budget.
 func isRetriableThrottle(err error) bool {

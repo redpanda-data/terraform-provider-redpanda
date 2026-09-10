@@ -35,7 +35,7 @@ Datasource templates live in `templates/data-sources/<name>.md.tmpl`. Most datas
 
 ## Datasource attribute naming
 
-Per memory `feedback_verify_datasource_schema.md`: datasource attribute names often diverge from resource names — they're not automatic mirrors. Before authoring `examples/datasource/<name>/main.tf` or any datasource HCL, grep `docs/data-sources/<name>.md` to confirm the exact attribute names. A `terraform plan` against a wrongly-named datasource attribute fails noisily; the fix is faster if you check first.
+Datasource attribute names often diverge from resource names — they're not automatic mirrors. Before authoring `examples/datasource/<name>/main.tf` or any datasource HCL, grep `docs/data-sources/<name>.md` to confirm the exact attribute names. A `terraform plan` against a wrongly-named datasource attribute fails noisily; the fix is faster if you check first.
 
 ## Description quality
 
@@ -45,7 +45,7 @@ Per memory `feedback_verify_datasource_schema.md`: datasource attribute names of
 2. `internal/schemagen/data/apidescriptions.yaml` (imported from cloudv2 by `task generate:apidescriptions`)
 3. Empty (the apidesc match drops; visible in regen output as `apidesc: X/Y attrs matched`)
 
-Memory `project_description_redundancy_diagnostic.md`: a classifier flags inline descriptions that duplicate the apidesc entry. Remove those — they're dead weight.
+A classifier flags inline descriptions that duplicate the apidesc entry. Remove those — they're dead weight.
 
 When extending: if the new proto field has a description in cloudv2, `task generate:apidescriptions` will pull it. If not (or if the proto-side description is poor), add an inline `description:` in `schema.yaml`.
 

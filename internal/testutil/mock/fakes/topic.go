@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -56,7 +55,7 @@ func NewTopicFake() *TopicFake {
 // every GetTopicConfigurations response (with DYNAMIC source) unless the
 // caller has set the same key via SetTopicConfigurations. Mirrors the
 // post-v26.1.1 broker behavior of injecting `redpanda.storage.mode = "unset"`
-// on every topic — used to exercise the redpanda.* strip branch of
+// on every topic, used to exercise the redpanda.* strip branch of
 // mergeWithPlannedConfig.
 func (f *TopicFake) SetServerInjectedConfig(key, value string) {
 	f.mu.Lock()

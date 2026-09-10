@@ -1,3 +1,17 @@
+// Copyright 2026 Redpanda Data, Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
 package schemagen
 
 import (
@@ -102,7 +116,7 @@ api:
 	}
 }
 
-// TestLoadConfig_RejectsDescriptionKey — yaml description overrides were
+// TestLoadConfig_RejectsDescriptionKey: yaml description overrides were
 // removed; any description: key inside a field-config map fails loudly.
 // Fields NAMED description (proto fields) still load.
 func TestLoadConfig_RejectsDescriptionKey(t *testing.T) {
@@ -126,5 +140,38 @@ func TestLoadConfig_RejectsDescriptionKey(t *testing.T) {
 	}
 	if _, err := write(t, "description:\n  required: true\nstate_description:\n  computed_only: true\n"); err != nil {
 		t.Errorf("fields NAMED description/state_description must load; got %v", err)
+	}
+}
+
+// A misspelled directive must fail the load, not generate the field as if
+// the directive were absent.
+func TestLoadConfig_RejectsUnknownKeys(t *testing.T) {
+	load := func(t *testing.T, src string) error {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), "schema.yaml")
+		if err := os.WriteFile(path, []byte(src), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		_, err := LoadConfig(path)
+		return err
+	}
+	cases := map[string]string{
+		"top-level field": "name:\n  requiredx: true\n",
+		"nested field":    "outer:\n  fields:\n    inner:\n      computd: true\n",
+		"api block":       "api:\n  servce: ClusterService\n",
+	}
+	for name, src := range cases {
+		t.Run(name, func(t *testing.T) {
+			err := load(t, src)
+			if err == nil {
+				t.Fatal("want unknown-key error, got nil")
+			}
+			if !strings.Contains(err.Error(), "not found") && !strings.Contains(err.Error(), "unknown") {
+				t.Fatalf("error does not name the unknown key: %v", err)
+			}
+		})
+	}
+	if err := load(t, "name:\n  required: true\n"); err != nil {
+		t.Fatalf("known key rejected: %v", err)
 	}
 }

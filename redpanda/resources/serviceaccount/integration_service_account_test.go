@@ -2,7 +2,6 @@
 
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -166,8 +165,8 @@ resource "redpanda_service_account" "test" {
 `, name, description, roleName, resourceID)
 }
 
-// mockServiceAccountConfigNoBindings renders an SA without role_bindings —
-// the shape the backend now rejects at create.
+// mockServiceAccountConfigNoBindings renders an SA without role_bindings,
+// the shape the backend rejects at create.
 func mockServiceAccountConfigNoBindings(name, description string) string {
 	return fmt.Sprintf(`
 provider "redpanda" {}
@@ -288,7 +287,7 @@ func TestIntegration_ServiceAccount_NoOpUpdate_PreservesClientSecret(t *testing.
 // PostApplyPostRefresh ExpectEmptyPlan plus the secretPreserved
 // CompareValue(ValuesSame()) prove unmasked fields (client_secret,
 // client_id, name) survive the partial update. id is identical across
-// both steps via idUnchanged — proves the change was in-place, not a
+// both steps via idUnchanged, which proves the change was in-place, not a
 // replace.
 func TestIntegration_ServiceAccount_UpdateLeaf_Description(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -325,7 +324,7 @@ func TestIntegration_ServiceAccount_UpdateLeaf_Description(t *testing.T) {
 
 // TestIntegration_ServiceAccount_UpdateLeaf_Name mutates name in place. id is the
 // server-assigned 20-char UUID (NOT name-derived), so an in-place name
-// update must leave id identical — idUnchanged (ValuesSame) pins this.
+// update must leave id identical, and idUnchanged (ValuesSame) pins this.
 // secretPreserved (ValuesSame) proves the FieldMask=[name] update doesn't
 // disturb the unmasked client_secret.
 func TestIntegration_ServiceAccount_UpdateLeaf_Name(t *testing.T) {
@@ -370,7 +369,7 @@ func TestIntegration_ServiceAccount_UpdateLeaf_Name(t *testing.T) {
 // once on Create and never echoed by subsequent reads, so the operator must
 // supply the secret they captured at creation time as the second segment of
 // the import ID. With the composite form, post-import state contains the
-// secret verbatim and ImportStateVerify confirms the round-trip — every leaf,
+// secret verbatim and ImportStateVerify confirms the round-trip: every leaf,
 // including client_secret, matches the pre-import state. role_bindings is
 // ignored: it is Create-only, never echoed by the server, and therefore null
 // after import by design.
@@ -440,25 +439,10 @@ func TestIntegration_ServiceAccount_Import_BareID_Errors(t *testing.T) {
 	})
 }
 
-// TestIntegration_ServiceAccount_ClientSecret_FullLifecycle_ExactValue is the
-// prophylactic pin for the H9 refactor that collapses injectClientSecret +
-// preserveClientSecretFromPrev into a single HasClientSecret()-aware Flatten
-// path. The IAM contract gives client_secret exactly once — in
-// CreateServiceAccountResponse — so the secret in state must thread through
-// every subsequent operation (Refresh, Update with FieldMask, no-op apply)
-// purely via the provider's preserve / inject machinery. This test walks the
-// full lifecycle in one TestCase and pins the secret two ways at every step:
-//
-//   - knownvalue.StringExact("fake-client-secret-1") — the exact deterministic
-//     value the fake produces on the single Create in this test. Catches any
-//     silent rewrite (e.g., null + later re-injection of a fresh value).
-//   - secretPin (CompareValue(ValuesSame())) — one accumulator across all five
-//     steps. Catches drift even if the value happened to land on something
-//     else NotNull.
-//
-// Existing tests already pin shorter intervals (Create+Noop, Create+Update);
-// the gap this fills is one accumulator across every transition the refactor
-// would touch.
+// TestIntegration_ServiceAccount_ClientSecret_FullLifecycle_ExactValue pins
+// client_secret across every lifecycle transition. The IAM API returns the
+// secret only in CreateServiceAccountResponse, so later operations must carry
+// it forward from state; the exact-value check catches a null-then-reinject rewrite.
 func TestIntegration_ServiceAccount_ClientSecret_FullLifecycle_ExactValue(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -596,13 +580,13 @@ func TestIntegration_ServiceAccount_ErrorPath_CreateSA_Internal(t *testing.T) {
 // TestIntegration_ServiceAccount_ErrorPath_UpdateSA_Internal injects an
 // Internal-coded error on the next UpdateServiceAccount RPC. After a
 // successful Create, the second step flips description (in-place update)
-// — the override is consumed by the UpdateServiceAccount call, which
+// so the override is consumed by the UpdateServiceAccount call, which
 // surfaces as a "failed to update service account" diagnostic.
 //
 // Why Internal (not Unavailable): the provider retries on Unavailable
 // via utils.Retry with a 2-minute budget. A single OverrideOnce(Unavailable)
 // would cause one failed attempt then the second attempt would fall
-// through to the real fake and succeed — masking the error. Internal is
+// through to the real fake and succeed, masking the error. Internal is
 // non-retryable and correctly exercises the diagnostic path.
 func TestIntegration_ServiceAccount_ErrorPath_UpdateSA_Internal(t *testing.T) {
 	srv, factories := integration.Setup(t)
@@ -633,18 +617,10 @@ func TestIntegration_ServiceAccount_ErrorPath_UpdateSA_Internal(t *testing.T) {
 	})
 }
 
-// TestIntegration_ServiceAccount_ErrorPath_DeleteSA_Internal covers the
-// destroy-failed path. After a successful Create, an Internal-coded error
-// is injected on the next DeleteServiceAccount. The Destroy:true step
-// triggers the destroy plan; ExpectError matches the regexp. After this
-// step the override is consumed; the TestCase's terminal cleanup destroy
-// runs against the untainted fake and removes the resource cleanly.
-//
-// Why Internal (not NotFound): NotFound on Delete makes the provider call
-// resp.State.RemoveResource gracefully (no error diagnostic). Internal is
-// NOT in the graceful set so it surfaces as a "failed to delete service
-// account" error diagnostic — which is the test-visible path we want to
-// exercise.
+// TestIntegration_ServiceAccount_ErrorPath_DeleteSA_Internal pins that a
+// DeleteServiceAccount error surfaces as a diagnostic. The injected code must
+// stay Internal: NotFound on Delete removes the resource from state with no
+// error.
 func TestIntegration_ServiceAccount_ErrorPath_DeleteSA_Internal(t *testing.T) {
 	srv, factories := integration.Setup(t)
 

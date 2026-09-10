@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -23,7 +22,7 @@ import (
 
 // Regression guard: yaml `plan_modifiers: [RequiresReplace]` on an
 // Optional+Computed field must compose with the classifier's state-null
-// verdict — not replace it. Without the compose path, the auto-emit pass
+// verdict, not replace it. Without the compose path, the auto-emit pass
 // skips any field with a yaml override, so RequiresReplace-only fields
 // lose UseStateForUnknown and go `(known after apply)` on every plan,
 // triggering destroy+recreate of the resource.
@@ -133,7 +132,7 @@ func TestMerge_PlanModifiers_NoneSuppresses(t *testing.T) {
 	}
 }
 
-// TestMerge_PlanModifiers_SubsumesStateNullAxis — a registry modifier flagged
+// TestMerge_PlanModifiers_SubsumesStateNullAxis: a registry modifier flagged
 // subsumesStateNullAxis suppresses the classifier's auto state modifier and
 // emits exactly the registered expression.
 func TestMerge_PlanModifiers_SubsumesStateNullAxis(t *testing.T) {
@@ -198,7 +197,7 @@ func maskContractFor() *MaskContract {
 	}
 }
 
-// TestMerge_MaskContract_DerivesRequiresReplace — fields absent from the
+// TestMerge_MaskContract_DerivesRequiresReplace: fields absent from the
 // update-mask contract gain RequiresReplace; in-contract and leaf-expanded
 // fields stay updatable; computed-only fields are untouched.
 func TestMerge_MaskContract_DerivesRequiresReplace(t *testing.T) {
@@ -240,7 +239,7 @@ func TestMerge_MaskContract_DerivesRequiresReplace(t *testing.T) {
 	}
 }
 
-// TestMerge_MaskContract_ComposesWithStateModifier — an Optional+Computed
+// TestMerge_MaskContract_ComposesWithStateModifier: an Optional+Computed
 // out-of-contract field renders the classifier's state modifier BEFORE
 // RequiresReplace: the framework marks every null-config computed attr unknown
 // before modifiers run, so a RequiresReplace that fires first sees
@@ -268,7 +267,7 @@ func TestMerge_MaskContract_ComposesWithStateModifier(t *testing.T) {
 	}
 }
 
-// TestMerge_MaskContract_NoDoubleAddAndAliases — existing RequiresReplace*
+// TestMerge_MaskContract_NoDoubleAddAndAliases: existing RequiresReplace*
 // names are not duplicated; extra attrs match the contract via from_proto;
 // pure synthetics are skipped.
 func TestMerge_MaskContract_NoDoubleAddAndAliases(t *testing.T) {
@@ -331,7 +330,7 @@ func TestMerge_MaskContract_NoDoubleAddAndAliases(t *testing.T) {
 			}
 		case "frozen_count":
 			// Out-of-contract conditional: the control plane cannot update it in
-			// place at all, so a shrink-only conditional is insufficient — an
+			// place at all, so a shrink-only conditional is insufficient and an
 			// unconditional RequiresReplace is derived alongside it.
 			if !strings.Contains(a.PlanModifiers, "RequiresReplaceIf(") {
 				t.Errorf("frozen_count must keep its conditional RequiresReplaceIf; got %q", a.PlanModifiers)
@@ -358,7 +357,7 @@ func TestMerge_MaskContract_NoDoubleAddAndAliases(t *testing.T) {
 	}
 }
 
-// TestMerge_MaskContract_NilIsNoop — resources without a contract are
+// TestMerge_MaskContract_NilIsNoop: resources without a contract are
 // byte-identical to a run without the feature.
 func TestMerge_MaskContract_NilIsNoop(t *testing.T) {
 	attrsWith, _, _, errs1 := Merge(maskContractProto(), &Config{}, "resource", nil)
@@ -393,7 +392,7 @@ func TestMaskContractVerdicts(t *testing.T) {
 
 const nameField = "name"
 
-// TestMerge_MaskContract_WarnOnly_BothDirections — a derived (WarnOnly) contract
+// TestMerge_MaskContract_WarnOnly_BothDirections: a derived (WarnOnly) contract
 // never mutates plan modifiers and warns in both directions: a payload field
 // marked RequiresReplace (Direction A) and a non-payload field missing it
 // (Direction B). In-contract-without-RR and out-of-contract-with-RR stay silent.
@@ -446,7 +445,7 @@ func TestMerge_MaskContract_WarnOnly_BothDirections(t *testing.T) {
 	}
 }
 
-// An arm the user selects must not be Computed — UseStateForUnknown would
+// An arm the user selects must not be Computed, because UseStateForUnknown would
 // anchor the outgoing arm and break switching. A server-reported arm keeps it.
 func TestMerge_OneofArms_LifecycleFromWriteShape(t *testing.T) {
 	// status_arm mirrors cluster cloud_storage: its only leaf is server-owned.
@@ -594,7 +593,7 @@ func TestMerge_OneofArm_ComputedOverride_Warns(t *testing.T) {
 
 // An explicit state-pin modifier on a selectable arm is an error, not a
 // warning: nothing downstream clears it, so it survives onto an Optional-only
-// attribute and anchors the outgoing arm — the exact failure the lifecycle pass
+// attribute and anchors the outgoing arm, the exact failure the lifecycle pass
 // exists to prevent. A server-owned arm keeps its anchor legitimately.
 func TestMerge_OneofArm_StatePinModifier_Errors(t *testing.T) {
 	proto := &ProtoMessage{
@@ -608,7 +607,7 @@ func TestMerge_OneofArm_StatePinModifier_Errors(t *testing.T) {
 	cfg := &Config{Fields: map[string]FieldConfig{
 		"start_at_earliest": {Optional: &yes, PlanModifiers: []string{modUseStateForUnknown}},
 		// Server-owned via computed_only, and its own path IS on the write
-		// payload — the shape maintenance_window_config.unspecified has. The
+		// payload, the shape maintenance_window_config.unspecified has. The
 		// anchor is correct here and must not error.
 		"status_arm": {ComputedOnly: true, PlanModifiers: []string{modUseStateForUnknown}},
 	}}
@@ -674,7 +673,7 @@ func TestCollectWritePaths_RecursesAndBreaksCycles(t *testing.T) {
 	}
 }
 
-// TestResolveUpdateContractFields — the derived contract reads the nested
+// TestResolveUpdateContractFields: the derived contract reads the nested
 // payload message when one matches the request convention, otherwise the
 // request message itself; FieldMask fields are excluded.
 func TestResolveUpdateContractFields(t *testing.T) {
@@ -728,7 +727,7 @@ func TestResolveUpdateContractFields(t *testing.T) {
 	}
 }
 
-// TestUpdateContractIdentityProtoField — the identity proto field is the one
+// TestUpdateContractIdentityProtoField: the identity proto field is the one
 // backing the TF id attribute (from_proto), defaulting to "id".
 func TestUpdateContractIdentityProtoField(t *testing.T) {
 	keyedByName := &Config{Fields: map[string]FieldConfig{"id": {FromProto: nameField}}}

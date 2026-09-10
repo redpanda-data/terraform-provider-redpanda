@@ -1,16 +1,16 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//	Licensed under the Apache License, Version 2.0 (the "License");
-//	you may not use this file except in compliance with the License.
-//	You may obtain a copy of the License at
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
 //
-//	  http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
-//	Unless required by applicable law or agreed to in writing, software
-//	distributed under the License is distributed on an "AS IS" BASIS,
-//	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//	See the License for the specific language governing permissions and
-//	limitations under the License.
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
 
 // Package user contains the implementation of the User resource following the Terraform framework interfaces.
 package user
@@ -60,7 +60,7 @@ func NewUser() *User {
 }
 
 // UpgradeState migrates v0 state to v1, normalizing the legacy host:443
-// cluster_api_url form to the canonical https://host the control plane now
+// cluster_api_url form to the canonical https://host the control plane
 // returns so the RequiresReplace plan modifier does not fire on the format
 // change alone.
 func (*User) UpgradeState(ctx context.Context) map[int64]resource.StateUpgrader {

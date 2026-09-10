@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -49,7 +48,7 @@ type roleRecord struct {
 
 // SecurityFake is a stateful in-memory implementation of the console
 // SecurityService RPCs. Backs both redpanda_role and redpanda_role_assignment
-// resources — membership state lives under the owning role record.
+// resources: membership state lives under the owning role record.
 type SecurityFake struct {
 	consolev1alpha1grpc.UnimplementedSecurityServiceServer
 

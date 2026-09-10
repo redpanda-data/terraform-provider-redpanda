@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -30,7 +29,7 @@ import (
 )
 
 // The two tests below pin the composite-ID format used by
-// (*aclmodel.ResourceModel).GenerateID — it's part of the public state
+// (*aclmodel.ResourceModel).GenerateID because it's part of the public state
 // shape and changing it would break end users.
 
 func Test_generateACLCompositeID(t *testing.T) {

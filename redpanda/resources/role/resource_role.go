@@ -1,16 +1,16 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//	Licensed under the Apache License, Version 2.0 (the "License");
-//	you may not use this file except in compliance with the License.
-//	You may obtain a copy of the License at
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
 //
-//	  http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
-//	Unless required by applicable law or agreed to in writing, software
-//	distributed under the License is distributed on an "AS IS" BASIS,
-//	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//	See the License for the specific language governing permissions and
-//	limitations under the License.
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
 
 // Package role contains the implementation of the Role resource following the Terraform framework interfaces.
 package role
@@ -162,7 +162,7 @@ func (r *Role) Read(ctx context.Context, req resource.ReadRequest, resp *resourc
 // Update is a no-op for the proto-derived attrs (roles are immutable;
 // every mutable schema attr is RequiresReplace). The TF-only extras
 // allow_deletion and delete_acls can flip without recreation, so the
-// plan is written to state directly — without this, the framework
+// plan is written to state directly. Without this, the framework
 // raises "provider produced inconsistent result after apply".
 func (*Role) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var plan rolemodel.ResourceModel

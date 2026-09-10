@@ -1,6 +1,5 @@
 // Copyright 2024 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -1963,7 +1962,7 @@ func TestUnit_Schema_Update(t *testing.T) {
 					Return(tt.compatResults)
 			}
 
-			// After any operation, we now verify compatibility
+			// Every write is followed by a Compatibility call
 			if len(tt.compatResults) > 0 {
 				mockClient.EXPECT().
 					Compatibility(ctx, tt.plan.Subject.ValueString()).

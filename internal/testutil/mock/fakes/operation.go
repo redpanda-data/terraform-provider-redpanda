@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -59,7 +58,7 @@ func xidLike(seq uint64) string {
 // completedOp builds a COMPLETED Operation wrapping resourceID and registers
 // it on the OperationFake. Async Create/Update/Delete fakes call this so the
 // provider's AreWeDoneYet polling loop terminates on the first GetOperation.
-// Shared with the per-fake files (network, shadow_link, serverless_*) — the
+// Shared with the per-fake files (network, shadow_link, serverless_*): the
 // alternative was a copy per fake, which obscures the contract that every
 // async fake must publish its operation here.
 func completedOp(op *OperationFake, resourceID string) *controlplanev1.Operation {

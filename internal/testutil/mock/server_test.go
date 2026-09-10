@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -120,7 +119,7 @@ func TestServer_OverrideOnce_ConsumedNoCleanupError(t *testing.T) {
 	t.Cleanup(func() { _ = conn.Close() })
 
 	client := cloud.NewControlPlaneClientSet(conn)
-	// We expect an error here because the override returns Internal; that's fine — we just
+	// We expect an error here because the override returns Internal; that's fine because we just
 	// need the interceptor to consume the entry.
 	_, _ = client.CreateResourceGroup(context.Background(), "consume-override-test")
 

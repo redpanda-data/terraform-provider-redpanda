@@ -1,3 +1,17 @@
+// Copyright 2026 Redpanda Data, Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
 package main
 
 import (
@@ -306,7 +320,7 @@ func main() {
 			fmt.Printf("%s Failed to list VPCs: %v\n", red("ERROR:"), err)
 			errorCount++
 		} else if len(detectedVPCs) == 0 {
-			fmt.Printf("%s No non-default VPCs found\n", yellow("INFO:"), )
+			fmt.Printf("%s No non-default VPCs found\n", yellow("INFO:"))
 		} else {
 			fmt.Printf("%s Found %d non-default VPC(s) to destroy\n", red("WARNING:"), len(detectedVPCs))
 			vpcsToClean = detectedVPCs
@@ -1273,7 +1287,7 @@ func deleteIAMResources(ctx context.Context, clients *AWSClients, cfg *CleanupCo
 	}
 	// Surface policy-sweep failures as a returned error so the caller's
 	// errorCount catches them. Per project memory: don't swallow failures
-	// — leaking customer-managed policies across runs accumulates IAM debt
+	// because leaking customer-managed policies across runs accumulates IAM debt
 	// and eventually trips the IAM policy quota.
 	if err := deletePoliciesMatchingAnyPrefix(ctx, clients.IAM, policyPrefixes, cfg.DryRun); err != nil {
 		fmt.Printf("%s Failed to delete policies: %v\n", yellow("WARNING:"), err)
@@ -1483,7 +1497,7 @@ func detachPolicyFromAllEntities(ctx context.Context, iamClient *iam.Client, pol
 
 // deleteNonDefaultPolicyVersions deletes every non-default version of the
 // given customer-managed policy. The default version cannot be deleted
-// standalone — it goes when the policy itself is deleted.
+// standalone: it goes when the policy itself is deleted.
 func deleteNonDefaultPolicyVersions(ctx context.Context, iamClient *iam.Client, policyArn string) error {
 	versions, err := iamClient.ListPolicyVersions(ctx, &iam.ListPolicyVersionsInput{
 		PolicyArn: aws.String(policyArn),
@@ -1784,7 +1798,7 @@ func deleteNATGateways(ctx context.Context, clients *AWSClients, cfg *CleanupCon
 	}
 
 	// Wait for NAT gateways to be deleted before releasing EIPs. A fixed
-	// sleep isn't enough — NAT gateway deletion can take several minutes,
+	// sleep isn't enough because NAT gateway deletion can take several minutes,
 	// and until it reaches "deleted" state the associated EIP stays mapped
 	// and blocks downstream IGW detach.
 	if !cfg.DryRun && len(result.NatGateways) > 0 {

@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -40,22 +39,12 @@ func schemaRegistryURL(override string) string {
 	return "https://mock.schema-registry.redpanda.cloud"
 }
 
-// ClusterFake is a stateful in-memory implementation of ClusterService.
-//
-// The cluster CRUD flow diverges from the other async fakes — the provider
-// uses RetryGetCluster (not AreWeDoneYet) for both Create and Delete, polling
-// GetCluster until terminal state. So:
-//
-//   - CreateCluster stores the cluster in STATE_READY immediately and returns
-//     an Operation whose ResourceId the provider extracts; the Operation is
-//     never polled (CreateCluster's returned op skips Operation.Set).
-//   - DeleteCluster removes the stored cluster; subsequent GetCluster returns
-//     NotFound, which RetryGetCluster recognizes as termination.
-//   - UpdateCluster is the only path that uses AreWeDoneYet — the returned
-//     Operation IS published via completedOp.
-//
-// UpdateCluster honors UpdateMask via proto reflection on top-level fields,
-// matching what utils.GenerateProtobufDiffAndUpdateMask emits.
+// ClusterFake is a stateful in-memory ClusterService. The provider polls
+// GetCluster for Create and Delete rather than the Operation, so Create stores
+// the cluster READY without publishing its op and Delete makes GetCluster
+// return NotFound; only Update publishes an Operation for AreWeDoneYet.
+// UpdateMask is honored on top-level fields, matching what
+// utils.GenerateProtobufDiffAndUpdateMask emits.
 type ClusterFake struct {
 	controlplanev1grpc.UnimplementedClusterServiceServer
 
@@ -66,7 +55,7 @@ type ClusterFake struct {
 	srURL    string
 
 	// dualModel tracks clusters created or updated through the connections
-	// field — the fake's analogue of the control plane's -pub/-prv listener
+	// field, the fake's analogue of the control plane's -pub/-prv listener
 	// name suffix detection (usesDualListenerModel).
 	dualModel map[string]bool
 
@@ -420,7 +409,7 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 		case "azure_private_link":
 			// azure_private_link's ClusterUpdate wire type (AzurePrivateLinkSpec)
 			// differs from the read Cluster_AzurePrivateLink, so it needs an
-			// explicit case — the default reflection branch would panic setting a
+			// explicit case: the default reflection branch would panic setting a
 			// mismatched message type (as it does for aws/gcp private link).
 			// Disabled reads back as no block (see aws_private_link).
 			if spec := upd.GetAzurePrivateLink(); spec.GetEnabled() {
@@ -510,7 +499,7 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 			// Mirror the control plane: it translates the public mask through its
 			// pathMap (cloudv2 .../services/cluster/v1/mapper.go) and silently
 			// DROPS any path lacking a mapping. Several object fields (rpsql,
-			// kafka_connect, kafka_api) have NO top-level pathMap entry — the API
+			// kafka_connect, kafka_api) have NO top-level pathMap entry: the API
 			// accepts them only at leaf granularity. Applying an un-mapped
 			// top-level path here by reflection would let a wrong (un-expanded)
 			// mask pass tests the real API would reject, so apply only top-level
@@ -674,7 +663,7 @@ var rpsqlImmutableLeaves = []rpsqlImmutableLeaf{
 // rpsqlCMRImmutability mirrors cloudv2 validateRPSqlCMRImmutability
 // (redpanda_service.go): while Redpanda SQL is enabled in the merged state, an
 // already-set (non-empty) rpsql CMR leaf cannot change to a different value.
-// The gate is the post-update enabled state — an update may toggle rpsql.enabled
+// The gate is the post-update enabled state: an update may toggle rpsql.enabled
 // in the same request. Only masked leaves are compared (an unmasked leaf keeps
 // its old value, so it can never violate). empty->value (first set) and no-op
 // same-value writes are allowed.
@@ -702,7 +691,7 @@ func rpsqlCMRImmutability(cl *controlplanev1.Cluster, upd *controlplanev1.Cluste
 
 // rpsqlCMRRequiredOnEnable mirrors cloudv2 validateRPSqlCMRFields (mapper.go):
 // when the merged state enables Redpanda SQL on a BYOVPC cluster, every rpsql
-// CMR leaf of the cluster's arm must be non-empty in the effective spec —
+// CMR leaf of the cluster's arm must be non-empty in the effective spec, the
 // existing value overlaid with the masked update delta. Runs before any
 // mutation so a rejection leaves the stored record untouched.
 func rpsqlCMRRequiredOnEnable(cl *controlplanev1.Cluster, upd *controlplanev1.ClusterUpdate, paths []string) error {
@@ -797,7 +786,7 @@ func normalizeCidrPorts(src []*controlplanev1.Cluster_CidrPort) []*controlplanev
 // rpsql block even when Redpanda SQL is disabled or omitted, because the
 // defaulter stores a bare disabled spec (replicas 0, no zones); url/version are
 // populated only once enabled (server derives on provisioning). Enabling with
-// replicas 0 defaults to 1 (oxlaDefaultReplicasCount). Azure reads back nil —
+// replicas 0 defaults to 1 (oxlaDefaultReplicasCount). Azure reads back nil:
 // ApplyRedpandaOxlaSpec early-returns for Azure.
 func rpsqlReadStatus(spec *controlplanev1.RPSql, provider controlplanev1.CloudProvider, clusterZones []string) *controlplanev1.RPSql {
 	if provider == controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE {

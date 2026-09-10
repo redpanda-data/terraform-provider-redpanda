@@ -1,3 +1,17 @@
+// Copyright 2026 Redpanda Data, Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
 package utils
 
 import (
@@ -11,7 +25,7 @@ import (
 // differing fields. If there are no differing fields, it returns a ProtoMessage object
 // with no fields set and a FieldMask with an empty Paths slice.
 //
-// Use this when the server tolerates a sparse Update payload — cluster and
+// Use this when the server tolerates a sparse Update payload: cluster and
 // shadowlink rely on it today. For APIs whose `buf.validate.field` rules run
 // on the full message regardless of FieldMask (and would reject zero-valued
 // unchanged required fields), use PlanPayloadWithUpdateMask instead.
@@ -36,7 +50,7 @@ func GenerateProtobufDiffAndUpdateMask[T any, P interface {
 		if newHas != oldHas {
 			// Presence change: one side has the field set, other doesn't.
 			// For singular message fields, Get() returns the same zero-value
-			// on both sides even when one pointer is nil — Has() catches this.
+			// on both sides even when one pointer is nil, but Has() catches this.
 			if newHas {
 				diffMsg.ProtoReflect().Set(field, newMsg.ProtoReflect().Get(field))
 			} else {
@@ -52,20 +66,10 @@ func GenerateProtobufDiffAndUpdateMask[T any, P interface {
 	return diff, mask
 }
 
-// PlanPayloadWithUpdateMask returns the plan (new) message unchanged plus a
-// FieldMask listing the field paths that differ from the state (old) message.
-// Use this — instead of GenerateProtobufDiffAndUpdateMask — when the server's
-// `buf.validate.field` annotations run on the full message regardless of
-// FieldMask, and zero-valued unchanged fields would trip required-field
-// validators (string.min_len, regex, etc.).
-//
-// redpanda_service_account is the canonical consumer: its `name` field has
-// `string.min_len = 3` + regex rules that fail on the empty value the sparse
-// helper would produce when name is unchanged.
-//
-// GenerateProtobufDiffAndUpdateMask is kept as-is — cluster and shadowlink
-// have been manually verified against the sparse contract and don't need a
-// different shape.
+// PlanPayloadWithUpdateMask returns the plan message unchanged plus the FieldMask
+// of paths that differ from state. Use it where buf.validate rules run on the
+// whole message regardless of the mask, because the sparse diff would send zero
+// values into required-field rules (ServiceAccount.name has string.min_len = 3).
 func PlanPayloadWithUpdateMask[T any, P interface {
 	*T
 	protoreflect.ProtoMessage

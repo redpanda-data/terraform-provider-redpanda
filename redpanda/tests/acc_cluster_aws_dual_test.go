@@ -2,7 +2,6 @@
 
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -28,7 +27,7 @@ import (
 // TestAcc_Cluster_AWS_DualListeners runs the AWS BYOC stack (the certified
 // envelope for dual listener mode) with public+private SASL connections on
 // all three services and no connection_type. Requires the
-// enable-public-private-listeners feature flag on the test org (preview) —
+// enable-public-private-listeners feature flag on the test org (preview), since
 // without it the create fails PermissionDenied by design.
 func TestAcc_Cluster_AWS_DualListeners(t *testing.T) {
 	ctx := context.Background()

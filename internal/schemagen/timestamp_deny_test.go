@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -77,8 +76,8 @@ func TestApplyTimestampDeny_RecursesIntoNested(t *testing.T) {
 }
 
 // TestApplyFieldConfigs_BlocksTimestampExtras locks the strict policy:
-// yaml entries for deny-listed names — extras, synthetics, regular
-// overrides — must never produce a SchemaAttr.
+// yaml entries for deny-listed names (extras, synthetics, regular
+// overrides) must never produce a SchemaAttr.
 func TestApplyFieldConfigs_BlocksTimestampExtras(t *testing.T) {
 	attrs := []SchemaAttr{{Name: "name", AttrType: AttrTypeString}}
 	extras := true
@@ -104,7 +103,7 @@ func TestApplyFieldConfigs_BlocksTimestampExtras(t *testing.T) {
 	}
 }
 
-// TestFindUncovered_SkipsNestedTimestamps mirrors the deny — uncovered
+// TestFindUncovered_SkipsNestedTimestamps mirrors the deny: uncovered
 // warnings should not fire for deny-listed timestamp fields at any
 // nesting level.
 func TestFindUncovered_SkipsNestedTimestamps(t *testing.T) {

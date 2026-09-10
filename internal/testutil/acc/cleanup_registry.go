@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -24,7 +23,7 @@ import (
 // ResourceKind controls cleanup ordering. Lower values are cleaned up first
 // (reverse-dependency order: shadow_links → clusters → serverless_private_links
 // → networks → resource_groups). A serverless cluster references its private
-// link, so the cluster must be deleted before the link — the backend rejects
+// link, so the cluster must be deleted before the link: the backend rejects
 // deleting a private link still associated with a cluster.
 type ResourceKind int
 

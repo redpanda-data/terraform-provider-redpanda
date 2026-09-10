@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -92,7 +91,7 @@ type ProtoMessage struct {
 
 	GoName string
 
-	// FullName is the fully-qualified proto name. GoName is NOT unique — it
+	// FullName is the fully-qualified proto name. GoName is NOT unique: it
 	// drops the proto package, so two distinct messages can share one
 	// (core.common.v1.TLSSettings and controlplane.v1.TLSSettings are both
 	// reachable from ShadowLink and both render as "TLSSettings"). Anything
@@ -120,7 +119,7 @@ func (m *ProtoMessage) identityKey() string {
 }
 
 // FindField returns the proto field with the given snake_case name, or nil
-// if no such field exists. A nil receiver returns nil — callers that want
+// if no such field exists. A nil receiver returns nil, so callers that want
 // "no proto info = skip" semantics check the result against nil.
 func (m *ProtoMessage) FindField(name string) *ProtoField {
 	if m == nil {
@@ -214,7 +213,7 @@ type attrTypeInfo struct {
 	ModelType       string
 	ValidatorSuffix string
 	// TypeExpr and NullExpr are set only for scalar AttrTypes. Collection
-	// and object AttrTypes leave them empty — their null expressions are
+	// and object AttrTypes leave them empty because their null expressions are
 	// element-dependent and built by NullExpr's non-scalar branch.
 	TypeExpr string
 	NullExpr string
@@ -246,7 +245,7 @@ func modelGoTypeForAttr(attrType string) string {
 }
 
 // scalarNullExprForAttr returns the Terraform null expression for a scalar
-// AttrType. Known non-scalar AttrTypes return ("", nil) — callers check the
+// AttrType. Known non-scalar AttrTypes return ("", nil), so callers check the
 // empty result to fall through to non-scalar handling. Unknown AttrTypes
 // return a non-nil error so schemagen drift surfaces at codegen time.
 func scalarNullExprForAttr(attrType string) (string, error) {
@@ -266,7 +265,7 @@ type NullExprOptions struct {
 }
 
 // NullExpr returns the framework null expression for an attribute.
-// Exhaustive over every defined AttrType — adding a new AttrType constant
+// Exhaustive over every defined AttrType, so adding a new AttrType constant
 // without extending this switch produces a clear schemagen error at codegen
 // time, before any *_gen.go file is written.
 //

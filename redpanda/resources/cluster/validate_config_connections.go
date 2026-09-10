@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -33,7 +32,7 @@ var _ resource.ResourceWithValidateConfig = &Cluster{}
 
 // ValidateConfig enforces the dual-listener-mode cross-attribute rules the
 // control plane implements only in server code (cloudv2
-// dual_mode_connections.go) — none are expressible as buf.validate annotations,
+// dual_mode_connections.go). None are expressible as buf.validate annotations,
 // so without this they surface as opaque apply-time errors. Rules that depend
 // on stored cluster state (e.g. an mTLS CA preserved from storage on update)
 // are deliberately left to the API, which distinguishes create from update.
@@ -193,8 +192,8 @@ func validateDualListenerConnections(ctx context.Context, cfg tfsdk.Config, resp
 }
 
 // getAttr reads one config attribute, appending any diagnostics; ok is false
-// when the read errored (the caller must return — a swallowed read error would
-// silently disable every rule below it).
+// when the read errored (the caller must return because a swallowed read
+// error would silently disable every rule below it).
 func getAttr[T any](ctx context.Context, cfg tfsdk.Config, p path.Path, target *T, resp *resource.ValidateConfigResponse) bool {
 	d := cfg.GetAttribute(ctx, p, target)
 	resp.Diagnostics.Append(d...)

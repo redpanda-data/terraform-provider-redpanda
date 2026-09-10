@@ -62,7 +62,6 @@ service_account:
 state:
   optional: true
   computed: true
-  proto_enum: Pipeline_State
   default: "stopped"
   validator: "OneOf{values: |running|stopped}"
   flatten_via: FlattenDesiredState

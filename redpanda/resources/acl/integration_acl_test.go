@@ -2,7 +2,6 @@
 
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -182,7 +181,7 @@ func aclID(resourceType, resourceName, resourcePatternType, principal, host, ope
 // TestIntegration_ACL_CreateAndRefresh covers the canonical Create + NoopReapply
 // cycle and pins every leaf to an exact value. The load-bearing proof for the
 // id leaf's UseStateForUnknown plan modifier is that id (a composite of the 7
-// identity fields per GenerateID) is IDENTICAL across the two steps — a
+// identity fields per GenerateID) is IDENTICAL across the two steps: a
 // single CompareValue(ValuesSame()) shared between both steps'
 // ConfigStateChecks accumulates the values and the comparer asserts equality.
 func TestIntegration_ACL_CreateAndRefresh(t *testing.T) {
@@ -236,18 +235,8 @@ func TestIntegration_ACL_CreateAndRefresh(t *testing.T) {
 	})
 }
 
-// TestIntegration_ACL_UpdateLeaf_AllowDeletion exercises the in-place Update path
-// for the TF-only `allow_deletion` extra. ACL has no UpdateACL RPC (ACLs are
-// immutable); the Update handler in resource_acl.go just writes plan to
-// state. Flipping allow_deletion true→false→true must produce
-// ResourceActionUpdate (not DestroyBeforeCreate) and id must remain stable
-// across all three steps — proof that the in-place path actually runs. We
-// end with allow_deletion=true so the terminal cleanup destroy succeeds
-// (Delete blocks when allow_deletion=false before any RPC call).
-// TestIntegration_ACL_ErrorPath_AllowDeletionBlocked pins the guard itself.
-// UpdateLeaf_AllowDeletion proves the field round-trips; this proves what the
-// field is for — with allow_deletion=false a destroy must be refused. The final
-// step re-enables deletion so the framework's terminal destroy can proceed.
+// TestIntegration_ACL_ErrorPath_AllowDeletionBlocked pins that a destroy is
+// refused while allow_deletion=false, before any RPC is issued.
 func TestIntegration_ACL_ErrorPath_AllowDeletionBlocked(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -274,6 +263,9 @@ func TestIntegration_ACL_ErrorPath_AllowDeletionBlocked(t *testing.T) {
 	})
 }
 
+// TestIntegration_ACL_UpdateLeaf_AllowDeletion pins allow_deletion as an
+// in-place update with a stable id. ACLs have no update RPC, so Update
+// writes plan straight to state.
 func TestIntegration_ACL_UpdateLeaf_AllowDeletion(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -315,7 +307,7 @@ func TestIntegration_ACL_UpdateLeaf_AllowDeletion(t *testing.T) {
 
 // requiresReplaceIdentityTest runs a RequiresReplace scenario for a single
 // identity field. Every identity field is part of GenerateID's composite, so
-// mutating any one of them causes id to DIFFER — that ValuesDiffer assertion
+// mutating any one of them causes id to DIFFER, and that ValuesDiffer assertion
 // is the load-bearing proof that the destroy-then-create cycle ran (alongside
 // the ResourceActionDestroyBeforeCreate plancheck baked into
 // RequiresReplaceStep).
@@ -425,7 +417,7 @@ func TestIntegration_ACL_RequiresReplace_Principal(t *testing.T) {
 // TestIntegration_ACL_RequiresReplace_Host mutates the RequiresReplace `host` leaf
 // (wildcard "*" → IPv4 literal "10.0.0.1"). id changes because host is field
 // #5 in GenerateID's composite. The proto validator on host accepts only "*"
-// or a valid IP address, so a hostname like "localhost" is rejected — an IPv4
+// or a valid IP address, so a hostname like "localhost" is rejected, so an IPv4
 // literal is the unambiguous alternative.
 func TestIntegration_ACL_RequiresReplace_Host(t *testing.T) {
 	requiresReplaceIdentityTest(t,
@@ -469,18 +461,10 @@ func TestIntegration_ACL_RequiresReplace_PermissionType(t *testing.T) {
 	)
 }
 
-// TestIntegration_ACL_RequiresReplace_ClusterApiUrl mutates the RequiresReplace
-// `cluster_api_url` leaf (bufnet→bufnet2). The bufconn dialer is
-// address-agnostic — it ignores the URL string and routes through the
-// in-memory listener — so changing the value triggers the plan-level
-// DestroyBeforeCreate and the Create on the new resource still succeeds.
-//
-// Unlike the 7 identity-field RR scenarios, cluster_api_url is NOT in the
-// GenerateID composite, so id stays identical across the replace. The
-// load-bearing proof that RequiresReplace fired is the
-// ResourceActionDestroyBeforeCreate plancheck baked into
-// RequiresReplaceStep; idStable's ValuesSame check is the inverse witness
-// confirming the id formula isn't affected by the url change.
+// TestIntegration_ACL_RequiresReplace_ClusterApiUrl pins RequiresReplace on
+// cluster_api_url. The bufconn dialer ignores the address, so the replacement
+// Create succeeds; cluster_api_url is not part of the GenerateID composite, so
+// id stays identical and the DestroyBeforeCreate plancheck is the only proof.
 func TestIntegration_ACL_RequiresReplace_ClusterApiUrl(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -547,7 +531,7 @@ func TestIntegration_ACL_ImportRoundTrip(t *testing.T) {
 				// ACL schema has no `id` attribute and no `cluster_id` attribute; the
 				// composite-import ID is "<cluster_id>,<rt>,<rn>,<rpt>,<princ>,<host>,<op>,<perm>"
 				// and the ImportState handler sets `cluster_api_url` (the resolved
-				// dataplane URL) — that's the only stable identifier in post-import state.
+				// dataplane URL), which is the only stable identifier in post-import state.
 				ImportStateVerifyIdentifierAttribute: "cluster_api_url",
 				ImportStateIdFunc: func(s *terraform.State) (string, error) {
 					rs, ok := s.RootModule().Resources[aclAddr]
@@ -669,7 +653,7 @@ func TestIntegration_ACL_ErrorPath_CreateAlreadyExists(t *testing.T) {
 // successful Create, an Internal-coded error is injected on the next
 // DeleteACLs RPC. Internal is NOT one of the graceful-removal codes
 // (NotFound / ClusterUnreachable / PermissionDenied) that
-// utils.HandleGracefulRemoval treats as a clean drop-from-state — it falls
+// utils.HandleGracefulRemoval treats as a clean drop-from-state, so it falls
 // through to the ErrorNotHandled branch and surfaces as a TF diagnostic. The
 // config uses allow_deletion=true so the in-resource guard at
 // resource_acl.go:228 passes and the DeleteACLs RPC is actually called. After
@@ -716,7 +700,7 @@ func TestIntegration_ACL_ErrorPath_DeleteFailed(t *testing.T) {
 // TestIntegration_ACL_UpgradeState_NormalizesClusterApiUrl drives the v0->v1
 // state upgrade through the provider server's UpgradeResourceState RPC and
 // asserts the legacy host:443 cluster_api_url is rewritten to https://host so
-// the format change alone no longer forces replacement. Notably acl has
+// the format change alone does not force replacement. Notably acl has
 // no ImportState, so the upgrader is its only in-place migration path.
 func TestIntegration_ACL_UpgradeState_NormalizesClusterApiUrl(t *testing.T) {
 	_, factories := integration.Setup(t)

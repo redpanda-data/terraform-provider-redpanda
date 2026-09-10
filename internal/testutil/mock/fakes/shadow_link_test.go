@@ -1,6 +1,5 @@
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -27,8 +26,8 @@ import (
 
 // TestShadowLinkFake_RoleSyncEchoAlwaysPopulated pins fake parity with the
 // control plane's shadowLinkRoleSyncOptionsCPToPublicAPI, which returns a
-// non-nil role_sync_options on every GET — even for links that never
-// configured it — specifically to carry effective_interval.
+// non-nil role_sync_options on every GET (even for links that never
+// configured it) specifically to carry effective_interval.
 func TestShadowLinkFake_RoleSyncEchoAlwaysPopulated(t *testing.T) {
 	f := NewShadowLinkFake(NewOperationFake())
 	ctx := context.Background()

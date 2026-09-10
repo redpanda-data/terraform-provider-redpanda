@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -27,6 +26,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/apidesc"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/bufdeps"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/cmdutil"
+	"github.com/redpanda-data/terraform-provider-redpanda/internal/fileutil"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/schemagen"
 )
 
@@ -234,7 +234,7 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 	if err := schemagen.ApplyAPIDefaults(cfg, schemaType); err != nil {
 		return fmt.Errorf("apply api defaults: %w", err)
 	}
-	// Must follow ApplyAPIDefaults — that fills in the RPC request and payload
+	// Must follow ApplyAPIDefaults, which fills in the RPC request and payload
 	// names the index resolves against.
 	cfg.SetWriteShapeIndex(schemagen.BuildWriteShapeIndex(proto, cfg, protoLookup))
 	if err := assertWriteShapeResolved(cfg, schemaType); err != nil {
@@ -255,7 +255,7 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 	// Resources without a hand-maintained contract get a WarnOnly contract
 	// derived from their update payload proto, so RequiresReplace markers are
 	// checked against the real update surface (both directions) without
-	// mutating generated output. The identity field is excluded — it rides the
+	// mutating generated output. The identity field is excluded: it rides the
 	// payload to address the row, not as a mutable field.
 	if cfg.MaskContract() == nil && schemaType != schemagen.SchemaTypeDatasource {
 		if idx := cfg.WriteShapeIndex(); idx.HasUpdate() {
@@ -358,7 +358,7 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 	if err := os.MkdirAll(filepath.Dir(output), 0o750); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
-	if err := os.WriteFile(output, src, 0o600); err != nil {
+	if err := os.WriteFile(output, fileutil.PreserveHeaderYear(output, src), 0o600); err != nil {
 		return fmt.Errorf("failed to write output: %w", err)
 	}
 
@@ -399,7 +399,7 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 		if err != nil {
 			return fmt.Errorf("proto validator generation: %w", err)
 		}
-		if err := os.WriteFile(validatorPath, valSrc, 0o600); err != nil {
+		if err := os.WriteFile(validatorPath, fileutil.PreserveHeaderYear(validatorPath, valSrc), 0o600); err != nil {
 			return fmt.Errorf("write proto validator: %w", err)
 		}
 		log.Printf("Generated %s (%d bytes)", validatorPath, len(valSrc))
@@ -421,7 +421,7 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 		if err := os.MkdirAll(filepath.Dir(modelOutput), 0o750); err != nil {
 			return fmt.Errorf("create model output directory: %w", err)
 		}
-		if err := os.WriteFile(modelOutput, modelSrc, 0o600); err != nil {
+		if err := os.WriteFile(modelOutput, fileutil.PreserveHeaderYear(modelOutput, modelSrc), 0o600); err != nil {
 			return fmt.Errorf("write model output: %w", err)
 		}
 		log.Printf("Generated %s (%d bytes)", modelOutput, len(modelSrc))
@@ -461,7 +461,7 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 		if err := os.MkdirAll(filepath.Dir(convOutput), 0o750); err != nil {
 			return fmt.Errorf("create conv output directory: %w", err)
 		}
-		if err := os.WriteFile(convOutput, convSrc, 0o600); err != nil {
+		if err := os.WriteFile(convOutput, fileutil.PreserveHeaderYear(convOutput, convSrc), 0o600); err != nil {
 			return fmt.Errorf("write conv output: %w", err)
 		}
 		log.Printf("Generated %s (%d bytes)", convOutput, len(convSrc))

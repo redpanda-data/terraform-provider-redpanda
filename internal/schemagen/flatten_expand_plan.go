@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -49,7 +48,7 @@ var scalarShapes = map[string]scalarShape{
 }
 
 // wrapperSuffix returns ".GetValue()" for fields whose proto type is a
-// google.protobuf.{Bool,String,Int32,Int64,Float,Double}Value — the generated
+// google.protobuf.{Bool,String,Int32,Int64,Float,Double}Value: the generated
 // proto getter returns *wrapperpb.XValue and we need the inner scalar.
 func wrapperSuffix(pf *ProtoField) string {
 	if pf != nil && pf.IsScalarWrapper {
@@ -137,23 +136,10 @@ func emitScalarFlattenExpand(conv *FieldConversion, pf *ProtoField, a *SchemaAtt
 // error if a path actually requires one.
 type ProtoLookup func(messageName string) (*ProtoMessage, error)
 
-// ApplyAPIDefaults materializes cfg.API and fills convention-based defaults
-// from cfg.TFName for any field the yaml didn't declare:
-//
-//   - cfg.API.Create/Update/Delete: instantiated for every op in `supported`
-//     (defaults [create, read, update, delete] for resources, [read] for
-//     datasources, minus exclude_operations). Each gets
-//     RPC = "<Verb><TFName>" and Request = "<Verb><TFName>Request".
-//   - cfg.API.ResponseInterface: defaulted to {Name: "<TFName>Response"}.
-//   - cfg.API.ResourceType: defaulted to cfg.TFName.
-//
-// Yaml-declared values always win. TFName is required when any CUD op is
-// supported; datasources tolerate empty TFName when response_interface is
-// fully declared.
-//
-// Exported so cmd/schemagen can run defaulting before emitting the
-// proto-validator (which needs cfg.API.ResourceType). Idempotent;
-// PlanFlattenExpand calls it again internally.
+// ApplyAPIDefaults fills cfg.API from cfg.TFName for anything the yaml leaves
+// unset; yaml-declared values win. Exported because cmd/schemagen needs
+// cfg.API.ResourceType before emitting the proto-validator. Idempotent, so
+// PlanFlattenExpand calling it again is harmless.
 func ApplyAPIDefaults(cfg *Config, schemaType string) error {
 	supported, err := cfg.SupportedOperations(schemaType)
 	if err != nil {
@@ -275,7 +261,7 @@ func ResolveUpdateContractFields(cfg *Config, lookup ProtoLookup) (map[string]bo
 }
 
 // UpdateContractIdentityProtoField returns the proto field that backs the TF
-// `id` attribute — the resource's addressing key, which rides in the update
+// `id` attribute, the resource's addressing key, which rides in the update
 // payload only to identify the row, not as a mutable field. Excluding it from a
 // derived contract is what separates a real bug (resourcegroup.name: keyed by
 // id, name is renamable) from a false positive (user.name: the key itself).
@@ -589,7 +575,7 @@ func planNestedTypes(
 			if a.EchoUnwrapGoName != "" {
 				// Hoisted children read through the echo accessor; the
 				// read-shape element Expand is suppressed entirely (the model
-				// carries no echo wrapper to rebuild — the write shapes plan
+				// carries no echo wrapper to rebuild, and the write shapes plan
 				// separately against the write element, which IS the hoisted
 				// shape).
 				if child.EchoHoisted {
@@ -605,7 +591,7 @@ func planNestedTypes(
 			if child.EchoUnwrapGoName != "" {
 				// The echo list itself: flatten reorders the server echo to
 				// prev order by the identity of the hoisted (user-settable)
-				// leaves — element order is not contractual — and the
+				// leaves (element order is not contractual) and the
 				// read-shape expand is suppressed (write shapes plan
 				// separately against the write element).
 				attrTypesFn := funcSuffix + pathToPascal(child.Name) + "AttrTypes"
@@ -654,7 +640,7 @@ func planNestedTypes(
 }
 
 // echoIdentityKeyPaths returns the dotted leaf paths of an echo-unwrapped
-// attribute's hoisted children — the element's user-settable identity.
+// attribute's hoisted children, the element's user-settable identity.
 func echoIdentityKeyPaths(a *SchemaAttr) []string {
 	var out []string
 	var walk func(children []SchemaAttr, prefix string, hoistedOnly bool)
@@ -807,7 +793,7 @@ func planField(a *SchemaAttr, fc *FieldConfig, protoByName map[string]*ProtoFiel
 			// Write-only input field: expands to a write-shape proto field
 			// absent from the read shape. In the expand context protoByName is
 			// the write payload and resolves the field; in the flatten context
-			// (read dict) it does not — fall through to the pure-extra preserve
+			// (read dict) it does not, so fall through to the pure-extra preserve
 			// below so the value is carried from prev with no flatten.
 			if pf, ok := protoByName[fc.ExpandProtoName]; ok {
 				conv.Kind = FieldKindScalar
@@ -999,7 +985,7 @@ func planField(a *SchemaAttr, fc *FieldConfig, protoByName map[string]*ProtoFiel
 			// At the root level the parent type is the resource's root model
 			// (*ResourceModel / *DataModel) and we use the AsX method on it.
 			// At deeper levels we use the Decode<Path> free function emitted
-			// by collectSubConverters — it is already nil-safe and handles
+			// by collectSubConverters, which is already nil-safe and handles
 			// the IsNull / IsUnknown checks.
 			var prevExpr string
 			if isRoot {
@@ -1431,7 +1417,7 @@ func planPerRPCNestedConversions(
 }
 
 // protoOnlyResponseMethods returns ResponseMethod entries for proto fields
-// marked `proto_only: true` in the config — these fields emit no TF attribute
+// marked `proto_only: true` in the config: these fields emit no TF attribute
 // but their proto getter must remain on the synthesized response interface so
 // flatten_via helpers can call them.
 func protoOnlyResponseMethods(cfg *Config, protoByName map[string]*ProtoField, protoAlias string, existing []ResponseMethod) ([]ResponseMethod, error) {

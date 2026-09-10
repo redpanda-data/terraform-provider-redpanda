@@ -2,7 +2,6 @@
 
 // Copyright 2026 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -42,8 +41,8 @@ import (
 const networkAddr = "redpanda_network.test"
 
 // TestIntegration_Network exercises redpanda_network end-to-end against the
-// bufconn-backed fake controlplane. Network has no Update RPC — every
-// configurable field is RequiresReplace — so the scenario is: minimal
+// bufconn-backed fake controlplane. Network has no Update RPC (every
+// configurable field is RequiresReplace), so the scenario is: minimal
 // create → no-op re-plan → refresh → name-rename triggers
 // destroy-before-create.
 func TestIntegration_Network(t *testing.T) {
@@ -244,10 +243,10 @@ resource "redpanda_network" "test" {
 
 // TestIntegration_Network_CreateAndRefresh_InPlace validates the Create + no-op
 // cycle for the in-place (cidr_block) variant. Asserts every in-place leaf
-// and explicitly asserts customer_managed_resources is Null — the inverse
+// and explicitly asserts customer_managed_resources is Null, the inverse
 // variant proof that pins the variant partitioning at the state level, not
 // only in the HCL. id is captured across both steps via a shared
-// CompareValue(ValuesSame()) — the load-bearing proof that UseStateForUnknown
+// CompareValue(ValuesSame()), the load-bearing proof that UseStateForUnknown
 // preserves id across the noop.
 func TestIntegration_Network_CreateAndRefresh_InPlace(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -292,7 +291,7 @@ func TestIntegration_Network_CreateAndRefresh_InPlace(t *testing.T) {
 // TestIntegration_Network_RequiresReplace_Name_InPlace mutates `name` and asserts
 // the framework plans DestroyBeforeCreate. The load-bearing proof of an
 // actual destroy-and-recreate (rather than an unobservable in-place tweak)
-// is that the server-assigned id DIFFERS across steps — a shared
+// is that the server-assigned id DIFFERS across steps: a shared
 // CompareValue(ValuesDiffer()) captures pre- and post-replace ids.
 func TestIntegration_Network_RequiresReplace_Name_InPlace(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -356,7 +355,7 @@ func TestIntegration_Network_RequiresReplace_CloudProvider_InPlace(t *testing.T)
 }
 
 // TestIntegration_Network_RequiresReplace_ClusterType_InPlace mutates `cluster_type`
-// from "dedicated" to "byoc" (without switching to BYOVPC — cidr_block stays
+// from "dedicated" to "byoc" (without switching to BYOVPC: cidr_block stays
 // set; only the cluster_type enum changes) and asserts DestroyBeforeCreate.
 func TestIntegration_Network_RequiresReplace_ClusterType_InPlace(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -473,7 +472,7 @@ func TestIntegration_Network_RequiresReplace_CidrBlock_InPlace(t *testing.T) {
 
 // TestIntegration_Network_CreateAndRefresh_BYOVPC validates the Create + no-op cycle
 // for the BYOVPC (customer_managed_resources.aws) variant. The symmetric
-// inverse-variant proof asserts cidr_block is Null in state — pinning the
+// inverse-variant proof asserts cidr_block is Null in state, pinning the
 // variant partitioning at the state level, not only in the HCL.
 func TestIntegration_Network_CreateAndRefresh_BYOVPC(t *testing.T) {
 	_, factories := integration.Setup(t)
@@ -903,7 +902,7 @@ func TestIntegration_Network_RequiresReplace_GCPHubEgress(t *testing.T) {
 // TestIntegration_Network_ImportRoundTrip exercises the bearer-id import path.
 // Network's ImportState uses ImportStatePassthroughID on the "id" attribute,
 // so the import id is the xid-like string assigned at Create. Network's
-// ImportState does NOT call ClusterForID — no live-controlplane-lookup risk.
+// ImportState does NOT call ClusterForID: no live-controlplane-lookup risk.
 // nil idFunc tells the helper to use the bearer "id" from prior state; nil
 // verifyIgnore means every attribute must roundtrip identically.
 func TestIntegration_Network_ImportRoundTrip(t *testing.T) {

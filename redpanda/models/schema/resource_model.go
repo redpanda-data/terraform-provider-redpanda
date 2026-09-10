@@ -1,6 +1,5 @@
 // Copyright 2025 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -137,7 +136,7 @@ func (r *ResourceModel) ToSchemaRequest() sr.Schema {
 
 // convertSchemaType converts a string schema type to sr.SchemaType. Accepts
 // both the friendly form ("AVRO"/"JSON"/"PROTOBUF") and the proto-style
-// form ("SCHEMA_TYPE_AVRO"/...) — state written by earlier provider
+// form ("SCHEMA_TYPE_AVRO"/...) because state written by earlier provider
 // versions, or configs that pasted the proto-form value, must round-trip
 // cleanly. Unknown input falls back to Avro for backward compatibility.
 func (r *ResourceModel) convertSchemaType() sr.SchemaType {
@@ -186,20 +185,10 @@ func (r *ResourceModel) parseSchemaReferences() []sr.SchemaReference {
 	return references
 }
 
-// preserveUserSchemaBody returns the user's current schema body when it is
-// semantically equivalent to the registry's stored form, so the user's input
-// (formatting, declaration order, FQN-vs-relative type refs) is preserved in
-// state rather than churning to the registry's canonicalized form. Layers:
-//
-//  1. PROTOBUF: equal under the protobuf canonicalizer (Schema Registry
-//     reorders definitions and fully-qualifies in-package type refs on write).
-//  2. JSON-level: same parsed-then-canonical-encoding (whitespace + key-order
-//     tolerant) — applies to JSON and Avro bodies.
-//  3. Avro-level (only when r.SchemaType is AVRO): same Avro schema modulo
-//     namespace-relative vs FQN type references.
-//
-// Returns empty string when no layer matches, signaling the caller to use the
-// registry response as-is.
+// preserveUserSchemaBody returns the user's schema body when it is equivalent to
+// the registry's stored form, so formatting, declaration order, and FQN versus
+// relative type references do not churn state toward the registry's canonical
+// form. Empty means no equivalence held and the caller stores the registry body.
 func (r *ResourceModel) preserveUserSchemaBody(registrySchema string) string {
 	if r.Schema.IsNull() || r.Schema.IsUnknown() {
 		return ""
@@ -239,7 +228,7 @@ func (r *ResourceModel) preserveUserSchemaBody(registrySchema string) string {
 		return currentSchema
 	}
 
-	// JSON-level not equal — for Avro, the registry may have canonicalized
+	// JSON-level not equal. For Avro, the registry may have canonicalized
 	// FQN type references to their namespace-relative form. Compare under
 	// our Avro canonicalizer.
 	if strings.EqualFold(r.SchemaType.ValueString(), "AVRO") &&

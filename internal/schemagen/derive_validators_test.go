@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -50,7 +49,7 @@ func protoWithRules() *ProtoMessage {
 	}
 }
 
-// TestProtoValidators_SkipProtoValidationField — per-field opt-out from
+// TestProtoValidators_SkipProtoValidationField: per-field opt-out from
 // proto-validate cross-check. Yaml sets optional: true on a proto-required
 // field WITH skip_proto_validation: true; the field stays Optional and no
 // drift error is raised. Without the skip, the merge errors (covered by
@@ -79,7 +78,7 @@ func TestProtoValidators_SkipProtoValidationField(t *testing.T) {
 	}
 }
 
-// TestDeriveValidators_Propagation — opt-in flips a required field to TF
+// TestDeriveValidators_Propagation: opt-in flips a required field to TF
 // Required, and appends string-length summary to the bounded field's
 // description.
 func TestDeriveValidators_Propagation(t *testing.T) {
@@ -109,7 +108,7 @@ func TestDeriveValidators_Propagation(t *testing.T) {
 	}
 }
 
-// TestDeriveValidators_DatasourceSkipsRequired — datasources have every field
+// TestDeriveValidators_DatasourceSkipsRequired: datasources have every field
 // computed; the propagation logic must not flip them to Required, since the
 // API doesn't accept input from a datasource.
 func TestDeriveValidators_DatasourceSkipsRequired(t *testing.T) {
@@ -133,7 +132,7 @@ func TestDeriveValidators_DatasourceSkipsRequired(t *testing.T) {
 	}
 }
 
-// TestDeriveValidators_ComputedOverrideAllowed — when yaml explicitly marks a
+// TestDeriveValidators_ComputedOverrideAllowed: when yaml explicitly marks a
 // required field as computed_only (server populates it), no conflict; the
 // override is the legitimate way to reconcile required + server-populated.
 func TestDeriveValidators_ComputedOverrideAllowed(t *testing.T) {
@@ -149,7 +148,7 @@ func TestDeriveValidators_ComputedOverrideAllowed(t *testing.T) {
 	}
 }
 
-// TestDeriveValidators_OptionalOverrideErrors — yaml that explicitly sets
+// TestDeriveValidators_OptionalOverrideErrors: yaml that explicitly sets
 // `optional: true` on a buf.validate-required field is a drift error: it
 // hides the proto signal under a stale yaml override.
 func TestDeriveValidators_OptionalOverrideErrors(t *testing.T) {
@@ -313,7 +312,7 @@ func protoWithRepeatedRules() *ProtoMessage {
 	}
 }
 
-// TestDeriveValidators_RepeatedRules — buf.validate repeated rules become
+// TestDeriveValidators_RepeatedRules: buf.validate repeated rules become
 // plan-time list validators: max_items → SizeAtMost, min_items → SizeAtLeast,
 // unique → UniqueValues. Without these the rules only surface through
 // rpvalidate, which defers whenever the config has unknowns.
@@ -348,7 +347,7 @@ func TestDeriveValidators_RepeatedRules(t *testing.T) {
 	}
 }
 
-// TestDeriveValidators_RepeatedRulesDatasource — datasources are read-only;
+// TestDeriveValidators_RepeatedRulesDatasource: datasources are read-only;
 // no list validators are derived.
 func TestDeriveValidators_RepeatedRulesDatasource(t *testing.T) {
 	cfg := &Config{ComputedDefault: true, API: &APIConfig{}}
@@ -361,7 +360,7 @@ func TestDeriveValidators_RepeatedRulesDatasource(t *testing.T) {
 	}
 }
 
-// TestDeriveValidators_RepeatedRulesComputedOnly — a server-populated list
+// TestDeriveValidators_RepeatedRulesComputedOnly: a server-populated list
 // takes no input, so derived validators are pointless noise.
 func TestDeriveValidators_RepeatedRulesComputedOnly(t *testing.T) {
 	cfg := &Config{
@@ -377,7 +376,7 @@ func TestDeriveValidators_RepeatedRulesComputedOnly(t *testing.T) {
 	}
 }
 
-// TestDeriveValidators_RepeatedRulesMergeWithYaml — yaml-named validators and
+// TestDeriveValidators_RepeatedRulesMergeWithYaml: yaml-named validators and
 // derived rules compose via append, neither replacing the other.
 func TestDeriveValidators_RepeatedRulesMergeWithYaml(t *testing.T) {
 	cfg := &Config{

@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -13,22 +12,13 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-// Package enums holds the proto enum ↔ TF-string mappers used across the
-// provider. The bulk live in enums_gen.go, emitted by cmd/enumgen from a
-// proto walk during codegen. This file holds the carve-outs that can't be
-// derived mechanically from protoc's `_value` map because their
-// user-facing string forms aren't derivable from the proto value names:
-//   - CloudProvider: lowercase "aws"/"gcp"/"azure"
-//   - Cluster_Type:  lowercase "dedicated"/"byoc"
-//
-// String→enum mappers are non-strict (return UNSPECIFIED for unknown
-// inputs) so the generated conv code can call them in a single-value
-// expression. Callers that need explicit error handling for invalid input
-// can compare the returned enum against UNSPECIFIED.
-//
-// Every exported mapper here MUST be listed in
-// redpanda/resources/codegen.yaml `enum_carveouts:`. cmd/enumgen
-// parity-checks both directions at generation time.
+// Package enums holds the proto enum to TF-string mappers. enums_gen.go is
+// emitted by cmd/enumgen from a proto walk; this file holds the carve-outs
+// whose user-facing strings are not derivable from the proto value names.
+// Every exported mapper here must be listed under enum_carveouts in
+// redpanda/resources/codegen.yaml; enumgen fails on a mismatch either way.
+// String-to-enum mappers return UNSPECIFIED for unknown input so generated
+// conv code can call them in a single expression.
 package enums
 
 import (
@@ -306,7 +296,7 @@ func StringToSASLMechanism(s string) dataplanev1.SASLMechanism {
 // are cheap; adding more google.type enums = add another carve-out.
 //
 // google.type.DayOfWeek's values are `DAY_OF_WEEK_UNSPECIFIED`, `MONDAY`,
-// `TUESDAY`, …, `SUNDAY` — Google's convention doesn't prefix values
+// `TUESDAY`, …, `SUNDAY`. Google's convention doesn't prefix values
 // with the enum name, so .String() and _value[s] round-trip directly
 // without TrimPrefix.
 

@@ -1,6 +1,5 @@
 // Copyright 2023 Redpanda Data, Inc.
 //
-//
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
 //    You may obtain a copy of the License at
@@ -29,7 +28,7 @@ import (
 // auto-generated _name map. Referenced from schema_resource_gen.go via
 // the ACL{ResourceTypes,PatternTypes,Operations,Permissions} entries in
 // the schemagen validator registry, which emit the raw expression
-// `aclXValidator()` rather than an import path — so the helpers must
+// `aclXValidator()` rather than an import path, so the helpers must
 // stay package-local.
 
 const (
