@@ -1,7 +1,6 @@
 version: '3'
 
 vars:
-  CLI_ARGS: '{{.CLI_ARGS | default ""}}'
   GOLANGCI_LINT: "{{.BUILD_ROOT}}/bin/golangci-lint"
 
 tasks:
