@@ -4029,3 +4029,30 @@ func TestIntegration_Cluster_LegacyMTLS_OutOfBandEnablePlansClean(t *testing.T) 
 		},
 	})
 }
+
+// TestIntegration_Cluster_ConnectionsManaged_LegacyReturnRejected pins the
+// connections-managed marker: a cluster created through connections cannot
+// later drop them in favour of connection_type, which would otherwise plan as
+// a silent no-op. The marker is stamped on create and read on the next plan.
+func TestIntegration_Cluster_ConnectionsManaged_LegacyReturnRejected(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-conn-managed"
+	kafkaConns := tfjsonpath.New("kafka_api").AtMapKey("connections")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				awsByocNoConnTypeConfig(name, dualAllServices(dualSaslConns)...),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, kafkaConns, knownvalue.ListSizeExact(2)),
+				}),
+			{
+				Config:      awsByocLegacyConfig(name, "public"),
+				ExpectError: regexp.MustCompile(`Cluster Managed Through Connections`),
+			},
+			integration.NoopReapplyStep(clusterAddr, awsByocNoConnTypeConfig(name, dualAllServices(dualSaslConns)...), nil),
+		},
+	})
+}
