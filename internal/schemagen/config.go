@@ -15,7 +15,10 @@
 package schemagen
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
 
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/fileutil"
 	"gopkg.in/yaml.v3"
@@ -302,7 +305,7 @@ func LoadConfig(path string) (*Config, error) {
 			return nil, fmt.Errorf("failed to marshal api block in %s: %w", path, err)
 		}
 		var api APIConfig
-		if err := yaml.Unmarshal(apiData, &api); err != nil {
+		if err := decodeStrict(apiData, &api); err != nil {
 			return nil, fmt.Errorf("failed to parse api block in %s: %w", path, err)
 		}
 		cfg.API = &api
@@ -467,8 +470,19 @@ func parseFieldConfig(val any) (FieldConfig, error) {
 		return FieldConfig{}, err
 	}
 	var fc FieldConfig
-	if err := yaml.Unmarshal(fieldData, &fc); err != nil {
+	if err := decodeStrict(fieldData, &fc); err != nil {
 		return FieldConfig{}, err
 	}
 	return fc, nil
+}
+
+// A misspelled directive would otherwise decode as absent and generate the
+// field with the wrong shape, which no test tier catches.
+func decodeStrict(data []byte, out any) error {
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	if err := dec.Decode(out); err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+	return nil
 }

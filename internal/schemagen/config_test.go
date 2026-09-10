@@ -142,3 +142,36 @@ func TestLoadConfig_RejectsDescriptionKey(t *testing.T) {
 		t.Errorf("fields NAMED description/state_description must load; got %v", err)
 	}
 }
+
+// A misspelled directive must fail the load, not generate the field as if
+// the directive were absent.
+func TestLoadConfig_RejectsUnknownKeys(t *testing.T) {
+	load := func(t *testing.T, src string) error {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), "schema.yaml")
+		if err := os.WriteFile(path, []byte(src), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		_, err := LoadConfig(path)
+		return err
+	}
+	cases := map[string]string{
+		"top-level field": "name:\n  requiredx: true\n",
+		"nested field":    "outer:\n  fields:\n    inner:\n      computd: true\n",
+		"api block":       "api:\n  servce: ClusterService\n",
+	}
+	for name, src := range cases {
+		t.Run(name, func(t *testing.T) {
+			err := load(t, src)
+			if err == nil {
+				t.Fatal("want unknown-key error, got nil")
+			}
+			if !strings.Contains(err.Error(), "not found") && !strings.Contains(err.Error(), "unknown") {
+				t.Fatalf("error does not name the unknown key: %v", err)
+			}
+		})
+	}
+	if err := load(t, "name:\n  required: true\n"); err != nil {
+		t.Fatalf("known key rejected: %v", err)
+	}
+}
