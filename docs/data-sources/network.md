@@ -45,6 +45,7 @@ Read-Only:
 - `dynamodb_table` (Attributes) AWS DynamoDB table specification. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--dynamodb_table))
 - `management_bucket` (Attributes) AWS storage bucket properties by ARN. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--management_bucket))
 - `private_subnets` (Attributes) AWS Subnets Specification (see [below for nested schema](#nestedatt--customer_managed_resources--aws--private_subnets))
+- `public_subnets` (Attributes) Public Subnets configuration (see [below for nested schema](#nestedatt--customer_managed_resources--aws--public_subnets))
 - `vpc` (Attributes) AWS VPC Specification (see [below for nested schema](#nestedatt--customer_managed_resources--aws--vpc))
 
 <a id="nestedatt--customer_managed_resources--aws--dynamodb_table"></a>
@@ -69,6 +70,14 @@ Required:
 Required:
 
 - `arns` (List of String) AWS subnet identifiers.
+
+
+<a id="nestedatt--customer_managed_resources--aws--public_subnets"></a>
+### Nested Schema for `customer_managed_resources.aws.public_subnets`
+
+Required:
+
+- `arns` (List of String) Arns
 
 
 <a id="nestedatt--customer_managed_resources--aws--vpc"></a>

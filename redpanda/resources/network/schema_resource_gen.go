@@ -81,17 +81,17 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 				Optional:    true,
 				Attributes: map[string]schema.Attribute{
 					"aws": schema.SingleNestedAttribute{
-						Description:   "The AWS resources managed by user.",
-						Optional:      true,
-						PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
+						Description: "The AWS resources managed by user.",
+						Optional:    true,
 						Attributes: map[string]schema.Attribute{
 							"dynamodb_table": schema.SingleNestedAttribute{
 								Description: "AWS DynamoDB table specification.",
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description: "AWS DynamoDB table identifier.",
-										Required:    true,
+										Description:   "AWS DynamoDB table identifier.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
@@ -100,8 +100,9 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description: "AWS storage bucket identifier.",
-										Required:    true,
+										Description:   "AWS storage bucket identifier.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
@@ -110,10 +111,11 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arns": schema.ListAttribute{
-										Description: "AWS subnet identifiers. Items must be unique.",
-										Required:    true,
-										Validators:  []validator.List{listvalidator.UniqueValues()},
-										ElementType: types.StringType,
+										Description:   "AWS subnet identifiers. Items must be unique.",
+										Required:      true,
+										PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
+										Validators:    []validator.List{listvalidator.UniqueValues()},
+										ElementType:   types.StringType,
 									},
 								},
 							},
@@ -122,39 +124,56 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description: "AWS VPC identifier. Must match pattern `^arn:[a-z\\-]{3,}:ec2:[a-z0-9\\-]+:[0-9]+:vpc\\/.+$`.",
+										Description:   "AWS VPC identifier. Must match pattern `^arn:[a-z\\-]{3,}:ec2:[a-z0-9\\-]+:[0-9]+:vpc\\/.+$`.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+									},
+								},
+							},
+							"public_subnets": schema.SingleNestedAttribute{
+								Description:   "Public Subnets configuration",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.Object{publicSubnetsWriteOnce()},
+								Attributes: map[string]schema.Attribute{
+									"arns": schema.ListAttribute{
+										Description: "Arns. Items must be unique.",
 										Required:    true,
+										Validators:  []validator.List{listvalidator.UniqueValues()},
+										ElementType: types.StringType,
 									},
 								},
 							},
 						},
 					},
 					"gcp": schema.SingleNestedAttribute{
-						Description:   "GCP resources created and managed by user, and required to deploy the Redpanda cluster. See [Create a BYOVPC Cluster on GCP](https://docs.redpanda.com/redpanda-cloud/get-started/cluster-types/byoc/gcp/vpc-byo-gcp/) for details.",
-						Optional:      true,
-						PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
+						Description: "GCP resources created and managed by user, and required to deploy the Redpanda cluster. See [Create a BYOVPC Cluster on GCP](https://docs.redpanda.com/redpanda-cloud/get-started/cluster-types/byoc/gcp/vpc-byo-gcp/) for details.",
+						Optional:    true,
 						Attributes: map[string]schema.Attribute{
 							"management_bucket": schema.SingleNestedAttribute{
 								Description: "GCP storage bucket properties.",
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"name": schema.StringAttribute{
-										Description: "Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.",
-										Required:    true,
+										Description:   "Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
 							"network_name": schema.StringAttribute{
-								Description: "Name of user-created network where the Redpanda cluster is deployed to. See the official [GCP API reference](https://cloud.google.com/compute/docs/reference/rest/v1/networks). Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`.",
-								Required:    true,
+								Description:   "Name of user-created network where the Redpanda cluster is deployed to. See the official [GCP API reference](https://cloud.google.com/compute/docs/reference/rest/v1/networks). Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`.",
+								Required:      true,
+								PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 								Validators: []validator.String{stringvalidator.RegexMatches(
 									regexp.MustCompile(`^[a-z]([-a-z0-9]*[a-z0-9])?$`),
 									"must start with a lowercase letter and can only contain lowercase letters, numbers, and hyphens, and must end with a letter or number",
 								), stringvalidator.LengthAtMost(62)},
 							},
 							"network_project_id": schema.StringAttribute{
-								Description: "GCP project ID where the network is created. Length must be at most 30. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`.",
-								Required:    true,
+								Description:   "GCP project ID where the network is created. Length must be at most 30. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`.",
+								Required:      true,
+								PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 								Validators: []validator.String{stringvalidator.RegexMatches(
 									regexp.MustCompile(`^[a-z]([-a-z0-9]*[a-z0-9])?$`),
 									"must start with a lowercase letter and can only contain lowercase letters, numbers, and hyphens, and must end with a letter or number",
@@ -247,6 +266,7 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 
 			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
 				Create: true,
+				Update: true,
 				Delete: true,
 			}),
 		},

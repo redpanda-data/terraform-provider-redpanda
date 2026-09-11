@@ -57,6 +57,7 @@ type DataCustomerManagedResourcesAWSModel struct {
 	DynamodbTable    types.Object `tfsdk:"dynamodb_table"`
 	ManagementBucket types.Object `tfsdk:"management_bucket"`
 	PrivateSubnets   types.Object `tfsdk:"private_subnets"`
+	PublicSubnets    types.Object `tfsdk:"public_subnets"`
 	VPC              types.Object `tfsdk:"vpc"`
 }
 
@@ -78,6 +79,13 @@ type DataCustomerManagedResourcesAWSManagementBucketModel struct {
 // converters on the parent struct to move between types.Object and this
 // typed form.
 type DataCustomerManagedResourcesAWSPrivateSubnetsModel struct {
+	Arns types.List `tfsdk:"arns"`
+}
+
+// DataCustomerManagedResourcesAWSPublicSubnetsModel mirrors the nested "customer_managed_resources.aws.public_subnets" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesAWSPublicSubnetsModel struct {
 	Arns types.List `tfsdk:"arns"`
 }
 
@@ -154,6 +162,7 @@ func DataCustomerManagedResourcesAWSAttrTypes() map[string]attr.Type {
 		"dynamodb_table":    types.ObjectType{AttrTypes: DataCustomerManagedResourcesAWSDynamodbTableAttrTypes()},
 		"management_bucket": types.ObjectType{AttrTypes: DataCustomerManagedResourcesAWSManagementBucketAttrTypes()},
 		"private_subnets":   types.ObjectType{AttrTypes: DataCustomerManagedResourcesAWSPrivateSubnetsAttrTypes()},
+		"public_subnets":    types.ObjectType{AttrTypes: DataCustomerManagedResourcesAWSPublicSubnetsAttrTypes()},
 		"vpc":               types.ObjectType{AttrTypes: DataCustomerManagedResourcesAWSVPCAttrTypes()},
 	}
 }
@@ -177,6 +186,14 @@ func DataCustomerManagedResourcesAWSManagementBucketAttrTypes() map[string]attr.
 // DataCustomerManagedResourcesAWSPrivateSubnetsAttrTypes returns the attr.Type map for the "customer_managed_resources.aws.private_subnets" nested
 // attribute.
 func DataCustomerManagedResourcesAWSPrivateSubnetsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"arns": types.ListType{ElemType: types.StringType},
+	}
+}
+
+// DataCustomerManagedResourcesAWSPublicSubnetsAttrTypes returns the attr.Type map for the "customer_managed_resources.aws.public_subnets" nested
+// attribute.
+func DataCustomerManagedResourcesAWSPublicSubnetsAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"arns": types.ListType{ElemType: types.StringType},
 	}
@@ -372,6 +389,26 @@ func DataCustomerManagedResourcesAWSPrivateSubnetsToObject(ctx context.Context, 
 		return types.ObjectNull(DataCustomerManagedResourcesAWSPrivateSubnetsAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAWSPrivateSubnetsAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesAWSPublicSubnets decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesAWSPublicSubnets(ctx context.Context, v *DataCustomerManagedResourcesAWSModel) (*DataCustomerManagedResourcesAWSPublicSubnetsModel, diag.Diagnostics) {
+	if v == nil || v.PublicSubnets.IsNull() || v.PublicSubnets.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesAWSPublicSubnetsModel
+	d := v.PublicSubnets.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesAWSPublicSubnetsToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesAWSPublicSubnetsToObject(ctx context.Context, v *DataCustomerManagedResourcesAWSPublicSubnetsModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesAWSPublicSubnetsAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesAWSPublicSubnetsAttrTypes(), v)
 }
 
 // DecodeDataCustomerManagedResourcesAWSVPC decodes the sub-field from its parent typed struct.

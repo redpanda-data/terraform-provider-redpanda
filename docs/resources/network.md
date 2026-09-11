@@ -53,6 +53,10 @@ Required:
 - `private_subnets` (Attributes) AWS Subnets Specification (see [below for nested schema](#nestedatt--customer_managed_resources--aws--private_subnets))
 - `vpc` (Attributes) AWS VPC Specification (see [below for nested schema](#nestedatt--customer_managed_resources--aws--vpc))
 
+Optional:
+
+- `public_subnets` (Attributes) Public Subnets configuration (see [below for nested schema](#nestedatt--customer_managed_resources--aws--public_subnets))
+
 <a id="nestedatt--customer_managed_resources--aws--dynamodb_table"></a>
 ### Nested Schema for `customer_managed_resources.aws.dynamodb_table`
 
@@ -83,6 +87,14 @@ Required:
 Required:
 
 - `arn` (String) AWS VPC identifier. Must match pattern `^arn:[a-z\-]{3,}:ec2:[a-z0-9\-]+:[0-9]+:vpc\/.+$`.
+
+
+<a id="nestedatt--customer_managed_resources--aws--public_subnets"></a>
+### Nested Schema for `customer_managed_resources.aws.public_subnets`
+
+Required:
+
+- `arns` (List of String) Arns. Items must be unique.
 
 
 
@@ -148,6 +160,7 @@ Optional:
 
 - `create` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 - `delete` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+- `update` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
 ## Example Usage
 
