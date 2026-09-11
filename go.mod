@@ -4,8 +4,8 @@ go 1.25.10
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260709200747-435963d16310.1
-	buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.2-20260817162420-6033b8c28212.1
-	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.12-20260817162420-6033b8c28212.1
+	buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.2-20260909215159-9e9068076a9c.1
+	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.12-20260909215159-9e9068076a9c.1
 	buf.build/gen/go/redpandadata/core/protocolbuffers/go v1.36.12-20260714112317-973b760dcc8a.1
 	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.6.2-20260728155109-06b241672bab.1
 	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.11-20260728155109-06b241672bab.1

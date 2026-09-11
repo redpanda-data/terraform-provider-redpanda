@@ -63,6 +63,8 @@ customer_managed_resources:
           fields:
             arns:
               required: true
+        public_subnets:
+          todo: true
     gcp:
       optional: true
       computed: false
