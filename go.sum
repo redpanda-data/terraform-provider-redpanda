@@ -2,10 +2,10 @@ buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-202607092007
 buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260709200747-435963d16310.1/go.mod h1:TCt1lluMFnctISJXvkIQ4x3ABrPuUKCWKyjKdkJNBpw=
 buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.12-20221127060915-a1ecdc58eccd.1 h1:1afrpQ1j4FPxf//3KjRG1is7EslI6/MJI54fNDUQbK0=
 buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.12-20221127060915-a1ecdc58eccd.1/go.mod h1:tGHWROdiYQqFpI6EFJWW82Kfbg58TqH2EGNbkGajR0E=
-buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.2-20260817162420-6033b8c28212.1 h1:/2AmNzMbFNbkTwyzniCUsyl0aGpnYqIGZ8RtuMbj8jQ=
-buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.2-20260817162420-6033b8c28212.1/go.mod h1:HgElIXyI57293Yd18cliJXwHKORrNNPKOi+8YR//9LI=
-buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.12-20260817162420-6033b8c28212.1 h1:4ca8ETFL7COJOBrH2QlgvZpjAcUYvf2chKrvCvcrn0w=
-buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.12-20260817162420-6033b8c28212.1/go.mod h1:QW86gN9SwegkSaHXISB5FkiAMoFGrsH6cyk2Z6dl4IE=
+buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.2-20260909215159-9e9068076a9c.1 h1:atwTU2OYVhTEcMiDhFNAvdgeF5vX2IJIxVZHX8i5Mo0=
+buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.2-20260909215159-9e9068076a9c.1/go.mod h1:6PRTdhRTGwUSdcMmX2u47qPdJFnonPEfydV0qWACxao=
+buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.12-20260909215159-9e9068076a9c.1 h1:gW7zoVyxqNKv+HUg9wMqJpQXE6bS8KsLzkZFsaXh98E=
+buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.12-20260909215159-9e9068076a9c.1/go.mod h1:QW86gN9SwegkSaHXISB5FkiAMoFGrsH6cyk2Z6dl4IE=
 buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.12-20260323171043-6e06f84ad823.1 h1:QU5JhJgMt4e6soYJ1owLNL0b5l6uWLLujetFOmgA214=
 buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.12-20260323171043-6e06f84ad823.1/go.mod h1:1O+pTOUPSosYIhh9BbmQqfL455/rzSEtTjGyrZiDKdc=
 buf.build/gen/go/redpandadata/core/protocolbuffers/go v1.36.12-20260714112317-973b760dcc8a.1 h1:LvnQrLKen0P61SZkJ3HAQpx0kKATtvTNRhBTv+vhdBo=
