@@ -117,6 +117,10 @@ func FlattenDataCustomerManagedResourcesAWS(ctx context.Context, proto *controlp
 		v, _ := DecodeDataCustomerManagedResourcesAWSPrivateSubnets(ctx, prev)
 		return v
 	}(), DataCustomerManagedResourcesAWSPrivateSubnetsAttrTypes(), FlattenDataCustomerManagedResourcesAWSPrivateSubnets, &diags)
+	m.PublicSubnets = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetPublicSubnets(), func() *DataCustomerManagedResourcesAWSPublicSubnetsModel {
+		v, _ := DecodeDataCustomerManagedResourcesAWSPublicSubnets(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesAWSPublicSubnetsAttrTypes(), FlattenDataCustomerManagedResourcesAWSPublicSubnets, &diags)
 	m.VPC = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetVpc(), func() *DataCustomerManagedResourcesAWSVPCModel {
 		v, _ := DecodeDataCustomerManagedResourcesAWSVPC(ctx, prev)
 		return v
@@ -134,6 +138,7 @@ func ExpandDataCustomerManagedResourcesAWS(ctx context.Context, m *DataCustomerM
 		DynamodbTable:    modelconv.ObjectToMessageWithDiags(ctx, m.DynamodbTable, ExpandDataCustomerManagedResourcesAWSDynamodbTable, &diags),
 		ManagementBucket: modelconv.ObjectToMessageWithDiags(ctx, m.ManagementBucket, ExpandDataCustomerManagedResourcesAWSManagementBucket, &diags),
 		PrivateSubnets:   modelconv.ObjectToMessageWithDiags(ctx, m.PrivateSubnets, ExpandDataCustomerManagedResourcesAWSPrivateSubnets, &diags),
+		PublicSubnets:    modelconv.ObjectToMessageWithDiags(ctx, m.PublicSubnets, ExpandDataCustomerManagedResourcesAWSPublicSubnets, &diags),
 		Vpc:              modelconv.ObjectToMessageWithDiags(ctx, m.VPC, ExpandDataCustomerManagedResourcesAWSVPC, &diags),
 	}
 	return out, diags
@@ -204,6 +209,31 @@ func FlattenDataCustomerManagedResourcesAWSPrivateSubnets(ctx context.Context, p
 
 // ExpandDataCustomerManagedResourcesAWSPrivateSubnets renders a nested model back into the proto type.
 func ExpandDataCustomerManagedResourcesAWSPrivateSubnets(ctx context.Context, m *DataCustomerManagedResourcesAWSPrivateSubnetsModel) (*controlplanev1.CustomerManagedAWSSubnets, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedAWSSubnets{
+		Arns: modelconv.ListToSliceWithDiags[string](ctx, m.Arns, &diags),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesAWSPublicSubnets converts a single proto controlplanev1.CustomerManagedAWSSubnets into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesAWSPublicSubnetsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesAWSPublicSubnets(ctx context.Context, proto *controlplanev1.CustomerManagedAWSSubnets, prev *DataCustomerManagedResourcesAWSPublicSubnetsModel) (DataCustomerManagedResourcesAWSPublicSubnetsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesAWSPublicSubnetsModel{}
+	m.Arns = modelconv.ListFromSliceWithDiags(ctx, proto.GetArns(), types.StringType, &diags)
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesAWSPublicSubnets renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesAWSPublicSubnets(ctx context.Context, m *DataCustomerManagedResourcesAWSPublicSubnetsModel) (*controlplanev1.CustomerManagedAWSSubnets, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if m == nil {
 		return nil, diags
