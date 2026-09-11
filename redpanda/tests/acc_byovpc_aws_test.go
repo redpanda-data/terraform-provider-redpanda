@@ -36,6 +36,14 @@ func TestAcc_Cluster_BYOVPC_AWS(t *testing.T) {
 	if err := json.Unmarshal([]byte(privateSubnetArnsEnv), &privateSubnetArns); err != nil {
 		t.Fatalf("Error parsing private subnet ARNs: %v", err)
 	}
+	// Unset unless the lane opts in (task var PUBLIC_SUBNETS): registering
+	// public subnets needs the dual-listener preview flag on the org.
+	var publicSubnetArns []string
+	if env := os.Getenv("RP_PUBLIC_SUBNET_ARNS"); env != "" {
+		if err := json.Unmarshal([]byte(env), &publicSubnetArns); err != nil {
+			t.Fatalf("Error parsing public subnet ARNs: %v", err)
+		}
+	}
 	var zones []string
 	zonesEnv := os.Getenv("AWS_ZONES")
 	if err := json.Unmarshal([]byte(zonesEnv), &zones); err != nil {
@@ -85,5 +93,9 @@ func TestAcc_Cluster_BYOVPC_AWS(t *testing.T) {
 		customVars["zones"] = config.ListVariable(zonesVars...)
 	}
 
-	testRunnerClusterWithAwsPrivateLinkToggle(ctx, name, rename, acc.RedpandaVersion, acc.AwsByocVpcClusterDir, customVars, t)
+	var opts []runnerOpt
+	if len(publicSubnetArns) > 0 {
+		opts = append(opts, withNetworkPublicSubnets(publicSubnetArns))
+	}
+	testRunnerClusterWithAwsPrivateLinkToggle(ctx, name, rename, acc.RedpandaVersion, acc.AwsByocVpcClusterDir, customVars, t, opts...)
 }

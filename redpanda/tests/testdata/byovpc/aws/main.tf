@@ -20,6 +20,13 @@ variable "vpc_arn" {
 variable "private_subnet_arns" {
   type = list(string)
 }
+# Empty leaves public_subnets out of the config: the released provider the
+# upgrade entry runs first cannot carry it, and the runner adds it in a later
+# step to exercise the in-place adoption path.
+variable "public_subnet_arns" {
+  type    = list(string)
+  default = []
+}
 resource "redpanda_network" "test" {
   name              = var.network_name
   resource_group_id = redpanda_resource_group.test.id
@@ -40,6 +47,9 @@ resource "redpanda_network" "test" {
       private_subnets = {
         arns = var.private_subnet_arns
       }
+      public_subnets = length(var.public_subnet_arns) > 0 ? {
+        arns = var.public_subnet_arns
+      } : null
     }
   }
 }

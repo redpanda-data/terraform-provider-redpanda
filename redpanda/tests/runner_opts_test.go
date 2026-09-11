@@ -19,12 +19,21 @@ package tests
 // runnerOpt tunes runner behavior.
 type runnerOpt func(*runnerCfg)
 
-type runnerCfg struct{ skipUpgradeEntry bool }
+type runnerCfg struct {
+	skipUpgradeEntry bool
+	// networkPublicSubnetARNs, when set, adds a step after create that
+	// registers public subnets on the network in place.
+	networkPublicSubnetARNs []string
+}
 
 // withoutUpgradeEntry skips the provider-upgrade entry for configs the
 // released provider cannot parse yet (unreleased schema features). Remove the
 // caller's use once a release ships the feature.
 func withoutUpgradeEntry() runnerOpt { return func(c *runnerCfg) { c.skipUpgradeEntry = true } }
+
+func withNetworkPublicSubnets(arns []string) runnerOpt {
+	return func(c *runnerCfg) { c.networkPublicSubnetARNs = arns }
+}
 
 func resolveRunnerOpts(opts []runnerOpt) runnerCfg {
 	cfg := runnerCfg{}

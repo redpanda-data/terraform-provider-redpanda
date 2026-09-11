@@ -19,6 +19,7 @@ package tests
 import (
 	"context"
 	"maps"
+	"strconv"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/config"
@@ -50,8 +51,22 @@ func testRunnerClusterWithAwsPrivateLinkToggle(ctx context.Context, name, rename
 		origTestCaseVars["version"] = config.StringVariable(version)
 	}
 
+	cfg := resolveRunnerOpts(opts)
+
+	// Public subnets are registered on the network after create so the step
+	// exercises the in-place adoption path; the released provider in the
+	// upgrade entry cannot carry the block at all. Later steps keep them.
+	adoptVars := origTestCaseVars
+	if len(cfg.networkPublicSubnetARNs) > 0 {
+		arns := make([]config.Variable, len(cfg.networkPublicSubnetARNs))
+		for i, arn := range cfg.networkPublicSubnetARNs {
+			arns[i] = config.StringVariable(arn)
+		}
+		adoptVars = withVar(origTestCaseVars, "public_subnet_arns", config.ListVariable(arns...))
+	}
+
 	updateTestCaseVars := make(map[string]config.Variable)
-	maps.Copy(updateTestCaseVars, origTestCaseVars)
+	maps.Copy(updateTestCaseVars, adoptVars)
 	updateTestCaseVars["cluster_name"] = config.StringVariable(rename)
 	updateTestCaseVars["cluster_allow_deletion"] = config.BoolVariable(true)
 
@@ -95,7 +110,7 @@ func testRunnerClusterWithAwsPrivateLinkToggle(ctx context.Context, name, rename
 	}))
 
 	var steps []resource.TestStep
-	if !resolveRunnerOpts(opts).skipUpgradeEntry {
+	if !cfg.skipUpgradeEntry {
 		steps = acc.UpgradeEntrySteps(t, testFile, origTestCaseVars)
 	}
 	steps = append(steps, []resource.TestStep{
@@ -118,6 +133,27 @@ func testRunnerClusterWithAwsPrivateLinkToggle(ctx context.Context, name, rename
 			ImportStateVerifyIgnore:  []string{"tags", "allow_deletion"},
 			ProtoV6ProviderFactories: acc.ProtoV6Factories,
 		},
+	}...)
+	if len(cfg.networkPublicSubnetARNs) > 0 {
+		steps = append(steps, resource.TestStep{
+			ConfigDirectory: config.StaticDirectory(testFile),
+			ConfigVariables: adoptVars,
+			ConfigPlanChecks: resource.ConfigPlanChecks{
+				PreApply: []plancheck.PlanCheck{
+					plancheck.ExpectResourceAction(acc.NetworkResourceName, plancheck.ResourceActionUpdate),
+					plancheck.ExpectResourceAction(acc.ClusterResourceName, plancheck.ResourceActionNoop),
+				},
+				PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+			},
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(acc.NetworkResourceName,
+					"customer_managed_resources.aws.public_subnets.arns.#", strconv.Itoa(len(cfg.networkPublicSubnetARNs))),
+				resource.TestCheckResourceAttr(acc.ClusterResourceName, "name", name),
+			),
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		})
+	}
+	steps = append(steps, []resource.TestStep{
 		{
 			ConfigDirectory: config.StaticDirectory(testFile),
 			ConfigVariables: updateTestCaseVars,
