@@ -127,8 +127,54 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 	response.Diagnostics.Append(response.State.Set(ctx, state)...)
 }
 
-// Update is not supported for network. As a result all configurable schema elements have been marked as RequiresReplace.
-func (*Network) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
+// Update sends only the leaves that differ from prior state under a field
+// mask. The control plane accepts one leaf on this path,
+// customer_managed_resources.aws.public_subnets, and its mapper collapses the
+// bare customer_managed_resources mask entry the diff emits onto that leaf.
+func (n *Network) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
+	var plan, state networkmodel.ResourceModel
+	response.Diagnostics.Append(request.Plan.Get(ctx, &plan)...)
+	response.Diagnostics.Append(request.State.Get(ctx, &state)...)
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	payload, mask, expandDiags := networkmodel.ExpandUpdateWithMask(ctx, &plan, &state)
+	response.Diagnostics.Append(expandDiags...)
+	if response.Diagnostics.HasError() {
+		return
+	}
+	if len(mask.GetPaths()) != 0 {
+		payload.Id = plan.ID.ValueString()
+		tflog.Info(ctx, "updating network", map[string]any{"network_id": payload.Id, "paths": mask.GetPaths()})
+		netResp, err := n.CpCl.Network.UpdateNetwork(ctx, &controlplanev1.UpdateNetworkRequest{Network: payload, UpdateMask: mask})
+		if err != nil {
+			response.Diagnostics.AddError("failed to update network", utils.DeserializeGrpcError(err))
+			return
+		}
+		updateTimeout, diags := plan.Timeouts.Update(ctx, 15*time.Minute)
+		response.Diagnostics.Append(diags...)
+		if response.Diagnostics.HasError() {
+			return
+		}
+		if err := utils.AreWeDoneYet(ctx, netResp.GetOperation(), updateTimeout, n.CpCl.Operation); err != nil {
+			response.Diagnostics.AddError("failed waiting for network update", utils.DeserializeGrpcError(err))
+			return
+		}
+	}
+
+	nw, err := n.CpCl.NetworkForID(ctx, plan.ID.ValueString())
+	if err != nil {
+		response.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", plan.ID.ValueString()), utils.DeserializeGrpcError(err))
+		return
+	}
+	newState, flatDiags := networkmodel.Flatten(ctx, nw, &plan)
+	response.Diagnostics.Append(flatDiags...)
+	if response.Diagnostics.HasError() {
+		return
+	}
+	tflog.Info(ctx, "network updated", map[string]any{"network_id": nw.GetId()})
+	response.Diagnostics.Append(response.State.Set(ctx, newState)...)
 }
 
 // Delete deletes the Network resource.
