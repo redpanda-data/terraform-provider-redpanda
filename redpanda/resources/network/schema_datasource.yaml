@@ -45,7 +45,9 @@ customer_managed_resources:
             arns:
               required: true
         public_subnets:
-          todo: true
+          fields:
+            arns:
+              required: true
     gcp:
       fields:
         network_name:
