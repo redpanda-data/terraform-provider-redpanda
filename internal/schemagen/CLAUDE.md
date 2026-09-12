@@ -33,6 +33,7 @@ Do not combine `extra`/`deprecated` with a proto-backed field: `merger.go` appen
 - A `oneof` arm the user selects is never `Computed`.
 - A field the server defaults is `Optional` + `Computed` + `UseStateForUnknown`, not `Optional` with a flatten workaround.
 - `merger.go` returns errors as a hard failure for `cmd/schemagen`; warnings are printed and must be read, never silenced.
+- A proto field with no yaml entry fails generation on every schema type once the schema's golden exists; datasources default undeclared fields to computed, so without this an unreleased upstream field ships on the next pin bump. `todo:` or `exclude:` is the explicit decision; `-todo` writes the placeholders.
 
 ## Tests
 

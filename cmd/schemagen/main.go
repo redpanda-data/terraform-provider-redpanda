@@ -241,6 +241,11 @@ func run(cloudv2Root, protoPkg, messageName, configPath, funcName, schemaType, o
 		return err
 	}
 	reportUncoveredFields(uncovered, cfg.WriteShapeIndex(), todoMode)
+	if !todoMode {
+		if err := schemagen.UncoveredFieldsError(uncovered, accepted != nil); err != nil {
+			return err
+		}
+	}
 	if schemaType != schemagen.SchemaTypeDatasource {
 		// Asymmetric APIs carry input rules on the create payload, not the
 		// walked read shape; enrich before Merge so validator and description
