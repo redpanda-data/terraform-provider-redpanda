@@ -111,3 +111,21 @@ func hasKeptAncestor(path string, kept map[string]struct{}) bool {
 	}
 	return false
 }
+
+// UncoveredFieldsError turns proto fields with no yaml entry into a hard stop
+// once a golden exists to say which defaults are already accepted. Without
+// it a datasource, which defaults undeclared fields to computed, ships every
+// new upstream field on the next pin bump behind a warning that is easy to
+// miss. Before the first golden (bootstrap) the caller keeps warning instead.
+func UncoveredFieldsError(uncovered []UncoveredField, hasGolden bool) error {
+	if !hasGolden || len(uncovered) == 0 {
+		return nil
+	}
+	paths := make([]string, len(uncovered))
+	for i, u := range uncovered {
+		paths[i] = u.Path
+	}
+	sort.Strings(paths)
+	return fmt.Errorf("%d proto field(s) have no config entry: %s — add an entry, or exclude:/todo: the field out of the schema (run with -todo to add placeholders)",
+		len(paths), strings.Join(paths, ", "))
+}
