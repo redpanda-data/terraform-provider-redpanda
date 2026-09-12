@@ -13,6 +13,27 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 
 {{ .SchemaMarkdown | trimspace }}
 
+## Attributes that force cluster replacement
+
+Some attributes cannot be updated in place. Changing any of them causes Terraform to plan a replacement: the existing cluster is destroyed and a new one is created, resulting in data loss.
+
+The `allow_deletion` attribute gates this behavior. With `allow_deletion = false` (the default), an apply that requires replacement fails with `cluster deletion not allowed` and the cluster is preserved. With `allow_deletion = true`, Terraform destroys and recreates the cluster, so always review the plan output for attributes marked `forces replacement` before applying.
+
+Changing any of the following top-level attributes forces replacement:
+
+- `cloud_provider`
+- `cluster_type`
+- `connection_type`
+- `network_id`
+- `redpanda_version`
+- `region`
+- `resource_group_id`
+- `zones`
+
+For BYOVPC clusters, the nested `customer_managed_resources` attributes (AWS resource ARNs, GCP service account emails, and GCP subnet names) also force replacement.
+
+Note: in provider versions 1.4.1 and earlier, changing `throughput_tier` also forced replacement. Since version 1.4.2, throughput tier changes are applied in place.
+
 ## Example Usage
 
 {{ tffile "examples/docs/cluster/main.tf" }}
