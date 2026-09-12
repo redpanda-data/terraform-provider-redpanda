@@ -13,7 +13,7 @@ Flag only high-signal issues:
 - Test-tier mismatch: a behavior that could be a unit or integration test landing as live acc, or a live-only behavior with no acc coverage.
 - Commit-shape violations: regenerated output mixed into a hand-written commit, ticket or PR numbers in messages.
 
-If you are not certain an issue is real, do not flag it. Verify against the proto in `../cloudv2` or `../console` before flagging a writability claim.
+If you are not certain an issue is real, do not flag it. Verify against the proto in `../cloudv2` or `../console` before flagging a writability claim. Before flagging plan or apply behavior, show a config that reaches it and survives the validators that run first.
 
 ## Filter out
 
@@ -34,4 +34,4 @@ Flag a new or edited comment when it:
 
 ## Report format
 
-Most severe first. For each finding: file and line, one-sentence defect, the concrete failure scenario. Say "LGTM" when nothing clears the bar.
+Most severe first. For each finding: file and line, one-sentence defect, the concrete failure scenario, and what it was verified against. Say "LGTM" when nothing clears the bar. A short "verified clean" list is fine when it saves the author a check they would otherwise repeat; cap it at five lines.
