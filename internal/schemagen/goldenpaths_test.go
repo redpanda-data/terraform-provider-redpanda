@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -174,5 +175,51 @@ func TestFilterUncoveredByGolden_DropsNestedUnderKeptAncestor(t *testing.T) {
 	sort.Strings(wantPaths)
 	if !reflect.DeepEqual(gotPaths, wantPaths) {
 		t.Errorf("expected sandbox.url suppressed under new 'sandbox'; aws children kept (parent accepted).\nwant: %v\ngot:  %v", wantPaths, gotPaths)
+	}
+}
+
+// A proto field with no yaml entry that the golden has not accepted must stop
+// generation on every schema type; datasources default undeclared fields to
+// computed, which is how an unreleased upstream field reaches users.
+func TestUncoveredFieldsError(t *testing.T) {
+	cases := []struct {
+		name      string
+		uncovered []UncoveredField
+		hasGolden bool
+		wantErr   bool
+		wantPaths []string
+	}{
+		{name: "nothing uncovered", hasGolden: true},
+		{
+			name:      "bootstrap without a golden only warns",
+			uncovered: []UncoveredField{{Path: "sandbox"}},
+			hasGolden: false,
+		},
+		{
+			name:      "truly-new field fails",
+			uncovered: []UncoveredField{{Path: "customer_managed_resources.aws.public_subnets"}, {Path: "sandbox"}},
+			hasGolden: true,
+			wantErr:   true,
+			wantPaths: []string{"customer_managed_resources.aws.public_subnets", "sandbox"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := UncoveredFieldsError(tc.uncovered, tc.hasGolden)
+			if !tc.wantErr {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			for _, want := range append(tc.wantPaths, "-todo") {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error %q does not mention %q", err.Error(), want)
+				}
+			}
+		})
 	}
 }

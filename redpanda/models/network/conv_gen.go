@@ -22,7 +22,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/modelconv"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils/enums"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 type NetworkResponse interface {
@@ -81,6 +83,36 @@ func ExpandCreate(ctx context.Context, m *ResourceModel) (*controlplanev1.Create
 		Network: payload,
 	}
 	return req, diags
+}
+
+// ExpandUpdate renders a *ResourceModel into the proto request envelope for
+// the corresponding RPC.
+func ExpandUpdate(ctx context.Context, m *ResourceModel) (*controlplanev1.NetworkUpdate, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	payload := &controlplanev1.NetworkUpdate{
+		CustomerManagedResources: modelconv.ObjectToMessageWithDiags(ctx, m.CustomerManagedResources, ExpandUpdateCustomerManagedResources, &diags),
+		EgressSpec:               modelconv.ObjectToMessageWithDiags(ctx, m.EgressSpec, ExpandEgressSpec, &diags),
+		Id:                       m.ID.ValueString(),
+	}
+	return payload, diags
+}
+
+// ExpandUpdateWithMask expands plan and state via ExpandUpdate, then returns the
+// value to send plus a FieldMask of the changed top-level fields. mask.Paths is
+// empty when nothing the backend tracks changed — callers use that to skip the
+// update RPC entirely.
+func ExpandUpdateWithMask(ctx context.Context, plan, state *ResourceModel) (*controlplanev1.NetworkUpdate, *fieldmaskpb.FieldMask, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	planPayload, planDiags := ExpandUpdate(ctx, plan)
+	diags.Append(planDiags...)
+	statePayload, stateDiags := ExpandUpdate(ctx, state)
+	diags.Append(stateDiags...)
+	if diags.HasError() {
+		var zero *controlplanev1.NetworkUpdate
+		return zero, nil, diags
+	}
+	payload, mask := utils.GenerateProtobufDiffAndUpdateMask(planPayload, statePayload)
+	return payload, mask, diags
 }
 
 // ExpandDelete renders a *ResourceModel into the proto request envelope for
@@ -154,6 +186,10 @@ func FlattenCustomerManagedResourcesAWS(ctx context.Context, proto *controlplane
 		v, _ := DecodeCustomerManagedResourcesAWSVPC(ctx, prev)
 		return v
 	}(), CustomerManagedResourcesAWSVPCAttrTypes(), FlattenCustomerManagedResourcesAWSVPC, &diags)
+	m.PublicSubnets = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetPublicSubnets(), func() *CustomerManagedResourcesAWSPublicSubnetsModel {
+		v, _ := DecodeCustomerManagedResourcesAWSPublicSubnets(ctx, prev)
+		return v
+	}(), CustomerManagedResourcesAWSPublicSubnetsAttrTypes(), FlattenCustomerManagedResourcesAWSPublicSubnets, &diags)
 	return m, diags
 }
 
@@ -168,6 +204,7 @@ func ExpandCustomerManagedResourcesAWS(ctx context.Context, m *CustomerManagedRe
 		ManagementBucket: modelconv.ObjectToMessageWithDiags(ctx, m.ManagementBucket, ExpandCustomerManagedResourcesAWSManagementBucket, &diags),
 		PrivateSubnets:   modelconv.ObjectToMessageWithDiags(ctx, m.PrivateSubnets, ExpandCustomerManagedResourcesAWSPrivateSubnets, &diags),
 		Vpc:              modelconv.ObjectToMessageWithDiags(ctx, m.VPC, ExpandCustomerManagedResourcesAWSVPC, &diags),
+		PublicSubnets:    modelconv.ObjectToMessageWithDiags(ctx, m.PublicSubnets, ExpandCustomerManagedResourcesAWSPublicSubnets, &diags),
 	}
 	return out, diags
 }
@@ -268,6 +305,31 @@ func ExpandCustomerManagedResourcesAWSVPC(_ context.Context, m *CustomerManagedR
 	}
 	out := &controlplanev1.CustomerManagedAWSVPC{
 		Arn: m.ARN.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenCustomerManagedResourcesAWSPublicSubnets converts a single proto controlplanev1.CustomerManagedAWSSubnets into the
+// corresponding nested model. The prev *CustomerManagedResourcesAWSPublicSubnetsModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenCustomerManagedResourcesAWSPublicSubnets(ctx context.Context, proto *controlplanev1.CustomerManagedAWSSubnets, prev *CustomerManagedResourcesAWSPublicSubnetsModel) (CustomerManagedResourcesAWSPublicSubnetsModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := CustomerManagedResourcesAWSPublicSubnetsModel{}
+	m.Arns = modelconv.ListFromSliceWithDiags(ctx, proto.GetArns(), types.StringType, &diags)
+	return m, diags
+}
+
+// ExpandCustomerManagedResourcesAWSPublicSubnets renders a nested model back into the proto type.
+func ExpandCustomerManagedResourcesAWSPublicSubnets(ctx context.Context, m *CustomerManagedResourcesAWSPublicSubnetsModel) (*controlplanev1.CustomerManagedAWSSubnets, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedAWSSubnets{
+		Arns: modelconv.ListToSliceWithDiags[string](ctx, m.Arns, &diags),
 	}
 	return out, diags
 }
@@ -438,6 +500,43 @@ func ExpandEgressSpecGCP(_ context.Context, m *EgressSpecGCPModel) (*controlplan
 	out := &controlplanev1.Network_EgressSpec_GCP{
 		HubVpcName:    m.HubVPCName.ValueString(),
 		HubVpcProject: m.HubVPCProject.ValueString(),
+	}
+	return out, diags
+}
+
+// ExpandUpdateCustomerManagedResourcesAWSPublicSubnets renders a nested model back into the proto type.
+func ExpandUpdateCustomerManagedResourcesAWSPublicSubnets(ctx context.Context, m *CustomerManagedResourcesAWSPublicSubnetsModel) (*controlplanev1.CustomerManagedAWSSubnets, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.CustomerManagedAWSSubnets{
+		Arns: modelconv.ListToSliceWithDiags[string](ctx, m.Arns, &diags),
+	}
+	return out, diags
+}
+
+// ExpandUpdateCustomerManagedResourcesAWS renders a nested model back into the proto type.
+func ExpandUpdateCustomerManagedResourcesAWS(ctx context.Context, m *CustomerManagedResourcesAWSModel) (*controlplanev1.Network_UpdatableCustomerManagedResources_AWS, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_UpdatableCustomerManagedResources_AWS{
+		PublicSubnets: modelconv.ObjectToMessageWithDiags(ctx, m.PublicSubnets, ExpandUpdateCustomerManagedResourcesAWSPublicSubnets, &diags),
+	}
+	return out, diags
+}
+
+// ExpandUpdateCustomerManagedResources renders a nested model back into the proto type.
+func ExpandUpdateCustomerManagedResources(ctx context.Context, m *CustomerManagedResourcesModel) (*controlplanev1.Network_UpdatableCustomerManagedResources, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.Network_UpdatableCustomerManagedResources{}
+	if v := modelconv.ObjectToMessageWithDiags(ctx, m.AWS, ExpandUpdateCustomerManagedResourcesAWS, &diags); v != nil {
+		out.SetAws(v)
 	}
 	return out, diags
 }

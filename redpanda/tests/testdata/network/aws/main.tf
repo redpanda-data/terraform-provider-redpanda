@@ -14,10 +14,8 @@ data "aws_availability_zones" "available" {
 }
 
 module "redpanda_byovpc" {
-  // Git-ref pin: the module's registry releases predate its rpsql support
-  // (enable_redpanda_sql). Re-pin to a registry version once a release
-  // containing that variable ships.
-  source = "git::https://github.com/redpanda-data/terraform-aws-redpanda-byovpc.git?ref=545e1eccbcea67469afeb9e10a8310590c998d23"
+  source  = "redpanda-data/redpanda-byovpc/aws"
+  version = "2.1.16"
 
   region = var.region
   public_subnet_cidrs = [
@@ -38,6 +36,7 @@ locals {
     dynamodb_table_arn                         = module.redpanda_byovpc.dynamodb_table_arn
     vpc_arn                                    = module.redpanda_byovpc.vpc_arn
     private_subnet_arns                        = jsonencode(module.redpanda_byovpc.private_subnet_arns)
+    public_subnet_arns                         = jsonencode(module.redpanda_byovpc.public_subnet_arns)
     zones                                      = jsonencode(slice(data.aws_availability_zones.available.zone_ids, 0, 3))
     permissions_boundary_policy_arn            = module.redpanda_byovpc.permissions_boundary_policy_arn
     agent_instance_profile_arn                 = module.redpanda_byovpc.agent_instance_profile_arn

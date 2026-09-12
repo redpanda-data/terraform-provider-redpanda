@@ -95,6 +95,17 @@ func DatasourceNetworkSchema(_ context.Context) schema.Schema {
 									},
 								},
 							},
+							"public_subnets": schema.SingleNestedAttribute{
+								Description: "Public Subnets configuration",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"arns": schema.ListAttribute{
+										Description: "Arns",
+										Required:    true,
+										ElementType: types.StringType,
+									},
+								},
+							},
 							"vpc": schema.SingleNestedAttribute{
 								Description: "AWS VPC Specification",
 								Computed:    true,

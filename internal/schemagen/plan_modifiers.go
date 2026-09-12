@@ -66,4 +66,10 @@ var planModifierRegistry = map[string]planModifierDef{
 		},
 		subsumesStateNullAxis: true,
 	},
+	"PublicSubnetsWriteOnce": {
+		expr: func(_ string) string {
+			return "publicSubnetsWriteOnce()"
+		},
+		subsumesStateNullAxis: true,
+	},
 }

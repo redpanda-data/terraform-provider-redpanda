@@ -71,6 +71,12 @@ Has the same requirements as the AWS BYOC Cluster in addition to ARNs for numero
 
 {{ tffile "examples/byovpc/aws/main.tf" }}
 
+### AWS BYOVPC with dual listeners
+
+A cluster that serves both a public and a private listener places its public seed load balancer in customer-provided public subnets, registered on the network as `customer_managed_resources.aws.public_subnets`. Both `public_subnets` and `connections` are preview and feature-gated; without the flag the control plane rejects them. Public subnets can be added to an existing network in place, so a BYOVPC cluster created private-only can be prepared for dual listeners without recreating the network.
+
+{{ tffile "examples/byovpc/aws-dual-listener/main.tf" }}
+
 ### GCP BYOVPC
 
 Has the same requirements as the GCP BYOC Cluster along with the additional requirement for numerous resources that the end user must create.

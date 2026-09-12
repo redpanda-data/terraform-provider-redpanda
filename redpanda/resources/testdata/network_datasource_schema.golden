@@ -44,6 +44,14 @@ attributes:
                   type: ListAttribute
                   required: true
                   element_type: basetypes.StringType
+            - name: public_subnets
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: arns
+                  type: ListAttribute
+                  required: true
+                  element_type: basetypes.StringType
             - name: vpc
               type: SingleNestedAttribute
               computed: true

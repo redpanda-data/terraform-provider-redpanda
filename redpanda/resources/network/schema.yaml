@@ -1,10 +1,17 @@
 message: "Network represents a Redpanda Cloud managed network"
 api_schema: Network
 tf_name: Network
-timeouts: [create, delete]
+timeouts: [create, update, delete]
 
-# Network has no Update RPC; every mutable schema field is RequiresReplace.
-exclude_operations: [update]
+api:
+  update:
+    # Resource code diffs plan against prev state into a sparse NetworkUpdate
+    # and wraps it in the request itself. The only leaf the control plane
+    # accepts on this path is customer_managed_resources.aws.public_subnets;
+    # egress_spec is also on the update shape but stays RequiresReplace until
+    # in-place egress changes are verified against the data plane.
+    return_payload: true
+    diff_mask: sparse
 
 name:
   required: true
@@ -39,42 +46,58 @@ customer_managed_resources:
   optional: true
   computed: false
   fields:
+    # RequiresReplace sits on the leaves: the update mask is applied per leaf,
+    # which is where the generator checks coverage against the update shape.
     aws:
       optional: true
-      plan_modifiers: [RequiresReplace]
       fields:
         management_bucket:
           required: true
           fields:
             arn:
               required: true
+              plan_modifiers: [RequiresReplace]
         dynamodb_table:
           required: true
           fields:
             arn:
               required: true
+              plan_modifiers: [RequiresReplace]
         vpc:
           required: true
           fields:
             arn:
               required: true
+              plan_modifiers: [RequiresReplace]
         private_subnets:
           required: true
+          fields:
+            arns:
+              required: true
+              plan_modifiers: [RequiresReplace]
+        # Write-once on the control plane: settable on a network that has none,
+        # never changed or cleared afterwards. The modifier in plan_modifiers.go
+        # carries the rule; the fake mirrors it on UpdateNetwork.
+        public_subnets:
+          optional: true
+          computed: true
+          plan_modifiers: [PublicSubnetsWriteOnce]
           fields:
             arns:
               required: true
     gcp:
       optional: true
       computed: false
-      plan_modifiers: [RequiresReplace]
       fields:
         network_name:
           required: true
+          plan_modifiers: [RequiresReplace]
           validator:
             - GCPResourceName
             - "LengthAtMost{n: 62}"
         network_project_id:
           required: true
+          plan_modifiers: [RequiresReplace]
           validator:
             - GCPResourceName
             - "LengthAtMost{n: 30}"
@@ -83,6 +106,7 @@ customer_managed_resources:
           fields:
             name:
               required: true
+              plan_modifiers: [RequiresReplace]
 
     azure:
       todo: true

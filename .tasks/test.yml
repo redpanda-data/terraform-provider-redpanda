@@ -190,11 +190,15 @@ tasks:
       - echo "AWS BYOC tests completed successfully"
 
   byovpc:aws:
-    desc: "Provision BYOVPC AWS infra and run TestAcc_Cluster_BYOVPC_AWS"
+    desc: "Provision BYOVPC AWS infra and run TestAcc_Cluster_BYOVPC_AWS (PUBLIC_SUBNETS=1 adds the network public-subnets step; needs the dual-listener preview flag)"
     deps:
       - :tools:install:terraform
     vars:
       AWS_REGION: '{{.AWS_REGION | default "us-east-2"}}'
+      # Off by default: registering public subnets needs the
+      # enable-public-private-listeners flag on the org, and the control plane
+      # rejects the step with PermissionDenied otherwise.
+      PUBLIC_SUBNETS: '{{.PUBLIC_SUBNETS | default ""}}'
     cmds:
       - echo "Provisioning BYOVPC AWS test infra..."
       - |
@@ -216,6 +220,7 @@ tasks:
         RP_DYNAMODB_TABLE_ARN="$(echo "$INPUTS" | jq -r '.dynamodb_table_arn')" \
         RP_VPC_ARN="$(echo "$INPUTS" | jq -r '.vpc_arn')" \
         RP_PRIVATE_SUBNET_ARNS="$(echo "$INPUTS" | jq -r '.private_subnet_arns')" \
+        RP_PUBLIC_SUBNET_ARNS="{{if .PUBLIC_SUBNETS}}$(echo "$INPUTS" | jq -r '.public_subnet_arns'){{end}}" \
         RP_PERMISSIONS_BOUNDARY_POLICY_ARN="$(echo "$INPUTS" | jq -r '.permissions_boundary_policy_arn')" \
         RP_AGENT_INSTANCE_PROFILE_ARN="$(echo "$INPUTS" | jq -r '.agent_instance_profile_arn')" \
         RP_CONNECTORS_NODE_GROUP_INSTANCE_PROFILE_ARN="$(echo "$INPUTS" | jq -r '.connectors_node_group_instance_profile_arn')" \
