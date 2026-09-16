@@ -57,6 +57,8 @@ func TestCommitMsgHook(t *testing.T) {
 		{"merge exempt", "Merge branch 'main' into feat/x\n", true, ""},
 		{"comment lines ignored", "fix(acl): retry on unavailable\n# Please enter the commit message\n# ENG-1234 mentioned only in a comment\n", true, ""},
 		{"unknown type", "refactor(cluster): split plan modifiers\n", false, "type"},
+		{"agent type", "agent(skills): add the collection state-pin verdict\n", true, ""},
+		{"agent type still needs a scope", "agent: update skills\n", false, "scope"},
 		{"capitalized description", "fix(cluster): Add retry\n", false, "lowercase"},
 		{"trailing period", "fix(cluster): add retry.\n", false, "period"},
 		{"missing space after colon", "fix(cluster):add retry\n", false, "type"},
