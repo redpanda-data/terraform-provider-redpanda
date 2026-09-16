@@ -245,6 +245,7 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 			AllowedPrincipals: append([]string(nil), spec.GetAllowedPrincipals()...),
 			ConnectConsole:    spec.GetConnectConsole(),
 			SupportedRegions:  append([]string(nil), spec.GetSupportedRegions()...),
+			Status:            awsPrivateLinkStatus(spec.GetConnectConsole()),
 		})
 	}
 	if spec := in.GetGcpPrivateServiceConnect(); spec.GetEnabled() {
@@ -252,6 +253,7 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 			Enabled:             spec.GetEnabled(),
 			GlobalAccessEnabled: spec.GetGlobalAccessEnabled(),
 			ConsumerAcceptList:  append([]*controlplanev1.GCPPrivateServiceConnectConsumer(nil), spec.GetConsumerAcceptList()...),
+			Status:              gcpPrivateServiceConnectStatus(),
 		})
 	}
 	if spec := in.GetAzurePrivateLink(); spec.GetEnabled() {
@@ -259,6 +261,7 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 			Enabled:              spec.GetEnabled(),
 			AllowedSubscriptions: append([]string(nil), spec.GetAllowedSubscriptions()...),
 			ConnectConsole:       spec.GetConnectConsole(),
+			Status:               azurePrivateLinkStatus(spec.GetConnectConsole()),
 		})
 	}
 	// Every non-Azure cluster reads back a non-nil rpsql block, disabled or not.
@@ -419,6 +422,7 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 					AllowedPrincipals: append([]string(nil), spec.GetAllowedPrincipals()...),
 					ConnectConsole:    spec.GetConnectConsole(),
 					SupportedRegions:  append([]string(nil), spec.GetSupportedRegions()...),
+					Status:            awsPrivateLinkStatus(spec.GetConnectConsole()),
 				})
 			} else if upd.HasAwsPrivateLink() {
 				cl.SetAwsPrivateLink(nil)
@@ -434,6 +438,7 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 					Enabled:              spec.GetEnabled(),
 					AllowedSubscriptions: append([]string(nil), spec.GetAllowedSubscriptions()...),
 					ConnectConsole:       spec.GetConnectConsole(),
+					Status:               azurePrivateLinkStatus(spec.GetConnectConsole()),
 				})
 			} else if upd.HasAzurePrivateLink() {
 				cl.SetAzurePrivateLink(nil)
@@ -479,6 +484,7 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 					Enabled:             spec.GetEnabled(),
 					GlobalAccessEnabled: spec.GetGlobalAccessEnabled(),
 					ConsumerAcceptList:  append([]*controlplanev1.GCPPrivateServiceConnectConsumer(nil), spec.GetConsumerAcceptList()...),
+					Status:              gcpPrivateServiceConnectStatus(),
 				})
 			} else if upd.HasGcpPrivateServiceConnect() {
 				cl.SetGcpPrivateServiceConnect(nil)

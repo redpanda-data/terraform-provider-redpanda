@@ -22,6 +22,7 @@ import (
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
@@ -573,5 +574,185 @@ func TestClusterFake_PrivateOnlyGainsPublicRejected(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "cannot gain public listeners") {
 		t.Fatalf("expected the private-only rejection, got a different error: %v", err)
+	}
+}
+
+// TestClusterFake_PrivateLinkStatusMirrorsControlPlane pins the read shape of
+// an enabled private-link block: the control plane always attaches a status
+// with an empty connection list until an endpoint connects, on create and on
+// an enabling update alike. A disabling update reads back as no block.
+func TestClusterFake_PrivateLinkStatusMirrorsControlPlane(t *testing.T) {
+	ctx := context.Background()
+	type block struct {
+		name     string
+		provider controlplanev1.CloudProvider
+		enable   func(*controlplanev1.ClusterCreate, *controlplanev1.ClusterUpdate)
+		disable  func(*controlplanev1.ClusterUpdate)
+		mask     string
+		stored   func(*controlplanev1.Cluster) bool
+		status   func(*controlplanev1.Cluster) (present bool, connections int)
+		// consolePort is nil for blocks without a console port.
+		consolePort func(*controlplanev1.Cluster) int32
+	}
+	blocks := []block{
+		{
+			name:     "aws_private_link",
+			provider: controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS,
+			enable: func(c *controlplanev1.ClusterCreate, u *controlplanev1.ClusterUpdate) {
+				spec := &controlplanev1.AWSPrivateLinkSpec{Enabled: true, AllowedPrincipals: []string{"arn:aws:iam::123456789012:root"}}
+				if c != nil {
+					c.AwsPrivateLink = spec
+				}
+				if u != nil {
+					u.AwsPrivateLink = spec
+				}
+			},
+			disable: func(u *controlplanev1.ClusterUpdate) {
+				u.AwsPrivateLink = &controlplanev1.AWSPrivateLinkSpec{Enabled: false}
+			},
+			mask:   "aws_private_link",
+			stored: func(cl *controlplanev1.Cluster) bool { return cl.GetAwsPrivateLink() != nil },
+			status: func(cl *controlplanev1.Cluster) (bool, int) {
+				st := cl.GetAwsPrivateLink().GetStatus()
+				return st != nil, len(st.GetVpcEndpointConnections())
+			},
+			consolePort: func(cl *controlplanev1.Cluster) int32 { return cl.GetAwsPrivateLink().GetStatus().GetConsolePort() },
+		},
+		{
+			name:     "gcp_private_service_connect",
+			provider: controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP,
+			enable: func(c *controlplanev1.ClusterCreate, u *controlplanev1.ClusterUpdate) {
+				spec := &controlplanev1.GCPPrivateServiceConnectSpec{Enabled: true}
+				if c != nil {
+					c.GcpPrivateServiceConnect = spec
+				}
+				if u != nil {
+					u.GcpPrivateServiceConnect = spec
+				}
+			},
+			disable: func(u *controlplanev1.ClusterUpdate) {
+				u.GcpPrivateServiceConnect = &controlplanev1.GCPPrivateServiceConnectSpec{Enabled: false}
+			},
+			mask:   "gcp_private_service_connect",
+			stored: func(cl *controlplanev1.Cluster) bool { return cl.GetGcpPrivateServiceConnect() != nil },
+			status: func(cl *controlplanev1.Cluster) (bool, int) {
+				st := cl.GetGcpPrivateServiceConnect().GetStatus()
+				return st != nil, len(st.GetConnectedEndpoints())
+			},
+		},
+		{
+			name:     "azure_private_link",
+			provider: controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE,
+			enable: func(c *controlplanev1.ClusterCreate, u *controlplanev1.ClusterUpdate) {
+				spec := &controlplanev1.AzurePrivateLinkSpec{Enabled: true, AllowedSubscriptions: []string{"00000000-0000-0000-0000-000000000000"}}
+				if c != nil {
+					c.AzurePrivateLink = spec
+				}
+				if u != nil {
+					u.AzurePrivateLink = spec
+				}
+			},
+			disable: func(u *controlplanev1.ClusterUpdate) {
+				u.AzurePrivateLink = &controlplanev1.AzurePrivateLinkSpec{Enabled: false}
+			},
+			mask:   "azure_private_link",
+			stored: func(cl *controlplanev1.Cluster) bool { return cl.GetAzurePrivateLink() != nil },
+			status: func(cl *controlplanev1.Cluster) (bool, int) {
+				st := cl.GetAzurePrivateLink().GetStatus()
+				return st != nil, len(st.GetPrivateEndpointConnections())
+			},
+			consolePort: func(cl *controlplanev1.Cluster) int32 { return cl.GetAzurePrivateLink().GetStatus().GetConsolePort() },
+		},
+	}
+	create := func(t *testing.T, f *ClusterFake, b block, enabled, connectConsole bool) string {
+		t.Helper()
+		c := &controlplanev1.ClusterCreate{
+			Name:           "tfrp-fake-" + b.name,
+			CloudProvider:  b.provider,
+			Type:           controlplanev1.Cluster_TYPE_DEDICATED,
+			ConnectionType: connTypePrivate,
+		}
+		if enabled {
+			b.enable(c, nil)
+			if connectConsole {
+				if pl := c.GetAwsPrivateLink(); pl != nil {
+					pl.ConnectConsole = proto.Bool(true)
+				}
+				if pl := c.GetAzurePrivateLink(); pl != nil {
+					pl.ConnectConsole = proto.Bool(true)
+				}
+			}
+		}
+		op, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{Cluster: c})
+		if err != nil {
+			t.Fatalf("CreateCluster: %v", err)
+		}
+		return op.GetOperation().GetResourceId()
+	}
+	read := func(t *testing.T, f *ClusterFake, id string) *controlplanev1.Cluster {
+		t.Helper()
+		got, err := f.GetCluster(ctx, &controlplanev1.GetClusterRequest{Id: id})
+		if err != nil {
+			t.Fatalf("GetCluster: %v", err)
+		}
+		return got.GetCluster()
+	}
+	for _, b := range blocks {
+		t.Run(b.name+"/create enabled attaches empty status", func(t *testing.T) {
+			f := NewClusterFake(NewOperationFake())
+			id := create(t, f, b, true, false)
+			present, conns := b.status(read(t, f, id))
+			if !present {
+				t.Fatal("enabled block read back without a status; the control plane always attaches one")
+			}
+			if conns != 0 {
+				t.Fatalf("fresh block reports %d connections, want 0", conns)
+			}
+		})
+		t.Run(b.name+"/enabling update attaches empty status", func(t *testing.T) {
+			f := NewClusterFake(NewOperationFake())
+			id := create(t, f, b, false, false)
+			upd := &controlplanev1.ClusterUpdate{Id: id}
+			b.enable(nil, upd)
+			if _, err := f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+				Cluster:    upd,
+				UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{b.mask}},
+			}); err != nil {
+				t.Fatalf("UpdateCluster: %v", err)
+			}
+			present, conns := b.status(read(t, f, id))
+			if !present {
+				t.Fatal("enabling update read back without a status; the control plane always attaches one")
+			}
+			if conns != 0 {
+				t.Fatalf("fresh block reports %d connections, want 0", conns)
+			}
+		})
+		t.Run(b.name+"/disabling update drops the block", func(t *testing.T) {
+			f := NewClusterFake(NewOperationFake())
+			id := create(t, f, b, true, false)
+			upd := &controlplanev1.ClusterUpdate{Id: id}
+			b.disable(upd)
+			if _, err := f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+				Cluster:    upd,
+				UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{b.mask}},
+			}); err != nil {
+				t.Fatalf("UpdateCluster: %v", err)
+			}
+			if b.stored(read(t, f, id)) {
+				t.Fatal("disabled block still stored; the control plane reads a disabled block back as absent")
+			}
+		})
+		if b.consolePort != nil {
+			t.Run(b.name+"/console port follows connect_console", func(t *testing.T) {
+				f := NewClusterFake(NewOperationFake())
+				if port := b.consolePort(read(t, f, create(t, f, b, true, false))); port != 0 {
+					t.Fatalf("connect_console=false reports console port %d, want 0", port)
+				}
+				if port := b.consolePort(read(t, f, create(t, f, b, true, true))); port == 0 {
+					t.Fatal("connect_console=true reports no console port")
+				}
+			})
+		}
 	}
 }
