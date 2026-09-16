@@ -168,7 +168,8 @@ Before every commit: `task ready` (or at minimum `task lint`).
 
 `type(scope): summary`. Title at most 72 characters, imperative, lowercase after the colon, no trailing period. Check `git log --oneline -- <path>` and match the scope the area already uses.
 
-- Types: `feat`, `fix`, `test`, `docs`, `chore`, `ci`. Append `!` after the scope for a breaking schema change.
+- Types: `feat`, `fix`, `test`, `docs`, `chore`, `ci`, `agent`. Append `!` after the scope for a breaking schema change.
+- `agent` is for instructions that shape how Claude and other agents work in this repo: everything under `.claude/` and every `CLAUDE.md`. Its scope names the surface: `skills`, `claude-md`, `review-policy`, `reviewer`.
 - Scope is required: the resource package or subsystem, such as `cluster`, `topic`, `schemagen`, `acc`, `deps`, `generated`.
 - One logical change per commit. Regenerated output (`*_gen.go`, goldens, `docs/`) is its own `chore(generated): ...` commit, last in the series. Fixes to code introduced on the branch fold into the introducing commit; fixes to pre-existing main code stay separate.
 - Body only when the title cannot carry the why. Wrap at 72. State the reason and the non-obvious consequence; never restate the diff. A test commit names the behavior pinned, not the bug's history.
