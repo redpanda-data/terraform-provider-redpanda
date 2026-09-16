@@ -61,6 +61,13 @@ Most common:
 - `[RequiresReplace]` — pair with immutable `optional`-only fields
 - `[UseStateForUnknown]` — anchor server-defaulted optional+computed fields against perpetual diffs (rarely needed manually — classifier emits it for top-level optional+computed)
 
+The classifier picks the state pin for every computed leaf without an override, by ancestry and leaf shape:
+- no nullable ancestor, or an Optional+Computed leaf → `UseStateForUnknown`
+- computed-only scalar or object under a nullable ancestor → `UseNonNullStateForUnknown` (a null prior means the parent block is fresh and the server fills the leaf)
+- computed-only list, set, or map under a nullable ancestor → `planmodifiers.UseStateForUnknownIfParentInState` (a proto3 repeated or map field arrives as nil when empty and flattens to null; this pin holds that null once the parent exists in state and releases it while the parent is being created)
+
+Do not add a per-leaf `plan_modifiers: [UseStateForUnknown]` for a computed-only collection to stop a "known after apply" churn; the classifier already emits the right pin, and an override prints a `WARN classifier` conflict.
+
 Proto-presence fields with server-populated defaults are `optional+computed+UseStateForUnknown`, not optional-only with Flatten workarounds.
 
 ### Sensitive / output formatting
