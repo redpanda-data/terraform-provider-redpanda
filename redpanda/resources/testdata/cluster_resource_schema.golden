@@ -85,7 +85,7 @@ attributes:
               type: ListNestedAttribute
               computed: true
               plan_modifiers:
-                - listplanmodifier.useNonNullStateForUnknown
+                - planmodifiers.useStateForUnknownIfParentInState
               attributes:
                 - name: connection_id
                   type: StringAttribute
@@ -96,7 +96,7 @@ attributes:
                   type: ListNestedAttribute
                   computed: true
                   plan_modifiers:
-                    - listplanmodifier.useNonNullStateForUnknown
+                    - planmodifiers.useStateForUnknownIfParentInState
                   attributes:
                     - name: dns_name
                       type: StringAttribute
@@ -117,7 +117,7 @@ attributes:
                   type: ListAttribute
                   computed: true
                   plan_modifiers:
-                    - listplanmodifier.useNonNullStateForUnknown
+                    - planmodifiers.useStateForUnknownIfParentInState
                   element_type: basetypes.StringType
                 - name: owner
                   type: StringAttribute
@@ -166,7 +166,7 @@ attributes:
               type: ListAttribute
               computed: true
               plan_modifiers:
-                - listplanmodifier.useNonNullStateForUnknown
+                - planmodifiers.useStateForUnknownIfParentInState
               element_type: basetypes.StringType
             - name: console_port
               type: Int32Attribute
@@ -192,7 +192,7 @@ attributes:
               type: ListNestedAttribute
               computed: true
               plan_modifiers:
-                - listplanmodifier.useNonNullStateForUnknown
+                - planmodifiers.useStateForUnknownIfParentInState
               attributes:
                 - name: connection_id
                   type: StringAttribute
@@ -687,7 +687,7 @@ attributes:
               type: ListNestedAttribute
               computed: true
               plan_modifiers:
-                - listplanmodifier.useNonNullStateForUnknown
+                - planmodifiers.useStateForUnknownIfParentInState
               attributes:
                 - name: connection_id
                   type: StringAttribute
@@ -713,7 +713,7 @@ attributes:
               type: ListAttribute
               computed: true
               plan_modifiers:
-                - listplanmodifier.useNonNullStateForUnknown
+                - planmodifiers.useStateForUnknownIfParentInState
               element_type: basetypes.StringType
             - name: kafka_api_node_base_port
               type: Int32Attribute
@@ -972,7 +972,7 @@ attributes:
           type: ListAttribute
           computed: true
           plan_modifiers:
-            - listplanmodifier.useNonNullStateForUnknown
+            - planmodifiers.useStateForUnknownIfParentInState
           element_type: basetypes.StringType
     - name: kafka_connect
       type: SingleNestedAttribute

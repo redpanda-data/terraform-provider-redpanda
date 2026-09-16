@@ -34,6 +34,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/planmodifiers"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
@@ -552,7 +553,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 							"vpc_endpoint_connections": schema.ListNestedAttribute{
 								Description:   "List of VPC endpoints with established connections to Redpanda AWS PrivateLink Endpoint Service.",
 								Computed:      true,
-								PlanModifiers: []planmodifier.List{listplanmodifier.UseNonNullStateForUnknown()},
+								PlanModifiers: []planmodifier.List{planmodifiers.ListUseStateForUnknownIfParentInState()},
 								NestedObject: schema.NestedAttributeObject{
 									Attributes: map[string]schema.Attribute{
 										"connection_id": schema.StringAttribute{
@@ -563,7 +564,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 										"dns_entries": schema.ListNestedAttribute{
 											Description:   "The list of DNS entries associated with VPC endpoint.",
 											Computed:      true,
-											PlanModifiers: []planmodifier.List{listplanmodifier.UseNonNullStateForUnknown()},
+											PlanModifiers: []planmodifier.List{planmodifiers.ListUseStateForUnknownIfParentInState()},
 											NestedObject: schema.NestedAttributeObject{
 												Attributes: map[string]schema.Attribute{
 													"dns_name": schema.StringAttribute{
@@ -587,7 +588,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 										"load_balancer_arns": schema.ListAttribute{
 											Description:   "List of load balancer ARNs.",
 											Computed:      true,
-											PlanModifiers: []planmodifier.List{listplanmodifier.UseNonNullStateForUnknown()},
+											PlanModifiers: []planmodifier.List{planmodifiers.ListUseStateForUnknownIfParentInState()},
 											ElementType:   types.StringType,
 										},
 										"owner": schema.StringAttribute{
@@ -635,7 +636,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 							"approved_subscriptions": schema.ListAttribute{
 								Description:   "These are the approved subscriptions on the private link",
 								Computed:      true,
-								PlanModifiers: []planmodifier.List{listplanmodifier.UseNonNullStateForUnknown()},
+								PlanModifiers: []planmodifier.List{planmodifiers.ListUseStateForUnknownIfParentInState()},
 								ElementType:   types.StringType,
 							},
 							"console_port": schema.Int32Attribute{
@@ -661,7 +662,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 							"private_endpoint_connections": schema.ListNestedAttribute{
 								Description:   "List of private endpoint connections to Redpanda Azure Private Link Service.",
 								Computed:      true,
-								PlanModifiers: []planmodifier.List{listplanmodifier.UseNonNullStateForUnknown()},
+								PlanModifiers: []planmodifier.List{planmodifiers.ListUseStateForUnknownIfParentInState()},
 								NestedObject: schema.NestedAttributeObject{
 									Attributes: map[string]schema.Attribute{
 										"connection_id": schema.StringAttribute{
@@ -848,7 +849,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 							"connected_endpoints": schema.ListNestedAttribute{
 								Description:   "List of VPC endpoints with established connections to GCP Private Service Connect.",
 								Computed:      true,
-								PlanModifiers: []planmodifier.List{listplanmodifier.UseNonNullStateForUnknown()},
+								PlanModifiers: []planmodifier.List{planmodifiers.ListUseStateForUnknownIfParentInState()},
 								NestedObject: schema.NestedAttributeObject{
 									Attributes: map[string]schema.Attribute{
 										"connection_id": schema.StringAttribute{
@@ -877,7 +878,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 							"dns_a_records": schema.ListAttribute{
 								Description:   "Customer-created DNS A records that point at the PSC endpoint on the consumer side.",
 								Computed:      true,
-								PlanModifiers: []planmodifier.List{listplanmodifier.UseNonNullStateForUnknown()},
+								PlanModifiers: []planmodifier.List{planmodifiers.ListUseStateForUnknownIfParentInState()},
 								ElementType:   types.StringType,
 							},
 							"kafka_api_node_base_port": schema.Int32Attribute{
@@ -1149,7 +1150,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 					"seed_brokers": schema.ListAttribute{
 						Description:   "Kafka API Seed Brokers (also known as Bootstrap servers). Deprecated: use connections[].endpoint instead.",
 						Computed:      true,
-						PlanModifiers: []planmodifier.List{listplanmodifier.UseNonNullStateForUnknown()},
+						PlanModifiers: []planmodifier.List{planmodifiers.ListUseStateForUnknownIfParentInState()},
 						ElementType:   types.StringType,
 					},
 				},
