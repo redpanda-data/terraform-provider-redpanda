@@ -40,6 +40,12 @@ const (
 	modRequiresReplace           = "RequiresReplace"
 	modUseStateForUnknown        = "UseStateForUnknown"
 	modUseNonNullStateForUnknown = "UseNonNullStateForUnknown"
+	// modUseStateForUnknownIfParentInState pins prior state, null included,
+	// whenever the enclosing object existed in prior state. It is the verdict
+	// for a computed-only collection under a nullable parent: a proto3
+	// repeated or map field arrives as nil when the server has nothing, which
+	// flattens to null, and UseNonNullStateForUnknown never holds a null.
+	modUseStateForUnknownIfParentInState = "UseStateForUnknownIfParentInState"
 	// modNone is a sentinel meaning "emit no plan modifier": it suppresses the
 	// auto-added state modifier. For a computed leaf whose value changes with a
 	// sibling (e.g. a URL empty until `enabled` flips true), a state-pin modifier
@@ -47,11 +53,14 @@ const (
 	modNone = "None"
 )
 
-func chooseStateModifier(ancestors []ancestorFrame, leafIsUserInput bool) string {
+func chooseStateModifier(ancestors []ancestorFrame, leafIsUserInput, leafIsCollection bool) string {
 	for _, a := range ancestors {
 		if a.NullablePostCreate {
 			if leafIsUserInput {
 				return modUseStateForUnknown
+			}
+			if leafIsCollection {
+				return modUseStateForUnknownIfParentInState
 			}
 			return modUseNonNullStateForUnknown
 		}
@@ -70,6 +79,13 @@ func classifierReason(ancestors []ancestorFrame, leafIsUserInput bool, verdict s
 			}
 		}
 	}
+	if verdict == modUseStateForUnknownIfParentInState {
+		for _, a := range ancestors {
+			if a.NullablePostCreate {
+				return fmt.Sprintf("ancestor %q can be null after Create and leaf is a computed_only collection: the wire sends an empty collection as absent, so the leaf is null in state and only a null-holding pin avoids perpetual diff", a.Name)
+			}
+		}
+	}
 	if leafIsUserInput {
 		for _, a := range ancestors {
 			if a.NullablePostCreate {
@@ -80,7 +96,7 @@ func classifierReason(ancestors []ancestorFrame, leafIsUserInput bool, verdict s
 	return "all ancestors are always-set (Required or computed_only)"
 }
 
-func diagnoseOverride(resourceLabel, fieldPath string, modifiers []string, ancestors []ancestorFrame, leafIsUserInput bool) {
+func diagnoseOverride(resourceLabel, fieldPath string, modifiers []string, ancestors []ancestorFrame, leafIsUserInput, leafIsCollection bool) {
 	var hasUseState, hasUseNonNull bool
 	for _, m := range modifiers {
 		switch m {
@@ -101,7 +117,7 @@ func diagnoseOverride(resourceLabel, fieldPath string, modifiers []string, ances
 			resourceLabel, fieldPath)
 		return
 	}
-	expected := chooseStateModifier(ancestors, leafIsUserInput)
+	expected := chooseStateModifier(ancestors, leafIsUserInput, leafIsCollection)
 	got := modUseStateForUnknown
 	if hasUseNonNull {
 		got = modUseNonNullStateForUnknown
@@ -135,7 +151,7 @@ func classifierDebug() bool {
 		strings.EqualFold(os.Getenv("SCHEMAGEN_CLASSIFIER_DEBUG"), "true")
 }
 
-func debugClassify(resourceLabel, fieldPath, verdict string, ancestors []ancestorFrame, leafIsUserInput bool) {
+func debugClassify(resourceLabel, fieldPath, verdict string, ancestors []ancestorFrame, leafIsUserInput, leafIsCollection bool) {
 	if !classifierDebug() {
 		return
 	}
@@ -154,6 +170,9 @@ func debugClassify(resourceLabel, fieldPath, verdict string, ancestors []ancesto
 	leafKind := "computed_only"
 	if leafIsUserInput {
 		leafKind = "optional+computed"
+	}
+	if leafIsCollection {
+		leafKind += " collection"
 	}
 	fmt.Fprintf(os.Stderr, "DEBUG classifier %s.%s → %s [ancestors: %s] [leaf: %s]\n",
 		resourceLabel, fieldPath, verdict, chain, leafKind)

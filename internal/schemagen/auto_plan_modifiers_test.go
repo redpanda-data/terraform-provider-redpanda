@@ -169,6 +169,62 @@ func TestMerge_PlanModifiers_SubsumesStateNullAxis(t *testing.T) {
 	}
 }
 
+// TestMerge_PlanModifiers_CollectionUnderNullableParent pins the verdict for a
+// computed_only repeated or map leaf under an Optional+Computed parent: the
+// wire carries an empty collection as absent, so the leaf is null in state and
+// only a null-holding pin keeps an update plan from churning it. Scalar
+// siblings keep the framework's non-null pin; a top-level collection keeps
+// plain UseStateForUnknown.
+func TestMerge_PlanModifiers_CollectionUnderNullableParent(t *testing.T) {
+	tru := true
+	proto := &ProtoMessage{
+		Name: "Thing",
+		Fields: []ProtoField{
+			{Name: "zones", Kind: KindString, Cardinality: KindRepeated},
+			{Name: "link", Kind: KindMessage, Cardinality: "singular", Nested: &ProtoMessage{
+				Name: "Link",
+				Fields: []ProtoField{
+					{Name: "conns", Kind: KindString, Cardinality: KindRepeated},
+					{Name: "labels", Kind: KindMap, MapValKind: KindString, Cardinality: KindMap},
+					{Name: "service_id", Kind: KindString, Cardinality: "singular"},
+				},
+			}},
+		},
+	}
+	cfg := &Config{
+		Fields: map[string]FieldConfig{
+			"zones": {ComputedOnly: true},
+			"link": {Optional: &tru, Computed: &tru, Fields: map[string]FieldConfig{
+				"conns":      {ComputedOnly: true},
+				"labels":     {ComputedOnly: true},
+				"service_id": {ComputedOnly: true},
+			}},
+		},
+	}
+	attrs, _, _, errs := Merge(proto, cfg, "resource", nil)
+	if len(errs) != 0 {
+		t.Fatalf("unexpected errors: %v", errs)
+	}
+	got := map[string]string{}
+	for _, a := range attrs {
+		got[a.Name] = a.PlanModifiers
+		for _, n := range a.NestedAttrs {
+			got[a.Name+"."+n.Name] = n.PlanModifiers
+		}
+	}
+	want := map[string]string{
+		"zones":           "[]planmodifier.List{listplanmodifier.UseStateForUnknown()}",
+		"link.conns":      "[]planmodifier.List{planmodifiers.ListUseStateForUnknownIfParentInState()}",
+		"link.labels":     "[]planmodifier.Map{planmodifiers.MapUseStateForUnknownIfParentInState()}",
+		"link.service_id": "[]planmodifier.String{stringplanmodifier.UseNonNullStateForUnknown()}",
+	}
+	for name, w := range want {
+		if got[name] != w {
+			t.Errorf("%s plan modifiers: got %q, want %q", name, got[name], w)
+		}
+	}
+}
+
 func maskContractProto() *ProtoMessage {
 	return &ProtoMessage{
 		Name: "Thing",

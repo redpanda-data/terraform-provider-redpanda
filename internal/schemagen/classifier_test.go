@@ -22,10 +22,11 @@ func TestChooseStateModifier(t *testing.T) {
 	optional := ancestorFrame{Name: "opt", NullablePostCreate: true}
 
 	tests := []struct {
-		name            string
-		ancestors       []ancestorFrame
-		leafIsUserInput bool
-		want            string
+		name             string
+		ancestors        []ancestorFrame
+		leafIsUserInput  bool
+		leafIsCollection bool
+		want             string
 	}{
 		{
 			name:      "top-level computed_only leaf",
@@ -91,14 +92,51 @@ func TestChooseStateModifier(t *testing.T) {
 			leafIsUserInput: true,
 			want:            modUseStateForUnknown,
 		},
+		{
+			name:             "top-level computed_only collection leaf",
+			ancestors:        nil,
+			leafIsCollection: true,
+			want:             modUseStateForUnknown,
+		},
+		{
+			name:             "all always-set ancestors, computed_only collection leaf",
+			ancestors:        []ancestorFrame{required, computedOnly},
+			leafIsCollection: true,
+			want:             modUseStateForUnknown,
+		},
+		{
+			name:             "single optional ancestor, computed_only collection leaf — nil repeated flattens to null",
+			ancestors:        []ancestorFrame{optional},
+			leafIsCollection: true,
+			want:             modUseStateForUnknownIfParentInState,
+		},
+		{
+			name:             "nullable ancestor at root, computed_only collection leaf",
+			ancestors:        []ancestorFrame{optional, required, computedOnly},
+			leafIsCollection: true,
+			want:             modUseStateForUnknownIfParentInState,
+		},
+		{
+			name:             "nullable ancestor at leaf parent, computed_only collection leaf",
+			ancestors:        []ancestorFrame{required, computedOnly, optional},
+			leafIsCollection: true,
+			want:             modUseStateForUnknownIfParentInState,
+		},
+		{
+			name:             "single optional ancestor, optional+computed collection leaf",
+			ancestors:        []ancestorFrame{optional},
+			leafIsUserInput:  true,
+			leafIsCollection: true,
+			want:             modUseStateForUnknown,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := chooseStateModifier(tc.ancestors, tc.leafIsUserInput)
+			got := chooseStateModifier(tc.ancestors, tc.leafIsUserInput, tc.leafIsCollection)
 			if got != tc.want {
-				t.Fatalf("chooseStateModifier(%v, leafIsUserInput=%v) = %q, want %q",
-					tc.ancestors, tc.leafIsUserInput, got, tc.want)
+				t.Fatalf("chooseStateModifier(%v, leafIsUserInput=%v, leafIsCollection=%v) = %q, want %q",
+					tc.ancestors, tc.leafIsUserInput, tc.leafIsCollection, got, tc.want)
 			}
 		})
 	}

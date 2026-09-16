@@ -491,7 +491,7 @@ func applyFieldConfig(attr *SchemaAttr, path string, fc FieldConfig, mc *mergeCt
 	}
 
 	if len(fc.PlanModifiers) > 0 && !mc.isDatasource {
-		diagnoseOverride(mc.resourceLabel, path, fc.PlanModifiers, mc.ancestors, attr.Optional && attr.Computed)
+		diagnoseOverride(mc.resourceLabel, path, fc.PlanModifiers, mc.ancestors, attr.Optional && attr.Computed, isCollectionAttrType(attr.AttrType))
 	}
 
 	if fc.Sensitive {
@@ -579,7 +579,7 @@ func syntheticToSchemaAttr(name string, fc FieldConfig, path string, mc *mergeCt
 	}
 	if len(fc.PlanModifiers) > 0 && !mc.isDatasource {
 		attr.PlanModifierNames = fc.PlanModifiers
-		diagnoseOverride(mc.resourceLabel, path, fc.PlanModifiers, mc.ancestors, attr.Optional && attr.Computed)
+		diagnoseOverride(mc.resourceLabel, path, fc.PlanModifiers, mc.ancestors, attr.Optional && attr.Computed, isCollectionAttrType(attr.AttrType))
 	}
 
 	attr.Validators = resolveValidatorList(fc.ValidatorNames(), name, attrType, mc.extraImports, mc)
@@ -780,8 +780,9 @@ func applyAutoPlanModifiers(attrs []SchemaAttr, ancestors []ancestorFrame, mc *m
 
 		if attrs[i].Computed && attrs[i].Default == "" && !containsStateNullModifier(names) {
 			leafIsUserInput := attrs[i].Optional && attrs[i].Computed
-			verdict := chooseStateModifier(ancestors, leafIsUserInput)
-			debugClassify(mc.resourceLabel, childPath, verdict, ancestors, leafIsUserInput)
+			leafIsCollection := isCollectionAttrType(attrs[i].AttrType)
+			verdict := chooseStateModifier(ancestors, leafIsUserInput, leafIsCollection)
+			debugClassify(mc.resourceLabel, childPath, verdict, ancestors, leafIsUserInput, leafIsCollection)
 			// Prepended: the framework marks every null-config computed attr
 			// unknown BEFORE modifiers run, so a value-comparing modifier
 			// (RequiresReplace) that fires first sees unknown != state and
@@ -840,6 +841,15 @@ func planModifierExpr(attrType string, modifiers []string) (string, error) {
 	}
 	return fmt.Sprintf("[]planmodifier.%s{%s}",
 		strings.ToUpper(pkg[:1])+pkg[1:], strings.Join(inners, ", ")), nil
+}
+
+func isCollectionAttrType(attrType string) bool {
+	switch attrType {
+	case AttrTypeList, AttrTypeListNested, AttrTypeSet, AttrTypeSetNested, AttrTypeMap, AttrTypeMapNested:
+		return true
+	default:
+		return false
+	}
 }
 
 var planModifierPkgByAttr = map[string]string{
