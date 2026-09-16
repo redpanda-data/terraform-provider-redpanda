@@ -24,6 +24,8 @@ You have runtime evidence: logs from `task test:cluster:aws`, a customer ticket,
 - Tests pass in `task test:unit` but fail in `task test:cluster:aws`
 - `task cleanup:redpanda:dry` shows orphan resources after a passing test run (sweeper failure)
 - One of N sibling arms misbehaves (`schema_registry.mtls` diffs, `kafka_api.mtls` and `http_proxy.mtls` don't). Before hunting for a normalizer the siblings "must have", diff the arms' schema flags in `schema.yaml` and the generated attributes. The `schema_registry.mtls` echo bug was a missing `computed: true`; the flatten was identical on all three arms and no normalizer existed anywhere.
+- A plan renders `+ <leaf> = (known after apply)` under a `~ <object>` with unchanged siblings. Read it literally before reading code: `+` means the prior value is null and the object was known during plan, so an object-level pin never ran and the leaf's own modifier declined a null prior. For a computed collection that usually means the server sent an empty repeated field as absent.
+- The reporter's config carries `lifecycle { ignore_changes = [<block>] }`. Terraform core hands the provider the ignore-processed config, so nested computed children under that block get plan-modified one by one instead of the object as a whole. Check whether the workaround is still needed; it can be the exposing condition for the newer bug.
 
 ### Track B: starting from a proactive coverage audit
 
@@ -103,6 +105,7 @@ real backend (cloudv2 RedpandaListenersToPublic): projects mtls {enabled:false} 
 ```
 
 A fake that copies a create spec verbatim hides every field the backend defaults on read. For each status block, read the backend mapper to its return statement, not just the per-item loop: the default usually sits after the loop.
+Grep the fake for `Status:` on every block the resource exposes as a computed `status`; a block the fake stores without one leaves every status child's plan modifier unreachable at Tier 2, and the no-op re-plan steps never notice.
 
 Walk the fake against every RPC the production calls — not just the ones in your bug's flow. **Every untouched RPC is a latent oracle gap.** Note them; you'll fix them with the bug.
 
