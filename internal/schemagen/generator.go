@@ -190,6 +190,7 @@ var importPrefixes = map[string]string{
 	"types.":               "github.com/hashicorp/terraform-plugin-framework/types",
 	"path.":                "github.com/hashicorp/terraform-plugin-framework/path",
 	"validators.":          "github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators",
+	"planmodifiers.":       "github.com/redpanda-data/terraform-provider-redpanda/redpanda/planmodifiers",
 }
 
 func scanExprImports(expr string, needed map[string]bool, _ string) {

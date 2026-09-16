@@ -60,6 +60,19 @@ var planModifierRegistry = map[string]planModifierDef{
 		},
 		subsumesStateNullAxis: true,
 	},
+	"UseStateForUnknownIfParentInState": {
+		expr: func(pkg string) string {
+			switch pkg {
+			case KindSet:
+				return "planmodifiers.SetUseStateForUnknownIfParentInState()"
+			case KindMap:
+				return "planmodifiers.MapUseStateForUnknownIfParentInState()"
+			default:
+				return "planmodifiers.ListUseStateForUnknownIfParentInState()"
+			}
+		},
+		subsumesStateNullAxis: true,
+	},
 	"ConnectionEndpointFromState": {
 		expr: func(_ string) string {
 			return "connectionEndpointFromState()"
