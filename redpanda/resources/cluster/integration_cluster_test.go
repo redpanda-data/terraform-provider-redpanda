@@ -1549,15 +1549,20 @@ func TestIntegration_Cluster_AWSPrivateLink_SupportedRegions(t *testing.T) {
 	_, factories := clusterSetup(t)
 
 	const name = "tfrp-mock-cl-344"
-	plBody := func(extra string) string {
-		return awsDedicatedConfig(name, `aws_private_link = {
+	plBlock := func(extra string) string {
+		return `aws_private_link = {
   enabled            = true
   connect_console    = false
   allowed_principals = ["arn:aws:iam::123456789012:root"]
-`+extra+`}`)
+` + extra + `}`
+	}
+	plBody := func(extra string) string {
+		return awsDedicatedConfig(name, plBlock(extra))
 	}
 	cfg := plBody("")
 	srPath := tfjsonpath.New("aws_private_link").AtMapKey("supported_regions")
+	statusPath := tfjsonpath.New("aws_private_link").AtMapKey("status")
+	connsPath := statusPath.AtMapKey("vpc_endpoint_connections")
 
 	idPreserved := statecheck.CompareValue(compare.ValuesSame())
 
@@ -1584,6 +1589,24 @@ func TestIntegration_Cluster_AWSPrivateLink_SupportedRegions(t *testing.T) {
 			},
 			// Re-plan: UseStateForUnknown holds the null value, no churn.
 			integration.NoopReapplyStep(clusterAddr, cfg, nil),
+			// Unrelated update while lifecycle.ignore_changes covers the block:
+			// Terraform hands the provider a config whose status is copied from
+			// state, so the status children are plan-modified one by one instead
+			// of the object as a whole. The control plane sends an empty
+			// connection list as absent, so the leaf is null in state and must
+			// still plan known-null rather than "known after apply".
+			integration.UpdateLeafStepWithPlanChecks(clusterAddr,
+				awsDedicatedConfig(name, plBlock(""),
+					`tags = { env = "ignore-changes" }`,
+					`lifecycle { ignore_changes = [aws_private_link] }`),
+				[]plancheck.PlanCheck{
+					plancheck.ExpectKnownValue(clusterAddr, statusPath, knownvalue.NotNull()),
+					plancheck.ExpectKnownValue(clusterAddr, connsPath, knownvalue.Null()),
+				},
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, connsPath, knownvalue.Null()),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
 			// null -> set: in-place update applies the user value.
 			integration.UpdateLeafStep(clusterAddr,
 				plBody(`  supported_regions  = ["us-east-1"]
