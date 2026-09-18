@@ -16,14 +16,14 @@ Creates an Access Control List (ACL) in a Redpanda cluster.
 
 ### Required
 
-- `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports.
-- `host` (String) The host address to use for this ACL. To allow a principal access from multiple hosts, you must create an ACL for each host.
-- `operation` (String) The operation that is allowed or denied (e.g. READ).
-- `permission_type` (String) Whether the operation should be allowed or denied. Must be one of (enum values): 2, 3.
-- `principal` (String) The user for whom this ACL applies. With the Kafka simple authorizer, you must include the prefix "User:" with the user name.
-- `resource_name` (String) The name of the resource this ACL targets. For requests with resource_type CLUSTER, this will default to "kafka-cluster".
-- `resource_pattern_type` (String) The pattern to use for matching the specified resource_name (any, exact match, literal, or prefixed). Must be one of (enum values): 3, 4.
-- `resource_type` (String) The type of resource (topic, consumer group, etc.) this ACL targets.
+- `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `host` (String) The host address to use for this ACL. To allow a principal access from multiple hosts, you must create an ACL for each host. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `operation` (String) The operation that is allowed or denied (e.g. READ). If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `permission_type` (String) Whether the operation should be allowed or denied. Must be one of (enum values): 2, 3. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `principal` (String) The user for whom this ACL applies. With the Kafka simple authorizer, you must include the prefix "User:" with the user name. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `resource_name` (String) The name of the resource this ACL targets. For requests with resource_type CLUSTER, this will default to "kafka-cluster". If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `resource_pattern_type` (String) The pattern to use for matching the specified resource_name (any, exact match, literal, or prefixed). Must be one of (enum values): 3, 4. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `resource_type` (String) The type of resource (topic, consumer group, etc.) this ACL targets. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 ### Optional
 

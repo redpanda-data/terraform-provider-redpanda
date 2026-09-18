@@ -16,8 +16,8 @@ Creates a user in a Redpanda Cluster.
 
 ### Required
 
-- `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports.
-- `name` (String) Username. Length must be between 1 and 128.
+- `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `name` (String) Username. Length must be between 1 and 128. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 ### Optional
 

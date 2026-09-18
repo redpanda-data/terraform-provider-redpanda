@@ -18,8 +18,8 @@ Creates a secret in a Redpanda cluster's per-cluster secret store. Other resourc
 
 > **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
 
-- `cluster_api_url` (String) Dataplane API URL of the cluster that owns this secret (`redpanda_cluster.<name>.cluster_api_url`). Immutable; changing this prevents deletion of the existing secret. Generally easier to recreate the resource than to change this.
-- `name` (String) Secret identifier.
+- `cluster_api_url` (String) Dataplane API URL of the cluster that owns this secret (`redpanda_cluster.<name>.cluster_api_url`). Immutable; changing this prevents deletion of the existing secret. Generally easier to recreate the resource than to change this. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `name` (String) Secret identifier. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 - `scopes` (Set of String) Secret scopes. Order does not matter — the server may return scopes in a different order than you supplied; the set semantics make plan-twice stable regardless.
 - `secret_data` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) The secret data. Must be Base64-encoded.
 
