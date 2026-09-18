@@ -30,6 +30,7 @@ Do not combine `extra`/`deprecated` with a proto-backed field: `merger.go` appen
 - Descriptions come from `internal/apidesc` (`data/apidescriptions.yaml`). A yaml `description:` is rejected. Terraform-only fields use the tables in `descriptions.go`.
 - `RequiresReplace` is derived from the update RPC's mask contract (`mask_contract.go`, `writeshape.go`), never from proto `IMMUTABLE` annotations. `updatable_out_of_band` is the opt-out for fields mutated by a side RPC.
 - Plan modifiers emit `UseStateForUnknown` before `RequiresReplace`; the framework nulls unknowns first, and the reverse order arms a replace on every plan.
+- Every attribute whose final plan modifiers force replacement gets `utils.ReplacementWarning` appended to its description, after the validator sentences; a conditional modifier appends its registry entry's `docSentence` instead. Hand-written schemas append the same constant themselves, and `TestReplacementWarnings` in package `redpanda` fails on any resource that drifts.
 - A `oneof` arm the user selects is never `Computed`.
 - A field the server defaults is `Optional` + `Computed` + `UseStateForUnknown`, not `Optional` with a flatten workaround.
 - `merger.go` returns errors as a hard failure for `cmd/schemagen`; warnings are printed and must be read, never silenced.
