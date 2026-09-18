@@ -25,6 +25,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 // ResourceSchemaSchema returns the schema for the schema resource.
@@ -33,12 +34,12 @@ func ResourceSchemaSchema(_ context.Context) schema.Schema {
 		Description: "Schema represents a Schema Registry schema",
 		Attributes: map[string]schema.Attribute{
 			"cluster_id": schema.StringAttribute{
-				Description:   "The ID of the cluster where the schema is stored.",
+				Description:   "The ID of the cluster where the schema is stored. " + utils.ReplacementWarning,
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"subject": schema.StringAttribute{
-				Description:   "The subject name for the schema.",
+				Description:   "The subject name for the schema. " + utils.ReplacementWarning,
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
