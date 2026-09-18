@@ -16,14 +16,14 @@ Creates Access Control Lists (ACLs) for Redpanda Schema Registry resources. Sche
 
 ### Required
 
-- `cluster_id` (String) The ID of the cluster where the Schema Registry ACL will be created
-- `host` (String) The host address to use for this ACL. Use '*' for wildcard
-- `operation` (String) The operation type that shall be allowed or denied: ALL, READ, WRITE, DELETE, DESCRIBE, DESCRIBE_CONFIGS, ALTER, ALTER_CONFIGS
-- `pattern_type` (String) The pattern type of the resource: LITERAL or PREFIXED
-- `permission` (String) The permission type: ALLOW or DENY
-- `principal` (String) The principal to apply this ACL for (e.g., User:alice or RedpandaRole:admin)
-- `resource_name` (String) The name of the resource this ACL entry will be on. Use '*' for wildcard
-- `resource_type` (String) The type of the resource: SUBJECT or REGISTRY
+- `cluster_id` (String) The ID of the cluster where the Schema Registry ACL will be created. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `host` (String) The host address to use for this ACL. Use '*' for wildcard. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `operation` (String) The operation type that shall be allowed or denied: ALL, READ, WRITE, DELETE, DESCRIBE, DESCRIBE_CONFIGS, ALTER, ALTER_CONFIGS. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `pattern_type` (String) The pattern type of the resource: LITERAL or PREFIXED. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `permission` (String) The permission type: ALLOW or DENY. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `principal` (String) The principal to apply this ACL for (e.g., User:alice or RedpandaRole:admin). If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `resource_name` (String) The name of the resource this ACL entry will be on. Use '*' for wildcard. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `resource_type` (String) The type of the resource: SUBJECT or REGISTRY. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 ### Optional
 

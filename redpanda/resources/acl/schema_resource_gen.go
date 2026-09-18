@@ -30,52 +30,52 @@ func ResourceACLSchema(_ context.Context) schema.Schema {
 		Description: "Acl resource",
 		Attributes: map[string]schema.Attribute{
 			"cluster_api_url": schema.StringAttribute{
-				Description:   "The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports.",
+				Description:   "The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"host": schema.StringAttribute{
-				Description:   "The host address to use for this ACL. To allow a principal access from multiple hosts, you must create an ACL for each host.",
+				Description:   "The host address to use for this ACL. To allow a principal access from multiple hosts, you must create an ACL for each host. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"operation": schema.StringAttribute{
-				Description:   "The operation that is allowed or denied (e.g. READ).",
+				Description:   "The operation that is allowed or denied (e.g. READ). If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    aclOperationValidator(),
 			},
 
 			"permission_type": schema.StringAttribute{
-				Description:   "Whether the operation should be allowed or denied. Must be one of (enum values): 2, 3.",
+				Description:   "Whether the operation should be allowed or denied. Must be one of (enum values): 2, 3. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    aclPermissionTypeValidator(),
 			},
 
 			"principal": schema.StringAttribute{
-				Description:   "The user for whom this ACL applies. With the Kafka simple authorizer, you must include the prefix \"User:\" with the user name.",
+				Description:   "The user for whom this ACL applies. With the Kafka simple authorizer, you must include the prefix \"User:\" with the user name. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"resource_name": schema.StringAttribute{
-				Description:   "The name of the resource this ACL targets. For requests with resource_type CLUSTER, this will default to \"kafka-cluster\".",
+				Description:   "The name of the resource this ACL targets. For requests with resource_type CLUSTER, this will default to \"kafka-cluster\". If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"resource_pattern_type": schema.StringAttribute{
-				Description:   "The pattern to use for matching the specified resource_name (any, exact match, literal, or prefixed). Must be one of (enum values): 3, 4.",
+				Description:   "The pattern to use for matching the specified resource_name (any, exact match, literal, or prefixed). Must be one of (enum values): 3, 4. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    aclResourcePatternTypeValidator(),
 			},
 
 			"resource_type": schema.StringAttribute{
-				Description:   "The type of resource (topic, consumer group, etc.) this ACL targets.",
+				Description:   "The type of resource (topic, consumer group, etc.) this ACL targets. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    aclResourceTypeValidator(),

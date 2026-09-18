@@ -16,9 +16,9 @@ Creates a schema in the Redpanda Schema Registry.
 
 ### Required
 
-- `cluster_id` (String) The ID of the cluster where the schema is stored.
+- `cluster_id` (String) The ID of the cluster where the schema is stored. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 - `schema` (String) The schema definition in JSON format.
-- `subject` (String) The subject name for the schema.
+- `subject` (String) The subject name for the schema. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 ### Optional
 

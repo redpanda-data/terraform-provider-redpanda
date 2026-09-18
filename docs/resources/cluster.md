@@ -16,13 +16,13 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 
 ### Required
 
-- `cloud_provider` (String) Cloud provider where resources are created.
+- `cloud_provider` (String) Cloud provider where resources are created. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 - `name` (String) Unique name of the cluster. Length must be between 3 and 128. Must match pattern `^[A-Za-z0-9-:_]+$`.
-- `network_id` (String) Network ID where cluster is placed. Must match pattern `^[a-v0-9]{20}`.
-- `region` (String) Region represents the name of the region where the cluster will be provisioned.
-- `resource_group_id` (String) Resource group ID of the cluster. Must be a valid UUID.
+- `network_id` (String) Network ID where cluster is placed. Must match pattern `^[a-v0-9]{20}`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `region` (String) Region represents the name of the region where the cluster will be provisioned. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `resource_group_id` (String) Resource group ID of the cluster. Must be a valid UUID. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 - `throughput_tier` (String) Throughput tier of the cluster.
-- `zones` (List of String) Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster. Items must be unique.
+- `zones` (List of String) Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster. Items must be unique. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 ### Optional
 
@@ -32,8 +32,8 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `azure_private_link` (Attributes) Azure Private Link configuration (see [below for nested schema](#nestedatt--azure_private_link))
 - `cloud_storage` (Attributes) Cloud Storage configuration (see [below for nested schema](#nestedatt--cloud_storage))
 - `cluster_configuration` (Attributes) Cluster Configuration configuration (see [below for nested schema](#nestedatt--cluster_configuration))
-- `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated.
-- `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, **Private** is best-practice.
+- `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `connection_type` (String) Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, **Private** is best-practice. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 - `customer_managed_resources` (Attributes) The cloud resources created by user. (see [below for nested schema](#nestedatt--customer_managed_resources))
 - `gcp_enable_global_access_api_gateway` (Boolean) gcp_enable_global_access_api_gateway controls if global access is enabled on the internal load balancer serving the Console/API Gateway endpoint. Applicable only for GCP. Default is false.
 - `gcp_private_service_connect` (Attributes) GCP Private Service Connect configuration (see [below for nested schema](#nestedatt--gcp_private_service_connect))
@@ -44,7 +44,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `read_replica_cluster_ids` (List of String) IDs of clusters which may create read-only topics from this cluster. Must have at most 100 items. Items must be unique.
 - `redpanda_connect` (Attributes) Cluster's Redpanda Connect properties. (see [below for nested schema](#nestedatt--redpanda_connect))
 - `redpanda_node_count` (Number) Number of Redpanda broker nodes. Must be at least 0.
-- `redpanda_version` (String) Cluster's Redpanda version. Only `major.minor` semver is supported, e.g. `24.1`.
+- `redpanda_version` (String) Cluster's Redpanda version. Only `major.minor` semver is supported, e.g. `24.1`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 - `rpsql` (Attributes) Rpsql configuration (see [below for nested schema](#nestedatt--rpsql))
 - `schema_registry` (Attributes) Cluster's Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
 - `tags` (Map of String) Tags placed on cloud resources. Server-managed keys (prefixed with `redpanda-`) are filtered out of state.
@@ -250,7 +250,7 @@ Optional:
 
 Required:
 
-- `arn` (String) AWS instance profile ARN.
+- `arn` (String) AWS instance profile ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--aws--cloud_storage_bucket"></a>
@@ -258,7 +258,7 @@ Required:
 
 Required:
 
-- `arn` (String) AWS storage bucket identifier.
+- `arn` (String) AWS storage bucket identifier. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--aws--cluster_security_group"></a>
@@ -266,7 +266,7 @@ Required:
 
 Required:
 
-- `arn` (String) AWS security group ARN.
+- `arn` (String) AWS security group ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--aws--connectors_node_group_instance_profile"></a>
@@ -274,7 +274,7 @@ Required:
 
 Required:
 
-- `arn` (String) AWS instance profile ARN.
+- `arn` (String) AWS instance profile ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--aws--connectors_security_group"></a>
@@ -282,7 +282,7 @@ Required:
 
 Required:
 
-- `arn` (String) AWS security group ARN.
+- `arn` (String) AWS security group ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--aws--k8s_cluster_role"></a>
@@ -290,7 +290,7 @@ Required:
 
 Required:
 
-- `arn` (String) AWS role ARN.
+- `arn` (String) AWS role ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--aws--node_security_group"></a>
@@ -298,7 +298,7 @@ Required:
 
 Required:
 
-- `arn` (String) AWS security group ARN.
+- `arn` (String) AWS security group ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--aws--permissions_boundary_policy"></a>
@@ -306,7 +306,7 @@ Required:
 
 Required:
 
-- `arn` (String) AWS policy ARN.
+- `arn` (String) AWS policy ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--aws--redpanda_agent_security_group"></a>
@@ -314,7 +314,7 @@ Required:
 
 Required:
 
-- `arn` (String) AWS security group ARN.
+- `arn` (String) AWS security group ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--aws--redpanda_node_group_instance_profile"></a>
@@ -322,7 +322,7 @@ Required:
 
 Required:
 
-- `arn` (String) AWS instance profile ARN.
+- `arn` (String) AWS instance profile ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--aws--redpanda_node_group_security_group"></a>
@@ -330,7 +330,7 @@ Required:
 
 Required:
 
-- `arn` (String) AWS security group ARN.
+- `arn` (String) AWS security group ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--aws--utility_node_group_instance_profile"></a>
@@ -338,7 +338,7 @@ Required:
 
 Required:
 
-- `arn` (String) AWS instance profile ARN.
+- `arn` (String) AWS instance profile ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--aws--utility_security_group"></a>
@@ -346,7 +346,7 @@ Required:
 
 Required:
 
-- `arn` (String) AWS security group ARN.
+- `arn` (String) AWS security group ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--aws--redpanda_connect_node_group_instance_profile"></a>
@@ -416,7 +416,7 @@ Optional:
 
 Required:
 
-- `email` (String) GCP service account email. Must be a valid email address.
+- `email` (String) GCP service account email. Must be a valid email address. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--gcp--connector_service_account"></a>
@@ -424,7 +424,7 @@ Required:
 
 Required:
 
-- `email` (String) GCP service account email. Must be a valid email address.
+- `email` (String) GCP service account email. Must be a valid email address. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--gcp--console_service_account"></a>
@@ -432,7 +432,7 @@ Required:
 
 Required:
 
-- `email` (String) GCP service account email. Must be a valid email address.
+- `email` (String) GCP service account email. Must be a valid email address. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--gcp--gke_service_account"></a>
@@ -440,7 +440,7 @@ Required:
 
 Required:
 
-- `email` (String) GCP service account email. Must be a valid email address.
+- `email` (String) GCP service account email. Must be a valid email address. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--gcp--redpanda_cluster_service_account"></a>
@@ -448,7 +448,7 @@ Required:
 
 Required:
 
-- `email` (String) GCP service account email. Must be a valid email address.
+- `email` (String) GCP service account email. Must be a valid email address. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--gcp--subnet"></a>
@@ -456,8 +456,8 @@ Required:
 
 Required:
 
-- `k8s_master_ipv4_range` (String) Kubernetes Master IPv4 range, e.g. 10.0.0.0/24.
-- `name` (String) Subnet name. Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`.
+- `k8s_master_ipv4_range` (String) Kubernetes Master IPv4 range, e.g. 10.0.0.0/24. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `name` (String) Subnet name. Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 - `secondary_ipv4_range_pods` (Attributes) Secondary IPv4 range. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_pods))
 - `secondary_ipv4_range_services` (Attributes) Secondary IPv4 range. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_services))
 
@@ -466,7 +466,7 @@ Required:
 
 Required:
 
-- `name` (String) Name of the secondary IPv4 Range Pods. Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`.
+- `name` (String) Name of the secondary IPv4 Range Pods. Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--gcp--subnet--secondary_ipv4_range_services"></a>
@@ -474,7 +474,7 @@ Required:
 
 Required:
 
-- `name` (String) Name of the secondary IPv4 Range Services. Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`.
+- `name` (String) Name of the secondary IPv4 Range Services. Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 
@@ -483,7 +483,7 @@ Required:
 
 Required:
 
-- `name` (String) Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.
+- `name` (String) Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--gcp--rpsql_api_service_account"></a>
@@ -858,6 +858,12 @@ Read-Only:
 
 - `code` (Number) RPC status code, as described [here](https://github.com/googleapis/googleapis/blob/b4c238feaa1097c53798ed77035bbfeb7fc72e96/google/rpc/code.proto#L32).
 - `message` (String) Detailed error message. No compatibility guarantees are given for the text contained in this message.
+
+## Attributes that force replacement
+
+Some attributes cannot be updated in place. Each such attribute says so in its description above, and `terraform plan` marks the change with `forces replacement`. Applying it destroys the existing cluster and creates a new one, which loses the data on the cluster.
+
+The `allow_deletion` attribute gates this. With `allow_deletion = false` (the default), an apply that requires replacement fails with `cluster deletion not allowed` and the cluster is preserved. With `allow_deletion = true`, Terraform destroys and recreates the cluster, so review the plan for `forces replacement` before applying.
 
 ## Example Usage
 

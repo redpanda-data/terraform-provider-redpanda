@@ -16,9 +16,9 @@ Enables the provisioning and management of Redpanda Serverless clusters. A Serve
 
 ### Required
 
-- `name` (String) Unique name of the Serverless cluster. Length must be between 3 and 128. Must match pattern `^[A-Za-z0-9-_:]+$`.
-- `resource_group_id` (String) Resource group ID of the cluster. Must be a valid UUID.
-- `serverless_region` (String) Serverless region in which the cluster is placed, backed by a cloud provider region.
+- `name` (String) Unique name of the Serverless cluster. Length must be between 3 and 128. Must match pattern `^[A-Za-z0-9-_:]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `resource_group_id` (String) Resource group ID of the cluster. Must be a valid UUID. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `serverless_region` (String) Serverless region in which the cluster is placed, backed by a cloud provider region. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 ### Optional
 

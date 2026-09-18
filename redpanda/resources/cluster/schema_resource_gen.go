@@ -44,7 +44,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 		Description: "Cluster resource",
 		Attributes: map[string]schema.Attribute{
 			"cloud_provider": schema.StringAttribute{
-				Description:   "Cloud provider where resources are created.",
+				Description:   "Cloud provider where resources are created. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    validators.CloudProviders(),
@@ -56,19 +56,19 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"network_id": schema.StringAttribute{
-				Description:   "Network ID where cluster is placed. Must match pattern `^[a-v0-9]{20}`.",
+				Description:   "Network ID where cluster is placed. Must match pattern `^[a-v0-9]{20}`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"region": schema.StringAttribute{
-				Description:   "Region represents the name of the region where the cluster will be provisioned.",
+				Description:   "Region represents the name of the region where the cluster will be provisioned. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"resource_group_id": schema.StringAttribute{
-				Description:   "Resource group ID of the cluster. Must be a valid UUID.",
+				Description:   "Resource group ID of the cluster. Must be a valid UUID. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
@@ -79,7 +79,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"zones": schema.ListAttribute{
-				Description:   "Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster. Items must be unique.",
+				Description:   "Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster. Items must be unique. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
 				Validators:    append([]validator.List{validators.AWSZoneIDValidator{}}, listvalidator.UniqueValues()),
@@ -99,7 +99,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description:   "AWS instance profile ARN.",
+										Description:   "AWS instance profile ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -110,7 +110,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description:   "AWS storage bucket identifier.",
+										Description:   "AWS storage bucket identifier. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -121,7 +121,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description:   "AWS security group ARN.",
+										Description:   "AWS security group ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -132,7 +132,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description:   "AWS instance profile ARN.",
+										Description:   "AWS instance profile ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -143,7 +143,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description:   "AWS security group ARN.",
+										Description:   "AWS security group ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -154,7 +154,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description:   "AWS role ARN.",
+										Description:   "AWS role ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -165,7 +165,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description:   "AWS security group ARN.",
+										Description:   "AWS security group ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -176,7 +176,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description:   "AWS policy ARN.",
+										Description:   "AWS policy ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -187,7 +187,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description:   "AWS security group ARN.",
+										Description:   "AWS security group ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -198,7 +198,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description:   "AWS instance profile ARN.",
+										Description:   "AWS instance profile ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -209,7 +209,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description:   "AWS security group ARN.",
+										Description:   "AWS security group ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -220,7 +220,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description:   "AWS instance profile ARN.",
+										Description:   "AWS instance profile ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -231,7 +231,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description:   "AWS security group ARN.",
+										Description:   "AWS security group ARN. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -298,7 +298,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"email": schema.StringAttribute{
-										Description:   "GCP service account email. Must be a valid email address.",
+										Description:   "GCP service account email. Must be a valid email address. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -309,7 +309,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"email": schema.StringAttribute{
-										Description:   "GCP service account email. Must be a valid email address.",
+										Description:   "GCP service account email. Must be a valid email address. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -320,7 +320,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"email": schema.StringAttribute{
-										Description:   "GCP service account email. Must be a valid email address.",
+										Description:   "GCP service account email. Must be a valid email address. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -331,7 +331,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"email": schema.StringAttribute{
-										Description:   "GCP service account email. Must be a valid email address.",
+										Description:   "GCP service account email. Must be a valid email address. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -342,7 +342,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"email": schema.StringAttribute{
-										Description:   "GCP service account email. Must be a valid email address.",
+										Description:   "GCP service account email. Must be a valid email address. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -353,12 +353,12 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"k8s_master_ipv4_range": schema.StringAttribute{
-										Description:   "Kubernetes Master IPv4 range, e.g. 10.0.0.0/24.",
+										Description:   "Kubernetes Master IPv4 range, e.g. 10.0.0.0/24. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 									"name": schema.StringAttribute{
-										Description:   "Subnet name. Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`.",
+										Description:   "Subnet name. Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -367,7 +367,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 										Required:    true,
 										Attributes: map[string]schema.Attribute{
 											"name": schema.StringAttribute{
-												Description:   "Name of the secondary IPv4 Range Pods. Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`.",
+												Description:   "Name of the secondary IPv4 Range Pods. Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 												Required:      true,
 												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 											},
@@ -378,7 +378,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 										Required:    true,
 										Attributes: map[string]schema.Attribute{
 											"name": schema.StringAttribute{
-												Description:   "Name of the secondary IPv4 Range Services. Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`.",
+												Description:   "Name of the secondary IPv4 Range Services. Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 												Required:      true,
 												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 											},
@@ -391,7 +391,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"name": schema.StringAttribute{
-										Description:   "Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.",
+										Description:   "Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -453,7 +453,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"redpanda_version": schema.StringAttribute{
-				Description:   "Cluster's Redpanda version. Only `major.minor` semver is supported, e.g. `24.1`.",
+				Description:   "Cluster's Redpanda version. Only `major.minor` semver is supported, e.g. `24.1`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
@@ -799,7 +799,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"cluster_type": schema.StringAttribute{
-				Description:   "Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated.",
+				Description:   "Cluster type. Type is immutable and can only be set on cluster creation. Can be either byoc or dedicated. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Optional:      true,
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
@@ -807,7 +807,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"connection_type": schema.StringAttribute{
-				Description:   "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, **Private** is best-practice.",
+				Description:   "Cluster connection type. Private clusters are not exposed to the internet. For BYOC clusters, **Private** is best-practice. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Optional:      true,
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},

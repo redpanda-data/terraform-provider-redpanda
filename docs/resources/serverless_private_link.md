@@ -17,10 +17,10 @@ Manages a Redpanda Serverless Private Link
 
 ### Required
 
-- `cloud_provider` (String) Cloud provider where resources are created.
-- `name` (String) Name
-- `resource_group_id` (String) Resource Group ID
-- `serverless_region` (String) Serverless Region
+- `cloud_provider` (String) Cloud provider where resources are created. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `name` (String) Name. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `resource_group_id` (String) Resource Group ID. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `serverless_region` (String) Serverless Region. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 ### Optional
 

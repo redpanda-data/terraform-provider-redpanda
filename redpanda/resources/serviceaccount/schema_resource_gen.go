@@ -42,7 +42,7 @@ func ResourceServiceAccountSchema(ctx context.Context) schema.Schema {
 			},
 
 			"role_bindings": schema.ListNestedAttribute{
-				Description:   "List of role Bindings",
+				Description:   "List of role Bindings. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Optional:      true,
 				PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
 				NestedObject: schema.NestedAttributeObject{
