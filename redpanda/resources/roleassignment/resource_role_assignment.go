@@ -61,14 +61,14 @@ func ResourceRoleAssignmentSchema(_ context.Context) schema.Schema {
 		MarkdownDescription: "Assigns existing Redpanda roles to principals. Requires an existing role and user.",
 		Attributes: map[string]schema.Attribute{
 			"role_name": schema.StringAttribute{
-				MarkdownDescription: "The name of the role to assign",
+				MarkdownDescription: "The name of the role to assign. " + utils.ReplacementWarning,
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"principal": schema.StringAttribute{
-				MarkdownDescription: "The principal to assign the role to. Use the Kafka-style prefixed form: `\"User:<name>\"` for an end user or `\"Group:<name>\"` for an IdP group. The value is preserved verbatim in state.",
+				MarkdownDescription: "The principal to assign the role to. Use the Kafka-style prefixed form: `\"User:<name>\"` for an end user or `\"Group:<name>\"` for an IdP group. The value is preserved verbatim in state. " + utils.ReplacementWarning,
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
@@ -78,7 +78,7 @@ func ResourceRoleAssignmentSchema(_ context.Context) schema.Schema {
 				},
 			},
 			"cluster_api_url": schema.StringAttribute{
-				MarkdownDescription: "The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster",
+				MarkdownDescription: "The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. " + utils.ReplacementWarning,
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
