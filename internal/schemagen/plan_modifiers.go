@@ -20,6 +20,11 @@ type planModifierDef struct {
 	expr func(pkg string) string
 
 	subsumesStateNullAxis bool
+
+	// docSentence is appended to the attribute description when the modifier
+	// forces replacement only under a predicate. The unconditional wording
+	// would be false for the edits the predicate lets through.
+	docSentence string
 }
 
 var planModifierRegistry = map[string]planModifierDef{
@@ -31,6 +36,7 @@ var planModifierRegistry = map[string]planModifierDef{
 				pkg, msg, msg,
 			)
 		},
+		docSentence: "Decreasing partition count requires recreating the topic.",
 	},
 	"PinStateUnlessRpsqlEnables": {
 		expr: func(pkg string) string {
@@ -84,5 +90,6 @@ var planModifierRegistry = map[string]planModifierDef{
 			return "publicSubnetsWriteOnce()"
 		},
 		subsumesStateNullAxis: true,
+		docSentence:           "Public subnets can be added to an existing network but not changed or removed; a different set forces replacement.",
 	},
 }
