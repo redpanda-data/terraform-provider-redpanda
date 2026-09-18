@@ -13,6 +13,12 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 
 {{ .SchemaMarkdown | trimspace }}
 
+## Attributes that force replacement
+
+Some attributes cannot be updated in place. Each such attribute says so in its description above, and `terraform plan` marks the change with `forces replacement`. Applying it destroys the existing cluster and creates a new one, which loses the data on the cluster.
+
+The `allow_deletion` attribute gates this. With `allow_deletion = false` (the default), an apply that requires replacement fails with `cluster deletion not allowed` and the cluster is preserved. With `allow_deletion = true`, Terraform destroys and recreates the cluster, so review the plan for `forces replacement` before applying.
+
 ## Example Usage
 
 {{ tffile "examples/docs/cluster/main.tf" }}
