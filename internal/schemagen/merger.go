@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/apidesc"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 // Merge combines proto fields with the yaml config into SchemaAttrs. A
@@ -79,6 +80,9 @@ func Merge(proto *ProtoMessage, cfg *Config, schemaType string, apiIndex *apides
 	if opts.deriveValidators {
 		appendValidatorDescriptions(attrs, proto, "")
 		deriveRepeatedRuleValidators(attrs, proto, "")
+	}
+	if !mc.isDatasource {
+		appendReplacementDescriptions(attrs)
 	}
 
 	sortAttrs(attrs)
@@ -450,6 +454,25 @@ func appendValidatorDescriptions(attrs []SchemaAttr, proto *ProtoMessage, parent
 		if len(attrs[i].NestedAttrs) > 0 && f.Nested != nil {
 			appendValidatorDescriptions(attrs[i].NestedAttrs, f.Nested, joinPath(parentPath, attrs[i].ProtoName))
 		}
+	}
+}
+
+// appendReplacementDescriptions closes each replace-forcing attribute's
+// description with the sentence its modifier stands for, so tfplugindocs
+// carries the warning without a hand-kept list. Runs after the validator
+// sentences so the warning is the last thing a reader sees.
+func appendReplacementDescriptions(attrs []SchemaAttr) {
+	for i := range attrs {
+		for _, name := range attrs[i].PlanModifierNames {
+			sentence := planModifierRegistry[name].docSentence
+			if name == modRequiresReplace {
+				sentence = utils.ReplacementWarning
+			}
+			if sentence != "" {
+				attrs[i].Description = joinDescription(attrs[i].Description, sentence)
+			}
+		}
+		appendReplacementDescriptions(attrs[i].NestedAttrs)
 	}
 }
 

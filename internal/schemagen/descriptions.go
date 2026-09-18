@@ -54,7 +54,7 @@ var scopedDescriptions = map[string]string{
 	"Network.state":                                    "Current state of the network.",
 	"ServerlessCluster.console_url":                    "Public Console URL for the serverless cluster.",
 	"ServerlessCluster.console_private_url":            "Private Console URL for the serverless cluster.",
-	"CreateTopicRequest.Topic.partition_count":         "The number of partitions for the topic. Increases are fully supported without data loss. Decreases will destroy and recreate the topic if allow_deletion is set to true (defaults to false).",
+	"CreateTopicRequest.Topic.partition_count":         "The number of partitions for the topic. Increases are fully supported without data loss.",
 	"CreateUserRequest.User.mechanism":                 "Which authentication method to use. See https://docs.redpanda.com/current/manage/security/authentication/ for more information.",
 	"Pipeline.state":                                   "Desired state of the pipeline: 'running' or 'stopped'. The provider will ensure the pipeline reaches this state after create/update operations.",
 	"ServerlessCluster.cluster_api_url":                "The URL of the dataplane API for the serverless cluster.",
