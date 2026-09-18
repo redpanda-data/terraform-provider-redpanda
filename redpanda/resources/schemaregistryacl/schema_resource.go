@@ -23,6 +23,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
@@ -34,21 +35,21 @@ func ResourceSchemaRegistryACLSchema(_ context.Context) schema.Schema {
 		Attributes: map[string]schema.Attribute{
 			"cluster_id": schema.StringAttribute{
 				Required:    true,
-				Description: "The ID of the cluster where the Schema Registry ACL will be created",
+				Description: "The ID of the cluster where the Schema Registry ACL will be created. " + utils.ReplacementWarning,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"principal": schema.StringAttribute{
 				Required:    true,
-				Description: "The principal to apply this ACL for (e.g., User:alice or RedpandaRole:admin)",
+				Description: "The principal to apply this ACL for (e.g., User:alice or RedpandaRole:admin). " + utils.ReplacementWarning,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"resource_type": schema.StringAttribute{
 				Required:    true,
-				Description: "The type of the resource: SUBJECT or REGISTRY",
+				Description: "The type of the resource: SUBJECT or REGISTRY. " + utils.ReplacementWarning,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
@@ -58,14 +59,14 @@ func ResourceSchemaRegistryACLSchema(_ context.Context) schema.Schema {
 			},
 			"resource_name": schema.StringAttribute{
 				Required:    true,
-				Description: "The name of the resource this ACL entry will be on. Use '*' for wildcard",
+				Description: "The name of the resource this ACL entry will be on. Use '*' for wildcard. " + utils.ReplacementWarning,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"pattern_type": schema.StringAttribute{
 				Required:    true,
-				Description: "The pattern type of the resource: LITERAL or PREFIXED",
+				Description: "The pattern type of the resource: LITERAL or PREFIXED. " + utils.ReplacementWarning,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
@@ -75,14 +76,14 @@ func ResourceSchemaRegistryACLSchema(_ context.Context) schema.Schema {
 			},
 			"host": schema.StringAttribute{
 				Required:    true,
-				Description: "The host address to use for this ACL. Use '*' for wildcard",
+				Description: "The host address to use for this ACL. Use '*' for wildcard. " + utils.ReplacementWarning,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"operation": schema.StringAttribute{
 				Required:    true,
-				Description: "The operation type that shall be allowed or denied: ALL, READ, WRITE, DELETE, DESCRIBE, DESCRIBE_CONFIGS, ALTER, ALTER_CONFIGS",
+				Description: "The operation type that shall be allowed or denied: ALL, READ, WRITE, DELETE, DESCRIBE, DESCRIBE_CONFIGS, ALTER, ALTER_CONFIGS. " + utils.ReplacementWarning,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
@@ -92,7 +93,7 @@ func ResourceSchemaRegistryACLSchema(_ context.Context) schema.Schema {
 			},
 			"permission": schema.StringAttribute{
 				Required:    true,
-				Description: "The permission type: ALLOW or DENY",
+				Description: "The permission type: ALLOW or DENY. " + utils.ReplacementWarning,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
