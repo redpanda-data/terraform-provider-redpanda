@@ -764,7 +764,8 @@ func TestIntegration_Network_CreateAndRefresh_AzureHubEgress(t *testing.T) {
 
 // TestIntegration_Network_RequiresReplace_AzureHubEgress mutates
 // egress_spec.azure.firewall_private_ip and asserts DestroyBeforeCreate.
-// egress_spec.azure carries RequiresReplace since Network has no Update RPC.
+// egress_spec.azure carries RequiresReplace: egress is on the update shape,
+// but in-place egress changes are unverified against the data plane.
 func TestIntegration_Network_RequiresReplace_AzureHubEgress(t *testing.T) {
 	_, factories := integration.Setup(t)
 
