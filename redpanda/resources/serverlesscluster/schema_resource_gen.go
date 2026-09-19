@@ -34,19 +34,19 @@ func ResourceServerlessClusterSchema(ctx context.Context) schema.Schema {
 		Description: "ServerlessCluster represents a Redpanda Cloud serverless cluster",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				Description:   "Unique name of the Serverless cluster. Length must be between 3 and 128. Must match pattern `^[A-Za-z0-9-_:]+$`.",
+				Description:   "Unique name of the Serverless cluster. Length must be between 3 and 128. Must match pattern `^[A-Za-z0-9-_:]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"resource_group_id": schema.StringAttribute{
-				Description:   "Resource group ID of the cluster. Must be a valid UUID.",
+				Description:   "Resource group ID of the cluster. Must be a valid UUID. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"serverless_region": schema.StringAttribute{
-				Description:   "Serverless region in which the cluster is placed, backed by a cloud provider region.",
+				Description:   "Serverless region in which the cluster is placed, backed by a cloud provider region. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},

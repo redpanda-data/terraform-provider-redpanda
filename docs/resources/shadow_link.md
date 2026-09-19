@@ -18,8 +18,8 @@ A shadow link is configuration on the destination ("shadow") cluster — no infr
 
 ### Required
 
-- `name` (String) Human-readable name for the shadow link. Must be unique. Must follow Kubernetes DNS-1123 subdomain naming convention: - lowercase alphanumeric characters, hyphens allowed - must start and end with alphanumeric character - maximum 63 characters. Length must be at most 63. Must match pattern `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`.
-- `shadow_redpanda_id` (String) Shadow Redpanda cluster ID where the shadow link is created. This ID is immutable. Length must be at least 1.
+- `name` (String) Human-readable name for the shadow link. Must be unique. Must follow Kubernetes DNS-1123 subdomain naming convention: - lowercase alphanumeric characters, hyphens allowed - must start and end with alphanumeric character - maximum 63 characters. Length must be at most 63. Must match pattern `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `shadow_redpanda_id` (String) Shadow Redpanda cluster ID where the shadow link is created. This ID is immutable. Length must be at least 1. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 ### Optional
 
@@ -29,7 +29,7 @@ A shadow link is configuration on the destination ("shadow") cluster — no infr
 - `role_sync_options` (Attributes) Options for syncing RBAC roles (see [below for nested schema](#nestedatt--role_sync_options))
 - `schema_registry_sync_options` (Attributes) Options for how the Schema Registry is synced. (see [below for nested schema](#nestedatt--schema_registry_sync_options))
 - `security_sync_options` (Attributes) Options for syncing security settings (see [below for nested schema](#nestedatt--security_sync_options))
-- `source_redpanda_id` (String) Source Redpanda ID
+- `source_redpanda_id` (String) Source Redpanda ID. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 - `topic_metadata_sync_options` (Attributes) Options for syncing topic metadata (see [below for nested schema](#nestedatt--topic_metadata_sync_options))
 

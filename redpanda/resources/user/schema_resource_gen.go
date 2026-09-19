@@ -34,13 +34,13 @@ func ResourceUserSchema(_ context.Context) schema.Schema {
 		Description: "User is a user that can be created in Redpanda",
 		Attributes: map[string]schema.Attribute{
 			"cluster_api_url": schema.StringAttribute{
-				Description:   "The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports.",
+				Description:   "The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"name": schema.StringAttribute{
-				Description:   "Username. Length must be between 1 and 128.",
+				Description:   "Username. Length must be between 1 and 128. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},

@@ -16,15 +16,15 @@ Creates a network in the Redpanda Cloud.
 
 ### Required
 
-- `cloud_provider` (String) Cloud provider where resources are created.
-- `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation.
-- `name` (String) The unique name of the network.
-- `region` (String) Region where network is placed.
-- `resource_group_id` (String) Resource group ID of the network. Must be a valid UUID.
+- `cloud_provider` (String) Cloud provider where resources are created. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `name` (String) The unique name of the network. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `region` (String) Region where network is placed. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `resource_group_id` (String) Resource group ID of the network. Must be a valid UUID. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 ### Optional
 
-- `cidr_block` (String) Network CIDR from where public and private subnets are derived. At least a 21 bits CIDR is required.
+- `cidr_block` (String) Network CIDR from where public and private subnets are derived. At least a 21 bits CIDR is required. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 - `customer_managed_resources` (Attributes) Cloud resources created by user. (see [below for nested schema](#nestedatt--customer_managed_resources))
 - `egress_spec` (Attributes) Egress Spec configuration (see [below for nested schema](#nestedatt--egress_spec))
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
@@ -55,14 +55,14 @@ Required:
 
 Optional:
 
-- `public_subnets` (Attributes) Public Subnets configuration (see [below for nested schema](#nestedatt--customer_managed_resources--aws--public_subnets))
+- `public_subnets` (Attributes) Public Subnets configuration. Public subnets can be added to an existing network but not changed or removed; a different set forces replacement. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--public_subnets))
 
 <a id="nestedatt--customer_managed_resources--aws--dynamodb_table"></a>
 ### Nested Schema for `customer_managed_resources.aws.dynamodb_table`
 
 Required:
 
-- `arn` (String) AWS DynamoDB table identifier.
+- `arn` (String) AWS DynamoDB table identifier. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--aws--management_bucket"></a>
@@ -70,7 +70,7 @@ Required:
 
 Required:
 
-- `arn` (String) AWS storage bucket identifier.
+- `arn` (String) AWS storage bucket identifier. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--aws--private_subnets"></a>
@@ -78,7 +78,7 @@ Required:
 
 Required:
 
-- `arns` (List of String) AWS subnet identifiers. Items must be unique.
+- `arns` (List of String) AWS subnet identifiers. Items must be unique. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--aws--vpc"></a>
@@ -86,7 +86,7 @@ Required:
 
 Required:
 
-- `arn` (String) AWS VPC identifier. Must match pattern `^arn:[a-z\-]{3,}:ec2:[a-z0-9\-]+:[0-9]+:vpc\/.+$`.
+- `arn` (String) AWS VPC identifier. Must match pattern `^arn:[a-z\-]{3,}:ec2:[a-z0-9\-]+:[0-9]+:vpc\/.+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 <a id="nestedatt--customer_managed_resources--aws--public_subnets"></a>
@@ -104,15 +104,15 @@ Required:
 Required:
 
 - `management_bucket` (Attributes) GCP storage bucket properties. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--management_bucket))
-- `network_name` (String) Name of user-created network where the Redpanda cluster is deployed to. See the official [GCP API reference](https://cloud.google.com/compute/docs/reference/rest/v1/networks). Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`.
-- `network_project_id` (String) GCP project ID where the network is created. Length must be at most 30. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`.
+- `network_name` (String) Name of user-created network where the Redpanda cluster is deployed to. See the official [GCP API reference](https://cloud.google.com/compute/docs/reference/rest/v1/networks). Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `network_project_id` (String) GCP project ID where the network is created. Length must be at most 30. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 <a id="nestedatt--customer_managed_resources--gcp--management_bucket"></a>
 ### Nested Schema for `customer_managed_resources.gcp.management_bucket`
 
 Required:
 
-- `name` (String) Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.
+- `name` (String) Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 
 
@@ -122,9 +122,9 @@ Required:
 
 Optional:
 
-- `aws` (Attributes) AWS configuration (see [below for nested schema](#nestedatt--egress_spec--aws))
-- `azure` (Attributes) Azure configuration (see [below for nested schema](#nestedatt--egress_spec--azure))
-- `gcp` (Attributes) GCP configuration (see [below for nested schema](#nestedatt--egress_spec--gcp))
+- `aws` (Attributes) AWS configuration. If the value of this attribute changes, Terraform will destroy and recreate the resource. (see [below for nested schema](#nestedatt--egress_spec--aws))
+- `azure` (Attributes) Azure configuration. If the value of this attribute changes, Terraform will destroy and recreate the resource. (see [below for nested schema](#nestedatt--egress_spec--azure))
+- `gcp` (Attributes) GCP configuration. If the value of this attribute changes, Terraform will destroy and recreate the resource. (see [below for nested schema](#nestedatt--egress_spec--gcp))
 
 <a id="nestedatt--egress_spec--aws"></a>
 ### Nested Schema for `egress_spec.aws`

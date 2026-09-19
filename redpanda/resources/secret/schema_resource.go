@@ -28,6 +28,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 // secretNamePattern: CreateSecretRequest.id validate.field rule from secret.proto.
@@ -42,7 +43,7 @@ func ResourceSecretSchema() schema.Schema {
 		Description: "Defines the secret resource.",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				Description:   "Secret identifier.",
+				Description:   "Secret identifier. " + utils.ReplacementWarning,
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators: []validator.String{
@@ -89,7 +90,7 @@ func ResourceSecretSchema() schema.Schema {
 			},
 			"cluster_api_url": schema.StringAttribute{
 				Required:      true,
-				Description:   "Dataplane API URL of the cluster that owns this secret (`redpanda_cluster.<name>.cluster_api_url`). Immutable; changing this prevents deletion of the existing secret. Generally easier to recreate the resource than to change this.",
+				Description:   "Dataplane API URL of the cluster that owns this secret (`redpanda_cluster.<name>.cluster_api_url`). Immutable; changing this prevents deletion of the existing secret. Generally easier to recreate the resource than to change this. " + utils.ReplacementWarning,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"id": schema.StringAttribute{

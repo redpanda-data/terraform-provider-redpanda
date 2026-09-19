@@ -37,26 +37,26 @@ func ResourceServerlessPrivateLinkSchema(ctx context.Context) schema.Schema {
 		Description: "Manages a Redpanda Serverless Private Link",
 		Attributes: map[string]schema.Attribute{
 			"cloud_provider": schema.StringAttribute{
-				Description:   "Cloud provider where resources are created.",
+				Description:   "Cloud provider where resources are created. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    validators.CloudProviders(),
 			},
 
 			"name": schema.StringAttribute{
-				Description:   "Name",
+				Description:   "Name. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"resource_group_id": schema.StringAttribute{
-				Description:   "Resource Group ID",
+				Description:   "Resource Group ID. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"serverless_region": schema.StringAttribute{
-				Description:   "Serverless Region",
+				Description:   "Serverless Region. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},

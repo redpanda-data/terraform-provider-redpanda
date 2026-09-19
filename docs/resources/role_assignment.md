@@ -65,9 +65,9 @@ resource "redpanda_role_assignment" "example" {
 
 ### Required
 
-- `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster
-- `principal` (String) The principal to assign the role to. Use the Kafka-style prefixed form: `"User:<name>"` for an end user or `"Group:<name>"` for an IdP group. The value is preserved verbatim in state.
-- `role_name` (String) The name of the role to assign
+- `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `principal` (String) The principal to assign the role to. Use the Kafka-style prefixed form: `"User:<name>"` for an end user or `"Group:<name>"` for an IdP group. The value is preserved verbatim in state. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+- `role_name` (String) The name of the role to assign. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 
 ### Read-Only
 

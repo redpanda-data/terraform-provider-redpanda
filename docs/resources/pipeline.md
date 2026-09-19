@@ -14,7 +14,7 @@ Pipeline represents a Redpanda Connect pipeline
 
 ### Required
 
-- `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports.
+- `cluster_api_url` (String) The cluster API URL. Changing this will prevent deletion of the resource on the existing cluster. It is generally a better idea to delete an existing resource and create a new one than to change this value unless you are planning to do state imports. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 - `config_yaml` (String, Sensitive) The Redpanda Connect pipeline configuration in YAML format. See the [Redpanda Connect Configuration](https://docs.redpanda.com/redpanda-cloud/develop/connect/configuration/about) documentation for more details.
 - `display_name` (String) User-friendly pipeline name. Length must be between 3 and 128. Must match pattern `^[A-Za-z0-9-_ /]+$`.
 

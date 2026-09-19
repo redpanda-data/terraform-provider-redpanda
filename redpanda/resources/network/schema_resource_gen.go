@@ -38,39 +38,39 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 		Description: "Network represents a Redpanda Cloud managed network",
 		Attributes: map[string]schema.Attribute{
 			"cloud_provider": schema.StringAttribute{
-				Description:   "Cloud provider where resources are created.",
+				Description:   "Cloud provider where resources are created. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    validators.CloudProviders(),
 			},
 
 			"cluster_type": schema.StringAttribute{
-				Description:   "Cluster type. Type is immutable and can only be set on cluster creation.",
+				Description:   "Cluster type. Type is immutable and can only be set on cluster creation. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    validators.ClusterTypes(),
 			},
 
 			"name": schema.StringAttribute{
-				Description:   "The unique name of the network.",
+				Description:   "The unique name of the network. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"region": schema.StringAttribute{
-				Description:   "Region where network is placed.",
+				Description:   "Region where network is placed. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"resource_group_id": schema.StringAttribute{
-				Description:   "Resource group ID of the network. Must be a valid UUID.",
+				Description:   "Resource group ID of the network. Must be a valid UUID. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"cidr_block": schema.StringAttribute{
-				Description:   "Network CIDR from where public and private subnets are derived. At least a 21 bits CIDR is required.",
+				Description:   "Network CIDR from where public and private subnets are derived. At least a 21 bits CIDR is required. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Validators:    []validator.String{validators.CIDRBlockValidator{}},
@@ -89,7 +89,7 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description:   "AWS DynamoDB table identifier.",
+										Description:   "AWS DynamoDB table identifier. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -100,7 +100,7 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description:   "AWS storage bucket identifier.",
+										Description:   "AWS storage bucket identifier. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
@@ -111,7 +111,7 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arns": schema.ListAttribute{
-										Description:   "AWS subnet identifiers. Items must be unique.",
+										Description:   "AWS subnet identifiers. Items must be unique. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
 										Validators:    []validator.List{listvalidator.UniqueValues()},
@@ -124,14 +124,14 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
-										Description:   "AWS VPC identifier. Must match pattern `^arn:[a-z\\-]{3,}:ec2:[a-z0-9\\-]+:[0-9]+:vpc\\/.+$`.",
+										Description:   "AWS VPC identifier. Must match pattern `^arn:[a-z\\-]{3,}:ec2:[a-z0-9\\-]+:[0-9]+:vpc\\/.+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
 							"public_subnets": schema.SingleNestedAttribute{
-								Description:   "Public Subnets configuration",
+								Description:   "Public Subnets configuration. Public subnets can be added to an existing network but not changed or removed; a different set forces replacement.",
 								Optional:      true,
 								Computed:      true,
 								PlanModifiers: []planmodifier.Object{publicSubnetsWriteOnce()},
@@ -155,14 +155,14 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 								Required:    true,
 								Attributes: map[string]schema.Attribute{
 									"name": schema.StringAttribute{
-										Description:   "Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.",
+										Description:   "Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 										Required:      true,
 										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 									},
 								},
 							},
 							"network_name": schema.StringAttribute{
-								Description:   "Name of user-created network where the Redpanda cluster is deployed to. See the official [GCP API reference](https://cloud.google.com/compute/docs/reference/rest/v1/networks). Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`.",
+								Description:   "Name of user-created network where the Redpanda cluster is deployed to. See the official [GCP API reference](https://cloud.google.com/compute/docs/reference/rest/v1/networks). Length must be at most 62. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 								Required:      true,
 								PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 								Validators: []validator.String{stringvalidator.RegexMatches(
@@ -171,7 +171,7 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 								), stringvalidator.LengthAtMost(62)},
 							},
 							"network_project_id": schema.StringAttribute{
-								Description:   "GCP project ID where the network is created. Length must be at most 30. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`.",
+								Description:   "GCP project ID where the network is created. Length must be at most 30. Must match pattern `^[a-z]([-a-z0-9]*[a-z0-9])?$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 								Required:      true,
 								PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 								Validators: []validator.String{stringvalidator.RegexMatches(
@@ -189,7 +189,7 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 				Optional:    true,
 				Attributes: map[string]schema.Attribute{
 					"aws": schema.SingleNestedAttribute{
-						Description:   "AWS configuration",
+						Description:   "AWS configuration. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 						Optional:      true,
 						PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
 						Attributes: map[string]schema.Attribute{
@@ -204,7 +204,7 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 						},
 					},
 					"azure": schema.SingleNestedAttribute{
-						Description:   "Azure configuration",
+						Description:   "Azure configuration. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 						Optional:      true,
 						PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
 						Attributes: map[string]schema.Attribute{
@@ -220,7 +220,7 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 						},
 					},
 					"gcp": schema.SingleNestedAttribute{
-						Description:   "GCP configuration",
+						Description:   "GCP configuration. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 						Optional:      true,
 						PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
 						Attributes: map[string]schema.Attribute{

@@ -40,19 +40,19 @@ func ResourceShadowLinkSchema(ctx context.Context) schema.Schema {
 		Description: "ShadowLink configures asynchronous data replication from a source Redpanda cluster to a shadow (destination) cluster. The link is configuration on the shadow cluster — no infrastructure is provisioned. Each broker in the shadow cluster runs internal replication tasks that pull from the source over the standard Kafka API. The shadow cluster must have `enable_shadow_linking=true` set in its `cluster_configuration.custom_properties_json`.",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				Description:   "Human-readable name for the shadow link. Must be unique. Must follow Kubernetes DNS-1123 subdomain naming convention: - lowercase alphanumeric characters, hyphens allowed - must start and end with alphanumeric character - maximum 63 characters. Length must be at most 63. Must match pattern `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`.",
+				Description:   "Human-readable name for the shadow link. Must be unique. Must follow Kubernetes DNS-1123 subdomain naming convention: - lowercase alphanumeric characters, hyphens allowed - must start and end with alphanumeric character - maximum 63 characters. Length must be at most 63. Must match pattern `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"shadow_redpanda_id": schema.StringAttribute{
-				Description:   "Shadow Redpanda cluster ID where the shadow link is created. This ID is immutable. Length must be at least 1.",
+				Description:   "Shadow Redpanda cluster ID where the shadow link is created. This ID is immutable. Length must be at least 1. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
 			"source_redpanda_id": schema.StringAttribute{
-				Description:   "Source Redpanda ID",
+				Description:   "Source Redpanda ID. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
