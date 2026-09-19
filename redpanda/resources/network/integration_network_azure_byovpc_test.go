@@ -50,9 +50,9 @@ var azureSubnetNames = [][2]string{
 	{"kafka_connect_vnet", "tfrp-kafka-connect-vnet"},
 }
 
-// azureNetOpts parameterizes byovpcAzureConfig. mgmtRG "" omits the optional
-// management_bucket.resource_group; cloudProvider and clusterType default to
-// azure and byoc and exist for the envelope error paths.
+// azureNetOpts parameterizes byovpcAzureConfig. mgmtRG "" omits the required
+// management_bucket.resource_group for its error path; cloudProvider and
+// clusterType default to azure and byoc and exist for the envelope error paths.
 type azureNetOpts struct {
 	name, vnetName, mgmtRG, cloudProvider, clusterType string
 }
@@ -119,8 +119,8 @@ func azureNetCMRPath(keys ...string) tfjsonpath.Path {
 
 // TestIntegration_Network_CreateAndRefresh_CMR_Azure validates the Create +
 // no-op cycle for the Azure BYOVPC variant: cidr_block is null, every one of
-// the fourteen subnets reads back, the omitted management_bucket.resource_group
-// stays null, and the datasource mirrors the block.
+// the fourteen subnets and the management bucket's resource group read back,
+// and the datasource mirrors the block.
 func TestIntegration_Network_CreateAndRefresh_CMR_Azure(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -134,7 +134,7 @@ data "redpanda_network" "test" {
 }
 `
 	)
-	cfg := byovpcAzureConfig(name, vnetName, "")
+	cfg := byovpcAzureConfig(name, vnetName, "tfrp-storage-rg")
 
 	idPreserved := statecheck.CompareValue(compare.ValuesSame())
 
@@ -145,7 +145,7 @@ data "redpanda_network" "test" {
 		statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("cidr_block"), knownvalue.Null()),
 		statecheck.ExpectKnownValue(networkAddr, azureNetCMRPath("management_bucket", "storage_account_name"), knownvalue.StringExact("tfrpmgmtsa")),
 		statecheck.ExpectKnownValue(networkAddr, azureNetCMRPath("management_bucket", "storage_container_name"), knownvalue.StringExact("tfrp-mgmt")),
-		statecheck.ExpectKnownValue(networkAddr, azureNetCMRPath("management_bucket", "resource_group"), knownvalue.Null()),
+		statecheck.ExpectKnownValue(networkAddr, azureNetCMRPath("management_bucket", "resource_group", "name"), knownvalue.StringExact("tfrp-storage-rg")),
 		statecheck.ExpectKnownValue(networkAddr, azureNetCMRPath("vnet", "name"), knownvalue.StringExact(vnetName)),
 		statecheck.ExpectKnownValue(networkAddr, azureNetCMRPath("vnet", "resource_group", "name"), knownvalue.StringExact("tfrp-network-rg")),
 		statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
@@ -159,7 +159,7 @@ data "redpanda_network" "test" {
 
 	refreshChecks := []statecheck.StateCheck{
 		statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("cidr_block"), knownvalue.Null()),
-		statecheck.ExpectKnownValue(networkAddr, azureNetCMRPath("management_bucket", "resource_group"), knownvalue.Null()),
+		statecheck.ExpectKnownValue(networkAddr, azureNetCMRPath("management_bucket", "resource_group", "name"), knownvalue.StringExact("tfrp-storage-rg")),
 		statecheck.ExpectKnownValue(networkAddr, azureNetCMRPath("subnets", "rp_egress_vnet", "name"), knownvalue.StringExact("tfrp-agent-public")),
 		statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 		idPreserved.AddStateValue(networkAddr, tfjsonpath.New("id")),
@@ -183,9 +183,9 @@ data "redpanda_network" "test" {
 }
 
 // TestIntegration_Network_RequiresReplace_CMR_Azure mutates vnet.name and
-// asserts DestroyBeforeCreate. customer_managed_resources.azure carries
-// RequiresReplace: the only customer-managed field the control plane updates
-// after create is the AWS public_subnets list.
+// asserts DestroyBeforeCreate. Every customer_managed_resources.azure leaf
+// carries RequiresReplace: the only customer-managed field the control plane
+// updates after create is the AWS public_subnets list.
 func TestIntegration_Network_RequiresReplace_CMR_Azure(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -216,6 +216,24 @@ func TestIntegration_Network_RequiresReplace_CMR_Azure(t *testing.T) {
 	})
 }
 
+// TestIntegration_Network_ErrorPath_CMR_Azure_ResourceGroupRequired pins that
+// management_bucket.resource_group cannot be omitted: the control plane reads
+// the block back with an empty name whenever create left it out, which an
+// optional attribute would report as an inconsistent result after apply.
+func TestIntegration_Network_ErrorPath_CMR_Azure_ResourceGroupRequired(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config:      byovpcAzureConfig("tfrp-mock-net-az-norg", "tfrp-vnet", ""),
+				ExpectError: regexp.MustCompile(`(?s)attribute "resource_group" is\s+required`),
+			},
+		},
+	})
+}
+
 // TestIntegration_Network_ErrorPath_CMR_Envelope pins the plan-time envelope
 // rules on customer_managed_resources: the arm must match cloud_provider, and
 // the block needs cluster_type "byoc" (the control plane's own rule, moved
@@ -227,11 +245,11 @@ func TestIntegration_Network_ErrorPath_CMR_Envelope(t *testing.T) {
 		ProtoV6ProviderFactories: factories,
 		Steps: []resource.TestStep{
 			{
-				Config:      byovpcAzureConfigWith(azureNetOpts{name: "tfrp-mock-net-az-mismatch", vnetName: "tfrp-vnet", cloudProvider: "gcp"}),
+				Config:      byovpcAzureConfigWith(azureNetOpts{name: "tfrp-mock-net-az-mismatch", vnetName: "tfrp-vnet", mgmtRG: "tfrp-storage-rg", cloudProvider: "gcp"}),
 				ExpectError: regexp.MustCompile(`customer_managed_resources.azure is set but cloud_provider is "gcp"`),
 			},
 			{
-				Config:      byovpcAzureConfigWith(azureNetOpts{name: "tfrp-mock-net-az-dedicated", vnetName: "tfrp-vnet", clusterType: "dedicated"}),
+				Config:      byovpcAzureConfigWith(azureNetOpts{name: "tfrp-mock-net-az-dedicated", vnetName: "tfrp-vnet", mgmtRG: "tfrp-storage-rg", clusterType: "dedicated"}),
 				ExpectError: regexp.MustCompile(`customer_managed_resources is set but cluster_type is "dedicated"`),
 			},
 		},
