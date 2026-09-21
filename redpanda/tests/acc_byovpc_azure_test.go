@@ -80,7 +80,7 @@ func TestAcc_Cluster_BYOVPC_Azure(t *testing.T) {
 		customVars["zones"] = config.ListVariable(list...)
 	}
 
-	testRunnerCluster(ctx, name, rename, acc.RedpandaVersion, acc.AzureByoVpcClusterDir, customVars, t, withoutUpgradeEntry())
+	testRunnerCluster(ctx, name, rename, acc.RedpandaVersion, acc.AzureByoVpcClusterDir, customVars, t, withoutUpgradeEntry(), withByocAgentApply())
 }
 
 // azureNetworkCMRFromEnv builds the network's customer_managed_resources.azure

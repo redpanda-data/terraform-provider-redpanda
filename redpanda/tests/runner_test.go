@@ -117,8 +117,9 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 			resource.TestCheckResourceAttr(acc.ClusterResourceName, "maintenance_window_config.day_hour.hour_of_day", "0"))
 	}
 
+	cfg := resolveRunnerOpts(opts)
 	var steps []resource.TestStep
-	if !resolveRunnerOpts(opts).skipUpgradeEntry {
+	if !cfg.skipUpgradeEntry {
 		// Provider-upgrade entry: the released provider creates the stack,
 		// the local build must re-plan it empty. The first step below then
 		// applies a no-op and runs the create-time checks.
@@ -133,6 +134,9 @@ func testRunner(ctx context.Context, name, rename, version, testFile string, cus
 			PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 		},
 	})
+	if cfg.byocAgentApply {
+		steps = append(steps, byocAgentApplyStep(t, testFile, origTestCaseVars))
+	}
 	// Pre-rename: the user import resolves the cluster by its original name.
 	steps = append(steps, dp.UserImportSteps(origTestCaseVars, idBeforeRename)...)
 	steps = append(steps, []resource.TestStep{

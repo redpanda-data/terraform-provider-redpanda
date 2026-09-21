@@ -24,12 +24,19 @@ type runnerCfg struct {
 	// networkPublicSubnetARNs, when set, adds a step after create that
 	// registers public subnets on the network in place.
 	networkPublicSubnetARNs []string
+	// byocAgentApply adds a step that re-runs the byoc agent apply on the
+	// READY cluster through the redpanda_byoc_agent_apply action.
+	byocAgentApply bool
 }
 
 // withoutUpgradeEntry skips the provider-upgrade entry for configs the
 // released provider cannot parse yet (unreleased schema features). Remove the
 // caller's use once a release ships the feature.
 func withoutUpgradeEntry() runnerOpt { return func(c *runnerCfg) { c.skipUpgradeEntry = true } }
+
+// withByocAgentApply is for BYOC and BYOVPC lanes only: dedicated clusters
+// have no agent and the action refuses them at plan time.
+func withByocAgentApply() runnerOpt { return func(c *runnerCfg) { c.byocAgentApply = true } }
 
 func withNetworkPublicSubnets(arns []string) runnerOpt {
 	return func(c *runnerCfg) { c.networkPublicSubnetARNs = arns }

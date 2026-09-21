@@ -27,5 +27,5 @@ func TestAcc_Cluster_BYOC_AWS(t *testing.T) {
 	ctx := context.Background()
 	name := acc.RandomName(acc.NamePrefix + acc.CloudLabelAWS)
 	rename := acc.RandomName(acc.NamePrefix + acc.CloudLabelAWSRename)
-	testRunner(ctx, name, rename, acc.RedpandaVersion, acc.AwsByocClusterDir, nil, t)
+	testRunner(ctx, name, rename, acc.RedpandaVersion, acc.AwsByocClusterDir, nil, t, withByocAgentApply())
 }

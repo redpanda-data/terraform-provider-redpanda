@@ -47,5 +47,5 @@ func TestAcc_Cluster_BYOVPC_GCP(t *testing.T) {
 		"tiered_storage_bucket_name":             config.StringVariable(os.Getenv("GCP_TIERED_STORAGE_BUCKET_NAME")),
 	}
 
-	testRunnerCluster(ctx, name, rename, acc.RedpandaVersion, acc.GcpByoVpcClusterDir, customVars, t)
+	testRunnerCluster(ctx, name, rename, acc.RedpandaVersion, acc.GcpByoVpcClusterDir, customVars, t, withByocAgentApply())
 }
