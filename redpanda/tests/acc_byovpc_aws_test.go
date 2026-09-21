@@ -93,7 +93,7 @@ func TestAcc_Cluster_BYOVPC_AWS(t *testing.T) {
 		customVars["zones"] = config.ListVariable(zonesVars...)
 	}
 
-	var opts []runnerOpt
+	opts := []runnerOpt{withByocAgentApply()}
 	if len(publicSubnetArns) > 0 {
 		opts = append(opts, withNetworkPublicSubnets(publicSubnetArns))
 	}

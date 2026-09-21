@@ -69,8 +69,9 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 		return sweep.ResourceGroup{ResourceGroupName: name, Client: c}.SweepResourceGroup("")
 	}))
 
+	cfg := resolveRunnerOpts(opts)
 	var steps []resource.TestStep
-	if !resolveRunnerOpts(opts).skipUpgradeEntry {
+	if !cfg.skipUpgradeEntry {
 		steps = acc.UpgradeEntrySteps(t, testFile, origTestCaseVars)
 	}
 	steps = append(steps, []resource.TestStep{
@@ -104,6 +105,9 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 			ProtoV6ProviderFactories: acc.ProtoV6Factories,
 		},
 	}...)
+	if cfg.byocAgentApply {
+		steps = append(steps, byocAgentApplyStep(t, testFile, updateTestCaseVars))
+	}
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { acc.PreCheck(t) },

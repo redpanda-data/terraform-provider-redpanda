@@ -27,5 +27,5 @@ func TestAcc_Cluster_BYOC_GCP(t *testing.T) {
 	ctx := context.Background()
 	name := acc.RandomName(acc.NamePrefix + "testgcp")
 	rename := acc.RandomName(acc.NamePrefix + "testgcp-rename")
-	testRunner(ctx, name, rename, acc.RedpandaVersion, acc.GcpByocClusterDir, nil, t)
+	testRunner(ctx, name, rename, acc.RedpandaVersion, acc.GcpByocClusterDir, nil, t, withByocAgentApply())
 }

@@ -208,6 +208,9 @@ func testRunnerClusterWithAwsPrivateLinkToggle(ctx context.Context, name, rename
 			ProtoV6ProviderFactories: acc.ProtoV6Factories,
 		},
 	}...)
+	if cfg.byocAgentApply {
+		steps = append(steps, byocAgentApplyStep(t, testFile, updateTestCaseVars))
+	}
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() { acc.PreCheck(t) },
