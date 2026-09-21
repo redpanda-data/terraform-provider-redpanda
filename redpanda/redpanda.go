@@ -23,6 +23,7 @@ import (
 	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/action"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -31,6 +32,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/actions/byocagentapply"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud/auth"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
@@ -62,7 +64,10 @@ import (
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
-var _ provider.Provider = &Redpanda{}
+var (
+	_ provider.Provider            = &Redpanda{}
+	_ provider.ProviderWithActions = &Redpanda{}
+)
 
 // Redpanda represents the Redpanda Terraform provider.
 type Redpanda struct {
@@ -486,6 +491,7 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		TerraformVersion:       request.TerraformVersion,
 		ProviderVersion:        r.version,
 	}
+	response.ActionData = response.ResourceData
 	response.DataSourceData = config.Datasource{
 		TokenSource:            creds.TokenSource,
 		ControlPlaneConnection: r.conn,
@@ -520,6 +526,11 @@ func (*Redpanda) DataSources(_ context.Context) []func() datasource.DataSource {
 		func() datasource.DataSource { return throughputtiers.NewDataSourceThroughputTiers() },
 		func() datasource.DataSource { return schemaresource.NewSchemaDataSource() },
 	}
+}
+
+// Actions implements provider.ProviderWithActions.
+func (*Redpanda) Actions(_ context.Context) []func() action.Action {
+	return []func() action.Action{byocagentapply.New}
 }
 
 // Resources returns a slice of functions to instantiate each Redpanda resource.
