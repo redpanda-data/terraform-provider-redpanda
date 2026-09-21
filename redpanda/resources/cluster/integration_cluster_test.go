@@ -737,9 +737,8 @@ func TestIntegration_Cluster_CreateAndRefresh_GCP_Dedicated(t *testing.T) {
 }
 
 // TestIntegration_Cluster_CreateAndRefresh_AWS_BYOC creates and no-op re-applies the
-// AWS BYOC variant. The fake returns STATE_READY immediately so
-// Cluster.Create's RetryGetCluster terminates without ever entering
-// STATE_CREATING_AGENT; c.Byoc.RunByoc is never called.
+// AWS BYOC variant. The agent phases themselves are pinned by
+// TestIntegration_Cluster_BYOC_AgentApplyAndDestroy.
 func TestIntegration_Cluster_CreateAndRefresh_AWS_BYOC(t *testing.T) {
 	_, factories := clusterSetup(t)
 
@@ -1944,8 +1943,7 @@ func TestIntegration_Cluster_RequiresReplace_Zones(t *testing.T) {
 
 // TestIntegration_Cluster_RequiresReplace_ClusterType flips cluster_type from
 // "dedicated" to "byoc". Also switches connection_type to "private" (best
-// practice for BYOC). idChanged proves destroy-before-create. c.Byoc.RunByoc
-// is never invoked because the fake stays in STATE_READY.
+// practice for BYOC). idChanged proves destroy-before-create.
 func TestIntegration_Cluster_RequiresReplace_ClusterType(t *testing.T) {
 	_, factories := clusterSetup(t)
 

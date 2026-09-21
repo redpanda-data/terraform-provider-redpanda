@@ -46,7 +46,7 @@ var (
 // Cluster represents a cluster managed resource
 type Cluster struct {
 	base.ResourceBase
-	Byoc *utils.ByocClient
+	Byoc utils.ByocRunner
 }
 
 // NewCluster constructs a Cluster resource.
@@ -96,7 +96,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cl.GetState()))
 		case controlplanev1.Cluster_STATE_CREATING_AGENT:
 			if cl.Type == controlplanev1.Cluster_TYPE_BYOC && !ranByoc {
-				err = c.Byoc.RunByoc(ctx, clusterID, "apply")
+				err = c.Byoc.RunByoc(ctx, clusterID, "apply", nil)
 				if err != nil {
 					if utils.IsRetryableByocError(err) {
 						tflog.Debug(ctx, fmt.Sprintf("Retryable byoc error during apply: %v", err))
@@ -306,7 +306,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		}
 		if cl.GetState() == controlplanev1.Cluster_STATE_DELETING_AGENT {
 			if cl.Type == controlplanev1.Cluster_TYPE_BYOC && !ranByoc {
-				err = c.Byoc.RunByoc(ctx, clusterID, "destroy")
+				err = c.Byoc.RunByoc(ctx, clusterID, "destroy", nil)
 				if err != nil {
 					if utils.IsRetryableByocError(err) {
 						tflog.Debug(ctx, fmt.Sprintf("Retryable byoc error during destroy: %v", err))

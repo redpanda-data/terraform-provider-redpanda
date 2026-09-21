@@ -24,6 +24,7 @@ import (
 	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1/controlplanev1grpc"
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/clustermask"
+	rpcstatus "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -41,8 +42,11 @@ func schemaRegistryURL(override string) string {
 
 // ClusterFake is a stateful in-memory ClusterService. The provider polls
 // GetCluster for Create and Delete rather than the Operation, so Create stores
-// the cluster READY without publishing its op and Delete makes GetCluster
-// return NotFound; only Update publishes an Operation for AreWeDoneYet.
+// a dedicated cluster READY without publishing its op and Delete makes
+// GetCluster return NotFound; only Update publishes an Operation for
+// AreWeDoneYet. A BYOC cluster instead parks in STATE_CREATING_AGENT and
+// STATE_DELETING_AGENT until the byoc runner fake reports the plugin run
+// through AgentRun, mirroring the control plane waiting on the agent.
 // UpdateMask is honored on top-level fields, matching what
 // utils.GenerateProtobufDiffAndUpdateMask emits.
 type ClusterFake struct {
@@ -178,8 +182,9 @@ func (f *ClusterFake) SetSchemaRegistryURL(url string) {
 // CreateCluster stores a new cluster pre-populated with every Computed-only
 // surface the provider's Flatten reads (dataplane_api.url="bufnet",
 // kafka_api, http_proxy, schema_registry, redpanda_console, prometheus,
-// current/desired_redpanda_version). State is STATE_READY so RetryGetCluster's
-// Create-side poll terminates on the first call.
+// current/desired_redpanda_version). A dedicated cluster is stored READY so
+// RetryGetCluster's Create-side poll terminates on the first call; a BYOC
+// cluster is stored CREATING_AGENT and reaches READY through AgentRun.
 func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.CreateClusterRequest) (*controlplanev1.CreateClusterOperation, error) {
 	in := req.GetCluster()
 	if in == nil {
@@ -211,7 +216,7 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 		Region:                 in.GetRegion(),
 		Zones:                  append([]string(nil), in.GetZones()...),
 		ThroughputTier:         in.GetThroughputTier(),
-		State:                  controlplanev1.Cluster_STATE_READY,
+		State:                  initialClusterState(in.GetType()),
 		CreatedAt:              now,
 		UpdatedAt:              now,
 		ApiGatewayAccess:       in.GetApiGatewayAccess(),
@@ -920,17 +925,23 @@ func specToClusterSchemaRegistry(spec *controlplanev1.SchemaRegistrySpec, url st
 	}
 }
 
-// DeleteCluster removes the stored cluster. The provider's Delete polls
-// GetCluster via RetryGetCluster; once the cluster is gone from the map,
-// GetCluster returns NotFound and RetryGetCluster terminates. No Operation
-// is published for the same reason as Create.
+// DeleteCluster removes a dedicated cluster outright and parks a BYOC cluster
+// in STATE_DELETING_AGENT until AgentRun sees the plugin's destroy. The
+// provider's Delete polls GetCluster via RetryGetCluster; once the cluster is
+// gone from the map, GetCluster returns NotFound and RetryGetCluster
+// terminates. No Operation is published for the same reason as Create.
 func (f *ClusterFake) DeleteCluster(_ context.Context, req *controlplanev1.DeleteClusterRequest) (*controlplanev1.DeleteClusterOperation, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if _, ok := f.clusters[req.GetId()]; !ok {
+	cl, ok := f.clusters[req.GetId()]
+	if !ok {
 		return nil, status.Errorf(codes.NotFound, "cluster %q not found", req.GetId())
 	}
-	delete(f.clusters, req.GetId())
+	if cl.GetType() == controlplanev1.Cluster_TYPE_BYOC {
+		cl.State = controlplanev1.Cluster_STATE_DELETING_AGENT
+	} else {
+		delete(f.clusters, req.GetId())
+	}
 	id := req.GetId()
 	op := &controlplanev1.Operation{
 		Id:         "op-delete-" + id,
@@ -938,4 +949,58 @@ func (f *ClusterFake) DeleteCluster(_ context.Context, req *controlplanev1.Delet
 		ResourceId: &id,
 	}
 	return &controlplanev1.DeleteClusterOperation{Operation: op}, nil
+}
+
+// initialClusterState is the state a freshly created cluster is stored in.
+func initialClusterState(t controlplanev1.Cluster_Type) controlplanev1.Cluster_State {
+	if t == controlplanev1.Cluster_TYPE_BYOC {
+		return controlplanev1.Cluster_STATE_CREATING_AGENT
+	}
+	return controlplanev1.Cluster_STATE_READY
+}
+
+// AgentRun is the byoc runner fake's hook: it advances the cluster the way a
+// successful plugin run makes the control plane advance it. apply moves
+// CREATING_AGENT to READY and is a no-op reconcile on READY; destroy removes
+// a DELETING_AGENT cluster. Any other combination is refused, so a provider
+// that runs the plugin at the wrong moment fails the test instead of passing.
+func (f *ClusterFake) AgentRun(id, verb string) (AgentState, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	cl, ok := f.clusters[id]
+	if !ok {
+		return AgentStateNone, status.Errorf(codes.NotFound, "cluster %q not found", id)
+	}
+	switch {
+	case verb == "apply" && cl.GetState() == controlplanev1.Cluster_STATE_CREATING_AGENT:
+		cl.State = controlplanev1.Cluster_STATE_READY
+		return AgentStateCreating, nil
+	case verb == "apply" && cl.GetState() == controlplanev1.Cluster_STATE_READY:
+		return AgentStateReady, nil
+	case verb == "destroy" && cl.GetState() == controlplanev1.Cluster_STATE_DELETING_AGENT:
+		delete(f.clusters, id)
+		return AgentStateDeleting, nil
+	default:
+		return AgentStateNone, status.Errorf(codes.FailedPrecondition, "byoc %s on cluster %q in state %s", verb, id, cl.GetState())
+	}
+}
+
+// SetStateOutOfBand rewrites the state and state_description of the stored
+// cluster with the given name, as if the control plane moved it while
+// Terraform was not looking. Returns false when no cluster has that name.
+func (f *ClusterFake) SetStateOutOfBand(name string, state controlplanev1.Cluster_State, description string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, cl := range f.clusters {
+		if cl.GetName() != name {
+			continue
+		}
+		cl.State = state
+		cl.StateDescription = nil
+		if description != "" {
+			cl.StateDescription = &rpcstatus.Status{Code: int32(codes.FailedPrecondition), Message: description}
+		}
+		return true
+	}
+	return false
 }

@@ -1733,7 +1733,7 @@ func TestRunSubprocess_RemovesTempDir(t *testing.T) {
 	pattern := filepath.Join(os.TempDir(), "terraform-provider-redpanda-byoc*")
 	before, err := filepath.Glob(pattern)
 	require.NoError(t, err)
-	require.NoError(t, runSubprocess(context.Background(), nil, "echo", "hello"))
+	require.NoError(t, runSubprocess(context.Background(), nil, nil, "echo", "hello"))
 	after, err := filepath.Glob(pattern)
 	require.NoError(t, err)
 	require.Len(t, after, len(before), "runSubprocess leaked a temp dir: before=%v after=%v", before, after)

@@ -75,6 +75,10 @@ type Server struct {
 	// Topic is the stateful fake for the dataplane TopicService RPCs.
 	Topic *fakes.TopicFake
 
+	// Byoc stands in for the rpk byoc plugin. Wired to Cluster so a run
+	// advances the cluster's agent phase the way the real plugin does.
+	Byoc *fakes.ByocRunnerFake
+
 	// Pipeline is the stateful fake for the dataplane PipelineService RPCs.
 	Pipeline *fakes.PipelineFake
 
@@ -168,6 +172,7 @@ func New(t testing.TB) *Server {
 		SR:                    fakes.NewSchemaRegistryFake(t),
 	}
 	s.Cluster.SetSchemaRegistryURL(s.SR.BaseURL())
+	s.Byoc = fakes.NewByocRunnerFake(s.Cluster.AgentRun)
 	s.Cluster.NetworkLookup = s.Network.Lookup
 	s.grpc = grpc.NewServer(grpc.ChainUnaryInterceptor(
 		s.countingInterceptor(),

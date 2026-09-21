@@ -53,6 +53,29 @@ type ByocClientConfig struct {
 	AwsSessionToken     string
 }
 
+// ByocRunner runs the rpk byoc plugin against a cluster. *ByocClient is the
+// production implementation; the integration tier substitutes a fake so the
+// agent phases of Create and Delete run without a subprocess.
+type ByocRunner interface {
+	// RunByoc runs the plugin verb ("apply" or "destroy") for clusterID. When
+	// sink is non-nil it receives the plugin's progress lines at INFO and
+	// above, one call per line, in addition to the tflog forwarding.
+	RunByoc(ctx context.Context, clusterID, verb string, sink func(line string)) error
+}
+
+// ByocCloudConfigChecker is the optional preflight a ByocRunner can offer:
+// whether the provider configuration carries what the plugin needs for a
+// cloud, checked before any download. Cloud provider strings are the
+// enums.CloudProviderString* values.
+type ByocCloudConfigChecker interface {
+	CheckCloudConfig(cloudProvider string) error
+}
+
+var (
+	_ ByocRunner             = (*ByocClient)(nil)
+	_ ByocCloudConfigChecker = (*ByocClient)(nil)
+)
+
 // ByocClient holds the information and clients needed to download and interact
 // with the rpk byoc plugin.
 type ByocClient struct {
@@ -88,6 +111,25 @@ func NewByocClient(conf ByocClientConfig) *ByocClient {
 	}
 }
 
+// CheckCloudConfig implements ByocCloudConfigChecker with the same
+// requirements generateByocArgsAndEnv enforces at run time. AWS is not
+// checked: the plugin resolves AWS credentials from the ambient chain, which
+// the provider cannot see.
+func (cl *ByocClient) CheckCloudConfig(cloudProvider string) error {
+	switch cloudProvider {
+	case enums.CloudProviderStringGcp:
+		if cl.gcpProject == "" {
+			return errors.New("gcp_project_id must be set on the provider (or GOOGLE_PROJECT in the environment) to run the byoc plugin against a GCP cluster")
+		}
+	case enums.CloudProviderStringAzure:
+		if cl.azureSubscriptionID == "" {
+			return errors.New("azure_subscription_id must be set on the provider (or ARM_SUBSCRIPTION_ID in the environment) to run the byoc plugin against an Azure cluster")
+		}
+	default:
+	}
+	return nil
+}
+
 // newAPI returns a fresh cloudapi.Client using a token fetched from the
 // TokenSource. Each call hits the cache layer; the wire fetch is rare.
 func (cl *ByocClient) newAPI() (*cloudapi.Client, error) {
@@ -99,8 +141,8 @@ func (cl *ByocClient) newAPI() (*cloudapi.Client, error) {
 }
 
 // RunByoc downloads and runs the rpk byoc plugin for a given cluster id and verb
-// ("apply" or "destroy").
-func (cl *ByocClient) RunByoc(ctx context.Context, clusterID, verb string) error {
+// ("apply" or "destroy"). See ByocRunner for sink.
+func (cl *ByocClient) RunByoc(ctx context.Context, clusterID, verb string, sink func(line string)) error {
 	tflog.Info(ctx, "running byoc plugin", map[string]any{
 		"cluster_id": clusterID,
 		"verb":       verb,
@@ -128,7 +170,7 @@ func (cl *ByocClient) RunByoc(ctx context.Context, clusterID, verb string) error
 	}
 	defer execCleanup()
 
-	return runSubprocess(ctx, byocEnv, byocPath, byocArgs...)
+	return runSubprocess(ctx, byocEnv, sink, byocPath, byocArgs...)
 }
 
 func (cl *ByocClient) generateAwsArgsAndEnv() (args, env []string, err error) {
@@ -381,7 +423,7 @@ func (cl *ByocClient) getByocExecutable(ctx context.Context, cluster cloudapi.Cl
 	return byocPath, cleanup, nil
 }
 
-func runSubprocess(ctx context.Context, env []string, executable string, args ...string) error {
+func runSubprocess(ctx context.Context, env []string, sink func(string), executable string, args ...string) error {
 	tempDir, err := os.MkdirTemp("", "terraform-provider-redpanda-byoc")
 	if err != nil {
 		return err
@@ -421,8 +463,8 @@ func runSubprocess(ctx context.Context, env []string, executable string, args ..
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go func() { defer wg.Done(); forwardLogs(ctx, stdout, lastLogs) }()
-	go func() { defer wg.Done(); forwardLogs(ctx, stderr, lastLogs) }()
+	go func() { defer wg.Done(); forwardLogs(ctx, stdout, lastLogs, sink) }()
+	go func() { defer wg.Done(); forwardLogs(ctx, stderr, lastLogs, sink) }()
 
 	// Per exec.Cmd.StdoutPipe's contract, all reads from the pipes must
 	// complete before Wait because Wait closes them on process exit.
@@ -495,7 +537,7 @@ func (l *lastLogs) GetLines() []string {
 	return lines
 }
 
-func forwardLogs(ctx context.Context, reader io.Reader, lastLogs *lastLogs) {
+func forwardLogs(ctx context.Context, reader io.Reader, lastLogs *lastLogs, sink func(string)) {
 	r := bufio.NewScanner(reader)
 	for {
 		if !r.Scan() {
@@ -504,6 +546,11 @@ func forwardLogs(ctx context.Context, reader io.Reader, lastLogs *lastLogs) {
 		line := r.Text()
 		line = removeColor(line)
 		lastLogs.Append(line)
+		if sink != nil {
+			if msg, ok := progressLine(line); ok {
+				sink(msg)
+			}
+		}
 		if z := parseZapLog(line); z != nil {
 			switch z.Level {
 			case "DEBUG", "INFO":
@@ -518,5 +565,22 @@ func forwardLogs(ctx context.Context, reader io.Reader, lastLogs *lastLogs) {
 		} else {
 			tflog.Info(ctx, fmt.Sprintf("rpk: %s", line))
 		}
+	}
+}
+
+// progressLine reduces one plugin output line to what a practitioner should
+// see in the apply log: the message of a zap line at INFO or above, or a
+// non-zap line as is. DEBUG lines are dropped because the plugin runs with
+// --debug and they would swamp the log; they still reach tflog.
+func progressLine(line string) (string, bool) {
+	z := parseZapLog(line)
+	if z == nil {
+		return line, line != ""
+	}
+	switch z.Level {
+	case "INFO", "WARN", "ERROR":
+		return z.Message, true
+	default:
+		return "", false
 	}
 }
