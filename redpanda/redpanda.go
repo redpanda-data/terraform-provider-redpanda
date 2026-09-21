@@ -75,8 +75,9 @@ type Redpanda struct {
 	conn *grpc.ClientConn
 	// dataplanePool is the shared pool of dataplane gRPC connections.
 	dataplanePool *cloud.ConnPool
-	// byoc is the client for managing byoc executions.
-	byoc *utils.ByocClient
+	// byoc runs the rpk byoc plugin; nil until Configure builds the
+	// production client unless WithByocRunner injected one.
+	byoc utils.ByocRunner
 
 	// Test-only seams populated by Option-functional builders. Zero-value in
 	// production.
@@ -97,6 +98,13 @@ func WithDialer(opts ...grpc.DialOption) Option {
 		r.dialOptions = opts
 		r.insecureDial = true
 	}
+}
+
+// WithByocRunner substitutes the rpk byoc plugin runner. Used by the
+// integration tier so BYOC Create and Delete walk their agent phases against
+// a fake instead of a subprocess.
+func WithByocRunner(r utils.ByocRunner) Option {
+	return func(p *Redpanda) { p.byoc = r }
 }
 
 // WithSkipAuth bypasses the Auth0 token request. Used by the integration

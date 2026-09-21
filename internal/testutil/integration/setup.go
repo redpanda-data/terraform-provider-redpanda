@@ -51,6 +51,7 @@ func Setup(t *testing.T) (srv *mock.Server, factories map[string]func() (tfproto
 		"redpanda": provider.NewMuxedServer(context.Background(), "pre", "test",
 			provider.WithProviderOption(redpanda.WithDialer(srv.Dialer()...)),
 			provider.WithProviderOption(redpanda.WithSkipAuth()),
+			provider.WithProviderOption(redpanda.WithByocRunner(srv.Byoc)),
 		),
 	}
 	return srv, factories

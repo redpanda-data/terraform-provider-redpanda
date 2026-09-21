@@ -27,7 +27,7 @@ import (
 // implementations.
 type Resource struct {
 	TokenSource            oauth2.TokenSource
-	ByocClient             *utils.ByocClient
+	ByocClient             utils.ByocRunner
 	ControlPlaneConnection *grpc.ClientConn
 	DataplaneConnPool      *cloud.ConnPool
 	TerraformVersion       string
