@@ -420,7 +420,7 @@ steps:
       - integration
   - label: test_byovpc_azure
     key: test_byovpc_azure
-    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-byoc' || build.pull_request.labels includes 'ci-ready-all')
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-byoc' || build.pull_request.labels includes 'ci-ready-azure' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       apt-get update && apt-get install -y --no-install-recommends curl unzip jq ca-certificates
       curl -sL https://aka.ms/InstallAzureCLIDeb | bash
@@ -509,7 +509,7 @@ steps:
 
   - label: cleanup_azure
     key: cleanup_azure
-    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-byoc' || build.pull_request.labels includes 'ci-ready-all')
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-byoc' || build.pull_request.labels includes 'ci-ready-azure' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
       curl -sL https://aka.ms/InstallAzureCLIDeb | bash
@@ -526,6 +526,8 @@ steps:
             - AZURE_TENANT_ID
             - AZURE_SUBSCRIPTION_ID
             - CI=true
+            # scopes the sweep to this build's tfrp-<build>- resource groups
+            - BUILDKITE_BUILD_NUMBER
     depends_on:
       - test_byovpc_azure
     allow_dependency_failure: true
@@ -536,7 +538,7 @@ steps:
 
   - label: cleanup_redpanda_cloud
     key: cleanup_redpanda_cloud
-    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-byoc' || build.pull_request.labels includes 'ci-ready-serverless' || build.pull_request.labels includes 'ci-ready-all')
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-byoc' || build.pull_request.labels includes 'ci-ready-azure' || build.pull_request.labels includes 'ci-ready-serverless' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw cleanup:redpanda || echo "Redpanda Cloud cleanup completed with errors (non-blocking)"
     plugins:
@@ -566,6 +568,7 @@ steps:
       - test_byovpc_aws
       - test_byoc_gcp
       - test_byovpc_gcp
+      - test_byovpc_azure
     allow_dependency_failure: true
     soft_fail: true
     retry:

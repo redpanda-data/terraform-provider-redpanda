@@ -33,7 +33,7 @@ request. If you've added new functionality, consider adding appropriate unit and
 
 * (optional) Use the label docs to generate documentation
 * Use the `ci-ready` label to trigger the standard live-acc gate (cluster + network + service_account + datasource_cluster on AWS + GCP)
-* Use the `ci-ready-byoc` label to trigger the BYOC + BYOVPC live-acc suite (AWS, GCP, and Azure BYOVNet)
+* Use the `ci-ready-byoc` label to trigger the BYOC + BYOVPC live-acc suite (AWS, GCP, and Azure BYOVNet); `ci-ready-azure` runs only the Azure BYOVNet lane
 * Use the `ci-ready-serverless` label to trigger the serverless live-acc suite
 * Use the `ci-ready-upgrade` / `ci-ready-upgrade-serverless` labels to trigger the provider-upgrade suites
 
@@ -297,7 +297,7 @@ task release:snapshot
 1. Always run `task ready` before committing changes to ensure code quality and documentation accuracy.
 2. Use `task test:unit` for quick, local testing that doesn't require Redpanda credentials.
 3. Use `task local:cluster:*:apply` and `task local:cluster:*:destroy` for manual testing during development.
-4. Trigger live-acc tests by tagging your PR with one or more of `ci-ready` (standard), `ci-ready-byoc`, `ci-ready-serverless`, `ci-ready-upgrade`, or `ci-ready-upgrade-serverless`.
+4. Trigger live-acc tests by tagging your PR with one or more of `ci-ready` (standard), `ci-ready-byoc`, `ci-ready-azure`, `ci-ready-serverless`, `ci-ready-upgrade`, or `ci-ready-upgrade-serverless`.
 5. Use `task release:check` to validate GoReleaser configuration before creating releases.
 6. Set up your `.env` file with appropriate credentials for your development environment.
 
