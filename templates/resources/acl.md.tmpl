@@ -17,6 +17,14 @@ Creates an Access Control List (ACL) in a Redpanda cluster.
 
 {{ tffile "examples/docs/acl/main.tf" }}
 
+### Existing cluster
+
+ACLs do not need to live in the same configuration as the cluster. Point `cluster_api_url` at an existing cluster's data plane URL and iterate over the operations each principal needs. Every operation is a separate ACL, so `for_each` over an operation list keeps a permission set readable as it grows.
+
+{{ tffile "examples/docs/acl_existing_cluster/main.tf" }}
+
+Kafka defines which operations apply to each resource type. A `TOPIC` accepts `READ`, `WRITE`, `CREATE`, `DELETE`, `ALTER`, `DESCRIBE`, `ALTER_CONFIGS` and `DESCRIBE_CONFIGS`; a `GROUP` accepts `READ`, `DESCRIBE` and `DELETE`; a `CLUSTER` accepts `CREATE`, `ALTER`, `DESCRIBE`, `CLUSTER_ACTION`, `ALTER_CONFIGS`, `DESCRIBE_CONFIGS` and `IDEMPOTENT_WRITE`. The broker stores any combination, so an ACL such as `READ` on `CLUSTER` applies without error and grants nothing.
+
 ## Limitations
 
 We are not currently able to support ACL creation in self hosted clusters. This is an area of active development so expect that to change soon.
