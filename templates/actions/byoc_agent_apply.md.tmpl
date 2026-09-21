@@ -1,0 +1,40 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+Use it when Redpanda asks you to re-run the BYOC agent apply on a cluster that already exists, for example to pick up a larger agent VM. The cluster itself is not modified and no Terraform state changes; a `terraform plan` after the action is empty.
+
+The action runs the same plugin, with the same arguments and credentials, that `redpanda_cluster` runs while creating a BYOC cluster. Configure the provider's cloud credentials (`aws_*`, `gcp_project_id` and `google_credentials*`, or `azure_*`) or the matching environment variables on the machine running Terraform.
+
+Terraform 1.14 or later is required for actions.
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+{{ tffile "examples/docs/byoc_agent_apply/main.tf" }}
+
+Run the action once, without applying any other change:
+
+```shell
+terraform apply -invoke=action.redpanda_byoc_agent_apply.prod
+```
+
+To run it ahead of every change to the cluster, put a `before_update` trigger on the cluster as in the example and pass the cluster id in through a variable. An action config that reads `redpanda_cluster.<name>.id` cannot be triggered before that same cluster: Terraform reports a cycle, because a before-event trigger has to complete before the resource it would read from is planned.
+
+## Preconditions
+
+The action refuses to run, at plan time when `cluster_id` is already known, when:
+
+- the cluster is not a BYOC or BYOVPC cluster
+- the cluster is not `STATE_READY`; a `STATE_FAILED` cluster is reported with its failure description, since a fresh agent does not resume a failed cluster
+- the provider lacks the GCP project or Azure subscription the plugin needs for that cloud
+
+AWS credentials are resolved by the plugin from the usual AWS credential chain and are not checked ahead of time.
