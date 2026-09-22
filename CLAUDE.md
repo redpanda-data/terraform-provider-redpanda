@@ -183,7 +183,10 @@ Before every push: run the `reviewer` agent on the branch (`/review`) and either
 ### Pull requests
 
 - Title is the commit title for a single-commit PR, otherwise a `type(scope): summary` for the whole change.
-- Body leads with what a user of the provider sees differently, then what changed and why, then which test tiers ran and which were skipped. Point reviewers at the generated commit so they can skip it.
+- Body has three sections, in this order, under these headers:
+  - **User-facing change**: what a config author can now do or must do differently, with its constraints.
+  - **Design notes**: the decisions and their reasons, one bullet each. Not a file inventory; the diff shows the files.
+  - **Test coverage**: which tiers ran and which were skipped. Point reviewers at the generated commit so they can skip it.
 - Nothing from the session that is not in the repo: no customer names, logs, tickets, or internal threads.
 
 ### GitHub PR comments
