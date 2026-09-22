@@ -16,8 +16,10 @@ package acc
 
 import (
 	"context"
+	"os"
 
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/provider"
 )
 
@@ -26,5 +28,15 @@ import (
 var ProtoV6Factories map[string]func() (tfprotov6.ProviderServer, error)
 
 func init() {
-	ProtoV6Factories = provider.ProtoV6ProviderFactories(context.Background(), CloudEnv, "test")
+	ProtoV6Factories = localBuildFactories()
+}
+
+// localBuildFactories publishes the in-process build under the address the
+// lane configs pin, registry.terraform.io/redpanda-data/redpanda. Without the
+// namespace override plugin-testing reattaches it as hashicorp/redpanda, so
+// a config that pins the registry source never reaches the local build and
+// Terraform selects the released provider instead.
+func localBuildFactories() map[string]func() (tfprotov6.ProviderServer, error) {
+	_ = os.Setenv(resource.EnvTfAccProviderNamespace, "redpanda-data")
+	return provider.ProtoV6ProviderFactories(context.Background(), CloudEnv, "test")
 }

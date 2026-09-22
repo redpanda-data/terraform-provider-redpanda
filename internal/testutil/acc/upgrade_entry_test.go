@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -106,4 +107,28 @@ func TestStaleImpliedMirror(t *testing.T) {
 func TestImpliedMirrorDirs(t *testing.T) {
 	home := t.TempDir()
 	assert.Contains(t, impliedMirrorDirs(home), filepath.Join(home, ".terraform.d", "plugins"))
+}
+
+// TestInlineConfigFromDir_SkipsTerraformBlock pins that a directory's
+// terraform block is left out of the inline step-0 config: the framework
+// writes required_providers itself for inline configs, and a config that
+// already carries a terraform block makes it skip that, silently dropping
+// the released-version pin the upgrade entry exists to apply.
+func TestInlineConfigFromDir_SkipsTerraformBlock(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, body string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("main.tf", "provider \"redpanda\" {}\n\nresource \"redpanda_resource_group\" \"t\" {\n  name = \"t\"\n}\n")
+	write("versions.tf", "terraform {\n  required_providers {\n    redpanda = {\n      source = \"redpanda-data/redpanda\"\n    }\n  }\n}\n")
+	got := inlineConfigFromDir(t, dir)
+	if !strings.Contains(got, "resource \"redpanda_resource_group\"") {
+		t.Fatalf("inline config lost main.tf:\n%s", got)
+	}
+	if strings.Contains(got, "terraform {") {
+		t.Fatalf("inline config carries the directory's terraform block, which suppresses the framework's version pin:\n%s", got)
+	}
 }
