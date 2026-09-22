@@ -36,6 +36,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/planmodifiers"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
+	"regexp"
 )
 
 // ResourceClusterSchema returns the Terraform schema for the cluster resource.
@@ -284,6 +285,255 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 									"arn": schema.StringAttribute{
 										Description: "AWS security group ARN.",
 										Required:    true,
+									},
+								},
+							},
+						},
+					},
+					"azure": schema.SingleNestedAttribute{
+						Description:   "Azure resources created and managed by user, and required to deploy the Redpanda cluster. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+						Optional:      true,
+						PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
+						Attributes: map[string]schema.Attribute{
+							"cidrs": schema.SingleNestedAttribute{
+								Description: "Additional CIDRs allocated to Redpanda cluster.",
+								Required:    true,
+								Attributes: map[string]schema.Attribute{
+									"aks_service_cidr": schema.StringAttribute{
+										Description:   "CIDR used by AKS Kubernetes services. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+										Validators: []validator.String{stringvalidator.RegexMatches(
+											regexp.MustCompile(`^(\d{1,3}\.){3}\d{1,3}/(\d{1,2})$`),
+											"The value must be a valid CIDR block (e.g., 192.168.0.0/16)",
+										)},
+									},
+								},
+							},
+							"key_vaults": schema.SingleNestedAttribute{
+								Description: "Azure key vaults used by Redpanda Cluster. All key vaults shall be in redpanda_resource_group.",
+								Required:    true,
+								Attributes: map[string]schema.Attribute{
+									"console_vault": schema.SingleNestedAttribute{
+										Description: "Azure Key Vault.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 3 and 24 characters and begin with a letter, end with a letter or digit, and not contain consecutive hyphens. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 3 and 24. Must match pattern `^[a-zA-Z]+([-]{0,1}(\\w)+)+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"management_vault": schema.SingleNestedAttribute{
+										Description: "Azure Key Vault.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 3 and 24 characters and begin with a letter, end with a letter or digit, and not contain consecutive hyphens. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 3 and 24. Must match pattern `^[a-zA-Z]+([-]{0,1}(\\w)+)+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+								},
+							},
+							"resource_groups": schema.SingleNestedAttribute{
+								Description: "Azure resource groups holding the Redpanda cluster resources.",
+								Required:    true,
+								Attributes: map[string]schema.Attribute{
+									"iam_resource_group": schema.SingleNestedAttribute{
+										Description: "Azure Resource Group Specification",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/. Length must be between 1 and 90. Must match pattern `^[-\\w\\._\\(\\)]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"redpanda_resource_group": schema.SingleNestedAttribute{
+										Description: "Azure Resource Group Specification",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/. Length must be between 1 and 90. Must match pattern `^[-\\w\\._\\(\\)]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"storage_resource_group": schema.SingleNestedAttribute{
+										Description: "Azure Resource Group Specification",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/. Length must be between 1 and 90. Must match pattern `^[-\\w\\._\\(\\)]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+								},
+							},
+							"security_groups": schema.SingleNestedAttribute{
+								Description: "Azure security groups for Redpanda Cluster. All security groups shall be in the network resource group.",
+								Required:    true,
+								Attributes: map[string]schema.Attribute{
+									"redpanda_security_group": schema.SingleNestedAttribute{
+										Description: "Azure security group.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules. Length must be between 1 and 80. Must match pattern `^(\\w)+[-\\._\\w]*[\\w_]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+								},
+							},
+							"tiered_cloud_storage": schema.SingleNestedAttribute{
+								Description: "Azure Bucket Specification",
+								Required:    true,
+								Attributes: map[string]schema.Attribute{
+									"storage_account_name": schema.StringAttribute{
+										Description:   "Naming convention: Between 3 and 24 characters and use numbers and lower-case letters only. https://learn.microsoft.com/en-us/rest/api/storagerp/storage-accounts/create?view=rest-storagerp-2023-05-01&tabs=HTTP. Length must be between 3 and 24. Must match pattern `^[a-z0-9]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+									},
+									"storage_container_name": schema.StringAttribute{
+										Description:   "Naming convention: Between 3 and 63 characters and use numbers, lower-case letters and dash (-) only. Every dash (-) character must be immediately preceded and followed by a letter or number. https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/create?view=rest-storagerp-2023-05-01&tabs=HTTP. Length must be between 3 and 63. Must match pattern `^[a-z0-9]+([-]{0,1}[a-z0-9]+)+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+										Required:      true,
+										PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+									},
+									"resource_group": schema.SingleNestedAttribute{
+										Description: "Azure Resource Group Specification",
+										Optional:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/. Length must be between 1 and 90. Must match pattern `^[-\\w\\._\\(\\)]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+								},
+							},
+							"user_assigned_identities": schema.SingleNestedAttribute{
+								Description: "Azure user assigned identities used by Redpanda cluster. All identities shall be in iam_resource_group.",
+								Required:    true,
+								Attributes: map[string]schema.Attribute{
+									"agent_user_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\\w)+[-_\\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"aks_user_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\\w)+[-_\\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"cert_manager_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\\w)+[-_\\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"external_dns_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\\w)+[-_\\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"kafka_connect_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\\w)+[-_\\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"redpanda_cluster_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\\w)+[-_\\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"redpanda_connect_api_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\\w)+[-_\\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"redpanda_connect_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\\w)+[-_\\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"redpanda_console_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\\w)+[-_\\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
+									},
+									"redpanda_operator_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description:   "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/. Length must be between 3 and 128. Must match pattern `^(\\w)+[-_\\w]*$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+												Required:      true,
+												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+											},
+										},
 									},
 								},
 							},

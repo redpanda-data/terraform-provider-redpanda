@@ -59,6 +59,11 @@ type ClusterFake struct {
 	// name suffix detection (usesDualListenerModel).
 	dualModel map[string]bool
 
+	// NetworkLookup resolves a cluster's network so create can apply the
+	// control plane's cross-resource customer-managed-resources rules; the
+	// mock server wires it to the network fake. Nil skips those rules.
+	NetworkLookup func(id string) *controlplanev1.Network
+
 	// CreateMutator, when set, is applied to the freshly built cluster just
 	// before it is stored, letting a test simulate server-side defaulting of
 	// computed fields the provider did not send. Fires only at create.
@@ -183,6 +188,13 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 	if err := f.validateCreateConnections(in); err != nil {
 		return nil, err
 	}
+	var nw *controlplanev1.Network
+	if f.NetworkLookup != nil {
+		nw = f.NetworkLookup(in.GetNetworkId())
+	}
+	if err := validateCreateCustomerManagedResources(in, nw); err != nil {
+		return nil, err
+	}
 	id := xidLike(clusterIDBase + f.seq.Add(1))
 	now := timestamppb.Now()
 	f.mu.Lock()
@@ -235,8 +247,14 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 			cl.CloudStorage.SetAws(&controlplanev1.Cluster_CloudStorage_AWS{Arn: "arn:aws:s3:::tfrp-fake-cloud-storage"})
 		case controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP:
 			cl.CloudStorage.SetGcp(&controlplanev1.Cluster_CloudStorage_GCP{Name: "tfrp-fake-cloud-storage"})
+		case controlplanev1.CloudProvider_CLOUD_PROVIDER_AZURE:
+			// A BYOVPC cluster reports the customer's tiered storage names.
+			az := &controlplanev1.Cluster_CloudStorage_Azure{StorageAccountName: "tfrpfakestorage", ContainerName: "tfrp-fake-cloud-storage"}
+			if ts := in.GetCustomerManagedResources().GetAzure().GetTieredCloudStorage(); ts != nil {
+				az.StorageAccountName, az.ContainerName = ts.GetStorageAccountName(), ts.GetStorageContainerName()
+			}
+			cl.CloudStorage.SetAzure(az)
 		default:
-			// Azure carries extra fields; model it when a test needs it.
 		}
 	}
 	if spec := in.GetAwsPrivateLink(); spec.GetEnabled() {

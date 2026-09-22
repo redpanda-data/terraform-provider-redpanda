@@ -292,6 +292,94 @@ tasks:
           ./redpanda/tests/
       - echo "BYOVPC GCP tests completed successfully"
 
+  byovpc:azure:
+    desc: "Provision BYOVNet Azure infra and run TestAcc_Cluster_BYOVPC_Azure"
+    deps:
+      - :tools:install:terraform
+    vars:
+      # Which live tests run on the provisioned infra. The default is the full
+      # network-plus-cluster test alone: the existing-network variant covers a
+      # subset of it, and every extra cluster costs an hour and four public IPs.
+      # The :network and :cluster variants narrow to one contract each.
+      BYOVPC_AZURE_PKG: '{{.BYOVPC_AZURE_PKG | default "./redpanda/tests/"}}'
+      BYOVPC_AZURE_RUN: '{{.BYOVPC_AZURE_RUN | default "TestAcc_Cluster_BYOVPC_Azure$"}}'
+      AZURE_REGION: '{{.AZURE_REGION | default "eastus"}}'
+      # 1-5 lowercase alphanumerics: the module derives every globally unique
+      # storage-account and key-vault name from it. Per-run so concurrent
+      # builds do not collide and a soft-deleted vault from the last run does
+      # not block this one.
+      UNIQUE_IDENTIFIER:
+        sh: echo "${UNIQUE_IDENTIFIER:-${BUILDKITE_BUILD_NUMBER:-local}}" | tr -cd 'a-z0-9' | cut -c1-5
+    cmds:
+      - echo "Checking Azure vCPU quota in {{.AZURE_REGION}}..."
+      - |
+        set -euo pipefail
+        ./scripts/azure-quota-precheck.sh "{{.AZURE_REGION}}"
+      - echo "Provisioning BYOVNet Azure test infra..."
+      - |
+        set -euo pipefail
+        export PATH="{{.BUILD_ROOT}}/bin:$PATH"
+        # The Buildkite secret carries AZURE_*; the azurerm provider reads ARM_*.
+        export ARM_CLIENT_ID="${ARM_CLIENT_ID:-${AZURE_CLIENT_ID:-}}"
+        export ARM_CLIENT_SECRET="${ARM_CLIENT_SECRET:-${AZURE_CLIENT_SECRET:-}}"
+        export ARM_TENANT_ID="${ARM_TENANT_ID:-${AZURE_TENANT_ID:-}}"
+        export ARM_SUBSCRIPTION_ID="${ARM_SUBSCRIPTION_ID:-${AZURE_SUBSCRIPTION_ID:-}}"
+        cd redpanda/tests/testdata/network/azure
+        terraform init
+        terraform apply -auto-approve \
+          -var "region={{.AZURE_REGION}}" \
+          -var "zones=[\"{{.AZURE_REGION}}-az1\",\"{{.AZURE_REGION}}-az2\",\"{{.AZURE_REGION}}-az3\"]" \
+          -var "unique_identifier={{.UNIQUE_IDENTIFIER}}" \
+          -var "subscription_id=$ARM_SUBSCRIPTION_ID" \
+          -var "tenant_id=$ARM_TENANT_ID"
+      - echo "Waiting for the caller's blob access on the management storage account..."
+      - |
+        set -euo pipefail
+        export ARM_CLIENT_ID="${ARM_CLIENT_ID:-${AZURE_CLIENT_ID:-}}"
+        export ARM_CLIENT_SECRET="${ARM_CLIENT_SECRET:-${AZURE_CLIENT_SECRET:-}}"
+        export ARM_TENANT_ID="${ARM_TENANT_ID:-${AZURE_TENANT_ID:-}}"
+        INPUTS=$(cat redpanda/tests/testdata/network/azure/inputs.json)
+        ./scripts/azure-storage-access-wait.sh \
+          "$(echo "$INPUTS" | jq -r '.management_bucket_storage_account_name')" \
+          "$(echo "$INPUTS" | jq -r '.management_bucket_storage_container_name')"
+      - echo "Running Azure BYOVNet live-acc tests..."
+      - |
+        set -euo pipefail
+        export ARM_CLIENT_ID="${ARM_CLIENT_ID:-${AZURE_CLIENT_ID:-}}"
+        export ARM_CLIENT_SECRET="${ARM_CLIENT_SECRET:-${AZURE_CLIENT_SECRET:-}}"
+        export ARM_TENANT_ID="${ARM_TENANT_ID:-${AZURE_TENANT_ID:-}}"
+        export ARM_SUBSCRIPTION_ID="${ARM_SUBSCRIPTION_ID:-${AZURE_SUBSCRIPTION_ID:-}}"
+        INPUTS=$(cat redpanda/tests/testdata/network/azure/inputs.json)
+        # Every scalar key becomes AZ_<KEY>; zones join to a comma list. jq
+        # emits the exports: a process substitution never delivers under the
+        # task runner's shell on macOS, and ${k^^} needs bash 4.
+        eval "$(echo "$INPUTS" | jq -r 'to_entries[] | select(.value|type=="string") | "export AZ_\(.key|ascii_upcase)=\(.value|@sh)"')"
+        export AZ_ZONES="$(echo "$INPUTS" | jq -r '.zones | join(",")')"
+        DEBUG=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        AZURE_REGION="{{.AZURE_REGION}}" \
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,byovpc_azure -v -timeout={{.TIMEOUT}} \
+          -run "{{.BYOVPC_AZURE_RUN}}" {{.BYOVPC_AZURE_PKG}}
+      - echo "BYOVNet Azure tests completed successfully"
+
+  byovpc:azure:network:
+    desc: "Provision BYOVNet Azure infra and run only TestAcc_Network_BYOVPC_Azure (no cluster)"
+    cmds:
+      - task: byovpc:azure
+        vars:
+          BYOVPC_AZURE_PKG: "./redpanda/resources/network/"
+          BYOVPC_AZURE_RUN: "TestAcc_Network_BYOVPC_Azure"
+
+  byovpc:azure:cluster:
+    desc: "Provision BYOVNet Azure infra and run TestAcc_Cluster_BYOVPC_Azure_ExistingNetwork (network via API, cluster via Terraform)"
+    cmds:
+      - task: byovpc:azure
+        vars:
+          BYOVPC_AZURE_RUN: "TestAcc_Cluster_BYOVPC_Azure_ExistingNetwork"
+
   byoc:gcp:
     desc: "Run GCP BYOC acceptance tests"
     deps:

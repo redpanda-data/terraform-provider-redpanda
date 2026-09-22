@@ -26,17 +26,19 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 )
 
 var _ resource.ResourceWithValidateConfig = &Cluster{}
 
-// ValidateConfig enforces the dual-listener-mode cross-attribute rules the
-// control plane implements only in server code (cloudv2
-// dual_mode_connections.go). None are expressible as buf.validate annotations,
+// ValidateConfig applies the customer_managed_resources envelope rules and
+// the dual-listener-mode cross-attribute rules the control plane implements
+// only in server code (cloudv2 dual_mode_connections.go). None are expressible as buf.validate annotations,
 // so without this they surface as opaque apply-time errors. Rules that depend
 // on stored cluster state (e.g. an mTLS CA preserved from storage on update)
 // are deliberately left to the API, which distinguishes create from update.
 func (*Cluster) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	validators.CustomerManagedResourcesEnvelope(ctx, req.Config, &resp.Diagnostics)
 	validateDualListenerConnections(ctx, req.Config, resp)
 	warnLegacyConnectionTypeOnCertifiedEnvelope(ctx, req.Config, resp)
 }

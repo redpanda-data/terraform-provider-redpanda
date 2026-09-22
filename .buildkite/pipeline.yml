@@ -418,6 +418,37 @@ steps:
       - lint
       - unit
       - integration
+  - label: test_byovpc_azure
+    key: test_byovpc_azure
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-byoc' || build.pull_request.labels includes 'ci-ready-azure' || build.pull_request.labels includes 'ci-ready-all')
+    command: |
+      apt-get update && apt-get install -y --no-install-recommends curl unzip jq ca-certificates
+      curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+      ./taskw test:byovpc:azure
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.12.0:
+          image: "golang:1.25.10"
+          environment:
+            - REDPANDA_CLIENT_ID
+            - REDPANDA_CLIENT_SECRET
+            - REDPANDA_CLOUD_ENVIRONMENT
+            - REDPANDA_LAST_VERSION
+            - TF_LOG=DEBUG
+            - AZURE_CLIENT_ID
+            - AZURE_CLIENT_SECRET
+            - AZURE_TENANT_ID
+            - AZURE_SUBSCRIPTION_ID
+            - AZURE_REGION=eastus
+            # the byovpc:azure task derives UNIQUE_IDENTIFIER from this; without
+            # it every CI run falls back to "local" and concurrent builds collide
+            - BUILDKITE_BUILD_NUMBER
+    depends_on:
+      - lint
+      - unit
+      - integration
   - label: cleanup_aws
     key: cleanup_aws
     if: build.tag == null && (build.pull_request.labels includes 'ci-ready-byoc' || build.pull_request.labels includes 'ci-ready-all')
@@ -476,9 +507,38 @@ steps:
       automatic:
         limit: 3
 
+  - label: cleanup_azure
+    key: cleanup_azure
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready-byoc' || build.pull_request.labels includes 'ci-ready-azure' || build.pull_request.labels includes 'ci-ready-all')
+    command: |
+      apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
+      curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+      ./taskw cleanup:azure:ci || echo "Azure cleanup completed with errors (non-blocking)"
+    plugins:
+      - seek-oss/aws-sm#v2.3.2:
+          json-to-env:
+            - secret-id: sdlc/prod/buildkite/terraform_provider_redpanda
+      - docker#v5.12.0:
+          image: "golang:1.25.10"
+          environment:
+            - AZURE_CLIENT_ID
+            - AZURE_CLIENT_SECRET
+            - AZURE_TENANT_ID
+            - AZURE_SUBSCRIPTION_ID
+            - CI=true
+            # scopes the sweep to this build's tfrp-<build>- resource groups
+            - BUILDKITE_BUILD_NUMBER
+    depends_on:
+      - test_byovpc_azure
+    allow_dependency_failure: true
+    soft_fail: true
+    retry:
+      automatic:
+        limit: 3
+
   - label: cleanup_redpanda_cloud
     key: cleanup_redpanda_cloud
-    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-byoc' || build.pull_request.labels includes 'ci-ready-serverless' || build.pull_request.labels includes 'ci-ready-all')
+    if: build.tag == null && (build.pull_request.labels includes 'ci-ready' || build.pull_request.labels includes 'ci-ready-byoc' || build.pull_request.labels includes 'ci-ready-azure' || build.pull_request.labels includes 'ci-ready-serverless' || build.pull_request.labels includes 'ci-ready-all')
     command: |
       ./taskw cleanup:redpanda || echo "Redpanda Cloud cleanup completed with errors (non-blocking)"
     plugins:
@@ -508,6 +568,7 @@ steps:
       - test_byovpc_aws
       - test_byoc_gcp
       - test_byovpc_gcp
+      - test_byovpc_azure
     allow_dependency_failure: true
     soft_fail: true
     retry:

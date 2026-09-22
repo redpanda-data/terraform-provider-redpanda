@@ -168,6 +168,7 @@ func New(t testing.TB) *Server {
 		SR:                    fakes.NewSchemaRegistryFake(t),
 	}
 	s.Cluster.SetSchemaRegistryURL(s.SR.BaseURL())
+	s.Cluster.NetworkLookup = s.Network.Lookup
 	s.grpc = grpc.NewServer(grpc.ChainUnaryInterceptor(
 		s.countingInterceptor(),
 		s.overrideInterceptor(),

@@ -353,7 +353,8 @@ both layers, the manual testing rig is the discovery point.
 
 - **Every PR push**: unit + integration + lint. $0, minutes.
 - **`ci-ready` label**: triggers the standard live-acc gate (cluster + network + service_account + datasource_cluster) against AWS + GCP.
-- **`ci-ready-byoc` label**: triggers the BYOC + BYOVPC live-acc suite (AWS + GCP).
+- **`ci-ready-byoc` label**: triggers the BYOC + BYOVPC live-acc suite (AWS + GCP + Azure).
+- **`ci-ready-azure` label**: triggers only the Azure BYOVNet lane and its cleanup.
 - **`ci-ready-serverless` label**: triggers the serverless live-acc suite.
 - Every live-acc job ends with the cleanup postscript (§5.4) regardless of test outcome.
 - Provider-upgrade coverage rides every live-acc test: step 0 applies with the released provider, step 1 re-plans with the local build and requires an empty plan (`internal/testutil/acc/upgrade_entry.go`; disable with `REDPANDA_UPGRADE_ENTRY=off`).

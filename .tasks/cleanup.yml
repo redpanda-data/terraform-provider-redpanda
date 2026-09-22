@@ -15,6 +15,17 @@ vars:
   PROJECT_ID: '{{.PROJECT_ID | default ""}}'
   GCP_REGION: '{{.GCP_REGION | default "us-central1"}}'
 
+  # Azure cleanup parameters. The BYOVNet lane names every resource group
+  # tfrp-<identifier>-*, with the identifier derived from UNIQUE_IDENTIFIER or
+  # the Buildkite build number the same way test:byovpc:azure derives it, so a
+  # run with an identifier sweeps only its own groups and cannot delete a
+  # concurrent build's. With no identifier the sweep covers every tfrp- group.
+  AZURE_PREFIX:
+    sh: |
+      if [ -n "${AZURE_PREFIX:-}" ]; then echo "$AZURE_PREFIX"; exit 0; fi
+      id="$(echo "${UNIQUE_IDENTIFIER:-${BUILDKITE_BUILD_NUMBER:-}}" | tr -cd 'a-z0-9' | cut -c1-5)"
+      if [ -n "$id" ]; then echo "tfrp-$id-"; else echo "tfrp-"; fi
+
 # Passed through the environment rather than interpolated into command
 # bodies: Task echoes command bodies, which put the secret in CI logs.
 env:
@@ -127,6 +138,21 @@ tasks:
           --common-prefix "{{.COMMON_PREFIX}}" \
           --region "{{.GCP_REGION}}" \
           --dry-run
+
+  azure:
+    desc: "Delete Azure resource groups left by the BYOVNet acceptance lane (interactive)"
+    cmds:
+      - ./scripts/cleanup-azure-byovnet.sh "{{.AZURE_PREFIX}}"
+
+  azure:ci:
+    desc: "Delete Azure resource groups left by the BYOVNet acceptance lane (auto-approves)"
+    cmds:
+      - ./scripts/cleanup-azure-byovnet.sh --auto-approve "{{.AZURE_PREFIX}}"
+
+  azure:dry:
+    desc: "Preview the Azure resource groups the BYOVNet sweeper would delete"
+    cmds:
+      - ./scripts/cleanup-azure-byovnet.sh --dry-run "{{.AZURE_PREFIX}}"
 
   default:
     desc: "Show available cleanup commands"

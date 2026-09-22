@@ -1616,26 +1616,35 @@ func lookupProtoName(a *SchemaAttr) string {
 	return a.Name
 }
 
+// toProtoGoName reproduces protoc-gen-go's GoCamelCase so the emitted
+// accessors match the generated proto types. The rule that matters here: an
+// underscore followed by a digit is kept ("rp_0_pods" is Rp_0Pods), while one
+// followed by a lowercase letter is dropped and the letter upper-cased.
 func toProtoGoName(name string) string {
-	parts := strings.Split(name, "_")
 	var b strings.Builder
-	for _, p := range parts {
-		if p == "" {
-			continue
-		}
-		runes := []rune(p)
-		for i := range runes {
-			switch {
-			case i == 0:
-				runes[i] = upperRune(runes[i])
-			case runes[i-1] >= '0' && runes[i-1] <= '9':
-				runes[i] = upperRune(runes[i])
-			default:
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		switch {
+		case c == '_' && i == 0:
+			b.WriteByte('X')
+		case c == '_' && i+1 < len(name) && isASCIILower(name[i+1]):
+		case c >= '0' && c <= '9':
+			b.WriteByte(c)
+		default:
+			if isASCIILower(c) {
+				c -= 'a' - 'A'
+			}
+			b.WriteByte(c)
+			for ; i+1 < len(name) && isASCIILower(name[i+1]); i++ {
+				b.WriteByte(name[i+1])
 			}
 		}
-		b.WriteString(string(runes))
 	}
 	return b.String()
+}
+
+func isASCIILower(c byte) bool {
+	return 'a' <= c && c <= 'z'
 }
 
 func enumGoTypeName(pf *ProtoField) string {
@@ -1678,13 +1687,6 @@ func enumFlattenExpr(pf *ProtoField, protoGoName string) string {
 
 func enumExpandExpr(pf *ProtoField, goName string) string {
 	return fmt.Sprintf("enums.StringTo%s(m.%s.ValueString())", enumsFunctionName(pf), goName)
-}
-
-func upperRune(r rune) rune {
-	if r >= 'a' && r <= 'z' {
-		return r - ('a' - 'A')
-	}
-	return r
 }
 
 func contingentDefaultExpr(val any, attrType string) string {

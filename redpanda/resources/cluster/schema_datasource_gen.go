@@ -466,6 +466,230 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 							},
 						},
 					},
+					"azure": schema.SingleNestedAttribute{
+						Description: "Azure resources created and managed by user, and required to deploy the Redpanda cluster.",
+						Computed:    true,
+						Attributes: map[string]schema.Attribute{
+							"cidrs": schema.SingleNestedAttribute{
+								Description: "Additional CIDRs allocated to Redpanda cluster.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"aks_service_cidr": schema.StringAttribute{
+										Description: "CIDR used by AKS Kubernetes services.",
+										Computed:    true,
+									},
+								},
+							},
+							"key_vaults": schema.SingleNestedAttribute{
+								Description: "Azure key vaults used by Redpanda Cluster. All key vaults shall be in redpanda_resource_group.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"console_vault": schema.SingleNestedAttribute{
+										Description: "Azure Key Vault.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 3 and 24 characters and begin with a letter, end with a letter or digit, and not contain consecutive hyphens. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules",
+												Computed:    true,
+											},
+										},
+									},
+									"management_vault": schema.SingleNestedAttribute{
+										Description: "Azure Key Vault.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 3 and 24 characters and begin with a letter, end with a letter or digit, and not contain consecutive hyphens. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules",
+												Computed:    true,
+											},
+										},
+									},
+								},
+							},
+							"resource_groups": schema.SingleNestedAttribute{
+								Description: "Azure resource groups holding the Redpanda cluster resources.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"iam_resource_group": schema.SingleNestedAttribute{
+										Description: "Azure Resource Group Specification",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/",
+												Computed:    true,
+											},
+										},
+									},
+									"redpanda_resource_group": schema.SingleNestedAttribute{
+										Description: "Azure Resource Group Specification",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/",
+												Computed:    true,
+											},
+										},
+									},
+									"storage_resource_group": schema.SingleNestedAttribute{
+										Description: "Azure Resource Group Specification",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/",
+												Computed:    true,
+											},
+										},
+									},
+								},
+							},
+							"security_groups": schema.SingleNestedAttribute{
+								Description: "Azure security groups for Redpanda Cluster. All security groups shall be in the network resource group.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"redpanda_security_group": schema.SingleNestedAttribute{
+										Description: "Azure security group.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules",
+												Computed:    true,
+											},
+										},
+									},
+								},
+							},
+							"tiered_cloud_storage": schema.SingleNestedAttribute{
+								Description: "Azure Bucket Specification",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"resource_group": schema.SingleNestedAttribute{
+										Description: "Azure Resource Group Specification",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/",
+												Computed:    true,
+											},
+										},
+									},
+									"storage_account_name": schema.StringAttribute{
+										Description: "Naming convention: Between 3 and 24 characters and use numbers and lower-case letters only. https://learn.microsoft.com/en-us/rest/api/storagerp/storage-accounts/create?view=rest-storagerp-2023-05-01&tabs=HTTP",
+										Computed:    true,
+									},
+									"storage_container_name": schema.StringAttribute{
+										Description: "Naming convention: Between 3 and 63 characters and use numbers, lower-case letters and dash (-) only. Every dash (-) character must be immediately preceded and followed by a letter or number. https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/create?view=rest-storagerp-2023-05-01&tabs=HTTP",
+										Computed:    true,
+									},
+								},
+							},
+							"user_assigned_identities": schema.SingleNestedAttribute{
+								Description: "Azure user assigned identities used by Redpanda cluster. All identities shall be in iam_resource_group.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"agent_user_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/",
+												Computed:    true,
+											},
+										},
+									},
+									"aks_user_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/",
+												Computed:    true,
+											},
+										},
+									},
+									"cert_manager_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/",
+												Computed:    true,
+											},
+										},
+									},
+									"external_dns_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/",
+												Computed:    true,
+											},
+										},
+									},
+									"kafka_connect_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/",
+												Computed:    true,
+											},
+										},
+									},
+									"redpanda_cluster_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/",
+												Computed:    true,
+											},
+										},
+									},
+									"redpanda_connect_api_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/",
+												Computed:    true,
+											},
+										},
+									},
+									"redpanda_connect_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/",
+												Computed:    true,
+											},
+										},
+									},
+									"redpanda_console_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/",
+												Computed:    true,
+											},
+										},
+									},
+									"redpanda_operator_assigned_identity": schema.SingleNestedAttribute{
+										Description: "Azure user assigned identity.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/",
+												Computed:    true,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
 					"gcp": schema.SingleNestedAttribute{
 						Description: "GCP resources created and managed by user, and required to deploy the Redpanda cluster. See [Create a BYOVPC Cluster on GCP](https://docs.redpanda.com/redpanda-cloud/get-started/cluster-types/byoc/gcp/vpc-byo-gcp/).",
 						Computed:    true,

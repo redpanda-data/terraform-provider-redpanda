@@ -1,4 +1,4 @@
-//go:build live_test && (all || network)
+//go:build live_test && (all || network || byovpc_azure)
 
 // Copyright 2026 Redpanda Data, Inc.
 //

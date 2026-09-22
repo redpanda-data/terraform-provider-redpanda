@@ -22,6 +22,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/validators"
 	"regexp"
 )
 
@@ -47,13 +48,13 @@ func DatasourceNetworkSchema(_ context.Context) schema.Schema {
 			"cloud_provider": schema.StringAttribute{
 				Description: "Cloud provider where resources are created.",
 				Computed:    true,
-				Validators:  []validator.String{stringvalidator.OneOf("", "gcp", "aws")},
+				Validators:  validators.CloudProviders(),
 			},
 
 			"cluster_type": schema.StringAttribute{
 				Description: "Cluster type. Type is immutable and can only be set on cluster creation.",
 				Computed:    true,
-				Validators:  []validator.String{stringvalidator.OneOf("", "dedicated", "cloud")},
+				Validators:  validators.ClusterTypes(),
 			},
 
 			"customer_managed_resources": schema.SingleNestedAttribute{
@@ -113,6 +114,202 @@ func DatasourceNetworkSchema(_ context.Context) schema.Schema {
 									"arn": schema.StringAttribute{
 										Description: "AWS VPC identifier.",
 										Required:    true,
+									},
+								},
+							},
+						},
+					},
+					"azure": schema.SingleNestedAttribute{
+						Description: "The Azure resources managed by user.",
+						Computed:    true,
+						Attributes: map[string]schema.Attribute{
+							"management_bucket": schema.SingleNestedAttribute{
+								Description: "Azure Bucket Specification",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"resource_group": schema.SingleNestedAttribute{
+										Description: "Azure Resource Group Specification",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/",
+												Computed:    true,
+											},
+										},
+									},
+									"storage_account_name": schema.StringAttribute{
+										Description: "Naming convention: Between 3 and 24 characters and use numbers and lower-case letters only. https://learn.microsoft.com/en-us/rest/api/storagerp/storage-accounts/create?view=rest-storagerp-2023-05-01&tabs=HTTP",
+										Computed:    true,
+									},
+									"storage_container_name": schema.StringAttribute{
+										Description: "Naming convention: Between 3 and 63 characters and use numbers, lower-case letters and dash (-) only. Every dash (-) character must be immediately preceded and followed by a letter or number. https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/create?view=rest-storagerp-2023-05-01&tabs=HTTP",
+										Computed:    true,
+									},
+								},
+							},
+							"subnets": schema.SingleNestedAttribute{
+								Description: "Azure subnets used by Redpand cluster deployment.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"kafka_connect_pods": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules",
+												Computed:    true,
+											},
+										},
+									},
+									"kafka_connect_vnet": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules",
+												Computed:    true,
+											},
+										},
+									},
+									"rp_0_pods": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules",
+												Computed:    true,
+											},
+										},
+									},
+									"rp_0_vnet": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules",
+												Computed:    true,
+											},
+										},
+									},
+									"rp_1_pods": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules",
+												Computed:    true,
+											},
+										},
+									},
+									"rp_1_vnet": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules",
+												Computed:    true,
+											},
+										},
+									},
+									"rp_2_pods": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules",
+												Computed:    true,
+											},
+										},
+									},
+									"rp_2_vnet": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules",
+												Computed:    true,
+											},
+										},
+									},
+									"rp_agent": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules",
+												Computed:    true,
+											},
+										},
+									},
+									"rp_connect_pods": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules",
+												Computed:    true,
+											},
+										},
+									},
+									"rp_connect_vnet": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules",
+												Computed:    true,
+											},
+										},
+									},
+									"rp_egress_vnet": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules",
+												Computed:    true,
+											},
+										},
+									},
+									"sys_pods": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules",
+												Computed:    true,
+											},
+										},
+									},
+									"sys_vnet": schema.SingleNestedAttribute{
+										Description: "Azure subnet.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules",
+												Computed:    true,
+											},
+										},
+									},
+								},
+							},
+							"vnet": schema.SingleNestedAttribute{
+								Description: "Azure VNET.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"name": schema.StringAttribute{
+										Description: "The name of Azure VNET. Naming convention: Between 2 and 64 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules",
+										Computed:    true,
+									},
+									"resource_group": schema.SingleNestedAttribute{
+										Description: "Azure Resource Group Specification",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/",
+												Computed:    true,
+											},
+										},
 									},
 								},
 							},

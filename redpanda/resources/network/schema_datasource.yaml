@@ -15,12 +15,12 @@ cidr_block:
 region:
 
 cloud_provider:
-  validator: "OneOf{values: |gcp|aws}"
+  validator: CloudProviders
 
 resource_group_id:
 
 cluster_type:
-  validator: "OneOf{values: |dedicated|cloud}"
+  validator: ClusterTypes
 
 state:
 
@@ -56,10 +56,6 @@ customer_managed_resources:
           fields:
             name:
               required: true
-
-    azure:
-      todo: true
-
 
 # --- New proto fields (auto-added by schemagen -todo) ---
 egress_spec:

@@ -170,6 +170,7 @@ Read-Only:
 Read-Only:
 
 - `aws` (Attributes) AWS resources created and managed by user, and required to deploy the Redpanda cluster. (see [below for nested schema](#nestedatt--customer_managed_resources--aws))
+- `azure` (Attributes) Azure resources created and managed by user, and required to deploy the Redpanda cluster. (see [below for nested schema](#nestedatt--customer_managed_resources--azure))
 - `gcp` (Attributes) GCP resources created and managed by user, and required to deploy the Redpanda cluster. See [Create a BYOVPC Cluster on GCP](https://docs.redpanda.com/redpanda-cloud/get-started/cluster-types/byoc/gcp/vpc-byo-gcp/). (see [below for nested schema](#nestedatt--customer_managed_resources--gcp))
 
 <a id="nestedatt--customer_managed_resources--aws"></a>
@@ -338,6 +339,217 @@ Read-Only:
 Read-Only:
 
 - `arn` (String) AWS security group ARN.
+
+
+
+<a id="nestedatt--customer_managed_resources--azure"></a>
+### Nested Schema for `customer_managed_resources.azure`
+
+Read-Only:
+
+- `cidrs` (Attributes) Additional CIDRs allocated to Redpanda cluster. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--cidrs))
+- `key_vaults` (Attributes) Azure key vaults used by Redpanda Cluster. All key vaults shall be in redpanda_resource_group. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--key_vaults))
+- `resource_groups` (Attributes) Azure resource groups holding the Redpanda cluster resources. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--resource_groups))
+- `security_groups` (Attributes) Azure security groups for Redpanda Cluster. All security groups shall be in the network resource group. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--security_groups))
+- `tiered_cloud_storage` (Attributes) Azure Bucket Specification (see [below for nested schema](#nestedatt--customer_managed_resources--azure--tiered_cloud_storage))
+- `user_assigned_identities` (Attributes) Azure user assigned identities used by Redpanda cluster. All identities shall be in iam_resource_group. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities))
+
+<a id="nestedatt--customer_managed_resources--azure--cidrs"></a>
+### Nested Schema for `customer_managed_resources.azure.cidrs`
+
+Read-Only:
+
+- `aks_service_cidr` (String) CIDR used by AKS Kubernetes services.
+
+
+<a id="nestedatt--customer_managed_resources--azure--key_vaults"></a>
+### Nested Schema for `customer_managed_resources.azure.key_vaults`
+
+Read-Only:
+
+- `console_vault` (Attributes) Azure Key Vault. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--key_vaults--console_vault))
+- `management_vault` (Attributes) Azure Key Vault. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--key_vaults--management_vault))
+
+<a id="nestedatt--customer_managed_resources--azure--key_vaults--console_vault"></a>
+### Nested Schema for `customer_managed_resources.azure.key_vaults.console_vault`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 3 and 24 characters and begin with a letter, end with a letter or digit, and not contain consecutive hyphens. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+
+
+<a id="nestedatt--customer_managed_resources--azure--key_vaults--management_vault"></a>
+### Nested Schema for `customer_managed_resources.azure.key_vaults.management_vault`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 3 and 24 characters and begin with a letter, end with a letter or digit, and not contain consecutive hyphens. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+
+
+
+<a id="nestedatt--customer_managed_resources--azure--resource_groups"></a>
+### Nested Schema for `customer_managed_resources.azure.resource_groups`
+
+Read-Only:
+
+- `iam_resource_group` (Attributes) Azure Resource Group Specification (see [below for nested schema](#nestedatt--customer_managed_resources--azure--resource_groups--iam_resource_group))
+- `redpanda_resource_group` (Attributes) Azure Resource Group Specification (see [below for nested schema](#nestedatt--customer_managed_resources--azure--resource_groups--redpanda_resource_group))
+- `storage_resource_group` (Attributes) Azure Resource Group Specification (see [below for nested schema](#nestedatt--customer_managed_resources--azure--resource_groups--storage_resource_group))
+
+<a id="nestedatt--customer_managed_resources--azure--resource_groups--iam_resource_group"></a>
+### Nested Schema for `customer_managed_resources.azure.resource_groups.iam_resource_group`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/
+
+
+<a id="nestedatt--customer_managed_resources--azure--resource_groups--redpanda_resource_group"></a>
+### Nested Schema for `customer_managed_resources.azure.resource_groups.redpanda_resource_group`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/
+
+
+<a id="nestedatt--customer_managed_resources--azure--resource_groups--storage_resource_group"></a>
+### Nested Schema for `customer_managed_resources.azure.resource_groups.storage_resource_group`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/
+
+
+
+<a id="nestedatt--customer_managed_resources--azure--security_groups"></a>
+### Nested Schema for `customer_managed_resources.azure.security_groups`
+
+Read-Only:
+
+- `redpanda_security_group` (Attributes) Azure security group. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--security_groups--redpanda_security_group))
+
+<a id="nestedatt--customer_managed_resources--azure--security_groups--redpanda_security_group"></a>
+### Nested Schema for `customer_managed_resources.azure.security_groups.redpanda_security_group`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 80 characters. Alphanumerics, underscores, periods, and hyphens. Start with alphanumeric. End alphanumeric or underscore. https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+
+
+
+<a id="nestedatt--customer_managed_resources--azure--tiered_cloud_storage"></a>
+### Nested Schema for `customer_managed_resources.azure.tiered_cloud_storage`
+
+Read-Only:
+
+- `resource_group` (Attributes) Azure Resource Group Specification (see [below for nested schema](#nestedatt--customer_managed_resources--azure--tiered_cloud_storage--resource_group))
+- `storage_account_name` (String) Naming convention: Between 3 and 24 characters and use numbers and lower-case letters only. https://learn.microsoft.com/en-us/rest/api/storagerp/storage-accounts/create?view=rest-storagerp-2023-05-01&tabs=HTTP
+- `storage_container_name` (String) Naming convention: Between 3 and 63 characters and use numbers, lower-case letters and dash (-) only. Every dash (-) character must be immediately preceded and followed by a letter or number. https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/create?view=rest-storagerp-2023-05-01&tabs=HTTP
+
+<a id="nestedatt--customer_managed_resources--azure--tiered_cloud_storage--resource_group"></a>
+### Nested Schema for `customer_managed_resources.azure.tiered_cloud_storage.resource_group`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/
+
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities`
+
+Read-Only:
+
+- `agent_user_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--agent_user_assigned_identity))
+- `aks_user_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--aks_user_assigned_identity))
+- `cert_manager_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--cert_manager_assigned_identity))
+- `external_dns_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--external_dns_assigned_identity))
+- `kafka_connect_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--kafka_connect_assigned_identity))
+- `redpanda_cluster_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_cluster_assigned_identity))
+- `redpanda_connect_api_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_connect_api_assigned_identity))
+- `redpanda_connect_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_connect_assigned_identity))
+- `redpanda_console_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_console_assigned_identity))
+- `redpanda_operator_assigned_identity` (Attributes) Azure user assigned identity. (see [below for nested schema](#nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_operator_assigned_identity))
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--agent_user_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.agent_user_assigned_identity`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--aks_user_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.aks_user_assigned_identity`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--cert_manager_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.cert_manager_assigned_identity`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--external_dns_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.external_dns_assigned_identity`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--kafka_connect_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.kafka_connect_assigned_identity`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_cluster_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.redpanda_cluster_assigned_identity`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_connect_api_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.redpanda_connect_api_assigned_identity`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_connect_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.redpanda_connect_assigned_identity`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_console_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.redpanda_console_assigned_identity`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/
+
+
+<a id="nestedatt--customer_managed_resources--azure--user_assigned_identities--redpanda_operator_assigned_identity"></a>
+### Nested Schema for `customer_managed_resources.azure.user_assigned_identities.redpanda_operator_assigned_identity`
+
+Read-Only:
+
+- `name` (String) Naming convention: Between 3 and 128 characters and use Letters, numbers, underscores, and hyphens. Start with letters and numbers. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.Identity.UserAssignedName/
+
 
 
 
