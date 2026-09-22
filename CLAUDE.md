@@ -130,6 +130,7 @@ Read the API and the fake first. Both have repeatedly been the source of bugs th
 **The API (`../cloudv2`, `../console`).** Read the actual proto, not just the field list:
 
 - Compare the **read, create, and update messages**. A field's writability is whatever the write shapes say — a field absent from both is server-owned, and one present only on create needs `RequiresReplace`. Don't infer it from the field name or from `field_behavior` annotations, which have proven unreliable here.
+- Read the **public API read mapper** for the resource (`../cloudv2/apps/public-api-go/internal/services/<service>/v1/mapper.go`) for every nested message. The proto says whether a message *may* be absent; the mapper says whether it *is*. A message the mapper builds unconditionally comes back on every read, with empty leaves when create omitted it, so its attribute is Required or Optional+Computed, never plain Optional. Mappers differ per resource for the same message: the cluster mapper wraps `CustomerManagedAzureResourceGroupSpec` nil-safe and the network mapper does not.
 - Note `oneof` blocks. Arms are mutually exclusive, must not be `Computed` when the user selects them, and each pair needs an arm-switch test.
 - Note which messages are **shared** between read and write shapes. Where they are, diffing tells you nothing and the yaml annotation carries the decision.
 - Check `buf.validate` rules and whether the control plane rejects a change in some states (not just whether the field is sendable).
@@ -163,6 +164,8 @@ Never use `git checkout`, `git restore`, or `git reset --hard` to discard files 
 Never `git push` (including `--force` / `--force-with-lease`) without explicit approval for that specific push. A push is public and irrevocable: forks and notification emails carry it within seconds, and every push triggers the CI matrix. Approval for one push does not carry forward — ask again before every subsequent push. Batch-committing is fine; batch-pushing is not.
 
 Before every commit: `task ready` (or at minimum `task lint`).
+
+Before every push: run the `reviewer` agent on the branch (`/review`) and either fix each finding or state in the PR why it stands. A branch reviewed before a rebase or a later fix is not reviewed; run it again on what is about to be pushed.
 
 ### Commit messages
 

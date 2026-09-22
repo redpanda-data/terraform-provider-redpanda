@@ -31,6 +31,7 @@ Flag a new or edited comment when it:
 - records process: ticket numbers, PR numbers, "per discussion", "previously", "now", session context
 - states a perishable measurement without a date
 - no longer matches the code it annotates
+- names a plan modifier, validator, default, or other generated behavior that the generated file it describes does not contain; check the `*_gen.go` or golden, not the yaml
 
 ## Report format
 
