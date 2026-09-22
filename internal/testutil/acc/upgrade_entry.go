@@ -20,6 +20,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -212,8 +213,15 @@ func staleImpliedMirror(dirs []string) (string, bool) {
 	return "", false
 }
 
+// terraformBlock matches a file-level terraform block. Such a file is left
+// out of the inline config: the framework writes required_providers itself
+// for inline configs, and skips that when a terraform block is already
+// present, which would drop the released-version pin from step 0.
+var terraformBlock = regexp.MustCompile(`(?m)^\s*terraform\s*\{`)
+
 // inlineConfigFromDir concatenates a config directory's .tf files into one
-// inline Config string, in lexical order.
+// inline Config string, in lexical order, leaving out files that carry a
+// terraform block.
 func inlineConfigFromDir(t testing.TB, dir string) string {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
@@ -233,6 +241,9 @@ func inlineConfigFromDir(t testing.TB, dir string) string {
 		content, err := fs.ReadFile(fixtures, n)
 		if err != nil {
 			t.Fatalf("provider-upgrade entry: reading %s: %v", n, err)
+		}
+		if terraformBlock.Match(content) {
+			continue
 		}
 		b.Write(content)
 		b.WriteString("\n")
