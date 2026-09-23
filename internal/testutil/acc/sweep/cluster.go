@@ -18,6 +18,7 @@ package sweep
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
@@ -29,6 +30,11 @@ import (
 type Cluster struct {
 	ClusterName string
 	Client      *cloud.ControlPlaneClientSet
+	// Logf receives one line per swept cluster that is not READY, carrying
+	// its state and state_description. The public API cannot read a deleted
+	// cluster, so this line is the only place a failed create's reason
+	// survives. Nil prints to stdout like the cleanup registry does.
+	Logf func(format string, args ...any)
 }
 
 // SweepCluster deletes the dedicated cluster matching ClusterName.
@@ -37,6 +43,9 @@ func (s Cluster) SweepCluster(_ string) error {
 	cluster, err := s.Client.ClusterForName(ctx, s.ClusterName)
 	if err != nil {
 		return err
+	}
+	if cluster.GetState() != controlplanev1.Cluster_STATE_READY {
+		s.logf("acc cleanup: cluster %q (%s) is %s: %s", cluster.GetName(), cluster.GetId(), cluster.GetState(), utils.DescribeStatus(cluster.GetStateDescription()))
 	}
 
 	op, err := s.Client.Cluster.DeleteCluster(ctx, &controlplanev1.DeleteClusterRequest{
@@ -64,4 +73,12 @@ func (s Cluster) SweepServerlessCluster(_ string) error {
 		return err
 	}
 	return utils.AreWeDoneYet(ctx, op.Operation, 15*time.Minute, s.Client.Operation)
+}
+
+func (s Cluster) logf(format string, args ...any) {
+	if s.Logf != nil {
+		s.Logf(format, args...)
+		return
+	}
+	fmt.Printf(format+"\n", args...)
 }

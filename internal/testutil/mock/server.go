@@ -84,10 +84,11 @@ type Server struct {
 
 	// Operation backs the OperationService polled by AreWeDoneYet for async
 	// controlplane mutations on shadow_link, serverless_private_link,
-	// serverless_cluster, network, and cluster Update. (cluster Create/Delete
-	// poll cluster state directly via RetryGetCluster and do not call
-	// Operation.Set.) Async fakes call Set to publish their operation state;
-	// the provider's polling loop reads via GetOperation.
+	// serverless_cluster, network, cluster Update, and the acc sweeper's
+	// cluster Delete. (cluster Create polls cluster state directly via
+	// RetryGetCluster and does not call Operation.Set.) Async fakes call Set
+	// to publish their operation state; the polling loop reads via
+	// GetOperation.
 	Operation *fakes.OperationFake
 
 	// Region is the read-only fake for RegionService. Backs both the
@@ -128,8 +129,8 @@ type Server struct {
 	// Cluster is the async fake for ClusterService. CreateCluster and
 	// DeleteCluster diverge from the other async fakes because the provider uses
 	// RetryGetCluster (polling GetCluster), not AreWeDoneYet, for completion
-	// detection. Only UpdateCluster goes through AreWeDoneYet. dataplane_api.url
-	// is populated with the "bufnet" sentinel.
+	// detection; DeleteCluster still publishes its operation for the acc
+	// sweeper. dataplane_api.url is populated with the "bufnet" sentinel.
 	Cluster *fakes.ClusterFake
 
 	// SR is the httptest-backed Schema Registry + ACL fake. Backs both

@@ -17,6 +17,7 @@ package fakes
 import (
 	"context"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -43,8 +44,9 @@ func schemaRegistryURL(override string) string {
 // ClusterFake is a stateful in-memory ClusterService. The provider polls
 // GetCluster for Create and Delete rather than the Operation, so Create stores
 // a dedicated cluster READY without publishing its op and Delete makes
-// GetCluster return NotFound; only Update publishes an Operation for
-// AreWeDoneYet. A BYOC cluster instead parks in STATE_CREATING_AGENT and
+// GetCluster return NotFound; Update and Delete publish an Operation, which
+// AreWeDoneYet reads on Update and the acc sweeper reads on Delete. A BYOC
+// cluster instead parks in STATE_CREATING_AGENT and
 // STATE_DELETING_AGENT until the byoc runner fake reports the plugin run
 // through AgentRun, mirroring the control plane waiting on the agent.
 // UpdateMask is honored on top-level fields, matching what
@@ -929,7 +931,7 @@ func specToClusterSchemaRegistry(spec *controlplanev1.SchemaRegistrySpec, url st
 // in STATE_DELETING_AGENT until AgentRun sees the plugin's destroy. The
 // provider's Delete polls GetCluster via RetryGetCluster; once the cluster is
 // gone from the map, GetCluster returns NotFound and RetryGetCluster
-// terminates. No Operation is published for the same reason as Create.
+// terminates.
 func (f *ClusterFake) DeleteCluster(_ context.Context, req *controlplanev1.DeleteClusterRequest) (*controlplanev1.DeleteClusterOperation, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -948,6 +950,9 @@ func (f *ClusterFake) DeleteCluster(_ context.Context, req *controlplanev1.Delet
 		State:      controlplanev1.Operation_STATE_COMPLETED,
 		ResourceId: &id,
 	}
+	// The provider polls GetCluster, but the acc sweeper waits on this
+	// operation, so it is published like the control plane's.
+	f.op.Set(op)
 	return &controlplanev1.DeleteClusterOperation{Operation: op}, nil
 }
 
@@ -1003,4 +1008,23 @@ func (f *ClusterFake) SetStateOutOfBand(name string, state controlplanev1.Cluste
 		return true
 	}
 	return false
+}
+
+// ListClusters returns the stored clusters that match the request's
+// name_contains filter, or all of them when the filter is empty. Other filter
+// fields and pagination are ignored: the provider's lookups filter by name
+// only, and the acc sweeper resolves a cluster by its exact name from the
+// result.
+func (f *ClusterFake) ListClusters(_ context.Context, req *controlplanev1.ListClustersRequest) (*controlplanev1.ListClustersResponse, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	needle := req.GetFilter().GetNameContains()
+	out := make([]*controlplanev1.Cluster, 0, len(f.clusters))
+	for _, cl := range f.clusters {
+		if needle == "" || strings.Contains(cl.GetName(), needle) {
+			out = append(out, cl)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].GetId() < out[j].GetId() })
+	return &controlplanev1.ListClustersResponse{Clusters: out}, nil
 }
