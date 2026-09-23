@@ -110,7 +110,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		case controlplanev1.Cluster_STATE_READY:
 			return nil
 		case controlplanev1.Cluster_STATE_FAILED:
-			return utils.NonRetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cl.GetState()))
+			return utils.NonRetryableError(fmt.Errorf("expected cluster to be ready but was in state %v%s", cl.GetState(), stateDescriptionSuffix(cl)))
 		case controlplanev1.Cluster_STATE_DELETING, controlplanev1.Cluster_STATE_DELETING_AGENT:
 			return utils.NonRetryableError(fmt.Errorf("cluster is being deleted (state %v), cannot complete creation", cl.GetState()))
 		default:
@@ -463,4 +463,13 @@ func logPrivateLinkResponse(ctx context.Context, cl *controlplanev1.Cluster) {
 		"http_proxy.all_urls":        cl.GetHttpProxy().HasAllUrls(),
 		"schema_registry.all_urls":   cl.GetSchemaRegistry().HasAllUrls(),
 	})
+}
+
+// stateDescriptionSuffix renders the control plane's state_description for
+// an error message, or nothing when the cluster carries none.
+func stateDescriptionSuffix(cl *controlplanev1.Cluster) string {
+	if d := utils.DescribeStatus(cl.GetStateDescription()); d != "" {
+		return ": " + d
+	}
+	return ""
 }
