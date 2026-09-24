@@ -1,0 +1,23 @@
+attributes:
+    - name: aws
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: external_id
+          type: StringAttribute
+          computed: true
+        - name: role_arn
+          type: StringAttribute
+          computed: true
+    - name: cloud_provider
+      type: StringAttribute
+      computed: true
+    - name: id
+      type: StringAttribute
+      required: true
+    - name: name
+      type: StringAttribute
+      computed: true
+    - name: state
+      type: StringAttribute
+      computed: true
