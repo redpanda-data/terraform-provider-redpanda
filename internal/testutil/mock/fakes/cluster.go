@@ -28,6 +28,7 @@ import (
 	rpcstatus "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -48,7 +49,10 @@ func schemaRegistryURL(override string) string {
 // AreWeDoneYet reads on Update and the acc sweeper reads on Delete. A BYOC
 // cluster instead parks in STATE_CREATING_AGENT and
 // STATE_DELETING_AGENT until the byoc runner fake reports the plugin run
-// through AgentRun, mirroring the control plane waiting on the agent.
+// through AgentRun, mirroring the control plane waiting on the agent. On a
+// network with a cloud provider access the control plane runs the agent
+// itself: GetCluster reports each agent phase once, then advances past it,
+// and AgentRun refuses the cluster.
 // UpdateMask is honored on top-level fields, matching what
 // utils.GenerateProtobufDiffAndUpdateMask emits.
 type ClusterFake struct {
@@ -64,6 +68,11 @@ type ClusterFake struct {
 	// field, the fake's analogue of the control plane's -pub/-prv listener
 	// name suffix detection (usesDualListenerModel).
 	dualModel map[string]bool
+
+	// redpandaManagedAgent tracks clusters created on a network with a cloud
+	// provider access, whose agent the control plane provisions and destroys.
+	redpandaManagedAgent map[string]bool
+	managedPhasesSeen    []controlplanev1.Cluster_State
 
 	// NetworkLookup resolves a cluster's network so create can apply the
 	// control plane's cross-resource customer-managed-resources rules; the
@@ -85,7 +94,7 @@ type ClusterFake struct {
 
 // NewClusterFake returns an empty fake bound to op.
 func NewClusterFake(op *OperationFake) *ClusterFake {
-	return &ClusterFake{op: op, clusters: map[string]*controlplanev1.Cluster{}, dualModel: map[string]bool{}}
+	return &ClusterFake{op: op, clusters: map[string]*controlplanev1.Cluster{}, dualModel: map[string]bool{}, redpandaManagedAgent: map[string]bool{}}
 }
 
 // FlipToDualOutOfBand rewrites the stored cluster with the given name as if
@@ -335,6 +344,9 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 	if dual {
 		f.dualModel[id] = true
 	}
+	if cl.GetType() == controlplanev1.Cluster_TYPE_BYOC && nw.GetCloudProviderAccessId() != "" {
+		f.redpandaManagedAgent[id] = true
+	}
 	f.mu.Unlock()
 
 	// Provider extracts only ResourceId; never polls this op. Skip Operation.Set
@@ -348,13 +360,33 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 	return &controlplanev1.CreateClusterOperation{Operation: op}, nil
 }
 
-// GetCluster returns the stored cluster or NotFound.
+// GetCluster returns the stored cluster or NotFound. A cluster whose agent the
+// control plane manages is reported in its agent phase once and then moved
+// past it, so the provider observes the phase without being the one to end it.
+// The first reader consumes the phase: a test that adds another GetCluster
+// caller for such a cluster changes what ManagedAgentPhasesSeen records.
 func (f *ClusterFake) GetCluster(_ context.Context, req *controlplanev1.GetClusterRequest) (*controlplanev1.GetClusterResponse, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	cl, ok := f.clusters[req.GetId()]
+	id := req.GetId()
+	cl, ok := f.clusters[id]
 	if !ok {
-		return nil, status.Errorf(codes.NotFound, "cluster %q not found", req.GetId())
+		return nil, status.Errorf(codes.NotFound, "cluster %q not found", id)
+	}
+	if f.redpandaManagedAgent[id] {
+		switch cl.GetState() {
+		case controlplanev1.Cluster_STATE_CREATING_AGENT:
+			f.managedPhasesSeen = append(f.managedPhasesSeen, cl.GetState())
+			observed := proto.CloneOf(cl)
+			cl.State = controlplanev1.Cluster_STATE_READY
+			return &controlplanev1.GetClusterResponse{Cluster: observed}, nil
+		case controlplanev1.Cluster_STATE_DELETING_AGENT:
+			f.managedPhasesSeen = append(f.managedPhasesSeen, cl.GetState())
+			delete(f.clusters, id)
+			delete(f.redpandaManagedAgent, id)
+			return &controlplanev1.GetClusterResponse{Cluster: cl}, nil
+		default:
+		}
 	}
 	return &controlplanev1.GetClusterResponse{Cluster: cl}, nil
 }
@@ -956,6 +988,15 @@ func (f *ClusterFake) DeleteCluster(_ context.Context, req *controlplanev1.Delet
 	return &controlplanev1.DeleteClusterOperation{Operation: op}, nil
 }
 
+// ManagedAgentPhasesSeen returns, in order, the agent phases GetCluster
+// reported for clusters whose agent the control plane manages. A test asserts
+// it to prove the provider polled through the phase rather than skipping it.
+func (f *ClusterFake) ManagedAgentPhasesSeen() []controlplanev1.Cluster_State {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]controlplanev1.Cluster_State(nil), f.managedPhasesSeen...)
+}
+
 // initialClusterState is the state a freshly created cluster is stored in.
 func initialClusterState(t controlplanev1.Cluster_Type) controlplanev1.Cluster_State {
 	if t == controlplanev1.Cluster_TYPE_BYOC {
@@ -975,6 +1016,9 @@ func (f *ClusterFake) AgentRun(id, verb string) (AgentState, error) {
 	cl, ok := f.clusters[id]
 	if !ok {
 		return AgentStateNone, status.Errorf(codes.NotFound, "cluster %q not found", id)
+	}
+	if f.redpandaManagedAgent[id] {
+		return AgentStateNone, status.Errorf(codes.FailedPrecondition, "byoc %s on cluster %q: the agent is managed by the control plane through a cloud provider access", verb, id)
 	}
 	switch {
 	case verb == "apply" && cl.GetState() == controlplanev1.Cluster_STATE_CREATING_AGENT:

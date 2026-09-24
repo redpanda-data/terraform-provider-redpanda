@@ -211,6 +211,21 @@ func (a *Action) preflight(ctx context.Context, clusterID string) (*controlplane
 			fmt.Sprintf("cluster %q is in state %s; the agent can only be applied on a STATE_READY cluster", clusterID, cl.GetState()))
 		return nil, diags
 	}
+	// One read, like the cluster read above: plan must not stall on a
+	// retried network read for clusters that are not cross-account.
+	managed := false
+	if utils.ByocAgentCanBeRedpandaManaged(cl.GetType(), cl.GetCloudProvider()) {
+		managed, err = utils.NetworkUsesCloudProviderAccess(ctx, a.cpCl, cl.GetNetworkId())
+	}
+	if err != nil {
+		diags.AddError(fmt.Sprintf("failed to read network %s of cluster %s", cl.GetNetworkId(), clusterID), utils.DeserializeGrpcError(err))
+		return nil, diags
+	}
+	if managed {
+		diags.AddAttributeError(path.Root("cluster_id"), "Agent is managed by Redpanda",
+			fmt.Sprintf("cluster %q is on network %q, which uses a cloud provider access; Redpanda applies the agent for this cluster, so there is nothing to apply locally", clusterID, cl.GetNetworkId()))
+		return nil, diags
+	}
 	if checker, ok := a.byoc.(utils.ByocCloudConfigChecker); ok {
 		if err := checker.CheckCloudConfig(enums.CloudProviderToString(cl.GetCloudProvider())); err != nil {
 			diags.AddError("Provider is missing the cloud configuration the byoc plugin needs", err.Error())
