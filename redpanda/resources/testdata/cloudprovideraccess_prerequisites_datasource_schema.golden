@@ -1,0 +1,16 @@
+attributes:
+    - name: aws
+      type: SingleNestedAttribute
+      computed: true
+      attributes:
+        - name: external_id
+          type: StringAttribute
+          computed: true
+        - name: principal_arn
+          type: StringAttribute
+          computed: true
+    - name: cloud_provider
+      type: StringAttribute
+      required: true
+      validators:
+        - stringvalidator.oneOfValidator

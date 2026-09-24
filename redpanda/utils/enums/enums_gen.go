@@ -81,6 +81,34 @@ func StringToCommonACLResource(s string) commonv1.ACLResource {
 	return commonv1.ACLResource_ACL_RESOURCE_UNSPECIFIED
 }
 
+// AgenticDataplaneCreationStageToString maps a proto enum value to its TF string form.
+func AgenticDataplaneCreationStageToString(e controlplanev1.AgenticDataplane_CreationStage) string {
+	return strings.TrimPrefix(e.String(), "CREATION_STAGE_")
+}
+
+// StringToAgenticDataplaneCreationStage maps a TF string back to the proto enum.
+// Returns the UNSPECIFIED value for unknown inputs.
+func StringToAgenticDataplaneCreationStage(s string) controlplanev1.AgenticDataplane_CreationStage {
+	if v, ok := controlplanev1.AgenticDataplane_CreationStage_value["CREATION_STAGE_"+s]; ok {
+		return controlplanev1.AgenticDataplane_CreationStage(v)
+	}
+	return controlplanev1.AgenticDataplane_CREATION_STAGE_UNSPECIFIED
+}
+
+// AgenticDataplaneStateToString maps a proto enum value to its TF string form.
+func AgenticDataplaneStateToString(e controlplanev1.AgenticDataplane_State) string {
+	return strings.TrimPrefix(e.String(), "STATE_")
+}
+
+// StringToAgenticDataplaneState maps a TF string back to the proto enum.
+// Returns the UNSPECIFIED value for unknown inputs.
+func StringToAgenticDataplaneState(s string) controlplanev1.AgenticDataplane_State {
+	if v, ok := controlplanev1.AgenticDataplane_State_value["STATE_"+s]; ok {
+		return controlplanev1.AgenticDataplane_State(v)
+	}
+	return controlplanev1.AgenticDataplane_STATE_UNSPECIFIED
+}
+
 // CloudProviderAccessStateToString maps a proto enum value to its TF string form.
 func CloudProviderAccessStateToString(e controlplanev1.CloudProviderAccess_State) string {
 	return strings.TrimPrefix(e.String(), "STATE_")

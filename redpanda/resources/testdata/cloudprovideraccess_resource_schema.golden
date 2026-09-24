@@ -1,0 +1,37 @@
+attributes:
+    - name: aws
+      type: SingleNestedAttribute
+      required: true
+      attributes:
+        - name: external_id
+          type: StringAttribute
+          computed: true
+          plan_modifiers:
+            - stringplanmodifier.useStateForUnknownModifier
+        - name: role_arn
+          type: StringAttribute
+          required: true
+          plan_modifiers:
+            - stringplanmodifier.requiresReplaceIfModifier
+    - name: cloud_provider
+      type: StringAttribute
+      required: true
+      validators:
+        - stringvalidator.oneOfValidator
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: id
+      type: StringAttribute
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
+    - name: name
+      type: StringAttribute
+      required: true
+      plan_modifiers:
+        - stringplanmodifier.requiresReplaceIfModifier
+    - name: state
+      type: StringAttribute
+      computed: true
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier

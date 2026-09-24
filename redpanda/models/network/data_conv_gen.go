@@ -28,6 +28,7 @@ import (
 type DataNetworkResponse interface {
 	GetCidrBlock() string
 	GetCloudProvider() controlplanev1.CloudProvider
+	GetCloudProviderAccessId() string
 	GetClusterType() controlplanev1.Cluster_Type
 	GetCustomerManagedResources() *controlplanev1.Network_CustomerManagedResources
 	GetEgressSpec() *controlplanev1.Network_EgressSpec
@@ -49,6 +50,7 @@ func FlattenData(ctx context.Context, proto DataNetworkResponse, prev *DataModel
 	m.ID = types.StringValue(proto.GetId())
 	m.CidrBlock = cidrBlockFromProto(proto)
 	m.CloudProvider = types.StringValue(enums.CloudProviderToString(proto.GetCloudProvider()))
+	m.CloudProviderAccessID = cloudProviderAccessIDFromProto(proto)
 	m.ClusterType = types.StringValue(enums.ClusterTypeToString(proto.GetClusterType()))
 	m.CustomerManagedResources = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetCustomerManagedResources(), func() *DataCustomerManagedResourcesModel { v, _ := prev.AsCustomerManagedResources(ctx); return v }(), DataCustomerManagedResourcesAttrTypes(), FlattenDataCustomerManagedResources, &diags)
 	m.EgressSpec = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetEgressSpec(), func() *DataEgressSpecModel { v, _ := prev.AsEgressSpec(ctx); return v }(), DataEgressSpecAttrTypes(), FlattenDataEgressSpec, &diags)

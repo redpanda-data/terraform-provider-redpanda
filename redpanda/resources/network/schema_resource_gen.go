@@ -76,6 +76,12 @@ func ResourceNetworkSchema(ctx context.Context) schema.Schema {
 				Validators:    []validator.String{validators.CIDRBlockValidator{}},
 			},
 
+			"cloud_provider_access_id": schema.StringAttribute{
+				Description: "ID of the `redpanda_cloud_provider_access` Redpanda uses to provision the network in your AWS account. Requires `cluster_type` `byoc` and `cloud_provider` `aws`, and conflicts with `customer_managed_resources`. Redpanda provisions and destroys the BYOC agent for clusters on this network, so no local cloud credentials are needed. Changing it to another cloud provider access for the same AWS account updates the network in place; the API refuses to add one to an existing network or remove it. Must match pattern `^[a-v0-9]{20}$`.",
+				Optional:    true,
+				Validators:  validators.CloudProviderAccessID(),
+			},
+
 			"customer_managed_resources": schema.SingleNestedAttribute{
 				Description: "Cloud resources created by user.",
 				Optional:    true,
