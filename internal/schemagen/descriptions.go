@@ -57,6 +57,7 @@ var scopedDescriptions = map[string]string{
 	"CloudProviderAccess.aws.role_arn":                 "Full ARN of the IAM role Redpanda assumes in your AWS account, in the commercial `aws` partition. The role's trust policy must allow the principal and external ID returned by the `redpanda_cloud_provider_access_prerequisites` data source.",
 	"CloudProviderAccess.aws.external_id":              "External ID for STS AssumeRole confused deputy protection, set by the server to the organization ID. Include it in the IAM role trust policy's `sts:ExternalId` condition.",
 	"CloudProviderAccess.state":                        "Current state of the cloud provider access.",
+	"Network.cloud_provider_access_id":                 "ID of the `redpanda_cloud_provider_access` Redpanda uses to provision the network in your AWS account. Requires `cluster_type` `byoc` and `cloud_provider` `aws`, and conflicts with `customer_managed_resources`. Redpanda provisions and destroys the BYOC agent for clusters on this network, so no local cloud credentials are needed. Changing it to another cloud provider access for the same AWS account updates the network in place; the API refuses to add one to an existing network or remove it.",
 	"Network.state":                                    "Current state of the network.",
 	"ServerlessCluster.console_url":                    "Public Console URL for the serverless cluster.",
 	"ServerlessCluster.console_private_url":            "Private Console URL for the serverless cluster.",

@@ -69,3 +69,24 @@ func (f *fakeCIDRProto) GetCidrBlock() string {
 func (f *fakeCIDRProto) GetCustomerManagedResources() *controlplanev1.Network_CustomerManagedResources {
 	return f.cmr
 }
+
+func TestCloudProviderAccessIDFromProto(t *testing.T) {
+	cases := []struct {
+		name    string
+		id      string
+		wantNul bool
+	}{
+		{"no access -> null", "", true},
+		{"access -> passthrough", "aaaaaaaaaaaaaaaaaaaa", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := cloudProviderAccessIDFromProto(&controlplanev1.Network{CloudProviderAccessId: tc.id})
+			if tc.wantNul {
+				require.True(t, got.IsNull(), "expected null, got %q", got.ValueString())
+				return
+			}
+			require.Equal(t, tc.id, got.ValueString())
+		})
+	}
+}

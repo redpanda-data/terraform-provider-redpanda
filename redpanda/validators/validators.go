@@ -16,6 +16,8 @@
 package validators
 
 import (
+	"regexp"
+
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 )
@@ -29,6 +31,12 @@ func CloudProviders() []validator.String {
 // access can target.
 func CloudProviderAccessProviders() []validator.String {
 	return []validator.String{stringvalidator.OneOf("aws")}
+}
+
+// CloudProviderAccessID validates a cloud provider access ID. An empty string
+// would reach the API as no access at all and read back as null.
+func CloudProviderAccessID() []validator.String {
+	return []validator.String{stringvalidator.RegexMatches(regexp.MustCompile(`^[a-v0-9]{20}$`), "must be a cloud provider access ID")}
 }
 
 // ClusterTypes returns a list of cluster types that the Redpanda provider supports.

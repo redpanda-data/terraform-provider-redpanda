@@ -23,8 +23,10 @@ import (
 
 var _ resource.ResourceWithValidateConfig = &Network{}
 
-// ValidateConfig applies the customer_managed_resources envelope rules the
-// control plane enforces only at apply.
+// ValidateConfig applies the customer_managed_resources and
+// cloud_provider_access_id envelope rules the control plane enforces only at
+// apply.
 func (*Network) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
 	validators.CustomerManagedResourcesEnvelope(ctx, req.Config, &resp.Diagnostics)
+	validators.CloudProviderAccessEnvelope(ctx, req.Config, &resp.Diagnostics)
 }

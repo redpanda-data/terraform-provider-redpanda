@@ -128,9 +128,10 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 }
 
 // Update sends only the leaves that differ from prior state under a field
-// mask. The control plane accepts one leaf on this path,
-// customer_managed_resources.aws.public_subnets, and its mapper collapses the
-// bare customer_managed_resources mask entry the diff emits onto that leaf.
+// mask. The control plane accepts two leaves on this path:
+// cloud_provider_access_id, and customer_managed_resources.aws.public_subnets,
+// onto which its mapper collapses the bare customer_managed_resources mask
+// entry the diff emits.
 func (n *Network) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
 	var plan, state networkmodel.ResourceModel
 	response.Diagnostics.Append(request.Plan.Get(ctx, &plan)...)
