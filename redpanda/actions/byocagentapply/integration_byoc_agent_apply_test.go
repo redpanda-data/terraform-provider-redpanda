@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -180,6 +182,49 @@ func TestIntegration_ByocAgentApply_RejectsDedicatedAtPlan(t *testing.T) {
 	})
 	if calls := srv.Byoc.Calls(); len(calls) != 0 {
 		t.Fatalf("byoc runner calls = %v, want none for a dedicated cluster", calls)
+	}
+}
+
+// TestIntegration_ByocAgentApply_RejectsRedpandaManagedAgentAtPlan pins that
+// a cluster on a network provisioned through a cloud provider access is
+// refused while planning: Redpanda applies that agent, so no plugin run on
+// the caller's credentials may happen.
+func TestIntegration_ByocAgentApply_RejectsRedpandaManagedAgentAtPlan(t *testing.T) {
+	srv, factories := integration.Setup(t)
+
+	base := strings.Replace(baseConfig("tfrp-mock-act-cpa", true), `  cidr_block        = "10.0.0.0/20"
+}`, `  cidr_block        = "10.0.0.0/20"
+  cloud_provider_access_id = redpanda_cloud_provider_access.test.id
+}
+
+resource "redpanda_cloud_provider_access" "test" {
+  name           = "tfrp-mock-act-cpa"
+  cloud_provider = "aws"
+  aws = {
+    role_arn = "arn:aws:iam::123456789012:role/tfrp-mock-act"
+  }
+}`, 1)
+	if !strings.Contains(base, "cloud_provider_access_id") {
+		t.Fatal("baseConfig no longer carries the network block this case extends")
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr, base, nil),
+			{
+				Config:      withAction(base, ""),
+				PlanOnly:    true,
+				ExpectError: regexp.MustCompile(`Agent is managed by Redpanda`),
+			},
+		},
+	})
+	if calls := srv.Byoc.Calls(); len(calls) != 0 {
+		t.Fatalf("byoc runner calls = %v, want none for a cluster whose agent Redpanda manages", calls)
+	}
+	want := []controlplanev1.Cluster_State{controlplanev1.Cluster_STATE_CREATING_AGENT, controlplanev1.Cluster_STATE_DELETING_AGENT}
+	if got := srv.Cluster.ManagedAgentPhasesSeen(); !slices.Equal(got, want) {
+		t.Fatalf("agent phases the provider polled through = %v, want %v", got, want)
 	}
 }
 

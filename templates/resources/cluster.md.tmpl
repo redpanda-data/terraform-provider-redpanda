@@ -51,6 +51,12 @@ To create a BYOC AWS cluster you must provide an AWS_ACCESS_KEY_ID and AWS_SECRE
 
 {{ tffile "examples/byoc/aws/main.tf" }}
 
+### AWS BYOC with a cloud provider access
+
+With a `redpanda_cloud_provider_access`, Redpanda assumes an IAM role in your account and provisions the network, the BYOC agent and the cluster itself. The provider needs no AWS credentials and runs no `rpk cloud byoc` command, and the `redpanda_byoc_agent_apply` action does not apply to these clusters. Set `cloud_provider_access_id` on the network, as shown below. See the `redpanda_cloud_provider_access` resource for the trust policy the role needs.
+
+{{ tffile "examples/byoc/aws_cloud_provider_access/main.tf" }}
+
 ### GCP BYOC
 
 To create a GCP BYOC cluster you must provide a GCP_PROJECT_ID and GOOGLE_CREDENTIALS. We also accept the credentials encoded in base64 format if you use GOOGLE_CREDENTIALS_BASE64. The account [must have fairly wide ranging permissions](https://docs.redpanda.com/redpanda-cloud/security/authorization/cloud-iam-policies-gcp/) to create the necessary infrastructure.
