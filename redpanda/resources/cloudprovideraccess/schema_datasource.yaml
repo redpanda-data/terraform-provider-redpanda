@@ -1,0 +1,24 @@
+message: "Data source for a Redpanda Cloud cloud provider access"
+api_schema: CloudProviderAccess
+# The service is PREVIEW, which cloudv2's OpenAPI generation filters out;
+# descriptions come from scopedDescriptions until the spec carries it.
+openapi_absent: true
+tf_name: CloudProviderAccess
+computed_default: true
+
+id:
+  required: true
+
+name:
+
+cloud_provider:
+
+aws:
+  fields:
+    role_arn:
+    external_id:
+
+state:
+
+status:
+  exclude: true

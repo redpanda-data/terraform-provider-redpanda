@@ -56,6 +56,7 @@ type ControlPlaneClientSet struct {
 	Operation             controlplanev1grpc.OperationServiceClient
 	Region                controlplanev1grpc.RegionServiceClient
 	ShadowLink            controlplanev1grpc.ShadowLinkServiceClient
+	CloudProviderAccess   controlplanev1grpc.CloudProviderAccessServiceClient
 	ThroughputTier        controlplanev1beta2grpc.ThroughputTierServiceClient
 	ServiceAccount        iamv1grpc.ServiceAccountServiceClient
 }
@@ -73,6 +74,7 @@ func NewControlPlaneClientSet(conn *grpc.ClientConn) *ControlPlaneClientSet {
 		Operation:             controlplanev1grpc.NewOperationServiceClient(conn),
 		Region:                controlplanev1grpc.NewRegionServiceClient(conn),
 		ShadowLink:            controlplanev1grpc.NewShadowLinkServiceClient(conn),
+		CloudProviderAccess:   controlplanev1grpc.NewCloudProviderAccessServiceClient(conn),
 		ThroughputTier:        controlplanev1beta2grpc.NewThroughputTierServiceClient(conn),
 		ServiceAccount:        iamv1grpc.NewServiceAccountServiceClient(conn),
 	}
@@ -126,6 +128,14 @@ func (c *ControlPlaneClientSet) ServiceAccountForName(ctx context.Context, name 
 		})
 		return resp.GetServiceAccounts(), err
 	}, (*iamv1.ServiceAccount).GetName)
+}
+
+// CloudProviderAccessForID gets the cloud provider access for a given ID.
+func (c *ControlPlaneClientSet) CloudProviderAccessForID(ctx context.Context, id string) (*controlplanev1.CloudProviderAccess, error) {
+	return getByID("cloud provider access", id, func() (*controlplanev1.CloudProviderAccess, error) {
+		resp, err := c.CloudProviderAccess.GetCloudProviderAccess(ctx, &controlplanev1.GetCloudProviderAccessRequest{Id: id})
+		return resp.GetCloudProviderAccess(), err
+	})
 }
 
 // ShadowLinkForID gets the shadow link for a given ID.

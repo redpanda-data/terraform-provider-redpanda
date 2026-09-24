@@ -25,6 +25,12 @@ func CloudProviders() []validator.String {
 	return []validator.String{stringvalidator.OneOf("gcp", "aws", "azure")}
 }
 
+// CloudProviderAccessProviders returns the cloud providers a cloud provider
+// access can target.
+func CloudProviderAccessProviders() []validator.String {
+	return []validator.String{stringvalidator.OneOf("aws")}
+}
+
 // ClusterTypes returns a list of cluster types that the Redpanda provider supports.
 func ClusterTypes() []validator.String {
 	return []validator.String{stringvalidator.OneOf("dedicated", "byoc")}

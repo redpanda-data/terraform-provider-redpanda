@@ -64,3 +64,9 @@ package resources
 
 // ServiceAccount resource schema + model + flatten/expand
 //go:generate go run ../../cmd/schemagen -proto-pkg=redpanda/api/iam/v1 -message=ServiceAccount -config=serviceaccount/schema.yaml -func=ResourceServiceAccountSchema -type=resource -output=serviceaccount/schema_resource_gen.go -package=serviceaccount -model-output=../models/serviceaccount/resource_model_gen.go -model-package=serviceaccount -conv-output=../models/serviceaccount/conv_gen.go -proto-import=buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/iam/v1 -proto-alias=iamv1
+
+// CloudProviderAccess resource schema + model + flatten/expand
+//go:generate go run ../../cmd/schemagen -proto-pkg=redpanda/api/controlplane/v1 -message=CloudProviderAccess -config=cloudprovideraccess/schema.yaml -func=ResourceCloudProviderAccessSchema -type=resource -output=cloudprovideraccess/schema_resource_gen.go -package=cloudprovideraccess -model-output=../models/cloudprovideraccess/resource_model_gen.go -model-package=cloudprovideraccess -conv-output=../models/cloudprovideraccess/conv_gen.go -proto-import=buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1 -proto-alias=controlplanev1
+
+// CloudProviderAccess datasource schema + model + flatten
+//go:generate go run ../../cmd/schemagen -proto-pkg=redpanda/api/controlplane/v1 -message=CloudProviderAccess -config=cloudprovideraccess/schema_datasource.yaml -func=DatasourceCloudProviderAccessSchema -type=datasource -output=cloudprovideraccess/schema_datasource_gen.go -package=cloudprovideraccess -model-output=../models/cloudprovideraccess/data_model_gen.go -model-package=cloudprovideraccess -conv-output=../models/cloudprovideraccess/data_conv_gen.go -proto-import=buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1 -proto-alias=controlplanev1
