@@ -6,10 +6,11 @@ timeouts: [create, update, delete]
 api:
   update:
     # Resource code diffs plan against prev state into a sparse NetworkUpdate
-    # and wraps it in the request itself. The only leaf the control plane
-    # accepts on this path is customer_managed_resources.aws.public_subnets;
-    # egress_spec is also on the update shape but stays RequiresReplace until
-    # in-place egress changes are verified against the data plane.
+    # and wraps it in the request itself. The control plane accepts
+    # cloud_provider_access_id and customer_managed_resources.aws.public_subnets
+    # on this path; egress_spec is also on the update shape but stays
+    # RequiresReplace until in-place egress changes are verified against the
+    # data plane.
     return_payload: true
     diff_mask: sparse
 
@@ -281,5 +282,14 @@ egress_spec:
         firewall_private_ip:
           required: true
           validator: IPAddress
+# Swapped in place through UpdateNetwork, never a replacement. The control
+# plane refuses adding or removing an access on an existing network, and
+# modify_plan.go warns about both. RequiresReplaceIf on those transitions is
+# deliberately not used: replacing a network replaces every cluster on it, so
+# the provider never plans that on the user's behalf. Flattened from the echo
+# so state never claims an access the network does not have.
 cloud_provider_access_id:
-  todo: true
+  optional: true
+  computed: false
+  validator: CloudProviderAccessID
+  flatten_via: cloudProviderAccessIDFromProto
