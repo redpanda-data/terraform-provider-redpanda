@@ -30,6 +30,7 @@ import (
 type NetworkResponse interface {
 	GetCidrBlock() string
 	GetCloudProvider() controlplanev1.CloudProvider
+	GetCloudProviderAccessId() string
 	GetClusterType() controlplanev1.Cluster_Type
 	GetCustomerManagedResources() *controlplanev1.Network_CustomerManagedResources
 	GetEgressSpec() *controlplanev1.Network_EgressSpec
@@ -54,6 +55,7 @@ func Flatten(ctx context.Context, proto NetworkResponse, prev *ResourceModel) (*
 	m.Region = types.StringValue(proto.GetRegion())
 	m.ResourceGroupID = types.StringValue(proto.GetResourceGroupId())
 	m.CidrBlock = cidrBlockFromProto(proto)
+	m.CloudProviderAccessID = cloudProviderAccessIDFromProto(proto)
 	m.CustomerManagedResources = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetCustomerManagedResources(), func() *CustomerManagedResourcesModel { v, _ := prev.AsCustomerManagedResources(ctx); return v }(), CustomerManagedResourcesAttrTypes(), FlattenCustomerManagedResources, &diags)
 	m.EgressSpec = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetEgressSpec(), func() *EgressSpecModel { v, _ := prev.AsEgressSpec(ctx); return v }(), EgressSpecAttrTypes(), FlattenEgressSpec, &diags)
 	m.ID = types.StringValue(proto.GetId())
@@ -76,6 +78,7 @@ func ExpandCreate(ctx context.Context, m *ResourceModel) (*controlplanev1.Create
 		Region:                   m.Region.ValueString(),
 		ResourceGroupId:          m.ResourceGroupID.ValueString(),
 		CidrBlock:                m.CidrBlock.ValueString(),
+		CloudProviderAccessId:    m.CloudProviderAccessID.ValueString(),
 		CustomerManagedResources: modelconv.ObjectToMessageWithDiags(ctx, m.CustomerManagedResources, ExpandCustomerManagedResources, &diags),
 		EgressSpec:               modelconv.ObjectToMessageWithDiags(ctx, m.EgressSpec, ExpandEgressSpec, &diags),
 	}
@@ -90,6 +93,7 @@ func ExpandCreate(ctx context.Context, m *ResourceModel) (*controlplanev1.Create
 func ExpandUpdate(ctx context.Context, m *ResourceModel) (*controlplanev1.NetworkUpdate, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	payload := &controlplanev1.NetworkUpdate{
+		CloudProviderAccessId:    m.CloudProviderAccessID.ValueString(),
 		CustomerManagedResources: modelconv.ObjectToMessageWithDiags(ctx, m.CustomerManagedResources, ExpandUpdateCustomerManagedResources, &diags),
 		EgressSpec:               modelconv.ObjectToMessageWithDiags(ctx, m.EgressSpec, ExpandEgressSpec, &diags),
 		Id:                       m.ID.ValueString(),

@@ -20,6 +20,7 @@ Data source for a Redpanda Cloud network
 
 - `cidr_block` (String) Network CIDR from where public and private subnets are derived. At least a 21 bits CIDR is required.
 - `cloud_provider` (String) Cloud provider where resources are created.
+- `cloud_provider_access_id` (String) ID of the `redpanda_cloud_provider_access` Redpanda uses to provision the network in your AWS account. Requires `cluster_type` `byoc` and `cloud_provider` `aws`, and conflicts with `customer_managed_resources`. Redpanda provisions and destroys the BYOC agent for clusters on this network, so no local cloud credentials are needed. Changing it to another cloud provider access for the same AWS account updates the network in place; the API refuses to add one to an existing network or remove it.
 - `cluster_type` (String) Cluster type. Type is immutable and can only be set on cluster creation.
 - `customer_managed_resources` (Attributes) Cloud resources created by user. (see [below for nested schema](#nestedatt--customer_managed_resources))
 - `egress_spec` (Attributes) Egress Spec configuration (see [below for nested schema](#nestedatt--egress_spec))
