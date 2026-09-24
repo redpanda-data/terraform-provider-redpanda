@@ -47,6 +47,12 @@ type NetworkFake struct {
 	mu       sync.Mutex
 	networks map[string]*controlplanev1.Network
 	seq      atomic.Uint64
+
+	// CloudProviderAccessLookup resolves a cloud_provider_access_id so create
+	// can apply the control plane's cross-account rules; the mock server
+	// wires it to the cloud provider access fake. Nil treats every id as
+	// unknown.
+	CloudProviderAccessLookup func(id string) *controlplanev1.CloudProviderAccess
 }
 
 // NewNetworkFake returns an empty NetworkFake bound to op.
@@ -62,6 +68,9 @@ func (f *NetworkFake) CreateNetwork(_ context.Context, req *controlplanev1.Creat
 		return nil, status.Error(codes.InvalidArgument, "network is required")
 	}
 	if err := validateNetworkCreateShape(in); err != nil {
+		return nil, err
+	}
+	if err := f.validateCloudProviderAccess(in); err != nil {
 		return nil, err
 	}
 	if es := in.GetEgressSpec(); es != nil {
@@ -88,6 +97,7 @@ func (f *NetworkFake) CreateNetwork(_ context.Context, req *controlplanev1.Creat
 		ClusterType:              in.GetClusterType(),
 		CustomerManagedResources: readShapeCustomerManagedResources(in.GetCustomerManagedResources()),
 		EgressSpec:               in.GetEgressSpec(),
+		CloudProviderAccessId:    in.GetCloudProviderAccessId(),
 		State:                    controlplanev1.Network_STATE_READY,
 		CreatedAt:                now,
 		UpdatedAt:                now,
@@ -102,6 +112,42 @@ func (f *NetworkFake) CreateNetwork(_ context.Context, req *controlplanev1.Creat
 	f.mu.Unlock()
 
 	return &controlplanev1.CreateNetworkOperation{Operation: completedOp(f.op, id)}, nil
+}
+
+// validateCloudProviderAccess mirrors resolveCloudProviderAccess in cloudv2's
+// network service: a cloud provider access excludes customer-managed
+// resources, needs a BYOC AWS network, and must exist in the organization.
+func (f *NetworkFake) validateCloudProviderAccess(in *controlplanev1.NetworkCreate) error {
+	id := in.GetCloudProviderAccessId()
+	if id == "" {
+		return nil
+	}
+	if in.GetCustomerManagedResources() != nil {
+		return status.Error(codes.InvalidArgument, "cloud_provider_access_id and customer_managed_resources are mutually exclusive")
+	}
+	if in.GetClusterType() != controlplanev1.Cluster_TYPE_BYOC {
+		return status.Error(codes.InvalidArgument, "cloud_provider_access_id requires cluster_type BYOC")
+	}
+	if in.GetCloudProvider() != controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS {
+		return status.Error(codes.InvalidArgument, "cloud_provider_access_id is only supported for AWS in this release")
+	}
+	if f.CloudProviderAccessLookup == nil || f.CloudProviderAccessLookup(id) == nil {
+		return status.Errorf(codes.NotFound, "cloud_provider_access %q not found", id)
+	}
+	return nil
+}
+
+// ReferencesCloudProviderAccess reports whether a stored network uses the
+// cloud provider access with the given id.
+func (f *NetworkFake) ReferencesCloudProviderAccess(id string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, nw := range f.networks {
+		if nw.GetCloudProviderAccessId() == id {
+			return true
+		}
+	}
+	return false
 }
 
 // Lookup returns the stored network with the given id, or nil.
