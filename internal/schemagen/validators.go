@@ -54,6 +54,12 @@ var validatorRegistry = map[string]ValidatorDef{
 		AttrType:     "String",
 		ReturnsSlice: true,
 	},
+	"CloudProviderAccessProviders": {
+		Expr:         "validators.CloudProviderAccessProviders()",
+		Imports:      []string{validatorsImport},
+		AttrType:     "String",
+		ReturnsSlice: true,
+	},
 
 	"ACLResourceTypes": {
 		Expr:         "aclResourceTypeValidator()",

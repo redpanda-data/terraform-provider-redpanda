@@ -21,6 +21,7 @@ import (
 
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/acl"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/cloudprovideraccess"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/cluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/network"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/pipeline"
@@ -57,6 +58,7 @@ func TestSchemaGolden(t *testing.T) {
 		schema any
 	}{
 		{"acl_resource", acl.ResourceACLSchema(ctx)},
+		{"cloudprovideraccess_resource", cloudprovideraccess.ResourceCloudProviderAccessSchema(ctx)},
 		{"cluster_resource", cluster.ResourceClusterSchema(ctx)},
 		{"network_resource", network.ResourceNetworkSchema(ctx)},
 		{"pipeline_resource", pipeline.ResourcePipelineSchema(ctx)},
@@ -71,6 +73,8 @@ func TestSchemaGolden(t *testing.T) {
 		{"topic_resource", topic.ResourceTopicSchema(ctx)},
 		{"user_resource", user.ResourceUserSchema(ctx)},
 
+		{"cloudprovideraccess_datasource", cloudprovideraccess.DatasourceCloudProviderAccessSchema(ctx)},
+		{"cloudprovideraccess_prerequisites_datasource", cloudprovideraccess.DataSourcePrerequisitesSchema(ctx)},
 		{"cluster_datasource", cluster.DatasourceClusterSchema(ctx)},
 		{"network_datasource", network.DatasourceNetworkSchema(ctx)},
 		{"region_datasource", region.DataSourceRegionSchema(ctx)},

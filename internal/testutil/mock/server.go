@@ -109,6 +109,11 @@ type Server struct {
 	// every configurable field RequiresReplace).
 	Network *fakes.NetworkFake
 
+	// CloudProviderAccess is the synchronous fake for
+	// CloudProviderAccessService. Wired to Network, which checks referenced
+	// ids on create and blocks deleting an access a network still uses.
+	CloudProviderAccess *fakes.CloudProviderAccessFake
+
 	// ServerlessPrivateLink is the async fake for ServerlessPrivateLinkService.
 	// All three mutating RPCs publish completed Operations; Update has no
 	// FieldMask (full replacement of the aws_config oneof variant).
@@ -166,6 +171,7 @@ func New(t testing.TB) *Server {
 		ServerlessRegion:      fakes.NewServerlessRegionFake(),
 		ThroughputTier:        fakes.NewThroughputTierFake(),
 		Network:               fakes.NewNetworkFake(opFake),
+		CloudProviderAccess:   fakes.NewCloudProviderAccessFake(),
 		ServerlessPrivateLink: fakes.NewServerlessPrivateLinkFake(opFake),
 		ServerlessCluster:     fakes.NewServerlessClusterFake(opFake),
 		ShadowLink:            fakes.NewShadowLinkFake(opFake),
@@ -175,6 +181,8 @@ func New(t testing.TB) *Server {
 	s.Cluster.SetSchemaRegistryURL(s.SR.BaseURL())
 	s.Byoc = fakes.NewByocRunnerFake(s.Cluster.AgentRun)
 	s.Cluster.NetworkLookup = s.Network.Lookup
+	s.Network.CloudProviderAccessLookup = s.CloudProviderAccess.Lookup
+	s.CloudProviderAccess.Referenced = s.Network.ReferencesCloudProviderAccess
 	s.grpc = grpc.NewServer(grpc.ChainUnaryInterceptor(
 		s.countingInterceptor(),
 		s.overrideInterceptor(),
@@ -193,6 +201,7 @@ func New(t testing.TB) *Server {
 	controlplanev1grpc.RegisterServerlessRegionServiceServer(s.grpc, s.ServerlessRegion)
 	controlplanev1beta2grpc.RegisterThroughputTierServiceServer(s.grpc, s.ThroughputTier)
 	controlplanev1grpc.RegisterNetworkServiceServer(s.grpc, s.Network)
+	controlplanev1grpc.RegisterCloudProviderAccessServiceServer(s.grpc, s.CloudProviderAccess)
 	controlplanev1grpc.RegisterServerlessPrivateLinkServiceServer(s.grpc, s.ServerlessPrivateLink)
 	controlplanev1grpc.RegisterServerlessClusterServiceServer(s.grpc, s.ServerlessCluster)
 	controlplanev1grpc.RegisterShadowLinkServiceServer(s.grpc, s.ShadowLink)

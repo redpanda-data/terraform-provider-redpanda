@@ -38,6 +38,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/models"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/acl"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/cloudprovideraccess"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/cluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/network"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/resources/pipeline"
@@ -525,6 +526,8 @@ func (*Redpanda) DataSources(_ context.Context) []func() datasource.DataSource {
 		func() datasource.DataSource { return regions.NewDataSourceRegions() },
 		func() datasource.DataSource { return throughputtiers.NewDataSourceThroughputTiers() },
 		func() datasource.DataSource { return schemaresource.NewSchemaDataSource() },
+		func() datasource.DataSource { return cloudprovideraccess.NewDataSourceCloudProviderAccess() },
+		func() datasource.DataSource { return cloudprovideraccess.NewDataSourcePrerequisites() },
 	}
 }
 
@@ -554,5 +557,6 @@ func (*Redpanda) Resources(_ context.Context) []func() resource.Resource {
 		func() resource.Resource { return secret.NewSecret() },
 		func() resource.Resource { return shadowlink.NewShadowLink() },
 		func() resource.Resource { return serviceaccount.NewServiceAccount() },
+		func() resource.Resource { return cloudprovideraccess.NewCloudProviderAccess() },
 	}
 }

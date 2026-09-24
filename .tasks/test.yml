@@ -89,6 +89,26 @@ tasks:
           ./redpanda/resources/serviceaccount/...
       - echo "Service account tests completed successfully"
 
+  # The upgrade entry defaults off here because no released provider has
+  # redpanda_cloud_provider_access, so step 0 cannot parse the config. Drop
+  # the default once a release ships the resource.
+  cloud_provider_access:
+    desc: "Run cloud provider access live-acc tests (control-plane only, no cluster or cloud resources)"
+    deps:
+      - :tools:install:terraform
+    cmds:
+      - echo "Running cloud provider access live-acc tests..."
+      - |
+        DEBUG=true \
+        TF_ACC=true \
+        TF_LOG={{.TF_LOG}} \
+        VERSION={{.VERSION}} \
+        REDPANDA_UPGRADE_ENTRY={{.REDPANDA_UPGRADE_ENTRY | default "off"}} \
+        {{.PATH_PREFIX}} go test \
+          -count=1 -tags=live_test,cloud_provider_access -v -timeout={{.TIMEOUT_SHORT}} \
+          ./redpanda/resources/cloudprovideraccess/...
+      - echo "Cloud provider access tests completed successfully"
+
   shadowlink:
     desc: "Run shadow link acceptance test (provisions two dedicated AWS clusters + link)"
     deps:

@@ -38,6 +38,7 @@ var (
 	ClusterDatasourceInfraDir      = filepath.Join(RepoRoot(), "redpanda", "tests", "testdata", "datasource", "cluster")
 	ShadowLinkDir                  = filepath.Join(RepoRoot(), "examples", "shadow_link")
 	ServiceAccountDir              = filepath.Join(RepoRoot(), "examples", "service_account")
+	CloudProviderAccessDir         = filepath.Join(RepoRoot(), "examples", "cloud_provider_access")
 )
 
 // Terraform resource-address constants used as the second argument to
@@ -70,5 +71,6 @@ const (
 	ShadowLinkResourceName             = "redpanda_shadow_link.test"
 	ShadowLinkSecretResourceName       = "redpanda_secret.source_password"
 	ServiceAccountResourceName         = "redpanda_service_account.test"
+	CloudProviderAccessResourceName    = "redpanda_cloud_provider_access.test"
 	AllowDeletionFalseValue            = "false"
 )
