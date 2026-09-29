@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"cmp"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -211,6 +212,7 @@ type azureAuth struct {
 	identity         string
 	tokenFile        string
 	rawToken         string
+	certificate      []byte
 }
 
 func (cl *ByocClient) hasAzureSecretOrCertificate() bool {
@@ -227,6 +229,23 @@ func azureFederatedTokenFile() string {
 // from --credential-source=[cli|msi|env|workload], and the internal Terraform
 // project sets use_msi, use_oidc, and use_cli from --identity=[cli|msi|oidc].
 func (cl *ByocClient) resolveAzureAuth() (azureAuth, error) {
+	auth, err := cl.selectAzureAuth()
+	if err != nil || auth.credentialSource != "env" {
+		return auth, err
+	}
+	// azurerm takes ARM_CLIENT_CERTIFICATE as a base64 PKCS#12 bundle, but
+	// EnvironmentCredential reads a certificate only from
+	// AZURE_CLIENT_CERTIFICATE_PATH.
+	if inline := os.Getenv("ARM_CLIENT_CERTIFICATE"); inline != "" && os.Getenv("ARM_CLIENT_CERTIFICATE_PATH") == "" {
+		auth.certificate, err = base64.StdEncoding.DecodeString(inline)
+		if err != nil {
+			return azureAuth{}, fmt.Errorf("ARM_CLIENT_CERTIFICATE must be a base64-encoded PKCS#12 bundle: %w", err)
+		}
+	}
+	return auth, nil
+}
+
+func (cl *ByocClient) selectAzureAuth() (azureAuth, error) {
 	authMethods := []struct {
 		EnvName          string
 		CredentialSource string
@@ -371,10 +390,18 @@ func (cl *ByocClient) generateAzureArgsAndEnv(ctx context.Context) (args, env []
 
 	tokenFile := auth.tokenFile
 	if auth.rawToken != "" {
-		tokenFile, cleanup, err = writeAzureTokenFile(ctx, auth.rawToken)
+		tokenFile, cleanup, err = writeAzureTempFile(ctx, "federated-token", []byte(auth.rawToken))
 		if err != nil {
 			return nil, nil, nil, err
 		}
+	}
+	if auth.certificate != nil {
+		var certFile string
+		certFile, cleanup, err = writeAzureTempFile(ctx, "client-certificate.pfx", auth.certificate)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		azureEnv = append(azureEnv, "AZURE_CLIENT_CERTIFICATE_PATH="+certFile)
 	}
 	if tokenFile != "" {
 		// WorkloadIdentityCredential reads AZURE_FEDERATED_TOKEN_FILE, while
@@ -399,25 +426,28 @@ func (cl *ByocClient) generateAzureArgsAndEnv(ctx context.Context) (args, env []
 	return azureArgs, azureEnv, cleanup, nil
 }
 
-func writeAzureTokenFile(ctx context.Context, token string) (tokenFile string, cleanup func(), err error) {
+// writeAzureTempFile writes a credential the plugin can only read from a file.
+// A raw OIDC token and an inline certificate belong to different credential
+// sources, so at most one is written per run.
+func writeAzureTempFile(ctx context.Context, name string, data []byte) (file string, cleanup func(), err error) {
 	tempDir, err := os.MkdirTemp("", "terraform-provider-redpanda-azure")
 	if err != nil {
 		return "", nil, err
 	}
 	cleanup = func() {
 		if err := os.RemoveAll(tempDir); err != nil {
-			tflog.Warn(ctx, "failed to clean up Azure federated token temp directory", map[string]any{
+			tflog.Warn(ctx, "failed to clean up Azure credential temp directory", map[string]any{
 				"path":  tempDir,
 				"error": err.Error(),
 			})
 		}
 	}
-	tokenFile = path.Join(tempDir, "federated-token")
-	if err := os.WriteFile(tokenFile, []byte(token), 0o600); err != nil {
+	file = path.Join(tempDir, name)
+	if err := os.WriteFile(file, data, 0o600); err != nil {
 		cleanup()
 		return "", nil, err
 	}
-	return tokenFile, cleanup, nil
+	return file, cleanup, nil
 }
 
 func (cl *ByocClient) generateGcpArgsAndEnv(ctx context.Context) (args, env []string, cleanup func(), err error) {
