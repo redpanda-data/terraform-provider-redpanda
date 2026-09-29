@@ -340,6 +340,11 @@ func (cl *ByocClient) generateAzureArgsAndEnv(ctx context.Context) (args, env []
 		"--client-id", cl.azureClientID,
 		"--client-secret", cl.azureClientSecret,
 	)
+	// Without --tenant-id the plugin resolves the tenant through
+	// DefaultAzureCredential before any other Azure call.
+	if cl.azureTenantID != "" {
+		azureArgs = append(azureArgs, "--tenant-id", cl.azureTenantID)
+	}
 
 	// Environment variables: pre-flight validation uses environment variables when passed
 	// --credential-source=env, prefixed with AZURE_ instead of ARM_; and the internal
@@ -351,6 +356,17 @@ func (cl *ByocClient) generateAzureArgsAndEnv(ctx context.Context) (args, env []
 		if strings.HasPrefix(s, "ARM_") {
 			azureEnv = append(azureEnv, fmt.Sprintf("AZURE_%s", strings.TrimPrefix(s, "ARM_")))
 		}
+	}
+	if cl.azureTenantID != "" {
+		azureEnv = append(azureEnv, "AZURE_TENANT_ID="+cl.azureTenantID)
+	}
+	if cl.azureClientID != "" {
+		azureEnv = append(azureEnv, "AZURE_CLIENT_ID="+cl.azureClientID)
+	}
+	// EnvironmentCredential reads the secret only from AZURE_CLIENT_SECRET,
+	// and it must pair with the AZURE_CLIENT_ID exported above.
+	if cl.azureClientSecret != "" {
+		azureEnv = append(azureEnv, "AZURE_CLIENT_SECRET="+cl.azureClientSecret)
 	}
 
 	tokenFile := auth.tokenFile
