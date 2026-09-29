@@ -15,8 +15,16 @@
 package utils
 
 import (
+	"context"
+	"encoding/base64"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/redpanda-data/redpanda/src/go/rpk/pkg/cloudapi"
+	"golang.org/x/oauth2"
 )
 
 func TestProgressLine(t *testing.T) {
@@ -52,15 +60,31 @@ func TestByocClient_CheckCloudConfig(t *testing.T) {
 		conf    ByocClientConfig
 		cloud   string
 		wantErr string
+		env     map[string]string
 	}{
-		{"aws never checked", ByocClientConfig{}, "aws", ""},
-		{"gcp missing project", ByocClientConfig{}, "gcp", "gcp_project_id"},
-		{"gcp with project", ByocClientConfig{GcpProject: "p"}, "gcp", ""},
-		{"azure missing subscription", ByocClientConfig{}, "azure", "azure_subscription_id"},
-		{"azure with subscription", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", ""},
+		{"aws never checked", ByocClientConfig{}, "aws", "", nil},
+		{"gcp missing project", ByocClientConfig{}, "gcp", "gcp_project_id", nil},
+		{"gcp with project", ByocClientConfig{GcpProject: "p"}, "gcp", "", nil},
+		{"azure missing subscription", ByocClientConfig{}, "azure", "azure_subscription_id", nil},
+		{"azure with subscription", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "", nil},
+		{"azure two auth flags", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "only one of", map[string]string{"ARM_USE_MSI": "true", "ARM_USE_CLI": "true"}},
+		{"azure oidc without a token or az", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "AZURE_FEDERATED_TOKEN_FILE", map[string]string{"ARM_USE_OIDC": "true"}},
+		{"azure oidc without a token falls back to az", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "PATH": "<with az>"}},
+		{"azure oidc with a token file needs no az", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": "/token"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			clearAzureEnv(t)
+			t.Setenv("PATH", t.TempDir())
+			for k, v := range tc.env {
+				if v == "<with az>" {
+					v = t.TempDir()
+					if err := os.Symlink("/bin/sh", filepath.Join(v, "az")); err != nil {
+						t.Fatal(err)
+					}
+				}
+				t.Setenv(k, v)
+			}
 			err := NewByocClient(tc.conf).CheckCloudConfig(tc.cloud)
 			switch {
 			case tc.wantErr == "" && err != nil:
@@ -68,6 +92,260 @@ func TestByocClient_CheckCloudConfig(t *testing.T) {
 			case tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)):
 				t.Fatalf("CheckCloudConfig(%s) = %v, want error mentioning %q", tc.cloud, err, tc.wantErr)
 			default:
+			}
+		})
+	}
+}
+
+func clearAzureEnv(t *testing.T) {
+	t.Helper()
+	for _, kv := range os.Environ() {
+		k, _, _ := strings.Cut(kv, "=")
+		if strings.HasPrefix(k, "ARM_") || strings.HasPrefix(k, "AZURE_") || strings.HasPrefix(k, "ACTIONS_ID_TOKEN_") {
+			t.Setenv(k, "")
+			if err := os.Unsetenv(k); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}
+
+func flagValue(args []string, flag string) (string, bool) {
+	i := slices.Index(args, flag)
+	if i < 0 || i+1 >= len(args) {
+		return "", false
+	}
+	return args[i+1], true
+}
+
+func lastEnv(env []string, key string) (string, bool) {
+	for i := len(env) - 1; i >= 0; i-- {
+		if v, ok := strings.CutPrefix(env[i], key+"="); ok {
+			return v, true
+		}
+	}
+	return "", false
+}
+
+func TestByocClient_AzureCredentialArgs(t *testing.T) {
+	const (
+		tenant = "00000000-0000-0000-0000-00000000000a"
+		client = "00000000-0000-0000-0000-00000000000b"
+	)
+	tokenFile := filepath.Join(t.TempDir(), "federated-token")
+	unset := "<unset>"
+
+	cases := []struct {
+		name      string
+		env       map[string]string
+		conf      ByocClientConfig
+		wantArgs  map[string]string
+		wantEnv   map[string]string
+		wantFiles map[string]string
+		noAz      bool
+		wantErr   string
+	}{
+		{
+			name:     "client secret uses environment credential",
+			conf:     ByocClientConfig{AzureClientID: client, AzureClientSecret: "s3cret"},
+			wantArgs: map[string]string{"--credential-source": "env", "--identity": unset},
+			wantEnv: map[string]string{
+				"AZURE_TOKEN_CREDENTIALS": "",
+				"ARM_USE_OIDC":            "",
+				"AZURE_CLIENT_ID":         client,
+				"AZURE_CLIENT_SECRET":     "s3cret",
+			},
+		},
+		{
+			name:      "inline client certificate reaches the environment credential as a file",
+			env:       map[string]string{"ARM_CLIENT_CERTIFICATE": base64.StdEncoding.EncodeToString([]byte("pkcs12-bundle"))},
+			conf:      ByocClientConfig{AzureClientID: client},
+			wantArgs:  map[string]string{"--credential-source": "env"},
+			wantFiles: map[string]string{"AZURE_CLIENT_CERTIFICATE_PATH": "pkcs12-bundle"},
+		},
+		{
+			name:     "certificate path wins over an inline certificate",
+			env:      map[string]string{"ARM_CLIENT_CERTIFICATE": base64.StdEncoding.EncodeToString([]byte("inline")), "ARM_CLIENT_CERTIFICATE_PATH": tokenFile},
+			wantArgs: map[string]string{"--credential-source": "env"},
+			wantEnv:  map[string]string{"AZURE_CLIENT_CERTIFICATE_PATH": tokenFile},
+		},
+		{
+			name:    "inline client certificate that is not base64 fails before the plugin runs",
+			env:     map[string]string{"ARM_CLIENT_CERTIFICATE": "not base64!"},
+			wantErr: "ARM_CLIENT_CERTIFICATE",
+		},
+		{
+			name: "provider config credentials win over a different arm pair",
+			env: map[string]string{
+				"ARM_CLIENT_ID":     "00000000-0000-0000-0000-00000000000c",
+				"ARM_CLIENT_SECRET": "other-secret",
+			},
+			conf:     ByocClientConfig{AzureClientID: client, AzureClientSecret: "s3cret"},
+			wantArgs: map[string]string{"--credential-source": "env"},
+			wantEnv:  map[string]string{"AZURE_CLIENT_ID": client, "AZURE_CLIENT_SECRET": "s3cret"},
+		},
+		{
+			name:     "no flag, secret, or token leaves the plugin default and pins the cli",
+			wantArgs: map[string]string{"--credential-source": unset, "--identity": unset},
+			wantEnv:  map[string]string{"AZURE_TOKEN_CREDENTIALS": "AzureCLICredential"},
+		},
+		{
+			name:     "msi",
+			env:      map[string]string{"ARM_USE_MSI": "true"},
+			wantArgs: map[string]string{"--credential-source": "msi", "--identity": "msi"},
+			wantEnv:  map[string]string{"AZURE_TOKEN_CREDENTIALS": "ManagedIdentityCredential"},
+		},
+		{
+			name:     "cli",
+			env:      map[string]string{"ARM_USE_CLI": "true"},
+			wantArgs: map[string]string{"--credential-source": "cli", "--identity": "cli"},
+			wantEnv:  map[string]string{"AZURE_TOKEN_CREDENTIALS": "AzureCLICredential"},
+		},
+		{
+			name:     "aks workload identity",
+			env:      map[string]string{"ARM_USE_AKS_WORKLOAD_IDENTITY": "true"},
+			wantArgs: map[string]string{"--credential-source": "workload", "--identity": "none"},
+			wantEnv:  map[string]string{"AZURE_TOKEN_CREDENTIALS": "WorkloadIdentityCredential"},
+		},
+		{
+			name:     "oidc with client secret keeps environment credential",
+			env:      map[string]string{"ARM_USE_OIDC": "true"},
+			conf:     ByocClientConfig{AzureClientID: client, AzureClientSecret: "s3cret"},
+			wantArgs: map[string]string{"--credential-source": "env", "--identity": "oidc"},
+		},
+		{
+			name:     "oidc with azure federated token file",
+			env:      map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": tokenFile},
+			wantArgs: map[string]string{"--credential-source": "workload", "--identity": "oidc"},
+			wantEnv: map[string]string{
+				"AZURE_FEDERATED_TOKEN_FILE": tokenFile,
+				"ARM_OIDC_TOKEN_FILE_PATH":   tokenFile,
+				"AZURE_TOKEN_CREDENTIALS":    "WorkloadIdentityCredential",
+			},
+		},
+		{
+			name:     "oidc with arm token file path",
+			env:      map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN_FILE_PATH": tokenFile},
+			wantArgs: map[string]string{"--credential-source": "workload", "--identity": "oidc"},
+			wantEnv: map[string]string{
+				"AZURE_FEDERATED_TOKEN_FILE": tokenFile,
+				"AZURE_TOKEN_CREDENTIALS":    "WorkloadIdentityCredential",
+			},
+		},
+		{
+			name:      "oidc with raw arm token",
+			env:       map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN": "raw-jwt"},
+			wantArgs:  map[string]string{"--credential-source": "workload", "--identity": "oidc"},
+			wantEnv:   map[string]string{"AZURE_TOKEN_CREDENTIALS": "WorkloadIdentityCredential"},
+			wantFiles: map[string]string{"AZURE_FEDERATED_TOKEN_FILE": "raw-jwt"},
+		},
+		{
+			name: "oidc with only the github request token",
+			env: map[string]string{
+				"ARM_USE_OIDC":                   "true",
+				"ACTIONS_ID_TOKEN_REQUEST_URL":   "https://token.actions.example/request",
+				"ACTIONS_ID_TOKEN_REQUEST_TOKEN": "request-token",
+				"AZURE_CLIENT_ID":                client,
+			},
+			conf:     ByocClientConfig{AzureClientID: client},
+			wantArgs: map[string]string{"--credential-source": "cli", "--identity": "oidc"},
+			wantEnv:  map[string]string{"AZURE_TOKEN_CREDENTIALS": "AzureCLICredential", "ARM_CLIENT_ID": client},
+		},
+		{
+			name:    "oidc with no token and no az fails before the plugin runs",
+			env:     map[string]string{"ARM_USE_OIDC": "true"},
+			noAz:    true,
+			wantErr: "AZURE_FEDERATED_TOKEN_FILE",
+		},
+		{
+			name:     "federated token file without a flag or secret selects workload identity",
+			env:      map[string]string{"AZURE_FEDERATED_TOKEN_FILE": tokenFile, "AZURE_CLIENT_ID": client},
+			conf:     ByocClientConfig{AzureClientID: client},
+			wantArgs: map[string]string{"--credential-source": "workload", "--identity": "oidc"},
+			wantEnv: map[string]string{
+				"ARM_OIDC_TOKEN_FILE_PATH": tokenFile,
+				"AZURE_TOKEN_CREDENTIALS":  "WorkloadIdentityCredential",
+				"ARM_USE_OIDC":             "true",
+				"ARM_CLIENT_ID":            client,
+			},
+		},
+		{
+			name:     "user-set token credentials selection is kept",
+			env:      map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": tokenFile, "AZURE_TOKEN_CREDENTIALS": "prod"},
+			wantArgs: map[string]string{"--credential-source": "workload"},
+			wantEnv:  map[string]string{"AZURE_TOKEN_CREDENTIALS": "prod"},
+		},
+		{
+			name:     "tenant and client from provider config reach the plugin",
+			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			wantArgs: map[string]string{"--tenant-id": tenant},
+			wantEnv:  map[string]string{"AZURE_TENANT_ID": tenant, "AZURE_CLIENT_ID": client},
+		},
+		{
+			name:     "no tenant sends no tenant flag",
+			wantArgs: map[string]string{"--tenant-id": unset},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			clearAzureEnv(t)
+			pathDir := t.TempDir()
+			if !tc.noAz {
+				if err := os.Symlink("/bin/sh", filepath.Join(pathDir, "az")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			t.Setenv("PATH", pathDir)
+			for k, v := range tc.env {
+				t.Setenv(k, v)
+			}
+			tc.conf.TokenSource = oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "cloud-token"})
+			tc.conf.AzureSubscriptionID = "sub"
+			cluster := cloudapi.Cluster{NameID: cloudapi.NameID{ID: "cluster-id"}, Spec: cloudapi.ClusterSpec{Provider: "Azure"}}
+
+			args, env, cleanup, err := NewByocClient(tc.conf).generateByocArgsAndEnv(context.Background(), cluster, "apply")
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("generateByocArgsAndEnv error = %v, want one mentioning %q", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("generateByocArgsAndEnv: %v", err)
+			}
+			if cleanup != nil {
+				defer cleanup()
+			}
+			for flag, want := range tc.wantArgs {
+				got, ok := flagValue(args, flag)
+				if !ok {
+					got = unset
+				}
+				if got != want {
+					t.Errorf("%s = %q, want %q (args %q)", flag, got, want, args)
+				}
+			}
+			for key, want := range tc.wantEnv {
+				if got, _ := lastEnv(env, key); got != want {
+					t.Errorf("env %s = %q, want %q", key, got, want)
+				}
+			}
+			for key, want := range tc.wantFiles {
+				path, _ := lastEnv(env, key)
+				raw, err := os.ReadFile(filepath.Clean(path))
+				if err != nil {
+					t.Fatalf("read %s %q: %v", key, path, err)
+				}
+				if string(raw) != want {
+					t.Errorf("%s holds %q, want %q", key, raw, want)
+				}
+				if cleanup == nil {
+					t.Fatalf("no cleanup returned for %s", key)
+				}
+				cleanup()
+				if _, err := os.Stat(path); !os.IsNotExist(err) {
+					t.Errorf("%s %q survives cleanup: %v", key, path, err)
+				}
 			}
 		})
 	}
