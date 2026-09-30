@@ -3,10 +3,10 @@ module github.com/redpanda-data/terraform-provider-redpanda
 go 1.25.10
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260709200747-435963d16310.1
-	buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.2-20260909215159-9e9068076a9c.1
-	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.12-20260909215159-9e9068076a9c.1
-	buf.build/gen/go/redpandadata/core/protocolbuffers/go v1.36.12-20260714112317-973b760dcc8a.1
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260709200747-435963d16310.2
+	buf.build/gen/go/redpandadata/cloud/grpc/go v1.6.2-20261002193255-1ed314192e59.1
+	buf.build/gen/go/redpandadata/cloud/protocolbuffers/go v1.36.12-20261002193255-1ed314192e59.2
+	buf.build/gen/go/redpandadata/core/protocolbuffers/go v1.36.12-20260714112317-973b760dcc8a.2
 	buf.build/gen/go/redpandadata/dataplane/grpc/go v1.6.2-20260728155109-06b241672bab.1
 	buf.build/gen/go/redpandadata/dataplane/protocolbuffers/go v1.36.11-20260728155109-06b241672bab.1
 	buf.build/go/protovalidate v1.2.0
@@ -42,8 +42,8 @@ require (
 )
 
 require (
-	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.12-20221127060915-a1ecdc58eccd.1 // indirect
-	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.12-20260323171043-6e06f84ad823.1 // indirect
+	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.12-20221127060915-a1ecdc58eccd.2 // indirect
+	buf.build/gen/go/redpandadata/common/protocolbuffers/go v1.36.12-20260323171043-6e06f84ad823.2 // indirect
 	cel.dev/expr v0.25.1 // indirect
 	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c // indirect
