@@ -60,3 +60,6 @@ manual-tests/
 
 # goreleaser output
 dist/
+
+# Local OIDC issuer state for task azure-oidc:*, including a private signing key.
+.azure-oidc/
