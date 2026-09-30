@@ -37,6 +37,11 @@ type Config struct {
 
 	StripOpenAPIPrefix string `yaml:"strip_openapi_prefix,omitempty"`
 
+	// OpenAPIAbsent records that api_schema is missing from the OpenAPI specs
+	// apidesc-import reads, so the import skips it instead of failing and the
+	// descriptions come from scopedDescriptions.
+	OpenAPIAbsent bool `yaml:"openapi_absent,omitempty"`
+
 	Timeouts []string `yaml:"timeouts,omitempty"`
 
 	ComputedDefault bool `yaml:"computed_default,omitempty"`
@@ -288,6 +293,7 @@ func LoadConfig(path string) (*Config, error) {
 	appendStringList(&cfg.APIWriteSchemas, raw, "api_write_schemas")
 	assignScalar(&cfg.TFName, raw, "tf_name")
 	assignScalar(&cfg.StripOpenAPIPrefix, raw, "strip_openapi_prefix")
+	assignScalar(&cfg.OpenAPIAbsent, raw, "openapi_absent")
 	appendStringList(&cfg.ExcludeOperations, raw, "exclude_operations")
 
 	if v, ok := raw["version"]; ok {
@@ -316,6 +322,7 @@ func LoadConfig(path string) (*Config, error) {
 		"computed_default": true, "api_schema": true, "tf_name": true,
 		"strip_openapi_prefix": true, "version": true,
 		"api": true, "exclude_operations": true, "api_write_schemas": true,
+		"openapi_absent": true,
 	}
 	for key, val := range raw {
 		if reservedKeys[key] {
