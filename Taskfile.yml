@@ -20,6 +20,7 @@ vars:
   PATH_PREFIX: PATH={{.BUILD_ROOT}}/bin:{{.GO_BUILD_ROOT}}/bin:{{.BUILD_ROOT}}/bin/go:$PATH GOBIN={{ .BUILD_ROOT }}/bin/go GOROOT=
 
 includes:
+  azure-oidc: .tasks/azure-oidc.yml
   build: .tasks/build.yml
   cleanup: .tasks/cleanup.yml
   docs: .tasks/docs.yml
