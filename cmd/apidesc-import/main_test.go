@@ -15,10 +15,14 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"testing"
+
+	"github.com/redpanda-data/terraform-provider-redpanda/internal/apidesc"
 )
 
 func writeSchema(t *testing.T, dir, resource, body string) {
@@ -95,5 +99,56 @@ func TestCollectAPISchemas_WriteSchemasInheritPrefix(t *testing.T) {
 		if ref.prefix != "v1." {
 			t.Errorf("%s prefix: got %q, want %q", root, ref.prefix, "v1.")
 		}
+	}
+}
+
+// TestScopeRoots_OpenAPIAbsent pins the openapi_absent contract: a root the
+// index lacks is skipped when every yaml naming it declares the flag, fails
+// generation when one does not, and draws a stale-flag warning once the index
+// carries it.
+func TestScopeRoots_OpenAPIAbsent(t *testing.T) {
+	cases := map[string]struct {
+		yamls       []string
+		inIndex     bool
+		wantRoots   []string
+		wantWarning bool
+		wantErr     bool
+	}{
+		"absent and declared":         {yamls: []string{"api_schema: Preview\nopenapi_absent: true\n"}, wantRoots: nil},
+		"absent and undeclared":       {yamls: []string{"api_schema: Preview\n"}, wantErr: true},
+		"absent, one yaml undeclared": {yamls: []string{"api_schema: Preview\nopenapi_absent: true\n", "api_schema: Preview\n"}, wantErr: true},
+		"present but declared":        {yamls: []string{"api_schema: Preview\nopenapi_absent: true\n"}, inIndex: true, wantRoots: []string{"Preview"}, wantWarning: true},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			for i, body := range tc.yamls {
+				writeSchema(t, dir, fmt.Sprintf("res%d", i), body)
+			}
+			refs, err := collectAPISchemas(dir)
+			if err != nil {
+				t.Fatalf("collectAPISchemas: %v", err)
+			}
+			tree := map[string]*apidesc.Node{}
+			if tc.inIndex {
+				tree["Preview"] = &apidesc.Node{}
+			}
+			roots, warnings, err := scopeRoots(tree, refs)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("scopeRoots: got nil error, want one")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("scopeRoots: %v", err)
+			}
+			if !slices.Equal(roots, tc.wantRoots) {
+				t.Errorf("roots: got %v, want %v", roots, tc.wantRoots)
+			}
+			if got := len(warnings) > 0; got != tc.wantWarning {
+				t.Errorf("warnings: got %v, want a warning = %v", warnings, tc.wantWarning)
+			}
+		})
 	}
 }

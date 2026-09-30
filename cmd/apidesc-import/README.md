@@ -25,3 +25,5 @@ Runs only when upstream OpenAPI specs drift (proto comment changes, new fields, 
 ## Output shape
 
 YAML index keyed by root schema → dotted field path → description. Filtered to the union of `api_schema:` roots referenced by `redpanda/resources/*/schema.yaml` (currently 13 schemas).
+
+A root missing from every spec fails the import. A schema yaml whose message the API ships but whose OpenAPI spec omits it, such as a PREVIEW service that cloudv2's spec generation filters out, sets `openapi_absent: true` beside `api_schema:`. The import then skips that root and warns once the spec starts carrying it, so the flag gets removed; its descriptions come from `scopedDescriptions` in `internal/schemagen/descriptions.go` meanwhile.
