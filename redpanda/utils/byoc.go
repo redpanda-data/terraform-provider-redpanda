@@ -213,14 +213,22 @@ type azureAuth struct {
 	tokenFile        string
 	rawToken         string
 	certificate      []byte
+	reason           string
 }
 
 func (cl *ByocClient) hasAzureSecretOrCertificate() bool {
 	return cl.azureClientSecret != "" || os.Getenv("ARM_CLIENT_CERTIFICATE") != "" || os.Getenv("ARM_CLIENT_CERTIFICATE_PATH") != ""
 }
 
-func azureFederatedTokenFile() string {
-	return cmp.Or(os.Getenv("AZURE_FEDERATED_TOKEN_FILE"), os.Getenv("ARM_OIDC_TOKEN_FILE_PATH"))
+// azureFederatedTokenFile returns the federated token file and the variable
+// that named it.
+func azureFederatedTokenFile() (file, envName string) {
+	for _, name := range []string{"AZURE_FEDERATED_TOKEN_FILE", "ARM_OIDC_TOKEN_FILE_PATH"} {
+		if v := os.Getenv(name); v != "" {
+			return v, name
+		}
+	}
+	return "", ""
 }
 
 // resolveAzureAuth maps the Terraform azurerm provider's environment onto the
@@ -303,7 +311,7 @@ func (cl *ByocClient) selectAzureAuth() (azureAuth, error) {
 		if explicit != nil {
 			return azureAuth{}, errors.New("only one of ARM_USE_MSI, ARM_USE_OIDC, ARM_USE_CLI, or ARM_USE_AKS_WORKLOAD_IDENTITY can be set")
 		}
-		explicit = &azureAuth{credentialSource: method.CredentialSource, identity: method.Identity}
+		explicit = &azureAuth{credentialSource: method.CredentialSource, identity: method.Identity, reason: method.EnvName}
 	}
 	switch {
 	case explicit != nil && explicit.identity == "oidc":
@@ -318,11 +326,12 @@ func (cl *ByocClient) selectAzureAuth() (azureAuth, error) {
 		// ARM_CLIENT_SECRET reach the backend without it; AZURE_CLIENT_ID and
 		// AZURE_CLIENT_SECRET do not. --identity=none becomes possible once the
 		// AZURE_ variables are no longer supported.
-		return azureAuth{credentialSource: "env"}, nil
-	case azureFederatedTokenFile() != "":
-		return azureAuth{credentialSource: "workload", identity: "oidc", tokenFile: azureFederatedTokenFile()}, nil
+		return azureAuth{credentialSource: "env", reason: "client secret or certificate"}, nil
 	default:
-		return azureAuth{}, nil
+		if file, envName := azureFederatedTokenFile(); file != "" {
+			return azureAuth{credentialSource: "workload", identity: "oidc", tokenFile: file, reason: envName + " without ARM_USE_OIDC or a secret"}, nil
+		}
+		return azureAuth{reason: "no Azure auth settings, plugin default Azure CLI"}, nil
 	}
 }
 
@@ -332,19 +341,19 @@ func (cl *ByocClient) selectAzureAuth() (azureAuth, error) {
 // token the caller is expected to have run az login, as azure/login does when
 // azurerm fetches the GitHub Actions token itself.
 func (cl *ByocClient) resolveAzureOIDC() (azureAuth, error) {
-	if file := azureFederatedTokenFile(); file != "" {
-		return azureAuth{credentialSource: "workload", identity: "oidc", tokenFile: file}, nil
+	if file, envName := azureFederatedTokenFile(); file != "" {
+		return azureAuth{credentialSource: "workload", identity: "oidc", tokenFile: file, reason: "ARM_USE_OIDC with " + envName}, nil
 	}
 	if raw := os.Getenv("ARM_OIDC_TOKEN"); raw != "" {
-		return azureAuth{credentialSource: "workload", identity: "oidc", rawToken: raw}, nil
+		return azureAuth{credentialSource: "workload", identity: "oidc", rawToken: raw, reason: "ARM_USE_OIDC with ARM_OIDC_TOKEN"}, nil
 	}
 	if cl.hasAzureSecretOrCertificate() {
-		return azureAuth{credentialSource: "env", identity: "oidc"}, nil
+		return azureAuth{credentialSource: "env", identity: "oidc", reason: "ARM_USE_OIDC with a client secret or certificate"}, nil
 	}
 	if _, err := exec.LookPath("az"); err != nil {
 		return azureAuth{}, errors.New("ARM_USE_OIDC is set but no federated token was found and the Azure CLI is not installed: set AZURE_FEDERATED_TOKEN_FILE, ARM_OIDC_TOKEN_FILE_PATH, or ARM_OIDC_TOKEN, or run az login before Terraform")
 	}
-	return azureAuth{credentialSource: "cli", identity: "oidc"}, nil
+	return azureAuth{credentialSource: "cli", identity: "oidc", reason: "ARM_USE_OIDC without a token, Azure CLI session"}, nil
 }
 
 // azureTokenCredentialName is the AZURE_TOKEN_CREDENTIALS value that confines
@@ -453,9 +462,26 @@ func (cl *ByocClient) generateAzureArgsAndEnv(ctx context.Context) (args, env []
 			azureEnv = append(azureEnv, "ARM_CLIENT_ID="+cl.azureClientID)
 		}
 	}
-	if name := azureTokenCredentialName(auth.credentialSource); name != "" && os.Getenv("AZURE_TOKEN_CREDENTIALS") == "" {
-		azureEnv = append(azureEnv, "AZURE_TOKEN_CREDENTIALS="+name)
+	tokenCredentials, tokenCredentialsBy := os.Getenv("AZURE_TOKEN_CREDENTIALS"), "user"
+	if tokenCredentials == "" {
+		tokenCredentials, tokenCredentialsBy = azureTokenCredentialName(auth.credentialSource), "provider"
+		if tokenCredentials != "" {
+			azureEnv = append(azureEnv, "AZURE_TOKEN_CREDENTIALS="+tokenCredentials)
+		}
 	}
+	tflog.Debug(ctx, "byoc plugin Azure authentication", map[string]any{
+		"reason":                     auth.reason,
+		"credential_source":          cmp.Or(auth.credentialSource, "plugin default (cli)"),
+		"identity":                   cmp.Or(auth.identity, "plugin default (cli)"),
+		"federated_token_file":       tokenFile != "",
+		"federated_token_from_raw":   auth.rawToken != "",
+		"certificate_file":           auth.certificate != nil,
+		"client_id_set":              cl.azureClientID != "",
+		"client_secret_set":          cl.azureClientSecret != "",
+		"tenant_forwarded":           cl.azureTenantID != "",
+		"azure_token_credentials":    tokenCredentials,
+		"azure_token_credentials_by": tokenCredentialsBy,
+	})
 	return azureArgs, azureEnv, cleanup, nil
 }
 
@@ -736,12 +762,37 @@ func (l *lastLogs) GetLines() []string {
 
 func forwardLogs(ctx context.Context, reader io.Reader, lastLogs *lastLogs, sink func(string)) {
 	r := bufio.NewScanner(reader)
+	// With AZURE_SDK_GO_LOGGING set, the Azure SDK writes one event as a
+	// prefixed line followed by indented detail lines and ends it with an
+	// empty line; sdkEvent carries the event across the detail lines.
+	sdkEvent := ""
 	for {
 		if !r.Scan() {
 			return
 		}
 		line := r.Text()
 		line = removeColor(line)
+		event, msg, ok := parseAzureSDKLog(line)
+		switch {
+		case line == "":
+			sdkEvent = ""
+			continue
+		case ok:
+			sdkEvent = event
+		case sdkEvent != "" && strings.TrimLeft(line, " \t") != line:
+			event, msg = sdkEvent, line
+		default:
+			sdkEvent = ""
+		}
+		if sdkEvent != "" {
+			if event == "Authentication" {
+				lastLogs.Append(line)
+				tflog.Debug(ctx, fmt.Sprintf("rpk: azure %s: %s", event, msg))
+			} else {
+				tflog.Trace(ctx, fmt.Sprintf("rpk: azure %s: %s", event, msg))
+			}
+			continue
+		}
 		lastLogs.Append(line)
 		if sink != nil {
 			if msg, ok := progressLine(line); ok {
@@ -765,11 +816,26 @@ func forwardLogs(ctx context.Context, reader io.Reader, lastLogs *lastLogs, sink
 	}
 }
 
+var azureSDKLogRegex = regexp.MustCompile(`^\[[A-Z][a-z]{2} [ 0-9]\d \d{2}:\d{2}:\d{2}\.\d{6}\] ([A-Za-z]+): (.*)$`)
+
+// parseAzureSDKLog recognizes a line the Azure SDK's AZURE_SDK_GO_LOGGING
+// console logger writes: "[<StampMicro time>] <Event>: <message>".
+func parseAzureSDKLog(line string) (event, msg string, ok bool) {
+	m := azureSDKLogRegex.FindStringSubmatch(line)
+	if m == nil {
+		return "", "", false
+	}
+	return m[1], m[2], true
+}
+
 // progressLine reduces one plugin output line to what a practitioner should
 // see in the apply log: the message of a zap line at INFO or above, or a
-// non-zap line as is. DEBUG lines are dropped because the plugin runs with
-// --debug and they would swamp the log; they still reach tflog.
+// non-zap line as is. DEBUG lines and Azure SDK log lines are dropped because
+// they would swamp the log; they still reach tflog.
 func progressLine(line string) (string, bool) {
+	if _, _, ok := parseAzureSDKLog(line); ok {
+		return "", false
+	}
 	z := parseZapLog(line)
 	if z == nil {
 		return line, line != ""

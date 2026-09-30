@@ -15,14 +15,17 @@
 package utils
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-log/tflogtest"
 	"github.com/redpanda-data/redpanda/src/go/rpk/pkg/cloudapi"
 	"golang.org/x/oauth2"
 )
@@ -43,6 +46,8 @@ func TestProgressLine(t *testing.T) {
 		{"debug dropped", zap("DEBUG", "terraform plan output"), "", false},
 		{"non-zap line forwarded raw", "Error: required flag(s) not set", "Error: required flag(s) not set", true},
 		{"empty line dropped", "", "", false},
+		{"azure sdk request dropped", "[Sep 30 00:54:20.551234] Request: ==> OUTGOING REQUEST (Try=1)", "", false},
+		{"azure sdk authentication dropped", "[Sep 30 00:54:20.551234] Authentication: WorkloadIdentityCredential.GetToken() acquired a token", "", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -110,6 +115,23 @@ func clearAzureEnv(t *testing.T) {
 	}
 }
 
+// logLevels returns the level of every captured log entry whose message
+// contains substr.
+func logLevels(t *testing.T, out *bytes.Buffer, substr string) []string {
+	t.Helper()
+	entries, err := tflogtest.MultilineJSONDecode(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var levels []string
+	for _, e := range entries {
+		if msg, ok := e["@message"].(string); ok && strings.Contains(msg, substr) {
+			levels = append(levels, fmt.Sprint(e["@level"]))
+		}
+	}
+	return levels
+}
+
 func flagValue(args []string, flag string) (string, bool) {
 	i := slices.Index(args, flag)
 	if i < 0 || i+1 >= len(args) {
@@ -136,32 +158,35 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 	unset := "<unset>"
 
 	cases := []struct {
-		name      string
-		env       map[string]string
-		conf      ByocClientConfig
-		wantArgs  map[string]string
-		wantEnv   map[string]string
-		wantFiles map[string]string
-		noAz      bool
-		wantErr   string
+		name       string
+		env        map[string]string
+		conf       ByocClientConfig
+		wantArgs   map[string]string
+		wantEnv    map[string]string
+		wantFiles  map[string]string
+		wantReason string
+		noAz       bool
+		wantErr    string
 	}{
 		{
-			name:     "client secret uses environment credential",
-			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client, AzureClientSecret: "s3cret"},
-			wantArgs: map[string]string{"--credential-source": "env", "--identity": unset},
+			name:       "client secret uses environment credential",
+			wantReason: "client secret or certificate",
+			conf:       ByocClientConfig{AzureTenantID: tenant, AzureClientID: client, AzureClientSecret: "s3cret"},
+			wantArgs:   map[string]string{"--credential-source": "env", "--identity": unset},
 			wantEnv: map[string]string{
-				"AZURE_TOKEN_CREDENTIALS": "",
-				"ARM_USE_OIDC":            "",
+				"AZURE_TOKEN_CREDENTIALS": unset,
+				"ARM_USE_OIDC":            unset,
 				"AZURE_CLIENT_ID":         client,
 				"AZURE_CLIENT_SECRET":     "s3cret",
 			},
 		},
 		{
-			name:      "inline client certificate reaches the environment credential as a file",
-			env:       map[string]string{"ARM_CLIENT_CERTIFICATE": base64.StdEncoding.EncodeToString([]byte("pkcs12-bundle"))},
-			conf:      ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
-			wantArgs:  map[string]string{"--credential-source": "env"},
-			wantFiles: map[string]string{"AZURE_CLIENT_CERTIFICATE_PATH": "pkcs12-bundle"},
+			name:       "inline client certificate reaches the environment credential as a file",
+			wantReason: "client secret or certificate",
+			env:        map[string]string{"ARM_CLIENT_CERTIFICATE": base64.StdEncoding.EncodeToString([]byte("pkcs12-bundle"))},
+			conf:       ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			wantArgs:   map[string]string{"--credential-source": "env"},
+			wantFiles:  map[string]string{"AZURE_CLIENT_CERTIFICATE_PATH": "pkcs12-bundle"},
 		},
 		{
 			name:     "certificate path wins over an inline certificate",
@@ -187,40 +212,46 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 			wantEnv:  map[string]string{"AZURE_CLIENT_ID": client, "AZURE_CLIENT_SECRET": "s3cret"},
 		},
 		{
-			name:     "no flag, secret, or token leaves the plugin default and pins the cli",
-			wantArgs: map[string]string{"--credential-source": unset, "--identity": unset},
-			wantEnv:  map[string]string{"AZURE_TOKEN_CREDENTIALS": "AzureCLICredential"},
+			name:       "no flag, secret, or token leaves the plugin default and pins the cli",
+			wantReason: "no Azure auth settings, plugin default Azure CLI",
+			wantArgs:   map[string]string{"--credential-source": unset, "--identity": unset},
+			wantEnv:    map[string]string{"AZURE_TOKEN_CREDENTIALS": "AzureCLICredential"},
 		},
 		{
-			name:     "msi",
-			env:      map[string]string{"ARM_USE_MSI": "true"},
-			wantArgs: map[string]string{"--credential-source": "msi", "--identity": "msi"},
-			wantEnv:  map[string]string{"AZURE_TOKEN_CREDENTIALS": "ManagedIdentityCredential"},
+			name:       "msi",
+			wantReason: "ARM_USE_MSI",
+			env:        map[string]string{"ARM_USE_MSI": "true"},
+			wantArgs:   map[string]string{"--credential-source": "msi", "--identity": "msi"},
+			wantEnv:    map[string]string{"AZURE_TOKEN_CREDENTIALS": "ManagedIdentityCredential"},
 		},
 		{
-			name:     "cli",
-			env:      map[string]string{"ARM_USE_CLI": "true"},
-			wantArgs: map[string]string{"--credential-source": "cli", "--identity": "cli"},
-			wantEnv:  map[string]string{"AZURE_TOKEN_CREDENTIALS": "AzureCLICredential"},
+			name:       "cli",
+			wantReason: "ARM_USE_CLI",
+			env:        map[string]string{"ARM_USE_CLI": "true"},
+			wantArgs:   map[string]string{"--credential-source": "cli", "--identity": "cli"},
+			wantEnv:    map[string]string{"AZURE_TOKEN_CREDENTIALS": "AzureCLICredential"},
 		},
 		{
-			name:     "aks workload identity",
-			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
-			env:      map[string]string{"ARM_USE_AKS_WORKLOAD_IDENTITY": "true"},
-			wantArgs: map[string]string{"--credential-source": "workload", "--identity": "none"},
-			wantEnv:  map[string]string{"AZURE_TOKEN_CREDENTIALS": "WorkloadIdentityCredential"},
+			name:       "aks workload identity",
+			conf:       ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			wantReason: "ARM_USE_AKS_WORKLOAD_IDENTITY",
+			env:        map[string]string{"ARM_USE_AKS_WORKLOAD_IDENTITY": "true"},
+			wantArgs:   map[string]string{"--credential-source": "workload", "--identity": "none"},
+			wantEnv:    map[string]string{"AZURE_TOKEN_CREDENTIALS": "WorkloadIdentityCredential"},
 		},
 		{
-			name:     "oidc with client secret keeps environment credential",
-			env:      map[string]string{"ARM_USE_OIDC": "true"},
-			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client, AzureClientSecret: "s3cret"},
-			wantArgs: map[string]string{"--credential-source": "env", "--identity": "oidc"},
+			name:       "oidc with client secret keeps environment credential",
+			wantReason: "ARM_USE_OIDC with a client secret or certificate",
+			env:        map[string]string{"ARM_USE_OIDC": "true"},
+			conf:       ByocClientConfig{AzureTenantID: tenant, AzureClientID: client, AzureClientSecret: "s3cret"},
+			wantArgs:   map[string]string{"--credential-source": "env", "--identity": "oidc"},
 		},
 		{
-			name:     "oidc with azure federated token file",
-			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
-			env:      map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": tokenFile},
-			wantArgs: map[string]string{"--credential-source": "workload", "--identity": "oidc"},
+			name:       "oidc with azure federated token file",
+			conf:       ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			wantReason: "ARM_USE_OIDC with AZURE_FEDERATED_TOKEN_FILE",
+			env:        map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": tokenFile},
+			wantArgs:   map[string]string{"--credential-source": "workload", "--identity": "oidc"},
 			wantEnv: map[string]string{
 				"AZURE_FEDERATED_TOKEN_FILE": tokenFile,
 				"ARM_OIDC_TOKEN_FILE_PATH":   tokenFile,
@@ -228,25 +259,28 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 			},
 		},
 		{
-			name:     "oidc with arm token file path",
-			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
-			env:      map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN_FILE_PATH": tokenFile},
-			wantArgs: map[string]string{"--credential-source": "workload", "--identity": "oidc"},
+			name:       "oidc with arm token file path",
+			conf:       ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			wantReason: "ARM_USE_OIDC with ARM_OIDC_TOKEN_FILE_PATH",
+			env:        map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN_FILE_PATH": tokenFile},
+			wantArgs:   map[string]string{"--credential-source": "workload", "--identity": "oidc"},
 			wantEnv: map[string]string{
 				"AZURE_FEDERATED_TOKEN_FILE": tokenFile,
 				"AZURE_TOKEN_CREDENTIALS":    "WorkloadIdentityCredential",
 			},
 		},
 		{
-			name:      "oidc with raw arm token",
-			conf:      ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
-			env:       map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN": "raw-jwt"},
-			wantArgs:  map[string]string{"--credential-source": "workload", "--identity": "oidc"},
-			wantEnv:   map[string]string{"AZURE_TOKEN_CREDENTIALS": "WorkloadIdentityCredential"},
-			wantFiles: map[string]string{"AZURE_FEDERATED_TOKEN_FILE": "raw-jwt"},
+			name:       "oidc with raw arm token",
+			conf:       ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			wantReason: "ARM_USE_OIDC with ARM_OIDC_TOKEN",
+			env:        map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN": "raw-jwt"},
+			wantArgs:   map[string]string{"--credential-source": "workload", "--identity": "oidc"},
+			wantEnv:    map[string]string{"AZURE_TOKEN_CREDENTIALS": "WorkloadIdentityCredential"},
+			wantFiles:  map[string]string{"AZURE_FEDERATED_TOKEN_FILE": "raw-jwt"},
 		},
 		{
-			name: "oidc with only the github request token",
+			name:       "oidc with only the github request token",
+			wantReason: "ARM_USE_OIDC without a token, Azure CLI session",
 			env: map[string]string{
 				"ARM_USE_OIDC":                   "true",
 				"ACTIONS_ID_TOKEN_REQUEST_URL":   "https://token.actions.example/request",
@@ -287,10 +321,11 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 			wantErr: "client ID",
 		},
 		{
-			name:     "federated token file without a flag or secret selects workload identity",
-			env:      map[string]string{"AZURE_FEDERATED_TOKEN_FILE": tokenFile, "AZURE_CLIENT_ID": client},
-			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
-			wantArgs: map[string]string{"--credential-source": "workload", "--identity": "oidc"},
+			name:       "federated token file without a flag or secret selects workload identity",
+			wantReason: "AZURE_FEDERATED_TOKEN_FILE without ARM_USE_OIDC or a secret",
+			env:        map[string]string{"AZURE_FEDERATED_TOKEN_FILE": tokenFile, "AZURE_CLIENT_ID": client},
+			conf:       ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			wantArgs:   map[string]string{"--credential-source": "workload", "--identity": "oidc"},
 			wantEnv: map[string]string{
 				"ARM_OIDC_TOKEN_FILE_PATH": tokenFile,
 				"AZURE_TOKEN_CREDENTIALS":  "WorkloadIdentityCredential",
@@ -304,6 +339,15 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 			env:      map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": tokenFile, "AZURE_TOKEN_CREDENTIALS": "prod"},
 			wantArgs: map[string]string{"--credential-source": "workload"},
 			wantEnv:  map[string]string{"AZURE_TOKEN_CREDENTIALS": "prod"},
+		},
+		{
+			name:    "azure sdk logging is left to the user",
+			wantEnv: map[string]string{"AZURE_SDK_GO_LOGGING": unset},
+		},
+		{
+			name:    "user-set azure sdk logging is kept",
+			env:     map[string]string{"AZURE_SDK_GO_LOGGING": "off"},
+			wantEnv: map[string]string{"AZURE_SDK_GO_LOGGING": "off"},
 		},
 		{
 			name:     "tenant and client from provider config reach the plugin",
@@ -333,7 +377,18 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 			tc.conf.AzureSubscriptionID = "sub"
 			cluster := cloudapi.Cluster{NameID: cloudapi.NameID{ID: "cluster-id"}, Spec: cloudapi.ClusterSpec{Provider: "Azure"}}
 
-			args, env, cleanup, err := NewByocClient(tc.conf).generateByocArgsAndEnv(context.Background(), cluster, "apply")
+			if tc.wantReason != "" {
+				auth, err := NewByocClient(tc.conf).resolveAzureAuth()
+				if err != nil {
+					t.Fatalf("resolveAzureAuth: %v", err)
+				}
+				if auth.reason != tc.wantReason {
+					t.Errorf("reason = %q, want %q", auth.reason, tc.wantReason)
+				}
+			}
+			var logs bytes.Buffer
+			ctx := tflogtest.RootLogger(context.Background(), &logs)
+			args, env, cleanup, err := NewByocClient(tc.conf).generateByocArgsAndEnv(ctx, cluster, "apply")
 			if tc.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
 					t.Fatalf("generateByocArgsAndEnv error = %v, want one mentioning %q", err, tc.wantErr)
@@ -355,8 +410,15 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 					t.Errorf("%s = %q, want %q (args %q)", flag, got, want, args)
 				}
 			}
+			if got := logLevels(t, &logs, "byoc plugin Azure authentication"); !slices.Equal(got, []string{"debug"}) {
+				t.Errorf("credential decision logged at %q, want once at debug", got)
+			}
 			for key, want := range tc.wantEnv {
-				if got, _ := lastEnv(env, key); got != want {
+				got, ok := lastEnv(env, key)
+				if !ok {
+					got = unset
+				}
+				if got != want {
 					t.Errorf("env %s = %q, want %q", key, got, want)
 				}
 			}
@@ -378,5 +440,35 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestForwardLogs(t *testing.T) {
+	zap := "2026-09-21T10:00:00.000Z\tINFO\tbyoc\tfile.go:1\tDestroying agent infrastructure..."
+	auth := "[Sep 30 00:54:20.551234] Authentication: DefaultAzureCredential: failed to acquire a token."
+	authDetail := "\tManagedIdentityCredential: Identity not found"
+	request := "[Sep  3 00:54:20.551234] Request: ==> OUTGOING REQUEST (Try=1)"
+	requestDetail := "   GET https://management.azure.com/subscriptions/x"
+	requestHeader := "   Authorization: REDACTED"
+	pluginError := "failed to create azure client: incomplete environment variable configuration"
+	// azcore ends each request and response event with an empty line; what
+	// follows is the plugin's own output again, even when indented.
+	pluginDetail := "\tcaused by: token request to login.microsoftonline.com failed"
+	input := strings.Join([]string{zap, request, requestDetail, requestHeader, "", pluginDetail, auth, authDetail, pluginError}, "\n")
+
+	var sunk []string
+	var logs bytes.Buffer
+	kept := &lastLogs{}
+	forwardLogs(tflogtest.RootLogger(context.Background(), &logs), strings.NewReader(input), kept, func(line string) { sunk = append(sunk, line) })
+
+	if got := logLevels(t, &logs, "azure Authentication:"); !slices.Equal(got, []string{"debug", "debug"}) {
+		t.Errorf("Authentication events logged at %q, want both at debug", got)
+	}
+
+	if got, want := kept.GetLines(), []string{zap, pluginDetail, auth, authDetail, pluginError}; !slices.Equal(got, want) {
+		t.Errorf("kept for the error excerpt = %q, want %q", got, want)
+	}
+	if want := []string{"Destroying agent infrastructure...", pluginDetail, pluginError}; !slices.Equal(sunk, want) {
+		t.Errorf("progress = %q, want %q", sunk, want)
 	}
 }
