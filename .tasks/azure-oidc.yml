@@ -1,0 +1,112 @@
+version: '3'
+
+# A local OIDC issuer that the Azure app registration trusts, for testing the
+# byoc plugin with workload identity federation and no client secret. State,
+# including the private signing key, lives in AZURE_OIDC_DIR, which is
+# gitignored. up and down change the app registration: run them as an owner of
+# it (for example AZURE_CONFIG_DIR pointing at that owner's az login).
+
+vars:
+  AZURE_OIDC_DIR: '{{.AZURE_OIDC_DIR | default ".azure-oidc"}}'
+  AZURE_OIDC_SUBJECT: '{{.AZURE_OIDC_SUBJECT | default "tfrp-oidc-manual"}}'
+
+env:
+  AZURE_OIDC_DIR: '{{.AZURE_OIDC_DIR}}'
+  AZURE_OIDC_SUBJECT: '{{.AZURE_OIDC_SUBJECT}}'
+
+tasks:
+  build:
+    desc: "Build the azureoidc tool into the local OIDC state dir"
+    cmds:
+      - go build -o "{{.AZURE_OIDC_DIR}}/bin/azureoidc" ./cmd/azureoidc
+
+  key:
+    desc: "Generate the local RSA signing key (kept if it already exists)"
+    deps: [build]
+    status:
+      - test -f "{{.AZURE_OIDC_DIR}}/signing-key.pem"
+    cmds:
+      - '"{{.AZURE_OIDC_DIR}}/bin/azureoidc" keygen -out "{{.AZURE_OIDC_DIR}}/signing-key.pem"'
+
+  up:
+    desc: "Publish the issuer to a storage account and trust it from the app registration"
+    deps: [key]
+    cmds:
+      - ./scripts/azure-oidc.sh up
+
+  login:
+    desc: "Prove Entra accepts a token from the local issuer (az login in a throwaway config dir)"
+    deps: [build]
+    cmds:
+      - ./scripts/azure-oidc.sh login
+
+  token:
+    desc: "Mint a token to AZURE_OIDC_DIR/token; LIFETIME sets its lifetime"
+    deps: [build]
+    vars:
+      LIFETIME: '{{.LIFETIME | default "1h"}}'
+    cmds:
+      - |
+        set -euo pipefail
+        test -f "{{.AZURE_OIDC_DIR}}/issuer" || { echo "no issuer recorded; run task azure-oidc:up" >&2; exit 1; }
+        "{{.AZURE_OIDC_DIR}}/bin/azureoidc" mint \
+          -key "{{.AZURE_OIDC_DIR}}/signing-key.pem" \
+          -issuer "$(cat "{{.AZURE_OIDC_DIR}}/issuer")" \
+          -subject "{{.AZURE_OIDC_SUBJECT}}" \
+          -lifetime "{{.LIFETIME}}" \
+          -out "{{.AZURE_OIDC_DIR}}/token"
+        echo "{{.AZURE_OIDC_DIR}}/token"
+
+  down:
+    desc: "Delete the federated credential and the issuer site (the signing key is kept)"
+    deps: [build]
+    cmds:
+      - ./scripts/azure-oidc.sh down
+
+  byoc:apply:
+    desc: "Apply an Azure BYOC cluster authenticating through the local issuer; PROVIDER=local|released, AUTH=token-file|arm-token|customer|secret"
+    deps: [build]
+    vars:
+      PROVIDER: '{{.PROVIDER | default "local"}}'
+      AUTH: '{{.AUTH | default "token-file"}}'
+    cmds:
+      - ./scripts/azure-oidc-byoc.sh apply "{{.PROVIDER}}" "{{.AUTH}}"
+
+  byoc:destroy:
+    desc: "Destroy the Azure BYOC cluster from azure-oidc:byoc:apply; PROVIDER=local|released, AUTH=token-file|arm-token|customer|secret"
+    deps: [build]
+    vars:
+      PROVIDER: '{{.PROVIDER | default "local"}}'
+      AUTH: '{{.AUTH | default "token-file"}}'
+    cmds:
+      - ./scripts/azure-oidc-byoc.sh destroy "{{.PROVIDER}}" "{{.AUTH}}"
+
+  vm:up:
+    desc: "Create an Azure VM whose IMDS answers like a GitHub-hosted runner, SSH open to this machine only"
+    cmds:
+      - ./scripts/azure-oidc-vm.sh up
+
+  vm:check:
+    desc: "Confirm the VM IMDS answers Identity not found for AZURE_CLIENT_ID"
+    cmds:
+      - ./scripts/azure-oidc-vm.sh check
+
+  vm:run:
+    desc: "Run azure-oidc:byoc on the VM with a token minted here; ACTION=apply|destroy, PROVIDER=local|released, AUTH=token-file|arm-token|customer, AZURE_OIDC_VM_ENV for extra NAME=value pairs"
+    deps: [build]
+    vars:
+      ACTION: '{{.ACTION | default "apply"}}'
+      PROVIDER: '{{.PROVIDER | default "local"}}'
+      AUTH: '{{.AUTH | default "customer"}}'
+    cmds:
+      - ./scripts/azure-oidc-vm.sh run "{{.ACTION}}" "{{.PROVIDER}}" "{{.AUTH}}"
+
+  vm:wait:
+    desc: "Follow the run started by azure-oidc:vm:run until it finishes"
+    cmds:
+      - ./scripts/azure-oidc-vm.sh wait
+
+  vm:down:
+    desc: "Delete the VM (refuses while its Terraform state holds resources unless FORCE=1)"
+    cmds:
+      - ./scripts/azure-oidc-vm.sh down
