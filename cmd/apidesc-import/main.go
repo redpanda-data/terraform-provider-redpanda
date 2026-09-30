@@ -146,21 +146,12 @@ func run(cloudRepo, cloudSpecDir, consoleRepo, consoleSpecDir, output, resourceD
 		if len(refs) == 0 {
 			return fmt.Errorf("found no api_schema: references in %s/*/schema*.yaml — refusing to write a full dump (use -no-filter to override)", resourceDir)
 		}
-		roots := sortedRefKeys(refs)
-		for _, r := range roots {
-			ref := refs[r]
-			if _, ok := tree[r]; ok {
-				continue
-			}
-
-			if ref.prefix != "" {
-				if node, ok := tree[ref.prefix+r]; ok {
-					tree[r] = node
-					delete(tree, ref.prefix+r)
-					continue
-				}
-			}
-			return fmt.Errorf("%s references api_schema %q but it is absent from the openapi index; either fix the reference or add the schema to cloudv2/console", ref.files[0], r)
+		roots, scopeWarnings, err := scopeRoots(tree, refs)
+		if err != nil {
+			return err
+		}
+		for _, w := range scopeWarnings {
+			fmt.Fprintf(os.Stderr, "WARNING: %s\n", w)
 		}
 		before := len(tree)
 		tree = apidesc.FilterByRoots(tree, roots)
@@ -194,6 +185,39 @@ func run(cloudRepo, cloudSpecDir, consoleRepo, consoleSpecDir, output, resourceD
 type apiSchemaRef struct {
 	files  []string
 	prefix string
+	// absent is set when every schema yaml naming this root declares
+	// openapi_absent: the API ships the message but its OpenAPI spec does
+	// not, as for a preview service the spec generation filters out.
+	absent bool
+}
+
+// scopeRoots resolves each referenced root against the flattened spec tree,
+// renaming prefixed roots in place, and returns the roots to keep. A root the
+// index lacks is an error unless its yamls declare openapi_absent; a root they
+// declare absent but the index has draws a warning so the flag is dropped.
+func scopeRoots(tree map[string]*apidesc.Node, refs map[string]*apiSchemaRef) (roots, warnings []string, err error) {
+	for _, r := range sortedRefKeys(refs) {
+		ref := refs[r]
+		_, found := tree[r]
+		if !found && ref.prefix != "" {
+			if node, ok := tree[ref.prefix+r]; ok {
+				tree[r] = node
+				delete(tree, ref.prefix+r)
+				found = true
+			}
+		}
+		switch {
+		case found && ref.absent:
+			warnings = append(warnings, fmt.Sprintf("%s declares openapi_absent but api_schema %q is in the openapi index; remove openapi_absent", ref.files[0], r))
+			roots = append(roots, r)
+		case found:
+			roots = append(roots, r)
+		case ref.absent:
+		default:
+			return nil, nil, fmt.Errorf("%s references api_schema %q but it is absent from the openapi index; either fix the reference, add the schema to cloudv2/console, or declare openapi_absent: true", ref.files[0], r)
+		}
+	}
+	return roots, warnings, nil
 }
 
 func collectAPISchemas(resourceDir string) (map[string]*apiSchemaRef, error) {
@@ -222,6 +246,7 @@ func collectAPISchemas(resourceDir string) (map[string]*apiSchemaRef, error) {
 			APISchema          string   `yaml:"api_schema"`
 			APIWriteSchemas    []string `yaml:"api_write_schemas"`
 			StripOpenAPIPrefix string   `yaml:"strip_openapi_prefix"`
+			OpenAPIAbsent      bool     `yaml:"openapi_absent"`
 		}
 		if err := yaml.Unmarshal(data, &header); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", p, err)
@@ -232,9 +257,10 @@ func collectAPISchemas(resourceDir string) (map[string]*apiSchemaRef, error) {
 		register := func(root string) error {
 			ref, ok := out[root]
 			if !ok {
-				ref = &apiSchemaRef{prefix: header.StripOpenAPIPrefix}
+				ref = &apiSchemaRef{prefix: header.StripOpenAPIPrefix, absent: header.OpenAPIAbsent}
 				out[root] = ref
 			}
+			ref.absent = ref.absent && header.OpenAPIAbsent
 			ref.files = append(ref.files, p)
 			if ref.prefix == "" && header.StripOpenAPIPrefix != "" {
 				ref.prefix = header.StripOpenAPIPrefix
