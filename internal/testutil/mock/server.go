@@ -182,6 +182,7 @@ func New(t testing.TB) *Server {
 	s.Byoc = fakes.NewByocRunnerFake(s.Cluster.AgentRun)
 	s.Cluster.NetworkLookup = s.Network.Lookup
 	s.Network.CloudProviderAccessLookup = s.CloudProviderAccess.Lookup
+	s.Network.HasClusters = s.Cluster.HasClustersOnNetwork
 	s.CloudProviderAccess.Referenced = s.Network.ReferencesCloudProviderAccess
 	s.grpc = grpc.NewServer(grpc.ChainUnaryInterceptor(
 		s.countingInterceptor(),
