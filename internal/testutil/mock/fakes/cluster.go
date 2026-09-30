@@ -997,6 +997,18 @@ func (f *ClusterFake) ManagedAgentPhasesSeen() []controlplanev1.Cluster_State {
 	return append([]controlplanev1.Cluster_State(nil), f.managedPhasesSeen...)
 }
 
+// HasClustersOnNetwork reports whether a stored cluster is on the network.
+func (f *ClusterFake) HasClustersOnNetwork(networkID string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, cl := range f.clusters {
+		if cl.GetNetworkId() == networkID {
+			return true
+		}
+	}
+	return false
+}
+
 // initialClusterState is the state a freshly created cluster is stored in.
 func initialClusterState(t controlplanev1.Cluster_Type) controlplanev1.Cluster_State {
 	if t == controlplanev1.Cluster_TYPE_BYOC {

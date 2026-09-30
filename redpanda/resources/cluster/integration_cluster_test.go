@@ -2246,28 +2246,37 @@ func TestIntegration_Cluster_ErrorPath_CreateFails(t *testing.T) {
 	})
 }
 
-// TestIntegration_Cluster_ErrorPath_ReadFails_NotFound injects codes.NotFound on
-// GetCluster after a successful Create. The provider's Read calls
-// RemoveResource; the next plan re-creates.
+// TestIntegration_Cluster_ErrorPath_ReadFails_NotFound deletes the cluster out
+// of band after a successful Create, so GetCluster answers NotFound. The
+// provider's Read calls RemoveResource; the next plan re-creates. The cluster
+// is really removed, not just reported missing, because a cluster the control
+// plane still holds would keep its network from being deleted at teardown.
 func TestIntegration_Cluster_ErrorPath_ReadFails_NotFound(t *testing.T) {
 	srv, factories := clusterSetup(t)
 
 	const name = "tfrp-mock-cl-ep-notfound"
 	cfg := awsDedicatedConfig(name)
+	var clusterID string
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: factories,
 		Steps: []resource.TestStep{
-			integration.CreateStep(clusterAddr, cfg, []statecheck.StateCheck{
-				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("name"), knownvalue.StringExact(name)),
-				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
-			}),
+			func() resource.TestStep {
+				s := integration.CreateStep(clusterAddr, cfg, []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("name"), knownvalue.StringExact(name)),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				})
+				s.Check = func(st *terraform.State) error {
+					clusterID = st.RootModule().Resources[clusterAddr].Primary.ID
+					return nil
+				}
+				return s
+			}(),
 			{
 				PreConfig: func() {
-					srv.OverrideOnce(
-						controlplanev1grpc.ClusterService_GetCluster_FullMethodName,
-						status.Error(codes.NotFound, "not found"),
-					)
+					if _, err := srv.Cluster.DeleteCluster(context.Background(), &controlplanev1.DeleteClusterRequest{Id: clusterID}); err != nil {
+						t.Fatalf("PreConfig: delete cluster out of band: %v", err)
+					}
 				},
 				Config: cfg,
 				ConfigPlanChecks: resource.ConfigPlanChecks{

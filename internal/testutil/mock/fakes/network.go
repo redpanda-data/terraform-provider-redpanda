@@ -59,6 +59,10 @@ type NetworkFake struct {
 	// wires it to the cloud provider access fake. Nil treats every id as
 	// unknown.
 	CloudProviderAccessLookup func(id string) *controlplanev1.CloudProviderAccess
+
+	// HasClusters reports whether a cluster not yet deleted is on the network;
+	// the mock server wires it to the cluster fake. Nil means none.
+	HasClusters func(networkID string) bool
 }
 
 // NewNetworkFake returns an empty NetworkFake bound to op.
@@ -242,6 +246,14 @@ func (f *NetworkFake) GetNetwork(_ context.Context, req *controlplanev1.GetNetwo
 // so AreWeDoneYet resolves immediately. Returns NotFound if absent so the
 // provider's IsNotFound short-circuit fires.
 func (f *NetworkFake) DeleteNetwork(_ context.Context, req *controlplanev1.DeleteNetworkRequest) (*controlplanev1.DeleteNetworkOperation, error) {
+	// The control plane refuses while a cluster is on the network (cloudv2
+	// network_service.go DeleteNetwork, REASON_NETWORK_CONTAINS_CLUSTERS);
+	// its ExternalError carries no message, so the public API returns a
+	// bare code. Checked before f.mu because the cluster fake takes this
+	// fake's lock when it resolves a network.
+	if f.HasClusters != nil && f.HasClusters(req.GetId()) {
+		return nil, status.Error(codes.FailedPrecondition, "")
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if _, ok := f.networks[req.GetId()]; !ok {
