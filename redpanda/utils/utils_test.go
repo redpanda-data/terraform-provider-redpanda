@@ -1393,6 +1393,11 @@ func TestIsTransientDataplaneError(t *testing.T) {
 			},
 			false,
 		},
+		{
+			"Aborted is not transient: only UpdatePipeline opts in to retrying it",
+			grpcstatus.Error(codes.Aborted, "the pipeline was modified by another request: reload it and retry"),
+			false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1818,6 +1823,27 @@ func TestConvertToConsoleURL(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.expected, ConvertToConsoleURL(tt.input))
+		})
+	}
+}
+
+func TestIsAborted(t *testing.T) {
+	aborted := grpcstatus.Error(codes.Aborted, "the pipeline was modified by another request: reload it and retry")
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil", nil, false},
+		{"Aborted", aborted, true},
+		{"annotated Aborted", &DataplaneCallError{Method: "/m", Endpoint: "https://e", err: aborted}, true},
+		{"Internal", grpcstatus.Error(codes.Internal, "boom"), false},
+		{"Unavailable", grpcstatus.Error(codes.Unavailable, "down"), false},
+		{"non-gRPC error that mentions aborted", errors.New("request aborted"), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, IsAborted(tt.err))
 		})
 	}
 }
