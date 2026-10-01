@@ -76,9 +76,6 @@ func Flatten(ctx context.Context, proto PipelineResponse, prev *ResourceModel) (
 	if m.AllowDeletion.IsNull() || m.AllowDeletion.IsUnknown() {
 		m.AllowDeletion = types.BoolValue(false)
 	}
-	if m.State.IsNull() || m.State.IsUnknown() {
-		m.State = types.StringValue("stopped")
-	}
 	// Restore nested write_only and non-deprecated extra fields from prev —
 	// the nested Flatten functions are called via a generic helper that
 	// can't see prev, so without this block these leaves come back null
