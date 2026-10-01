@@ -458,6 +458,160 @@ func TestIntegration_Pipeline_UpdateLeaf_StateOnlyIssuesNoWrite(t *testing.T) {
 	})
 }
 
+func mockPipelineOmittedStateConfig(displayName, configYaml string) string {
+	return fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_pipeline" "test" {
+  display_name    = %q
+  description     = "mock pipeline"
+  config_yaml     = %q
+  cluster_api_url = "bufnet"
+  allow_deletion  = true
+}
+`, displayName, configYaml)
+}
+
+func pipelineIDFromState(s *terraform.State) (string, error) {
+	rs, ok := s.RootModule().Resources[pipelineAddr]
+	if !ok {
+		return "", fmt.Errorf("%s is not in state", pipelineAddr)
+	}
+	return rs.Primary.ID, nil
+}
+
+// startOutOfBand starts the pipeline the way the start action or the console
+// would: through the dataplane, with no Terraform apply.
+func startOutOfBand(t *testing.T, srv *mock.Server, id string) {
+	t.Helper()
+	if _, err := srv.Pipeline.StartPipeline(context.Background(), &dataplanev1.StartPipelineRequest{Id: id}); err != nil {
+		t.Fatalf("start %s out of band: %v", id, err)
+	}
+}
+
+func requireDataplaneState(srv *mock.Server, id string, want dataplanev1.Pipeline_State) error {
+	got, err := srv.Pipeline.GetPipeline(context.Background(), &dataplanev1.GetPipelineRequest{Id: id})
+	if err != nil {
+		return err
+	}
+	if got.GetPipeline().GetState() != want {
+		return fmt.Errorf("dataplane state is %s, want %s", got.GetPipeline().GetState(), want)
+	}
+	return nil
+}
+
+// TestIntegration_Pipeline_OmittedStateCreatesStopped pins that dropping the
+// schema default leaves create behaviour alone: a config without state still
+// creates a stopped pipeline.
+func TestIntegration_Pipeline_OmittedStateCreatesStopped(t *testing.T) {
+	srv, factories := integration.Setup(t)
+
+	cfg := mockPipelineOmittedStateConfig("tfrp-mock-pipe-omit-create", minimalPipelineConfigYaml)
+
+	create := integration.CreateStep(pipelineAddr, cfg, []statecheck.StateCheck{
+		statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("state"), knownvalue.StringExact("stopped")),
+	})
+	create.Check = func(s *terraform.State) error {
+		id, err := pipelineIDFromState(s)
+		if err != nil {
+			return err
+		}
+		return requireDataplaneState(srv, id, dataplanev1.Pipeline_STATE_STOPPED)
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps:                    []resource.TestStep{create},
+	})
+}
+
+// TestIntegration_Pipeline_OmittedStateFollowsAnExternalStart pins that a
+// config without state tracks the pipeline: starting it outside Terraform is
+// not drift.
+func TestIntegration_Pipeline_OmittedStateFollowsAnExternalStart(t *testing.T) {
+	srv, factories := integration.Setup(t)
+
+	cfg := mockPipelineOmittedStateConfig("tfrp-mock-pipe-omit-follow", minimalPipelineConfigYaml)
+
+	var id string
+	create := integration.CreateStep(pipelineAddr, cfg, nil)
+	create.Check = func(s *terraform.State) (err error) {
+		id, err = pipelineIDFromState(s)
+		return err
+	}
+
+	followed := integration.NoopReapplyStep(pipelineAddr, cfg, []statecheck.StateCheck{
+		statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("state"), knownvalue.StringExact("running")),
+	})
+	followed.PreConfig = func() { startOutOfBand(t, srv, id) }
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps:                    []resource.TestStep{create, followed},
+	})
+}
+
+// TestIntegration_Pipeline_OmittedStateRestartsAfterConfigChange pins that a
+// config change on a pipeline started outside Terraform leaves it running: the
+// provider stops it to write and restarts it, as it does when state is set to
+// running.
+func TestIntegration_Pipeline_OmittedStateRestartsAfterConfigChange(t *testing.T) {
+	srv, factories := integration.Setup(t)
+
+	const name = "tfrp-mock-pipe-omit-restart"
+	cfg1 := mockPipelineOmittedStateConfig(name, minimalPipelineConfigYaml)
+	cfg2 := mockPipelineOmittedStateConfig(name, updatedPipelineConfigYaml)
+
+	var id string
+	create := integration.CreateStep(pipelineAddr, cfg1, nil)
+	create.Check = func(s *terraform.State) (err error) {
+		id, err = pipelineIDFromState(s)
+		return err
+	}
+
+	update := integration.UpdateLeafStep(pipelineAddr, cfg2, []statecheck.StateCheck{
+		statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("state"), knownvalue.StringExact("running")),
+	})
+	update.PreConfig = func() { startOutOfBand(t, srv, id) }
+	update.Check = func(*terraform.State) error {
+		return requireDataplaneState(srv, id, dataplanev1.Pipeline_STATE_RUNNING)
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps:                    []resource.TestStep{create, update},
+	})
+}
+
+// TestIntegration_Pipeline_ExplicitStoppedStopsAnExternalStart pins that
+// setting state still wins: a pipeline started outside Terraform is stopped by
+// the next apply when the config says stopped.
+func TestIntegration_Pipeline_ExplicitStoppedStopsAnExternalStart(t *testing.T) {
+	srv, factories := integration.Setup(t)
+
+	cfg := mockPipelineConfig("tfrp-mock-pipe-explicit-stop", "stopped", minimalPipelineConfigYaml)
+
+	var id string
+	create := integration.CreateStep(pipelineAddr, cfg, nil)
+	create.Check = func(s *terraform.State) (err error) {
+		id, err = pipelineIDFromState(s)
+		return err
+	}
+
+	stopped := integration.UpdateLeafStep(pipelineAddr, cfg, []statecheck.StateCheck{
+		statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("state"), knownvalue.StringExact("stopped")),
+	})
+	stopped.PreConfig = func() { startOutOfBand(t, srv, id) }
+	stopped.Check = func(*terraform.State) error {
+		return requireDataplaneState(srv, id, dataplanev1.Pipeline_STATE_STOPPED)
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps:                    []resource.TestStep{create, stopped},
+	})
+}
+
 // TestIntegration_Pipeline_UpdateLeaf_Tags mutates the tags map in-place. id stable
 // across the update.
 func TestIntegration_Pipeline_UpdateLeaf_Tags(t *testing.T) {
