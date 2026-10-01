@@ -34,6 +34,7 @@ import (
 	pipelinemodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/pipeline"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"golang.org/x/oauth2"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -281,6 +282,10 @@ func (p *Pipeline) Read(ctx context.Context, req resource.ReadRequest, resp *res
 	resp.Diagnostics.Append(resp.State.Set(ctx, readState)...)
 }
 
+// updateConflictBudget bounds how long Update retries an UpdatePipeline that
+// the dataplane rejects with Aborted. A variable so tests can shorten it.
+var updateConflictBudget = 30 * time.Second
+
 // Update updates a Pipeline resource
 func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var plan, state pipelinemodel.ResourceModel
@@ -323,27 +328,6 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	currentAPIState := getResp.GetPipeline().GetState()
 	isCurrentlyRunning := currentAPIState == dataplanev1.Pipeline_STATE_RUNNING || currentAPIState == dataplanev1.Pipeline_STATE_STARTING
 
-	if isCurrentlyRunning {
-		tflog.Info(ctx, fmt.Sprintf("stopping pipeline %s before update", pipelineID))
-		_, err := utils.DataplaneCall(ctx, func(ctx context.Context) (*dataplanev1.StopPipelineResponse, error) {
-			return p.PipelineClient.StopPipeline(ctx, &dataplanev1.StopPipelineRequest{
-				Id: pipelineID,
-			})
-		})
-		if err != nil {
-			resp.Diagnostics.AddError(fmt.Sprintf("failed to stop pipeline %s before update", pipelineID), utils.DeserializeGrpcError(err))
-			return
-		}
-
-		err = p.waitForPipelineState(ctx, pipelineID, dataplanev1.Pipeline_STATE_STOPPED, updateTimeout)
-		if err != nil {
-			resp.Diagnostics.AddWarning(
-				"pipeline may not have fully stopped",
-				fmt.Sprintf("Timed out waiting for pipeline %s to stop: %s", pipelineID, err.Error()),
-			)
-		}
-	}
-
 	desiredState := plan.State.ValueString()
 	if desiredState == "" {
 		desiredState = pipelinemodel.StateStopped
@@ -383,17 +367,61 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 		updateReq.Pipeline.ServiceAccount = nil
 	}
 
-	updateResp, err := utils.DataplaneCall(ctx, func(ctx context.Context) (*dataplanev1.UpdatePipelineResponse, error) {
-		return p.PipelineClient.UpdatePipeline(ctx, updateReq)
-	})
-	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to update pipeline %s", pipelineID), utils.DeserializeGrpcError(err))
+	stateReq, expandDiags := pipelinemodel.ExpandUpdate(ctx, &state)
+	resp.Diagnostics.Append(expandDiags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
+	stateReq.Pipeline.ServiceAccount = nil
 
-	pipeline := updateResp.GetPipeline()
+	// A change confined to state, allow_deletion or timeouts is carried out by
+	// Start and Stop alone: none of them is part of the update payload.
+	needsWrite := updateReq.Pipeline.ServiceAccount != nil || !proto.Equal(updateReq.Pipeline, stateReq.Pipeline)
 
-	if desiredState == pipelinemodel.StateRunning {
+	pipeline := getResp.GetPipeline()
+	runningNow := isCurrentlyRunning
+
+	if isCurrentlyRunning && (needsWrite || desiredState == pipelinemodel.StateStopped) {
+		tflog.Info(ctx, fmt.Sprintf("stopping pipeline %s before update", pipelineID))
+		_, err := utils.DataplaneCall(ctx, func(ctx context.Context) (*dataplanev1.StopPipelineResponse, error) {
+			return p.PipelineClient.StopPipeline(ctx, &dataplanev1.StopPipelineRequest{
+				Id: pipelineID,
+			})
+		})
+		if err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("failed to stop pipeline %s before update", pipelineID), utils.DeserializeGrpcError(err))
+			return
+		}
+		runningNow = false
+
+		err = p.waitForPipelineState(ctx, pipelineID, dataplanev1.Pipeline_STATE_STOPPED, updateTimeout)
+		if err != nil {
+			resp.Diagnostics.AddWarning(
+				"pipeline may not have fully stopped",
+				fmt.Sprintf("Timed out waiting for pipeline %s to stop: %s", pipelineID, err.Error()),
+			)
+		}
+	}
+
+	if needsWrite {
+		updateResp, err := p.updatePipeline(ctx, updateReq)
+		if err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("failed to update pipeline %s", pipelineID), utils.DeserializeGrpcError(err))
+			return
+		}
+		pipeline = updateResp.GetPipeline()
+	} else if !runningNow && isCurrentlyRunning {
+		refreshed, err := utils.DataplaneCallOnce(ctx, func(ctx context.Context) (*dataplanev1.GetPipelineResponse, error) {
+			return p.PipelineClient.GetPipeline(ctx, &dataplanev1.GetPipelineRequest{Id: pipelineID})
+		})
+		if err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("failed to get pipeline %s", pipelineID), utils.DeserializeGrpcError(err))
+			return
+		}
+		pipeline = refreshed.GetPipeline()
+	}
+
+	if desiredState == pipelinemodel.StateRunning && !runningNow {
 		updatedPipeline, warning, ok := p.startPipeline(ctx, pipelineID, updateTimeout)
 		switch {
 		case !ok:
@@ -424,6 +452,34 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, newState)...)
+}
+
+// updatePipeline issues UpdatePipeline, retrying an Aborted for
+// updateConflictBudget. The dataplane returns Aborted when the controller wrote
+// the pipeline between its read and its write, which happens right after a
+// stop; each retry rereads the pipeline server-side, so the same request is
+// safe to resend.
+func (p *Pipeline) updatePipeline(ctx context.Context, req *dataplanev1.UpdatePipelineRequest) (*dataplanev1.UpdatePipelineResponse, error) {
+	var resp *dataplanev1.UpdatePipelineResponse
+	err := utils.Retry(ctx, updateConflictBudget, func() *utils.RetryError {
+		var callErr error
+		resp, callErr = utils.DataplaneCall(ctx, func(ctx context.Context) (*dataplanev1.UpdatePipelineResponse, error) {
+			return p.PipelineClient.UpdatePipeline(ctx, req)
+		})
+		switch {
+		case callErr == nil:
+			return nil
+		case utils.IsAborted(callErr):
+			return utils.RetryableError(callErr)
+		default:
+			return utils.NonRetryableError(callErr)
+		}
+	})
+	var timedOut *utils.TimeoutError
+	if errors.As(err, &timedOut) {
+		return nil, timedOut.Wrapped
+	}
+	return resp, err
 }
 
 // Delete deletes the Pipeline resource
