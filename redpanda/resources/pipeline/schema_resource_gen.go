@@ -25,7 +25,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -115,11 +114,11 @@ func ResourcePipelineSchema(ctx context.Context) schema.Schema {
 			},
 
 			"state": schema.StringAttribute{
-				Description: "Desired state of the pipeline: 'running' or 'stopped'. The provider will ensure the pipeline reaches this state after create/update operations.",
-				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString("stopped"),
-				Validators:  []validator.String{stringvalidator.OneOf("", "running", "stopped")},
+				Description:   "Desired state of the pipeline: 'running' or 'stopped'. When omitted, a new pipeline is created stopped and later applies leave it in whatever state it is in, restarting a running pipeline after a config change. 'stopped' means the stop was requested: the dataplane reports a pipeline stopped before its workload has finished shutting down.",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Validators:    []validator.String{stringvalidator.OneOf("", "running", "stopped")},
 			},
 
 			"id": schema.StringAttribute{

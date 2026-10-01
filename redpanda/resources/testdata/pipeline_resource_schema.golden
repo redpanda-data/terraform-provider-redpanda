@@ -68,7 +68,8 @@ attributes:
       computed: true
       validators:
         - stringvalidator.oneOfValidator
-      default: stringdefault.staticStringDefault
+      plan_modifiers:
+        - stringplanmodifier.useStateForUnknownModifier
     - name: status
       type: SingleNestedAttribute
       computed: true

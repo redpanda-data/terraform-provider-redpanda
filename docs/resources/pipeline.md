@@ -24,7 +24,7 @@ Pipeline represents a Redpanda Connect pipeline
 - `description` (String) Optional pipeline description. Length must be at most 256.
 - `resources` (Attributes) Resources configuration (see [below for nested schema](#nestedatt--resources))
 - `service_account` (Attributes) Service Account configuration (see [below for nested schema](#nestedatt--service_account))
-- `state` (String) Desired state of the pipeline: 'running' or 'stopped'. The provider will ensure the pipeline reaches this state after create/update operations.
+- `state` (String) Desired state of the pipeline: 'running' or 'stopped'. When omitted, a new pipeline is created stopped and later applies leave it in whatever state it is in, restarting a running pipeline after a config change. 'stopped' means the stop was requested: the dataplane reports a pipeline stopped before its workload has finished shutting down.
 - `tags` (Map of String) Tags are key-value pairs that can be assigned to a pipeline resource. They help organize pipelines and enable filtering when listing them. Must have at most 16 entries.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
