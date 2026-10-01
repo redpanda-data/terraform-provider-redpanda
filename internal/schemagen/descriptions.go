@@ -63,7 +63,7 @@ var scopedDescriptions = map[string]string{
 	"ServerlessCluster.console_private_url":            "Private Console URL for the serverless cluster.",
 	"CreateTopicRequest.Topic.partition_count":         "The number of partitions for the topic. Increases are fully supported without data loss.",
 	"CreateUserRequest.User.mechanism":                 "Which authentication method to use. See https://docs.redpanda.com/current/manage/security/authentication/ for more information.",
-	"Pipeline.state":                                   "Desired state of the pipeline: 'running' or 'stopped'. The provider will ensure the pipeline reaches this state after create/update operations.",
+	"Pipeline.state":                                   "Desired state of the pipeline: 'running' or 'stopped'. When omitted, a new pipeline is created stopped and later applies leave it in whatever state it is in, restarting a running pipeline after a config change. 'stopped' means the stop was requested: the dataplane reports a pipeline stopped before its workload has finished shutting down.",
 	"ServerlessCluster.cluster_api_url":                "The URL of the dataplane API for the serverless cluster.",
 	"ServerlessCluster.private_link_id":                "Private link ID for the serverless cluster. Must be set if private networking is enabled.",
 	"ServerlessCluster.networking_config.private":      "Private network state. Valid values: STATE_UNSPECIFIED, STATE_DISABLED, STATE_ENABLED.",
