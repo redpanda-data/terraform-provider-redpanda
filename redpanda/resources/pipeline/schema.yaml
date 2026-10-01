@@ -62,9 +62,10 @@ service_account:
 state:
   optional: true
   computed: true
-  default: "stopped"
   validator: "OneOf{values: |running|stopped}"
   flatten_via: FlattenDesiredState
+  # No default: an omitted state follows the pipeline, so a start or stop made
+  # outside Terraform is not drift.
   # Reconciled in place via Start/Stop RPCs, not the PipelineUpdate payload.
   updatable_out_of_band: true
 
