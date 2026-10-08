@@ -607,6 +607,67 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 	}
 }
 
+// TestByocClient_PluginPathOverride pins the test-only override that runs a
+// local plugin binary instead of the install pack's: with
+// REDPANDA_BYOC_PLUGIN_PATH set, getByocExecutable returns that path and
+// never calls the cloud API; a path that is not an executable file fails
+// before the plugin would run.
+func TestByocClient_PluginPathOverride(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "byoc")
+	if err := os.Symlink("/bin/sh", bin); err != nil {
+		t.Fatal(err)
+	}
+	notExec := filepath.Join(dir, "notes.txt")
+	if err := os.WriteFile(notExec, []byte("x"), 0o400); err != nil {
+		t.Fatal(err)
+	}
+	cl := NewByocClient(ByocClientConfig{
+		TokenSource:    oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "cloud-token"}),
+		InternalAPIURL: "http://127.0.0.1:1",
+	})
+	cluster := cloudapi.Cluster{NameID: cloudapi.NameID{ID: "cluster-id"}, Spec: cloudapi.ClusterSpec{InstallPackVersion: "v0"}}
+
+	t.Setenv("REDPANDA_BYOC_PLUGIN_PATH", bin)
+	got, cleanup, err := cl.getByocExecutable(context.Background(), cluster)
+	if err != nil {
+		t.Fatalf("override set: getByocExecutable error = %v, want the local binary without an API call", err)
+	}
+	if got != bin {
+		t.Errorf("path = %q, want %q", got, bin)
+	}
+	if cleanup == nil {
+		t.Fatal("cleanup is nil; callers defer it unconditionally")
+	}
+	cleanup()
+	if _, err := os.Stat(bin); err != nil {
+		t.Errorf("cleanup removed the user's binary: %v", err)
+	}
+
+	for name, path := range map[string]string{"missing": filepath.Join(dir, "absent"), "not executable": notExec} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("REDPANDA_BYOC_PLUGIN_PATH", path)
+			if _, _, err := cl.getByocExecutable(context.Background(), cluster); err == nil || !strings.Contains(err.Error(), "REDPANDA_BYOC_PLUGIN_PATH") {
+				t.Fatalf("error = %v, want one naming REDPANDA_BYOC_PLUGIN_PATH", err)
+			}
+		})
+	}
+
+	// The plugin runs from a temporary working directory, so a path relative
+	// to Terraform's must come back absolute or exec would miss it.
+	t.Run("relative path", func(t *testing.T) {
+		t.Chdir(dir)
+		t.Setenv("REDPANDA_BYOC_PLUGIN_PATH", "./byoc")
+		got, _, err := cl.getByocExecutable(context.Background(), cluster)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != bin {
+			t.Errorf("path = %q, want the absolute %q", got, bin)
+		}
+	})
+}
+
 func TestForwardLogs(t *testing.T) {
 	zap := "2026-09-21T10:00:00.000Z\tINFO\tbyoc\tfile.go:1\tDestroying agent infrastructure..."
 	auth := "[Sep 30 00:54:20.551234] Authentication: DefaultAzureCredential: failed to acquire a token."

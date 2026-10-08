@@ -834,6 +834,9 @@ func (cl *ByocClient) generateByocArgsAndEnv(ctx context.Context, cluster clouda
 }
 
 func (cl *ByocClient) getByocExecutable(ctx context.Context, cluster cloudapi.Cluster) (byocPath string, cleanup func(), err error) {
+	if override := os.Getenv("REDPANDA_BYOC_PLUGIN_PATH"); override != "" {
+		return localByocPlugin(ctx, override)
+	}
 	// TODO: try to cache this in local directory somewhere. beware race conditions.
 	// TODO: grab the existing one from rpk if it has the correct checksum?
 
@@ -882,6 +885,27 @@ func (cl *ByocClient) getByocExecutable(ctx context.Context, cluster cloudapi.Cl
 		return "", nil, fmt.Errorf("error writing byoc executable: %w", err)
 	}
 	return byocPath, cleanup, nil
+}
+
+// localByocPlugin runs the binary at path instead of the install pack's
+// plugin. It exists for validating a plugin build before it ships in a pack,
+// is unsupported for anything else, and never deletes the caller's file. The
+// path comes back absolute because the plugin runs from a temporary working
+// directory, where exec would resolve a relative one.
+func localByocPlugin(ctx context.Context, path string) (byocPath string, cleanup func(), err error) {
+	path, err = filepath.Abs(path)
+	if err != nil {
+		return "", nil, fmt.Errorf("REDPANDA_BYOC_PLUGIN_PATH: %w", err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", nil, fmt.Errorf("REDPANDA_BYOC_PLUGIN_PATH: %w", err)
+	}
+	if !info.Mode().IsRegular() || info.Mode().Perm()&0o111 == 0 {
+		return "", nil, fmt.Errorf("REDPANDA_BYOC_PLUGIN_PATH: %s is not an executable file", path)
+	}
+	tflog.Warn(ctx, "running a local byoc plugin instead of the install pack's", map[string]any{"path": path})
+	return path, func() {}, nil
 }
 
 func runSubprocess(ctx context.Context, env []string, sink func(string), executable string, args ...string) error {
