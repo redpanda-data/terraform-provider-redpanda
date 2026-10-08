@@ -131,6 +131,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 			resp.Diagnostics.AddError("failed to generate model for state during cluster.Create", "")
 			return
 		}
+		state.Tags = clustermodel.RetainConfiguredTags(state.Tags, plan.Tags)
 		tflog.Info(ctx, "cluster created", map[string]any{"cluster_id": clusterID})
 		// ModifyPlan is skipped on create, so the connections-managed marker
 		// is stamped here.
@@ -172,6 +173,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		resp.Diagnostics.AddError("failed to generate model for state during cluster.Read", "")
 		return
 	}
+	state.Tags = clustermodel.RetainConfiguredTags(state.Tags, model.Tags)
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
@@ -260,6 +262,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		resp.Diagnostics.AddError("failed to generate model for state during cluster.Update", "")
 		return
 	}
+	newState.Tags = clustermodel.RetainConfiguredTags(newState.Tags, plan.Tags)
 	tflog.Info(ctx, "cluster updated", map[string]any{"cluster_id": plan.ID.ValueString()})
 	resp.Diagnostics.Append(resp.State.Set(ctx, newState)...)
 }
