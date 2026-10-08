@@ -1647,7 +1647,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"tags": schema.MapAttribute{
-				Description:   "Tags placed on cloud resources. Server-managed keys (prefixed with `redpanda-`) are filtered out of state.",
+				Description:   "Tags placed on cloud resources. Keys the control plane manages on its own, such as `redpanda-` and `aws-apn-id` keys, are kept out of state. A resource whose configuration sets tags tracks only the keys it sets.",
 				Optional:      true,
 				Computed:      true,
 				PlanModifiers: []planmodifier.Map{mapplanmodifier.UseStateForUnknown()},

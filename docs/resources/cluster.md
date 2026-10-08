@@ -47,7 +47,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `redpanda_version` (String) Cluster's Redpanda version. Only `major.minor` semver is supported, e.g. `24.1`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 - `rpsql` (Attributes) Rpsql configuration (see [below for nested schema](#nestedatt--rpsql))
 - `schema_registry` (Attributes) Cluster's Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
-- `tags` (Map of String) Tags placed on cloud resources. Server-managed keys (prefixed with `redpanda-`) are filtered out of state.
+- `tags` (Map of String) Tags placed on cloud resources. Keys the control plane manages on its own, such as `redpanda-` and `aws-apn-id` keys, are kept out of state. A resource whose configuration sets tags tracks only the keys it sets.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
