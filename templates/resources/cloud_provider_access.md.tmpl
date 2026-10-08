@@ -1,0 +1,52 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+~> **Preview:** cloud provider access is a preview feature of Redpanda Cloud. Your organization must have cross-account BYOC enabled; contact Redpanda support to enable it.
+
+Registers an IAM role in your AWS account that Redpanda assumes to provision BYOC infrastructure. Set the access's `id` as `cloud_provider_access_id` on a BYOC `redpanda_network`, and Redpanda creates the network, the BYOC agent and the clusters on it with that role. You don't need AWS credentials for the provider or a `rpk cloud byoc aws apply` run. One access can back several networks in the same AWS account. Only AWS is supported.
+
+## Trust Policy
+
+Creating the access records the role without assuming it, so a missing or wrong trust policy only surfaces when a network is provisioned. Build the trust policy from the `redpanda_cloud_provider_access_prerequisites` data source: allow its `aws.principal_arn` to call `sts:AssumeRole`, and require its `aws.external_id` in an `sts:ExternalId` condition. The same external ID is exposed on the access as `aws.external_id`.
+
+## Rotating the Role
+
+The access has no update API, so changing any argument replaces it. Networks are never replaced for this: a network's `cloud_provider_access_id` changes in place to another access for the same AWS account. Adding an access to a network created without one, or removing it, is refused by Redpanda Cloud; the provider warns at plan rather than replacing the network, because replacing a network replaces every cluster on it. To move a network onto a cloud provider access, replace it deliberately, for example with `terraform apply -replace`.
+
+Redpanda refuses to delete an access while a network still uses it, and by default Terraform deletes a replaced or removed resource before updating the resources that reference it. Set `lifecycle { create_before_destroy = true }` on the access, as in the example below, so that Terraform instead:
+
+1. Creates the new access.
+2. Re-points every network that references it, in place.
+3. Deletes the old access last.
+
+Access names are unique within an organization, so change the `name` together with the `role_arn`; the example below derives the name from the IAM role, whose `name_prefix` makes each replacement role's name unique. The same applies when you rotate by adding a second access block and moving the networks to it: the flag must already be recorded on the old access, so set it when you first create the access. Without it, the apply fails when Terraform deletes the old access, and nothing is changed.
+
+## Deletion
+
+Terraform destroys the networks that reference an access before the access itself. Keep the IAM role and its permissions until the clusters and networks using the access are destroyed, because Redpanda assumes the role to tear them down.
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+{{ tffile "examples/docs/cloud_provider_access/main.tf" }}
+
+## Import
+
+```shell
+terraform import {{.Name}}.example cloudProviderAccessId
+```
+
+Where `cloudProviderAccessId` is the 20-character identifier assigned by Redpanda Cloud.
+
+## API Reference
+
+For more information, see the [Redpanda Cloud Control Plane API documentation](https://docs.redpanda.com/api/cloud-controlplane-api/).

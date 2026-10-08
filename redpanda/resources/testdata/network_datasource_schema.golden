@@ -9,6 +9,9 @@ attributes:
       computed: true
       validators:
         - stringvalidator.oneOfValidator
+    - name: cloud_provider_access_id
+      type: StringAttribute
+      computed: true
     - name: cluster_type
       type: StringAttribute
       computed: true

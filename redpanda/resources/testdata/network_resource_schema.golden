@@ -14,6 +14,11 @@ attributes:
         - stringvalidator.oneOfValidator
       plan_modifiers:
         - stringplanmodifier.requiresReplaceIfModifier
+    - name: cloud_provider_access_id
+      type: StringAttribute
+      optional: true
+      validators:
+        - stringvalidator.regexMatchesValidator
     - name: cluster_type
       type: StringAttribute
       required: true

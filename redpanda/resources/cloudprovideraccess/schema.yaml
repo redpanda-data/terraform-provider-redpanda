@@ -1,0 +1,43 @@
+message: "Manages a Redpanda Cloud cloud provider access"
+api_schema: CloudProviderAccess
+# The service is PREVIEW, which cloudv2's OpenAPI generation filters out;
+# descriptions come from scopedDescriptions until the spec carries it.
+openapi_absent: true
+tf_name: CloudProviderAccess
+
+exclude_operations: [update]
+
+name:
+  required: true
+  plan_modifiers: [RequiresReplace]
+
+cloud_provider:
+  required: true
+  plan_modifiers: [RequiresReplace]
+  validator: CloudProviderAccessProviders
+
+# The only oneof arm while cloud_provider admits only aws. Required, so the
+# block cannot be dropped into an update the API has no RPC for; relaxing it
+# to optional when another provider arrives is not breaking.
+aws:
+  required: true
+  fields:
+    role_arn:
+      required: true
+      plan_modifiers: [RequiresReplace]
+    external_id:
+      computed_only: true
+      # AWSCloudProviderAccess is shared with the create message, but
+      # external_id is output-only: the server sets it to the organization ID
+      # and the public create mapper drops a sent value.
+      expand_skip: true
+
+id:
+  computed_only: true
+
+state:
+  computed_only: true
+
+# The control plane never populates status.
+status:
+  exclude: true

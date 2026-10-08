@@ -29,6 +29,7 @@ import (
 type DataModel struct {
 	CidrBlock                types.String `tfsdk:"cidr_block"`
 	CloudProvider            types.String `tfsdk:"cloud_provider"`
+	CloudProviderAccessID    types.String `tfsdk:"cloud_provider_access_id"`
 	ClusterType              types.String `tfsdk:"cluster_type"`
 	CustomerManagedResources types.Object `tfsdk:"customer_managed_resources"`
 	EgressSpec               types.Object `tfsdk:"egress_spec"`

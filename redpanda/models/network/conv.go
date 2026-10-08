@@ -30,3 +30,17 @@ func cidrBlockFromProto(proto cidrBlockProto) types.String {
 	}
 	return types.StringValue(proto.GetCidrBlock())
 }
+
+type cloudProviderAccessIDProto interface {
+	GetCloudProviderAccessId() string
+}
+
+// cloudProviderAccessIDFromProto reports a network without a cloud provider
+// access as null instead of proto3's empty string, and otherwise trusts the
+// echo, so state never claims an access the network does not have.
+func cloudProviderAccessIDFromProto(proto cloudProviderAccessIDProto) types.String {
+	if proto.GetCloudProviderAccessId() == "" {
+		return types.StringNull()
+	}
+	return types.StringValue(proto.GetCloudProviderAccessId())
+}

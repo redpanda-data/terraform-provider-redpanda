@@ -19,7 +19,10 @@ package network_test
 import (
 	"context"
 	"fmt"
+	"maps"
 	"regexp"
+	"slices"
+	"strings"
 	"testing"
 
 	"buf.build/gen/go/redpandadata/cloud/grpc/go/redpanda/api/controlplane/v1/controlplanev1grpc"
@@ -266,6 +269,7 @@ func TestIntegration_Network_CreateAndRefresh_InPlace(t *testing.T) {
 				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("region"), knownvalue.StringExact("us-east-1")),
 				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("cidr_block"), knownvalue.StringExact("10.0.0.0/20")),
 				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("customer_managed_resources"), knownvalue.Null()),
+				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("cloud_provider_access_id"), knownvalue.Null()),
 				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("state"), knownvalue.StringExact("STATE_READY")),
 				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("zones"), knownvalue.ListExact([]knownvalue.Check{
@@ -957,6 +961,7 @@ data "redpanda_network" "test" {
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(dsAddr, tfjsonpath.New("name"), knownvalue.StringExact(name)),
 					statecheck.ExpectKnownValue(dsAddr, tfjsonpath.New("cloud_provider"), knownvalue.StringExact("aws")),
+					statecheck.ExpectKnownValue(dsAddr, tfjsonpath.New("cloud_provider_access_id"), knownvalue.Null()),
 					statecheck.ExpectKnownValue(dsAddr,
 						tfjsonpath.New("egress_spec").AtMapKey("aws").AtMapKey("transit_gateway_id"),
 						knownvalue.StringExact(tgwID)),
@@ -1141,4 +1146,417 @@ func TestIntegration_Network_ErrorPath_DeleteFailed(t *testing.T) {
 			},
 		},
 	})
+}
+
+// cpaNetworkConfig builds a BYOC AWS network and the cloud provider accesses
+// in accesses, keyed by resource label with the role ARN as value. The network
+// uses the access labelled network, or none when network is "". cbd sets
+// create_before_destroy on every access.
+func cpaNetworkConfig(name, network string, accesses map[string]string, cbd bool) string {
+	labels := slices.Sorted(maps.Keys(accesses))
+	lifecycle := ""
+	if cbd {
+		lifecycle = "lifecycle {\n    create_before_destroy = true\n  }"
+	}
+	var b strings.Builder
+	b.WriteString(`
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-net-rg"
+}
+`)
+	for _, label := range labels {
+		fmt.Fprintf(&b, `
+resource "redpanda_cloud_provider_access" %q {
+  name           = %q
+  cloud_provider = "aws"
+  aws = {
+    role_arn = %q
+  }
+  %s
+}
+`, label, cpaName(label, accesses[label]), accesses[label], lifecycle)
+	}
+	access := ""
+	if network != "" {
+		access = "cloud_provider_access_id = redpanda_cloud_provider_access." + network + ".id"
+	}
+	fmt.Fprintf(&b, `
+resource "redpanda_network" "test" {
+  name              = %q
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = "aws"
+  region            = "us-east-1"
+  cluster_type      = "byoc"
+  cidr_block        = "10.0.0.0/20"
+  %s
+}
+
+data "redpanda_network" "test" {
+  id = redpanda_network.test.id
+}
+`, name, access)
+	return b.String()
+}
+
+// cpaName derives an access name from its role, so a block whose role
+// changes also gets a new name, as the per-organization name uniqueness
+// requires of a create_before_destroy replacement.
+func cpaName(_, roleARN string) string {
+	return "cpa-" + roleARN[strings.LastIndex(roleARN, "/")+1:]
+}
+
+const (
+	roleA      = "arn:aws:iam::123456789012:role/tfrp-mock-a"
+	roleB      = "arn:aws:iam::123456789012:role/tfrp-mock-b"
+	roleOtherA = "arn:aws:iam::123456789012:role/tfrp-mock-a-rotated"
+	roleOther  = "arn:aws:iam::210987654321:role/tfrp-mock-other-account"
+)
+
+func cpaNetworkChecks(name, access string, extra ...statecheck.StateCheck) []statecheck.StateCheck {
+	cpa := "redpanda_cloud_provider_access." + access
+	return append([]statecheck.StateCheck{
+		statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("name"), knownvalue.StringExact(name)),
+		statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("cluster_type"), knownvalue.StringExact("byoc")),
+		statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("cidr_block"), knownvalue.StringExact("10.0.0.0/20")),
+		statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("customer_managed_resources"), knownvalue.Null()),
+		statecheck.CompareValuePairs(networkAddr, tfjsonpath.New("cloud_provider_access_id"), cpa, tfjsonpath.New("id"), compare.ValuesSame()),
+		statecheck.CompareValuePairs("data.redpanda_network.test", tfjsonpath.New("cloud_provider_access_id"), cpa, tfjsonpath.New("id"), compare.ValuesSame()),
+	}, extra...)
+}
+
+// TestIntegration_Network_CloudProviderAccess covers a network provisioned
+// through a cloud provider access: the id echoes into the resource and the
+// datasource, survives a no-op re-plan and an import, and re-pointing the
+// network at another access updates it in place, keeping the network id.
+func TestIntegration_Network_CloudProviderAccess(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	const name = "tfrp-mock-net-cpa"
+	both := map[string]string{"a": roleA, "b": roleB}
+	idStable := statecheck.CompareValue(compare.ValuesSame())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(networkAddr, cpaNetworkConfig(name, "a", both, false), cpaNetworkChecks(name, "a",
+				idStable.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			)),
+			integration.NoopReapplyStep(networkAddr, cpaNetworkConfig(name, "a", both, false), cpaNetworkChecks(name, "a",
+				idStable.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			)),
+			integration.ImportRoundTripStep(networkAddr, nil, []string{"timeouts"}),
+			integration.UpdateLeafStep(networkAddr, cpaNetworkConfig(name, "b", both, false), cpaNetworkChecks(name, "b",
+				idStable.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			)),
+			integration.UpdateLeafStep(networkAddr, cpaNetworkConfig(name, "a", both, false), cpaNetworkChecks(name, "a",
+				idStable.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			)),
+		},
+	})
+}
+
+// TestIntegration_Network_CloudProviderAccess_RotateInOneApply pins role
+// rotation with a second access block: one config change adds the new access,
+// re-points the network and removes the old access. With create_before_destroy
+// recorded on the old access, Terraform updates the network before deleting
+// it, which the control plane requires; the network keeps its id.
+func TestIntegration_Network_CloudProviderAccess_RotateInOneApply(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	const name = "tfrp-mock-net-rotate"
+	idStable := statecheck.CompareValue(compare.ValuesSame())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(networkAddr, cpaNetworkConfig(name, "a", map[string]string{"a": roleA}, true), cpaNetworkChecks(name, "a",
+				idStable.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			)),
+			{
+				Config: cpaNetworkConfig(name, "b", map[string]string{"b": roleB}, true),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(networkAddr, plancheck.ResourceActionUpdate),
+						plancheck.ExpectResourceAction("redpanda_cloud_provider_access.a", plancheck.ResourceActionDestroy),
+						plancheck.ExpectResourceAction("redpanda_cloud_provider_access.b", plancheck.ResourceActionCreate),
+					},
+					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+				ConfigStateChecks: cpaNetworkChecks(name, "b",
+					idStable.AddStateValue(networkAddr, tfjsonpath.New("id")),
+				),
+			},
+		},
+	})
+}
+
+// TestIntegration_Network_CloudProviderAccess_RotateInPlace pins role rotation
+// by editing the access block itself: with create_before_destroy, the new
+// access is created under its new name, the network is re-pointed in place and
+// the old access is deleted last, all in one apply.
+func TestIntegration_Network_CloudProviderAccess_RotateInPlace(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	const name = "tfrp-mock-net-rotate-inplace"
+	idStable := statecheck.CompareValue(compare.ValuesSame())
+	accessReplaced := statecheck.CompareValue(compare.ValuesDiffer())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(networkAddr, cpaNetworkConfig(name, "a", map[string]string{"a": roleA}, true), cpaNetworkChecks(name, "a",
+				idStable.AddStateValue(networkAddr, tfjsonpath.New("id")),
+				accessReplaced.AddStateValue("redpanda_cloud_provider_access.a", tfjsonpath.New("id")),
+			)),
+			{
+				Config: cpaNetworkConfig(name, "a", map[string]string{"a": roleOtherA}, true),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(networkAddr, plancheck.ResourceActionUpdate),
+						plancheck.ExpectResourceAction("redpanda_cloud_provider_access.a", plancheck.ResourceActionCreateBeforeDestroy),
+					},
+					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+				ConfigStateChecks: cpaNetworkChecks(name, "a",
+					idStable.AddStateValue(networkAddr, tfjsonpath.New("id")),
+					accessReplaced.AddStateValue("redpanda_cloud_provider_access.a", tfjsonpath.New("id")),
+					statecheck.ExpectKnownValue("redpanda_cloud_provider_access.a", tfjsonpath.New("aws").AtMapKey("role_arn"), knownvalue.StringExact(roleOtherA)),
+				),
+			},
+		},
+	})
+}
+
+// TestIntegration_Network_CloudProviderAccess_ReplaceInUseAccess pins that
+// replacing an access a network uses, without create_before_destroy, never
+// replaces the network: Terraform deletes the access first, the control plane
+// refuses before anything changes, and the error names the fix.
+func TestIntegration_Network_CloudProviderAccess_ReplaceInUseAccess(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	const name = "tfrp-mock-net-inuse"
+	idStable := statecheck.CompareValue(compare.ValuesSame())
+	original := cpaNetworkConfig(name, "a", map[string]string{"a": roleA}, false)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(networkAddr, original, cpaNetworkChecks(name, "a",
+				idStable.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			)),
+			{
+				Config: cpaNetworkConfig(name, "a", map[string]string{"a": roleOtherA}, false),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(networkAddr, plancheck.ResourceActionUpdate),
+						plancheck.ExpectResourceAction("redpanda_cloud_provider_access.a", plancheck.ResourceActionDestroyBeforeCreate),
+					},
+				},
+				ExpectError: regexp.MustCompile(`(?s)FailedPrecondition.*create_before_destroy`),
+			},
+			integration.NoopReapplyStep(networkAddr, original, cpaNetworkChecks(name, "a",
+				idStable.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			)),
+		},
+	})
+}
+
+// TestIntegration_Network_CloudProviderAccess_AddOrRemoveRefused pins that
+// adding an access to a network created without one, or removing it, plans an
+// in-place update rather than a replacement, and that the control plane's
+// refusal fails the apply and leaves the network as it was.
+func TestIntegration_Network_CloudProviderAccess_AddOrRemoveRefused(t *testing.T) {
+	cases := map[string]struct {
+		created, changed string
+		want             string
+	}{
+		"add":    {"", "a", `can\s+only\s+be\s+changed\s+on\s+a\s+network\s+created\s+with\s+one`},
+		"remove": {"a", "", `cannot\s+be\s+cleared`},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, factories := integration.Setup(t)
+			accesses := map[string]string{"a": roleA}
+			networkName := "tfrp-mock-net-" + name
+			original := cpaNetworkConfig(networkName, tc.created, accesses, false)
+			idStable := statecheck.CompareValue(compare.ValuesSame())
+			resource.UnitTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: factories,
+				Steps: []resource.TestStep{
+					integration.CreateStep(networkAddr, original, []statecheck.StateCheck{
+						idStable.AddStateValue(networkAddr, tfjsonpath.New("id")),
+					}),
+					{
+						Config: cpaNetworkConfig(networkName, tc.changed, accesses, false),
+						ConfigPlanChecks: resource.ConfigPlanChecks{
+							PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction(networkAddr, plancheck.ResourceActionUpdate)},
+						},
+						ExpectError: regexp.MustCompile(tc.want),
+					},
+					integration.NoopReapplyStep(networkAddr, original, []statecheck.StateCheck{
+						idStable.AddStateValue(networkAddr, tfjsonpath.New("id")),
+					}),
+				},
+			})
+		})
+	}
+}
+
+// TestIntegration_Network_CloudProviderAccess_AddOnReplacement pins the paths
+// onto cross-account provisioning for an existing network: the access can be
+// added in the same apply that replaces the network, whether another attribute
+// forces the replacement or the network is tainted, as terraform apply
+// -replace does.
+func TestIntegration_Network_CloudProviderAccess_AddOnReplacement(t *testing.T) {
+	accesses := map[string]string{"a": roleA}
+	cases := map[string]struct {
+		changedName string
+		taint       []string
+	}{
+		"sibling replace": {changedName: "tfrp-mock-net-add-renamed"},
+		"tainted":         {changedName: "tfrp-mock-net-add", taint: []string{networkAddr}},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, factories := integration.Setup(t)
+			idReplaced := statecheck.CompareValue(compare.ValuesDiffer())
+			resource.UnitTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: factories,
+				Steps: []resource.TestStep{
+					integration.CreateStep(networkAddr, cpaNetworkConfig("tfrp-mock-net-add", "", accesses, false), []statecheck.StateCheck{
+						statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("cloud_provider_access_id"), knownvalue.Null()),
+						idReplaced.AddStateValue(networkAddr, tfjsonpath.New("id")),
+					}),
+					{
+						Taint:  tc.taint,
+						Config: cpaNetworkConfig(tc.changedName, "a", accesses, false),
+						ConfigPlanChecks: resource.ConfigPlanChecks{
+							PreApply:             []plancheck.PlanCheck{plancheck.ExpectResourceAction(networkAddr, plancheck.ResourceActionDestroyBeforeCreate)},
+							PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+						},
+						ConfigStateChecks: cpaNetworkChecks(tc.changedName, "a",
+							idReplaced.AddStateValue(networkAddr, tfjsonpath.New("id")),
+						),
+					},
+				},
+			})
+		})
+	}
+}
+
+// TestIntegration_Network_CloudProviderAccess_SwapToOtherAccount surfaces the
+// control plane's refusal to re-point a network at an access for another AWS
+// account, and pins that the network is left in place on the old access.
+func TestIntegration_Network_CloudProviderAccess_SwapToOtherAccount(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	const name = "tfrp-mock-net-xacct"
+	accesses := map[string]string{"a": roleA, "other": roleOther}
+	idStable := statecheck.CompareValue(compare.ValuesSame())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(networkAddr, cpaNetworkConfig(name, "a", accesses, false), cpaNetworkChecks(name, "a",
+				idStable.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			)),
+			{
+				Config: cpaNetworkConfig(name, "other", accesses, false),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction(networkAddr, plancheck.ResourceActionUpdate)},
+				},
+				ExpectError: regexp.MustCompile(`is\s+for\s+AWS\s+account\s+210987654321`),
+			},
+			integration.NoopReapplyStep(networkAddr, cpaNetworkConfig(name, "a", accesses, false), cpaNetworkChecks(name, "a",
+				idStable.AddStateValue(networkAddr, tfjsonpath.New("id")),
+			)),
+		},
+	})
+}
+
+// TestIntegration_Network_CloudProviderAccess_EmptyIDRejected pins that an
+// empty cloud_provider_access_id is refused at plan: the API would treat it as
+// no access and the network would read back null.
+func TestIntegration_Network_CloudProviderAccess_EmptyIDRejected(t *testing.T) {
+	_, factories := integration.Setup(t)
+	cfg := strings.Replace(cpaNetworkConfig("tfrp-mock-net-empty", "", nil, false), `  cidr_block        = "10.0.0.0/20"`, `  cidr_block        = "10.0.0.0/20"
+  cloud_provider_access_id = ""`, 1)
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{{
+			Config:      cfg,
+			PlanOnly:    true,
+			ExpectError: regexp.MustCompile(`must be a cloud provider access ID`),
+		}},
+	})
+}
+
+// TestIntegration_Network_CloudProviderAccess_Rejected pins the combinations
+// the control plane refuses for a cloud_provider_access_id: the provider
+// rejects the shape at plan time and surfaces an unknown access from apply.
+func TestIntegration_Network_CloudProviderAccess_Rejected(t *testing.T) {
+	const cmr = `
+  customer_managed_resources = {
+    aws = {
+      management_bucket = { arn = "arn:aws:s3:::tfrp-bv-bucket" }
+      dynamodb_table    = { arn = "arn:aws:dynamodb:us-east-1:123456789012:table/tfrp-bv-ddb" }
+      vpc               = { arn = "arn:aws:ec2:us-east-1:123456789012:vpc/vpc-0abc1234def56789a" }
+      private_subnets   = { arns = ["arn:aws:ec2:us-east-1:123456789012:subnet/subnet-0abc1234def56789a"] }
+    }
+  }`
+	cases := map[string]struct {
+		cloudProvider, clusterType, cidr, extra, accessID string
+		planOnly                                          bool
+		want                                              string
+	}{
+		"dedicated":                       {"aws", "dedicated", `cidr_block = "10.0.0.0/20"`, "", "", true, `Cloud Provider Access Requires BYOC`},
+		"gcp":                             {"gcp", "byoc", `cidr_block = "10.0.0.0/20"`, "", "", true, `Cloud Provider Access Requires AWS`},
+		"with customer managed resources": {"aws", "byoc", "", cmr, "", true, `Conflicting Network Provisioning Modes`},
+		"unknown access":                  {"aws", "byoc", `cidr_block = "10.0.0.0/20"`, "", "aaaaaaaaaaaaaaaaaaaa", false, `failed\s+to\s+create\s+network(?s:.*)NotFound`},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, factories := integration.Setup(t)
+			accessID := `redpanda_cloud_provider_access.test.id`
+			if tc.accessID != "" {
+				accessID = fmt.Sprintf("%q", tc.accessID)
+			}
+			cfg := fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-net-rg"
+}
+
+resource "redpanda_cloud_provider_access" "test" {
+  name           = "tfrp-mock-cpa"
+  cloud_provider = "aws"
+  aws = {
+    role_arn = "arn:aws:iam::123456789012:role/tfrp-mock"
+  }
+}
+
+resource "redpanda_network" "test" {
+  name                     = "tfrp-mock-net-cpa-bad"
+  resource_group_id        = redpanda_resource_group.test.id
+  cloud_provider           = %q
+  region                   = "us-east-1"
+  cluster_type             = %q
+  %s
+  cloud_provider_access_id = %s
+  %s
+}
+`, tc.cloudProvider, tc.clusterType, tc.cidr, accessID, tc.extra)
+			resource.UnitTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: factories,
+				Steps: []resource.TestStep{{
+					Config:      cfg,
+					PlanOnly:    tc.planOnly,
+					ExpectError: regexp.MustCompile(tc.want),
+				}},
+			})
+		})
+	}
 }

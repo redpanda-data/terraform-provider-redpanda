@@ -19,6 +19,7 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
@@ -89,20 +90,37 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		return
 	}
 
-	var ranByoc bool
+	var ranByoc, agentOwnerDecided, redpandaManagedAgent bool
 	cl, err := utils.RetryGetCluster(ctx, createTimeout, clusterID, c.CpCl, func(cl *controlplanev1.Cluster) *utils.RetryError {
 		switch cl.GetState() {
 		case controlplanev1.Cluster_STATE_CREATING:
 			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cl.GetState()))
 		case controlplanev1.Cluster_STATE_CREATING_AGENT:
-			if cl.Type == controlplanev1.Cluster_TYPE_BYOC && !ranByoc {
-				err = c.Byoc.RunByoc(ctx, clusterID, "apply", nil)
-				if err != nil {
-					if utils.IsRetryableByocError(err) {
-						tflog.Debug(ctx, fmt.Sprintf("Retryable byoc error during apply: %v", err))
-						return utils.RetryableError(err)
+			if cl.Type == controlplanev1.Cluster_TYPE_BYOC && !agentOwnerDecided {
+				// Decided here rather than before CreateCluster, so a cluster
+				// that cannot be on a cloud provider access network never
+				// reads the network during Create, and decided once, so a
+				// retried byoc apply does not read it again.
+				if utils.ByocAgentCanBeRedpandaManaged(cl.GetType(), cl.GetCloudProvider()) {
+					managed, err := utils.NetworkUsesCloudProviderAccess(ctx, c.CpCl, cl.GetNetworkId())
+					if err != nil {
+						wrapped := fmt.Errorf("failed to read network %s: %w", cl.GetNetworkId(), err)
+						if utils.IsTransientServerError(err) {
+							return utils.RetryableError(wrapped)
+						}
+						return utils.NonRetryableError(wrapped)
 					}
-					return utils.NonRetryableError(err)
+					resp.Diagnostics.Append(stampAgentManaged(ctx, managed, resp.Private)...)
+					if managed {
+						tflog.Info(ctx, "Redpanda manages the BYOC agent for this cluster's network; no local byoc run", map[string]any{"cluster_id": clusterID})
+					}
+					redpandaManagedAgent = managed
+				}
+				agentOwnerDecided = true
+			}
+			if cl.Type == controlplanev1.Cluster_TYPE_BYOC && !redpandaManagedAgent && !ranByoc {
+				if rerr := c.runByoc(ctx, clusterID, "apply"); rerr != nil {
+					return rerr
 				}
 				ranByoc = true
 			}
@@ -173,6 +191,33 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
+	resp.Diagnostics.Append(c.recordAgentManagedIfMissing(ctx, cl, req.Private, resp.Private)...)
+}
+
+// agentManagedReader is the part of framework private state the key is read
+// from.
+type agentManagedReader interface {
+	GetKey(ctx context.Context, key string) ([]byte, diag.Diagnostics)
+}
+
+// recordAgentManagedIfMissing records who runs an AWS BYOC cluster's agent
+// when state lacks it, as for state an older provider wrote or a cluster
+// imported, with one network read. A recorded value is kept: it cannot change
+// while the cluster lives. A failed read leaves the key unset for Delete to
+// resolve rather than failing refresh.
+func (c *Cluster) recordAgentManagedIfMissing(ctx context.Context, cl *controlplanev1.Cluster, r agentManagedReader, w agentManagedWriter) diag.Diagnostics {
+	if !utils.ByocAgentCanBeRedpandaManaged(cl.GetType(), cl.GetCloudProvider()) {
+		return nil
+	}
+	if marker, d := r.GetKey(ctx, agentManagedKey); !d.HasError() && len(marker) > 0 {
+		return nil
+	}
+	managed, err := utils.NetworkUsesCloudProviderAccess(ctx, c.CpCl, cl.GetNetworkId())
+	if err != nil {
+		tflog.Warn(ctx, "could not record who runs the BYOC agent; Delete will read the network", map[string]any{"cluster_id": cl.GetId(), "error": err.Error()})
+		return nil
+	}
+	return stampAgentManaged(ctx, managed, w)
 }
 
 // Update a Redpanda cluster
@@ -285,6 +330,21 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		return
 	}
 
+	marker, d := req.Private.GetKey(ctx, agentManagedKey)
+	resp.Diagnostics.Append(d...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	redpandaManagedAgent, parseErr := strconv.ParseBool(string(marker))
+	if parseErr != nil {
+		var diags diag.Diagnostics
+		redpandaManagedAgent, diags = c.redpandaManagesAgent(ctx, cl.GetType(), cl.GetCloudProvider(), cl.GetNetworkId())
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
 	if cl.GetState() != controlplanev1.Cluster_STATE_DELETING && cl.GetState() != controlplanev1.Cluster_STATE_DELETING_AGENT {
 		delReq, _ := clustermodel.ExpandDelete(ctx, &model)
 		if _, err := c.CpCl.Cluster.DeleteCluster(ctx, delReq); err != nil {
@@ -305,14 +365,9 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 			return utils.RetryableError(fmt.Errorf("expected cluster to be deleted but was in state %v", cl.GetState()))
 		}
 		if cl.GetState() == controlplanev1.Cluster_STATE_DELETING_AGENT {
-			if cl.Type == controlplanev1.Cluster_TYPE_BYOC && !ranByoc {
-				err = c.Byoc.RunByoc(ctx, clusterID, "destroy", nil)
-				if err != nil {
-					if utils.IsRetryableByocError(err) {
-						tflog.Debug(ctx, fmt.Sprintf("Retryable byoc error during destroy: %v", err))
-						return utils.RetryableError(err)
-					}
-					return utils.NonRetryableError(err)
+			if cl.Type == controlplanev1.Cluster_TYPE_BYOC && !redpandaManagedAgent && !ranByoc {
+				if rerr := c.runByoc(ctx, clusterID, "destroy"); rerr != nil {
+					return rerr
 				}
 				ranByoc = true
 			}
@@ -328,6 +383,55 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		return
 	}
 	tflog.Info(ctx, "cluster deleted", map[string]any{"cluster_id": clusterID})
+}
+
+// agentManagedKey records, in framework private state, whether the control
+// plane runs an AWS BYOC cluster's agent ("true") or the provider runs the
+// byoc plugin ("false"). The answer is fixed for the cluster's life: the API
+// lets a network neither gain nor lose a cloud provider access, and
+// network_id forces replacement. Create stamps it if it observes the cluster
+// in CREATING_AGENT, Read fills it in once for state that still lacks it, and
+// Delete uses it, reading the network only when neither managed to. Clusters that cannot be on such a network never get the key
+// and never read the network. A migration of existing networks onto an
+// access would need Read to re-derive it.
+const agentManagedKey = "byoc_agent_managed"
+
+// redpandaManagesAgent resolves who runs the agent of a cluster of type t on
+// cloud provider cp, surfacing a failed network read as a diagnostic.
+func (c *Cluster) redpandaManagesAgent(ctx context.Context, t controlplanev1.Cluster_Type, cp controlplanev1.CloudProvider, networkID string) (bool, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	managed, err := utils.ByocAgentManagedByRedpanda(ctx, c.CpCl, t, cp, networkID)
+	if err != nil {
+		diags.AddError(fmt.Sprintf("failed to read network %s", networkID), utils.DeserializeGrpcError(err))
+		return false, diags
+	}
+	if managed {
+		tflog.Info(ctx, "Redpanda manages the BYOC agent for this cluster's network; no local byoc run", map[string]any{"network_id": networkID})
+	}
+	return managed, diags
+}
+
+// agentManagedWriter is the part of framework private state the key is set on.
+type agentManagedWriter interface {
+	SetKey(ctx context.Context, key string, value []byte) diag.Diagnostics
+}
+
+// stampAgentManaged records who runs the cluster's agent in private state.
+func stampAgentManaged(ctx context.Context, managed bool, w agentManagedWriter) diag.Diagnostics {
+	return w.SetKey(ctx, agentManagedKey, []byte(strconv.FormatBool(managed)))
+}
+
+// runByoc runs the rpk byoc verb for the cluster's agent, classifying the
+// failure for the retry loop.
+func (c *Cluster) runByoc(ctx context.Context, clusterID, verb string) *utils.RetryError {
+	if err := c.Byoc.RunByoc(ctx, clusterID, verb, nil); err != nil {
+		if utils.IsRetryableByocError(err) {
+			tflog.Debug(ctx, fmt.Sprintf("Retryable byoc error during %s: %v", verb, err))
+			return utils.RetryableError(err)
+		}
+		return utils.NonRetryableError(err)
+	}
+	return nil
 }
 
 // ImportState imports and update the state of the cluster resource.
