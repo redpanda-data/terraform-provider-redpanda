@@ -952,8 +952,9 @@ func TestIntegration_Cluster_UpdateLeaf_ThroughputTier(t *testing.T) {
 }
 
 // TestIntegration_Cluster_UpdateLeaf_Tags mutates the tags map. Exercises the
-// cloud_provider_tags <-> tags round-trip and the redpanda-* filter in
-// tagsFromProto.
+// cloud_provider_tags <-> tags round-trip; MapExact pins that the keys the
+// control plane adds on its own never reach state while a user's key that
+// shares a control-plane prefix does.
 func TestIntegration_Cluster_UpdateLeaf_Tags(t *testing.T) {
 	_, factories := clusterSetup(t)
 
@@ -967,18 +968,50 @@ func TestIntegration_Cluster_UpdateLeaf_Tags(t *testing.T) {
 			integration.CreateStep(clusterAddr,
 				awsDedicatedConfig(name, `tags = { env = "dev", team = "ingest" }`),
 				[]statecheck.StateCheck{
-					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags").AtMapKey("env"), knownvalue.StringExact("dev")),
-					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags").AtMapKey("team"), knownvalue.StringExact("ingest")),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags"), knownvalue.MapExact(map[string]knownvalue.Check{
+						"env":  knownvalue.StringExact("dev"),
+						"team": knownvalue.StringExact("ingest"),
+					})),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
 			integration.UpdateLeafStep(clusterAddr,
-				awsDedicatedConfig(name, `tags = { env = "prod", "cost-center" = "42" }`),
+				awsDedicatedConfig(name, `tags = { env = "prod", "cost-center" = "42", "aws-apn-id-999999999999" = "mine" }`),
 				[]statecheck.StateCheck{
-					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags").AtMapKey("env"), knownvalue.StringExact("prod")),
-					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags").AtMapKey("cost-center"), knownvalue.StringExact("42")),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags"), knownvalue.MapExact(map[string]knownvalue.Check{
+						"env":                     knownvalue.StringExact("prod"),
+						"cost-center":             knownvalue.StringExact("42"),
+						"aws-apn-id-999999999999": knownvalue.StringExact("mine"),
+					})),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			integration.UpdateLeafStep(clusterAddr,
+				awsDedicatedConfig(name, `tags = {}`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags"), knownvalue.MapExact(map[string]knownvalue.Check{})),
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+		},
+	})
+
+	// An empty map on create has nothing to clear and reads back as an empty map.
+	const emptyName = "tfrp-mock-cl-b3e"
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				awsDedicatedConfig(emptyName, `tags = {}`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags"), knownvalue.MapExact(map[string]knownvalue.Check{})),
+				}),
+			integration.UpdateLeafStep(clusterAddr,
+				awsDedicatedConfig(emptyName, `tags = { env = "dev" }`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags"), knownvalue.MapExact(map[string]knownvalue.Check{
+						"env": knownvalue.StringExact("dev"),
+					})),
 				}),
 		},
 	})
@@ -2203,6 +2236,7 @@ resource "redpanda_cluster" "test" {
   cluster_type      = "dedicated"
   connection_type   = "public"
   allow_deletion    = true
+  tags              = { env = "import" }
 
   maintenance_window_config = { day_hour = { day_of_week = "MONDAY", hour_of_day = 0 } }
   cloud_storage             = { skip_destroy = false }
