@@ -52,7 +52,7 @@ Cluster data source
 - `schema_registry` (Attributes) Cluster's Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
 - `state` (String) State describes the state of the cluster.
 - `state_description` (Attributes) Describes errors (see [below for nested schema](#nestedatt--state_description))
-- `tags` (Map of String) Tags placed on cloud resources. Server-managed keys (prefixed with `redpanda-`) are filtered out of state.
+- `tags` (Map of String) Tags placed on cloud resources. Keys the control plane manages on its own, such as `redpanda-` and `aws-apn-id` keys, are kept out of state. A resource whose configuration sets tags tracks only the keys it sets.
 - `throughput_tier` (String) Throughput tier of the cluster.
 - `zones` (List of String) Zones of the cluster. Must be valid zones within the selected region. If multiple zones are used, the cluster is a multi-AZ cluster.
 
