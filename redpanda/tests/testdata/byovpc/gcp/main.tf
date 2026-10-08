@@ -111,7 +111,7 @@ resource "redpanda_cluster" "test" {
 variable "region" {
   description = "GCP region for resources"
   type        = string
-  default     = "us-central1"
+  default     = "us-east1"
 }
 
 variable "resource_group_name" {
@@ -141,7 +141,7 @@ variable "throughput_tier" {
 variable "zones" {
   description = "GCP zones for the Redpanda cluster"
   type        = list(string)
-  default     = ["us-central1-a", "us-central1-b", "us-central1-c"]
+  default     = ["us-east1-b", "us-east1-c", "us-east1-d"]
 }
 
 variable "environment" {

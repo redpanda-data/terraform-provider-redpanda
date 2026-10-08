@@ -131,7 +131,7 @@ func FlattenData(ctx context.Context, proto DataClusterResponse, prev *DataModel
 	m.SchemaRegistry = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetSchemaRegistry(), func() *DataSchemaRegistryModel { v, _ := prev.AsSchemaRegistry(ctx); return v }(), DataSchemaRegistryAttrTypes(), FlattenDataSchemaRegistry, &diags)
 	m.State = types.StringValue(enums.ClusterStateToString(proto.GetState()))
 	m.StateDescription = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetStateDescription(), func() *DataStateDescriptionModel { v, _ := prev.AsStateDescription(ctx); return v }(), DataStateDescriptionAttrTypes(), FlattenDataStateDescription, &diags)
-	m.Tags = tagsFromProto(proto)
+	m.Tags = datasourceTagsFromProto(proto)
 	m.ThroughputTier = types.StringValue(proto.GetThroughputTier())
 	m.Zones = modelconv.ListFromSliceWithDiags(ctx, proto.GetZones(), types.StringType, &diags)
 	if prev != nil && !prev.AllowDeletion.IsUnknown() {
