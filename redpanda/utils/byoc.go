@@ -230,8 +230,14 @@ func azureFederatedTokenFile() string {
 // project sets use_msi, use_oidc, and use_cli from --identity=[cli|msi|oidc].
 func (cl *ByocClient) resolveAzureAuth() (azureAuth, error) {
 	auth, err := cl.selectAzureAuth()
-	if err != nil || auth.credentialSource != "env" {
+	if err != nil {
 		return auth, err
+	}
+	if err := cl.checkAzureIdentity(auth); err != nil {
+		return azureAuth{}, err
+	}
+	if auth.credentialSource != "env" {
+		return auth, nil
 	}
 	// azurerm takes ARM_CLIENT_CERTIFICATE as a base64 PKCS#12 bundle, but
 	// EnvironmentCredential reads a certificate only from
@@ -243,6 +249,33 @@ func (cl *ByocClient) resolveAzureAuth() (azureAuth, error) {
 		}
 	}
 	return auth, nil
+}
+
+// checkAzureIdentity rejects a credential source the plugin cannot start:
+// azidentity's EnvironmentCredential and WorkloadIdentityCredential both
+// refuse to construct without AZURE_TENANT_ID and AZURE_CLIENT_ID, which the
+// provider exports only when it knows them.
+func (cl *ByocClient) checkAzureIdentity(auth azureAuth) error {
+	var method string
+	switch auth.credentialSource {
+	case "workload":
+		method = "workload identity"
+	case "env":
+		method = "a client secret or certificate"
+	default:
+		return nil
+	}
+	var missing []string
+	if cl.azureTenantID == "" {
+		missing = append(missing, "a tenant (azure_tenant_id, ARM_TENANT_ID, or AZURE_TENANT_ID)")
+	}
+	if cl.azureClientID == "" {
+		missing = append(missing, "a client ID (azure_client_id, ARM_CLIENT_ID, or AZURE_CLIENT_ID)")
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%s for Azure needs %s", method, strings.Join(missing, " and "))
 }
 
 func (cl *ByocClient) selectAzureAuth() (azureAuth, error) {
