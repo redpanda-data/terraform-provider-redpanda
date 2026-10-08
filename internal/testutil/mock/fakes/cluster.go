@@ -16,6 +16,7 @@ package fakes
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -325,6 +326,7 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 		cl.GetSchemaRegistry().Connections = legacyConnectionProjection(in.GetConnectionType(), in.GetSchemaRegistry().GetMtls().GetEnabled(), srURL)
 	}
 	projectListenerMTLS(cl)
+	applyCommonTags(cl)
 
 	if f.CreateMutator != nil {
 		f.CreateMutator(cl)
@@ -414,6 +416,11 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 			continue
 		}
 		switch path {
+		case "cloud_provider_tags":
+			// The control plane replaces the map under the mask rather than
+			// merging (fieldmask.Update prunes then merges), so an empty update
+			// clears the user's tags; applyCommonTags below puts its own back.
+			cl.CloudProviderTags = maps.Clone(upd.GetCloudProviderTags())
 		case "kafka_api":
 			if upd.HasKafkaApi() {
 				cl.KafkaApi = specToClusterKafkaAPI(upd.GetKafkaApi(),
@@ -567,6 +574,7 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 	// persisting): a disabled cluster cannot retain rpsql CMR fields.
 	clearRpsqlCMROnDisable(cl)
 	projectListenerMTLS(cl)
+	applyCommonTags(cl)
 	cl.UpdatedAt = timestamppb.Now()
 
 	return &controlplanev1.UpdateClusterOperation{Operation: completedOp(f.op, upd.GetId())}, nil
@@ -1027,4 +1035,22 @@ func (f *ClusterFake) ListClusters(_ context.Context, req *controlplanev1.ListCl
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].GetId() < out[j].GetId() })
 	return &controlplanev1.ListClustersResponse{Clusters: out}, nil
+}
+
+// applyCommonTags mirrors the control plane's own writes to
+// cloud_provider_tags (controlplane-api redpanda_service.go): redpanda-managed
+// on every cluster, and the common tags of applyCommonTags on every write, so
+// a read never returns only the user's keys. The configured common tag is the
+// AWS Partner Network attribution tag; it carries the partner account id, so
+// no prefix rule predicts it.
+func applyCommonTags(cl *controlplanev1.Cluster) {
+	tags := maps.Clone(cl.GetCloudProviderTags())
+	if tags == nil {
+		tags = map[string]string{}
+	}
+	tags["redpanda-managed"] = "true"
+	if cl.GetCloudProvider() == controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS {
+		tags["aws-apn-id-123456789012"] = "pub-tfrp-fake"
+	}
+	cl.CloudProviderTags = tags
 }

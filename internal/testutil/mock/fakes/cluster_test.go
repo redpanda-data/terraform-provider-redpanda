@@ -845,3 +845,92 @@ func azureNetworkCMRAsCluster() *controlplanev1.Network_CustomerManagedResources
 		Azure: &controlplanev1.Network_CustomerManagedResources_Azure{},
 	}}
 }
+
+// TestClusterFake_CommonTagsInjected mirrors cloudv2 applyCommonTags
+// (controlplane-api redpanda_service.go): the control plane stamps its own
+// keys into cloud_provider_tags on create and again on every update, and the
+// public read returns them next to the user's: the AWS Partner Network
+// attribution tag on AWS clusters.
+func TestClusterFake_CommonTagsInjected(t *testing.T) {
+	ctx := context.Background()
+	f := NewClusterFake(NewOperationFake())
+	create := func(name string, provider controlplanev1.CloudProvider, region string) *controlplanev1.Cluster {
+		op, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{Cluster: &controlplanev1.ClusterCreate{
+			Name:              name,
+			CloudProvider:     provider,
+			Type:              controlplanev1.Cluster_TYPE_DEDICATED,
+			Region:            region,
+			CloudProviderTags: map[string]string{"env": "dev"},
+		}})
+		if err != nil {
+			t.Fatalf("CreateCluster(%s): %v", name, err)
+		}
+		got, err := f.GetCluster(ctx, &controlplanev1.GetClusterRequest{Id: op.GetOperation().GetResourceId()})
+		if err != nil {
+			t.Fatalf("GetCluster(%s): %v", name, err)
+		}
+		return got.GetCluster()
+	}
+	apnKey := func(tags map[string]string) string {
+		for k := range tags {
+			if strings.HasPrefix(k, "aws-apn-id") {
+				return k
+			}
+		}
+		return ""
+	}
+
+	aws := create("aws", controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS, "us-east-1")
+	if aws.GetCloudProviderTags()["env"] != "dev" {
+		t.Fatalf("aws create: user tag lost, got %v", aws.GetCloudProviderTags())
+	}
+	if apnKey(aws.GetCloudProviderTags()) == "" {
+		t.Fatalf("aws create: want a control-plane aws-apn-id tag next to the user's, got %v", aws.GetCloudProviderTags())
+	}
+
+	if _, err := f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+		Cluster:    &controlplanev1.ClusterUpdate{Id: aws.GetId(), CloudProviderTags: map[string]string{"env": "prod"}},
+		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"cloud_provider_tags"}},
+	}); err != nil {
+		t.Fatalf("UpdateCluster: %v", err)
+	}
+	got, err := f.GetCluster(ctx, &controlplanev1.GetClusterRequest{Id: aws.GetId()})
+	if err != nil {
+		t.Fatalf("GetCluster after update: %v", err)
+	}
+	if got.GetCluster().GetCloudProviderTags()["env"] != "prod" {
+		t.Errorf("aws update: got %v, want env=prod", got.GetCluster().GetCloudProviderTags())
+	}
+	if apnKey(got.GetCluster().GetCloudProviderTags()) == "" {
+		t.Errorf("aws update: control plane re-applies its tag after the user's replace the map, got %v", got.GetCluster().GetCloudProviderTags())
+	}
+
+	// The control plane replaces the map under the mask, so an empty update
+	// clears the user's tags and only its own remain.
+	if _, err := f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+		Cluster:    &controlplanev1.ClusterUpdate{Id: aws.GetId()},
+		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"cloud_provider_tags"}},
+	}); err != nil {
+		t.Fatalf("UpdateCluster with empty tags: %v", err)
+	}
+	got, err = f.GetCluster(ctx, &controlplanev1.GetClusterRequest{Id: aws.GetId()})
+	if err != nil {
+		t.Fatalf("GetCluster after empty update: %v", err)
+	}
+	if _, ok := got.GetCluster().GetCloudProviderTags()["env"]; ok {
+		t.Errorf("empty tags update: user tag survived a map replace, got %v", got.GetCluster().GetCloudProviderTags())
+	}
+	if apnKey(got.GetCluster().GetCloudProviderTags()) == "" {
+		t.Errorf("empty tags update: control plane re-stamps its tag, got %v", got.GetCluster().GetCloudProviderTags())
+	}
+
+	gcp := create("gcp", controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP, "us-central1")
+	if k := apnKey(gcp.GetCloudProviderTags()); k != "" {
+		t.Errorf("gcp create: AWS attribution tag %q must not appear on a GCP cluster", k)
+	}
+	for _, cl := range []*controlplanev1.Cluster{aws, gcp} {
+		if _, ok := cl.GetCloudProviderTags()["redpanda-managed"]; !ok {
+			t.Errorf("%s create: control plane writes redpanda-managed on every cluster, got %v", cl.GetName(), cl.GetCloudProviderTags())
+		}
+	}
+}
