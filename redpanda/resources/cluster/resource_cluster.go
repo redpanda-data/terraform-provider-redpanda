@@ -321,9 +321,6 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		return utils.NonRetryableError(fmt.Errorf("unhandled state %v. please report this issue to the provider developers", cl.GetState()))
 	})
 	if err != nil {
-		if utils.IsNotFound(err) {
-			return
-		}
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to delete cluster %s", model.ID), utils.DeserializeGrpcError(err))
 		return
 	}
