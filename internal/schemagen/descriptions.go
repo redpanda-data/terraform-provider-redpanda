@@ -45,7 +45,7 @@ var commonDescriptions = map[string]string{
 // are genuinely API facts (constraints, enum values, doc links) should move
 // upstream into cloudv2 proto comments and be dropped here on a pin bump.
 var scopedDescriptions = map[string]string{
-	"Cluster.tags":                                     "Tags placed on cloud resources. Server-managed keys (prefixed with `redpanda-`) are filtered out of state.",
+	"Cluster.tags":                                     "Tags placed on cloud resources. Keys the control plane manages on its own, such as `redpanda-` and `aws-apn-id` keys, are kept out of state. A resource whose configuration sets tags tracks only the keys it sets.",
 	"Cluster.cluster_api_url":                          "The URL of the cluster's data plane API.",
 	"Cluster.cloud_storage.skip_destroy":               "If true, cloud storage is not deleted when the cluster is destroyed.",
 	"Cluster.cloud_storage.azure.container_name":       "Name of the Azure storage container.",
