@@ -93,7 +93,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	cl, err := utils.RetryGetCluster(ctx, createTimeout, clusterID, c.CpCl, func(cl *controlplanev1.Cluster) *utils.RetryError {
 		switch cl.GetState() {
 		case controlplanev1.Cluster_STATE_CREATING:
-			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cl.GetState()))
+			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v%s", cl.GetState(), stateDescriptionSuffix(cl)))
 		case controlplanev1.Cluster_STATE_CREATING_AGENT:
 			if cl.Type == controlplanev1.Cluster_TYPE_BYOC && !ranByoc {
 				err = c.Byoc.RunByoc(ctx, clusterID, "apply", nil)
@@ -106,7 +106,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 				}
 				ranByoc = true
 			}
-			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v", cl.GetState()))
+			return utils.RetryableError(fmt.Errorf("expected cluster to be ready but was in state %v%s", cl.GetState(), stateDescriptionSuffix(cl)))
 		case controlplanev1.Cluster_STATE_READY:
 			return nil
 		case controlplanev1.Cluster_STATE_FAILED:

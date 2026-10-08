@@ -27,29 +27,33 @@ import (
 )
 
 // TestIntegration_Cluster_CreateFailedCarriesStateDescription pins that a
-// create the control plane fails surfaces the cluster's state_description
-// in the error: the status code always, the message when the public API
-// passes one through (it blanks the message for failures the provisioner
-// did not classify as external, leaving only the code).
+// create the control plane fails, or that times out while the control plane
+// still reports progress, surfaces the cluster's state_description in the
+// error: the status code always, the message when the public API passes one
+// through (it blanks the message for failures the provisioner did not
+// classify as external, leaving only the code).
 func TestIntegration_Cluster_CreateFailedCarriesStateDescription(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		desc *rpcstatus.Status
-		want string
+		name  string
+		state controlplanev1.Cluster_State
+		desc  *rpcstatus.Status
+		extra string
+		want  string
 	}{
-		{"external message", &rpcstatus.Status{Code: int32(codes.FailedPrecondition), Message: "agent never registered"}, `(?s)STATE_FAILED.*FailedPrecondition.*agent never\s+registered`},
-		{"code only", &rpcstatus.Status{Code: int32(codes.Internal)}, `(?s)STATE_FAILED.*Internal`},
+		{"external message", controlplanev1.Cluster_STATE_FAILED, &rpcstatus.Status{Code: int32(codes.FailedPrecondition), Message: "agent never registered"}, "", `(?s)STATE_FAILED.*FailedPrecondition.*agent never\s+registered`},
+		{"code only", controlplanev1.Cluster_STATE_FAILED, &rpcstatus.Status{Code: int32(codes.Internal)}, "", `(?s)STATE_FAILED.*Internal`},
+		{"timeout while creating agent", controlplanev1.Cluster_STATE_CREATING_AGENT, &rpcstatus.Status{Code: int32(codes.FailedPrecondition), Message: "agent never registered"}, `timeouts = { create = "3s" }`, `(?s)timed out after.*STATE_CREATING_AGENT.*FailedPrecondition.*agent never\s+registered`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			srv, factories := clusterSetup(t)
 			srv.Cluster.CreateMutator = func(cl *controlplanev1.Cluster) {
-				cl.State = controlplanev1.Cluster_STATE_FAILED
+				cl.State = tc.state
 				cl.StateDescription = tc.desc
 			}
 			resource.UnitTest(t, resource.TestCase{
 				ProtoV6ProviderFactories: factories,
 				Steps: []resource.TestStep{{
-					Config:      awsDedicatedConfig("tfrp-mock-cl-f1"),
+					Config:      awsDedicatedConfig("tfrp-mock-cl-f1", tc.extra),
 					ExpectError: regexp.MustCompile(tc.want),
 				}},
 			})
