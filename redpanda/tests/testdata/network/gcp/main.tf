@@ -48,7 +48,7 @@ variable "google_credentials_base64" {
 variable "region" {
   description = "GCP region for resources"
   type        = string
-  default     = "us-central1"
+  default     = "us-east1"
 }
 
 variable "environment" {
