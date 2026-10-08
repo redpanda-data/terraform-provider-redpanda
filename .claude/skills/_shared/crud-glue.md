@@ -130,6 +130,8 @@ For cluster, use `utils.GenerateProtobufDiffAndUpdateMask` instead — it's the 
 
 Straightforward — call the Delete RPC, handle `IsNotFound` as already-gone (no error).
 
+`IsNotFound` falls back to substring-matching "not found", "404" and "does not exist" on the error text. Feed it only errors that come straight from an RPC. An error that embeds output, such as a byoc plugin failure wrapped with its last 60 log lines, matches on the excerpt, and a destroy that failed with "Identity not found" reports success and drops the resource from state. If a helper appends an excerpt to an error, every `IsX(err)` above it is matching against the excerpt. Also check what a retry loop already converted before adding a guard after it: `RetryGetCluster` turns a control-plane NotFound into a nil result with a nil error, so a NotFound check after it can only ever match something else.
+
 ## ImportState
 
 Most resources:

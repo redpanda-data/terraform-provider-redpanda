@@ -98,6 +98,10 @@ For dataplane resources (topic, user, acl, schema*), the dataplane fake infrastr
 
 `ClusterFake` mirrors the tail of cloudv2 `RedpandaListenersToPublic` on every GetCluster: each of `kafka_api`, `http_proxy`, and `schema_registry` reads back a non-nil `sasl` block and a non-nil `mtls` block, `{enabled:false}` when no listener requires client auth (`projectListenerMTLS` in `fakes/cluster.go`, applied on create and at the end of update). A test that seeds a cluster through the fake and expects a nil `mtls` block is modeling a shape production never returns; fix the test. The provider relies on the schema (`optional+computed`, UseStateForUnknown) to absorb the echo against a config that omits the block, so every listener arm must carry those flags.
 
+### Cluster fake: the BYOC agent phases
+
+A BYOC cluster is created in `STATE_CREATING_AGENT` and parked in `STATE_DELETING_AGENT` by `DeleteCluster`; only the byoc runner fake's successful run advances it (`ClusterFake.AgentRun`), the way the control plane waits on the plugin's `MarkAgentDeleted`. `ByocRunnerFake.FailNextWith(err)` makes the next run fail without advancing, so a `Destroy: true` step with `ExpectError` models a failed agent destroy. Pair it with a `PreConfig` on the following step that reads the fake back and asserts the cluster is still there in `DELETING_AGENT`: that assertion is what makes orphaning observable, since a fake that advanced on failure would pass the `ExpectError` step just the same.
+
 ## Tier 3: Colocated live-acc (`acc_<name>_test.go`)
 
 Real provider against Redpanda Cloud. Use only for behavior that the integration tier cannot exercise: real API rate limits, server-enforced constraints, async timing.
