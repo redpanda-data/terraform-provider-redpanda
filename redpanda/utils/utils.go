@@ -141,6 +141,13 @@ func IsClusterUnreachable(err error) bool {
 		strings.Contains(errStr, "produced zero addresses")
 }
 
+// IsAborted reports whether a dataplane RPC failed with gRPC code Aborted, the
+// code a server uses for a write that lost an optimistic-concurrency race.
+func IsAborted(err error) bool {
+	st, ok := serverStatus(err)
+	return ok && st.Code() == grpccodes.Aborted
+}
+
 // IsUnavailable checks if the error indicates a service unavailable or transient error
 // that should be retried at the application level. This includes gRPC Unavailable errors
 // and HTTP 503 responses that may come from load balancers or gateways.
