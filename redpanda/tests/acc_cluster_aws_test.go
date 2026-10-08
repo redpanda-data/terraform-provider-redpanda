@@ -27,5 +27,8 @@ func TestAcc_Cluster_AWS_Dedicated(t *testing.T) {
 	ctx := context.Background()
 	name := acc.RandomName(acc.NamePrefix + acc.CloudLabelAWS)
 	rename := acc.RandomName(acc.NamePrefix + acc.CloudLabelAWSRename)
-	testRunner(ctx, name, rename, acc.RedpandaVersion, acc.AwsDedicatedClusterDir, nil, t)
+	// The released provider echoes the control plane's aws-apn-id tag into state
+	// and fails the upgrade entry's step 0. Drop this once the release carrying
+	// RetainConfiguredTags is the latest published provider.
+	testRunner(ctx, name, rename, acc.RedpandaVersion, acc.AwsDedicatedClusterDir, nil, t, withoutUpgradeEntry())
 }

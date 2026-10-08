@@ -93,7 +93,10 @@ func TestAcc_Cluster_BYOVPC_AWS(t *testing.T) {
 		customVars["zones"] = config.ListVariable(zonesVars...)
 	}
 
-	opts := []runnerOpt{withByocAgentApply()}
+	// The released provider echoes the control plane's aws-apn-id tag into state
+	// and fails the upgrade entry's step 0. Drop this once the release carrying
+	// RetainConfiguredTags is the latest published provider.
+	opts := []runnerOpt{withByocAgentApply(), withoutUpgradeEntry()}
 	if len(publicSubnetArns) > 0 {
 		opts = append(opts, withNetworkPublicSubnets(publicSubnetArns))
 	}
