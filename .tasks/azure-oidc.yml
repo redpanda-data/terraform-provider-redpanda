@@ -70,7 +70,7 @@ tasks:
       - ./scripts/azure-oidc.sh down
 
   byoc:apply:
-    desc: "Apply an Azure BYOC cluster authenticating through the local issuer; PROVIDER=local|released, AUTH=token-file|relative-path|arm-token|customer|actions|cli-session|secret"
+    desc: "Apply an Azure BYOC cluster authenticating through the local issuer; PROVIDER=local|released, AUTH=token-file|relative-path|arm-token|customer|actions|cli-session|secret, REDPANDA_BYOC_PLUGIN_PATH to run a local plugin build"
     deps: [build]
     vars:
       PROVIDER: '{{.PROVIDER | default "local"}}'
@@ -88,7 +88,7 @@ tasks:
       - ./scripts/azure-oidc-byoc.sh plan "{{.PROVIDER}}" "{{.AUTH}}"
 
   byoc:destroy:
-    desc: "Destroy the Azure BYOC cluster from azure-oidc:byoc:apply; PROVIDER=local|released, AUTH=token-file|relative-path|arm-token|customer|actions|cli-session|secret"
+    desc: "Destroy the Azure BYOC cluster from azure-oidc:byoc:apply; PROVIDER=local|released, AUTH=token-file|relative-path|arm-token|customer|actions|cli-session|secret, REDPANDA_BYOC_PLUGIN_PATH to run a local plugin build"
     deps: [build]
     vars:
       PROVIDER: '{{.PROVIDER | default "local"}}'
@@ -107,7 +107,7 @@ tasks:
       - ./scripts/azure-oidc-vm.sh check
 
   vm:run:
-    desc: "Run azure-oidc:byoc on the VM, which mints its own tokens with the copied key; ACTION=apply|plan|destroy, PROVIDER=local|released, AUTH=token-file|relative-path|arm-token|customer|actions, AZURE_OIDC_VM_TAG to overlap runs, AZURE_OIDC_VM_ENV for extra NAME=value pairs"
+    desc: "Run azure-oidc:byoc on the VM, which mints its own tokens with the copied key; ACTION=apply|plan|destroy, PROVIDER=local|released, AUTH=token-file|relative-path|arm-token|customer|actions, REDPANDA_BYOC_PLUGIN_PATH a linux/amd64 plugin build to run, AZURE_OIDC_VM_TAG to overlap runs, AZURE_OIDC_VM_ENV for extra NAME=value pairs"
     deps: [build]
     vars:
       ACTION: '{{.ACTION | default "apply"}}'

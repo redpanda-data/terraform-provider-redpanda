@@ -34,7 +34,9 @@
 #
 # Environment: as for azure-oidc-byoc.sh, plus AZURE_OIDC_VM_ENV, extra
 # NAME=value pairs exported on the VM for a run (for example
-# "AZURE_TOKEN_CREDENTIALS=prod"), and AZURE_OIDC_VM_TAG, a name for the run
+# "AZURE_TOKEN_CREDENTIALS=prod"), REDPANDA_BYOC_PLUGIN_PATH, a linux/amd64
+# byoc plugin build the VM runs in place of the install pack's, and
+# AZURE_OIDC_VM_TAG, a name for the run
 # so several can overlap on the VM; each tag needs its own AZURE_OIDC_WORK
 # and AZURE_OIDC_NAME in AZURE_OIDC_VM_ENV. The run log comes back to
 # AZURE_OIDC_DIR/logs, and a run that timed out in STATE_CREATING_AGENT also
@@ -136,13 +138,20 @@ run() {
   (umask 077 && cp "$dir/signing-key.pem" "$stage/.azure-oidc/")
   GOOS=linux GOARCH=amd64 go build -o "$stage/.azure-oidc/bin/azureoidc" ./cmd/azureoidc
   GOOS=linux GOARCH=amd64 go build -o "$stage/terraform-provider-redpanda" .
+  # One plugin copy per tag, like the env file, so overlapping runs can
+  # carry different builds.
+  local plugin="byoc${tag:+-$tag}"
+  if [[ -n "${REDPANDA_BYOC_PLUGIN_PATH:-}" ]]; then
+    cp "$REDPANDA_BYOC_PLUGIN_PATH" "$stage/$plugin"
+    chmod 0500 "$stage/$plugin"
+  fi
   # The VM presents tokens for the managed identity when up created one.
   if [[ -f "$dir/client-id" ]]; then
     AZURE_CLIENT_ID="$(cat "$dir/client-id")"
     export AZURE_CLIENT_ID
   fi
   # The provider binary and the stub are the same for every tag; a tagged
-  # run keeps its own env file.
+  # run keeps its own env file and plugin copy.
   local envfile="run${tag:+-$tag}.env"
   (
     umask 077
@@ -156,6 +165,7 @@ run() {
       printf 'export TF_LOG=%q\n' "${TF_LOG:-DEBUG}"
       printf 'export AZURE_OIDC_NAME=%q\n' "rp-oidc-vm-$(whoami | tr -cd 'a-z0-9' | cut -c1-9)"
       printf 'export AZURE_OIDC_PROVIDER_BINARY=%q\n' "/home/$user/rp/terraform-provider-redpanda"
+      [[ -n "${REDPANDA_BYOC_PLUGIN_PATH:-}" ]] && printf 'export REDPANDA_BYOC_PLUGIN_PATH=%q\n' "/home/$user/rp/$plugin"
       [[ -n "${AZURE_OIDC_TOKEN_LIFETIME:-}" ]] && printf 'export AZURE_OIDC_TOKEN_LIFETIME=%q\n' "$AZURE_OIDC_TOKEN_LIFETIME"
       [[ -n "${REDPANDA_VERSION:-}" ]] && printf 'export REDPANDA_VERSION=%q\n' "$REDPANDA_VERSION"
       for pair in ${AZURE_OIDC_VM_ENV:-}; do

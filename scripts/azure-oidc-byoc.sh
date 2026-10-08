@@ -50,7 +50,9 @@
 # ARM_SUBSCRIPTION_ID (or AZURE_SUBSCRIPTION_ID), and optionally
 # AZURE_OIDC_DIR, AZURE_OIDC_SUBJECT, AZURE_OIDC_NAME, AZURE_REGION,
 # REDPANDA_VERSION, AZURE_OIDC_PROVIDER_BINARY (a prebuilt local provider, so
-# no Go toolchain is needed), AZURE_OIDC_TOKEN_LIFETIME (the lifetime of
+# no Go toolchain is needed), REDPANDA_BYOC_PLUGIN_PATH (a local byoc plugin
+# build, which the provider runs instead of the install pack's; the provider
+# reads it directly), AZURE_OIDC_TOKEN_LIFETIME (the lifetime of
 # every token this script mints, for the file modes and the GitHub Actions
 # stub alike; default 5m, which is what GitHub issues, so a static token file
 # expires under an apply the way a customer's does; set 8h for a run that is
