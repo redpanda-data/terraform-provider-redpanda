@@ -229,54 +229,24 @@ See `CLAUDE.md`: commit locally; do not push without explicit per-push approval.
 
 ### The load-bearing commit message: production-fix commit
 
-Most commits in the sequence can use terse one-line messages (`test(role-assignment): pin principal canonicalization`, `chore(docs): regenerate role_assignment.md`). The **production-fix commit** is the load-bearing one — reviewers and future bug hunters read this first via `git log -p` to understand what changed and why. Use this four-section structure:
+Most commits in the sequence can use terse one-line messages (`test(role-assignment): pin principal canonicalization`, `chore(docs): regenerate role_assignment.md`). The **production-fix commit** is the load-bearing one — reviewers and future bug hunters read this first via `git log -p` to understand what changed and why. Its body follows the commit policy in `CLAUDE.md`: the cause and the non-obvious consequence, in prose, wrapped at 72, with nothing that restates the diff and nothing from the session. Two paragraphs usually suffice: what the code did and why that was wrong, then what it does now and what that changes for the user.
+
+Example (the resource_group sweeper bug):
 
 ```
-<area>: <one-line imperative summary, no terminal period>
+test(sweep): send UUID not name on DeleteResourceGroup
 
-How found: <one-paragraph summary of the original evidence — log fragment,
-test failure, customer ticket, or "audit of <function> at HEAD" — including
-the actual error message or symptom that triggered the hunt>
+The resource_group sweeper passed proto.Name where
+DeleteResourceGroupRequest.Id expects a UUID. The [string.uuid]
+buf.validate rule rejects it at the validatingInterceptor before the
+handler runs, so every live run left its tfrp-acc-* resource groups
+behind in pre-prod. The four sibling sweepers already send GetId().
 
-Cause: <one-paragraph summary of root cause. Not the symptom, not the fix —
-the underlying contract violation, shape drift, or state-vs-server divergence>
-
-Resolution: <one-paragraph summary of the actual code change>
-
-Regression guards: <list of tests added or extended that would catch a
-repeat, with file:line references>
+The sweeper now sends the id, so a passing live run leaves no resource
+groups for cleanup:redpanda to find.
 ```
 
-Example (synthesized from the resource_group sweeper bug):
-
-```
-test/sweep: send UUID not name on DeleteResourceGroup
-
-How found: task test:cluster:aws left tfrp-acc-testaws-xF0W and ~16 sibling
-RGs orphaned in pre-prod. cluster_aws.log:
-    acc cleanup: unable to sweep resource group: ...
-    code = InvalidArgument desc = validation error: id: value must be a valid UUID
-
-Cause: internal/testutil/acc/sweep/resource_group.go passed proto.Name where
-DeleteResourceGroupRequest.Id expects a UUID. The [string.uuid] buf.validate
-rule on the proto descriptor rejects anything that isn't a UUID at the
-validatingInterceptor boundary, before the handler runs. Four sibling
-sweepers (network, cluster, serverless_private_link, shadow_link) all
-correctly used GetId(); only resource_group had the typo. Bug arrived as-is
-in 00b43a8; never previously invoked correctly.
-
-Resolution: rg.Name → rg.GetId() in resource_group.go:40.
-
-Regression guards:
-  - internal/testutil/acc/sweep/resource_group_test.go (new):
-    TestSweepResourceGroup_SendsUUIDNotName drives the sweeper end-to-end
-    through bufconn + validatingInterceptor. If the typo returns (or any
-    other malformed DeleteResourceGroupRequest.Id ships), this test fails
-    with the same "must be a valid UUID" error the live run produced — in
-    milliseconds, no cloud cost.
-```
-
-The four-section structure makes the commit function as a mini-postmortem readable in `git log -p`. The full long-form report (Phase 11) lives in `manual-tests/bug hunt reports/<slug>.md` and goes into much more detail (dead ends, mid-flight corrections, sibling-audit results, fake-vs-real reasoning); the commit message captures the load-bearing essence so a future Claude or human reading `git log` understands the change without leaving the terminal.
+Two things a future reader also needs live elsewhere, where the policy puts them. How the bug was found, with the log fragment or ticket symptom, goes in the PR description and in the bug-hunt report (Phase 11), which also carries the dead ends, sibling-audit results and fake-vs-real reasoning. The regression guards go in the PR description's test coverage; never list test files or assertions in the commit body, since the test commit's own title names the behavior pinned. The reviewer agent enforces the policy, so a body written as a postmortem (how found, cause, resolution, guards) comes back as a finding.
 
 ### What NOT to include in the bug-fix commits
 
@@ -354,7 +324,7 @@ Seven questions to answer before declaring the bug fully closed:
 3. **Fake parity restored?** Every RPC the production calls should be modeled faithfully (Phase 3).
 4. **Tier coverage at every level?** If a future commit weakens the validator, breaks the canonicalize helper, breaks the import parse, or makes the fake regress to verbatim storage, **which test fires first?** If the answer is "none," there's a tier-by-tier guard missing.
 5. **Cascading updates clean?** Fixtures, templates, docs all match the new contract. `task ready` clean.
-6. **Bug fix committed (and only the bug fix)?** Phase 10 — production fix commit has the four-section structured message (how found / cause / resolution / regression guards). Skill edits are NOT in any of the fix commits.
+6. **Bug fix committed (and only the bug fix)?** Phase 10 — the production fix commit's body states the cause and the consequence per the commit policy in `CLAUDE.md`; how it was found and the regression guards live in the PR description and the report. Skill edits are NOT in any of the fix commits.
 7. **Bug-hunt report written and skill updates proposed?** Phase 11 — the report lives in `manual-tests/bug hunt reports/<slug>.md`, and any updates to this skill or the other skills under `.claude/skills/` have been proposed to the user as a single batch with rationales. Approval is per-file; the user makes the call.
 
 If all seven answer yes, summarize the layers landed and the files touched (the role-assignment report's "What's now in the test infrastructure" section is a good template) in the PR description.
