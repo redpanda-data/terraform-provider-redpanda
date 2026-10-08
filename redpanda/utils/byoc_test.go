@@ -70,7 +70,7 @@ func TestByocClient_CheckCloudConfig(t *testing.T) {
 		{"azure two auth flags", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "only one of", map[string]string{"ARM_USE_MSI": "true", "ARM_USE_CLI": "true"}},
 		{"azure oidc without a token or az", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "AZURE_FEDERATED_TOKEN_FILE", map[string]string{"ARM_USE_OIDC": "true"}},
 		{"azure oidc without a token falls back to az", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "PATH": "<with az>"}},
-		{"azure oidc with a token file needs no az", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": "/token"}},
+		{"azure oidc with a token file needs no az", ByocClientConfig{AzureSubscriptionID: "s", AzureTenantID: "t", AzureClientID: "c"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": "/token"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -147,7 +147,7 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 	}{
 		{
 			name:     "client secret uses environment credential",
-			conf:     ByocClientConfig{AzureClientID: client, AzureClientSecret: "s3cret"},
+			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client, AzureClientSecret: "s3cret"},
 			wantArgs: map[string]string{"--credential-source": "env", "--identity": unset},
 			wantEnv: map[string]string{
 				"AZURE_TOKEN_CREDENTIALS": "",
@@ -159,18 +159,20 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 		{
 			name:      "inline client certificate reaches the environment credential as a file",
 			env:       map[string]string{"ARM_CLIENT_CERTIFICATE": base64.StdEncoding.EncodeToString([]byte("pkcs12-bundle"))},
-			conf:      ByocClientConfig{AzureClientID: client},
+			conf:      ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
 			wantArgs:  map[string]string{"--credential-source": "env"},
 			wantFiles: map[string]string{"AZURE_CLIENT_CERTIFICATE_PATH": "pkcs12-bundle"},
 		},
 		{
 			name:     "certificate path wins over an inline certificate",
+			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
 			env:      map[string]string{"ARM_CLIENT_CERTIFICATE": base64.StdEncoding.EncodeToString([]byte("inline")), "ARM_CLIENT_CERTIFICATE_PATH": tokenFile},
 			wantArgs: map[string]string{"--credential-source": "env"},
 			wantEnv:  map[string]string{"AZURE_CLIENT_CERTIFICATE_PATH": tokenFile},
 		},
 		{
 			name:    "inline client certificate that is not base64 fails before the plugin runs",
+			conf:    ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
 			env:     map[string]string{"ARM_CLIENT_CERTIFICATE": "not base64!"},
 			wantErr: "ARM_CLIENT_CERTIFICATE",
 		},
@@ -180,7 +182,7 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 				"ARM_CLIENT_ID":     "00000000-0000-0000-0000-00000000000c",
 				"ARM_CLIENT_SECRET": "other-secret",
 			},
-			conf:     ByocClientConfig{AzureClientID: client, AzureClientSecret: "s3cret"},
+			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client, AzureClientSecret: "s3cret"},
 			wantArgs: map[string]string{"--credential-source": "env"},
 			wantEnv:  map[string]string{"AZURE_CLIENT_ID": client, "AZURE_CLIENT_SECRET": "s3cret"},
 		},
@@ -203,6 +205,7 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 		},
 		{
 			name:     "aks workload identity",
+			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
 			env:      map[string]string{"ARM_USE_AKS_WORKLOAD_IDENTITY": "true"},
 			wantArgs: map[string]string{"--credential-source": "workload", "--identity": "none"},
 			wantEnv:  map[string]string{"AZURE_TOKEN_CREDENTIALS": "WorkloadIdentityCredential"},
@@ -210,11 +213,12 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 		{
 			name:     "oidc with client secret keeps environment credential",
 			env:      map[string]string{"ARM_USE_OIDC": "true"},
-			conf:     ByocClientConfig{AzureClientID: client, AzureClientSecret: "s3cret"},
+			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client, AzureClientSecret: "s3cret"},
 			wantArgs: map[string]string{"--credential-source": "env", "--identity": "oidc"},
 		},
 		{
 			name:     "oidc with azure federated token file",
+			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
 			env:      map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": tokenFile},
 			wantArgs: map[string]string{"--credential-source": "workload", "--identity": "oidc"},
 			wantEnv: map[string]string{
@@ -225,6 +229,7 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 		},
 		{
 			name:     "oidc with arm token file path",
+			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
 			env:      map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN_FILE_PATH": tokenFile},
 			wantArgs: map[string]string{"--credential-source": "workload", "--identity": "oidc"},
 			wantEnv: map[string]string{
@@ -234,6 +239,7 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 		},
 		{
 			name:      "oidc with raw arm token",
+			conf:      ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
 			env:       map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN": "raw-jwt"},
 			wantArgs:  map[string]string{"--credential-source": "workload", "--identity": "oidc"},
 			wantEnv:   map[string]string{"AZURE_TOKEN_CREDENTIALS": "WorkloadIdentityCredential"},
@@ -258,9 +264,32 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 			wantErr: "AZURE_FEDERATED_TOKEN_FILE",
 		},
 		{
+			name:    "workload identity without a tenant fails before the plugin runs",
+			conf:    ByocClientConfig{AzureClientID: client},
+			env:     map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": tokenFile},
+			wantErr: "tenant",
+		},
+		{
+			name:    "workload identity without a client id fails before the plugin runs",
+			conf:    ByocClientConfig{AzureTenantID: tenant},
+			env:     map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": tokenFile},
+			wantErr: "client ID",
+		},
+		{
+			name:    "client secret without a tenant fails before the plugin runs",
+			conf:    ByocClientConfig{AzureClientID: client, AzureClientSecret: "s3cret"},
+			wantErr: "tenant",
+		},
+		{
+			name:    "client certificate without a client id fails before the plugin runs",
+			conf:    ByocClientConfig{AzureTenantID: tenant},
+			env:     map[string]string{"ARM_CLIENT_CERTIFICATE_PATH": tokenFile},
+			wantErr: "client ID",
+		},
+		{
 			name:     "federated token file without a flag or secret selects workload identity",
 			env:      map[string]string{"AZURE_FEDERATED_TOKEN_FILE": tokenFile, "AZURE_CLIENT_ID": client},
-			conf:     ByocClientConfig{AzureClientID: client},
+			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
 			wantArgs: map[string]string{"--credential-source": "workload", "--identity": "oidc"},
 			wantEnv: map[string]string{
 				"ARM_OIDC_TOKEN_FILE_PATH": tokenFile,
@@ -271,6 +300,7 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 		},
 		{
 			name:     "user-set token credentials selection is kept",
+			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
 			env:      map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": tokenFile, "AZURE_TOKEN_CREDENTIALS": "prod"},
 			wantArgs: map[string]string{"--credential-source": "workload"},
 			wantEnv:  map[string]string{"AZURE_TOKEN_CREDENTIALS": "prod"},
