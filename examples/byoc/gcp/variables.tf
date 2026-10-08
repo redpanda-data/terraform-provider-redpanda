@@ -11,11 +11,11 @@ variable "network_name" {
 }
 
 variable "region" {
-  default = "us-central1"
+  default = "us-east1"
 }
 
 variable "zones" {
-  default = ["us-central1-a", "us-central1-b", "us-central1-c"]
+  default = ["us-east1-b", "us-east1-c", "us-east1-d"]
 }
 
 variable "cloud_provider" {

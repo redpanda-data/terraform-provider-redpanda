@@ -247,7 +247,7 @@ tasks:
     deps:
       - :tools:install:terraform
     vars:
-      GCP_REGION: '{{.GCP_REGION | default "us-central1"}}'
+      GCP_REGION: '{{.GCP_REGION | default "us-east1"}}'
       PROJECT_ID: '{{.PROJECT_ID | default .GCP_PROJECT_ID}}'
       # 1-9 chars, non-empty: the module's operator service account is
       # "rp-op<postfix>" and underruns GCP's 6-char account_id minimum without it.

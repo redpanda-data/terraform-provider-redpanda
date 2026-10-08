@@ -410,7 +410,7 @@ steps:
             - TF_LOG=DEBUG
             - GOOGLE_CREDENTIALS_BASE64
             - GOOGLE_PROJECT
-            - GCP_REGION=us-central1
+            - GCP_REGION=us-east1
             # the byovpc:gcp task derives UNIQUE_IDENTIFIER from this; without it
             # every CI run falls back to "local" and concurrent builds collide
             - BUILDKITE_BUILD_NUMBER
@@ -494,7 +494,7 @@ steps:
           environment:
             - GOOGLE_CREDENTIALS_BASE64
             - GOOGLE_PROJECT
-            - GCP_REGION=us-central1
+            - GCP_REGION=us-east1
             - CI=true
     depends_on:
       - test_cluster_gcp

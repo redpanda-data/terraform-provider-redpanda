@@ -195,7 +195,7 @@ func parseFlags() *CleanupConfig {
 
 	flag.StringVar(&cfg.CommonPrefix, "common-prefix", "redpanda", "Common prefix used for resource naming")
 	flag.StringVar(&cfg.ProjectID, "project-id", "", "GCP Project ID (required)")
-	flag.StringVar(&cfg.Region, "region", "us-central1", "GCP region")
+	flag.StringVar(&cfg.Region, "region", "us-east1", "GCP region")
 	flag.BoolVar(&cfg.DryRun, "dry-run", false, "Preview actions without deleting")
 	flag.BoolVar(&cfg.AutoApprove, "auto-approve", false, "Skip confirmation prompt (use with caution)")
 	flag.BoolVar(&cfg.UseCredsBase64, "use-gcp-creds-base64", false, "Use GOOGLE_CREDENTIALS_BASE64 env var for authentication")

@@ -13,7 +13,7 @@ vars:
 
   # GCP cleanup parameters
   PROJECT_ID: '{{.PROJECT_ID | default ""}}'
-  GCP_REGION: '{{.GCP_REGION | default "us-central1"}}'
+  GCP_REGION: '{{.GCP_REGION | default "us-east1"}}'
 
   # Azure cleanup parameters. The BYOVNet lane names every resource group
   # tfrp-<identifier>-*, with the identifier derived from UNIQUE_IDENTIFIER or
@@ -182,5 +182,5 @@ tasks:
       - echo "  VPC_ID - Optional for AWS cleanup, skips VPC resources if not provided"
       - echo "  AWS_REGION - Optional, defaults to 'us-east-1'"
       - echo "  PROJECT_ID - Required for GCP cleanup"
-      - echo "  GCP_REGION - Optional, defaults to 'us-central1'"
+      - echo "  GCP_REGION - Optional, defaults to 'us-east1'"
       - echo "  COMMON_PREFIX - Optional, defaults to 'redpanda'"
