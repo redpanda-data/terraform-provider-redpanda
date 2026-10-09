@@ -51,6 +51,38 @@ daily token-issuance quota.
   Useful if a server-side secret rotation invalidates the cached token before
   its local expiry.
 
+## Authentication with Azure for BYOC clusters
+
+Creating or destroying an Azure BYOC cluster runs the Redpanda BYOC agent
+with your Azure credentials. The provider reads the same environment variables
+as the `azurerm` provider, so a job that already authenticates `azurerm` needs
+no extra configuration. `azure_subscription_id` (or `ARM_SUBSCRIPTION_ID`) is
+always required. `azure_tenant_id` (or `ARM_TENANT_ID`) and `azure_client_id`
+(or `ARM_CLIENT_ID`) are required for the client secret, client certificate,
+OIDC, and workload identity methods; for the Azure CLI and managed identity
+methods the tenant is optional but saves the agent a lookup.
+
+| Method | Set | Notes |
+|--------|-----|-------|
+| Client secret | `azure_client_id` and `azure_client_secret`, or `ARM_CLIENT_ID` and `ARM_CLIENT_SECRET` | A client certificate (`ARM_CLIENT_CERTIFICATE`, a base64 PKCS#12 bundle, or `ARM_CLIENT_CERTIFICATE_PATH`) works the same way. |
+| OIDC with a federated token | `ARM_USE_OIDC=true`, a client ID (`azure_client_id`, `ARM_CLIENT_ID`, or `AZURE_CLIENT_ID`), and one of `AZURE_FEDERATED_TOKEN_FILE`, `ARM_OIDC_TOKEN_FILE_PATH`, or `ARM_OIDC_TOKEN` | Uses workload identity federation. No client secret is needed. A token file with no client secret selects this method even without `ARM_USE_OIDC`. |
+| OIDC in GitHub Actions | `ARM_USE_OIDC=true` and a client ID, after `azure/login` | With no token file, the agent's own Azure calls use the Azure CLI session that `azure/login` created, so the Azure CLI must be installed. |
+| Azure CLI | `ARM_USE_CLI=true`, or nothing else set | Uses the account from `az login`. |
+| Managed identity | `ARM_USE_MSI=true` | |
+| AKS workload identity | `ARM_USE_AKS_WORKLOAD_IDENTITY=true` | |
+
+Set only one of `ARM_USE_OIDC`, `ARM_USE_CLI`, `ARM_USE_MSI`, and
+`ARM_USE_AKS_WORKLOAD_IDENTITY`. For every method except client secret, the
+provider also sets `AZURE_TOKEN_CREDENTIALS` so that the agent's fallback
+credential lookups use the same method. A value you set yourself is kept.
+
+To see which credential was used, run Terraform with `TF_LOG=DEBUG`. The
+provider logs the method it selected and why (`byoc plugin Azure
+authentication`). To also see the agent's Azure SDK credential attempts,
+including why a credential was skipped or failed, set
+`AZURE_SDK_GO_LOGGING=all` in the environment; they appear as
+`rpk: azure Authentication:` lines.
+
 ## Example Provider Configuration
 
 Terraform 1.0 or later:

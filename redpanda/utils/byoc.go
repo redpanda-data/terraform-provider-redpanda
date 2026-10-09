@@ -18,7 +18,9 @@ package utils
 
 import (
 	"bufio"
+	"cmp"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -125,6 +127,9 @@ func (cl *ByocClient) CheckCloudConfig(cloudProvider string) error {
 		if cl.azureSubscriptionID == "" {
 			return errors.New("azure_subscription_id must be set on the provider (or ARM_SUBSCRIPTION_ID in the environment) to run the byoc plugin against an Azure cluster")
 		}
+		if _, err := cl.resolveAzureAuth(); err != nil {
+			return err
+		}
 	default:
 	}
 	return nil
@@ -198,92 +203,310 @@ func getEnvBoolean(name string) (bool, error) {
 	return false, fmt.Errorf("bad boolean value %s=%q", name, value)
 }
 
-func (cl *ByocClient) generateAzureArgsAndEnv() (args, env []string, err error) {
-	// The rpk byoc plugin does authentication a bit differently from the Terraform
-	// azurerm provider. Namely, it operates in two stages: pre-flight validation
-	// checks using a different Azure library, and the internal Terraform project
-	// which has configurations passed into it. We want to let users use the normal
-	// Terraform azurerm provider environment variables and have everything work.
-	// TODO: do this in the rpk byoc plugin instead?
+// azureAuth is how the byoc plugin authenticates to Azure. credentialSource
+// picks the credential for the plugin's own Azure clients, identity picks the
+// azurerm login for its internal Terraform project, and an empty value leaves
+// the plugin's default of cli.
+type azureAuth struct {
+	credentialSource string
+	identity         string
+	tokenFile        string
+	rawToken         string
+	certificate      []byte
+	reason           string
+}
 
-	azureArgs := []string{}
-	azureEnv := []string{}
+func (cl *ByocClient) hasAzureSecretOrCertificate() bool {
+	return cl.azureClientSecret != "" || os.Getenv("ARM_CLIENT_CERTIFICATE") != "" || os.Getenv("ARM_CLIENT_CERTIFICATE_PATH") != ""
+}
 
-	// How authentication method is chosen: pre-flight validation picks an auth method
-	// using --credential-source=[cli|msi|env|workload]; the internal Terraform project
-	// sets use_msi, use_oidc, and use_cli provider variables based on --identity=[cli|msi|oidc];
-	// and the actual Terraform azurerm provider chooses based on ARM_USE_MSI, ARM_USE_AKS_WORKLOAD_IDENTITY,
-	// or ARM_USE_OIDC, or if one of ARM_CLIENT_SECRET, ARM_CLIENT_CERTIFICATE, or ARM_CLIENT_CERTIFICATE_PATH
-	// are set, and otherwise uses the Azure CLI.
+// azureFederatedTokenFile returns the federated token file and the variable
+// that named it.
+func azureFederatedTokenFile() (file, envName string) {
+	for _, name := range []string{"AZURE_FEDERATED_TOKEN_FILE", "ARM_OIDC_TOKEN_FILE_PATH"} {
+		if v := os.Getenv(name); v != "" {
+			return v, name
+		}
+	}
+	return "", ""
+}
+
+// resolveAzureAuth maps the Terraform azurerm provider's environment onto the
+// plugin's --credential-source and --identity flags. The plugin runs in two
+// stages: pre-flight validation and its own Azure clients pick a credential
+// from --credential-source=[cli|msi|env|workload], and the internal Terraform
+// project sets use_msi, use_oidc, and use_cli from --identity=[cli|msi|oidc].
+func (cl *ByocClient) resolveAzureAuth() (azureAuth, error) {
+	auth, err := cl.selectAzureAuth()
+	if err != nil {
+		return auth, err
+	}
+	if err := cl.checkAzureIdentity(auth); err != nil {
+		return azureAuth{}, err
+	}
+	if auth.credentialSource != "env" {
+		return auth, nil
+	}
+	// azurerm takes ARM_CLIENT_CERTIFICATE as a base64 PKCS#12 bundle, but
+	// EnvironmentCredential reads a certificate only from
+	// AZURE_CLIENT_CERTIFICATE_PATH.
+	if inline := os.Getenv("ARM_CLIENT_CERTIFICATE"); inline != "" && os.Getenv("ARM_CLIENT_CERTIFICATE_PATH") == "" {
+		auth.certificate, err = base64.StdEncoding.DecodeString(inline)
+		if err != nil {
+			return azureAuth{}, fmt.Errorf("ARM_CLIENT_CERTIFICATE must be a base64-encoded PKCS#12 bundle: %w", err)
+		}
+	}
+	return auth, nil
+}
+
+// checkAzureIdentity rejects a credential source the plugin cannot start:
+// azidentity's EnvironmentCredential and WorkloadIdentityCredential both
+// refuse to construct without AZURE_TENANT_ID and AZURE_CLIENT_ID, which the
+// provider exports only when it knows them.
+func (cl *ByocClient) checkAzureIdentity(auth azureAuth) error {
+	var method string
+	switch auth.credentialSource {
+	case "workload":
+		method = "workload identity"
+	case "env":
+		method = "a client secret or certificate"
+	default:
+		return nil
+	}
+	var missing []string
+	if cl.azureTenantID == "" {
+		missing = append(missing, "a tenant (azure_tenant_id, ARM_TENANT_ID, or AZURE_TENANT_ID)")
+	}
+	if cl.azureClientID == "" {
+		missing = append(missing, "a client ID (azure_client_id, ARM_CLIENT_ID, or AZURE_CLIENT_ID)")
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%s for Azure needs %s", method, strings.Join(missing, " and "))
+}
+
+func (cl *ByocClient) selectAzureAuth() (azureAuth, error) {
 	authMethods := []struct {
 		EnvName          string
 		CredentialSource string
 		Identity         string
 	}{
 		{"ARM_USE_MSI", "msi", "msi"},
-		{"ARM_USE_OIDC", "env", "oidc"},
+		{"ARM_USE_OIDC", "", "oidc"},
 		{"ARM_USE_CLI", "cli", "cli"},
 		// --identity=none will set all of the other use_ configs to false.
 		// Terraform will correctly pick up ARM_USE_AKS_WORKLOAD_IDENTITY from the environment.
 		{"ARM_USE_AKS_WORKLOAD_IDENTITY", "workload", "none"},
 	}
-	seenExplicitAuthMethod := false
+	var explicit *azureAuth
 	for _, method := range authMethods {
 		use, err := getEnvBoolean(method.EnvName)
 		if err != nil {
-			return nil, nil, err
+			return azureAuth{}, err
 		}
-		if use {
-			if seenExplicitAuthMethod {
-				return nil, nil, errors.New("only one of ARM_USE_MSI, ARM_USE_OIDC, ARM_USE_CLI, or ARM_USE_AKS_WORKLOAD_IDENTITY can be set")
-			}
-			seenExplicitAuthMethod = true
-			azureArgs = append(azureArgs,
-				"--credential-source", method.CredentialSource,
-				"--identity", method.Identity,
-			)
+		if !use {
+			continue
 		}
+		if explicit != nil {
+			return azureAuth{}, errors.New("only one of ARM_USE_MSI, ARM_USE_OIDC, ARM_USE_CLI, or ARM_USE_AKS_WORKLOAD_IDENTITY can be set")
+		}
+		explicit = &azureAuth{credentialSource: method.CredentialSource, identity: method.Identity, reason: method.EnvName}
 	}
-	if !seenExplicitAuthMethod {
-		if cl.azureClientSecret != "" || os.Getenv("ARM_CLIENT_CERTIFICATE") != "" || os.Getenv("ARM_CLIENT_CERTIFICATE_PATH") != "" {
-			azureArgs = append(azureArgs,
-				"--credential-source", "env",
-				// --identity=oidc will set use_oidc=true in the provider config which isn't what
-				// we want, but is required to correctly pass client_id and client_secret through
-				// to the backend config used after the first stage Terraform bootstrap. if the
-				// ARM_CLIENT_ID and ARM_CLIENT_SECRET variables are defined they'll get picked
-				// up automatically and it will be fine, but if AZURE_CLIENT_ID and AZURE_CLIENT_SECRET
-				// are being used instead they won't get picked up and the Terraform backend will fail.
-				// TODO: can change this to --identity=none after removing support for AZURE_ variables
-				// "--identity", "oidc",
-			)
+	switch {
+	case explicit != nil && explicit.identity == "oidc":
+		return cl.resolveAzureOIDC()
+	case explicit != nil:
+		return *explicit, nil
+	case cl.hasAzureSecretOrCertificate():
+		// No --identity is sent. --identity=oidc would set use_oidc=true in the
+		// provider config, which is not wanted, but it is also what passes
+		// client_id and client_secret through to the backend config used after
+		// the first-stage Terraform bootstrap. ARM_CLIENT_ID and
+		// ARM_CLIENT_SECRET reach the backend without it; AZURE_CLIENT_ID and
+		// AZURE_CLIENT_SECRET do not. --identity=none becomes possible once the
+		// AZURE_ variables are no longer supported.
+		return azureAuth{credentialSource: "env", reason: "client secret or certificate"}, nil
+	default:
+		if file, envName := azureFederatedTokenFile(); file != "" {
+			return azureAuth{credentialSource: "workload", identity: "oidc", tokenFile: file, reason: envName + " without ARM_USE_OIDC or a secret"}, nil
 		}
+		return azureAuth{reason: "no Azure auth settings, plugin default Azure CLI"}, nil
 	}
+}
 
+// resolveAzureOIDC picks the plugin credential for ARM_USE_OIDC. The plugin's
+// "env" source is azidentity's EnvironmentCredential, which cannot use a
+// federated token, so a token goes through WorkloadIdentityCredential. With no
+// token the caller is expected to have run az login, as azure/login does when
+// azurerm fetches the GitHub Actions token itself.
+func (cl *ByocClient) resolveAzureOIDC() (azureAuth, error) {
+	if file, envName := azureFederatedTokenFile(); file != "" {
+		return azureAuth{credentialSource: "workload", identity: "oidc", tokenFile: file, reason: "ARM_USE_OIDC with " + envName}, nil
+	}
+	if raw := os.Getenv("ARM_OIDC_TOKEN"); raw != "" {
+		return azureAuth{credentialSource: "workload", identity: "oidc", rawToken: raw, reason: "ARM_USE_OIDC with ARM_OIDC_TOKEN"}, nil
+	}
+	if cl.hasAzureSecretOrCertificate() {
+		return azureAuth{credentialSource: "env", identity: "oidc", reason: "ARM_USE_OIDC with a client secret or certificate"}, nil
+	}
+	if _, err := exec.LookPath("az"); err != nil {
+		return azureAuth{}, errors.New("ARM_USE_OIDC is set but no federated token was found and the Azure CLI is not installed: set AZURE_FEDERATED_TOKEN_FILE, ARM_OIDC_TOKEN_FILE_PATH, or ARM_OIDC_TOKEN, or run az login before Terraform")
+	}
+	return azureAuth{credentialSource: "cli", identity: "oidc", reason: "ARM_USE_OIDC without a token, Azure CLI session"}, nil
+}
+
+// azureTokenCredentialName is the AZURE_TOKEN_CREDENTIALS value that confines
+// azidentity's DefaultAzureCredential to the credential the plugin's own
+// clients use. The plugin's tenant lookup, subnet provisioner, and
+// resource-group cleanup ignore --credential-source and fall back to
+// DefaultAzureCredential, the tenant lookup always and the others unless a
+// client secret is used. Unconfined, that chain stops at
+// ManagedIdentityCredential on a host with IMDS, such as a GitHub-hosted
+// runner, before it reaches the Azure CLI. The env source needs no entry
+// because EnvironmentCredential leads the chain.
+func azureTokenCredentialName(credentialSource string) string {
+	switch credentialSource {
+	case "", "cli":
+		return "AzureCLICredential"
+	case "msi":
+		return "ManagedIdentityCredential"
+	case "workload":
+		return "WorkloadIdentityCredential"
+	default:
+		return ""
+	}
+}
+
+func (cl *ByocClient) generateAzureArgsAndEnv(ctx context.Context) (args, env []string, cleanup func(), err error) {
+	auth, err := cl.resolveAzureAuth()
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	// Command line arguments: pre-flight validation requires --subscription-id to be set, and
 	// the internal Terraform project sets the subscription_id, client_id, and client_secret
 	// provider variables based on --subscription-id, --client-id, and --client-secret.
 	if cl.azureSubscriptionID == "" {
-		return nil, nil, errors.New("value must be set for Azure Subscription ID")
+		return nil, nil, nil, errors.New("value must be set for Azure Subscription ID")
+	}
+	var azureArgs []string
+	if auth.credentialSource != "" {
+		azureArgs = append(azureArgs, "--credential-source", auth.credentialSource)
+	}
+	if auth.identity != "" {
+		azureArgs = append(azureArgs, "--identity", auth.identity)
 	}
 	azureArgs = append(azureArgs,
 		"--subscription-id", cl.azureSubscriptionID,
 		"--client-id", cl.azureClientID,
 		"--client-secret", cl.azureClientSecret,
 	)
+	// Without --tenant-id the plugin resolves the tenant through
+	// DefaultAzureCredential before any other Azure call.
+	if cl.azureTenantID != "" {
+		azureArgs = append(azureArgs, "--tenant-id", cl.azureTenantID)
+	}
 
 	// Environment variables: pre-flight validation uses environment variables when passed
 	// --credential-source=env, prefixed with AZURE_ instead of ARM_; and the internal
 	// Terraform project sets the tenant_id provider variable based on AZURE_TENANT_ID.
 	// Handle this by taking all the ARM_ environment variables used by the Terraform azurerm
 	// provider and duplicate them as AZURE_ environment variables.
+	var azureEnv []string
 	for _, s := range os.Environ() {
 		if strings.HasPrefix(s, "ARM_") {
 			azureEnv = append(azureEnv, fmt.Sprintf("AZURE_%s", strings.TrimPrefix(s, "ARM_")))
 		}
 	}
+	if cl.azureTenantID != "" {
+		azureEnv = append(azureEnv, "AZURE_TENANT_ID="+cl.azureTenantID)
+	}
+	if cl.azureClientID != "" {
+		azureEnv = append(azureEnv, "AZURE_CLIENT_ID="+cl.azureClientID)
+	}
+	// EnvironmentCredential reads the secret only from AZURE_CLIENT_SECRET,
+	// and it must pair with the AZURE_CLIENT_ID exported above.
+	if cl.azureClientSecret != "" {
+		azureEnv = append(azureEnv, "AZURE_CLIENT_SECRET="+cl.azureClientSecret)
+	}
 
-	return azureArgs, azureEnv, nil
+	tokenFile := auth.tokenFile
+	if auth.rawToken != "" {
+		tokenFile, cleanup, err = writeAzureTempFile(ctx, "federated-token", []byte(auth.rawToken))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
+	if auth.certificate != nil {
+		var certFile string
+		certFile, cleanup, err = writeAzureTempFile(ctx, "client-certificate.pfx", auth.certificate)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		azureEnv = append(azureEnv, "AZURE_CLIENT_CERTIFICATE_PATH="+certFile)
+	}
+	if tokenFile != "" {
+		// WorkloadIdentityCredential reads AZURE_FEDERATED_TOKEN_FILE, while
+		// azurerm under use_oidc reads ARM_OIDC_TOKEN_FILE_PATH.
+		azureEnv = append(azureEnv,
+			"AZURE_FEDERATED_TOKEN_FILE="+tokenFile,
+			"ARM_OIDC_TOKEN_FILE_PATH="+tokenFile,
+		)
+	}
+	if auth.identity == "oidc" {
+		// The plugin's azurerm state backend gets no use_oidc setting and no
+		// client_id without a secret, so it reads both from ARM_ variables and
+		// otherwise falls back to the Azure CLI.
+		azureEnv = append(azureEnv, "ARM_USE_OIDC=true")
+		if cl.azureClientID != "" {
+			azureEnv = append(azureEnv, "ARM_CLIENT_ID="+cl.azureClientID)
+		}
+	}
+	tokenCredentials, tokenCredentialsBy := os.Getenv("AZURE_TOKEN_CREDENTIALS"), "user"
+	if tokenCredentials == "" {
+		tokenCredentials, tokenCredentialsBy = azureTokenCredentialName(auth.credentialSource), "provider"
+		if tokenCredentials != "" {
+			azureEnv = append(azureEnv, "AZURE_TOKEN_CREDENTIALS="+tokenCredentials)
+		}
+	}
+	tflog.Debug(ctx, "byoc plugin Azure authentication", map[string]any{
+		"reason":                     auth.reason,
+		"credential_source":          cmp.Or(auth.credentialSource, "plugin default (cli)"),
+		"identity":                   cmp.Or(auth.identity, "plugin default (cli)"),
+		"federated_token_file":       tokenFile != "",
+		"federated_token_from_raw":   auth.rawToken != "",
+		"certificate_file":           auth.certificate != nil,
+		"client_id_set":              cl.azureClientID != "",
+		"client_secret_set":          cl.azureClientSecret != "",
+		"tenant_forwarded":           cl.azureTenantID != "",
+		"azure_token_credentials":    tokenCredentials,
+		"azure_token_credentials_by": tokenCredentialsBy,
+	})
+	return azureArgs, azureEnv, cleanup, nil
+}
+
+// writeAzureTempFile writes a credential the plugin can only read from a file.
+// A raw OIDC token and an inline certificate belong to different credential
+// sources, so at most one is written per run.
+func writeAzureTempFile(ctx context.Context, name string, data []byte) (file string, cleanup func(), err error) {
+	tempDir, err := os.MkdirTemp("", "terraform-provider-redpanda-azure")
+	if err != nil {
+		return "", nil, err
+	}
+	cleanup = func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			tflog.Warn(ctx, "failed to clean up Azure credential temp directory", map[string]any{
+				"path":  tempDir,
+				"error": err.Error(),
+			})
+		}
+	}
+	file = path.Join(tempDir, name)
+	if err := os.WriteFile(file, data, 0o600); err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	return file, cleanup, nil
 }
 
 func (cl *ByocClient) generateGcpArgsAndEnv(ctx context.Context) (args, env []string, cleanup func(), err error) {
@@ -354,7 +577,7 @@ func (cl *ByocClient) generateByocArgsAndEnv(ctx context.Context, cluster clouda
 	case enums.CloudProviderStringAws:
 		providerArgs, providerEnv, err = cl.generateAwsArgsAndEnv()
 	case enums.CloudProviderStringAzure:
-		providerArgs, providerEnv, err = cl.generateAzureArgsAndEnv()
+		providerArgs, providerEnv, providerCleanup, err = cl.generateAzureArgsAndEnv(ctx)
 	case enums.CloudProviderStringGcp:
 		providerArgs, providerEnv, providerCleanup, err = cl.generateGcpArgsAndEnv(ctx)
 	default:
@@ -539,12 +762,37 @@ func (l *lastLogs) GetLines() []string {
 
 func forwardLogs(ctx context.Context, reader io.Reader, lastLogs *lastLogs, sink func(string)) {
 	r := bufio.NewScanner(reader)
+	// With AZURE_SDK_GO_LOGGING set, the Azure SDK writes one event as a
+	// prefixed line followed by indented detail lines and ends it with an
+	// empty line; sdkEvent carries the event across the detail lines.
+	sdkEvent := ""
 	for {
 		if !r.Scan() {
 			return
 		}
 		line := r.Text()
 		line = removeColor(line)
+		event, msg, ok := parseAzureSDKLog(line)
+		switch {
+		case line == "":
+			sdkEvent = ""
+			continue
+		case ok:
+			sdkEvent = event
+		case sdkEvent != "" && strings.TrimLeft(line, " \t") != line:
+			event, msg = sdkEvent, line
+		default:
+			sdkEvent = ""
+		}
+		if sdkEvent != "" {
+			if event == "Authentication" {
+				lastLogs.Append(line)
+				tflog.Debug(ctx, fmt.Sprintf("rpk: azure %s: %s", event, msg))
+			} else {
+				tflog.Trace(ctx, fmt.Sprintf("rpk: azure %s: %s", event, msg))
+			}
+			continue
+		}
 		lastLogs.Append(line)
 		if sink != nil {
 			if msg, ok := progressLine(line); ok {
@@ -568,11 +816,26 @@ func forwardLogs(ctx context.Context, reader io.Reader, lastLogs *lastLogs, sink
 	}
 }
 
+var azureSDKLogRegex = regexp.MustCompile(`^\[[A-Z][a-z]{2} [ 0-9]\d \d{2}:\d{2}:\d{2}\.\d{6}\] ([A-Za-z]+): (.*)$`)
+
+// parseAzureSDKLog recognizes a line the Azure SDK's AZURE_SDK_GO_LOGGING
+// console logger writes: "[<StampMicro time>] <Event>: <message>".
+func parseAzureSDKLog(line string) (event, msg string, ok bool) {
+	m := azureSDKLogRegex.FindStringSubmatch(line)
+	if m == nil {
+		return "", "", false
+	}
+	return m[1], m[2], true
+}
+
 // progressLine reduces one plugin output line to what a practitioner should
 // see in the apply log: the message of a zap line at INFO or above, or a
-// non-zap line as is. DEBUG lines are dropped because the plugin runs with
-// --debug and they would swamp the log; they still reach tflog.
+// non-zap line as is. DEBUG lines and Azure SDK log lines are dropped because
+// they would swamp the log; they still reach tflog.
 func progressLine(line string) (string, bool) {
+	if _, _, ok := parseAzureSDKLog(line); ok {
+		return "", false
+	}
 	z := parseZapLog(line)
 	if z == nil {
 		return line, line != ""
