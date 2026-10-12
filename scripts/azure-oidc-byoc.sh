@@ -17,7 +17,7 @@
 # provider authenticating to Azure through the local OIDC issuer from
 # azure-oidc.sh, so the byoc plugin runs with no client secret.
 #
-# Usage: azure-oidc-byoc.sh apply|destroy local|released token-file|arm-token|customer|secret
+# Usage: azure-oidc-byoc.sh apply|destroy local|released token-file|arm-token|customer|actions|secret
 #
 #   local      the provider built from this checkout (dev_overrides)
 #   released   the provider from the registry (REDPANDA_VERSION pins it)
@@ -27,6 +27,12 @@
 #   customer   ARM_USE_OIDC after az login --federated-token, with a stub of
 #              the GitHub Actions ID-token endpoint and no token file, the way
 #              azure/login leaves a GitHub Actions job
+#   actions    ARM_USE_OIDC with only the GitHub Actions ID-token endpoint
+#              stub: no token file and no az login, the way a job with the
+#              id-token: write permission and no azure/login step runs
+#   cli-session ARM_USE_OIDC with no token, no endpoint, and the ambient az
+#              login kept, the way a laptop with az login and ARM_USE_OIDC
+#              runs; needs no issuer
 #   secret     the ambient client secret, for cleaning up after a failed run
 #
 # Every OIDC mode runs with the client secret and certificate unset and an
@@ -48,7 +54,7 @@ provider="${2:-}"
 auth="${3:-}"
 case "$action/$provider/$auth" in
   apply/local/* | apply/released/* | destroy/local/* | destroy/released/*) ;;
-  *) echo "usage: azure-oidc-byoc.sh apply|destroy local|released token-file|arm-token|customer|secret" >&2; exit 2 ;;
+  *) echo "usage: azure-oidc-byoc.sh apply|destroy local|released token-file|arm-token|customer|actions|secret" >&2; exit 2 ;;
 esac
 
 repo="$(pwd)"
@@ -116,7 +122,14 @@ trap cleanup EXIT
 # setting wins.
 export AZURE_SDK_GO_LOGGING="${AZURE_SDK_GO_LOGGING:-all}"
 
-if [[ "$auth" != secret ]]; then
+if [[ "$auth" == cli-session ]]; then
+  unset AZURE_CLIENT_SECRET ARM_CLIENT_SECRET ARM_CLIENT_CERTIFICATE ARM_CLIENT_CERTIFICATE_PATH \
+    AZURE_CLIENT_CERTIFICATE_PATH AZURE_FEDERATED_TOKEN_FILE ARM_OIDC_TOKEN ARM_OIDC_TOKEN_FILE_PATH \
+    ARM_USE_CLI ARM_USE_MSI ARM_USE_AKS_WORKLOAD_IDENTITY \
+    ACTIONS_ID_TOKEN_REQUEST_URL ACTIONS_ID_TOKEN_REQUEST_TOKEN ARM_OIDC_REQUEST_URL ARM_OIDC_REQUEST_TOKEN
+  export ARM_USE_OIDC=true
+  az account show -o none || die "cli-session needs an ambient az login"
+elif [[ "$auth" != secret ]]; then
   # Credentials only: AZURE_TOKEN_CREDENTIALS passes through so a run can
   # override what the provider would set.
   unset AZURE_CLIENT_SECRET ARM_CLIENT_SECRET ARM_CLIENT_CERTIFICATE ARM_CLIENT_CERTIFICATE_PATH \
@@ -141,10 +154,12 @@ if [[ "$auth" != secret ]]; then
       ARM_OIDC_TOKEN="$(cat "$token")"
       export ARM_OIDC_TOKEN
       ;;
-    customer)
-      az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" \
-        --federated-token "$(cat "$token")" --allow-no-subscriptions -o none
-      az account set --subscription "$ARM_SUBSCRIPTION_ID"
+    customer | actions)
+      if [[ "$auth" == customer ]]; then
+        az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" \
+          --federated-token "$(cat "$token")" --allow-no-subscriptions -o none
+        az account set --subscription "$ARM_SUBSCRIPTION_ID"
+      fi
       request_token="$(openssl rand -hex 16)"
       if [[ -n "${AZURE_OIDC_TOKEN_FILE:-}" ]]; then
         "$bin" serve-actions -token-file "$token" -request-token "$request_token" \
