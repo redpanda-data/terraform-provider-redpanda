@@ -407,6 +407,7 @@ type gcpBYOVPCOpts struct {
 	pscNat       string // psc_nat_subnet_name (freely in-place updatable); "" omits it
 	rpsql        bool   // enable Redpanda SQL and emit the rpsql_* CMR leaves
 	rpsqlSAEmail string // rpsql_service_account.email (immutable while rpsql enabled)
+	tags         string // raw tags HCL, e.g. `tags = { env = "dev" }`; "" omits it
 }
 
 func gcpBYOVPCConfig(o gcpBYOVPCOpts) string {
@@ -416,9 +417,12 @@ func gcpBYOVPCConfig(o gcpBYOVPCOpts) string {
 		extra += fmt.Sprintf("\n      psc_nat_subnet_name   = %q", o.pscNat)
 	}
 	rpsqlBlock := ""
+	if o.tags != "" {
+		rpsqlBlock += "\n  " + o.tags
+	}
 	if o.rpsql {
 		rpsqlSA := orDefault(o.rpsqlSAEmail, "rpsql@tfrp-proj.iam.gserviceaccount.com")
-		rpsqlBlock = "\n  rpsql             = { enabled = true }"
+		rpsqlBlock += "\n  rpsql             = { enabled = true }"
 		extra += fmt.Sprintf(`
       rpsql_api_service_account   = { email = "rpsql-api@tfrp-proj.iam.gserviceaccount.com" }
       rpsql_service_account       = { email = %q }
@@ -956,7 +960,7 @@ func TestIntegration_Cluster_UpdateLeaf_ThroughputTier(t *testing.T) {
 // control plane adds on its own never reach state while a user's key that
 // shares a control-plane prefix does.
 func TestIntegration_Cluster_UpdateLeaf_Tags(t *testing.T) {
-	_, factories := clusterSetup(t)
+	srv, factories := clusterSetup(t)
 
 	const name = "tfrp-mock-cl-b3"
 
@@ -1012,6 +1016,166 @@ func TestIntegration_Cluster_UpdateLeaf_Tags(t *testing.T) {
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags"), knownvalue.MapExact(map[string]knownvalue.Check{
 						"env": knownvalue.StringExact("dev"),
 					})),
+				}),
+		},
+	})
+
+	// A configuration that sets tags owns only its keys: a key set outside
+	// Terraform never enters the plan and survives a tag edit.
+	const oobName = "tfrp-mock-cl-b3o"
+	envOnly := func(v string) knownvalue.Check {
+		return knownvalue.MapExact(map[string]knownvalue.Check{"env": knownvalue.StringExact(v)})
+	}
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				awsDedicatedConfig(oobName, `tags = { env = "dev" }`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags"), envOnly("dev")),
+				}),
+			{
+				PreConfig: func() {
+					for k, v := range map[string]string{"owner": "ops", "aws-apn-id-999999999999": "mine"} {
+						if !srv.Cluster.SetTagOutOfBand(oobName, k, v) {
+							t.Fatalf("cluster %s not stored in the fake", oobName)
+						}
+					}
+				},
+				Config: awsDedicatedConfig(oobName, `tags = { env = "dev" }`),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags"), envOnly("dev")),
+				},
+			},
+			{
+				Config: awsDedicatedConfig(oobName, `tags = { env = "prod" }`),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(clusterAddr, plancheck.ResourceActionUpdate),
+						plancheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags"), envOnly("prod")),
+					},
+					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags"), envOnly("prod")),
+				},
+				Check: func(*terraform.State) error {
+					got := srv.Cluster.CloudProviderTagsOf(oobName)
+					if got["env"] != "prod" {
+						return fmt.Errorf("update did not apply the configured key: %v", got)
+					}
+					for k, v := range map[string]string{"owner": "ops", "aws-apn-id-999999999999": "mine"} {
+						if got[k] != v {
+							return fmt.Errorf("update removed %s, a key the plan never showed: %v", k, got)
+						}
+					}
+					return nil
+				},
+			},
+			// tags is computed, so dropping it from the configuration keeps the
+			// last applied keys; the key set outside Terraform must stay hidden
+			// through an unrelated update.
+			integration.UpdateLeafStep(clusterAddr,
+				awsDedicatedConfig(oobName, `maintenance_window_config = { day_hour = { day_of_week = "MONDAY", hour_of_day = 3 } }`),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags"), envOnly("prod")),
+				}),
+		},
+	})
+
+	// A tagless configuration tracks the cluster's tags as the control plane
+	// holds them, so every key set outside Terraform reaches state on refresh,
+	// not only the first one.
+	const taglessName = "tfrp-mock-cl-b3t"
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				awsDedicatedConfig(taglessName),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags"), knownvalue.Null()),
+				}),
+			{
+				PreConfig: func() {
+					if !srv.Cluster.SetTagOutOfBand(taglessName, "owner", "ops") {
+						t.Fatalf("cluster %s not stored in the fake", taglessName)
+					}
+				},
+				Config: awsDedicatedConfig(taglessName),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags"), knownvalue.MapExact(map[string]knownvalue.Check{
+						"owner": knownvalue.StringExact("ops"),
+					})),
+				},
+			},
+			{
+				PreConfig: func() {
+					if !srv.Cluster.SetTagOutOfBand(taglessName, "second", "2") {
+						t.Fatalf("cluster %s not stored in the fake", taglessName)
+					}
+				},
+				Config: awsDedicatedConfig(taglessName),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags"), knownvalue.MapExact(map[string]knownvalue.Check{
+						"owner":  knownvalue.StringExact("ops"),
+						"second": knownvalue.StringExact("2"),
+					})),
+				},
+			},
+		},
+	})
+
+	// The Google Cloud partner label the control plane stamps on GCP BYOC
+	// clusters is a known control-plane key: a tagless configuration and the
+	// datasource read it back as absent, and a configuration may not set a
+	// reserved key, on create or later, because the control plane overwrites
+	// it rather than rejecting it on create.
+	const gcpName = "tfrp-mock-cl-b3g"
+	const dsAddr = "data.redpanda_cluster.test"
+	withDatasource := func(cfg string) string {
+		return cfg + `
+data "redpanda_cluster" "test" {
+  id = redpanda_cluster.test.id
+}
+`
+	}
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config:      gcpBYOVPCConfig(gcpBYOVPCOpts{name: gcpName, tags: `tags = { "aws-apn-id" = "mine" }`}),
+				ExpectError: regexp.MustCompile(`"aws-apn-id" is reserved`),
+			},
+			// A redpanda- key the control plane does not reserve is still
+			// stripped on read, so it must fail before apply too.
+			{
+				Config:      gcpBYOVPCConfig(gcpBYOVPCOpts{name: gcpName, tags: `tags = { "redpanda-team" = "x" }`}),
+				ExpectError: regexp.MustCompile(`"redpanda-team" is reserved`),
+			},
+			integration.CreateStep(clusterAddr,
+				withDatasource(gcpBYOVPCConfig(gcpBYOVPCOpts{name: gcpName})),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags"), knownvalue.Null()),
+					statecheck.ExpectKnownValue(dsAddr, tfjsonpath.New("tags"), knownvalue.Null()),
+				}),
+			{
+				Config:      gcpBYOVPCConfig(gcpBYOVPCOpts{name: gcpName, tags: `tags = { "goog-partner-solution" = "mine" }`}),
+				ExpectError: regexp.MustCompile(`"goog-partner-solution" is reserved`),
+			},
+			integration.UpdateLeafStep(clusterAddr,
+				withDatasource(gcpBYOVPCConfig(gcpBYOVPCOpts{name: gcpName, tags: `tags = { env = "dev" }`})),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags"), envOnly("dev")),
+					statecheck.ExpectKnownValue(dsAddr, tfjsonpath.New("tags"), envOnly("dev")),
 				}),
 		},
 	})
