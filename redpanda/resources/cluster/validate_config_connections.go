@@ -39,6 +39,7 @@ var _ resource.ResourceWithValidateConfig = &Cluster{}
 // are deliberately left to the API, which distinguishes create from update.
 func (*Cluster) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
 	validators.CustomerManagedResourcesEnvelope(ctx, req.Config, &resp.Diagnostics)
+	validateReservedTagKeys(ctx, req.Config, resp)
 	validateDualListenerConnections(ctx, req.Config, resp)
 	warnLegacyConnectionTypeOnCertifiedEnvelope(ctx, req.Config, resp)
 }
