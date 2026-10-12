@@ -62,6 +62,10 @@ type ByocRunnerFake struct {
 	// blockNext, when non-zero, makes only the next run wait until the
 	// context ends or blockNext elapses, whichever is first.
 	blockNext time.Duration
+	// checkErr is returned from every CheckCloudConfig call; checks records
+	// the cloud provider of each call.
+	checkErr error
+	checks   []string
 }
 
 // BlockNextFor makes the next run behave like a hung plugin: it waits until
@@ -138,4 +142,27 @@ func (f *ByocRunnerFake) Calls() []ByocCall {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return append([]ByocCall(nil), f.calls...)
+}
+
+// FailChecksWith makes every CheckCloudConfig call return err; nil restores
+// a passing preflight.
+func (f *ByocRunnerFake) FailChecksWith(err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.checkErr = err
+}
+
+// CheckCloudConfig implements utils.ByocCloudConfigChecker.
+func (f *ByocRunnerFake) CheckCloudConfig(cloudProvider string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.checks = append(f.checks, cloudProvider)
+	return f.checkErr
+}
+
+// Checks returns the cloud provider of every preflight call in order.
+func (f *ByocRunnerFake) Checks() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.checks...)
 }

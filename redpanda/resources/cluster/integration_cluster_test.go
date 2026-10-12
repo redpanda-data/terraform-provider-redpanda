@@ -305,6 +305,42 @@ resource "redpanda_cluster" "test" {
 `, name)
 }
 
+// azureBYOCConfig returns the Azure BYOC baseline HCL, paired like
+// awsBYOCConfig: a Redpanda-managed network under a BYOC cluster without
+// customer-managed resources. Azure is the only provider whose byoc plugin
+// preflight can fail, so tests that script a failing preflight use it.
+func azureBYOCConfig(name string) string {
+	return fmt.Sprintf(`
+provider "redpanda" {}
+
+resource "redpanda_resource_group" "test" {
+  name = "tfrp-mock-cl-rg"
+}
+
+resource "redpanda_network" "test" {
+  name              = "tfrp-mock-cl-net"
+  resource_group_id = redpanda_resource_group.test.id
+  cloud_provider    = "azure"
+  region            = "eastus"
+  cluster_type      = "byoc"
+  cidr_block        = "10.0.0.0/20"
+}
+
+resource "redpanda_cluster" "test" {
+  name              = %q
+  resource_group_id = redpanda_resource_group.test.id
+  network_id        = redpanda_network.test.id
+  cloud_provider    = "azure"
+  region            = "eastus"
+  zones             = ["eastus-az1"]
+  throughput_tier   = "tier-1-azure-v3-x86"
+  cluster_type      = "byoc"
+  connection_type   = "private"
+  allow_deletion    = true
+}
+`, name)
+}
+
 // awsBYOVPCOpts configures awsBYOVPCConfig. rpsql gates both the top-level
 // rpsql block and the rpsql_* CMR leaves: the control plane clears rpsql CMR
 // when Redpanda SQL is disabled, so they are only realistic together. Blank
