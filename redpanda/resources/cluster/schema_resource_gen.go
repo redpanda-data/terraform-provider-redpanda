@@ -1647,7 +1647,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"tags": schema.MapAttribute{
-				Description:   "Tags placed on cloud resources. Keys the control plane manages on its own, such as `redpanda-` and `aws-apn-id` keys, are kept out of state. A resource whose configuration sets tags tracks only the keys it sets.",
+				Description:   "Tags placed on cloud resources. Keys the control plane manages on its own (`redpanda-*`, `aws-apn-id`, `goog-partner-solution`) are kept out of state and cannot be set. A configuration that sets tags owns only the keys it sets: an update adds, changes, and removes the keys in state and leaves the rest of the cluster's tags in place. Import reads every other key into state, so the first apply after it removes the ones the configuration does not set, as the plan shows.",
 				Optional:      true,
 				Computed:      true,
 				PlanModifiers: []planmodifier.Map{mapplanmodifier.UseStateForUnknown()},
