@@ -388,6 +388,11 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 	if err := rpsqlCMRRequiredOnEnable(cl, upd, req.GetUpdateMask().GetPaths()); err != nil {
 		return nil, err
 	}
+	if slices.Contains(req.GetUpdateMask().GetPaths(), "cloud_provider_tags") {
+		if err := validateReservedTagsOnUpdate(upd.GetCloudProviderTags(), cl.GetCloudProviderTags()); err != nil {
+			return nil, err
+		}
+	}
 
 	// Dual listener mode: run the connections guards and application before
 	// the generic mask loop (mirrors the control plane validating and mapping
@@ -1018,6 +1023,40 @@ func (f *ClusterFake) SetStateOutOfBand(name string, state controlplanev1.Cluste
 	return false
 }
 
+// SetTagOutOfBand writes one cloud_provider_tags entry on the stored cluster
+// with the given name, as an UpdateCluster from another client would. Returns
+// false when no cluster has that name.
+func (f *ClusterFake) SetTagOutOfBand(name, key, value string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, cl := range f.clusters {
+		if cl.GetName() != name {
+			continue
+		}
+		tags := maps.Clone(cl.GetCloudProviderTags())
+		if tags == nil {
+			tags = map[string]string{}
+		}
+		tags[key] = value
+		cl.CloudProviderTags = tags
+		return true
+	}
+	return false
+}
+
+// CloudProviderTagsOf returns a copy of the stored cluster's cloud_provider_tags,
+// or nil when no cluster has that name.
+func (f *ClusterFake) CloudProviderTagsOf(name string) map[string]string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, cl := range f.clusters {
+		if cl.GetName() == name {
+			return maps.Clone(cl.GetCloudProviderTags())
+		}
+	}
+	return nil
+}
+
 // ListClusters returns the stored clusters that match the request's
 // name_contains filter, or all of them when the filter is empty. Other filter
 // fields and pagination are ignored: the provider's lookups filter by name
@@ -1037,20 +1076,63 @@ func (f *ClusterFake) ListClusters(_ context.Context, req *controlplanev1.ListCl
 	return &controlplanev1.ListClustersResponse{Clusters: out}, nil
 }
 
+// Common tags the control plane stamps itself (cloudv2-infra common_tags):
+// the AWS Partner Network attribution tag on AWS clusters and the Google
+// Cloud partner label on GCP BYOC clusters.
+const (
+	awsAPNTagKey     = "aws-apn-id"
+	gcpPartnerTagKey = "goog-partner-solution"
+)
+
+// reservedTagKeys mirrors controlplane-api reservedTagKeys: the keys of
+// cptags.ReservedCloudTagKeys plus every common-tag key, whichever provider
+// it applies to. Create does not enforce them (the control plane discards
+// that check's result); applyCommonTags then overwrites or prunes the
+// common-tag keys. Update rejects them.
+var reservedTagKeys = []string{"redpanda-org", "redpanda-id", "network-id", "redpanda-client", awsAPNTagKey, gcpPartnerTagKey}
+
+func reservedTagKeyErr(key string) error {
+	return status.Errorf(codes.InvalidArgument, "cloud tags cannot contain the reserved key %q", key)
+}
+
+// validateReservedTagsOnUpdate mirrors the control plane's update rule: a
+// reserved key is rejected only when it was never stored or its value
+// changed, so a read-modify-write client may carry the stored value back.
+func validateReservedTagsOnUpdate(updated, stored map[string]string) error {
+	for _, key := range reservedTagKeys {
+		value, present := updated[key]
+		if !present {
+			continue
+		}
+		storedValue, wasStored := stored[key]
+		if !wasStored || value != storedValue {
+			return reservedTagKeyErr(key)
+		}
+	}
+	return nil
+}
+
 // applyCommonTags mirrors the control plane's own writes to
 // cloud_provider_tags (controlplane-api redpanda_service.go): redpanda-managed
-// on every cluster, and the common tags of applyCommonTags on every write, so
-// a read never returns only the user's keys. The configured common tag is the
-// AWS Partner Network attribution tag; it carries the partner account id, so
-// no prefix rule predicts it.
+// on every cluster, and the common tags on every write, so a read never
+// returns only the user's keys.
 func applyCommonTags(cl *controlplanev1.Cluster) {
 	tags := maps.Clone(cl.GetCloudProviderTags())
 	if tags == nil {
 		tags = map[string]string{}
 	}
 	tags["redpanda-managed"] = "true"
+	// A common tag that does not apply to this cluster is pruned even when
+	// the client sent it, as the control plane's applyCommonTags does.
 	if cl.GetCloudProvider() == controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS {
-		tags["aws-apn-id-123456789012"] = "pub-tfrp-fake"
+		tags[awsAPNTagKey] = "pc:tfrp-fake"
+	} else {
+		delete(tags, awsAPNTagKey)
+	}
+	if cl.GetCloudProvider() == controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP && cl.GetType() == controlplanev1.Cluster_TYPE_BYOC {
+		tags[gcpPartnerTagKey] = "isol_tfrp-fake"
+	} else {
+		delete(tags, gcpPartnerTagKey)
 	}
 	cl.CloudProviderTags = tags
 }

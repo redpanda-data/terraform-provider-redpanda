@@ -854,11 +854,11 @@ func azureNetworkCMRAsCluster() *controlplanev1.Network_CustomerManagedResources
 func TestClusterFake_CommonTagsInjected(t *testing.T) {
 	ctx := context.Background()
 	f := NewClusterFake(NewOperationFake())
-	create := func(name string, provider controlplanev1.CloudProvider, region string) *controlplanev1.Cluster {
+	createTyped := func(name string, provider controlplanev1.CloudProvider, typ controlplanev1.Cluster_Type, region string) *controlplanev1.Cluster {
 		op, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{Cluster: &controlplanev1.ClusterCreate{
 			Name:              name,
 			CloudProvider:     provider,
-			Type:              controlplanev1.Cluster_TYPE_DEDICATED,
+			Type:              typ,
 			Region:            region,
 			CloudProviderTags: map[string]string{"env": "dev"},
 		}})
@@ -871,21 +871,15 @@ func TestClusterFake_CommonTagsInjected(t *testing.T) {
 		}
 		return got.GetCluster()
 	}
-	apnKey := func(tags map[string]string) string {
-		for k := range tags {
-			if strings.HasPrefix(k, "aws-apn-id") {
-				return k
-			}
-		}
-		return ""
+	create := func(name string, provider controlplanev1.CloudProvider, region string) *controlplanev1.Cluster {
+		return createTyped(name, provider, controlplanev1.Cluster_TYPE_DEDICATED, region)
 	}
-
 	aws := create("aws", controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS, "us-east-1")
 	if aws.GetCloudProviderTags()["env"] != "dev" {
 		t.Fatalf("aws create: user tag lost, got %v", aws.GetCloudProviderTags())
 	}
-	if apnKey(aws.GetCloudProviderTags()) == "" {
-		t.Fatalf("aws create: want a control-plane aws-apn-id tag next to the user's, got %v", aws.GetCloudProviderTags())
+	if aws.GetCloudProviderTags()[awsAPNTagKey] == "" {
+		t.Fatalf("aws create: want the control plane's %s tag next to the user's, got %v", awsAPNTagKey, aws.GetCloudProviderTags())
 	}
 
 	if _, err := f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
@@ -901,7 +895,7 @@ func TestClusterFake_CommonTagsInjected(t *testing.T) {
 	if got.GetCluster().GetCloudProviderTags()["env"] != "prod" {
 		t.Errorf("aws update: got %v, want env=prod", got.GetCluster().GetCloudProviderTags())
 	}
-	if apnKey(got.GetCluster().GetCloudProviderTags()) == "" {
+	if got.GetCluster().GetCloudProviderTags()[awsAPNTagKey] == "" {
 		t.Errorf("aws update: control plane re-applies its tag after the user's replace the map, got %v", got.GetCluster().GetCloudProviderTags())
 	}
 
@@ -920,17 +914,83 @@ func TestClusterFake_CommonTagsInjected(t *testing.T) {
 	if _, ok := got.GetCluster().GetCloudProviderTags()["env"]; ok {
 		t.Errorf("empty tags update: user tag survived a map replace, got %v", got.GetCluster().GetCloudProviderTags())
 	}
-	if apnKey(got.GetCluster().GetCloudProviderTags()) == "" {
+	if got.GetCluster().GetCloudProviderTags()[awsAPNTagKey] == "" {
 		t.Errorf("empty tags update: control plane re-stamps its tag, got %v", got.GetCluster().GetCloudProviderTags())
 	}
 
 	gcp := create("gcp", controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP, "us-central1")
-	if k := apnKey(gcp.GetCloudProviderTags()); k != "" {
-		t.Errorf("gcp create: AWS attribution tag %q must not appear on a GCP cluster", k)
+	if _, ok := gcp.GetCloudProviderTags()[awsAPNTagKey]; ok {
+		t.Errorf("gcp create: AWS attribution tag must not appear on a GCP cluster, got %v", gcp.GetCloudProviderTags())
 	}
 	for _, cl := range []*controlplanev1.Cluster{aws, gcp} {
 		if _, ok := cl.GetCloudProviderTags()["redpanda-managed"]; !ok {
 			t.Errorf("%s create: control plane writes redpanda-managed on every cluster, got %v", cl.GetName(), cl.GetCloudProviderTags())
 		}
+	}
+
+	// The Google Cloud partner label is stamped on GCP BYOC clusters only.
+	gcpBYOC := createTyped("gcp-byoc", controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP, controlplanev1.Cluster_TYPE_BYOC, "us-central1")
+	partnerValue := gcpBYOC.GetCloudProviderTags()[gcpPartnerTagKey]
+	if partnerValue == "" {
+		t.Fatalf("gcp byoc create: want the control plane's %s label, got %v", gcpPartnerTagKey, gcpBYOC.GetCloudProviderTags())
+	}
+	for _, cl := range []*controlplanev1.Cluster{aws, gcp} {
+		if _, ok := cl.GetCloudProviderTags()[gcpPartnerTagKey]; ok {
+			t.Errorf("%s create: %s belongs to GCP BYOC clusters only, got %v", cl.GetName(), gcpPartnerTagKey, cl.GetCloudProviderTags())
+		}
+	}
+
+	// Create does not enforce reserved keys: the control plane stores the
+	// request and then writes its own value for a common tag that applies and
+	// prunes one that does not.
+	op, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{Cluster: &controlplanev1.ClusterCreate{
+		Name:              "reserved-on-create",
+		CloudProvider:     controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP,
+		Type:              controlplanev1.Cluster_TYPE_BYOC,
+		Region:            "us-central1",
+		CloudProviderTags: map[string]string{gcpPartnerTagKey: "mine", awsAPNTagKey: "mine", "env": "dev"},
+	}})
+	if err != nil {
+		t.Fatalf("create with reserved keys: control plane accepts them, got %v", err)
+	}
+	got, err = f.GetCluster(ctx, &controlplanev1.GetClusterRequest{Id: op.GetOperation().GetResourceId()})
+	if err != nil {
+		t.Fatalf("GetCluster after reserved create: %v", err)
+	}
+	if v := got.GetCluster().GetCloudProviderTags()[gcpPartnerTagKey]; v != partnerValue {
+		t.Errorf("reserved create: control plane overwrites %s with its own value, got %q", gcpPartnerTagKey, v)
+	}
+	if _, ok := got.GetCluster().GetCloudProviderTags()[awsAPNTagKey]; ok {
+		t.Errorf("reserved create: control plane prunes %s from a GCP cluster, got %v", awsAPNTagKey, got.GetCluster().GetCloudProviderTags())
+	}
+
+	// Update rejects a reserved key unless it carries the stored value back.
+	updateTags := func(tags map[string]string) error {
+		_, err := f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+			Cluster:    &controlplanev1.ClusterUpdate{Id: gcpBYOC.GetId(), CloudProviderTags: tags},
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"cloud_provider_tags"}},
+		})
+		return err
+	}
+	if err := updateTags(map[string]string{"env": "dev", gcpPartnerTagKey: partnerValue}); err != nil {
+		t.Fatalf("update carrying the stored reserved value back: %v", err)
+	}
+	for _, tags := range []map[string]string{
+		{"env": "dev", gcpPartnerTagKey: "other"},
+		{"env": "dev", awsAPNTagKey: "x"},
+	} {
+		if err := updateTags(tags); status.Code(err) != codes.InvalidArgument || !strings.Contains(err.Error(), "reserved key") {
+			t.Fatalf("update %v: got %v, want InvalidArgument naming the reserved key", tags, err)
+		}
+	}
+	if err := updateTags(map[string]string{"env": "dev"}); err != nil {
+		t.Fatalf("update omitting the reserved key: %v", err)
+	}
+	got, err = f.GetCluster(ctx, &controlplanev1.GetClusterRequest{Id: gcpBYOC.GetId()})
+	if err != nil {
+		t.Fatalf("GetCluster after update: %v", err)
+	}
+	if got.GetCluster().GetCloudProviderTags()[gcpPartnerTagKey] != partnerValue {
+		t.Errorf("gcp byoc update: control plane re-stamps its label after the user's replace the map, got %v", got.GetCluster().GetCloudProviderTags())
 	}
 }
