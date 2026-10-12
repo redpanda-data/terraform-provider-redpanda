@@ -251,3 +251,130 @@ func requireClusterState(t *testing.T, cl *fakes.ClusterFake, name string, want 
 	}
 	t.Fatalf("cluster %q is gone from the control plane; a failed plugin destroy must leave it", name)
 }
+
+// TestIntegration_Cluster_BYOC_PreflightGuardsCreateAndDestroy pins that the
+// byoc plugin's cloud-config preflight fails a BYOC create at plan, before
+// the control plane is asked for anything, and fails a destroy the same way
+// with the cluster left READY, so a missing provider setting never leaves a
+// half-created or half-deleted cluster.
+func TestIntegration_Cluster_BYOC_PreflightGuardsCreateAndDestroy(t *testing.T) {
+	srv, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-b2"
+	cfg := azureBYOCConfig(name)
+	missing := errors.New("azure_subscription_id must be set on the provider (or ARM_SUBSCRIPTION_ID in the environment) to run the byoc plugin against an Azure cluster")
+
+	create := integration.CreateStep(clusterAddr, cfg, []statecheck.StateCheck{
+		statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("state"), knownvalue.StringExact("STATE_READY")),
+	})
+	create.PreConfig = func() {
+		requireNoCluster(t, srv.Cluster, name)
+		if calls := srv.Byoc.Calls(); len(calls) != 0 {
+			t.Fatalf("byoc runner ran %v although the preflight failed", calls)
+		}
+		srv.Byoc.FailChecksWith(nil)
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				PreConfig:   func() { srv.Byoc.FailChecksWith(missing) },
+				Config:      cfg,
+				ExpectError: regexp.MustCompile(`azure_subscription_id`),
+			},
+			create,
+			{
+				// A no-change plan never runs the plugin, so a failing
+				// preflight must not block a workstation that holds only
+				// Redpanda credentials.
+				PreConfig: func() { srv.Byoc.FailChecksWith(missing) },
+				Config:    cfg,
+				PlanOnly:  true,
+			},
+			{
+				Config:      cfg,
+				Destroy:     true,
+				ExpectError: regexp.MustCompile(`azure_subscription_id`),
+			},
+			{
+				PreConfig: func() {
+					requireClusterState(t, srv.Cluster, name, controlplanev1.Cluster_STATE_READY)
+					srv.Byoc.FailChecksWith(nil)
+				},
+				Config:  cfg,
+				Destroy: true,
+			},
+		},
+	})
+
+	if checks := srv.Byoc.Checks(); len(checks) == 0 || slices.Contains(checks, "") || checks[0] != "azure" {
+		t.Fatalf("preflight checks = %v, want the cluster's cloud provider on every call", checks)
+	}
+	calls := srv.Byoc.Calls()
+	if len(calls) != 2 || calls[0].Verb != "apply" || calls[1].Verb != "destroy" {
+		t.Fatalf("byoc runner calls = %v, want exactly [apply destroy]", calls)
+	}
+}
+
+// requireNoCluster fails the test if the fake holds a cluster with the given
+// name.
+func requireNoCluster(t *testing.T, cl *fakes.ClusterFake, name string) {
+	t.Helper()
+	resp, err := cl.ListClusters(context.Background(), &controlplanev1.ListClustersRequest{})
+	if err != nil {
+		t.Fatalf("list clusters: %v", err)
+	}
+	for _, c := range resp.GetClusters() {
+		if c.GetName() == name {
+			t.Fatalf("cluster %q was created although the byoc preflight failed", name)
+		}
+	}
+}
+
+// TestIntegration_Cluster_BYOC_PreflightGuardsDestroyAfterFailedCreate pins
+// that the preflight still guards a destroy after a create whose plugin run
+// failed, and that the cluster is left untouched in CREATING_AGENT until the
+// preflight passes. The refresh before the destroy plan repopulates the
+// minimal state here; the no-refresh path, where the type and cloud provider
+// come from the control plane instead, is pinned by the unit tests.
+func TestIntegration_Cluster_BYOC_PreflightGuardsDestroyAfterFailedCreate(t *testing.T) {
+	srv, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-b3"
+	cfg := azureBYOCConfig(name)
+	missing := errors.New("azure_subscription_id must be set on the provider (or ARM_SUBSCRIPTION_ID in the environment) to run the byoc plugin against an Azure cluster")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				PreConfig:   func() { srv.Byoc.FailNextWith(errors.New("byoc azure apply: agent bootstrap failed")) },
+				Config:      cfg,
+				ExpectError: regexp.MustCompile(`agent bootstrap failed`),
+			},
+			{
+				PreConfig: func() {
+					requireClusterState(t, srv.Cluster, name, controlplanev1.Cluster_STATE_CREATING_AGENT)
+					srv.Byoc.FailChecksWith(missing)
+				},
+				Config:      cfg,
+				Destroy:     true,
+				ExpectError: regexp.MustCompile(`azure_subscription_id`),
+			},
+			{
+				PreConfig: func() {
+					requireClusterState(t, srv.Cluster, name, controlplanev1.Cluster_STATE_CREATING_AGENT)
+					srv.Byoc.FailChecksWith(nil)
+				},
+				Config:  cfg,
+				Destroy: true,
+			},
+		},
+	})
+
+	calls := srv.Byoc.Calls()
+	if len(calls) != 2 || calls[0].Verb != "apply" || calls[1].Verb != "destroy" {
+		t.Fatalf("byoc runner calls = %v, want exactly [apply destroy]", calls)
+	}
+}
