@@ -19,6 +19,7 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
@@ -131,7 +132,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 			resp.Diagnostics.AddError("failed to generate model for state during cluster.Create", "")
 			return
 		}
-		state.Tags = clustermodel.RetainConfiguredTags(state.Tags, plan.Tags)
+		state.Tags = clustermodel.RetainConfiguredTags(state.Tags, stampConfiguredTags(ctx, req.Config, resp.Private, resp.Private, &resp.Diagnostics))
 		tflog.Info(ctx, "cluster created", map[string]any{"cluster_id": clusterID})
 		// ModifyPlan is skipped on create, so the connections-managed marker
 		// is stamped here.
@@ -173,7 +174,7 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		resp.Diagnostics.AddError("failed to generate model for state during cluster.Read", "")
 		return
 	}
-	state.Tags = clustermodel.RetainConfiguredTags(state.Tags, model.Tags)
+	state.Tags = clustermodel.RetainConfiguredTags(state.Tags, configuredTagKeys(ctx, req.Private, &resp.Diagnostics))
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
@@ -227,6 +228,17 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		"http_proxy":      len(diffedPayload.GetHttpProxy().GetConnections()) > 0,
 		"schema_registry": len(diffedPayload.GetSchemaRegistry().GetConnections()) > 0,
 	})
+	// The control plane replaces cloud_provider_tags under the mask, so the
+	// payload must carry the keys this configuration does not own or the
+	// update would remove them without the plan ever showing it.
+	if slices.Contains(mask.GetPaths(), "cloud_provider_tags") {
+		current, err := c.CpCl.ClusterForID(ctx, plan.ID.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", plan.ID), utils.DeserializeGrpcError(err))
+			return
+		}
+		diffedPayload.CloudProviderTags = clustermodel.MergeConfiguredTags(current.GetCloudProviderTags(), state.Tags, plan.Tags)
+	}
 	diffedPayload.Id = plan.ID.ValueString()
 	updateReq := &controlplanev1.UpdateClusterRequest{
 		Cluster:    diffedPayload,
@@ -262,7 +274,7 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		resp.Diagnostics.AddError("failed to generate model for state during cluster.Update", "")
 		return
 	}
-	newState.Tags = clustermodel.RetainConfiguredTags(newState.Tags, plan.Tags)
+	newState.Tags = clustermodel.RetainConfiguredTags(newState.Tags, stampConfiguredTags(ctx, req.Config, req.Private, resp.Private, &resp.Diagnostics))
 	tflog.Info(ctx, "cluster updated", map[string]any{"cluster_id": plan.ID.ValueString()})
 	resp.Diagnostics.Append(resp.State.Set(ctx, newState)...)
 }
