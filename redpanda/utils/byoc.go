@@ -21,9 +21,11 @@ import (
 	"cmp"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -31,6 +33,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/redpanda/src/go/rpk/pkg/cloudapi"
@@ -212,23 +215,45 @@ type azureAuth struct {
 	identity         string
 	tokenFile        string
 	rawToken         string
-	certificate      []byte
-	reason           string
+	// tokenRequestURL and tokenRequestToken are azurerm's token request
+	// endpoint; the provider requests the federated token itself and
+	// tokenRequestEnv names the variable that pointed at the endpoint.
+	tokenRequestURL   string
+	tokenRequestToken string
+	tokenRequestEnv   string
+	certificate       []byte
+	reason            string
 }
 
 func (cl *ByocClient) hasAzureSecretOrCertificate() bool {
 	return cl.azureClientSecret != "" || os.Getenv("ARM_CLIENT_CERTIFICATE") != "" || os.Getenv("ARM_CLIENT_CERTIFICATE_PATH") != ""
 }
 
-// azureFederatedTokenFile returns the federated token file and the variable
-// that named it.
-func azureFederatedTokenFile() (file, envName string) {
-	for _, name := range []string{"AZURE_FEDERATED_TOKEN_FILE", "ARM_OIDC_TOKEN_FILE_PATH"} {
+// firstEnv returns the first non-empty variable among names and its name.
+func firstEnv(names ...string) (value, envName string) {
+	for _, name := range names {
 		if v := os.Getenv(name); v != "" {
 			return v, name
 		}
 	}
 	return "", ""
+}
+
+// azureFederatedTokenFile returns the federated token file and the variable
+// that named it.
+func azureFederatedTokenFile() (file, envName string) {
+	return firstEnv("AZURE_FEDERATED_TOKEN_FILE", "ARM_OIDC_TOKEN_FILE_PATH")
+}
+
+// azureOIDCRequestEndpoint returns azurerm's token request endpoint and the
+// variable that named it: ARM_OIDC_REQUEST_URL with ARM_OIDC_REQUEST_TOKEN,
+// each falling back to the ACTIONS_ID_TOKEN_REQUEST_URL and
+// ACTIONS_ID_TOKEN_REQUEST_TOKEN that GitHub Actions sets for a job with the
+// id-token: write permission.
+func azureOIDCRequestEndpoint() (url, requestToken, envName string) {
+	url, envName = firstEnv("ARM_OIDC_REQUEST_URL", "ACTIONS_ID_TOKEN_REQUEST_URL")
+	requestToken, _ = firstEnv("ARM_OIDC_REQUEST_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_TOKEN")
+	return url, requestToken, envName
 }
 
 // resolveAzureAuth maps the Terraform azurerm provider's environment onto the
@@ -341,8 +366,9 @@ func (cl *ByocClient) selectAzureAuth() (azureAuth, error) {
 // resolveAzureOIDC picks the plugin credential for ARM_USE_OIDC. The plugin's
 // "env" source is azidentity's EnvironmentCredential, which cannot use a
 // federated token, so a token goes through WorkloadIdentityCredential. With no
-// token the caller is expected to have run az login, as azure/login does when
-// azurerm fetches the GitHub Actions token itself, and the plugin's Terraform
+// token but a token request endpoint, the provider requests the token the way
+// azurerm does and still uses WorkloadIdentityCredential. With neither, the
+// caller is expected to have run az login, and the plugin's Terraform
 // projects are put on that session too: --identity oidc would render
 // use_oidc = true with use_cli = false in them, which azurerm cannot satisfy
 // without a token.
@@ -356,10 +382,148 @@ func (cl *ByocClient) resolveAzureOIDC() (azureAuth, error) {
 	if cl.hasAzureSecretOrCertificate() {
 		return azureAuth{credentialSource: "env", identity: "oidc", reason: "ARM_USE_OIDC with a client secret or certificate"}, nil
 	}
+	if url, requestToken, envName := azureOIDCRequestEndpoint(); url != "" && requestToken != "" {
+		return azureAuth{credentialSource: "workload", identity: "oidc", tokenRequestURL: url, tokenRequestToken: requestToken, tokenRequestEnv: envName, reason: "ARM_USE_OIDC with " + envName}, nil
+	}
 	if _, err := exec.LookPath("az"); err != nil {
-		return azureAuth{}, errors.New("ARM_USE_OIDC is set but no federated token was found and the Azure CLI is not installed: set AZURE_FEDERATED_TOKEN_FILE, ARM_OIDC_TOKEN_FILE_PATH, or ARM_OIDC_TOKEN, or run az login before Terraform")
+		return azureAuth{}, errors.New("ARM_USE_OIDC is set but no federated token was found and the Azure CLI is not installed: set AZURE_FEDERATED_TOKEN_FILE, ARM_OIDC_TOKEN_FILE_PATH, or ARM_OIDC_TOKEN, run under GitHub Actions with the id-token: write permission, or run az login before Terraform")
 	}
 	return azureAuth{credentialSource: "cli", identity: "cli", reason: "ARM_USE_OIDC without a token, Azure CLI session"}, nil
+}
+
+// azureOIDCExchangeAudience is the audience Entra ID expects on a federated
+// token, the one azurerm requests.
+const azureOIDCExchangeAudience = "api://AzureADTokenExchange"
+
+var (
+	azureOIDCHTTPClient = &http.Client{Timeout: 30 * time.Second}
+	// azureTokenRefreshFloor bounds how soon a federated token is requested
+	// again after an expired token or a failed request.
+	azureTokenRefreshFloor = 30 * time.Second
+	// azureTokenRefreshFallback is the refresh interval for a token whose
+	// expiry cannot be read.
+	azureTokenRefreshFallback = 2 * time.Minute
+)
+
+// fetchAzureOIDCRequestToken requests a federated token from azurerm's token
+// request endpoint, the GitHub Actions ID-token API or a stand-in for it.
+func fetchAzureOIDCRequestToken(ctx context.Context, endpoint, requestToken string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, http.NoBody)
+	if err != nil {
+		return "", err
+	}
+	q := req.URL.Query()
+	q.Set("audience", azureOIDCExchangeAudience)
+	req.URL.RawQuery = q.Encode()
+	req.Header.Set("Authorization", "bearer "+requestToken)
+	req.Header.Set("Accept", "application/json; api-version=2.0")
+	resp, err := azureOIDCHTTPClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode != http.StatusOK {
+		excerpt := strings.TrimSpace(string(body))
+		if len(excerpt) > 200 {
+			excerpt = excerpt[:200] + "..."
+		}
+		return "", fmt.Errorf("token request endpoint returned %d: %s", resp.StatusCode, excerpt)
+	}
+	var payload struct {
+		Value string `json:"value"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return "", fmt.Errorf("token request endpoint returned a body that is not JSON: %w", err)
+	}
+	if payload.Value == "" {
+		return "", errors.New("token request endpoint returned no token value")
+	}
+	return payload.Value, nil
+}
+
+// jwtExpiry reads a JWT's exp claim without verifying the token; it only
+// schedules a refresh.
+func jwtExpiry(token string) (time.Time, bool) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return time.Time{}, false
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return time.Time{}, false
+	}
+	var claims struct {
+		Exp int64 `json:"exp"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil || claims.Exp == 0 {
+		return time.Time{}, false
+	}
+	return time.Unix(claims.Exp, 0), true
+}
+
+// azureTokenRefreshDelay is how long a federated token is kept before being
+// requested again: half its remaining lifetime, so a replacement is in place
+// before any credential the plugin creates mid-run presents it.
+func azureTokenRefreshDelay(token string, now time.Time) time.Duration {
+	exp, ok := jwtExpiry(token)
+	if !ok {
+		return azureTokenRefreshFallback
+	}
+	return max(exp.Sub(now)/2, azureTokenRefreshFloor)
+}
+
+// startAzureTokenRefresh keeps file holding a current federated token until
+// stop is called. WorkloadIdentityCredential re-reads the file for every
+// exchange and the plugin creates credentials throughout its run, so a token
+// requested once at startup would expire under a long apply.
+func startAzureTokenRefresh(ctx context.Context, file string, fetch func(context.Context) (string, error), token string) (stop func()) {
+	ctx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		delay := azureTokenRefreshDelay(token, time.Now())
+		for {
+			timer := time.NewTimer(delay)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+			}
+			next, err := fetch(ctx)
+			if err == nil {
+				err = replaceFile(file, []byte(next))
+			}
+			if err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				tflog.Warn(ctx, "byoc plugin Azure federated token refresh failed; keeping the current token", map[string]any{"error": err.Error()})
+				delay = azureTokenRefreshFloor
+				continue
+			}
+			tflog.Debug(ctx, "byoc plugin Azure federated token refreshed")
+			delay = azureTokenRefreshDelay(next, time.Now())
+		}
+	}()
+	return func() {
+		cancel()
+		<-done
+	}
+}
+
+// replaceFile writes data beside file and renames it into place, so a reader
+// never sees a partial token.
+func replaceFile(file string, data []byte) error {
+	tmp := file + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, file)
 }
 
 // azureTokenCredentialName is the AZURE_TOKEN_CREDENTIALS value that confines
@@ -443,6 +607,26 @@ func (cl *ByocClient) generateAzureArgsAndEnv(ctx context.Context) (args, env []
 			return nil, nil, nil, err
 		}
 	}
+	if auth.tokenRequestURL != "" {
+		fetch := func(ctx context.Context) (string, error) {
+			return fetchAzureOIDCRequestToken(ctx, auth.tokenRequestURL, auth.tokenRequestToken)
+		}
+		var token string
+		token, err = fetch(ctx)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("request a federated token from %s: %w", auth.tokenRequestEnv, err)
+		}
+		var removeDir func()
+		tokenFile, removeDir, err = writeAzureTempFile(ctx, "federated-token", []byte(token))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		stop := startAzureTokenRefresh(ctx, tokenFile, fetch, token)
+		cleanup = func() {
+			stop()
+			removeDir()
+		}
+	}
 	if auth.certificate != nil {
 		var certFile string
 		certFile, cleanup, err = writeAzureTempFile(ctx, "client-certificate.pfx", auth.certificate)
@@ -486,6 +670,7 @@ func (cl *ByocClient) generateAzureArgsAndEnv(ctx context.Context) (args, env []
 		"identity":                   cmp.Or(auth.identity, "plugin default (cli)"),
 		"federated_token_file":       tokenFile != "",
 		"federated_token_from_raw":   auth.rawToken != "",
+		"federated_token_requested":  auth.tokenRequestURL != "",
 		"certificate_file":           auth.certificate != nil,
 		"client_id_set":              cl.azureClientID != "",
 		"client_secret_set":          cl.azureClientSecret != "",

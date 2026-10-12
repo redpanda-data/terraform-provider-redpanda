@@ -49,7 +49,7 @@ methods the tenant is optional but saves the agent a lookup.
 |--------|-----|-------|
 | Client secret | `azure_client_id` and `azure_client_secret`, or `ARM_CLIENT_ID` and `ARM_CLIENT_SECRET` | A client certificate (`ARM_CLIENT_CERTIFICATE`, a base64 PKCS#12 bundle, or `ARM_CLIENT_CERTIFICATE_PATH`) works the same way. |
 | OIDC with a federated token | `ARM_USE_OIDC=true`, a client ID (`azure_client_id`, `ARM_CLIENT_ID`, or `AZURE_CLIENT_ID`), and one of `AZURE_FEDERATED_TOKEN_FILE`, `ARM_OIDC_TOKEN_FILE_PATH`, or `ARM_OIDC_TOKEN` | Uses workload identity federation. No client secret is needed. |
-| OIDC in GitHub Actions | `ARM_USE_OIDC=true` and a client ID, after `azure/login` | With no token file, the agent's own Azure calls use the Azure CLI session that `azure/login` created, so the Azure CLI must be installed. |
+| OIDC in GitHub Actions | `ARM_USE_OIDC=true`, a client ID, and the job's `id-token: write` permission | The provider requests the federated token from the GitHub Actions ID-token endpoint (`ACTIONS_ID_TOKEN_REQUEST_URL`, or `ARM_OIDC_REQUEST_URL` with `ARM_OIDC_REQUEST_TOKEN`) and refreshes it for as long as the agent runs, so `azure/login` is not needed. With no endpoint either, the agent uses the Azure CLI session from `azure/login` or `az login`, so the Azure CLI must be installed and logged in. |
 | Azure CLI | `ARM_USE_CLI=true`, or nothing else set | Uses the account from `az login`. |
 | Managed identity | `ARM_USE_MSI=true` | |
 | AKS workload identity | `ARM_USE_AKS_WORKLOAD_IDENTITY=true` | |
