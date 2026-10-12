@@ -64,7 +64,7 @@ tasks:
       - ./scripts/azure-oidc.sh down
 
   byoc:apply:
-    desc: "Apply an Azure BYOC cluster authenticating through the local issuer; PROVIDER=local|released, AUTH=token-file|arm-token|customer|secret"
+    desc: "Apply an Azure BYOC cluster authenticating through the local issuer; PROVIDER=local|released, AUTH=token-file|arm-token|customer|actions|cli-session|secret"
     deps: [build]
     vars:
       PROVIDER: '{{.PROVIDER | default "local"}}'
@@ -73,7 +73,7 @@ tasks:
       - ./scripts/azure-oidc-byoc.sh apply "{{.PROVIDER}}" "{{.AUTH}}"
 
   byoc:destroy:
-    desc: "Destroy the Azure BYOC cluster from azure-oidc:byoc:apply; PROVIDER=local|released, AUTH=token-file|arm-token|customer|secret"
+    desc: "Destroy the Azure BYOC cluster from azure-oidc:byoc:apply; PROVIDER=local|released, AUTH=token-file|arm-token|customer|actions|cli-session|secret"
     deps: [build]
     vars:
       PROVIDER: '{{.PROVIDER | default "local"}}'
