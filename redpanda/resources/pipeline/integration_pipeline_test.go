@@ -398,6 +398,66 @@ func TestIntegration_Pipeline_UpdateLeaf_State(t *testing.T) {
 	})
 }
 
+// TestIntegration_Pipeline_UpdateLeaf_ConfigWhileRunning changes the config of
+// a running pipeline. The provider stops it, writes, and restarts it. The fake
+// rejects the write that follows the stop with Aborted, as a dataplane that
+// does not retry the controller's resourceVersion bump does.
+func TestIntegration_Pipeline_UpdateLeaf_ConfigWhileRunning(t *testing.T) {
+	_, factories := integration.Setup(t)
+
+	const name = "tfrp-mock-pipe-runcfg"
+	cfg1 := mockPipelineBaseConfig(name, "test description", "running", "bufnet", true, `{ env = "test" }`, minimalPipelineConfigYaml)
+	cfg2 := mockPipelineBaseConfig(name, "test description", "running", "bufnet", true, `{ env = "test" }`, updatedPipelineConfigYaml)
+
+	idStable := statecheck.CompareValue(compare.ValuesSame())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(pipelineAddr, cfg1, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("state"), knownvalue.StringExact("running")),
+				idStable.AddStateValue(pipelineAddr, tfjsonpath.New("id")),
+			}),
+			integration.UpdateLeafStep(pipelineAddr, cfg2, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("state"), knownvalue.StringExact("running")),
+				idStable.AddStateValue(pipelineAddr, tfjsonpath.New("id")),
+			}),
+		},
+	})
+}
+
+// TestIntegration_Pipeline_UpdateLeaf_StateOnlyIssuesNoWrite pins that moving
+// state between stopped and running is done by Start and Stop alone. The
+// conflict is disarmed so the assertion is about the call, not the retry.
+func TestIntegration_Pipeline_UpdateLeaf_StateOnlyIssuesNoWrite(t *testing.T) {
+	srv, factories := integration.Setup(t)
+	srv.Pipeline.SetConflictAfterStop(false)
+
+	const name = "tfrp-mock-pipe-statewrite"
+	cfgStopped := mockPipelineBaseConfig(name, "test description", "stopped", "bufnet", true, `{ env = "test" }`, minimalPipelineConfigYaml)
+	cfgRunning := mockPipelineBaseConfig(name, "test description", "running", "bufnet", true, `{ env = "test" }`, minimalPipelineConfigYaml)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(pipelineAddr, cfgStopped, nil),
+			integration.UpdateLeafStep(pipelineAddr, cfgRunning, nil),
+			integration.UpdateLeafStep(pipelineAddr, cfgStopped, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("state"), knownvalue.StringExact("stopped")),
+			}),
+			{
+				Config: cfgStopped,
+				Check: func(*terraform.State) error {
+					if n := srv.CallCount(dataplanev1grpc.PipelineService_UpdatePipeline_FullMethodName); n != 0 {
+						return fmt.Errorf("UpdatePipeline was called %d times by state-only changes", n)
+					}
+					return nil
+				},
+			},
+		},
+	})
+}
+
 // TestIntegration_Pipeline_UpdateLeaf_Tags mutates the tags map in-place. id stable
 // across the update.
 func TestIntegration_Pipeline_UpdateLeaf_Tags(t *testing.T) {

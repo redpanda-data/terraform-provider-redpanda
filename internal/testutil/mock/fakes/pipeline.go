@@ -34,6 +34,11 @@ type pipelineRecord struct {
 	state       dataplanev1.Pipeline_State
 	tags        map[string]string
 	clientID    string
+
+	// staleVersion is set when a stop took a running pipeline down. The
+	// controller's status write for that pause bumps the resourceVersion, so
+	// the next UpdatePipeline writes at a stale version.
+	staleVersion bool
 }
 
 // PipelineFake is a stateful in-memory implementation of the 6 PipelineService
@@ -47,11 +52,24 @@ type PipelineFake struct {
 	mu    sync.Mutex
 	store map[string]*pipelineRecord
 	seq   atomic.Uint64
+
+	conflictAfterStop bool
 }
 
-// NewPipelineFake returns an empty PipelineFake.
+// NewPipelineFake returns an empty PipelineFake. It models a dataplane without
+// a server-side retry of the resourceVersion conflict: the first update after
+// a running pipeline is stopped fails with Aborted. Dataplanes that retry it
+// never return that Aborted, so SetConflictAfterStop(false) models them.
 func NewPipelineFake() *PipelineFake {
-	return &PipelineFake{store: map[string]*pipelineRecord{}}
+	return &PipelineFake{store: map[string]*pipelineRecord{}, conflictAfterStop: true}
+}
+
+// SetConflictAfterStop turns the post-stop conflict on or off. Off models a
+// dataplane that retries the conflict itself.
+func (f *PipelineFake) SetConflictAfterStop(on bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.conflictAfterStop = on
 }
 
 func (f *PipelineFake) nextID() string {
@@ -117,6 +135,10 @@ func (f *PipelineFake) UpdatePipeline(_ context.Context, req *dataplanev1.Update
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "pipeline %q not found", req.GetId())
 	}
+	if rec.staleVersion {
+		rec.staleVersion = false
+		return nil, status.Error(codes.Aborted, "the pipeline was modified by another request: reload it and retry")
+	}
 	pu := req.GetPipeline()
 	rec.displayName = pu.GetDisplayName()
 	rec.description = pu.GetDescription()
@@ -147,6 +169,7 @@ func (f *PipelineFake) StartPipeline(_ context.Context, req *dataplanev1.StartPi
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "pipeline %q not found", req.GetId())
 	}
+	rec.staleVersion = false
 	rec.state = dataplanev1.Pipeline_STATE_RUNNING
 	return &dataplanev1.StartPipelineResponse{}, nil
 }
@@ -158,6 +181,9 @@ func (f *PipelineFake) StopPipeline(_ context.Context, req *dataplanev1.StopPipe
 	rec, ok := f.store[req.GetId()]
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "pipeline %q not found", req.GetId())
+	}
+	if f.conflictAfterStop && rec.state == dataplanev1.Pipeline_STATE_RUNNING {
+		rec.staleVersion = true
 	}
 	rec.state = dataplanev1.Pipeline_STATE_STOPPED
 	return &dataplanev1.StopPipelineResponse{}, nil

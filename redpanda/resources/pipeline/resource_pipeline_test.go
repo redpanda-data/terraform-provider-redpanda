@@ -1290,11 +1290,6 @@ func TestUnit_Pipeline_StartFailureBehavior(t *testing.T) {
 					GetPipeline(gomock.Any(), gomock.Any()).
 					Return(&dataplanev1.GetPipelineResponse{Pipeline: stoppedPipeline}, nil)
 
-				// Update succeeds
-				mc.EXPECT().
-					UpdatePipeline(gomock.Any(), gomock.Any()).
-					Return(&dataplanev1.UpdatePipelineResponse{Pipeline: stoppedPipeline}, nil)
-
 				// Start succeeds (API call returns)
 				mc.EXPECT().
 					StartPipeline(gomock.Any(), gomock.Any()).
