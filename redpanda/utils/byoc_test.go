@@ -18,12 +18,18 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflogtest"
 	"github.com/redpanda-data/redpanda/src/go/rpk/pkg/cloudapi"
@@ -76,6 +82,8 @@ func TestByocClient_CheckCloudConfig(t *testing.T) {
 		{"azure oidc without a token or az", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "AZURE_FEDERATED_TOKEN_FILE", map[string]string{"ARM_USE_OIDC": "true"}},
 		{"azure oidc without a token falls back to az", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "PATH": "<with az>"}},
 		{"azure oidc with a token file needs no az", ByocClientConfig{AzureSubscriptionID: "s", AzureTenantID: "t", AzureClientID: "c"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": "/token"}},
+		{"azure oidc with the github request endpoint needs no az", ByocClientConfig{AzureSubscriptionID: "s", AzureTenantID: "t", AzureClientID: "c"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "ACTIONS_ID_TOKEN_REQUEST_URL": "https://token.actions.example/request", "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "r"}},
+		{"azure oidc with the github request endpoint but no tenant", ByocClientConfig{AzureSubscriptionID: "s", AzureClientID: "c"}, "azure", "tenant", map[string]string{"ARM_USE_OIDC": "true", "ACTIONS_ID_TOKEN_REQUEST_URL": "https://token.actions.example/request", "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "r"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -156,6 +164,8 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 	)
 	tokenFile := filepath.Join(t.TempDir(), "federated-token")
 	unset := "<unset>"
+	stubJWT := testJWT(t, time.Now().Add(10*time.Minute))
+	stub := newGitHubTokenStub(t, "request-token", func() string { return stubJWT })
 
 	cases := []struct {
 		name       string
@@ -279,20 +289,73 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 			wantFiles:  map[string]string{"AZURE_FEDERATED_TOKEN_FILE": "raw-jwt"},
 		},
 		{
-			name:       "oidc with only the github request token",
-			wantReason: "ARM_USE_OIDC without a token, Azure CLI session",
+			name:       "oidc with the github actions request endpoint fetches a federated token",
+			wantReason: "ARM_USE_OIDC with ACTIONS_ID_TOKEN_REQUEST_URL",
 			env: map[string]string{
 				"ARM_USE_OIDC":                   "true",
-				"ACTIONS_ID_TOKEN_REQUEST_URL":   "https://token.actions.example/request",
+				"ACTIONS_ID_TOKEN_REQUEST_URL":   stub.URL + "/request?x=1",
 				"ACTIONS_ID_TOKEN_REQUEST_TOKEN": "request-token",
-				"AZURE_CLIENT_ID":                client,
 			},
-			conf:     ByocClientConfig{AzureClientID: client},
-			wantArgs: map[string]string{"--credential-source": "cli", "--identity": "cli"},
-			wantEnv:  map[string]string{"AZURE_TOKEN_CREDENTIALS": "AzureCLICredential", "ARM_USE_OIDC": "false", "ARM_CLIENT_ID": unset},
+			conf:      ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			noAz:      true,
+			wantArgs:  map[string]string{"--credential-source": "workload", "--identity": "oidc"},
+			wantEnv:   map[string]string{"AZURE_TOKEN_CREDENTIALS": "WorkloadIdentityCredential", "ARM_USE_OIDC": "true", "ARM_CLIENT_ID": client},
+			wantFiles: map[string]string{"AZURE_FEDERATED_TOKEN_FILE": stubJWT},
 		},
 		{
-			name:       "oidc with no token runs everything on the azure cli session",
+			name:       "oidc with the azurerm request endpoint variables fetches a federated token",
+			wantReason: "ARM_USE_OIDC with ARM_OIDC_REQUEST_URL",
+			env: map[string]string{
+				"ARM_USE_OIDC":           "true",
+				"ARM_OIDC_REQUEST_URL":   stub.URL + "/request",
+				"ARM_OIDC_REQUEST_TOKEN": "request-token",
+			},
+			conf:      ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			noAz:      true,
+			wantArgs:  map[string]string{"--credential-source": "workload", "--identity": "oidc"},
+			wantFiles: map[string]string{"AZURE_FEDERATED_TOKEN_FILE": stubJWT},
+		},
+		{
+			name: "oidc request endpoint that rejects the request token fails before the plugin runs",
+			env: map[string]string{
+				"ARM_USE_OIDC":                   "true",
+				"ACTIONS_ID_TOKEN_REQUEST_URL":   stub.URL + "/request",
+				"ACTIONS_ID_TOKEN_REQUEST_TOKEN": "wrong-token",
+			},
+			conf:    ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			wantErr: "ACTIONS_ID_TOKEN_REQUEST_URL",
+		},
+		{
+			name:       "client secret wins over the github actions request endpoint",
+			wantReason: "ARM_USE_OIDC with a client secret or certificate",
+			env: map[string]string{
+				"ARM_USE_OIDC":                   "true",
+				"ACTIONS_ID_TOKEN_REQUEST_URL":   stub.URL + "/request",
+				"ACTIONS_ID_TOKEN_REQUEST_TOKEN": "request-token",
+			},
+			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client, AzureClientSecret: "s3cret"},
+			wantArgs: map[string]string{"--credential-source": "env", "--identity": "oidc"},
+		},
+		{
+			name:       "federated token file wins over the github actions request endpoint",
+			wantReason: "ARM_USE_OIDC with AZURE_FEDERATED_TOKEN_FILE",
+			env: map[string]string{
+				"ARM_USE_OIDC":                   "true",
+				"AZURE_FEDERATED_TOKEN_FILE":     tokenFile,
+				"ACTIONS_ID_TOKEN_REQUEST_URL":   stub.URL + "/request",
+				"ACTIONS_ID_TOKEN_REQUEST_TOKEN": "request-token",
+			},
+			conf:    ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			wantEnv: map[string]string{"AZURE_FEDERATED_TOKEN_FILE": tokenFile},
+		},
+		{
+			name:    "github actions request endpoint without a tenant fails before the plugin runs",
+			conf:    ByocClientConfig{AzureClientID: client},
+			env:     map[string]string{"ARM_USE_OIDC": "true", "ACTIONS_ID_TOKEN_REQUEST_URL": stub.URL + "/request", "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "request-token"},
+			wantErr: "tenant",
+		},
+		{
+			name:       "oidc with no token and no endpoint runs everything on the azure cli session",
 			wantReason: "ARM_USE_OIDC without a token, Azure CLI session",
 			env:        map[string]string{"ARM_USE_OIDC": "true"},
 			conf:       ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
@@ -484,5 +547,136 @@ func TestForwardLogs(t *testing.T) {
 	}
 	if want := []string{"Destroying agent infrastructure...", pluginDetail, pluginError}; !slices.Equal(sunk, want) {
 		t.Errorf("progress = %q, want %q", sunk, want)
+	}
+}
+
+// testJWT returns an unsigned JWT whose only claim is exp.
+func testJWT(t *testing.T, exp time.Time) string {
+	t.Helper()
+	return testJWTClaims(map[string]any{"exp": exp.Unix()})
+}
+
+// testJWTClaims returns an unsigned JWT carrying claims. It takes no
+// *testing.T because the refresh test calls it from the refresher's goroutine.
+func testJWTClaims(claims map[string]any) string {
+	payload, _ := json.Marshal(claims)
+	return "eyJhbGciOiJub25lIn0." + base64.RawURLEncoding.EncodeToString(payload) + ".sig"
+}
+
+// newGitHubTokenStub serves the GitHub Actions ID-token endpoint the way
+// azurerm uses it: a bearer requestToken asking for the Azure exchange
+// audience gets {"value": token()}, anything else is rejected.
+func newGitHubTokenStub(t *testing.T, requestToken string, token func() string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "bearer "+requestToken || r.URL.Query().Get("audience") != "api://AzureADTokenExchange" {
+			http.Error(w, `{"message":"bad request token or audience"}`, http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"value": token()})
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestFetchAzureOIDCRequestToken(t *testing.T) {
+	ctx := context.Background()
+	jwt := testJWT(t, time.Now().Add(5*time.Minute))
+	stub := newGitHubTokenStub(t, "request-token", func() string { return jwt })
+
+	got, err := fetchAzureOIDCRequestToken(ctx, stub.URL+"/request?a=b", "request-token")
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+	if got != jwt {
+		t.Errorf("token = %q, want %q", got, jwt)
+	}
+
+	if _, err := fetchAzureOIDCRequestToken(ctx, stub.URL+"/request", "wrong"); err == nil || !strings.Contains(err.Error(), "401") {
+		t.Errorf("rejected request token: err = %v, want one mentioning the 401", err)
+	}
+
+	empty := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"value":""}`)
+	}))
+	t.Cleanup(empty.Close)
+	if _, err := fetchAzureOIDCRequestToken(ctx, empty.URL, "request-token"); err == nil {
+		t.Error("empty value: err = nil, want an error")
+	}
+}
+
+func TestAzureTokenRefreshDelay(t *testing.T) {
+	now := time.Now().Truncate(time.Second)
+	cases := []struct {
+		name  string
+		token string
+		want  time.Duration
+	}{
+		{"half the remaining lifetime", testJWT(t, now.Add(10*time.Minute)), 5 * time.Minute},
+		{"expired token retries at the minimum", testJWT(t, now.Add(-time.Minute)), azureTokenRefreshFloor},
+		{"unreadable token uses the fallback", "not-a-jwt", azureTokenRefreshFallback},
+		{"token without exp uses the fallback", testJWTClaims(map[string]any{"sub": "x"}), azureTokenRefreshFallback},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := azureTokenRefreshDelay(tc.token, now); got != tc.want {
+				t.Errorf("delay = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestAzureTokenRefresh(t *testing.T) {
+	origMin, origFallback := azureTokenRefreshFloor, azureTokenRefreshFallback
+	azureTokenRefreshFloor, azureTokenRefreshFallback = 50*time.Millisecond, 50*time.Millisecond
+	t.Cleanup(func() { azureTokenRefreshFloor, azureTokenRefreshFallback = origMin, origFallback })
+
+	file := filepath.Join(t.TempDir(), "federated-token")
+	first := testJWT(t, time.Now().Add(200*time.Millisecond))
+	if err := os.WriteFile(file, []byte(first), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var calls atomic.Int32
+	fetch := func(context.Context) (string, error) {
+		n := calls.Add(1)
+		if n == 1 {
+			return "", errors.New("transient endpoint failure")
+		}
+		return testJWTClaims(map[string]any{"exp": time.Now().Add(200 * time.Millisecond).Unix(), "n": n}), nil
+	}
+	var logs bytes.Buffer
+	ctx := tflogtest.RootLogger(context.Background(), &logs)
+	stop := startAzureTokenRefresh(ctx, file, fetch, first)
+
+	deadline := time.Now().Add(5 * time.Second)
+	var raw []byte
+	for time.Now().Before(deadline) {
+		var err error
+		raw, err = os.ReadFile(filepath.Clean(file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(raw) != first {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if string(raw) == first {
+		t.Fatalf("token file was not refreshed within 5s (%d fetches)", calls.Load())
+	}
+	if calls.Load() < 2 {
+		t.Errorf("fetches = %d, want the failed first fetch to be retried", calls.Load())
+	}
+
+	stop()
+	n := calls.Load()
+	time.Sleep(300 * time.Millisecond)
+	if calls.Load() != n {
+		t.Errorf("fetches continued after stop: %d -> %d", n, calls.Load())
+	}
+	// Read the log only once the goroutine has stopped writing to it.
+	if got := logLevels(t, &logs, "federated token refresh failed"); !slices.Equal(got, []string{"warn"}) {
+		t.Errorf("failed fetch logged at %q, want once at warn", got)
 	}
 }
