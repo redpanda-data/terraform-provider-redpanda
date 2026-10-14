@@ -36,6 +36,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/config"
 	clustermodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/cluster"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils/enums"
 )
 
 var (
@@ -62,10 +63,41 @@ func NewCluster() *Cluster {
 	return c
 }
 
+// byocPreflight runs the byoc runner's cloud-config check for a BYOC cluster
+// so a provider missing what the plugin needs fails before the control plane
+// is asked to create or delete anything. An unknown cloud provider is left to
+// the apply-time call.
+func (c *Cluster) byocPreflight(clusterType, cloudProvider types.String) diag.Diagnostics {
+	var diags diag.Diagnostics
+	if clusterType.ValueString() != enums.ClusterTypeToString(controlplanev1.Cluster_TYPE_BYOC) || cloudProvider.IsUnknown() || cloudProvider.IsNull() {
+		return diags
+	}
+	checker, ok := c.Byoc.(utils.ByocCloudConfigChecker)
+	if !ok {
+		return diags
+	}
+	if err := checker.CheckCloudConfig(cloudProvider.ValueString()); err != nil {
+		diags.AddError("Provider is missing the cloud configuration the byoc plugin needs", err.Error())
+	}
+	return diags
+}
+
+// clusterEnvelope returns the cluster's type and cloud provider as the
+// schema's string forms.
+func clusterEnvelope(cl *controlplanev1.Cluster) (clusterType, cloudProvider types.String) {
+	return types.StringValue(enums.ClusterTypeToString(cl.GetType())), types.StringValue(enums.CloudProviderToString(cl.GetCloudProvider()))
+}
+
 // Create creates a new Cluster resource. It updates the state if the resource is successfully created
 func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan clustermodel.ResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	// ModifyPlan ran this at plan time, but a saved plan can be applied
+	// from another environment.
+	resp.Diagnostics.Append(c.byocPreflight(plan.ClusterType, plan.CloudProvider)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -344,6 +376,12 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), utils.DeserializeGrpcError(err))
 		return
 	}
+	// The control plane's type and cloud provider are present even in the
+	// minimal state a failed create leaves behind when no refresh ran.
+	resp.Diagnostics.Append(c.byocPreflight(clusterEnvelope(cl))...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	marker, d := req.Private.GetKey(ctx, agentManagedKey)
 	resp.Diagnostics.Append(d...)
@@ -391,9 +429,6 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		return utils.NonRetryableError(fmt.Errorf("unhandled state %v. please report this issue to the provider developers", cl.GetState()))
 	})
 	if err != nil {
-		if utils.IsNotFound(err) {
-			return
-		}
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to delete cluster %s", model.ID), utils.DeserializeGrpcError(err))
 		return
 	}
@@ -461,8 +496,37 @@ func (*Cluster) ImportState(ctx context.Context, req resource.ImportStateRequest
 // Pairs with the parent objectplanmodifier.UseNonNullStateForUnknown
 // migration in schema_resource.go: that handles null→populated; this
 // handles populated→null.
-func (*Cluster) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+//
+// It also runs the byoc preflight on create and destroy plans, the plans the
+// rest of the method does not touch, so a provider missing what the plugin
+// needs fails at plan. Update and no-change plans never run the plugin and
+// are left alone, so a workstation holding only Redpanda credentials can
+// still plan against an existing BYOC cluster.
+func (c *Cluster) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if create, destroy := req.State.Raw.IsNull(), req.Plan.Raw.IsNull(); create || destroy {
+		getAttr := req.Plan.GetAttribute
+		if destroy {
+			getAttr = req.State.GetAttribute
+		}
+		var clusterType, cloudProvider, id types.String
+		resp.Diagnostics.Append(getAttr(ctx, path.Root("cluster_type"), &clusterType)...)
+		resp.Diagnostics.Append(getAttr(ctx, path.Root("cloud_provider"), &cloudProvider)...)
+		resp.Diagnostics.Append(getAttr(ctx, path.Root("id"), &id)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		if destroy && (clusterType.IsNull() || cloudProvider.IsNull()) && c.CpCl != nil {
+			// A failed create leaves a state with only the id, and a destroy
+			// planned without a refresh keeps it that way; the control plane
+			// still knows the cluster. A lookup failure is left to Delete.
+			cl, err := c.CpCl.ClusterForID(ctx, id.ValueString())
+			if err == nil {
+				clusterType, cloudProvider = clusterEnvelope(cl)
+			} else if !utils.IsNotFound(err) {
+				tflog.Warn(ctx, "byoc preflight skipped at plan: cluster lookup failed", map[string]any{"cluster_id": id.ValueString(), "error": err.Error()})
+			}
+		}
+		resp.Diagnostics.Append(c.byocPreflight(clusterType, cloudProvider)...)
 		return
 	}
 	// Reject the dual->legacy attempt before any plan surgery, and keep the
