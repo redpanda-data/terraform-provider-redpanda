@@ -22,6 +22,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/modelconv"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 type PipelineResponse interface {
@@ -121,7 +123,7 @@ func ExpandCreate(ctx context.Context, m *ResourceModel) (*dataplanev1.CreatePip
 
 // ExpandUpdate renders a *ResourceModel into the proto request envelope for
 // the corresponding RPC.
-func ExpandUpdate(ctx context.Context, m *ResourceModel) (*dataplanev1.UpdatePipelineRequest, diag.Diagnostics) {
+func ExpandUpdate(ctx context.Context, m *ResourceModel) (*dataplanev1.PipelineUpdate, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	payload := &dataplanev1.PipelineUpdate{
 		ConfigYaml:     m.ConfigYaml.ValueString(),
@@ -131,10 +133,25 @@ func ExpandUpdate(ctx context.Context, m *ResourceModel) (*dataplanev1.UpdatePip
 		Tags:           modelconv.MapToStringsWithDiags(ctx, m.Tags, &diags),
 		Resources:      modelconv.ObjectToMessageWithDiags(ctx, m.Resources, ExpandResources, &diags),
 	}
-	req := &dataplanev1.UpdatePipelineRequest{
-		Pipeline: payload,
+	return payload, diags
+}
+
+// ExpandUpdateWithMask expands plan and state via ExpandUpdate, then returns the
+// value to send plus a FieldMask of the changed top-level fields. mask.Paths is
+// empty when nothing the backend tracks changed — callers use that to skip the
+// update RPC entirely.
+func ExpandUpdateWithMask(ctx context.Context, plan, state *ResourceModel) (*dataplanev1.PipelineUpdate, *fieldmaskpb.FieldMask, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	planPayload, planDiags := ExpandUpdate(ctx, plan)
+	diags.Append(planDiags...)
+	statePayload, stateDiags := ExpandUpdate(ctx, state)
+	diags.Append(stateDiags...)
+	if diags.HasError() {
+		var zero *dataplanev1.PipelineUpdate
+		return zero, nil, diags
 	}
-	return req, diags
+	payload, mask := utils.PlanPayloadWithUpdateMask(planPayload, statePayload)
+	return payload, mask, diags
 }
 
 // ExpandDelete renders a *ResourceModel into the proto request envelope for
