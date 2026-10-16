@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 // TestPipelineFake_ConflictAfterStateChange pins the fake to a dataplane whose
@@ -99,5 +100,77 @@ func TestPipelineFake_ConflictAfterStateChange(t *testing.T) {
 		id := runningPipeline(t, f)
 		stop(t, f, id)
 		require.NoError(t, write(f, id))
+	})
+}
+
+// TestPipelineFake_UpdateMaskFidelity pins the fake's UpdatePipeline to the
+// dataplane's two write paths (cloudv2 apps/redpanda-connect-api/internal/
+// pipeline/pipeline_v1.go UpdatePipeline): with no update_mask every mutable
+// field is replaced by the payload, so a nil service account clears the
+// stored one; with a mask only the named fields change, so an unnamed service
+// account survives a nil payload and a named one is cleared by it. A fake that
+// kept the service account on a maskless nil write would hide the strip.
+func TestPipelineFake_UpdateMaskFidelity(t *testing.T) {
+	ctx := context.Background()
+	newPipeline := func(t *testing.T) (*PipelineFake, string) {
+		t.Helper()
+		f := NewPipelineFake()
+		created, err := f.CreatePipeline(ctx, &dataplanev1.CreatePipelineRequest{
+			Pipeline: &dataplanev1.PipelineCreate{
+				DisplayName: "p", Description: "d", ConfigYaml: "input: {}", Tags: map[string]string{"env": "test"},
+				ServiceAccount: &dataplanev1.Pipeline_ServiceAccount{ClientId: "client-id", ClientSecret: "${secrets.S}"},
+			},
+		})
+		require.NoError(t, err)
+		return f, created.GetPipeline().GetId()
+	}
+	stored := func(t *testing.T, f *PipelineFake, id string) *dataplanev1.Pipeline {
+		t.Helper()
+		got, err := f.GetPipeline(ctx, &dataplanev1.GetPipelineRequest{Id: id})
+		require.NoError(t, err)
+		return got.GetPipeline()
+	}
+
+	t.Run("no mask replaces every field, so a nil service account clears it", func(t *testing.T) {
+		f, id := newPipeline(t)
+		_, err := f.UpdatePipeline(ctx, &dataplanev1.UpdatePipelineRequest{
+			Id:       id,
+			Pipeline: &dataplanev1.PipelineUpdate{DisplayName: "renamed", ConfigYaml: "input: {}"},
+		})
+		require.NoError(t, err)
+		p := stored(t, f, id)
+		assert.Equal(t, "renamed", p.GetDisplayName())
+		assert.Empty(t, p.GetDescription(), "an absent description is written as empty")
+		assert.Empty(t, p.GetTags(), "absent tags are written as none")
+		assert.Nil(t, p.GetServiceAccount(), "a nil service account is written as none")
+	})
+
+	t.Run("a mask changes only the named fields", func(t *testing.T) {
+		f, id := newPipeline(t)
+		_, err := f.UpdatePipeline(ctx, &dataplanev1.UpdatePipelineRequest{
+			Id:         id,
+			Pipeline:   &dataplanev1.PipelineUpdate{DisplayName: "renamed"},
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"display_name"}},
+		})
+		require.NoError(t, err)
+		p := stored(t, f, id)
+		assert.Equal(t, "renamed", p.GetDisplayName())
+		assert.Equal(t, "d", p.GetDescription())
+		assert.Equal(t, "input: {}", p.GetConfigYaml())
+		assert.Equal(t, map[string]string{"env": "test"}, p.GetTags())
+		assert.Equal(t, "client-id", p.GetServiceAccount().GetClientId(), "an unnamed service account survives")
+	})
+
+	t.Run("a mask naming service_account with a nil payload clears it", func(t *testing.T) {
+		f, id := newPipeline(t)
+		_, err := f.UpdatePipeline(ctx, &dataplanev1.UpdatePipelineRequest{
+			Id:         id,
+			Pipeline:   &dataplanev1.PipelineUpdate{},
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"service_account"}},
+		})
+		require.NoError(t, err)
+		p := stored(t, f, id)
+		assert.Nil(t, p.GetServiceAccount())
+		assert.Equal(t, "p", p.GetDisplayName(), "unnamed fields are untouched")
 	})
 }
