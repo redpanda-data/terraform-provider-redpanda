@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
@@ -34,7 +35,6 @@ import (
 	pipelinemodel "github.com/redpanda-data/terraform-provider-redpanda/redpanda/models/pipeline"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 	"golang.org/x/oauth2"
-	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -333,54 +333,30 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 		desiredState = pipelinemodel.StateStopped
 	}
 
-	updateReq, expandDiags := pipelinemodel.ExpandUpdate(ctx, &plan)
+	payload, mask, expandDiags := pipelinemodel.ExpandUpdateWithMask(ctx, &plan, &state)
 	resp.Diagnostics.Append(expandDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	updateReq.Id = pipelineID
 
-	// Only include service_account in the update when:
-	// - Adding service account for the first time (state was null), OR
-	// - client_id changed, OR
-	// - secret_version changed (signals intent to update the write-only secret).
-	// Otherwise null it out so we don't clobber the write-only client_secret
-	// server-side with the empty value Terraform reads back from state.
-	if !plan.ServiceAccount.IsNull() && !plan.ServiceAccount.IsUnknown() {
-		shouldUpdateServiceAccount := state.ServiceAccount.IsNull()
-		if !shouldUpdateServiceAccount {
-			var planSA, stateSA pipelinemodel.ServiceAccountModel
-			resp.Diagnostics.Append(plan.ServiceAccount.As(ctx, &planSA, basetypes.ObjectAsOptions{})...)
-			resp.Diagnostics.Append(state.ServiceAccount.As(ctx, &stateSA, basetypes.ObjectAsOptions{})...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
-
-			clientIDChanged := !planSA.ClientID.Equal(stateSA.ClientID)
-			secretVersionChanged := !planSA.SecretVersion.Equal(stateSA.SecretVersion)
-			shouldUpdateServiceAccount = clientIDChanged || secretVersionChanged
-		}
-		if !shouldUpdateServiceAccount {
-			updateReq.Pipeline.ServiceAccount = nil
-		}
-	} else {
-		updateReq.Pipeline.ServiceAccount = nil
-	}
-
-	stateReq, expandDiags := pipelinemodel.ExpandUpdate(ctx, &state)
-	resp.Diagnostics.Append(expandDiags...)
+	// The sparse diff names service_account whenever the block is present,
+	// because state cannot hold the write-only client_secret. Keep it off the
+	// mask unless the block was added or removed or client_id or
+	// secret_version changed: off the mask the dataplane keeps the stored
+	// secret reference, and on it with an empty payload it would clear it.
+	saChanged, saDiags := serviceAccountChanged(ctx, plan, state)
+	resp.Diagnostics.Append(saDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	stateReq.Pipeline.ServiceAccount = nil
+	if !saChanged {
+		payload.ServiceAccount = nil
+		mask.Paths = slices.DeleteFunc(mask.Paths, func(path string) bool { return path == "service_account" })
+	}
 
-	// A change confined to state, allow_deletion or timeouts is carried out by
-	// Start and Stop alone: none of them is part of the update payload. A
-	// service account change always writes, including removing the block,
-	// which both payloads render as nil.
-	serviceAccountRemoved := plan.ServiceAccount.IsNull() && !state.ServiceAccount.IsNull()
-	needsWrite := updateReq.Pipeline.ServiceAccount != nil || serviceAccountRemoved ||
-		!proto.Equal(updateReq.Pipeline, stateReq.Pipeline)
+	// An empty mask means the change is confined to state, allow_deletion or
+	// timeouts, which Start and Stop carry out on their own.
+	needsWrite := len(mask.GetPaths()) > 0
 
 	pipeline := getResp.GetPipeline()
 	runningNow := isCurrentlyRunning
@@ -408,7 +384,7 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	}
 
 	if needsWrite {
-		updateResp, err := p.updatePipeline(ctx, updateReq)
+		updateResp, err := p.updatePipeline(ctx, &dataplanev1.UpdatePipelineRequest{Id: pipelineID, Pipeline: payload, UpdateMask: mask})
 		if err != nil {
 			resp.Diagnostics.AddError(fmt.Sprintf("failed to update pipeline %s", pipelineID), utils.DeserializeGrpcError(err))
 			return
@@ -446,15 +422,6 @@ func (p *Pipeline) Update(ctx context.Context, req resource.UpdateRequest, resp 
 		return
 	}
 
-	// When we omit ServiceAccount from the Update request (to protect the
-	// write-only client_secret), the server response echoes
-	// SA=nil and Flatten drops the wrapper from state, even though
-	// nothing on the SA changed. Restore the prior-state block so the
-	// framework's post-apply consistency check sees it unchanged.
-	if updateReq.Pipeline.ServiceAccount == nil && !state.ServiceAccount.IsNull() {
-		newState.ServiceAccount = state.ServiceAccount
-	}
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, newState)...)
 }
 
@@ -478,6 +445,26 @@ func (p *Pipeline) updatePipeline(ctx context.Context, req *dataplanev1.UpdatePi
 		}
 		return time.Since(firstAborted) < updateConflictBudget
 	}))
+}
+
+// serviceAccountChanged reports whether the service_account block was added or
+// removed, or had its client_id or secret_version changed. secret_version is
+// the only signal for a new secret, since client_secret is write-only.
+func serviceAccountChanged(ctx context.Context, plan, state pipelinemodel.ResourceModel) (bool, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if plan.ServiceAccount.IsNull() || plan.ServiceAccount.IsUnknown() {
+		return !state.ServiceAccount.IsNull(), diags
+	}
+	if state.ServiceAccount.IsNull() {
+		return true, diags
+	}
+	var planSA, stateSA pipelinemodel.ServiceAccountModel
+	diags.Append(plan.ServiceAccount.As(ctx, &planSA, basetypes.ObjectAsOptions{})...)
+	diags.Append(state.ServiceAccount.As(ctx, &stateSA, basetypes.ObjectAsOptions{})...)
+	if diags.HasError() {
+		return false, diags
+	}
+	return !planSA.ClientID.Equal(stateSA.ClientID) || !planSA.SecretVersion.Equal(stateSA.SecretVersion), diags
 }
 
 // Delete deletes the Pipeline resource

@@ -1501,19 +1501,20 @@ func TestUnit_Pipeline_ServiceAccountNoUpdateWhenVersionUnchanged(t *testing.T) 
 		testPipelineID, "updated-name", testDescription, testConfigYaml, testPipelineURL,
 		dataplanev1.Pipeline_STATE_STOPPED, nil, nil,
 	)
+	// A stopped pipeline reports the service account it holds, which an update
+	// that leaves service_account off the mask does not touch.
+	afterPipeline.ServiceAccount = &dataplanev1.Pipeline_ServiceAccount{ClientId: "client-123"}
 
 	mockClient.EXPECT().
 		GetPipeline(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&dataplanev1.GetPipelineResponse{Pipeline: beforePipeline}, nil)
 
-	// Expect UpdatePipeline without service_account (since secret_version unchanged)
 	mockClient.EXPECT().
 		UpdatePipeline(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, req *dataplanev1.UpdatePipelineRequest, _ ...any) (*dataplanev1.UpdatePipelineResponse, error) {
-			// Verify service_account is NOT included when secret_version unchanged
-			assert.Nil(t, req.Pipeline.ServiceAccount, "ServiceAccount should NOT be included when secret_version unchanged")
-			// afterPipeline (server response) has SA=nil because no SA was sent.
-			// Assertions below check that Update doesn't drop the wrapper from state.
+			assert.Nil(t, req.Pipeline.ServiceAccount, "an unchanged service account is not sent")
+			assert.NotContains(t, req.GetUpdateMask().GetPaths(), "service_account", "an unchanged service account stays off the mask")
+			assert.Contains(t, req.GetUpdateMask().GetPaths(), "display_name")
 			return &dataplanev1.UpdatePipelineResponse{Pipeline: afterPipeline}, nil
 		})
 
@@ -1571,16 +1572,15 @@ func TestUnit_Pipeline_ServiceAccountNoUpdateWhenVersionUnchanged(t *testing.T) 
 
 	require.False(t, updateResp.Diagnostics.HasError(), "Update error: %v", updateResp.Diagnostics)
 
-	// When Update omits ServiceAccount (to protect write-only client_secret),
-	// the server echoes SA=nil. Post-apply state must still carry the prior
-	// SA block; otherwise the consistency check rejects with `... but now null`.
+	// The server keeps the block an update leaves off the mask and reports
+	// it; state must carry it unchanged or the consistency check rejects.
 	var resultState pipelinemodel.ResourceModel
 	diags = updateResp.State.Get(ctx, &resultState)
 	require.False(t, diags.HasError(), "State.Get: %v", diags)
 	require.False(t, resultState.ServiceAccount.IsNull(),
 		"service_account block was dropped from state after an SA-unchanged Update")
 	assert.Equal(t, currentState.ServiceAccount, resultState.ServiceAccount,
-		"service_account must round-trip from prior state when the request omitted it")
+		"service_account must match prior state when the update left it off the mask")
 }
 
 // While a pipeline is in state=running, GetPipeline returns
