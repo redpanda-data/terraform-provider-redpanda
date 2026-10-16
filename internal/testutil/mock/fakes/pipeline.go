@@ -89,8 +89,7 @@ func pipelineRecordToProto(rec *pipelineRecord) *dataplanev1.Pipeline {
 		State:       rec.state,
 		Tags:        copyStringMap(rec.tags),
 	}
-	// Mirror production: GetPipeline omits ServiceAccount when STATE_RUNNING.
-	if rec.clientID != "" && rec.state != dataplanev1.Pipeline_STATE_RUNNING {
+	if rec.clientID != "" {
 		p.ServiceAccount = &dataplanev1.Pipeline_ServiceAccount{
 			ClientId: rec.clientID,
 		}
