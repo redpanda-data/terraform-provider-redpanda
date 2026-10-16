@@ -270,15 +270,6 @@ func (p *Pipeline) Read(ctx context.Context, req resource.ReadRequest, resp *res
 		return
 	}
 
-	// While a pipeline is in state=running, the Cloud backend's GetPipeline
-	// RPC omits ServiceAccount from its response.
-	// Without this restore, Flatten drops the wrapper from in-memory state
-	// and the next plan reports `+ service_account` even though nothing
-	// changed. Mirror the Update-path fix at the wrapper level.
-	if getResp.GetPipeline().GetServiceAccount() == nil && !model.ServiceAccount.IsNull() {
-		readState.ServiceAccount = model.ServiceAccount
-	}
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, readState)...)
 }
 

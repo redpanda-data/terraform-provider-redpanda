@@ -1583,22 +1583,21 @@ func TestUnit_Pipeline_ServiceAccountNoUpdateWhenVersionUnchanged(t *testing.T) 
 		"service_account must match prior state when the update left it off the mask")
 }
 
-// While a pipeline is in state=running, GetPipeline returns
-// ServiceAccount=nil even when one was set on Create. Without preservation,
-// Flatten drops the wrapper and the next plan reports `+ service_account`
-// even though nothing changed.
-func TestUnit_Pipeline_ReadPreservesServiceAccountWhenServerOmits(t *testing.T) {
+// TestUnit_Pipeline_ReadCarriesServiceAccountFromServer pins that Read takes
+// the service account the server reports in every state and keeps the TF-only
+// secret_version from prior state, with the write-only client_secret null.
+func TestUnit_Pipeline_ReadCarriesServiceAccountFromServer(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	ctx := context.Background()
 	mockClient := mocks.NewMockPipelineServiceClient(ctrl)
 
-	// Server response with SA=nil, exactly what the running-pipeline RPC returns.
 	runningPipeline := createMockPipeline(
 		testPipelineID, testDisplayName, testDescription, testConfigYaml, testPipelineURL,
 		dataplanev1.Pipeline_STATE_RUNNING, nil, nil,
 	)
+	runningPipeline.ServiceAccount = &dataplanev1.Pipeline_ServiceAccount{ClientId: "client-123"}
 	mockClient.EXPECT().
 		GetPipeline(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&dataplanev1.GetPipelineResponse{Pipeline: runningPipeline}, nil)
@@ -1610,34 +1609,39 @@ func TestUnit_Pipeline_ReadPreservesServiceAccountWhenServerOmits(t *testing.T) 
 	require.False(t, schemaResp.Diagnostics.HasError())
 
 	priorState := pipelinemodel.ResourceModel{
-		ID:             types.StringValue(testPipelineID),
-		ClusterAPIURL:  types.StringValue(testClusterAPIURL),
-		DisplayName:    types.StringValue(testDisplayName),
-		Description:    types.StringValue(testDescription),
-		ConfigYaml:     types.StringValue(testConfigYaml),
-		State:          types.StringValue(pipelinemodel.StateRunning),
-		Status:         types.ObjectNull(pipelinemodel.StatusAttrTypes()),
-		URL:            types.StringValue(testPipelineURL),
-		Resources:      createResourcesObject("", ""),
-		ServiceAccount: createServiceAccountObject("client-123", "secret-abc", 1),
-		Tags:           createTagsMap(nil),
-		Timeouts:       createTestTimeouts(),
+		ID:            types.StringValue(testPipelineID),
+		ClusterAPIURL: types.StringValue(testClusterAPIURL),
+		DisplayName:   types.StringValue(testDisplayName),
+		Description:   types.StringValue(testDescription),
+		ConfigYaml:    types.StringValue(testConfigYaml),
+		State:         types.StringValue(pipelinemodel.StateRunning),
+		Status:        types.ObjectNull(pipelinemodel.StatusAttrTypes()),
+		URL:           types.StringValue(testPipelineURL),
+		Resources:     createResourcesObject("", ""),
+		// Prior state holds the block as the framework stores it: the
+		// write-only client_secret is null.
+		ServiceAccount: types.ObjectValueMust(pipelinemodel.ServiceAccountAttrTypes(), map[string]attr.Value{
+			"client_id":      types.StringValue("client-123"),
+			"client_secret":  types.StringNull(),
+			"secret_version": types.Int64Value(1),
+		}),
+		Tags:     createTagsMap(nil),
+		Timeouts: createTestTimeouts(),
 	}
 
 	readReq := resource.ReadRequest{State: tfsdk.State{Schema: schemaResp.Schema}}
-	diags := readReq.State.Set(ctx, &priorState)
-	require.False(t, diags.HasError())
+	require.False(t, readReq.State.Set(ctx, &priorState).HasError())
 
 	readResp := resource.ReadResponse{State: tfsdk.State{Schema: schemaResp.Schema}}
 	r.Read(ctx, readReq, &readResp)
-
 	require.False(t, readResp.Diagnostics.HasError(), "Read error: %v", readResp.Diagnostics)
 
 	var resultState pipelinemodel.ResourceModel
-	diags = readResp.State.Get(ctx, &resultState)
-	require.False(t, diags.HasError(), "State.Get: %v", diags)
-	require.False(t, resultState.ServiceAccount.IsNull(),
-		"service_account block was dropped from state on Read when server returned SA=nil")
-	assert.Equal(t, priorState.ServiceAccount, resultState.ServiceAccount,
-		"service_account must round-trip from prior state when the server omits it from GetPipeline")
+	require.False(t, readResp.State.Get(ctx, &resultState).HasError())
+	got, d := resultState.AsServiceAccount(ctx)
+	require.False(t, d.HasError())
+	require.NotNil(t, got)
+	assert.Equal(t, "client-123", got.ClientID.ValueString())
+	assert.Equal(t, int64(1), got.SecretVersion.ValueInt64(), "secret_version is TF-only and comes from prior state")
+	assert.True(t, got.ClientSecret.IsNull(), "the write-only client_secret never lands in state")
 }
