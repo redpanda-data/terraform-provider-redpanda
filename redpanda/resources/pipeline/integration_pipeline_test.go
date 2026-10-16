@@ -1074,13 +1074,9 @@ resource "redpanda_pipeline" "test" {
 	})
 }
 
-// TestIntegration_Pipeline_ServiceAccount_PreservedAcrossRunningState pins the
-// Read-path restore hook. The fake omits ServiceAccount from GetPipeline
-// responses when state=STATE_RUNNING (matching production). Without the hook at
-// resource_pipeline.go Read, Flatten drops the SA wrapper from state and the
-// next plan surfaces a spurious "+ service_account" diff. This test proves the
-// hook keeps state stable: Create (stopped, SA set) → Start (running, fake
-// returns nil SA) → NoopReapply (plan must be empty: hook restored SA).
+// TestIntegration_Pipeline_ServiceAccount_PreservedAcrossRunningState pins that
+// a state-only change and a no-op apply leave the service account block in
+// state as the server reports it, with secret_version kept and no secret.
 func TestIntegration_Pipeline_ServiceAccount_PreservedAcrossRunningState(t *testing.T) {
 	_, factories := integration.Setup(t)
 
@@ -1097,7 +1093,7 @@ func TestIntegration_Pipeline_ServiceAccount_PreservedAcrossRunningState(t *test
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: factories,
 		Steps: []resource.TestStep{
-			// Step 1: Create stopped. The fake returns SA; state carries client_id.
+			// Create stopped; state carries client_id and no secret.
 			integration.CreateStep(pipelineAddr, cfgStopped, []statecheck.StateCheck{
 				statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("state"), knownvalue.StringExact("stopped")),
 				statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("service_account").AtMapKey("client_id"), knownvalue.StringExact(clientID)),
@@ -1106,8 +1102,7 @@ func TestIntegration_Pipeline_ServiceAccount_PreservedAcrossRunningState(t *test
 				statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 				idStable.AddStateValue(pipelineAddr, tfjsonpath.New("id")),
 			}),
-			// Step 2: Transition to running. The fake omits SA in GetPipeline;
-			// hook restores SA from prev state. Plan must be empty afterward.
+			// A state-only change issues no write and must leave the block as is.
 			integration.UpdateLeafStep(pipelineAddr, cfgRunning, []statecheck.StateCheck{
 				statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("state"), knownvalue.StringExact("running")),
 				statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("service_account").AtMapKey("client_id"), knownvalue.StringExact(clientID)),
@@ -1116,8 +1111,7 @@ func TestIntegration_Pipeline_ServiceAccount_PreservedAcrossRunningState(t *test
 				statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 				idStable.AddStateValue(pipelineAddr, tfjsonpath.New("id")),
 			}),
-			// Step 3: NoopReapply with config unchanged; fake still omits SA (still running).
-			// Hook must restore SA so no diff surfaces.
+			// A no-op apply on the running pipeline must stay a no-op.
 			integration.NoopReapplyStep(pipelineAddr, cfgRunning, []statecheck.StateCheck{
 				statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("state"), knownvalue.StringExact("running")),
 				statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("service_account").AtMapKey("client_id"), knownvalue.StringExact(clientID)),
@@ -1131,9 +1125,9 @@ func TestIntegration_Pipeline_ServiceAccount_PreservedAcrossRunningState(t *test
 
 // TestIntegration_Pipeline_ServiceAccount_SurvivesConfigChange pins that a
 // config change on a pipeline with a service account leaves the service
-// account on the dataplane. The check reads the fake directly: Read carries
-// the block forward from prior state, so Terraform's own view cannot tell a
-// stripped service account from a kept one.
+// account on the dataplane. The check reads the fake directly so a stripped
+// block fails at the apply step itself rather than as drift on the next
+// refresh.
 func TestIntegration_Pipeline_ServiceAccount_SurvivesConfigChange(t *testing.T) {
 	srv, factories := integration.Setup(t)
 
