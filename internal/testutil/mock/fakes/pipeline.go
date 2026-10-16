@@ -130,8 +130,9 @@ func (f *PipelineFake) GetPipeline(_ context.Context, req *dataplanev1.GetPipeli
 	return &dataplanev1.GetPipelineResponse{Pipeline: pipelineRecordToProto(rec)}, nil
 }
 
-// UpdatePipeline performs a full replacement of the mutable fields. The
-// provider does not populate UpdateMask, matching this wholesale semantic.
+// UpdatePipeline writes the payload the way the dataplane does: with no
+// update_mask every mutable field is replaced, so an absent service account
+// clears the stored one; with a mask only the named fields change.
 func (f *PipelineFake) UpdatePipeline(_ context.Context, req *dataplanev1.UpdatePipelineRequest) (*dataplanev1.UpdatePipelineResponse, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -144,12 +145,32 @@ func (f *PipelineFake) UpdatePipeline(_ context.Context, req *dataplanev1.Update
 		return nil, status.Error(codes.Aborted, "the pipeline was modified by another request: reload it and retry")
 	}
 	pu := req.GetPipeline()
-	rec.displayName = pu.GetDisplayName()
-	rec.description = pu.GetDescription()
-	rec.configYaml = pu.GetConfigYaml()
-	rec.tags = copyStringMap(pu.GetTags())
-	if sa := pu.GetServiceAccount(); sa != nil {
-		rec.clientID = sa.GetClientId()
+	paths := req.GetUpdateMask().GetPaths()
+	named := func(field string) bool {
+		if len(paths) == 0 {
+			return true
+		}
+		for _, p := range paths {
+			if p == field {
+				return true
+			}
+		}
+		return false
+	}
+	if named("display_name") {
+		rec.displayName = pu.GetDisplayName()
+	}
+	if named("description") {
+		rec.description = pu.GetDescription()
+	}
+	if named("config_yaml") {
+		rec.configYaml = pu.GetConfigYaml()
+	}
+	if named("tags") {
+		rec.tags = copyStringMap(pu.GetTags())
+	}
+	if named("service_account") {
+		rec.clientID = pu.GetServiceAccount().GetClientId()
 	}
 	return &dataplanev1.UpdatePipelineResponse{Pipeline: pipelineRecordToProto(rec)}, nil
 }
