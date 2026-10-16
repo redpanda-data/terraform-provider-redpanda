@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 
 	"buf.build/gen/go/redpandadata/dataplane/grpc/go/redpanda/api/dataplane/v1/dataplanev1grpc"
@@ -1125,5 +1126,97 @@ func TestIntegration_Pipeline_ServiceAccount_PreservedAcrossRunningState(t *test
 				idStable.AddStateValue(pipelineAddr, tfjsonpath.New("id")),
 			}),
 		},
+	})
+}
+
+// TestIntegration_Pipeline_ServiceAccount_SurvivesConfigChange pins that a
+// config change on a pipeline with a service account leaves the service
+// account on the dataplane. The check reads the fake directly: Read carries
+// the block forward from prior state, so Terraform's own view cannot tell a
+// stripped service account from a kept one.
+func TestIntegration_Pipeline_ServiceAccount_SurvivesConfigChange(t *testing.T) {
+	srv, factories := integration.Setup(t)
+
+	const (
+		name         = "tfrp-mock-pipe-sa-config"
+		clientID     = "test-client-id"
+		clientSecret = "$${secrets.test_secret}"
+	)
+	cfgA := mockPipelineServiceAccountConfig(name, clientID, clientSecret, 1)
+	cfgB := strings.Replace(cfgA, `description     = "test description"`, `description     = "changed description"`, 1)
+	if cfgA == cfgB {
+		t.Fatal("the config change did not apply to the fixture")
+	}
+
+	storedClientID := func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[pipelineAddr]
+		if !ok {
+			return fmt.Errorf("%s not in state", pipelineAddr)
+		}
+		got, err := srv.Pipeline.GetPipeline(context.Background(), &dataplanev1.GetPipelineRequest{Id: rs.Primary.ID})
+		if err != nil {
+			return err
+		}
+		if got.GetPipeline().GetServiceAccount().GetClientId() != clientID {
+			return fmt.Errorf("the dataplane lost the service account: got %q", got.GetPipeline().GetServiceAccount().GetClientId())
+		}
+		return nil
+	}
+
+	create := integration.CreateStep(pipelineAddr, cfgA, []statecheck.StateCheck{
+		statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("service_account").AtMapKey("client_id"), knownvalue.StringExact(clientID)),
+	})
+	create.Check = storedClientID
+	update := integration.UpdateLeafStep(pipelineAddr, cfgB, []statecheck.StateCheck{
+		statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("description"), knownvalue.StringExact("changed description")),
+		statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("service_account").AtMapKey("client_id"), knownvalue.StringExact(clientID)),
+	})
+	update.Check = storedClientID
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps:                    []resource.TestStep{create, update},
+	})
+}
+
+// TestIntegration_Pipeline_ServiceAccount_Removal pins that dropping the
+// service_account block clears it on the dataplane and leaves state null, so
+// the apply is consistent and the next plan is empty.
+func TestIntegration_Pipeline_ServiceAccount_Removal(t *testing.T) {
+	srv, factories := integration.Setup(t)
+
+	const name = "tfrp-mock-pipe-sa-removal"
+	withSA := mockPipelineServiceAccountConfig(name, "test-client-id", "$${secrets.test_secret}", 1)
+	withoutSA := mockPipelineConfig(name, "stopped", minimalPipelineConfigYaml)
+
+	storedClientID := func(want string) func(*terraform.State) error {
+		return func(s *terraform.State) error {
+			rs, ok := s.RootModule().Resources[pipelineAddr]
+			if !ok {
+				return fmt.Errorf("%s not in state", pipelineAddr)
+			}
+			got, err := srv.Pipeline.GetPipeline(context.Background(), &dataplanev1.GetPipelineRequest{Id: rs.Primary.ID})
+			if err != nil {
+				return err
+			}
+			if id := got.GetPipeline().GetServiceAccount().GetClientId(); id != want {
+				return fmt.Errorf("dataplane service account client_id: got %q, want %q", id, want)
+			}
+			return nil
+		}
+	}
+
+	create := integration.CreateStep(pipelineAddr, withSA, []statecheck.StateCheck{
+		statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("service_account").AtMapKey("client_id"), knownvalue.StringExact("test-client-id")),
+	})
+	create.Check = storedClientID("test-client-id")
+	remove := integration.UpdateLeafStep(pipelineAddr, withoutSA, []statecheck.StateCheck{
+		statecheck.ExpectKnownValue(pipelineAddr, tfjsonpath.New("service_account"), knownvalue.Null()),
+	})
+	remove.Check = storedClientID("")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps:                    []resource.TestStep{create, remove},
 	})
 }
