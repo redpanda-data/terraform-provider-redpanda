@@ -17,6 +17,9 @@ package utils
 import (
 	"context"
 	"time"
+
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	grpccodes "google.golang.org/grpc/codes"
 )
 
 // DataplaneCall runs one RPC against a per-cluster endpoint under the shared
@@ -54,6 +57,7 @@ func DataplaneCall[T any](ctx context.Context, do func(context.Context) (T, erro
 			return NonRetryableError(rpcErr)
 		}
 
+		warnOnBareStatus(ctx, rpcErr, attempt)
 		if !cfg.classify(rpcErr) {
 			return NonRetryableError(rpcErr)
 		}
@@ -107,4 +111,21 @@ func WithProbe[T any](probe func(context.Context) (T, bool)) CallOption[T] {
 // resources speak HTTP and need their own.
 func WithClassifier[T any](classify func(error) bool) CallOption[T] {
 	return func(c *callConfig[T]) { c.classify = classify }
+}
+
+// warnOnBareStatus logs an Internal or Unknown status that carries no message.
+// Such a status says nothing about the request and is a server bug worth
+// reporting to cloudv2, whether or not the call is retried.
+func warnOnBareStatus(ctx context.Context, err error, attempt int) {
+	st, ok := serverStatus(err)
+	if !ok || st.Message() != "" {
+		return
+	}
+	if code := st.Code(); code == grpccodes.Internal || code == grpccodes.Unknown {
+		tflog.Warn(ctx, "dataplane returned a status with no message; this is a server bug, report it with the request id if one was logged", map[string]any{
+			"code":    code.String(),
+			"attempt": attempt,
+			"error":   err.Error(),
+		})
+	}
 }
