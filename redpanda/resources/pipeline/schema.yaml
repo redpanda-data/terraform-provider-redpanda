@@ -4,6 +4,17 @@ tf_name: Pipeline
 
 timeouts: [create, update, delete]
 
+api:
+  update:
+    # The resource builds the UpdatePipelineRequest itself around the plan
+    # payload and a FieldMask of the changed fields. Without a mask the
+    # dataplane replaces every mutable field, and a payload that omits
+    # service_account (the provider never holds the write-only client_secret)
+    # clears it. The payload stays whole so it passes request validation
+    # that does not consult the mask, as the mock server's does.
+    return_payload: true
+    diff_mask: full
+
 id:
   computed_only: true
 
