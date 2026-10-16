@@ -15,10 +15,13 @@
 package utils
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-log/tflogtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -180,4 +183,37 @@ func TestDataplaneCallOptions(t *testing.T) {
 		require.Error(t, err)
 		assert.Equal(t, 1, calls, "the opt-out must issue exactly one call")
 	})
+}
+
+// TestDataplaneCallWarnsOnBareStatus pins that a status with no message, which
+// says nothing about the request and points at a server bug, is logged at
+// Warn whether or not it is retried.
+func TestDataplaneCallWarnsOnBareStatus(t *testing.T) {
+	SetTestModeWaits()
+
+	for _, code := range []codes.Code{codes.Internal, codes.Unknown} {
+		t.Run(code.String(), func(t *testing.T) {
+			var logs bytes.Buffer
+			ctx := tflogtest.RootLogger(context.Background(), &logs)
+			calls := 0
+			_, _ = DataplaneCall(ctx, func(context.Context) (string, error) {
+				calls++
+				if calls < 2 {
+					return "", grpcstatus.Error(code, "")
+				}
+				return "ok", nil
+			})
+
+			entries, err := tflogtest.MultilineJSONDecode(&logs)
+			require.NoError(t, err)
+			var warned bool
+			for _, e := range entries {
+				if e["@level"] == "warn" && strings.Contains(e["@message"].(string), "no message") {
+					warned = true
+					assert.Equal(t, code.String(), e["code"])
+				}
+			}
+			assert.True(t, warned, "a bare %s must be logged at Warn", code)
+		})
+	}
 }
