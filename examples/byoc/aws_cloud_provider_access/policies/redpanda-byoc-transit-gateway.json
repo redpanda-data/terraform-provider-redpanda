@@ -1,0 +1,121 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CreateTaggedTransitGatewayResources",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateSecurityGroup",
+        "ec2:CreateTransitGatewayVpcAttachment"
+      ],
+      "Resource": [
+        "arn:aws:ec2:*:*:security-group/*",
+        "arn:aws:ec2:*:*:transit-gateway-attachment/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/redpanda-managed": "true"
+        }
+      }
+    },
+    {
+      "Sid": "CreateInManagedParentResources",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateSecurityGroup",
+        "ec2:CreateTransitGatewayVpcAttachment"
+      ],
+      "Resource": [
+        "arn:aws:ec2:*:*:subnet/*",
+        "arn:aws:ec2:*:*:vpc/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/redpanda-managed": "true"
+        }
+      }
+    },
+    {
+      "Sid": "TagTransitGatewayResourcesOnCreate",
+      "Effect": "Allow",
+      "Action": "ec2:CreateTags",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:CreateAction": [
+            "CreateSecurityGroup",
+            "CreateTransitGatewayVpcAttachment",
+            "CreateVpcEndpoint"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "CreateEndpointSecurityGroupRules",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:AuthorizeSecurityGroupEgress",
+        "ec2:AuthorizeSecurityGroupIngress"
+      ],
+      "Resource": "arn:aws:ec2:*:*:security-group-rule/*"
+    },
+    {
+      "Sid": "AttachToCustomerTransitGateway",
+      "Effect": "Allow",
+      "Action": "ec2:CreateTransitGatewayVpcAttachment",
+      "Resource": [
+        "arn:aws:ec2:*:*:transit-gateway/*"
+      ]
+    },
+    {
+      "Sid": "AttachToTransitGatewayRouteTables",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:AssociateTransitGatewayRouteTable",
+        "ec2:DisableTransitGatewayRouteTablePropagation",
+        "ec2:DisassociateTransitGatewayRouteTable",
+        "ec2:EnableTransitGatewayRouteTablePropagation"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ModifyAndDeleteManagedTransitGatewayResources",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:AuthorizeSecurityGroupEgress",
+        "ec2:AuthorizeSecurityGroupIngress",
+        "ec2:DeleteSecurityGroup",
+        "ec2:DeleteTransitGatewayVpcAttachment",
+        "ec2:ModifyTransitGatewayVpcAttachment",
+        "ec2:RevokeSecurityGroupEgress",
+        "ec2:RevokeSecurityGroupIngress"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/redpanda-managed": "true"
+        }
+      }
+    },
+    {
+      "Sid": "InterfaceEndpointPrivateDns",
+      "Effect": "Allow",
+      "Action": [
+        "route53:AssociateVPCWithHostedZone",
+        "route53:DisassociateVPCFromHostedZone"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "TransitGatewayServiceLinkedRole",
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "arn:aws:iam::*:role/aws-service-role/transitgateway.amazonaws.com/AWSServiceRoleForVPCTransitGateway",
+      "Condition": {
+        "StringEquals": {
+          "iam:AWSServiceName": "transitgateway.amazonaws.com"
+        }
+      }
+    }
+  ]
+}
