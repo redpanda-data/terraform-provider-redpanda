@@ -1,0 +1,45 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "RequestPeeringBetweenVpcs",
+      "Effect": "Allow",
+      "Action": "ec2:CreateVpcPeeringConnection",
+      "Resource": "arn:aws:ec2:*:*:vpc/*"
+    },
+    {
+      "Sid": "CreateTaggedPeeringConnection",
+      "Effect": "Allow",
+      "Action": "ec2:CreateVpcPeeringConnection",
+      "Resource": "arn:aws:ec2:*:*:vpc-peering-connection/*",
+      "Condition": {
+        "Null": {
+          "aws:RequestTag/network-peering-id": "false",
+          "aws:RequestTag/redpanda-org": "false"
+        }
+      }
+    },
+    {
+      "Sid": "TagPeeringConnectionOnCreate",
+      "Effect": "Allow",
+      "Action": "ec2:CreateTags",
+      "Resource": "arn:aws:ec2:*:*:vpc-peering-connection/*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:CreateAction": "CreateVpcPeeringConnection"
+        }
+      }
+    },
+    {
+      "Sid": "DeleteRedpandaPeeringConnection",
+      "Effect": "Allow",
+      "Action": "ec2:DeleteVpcPeeringConnection",
+      "Resource": "arn:aws:ec2:*:*:vpc-peering-connection/*",
+      "Condition": {
+        "Null": {
+          "aws:ResourceTag/network-peering-id": "false"
+        }
+      }
+    }
+  ]
+}
