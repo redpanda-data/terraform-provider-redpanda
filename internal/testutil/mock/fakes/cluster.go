@@ -85,6 +85,12 @@ type ClusterFake struct {
 	// computed fields the provider did not send. Fires only at create.
 	CreateMutator func(*controlplanev1.Cluster)
 
+	// UpdateMutator, when set, is applied to the stored cluster after an
+	// update is merged, letting a test simulate a server-derived field that
+	// changes while the update runs, such as nat_gateways, which the agent
+	// re-samples on its own schedule. Fires on every UpdateCluster.
+	UpdateMutator func(*controlplanev1.Cluster)
+
 	// PublicPrivateListenersDisabled models an org WITHOUT the
 	// enable-public-private-listeners feature flag: any request using
 	// connections gets PermissionDenied, mirroring cloudv2's
@@ -612,6 +618,9 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 	clearRpsqlCMROnDisable(cl)
 	projectListenerMTLS(cl)
 	applyCommonTags(cl)
+	if f.UpdateMutator != nil {
+		f.UpdateMutator(cl)
+	}
 	cl.UpdatedAt = timestamppb.Now()
 
 	return &controlplanev1.UpdateClusterOperation{Operation: completedOp(f.op, upd.GetId())}, nil

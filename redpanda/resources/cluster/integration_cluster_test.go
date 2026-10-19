@@ -1241,12 +1241,27 @@ func TestIntegration_Cluster_UpdateLeaf_APIGatewayAccess(t *testing.T) {
 }
 
 // TestIntegration_Cluster_UpdateLeaf_ClusterConfiguration_CustomPropertiesJSON
-// mutates the cluster_configuration.custom_properties_json field.
+// mutates the cluster_configuration.custom_properties_json field. The agent
+// fills nat_gateways from a sample of egress IPs taken on its own schedule,
+// so a sample taken during the update can miss an IP the prior state holds;
+// the apply must adopt the new value instead of failing as inconsistent.
 func TestIntegration_Cluster_UpdateLeaf_ClusterConfiguration_CustomPropertiesJSON(t *testing.T) {
-	_, factories := clusterSetup(t)
+	srv, factories := clusterSetup(t)
 
 	const name = "tfrp-mock-cl-b6"
+	const (
+		threeIPs = "192.0.2.10,192.0.2.11,192.0.2.12"
+		twoIPs   = "192.0.2.10,192.0.2.12"
+	)
 
+	srv.Cluster.CreateMutator = func(cl *controlplanev1.Cluster) {
+		cl.NatGateways = []string{threeIPs}
+	}
+	srv.Cluster.UpdateMutator = func(cl *controlplanev1.Cluster) {
+		cl.NatGateways = []string{twoIPs}
+	}
+
+	natGateways := tfjsonpath.New("nat_gateways")
 	idPreserved := statecheck.CompareValue(compare.ValuesSame())
 
 	resource.UnitTest(t, resource.TestCase{
@@ -1257,6 +1272,8 @@ func TestIntegration_Cluster_UpdateLeaf_ClusterConfiguration_CustomPropertiesJSO
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+					statecheck.ExpectKnownValue(clusterAddr, natGateways,
+						knownvalue.ListExact([]knownvalue.Check{knownvalue.StringExact(threeIPs)})),
 				}),
 			integration.UpdateLeafStep(clusterAddr,
 				awsDedicatedConfig(name, `cluster_configuration = { custom_properties_json = "{\"auto.create.topics.enable\":\"true\"}" }`),
@@ -1264,6 +1281,8 @@ func TestIntegration_Cluster_UpdateLeaf_ClusterConfiguration_CustomPropertiesJSO
 					statecheck.ExpectKnownValue(clusterAddr,
 						tfjsonpath.New("cluster_configuration").AtMapKey("custom_properties_json"),
 						knownvalue.StringExact(`{"auto.create.topics.enable":"true"}`)),
+					statecheck.ExpectKnownValue(clusterAddr, natGateways,
+						knownvalue.ListExact([]knownvalue.Check{knownvalue.StringExact(twoIPs)})),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
