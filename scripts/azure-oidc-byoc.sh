@@ -17,7 +17,7 @@
 # provider authenticating to Azure through the local OIDC issuer from
 # azure-oidc.sh, so the byoc plugin runs with no client secret.
 #
-# Usage: azure-oidc-byoc.sh apply|plan|destroy local|released token-file|relative-path|arm-token|customer|actions|cli-session|secret
+# Usage: azure-oidc-byoc.sh apply|plan|destroy local|released token-file|pod-file|relative-path|arm-token|customer|actions|cli-session|secret
 #
 #   plan runs with -detailed-exitcode, so exit 0 is an empty plan and exit 2
 #   a drift, against the cluster from the last apply.
@@ -25,7 +25,12 @@
 #   local      the provider built from this checkout (dev_overrides)
 #   released   the provider from the registry (REDPANDA_VERSION pins it)
 #
-#   token-file ARM_USE_OIDC with AZURE_FEDERATED_TOKEN_FILE
+#   token-file ARM_USE_OIDC with ARM_OIDC_TOKEN_FILE_PATH naming the token
+#              by absolute path
+#   pod-file   ARM_USE_OIDC with only AZURE_FEDERATED_TOKEN_FILE, the file the
+#              AKS webhook names on every pod; not an azurerm input, so the
+#              provider falls through to the az session, and with none the
+#              plan fails
 #   relative-path ARM_USE_OIDC with ARM_OIDC_TOKEN_FILE_PATH naming the token
 #              relative to the Terraform working directory, as azurerm
 #              reads it
@@ -68,7 +73,7 @@ provider="${2:-}"
 auth="${3:-}"
 case "$action/$provider/$auth" in
   apply/local/* | apply/released/* | plan/local/* | plan/released/* | destroy/local/* | destroy/released/*) ;;
-  *) echo "usage: azure-oidc-byoc.sh apply|plan|destroy local|released token-file|relative-path|arm-token|customer|actions|cli-session|secret" >&2; exit 2 ;;
+  *) echo "usage: azure-oidc-byoc.sh apply|plan|destroy local|released token-file|pod-file|relative-path|arm-token|customer|actions|cli-session|secret" >&2; exit 2 ;;
 esac
 
 repo="$(pwd)"
@@ -165,6 +170,9 @@ elif [[ "$auth" != secret ]]; then
   "$bin" mint -key "$key" -issuer "$(cat "$dir/issuer")" -subject "$subject" -lifetime "$token_lifetime" -out "$token"
   case "$auth" in
     token-file)
+      export ARM_OIDC_TOKEN_FILE_PATH="$token"
+      ;;
+    pod-file)
       export AZURE_FEDERATED_TOKEN_FILE="$token"
       ;;
     relative-path)
