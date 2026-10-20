@@ -31,8 +31,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -173,51 +171,4 @@ func ActionsTokenHandler(key *rsa.PrivateKey, c Claims, requestToken string) htt
 func bearerIs(authorization, token string) bool {
 	scheme, got, ok := strings.Cut(authorization, " ")
 	return ok && strings.EqualFold(scheme, "Bearer") && got == token
-}
-
-// StaticActionsTokenHandler serves the GitHub Actions ID-token endpoint shape
-// from an already minted token, so a runner can use it without the signing key.
-// The token is re-read per request, so replacing the file refreshes it.
-func StaticActionsTokenHandler(tokenPath, requestToken string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !bearerIs(r.Header.Get("Authorization"), requestToken) {
-			http.Error(w, "bad request token", http.StatusUnauthorized)
-			return
-		}
-		raw, err := os.ReadFile(filepath.Clean(tokenPath))
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		token := strings.TrimSpace(string(raw))
-		audience, err := tokenAudience(token)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if want := r.URL.Query().Get("audience"); want == "" || want != audience {
-			http.Error(w, fmt.Sprintf("token audience is %q, request asked for %q", audience, want), http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"value": token})
-	})
-}
-
-func tokenAudience(token string) (string, error) {
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		return "", errors.New("token is not a compact JWT")
-	}
-	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return "", err
-	}
-	var claims struct {
-		Aud string `json:"aud"`
-	}
-	if err := json.Unmarshal(payload, &claims); err != nil {
-		return "", err
-	}
-	return claims.Aud, nil
 }

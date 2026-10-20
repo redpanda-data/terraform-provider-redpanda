@@ -23,8 +23,6 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -175,49 +173,5 @@ func TestActionsTokenHandlerMintsForTheRequestedAudience(t *testing.T) {
 	h.ServeHTTP(rec, unauth)
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("status without the request token = %d, want 401", rec.Code)
-	}
-}
-
-func TestStaticActionsTokenHandlerServesTheMintedToken(t *testing.T) {
-	key := testKey(t)
-	token, err := Mint(key, Claims{Issuer: issuer, Subject: "tfrp-oidc-manual", Audience: "api://AzureADTokenExchange", Lifetime: time.Hour}, time.Now())
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(t.TempDir(), "token")
-	if err := os.WriteFile(path, []byte(token+"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	h := StaticActionsTokenHandler(path, "request-token")
-
-	cases := []struct {
-		name, authorization, audience string
-		wantCode                      int
-	}{
-		{"matching audience", "bearer request-token", "api://AzureADTokenExchange", http.StatusOK},
-		{"capitalized scheme", "Bearer request-token", "api://AzureADTokenExchange", http.StatusOK},
-		{"other audience", "bearer request-token", "api://other", http.StatusBadRequest},
-		{"no audience", "bearer request-token", "", http.StatusBadRequest},
-		{"wrong request token", "bearer nope", "api://AzureADTokenExchange", http.StatusUnauthorized},
-		{"wrong scheme", "basic request-token", "api://AzureADTokenExchange", http.StatusUnauthorized},
-		{"no scheme", "request-token", "api://AzureADTokenExchange", http.StatusUnauthorized},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/token?api-version=2.0&audience="+tc.audience, http.NoBody)
-			req.Header.Set("Authorization", tc.authorization)
-			rec := httptest.NewRecorder()
-			h.ServeHTTP(rec, req)
-			if rec.Code != tc.wantCode {
-				t.Fatalf("status = %d, want %d (body %s)", rec.Code, tc.wantCode, rec.Body)
-			}
-			if tc.wantCode != http.StatusOK {
-				return
-			}
-			var body struct{ Value string }
-			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || body.Value != token {
-				t.Errorf("body = %s, want the minted token (%v)", rec.Body, err)
-			}
-		})
 	}
 }

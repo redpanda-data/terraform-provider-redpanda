@@ -19,7 +19,6 @@
 //	azureoidc publish -key KEY -issuer URL -out DIR
 //	azureoidc mint -key KEY -issuer URL -subject SUB -out FILE [-lifetime D] [-every D]
 //	azureoidc serve-actions -key KEY -issuer URL -subject SUB -request-token T [-url-file FILE]
-//	azureoidc serve-actions -token-file FILE -request-token T [-url-file FILE]
 package main
 
 import (
@@ -63,7 +62,6 @@ func run(args []string, stdout io.Writer) error {
 	every := fs.Duration("every", 0, "keep re-minting the token at this interval until interrupted")
 	requestToken := fs.String("request-token", "", "bearer token the Actions endpoint stub requires")
 	urlFile := fs.String("url-file", "", "file to write the Actions endpoint stub URL to")
-	tokenFile := fs.String("token-file", "", "serve this already minted token instead of minting with -key")
 	if err := fs.Parse(args[1:]); err != nil {
 		return err
 	}
@@ -131,15 +129,12 @@ func run(args []string, stdout io.Writer) error {
 		if *requestToken == "" {
 			return errors.New("serve-actions needs -request-token")
 		}
-		if *tokenFile != "" {
-			return serveActions(azureoidc.StaticActionsTokenHandler(*tokenFile, *requestToken), *urlFile, stdout)
-		}
 		key, err := loadKey(*keyPath)
 		if err != nil {
 			return err
 		}
 		if *issuer == "" || *subject == "" {
-			return errors.New("serve-actions needs -token-file, or -key, -issuer, and -subject")
+			return errors.New("serve-actions needs -key, -issuer, and -subject")
 		}
 		return serveActions(azureoidc.ActionsTokenHandler(key, azureoidc.Claims{Issuer: *issuer, Subject: *subject, Lifetime: *lifetime}, *requestToken), *urlFile, stdout)
 	default:

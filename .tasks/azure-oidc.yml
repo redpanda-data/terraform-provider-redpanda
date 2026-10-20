@@ -3,16 +3,22 @@ version: '3'
 # A local OIDC issuer that the Azure app registration trusts, for testing the
 # byoc plugin with workload identity federation and no client secret. State,
 # including the private signing key, lives in AZURE_OIDC_DIR, which is
-# gitignored. up and down change the app registration: run them as an owner of
-# it (for example AZURE_CONFIG_DIR pointing at that owner's az login).
+# gitignored. With AZURE_OIDC_IDENTITY=app (the default) up and down change
+# the app registration: run them as an owner of it (for example
+# AZURE_CONFIG_DIR pointing at that owner's az login). With
+# AZURE_OIDC_IDENTITY=managed, up creates a user-assigned managed identity
+# that trusts the issuer instead, which needs only Contributor and User Access
+# Administrator on the subscription; every later task uses that identity.
 
 vars:
   AZURE_OIDC_DIR: '{{.AZURE_OIDC_DIR | default ".azure-oidc"}}'
   AZURE_OIDC_SUBJECT: '{{.AZURE_OIDC_SUBJECT | default "tfrp-oidc-manual"}}'
+  AZURE_OIDC_IDENTITY: '{{.AZURE_OIDC_IDENTITY | default "app"}}'
 
 env:
   AZURE_OIDC_DIR: '{{.AZURE_OIDC_DIR}}'
   AZURE_OIDC_SUBJECT: '{{.AZURE_OIDC_SUBJECT}}'
+  AZURE_OIDC_IDENTITY: '{{.AZURE_OIDC_IDENTITY}}'
 
 tasks:
   build:
@@ -29,7 +35,7 @@ tasks:
       - '"{{.AZURE_OIDC_DIR}}/bin/azureoidc" keygen -out "{{.AZURE_OIDC_DIR}}/signing-key.pem"'
 
   up:
-    desc: "Publish the issuer to a storage account and trust it from the app registration"
+    desc: "Publish the issuer to a storage account and trust it from the app registration, or from a managed identity it creates with AZURE_OIDC_IDENTITY=managed"
     deps: [key]
     cmds:
       - ./scripts/azure-oidc.sh up
@@ -58,13 +64,13 @@ tasks:
         echo "{{.AZURE_OIDC_DIR}}/token"
 
   down:
-    desc: "Delete the federated credential and the issuer site (the signing key is kept)"
+    desc: "Delete the federated credential, the managed identity's roles and custom role, and the issuer site (the signing key is kept)"
     deps: [build]
     cmds:
       - ./scripts/azure-oidc.sh down
 
   byoc:apply:
-    desc: "Apply an Azure BYOC cluster authenticating through the local issuer; PROVIDER=local|released, AUTH=token-file|arm-token|customer|actions|cli-session|secret"
+    desc: "Apply an Azure BYOC cluster authenticating through the local issuer; PROVIDER=local|released, AUTH=token-file|relative-path|arm-token|customer|actions|cli-session|secret"
     deps: [build]
     vars:
       PROVIDER: '{{.PROVIDER | default "local"}}'
@@ -72,8 +78,17 @@ tasks:
     cmds:
       - ./scripts/azure-oidc-byoc.sh apply "{{.PROVIDER}}" "{{.AUTH}}"
 
+  byoc:plan:
+    desc: "Plan against the cluster from azure-oidc:byoc:apply with -detailed-exitcode; same PROVIDER and AUTH"
+    deps: [build]
+    vars:
+      PROVIDER: '{{.PROVIDER | default "local"}}'
+      AUTH: '{{.AUTH | default "token-file"}}'
+    cmds:
+      - ./scripts/azure-oidc-byoc.sh plan "{{.PROVIDER}}" "{{.AUTH}}"
+
   byoc:destroy:
-    desc: "Destroy the Azure BYOC cluster from azure-oidc:byoc:apply; PROVIDER=local|released, AUTH=token-file|arm-token|customer|actions|cli-session|secret"
+    desc: "Destroy the Azure BYOC cluster from azure-oidc:byoc:apply; PROVIDER=local|released, AUTH=token-file|relative-path|arm-token|customer|actions|cli-session|secret"
     deps: [build]
     vars:
       PROVIDER: '{{.PROVIDER | default "local"}}'
@@ -92,7 +107,7 @@ tasks:
       - ./scripts/azure-oidc-vm.sh check
 
   vm:run:
-    desc: "Run azure-oidc:byoc on the VM with a token minted here; ACTION=apply|destroy, PROVIDER=local|released, AUTH=token-file|arm-token|customer, AZURE_OIDC_VM_ENV for extra NAME=value pairs"
+    desc: "Run azure-oidc:byoc on the VM, which mints its own tokens with the copied key; ACTION=apply|plan|destroy, PROVIDER=local|released, AUTH=token-file|relative-path|arm-token|customer|actions, AZURE_OIDC_VM_TAG to overlap runs, AZURE_OIDC_VM_ENV for extra NAME=value pairs"
     deps: [build]
     vars:
       ACTION: '{{.ACTION | default "apply"}}'
@@ -102,11 +117,11 @@ tasks:
       - ./scripts/azure-oidc-vm.sh run "{{.ACTION}}" "{{.PROVIDER}}" "{{.AUTH}}"
 
   vm:wait:
-    desc: "Follow the run started by azure-oidc:vm:run until it finishes"
+    desc: "Follow the run started by azure-oidc:vm:run (same AZURE_OIDC_VM_TAG) until it finishes"
     cmds:
       - ./scripts/azure-oidc-vm.sh wait
 
   vm:down:
-    desc: "Delete the VM (refuses while its Terraform state holds resources unless FORCE=1)"
+    desc: "Remove the signing key and delete the VM (refuses while any of its Terraform states holds resources unless FORCE=1)"
     cmds:
       - ./scripts/azure-oidc-vm.sh down
