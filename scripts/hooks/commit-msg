@@ -15,8 +15,10 @@ esac
 
 fail() { echo "commit-msg: $1" >&2; echo "  title: $title" >&2; exit 1; }
 
-[[ "$title" =~ ^(feat|fix|test|docs|chore|ci|agent)\([a-z0-9_/-]+\)!?:\ .+$ ]] \
-  || fail "title must be 'type(scope): summary' with a scope and type in feat|fix|test|docs|chore|ci|agent"
+# temp: is for follow-ups pushed while a branch is under review; they are
+# folded into typed commits before merge.
+[[ "$title" =~ ^((feat|fix|test|docs|chore|ci|agent)\([a-z0-9_/-]+\)!?|temp):\ .+$ ]] \
+  || fail "title must be 'type(scope): summary' with a scope and type in feat|fix|test|docs|chore|ci|agent, or 'temp: summary'"
 desc="${title#*: }"
 [[ "$desc" =~ ^[a-z0-9] ]] || fail "summary must start lowercase"
 [[ "$desc" != *. ]] || fail "summary must not end with a period"
