@@ -67,7 +67,7 @@ func NewCluster() *Cluster {
 // so a provider missing what the plugin needs fails before the control plane
 // is asked to create or delete anything. An unknown cloud provider is left to
 // the apply-time call.
-func (c *Cluster) byocPreflight(clusterType, cloudProvider types.String) diag.Diagnostics {
+func (c *Cluster) byocPreflight(ctx context.Context, clusterType, cloudProvider types.String) diag.Diagnostics {
 	var diags diag.Diagnostics
 	if clusterType.ValueString() != enums.ClusterTypeToString(controlplanev1.Cluster_TYPE_BYOC) || cloudProvider.IsUnknown() || cloudProvider.IsNull() {
 		return diags
@@ -76,7 +76,7 @@ func (c *Cluster) byocPreflight(clusterType, cloudProvider types.String) diag.Di
 	if !ok {
 		return diags
 	}
-	if err := checker.CheckCloudConfig(cloudProvider.ValueString()); err != nil {
+	if err := checker.CheckCloudConfig(ctx, cloudProvider.ValueString()); err != nil {
 		diags.AddError("Provider is missing the cloud configuration the byoc plugin needs", err.Error())
 	}
 	return diags
@@ -97,7 +97,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	}
 	// ModifyPlan ran this at plan time, but a saved plan can be applied
 	// from another environment.
-	resp.Diagnostics.Append(c.byocPreflight(plan.ClusterType, plan.CloudProvider)...)
+	resp.Diagnostics.Append(c.byocPreflight(ctx, plan.ClusterType, plan.CloudProvider)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -378,7 +378,8 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 	}
 	// The control plane's type and cloud provider are present even in the
 	// minimal state a failed create leaves behind when no refresh ran.
-	resp.Diagnostics.Append(c.byocPreflight(clusterEnvelope(cl))...)
+	envelopeType, envelopeProvider := clusterEnvelope(cl)
+	resp.Diagnostics.Append(c.byocPreflight(ctx, envelopeType, envelopeProvider)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -526,7 +527,7 @@ func (c *Cluster) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest
 				tflog.Warn(ctx, "byoc preflight skipped at plan: cluster lookup failed", map[string]any{"cluster_id": id.ValueString(), "error": err.Error()})
 			}
 		}
-		resp.Diagnostics.Append(c.byocPreflight(clusterType, cloudProvider)...)
+		resp.Diagnostics.Append(c.byocPreflight(ctx, clusterType, cloudProvider)...)
 		return
 	}
 	// Reject the dual->legacy attempt before any plan surgery, and keep the

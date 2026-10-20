@@ -227,7 +227,7 @@ func (a *Action) preflight(ctx context.Context, clusterID string) (*controlplane
 		return nil, diags
 	}
 	if checker, ok := a.byoc.(utils.ByocCloudConfigChecker); ok {
-		if err := checker.CheckCloudConfig(enums.CloudProviderToString(cl.GetCloudProvider())); err != nil {
+		if err := checker.CheckCloudConfig(ctx, enums.CloudProviderToString(cl.GetCloudProvider())); err != nil {
 			diags.AddError("Provider is missing the cloud configuration the byoc plugin needs", err.Error())
 			return nil, diags
 		}

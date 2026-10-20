@@ -79,8 +79,9 @@ func TestByocClient_CheckCloudConfig(t *testing.T) {
 		{"azure missing subscription", ByocClientConfig{}, "azure", "azure_subscription_id", nil},
 		{"azure with subscription", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "", nil},
 		{"azure two auth flags", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "only one of", map[string]string{"ARM_USE_MSI": "true", "ARM_USE_CLI": "true"}},
-		{"azure oidc without a token or az", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "AZURE_FEDERATED_TOKEN_FILE", map[string]string{"ARM_USE_OIDC": "true"}},
-		{"azure oidc without a token falls back to az", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "PATH": "<with az>"}},
+		{"azure oidc without a token or az", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "is not installed", map[string]string{"ARM_USE_OIDC": "true"}},
+		{"azure oidc without a token falls back to the az session", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "PATH": "<with az>"}},
+		{"azure oidc without a token and without an az session fails before the plugin runs", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "has no session", map[string]string{"ARM_USE_OIDC": "true", "PATH": "<with az, no session>"}},
 		{"azure oidc with a token file needs no az", ByocClientConfig{AzureSubscriptionID: "s", AzureTenantID: "t", AzureClientID: "c"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": "<token file>"}},
 		{"azure oidc with a token file relative to the working directory", ByocClientConfig{AzureSubscriptionID: "s", AzureTenantID: "t", AzureClientID: "c"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN_FILE_PATH": "<relative token file>"}},
 		{"azure oidc with a missing token file fails before the plugin runs", ByocClientConfig{AzureSubscriptionID: "s", AzureTenantID: "t", AzureClientID: "c"}, "azure", "/nonexistent/oidc-token", map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN_FILE_PATH": "/nonexistent/oidc-token"}},
@@ -94,10 +95,9 @@ func TestByocClient_CheckCloudConfig(t *testing.T) {
 			for k, v := range tc.env {
 				switch v {
 				case "<with az>":
-					v = t.TempDir()
-					if err := os.Symlink("/bin/sh", filepath.Join(v, "az")); err != nil {
-						t.Fatal(err)
-					}
+					v = fakeAz(t, true)
+				case "<with az, no session>":
+					v = fakeAz(t, false)
 				case "<token file>":
 					v = writeTokenFile(t, filepath.Join(t.TempDir(), "federated-token"))
 				case "<relative token file>":
@@ -107,7 +107,7 @@ func TestByocClient_CheckCloudConfig(t *testing.T) {
 				}
 				t.Setenv(k, v)
 			}
-			err := NewByocClient(tc.conf).CheckCloudConfig(tc.cloud)
+			err := NewByocClient(tc.conf).CheckCloudConfig(context.Background(), tc.cloud)
 			switch {
 			case tc.wantErr == "" && err != nil:
 				t.Fatalf("CheckCloudConfig(%s) = %v, want nil", tc.cloud, err)
@@ -117,6 +117,33 @@ func TestByocClient_CheckCloudConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+// fakeAz returns a PATH directory holding an az whose "account
+// get-access-token" exits the way the real one does: 0 with a usable
+// session, 1 without.
+func fakeAz(t *testing.T, session bool) string {
+	t.Helper()
+	dir := t.TempDir()
+	// Looked up by path: the tests empty PATH before this runs.
+	candidates := []string{"/usr/bin/false", "/bin/false"}
+	if session {
+		candidates = []string{"/usr/bin/true", "/bin/true"}
+	}
+	target := ""
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			target = c
+			break
+		}
+	}
+	if target == "" {
+		t.Fatalf("none of %v exists", candidates)
+	}
+	if err := os.Symlink(target, filepath.Join(dir, "az")); err != nil {
+		t.Fatal(err)
+	}
+	return dir
 }
 
 // writeTokenFile writes a stand-in federated token at path and returns path.
@@ -194,6 +221,7 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 		wantFiles  map[string]string
 		wantReason string
 		noAz       bool
+		azSession  bool
 		wantErr    string
 	}{
 		{
@@ -381,9 +409,10 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 		},
 		{
 			name:       "oidc with no token and no endpoint runs everything on the azure cli session",
-			wantReason: "ARM_USE_OIDC without a token, Azure CLI session",
+			wantReason: "ARM_USE_OIDC with an Azure CLI session",
 			env:        map[string]string{"ARM_USE_OIDC": "true"},
 			conf:       ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			azSession:  true,
 			wantArgs:   map[string]string{"--credential-source": "cli", "--identity": "cli"},
 			wantEnv: map[string]string{
 				"AZURE_TOKEN_CREDENTIALS": "AzureCLICredential",
@@ -397,7 +426,42 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 			name:    "oidc with no token and no az fails before the plugin runs",
 			env:     map[string]string{"ARM_USE_OIDC": "true"},
 			noAz:    true,
-			wantErr: "AZURE_FEDERATED_TOKEN_FILE",
+			wantErr: "is not installed",
+		},
+		{
+			name:    "oidc with no token, no endpoint, and no az session fails before the plugin runs",
+			env:     map[string]string{"ARM_USE_OIDC": "true"},
+			wantErr: "has no session",
+		},
+		{
+			name:       "oidc with an az session wins over the github actions request endpoint",
+			wantReason: "ARM_USE_OIDC with an Azure CLI session",
+			env: map[string]string{
+				"ARM_USE_OIDC":                   "true",
+				"ACTIONS_ID_TOKEN_REQUEST_URL":   stub.URL + "/request",
+				"ACTIONS_ID_TOKEN_REQUEST_TOKEN": "request-token",
+			},
+			conf:      ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			azSession: true,
+			wantArgs:  map[string]string{"--credential-source": "cli", "--identity": "cli"},
+			wantEnv: map[string]string{
+				"AZURE_TOKEN_CREDENTIALS":    "AzureCLICredential",
+				"ARM_USE_OIDC":               "false",
+				"AZURE_FEDERATED_TOKEN_FILE": unset,
+				"ARM_OIDC_TOKEN_FILE_PATH":   unset,
+			},
+		},
+		{
+			name:       "oidc with az installed but no session uses the github actions request endpoint",
+			wantReason: "ARM_USE_OIDC with ACTIONS_ID_TOKEN_REQUEST_URL",
+			env: map[string]string{
+				"ARM_USE_OIDC":                   "true",
+				"ACTIONS_ID_TOKEN_REQUEST_URL":   stub.URL + "/request",
+				"ACTIONS_ID_TOKEN_REQUEST_TOKEN": "request-token",
+			},
+			conf:      ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			wantArgs:  map[string]string{"--credential-source": "workload", "--identity": "oidc"},
+			wantFiles: map[string]string{"AZURE_FEDERATED_TOKEN_FILE": stubJWT},
 		},
 		{
 			name:    "workload identity without a tenant fails before the plugin runs",
@@ -467,9 +531,7 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 			clearAzureEnv(t)
 			pathDir := t.TempDir()
 			if !tc.noAz {
-				if err := os.Symlink("/bin/sh", filepath.Join(pathDir, "az")); err != nil {
-					t.Fatal(err)
-				}
+				pathDir = fakeAz(t, tc.azSession)
 			}
 			t.Setenv("PATH", pathDir)
 			for k, v := range tc.env {
@@ -480,7 +542,7 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 			cluster := cloudapi.Cluster{NameID: cloudapi.NameID{ID: "cluster-id"}, Spec: cloudapi.ClusterSpec{Provider: "Azure"}}
 
 			if tc.wantReason != "" {
-				auth, err := NewByocClient(tc.conf).resolveAzureAuth()
+				auth, err := NewByocClient(tc.conf).resolveAzureAuth(context.Background())
 				if err != nil {
 					t.Fatalf("resolveAzureAuth: %v", err)
 				}

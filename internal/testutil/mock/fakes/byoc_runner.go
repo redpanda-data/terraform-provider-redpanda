@@ -19,6 +19,8 @@ import (
 	"errors"
 	"sync"
 	"time"
+
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
 )
 
 // AgentState is the cluster's agent phase observed by the byoc runner fake at
@@ -152,8 +154,10 @@ func (f *ByocRunnerFake) FailChecksWith(err error) {
 	f.checkErr = err
 }
 
+var _ utils.ByocCloudConfigChecker = (*ByocRunnerFake)(nil)
+
 // CheckCloudConfig implements utils.ByocCloudConfigChecker.
-func (f *ByocRunnerFake) CheckCloudConfig(cloudProvider string) error {
+func (f *ByocRunnerFake) CheckCloudConfig(_ context.Context, cloudProvider string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.checks = append(f.checks, cloudProvider)

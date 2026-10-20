@@ -78,7 +78,7 @@ type preflightRunner struct {
 
 func (*preflightRunner) RunByoc(context.Context, string, string, func(string)) error { return nil }
 
-func (r *preflightRunner) CheckCloudConfig(cloud string) error {
+func (r *preflightRunner) CheckCloudConfig(_ context.Context, cloud string) error {
 	r.checked = append(r.checked, cloud)
 	return r.err
 }
