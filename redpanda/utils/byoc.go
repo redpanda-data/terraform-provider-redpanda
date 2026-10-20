@@ -221,6 +221,11 @@ type azureAuth struct {
 	identity         string
 	tokenFile        string
 	rawToken         string
+	// azurermTokenFile is ARM_OIDC_TOKEN_FILE_PATH made absolute when another
+	// credential is selected: the plugin's azurerm reads the variable at
+	// configure whichever credential it then uses, from a temporary working
+	// directory.
+	azurermTokenFile string
 	// tokenRequestURL and tokenRequestToken are azurerm's token request
 	// endpoint; the provider requests the federated token itself and
 	// tokenRequestEnv names the variable that pointed at the endpoint.
@@ -369,10 +374,15 @@ func (cl *ByocClient) selectAzureAuth(ctx context.Context) (azureAuth, error) {
 	}
 }
 
-// resolveAzureOIDC picks the plugin credential for ARM_USE_OIDC. The plugin's
-// "env" source is azidentity's EnvironmentCredential, which cannot use a
-// federated token, so a token goes through WorkloadIdentityCredential. With no
-// token, an Azure CLI session comes before a token request endpoint: the
+// resolveAzureOIDC picks the plugin credential for ARM_USE_OIDC. A client
+// secret or certificate comes first, as go-azure-sdk tries it before any
+// OIDC assertion. The token comes from azurerm's own inputs, ARM_OIDC_TOKEN
+// and then ARM_OIDC_TOKEN_FILE_PATH; AZURE_FEDERATED_TOKEN_FILE is not one of them,
+// because the AKS webhook sets it on every pod and azurerm reads it only
+// under use_aks_workload_identity. The plugin's "env" source is azidentity's
+// EnvironmentCredential, which cannot use a federated token, so a token goes
+// through WorkloadIdentityCredential. With no token, an Azure CLI session
+// comes before a token request endpoint: the
 // session's access token outlasts the plugin's stages, while a token the
 // provider requests lives minutes and the plugin's credentials cache it for
 // ten, so a long stage can present it after it expired. On the session, the
@@ -381,24 +391,18 @@ func (cl *ByocClient) selectAzureAuth(ctx context.Context) (azureAuth, error) {
 // cannot satisfy without a token. With no session either, the provider
 // requests the token the way azurerm does and uses WorkloadIdentityCredential.
 func (cl *ByocClient) resolveAzureOIDC(ctx context.Context) (azureAuth, error) {
-	if file, envName := azureFederatedTokenFile(); file != "" {
-		// azurerm reads a relative path from Terraform's working directory;
-		// the plugin runs in a temporary one, so it gets the absolute path.
-		// Reading the file here fails the plan instead of the plugin.
-		abs, err := filepath.Abs(file)
-		if err != nil {
-			return azureAuth{}, fmt.Errorf("%s names %q: %w", envName, file, err)
-		}
-		if _, err := os.Stat(abs); err != nil {
-			return azureAuth{}, fmt.Errorf("%s names %q, which cannot be read: %w", envName, file, err)
-		}
-		return azureAuth{credentialSource: "workload", identity: "oidc", tokenFile: abs, reason: "ARM_USE_OIDC with " + envName}, nil
-	}
-	if raw := os.Getenv("ARM_OIDC_TOKEN"); raw != "" {
-		return azureAuth{credentialSource: "workload", identity: "oidc", rawToken: raw, reason: "ARM_USE_OIDC with ARM_OIDC_TOKEN"}, nil
+	raw, file, err := azureOIDCTokenInputs()
+	if err != nil {
+		return azureAuth{}, err
 	}
 	if cl.hasAzureSecretOrCertificate() {
-		return azureAuth{credentialSource: "env", identity: "oidc", reason: "ARM_USE_OIDC with a client secret or certificate"}, nil
+		return azureAuth{credentialSource: "env", identity: "oidc", azurermTokenFile: file, reason: "ARM_USE_OIDC with a client secret or certificate"}, nil
+	}
+	if raw != "" {
+		return azureAuth{credentialSource: "workload", identity: "oidc", rawToken: raw, reason: "ARM_USE_OIDC with ARM_OIDC_TOKEN"}, nil
+	}
+	if file != "" {
+		return azureAuth{credentialSource: "workload", identity: "oidc", tokenFile: file, reason: "ARM_USE_OIDC with ARM_OIDC_TOKEN_FILE_PATH"}, nil
 	}
 	installed, session := azureCLISession(ctx)
 	if session {
@@ -407,11 +411,37 @@ func (cl *ByocClient) resolveAzureOIDC(ctx context.Context) (azureAuth, error) {
 	if url, requestToken, envName := azureOIDCRequestEndpoint(); url != "" && requestToken != "" {
 		return azureAuth{credentialSource: "workload", identity: "oidc", tokenRequestURL: url, tokenRequestToken: requestToken, tokenRequestEnv: envName, reason: "ARM_USE_OIDC with " + envName}, nil
 	}
-	const remedies = "set AZURE_FEDERATED_TOKEN_FILE, ARM_OIDC_TOKEN_FILE_PATH, or ARM_OIDC_TOKEN, run under GitHub Actions with the id-token: write permission, or run az login before Terraform"
+	const remedies = "set ARM_OIDC_TOKEN or ARM_OIDC_TOKEN_FILE_PATH, run under GitHub Actions with the id-token: write permission, or run az login before Terraform"
 	if !installed {
 		return azureAuth{}, errors.New("ARM_USE_OIDC is set but no federated token was found and the Azure CLI is not installed: " + remedies)
 	}
 	return azureAuth{}, errors.New("ARM_USE_OIDC is set but no federated token was found and the Azure CLI has no session: " + remedies)
+}
+
+// azureOIDCTokenInputs reads azurerm's token inputs the way its configure
+// does, whichever credential is then selected: the raw token trimmed, the
+// file made absolute and read, and a disagreement between the two an error.
+// azurerm reads a relative path from Terraform's working directory and the
+// plugin runs in a temporary one, so the file is resolved here, where a
+// problem fails the plan instead of the plugin.
+func azureOIDCTokenInputs() (raw, file string, err error) {
+	raw = strings.TrimSpace(os.Getenv("ARM_OIDC_TOKEN"))
+	path := os.Getenv("ARM_OIDC_TOKEN_FILE_PATH")
+	if path == "" {
+		return raw, "", nil
+	}
+	file, err = filepath.Abs(path)
+	if err != nil {
+		return "", "", fmt.Errorf("ARM_OIDC_TOKEN_FILE_PATH names %q: %w", path, err)
+	}
+	content, err := os.ReadFile(filepath.Clean(file))
+	if err != nil {
+		return "", "", fmt.Errorf("ARM_OIDC_TOKEN_FILE_PATH names %q, which cannot be read: %w", path, err)
+	}
+	if raw != "" && strings.TrimSpace(string(content)) != raw {
+		return "", "", errors.New("ARM_OIDC_TOKEN and ARM_OIDC_TOKEN_FILE_PATH hold different tokens: remove one or make them match")
+	}
+	return raw, file, nil
 }
 
 // azureCLISession reports whether the Azure CLI is installed and can hand
@@ -684,6 +714,9 @@ func (cl *ByocClient) generateAzureArgsAndEnv(ctx context.Context) (args, env []
 		// token request endpoint. A token the provider requested is left out
 		// so azurerm keeps the endpoint and refreshes for itself.
 		azureEnv = append(azureEnv, "ARM_OIDC_TOKEN_FILE_PATH="+tokenFile)
+	}
+	if auth.azurermTokenFile != "" {
+		azureEnv = append(azureEnv, "ARM_OIDC_TOKEN_FILE_PATH="+auth.azurermTokenFile)
 	}
 	if auth.identity == "oidc" {
 		// The plugin's azurerm state backend gets no use_oidc setting and no

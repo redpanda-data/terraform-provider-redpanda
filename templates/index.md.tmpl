@@ -48,7 +48,7 @@ methods the tenant is optional but saves the agent a lookup.
 | Method | Set | Notes |
 |--------|-----|-------|
 | Client secret | `azure_client_id` and `azure_client_secret`, or `ARM_CLIENT_ID` and `ARM_CLIENT_SECRET` | A client certificate (`ARM_CLIENT_CERTIFICATE`, a base64 PKCS#12 bundle, or `ARM_CLIENT_CERTIFICATE_PATH`) works the same way. |
-| OIDC with a federated token | `ARM_USE_OIDC=true`, a client ID (`azure_client_id`, `ARM_CLIENT_ID`, or `AZURE_CLIENT_ID`), and one of `AZURE_FEDERATED_TOKEN_FILE`, `ARM_OIDC_TOKEN_FILE_PATH`, or `ARM_OIDC_TOKEN` | Uses workload identity federation. No client secret is needed. |
+| OIDC with a federated token | `ARM_USE_OIDC=true`, a client ID (`azure_client_id`, `ARM_CLIENT_ID`, or `AZURE_CLIENT_ID`), and `ARM_OIDC_TOKEN` or `ARM_OIDC_TOKEN_FILE_PATH` | Uses workload identity federation. No client secret is needed. `AZURE_FEDERATED_TOKEN_FILE` is read only with `ARM_USE_AKS_WORKLOAD_IDENTITY`, as the azurerm provider reads it. |
 | OIDC in GitHub Actions | `ARM_USE_OIDC=true`, a client ID, and `azure/login` | The agent runs on the Azure CLI session from `azure/login` or `az login`, whose access token outlasts the agent's stages. Without a session, the provider requests the federated token from the GitHub Actions ID-token endpoint (`ACTIONS_ID_TOKEN_REQUEST_URL`, or `ARM_OIDC_REQUEST_URL` with `ARM_OIDC_REQUEST_TOKEN`) and keeps it refreshed, but the agent holds the token it first read for ten minutes while GitHub's lives five, so a long agent stage fails; use `azure/login` until the agent refreshes the token itself. With neither, the plan fails. |
 | Azure CLI | `ARM_USE_CLI=true`, or nothing else set | Uses the account from `az login`. |
 | Managed identity | `ARM_USE_MSI=true` | |
