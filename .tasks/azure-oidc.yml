@@ -69,6 +69,29 @@ tasks:
     cmds:
       - ./scripts/azure-oidc.sh down
 
+  plugin:build:
+    desc: "Cross-build the byoc plugin from a cloudv2 checkout the way its install pack does; CLOUDV2=<path> (required), GOOS/GOARCH default linux/amd64 for the VM lane; writes AZURE_OIDC_DIR/plugin/byoc-GOOS-GOARCH for REDPANDA_BYOC_PLUGIN_PATH"
+    vars:
+      CLOUDV2: '{{.CLOUDV2}}'
+      GOOS: '{{.GOOS | default "linux"}}'
+      GOARCH: '{{.GOARCH | default "amd64"}}'
+    cmds:
+      - |
+        set -euo pipefail
+        test -n "{{.CLOUDV2}}" || { echo "set CLOUDV2 to a cloudv2 checkout" >&2; exit 1; }
+        pkg="{{.CLOUDV2}}/apps/redpanda-agent/cmd/agent-bootstrap"
+        test -d "$pkg" || { echo "{{.CLOUDV2}} has no apps/redpanda-agent/cmd/agent-bootstrap; is it a cloudv2 checkout?" >&2; exit 1; }
+        rev="$(git -C "{{.CLOUDV2}}" rev-parse --short HEAD)"
+        dirty=""; [[ -z "$(git -C "{{.CLOUDV2}}" status --porcelain)" ]] || dirty="-dirty"
+        out="$(pwd)/{{.AZURE_OIDC_DIR}}/plugin/byoc-{{.GOOS}}-{{.GOARCH}}"
+        mkdir -p "$(dirname "$out")"
+        # The pack stamps main.Version and main.Revision; a build without them
+        # reports an empty version to the control plane.
+        (cd "{{.CLOUDV2}}" && GOOS={{.GOOS}} GOARCH={{.GOARCH}} CGO_ENABLED=0 go build \
+          -ldflags "-X main.Version=local-$rev$dirty -X main.Revision=$rev" \
+          -o "$out" ./apps/redpanda-agent/cmd/agent-bootstrap)
+        echo "$out (cloudv2 $rev$dirty)"
+
   byoc:apply:
     desc: "Apply an Azure BYOC cluster authenticating through the local issuer; PROVIDER=local|released, AUTH=token-file|relative-path|arm-token|customer|actions|cli-session|secret, REDPANDA_BYOC_PLUGIN_PATH to run a local plugin build"
     deps: [build]
