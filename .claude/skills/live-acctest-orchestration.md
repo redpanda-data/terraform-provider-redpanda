@@ -243,6 +243,18 @@ At the END of the campaign (whether all PASS or some FAIL):
 | Build-tag shared infra bugs | one bug fails multiple targets | recognize the shared fingerprint; coordinate with the bug-hunter agent |
 | Test fixtures vs assertion helpers drift | fixture updated, but `BuildTestCheckFuncs` not | grep `internal/testutil/acc/checks.go` for the assertion site when changing fixture conventions |
 
+## Validating a byoc plugin build before its pack ships
+
+The provider downloads the plugin its install pack pins, so a cloudv2 plugin change has no Terraform-driven coverage until a pack carries it. The `azure-oidc` tasks close that gap through `REDPANDA_BYOC_PLUGIN_PATH`, which makes the provider run a local binary instead; it is unsupported outside this process.
+
+1. Build it the way the pack does: `task azure-oidc:plugin:build CLOUDV2=<cloudv2 checkout>` writes `.azure-oidc/plugin/byoc-linux-amd64`, version-stamped with the cloudv2 revision (`-dirty` when that checkout has changes).
+2. Issuer and identity, once per cycle: `AZURE_OIDC_IDENTITY=managed task azure-oidc:up` then `task azure-oidc:login`. The `up` role grants are blocked for agents; a human runs that one.
+3. Runner VM: `task azure-oidc:vm:up` then `task azure-oidc:vm:check`. Its IMDS answers "Identity not found" the way a GitHub-hosted runner's does, which is what makes the lane realistic.
+4. Run with GitHub's token lifetime (the default, five minutes):
+   `REDPANDA_BYOC_PLUGIN_PATH=.azure-oidc/plugin/byoc-linux-amd64 AZURE_OIDC_VM_TAG=F AZURE_OIDC_VM_ENV="AZURE_OIDC_WORK=/home/azureuser/rp/.azure-oidc/byoc-f AZURE_OIDC_NAME=rp-oidc-vm-f" task azure-oidc:vm:run ACTION=apply AUTH=actions`, then the same with `ACTION=destroy`. `AUTH=customer` is the `azure/login` shape; `AUTH=token-file` is a static file that is expected to expire under the apply.
+5. What proves the build: the provider's `running a local byoc plugin instead of the install pack's` line; the preflight's `credential_source=workload` with the endpoint reason; the `cluster-subnets` stage finishing, since it outlives a five-minute token on one credential and is where a cached assertion fails; zero `AADSTS` lines; the agent registering. A `STATE_CREATING_AGENT` timeout brings back the agent VM's serial console under `.azure-oidc/logs/`; that stall is agent-side, not authentication.
+6. `task azure-oidc:vm:down` removes the signing key and the VM. The issuer, identity and custom role stay for the next cycle; `task azure-oidc:down` removes them.
+
 ## What this skill is NOT
 
 - A bug-fixer — that's `resolve-redpanda-bug`'s job, invoked via the bug-handling subroutine above
