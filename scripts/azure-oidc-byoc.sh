@@ -17,12 +17,18 @@
 # provider authenticating to Azure through the local OIDC issuer from
 # azure-oidc.sh, so the byoc plugin runs with no client secret.
 #
-# Usage: azure-oidc-byoc.sh apply|destroy local|released token-file|arm-token|customer|actions|secret
+# Usage: azure-oidc-byoc.sh apply|plan|destroy local|released token-file|relative-path|arm-token|customer|actions|cli-session|secret
+#
+#   plan runs with -detailed-exitcode, so exit 0 is an empty plan and exit 2
+#   a drift, against the cluster from the last apply.
 #
 #   local      the provider built from this checkout (dev_overrides)
 #   released   the provider from the registry (REDPANDA_VERSION pins it)
 #
 #   token-file ARM_USE_OIDC with AZURE_FEDERATED_TOKEN_FILE
+#   relative-path ARM_USE_OIDC with ARM_OIDC_TOKEN_FILE_PATH naming the token
+#              relative to the Terraform working directory, as azurerm
+#              reads it
 #   arm-token  ARM_USE_OIDC with the raw token in ARM_OIDC_TOKEN
 #   customer   ARM_USE_OIDC after az login --federated-token, with a stub of
 #              the GitHub Actions ID-token endpoint and no token file, the way
@@ -43,9 +49,15 @@
 # REDPANDA_CLOUD_ENVIRONMENT, AZURE_CLIENT_ID, AZURE_TENANT_ID,
 # ARM_SUBSCRIPTION_ID (or AZURE_SUBSCRIPTION_ID), and optionally
 # AZURE_OIDC_DIR, AZURE_OIDC_SUBJECT, AZURE_OIDC_NAME, AZURE_REGION,
-# REDPANDA_VERSION, AZURE_OIDC_TOKEN_FILE (a pre-minted token, so no signing
-# key is needed), and AZURE_OIDC_PROVIDER_BINARY (a prebuilt local provider,
-# so no Go toolchain is needed).
+# REDPANDA_VERSION, AZURE_OIDC_PROVIDER_BINARY (a prebuilt local provider, so
+# no Go toolchain is needed), AZURE_OIDC_TOKEN_LIFETIME (the lifetime of
+# every token this script mints, for the file modes and the GitHub Actions
+# stub alike; default 5m, which is what GitHub issues, so a static token file
+# expires under an apply the way a customer's does; set 8h for a run that is
+# not about lifetimes), and AZURE_OIDC_WORK (the Terraform working directory, default
+# AZURE_OIDC_DIR/byoc; a different one per run lets runs overlap). When
+# azure-oidc.sh up created a managed identity, AZURE_OIDC_DIR/client-id
+# replaces AZURE_CLIENT_ID in the OIDC modes.
 
 set -euo pipefail
 
@@ -53,8 +65,8 @@ action="${1:-}"
 provider="${2:-}"
 auth="${3:-}"
 case "$action/$provider/$auth" in
-  apply/local/* | apply/released/* | destroy/local/* | destroy/released/*) ;;
-  *) echo "usage: azure-oidc-byoc.sh apply|destroy local|released token-file|arm-token|customer|actions|secret" >&2; exit 2 ;;
+  apply/local/* | apply/released/* | plan/local/* | plan/released/* | destroy/local/* | destroy/released/*) ;;
+  *) echo "usage: azure-oidc-byoc.sh apply|plan|destroy local|released token-file|relative-path|arm-token|customer|actions|cli-session|secret" >&2; exit 2 ;;
 esac
 
 repo="$(pwd)"
@@ -65,8 +77,11 @@ subject="${AZURE_OIDC_SUBJECT:-tfrp-oidc-manual}"
 region="${AZURE_REGION:-eastus}"
 # Not tfrp-: the CI sweepers delete every tfrp- cluster, network, and group.
 name="${AZURE_OIDC_NAME:-rp-oidc-$(whoami | tr -cd 'a-z0-9' | cut -c1-12)}"
-work="$dir/byoc"
+work="${AZURE_OIDC_WORK:-$dir/byoc}"
+# Terraform runs from $work and reads TF_CLI_CONFIG_FILE relative to it.
+[[ "$work" == /* ]] || work="$repo/$work"
 logs="$dir/logs"
+token_lifetime="${AZURE_OIDC_TOKEN_LIFETIME:-5m}"
 
 die() { echo "azure-oidc-byoc: $*" >&2; exit 1; }
 
@@ -74,6 +89,12 @@ die() { echo "azure-oidc-byoc: $*" >&2; exit 1; }
 [[ -n "${AZURE_CLIENT_ID:-}" && -n "${AZURE_TENANT_ID:-}" ]] || die "set AZURE_CLIENT_ID and AZURE_TENANT_ID"
 export ARM_SUBSCRIPTION_ID="${ARM_SUBSCRIPTION_ID:-${AZURE_SUBSCRIPTION_ID:-}}"
 [[ -n "$ARM_SUBSCRIPTION_ID" ]] || die "set ARM_SUBSCRIPTION_ID or AZURE_SUBSCRIPTION_ID"
+# A managed identity from azure-oidc.sh up stands in for the app registration
+# in every mode that presents a token; the provider reads either variable.
+if [[ -f "$dir/client-id" && "$auth" != cli-session && "$auth" != secret ]]; then
+  AZURE_CLIENT_ID="$(cat "$dir/client-id")"
+  export AZURE_CLIENT_ID ARM_CLIENT_ID="$AZURE_CLIENT_ID"
+fi
 
 mkdir -p "$work" "$logs"
 cp "$repo"/examples/byoc/azure/*.tf "$work"/
@@ -138,17 +159,16 @@ elif [[ "$auth" != secret ]]; then
   export AZURE_CONFIG_DIR="$scratch/az"
   export ARM_USE_OIDC=true
   token="$scratch/token"
-  if [[ -n "${AZURE_OIDC_TOKEN_FILE:-}" ]]; then
-    # A token minted elsewhere, so this host never holds the signing key.
-    cp "$AZURE_OIDC_TOKEN_FILE" "$token"
-  else
-    [[ -f "$dir/issuer" ]] || die "no issuer recorded; run task azure-oidc:up"
-    # Entra accepts long-lived assertions, so one token outlasts a BYOC apply.
-    "$bin" mint -key "$key" -issuer "$(cat "$dir/issuer")" -subject "$subject" -lifetime 8h -out "$token"
-  fi
+  [[ -f "$dir/issuer" ]] || die "no issuer recorded; run task azure-oidc:up"
+  "$bin" mint -key "$key" -issuer "$(cat "$dir/issuer")" -subject "$subject" -lifetime "$token_lifetime" -out "$token"
   case "$auth" in
     token-file)
       export AZURE_FEDERATED_TOKEN_FILE="$token"
+      ;;
+    relative-path)
+      # Terraform runs from $work below, so this names $work/oidc-token.
+      cp "$token" "$work/oidc-token"
+      export ARM_OIDC_TOKEN_FILE_PATH=./oidc-token
       ;;
     arm-token)
       ARM_OIDC_TOKEN="$(cat "$token")"
@@ -161,13 +181,8 @@ elif [[ "$auth" != secret ]]; then
         az account set --subscription "$ARM_SUBSCRIPTION_ID"
       fi
       request_token="$(openssl rand -hex 16)"
-      if [[ -n "${AZURE_OIDC_TOKEN_FILE:-}" ]]; then
-        "$bin" serve-actions -token-file "$token" -request-token "$request_token" \
-          -url-file "$scratch/actions-url" >/dev/null &
-      else
-        "$bin" serve-actions -key "$key" -issuer "$(cat "$dir/issuer")" -subject "$subject" \
-          -lifetime 1h -request-token "$request_token" -url-file "$scratch/actions-url" >/dev/null &
-      fi
+      "$bin" serve-actions -key "$key" -issuer "$(cat "$dir/issuer")" -subject "$subject" \
+        -lifetime "$token_lifetime" -request-token "$request_token" -url-file "$scratch/actions-url" >/dev/null &
       stub_pid=$!
       for _ in $(seq 1 50); do [[ -s "$scratch/actions-url" ]] && break; sleep 0.1; done
       [[ -s "$scratch/actions-url" ]] || die "GitHub Actions token stub did not start"
@@ -180,7 +195,7 @@ elif [[ "$auth" != secret ]]; then
 fi
 
 log="$logs/$(date +%Y%m%d-%H%M%S)-$action-$provider-$auth.log"
-echo "azure-oidc-byoc: $action with the $provider provider, $auth auth, cluster $name in $region"
+echo "azure-oidc-byoc: $action with the $provider provider, $auth auth, token lifetime $token_lifetime, cluster $name in $region, working directory $work"
 echo "azure-oidc-byoc: log $log"
 cd "$work"
 if [[ "$provider" == released ]]; then
@@ -189,7 +204,7 @@ fi
 # Only the cluster and what it needs: the example's data-plane resources need
 # the cluster API, which is not reachable from every workstation.
 target=()
-[[ "$action" == apply ]] && target=(-target=redpanda_cluster.test)
+[[ "$action" == apply || "$action" == plan ]] && target=(-target=redpanda_cluster.test)
 # A tfvars file rather than -var: the example declares zones without a type,
 # so a -var value arrives as a string.
 cat > run.auto.tfvars <<EOF
@@ -200,4 +215,8 @@ region                 = "$region"
 zones                  = ["$region-az1", "$region-az2", "$region-az3"]
 cluster_allow_deletion = true
 EOF
+if [[ "$action" == plan ]]; then
+  terraform plan -detailed-exitcode -input=false ${target[@]+"${target[@]}"} 2>&1 | tee -a "$log"
+  exit "${PIPESTATUS[0]}"
+fi
 terraform "$action" -auto-approve -input=false ${target[@]+"${target[@]}"} 2>&1 | tee -a "$log"
