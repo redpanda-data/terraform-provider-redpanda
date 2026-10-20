@@ -74,7 +74,7 @@ type ByocRunner interface {
 // cloud, checked before any download. Cloud provider strings are the
 // enums.CloudProviderString* values.
 type ByocCloudConfigChecker interface {
-	CheckCloudConfig(cloudProvider string) error
+	CheckCloudConfig(ctx context.Context, cloudProvider string) error
 }
 
 var (
@@ -121,7 +121,7 @@ func NewByocClient(conf ByocClientConfig) *ByocClient {
 // requirements generateByocArgsAndEnv enforces at run time. AWS is not
 // checked: the plugin resolves AWS credentials from the ambient chain, which
 // the provider cannot see.
-func (cl *ByocClient) CheckCloudConfig(cloudProvider string) error {
+func (cl *ByocClient) CheckCloudConfig(ctx context.Context, cloudProvider string) error {
 	switch cloudProvider {
 	case enums.CloudProviderStringGcp:
 		if cl.gcpProject == "" {
@@ -131,9 +131,14 @@ func (cl *ByocClient) CheckCloudConfig(cloudProvider string) error {
 		if cl.azureSubscriptionID == "" {
 			return errors.New("azure_subscription_id must be set on the provider (or ARM_SUBSCRIPTION_ID in the environment) to run the byoc plugin against an Azure cluster")
 		}
-		if _, err := cl.resolveAzureAuth(); err != nil {
+		auth, err := cl.resolveAzureAuth(ctx)
+		if err != nil {
 			return err
 		}
+		tflog.Debug(ctx, "byoc plugin Azure authentication preflight", map[string]any{
+			"reason":            auth.reason,
+			"credential_source": cmp.Or(auth.credentialSource, "plugin default (cli)"),
+		})
 	default:
 	}
 	return nil
@@ -262,8 +267,8 @@ func azureOIDCRequestEndpoint() (url, requestToken, envName string) {
 // stages: pre-flight validation and its own Azure clients pick a credential
 // from --credential-source=[cli|msi|env|workload], and the internal Terraform
 // project sets use_msi, use_oidc, and use_cli from --identity=[cli|msi|oidc].
-func (cl *ByocClient) resolveAzureAuth() (azureAuth, error) {
-	auth, err := cl.selectAzureAuth()
+func (cl *ByocClient) resolveAzureAuth(ctx context.Context) (azureAuth, error) {
+	auth, err := cl.selectAzureAuth(ctx)
 	if err != nil {
 		return auth, err
 	}
@@ -312,7 +317,7 @@ func (cl *ByocClient) checkAzureIdentity(auth azureAuth) error {
 	return fmt.Errorf("%s for Azure needs %s", method, strings.Join(missing, " and "))
 }
 
-func (cl *ByocClient) selectAzureAuth() (azureAuth, error) {
+func (cl *ByocClient) selectAzureAuth(ctx context.Context) (azureAuth, error) {
 	authMethods := []struct {
 		EnvName          string
 		CredentialSource string
@@ -341,7 +346,7 @@ func (cl *ByocClient) selectAzureAuth() (azureAuth, error) {
 	}
 	switch {
 	case explicit != nil && explicit.identity == "oidc":
-		return cl.resolveAzureOIDC()
+		return cl.resolveAzureOIDC(ctx)
 	case explicit != nil:
 		return *explicit, nil
 	case cl.hasAzureSecretOrCertificate():
@@ -367,13 +372,15 @@ func (cl *ByocClient) selectAzureAuth() (azureAuth, error) {
 // resolveAzureOIDC picks the plugin credential for ARM_USE_OIDC. The plugin's
 // "env" source is azidentity's EnvironmentCredential, which cannot use a
 // federated token, so a token goes through WorkloadIdentityCredential. With no
-// token but a token request endpoint, the provider requests the token the way
-// azurerm does and still uses WorkloadIdentityCredential. With neither, the
-// caller is expected to have run az login, and the plugin's Terraform
-// projects are put on that session too: --identity oidc would render
-// use_oidc = true with use_cli = false in them, which azurerm cannot satisfy
-// without a token.
-func (cl *ByocClient) resolveAzureOIDC() (azureAuth, error) {
+// token, an Azure CLI session comes before a token request endpoint: the
+// session's access token outlasts the plugin's stages, while a token the
+// provider requests lives minutes and the plugin's credentials cache it for
+// ten, so a long stage can present it after it expired. On the session, the
+// plugin's Terraform projects run with --identity cli too, because --identity
+// oidc would render use_oidc = true with use_cli = false, which azurerm
+// cannot satisfy without a token. With no session either, the provider
+// requests the token the way azurerm does and uses WorkloadIdentityCredential.
+func (cl *ByocClient) resolveAzureOIDC(ctx context.Context) (azureAuth, error) {
 	if file, envName := azureFederatedTokenFile(); file != "" {
 		// azurerm reads a relative path from Terraform's working directory;
 		// the plugin runs in a temporary one, so it gets the absolute path.
@@ -393,13 +400,31 @@ func (cl *ByocClient) resolveAzureOIDC() (azureAuth, error) {
 	if cl.hasAzureSecretOrCertificate() {
 		return azureAuth{credentialSource: "env", identity: "oidc", reason: "ARM_USE_OIDC with a client secret or certificate"}, nil
 	}
+	installed, session := azureCLISession(ctx)
+	if session {
+		return azureAuth{credentialSource: "cli", identity: "cli", reason: "ARM_USE_OIDC with an Azure CLI session"}, nil
+	}
 	if url, requestToken, envName := azureOIDCRequestEndpoint(); url != "" && requestToken != "" {
 		return azureAuth{credentialSource: "workload", identity: "oidc", tokenRequestURL: url, tokenRequestToken: requestToken, tokenRequestEnv: envName, reason: "ARM_USE_OIDC with " + envName}, nil
 	}
-	if _, err := exec.LookPath("az"); err != nil {
-		return azureAuth{}, errors.New("ARM_USE_OIDC is set but no federated token was found and the Azure CLI is not installed: set AZURE_FEDERATED_TOKEN_FILE, ARM_OIDC_TOKEN_FILE_PATH, or ARM_OIDC_TOKEN, run under GitHub Actions with the id-token: write permission, or run az login before Terraform")
+	const remedies = "set AZURE_FEDERATED_TOKEN_FILE, ARM_OIDC_TOKEN_FILE_PATH, or ARM_OIDC_TOKEN, run under GitHub Actions with the id-token: write permission, or run az login before Terraform"
+	if !installed {
+		return azureAuth{}, errors.New("ARM_USE_OIDC is set but no federated token was found and the Azure CLI is not installed: " + remedies)
 	}
-	return azureAuth{credentialSource: "cli", identity: "cli", reason: "ARM_USE_OIDC without a token, Azure CLI session"}, nil
+	return azureAuth{}, errors.New("ARM_USE_OIDC is set but no federated token was found and the Azure CLI has no session: " + remedies)
+}
+
+// azureCLISession reports whether the Azure CLI is installed and can hand
+// out a token, which is the call the plugin's AzureCLICredential makes. A
+// profile whose refresh token has died answers "account show" and fails
+// here, so the plugin is not sent onto it.
+func azureCLISession(ctx context.Context) (installed, session bool) {
+	if _, err := exec.LookPath("az"); err != nil {
+		return false, false
+	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	return true, exec.CommandContext(ctx, "az", "account", "get-access-token", "-o", "none").Run() == nil
 }
 
 // azureOIDCExchangeAudience is the audience Entra ID expects on a federated
@@ -563,7 +588,7 @@ func azureTokenCredentialName(credentialSource string) string {
 }
 
 func (cl *ByocClient) generateAzureArgsAndEnv(ctx context.Context) (args, env []string, cleanup func(), err error) {
-	auth, err := cl.resolveAzureAuth()
+	auth, err := cl.resolveAzureAuth(ctx)
 	if err != nil {
 		return nil, nil, nil, err
 	}
