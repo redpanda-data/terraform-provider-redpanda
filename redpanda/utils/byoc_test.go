@@ -82,7 +82,8 @@ func TestByocClient_CheckCloudConfig(t *testing.T) {
 		{"azure oidc without a token or az", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "is not installed", map[string]string{"ARM_USE_OIDC": "true"}},
 		{"azure oidc without a token falls back to the az session", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "PATH": "<with az>"}},
 		{"azure oidc without a token and without an az session fails before the plugin runs", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "has no session", map[string]string{"ARM_USE_OIDC": "true", "PATH": "<with az, no session>"}},
-		{"azure oidc with a token file needs no az", ByocClientConfig{AzureSubscriptionID: "s", AzureTenantID: "t", AzureClientID: "c"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": "<token file>"}},
+		{"azure oidc with a token file needs no az", ByocClientConfig{AzureSubscriptionID: "s", AzureTenantID: "t", AzureClientID: "c"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN_FILE_PATH": "<token file>"}},
+		{"azure oidc with only a pod's federated token file and no az fails before the plugin runs", ByocClientConfig{AzureSubscriptionID: "s", AzureTenantID: "t", AzureClientID: "c"}, "azure", "is not installed", map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": "<token file>"}},
 		{"azure oidc with a token file relative to the working directory", ByocClientConfig{AzureSubscriptionID: "s", AzureTenantID: "t", AzureClientID: "c"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN_FILE_PATH": "<relative token file>"}},
 		{"azure oidc with a missing token file fails before the plugin runs", ByocClientConfig{AzureSubscriptionID: "s", AzureTenantID: "t", AzureClientID: "c"}, "azure", "/nonexistent/oidc-token", map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN_FILE_PATH": "/nonexistent/oidc-token"}},
 		{"azure oidc with the github request endpoint needs no az", ByocClientConfig{AzureSubscriptionID: "s", AzureTenantID: "t", AzureClientID: "c"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "ACTIONS_ID_TOKEN_REQUEST_URL": "https://token.actions.example/request", "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "r"}},
@@ -208,6 +209,9 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 		client = "00000000-0000-0000-0000-00000000000b"
 	)
 	tokenFile := writeTokenFile(t, filepath.Join(t.TempDir(), "federated-token"))
+	// podFile is the file the AKS workload-identity webhook names on every
+	// pod, which is not the credential the user configured.
+	podFile := writeTokenFile(t, filepath.Join(t.TempDir(), "pod-token"))
 	unset := "<unset>"
 	stubJWT := testJWT(t, time.Now().Add(10*time.Minute))
 	stub := newGitHubTokenStub(t, "request-token", func() string { return stubJWT })
@@ -222,7 +226,10 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 		wantReason string
 		noAz       bool
 		azSession  bool
-		wantErr    string
+		// wantAbsTokenPath asserts that the plugin receives
+		// ARM_OIDC_TOKEN_FILE_PATH as an absolute, readable path.
+		wantAbsTokenPath bool
+		wantErr          string
 	}{
 		{
 			name:       "client secret uses environment credential",
@@ -303,16 +310,90 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 			wantArgs:   map[string]string{"--credential-source": "env", "--identity": "oidc"},
 		},
 		{
-			name:       "oidc with azure federated token file",
+			name:       "the user's token file wins over a pod's federated token file",
 			conf:       ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
-			wantReason: "ARM_USE_OIDC with AZURE_FEDERATED_TOKEN_FILE",
-			env:        map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": tokenFile},
+			wantReason: "ARM_USE_OIDC with ARM_OIDC_TOKEN_FILE_PATH",
+			env:        map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": podFile, "ARM_OIDC_TOKEN_FILE_PATH": tokenFile},
 			wantArgs:   map[string]string{"--credential-source": "workload", "--identity": "oidc"},
 			wantEnv: map[string]string{
 				"AZURE_FEDERATED_TOKEN_FILE": tokenFile,
 				"ARM_OIDC_TOKEN_FILE_PATH":   tokenFile,
-				"AZURE_TOKEN_CREDENTIALS":    "WorkloadIdentityCredential",
 			},
+		},
+		{
+			name:       "the user's raw token wins over a pod's federated token file",
+			conf:       ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			wantReason: "ARM_USE_OIDC with ARM_OIDC_TOKEN",
+			env:        map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": podFile, "ARM_OIDC_TOKEN": "raw-jwt"},
+			wantArgs:   map[string]string{"--credential-source": "workload", "--identity": "oidc"},
+			wantFiles:  map[string]string{"AZURE_FEDERATED_TOKEN_FILE": "raw-jwt"},
+		},
+		{
+			name:       "the user's client secret wins over a pod's federated token file",
+			conf:       ByocClientConfig{AzureTenantID: tenant, AzureClientID: client, AzureClientSecret: "s3cret"},
+			wantReason: "ARM_USE_OIDC with a client secret or certificate",
+			env:        map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": podFile},
+			wantArgs:   map[string]string{"--credential-source": "env", "--identity": "oidc"},
+			wantEnv:    map[string]string{"ARM_OIDC_TOKEN_FILE_PATH": unset},
+		},
+		{
+			name:       "a pod's federated token file alone under oidc leaves the plugin on the azure cli session",
+			conf:       ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			wantReason: "ARM_USE_OIDC with an Azure CLI session",
+			env:        map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": podFile},
+			azSession:  true,
+			wantArgs:   map[string]string{"--credential-source": "cli", "--identity": "cli"},
+			wantEnv:    map[string]string{"ARM_OIDC_TOKEN_FILE_PATH": unset, "AZURE_TOKEN_CREDENTIALS": "AzureCLICredential"},
+		},
+		{
+			name:       "the client secret wins over the token file, as go-azure-sdk tries them",
+			conf:       ByocClientConfig{AzureTenantID: tenant, AzureClientID: client, AzureClientSecret: "s3cret"},
+			wantReason: "ARM_USE_OIDC with a client secret or certificate",
+			env:        map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN_FILE_PATH": tokenFile},
+			wantArgs:   map[string]string{"--credential-source": "env", "--identity": "oidc"},
+			wantEnv:    map[string]string{"AZURE_FEDERATED_TOKEN_FILE": unset},
+		},
+		{
+			name:       "the client secret wins over the raw token, as go-azure-sdk tries them",
+			conf:       ByocClientConfig{AzureTenantID: tenant, AzureClientID: client, AzureClientSecret: "s3cret"},
+			wantReason: "ARM_USE_OIDC with a client secret or certificate",
+			env:        map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN": "raw-jwt"},
+			wantArgs:   map[string]string{"--credential-source": "env", "--identity": "oidc"},
+			wantEnv:    map[string]string{"AZURE_FEDERATED_TOKEN_FILE": unset},
+		},
+		{
+			name:             "the client secret still resolves a relative token file for the plugin's azurerm",
+			conf:             ByocClientConfig{AzureTenantID: tenant, AzureClientID: client, AzureClientSecret: "s3cret"},
+			wantReason:       "ARM_USE_OIDC with a client secret or certificate",
+			env:              map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN_FILE_PATH": "<relative token file>"},
+			wantArgs:         map[string]string{"--credential-source": "env", "--identity": "oidc"},
+			wantEnv:          map[string]string{"AZURE_FEDERATED_TOKEN_FILE": unset},
+			wantAbsTokenPath: true,
+		},
+		{
+			name:    "the client secret with a missing token file fails before the plugin runs",
+			conf:    ByocClientConfig{AzureTenantID: tenant, AzureClientID: client, AzureClientSecret: "s3cret"},
+			env:     map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN_FILE_PATH": "/nonexistent/oidc-token"},
+			wantErr: "cannot be read",
+		},
+		{
+			name:    "the client secret with a raw token that differs from the token file fails before the plugin runs",
+			conf:    ByocClientConfig{AzureTenantID: tenant, AzureClientID: client, AzureClientSecret: "s3cret"},
+			env:     map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN": "raw-jwt", "ARM_OIDC_TOKEN_FILE_PATH": tokenFile},
+			wantErr: "different tokens",
+		},
+		{
+			name:       "a raw token that matches the token file is accepted",
+			conf:       ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			wantReason: "ARM_USE_OIDC with ARM_OIDC_TOKEN",
+			env:        map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN": "file-jwt\n", "ARM_OIDC_TOKEN_FILE_PATH": tokenFile},
+			wantFiles:  map[string]string{"AZURE_FEDERATED_TOKEN_FILE": "file-jwt"},
+		},
+		{
+			name:    "a raw token that differs from the token file fails before the plugin runs, as azurerm rejects it",
+			conf:    ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			env:     map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN": "raw-jwt", "ARM_OIDC_TOKEN_FILE_PATH": tokenFile},
+			wantErr: "different tokens",
 		},
 		{
 			name:       "oidc with arm token file path",
@@ -390,11 +471,11 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 			wantArgs: map[string]string{"--credential-source": "env", "--identity": "oidc"},
 		},
 		{
-			name:       "federated token file wins over the github actions request endpoint",
-			wantReason: "ARM_USE_OIDC with AZURE_FEDERATED_TOKEN_FILE",
+			name:       "token file wins over the github actions request endpoint",
+			wantReason: "ARM_USE_OIDC with ARM_OIDC_TOKEN_FILE_PATH",
 			env: map[string]string{
 				"ARM_USE_OIDC":                   "true",
-				"AZURE_FEDERATED_TOKEN_FILE":     tokenFile,
+				"ARM_OIDC_TOKEN_FILE_PATH":       tokenFile,
 				"ACTIONS_ID_TOKEN_REQUEST_URL":   stub.URL + "/request",
 				"ACTIONS_ID_TOKEN_REQUEST_TOKEN": "request-token",
 			},
@@ -466,13 +547,13 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 		{
 			name:    "workload identity without a tenant fails before the plugin runs",
 			conf:    ByocClientConfig{AzureClientID: client},
-			env:     map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": tokenFile},
+			env:     map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN_FILE_PATH": tokenFile},
 			wantErr: "tenant",
 		},
 		{
 			name:    "workload identity without a client id fails before the plugin runs",
 			conf:    ByocClientConfig{AzureTenantID: tenant},
-			env:     map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": tokenFile},
+			env:     map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN_FILE_PATH": tokenFile},
 			wantErr: "client ID",
 		},
 		{
@@ -502,7 +583,7 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 		{
 			name:     "user-set token credentials selection is kept",
 			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
-			env:      map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": tokenFile, "AZURE_TOKEN_CREDENTIALS": "prod"},
+			env:      map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN_FILE_PATH": tokenFile, "AZURE_TOKEN_CREDENTIALS": "prod"},
 			wantArgs: map[string]string{"--credential-source": "workload"},
 			wantEnv:  map[string]string{"AZURE_TOKEN_CREDENTIALS": "prod"},
 		},
@@ -535,6 +616,10 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 			}
 			t.Setenv("PATH", pathDir)
 			for k, v := range tc.env {
+				if v == "<relative token file>" {
+					t.Chdir(t.TempDir())
+					v = writeTokenFile(t, "./oidc-token")
+				}
 				t.Setenv(k, v)
 			}
 			tc.conf.TokenSource = oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "cloud-token"})
@@ -584,6 +669,14 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 				}
 				if got != want {
 					t.Errorf("env %s = %q, want %q", key, got, want)
+				}
+			}
+			if tc.wantAbsTokenPath {
+				path, ok := lastEnv(env, "ARM_OIDC_TOKEN_FILE_PATH")
+				if !ok || !filepath.IsAbs(path) {
+					t.Errorf("ARM_OIDC_TOKEN_FILE_PATH = %q, want an absolute path", path)
+				} else if _, err := os.ReadFile(filepath.Clean(path)); err != nil {
+					t.Errorf("ARM_OIDC_TOKEN_FILE_PATH %q: %v", path, err)
 				}
 			}
 			for key, want := range tc.wantFiles {
