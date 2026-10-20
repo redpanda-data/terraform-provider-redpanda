@@ -81,7 +81,9 @@ func TestByocClient_CheckCloudConfig(t *testing.T) {
 		{"azure two auth flags", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "only one of", map[string]string{"ARM_USE_MSI": "true", "ARM_USE_CLI": "true"}},
 		{"azure oidc without a token or az", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "AZURE_FEDERATED_TOKEN_FILE", map[string]string{"ARM_USE_OIDC": "true"}},
 		{"azure oidc without a token falls back to az", ByocClientConfig{AzureSubscriptionID: "s"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "PATH": "<with az>"}},
-		{"azure oidc with a token file needs no az", ByocClientConfig{AzureSubscriptionID: "s", AzureTenantID: "t", AzureClientID: "c"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": "/token"}},
+		{"azure oidc with a token file needs no az", ByocClientConfig{AzureSubscriptionID: "s", AzureTenantID: "t", AzureClientID: "c"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "AZURE_FEDERATED_TOKEN_FILE": "<token file>"}},
+		{"azure oidc with a token file relative to the working directory", ByocClientConfig{AzureSubscriptionID: "s", AzureTenantID: "t", AzureClientID: "c"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN_FILE_PATH": "<relative token file>"}},
+		{"azure oidc with a missing token file fails before the plugin runs", ByocClientConfig{AzureSubscriptionID: "s", AzureTenantID: "t", AzureClientID: "c"}, "azure", "/nonexistent/oidc-token", map[string]string{"ARM_USE_OIDC": "true", "ARM_OIDC_TOKEN_FILE_PATH": "/nonexistent/oidc-token"}},
 		{"azure oidc with the github request endpoint needs no az", ByocClientConfig{AzureSubscriptionID: "s", AzureTenantID: "t", AzureClientID: "c"}, "azure", "", map[string]string{"ARM_USE_OIDC": "true", "ACTIONS_ID_TOKEN_REQUEST_URL": "https://token.actions.example/request", "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "r"}},
 		{"azure oidc with the github request endpoint but no tenant", ByocClientConfig{AzureSubscriptionID: "s", AzureClientID: "c"}, "azure", "tenant", map[string]string{"ARM_USE_OIDC": "true", "ACTIONS_ID_TOKEN_REQUEST_URL": "https://token.actions.example/request", "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "r"}},
 	}
@@ -90,11 +92,18 @@ func TestByocClient_CheckCloudConfig(t *testing.T) {
 			clearAzureEnv(t)
 			t.Setenv("PATH", t.TempDir())
 			for k, v := range tc.env {
-				if v == "<with az>" {
+				switch v {
+				case "<with az>":
 					v = t.TempDir()
 					if err := os.Symlink("/bin/sh", filepath.Join(v, "az")); err != nil {
 						t.Fatal(err)
 					}
+				case "<token file>":
+					v = writeTokenFile(t, filepath.Join(t.TempDir(), "federated-token"))
+				case "<relative token file>":
+					t.Chdir(t.TempDir())
+					v = writeTokenFile(t, "./oidc-token")
+				default:
 				}
 				t.Setenv(k, v)
 			}
@@ -108,6 +117,15 @@ func TestByocClient_CheckCloudConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+// writeTokenFile writes a stand-in federated token at path and returns path.
+func writeTokenFile(t *testing.T, path string) string {
+	t.Helper()
+	if err := os.WriteFile(path, []byte("file-jwt"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }
 
 func clearAzureEnv(t *testing.T) {
@@ -162,7 +180,7 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 		tenant = "00000000-0000-0000-0000-00000000000a"
 		client = "00000000-0000-0000-0000-00000000000b"
 	)
-	tokenFile := filepath.Join(t.TempDir(), "federated-token")
+	tokenFile := writeTokenFile(t, filepath.Join(t.TempDir(), "federated-token"))
 	unset := "<unset>"
 	stubJWT := testJWT(t, time.Now().Add(10*time.Minute))
 	stub := newGitHubTokenStub(t, "request-token", func() string { return stubJWT })
@@ -296,10 +314,16 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 				"ACTIONS_ID_TOKEN_REQUEST_URL":   stub.URL + "/request?x=1",
 				"ACTIONS_ID_TOKEN_REQUEST_TOKEN": "request-token",
 			},
-			conf:      ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
-			noAz:      true,
-			wantArgs:  map[string]string{"--credential-source": "workload", "--identity": "oidc"},
-			wantEnv:   map[string]string{"AZURE_TOKEN_CREDENTIALS": "WorkloadIdentityCredential", "ARM_USE_OIDC": "true", "ARM_CLIENT_ID": client},
+			conf:     ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
+			noAz:     true,
+			wantArgs: map[string]string{"--credential-source": "workload", "--identity": "oidc"},
+			wantEnv: map[string]string{
+				"AZURE_TOKEN_CREDENTIALS":  "WorkloadIdentityCredential",
+				"ARM_USE_OIDC":             "true",
+				"ARM_CLIENT_ID":            client,
+				"ARM_OIDC_TOKEN_FILE_PATH": unset,
+				"ARM_OIDC_TOKEN":           unset,
+			},
 			wantFiles: map[string]string{"AZURE_FEDERATED_TOKEN_FILE": stubJWT},
 		},
 		{
@@ -313,6 +337,7 @@ func TestByocClient_AzureCredentialArgs(t *testing.T) {
 			conf:      ByocClientConfig{AzureTenantID: tenant, AzureClientID: client},
 			noAz:      true,
 			wantArgs:  map[string]string{"--credential-source": "workload", "--identity": "oidc"},
+			wantEnv:   map[string]string{"ARM_OIDC_TOKEN_FILE_PATH": unset, "ARM_OIDC_TOKEN": unset},
 			wantFiles: map[string]string{"AZURE_FEDERATED_TOKEN_FILE": stubJWT},
 		},
 		{
@@ -679,4 +704,153 @@ func TestAzureTokenRefresh(t *testing.T) {
 	if got := logLevels(t, &logs, "federated token refresh failed"); !slices.Equal(got, []string{"warn"}) {
 		t.Errorf("failed fetch logged at %q, want once at warn", got)
 	}
+}
+
+// TestByocClient_AzureRelativeTokenPathReachesTheSubprocess pins that a token
+// file named relative to Terraform's working directory, which azurerm reads
+// from there, is still readable from the plugin's own working directory.
+func TestByocClient_AzureRelativeTokenPathReachesTheSubprocess(t *testing.T) {
+	clearAzureEnv(t)
+	t.Chdir(t.TempDir())
+	writeTokenFile(t, "./oidc-token")
+	t.Setenv("ARM_USE_OIDC", "true")
+	t.Setenv("ARM_OIDC_TOKEN_FILE_PATH", "./oidc-token")
+	conf := ByocClientConfig{
+		AzureTenantID:       "00000000-0000-0000-0000-00000000000a",
+		AzureClientID:       "00000000-0000-0000-0000-00000000000b",
+		AzureSubscriptionID: "sub",
+		TokenSource:         oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "cloud-token"}),
+	}
+	cluster := cloudapi.Cluster{NameID: cloudapi.NameID{ID: "cluster-id"}, Spec: cloudapi.ClusterSpec{Provider: "Azure"}}
+	ctx := context.Background()
+	_, env, cleanup, err := NewByocClient(conf).generateByocArgsAndEnv(ctx, cluster, "apply")
+	if err != nil {
+		t.Fatalf("generateByocArgsAndEnv: %v", err)
+	}
+	if cleanup != nil {
+		defer cleanup()
+	}
+
+	out := t.TempDir()
+	// The stand-in plugin reads both token variables the way the plugin and
+	// its azurerm do: by the path they hold, from its own working directory.
+	script := fmt.Sprintf(`cat "$ARM_OIDC_TOKEN_FILE_PATH" > %q && cat "$AZURE_FEDERATED_TOKEN_FILE" > %q`,
+		filepath.Join(out, "arm"), filepath.Join(out, "azure"))
+	if err := runSubprocess(ctx, env, nil, "/bin/sh", "-c", script); err != nil {
+		t.Fatalf("the plugin could not read the token file: %v", err)
+	}
+	for _, name := range []string{"arm", "azure"} {
+		got, err := os.ReadFile(filepath.Clean(filepath.Join(out, name)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != "file-jwt" {
+			t.Errorf("%s token read by the plugin = %q, want %q", name, got, "file-jwt")
+		}
+	}
+}
+
+// azurermOIDCChild models how the azurerm the plugin runs picks its OIDC
+// assertion: getOidcToken reads oidc_token and oidc_token_file_path once when
+// the provider is configured, and go-azure-sdk's NewAuthorizerFromCredentials
+// tries that static assertion before the GitHub endpoint authorizer, which
+// requests a token for every exchange. A static assertion therefore never
+// refreshes, however often the file behind it changes.
+type azurermOIDCChild struct {
+	static       string
+	requestURL   string
+	requestToken string
+}
+
+func configureAzurermOIDCChild(t *testing.T, env []string) azurermOIDCChild {
+	t.Helper()
+	var child azurermOIDCChild
+	if raw, ok := lastEnv(env, "ARM_OIDC_TOKEN"); ok {
+		child.static = raw
+	}
+	if file, ok := lastEnv(env, "ARM_OIDC_TOKEN_FILE_PATH"); ok {
+		data, err := os.ReadFile(filepath.Clean(file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		child.static = string(data)
+	}
+	for _, key := range []string{"ARM_OIDC_REQUEST_URL", "ACTIONS_ID_TOKEN_REQUEST_URL"} {
+		if v, ok := lastEnv(env, key); ok && child.requestURL == "" {
+			child.requestURL = v
+		}
+	}
+	for _, key := range []string{"ARM_OIDC_REQUEST_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_TOKEN"} {
+		if v, ok := lastEnv(env, key); ok && child.requestToken == "" {
+			child.requestToken = v
+		}
+	}
+	return child
+}
+
+// assertion is what the child presents to Entra for one token exchange.
+func (c azurermOIDCChild) assertion(ctx context.Context) (string, error) {
+	if c.static != "" {
+		return c.static, nil
+	}
+	return fetchAzureOIDCRequestToken(ctx, c.requestURL, c.requestToken)
+}
+
+// TestByocClient_AzureEndpointChildExchangesAfterExpiry pins that, when the
+// provider requests the federated token itself, the plugin's azurerm keeps the
+// endpoint and so presents a fresh token once the first one has expired,
+// while the plugin's own workload identity credential still has a file.
+func TestByocClient_AzureEndpointChildExchangesAfterExpiry(t *testing.T) {
+	clearAzureEnv(t)
+	t.Setenv("PATH", t.TempDir())
+	var issued atomic.Int32
+	stub := newGitHubTokenStub(t, "request-token", func() string {
+		return testJWTClaims(map[string]any{"exp": time.Now().Add(5 * time.Minute).Unix(), "n": issued.Add(1)})
+	})
+	t.Setenv("ARM_USE_OIDC", "true")
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", stub.URL+"/request")
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "request-token")
+	conf := ByocClientConfig{
+		AzureTenantID:       "00000000-0000-0000-0000-00000000000a",
+		AzureClientID:       "00000000-0000-0000-0000-00000000000b",
+		AzureSubscriptionID: "sub",
+		TokenSource:         oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "cloud-token"}),
+	}
+	cluster := cloudapi.Cluster{NameID: cloudapi.NameID{ID: "cluster-id"}, Spec: cloudapi.ClusterSpec{Provider: "Azure"}}
+	ctx := context.Background()
+	_, env, cleanup, err := NewByocClient(conf).generateByocArgsAndEnv(ctx, cluster, "apply")
+	if err != nil {
+		t.Fatalf("generateByocArgsAndEnv: %v", err)
+	}
+	defer cleanup()
+
+	file, ok := lastEnv(env, "AZURE_FEDERATED_TOKEN_FILE")
+	if !ok {
+		t.Fatal("the plugin's workload identity credential has no AZURE_FEDERATED_TOKEN_FILE")
+	}
+	if _, err := os.Stat(filepath.Clean(file)); err != nil {
+		t.Fatalf("AZURE_FEDERATED_TOKEN_FILE: %v", err)
+	}
+
+	child := configureAzurermOIDCChild(t, env)
+	first, err := child.assertion(ctx)
+	if err != nil {
+		t.Fatalf("first exchange: %v", err)
+	}
+	// The first token has expired; a storage client built now must not
+	// present it again.
+	second, err := child.assertion(ctx)
+	if err != nil {
+		t.Fatalf("exchange after expiry: %v", err)
+	}
+	if second == first {
+		t.Fatalf("the child azurerm presented the same assertion after it expired; it holds a static token instead of the endpoint (ARM_OIDC_TOKEN_FILE_PATH=%q)", envOrUnset(env, "ARM_OIDC_TOKEN_FILE_PATH"))
+	}
+}
+
+func envOrUnset(env []string, key string) string {
+	if v, ok := lastEnv(env, key); ok {
+		return v
+	}
+	return "<unset>"
 }
