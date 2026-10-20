@@ -29,6 +29,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -374,7 +375,17 @@ func (cl *ByocClient) selectAzureAuth() (azureAuth, error) {
 // without a token.
 func (cl *ByocClient) resolveAzureOIDC() (azureAuth, error) {
 	if file, envName := azureFederatedTokenFile(); file != "" {
-		return azureAuth{credentialSource: "workload", identity: "oidc", tokenFile: file, reason: "ARM_USE_OIDC with " + envName}, nil
+		// azurerm reads a relative path from Terraform's working directory;
+		// the plugin runs in a temporary one, so it gets the absolute path.
+		// Reading the file here fails the plan instead of the plugin.
+		abs, err := filepath.Abs(file)
+		if err != nil {
+			return azureAuth{}, fmt.Errorf("%s names %q: %w", envName, file, err)
+		}
+		if _, err := os.Stat(abs); err != nil {
+			return azureAuth{}, fmt.Errorf("%s names %q, which cannot be read: %w", envName, file, err)
+		}
+		return azureAuth{credentialSource: "workload", identity: "oidc", tokenFile: abs, reason: "ARM_USE_OIDC with " + envName}, nil
 	}
 	if raw := os.Getenv("ARM_OIDC_TOKEN"); raw != "" {
 		return azureAuth{credentialSource: "workload", identity: "oidc", rawToken: raw, reason: "ARM_USE_OIDC with ARM_OIDC_TOKEN"}, nil
@@ -477,9 +488,12 @@ func azureTokenRefreshDelay(token string, now time.Time) time.Duration {
 }
 
 // startAzureTokenRefresh keeps file holding a current federated token until
-// stop is called. WorkloadIdentityCredential re-reads the file for every
-// exchange and the plugin creates credentials throughout its run, so a token
-// requested once at startup would expire under a long apply.
+// stop is called. The plugin creates WorkloadIdentityCredential instances
+// throughout its run and each reads the file when it first exchanges, then
+// caches that assertion for ten minutes before reading again, so a token
+// requested once at startup would expire under a long apply. The plugin's
+// azurerm never reads this file: it keeps the token request endpoint, which
+// refreshes on its own.
 func startAzureTokenRefresh(ctx context.Context, file string, fetch func(context.Context) (string, error), token string) (stop func()) {
 	ctx, cancel := context.WithCancel(ctx)
 	done := make(chan struct{})
@@ -636,12 +650,15 @@ func (cl *ByocClient) generateAzureArgsAndEnv(ctx context.Context) (args, env []
 		azureEnv = append(azureEnv, "AZURE_CLIENT_CERTIFICATE_PATH="+certFile)
 	}
 	if tokenFile != "" {
-		// WorkloadIdentityCredential reads AZURE_FEDERATED_TOKEN_FILE, while
-		// azurerm under use_oidc reads ARM_OIDC_TOKEN_FILE_PATH.
-		azureEnv = append(azureEnv,
-			"AZURE_FEDERATED_TOKEN_FILE="+tokenFile,
-			"ARM_OIDC_TOKEN_FILE_PATH="+tokenFile,
-		)
+		// WorkloadIdentityCredential reads AZURE_FEDERATED_TOKEN_FILE.
+		azureEnv = append(azureEnv, "AZURE_FEDERATED_TOKEN_FILE="+tokenFile)
+	}
+	if tokenFile != "" && auth.tokenRequestURL == "" {
+		// azurerm under use_oidc reads ARM_OIDC_TOKEN_FILE_PATH once, when it
+		// configures, and go-azure-sdk prefers that static assertion to the
+		// token request endpoint. A token the provider requested is left out
+		// so azurerm keeps the endpoint and refreshes for itself.
+		azureEnv = append(azureEnv, "ARM_OIDC_TOKEN_FILE_PATH="+tokenFile)
 	}
 	if auth.identity == "oidc" {
 		// The plugin's azurerm state backend gets no use_oidc setting and no
