@@ -45,7 +45,7 @@ func validateReservedTagKeys(ctx context.Context, cfg tfsdk.Config, resp *resour
 		}
 		resp.Diagnostics.AddAttributeError(path.Root("tags").AtMapKey(key),
 			"Reserved Tag Key",
-			fmt.Sprintf("tags key %q is reserved for the control plane, which manages redpanda-* keys and %s on its own; remove it from the configuration",
+			fmt.Sprintf("tags key %q is reserved for the control plane, which manages redpanda-* and aws-apn-id-* keys and %s on its own; remove it from the configuration",
 				key, strings.Join(clustermodel.ReservedTagKeys, ", ")))
 	}
 }
