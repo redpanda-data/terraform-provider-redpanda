@@ -47,7 +47,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `redpanda_version` (String) Cluster's Redpanda version. Only `major.minor` semver is supported, e.g. `24.1`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
 - `rpsql` (Attributes) Rpsql configuration (see [below for nested schema](#nestedatt--rpsql))
 - `schema_registry` (Attributes) Cluster's Schema Registry properties. (see [below for nested schema](#nestedatt--schema_registry))
-- `tags` (Map of String) Tags placed on cloud resources. Keys the control plane manages on its own (`redpanda-*`, `aws-apn-id`, `goog-partner-solution`) are kept out of state and cannot be set. A configuration that sets tags owns only the keys it sets: an update adds, changes, and removes the keys in state and leaves the rest of the cluster's tags in place. Import reads every other key into state, so the first apply after it removes the ones the configuration does not set, as the plan shows.
+- `tags` (Map of String) Tags placed on cloud resources. Keys the control plane manages on its own (`redpanda-*`, `aws-apn-id-*`, `goog-partner-solution`) are kept out of state and cannot be set. A configuration that sets tags owns only the keys it sets: an update adds, changes, and removes the keys in state and leaves the rest of the cluster's tags in place. Import reads every other key into state, so the first apply after it removes the ones the configuration does not set, as the plan shows.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
@@ -59,7 +59,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 - `gcp_global_access_api_gateway_enabled` (Boolean) gcp_global_access_api_gateway_enabled reports whether global access is enabled on the internal load balancer serving the Console/API Gateway endpoint. Applicable only for GCP.
 - `gcp_global_access_enabled` (Boolean) gcp_enable_global_access control if global access is enabled on the seed load balancer, applicable only for GCP. Default is false
 - `id` (String) ID of the cluster. ID is an output from the Create Cluster endpoint and cannot be set by the caller.
-- `nat_gateways` (List of String) NAT gateway information for the cluster.
+- `nat_gateways` (List of String) Egress IP addresses of the cluster's NAT gateways, as one comma-separated string. The cluster agent re-samples them on its own schedule, so the value can change between reads, is refreshed on every plan, and shows as known after apply in any update plan.
 - `prometheus` (Attributes) Prometheus metrics endpoint properties. (see [below for nested schema](#nestedatt--prometheus))
 - `redpanda_console` (Attributes) Cluster's Redpanda Console properties. (see [below for nested schema](#nestedatt--redpanda_console))
 - `state` (String) State describes the state of the cluster.
