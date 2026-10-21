@@ -85,6 +85,12 @@ type ClusterFake struct {
 	// computed fields the provider did not send. Fires only at create.
 	CreateMutator func(*controlplanev1.Cluster)
 
+	// UpdateMutator, when set, is applied to the stored cluster after an
+	// update is merged, letting a test simulate a server-derived field that
+	// changes while the update runs, such as nat_gateways, which the agent
+	// re-samples on its own schedule. Fires on every UpdateCluster.
+	UpdateMutator func(*controlplanev1.Cluster)
+
 	// PublicPrivateListenersDisabled models an org WITHOUT the
 	// enable-public-private-listeners feature flag: any request using
 	// connections gets PermissionDenied, mirroring cloudv2's
@@ -612,6 +618,9 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 	clearRpsqlCMROnDisable(cl)
 	projectListenerMTLS(cl)
 	applyCommonTags(cl)
+	if f.UpdateMutator != nil {
+		f.UpdateMutator(cl)
+	}
 	cl.UpdatedAt = timestamppb.Now()
 
 	return &controlplanev1.UpdateClusterOperation{Operation: completedOp(f.op, upd.GetId())}, nil
@@ -1095,6 +1104,22 @@ func (f *ClusterFake) SetTagOutOfBand(name, key, value string) bool {
 		}
 		tags[key] = value
 		cl.CloudProviderTags = tags
+		return true
+	}
+	return false
+}
+
+// SetNatGatewaysOutOfBand replaces nat_gateways on the stored cluster with
+// the given name, as the agent's next egress sample would. Returns false when
+// no cluster has that name.
+func (f *ClusterFake) SetNatGatewaysOutOfBand(name string, natGateways []string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, cl := range f.clusters {
+		if cl.GetName() != name {
+			continue
+		}
+		cl.NatGateways = slices.Clone(natGateways)
 		return true
 	}
 	return false

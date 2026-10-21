@@ -1307,6 +1307,67 @@ func TestIntegration_Cluster_UpdateLeaf_ClusterConfiguration_CustomPropertiesJSO
 	})
 }
 
+// TestIntegration_Cluster_NatGateways_AdoptsChangedSampleOnUpdate pins the
+// plan semantics of nat_gateways. The agent fills it from a sample of egress
+// IPs taken on its own schedule, so a sample taken during an update can miss
+// an IP the prior state holds: an update plans the leaf unknown and adopts
+// the value read after apply, and a value changed with no update is adopted
+// on refresh with an empty plan.
+func TestIntegration_Cluster_NatGateways_AdoptsChangedSampleOnUpdate(t *testing.T) {
+	srv, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-ng"
+	const (
+		threeIPs = "192.0.2.10,192.0.2.11,192.0.2.12"
+		twoIPs   = "192.0.2.10,192.0.2.12"
+		oneIP    = "192.0.2.11"
+	)
+
+	srv.Cluster.CreateMutator = func(cl *controlplanev1.Cluster) {
+		cl.NatGateways = []string{threeIPs}
+	}
+	srv.Cluster.UpdateMutator = func(cl *controlplanev1.Cluster) {
+		cl.NatGateways = []string{twoIPs}
+	}
+
+	natGateways := tfjsonpath.New("nat_gateways")
+	const updated = `cluster_configuration = { custom_properties_json = "{\"auto.create.topics.enable\":\"true\"}" }`
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				awsDedicatedConfig(name),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, natGateways,
+						knownvalue.ListExact([]knownvalue.Check{knownvalue.StringExact(threeIPs)})),
+				}),
+			integration.UpdateLeafStepWithPlanChecks(clusterAddr,
+				awsDedicatedConfig(name, updated),
+				[]plancheck.PlanCheck{plancheck.ExpectUnknownValue(clusterAddr, natGateways)},
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, natGateways,
+						knownvalue.ListExact([]knownvalue.Check{knownvalue.StringExact(twoIPs)})),
+				}),
+			{
+				PreConfig: func() {
+					if !srv.Cluster.SetNatGatewaysOutOfBand(name, []string{oneIP}) {
+						t.Fatalf("cluster %s not stored in the fake", name)
+					}
+				},
+				Config: awsDedicatedConfig(name, updated),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, natGateways,
+						knownvalue.ListExact([]knownvalue.Check{knownvalue.StringExact(oneIP)})),
+				},
+			},
+		},
+	})
+}
+
 // TestIntegration_Cluster_UpdateLeaf_KafkaAPI_SASL_Enabled toggles
 // kafka_api.sasl.enabled from false to true.
 func TestIntegration_Cluster_UpdateLeaf_KafkaAPI_SASL_Enabled(t *testing.T) {
