@@ -68,6 +68,8 @@ The classifier picks the state pin for every computed leaf without an override, 
 
 Do not add a per-leaf `plan_modifiers: [UseStateForUnknown]` for a computed-only collection to stop a "known after apply" churn; the classifier already emits the right pin, and an override prints a `WARN classifier` conflict.
 
+The classifier default is right for a server-owned value that only an update changes and wrong for one that changes on its own. A computed-only leaf an agent or sampler rewrites on its own schedule (`cluster.nat_gateways`: the agent re-samples the NAT egress IPs) must carry no state pin at all, `plan_modifiers: [None]`. A pinned value is a promise that the post-apply read returns the same thing, and Terraform rejects the mismatch as `Provider produced inconsistent result after apply`; no modifier variant fixes a value that moves with no update. Plain `[None]` has its own cost: the framework marks every config-null computed leaf unknown whenever the proposed plan differs from prior state, before the sibling pins restore those differences, so the unpinned leaf alone turns a no-op plan into an update. "Pin on a no-op plan, unknown on a real update" can only live at the end of the resource-level `ModifyPlan`, which runs after every attribute modifier; `pinNatGatewaysOnNoOpPlan` in `redpanda/resources/cluster/plan_modifiers.go` is the pattern.
+
 Proto-presence fields with server-populated defaults are `optional+computed+UseStateForUnknown`, not optional-only with Flatten workarounds.
 
 ### Sensitive / output formatting
