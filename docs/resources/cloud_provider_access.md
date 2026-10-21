@@ -17,6 +17,26 @@ Registers an IAM role in your AWS account that Redpanda assumes to provision BYO
 
 Creating the access records the role without assuming it, so a missing or wrong trust policy only surfaces when a network is provisioned. Build the trust policy from the `redpanda_cloud_provider_access_prerequisites` data source: allow its `aws.principal_arn` to call `sts:AssumeRole`, and require its `aws.external_id` in an `sts:ExternalId` condition. The same external ID is exposed on the access as `aws.external_id`.
 
+## Permissions Policy
+
+The role also needs the permissions to create and destroy the BYOC infrastructure. Five resource-scoped IAM policy documents grant them, in [`examples/byoc/aws_cloud_provider_access/policies/`](https://github.com/redpanda-data/terraform-provider-redpanda/tree/main/examples/byoc/aws_cloud_provider_access/policies). Create each one as a customer managed policy and attach it to the role:
+
+| Policy | Required | Grants |
+|---|---|---|
+| `redpanda-byoc-common.json` | Yes | Read-only discovery, the management bucket `rp-<account-id>-*-mgmt`, and the legacy Terraform lock table. |
+| `redpanda-byoc-network.json` | Yes | The VPC, subnets, NAT gateways, internet gateway, route tables, VPC endpoints, and VPC flow logs with their bucket. |
+| `redpanda-byoc-agent.json` | Yes | The agent launch template, security group, and Auto Scaling group; the agent IAM role and instance profile; the IAM policies of the agent and the cluster; and the tiered storage bucket, including deletion of its objects when the cluster is destroyed. |
+| `redpanda-byoc-peering.json` | No | VPC peering connections. Attach it only if you use VPC peering. |
+| `redpanda-byoc-transit-gateway.json` | No | Transit gateway VPC attachments, their route table associations and propagations, the endpoint security group, and the association of the VPC with private hosted zones. Attach it only if you use a transit gateway. |
+
+Keep the policies separate. The agent policy is near the IAM size limit for a managed policy, so you cannot merge it with another policy. Load the documents with `file()`, not `templatefile()`: the common policy contains the IAM policy variable `${aws:PrincipalAccount}`, which `templatefile()` tries to interpolate. If you inline it in HCL, escape the variable as `$${aws:PrincipalAccount}`. The [AWS BYOC example](https://github.com/redpanda-data/terraform-provider-redpanda/tree/main/examples/byoc/aws_cloud_provider_access) creates and attaches the policies, with the optional ones behind the `enable_vpc_peering` and `enable_transit_gateway` variables.
+
+The agent policy lets the role create and edit IAM policies whose names start with `redpanda-agent-`, `redpanda-cloud-storage-manager-`, or `redpanda-glue-manager-`. It also lets the role create IAM roles whose names start with `redpanda-agent-`, attach `redpanda-agent-*` policies to them, and pass them to EC2. It does not restrict the content of those policies, so you trust the Redpanda principal with the permissions it grants to them. A permissions boundary on the cross-account role does not limit the roles it creates. Only a service control policy sets a hard limit. Do not give the role or its policies a name with one of these prefixes, because the role could then edit its own policies. The example validates `role_name_prefix` for this.
+
+This role does not manage the resources that the BYOC agent runs, such as the EKS cluster, load balancers, DNS records, and the PrivateLink endpoint service of the cluster. The agent manages them with its own instance profile.
+
+Make the access depend on the policy attachments, as in the AWS BYOC example, so that Terraform creates the permissions before the network and deletes them after it. Keep an optional policy attached while a network still uses it: if you detach the peering or transit gateway policy first, Redpanda cannot delete the peering connections or attachments.
+
 ## Rotating the Role
 
 The access has no update API, so changing any argument replaces it. Networks are never replaced for this: a network's `cloud_provider_access_id` changes in place to another access for the same AWS account. Adding an access to a network created without one, or removing it, is refused by Redpanda Cloud; the provider warns at plan rather than replacing the network, because replacing a network replaces every cluster on it. To move a network onto a cloud provider access, replace it deliberately, for example with `terraform apply -replace`.
@@ -59,6 +79,8 @@ Read-Only:
 - `external_id` (String) External ID for STS AssumeRole confused deputy protection, set by the server to the organization ID. Include it in the IAM role trust policy's `sts:ExternalId` condition.
 
 ## Example Usage
+
+The example below shows the trust policy only. Attach the permissions policies as in the AWS BYOC example.
 
 ```terraform
 provider "redpanda" {}

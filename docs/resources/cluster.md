@@ -1919,7 +1919,7 @@ resource "redpanda_topic" "test" {
 
 ### AWS BYOC with a cloud provider access
 
-With a `redpanda_cloud_provider_access`, Redpanda assumes an IAM role in your account and provisions the network, the BYOC agent and the cluster itself. The provider needs no AWS credentials and runs no `rpk cloud byoc` command, and the `redpanda_byoc_agent_apply` action does not apply to these clusters. Set `cloud_provider_access_id` on the network, as shown below. See the `redpanda_cloud_provider_access` resource for the trust policy the role needs.
+With a `redpanda_cloud_provider_access`, Redpanda assumes an IAM role in your account and provisions the network, the BYOC agent and the cluster itself. The provider needs no AWS credentials and runs no `rpk cloud byoc` command, and the `redpanda_byoc_agent_apply` action does not apply to these clusters. Set `cloud_provider_access_id` on the network, as shown below. See the `redpanda_cloud_provider_access` resource for the trust policy and the permissions policies the role needs. The example reads the permissions policies from the [`policies/`](https://github.com/redpanda-data/terraform-provider-redpanda/tree/main/examples/byoc/aws_cloud_provider_access/policies) directory next to it.
 
 ```terraform
 provider "redpanda" {}
@@ -1936,7 +1936,8 @@ data "redpanda_cloud_provider_access_prerequisites" "aws" {
 # this account. Only the principal and external ID from the prerequisites
 # data source can assume it.
 # name_prefix rather than name: create_before_destroy on the access below
-# extends to this role, and a replacement role must not collide by name.
+# extends to this role and its policies, and a replacement must not collide
+# by name.
 resource "aws_iam_role" "redpanda" {
   name_prefix = var.role_name_prefix
   assume_role_policy = jsonencode({
@@ -1952,9 +1953,27 @@ resource "aws_iam_role" "redpanda" {
   })
 }
 
+locals {
+  permissions_policies = concat(
+    ["common", "network", "agent"],
+    var.enable_vpc_peering ? ["peering"] : [],
+    var.enable_transit_gateway ? ["transit-gateway"] : [],
+  )
+}
+
+# Resource-scoped permissions for the network, agent and cluster lifecycle.
+# The agent policy is close to the managed-policy size limit, so the
+# policies stay separate. file() keeps ${aws:PrincipalAccount} literal.
+resource "aws_iam_policy" "redpanda" {
+  for_each    = toset(local.permissions_policies)
+  name_prefix = "${var.role_name_prefix}${each.key}-"
+  policy      = file("${path.module}/policies/redpanda-byoc-${each.key}.json")
+}
+
 resource "aws_iam_role_policy_attachment" "redpanda" {
+  for_each   = aws_iam_policy.redpanda
   role       = aws_iam_role.redpanda.name
-  policy_arn = var.permissions_policy_arn
+  policy_arn = each.value.arn
 }
 
 resource "redpanda_cloud_provider_access" "aws" {
