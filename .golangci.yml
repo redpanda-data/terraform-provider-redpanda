@@ -40,6 +40,14 @@ linters:
     - wastedassign
     - whitespace
   settings:
+    goconst:
+      # Composite literals and map keys are out of reach; call arguments are
+      # out by default.
+      exclude-types: [Call, CompositeLit]
+      ignore-map-keys: true
+    gosec:
+      # Taint analysers; the tree does not satisfy them.
+      excludes: [G702, G703, G706]
     goheader:
       values:
         regexp:
@@ -127,6 +135,23 @@ linters:
         - name: var-naming
           disabled: true
         - name: waitgroup-by-value
+        # The tree does not satisfy these; enabling one is its own change.
+        - name: deep-exit
+          disabled: true
+        - name: enforce-switch-style
+          disabled: true
+        - name: identical-switch-branches
+          disabled: true
+        - name: multiline-if-init
+          disabled: true
+        - name: package-naming
+          disabled: true
+        - name: unsecure-url-scheme
+          disabled: true
+        - name: use-slices-sort
+          disabled: true
+        - name: use-waitgroup-go
+          disabled: true
   exclusions:
     generated: lax
     paths:
@@ -134,6 +159,21 @@ linters:
       - builtin$
       - examples$
       - ^manual-tests/
+    rules:
+      # Fixture strings named like credentials, and WalkDir callbacks that
+      # scan the package's own source tree.
+      - path: _test\.go
+        linters: [gosec]
+        text: 'G1(01|22)'
+      # Tooling that spawns git, gh and the BYOC plugin with caller-chosen arguments.
+      - path: ^(cmd/(apidesc-import|prstatus)/|internal/bufdeps/|redpanda/utils/byoc\.go)
+        linters: [gosec]
+        text: G204
+      # The fake must apply the deprecated top-level field to prove the mask
+      # path the API drops is dropped.
+      - path: internal/testutil/mock/fakes/cluster_test\.go
+        linters: [staticcheck]
+        text: KafkaConnect is deprecated
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0

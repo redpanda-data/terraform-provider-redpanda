@@ -286,7 +286,7 @@ func checkOneofArmOverrides(attrs []SchemaAttr, fields map[string]FieldConfig, i
 		// presence-only arm always does.
 		if a.IsOneofArm && a.Optional && fc != nil && attrHasSettableLeaf(a, path, idx) {
 			if fc.Computed != nil && *fc.Computed {
-				mc.warn("WARN oneof %s.%s: computed: true on a selectable arm — UseStateForUnknown will anchor it, and switching arms then fails with \"inconsistent result after apply\"; drop the override\n",
+				mc.warnf("WARN oneof %s.%s: computed: true on a selectable arm — UseStateForUnknown will anchor it, and switching arms then fails with \"inconsistent result after apply\"; drop the override\n",
 					mc.resourceLabel, path)
 			}
 			if pin := statePinModifier(fc.PlanModifiers); pin != "" {
@@ -332,10 +332,10 @@ func warnWriteShapeDisagreements(attrs []SchemaAttr, fields map[string]FieldConf
 		settable := idx.Settable(path)
 		switch {
 		case a.Computed && !a.Optional && !a.Required && settable:
-			mc.warn("WARN write-shape %s.%s: read-only but %q is on a write payload — the annotation may be unnecessary\n",
+			mc.warnf("WARN write-shape %s.%s: read-only but %q is on a write payload — the annotation may be unnecessary\n",
 				mc.resourceLabel, path, path)
 		case (a.Optional || a.Required) && !settable:
-			mc.warn("WARN write-shape %s.%s: user-settable but %q is on no write payload — it cannot be sent\n",
+			mc.warnf("WARN write-shape %s.%s: user-settable but %q is on no write payload — it cannot be sent\n",
 				mc.resourceLabel, path, path)
 		default:
 		}
@@ -431,7 +431,7 @@ func warnNestedRequiresReplace(attrs []SchemaAttr, fields map[string]FieldConfig
 		// leaves are each covered needs no marker of its own.
 		if parentPath != "" && len(a.NestedAttrs) == 0 && (a.Optional || a.Required) && idx.UpdatableAuthoritative(path) &&
 			!idx.Updatable(path) && !hasRequiresReplace(a.PlanModifierNames) {
-			mc.warn("WARN nested-rr %s.%s: settable but absent from the update payload and missing RequiresReplace\n",
+			mc.warnf("WARN nested-rr %s.%s: settable but absent from the update payload and missing RequiresReplace\n",
 				mc.resourceLabel, path)
 		}
 		warnNestedRequiresReplace(a.NestedAttrs, childFields(fc), idx, mc, path)

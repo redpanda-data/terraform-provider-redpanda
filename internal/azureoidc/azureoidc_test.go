@@ -151,7 +151,7 @@ func TestActionsTokenHandlerMintsForTheRequestedAudience(t *testing.T) {
 	pub, _ := publicKeyFromJWKS(t, jwks)
 	h := ActionsTokenHandler(key, Claims{Issuer: issuer, Subject: "tfrp-oidc-manual", Lifetime: time.Hour}, "request-token")
 
-	req := httptest.NewRequest(http.MethodGet, "/token?api-version=2.0&audience=api://AzureADTokenExchange", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/token?api-version=2.0&audience=api://AzureADTokenExchange", http.NoBody)
 	// azurerm and the provider send the scheme in lowercase.
 	req.Header.Set("Authorization", "bearer request-token")
 	rec := httptest.NewRecorder()
@@ -168,7 +168,7 @@ func TestActionsTokenHandlerMintsForTheRequestedAudience(t *testing.T) {
 		t.Errorf("claims = %v", claims)
 	}
 
-	unauth := httptest.NewRequest(http.MethodGet, "/token?audience=api://AzureADTokenExchange", http.NoBody)
+	unauth := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/token?audience=api://AzureADTokenExchange", http.NoBody)
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, unauth)
 	if rec.Code != http.StatusUnauthorized {

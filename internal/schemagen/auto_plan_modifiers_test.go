@@ -463,7 +463,7 @@ func TestMerge_MaskContract_WarnOnly_BothDirections(t *testing.T) {
 	}
 	contract := &MaskContract{TopLevel: map[string]bool{nameField: true, "tags": true}, WarnOnly: true}
 	var warns []string
-	mc := &mergeCtx{resourceLabel: "Thing", warnf: func(f string, a ...any) { warns = append(warns, fmt.Sprintf(f, a...)) }}
+	mc := &mergeCtx{resourceLabel: "Thing", warnSink: func(f string, a ...any) { warns = append(warns, fmt.Sprintf(f, a...)) }}
 
 	deriveMaskContractRequiresReplace(attrs, nil, contract, mc)
 

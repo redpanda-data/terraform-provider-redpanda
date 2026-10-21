@@ -103,7 +103,7 @@ func stringRuleSummary(r *bufvalidate.StringRules) []string {
 		atMost:  "Length must be at most %d.",
 	})
 	if r.Pattern != nil && *r.Pattern != "" {
-		parts = append(parts, fmt.Sprintf("Must match pattern `%s`.", *r.Pattern))
+		parts = append(parts, "Must match pattern `"+*r.Pattern+"`.")
 	}
 	switch {
 	case len(r.GetIn()) > 0:

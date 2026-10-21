@@ -194,26 +194,26 @@ func providerSchema() schema.Schema {
 			},
 			"azure_client_id": schema.StringAttribute{
 				Optional:    true,
-				Description: ("Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_CLIENT_ID or ARM_CLIENT_ID"),
+				Description: "Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_CLIENT_ID or ARM_CLIENT_ID",
 			},
 			"azure_client_secret": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
-				Description: ("Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_CLIENT_SECRET or ARM_CLIENT_SECRET"),
+				Description: "Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_CLIENT_SECRET or ARM_CLIENT_SECRET",
 			},
 			"azure_tenant_id": schema.StringAttribute{
 				Optional:    true,
-				Description: ("Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_TENANT_ID or ARM_TENANT_ID"),
+				Description: "Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_TENANT_ID or ARM_TENANT_ID",
 			},
 			"google_credentials": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
-				Description: ("Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as GOOGLE_CREDENTIALS"),
+				Description: "Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as GOOGLE_CREDENTIALS",
 			},
 			"google_credentials_base64": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
-				Description: ("Used for creating and managing BYOC and BYOVPC clusters. Is a convenience passthrough for base64 encoded credentials intended for use in CI/CD. Can also be specified in the environment as GOOGLE_CREDENTIALS_BASE64"),
+				Description: "Used for creating and managing BYOC and BYOVPC clusters. Is a convenience passthrough for base64 encoded credentials intended for use in CI/CD. Can also be specified in the environment as GOOGLE_CREDENTIALS_BASE64",
 			},
 			"aws_access_key_id": schema.StringAttribute{
 				Optional:    true,
