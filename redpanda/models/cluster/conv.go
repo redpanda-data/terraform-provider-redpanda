@@ -46,31 +46,42 @@ type tagsProto interface {
 // directive would let schemagen emit both names with one canonical/deprecated
 // pair instead of these hand-rolled bridges.
 
-// serverTagKeys are the common tags the control plane writes on its own
-// (cloudv2-infra common_tags): the AWS Partner Network attribution tag and
-// the Google Cloud partner label. With its "redpanda-" bookkeeping they are
-// the keys isServerTag recognizes. The filter only applies where no
-// configuration says which keys are the user's (datasource, import, a
-// tagless config); a user's key that merely shares a prefix is the user's. A
-// control-plane key not listed here is still kept out of a resource's state
-// by RetainConfiguredTags and carried back unchanged by MergeConfiguredTags.
-var serverTagKeys = []string{"aws-apn-id", "goog-partner-solution"}
+// awsAPNTagKeyPrefix is the AWS Partner Network attribution tag the control
+// plane writes on AWS clusters (cloudv2-infra common_tags). Its key carries
+// the partner account id as a suffix, the same in every environment, so the
+// control plane's key is matched by prefix: the provider cannot know the
+// account id. The bare key is reserved as well.
+const awsAPNTagKeyPrefix = "aws-apn-id"
 
-// ReservedTagKeys are the keys the control plane refuses from a client on
-// update and overwrites or prunes on create (controlplane-api reservedTagKeys:
-// cptags.ReservedCloudTagKeys plus every common-tag key).
-var ReservedTagKeys = []string{"redpanda-org", "redpanda-id", "network-id", "redpanda-client", "aws-apn-id", "goog-partner-solution"}
+func isAPNTagKey(key string) bool {
+	return key == awsAPNTagKeyPrefix || strings.HasPrefix(key, awsAPNTagKeyPrefix+"-")
+}
+
+// serverTagKeys are the exact common-tag keys the control plane writes on its
+// own besides the APN tag: the Google Cloud partner label. With "redpanda-"
+// bookkeeping and the APN prefix they are what isServerTag recognizes. The
+// filter only applies where no configuration says which keys are the user's
+// (datasource, import, a tagless config). A control-plane key not listed
+// here is still kept out of a resource's state by RetainConfiguredTags and
+// carried back unchanged by MergeConfiguredTags.
+var serverTagKeys = []string{"goog-partner-solution"}
+
+// ReservedTagKeys are the exact keys the control plane refuses from a client
+// on update and overwrites or prunes on create (controlplane-api
+// reservedTagKeys: cptags.ReservedCloudTagKeys plus every common-tag key).
+// The APN key is reserved by prefix, see awsAPNTagKeyPrefix.
+var ReservedTagKeys = []string{"redpanda-org", "redpanda-id", "network-id", "redpanda-client", "goog-partner-solution"}
 
 // IsReservedTagKey reports whether a configuration may not set key: one of
-// ReservedTagKeys, or any "redpanda-" key, which tagsFromProto strips. Either
-// would apply and then fail the consistency check, so the resource rejects it
-// at plan time.
+// ReservedTagKeys, an APN key, or any "redpanda-" key, which tagsFromProto
+// strips. Either would apply and then fail the consistency check, so the
+// resource rejects it at plan time.
 func IsReservedTagKey(key string) bool {
-	return strings.HasPrefix(key, "redpanda-") || slices.Contains(ReservedTagKeys, key)
+	return strings.HasPrefix(key, "redpanda-") || isAPNTagKey(key) || slices.Contains(ReservedTagKeys, key)
 }
 
 func isServerTag(key string) bool {
-	return strings.HasPrefix(key, "redpanda-") || slices.Contains(serverTagKeys, key)
+	return strings.HasPrefix(key, "redpanda-") || isAPNTagKey(key) || slices.Contains(serverTagKeys, key)
 }
 
 // tagsFromProto drops the "redpanda-" keys, which the control plane writes on
