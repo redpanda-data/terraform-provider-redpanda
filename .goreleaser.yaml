@@ -28,6 +28,10 @@ builds:
       - goos: windows
         goarch: arm
     binary: '{{ .ProjectName }}_v{{ .Version }}'
+    hooks:
+      post:
+        - cmd: ./scripts/check-binary-go-version.sh {{ .Path }}
+          output: true
 archives:
   - formats: [zip]
     name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
