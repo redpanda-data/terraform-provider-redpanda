@@ -1220,8 +1220,6 @@ attributes:
     - name: nat_gateways
       type: ListAttribute
       computed: true
-      plan_modifiers:
-        - listplanmodifier.useStateForUnknownModifier
       element_type: basetypes.StringType
     - name: network_id
       type: StringAttribute

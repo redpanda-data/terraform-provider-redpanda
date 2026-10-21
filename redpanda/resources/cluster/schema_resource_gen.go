@@ -1647,7 +1647,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"tags": schema.MapAttribute{
-				Description:   "Tags placed on cloud resources. Keys the control plane manages on its own (`redpanda-*`, `aws-apn-id`, `goog-partner-solution`) are kept out of state and cannot be set. A configuration that sets tags owns only the keys it sets: an update adds, changes, and removes the keys in state and leaves the rest of the cluster's tags in place. Import reads every other key into state, so the first apply after it removes the ones the configuration does not set, as the plan shows.",
+				Description:   "Tags placed on cloud resources. Keys the control plane manages on its own (`redpanda-*`, `aws-apn-id-*`, `goog-partner-solution`) are kept out of state and cannot be set. A configuration that sets tags owns only the keys it sets: an update adds, changes, and removes the keys in state and leaves the rest of the cluster's tags in place. Import reads every other key into state, so the first apply after it removes the ones the configuration does not set, as the plan shows.",
 				Optional:      true,
 				Computed:      true,
 				PlanModifiers: []planmodifier.Map{mapplanmodifier.UseStateForUnknown()},
@@ -1704,10 +1704,9 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"nat_gateways": schema.ListAttribute{
-				Description:   "NAT gateway information for the cluster.",
-				Computed:      true,
-				PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
-				ElementType:   types.StringType,
+				Description: "Egress IP addresses of the cluster's NAT gateways, as one comma-separated string. The cluster agent re-samples them on its own schedule, so the value can change between reads, is refreshed on every plan, and shows as known after apply in any update plan.",
+				Computed:    true,
+				ElementType: types.StringType,
 			},
 
 			"prometheus": schema.SingleNestedAttribute{
