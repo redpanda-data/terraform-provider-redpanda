@@ -34,7 +34,7 @@ func (SchemaRegistryOperationValidator) Description(_ context.Context) string {
 
 // MarkdownDescription provides a description of the validator in markdown format
 func (SchemaRegistryOperationValidator) MarkdownDescription(_ context.Context) string {
-	return fmt.Sprintf("value must be one of: `%s`", strings.Join(validOperations(), "`, `"))
+	return "value must be one of: `" + strings.Join(validOperations(), "`, `") + "`"
 }
 
 // ValidateString validates that the string value is a valid Schema Registry operation

@@ -60,7 +60,7 @@ func Merge(proto *ProtoMessage, cfg *Config, schemaType string, apiIndex *apides
 		writeShape:       cfg.WriteShapeIndex(),
 	}
 	if len(warnSink) > 0 {
-		mc.warnf = warnSink[0]
+		mc.warnSink = warnSink[0]
 	}
 	applyFieldConfigs(&attrs, cfg.Fields, proto, "", mc)
 
@@ -185,17 +185,17 @@ type mergeCtx struct {
 	apiIndex        *apidesc.Index
 	apiPrimary      string
 	apiWriteSchemas []string
-	// warnf sinks diagnostic warnings; nil routes to os.Stderr. Tests inject a
-	// collector to assert mask-contract verdicts without capturing stderr.
-	warnf func(format string, args ...any)
+	// warnSink receives diagnostic warnings; nil routes to os.Stderr. Tests
+	// inject a collector to assert mask-contract verdicts without capturing stderr.
+	warnSink func(format string, args ...any)
 	// writeShape answers "can the user write this path"; nil when unresolved.
 	writeShape *WriteShapeIndex
 }
 
-// warn emits a diagnostic warning through the injected sink, defaulting to stderr.
-func (mc *mergeCtx) warn(format string, args ...any) {
-	if mc.warnf != nil {
-		mc.warnf(format, args...)
+// warnf emits a diagnostic warning through the injected sink, defaulting to stderr.
+func (mc *mergeCtx) warnf(format string, args ...any) {
+	if mc.warnSink != nil {
+		mc.warnSink(format, args...)
 		return
 	}
 	fmt.Fprintf(os.Stderr, format, args...)

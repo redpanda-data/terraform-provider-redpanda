@@ -111,7 +111,7 @@ type yamlAttr struct {
 }
 
 func buildYAMLAttr(name string, v reflect.Value) yamlAttr {
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 

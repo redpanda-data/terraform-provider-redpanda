@@ -88,11 +88,11 @@ func deriveMaskContractRequiresReplace(attrs []SchemaAttr, fields map[string]Fie
 		if contract.WarnOnly {
 			switch verdict {
 			case maskVerdictDerive:
-				mc.warn(
+				mc.warnf(
 					"WARN mask-contract %s.%s: %q is not in the update payload but is missing RequiresReplace — add it (the control plane cannot update it in place)\n",
 					mc.resourceLabel, a.Name, key)
 			case maskVerdictConflict:
-				mc.warn(
+				mc.warnf(
 					"WARN mask-contract %s.%s: plan_modifiers lists RequiresReplace but %q is in the update payload — remove it so the field updates in place\n",
 					mc.resourceLabel, a.Name, key)
 			case maskVerdictRedundant, maskVerdictAgree:
@@ -109,11 +109,11 @@ func deriveMaskContractRequiresReplace(attrs []SchemaAttr, fields map[string]Fie
 			// the carried value before RequiresReplace compares.
 			a.PlanModifierNames = append(a.PlanModifierNames, modRequiresReplace)
 		case maskVerdictRedundant:
-			mc.warn(
+			mc.warnf(
 				"INFO mask-contract %s.%s: yaml RequiresReplace is redundant — derived from the update-mask contract; the override can be removed\n",
 				mc.resourceLabel, a.Name)
 		case maskVerdictConflict:
-			mc.warn(
+			mc.warnf(
 				"WARN mask-contract %s.%s: plan_modifiers lists RequiresReplace but %q is updatable per the update-mask contract — keep only if intentional\n",
 				mc.resourceLabel, a.Name, key)
 		case maskVerdictAgree:
