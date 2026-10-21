@@ -563,6 +563,16 @@ func (c *Cluster) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	markPrivateLinkDerivedUnknownOnChange(ctx, req, resp)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	pinNatGatewaysOnNoOpPlan(ctx, req, resp)
+}
+
+// markPrivateLinkDerivedUnknownOnChange re-derives the endpoint blocks and
+// private-link status when the private-link config changes.
+func markPrivateLinkDerivedUnknownOnChange(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	plChanged, d := privateLinkConfigChanged(ctx, req.State, req.Plan)
 	resp.Diagnostics.Append(d...)
 	if resp.Diagnostics.HasError() || !plChanged {
