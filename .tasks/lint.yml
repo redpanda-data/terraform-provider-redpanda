@@ -11,6 +11,7 @@ tasks:
       - :tools:install:golangci-lint
     cmds:
       - ./scripts/lint-comments.sh
+      - ./scripts/check-go-version.sh
       - echo "Running linting..."
       - |
         if [ "$BUILDKITE" = "true" ]; then
@@ -39,3 +40,8 @@ tasks:
     desc: "Fail on Go comments carrying ticket/PR refs or review chatter; --report lists long blocks"
     cmds:
       - ./scripts/lint-comments.sh {{.CLI_ARGS}}
+
+  goversion:
+    desc: "Fail when any Go toolchain pin disagrees with the go.mod directive"
+    cmds:
+      - ./scripts/check-go-version.sh

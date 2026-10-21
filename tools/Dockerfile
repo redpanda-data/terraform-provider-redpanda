@@ -1,5 +1,5 @@
 # Builder Image
-FROM golang:1.23-alpine
+FROM golang:1.25.10-alpine
 
 ENV GITHUB_TOKEN=""
 ENV GPG_PRIVATE_KEY=""
