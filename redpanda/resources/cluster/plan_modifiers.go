@@ -18,8 +18,10 @@ import (
 	"context"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
 // rpsqlZonesStatePin is the rpsql.zones plan modifier referenced by the
@@ -315,4 +317,51 @@ func releaseStringPinForServerAssign(planEnabled, stateEnabled types.Bool, state
 		return true
 	}
 	return planEnabled.ValueBool() != stateEnabled.ValueBool()
+}
+
+// pinNatGatewaysOnNoOpPlan keeps nat_gateways at its prior value when no other
+// attribute differs between plan and state. The framework marks every
+// config-null computed attribute unknown whenever the proposed plan differs
+// from prior state, even when sibling modifiers then restore every
+// difference, so this leaf alone would turn a clean plan into an update. On a
+// real update it stays unknown: the agent re-samples the egress IPs on its own
+// schedule, and a value pinned from state can differ from the read after
+// apply, which Terraform rejects as an inconsistent result.
+func pinNatGatewaysOnNoOpPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	natGateways := path.Root("nat_gateways")
+	var planned, prior types.List
+	resp.Diagnostics.Append(resp.Plan.GetAttribute(ctx, natGateways, &planned)...)
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, natGateways, &prior)...)
+	if resp.Diagnostics.HasError() || !planned.IsUnknown() {
+		return
+	}
+	if !equalExceptAttribute(resp.Plan.Raw, req.State.Raw, "nat_gateways") {
+		return
+	}
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, natGateways, prior)...)
+}
+
+// equalExceptAttribute reports whether two object values agree on every
+// attribute but the named one. As returns the values' own maps, so they are
+// read and never modified.
+func equalExceptAttribute(a, b tftypes.Value, name string) bool {
+	var av, bv map[string]tftypes.Value
+	if err := a.As(&av); err != nil {
+		return false
+	}
+	if err := b.As(&bv); err != nil {
+		return false
+	}
+	if len(av) != len(bv) {
+		return false
+	}
+	for k, v := range av {
+		if k == name {
+			continue
+		}
+		if w, ok := bv[k]; !ok || !v.Equal(w) {
+			return false
+		}
+	}
+	return true
 }

@@ -840,6 +840,7 @@ name:
 
 nat_gateways:
   computed_only: true
+  plan_modifiers: [None]
 
 network_id:
   required: true
