@@ -26,6 +26,7 @@ You have runtime evidence: logs from `task test:cluster:aws`, a customer ticket,
 - One of N sibling arms misbehaves (`schema_registry.mtls` diffs, `kafka_api.mtls` and `http_proxy.mtls` don't). Before hunting for a normalizer the siblings "must have", diff the arms' schema flags in `schema.yaml` and the generated attributes. The `schema_registry.mtls` echo bug was a missing `computed: true`; the flatten was identical on all three arms and no normalizer existed anywhere.
 - A plan renders `+ <leaf> = (known after apply)` under a `~ <object>` with unchanged siblings. Read it literally before reading code: `+` means the prior value is null and the object was known during plan, so an object-level pin never ran and the leaf's own modifier declined a null prior. For a computed collection that usually means the server sent an empty repeated field as absent.
 - The reporter's config carries `lifecycle { ignore_changes = [<block>] }`. Terraform core hands the provider the ignore-processed config, so nested computed children under that block get plan-modified one by one instead of the object as a whole. Check whether the workaround is still needed; it can be the exposing condition for the newer bug.
+- `inconsistent result after apply` on a computed-only leaf the config never sets. Find the producer before the modifier: read the backend or agent code that writes the value (`../cloudv2/apps/redpanda-agent/internal/datacollection/` for agent-sampled fields) and ask whether it can change with no update. If it can, the leaf must not be pinned at all and the fix is the no-op guard in [`../_shared/schema-authoring.md`](../_shared/schema-authoring.md), not another modifier.
 
 ### Track B: starting from a proactive coverage audit
 
@@ -205,6 +206,7 @@ When the bug fix adds or modifies an attribute (validator, default, plan modifie
 - **Don't declare a state-shape-drift bug fixed** without checking what happens to state that's already wrong (Phase 7).
 - **Don't pivot to a test-mechanic workaround** when the workaround is papering over a real UX bug (Phase 8).
 - **Don't spin up a new cluster** for dataplane resource acc coverage — extend `testRunner`.
+- **Don't mutate the map `tftypes.Value.As(&m)` hands back.** It is the value's own backing map, not a copy; deleting a key from it to compare "everything but X" edits the plan or state in place. Read it, compare, leave it.
 - **Don't accept a red proof whose error code differs from the live symptom.** If the fake emits `NotFound` but the live symptom was `PermissionDenied`, force the real code via `OverrideOnce` (Phase 3) — a structurally-right but code-wrong reproduction leaves the guard blind to code-specific regressions.
 
 ## Commit shape

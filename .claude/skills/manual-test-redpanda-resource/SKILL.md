@@ -286,6 +286,7 @@ These bite repeatedly across iterations of the same test. Fix them once at the s
 - **`Value Conversion Error: Path: timeouts` with `Received tftypes.Object[]`** → the generated Flatten dropped `prev.Timeouts`. Schemagen needs `m.Timeouts = prev.Timeouts` inside the `prev != nil` carry-over for any resource declaring a `timeouts:` block.
 - **`Missing required provider redpanda-data/redpanda` after switching to dev_overrides** → you forgot the `terraform state replace-provider redpanda-data/redpanda hashicorp/redpanda` from §6 step 0b.
 - **Stuck server-side resource (`STATE_IN_PROGRESS` deletion for hours/days)** → not a provider bug. The server's deletion task got wedged. Use a different name prefix for the next cycle (versioned workdir, §4) and let cleanup catch up eventually. Don't retry destroy in a tight loop — it won't unstick anything.
+- **Update apply on the legacy org's keep-alive cluster sits in `STATE_IN_PROGRESS` past the provider's 3h timeout** → the change usually lands on the server within the hour while the operation never completes (it can flip to `STATE_FAILED` later). Before retrying, read the operation and the cluster through the public API, `GET https://api.ppd.cloud.redpanda.com/v1/operations/<id>` and `/v1/clusters/<id>` with a preprod auth0 bearer, to tell a provider hang from a backend one; the operation id is in the provider's `TF_LOG=debug` output. A retried apply hangs the same way and proves nothing about the provider.
 
 ## 9. Report
 

@@ -102,6 +102,16 @@ For dataplane resources (topic, user, acl, schema*), the dataplane fake infrastr
 
 A BYOC cluster is created in `STATE_CREATING_AGENT` and parked in `STATE_DELETING_AGENT` by `DeleteCluster`; only the byoc runner fake's successful run advances it (`ClusterFake.AgentRun`), the way the control plane waits on the plugin's `MarkAgentDeleted`. `ByocRunnerFake.FailNextWith(err)` makes the next run fail without advancing, so a `Destroy: true` step with `ExpectError` models a failed agent destroy. Pair it with a `PreConfig` on the following step that reads the fake back and asserts the cluster is still there in `DELETING_AGENT`: that assertion is what makes orphaning observable, since a fake that advanced on failure would pass the `ExpectError` step just the same.
 
+### Cluster fake: values the server changes on its own
+
+Three seams on `ClusterFake` model a server-derived field moving without the provider asking (`fakes/cluster.go`):
+
+- `CreateMutator func(*Cluster)` runs on the freshly built cluster before it is stored: server-side defaulting of a computed field the create request did not carry.
+- `UpdateMutator func(*Cluster)` runs on the stored cluster after every merged update: a value that changes while the update runs, the way the agent re-samples `nat_gateways`. Pair it with `plancheck.ExpectUnknownValue` on the update step, so the test fails if a pin ever comes back.
+- `SetNatGatewaysOutOfBand(name, ips)` rewrites the stored value between steps: a refresh must adopt the new sample with an empty plan.
+
+A fake that stamps a server-owned key must stamp it in the real shape. `applyCommonTags` writes `aws-apn-id-<partner account id>`, as the control plane does, not the bare `aws-apn-id`; a fixture carrying the bare key passes the filter tests against a provider that leaks the real key into state on import.
+
 ## Tier 3: Colocated live-acc (`acc_<name>_test.go`)
 
 Real provider against Redpanda Cloud. Use only for behavior that the integration tier cannot exercise: real API rate limits, server-enforced constraints, async timing.
