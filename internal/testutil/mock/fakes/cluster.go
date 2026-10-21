@@ -1158,10 +1158,11 @@ func (f *ClusterFake) ListClusters(_ context.Context, req *controlplanev1.ListCl
 }
 
 // Common tags the control plane stamps itself (cloudv2-infra common_tags):
-// the AWS Partner Network attribution tag on AWS clusters and the Google
-// Cloud partner label on GCP BYOC clusters.
+// the AWS Partner Network attribution tag on AWS clusters, whose key carries
+// the partner account suffix in every environment, and the Google Cloud
+// partner label on GCP BYOC clusters.
 const (
-	awsAPNTagKey     = "aws-apn-id"
+	awsAPNTagKey     = "aws-apn-id-123456789012"
 	gcpPartnerTagKey = "goog-partner-solution"
 )
 

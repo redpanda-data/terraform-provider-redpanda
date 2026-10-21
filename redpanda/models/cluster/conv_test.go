@@ -64,13 +64,14 @@ func TestDatasourceTagsFromProto_DropsControlPlaneKeys(t *testing.T) {
 		"env":                     "prod",
 		"redpanda-managed":        "true",
 		"aws-apn-id":              "pc:abc",
+		"aws-apn-id-123456789012": "pc:abc",
 		"goog-partner-solution":   "isol_abc",
-		"aws-apn-id-999999999999": "mine",
+		"aws-apn-identity":        "mine",
 	}})
 	if len(got.Elements()) != 2 {
-		t.Fatalf("got %v, want only env", got.Elements())
+		t.Fatalf("got %v, want only env and aws-apn-identity", got.Elements())
 	}
-	for _, k := range []string{"env", "aws-apn-id-999999999999"} {
+	for _, k := range []string{"env", "aws-apn-identity"} {
 		if _, ok := got.Elements()[k]; !ok {
 			t.Fatalf("got %v, want %s kept", got.Elements(), k)
 		}
@@ -103,7 +104,7 @@ func tagMap(kv map[string]string) types.Map {
 }
 
 func TestRetainConfiguredTags(t *testing.T) {
-	const apn = "aws-apn-id"
+	const apn = "aws-apn-id-123456789012"
 	cases := []struct {
 		name               string
 		server, configured types.Map
@@ -129,9 +130,9 @@ func TestRetainConfiguredTags(t *testing.T) {
 		},
 		{
 			name:       "a configured key that only shares a control-plane prefix is the user's",
-			server:     tagMap(map[string]string{"aws-apn-id-999999999999": "mine", apn: "pub-abc"}),
-			configured: tagMap(map[string]string{"aws-apn-id-999999999999": "mine"}),
-			want:       tagMap(map[string]string{"aws-apn-id-999999999999": "mine"}),
+			server:     tagMap(map[string]string{"aws-apn-identity": "mine", apn: "pub-abc"}),
+			configured: tagMap(map[string]string{"aws-apn-identity": "mine"}),
+			want:       tagMap(map[string]string{"aws-apn-identity": "mine"}),
 		},
 		{
 			name:       "unknown configured tags keep the echo minus control-plane keys",
@@ -187,7 +188,7 @@ func TestRetainConfiguredTags(t *testing.T) {
 }
 
 func TestMergeConfiguredTags(t *testing.T) {
-	const apn = "aws-apn-id"
+	const apn = "aws-apn-id-123456789012"
 	cases := []struct {
 		name           string
 		current        map[string]string
@@ -231,17 +232,17 @@ func TestMergeConfiguredTags(t *testing.T) {
 		},
 		{
 			name:    "a configured key that only shares a control-plane prefix is dropped once removed from the configuration",
-			current: map[string]string{"aws-apn-id-999999999999": "mine", "env": "dev"},
-			prior:   tagMap(map[string]string{"aws-apn-id-999999999999": "mine", "env": "dev"}),
+			current: map[string]string{"aws-apn-identity": "mine", "env": "dev"},
+			prior:   tagMap(map[string]string{"aws-apn-identity": "mine", "env": "dev"}),
 			planned: tagMap(map[string]string{"env": "dev"}),
 			want:    map[string]string{"env": "dev"},
 		},
 		{
 			name:    "a key set outside terraform that only shares a control-plane prefix survives",
-			current: map[string]string{"aws-apn-id-999999999999": "mine", "env": "dev", apn: "pc:abc"},
+			current: map[string]string{"aws-apn-identity": "mine", "env": "dev", apn: "pc:abc"},
 			prior:   tagMap(map[string]string{"env": "dev"}),
 			planned: tagMap(map[string]string{"env": "prod"}),
-			want:    map[string]string{"aws-apn-id-999999999999": "mine", "env": "prod"},
+			want:    map[string]string{"aws-apn-identity": "mine", "env": "prod"},
 		},
 		{
 			name:    "null prior state removes nothing",

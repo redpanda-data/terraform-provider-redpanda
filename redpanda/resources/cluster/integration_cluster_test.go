@@ -1016,12 +1016,12 @@ func TestIntegration_Cluster_UpdateLeaf_Tags(t *testing.T) {
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
 			integration.UpdateLeafStep(clusterAddr,
-				awsDedicatedConfig(name, `tags = { env = "prod", "cost-center" = "42", "aws-apn-id-999999999999" = "mine" }`),
+				awsDedicatedConfig(name, `tags = { env = "prod", "cost-center" = "42", "aws-apn-identity" = "mine" }`),
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("tags"), knownvalue.MapExact(map[string]knownvalue.Check{
-						"env":                     knownvalue.StringExact("prod"),
-						"cost-center":             knownvalue.StringExact("42"),
-						"aws-apn-id-999999999999": knownvalue.StringExact("mine"),
+						"env":              knownvalue.StringExact("prod"),
+						"cost-center":      knownvalue.StringExact("42"),
+						"aws-apn-identity": knownvalue.StringExact("mine"),
 					})),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
@@ -1072,7 +1072,7 @@ func TestIntegration_Cluster_UpdateLeaf_Tags(t *testing.T) {
 				}),
 			{
 				PreConfig: func() {
-					for k, v := range map[string]string{"owner": "ops", "aws-apn-id-999999999999": "mine"} {
+					for k, v := range map[string]string{"owner": "ops", "aws-apn-identity": "mine"} {
 						if !srv.Cluster.SetTagOutOfBand(oobName, k, v) {
 							t.Fatalf("cluster %s not stored in the fake", oobName)
 						}
@@ -1103,7 +1103,7 @@ func TestIntegration_Cluster_UpdateLeaf_Tags(t *testing.T) {
 					if got["env"] != "prod" {
 						return fmt.Errorf("update did not apply the configured key: %v", got)
 					}
-					for k, v := range map[string]string{"owner": "ops", "aws-apn-id-999999999999": "mine"} {
+					for k, v := range map[string]string{"owner": "ops", "aws-apn-identity": "mine"} {
 						if got[k] != v {
 							return fmt.Errorf("update removed %s, a key the plan never showed: %v", k, got)
 						}
@@ -1190,6 +1190,12 @@ data "redpanda_cluster" "test" {
 			{
 				Config:      gcpBYOVPCConfig(gcpBYOVPCOpts{name: gcpName, tags: `tags = { "aws-apn-id" = "mine" }`}),
 				ExpectError: regexp.MustCompile(`"aws-apn-id" is reserved`),
+			},
+			// The control plane's APN tag carries its partner account suffix, so
+			// every aws-apn-id-* key is the control plane's.
+			{
+				Config:      gcpBYOVPCConfig(gcpBYOVPCOpts{name: gcpName, tags: `tags = { "aws-apn-id-123456789012" = "mine" }`}),
+				ExpectError: regexp.MustCompile(`"aws-apn-id-123456789012" is reserved`),
 			},
 			// A redpanda- key the control plane does not reserve is still
 			// stripped on read, so it must fail before apply too.
