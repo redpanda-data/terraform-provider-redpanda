@@ -271,6 +271,22 @@ var validatorRegistry = map[string]ValidatorDef{
 		},
 		AttrType: "Object",
 	},
+	"ClearedWhenDisabledObject": {
+		Parameterized: true,
+		GenFunc: func(_ string, params map[string]string) (string, []string) {
+			return fmt.Sprintf("validators.ClearedWhenDisabledObjectValidator{Enabled: %s}", pathExprFromDotted(params["enabled"])),
+				[]string{validatorsImport, "github.com/hashicorp/terraform-plugin-framework/path"}
+		},
+		AttrType: "Object",
+	},
+	"ClearedWhenDisabledString": {
+		Parameterized: true,
+		GenFunc: func(_ string, params map[string]string) (string, []string) {
+			return fmt.Sprintf("validators.ClearedWhenDisabledStringValidator{Enabled: %s}", pathExprFromDotted(params["enabled"])),
+				[]string{validatorsImport, "github.com/hashicorp/terraform-plugin-framework/path"}
+		},
+		AttrType: "String",
+	},
 }
 
 // pathExprFromDotted renders a dotted attribute path ("rpsql.enabled") as a

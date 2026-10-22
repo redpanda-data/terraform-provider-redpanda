@@ -298,18 +298,24 @@ customer_managed_resources:
         # Redpanda SQL BYOVPC infrastructure: only meaningful when rpsql is
         # enabled, so optional unlike the required siblings.
         rpsql_node_group_instance_profile:
+          validator:
+            - "ClearedWhenDisabledObject{enabled: rpsql.enabled}"
           computed: false
           optional: true
           fields:
             arn:
               required: true
         rpsql_cloud_storage_bucket:
+          validator:
+            - "ClearedWhenDisabledObject{enabled: rpsql.enabled}"
           computed: false
           optional: true
           fields:
             arn:
               required: true
         rpsql_security_group:
+          validator:
+            - "ClearedWhenDisabledObject{enabled: rpsql.enabled}"
           computed: false
           optional: true
           fields:
@@ -355,21 +361,29 @@ customer_managed_resources:
         # Redpanda SQL BYOVPC infrastructure: only meaningful when rpsql is
         # enabled, so optional unlike the required siblings.
         rpsql_api_service_account:
+          validator:
+            - "ClearedWhenDisabledObject{enabled: rpsql.enabled}"
           computed: false
           optional: true
           fields:
             email:
               required: true
         rpsql_cloud_storage_bucket:
+          validator:
+            - "ClearedWhenDisabledObject{enabled: rpsql.enabled}"
           computed: false
           optional: true
           fields:
             name:
               required: true
         rpsql_secret_manager_prefix:
+          validator:
+            - "ClearedWhenDisabledString{enabled: rpsql.enabled}"
           computed: false
           optional: true
         rpsql_service_account:
+          validator:
+            - "ClearedWhenDisabledObject{enabled: rpsql.enabled}"
           computed: false
           optional: true
           fields:
