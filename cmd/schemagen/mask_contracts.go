@@ -85,6 +85,11 @@ func verifyClusterMaskPaths(cfg *schemagen.Config, attrs []schemagen.SchemaAttr,
 			warn("WARN clustermask: CMR updatable leaf %q is not on the update payload — stale after a pin bump?\n", leaf)
 		}
 	}
+	for _, p := range clustermask.CMRClearPaths() {
+		if !idx.Updatable(p) {
+			warn("WARN clustermask: CMR clear path %q is not on the update payload — stale after a pin bump?\n", p)
+		}
+	}
 	warnUnmappedCMRLeaves(attrs, idx, warn)
 	for key, leaves := range clustermask.LeafExpansions {
 		if !idx.Updatable(key) {

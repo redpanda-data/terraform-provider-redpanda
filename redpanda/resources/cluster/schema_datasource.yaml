@@ -94,11 +94,14 @@ customer_managed_resources:
         psc_v2_nat_subnet_name:
           todo: true
         redpanda_connect_api_service_account:
-          todo: true
+          fields:
+            email: {}
         redpanda_connect_service_account:
-          todo: true
+          fields:
+            email: {}
         redpanda_operator_service_account:
-          todo: true
+          fields:
+            email: {}
     aws:
       fields:
         rpsql_node_group_instance_profile:

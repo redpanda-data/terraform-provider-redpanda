@@ -405,12 +405,31 @@ customer_managed_resources:
 
         psc_v2_nat_subnet_name:
           todo: true
+        # Optional unlike the required siblings: the control plane turns
+        # Redpanda Connect on only when both Connect accounts are set, hence
+        # the pairing, and cluster-properties secrets need the operator account.
         redpanda_connect_api_service_account:
-          todo: true
+          computed: false
+          optional: true
+          validator:
+            - "ObjectAlsoRequiresSibling{sibling: redpanda_connect_service_account}"
+          fields:
+            email:
+              required: true
         redpanda_connect_service_account:
-          todo: true
+          computed: false
+          optional: true
+          validator:
+            - "ObjectAlsoRequiresSibling{sibling: redpanda_connect_api_service_account}"
+          fields:
+            email:
+              required: true
         redpanda_operator_service_account:
-          todo: true
+          computed: false
+          optional: true
+          fields:
+            email:
+              required: true
     # RequiresReplace on the arm as well as on every leaf: the framework skips
     # nested modifiers when the planned parent is null, so the arm-level marker
     # is what covers removing an optional block, and the control plane has no

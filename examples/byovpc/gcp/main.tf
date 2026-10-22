@@ -91,6 +91,17 @@ resource "redpanda_cluster" "test" {
       tiered_storage_bucket = {
         name = module.redpanda_gcp.tiered_storage_bucket_name
       }
+      # Redpanda Connect runs only when both Connect accounts are set, and
+      # secrets in cluster properties need the operator account.
+      redpanda_connect_api_service_account = {
+        email = module.redpanda_gcp.redpanda_connect_api_service_account_email
+      }
+      redpanda_connect_service_account = {
+        email = module.redpanda_gcp.redpanda_connect_service_account_email
+      }
+      redpanda_operator_service_account = {
+        email = module.redpanda_gcp.redpanda_operator_service_account_email
+      }
 
       # Redpanda SQL. The byovpc module does not create these yet, so supply
       # them yourself when enabling rpsql; null leaves rpsql unconfigured.

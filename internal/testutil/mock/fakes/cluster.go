@@ -643,6 +643,20 @@ func applyCMRLeafUpdate(cl *controlplanev1.Cluster, upd *controlplanev1.Customer
 	switch path {
 	case "customer_managed_resources.gcp.psc_nat_subnet_name":
 		cmrReadGCP(cmr).SetPscNatSubnetName(upd.GetGcp().GetPscNatSubnetName())
+	// A leaf path prunes only the email, so the account message survives with
+	// an empty email; the account path prunes the whole message.
+	case "customer_managed_resources.gcp.redpanda_connect_api_service_account.email":
+		cmrReadGCP(cmr).SetRedpandaConnectApiServiceAccount(&controlplanev1.GCPServiceAccount{Email: upd.GetGcp().GetRedpandaConnectApiServiceAccount().GetEmail()})
+	case "customer_managed_resources.gcp.redpanda_connect_api_service_account":
+		cmrReadGCP(cmr).SetRedpandaConnectApiServiceAccount(upd.GetGcp().GetRedpandaConnectApiServiceAccount())
+	case "customer_managed_resources.gcp.redpanda_connect_service_account.email":
+		cmrReadGCP(cmr).SetRedpandaConnectServiceAccount(&controlplanev1.GCPServiceAccount{Email: upd.GetGcp().GetRedpandaConnectServiceAccount().GetEmail()})
+	case "customer_managed_resources.gcp.redpanda_connect_service_account":
+		cmrReadGCP(cmr).SetRedpandaConnectServiceAccount(upd.GetGcp().GetRedpandaConnectServiceAccount())
+	case "customer_managed_resources.gcp.redpanda_operator_service_account.email":
+		cmrReadGCP(cmr).SetRedpandaOperatorServiceAccount(&controlplanev1.GCPServiceAccount{Email: upd.GetGcp().GetRedpandaOperatorServiceAccount().GetEmail()})
+	case "customer_managed_resources.gcp.redpanda_operator_service_account":
+		cmrReadGCP(cmr).SetRedpandaOperatorServiceAccount(upd.GetGcp().GetRedpandaOperatorServiceAccount())
 	case "customer_managed_resources.gcp.rpsql_api_service_account.email":
 		cmrReadGCP(cmr).SetRpsqlApiServiceAccount(&controlplanev1.GCPServiceAccount{Email: upd.GetGcp().GetRpsqlApiServiceAccount().GetEmail()})
 	case "customer_managed_resources.gcp.rpsql_service_account.email":
