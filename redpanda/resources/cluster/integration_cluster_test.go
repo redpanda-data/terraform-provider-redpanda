@@ -444,6 +444,11 @@ type gcpBYOVPCOpts struct {
 	rpsql        bool   // enable Redpanda SQL and emit the rpsql_* CMR leaves
 	rpsqlSAEmail string // rpsql_service_account.email (immutable while rpsql enabled)
 	tags         string // raw tags HCL, e.g. `tags = { env = "dev" }`; "" omits it
+	// Redpanda Connect, Connect API and Operator service account emails; ""
+	// omits the block.
+	connectSAEmail    string
+	connectAPISAEmail string
+	operatorSAEmail   string
 }
 
 func gcpBYOVPCConfig(o gcpBYOVPCOpts) string {
@@ -451,6 +456,15 @@ func gcpBYOVPCConfig(o gcpBYOVPCOpts) string {
 	extra := ""
 	if o.pscNat != "" {
 		extra += fmt.Sprintf("\n      psc_nat_subnet_name   = %q", o.pscNat)
+	}
+	for _, sa := range []struct{ attr, email string }{
+		{"redpanda_connect_api_service_account", o.connectAPISAEmail},
+		{"redpanda_connect_service_account", o.connectSAEmail},
+		{"redpanda_operator_service_account", o.operatorSAEmail},
+	} {
+		if sa.email != "" {
+			extra += fmt.Sprintf("\n      %s = { email = %q }", sa.attr, sa.email)
+		}
 	}
 	rpsqlBlock := ""
 	if o.tags != "" {
@@ -2460,6 +2474,135 @@ func TestIntegration_Cluster_CMR_GCP(t *testing.T) {
 					statecheck.ExpectKnownValue(clusterAddr, subnetPath, knownvalue.StringExact(subnetNameB)),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idChanged.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+		},
+	})
+}
+
+// TestIntegration_Cluster_CMR_GCP_ConnectServiceAccounts pins the Redpanda
+// Connect, Connect API and Operator service accounts as in-place updatable: a
+// cluster created without them can add, change and drop them without a replace,
+// which is what an existing Terraform-created BYOVPC cluster needs to turn on
+// Redpanda Connect.
+func TestIntegration_Cluster_CMR_GCP_ConnectServiceAccounts(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const (
+		name       = "tfrp-mock-cl-rpcn-sa"
+		connectA   = "rpcn-a@tfrp-proj.iam.gserviceaccount.com"
+		connectB   = "rpcn-b@tfrp-proj.iam.gserviceaccount.com"
+		connectAPI = "rpcn-api@tfrp-proj.iam.gserviceaccount.com"
+		operator   = "rp-op@tfrp-proj.iam.gserviceaccount.com"
+	)
+	gcpPath := tfjsonpath.New("customer_managed_resources").AtMapKey("gcp")
+	connectPath := gcpPath.AtMapKey("redpanda_connect_service_account")
+	connectAPIPath := gcpPath.AtMapKey("redpanda_connect_api_service_account")
+	operatorPath := gcpPath.AtMapKey("redpanda_operator_service_account")
+
+	withSAs := func(connect string) gcpBYOVPCOpts {
+		return gcpBYOVPCOpts{name: name, connectSAEmail: connect, connectAPISAEmail: connectAPI, operatorSAEmail: operator}
+	}
+	idSame := statecheck.CompareValue(compare.ValuesSame())
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				gcpBYOVPCConfig(gcpBYOVPCOpts{name: name}),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, connectPath, knownvalue.Null()),
+					statecheck.ExpectKnownValue(clusterAddr, connectAPIPath, knownvalue.Null()),
+					statecheck.ExpectKnownValue(clusterAddr, operatorPath, knownvalue.Null()),
+					idSame.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			integration.UpdateLeafStep(clusterAddr,
+				gcpBYOVPCConfig(withSAs(connectA)),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, connectPath.AtMapKey("email"), knownvalue.StringExact(connectA)),
+					statecheck.ExpectKnownValue(clusterAddr, connectAPIPath.AtMapKey("email"), knownvalue.StringExact(connectAPI)),
+					statecheck.ExpectKnownValue(clusterAddr, operatorPath.AtMapKey("email"), knownvalue.StringExact(operator)),
+					idSame.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			integration.NoopReapplyStep(clusterAddr,
+				gcpBYOVPCConfig(withSAs(connectA))+`
+data "redpanda_cluster" "test" {
+  id = redpanda_cluster.test.id
+}
+`,
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue("data.redpanda_cluster.test", connectPath.AtMapKey("email"), knownvalue.StringExact(connectA)),
+					statecheck.ExpectKnownValue("data.redpanda_cluster.test", connectAPIPath.AtMapKey("email"), knownvalue.StringExact(connectAPI)),
+					statecheck.ExpectKnownValue("data.redpanda_cluster.test", operatorPath.AtMapKey("email"), knownvalue.StringExact(operator)),
+				}),
+			integration.UpdateLeafStep(clusterAddr,
+				gcpBYOVPCConfig(withSAs(connectB)),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, connectPath.AtMapKey("email"), knownvalue.StringExact(connectB)),
+					statecheck.ExpectKnownValue(clusterAddr, operatorPath.AtMapKey("email"), knownvalue.StringExact(operator)),
+					idSame.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			integration.UpdateLeafStep(clusterAddr,
+				gcpBYOVPCConfig(gcpBYOVPCOpts{name: name}),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, connectPath, knownvalue.Null()),
+					statecheck.ExpectKnownValue(clusterAddr, connectAPIPath, knownvalue.Null()),
+					statecheck.ExpectKnownValue(clusterAddr, operatorPath, knownvalue.Null()),
+					idSame.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+		},
+	})
+}
+
+// TestIntegration_Cluster_CMR_GCP_ConnectServiceAccountsPaired pins the two
+// Redpanda Connect accounts as both-or-neither at plan: the control plane turns
+// Connect on only when both are set, so one alone would apply cleanly and leave
+// Connect off without a word.
+func TestIntegration_Cluster_CMR_GCP_ConnectServiceAccountsPaired(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const name = "tfrp-mock-cl-rpcn-pair"
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				Config:      gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, connectSAEmail: "rpcn@tfrp-proj.iam.gserviceaccount.com"}),
+				PlanOnly:    true,
+				ExpectError: regexp.MustCompile(`redpanda_connect_api_service_account`),
+			},
+			{
+				Config:      gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, connectAPISAEmail: "rpcn-api@tfrp-proj.iam.gserviceaccount.com"}),
+				PlanOnly:    true,
+				ExpectError: regexp.MustCompile(`redpanda_connect_service_account`),
+			},
+			// The operator account stands alone.
+			integration.CreateStep(clusterAddr,
+				gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, operatorSAEmail: "rp-op@tfrp-proj.iam.gserviceaccount.com"}),
+				nil),
+		},
+	})
+}
+
+// TestIntegration_Cluster_CMR_GCP_ConnectServiceAccounts_AtCreate pins that the
+// service accounts set at create reach the control plane and read back.
+func TestIntegration_Cluster_CMR_GCP_ConnectServiceAccounts_AtCreate(t *testing.T) {
+	_, factories := clusterSetup(t)
+
+	const (
+		connect    = "rpcn@tfrp-proj.iam.gserviceaccount.com"
+		connectAPI = "rpcn-api@tfrp-proj.iam.gserviceaccount.com"
+		operator   = "rp-op@tfrp-proj.iam.gserviceaccount.com"
+	)
+	gcpPath := tfjsonpath.New("customer_managed_resources").AtMapKey("gcp")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr,
+				gcpBYOVPCConfig(gcpBYOVPCOpts{name: "tfrp-mock-cl-rpcn-sa-c", connectSAEmail: connect, connectAPISAEmail: connectAPI, operatorSAEmail: operator}),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, gcpPath.AtMapKey("redpanda_connect_service_account").AtMapKey("email"), knownvalue.StringExact(connect)),
+					statecheck.ExpectKnownValue(clusterAddr, gcpPath.AtMapKey("redpanda_connect_api_service_account").AtMapKey("email"), knownvalue.StringExact(connectAPI)),
+					statecheck.ExpectKnownValue(clusterAddr, gcpPath.AtMapKey("redpanda_operator_service_account").AtMapKey("email"), knownvalue.StringExact(operator)),
 				}),
 		},
 	})
