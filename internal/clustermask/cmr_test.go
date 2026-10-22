@@ -138,6 +138,40 @@ func TestExpandCustomerManagedResourceLeaves(t *testing.T) {
 			},
 		},
 		{
+			name: "aws object leaves removed clear the whole message",
+			in:   []string{"customer_managed_resources"},
+			plan: awsCMR(func(a *controlplanev1.CustomerManagedResourcesUpdate_AWS) {
+				a.RedpandaConnectNodeGroupInstanceProfile = nil
+				a.RedpandaConnectSecurityGroup = nil
+				a.RpsqlNodeGroupInstanceProfile = nil
+				a.RpsqlSecurityGroup = nil
+				a.RpsqlCloudStorageBucket = nil
+			}),
+			state: awsCMR(nil),
+			want: []string{
+				"customer_managed_resources.aws.redpanda_connect_node_group_instance_profile",
+				"customer_managed_resources.aws.redpanda_connect_security_group",
+				"customer_managed_resources.aws.rpsql_node_group_instance_profile",
+				"customer_managed_resources.aws.rpsql_security_group",
+				"customer_managed_resources.aws.rpsql_cloud_storage_bucket",
+			},
+		},
+		{
+			name: "gcp rpsql object leaves removed clear the whole message",
+			in:   []string{"customer_managed_resources"},
+			plan: gcpCMR(func(g *controlplanev1.CustomerManagedResourcesUpdate_GCP) {
+				g.RpsqlApiServiceAccount = nil
+				g.RpsqlServiceAccount = nil
+				g.RpsqlCloudStorageBucket = nil
+			}),
+			state: gcpCMR(nil),
+			want: []string{
+				"customer_managed_resources.gcp.rpsql_api_service_account",
+				"customer_managed_resources.gcp.rpsql_service_account",
+				"customer_managed_resources.gcp.rpsql_cloud_storage_bucket",
+			},
+		},
+		{
 			name: "aws redpanda_connect change",
 			in:   []string{"customer_managed_resources"},
 			plan: awsCMR(func(a *controlplanev1.CustomerManagedResourcesUpdate_AWS) {
