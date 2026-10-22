@@ -509,18 +509,21 @@ type DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssi
 // converters on the parent struct to move between types.Object and this
 // typed form.
 type DataCustomerManagedResourcesGCPModel struct {
-	AgentServiceAccount           types.Object `tfsdk:"agent_service_account"`
-	ConnectorServiceAccount       types.Object `tfsdk:"connector_service_account"`
-	ConsoleServiceAccount         types.Object `tfsdk:"console_service_account"`
-	GkeServiceAccount             types.Object `tfsdk:"gke_service_account"`
-	PscNatSubnetName              types.String `tfsdk:"psc_nat_subnet_name"`
-	RedpandaClusterServiceAccount types.Object `tfsdk:"redpanda_cluster_service_account"`
-	RpsqlAPIServiceAccount        types.Object `tfsdk:"rpsql_api_service_account"`
-	RpsqlCloudStorageBucket       types.Object `tfsdk:"rpsql_cloud_storage_bucket"`
-	RpsqlSecretManagerPrefix      types.String `tfsdk:"rpsql_secret_manager_prefix"`
-	RpsqlServiceAccount           types.Object `tfsdk:"rpsql_service_account"`
-	Subnet                        types.Object `tfsdk:"subnet"`
-	TieredStorageBucket           types.Object `tfsdk:"tiered_storage_bucket"`
+	AgentServiceAccount              types.Object `tfsdk:"agent_service_account"`
+	ConnectorServiceAccount          types.Object `tfsdk:"connector_service_account"`
+	ConsoleServiceAccount            types.Object `tfsdk:"console_service_account"`
+	GkeServiceAccount                types.Object `tfsdk:"gke_service_account"`
+	PscNatSubnetName                 types.String `tfsdk:"psc_nat_subnet_name"`
+	RedpandaClusterServiceAccount    types.Object `tfsdk:"redpanda_cluster_service_account"`
+	RedpandaConnectAPIServiceAccount types.Object `tfsdk:"redpanda_connect_api_service_account"`
+	RedpandaConnectServiceAccount    types.Object `tfsdk:"redpanda_connect_service_account"`
+	RedpandaOperatorServiceAccount   types.Object `tfsdk:"redpanda_operator_service_account"`
+	RpsqlAPIServiceAccount           types.Object `tfsdk:"rpsql_api_service_account"`
+	RpsqlCloudStorageBucket          types.Object `tfsdk:"rpsql_cloud_storage_bucket"`
+	RpsqlSecretManagerPrefix         types.String `tfsdk:"rpsql_secret_manager_prefix"`
+	RpsqlServiceAccount              types.Object `tfsdk:"rpsql_service_account"`
+	Subnet                           types.Object `tfsdk:"subnet"`
+	TieredStorageBucket              types.Object `tfsdk:"tiered_storage_bucket"`
 }
 
 // DataCustomerManagedResourcesGCPAgentServiceAccountModel mirrors the nested "customer_managed_resources.gcp.agent_service_account" attribute. Use the As/To
@@ -555,6 +558,27 @@ type DataCustomerManagedResourcesGCPGkeServiceAccountModel struct {
 // converters on the parent struct to move between types.Object and this
 // typed form.
 type DataCustomerManagedResourcesGCPRedpandaClusterServiceAccountModel struct {
+	Email types.String `tfsdk:"email"`
+}
+
+// DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountModel mirrors the nested "customer_managed_resources.gcp.redpanda_connect_api_service_account" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountModel struct {
+	Email types.String `tfsdk:"email"`
+}
+
+// DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountModel mirrors the nested "customer_managed_resources.gcp.redpanda_connect_service_account" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountModel struct {
+	Email types.String `tfsdk:"email"`
+}
+
+// DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountModel mirrors the nested "customer_managed_resources.gcp.redpanda_operator_service_account" attribute. Use the As/To
+// converters on the parent struct to move between types.Object and this
+// typed form.
+type DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountModel struct {
 	Email types.String `tfsdk:"email"`
 }
 
@@ -1380,18 +1404,21 @@ func DataCustomerManagedResourcesAzureUserAssignedIdentitiesRedpandaOperatorAssi
 // attribute.
 func DataCustomerManagedResourcesGCPAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"agent_service_account":            types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPAgentServiceAccountAttrTypes()},
-		"connector_service_account":        types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPConnectorServiceAccountAttrTypes()},
-		"console_service_account":          types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPConsoleServiceAccountAttrTypes()},
-		"gke_service_account":              types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPGkeServiceAccountAttrTypes()},
-		"psc_nat_subnet_name":              types.StringType,
-		"redpanda_cluster_service_account": types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPRedpandaClusterServiceAccountAttrTypes()},
-		"rpsql_api_service_account":        types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPRpsqlAPIServiceAccountAttrTypes()},
-		"rpsql_cloud_storage_bucket":       types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPRpsqlCloudStorageBucketAttrTypes()},
-		"rpsql_secret_manager_prefix":      types.StringType,
-		"rpsql_service_account":            types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPRpsqlServiceAccountAttrTypes()},
-		"subnet":                           types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPSubnetAttrTypes()},
-		"tiered_storage_bucket":            types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPTieredStorageBucketAttrTypes()},
+		"agent_service_account":                types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPAgentServiceAccountAttrTypes()},
+		"connector_service_account":            types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPConnectorServiceAccountAttrTypes()},
+		"console_service_account":              types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPConsoleServiceAccountAttrTypes()},
+		"gke_service_account":                  types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPGkeServiceAccountAttrTypes()},
+		"psc_nat_subnet_name":                  types.StringType,
+		"redpanda_cluster_service_account":     types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPRedpandaClusterServiceAccountAttrTypes()},
+		"redpanda_connect_api_service_account": types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountAttrTypes()},
+		"redpanda_connect_service_account":     types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountAttrTypes()},
+		"redpanda_operator_service_account":    types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountAttrTypes()},
+		"rpsql_api_service_account":            types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPRpsqlAPIServiceAccountAttrTypes()},
+		"rpsql_cloud_storage_bucket":           types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPRpsqlCloudStorageBucketAttrTypes()},
+		"rpsql_secret_manager_prefix":          types.StringType,
+		"rpsql_service_account":                types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPRpsqlServiceAccountAttrTypes()},
+		"subnet":                               types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPSubnetAttrTypes()},
+		"tiered_storage_bucket":                types.ObjectType{AttrTypes: DataCustomerManagedResourcesGCPTieredStorageBucketAttrTypes()},
 	}
 }
 
@@ -1430,6 +1457,30 @@ func DataCustomerManagedResourcesGCPGkeServiceAccountAttrTypes() map[string]attr
 // DataCustomerManagedResourcesGCPRedpandaClusterServiceAccountAttrTypes returns the attr.Type map for the "customer_managed_resources.gcp.redpanda_cluster_service_account" nested
 // attribute.
 func DataCustomerManagedResourcesGCPRedpandaClusterServiceAccountAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"email": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountAttrTypes returns the attr.Type map for the "customer_managed_resources.gcp.redpanda_connect_api_service_account" nested
+// attribute.
+func DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"email": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountAttrTypes returns the attr.Type map for the "customer_managed_resources.gcp.redpanda_connect_service_account" nested
+// attribute.
+func DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"email": types.StringType,
+	}
+}
+
+// DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountAttrTypes returns the attr.Type map for the "customer_managed_resources.gcp.redpanda_operator_service_account" nested
+// attribute.
+func DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"email": types.StringType,
 	}
@@ -3189,6 +3240,66 @@ func DataCustomerManagedResourcesGCPRedpandaClusterServiceAccountToObject(ctx co
 		return types.ObjectNull(DataCustomerManagedResourcesGCPRedpandaClusterServiceAccountAttrTypes()), nil
 	}
 	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesGCPRedpandaClusterServiceAccountAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccount decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccount(ctx context.Context, v *DataCustomerManagedResourcesGCPModel) (*DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountModel, diag.Diagnostics) {
+	if v == nil || v.RedpandaConnectAPIServiceAccount.IsNull() || v.RedpandaConnectAPIServiceAccount.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountModel
+	d := v.RedpandaConnectAPIServiceAccount.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountToObject(ctx context.Context, v *DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesGCPRedpandaConnectServiceAccount decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesGCPRedpandaConnectServiceAccount(ctx context.Context, v *DataCustomerManagedResourcesGCPModel) (*DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountModel, diag.Diagnostics) {
+	if v == nil || v.RedpandaConnectServiceAccount.IsNull() || v.RedpandaConnectServiceAccount.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountModel
+	d := v.RedpandaConnectServiceAccount.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountToObject(ctx context.Context, v *DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountAttrTypes(), v)
+}
+
+// DecodeDataCustomerManagedResourcesGCPRedpandaOperatorServiceAccount decodes the sub-field from its parent typed struct.
+// Returns (nil, nil) when the field is null or unknown.
+func DecodeDataCustomerManagedResourcesGCPRedpandaOperatorServiceAccount(ctx context.Context, v *DataCustomerManagedResourcesGCPModel) (*DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountModel, diag.Diagnostics) {
+	if v == nil || v.RedpandaOperatorServiceAccount.IsNull() || v.RedpandaOperatorServiceAccount.IsUnknown() {
+		return nil, nil
+	}
+	var out DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountModel
+	d := v.RedpandaOperatorServiceAccount.As(ctx, &out, basetypes.ObjectAsOptions{})
+	return &out, d
+}
+
+// DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountToObject encodes a typed struct back into types.Object.
+// A nil receiver returns types.ObjectNull with the correct attribute types.
+func DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountToObject(ctx context.Context, v *DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountModel) (types.Object, diag.Diagnostics) {
+	if v == nil {
+		return types.ObjectNull(DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountAttrTypes()), nil
+	}
+	return types.ObjectValueFrom(ctx, DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountAttrTypes(), v)
 }
 
 // DecodeDataCustomerManagedResourcesGCPRpsqlAPIServiceAccount decodes the sub-field from its parent typed struct.

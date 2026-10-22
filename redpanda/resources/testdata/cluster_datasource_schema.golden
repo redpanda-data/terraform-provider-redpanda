@@ -501,6 +501,27 @@ attributes:
                 - name: email
                   type: StringAttribute
                   computed: true
+            - name: redpanda_connect_api_service_account
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  computed: true
+            - name: redpanda_connect_service_account
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  computed: true
+            - name: redpanda_operator_service_account
+              type: SingleNestedAttribute
+              computed: true
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  computed: true
             - name: rpsql_api_service_account
               type: SingleNestedAttribute
               computed: true

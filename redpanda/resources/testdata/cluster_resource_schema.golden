@@ -473,6 +473,8 @@ attributes:
             - name: rpsql_cloud_storage_bucket
               type: SingleNestedAttribute
               optional: true
+              validators:
+                - validators.ClearedWhenDisabledObjectValidator
               attributes:
                 - name: arn
                   type: StringAttribute
@@ -480,6 +482,8 @@ attributes:
             - name: rpsql_node_group_instance_profile
               type: SingleNestedAttribute
               optional: true
+              validators:
+                - validators.ClearedWhenDisabledObjectValidator
               attributes:
                 - name: arn
                   type: StringAttribute
@@ -487,6 +491,8 @@ attributes:
             - name: rpsql_security_group
               type: SingleNestedAttribute
               optional: true
+              validators:
+                - validators.ClearedWhenDisabledObjectValidator
               attributes:
                 - name: arn
                   type: StringAttribute
@@ -761,9 +767,36 @@ attributes:
                   required: true
                   plan_modifiers:
                     - stringplanmodifier.requiresReplaceIfModifier
+            - name: redpanda_connect_api_service_account
+              type: SingleNestedAttribute
+              optional: true
+              validators:
+                - schemavalidator.AlsoRequiresValidator
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  required: true
+            - name: redpanda_connect_service_account
+              type: SingleNestedAttribute
+              optional: true
+              validators:
+                - schemavalidator.AlsoRequiresValidator
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  required: true
+            - name: redpanda_operator_service_account
+              type: SingleNestedAttribute
+              optional: true
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  required: true
             - name: rpsql_api_service_account
               type: SingleNestedAttribute
               optional: true
+              validators:
+                - validators.ClearedWhenDisabledObjectValidator
               attributes:
                 - name: email
                   type: StringAttribute
@@ -771,6 +804,8 @@ attributes:
             - name: rpsql_cloud_storage_bucket
               type: SingleNestedAttribute
               optional: true
+              validators:
+                - validators.ClearedWhenDisabledObjectValidator
               attributes:
                 - name: name
                   type: StringAttribute
@@ -778,9 +813,13 @@ attributes:
             - name: rpsql_secret_manager_prefix
               type: StringAttribute
               optional: true
+              validators:
+                - validators.ClearedWhenDisabledStringValidator
             - name: rpsql_service_account
               type: SingleNestedAttribute
               optional: true
+              validators:
+                - validators.ClearedWhenDisabledObjectValidator
               attributes:
                 - name: email
                   type: StringAttribute
