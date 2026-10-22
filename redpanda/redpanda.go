@@ -31,6 +31,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/actions/byocagentapply"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
@@ -179,6 +180,16 @@ func providerSchema() schema.Schema {
 					stringvalidator.AlsoRequires(path.MatchRoot("client_id")),
 				},
 			},
+			"skip_credentials_validation": schema.BoolAttribute{
+				Optional: true,
+				MarkdownDescription: "Allow this provider configuration to have no credentials. When `true` and neither the " +
+					"provider block nor the environment supplies `client_id` and `client_secret` or `access_token`, " +
+					"configuration succeeds, and any resource, data source, or action that uses this configuration fails " +
+					"at plan with an error. Resources with `count = 0` never use it. Empty strings count as unset. Use it " +
+					"for a default provider configuration that must exist but should never be used, for example beside " +
+					"aliased configurations or in a workspace whose Redpanda resources are all disabled. Partial " +
+					"credentials, such as a `client_id` without a `client_secret`, still fail.",
+			},
 			"azure_subscription_id": schema.StringAttribute{
 				Optional: true,
 				Description: ("The default Azure Subscription ID which should be used for Redpanda BYOC clusters." +
@@ -245,6 +256,7 @@ func providerSchema() schema.Schema {
 type credentials struct {
 	ClientID       string
 	ClientSecret   string
+	NoCredentials  bool
 	EndpointAPIURL string
 	InternalAPIURL string
 	TokenSource    oauth2.TokenSource
@@ -281,8 +293,16 @@ func getCredentials(ctx context.Context, cloudEnv string, conf models.Redpanda) 
 	creds.EndpointAPIURL = endpoint.APIURL
 	creds.InternalAPIURL = endpoint.InternalAPIURL
 
+	skip := conf.SkipCredentialsValidation.ValueBool()
+	configHasCredentials := !conf.ClientID.IsNull() || !conf.ClientSecret.IsNull() || !conf.AccessToken.IsNull()
+	// Terraform Cloud variables often arrive as "" in workspaces that do not use
+	// this provider. Unknown values stay on the provider-configuration path.
+	if skip && isKnownEmpty(conf.ClientID) && isKnownEmpty(conf.ClientSecret) && isKnownEmpty(conf.AccessToken) {
+		configHasCredentials = false
+	}
+
 	// Check provider configuration
-	if !conf.ClientID.IsNull() || !conf.ClientSecret.IsNull() || !conf.AccessToken.IsNull() {
+	if configHasCredentials {
 		tflog.Debug(ctx, "using authentication configuration found in provider configuration")
 		// client_id, client_secret, and token are validated in the schema to make sure a valid
 		// combination is always provided. the validators have better error messages than checking
@@ -334,12 +354,23 @@ func getCredentials(ctx context.Context, cloudEnv string, conf models.Redpanda) 
 		return creds, diags
 	}
 
+	if skip {
+		tflog.Debug(ctx, "no credentials found and skip_credentials_validation is set; resources using this provider configuration will fail")
+		creds.NoCredentials = true
+		creds.TokenSource = auth.BuildNoCredentialsTokenSource()
+		return creds, diags
+	}
+
 	// No authentication configuration found
 	diags.AddError("Client configuration missing",
 		"no Client ID, Client Secret, or Token found, please set the corresponding variables in the "+
 			"configuration file or as environment variables",
 	)
 	return creds, diags
+}
+
+func isKnownEmpty(v types.String) bool {
+	return !v.IsUnknown() && v.ValueString() == ""
 }
 
 func firstNonEmptyString(args ...string) string {
@@ -491,6 +522,7 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		DataplaneConnPool:      r.dataplanePool,
 		TerraformVersion:       request.TerraformVersion,
 		ProviderVersion:        r.version,
+		NoCredentials:          creds.NoCredentials,
 	}
 	response.ActionData = response.ResourceData
 	response.DataSourceData = config.Datasource{
@@ -499,6 +531,7 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 		DataplaneConnPool:      r.dataplanePool,
 		TerraformVersion:       request.TerraformVersion,
 		ProviderVersion:        r.version,
+		NoCredentials:          creds.NoCredentials,
 	}
 }
 

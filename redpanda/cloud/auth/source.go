@@ -87,3 +87,20 @@ func BuildTokenSource(ctx context.Context, tokenURL, audience, clientID, clientS
 func BuildStaticTokenSource(token string) oauth2.TokenSource {
 	return oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 }
+
+// ErrNoCredentials is what a provider configuration without credentials
+// returns for every token request.
+var ErrNoCredentials = errors.New("this redpanda provider configuration sets skip_credentials_validation and has no client_id and client_secret or access_token")
+
+// BuildNoCredentialsTokenSource returns a TokenSource whose every Token call
+// fails with ErrNoCredentials, so an RPC through an uncredentialed provider
+// configuration errors instead of dereferencing a nil TokenSource.
+func BuildNoCredentialsTokenSource() oauth2.TokenSource {
+	return noCredentialsTokenSource{}
+}
+
+type noCredentialsTokenSource struct{}
+
+func (noCredentialsTokenSource) Token() (*oauth2.Token, error) {
+	return nil, ErrNoCredentials
+}
