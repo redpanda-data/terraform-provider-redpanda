@@ -26,6 +26,7 @@ The Redpanda provider is designed for managing Redpanda clusters and Kafka resou
 - `gcp_project_id` (String) The default Google Cloud Project ID to use for Redpanda BYOC clusters. If another project is specified on a resource, it will take precedence. This can also be sourced from the `GOOGLE_PROJECT` environment variable, or any of the following ordered by precedence: `GOOGLE_PROJECT`, `GOOGLE_CLOUD_PROJECT`, `GCLOUD_PROJECT`, or `CLOUDSDK_CORE_PROJECT`.
 - `google_credentials` (String, Sensitive) Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as GOOGLE_CREDENTIALS
 - `google_credentials_base64` (String, Sensitive) Used for creating and managing BYOC and BYOVPC clusters. Is a convenience passthrough for base64 encoded credentials intended for use in CI/CD. Can also be specified in the environment as GOOGLE_CREDENTIALS_BASE64
+- `skip_credentials_validation` (Boolean) Allow this provider configuration to have no credentials. When `true` and neither the provider block nor the environment supplies `client_id` and `client_secret` or `access_token`, configuration succeeds, and any resource, data source, or action that uses this configuration fails at plan with an error. Resources with `count = 0` never use it. Empty strings count as unset. Use it for a default provider configuration that must exist but should never be used, for example beside aliased configurations or in a workspace whose Redpanda resources are all disabled. Partial credentials, such as a `client_id` without a `client_secret`, still fail.
 
 ## Authentication with Redpanda Cloud
 
@@ -82,6 +83,80 @@ authentication`). To also see the agent's Azure SDK credential attempts,
 including why a credential was skipped or failed, set
 `AZURE_SDK_GO_LOGGING=all` in the environment; they appear as
 `rpk: azure Authentication:` lines.
+
+### Provider configurations without credentials
+
+Set `skip_credentials_validation = true` on a provider configuration that must
+exist but should never be used. Configuration then succeeds without
+credentials, and any resource, data source, or action that uses it fails at
+plan with `Redpanda provider has no credentials`. Two cases need this:
+
+- A default `provider "redpanda"` beside aliased configurations, so a resource
+  or module that forgets `provider = redpanda.<alias>` fails instead of using
+  the wrong organization. If every resource and module call names an alias,
+  you can omit the default block entirely.
+- A shared configuration whose Redpanda resources are all disabled with
+  `count = 0` in some workspaces. Terraform still configures the provider for
+  such resources, so without the flag it needs credentials it never uses.
+
+Empty-string credentials count as unset under the flag. Partial credentials,
+such as a `client_id` without a `client_secret`, still fail.
+
+```terraform
+terraform {
+  required_providers {
+    redpanda = {
+      source = "redpanda-data/redpanda"
+    }
+  }
+}
+
+# No credentials: any resource that falls back to this default configuration
+# fails at plan instead of landing in the wrong organization.
+provider "redpanda" {
+  skip_credentials_validation = true
+}
+
+provider "redpanda" {
+  alias         = "non_prod"
+  client_id     = var.non_prod_client_id
+  client_secret = var.non_prod_client_secret
+}
+
+provider "redpanda" {
+  alias         = "prod"
+  client_id     = var.prod_client_id
+  client_secret = var.prod_client_secret
+}
+
+variable "non_prod_client_id" {
+  type = string
+}
+
+variable "non_prod_client_secret" {
+  type      = string
+  sensitive = true
+}
+
+variable "prod_client_id" {
+  type = string
+}
+
+variable "prod_client_secret" {
+  type      = string
+  sensitive = true
+}
+
+resource "redpanda_resource_group" "staging" {
+  provider = redpanda.non_prod
+  name     = "staging"
+}
+
+resource "redpanda_resource_group" "production" {
+  provider = redpanda.prod
+  name     = "production"
+}
+```
 
 ## Example Provider Configuration
 

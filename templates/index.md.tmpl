@@ -66,6 +66,26 @@ including why a credential was skipped or failed, set
 `AZURE_SDK_GO_LOGGING=all` in the environment; they appear as
 `rpk: azure Authentication:` lines.
 
+### Provider configurations without credentials
+
+Set `skip_credentials_validation = true` on a provider configuration that must
+exist but should never be used. Configuration then succeeds without
+credentials, and any resource, data source, or action that uses it fails at
+plan with `Redpanda provider has no credentials`. Two cases need this:
+
+- A default `provider "redpanda"` beside aliased configurations, so a resource
+  or module that forgets `provider = redpanda.<alias>` fails instead of using
+  the wrong organization. If every resource and module call names an alias,
+  you can omit the default block entirely.
+- A shared configuration whose Redpanda resources are all disabled with
+  `count = 0` in some workspaces. Terraform still configures the provider for
+  such resources, so without the flag it needs credentials it never uses.
+
+Empty-string credentials count as unset under the flag. Partial credentials,
+such as a `client_id` without a `client_secret`, still fail.
+
+{{ tffile "examples/provider_skip_credentials.tf" }}
+
 ## Example Provider Configuration
 
 Terraform 1.0 or later:

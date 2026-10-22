@@ -197,3 +197,43 @@ func TestDataSourceBase_Configure(t *testing.T) {
 		}
 	})
 }
+
+func TestResourceBase_Configure_NoCredentials(t *testing.T) {
+	called := false
+	b := NewResourceBase(
+		"redpanda_thing",
+		func(context.Context) rschema.Schema { return rschema.Schema{} },
+		func(config.Resource) { called = true },
+	)
+	resp := &resource.ConfigureResponse{}
+	b.Configure(context.Background(), resource.ConfigureRequest{ProviderData: config.Resource{NoCredentials: true}}, resp)
+	if !resp.Diagnostics.HasError() {
+		t.Fatal("expected an error diagnostic for a provider configured without credentials")
+	}
+	if got := resp.Diagnostics.Errors()[0].Summary(); got != config.NoCredentialsSummary {
+		t.Fatalf("summary: got %q, want %q", got, config.NoCredentialsSummary)
+	}
+	if b.CpCl != nil || called {
+		t.Fatal("clients must not be wired when the provider has no credentials")
+	}
+}
+
+func TestDataSourceBase_Configure_NoCredentials(t *testing.T) {
+	called := false
+	b := NewDataSourceBase(
+		"redpanda_thing",
+		func(context.Context) dschema.Schema { return dschema.Schema{} },
+		func(config.Datasource) { called = true },
+	)
+	resp := &datasource.ConfigureResponse{}
+	b.Configure(context.Background(), datasource.ConfigureRequest{ProviderData: config.Datasource{NoCredentials: true}}, resp)
+	if !resp.Diagnostics.HasError() {
+		t.Fatal("expected an error diagnostic for a provider configured without credentials")
+	}
+	if got := resp.Diagnostics.Errors()[0].Summary(); got != config.NoCredentialsSummary {
+		t.Fatalf("summary: got %q, want %q", got, config.NoCredentialsSummary)
+	}
+	if b.CpCl != nil || called {
+		t.Fatal("clients must not be wired when the provider has no credentials")
+	}
+}

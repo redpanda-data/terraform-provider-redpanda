@@ -32,6 +32,9 @@ type Resource struct {
 	DataplaneConnPool      *cloud.ConnPool
 	TerraformVersion       string
 	ProviderVersion        string
+	// NoCredentials marks a provider configuration that set
+	// skip_credentials_validation and resolved no credentials.
+	NoCredentials bool
 }
 
 // Datasource is the config used to pass data and dependencies to data source
@@ -42,6 +45,19 @@ type Datasource struct {
 	DataplaneConnPool      *cloud.ConnPool
 	TerraformVersion       string
 	ProviderVersion        string
+	// NoCredentials marks a provider configuration that set
+	// skip_credentials_validation and resolved no credentials.
+	NoCredentials bool
 }
 
 // TODO add cloud provider and region as values to persist
+
+// NoCredentialsSummary is the summary of the error a resource, data source, or
+// action raises when its provider configuration has no credentials.
+const NoCredentialsSummary = "Redpanda provider has no credentials"
+
+// NoCredentialsDetail tells the user how to resolve NoCredentialsSummary.
+const NoCredentialsDetail = "This uses a redpanda provider configuration that sets skip_credentials_validation = true " +
+	"and found no client_id and client_secret or access_token, in its block or in the environment. Point it at a " +
+	"configured provider with the provider meta-argument (or the module's providers map), or give this provider " +
+	"configuration credentials."
