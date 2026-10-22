@@ -57,31 +57,31 @@ var cmrUpdatableLeaves = []cmrLeaf{
 	{"customer_managed_resources.gcp.redpanda_operator_service_account.email", "customer_managed_resources.gcp.redpanda_operator_service_account", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetGcp().GetRedpandaOperatorServiceAccount().GetEmail()
 	}},
-	{"customer_managed_resources.gcp.rpsql_api_service_account.email", "", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+	{"customer_managed_resources.gcp.rpsql_api_service_account.email", "customer_managed_resources.gcp.rpsql_api_service_account", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetGcp().GetRpsqlApiServiceAccount().GetEmail()
 	}},
-	{"customer_managed_resources.gcp.rpsql_service_account.email", "", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+	{"customer_managed_resources.gcp.rpsql_service_account.email", "customer_managed_resources.gcp.rpsql_service_account", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetGcp().GetRpsqlServiceAccount().GetEmail()
 	}},
-	{"customer_managed_resources.gcp.rpsql_cloud_storage_bucket.name", "", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+	{"customer_managed_resources.gcp.rpsql_cloud_storage_bucket.name", "customer_managed_resources.gcp.rpsql_cloud_storage_bucket", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetGcp().GetRpsqlCloudStorageBucket().GetName()
 	}},
 	{"customer_managed_resources.gcp.rpsql_secret_manager_prefix", "", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetGcp().GetRpsqlSecretManagerPrefix()
 	}},
-	{"customer_managed_resources.aws.redpanda_connect_node_group_instance_profile.arn", "", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+	{"customer_managed_resources.aws.redpanda_connect_node_group_instance_profile.arn", "customer_managed_resources.aws.redpanda_connect_node_group_instance_profile", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetAws().GetRedpandaConnectNodeGroupInstanceProfile().GetArn()
 	}},
-	{"customer_managed_resources.aws.redpanda_connect_security_group.arn", "", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+	{"customer_managed_resources.aws.redpanda_connect_security_group.arn", "customer_managed_resources.aws.redpanda_connect_security_group", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetAws().GetRedpandaConnectSecurityGroup().GetArn()
 	}},
-	{"customer_managed_resources.aws.rpsql_node_group_instance_profile.arn", "", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+	{"customer_managed_resources.aws.rpsql_node_group_instance_profile.arn", "customer_managed_resources.aws.rpsql_node_group_instance_profile", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetAws().GetRpsqlNodeGroupInstanceProfile().GetArn()
 	}},
-	{"customer_managed_resources.aws.rpsql_security_group.arn", "", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+	{"customer_managed_resources.aws.rpsql_security_group.arn", "customer_managed_resources.aws.rpsql_security_group", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetAws().GetRpsqlSecurityGroup().GetArn()
 	}},
-	{"customer_managed_resources.aws.rpsql_cloud_storage_bucket.arn", "", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+	{"customer_managed_resources.aws.rpsql_cloud_storage_bucket.arn", "customer_managed_resources.aws.rpsql_cloud_storage_bucket", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetAws().GetRpsqlCloudStorageBucket().GetArn()
 	}},
 }

@@ -675,6 +675,22 @@ func applyCMRLeafUpdate(cl *controlplanev1.Cluster, upd *controlplanev1.Customer
 		cmrReadAWS(cmr).SetRpsqlSecurityGroup(&controlplanev1.AWSSecurityGroup{Arn: upd.GetAws().GetRpsqlSecurityGroup().GetArn()})
 	case "customer_managed_resources.aws.rpsql_cloud_storage_bucket.arn":
 		cmrReadAWS(cmr).SetRpsqlCloudStorageBucket(&controlplanev1.CustomerManagedAWSCloudStorageBucket{Arn: upd.GetAws().GetRpsqlCloudStorageBucket().GetArn()})
+	case "customer_managed_resources.gcp.rpsql_api_service_account":
+		cmrReadGCP(cmr).SetRpsqlApiServiceAccount(upd.GetGcp().GetRpsqlApiServiceAccount())
+	case "customer_managed_resources.gcp.rpsql_service_account":
+		cmrReadGCP(cmr).SetRpsqlServiceAccount(upd.GetGcp().GetRpsqlServiceAccount())
+	case "customer_managed_resources.gcp.rpsql_cloud_storage_bucket":
+		cmrReadGCP(cmr).SetRpsqlCloudStorageBucket(upd.GetGcp().GetRpsqlCloudStorageBucket())
+	case "customer_managed_resources.aws.redpanda_connect_node_group_instance_profile":
+		cmrReadAWS(cmr).SetRedpandaConnectNodeGroupInstanceProfile(upd.GetAws().GetRedpandaConnectNodeGroupInstanceProfile())
+	case "customer_managed_resources.aws.redpanda_connect_security_group":
+		cmrReadAWS(cmr).SetRedpandaConnectSecurityGroup(upd.GetAws().GetRedpandaConnectSecurityGroup())
+	case "customer_managed_resources.aws.rpsql_node_group_instance_profile":
+		cmrReadAWS(cmr).SetRpsqlNodeGroupInstanceProfile(upd.GetAws().GetRpsqlNodeGroupInstanceProfile())
+	case "customer_managed_resources.aws.rpsql_security_group":
+		cmrReadAWS(cmr).SetRpsqlSecurityGroup(upd.GetAws().GetRpsqlSecurityGroup())
+	case "customer_managed_resources.aws.rpsql_cloud_storage_bucket":
+		cmrReadAWS(cmr).SetRpsqlCloudStorageBucket(upd.GetAws().GetRpsqlCloudStorageBucket())
 	default:
 		// Unknown CMR leaf path: no-op, mirroring the control plane dropping an
 		// unmapped mask path.
@@ -795,7 +811,7 @@ func rpsqlCMRImmutability(cl *controlplanev1.Cluster, upd *controlplanev1.Cluste
 	oldCMR := cl.GetCustomerManagedResources()
 	newCMR := upd.GetCustomerManagedResources()
 	for _, leaf := range rpsqlImmutableLeaves {
-		if !slices.Contains(paths, leaf.path) {
+		if !maskCovers(paths, leaf.path) {
 			continue
 		}
 		if oldV := leaf.old(oldCMR); oldV != "" && oldV != leaf.updated(newCMR) {
@@ -804,6 +820,18 @@ func rpsqlCMRImmutability(cl *controlplanev1.Cluster, upd *controlplanev1.Cluste
 		}
 	}
 	return nil
+}
+
+// maskCovers reports whether the mask names leaf or one of its ancestors: the
+// provider clears a removed CMR block by its message path, and the control
+// plane judges the merged value either way.
+func maskCovers(paths []string, leaf string) bool {
+	for _, p := range paths {
+		if p == leaf || strings.HasPrefix(leaf, p+".") {
+			return true
+		}
+	}
+	return false
 }
 
 // rpsqlCMRRequiredOnEnable mirrors cloudv2 validateRPSqlCMRFields (mapper.go):
@@ -835,7 +863,7 @@ func rpsqlCMRRequiredOnEnable(cl *controlplanev1.Cluster, upd *controlplanev1.Cl
 			continue
 		}
 		effective := leaf.old(oldCMR)
-		if slices.Contains(paths, leaf.path) {
+		if maskCovers(paths, leaf.path) {
 			effective = leaf.updated(newCMR)
 		}
 		if effective == "" {
