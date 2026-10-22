@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/config"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/acc"
 )
 
@@ -47,5 +48,19 @@ func TestAcc_Cluster_BYOVPC_GCP(t *testing.T) {
 		"tiered_storage_bucket_name":             config.StringVariable(os.Getenv("GCP_TIERED_STORAGE_BUCKET_NAME")),
 	}
 
-	testRunnerCluster(ctx, name, rename, acc.RedpandaVersion, acc.GcpByoVpcClusterDir, customVars, t, withByocAgentApply())
+	connectSAs := map[string]string{
+		"redpanda_connect_api_service_account": os.Getenv("GCP_REDPANDA_CONNECT_API_SERVICE_ACCOUNT_EMAIL"),
+		"redpanda_connect_service_account":     os.Getenv("GCP_REDPANDA_CONNECT_SERVICE_ACCOUNT_EMAIL"),
+		"redpanda_operator_service_account":    os.Getenv("GCP_REDPANDA_OPERATOR_SERVICE_ACCOUNT_EMAIL"),
+	}
+	addVars := map[string]config.Variable{}
+	var addChecks []resource.TestCheckFunc
+	for attr, email := range connectSAs {
+		addVars[attr+"_email"] = config.StringVariable(email)
+		addChecks = append(addChecks, resource.TestCheckResourceAttr(acc.ClusterResourceName,
+			"customer_managed_resources.gcp."+attr+".email", email))
+	}
+
+	testRunnerCluster(ctx, name, rename, acc.RedpandaVersion, acc.GcpByoVpcClusterDir, customVars, t,
+		withInPlaceAdd(addVars, addChecks...), withByocAgentApply())
 }

@@ -23,6 +23,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/config"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/acc"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/acc/sweep"
 )
@@ -105,6 +106,22 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 			ProtoV6ProviderFactories: acc.ProtoV6Factories,
 		},
 	}...)
+	if cfg.inPlaceAdd != nil {
+		// A fresh map: the rename step above still holds the old one.
+		updateTestCaseVars = maps.Clone(updateTestCaseVars)
+		maps.Copy(updateTestCaseVars, cfg.inPlaceAdd.vars)
+		steps = append(steps, resource.TestStep{
+			ConfigDirectory: config.StaticDirectory(testFile),
+			ConfigVariables: updateTestCaseVars,
+			ConfigPlanChecks: resource.ConfigPlanChecks{
+				PreApply: []plancheck.PlanCheck{
+					plancheck.ExpectResourceAction(acc.ClusterResourceName, plancheck.ResourceActionUpdate),
+				},
+			},
+			Check:                    resource.ComposeAggregateTestCheckFunc(cfg.inPlaceAdd.checks...),
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		})
+	}
 	if cfg.byocAgentApply {
 		steps = append(steps, byocAgentApplyStep(t, testFile, updateTestCaseVars))
 	}
