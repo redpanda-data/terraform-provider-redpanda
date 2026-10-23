@@ -748,6 +748,36 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 									},
 								},
 							},
+							"redpanda_connect_api_service_account": schema.SingleNestedAttribute{
+								Description: "GCP service account.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Description: "GCP service account email.",
+										Computed:    true,
+									},
+								},
+							},
+							"redpanda_connect_service_account": schema.SingleNestedAttribute{
+								Description: "GCP service account.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Description: "GCP service account email.",
+										Computed:    true,
+									},
+								},
+							},
+							"redpanda_operator_service_account": schema.SingleNestedAttribute{
+								Description: "GCP service account.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Description: "GCP service account email.",
+										Computed:    true,
+									},
+								},
+							},
 							"rpsql_api_service_account": schema.SingleNestedAttribute{
 								Description: "GCP service account.",
 								Computed:    true,
