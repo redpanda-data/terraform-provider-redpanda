@@ -20,17 +20,19 @@ import (
 
 // Redpanda represents the Terraform schema for the Redpanda TF provider.
 type Redpanda struct {
-	AccessToken             types.String `tfsdk:"access_token"`
-	ClientID                types.String `tfsdk:"client_id"`
-	ClientSecret            types.String `tfsdk:"client_secret"`
-	AzureSubscriptionID     types.String `tfsdk:"azure_subscription_id"`
-	GcpProjectID            types.String `tfsdk:"gcp_project_id"`
-	AzureClientID           types.String `tfsdk:"azure_client_id"`
-	AzureClientSecret       types.String `tfsdk:"azure_client_secret"`
-	AzureTenantID           types.String `tfsdk:"azure_tenant_id"`
-	GoogleCredentials       types.String `tfsdk:"google_credentials"`
-	GoogleCredentialsBase64 types.String `tfsdk:"google_credentials_base64"`
-	AwsAccessKeyID          types.String `tfsdk:"aws_access_key_id"`
-	AwsSecretAccessKey      types.String `tfsdk:"aws_secret_access_key"`
-	AwsSessionToken         types.String `tfsdk:"aws_session_token"`
+	AccessToken                  types.String `tfsdk:"access_token"`
+	ClientID                     types.String `tfsdk:"client_id"`
+	ClientSecret                 types.String `tfsdk:"client_secret"`
+	AzureSubscriptionID          types.String `tfsdk:"azure_subscription_id"`
+	GcpProjectID                 types.String `tfsdk:"gcp_project_id"`
+	AzureClientID                types.String `tfsdk:"azure_client_id"`
+	AzureClientSecret            types.String `tfsdk:"azure_client_secret"`
+	AzureTenantID                types.String `tfsdk:"azure_tenant_id"`
+	GoogleCredentials            types.String `tfsdk:"google_credentials"`
+	GoogleCredentialsBase64      types.String `tfsdk:"google_credentials_base64"`
+	AwsAccessKeyID               types.String `tfsdk:"aws_access_key_id"`
+	AwsSecretAccessKey           types.String `tfsdk:"aws_secret_access_key"`
+	AwsSessionToken              types.String `tfsdk:"aws_session_token"`
+	SkipCredentialsValidation    types.Bool   `tfsdk:"skip_credentials_validation"`
+	IgnoreEnvironmentCredentials types.Bool   `tfsdk:"ignore_environment_credentials"`
 }

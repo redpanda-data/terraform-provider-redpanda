@@ -99,6 +99,9 @@ func (a *Action) Configure(_ context.Context, req action.ConfigureRequest, resp 
 		)
 		return
 	}
+	if !p.RequireCredentials(&resp.Diagnostics) {
+		return
+	}
 	a.cpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
 	a.byoc = p.ByocClient
 }

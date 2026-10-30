@@ -12,7 +12,7 @@ The Redpanda provider is designed for managing Redpanda clusters and Kafka resou
 
 ## Authentication with Redpanda Cloud
 
-This provider requires a `client_id` and `client_secret` for authentication with Redpanda Cloud services, enabling users to securely manage their Redpanda resources. You can get these by creating an account in [Redpanda Cloud](https://cloudv2.redpanda.com/home) and then [creating a client in the Redpanda Cloud UI](https://cloudv2.redpanda.com/clients).
+This provider requires a `client_id` and `client_secret` (or an `access_token`) for authentication with Redpanda Cloud services, enabling users to securely manage their Redpanda resources; the flags under [Provider configurations without credentials](#provider-configurations-without-credentials) cover a configuration that must exist but is never used. You can get these by creating an account in [Redpanda Cloud](https://cloudv2.redpanda.com/home) and then [creating a client in the Redpanda Cloud UI](https://cloudv2.redpanda.com/clients).
 
 ### Token cache
 
@@ -65,6 +65,35 @@ authentication`). To also see the agent's Azure SDK credential attempts,
 including why a credential was skipped or failed, set
 `AZURE_SDK_GO_LOGGING=all` in the environment; they appear as
 `rpk: azure Authentication:` lines.
+
+## Provider configurations without credentials
+
+Two flags let a provider configuration exist without credentials. Each covers
+one case:
+
+- `ignore_environment_credentials = true` on a default `provider "redpanda"`
+  beside aliased configurations. The block is then the only source of Redpanda
+  credentials, so a resource or module that forgets `provider = redpanda.<alias>` fails
+  instead of using the organization the `REDPANDA_CLIENT_ID`,
+  `REDPANDA_CLIENT_SECRET`, or `REDPANDA_ACCESS_TOKEN` environment variables
+  point at. If every resource and module call names an alias, you can omit the
+  default block entirely.
+- `skip_credentials_validation = true` on a shared configuration whose Redpanda
+  resources are all disabled with `count = 0` in some workspaces. Terraform
+  still configures the provider for such resources, so without the flag it
+  needs credentials it never uses. Workspaces that do use the resources keep
+  supplying credentials through the block or the environment.
+
+The two attributes in the schema above state exactly when a resource that uses
+such a configuration fails.
+
+The default block beside aliased configurations:
+
+{{ tffile "examples/provider_ignore_environment_credentials.tf" }}
+
+The shared configuration with disabled resources:
+
+{{ tffile "examples/provider_skip_credentials_validation.tf" }}
 
 ## Example Provider Configuration
 
