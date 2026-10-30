@@ -13,7 +13,7 @@ The Redpanda provider is designed for managing Redpanda clusters and Kafka resou
 
 ### Optional
 
-- `access_token` (String, Sensitive) Redpanda client token. You need either `access_token`, or both `client_id` and `client_secret` to use this provider. Can also be set with the `REDPANDA_ACCESS_TOKEN` environment variable.
+- `access_token` (String, Sensitive) Redpanda client token. You need either `access_token`, or both `client_id` and `client_secret` to use this provider. Can also be set with the `REDPANDA_ACCESS_TOKEN` environment variable, unless `ignore_environment_credentials` is set.
 - `aws_access_key_id` (String, Sensitive) AWS access key ID for BYOC clusters. Can also be set via AWS_ACCESS_KEY_ID.
 - `aws_secret_access_key` (String, Sensitive) AWS secret access key for BYOC clusters. Can also be set via AWS_SECRET_ACCESS_KEY.
 - `aws_session_token` (String, Sensitive) AWS session token for BYOC clusters (for temporary credentials). Can also be set via AWS_SESSION_TOKEN.
@@ -21,15 +21,17 @@ The Redpanda provider is designed for managing Redpanda clusters and Kafka resou
 - `azure_client_secret` (String, Sensitive) Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_CLIENT_SECRET or ARM_CLIENT_SECRET
 - `azure_subscription_id` (String) The default Azure Subscription ID which should be used for Redpanda BYOC clusters. If another subscription is specified on a resource, it will take precedence. This can also be sourced from the `ARM_SUBSCRIPTION_ID` environment variable.
 - `azure_tenant_id` (String) Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as AZURE_TENANT_ID or ARM_TENANT_ID
-- `client_id` (String, Sensitive) The ID for the client. You need either `client_id` AND `client_secret`, or `access_token`, to use this provider. Can also be set with the `REDPANDA_CLIENT_ID` environment variable.
-- `client_secret` (String, Sensitive) Redpanda client secret. You need either `client_id` AND `client_secret`, or `access_token`, to use this provider. Can also be set with the `REDPANDA_CLIENT_SECRET` environment variable.
+- `client_id` (String, Sensitive) The ID for the client. You need either `client_id` AND `client_secret`, or `access_token`, to use this provider. Can also be set with the `REDPANDA_CLIENT_ID` environment variable, unless `ignore_environment_credentials` is set.
+- `client_secret` (String, Sensitive) Redpanda client secret. You need either `client_id` AND `client_secret`, or `access_token`, to use this provider. Can also be set with the `REDPANDA_CLIENT_SECRET` environment variable, unless `ignore_environment_credentials` is set.
 - `gcp_project_id` (String) The default Google Cloud Project ID to use for Redpanda BYOC clusters. If another project is specified on a resource, it will take precedence. This can also be sourced from the `GOOGLE_PROJECT` environment variable, or any of the following ordered by precedence: `GOOGLE_PROJECT`, `GOOGLE_CLOUD_PROJECT`, `GCLOUD_PROJECT`, or `CLOUDSDK_CORE_PROJECT`.
 - `google_credentials` (String, Sensitive) Used for creating and managing BYOC and BYOVPC clusters. Can also be specified in the environment as GOOGLE_CREDENTIALS
 - `google_credentials_base64` (String, Sensitive) Used for creating and managing BYOC and BYOVPC clusters. Is a convenience passthrough for base64 encoded credentials intended for use in CI/CD. Can also be specified in the environment as GOOGLE_CREDENTIALS_BASE64
+- `ignore_environment_credentials` (Boolean) Use only the Redpanda credentials in this block and ignore the `REDPANDA_CLIENT_ID`, `REDPANDA_CLIENT_SECRET`, and `REDPANDA_ACCESS_TOKEN` environment variables; cloud-provider credentials for BYOC are unaffected. When `true` and this block supplies no credentials, the configuration has none, whatever the environment exports: configuration succeeds and any resource, data source, or action that uses it fails as under `skip_credentials_validation`. Use it on a default provider configuration that exists only so that a resource which forgets `provider = redpanda.<alias>` fails instead of landing in the organization the environment points at. A `client_id` and `client_secret` that are both empty strings, or an empty `access_token`, count as unset. Partial credentials still fail.
+- `skip_credentials_validation` (Boolean) Allow this provider configuration to have no credentials. When `true` and neither this block nor the environment supplies `client_id` and `client_secret` or `access_token`, configuration succeeds, and any resource, data source, or action that uses this configuration fails with an error: at plan, or at apply for a data source whose read Terraform defers until a dependency is applied. Resources with `count = 0` never use it unless state still holds their instances, which need credentials to refresh or destroy. Use it for a shared configuration whose Redpanda resources are all disabled in some workspaces. A `client_id` and `client_secret` that are both empty strings, or an empty `access_token`, count as unset. Partial credentials, such as a `client_id` without a `client_secret`, still fail.
 
 ## Authentication with Redpanda Cloud
 
-This provider requires a `client_id` and `client_secret` for authentication with Redpanda Cloud services, enabling users to securely manage their Redpanda resources. You can get these by creating an account in [Redpanda Cloud](https://cloudv2.redpanda.com/home) and then [creating a client in the Redpanda Cloud UI](https://cloudv2.redpanda.com/clients).
+This provider requires a `client_id` and `client_secret` (or an `access_token`) for authentication with Redpanda Cloud services, enabling users to securely manage their Redpanda resources; the flags under [Provider configurations without credentials](#provider-configurations-without-credentials) cover a configuration that must exist but is never used. You can get these by creating an account in [Redpanda Cloud](https://cloudv2.redpanda.com/home) and then [creating a client in the Redpanda Cloud UI](https://cloudv2.redpanda.com/clients).
 
 ### Token cache
 
@@ -82,6 +84,116 @@ authentication`). To also see the agent's Azure SDK credential attempts,
 including why a credential was skipped or failed, set
 `AZURE_SDK_GO_LOGGING=all` in the environment; they appear as
 `rpk: azure Authentication:` lines.
+
+## Provider configurations without credentials
+
+Two flags let a provider configuration exist without credentials. Each covers
+one case:
+
+- `ignore_environment_credentials = true` on a default `provider "redpanda"`
+  beside aliased configurations. The block is then the only source of Redpanda
+  credentials, so a resource or module that forgets `provider = redpanda.<alias>` fails
+  instead of using the organization the `REDPANDA_CLIENT_ID`,
+  `REDPANDA_CLIENT_SECRET`, or `REDPANDA_ACCESS_TOKEN` environment variables
+  point at. If every resource and module call names an alias, you can omit the
+  default block entirely.
+- `skip_credentials_validation = true` on a shared configuration whose Redpanda
+  resources are all disabled with `count = 0` in some workspaces. Terraform
+  still configures the provider for such resources, so without the flag it
+  needs credentials it never uses. Workspaces that do use the resources keep
+  supplying credentials through the block or the environment.
+
+The two attributes in the schema above state exactly when a resource that uses
+such a configuration fails.
+
+The default block beside aliased configurations:
+
+```terraform
+terraform {
+  required_providers {
+    redpanda = {
+      source = "redpanda-data/redpanda"
+    }
+  }
+}
+
+# No credentials, and the REDPANDA_CLIENT_ID, REDPANDA_CLIENT_SECRET, and
+# REDPANDA_ACCESS_TOKEN environment variables are ignored: any resource that
+# falls back to this default configuration fails instead of landing in the
+# wrong organization.
+provider "redpanda" {
+  ignore_environment_credentials = true
+}
+
+provider "redpanda" {
+  alias         = "non_prod"
+  client_id     = var.non_prod_client_id
+  client_secret = var.non_prod_client_secret
+}
+
+provider "redpanda" {
+  alias         = "prod"
+  client_id     = var.prod_client_id
+  client_secret = var.prod_client_secret
+}
+
+variable "non_prod_client_id" {
+  type = string
+}
+
+variable "non_prod_client_secret" {
+  type      = string
+  sensitive = true
+}
+
+variable "prod_client_id" {
+  type = string
+}
+
+variable "prod_client_secret" {
+  type      = string
+  sensitive = true
+}
+
+resource "redpanda_resource_group" "staging" {
+  provider = redpanda.non_prod
+  name     = "staging"
+}
+
+resource "redpanda_resource_group" "production" {
+  provider = redpanda.prod
+  name     = "production"
+}
+```
+
+The shared configuration with disabled resources:
+
+```terraform
+terraform {
+  required_providers {
+    redpanda = {
+      source = "redpanda-data/redpanda"
+    }
+  }
+}
+
+# One configuration for every workspace. Workspaces that enable Redpanda
+# supply REDPANDA_CLIENT_ID and REDPANDA_CLIENT_SECRET; the others configure
+# the provider without credentials and never use it.
+provider "redpanda" {
+  skip_credentials_validation = true
+}
+
+variable "redpanda_enabled" {
+  type    = bool
+  default = false
+}
+
+resource "redpanda_resource_group" "shared" {
+  count = var.redpanda_enabled ? 1 : 0
+  name  = "shared"
+}
+```
 
 ## Example Provider Configuration
 
