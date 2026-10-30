@@ -13,7 +13,7 @@ Invoke the matching skill **before** starting work in its area. Do not attempt t
 | `resolve-redpanda-bug` | Diagnosing any runtime failure ("expected empty plan", "inconsistent result after apply", "removing from state") or a test-coverage gap |
 | `manual-test-redpanda-resource` | Validating a change against a live cluster; the live step of the two skills above |
 | `writing-code-comments` | Writing or editing any comment, and reviewing a diff that adds or changes one |
-| `review` (user-invoked `/review [N]`) | Reviewing a PR or the branch; runs the read-only `reviewer` agent against `.claude/review-policy.md` |
+| `review` (user-invoked `/review [N] [level]`) | Reviewing a PR or the branch; fans out `reviewer` finder agents per angle in `.claude/review-policy.md`, verifies each candidate, reports through `ReportFindings` |
 
 User-level skills some maintainers carry (`monitor-logs`, `branch-loc-count`) are not committed; if present they trigger on `/monitor-logs` and `/branch-loc-count`.
 
@@ -166,7 +166,7 @@ Never `git push` (including `--force` / `--force-with-lease`) without explicit a
 
 Before every commit: `task ready` (or at minimum `task lint`).
 
-Before every push: run the `reviewer` agent on the branch (`/review`) and either fix each finding or state in the PR why it stands. A branch reviewed before a rebase or a later fix is not reviewed; run it again on what is about to be pushed.
+Before every push: run `/review` on the branch at the default `max` level and either fix each finding or state in the PR why it stands. A branch reviewed before a rebase or a later fix is not reviewed; run it again on what is about to be pushed, over the whole change, never over the delta.
 
 ### Commit messages
 
