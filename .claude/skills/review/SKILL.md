@@ -2,7 +2,6 @@
 name: review
 description: Review a PR or the current branch against .claude/review-policy.md with fanned-out finder agents, a per-candidate verify pass, and a gap sweep. Reports through ReportFindings; posts nothing.
 argument-hint: "[pr-number] [low|medium|high|xhigh|max]"
-disable-model-invocation: true
 allowed-tools: Agent, ReportFindings, Bash(gh pr view *), Bash(git rev-parse *), Bash(git log *), Bash(git diff *), Bash(git ls-files*), Bash(git fetch *), Bash(mkdir -p *)
 ---
 
@@ -10,7 +9,7 @@ Review $ARGUMENTS. The orchestration below mirrors the hosted multi-agent review
 
 ## Phase 0: target and scope
 
-1. Parse the arguments. A number is a PR; confirm it with `gh pr view <N> --json number,title,headRefName,headRefOid` and fetch the head. A level word sets the effort; the default is `max`, because this is the pre-push gate. Without a number, review the current branch (`git rev-parse --abbrev-ref HEAD`) against `main` and refuse if it is `main`.
+1. Parse the arguments. A number is a PR; confirm it with `gh pr view <N> --json number,title,headRefName,headRefOid` and fetch the head. A level word sets the effort; the default is `high`. `max` is the only level that spends Fable tokens, so it runs only when a person typed it as the argument, and it still pauses for a go before the first Fable spawn (Phase 1, below). When Claude invokes this skill on its own, for the pre-push rule or any other reason, the level is capped at `high` whatever was asked. `low`, `medium`, `high`, and `xhigh` never ask for permission. Without a number, review the current branch (`git rev-parse --abbrev-ref HEAD`) against `main` and refuse if it is `main`.
 2. Scope is the whole change: `git diff main...HEAD` (or `origin/main` when the local main is stale) plus `git diff HEAD` for the working tree. A re-review after fixes is still the whole change. Record the diff size with `--numstat`.
 3. Run the mechanical pre-check from the policy (secret-shaped paths in the changed files and in `git ls-files`). A hit becomes the first finding, by path only.
 4. Create the scratch directory the agents will use for reproductions: the session scratchpad when one is listed, otherwise `manual-tests/review/<branch>/`.
@@ -40,11 +39,13 @@ Models and effort per role and level. Pass these on every spawn through the Agen
 | `medium` | sonnet | sonnet | haiku | sonnet | haiku | none |
 | `high` | sonnet | opus | haiku | opus | sonnet | none |
 | `xhigh` | opus | opus | sonnet | opus, effort high | sonnet | opus |
-| `max` | opus | opus | sonnet | fable, effort high | sonnet | fable |
+| `max` | opus | opus | sonnet | fable, effort high (after the gate) | sonnet | fable (after the gate) |
 
 Why this shape: finder cost scales with the number of angles times the size of the diff, so finders take the cheapest model that can carry the angle, and the repo angles F to I (where the historical misses were) step up a tier before the generic ones do. Verifier cost scales with the number of candidates but each verifier reads a narrow slice, so the strongest model goes there: a wrong verdict either ships a bug or wastes the author's time, and a verifier that runs code needs to design the reproduction correctly. Cleanup categories never justify more than the model that found them. Correctness categories are `correctness`, `schema-contract`, `fakes-fixtures`, `external-contract`, `stated-behaviour`, and `secrets`; cleanup categories are `conventions`, `reuse`, `simplification`, `efficiency`, and `altitude`.
 
 Collect every candidate. Dedup only exact overlaps (same line, same mechanism), keeping the entry with the more concrete scenario. Keep everything else, including candidates you doubt.
+
+Fable gate, `max` only. Finders at `max` run on opus and sonnet, so nothing above has cost Fable yet. Before Phase 2, tell the user in one short message: the diff size, the number of correctness-category candidates (each one is a Fable verifier at effort high), and that the Phase 3 sweep is one more Fable agent. Then stop and wait. Spawn nothing on Fable until the user says go in this session; a `max` argument typed earlier is the request, not the permission. If the answer is no, or the session is non-interactive, finish the review on the `xhigh` row (opus verifiers and sweep) and say so in the final report.
 
 ## Phase 2: verify
 
