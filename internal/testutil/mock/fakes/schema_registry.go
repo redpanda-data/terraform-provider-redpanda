@@ -20,6 +20,7 @@ import (
 	"net/http/httptest"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -31,19 +32,20 @@ const defaultCompatibility = "BACKWARD"
 
 // SchemaRegistryFake is an httptest-backed in-memory Schema Registry. It also
 // serves the rpsr ACL endpoints (/security/acls) so a single fake backs both
-// redpanda_schema and redpanda_schema_registry_acl. No auth validation: the
-// integration tests pass Basic creds in HCL purely to satisfy the provider's
-// schemaRegistryAuthOption gate; the fake ignores the headers.
+// redpanda_schema and redpanda_schema_registry_acl. The fake models no users,
+// so a Basic Authorization header always passes, and a Bearer header is checked
+// only after RequireBearerToken.
 type SchemaRegistryFake struct {
 	srv *httptest.Server
 
-	mu            sync.Mutex
-	subjects      map[string][]*srEntry
-	subjectCompat map[string]string
-	globalCompat  string
-	acls          []rpsr.ACL
-	nextID        int
-	httpOverrides map[string]*httpOverride
+	mu             sync.Mutex
+	requiredBearer string
+	subjects       map[string][]*srEntry
+	subjectCompat  map[string]string
+	globalCompat   string
+	acls           []rpsr.ACL
+	nextID         int
+	httpOverrides  map[string]*httpOverride
 }
 
 type srEntry struct {
@@ -81,7 +83,7 @@ func NewSchemaRegistryFake(t testing.TB) *SchemaRegistryFake {
 	mux.HandleFunc("POST /security/acls", f.handleCreateACLs)
 	mux.HandleFunc("DELETE /security/acls", f.handleDeleteACLs)
 	mux.HandleFunc("GET /security/acls", f.handleListACLs)
-	f.srv = httptest.NewServer(f.overrideMiddleware(mux))
+	f.srv = httptest.NewServer(f.authMiddleware(f.overrideMiddleware(mux)))
 	t.Cleanup(func() {
 		f.srv.Close()
 		f.mu.Lock()
@@ -130,6 +132,30 @@ func (f *SchemaRegistryFake) overrideMiddleware(next http.Handler) http.Handler 
 			w.Header().Set("Content-Type", "application/vnd.schemaregistry.v1+json")
 			w.WriteHeader(ov.statusCode)
 			_, _ = w.Write([]byte(ov.body))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// RequireBearerToken makes every later request that does not carry Basic
+// credentials fail with 401 unless its Authorization header is exactly
+// "Bearer <token>". The provider sends Basic when the resource sets a username
+// and password and the bearer otherwise.
+func (f *SchemaRegistryFake) RequireBearerToken(token string) {
+	f.mu.Lock()
+	f.requiredBearer = "Bearer " + token
+	f.mu.Unlock()
+}
+
+func (f *SchemaRegistryFake) authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
+		want := f.requiredBearer
+		f.mu.Unlock()
+		got := r.Header.Get("Authorization")
+		if want != "" && got != want && !strings.HasPrefix(got, "Basic ") {
+			http.Error(w, "authorization header does not carry the required bearer token", http.StatusUnauthorized)
 			return
 		}
 		next.ServeHTTP(w, r)

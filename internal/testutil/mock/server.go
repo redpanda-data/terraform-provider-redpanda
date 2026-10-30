@@ -50,6 +50,7 @@ type Server struct {
 	mu               sync.Mutex
 	pendingOverrides map[string]error
 	callCounts       map[string]int
+	requiredBearer   string
 
 	// ResourceGroup is the stateful fake for the ResourceGroupService RPCs.
 	// Tests may read its store or invoke OverrideOnce on its method names.
@@ -186,6 +187,7 @@ func New(t testing.TB) *Server {
 	s.CloudProviderAccess.Referenced = s.Network.ReferencesCloudProviderAccess
 	s.grpc = grpc.NewServer(grpc.ChainUnaryInterceptor(
 		s.countingInterceptor(),
+		s.authInterceptor(),
 		s.overrideInterceptor(),
 		validatingInterceptor(v),
 	))

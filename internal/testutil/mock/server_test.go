@@ -17,10 +17,12 @@ package mock_test
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"testing"
 
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/mock"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
 	"google.golang.org/grpc"
@@ -147,5 +149,55 @@ func TestServer_OverrideOnce_UnconsumedReportsAllLeftovers(t *testing.T) {
 	got := spy.allErrors()
 	if !strings.Contains(got, "MethodA") || !strings.Contains(got, "MethodB") {
 		t.Errorf("error message should list all unconsumed methods; got: %s", got)
+	}
+}
+
+func TestServer_RequireBearerToken_RejectedCallsAreCounted(t *testing.T) {
+	srv := mock.New(t)
+	srv.RequireBearerToken("right")
+	conn, err := grpc.NewClient("passthrough:///bufconn", srv.Dialer()...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	const method = "/redpanda.api.controlplane.v1.ResourceGroupService/ListResourceGroups"
+	err = conn.Invoke(context.Background(), method, &controlplanev1.ListResourceGroupsRequest{}, &controlplanev1.ListResourceGroupsResponse{})
+	if status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("expected Unauthenticated without a bearer, got %v", err)
+	}
+	if got := srv.CallCount(method); got != 1 {
+		t.Fatalf("a rejected call must still be counted, CallCount=%d", got)
+	}
+}
+
+func TestServer_RequireBearerToken_GatesSchemaRegistry(t *testing.T) {
+	srv := mock.New(t)
+	srv.RequireBearerToken("right")
+	get := func(authorization string) int {
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.SR.BaseURL()+"/subjects/none/versions", http.NoBody)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if authorization != "" {
+			req.Header.Set("Authorization", authorization)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		return resp.StatusCode
+	}
+	if got := get(""); got != http.StatusUnauthorized {
+		t.Fatalf("no bearer: want 401, got %d", got)
+	}
+	if got := get("Bearer wrong"); got != http.StatusUnauthorized {
+		t.Fatalf("wrong bearer: want 401, got %d", got)
+	}
+	if got := get("Bearer right"); got == http.StatusUnauthorized {
+		t.Fatalf("right bearer must reach the handler, got %d", got)
+	}
+	if got := get("Basic dXNlcjpwYXNz"); got == http.StatusUnauthorized {
+		t.Fatalf("Basic credentials bypass the bearer gate because the fake models no users, got %d", got)
 	}
 }
