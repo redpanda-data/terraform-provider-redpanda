@@ -16,6 +16,11 @@
 
 package tests
 
+import (
+	"github.com/hashicorp/terraform-plugin-testing/config"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+)
+
 // runnerOpt tunes runner behavior.
 type runnerOpt func(*runnerCfg)
 
@@ -27,6 +32,15 @@ type runnerCfg struct {
 	// byocAgentApply adds a step that re-runs the byoc agent apply on the
 	// READY cluster through the redpanda_byoc_agent_apply action.
 	byocAgentApply bool
+	// inPlaceAdd, when set, adds a step after rename that layers these
+	// variables onto the rename step's as an in-place cluster update; later
+	// steps keep them.
+	inPlaceAdd *inPlaceAddStep
+}
+
+type inPlaceAddStep struct {
+	vars   map[string]config.Variable
+	checks []resource.TestCheckFunc
 }
 
 // withoutUpgradeEntry skips the provider-upgrade entry for configs the
@@ -37,6 +51,13 @@ func withoutUpgradeEntry() runnerOpt { return func(c *runnerCfg) { c.skipUpgrade
 // withByocAgentApply is for BYOC and BYOVPC lanes only: dedicated clusters
 // have no agent and the action refuses them at plan time.
 func withByocAgentApply() runnerOpt { return func(c *runnerCfg) { c.byocAgentApply = true } }
+
+// withInPlaceAdd is for attributes the released provider cannot express: the
+// upgrade entry and the create step run without them, so the cluster has to
+// take them as an update, which is also how an existing cluster adopts them.
+func withInPlaceAdd(vars map[string]config.Variable, checks ...resource.TestCheckFunc) runnerOpt {
+	return func(c *runnerCfg) { c.inPlaceAdd = &inPlaceAddStep{vars: vars, checks: checks} }
+}
 
 func withNetworkPublicSubnets(arns []string) runnerOpt {
 	return func(c *runnerCfg) { c.networkPublicSubnetARNs = arns }

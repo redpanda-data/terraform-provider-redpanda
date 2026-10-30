@@ -18,6 +18,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -180,4 +181,83 @@ func mustList(t *testing.T, elems ...string) types.List {
 	l, d := types.ListValueFrom(context.Background(), types.StringType, vals)
 	assert.False(t, d.HasError())
 	return l
+}
+
+func TestClearedWhenDisabledObjectValidator(t *testing.T) {
+	enabledPath := path.Root("rpsql").AtName("enabled")
+	saType := map[string]attr.Type{"email": types.StringType}
+	sa := types.ObjectValueMust(saType, map[string]attr.Value{"email": types.StringValue("rpsql@tfrp-proj.iam.gserviceaccount.com")})
+
+	testCases := []struct {
+		name        string
+		value       types.Object
+		enabled     tftypes.Value
+		expectError bool
+	}{
+		{name: "null account with disabled - ok", value: types.ObjectNull(saType), enabled: boolVal(false)},
+		{name: "unknown account with disabled - ok", value: types.ObjectUnknown(saType), enabled: boolVal(false)},
+		{name: "account with enabled - ok", value: sa, enabled: boolVal(true)},
+		{name: "account with unknown enabled - defer", value: sa, enabled: boolUnknown()},
+		{name: "account with disabled - error", value: sa, enabled: boolVal(false), expectError: true},
+		{name: "account with omitted enabled - error", value: sa, enabled: boolNull(), expectError: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := validator.ObjectRequest{
+				Path:           path.Root("rpsql_service_account"),
+				PathExpression: path.MatchRoot("rpsql_service_account"),
+				ConfigValue:    tc.value,
+				Config:         rpsqlConfig(tc.enabled, numNull(), zonesNull()),
+			}
+			var resp validator.ObjectResponse
+
+			validators.ClearedWhenDisabledObjectValidator{Enabled: enabledPath}.ValidateObject(context.Background(), req, &resp)
+
+			if tc.expectError {
+				assert.True(t, resp.Diagnostics.HasError(), "expected validation error but got none")
+			} else {
+				assert.False(t, resp.Diagnostics.HasError(), "unexpected validation error: %v", resp.Diagnostics.Errors())
+			}
+		})
+	}
+}
+
+func TestClearedWhenDisabledStringValidator(t *testing.T) {
+	enabledPath := path.Root("rpsql").AtName("enabled")
+
+	testCases := []struct {
+		name        string
+		value       types.String
+		enabled     tftypes.Value
+		expectError bool
+	}{
+		{name: "null prefix with disabled - ok", value: types.StringNull(), enabled: boolVal(false)},
+		{name: "unknown prefix with disabled - ok", value: types.StringUnknown(), enabled: boolVal(false)},
+		{name: "empty prefix with disabled - ok, matches server reset", value: types.StringValue(""), enabled: boolVal(false)},
+		{name: "prefix with enabled - ok", value: types.StringValue("tfrp-rpsql-"), enabled: boolVal(true)},
+		{name: "prefix with unknown enabled - defer", value: types.StringValue("tfrp-rpsql-"), enabled: boolUnknown()},
+		{name: "prefix with disabled - error", value: types.StringValue("tfrp-rpsql-"), enabled: boolVal(false), expectError: true},
+		{name: "prefix with omitted enabled - error", value: types.StringValue("tfrp-rpsql-"), enabled: boolNull(), expectError: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := validator.StringRequest{
+				Path:           path.Root("rpsql_secret_manager_prefix"),
+				PathExpression: path.MatchRoot("rpsql_secret_manager_prefix"),
+				ConfigValue:    tc.value,
+				Config:         rpsqlConfig(tc.enabled, numNull(), zonesNull()),
+			}
+			var resp validator.StringResponse
+
+			validators.ClearedWhenDisabledStringValidator{Enabled: enabledPath}.ValidateString(context.Background(), req, &resp)
+
+			if tc.expectError {
+				assert.True(t, resp.Diagnostics.HasError(), "expected validation error but got none")
+			} else {
+				assert.False(t, resp.Diagnostics.HasError(), "unexpected validation error: %v", resp.Diagnostics.Errors())
+			}
+		})
+	}
 }
