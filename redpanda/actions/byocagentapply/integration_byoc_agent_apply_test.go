@@ -359,3 +359,38 @@ func TestIntegration_ByocAgentApply_TimeoutBoundsThePluginRun(t *testing.T) {
 		},
 	})
 }
+
+// TestIntegration_ByocAgentApply_NoCredentialsFailsAtPlan pins that the
+// provider hands the action the same no-credentials state it hands resources,
+// so a flagged configuration refuses the action instead of invoking it with
+// no clients.
+func TestIntegration_ByocAgentApply_NoCredentialsFailsAtPlan(t *testing.T) {
+	_, factories := integration.SetupWithProviderAuth(t)
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{{
+			Config: `
+provider "redpanda" {
+  ignore_environment_credentials = true
+}
+
+action "redpanda_byoc_agent_apply" "test" {
+  config {
+    cluster_id = "tfrp-mock-no-creds"
+  }
+}
+
+resource "terraform_data" "agent_reconcile" {
+  input = "1"
+  lifecycle {
+    action_trigger {
+      events  = [after_create]
+      actions = [action.redpanda_byoc_agent_apply.test]
+    }
+  }
+}
+`,
+			ExpectError: regexp.MustCompile(`Redpanda provider has no credentials`),
+		}},
+	})
+}

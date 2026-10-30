@@ -58,6 +58,10 @@ func (b *ResourceBase) Schema(ctx context.Context, _ resource.SchemaRequest, res
 // Configure wires CpCl from the provider's config.Resource and invokes the
 // per-resource extra hook (if any) to wire additional clients.
 func (b *ResourceBase) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	// ProviderData is nil in the validate walk, which runs before the provider
+	// configures and visits count = 0 blocks too. Returning here keeps those
+	// blocks clear of the NoCredentials error below, which only instances on a
+	// configured provider reach.
 	if req.ProviderData == nil {
 		return
 	}
@@ -67,6 +71,9 @@ func (b *ResourceBase) Configure(_ context.Context, req resource.ConfigureReques
 			"Unexpected Resource Configure Type",
 			fmt.Sprintf("Expected config.Resource, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
+		return
+	}
+	if !p.RequireCredentials(&resp.Diagnostics) {
 		return
 	}
 	b.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)
@@ -105,6 +112,10 @@ func (b *DataSourceBase) Schema(ctx context.Context, _ datasource.SchemaRequest,
 // Configure wires CpCl from the provider's config.Datasource and invokes the
 // per-datasource extra hook (if any) to wire additional clients.
 func (b *DataSourceBase) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	// ProviderData is nil in the validate walk, which runs before the provider
+	// configures and visits count = 0 blocks too. Returning here keeps those
+	// blocks clear of the NoCredentials error below, which only instances on a
+	// configured provider reach.
 	if req.ProviderData == nil {
 		return
 	}
@@ -114,6 +125,9 @@ func (b *DataSourceBase) Configure(_ context.Context, req datasource.ConfigureRe
 			"Unexpected Data Source Configure Type",
 			fmt.Sprintf("Expected config.Datasource, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
+		return
+	}
+	if !p.RequireCredentials(&resp.Diagnostics) {
 		return
 	}
 	b.CpCl = cloud.NewControlPlaneClientSet(p.ControlPlaneConnection)

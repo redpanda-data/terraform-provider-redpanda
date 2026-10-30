@@ -32,6 +32,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/actions/byocagentapply"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
@@ -152,18 +153,20 @@ func providerSchema() schema.Schema {
 				Optional:  true,
 				Sensitive: true,
 				MarkdownDescription: fmt.Sprintf("Redpanda client token. You need either `access_token`, or both `client_id` "+
-					"and `client_secret` to use this provider. Can also be set with the `%v` environment variable.", AccessTokenEnv),
+					"and `client_secret` to use this provider. Can also be set with the `%v` environment variable, unless "+
+					"`ignore_environment_credentials` is set.", AccessTokenEnv),
 			},
-			// No validator rejects an unknown value on the credential attributes:
-			// Terraform's validate walk, which runs inside every plan, passes every
-			// input variable as unknown, so one would reject any value set from a
-			// variable. Configure rejects a value that is still unknown at plan
-			// instead.
+			// No validator rejects an unknown value on the credential attributes or
+			// the two flags: Terraform's validate walk, which runs inside every plan,
+			// passes every input variable as unknown, so one would reject any value
+			// set from a variable. Configure rejects a value that is still unknown
+			// at plan instead.
 			"client_id": schema.StringAttribute{
 				Optional:  true,
 				Sensitive: true,
 				MarkdownDescription: fmt.Sprintf("The ID for the client. You need either `client_id` AND `client_secret`, "+
-					"or `access_token`, to use this provider. Can also be set with the `%v` environment variable.", ClientIDEnv),
+					"or `access_token`, to use this provider. Can also be set with the `%v` environment variable, unless "+
+					"`ignore_environment_credentials` is set.", ClientIDEnv),
 				Validators: []validator.String{
 					validators.AlsoRequiresOneOf(
 						path.MatchRoot("client_secret"),
@@ -175,10 +178,35 @@ func providerSchema() schema.Schema {
 				Optional:  true,
 				Sensitive: true,
 				MarkdownDescription: fmt.Sprintf("Redpanda client secret. You need either `client_id` AND `client_secret`, "+
-					"or `access_token`, to use this provider. Can also be set with the `%v` environment variable.", ClientSecretEnv),
+					"or `access_token`, to use this provider. Can also be set with the `%v` environment variable, unless "+
+					"`ignore_environment_credentials` is set.", ClientSecretEnv),
 				Validators: []validator.String{
 					stringvalidator.AlsoRequires(path.MatchRoot("client_id")),
 				},
+			},
+			"skip_credentials_validation": schema.BoolAttribute{
+				Optional: true,
+				MarkdownDescription: "Allow this provider configuration to have no credentials. When `true` and neither this " +
+					"block nor the environment supplies `client_id` and `client_secret` or " +
+					"`access_token`, configuration succeeds, and any resource, data source, or action that uses this " +
+					"configuration fails with an error: at plan, or at apply for a data source whose read Terraform " +
+					"defers until a dependency is applied. Resources with `count = 0` never use it unless state still " +
+					"holds their instances, which need credentials to refresh or destroy. Use it for a shared " +
+					"configuration whose Redpanda resources are all disabled in some workspaces. A `client_id` and " +
+					"`client_secret` that are both empty strings, or an empty `access_token`, count as unset. Partial " +
+					"credentials, such as a `client_id` without a `client_secret`, still fail.",
+			},
+			"ignore_environment_credentials": schema.BoolAttribute{
+				Optional: true,
+				MarkdownDescription: fmt.Sprintf("Use only the Redpanda credentials in this block and ignore the `%v`, `%v`, "+
+					"and `%v` environment variables; cloud-provider credentials for BYOC are unaffected. When `true` and "+
+					"this block supplies no credentials, the configuration "+
+					"has none, whatever the environment exports: configuration succeeds and any resource, data "+
+					"source, or action that uses it fails as under `skip_credentials_validation`. Use it on a default "+
+					"provider configuration that exists only so that a resource which forgets "+
+					"`provider = redpanda.<alias>` fails instead of landing in the organization the environment "+
+					"points at. A `client_id` and `client_secret` that are both empty strings, or an empty "+
+					"`access_token`, count as unset. Partial credentials still fail.", ClientIDEnv, ClientSecretEnv, AccessTokenEnv),
 			},
 			"azure_subscription_id": schema.StringAttribute{
 				Optional: true,
@@ -246,6 +274,7 @@ func providerSchema() schema.Schema {
 type credentials struct {
 	ClientID       string
 	ClientSecret   string
+	NoCredentials  bool
 	EndpointAPIURL string
 	InternalAPIURL string
 	TokenSource    oauth2.TokenSource
@@ -279,6 +308,29 @@ func getCredentials(ctx context.Context, cloudEnv string, conf models.Redpanda) 
 		return creds, diags
 	}
 
+	skip := conf.SkipCredentialsValidation.ValueBool()
+	ignoreEnv := conf.IgnoreEnvironmentCredentials.ValueBool()
+	blockHas := blockHasCredentials(conf)
+
+	var id, sec, token string
+	if !ignoreEnv {
+		id, sec, token = os.Getenv(ClientIDEnv), os.Getenv(ClientSecretEnv), os.Getenv(AccessTokenEnv)
+	}
+	envHasCredentials := id != "" || sec != "" || token != ""
+
+	if !blockHas && !envHasCredentials {
+		if skip || ignoreEnv {
+			tflog.Debug(ctx, "no credentials in the provider block or the consulted environment; resources using this provider configuration will fail")
+			creds.NoCredentials = true
+			return creds, diags
+		}
+		diags.AddError("Client configuration missing",
+			"no Client ID, Client Secret, or Token found, please set the corresponding variables in the "+
+				"configuration file or as environment variables",
+		)
+		return creds, diags
+	}
+
 	endpoint, err := cloud.EndpointForEnv(cloudEnv)
 	if err != nil {
 		diags.AddError("error retrieving correct endpoint", utils.DeserializeGrpcError(err))
@@ -287,8 +339,7 @@ func getCredentials(ctx context.Context, cloudEnv string, conf models.Redpanda) 
 	creds.EndpointAPIURL = endpoint.APIURL
 	creds.InternalAPIURL = endpoint.InternalAPIURL
 
-	// Check provider configuration
-	if !conf.ClientID.IsNull() || !conf.ClientSecret.IsNull() || !conf.AccessToken.IsNull() {
+	if blockHas {
 		tflog.Debug(ctx, "using authentication configuration found in provider configuration")
 		// client_id, client_secret, and token are validated in the schema to make sure a valid
 		// combination is always provided. the validators have better error messages than checking
@@ -310,56 +361,49 @@ func getCredentials(ctx context.Context, cloudEnv string, conf models.Redpanda) 
 		return creds, diags
 	}
 
-	// Check environment variable configuration
-	id, sec, token := os.Getenv(ClientIDEnv), os.Getenv(ClientSecretEnv), os.Getenv(AccessTokenEnv)
-	if id != "" || sec != "" || token != "" {
-		tflog.Debug(ctx, "using authentication configuration found in environment variables")
-		if id != "" && sec == "" && token == "" {
-			diags.AddError("Client Secret or Token missing",
-				fmt.Sprintf("One of the environment variables %v or %v must be set when %v is also set", ClientSecretEnv, AccessTokenEnv, ClientIDEnv))
-			return creds, diags
-		}
-		if sec != "" && id == "" {
-			diags.AddError("Client ID missing",
-				fmt.Sprintf("Environment variable %v must be set when %v is also set", ClientIDEnv, ClientSecretEnv))
-			return creds, diags
-		}
-
-		creds.ClientID = id
-		creds.ClientSecret = sec
-		if token != "" {
-			creds.TokenSource = auth.BuildStaticTokenSource(token)
-			return creds, diags
-		}
-		ts, err := auth.BuildTokenSource(ctx, endpoint.AuthURL(), endpoint.Audience(), creds.ClientID, creds.ClientSecret)
-		if err != nil {
-			diags.AddError("failed to build token source for Redpanda API", utils.DeserializeGrpcError(err))
-			return creds, diags
-		}
-		creds.TokenSource = ts
+	tflog.Debug(ctx, "using authentication configuration found in environment variables")
+	if id != "" && sec == "" && token == "" {
+		diags.AddError("Client Secret or Token missing",
+			fmt.Sprintf("One of the environment variables %v or %v must be set when %v is also set", ClientSecretEnv, AccessTokenEnv, ClientIDEnv))
+		return creds, diags
+	}
+	if sec != "" && id == "" {
+		diags.AddError("Client ID missing",
+			fmt.Sprintf("Environment variable %v must be set when %v is also set", ClientIDEnv, ClientSecretEnv))
 		return creds, diags
 	}
 
-	// No authentication configuration found
-	diags.AddError("Client configuration missing",
-		"no Client ID, Client Secret, or Token found, please set the corresponding variables in the "+
-			"configuration file or as environment variables",
-	)
+	creds.ClientID = id
+	creds.ClientSecret = sec
+	if token != "" {
+		creds.TokenSource = auth.BuildStaticTokenSource(token)
+		return creds, diags
+	}
+	ts, err := auth.BuildTokenSource(ctx, endpoint.AuthURL(), endpoint.Audience(), creds.ClientID, creds.ClientSecret)
+	if err != nil {
+		diags.AddError("failed to build token source for Redpanda API", utils.DeserializeGrpcError(err))
+		return creds, diags
+	}
+	creds.TokenSource = ts
 	return creds, diags
 }
 
-// unknownCredentialDiagnostics rejects a credential that is still unknown
-// when the provider configures. Terraform configures during plan with values
-// that are only known after apply, and a credential cannot be resolved from
-// one; naming the attribute beats failing later on an empty string. A known
-// access_token decides the credentials on its own, so the pair is not checked
-// beside one.
+// unknownCredentialDiagnostics rejects a flag or credential that is still
+// unknown when the provider configures. Terraform configures during plan with
+// values that are only known after apply, and a credential cannot be resolved
+// from one; naming the attribute beats failing later on an empty string. A
+// known access_token decides the credentials on its own, so the pair is not
+// checked beside one.
 func unknownCredentialDiagnostics(conf models.Redpanda) diag.Diagnostics {
 	type namedValue struct {
 		name string
 		v    attr.Value
 	}
-	checks := []namedValue{{"access_token", conf.AccessToken}}
+	checks := []namedValue{
+		{"skip_credentials_validation", conf.SkipCredentialsValidation},
+		{"ignore_environment_credentials", conf.IgnoreEnvironmentCredentials},
+		{"access_token", conf.AccessToken},
+	}
 	if conf.AccessToken.ValueString() == "" {
 		checks = append(checks, namedValue{"client_id", conf.ClientID}, namedValue{"client_secret", conf.ClientSecret})
 	}
@@ -371,6 +415,19 @@ func unknownCredentialDiagnostics(conf models.Redpanda) diag.Diagnostics {
 		}
 	}
 	return diags
+}
+
+// blockHasCredentials reports whether the provider block supplies a
+// credential. Under either flag an empty string is an absent value, because a
+// workspace that disables this provider commonly leaves its credential
+// variables as "" rather than null; without a flag "" stays a credential, as
+// it always has.
+func blockHasCredentials(conf models.Redpanda) bool {
+	relaxed := conf.SkipCredentialsValidation.ValueBool() || conf.IgnoreEnvironmentCredentials.ValueBool()
+	present := func(v types.String) bool {
+		return !v.IsNull() && (v.ValueString() != "" || !relaxed)
+	}
+	return present(conf.ClientID) || present(conf.ClientSecret) || present(conf.AccessToken)
 }
 
 func firstNonEmptyString(args ...string) string {
@@ -399,7 +456,19 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 	// Clients are passed through to downstream resources through the response
 	// struct.
 	var creds credentials
-	if r.skipAuth {
+	switch {
+	case r.skipAuth:
+		// The mock token stands in for whatever the environment would supply, so
+		// it must not stand in for a block that ignores the environment, and the
+		// unknown-value rule applies to this path as it does to getCredentials.
+		response.Diagnostics.Append(unknownCredentialDiagnostics(conf)...)
+		if response.Diagnostics.HasError() {
+			return
+		}
+		if conf.IgnoreEnvironmentCredentials.ValueBool() && !blockHasCredentials(conf) {
+			creds = credentials{NoCredentials: true}
+			break
+		}
 		endpoint, err := cloud.EndpointForEnv(r.cloudEnv)
 		if err != nil {
 			response.Diagnostics.AddError("invalid cloud environment", err.Error())
@@ -410,13 +479,31 @@ func (r *Redpanda) Configure(ctx context.Context, request provider.ConfigureRequ
 			InternalAPIURL: endpoint.InternalAPIURL,
 			TokenSource:    auth.BuildStaticTokenSource("mock-token"),
 		}
-	} else {
+	default:
 		c, diags := getCredentials(ctx, r.cloudEnv, conf)
 		response.Diagnostics.Append(diags...)
 		if response.Diagnostics.HasError() {
 			return
 		}
 		creds = c
+	}
+	// Every consumer refuses a NoCredentials configuration at its own
+	// Configure, so the connections and the BYOC client below are never used,
+	// and building them would let a malformed cloud-provider environment
+	// variable fail a block that exists only to be unused.
+	if creds.NoCredentials {
+		response.ResourceData = config.Resource{
+			TerraformVersion: request.TerraformVersion,
+			ProviderVersion:  r.version,
+			NoCredentials:    true,
+		}
+		response.ActionData = response.ResourceData
+		response.DataSourceData = config.Datasource{
+			TerraformVersion: request.TerraformVersion,
+			ProviderVersion:  r.version,
+			NoCredentials:    true,
+		}
+		return
 	}
 	if r.conn == nil {
 		conn, err := cloud.SpawnConnWithOpts(creds.EndpointAPIURL, creds.TokenSource, r.version, request.TerraformVersion, cloud.SpawnConnOpts{
