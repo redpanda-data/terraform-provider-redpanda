@@ -47,12 +47,36 @@ func Setup(t *testing.T) (srv *mock.Server, factories map[string]func() (tfproto
 	t.Helper()
 	t.Setenv("REDPANDA_TF_ACCEPTANCE_TEST_MODE", "1")
 	srv = mock.New(t)
-	factories = map[string]func() (tfprotov6.ProviderServer, error){
-		"redpanda": provider.NewMuxedServer(context.Background(), "pre", "test",
-			provider.WithProviderOption(redpanda.WithDialer(srv.Dialer()...)),
-			provider.WithProviderOption(redpanda.WithSkipAuth()),
-			provider.WithProviderOption(redpanda.WithByocRunner(srv.Byoc)),
-		),
+	return srv, Factories(srv, redpanda.WithSkipAuth(), redpanda.WithByocRunner(srv.Byoc))
+}
+
+// SetupWithProviderAuth is Setup without WithSkipAuth and with the REDPANDA_*
+// credential environment variables cleared, so provider Configure resolves
+// credentials the way the released binary does. Only an access_token keeps a
+// test in-process: the OAuth endpoint is not faked, so a client_id and
+// client_secret pair reaches the real token endpoint on the first RPC. Every
+// provider configuration in a test config shares the one reattached server:
+// the first credentialed Configure's connection and token serve every later
+// one, while the per-configuration provider data follows the last Configure.
+// A default-plus-alias config therefore cannot be tested here; Terraform runs
+// one plugin process per configuration.
+func SetupWithProviderAuth(t *testing.T) (srv *mock.Server, factories map[string]func() (tfprotov6.ProviderServer, error)) {
+	t.Helper()
+	t.Setenv("REDPANDA_TF_ACCEPTANCE_TEST_MODE", "1")
+	t.Setenv("REDPANDA_TOKEN_CACHE_DISABLE", "1")
+	t.Setenv(redpanda.ClientIDEnv, "")
+	t.Setenv(redpanda.ClientSecretEnv, "")
+	t.Setenv(redpanda.AccessTokenEnv, "")
+	srv = mock.New(t)
+	return srv, Factories(srv, redpanda.WithByocRunner(srv.Byoc))
+}
+
+// Factories registers a "redpanda" provider factory that dials srv over
+// bufconn, with any further provider options applied.
+func Factories(srv *mock.Server, opts ...redpanda.Option) map[string]func() (tfprotov6.ProviderServer, error) {
+	providerOpts := []provider.Option{provider.WithProviderOption(redpanda.WithDialer(srv.Dialer()...))}
+	for _, o := range opts {
+		providerOpts = append(providerOpts, provider.WithProviderOption(o))
 	}
-	return srv, factories
+	return provider.ProtoV6ProviderFactories(context.Background(), "pre", "test", providerOpts...)
 }
