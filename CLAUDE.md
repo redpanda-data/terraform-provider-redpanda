@@ -156,7 +156,7 @@ Never swallow warnings or errors from codegen. Surface them.
 
 `task docs` regenerates `docs/` from schema descriptions + `examples/` via tfplugindocs. Never hand-edit `docs/*.md` — they will be overwritten.
 
-If you change a schema `Description` field, run `task docs` and commit the diff in the same commit.
+If you change a schema `Description` field, run `task docs` and commit the regenerated `docs/` in the series' `chore(generated)` commit (see Git & PR Workflow).
 
 ## Git & PR Workflow
 
