@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/action"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -152,11 +153,12 @@ func providerSchema() schema.Schema {
 				Sensitive: true,
 				MarkdownDescription: fmt.Sprintf("Redpanda client token. You need either `access_token`, or both `client_id` "+
 					"and `client_secret` to use this provider. Can also be set with the `%v` environment variable.", AccessTokenEnv),
-				Validators: []validator.String{
-					validators.NotUnknown(),
-				},
 			},
-			// does not include NotUnknown to prevent incorrect failure for inputs from datasources that pull from secret managers
+			// No validator rejects an unknown value on the credential attributes:
+			// Terraform's validate walk, which runs inside every plan, passes every
+			// input variable as unknown, so one would reject any value set from a
+			// variable. Configure rejects a value that is still unknown at plan
+			// instead.
 			"client_id": schema.StringAttribute{
 				Optional:  true,
 				Sensitive: true,
@@ -169,7 +171,6 @@ func providerSchema() schema.Schema {
 					),
 				},
 			},
-			// does not include NotUnknown to prevent incorrect failure for inputs from datasources that pull from secret managers
 			"client_secret": schema.StringAttribute{
 				Optional:  true,
 				Sensitive: true,
@@ -273,6 +274,11 @@ func getCredentials(ctx context.Context, cloudEnv string, conf models.Redpanda) 
 	creds := credentials{}
 	diags := diag.Diagnostics{}
 
+	diags.Append(unknownCredentialDiagnostics(conf)...)
+	if diags.HasError() {
+		return creds, diags
+	}
+
 	endpoint, err := cloud.EndpointForEnv(cloudEnv)
 	if err != nil {
 		diags.AddError("error retrieving correct endpoint", utils.DeserializeGrpcError(err))
@@ -340,6 +346,31 @@ func getCredentials(ctx context.Context, cloudEnv string, conf models.Redpanda) 
 			"configuration file or as environment variables",
 	)
 	return creds, diags
+}
+
+// unknownCredentialDiagnostics rejects a credential that is still unknown
+// when the provider configures. Terraform configures during plan with values
+// that are only known after apply, and a credential cannot be resolved from
+// one; naming the attribute beats failing later on an empty string. A known
+// access_token decides the credentials on its own, so the pair is not checked
+// beside one.
+func unknownCredentialDiagnostics(conf models.Redpanda) diag.Diagnostics {
+	type namedValue struct {
+		name string
+		v    attr.Value
+	}
+	checks := []namedValue{{"access_token", conf.AccessToken}}
+	if conf.AccessToken.ValueString() == "" {
+		checks = append(checks, namedValue{"client_id", conf.ClientID}, namedValue{"client_secret", conf.ClientSecret})
+	}
+	var diags diag.Diagnostics
+	for _, c := range checks {
+		if c.v.IsUnknown() {
+			diags.AddAttributeError(path.Root(c.name), fmt.Sprintf("Attribute %q must be known at plan", c.name),
+				"The provider configures with the plan-time value, so it cannot come from an attribute that is only known after apply.")
+		}
+	}
+	return diags
 }
 
 func firstNonEmptyString(args ...string) string {
