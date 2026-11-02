@@ -20,9 +20,15 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-testing/config"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/acc"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/cloud"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 func TestAcc_Cluster_BYOVPC_GCP(t *testing.T) {
@@ -47,5 +53,43 @@ func TestAcc_Cluster_BYOVPC_GCP(t *testing.T) {
 		"tiered_storage_bucket_name":             config.StringVariable(os.Getenv("GCP_TIERED_STORAGE_BUCKET_NAME")),
 	}
 
-	testRunnerCluster(ctx, name, rename, acc.RedpandaVersion, acc.GcpByoVpcClusterDir, customVars, t, withByocAgentApply())
+	operatorEmail := os.Getenv("GCP_REDPANDA_OPERATOR_SERVICE_ACCOUNT_EMAIL")
+	connectSAs := []struct{ attr, email string }{
+		{"redpanda_connect_api_service_account", os.Getenv("GCP_REDPANDA_CONNECT_API_SERVICE_ACCOUNT_EMAIL")},
+		{"redpanda_connect_service_account", os.Getenv("GCP_REDPANDA_CONNECT_SERVICE_ACCOUNT_EMAIL")},
+		{"redpanda_operator_service_account", operatorEmail},
+	}
+	addVars := map[string]config.Variable{}
+	var addChecks []resource.TestCheckFunc
+	for _, sa := range connectSAs {
+		addVars[sa.attr+"_email"] = config.StringVariable(sa.email)
+		addChecks = append(addChecks, resource.TestCheckResourceAttr(acc.ClusterResourceName,
+			"customer_managed_resources.gcp."+sa.attr+".email", sa.email))
+	}
+
+	// The operator account arrives through the API first, as a UI would set
+	// it; the silent config must adopt it rather than clear it. The Connect
+	// pair then lands through the in-place add on top of it.
+	setOperatorOutOfBand := func(ctx context.Context, cp *cloud.ControlPlaneClientSet, clusterID string) error {
+		op, err := cp.Cluster.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+			Cluster: &controlplanev1.ClusterUpdate{
+				Id: clusterID,
+				CustomerManagedResources: &controlplanev1.CustomerManagedResourcesUpdate{
+					CloudProvider: &controlplanev1.CustomerManagedResourcesUpdate_Gcp{Gcp: &controlplanev1.CustomerManagedResourcesUpdate_GCP{
+						RedpandaOperatorServiceAccount: &controlplanev1.GCPServiceAccount{Email: operatorEmail},
+					}},
+				},
+			},
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"customer_managed_resources.gcp.redpanda_operator_service_account"}},
+		})
+		if err != nil {
+			return err
+		}
+		return utils.AreWeDoneYet(ctx, op.GetOperation(), 30*time.Minute, cp.Operation)
+	}
+
+	testRunnerCluster(ctx, name, rename, acc.RedpandaVersion, acc.GcpByoVpcClusterDir, customVars, t,
+		withOutOfBandAdd(setOperatorOutOfBand, resource.TestCheckResourceAttr(acc.ClusterResourceName,
+			"customer_managed_resources.gcp.redpanda_operator_service_account.email", operatorEmail)),
+		withInPlaceAddKeptOnOmit(addVars, addChecks...), withByocAgentApply())
 }
