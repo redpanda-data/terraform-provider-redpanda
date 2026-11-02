@@ -25,10 +25,10 @@ require (
 	github.com/hashicorp/terraform-plugin-log v0.10.0
 	github.com/hashicorp/terraform-plugin-mux v0.23.1
 	github.com/hashicorp/terraform-plugin-testing v1.16.0
-	github.com/redpanda-data/common-go/rpsr v0.1.2
+	github.com/redpanda-data/common-go/rpsr v0.1.4
 	github.com/redpanda-data/redpanda/src/go/rpk v0.0.0-20250324141452-c979dc730ef3
 	github.com/stretchr/testify v1.11.1
-	github.com/twmb/franz-go/pkg/sr v1.4.1-0.20250711145744-a849b8be17b7
+	github.com/twmb/franz-go/pkg/sr v1.7.0
 	go.uber.org/mock v0.5.0
 	golang.org/x/oauth2 v0.37.0
 	golang.org/x/sync v0.20.0
