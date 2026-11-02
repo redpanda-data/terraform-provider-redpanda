@@ -677,7 +677,7 @@ func (f *ClusterFake) applyConnectionsUpdate(cl *controlplanev1.Cluster, upd *co
 // connections update already applied, so the generic mask loop must skip it.
 func connectionsOwnedPath(owned map[string]bool, path string) bool {
 	for svc := range owned {
-		if path == svc || strings.HasPrefix(path, svc+".") {
+		if pathWithin(path, svc) {
 			return true
 		}
 	}
