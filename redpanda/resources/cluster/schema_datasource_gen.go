@@ -375,7 +375,7 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 								},
 							},
 							"redpanda_connect_node_group_instance_profile": schema.SingleNestedAttribute{
-								Description: "AWS instance profile.",
+								Description: "Instance profile of the node group for Redpanda Connect.",
 								Computed:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
@@ -385,7 +385,7 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 								},
 							},
 							"redpanda_connect_security_group": schema.SingleNestedAttribute{
-								Description: "Security Group identifies AWS security group.",
+								Description: "Security group for Redpanda Connect.",
 								Computed:    true,
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
@@ -740,6 +740,36 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 							},
 							"redpanda_cluster_service_account": schema.SingleNestedAttribute{
 								Description: "GCP service account.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Description: "GCP service account email.",
+										Computed:    true,
+									},
+								},
+							},
+							"redpanda_connect_api_service_account": schema.SingleNestedAttribute{
+								Description: "Service account for the Redpanda Connect API.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Description: "GCP service account email.",
+										Computed:    true,
+									},
+								},
+							},
+							"redpanda_connect_service_account": schema.SingleNestedAttribute{
+								Description: "Service account for the Redpanda Connect workload.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Description: "GCP service account email.",
+										Computed:    true,
+									},
+								},
+							},
+							"redpanda_operator_service_account": schema.SingleNestedAttribute{
+								Description: "Service account for the Redpanda operator, which secrets in cluster properties need.",
 								Computed:    true,
 								Attributes: map[string]schema.Attribute{
 									"email": schema.StringAttribute{

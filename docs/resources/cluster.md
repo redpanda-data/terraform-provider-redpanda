@@ -240,8 +240,8 @@ Required:
 
 Optional:
 
-- `redpanda_connect_node_group_instance_profile` (Attributes) AWS instance profile. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_connect_node_group_instance_profile))
-- `redpanda_connect_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_connect_security_group))
+- `redpanda_connect_node_group_instance_profile` (Attributes) Instance profile of the node group for Redpanda Connect. Set together with `redpanda_connect_security_group`; the control plane turns Redpanda Connect on only when both are set. Once set, the block stays on the cluster when the configuration leaves it out, so removing it from the configuration does not turn Redpanda Connect off. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_connect_node_group_instance_profile))
+- `redpanda_connect_security_group` (Attributes) Security group for Redpanda Connect. Set together with `redpanda_connect_node_group_instance_profile`; the control plane turns Redpanda Connect on only when both are set. Once set, the block stays on the cluster when the configuration leaves it out, so removing it from the configuration does not turn Redpanda Connect off. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_connect_security_group))
 - `rpsql_cloud_storage_bucket` (Attributes) AWS storage bucket properties by ARN. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--rpsql_cloud_storage_bucket))
 - `rpsql_node_group_instance_profile` (Attributes) AWS instance profile. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--rpsql_node_group_instance_profile))
 - `rpsql_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--rpsql_security_group))
@@ -621,6 +621,9 @@ Required:
 Optional:
 
 - `psc_nat_subnet_name` (String) NAT subnet name if GCP Private Service Connect (a.k.a Private Link) is enabled. If it is used for PSC v1, use psc_v2_nat_subnet_name to set NAT subnet name for PSC v2.
+- `redpanda_connect_api_service_account` (Attributes) Service account for the Redpanda Connect API. Set together with `redpanda_connect_service_account`; the control plane turns Redpanda Connect on only when both are set. Once set, the account stays on the cluster when the configuration leaves it out, so removing it from the configuration does not turn Redpanda Connect off. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--redpanda_connect_api_service_account))
+- `redpanda_connect_service_account` (Attributes) Service account for the Redpanda Connect workload. Set together with `redpanda_connect_api_service_account`; the control plane turns Redpanda Connect on only when both are set. Once set, the account stays on the cluster when the configuration leaves it out, so removing it from the configuration does not turn Redpanda Connect off. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--redpanda_connect_service_account))
+- `redpanda_operator_service_account` (Attributes) Service account for the Redpanda operator, which secrets in cluster properties need. Once set, the account stays on the cluster when the configuration leaves it out. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--redpanda_operator_service_account))
 - `rpsql_api_service_account` (Attributes) GCP service account. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_api_service_account))
 - `rpsql_cloud_storage_bucket` (Attributes) GCP storage bucket properties. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_cloud_storage_bucket))
 - `rpsql_secret_manager_prefix` (String) GCP Secret Manager prefix for Redpanda SQL Iceberg catalog credentials. Length must be at most 255. Must match pattern `^[A-Za-z0-9_-]+$`.
@@ -699,6 +702,30 @@ Required:
 Required:
 
 - `name` (String) Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--redpanda_connect_api_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.redpanda_connect_api_service_account`
+
+Required:
+
+- `email` (String) GCP service account email. Must be a valid email address.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--redpanda_connect_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.redpanda_connect_service_account`
+
+Required:
+
+- `email` (String) GCP service account email. Must be a valid email address.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--redpanda_operator_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.redpanda_operator_service_account`
+
+Required:
+
+- `email` (String) GCP service account email. Must be a valid email address.
 
 
 <a id="nestedatt--customer_managed_resources--gcp--rpsql_api_service_account"></a>
@@ -2448,7 +2475,13 @@ provider "redpanda" {}
 
 # Use the Redpanda GCP BYOVPC module
 module "redpanda_gcp" {
-  source                             = "redpanda-data/redpanda-byovpc/gcp"
+  source = "redpanda-data/redpanda-byovpc/gcp"
+  # Releases before 1.0.5 bind the operator's workload identity to a fixed
+  # Kubernetes service account name, but the cluster uses the supplied
+  # operator account's name, and grant Redpanda SQL write access to topic
+  # data it only reads.
+  version                            = ">= 1.0.5, < 2.0.0"
+  enable_redpanda_sql                = var.rpsql_enabled
   service_project_id                 = var.project_id
   region                             = var.region
   unique_identifier                  = var.environment
@@ -2531,20 +2564,30 @@ resource "redpanda_cluster" "test" {
       tiered_storage_bucket = {
         name = module.redpanda_gcp.tiered_storage_bucket_name
       }
+      # Redpanda Connect runs only when both Connect accounts are set, and
+      # secrets in cluster properties need the operator account.
+      redpanda_connect_api_service_account = {
+        email = module.redpanda_gcp.redpanda_connect_api_service_account_email
+      }
+      redpanda_connect_service_account = {
+        email = module.redpanda_gcp.redpanda_connect_service_account_email
+      }
+      redpanda_operator_service_account = {
+        email = module.redpanda_gcp.redpanda_operator_service_account_email
+      }
 
-      # Redpanda SQL. The byovpc module does not create these yet, so supply
-      # them yourself when enabling rpsql; null leaves rpsql unconfigured.
+      # Redpanda SQL. The module creates these when enable_redpanda_sql is
+      # true and returns "" otherwise; null leaves rpsql unconfigured.
       rpsql_api_service_account = var.rpsql_enabled ? {
-        email = var.rpsql_api_service_account_email
+        email = module.redpanda_gcp.redpanda_sql_api_service_account_email
       } : null
       rpsql_service_account = var.rpsql_enabled ? {
-        email = var.rpsql_service_account_email
+        email = module.redpanda_gcp.redpanda_sql_service_account_email
       } : null
       rpsql_cloud_storage_bucket = var.rpsql_enabled ? {
-        name = var.rpsql_cloud_storage_bucket_name
+        name = module.redpanda_gcp.redpanda_sql_storage_bucket_name
       } : null
-      # A bare prefix matching ^[A-Za-z0-9_-]+$, not a full resource path.
-      rpsql_secret_manager_prefix = var.rpsql_enabled ? var.rpsql_secret_manager_prefix : null
+      rpsql_secret_manager_prefix = var.rpsql_enabled ? module.redpanda_gcp.redpanda_sql_secret_manager_prefix : null
     }
   }
 
