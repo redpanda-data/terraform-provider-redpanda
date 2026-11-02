@@ -238,29 +238,10 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 									},
 								},
 							},
-							"redpanda_connect_node_group_instance_profile": schema.SingleNestedAttribute{
-								Description: "AWS instance profile.",
-								Optional:    true,
-								Attributes: map[string]schema.Attribute{
-									"arn": schema.StringAttribute{
-										Description: "AWS instance profile ARN.",
-										Required:    true,
-									},
-								},
-							},
-							"redpanda_connect_security_group": schema.SingleNestedAttribute{
-								Description: "Security Group identifies AWS security group.",
-								Optional:    true,
-								Attributes: map[string]schema.Attribute{
-									"arn": schema.StringAttribute{
-										Description: "AWS security group ARN.",
-										Required:    true,
-									},
-								},
-							},
 							"rpsql_cloud_storage_bucket": schema.SingleNestedAttribute{
 								Description: "AWS storage bucket properties by ARN.",
 								Optional:    true,
+								Validators:  []validator.Object{validators.ClearedWhenDisabled{Enabled: path.Root("rpsql").AtName("enabled")}},
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
 										Description: "AWS storage bucket identifier.",
@@ -271,6 +252,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 							"rpsql_node_group_instance_profile": schema.SingleNestedAttribute{
 								Description: "AWS instance profile.",
 								Optional:    true,
+								Validators:  []validator.Object{validators.ClearedWhenDisabled{Enabled: path.Root("rpsql").AtName("enabled")}},
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
 										Description: "AWS instance profile ARN.",
@@ -281,6 +263,31 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 							"rpsql_security_group": schema.SingleNestedAttribute{
 								Description: "Security Group identifies AWS security group.",
 								Optional:    true,
+								Validators:  []validator.Object{validators.ClearedWhenDisabled{Enabled: path.Root("rpsql").AtName("enabled")}},
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Description: "AWS security group ARN.",
+										Required:    true,
+									},
+								},
+							},
+							"redpanda_connect_node_group_instance_profile": schema.SingleNestedAttribute{
+								Description:   "Instance profile of the node group for Redpanda Connect. Set together with `redpanda_connect_security_group`; the control plane turns Redpanda Connect on only when both are set. Once set, the block stays on the cluster when the configuration leaves it out, so removing it from the configuration does not turn Redpanda Connect off.",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+								Attributes: map[string]schema.Attribute{
+									"arn": schema.StringAttribute{
+										Description: "AWS instance profile ARN.",
+										Required:    true,
+									},
+								},
+							},
+							"redpanda_connect_security_group": schema.SingleNestedAttribute{
+								Description:   "Security group for Redpanda Connect. Set together with `redpanda_connect_node_group_instance_profile`; the control plane turns Redpanda Connect on only when both are set. Once set, the block stays on the cluster when the configuration leaves it out, so removing it from the configuration does not turn Redpanda Connect off.",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 								Attributes: map[string]schema.Attribute{
 									"arn": schema.StringAttribute{
 										Description: "AWS security group ARN.",
@@ -654,6 +661,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 							"rpsql_api_service_account": schema.SingleNestedAttribute{
 								Description: "GCP service account.",
 								Optional:    true,
+								Validators:  []validator.Object{validators.ClearedWhenDisabled{Enabled: path.Root("rpsql").AtName("enabled")}},
 								Attributes: map[string]schema.Attribute{
 									"email": schema.StringAttribute{
 										Description: "GCP service account email. Must be a valid email address.",
@@ -664,6 +672,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 							"rpsql_cloud_storage_bucket": schema.SingleNestedAttribute{
 								Description: "GCP storage bucket properties.",
 								Optional:    true,
+								Validators:  []validator.Object{validators.ClearedWhenDisabled{Enabled: path.Root("rpsql").AtName("enabled")}},
 								Attributes: map[string]schema.Attribute{
 									"name": schema.StringAttribute{
 										Description: "Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.",
@@ -674,10 +683,48 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 							"rpsql_secret_manager_prefix": schema.StringAttribute{
 								Description: "GCP Secret Manager prefix for Redpanda SQL Iceberg catalog credentials. Length must be at most 255. Must match pattern `^[A-Za-z0-9_-]+$`.",
 								Optional:    true,
+								Validators:  []validator.String{validators.ClearedWhenDisabled{Enabled: path.Root("rpsql").AtName("enabled")}},
 							},
 							"rpsql_service_account": schema.SingleNestedAttribute{
 								Description: "GCP service account.",
 								Optional:    true,
+								Validators:  []validator.Object{validators.ClearedWhenDisabled{Enabled: path.Root("rpsql").AtName("enabled")}},
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Description: "GCP service account email. Must be a valid email address.",
+										Required:    true,
+									},
+								},
+							},
+							"redpanda_connect_api_service_account": schema.SingleNestedAttribute{
+								Description:   "Service account for the Redpanda Connect API. Set together with `redpanda_connect_service_account`; the control plane turns Redpanda Connect on only when both are set. Once set, the account stays on the cluster when the configuration leaves it out, so removing it from the configuration does not turn Redpanda Connect off.",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Description: "GCP service account email. Must be a valid email address.",
+										Required:    true,
+									},
+								},
+							},
+							"redpanda_connect_service_account": schema.SingleNestedAttribute{
+								Description:   "Service account for the Redpanda Connect workload. Set together with `redpanda_connect_api_service_account`; the control plane turns Redpanda Connect on only when both are set. Once set, the account stays on the cluster when the configuration leaves it out, so removing it from the configuration does not turn Redpanda Connect off.",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+								Attributes: map[string]schema.Attribute{
+									"email": schema.StringAttribute{
+										Description: "GCP service account email. Must be a valid email address.",
+										Required:    true,
+									},
+								},
+							},
+							"redpanda_operator_service_account": schema.SingleNestedAttribute{
+								Description:   "Service account for the Redpanda operator, which secrets in cluster properties need. Once set, the account stays on the cluster when the configuration leaves it out.",
+								Optional:      true,
+								Computed:      true,
+								PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 								Attributes: map[string]schema.Attribute{
 									"email": schema.StringAttribute{
 										Description: "GCP service account email. Must be a valid email address.",
@@ -1520,14 +1567,14 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 						Optional:      true,
 						Computed:      true,
 						PlanModifiers: []planmodifier.Int32{rpsqlReplicasStatePin()},
-						Validators:    []validator.Int32{validators.ClearedWhenDisabledInt32Validator{Enabled: path.Root("rpsql").AtName("enabled")}},
+						Validators:    []validator.Int32{validators.ClearedWhenDisabled{Enabled: path.Root("rpsql").AtName("enabled")}},
 					},
 					"zones": schema.ListAttribute{
 						Description:   "Zones. Must have at most 1 items.",
 						Optional:      true,
 						Computed:      true,
 						PlanModifiers: []planmodifier.List{rpsqlZonesStatePin()},
-						Validators:    append([]validator.List{validators.ClearedWhenDisabledListValidator{Enabled: path.Root("rpsql").AtName("enabled")}}, listvalidator.SizeAtMost(1)),
+						Validators:    append([]validator.List{validators.ClearedWhenDisabled{Enabled: path.Root("rpsql").AtName("enabled")}}, listvalidator.SizeAtMost(1)),
 						ElementType:   types.StringType,
 					},
 					"url": schema.StringAttribute{

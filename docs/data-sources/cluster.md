@@ -187,8 +187,8 @@ Read-Only:
 - `node_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--node_security_group))
 - `permissions_boundary_policy` (Attributes) Policy identifies an AWS policy. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--permissions_boundary_policy))
 - `redpanda_agent_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_agent_security_group))
-- `redpanda_connect_node_group_instance_profile` (Attributes) AWS instance profile. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_connect_node_group_instance_profile))
-- `redpanda_connect_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_connect_security_group))
+- `redpanda_connect_node_group_instance_profile` (Attributes) Instance profile of the node group for Redpanda Connect. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_connect_node_group_instance_profile))
+- `redpanda_connect_security_group` (Attributes) Security group for Redpanda Connect. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_connect_security_group))
 - `redpanda_node_group_instance_profile` (Attributes) AWS instance profile. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_node_group_instance_profile))
 - `redpanda_node_group_security_group` (Attributes) Security Group identifies AWS security group. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--redpanda_node_group_security_group))
 - `rpsql_cloud_storage_bucket` (Attributes) AWS storage bucket properties by ARN. (see [below for nested schema](#nestedatt--customer_managed_resources--aws--rpsql_cloud_storage_bucket))
@@ -564,6 +564,9 @@ Read-Only:
 - `gke_service_account` (Attributes) GCP service account. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--gke_service_account))
 - `psc_nat_subnet_name` (String) NAT subnet name if GCP Private Service Connect (a.k.a Private Link) is enabled. If it is used for PSC v1, use psc_v2_nat_subnet_name to set NAT subnet name for PSC v2.
 - `redpanda_cluster_service_account` (Attributes) GCP service account. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--redpanda_cluster_service_account))
+- `redpanda_connect_api_service_account` (Attributes) Service account for the Redpanda Connect API. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--redpanda_connect_api_service_account))
+- `redpanda_connect_service_account` (Attributes) Service account for the Redpanda Connect workload. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--redpanda_connect_service_account))
+- `redpanda_operator_service_account` (Attributes) Service account for the Redpanda operator, which secrets in cluster properties need. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--redpanda_operator_service_account))
 - `rpsql_api_service_account` (Attributes) GCP service account. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_api_service_account))
 - `rpsql_cloud_storage_bucket` (Attributes) GCP storage bucket properties. (see [below for nested schema](#nestedatt--customer_managed_resources--gcp--rpsql_cloud_storage_bucket))
 - `rpsql_secret_manager_prefix` (String) GCP Secret Manager prefix for Redpanda SQL Iceberg catalog credentials.
@@ -605,6 +608,30 @@ Read-Only:
 
 <a id="nestedatt--customer_managed_resources--gcp--redpanda_cluster_service_account"></a>
 ### Nested Schema for `customer_managed_resources.gcp.redpanda_cluster_service_account`
+
+Read-Only:
+
+- `email` (String) GCP service account email.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--redpanda_connect_api_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.redpanda_connect_api_service_account`
+
+Read-Only:
+
+- `email` (String) GCP service account email.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--redpanda_connect_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.redpanda_connect_service_account`
+
+Read-Only:
+
+- `email` (String) GCP service account email.
+
+
+<a id="nestedatt--customer_managed_resources--gcp--redpanda_operator_service_account"></a>
+### Nested Schema for `customer_managed_resources.gcp.redpanda_operator_service_account`
 
 Read-Only:
 

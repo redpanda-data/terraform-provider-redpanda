@@ -1781,6 +1781,18 @@ func FlattenDataCustomerManagedResourcesGCP(ctx context.Context, proto *controlp
 		v, _ := DecodeDataCustomerManagedResourcesGCPRedpandaClusterServiceAccount(ctx, prev)
 		return v
 	}(), DataCustomerManagedResourcesGCPRedpandaClusterServiceAccountAttrTypes(), FlattenDataCustomerManagedResourcesGCPRedpandaClusterServiceAccount, &diags)
+	m.RedpandaConnectAPIServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaConnectApiServiceAccount(), func() *DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountModel {
+		v, _ := DecodeDataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccount(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountAttrTypes(), FlattenDataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccount, &diags)
+	m.RedpandaConnectServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaConnectServiceAccount(), func() *DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountModel {
+		v, _ := DecodeDataCustomerManagedResourcesGCPRedpandaConnectServiceAccount(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountAttrTypes(), FlattenDataCustomerManagedResourcesGCPRedpandaConnectServiceAccount, &diags)
+	m.RedpandaOperatorServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaOperatorServiceAccount(), func() *DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountModel {
+		v, _ := DecodeDataCustomerManagedResourcesGCPRedpandaOperatorServiceAccount(ctx, prev)
+		return v
+	}(), DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountAttrTypes(), FlattenDataCustomerManagedResourcesGCPRedpandaOperatorServiceAccount, &diags)
 	m.RpsqlAPIServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpsqlApiServiceAccount(), func() *DataCustomerManagedResourcesGCPRpsqlAPIServiceAccountModel {
 		v, _ := DecodeDataCustomerManagedResourcesGCPRpsqlAPIServiceAccount(ctx, prev)
 		return v
@@ -1812,18 +1824,21 @@ func ExpandDataCustomerManagedResourcesGCP(ctx context.Context, m *DataCustomerM
 		return nil, diags
 	}
 	out := &controlplanev1.CustomerManagedResources_GCP{
-		AgentServiceAccount:           modelconv.ObjectToMessageWithDiags(ctx, m.AgentServiceAccount, ExpandDataCustomerManagedResourcesGCPAgentServiceAccount, &diags),
-		ConnectorServiceAccount:       modelconv.ObjectToMessageWithDiags(ctx, m.ConnectorServiceAccount, ExpandDataCustomerManagedResourcesGCPConnectorServiceAccount, &diags),
-		ConsoleServiceAccount:         modelconv.ObjectToMessageWithDiags(ctx, m.ConsoleServiceAccount, ExpandDataCustomerManagedResourcesGCPConsoleServiceAccount, &diags),
-		GkeServiceAccount:             modelconv.ObjectToMessageWithDiags(ctx, m.GkeServiceAccount, ExpandDataCustomerManagedResourcesGCPGkeServiceAccount, &diags),
-		PscNatSubnetName:              m.PscNatSubnetName.ValueString(),
-		RedpandaClusterServiceAccount: modelconv.ObjectToMessageWithDiags(ctx, m.RedpandaClusterServiceAccount, ExpandDataCustomerManagedResourcesGCPRedpandaClusterServiceAccount, &diags),
-		RpsqlApiServiceAccount:        modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlAPIServiceAccount, ExpandDataCustomerManagedResourcesGCPRpsqlAPIServiceAccount, &diags),
-		RpsqlCloudStorageBucket:       modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlCloudStorageBucket, ExpandDataCustomerManagedResourcesGCPRpsqlCloudStorageBucket, &diags),
-		RpsqlSecretManagerPrefix:      m.RpsqlSecretManagerPrefix.ValueString(),
-		RpsqlServiceAccount:           modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlServiceAccount, ExpandDataCustomerManagedResourcesGCPRpsqlServiceAccount, &diags),
-		Subnet:                        modelconv.ObjectToMessageWithDiags(ctx, m.Subnet, ExpandDataCustomerManagedResourcesGCPSubnet, &diags),
-		TieredStorageBucket:           modelconv.ObjectToMessageWithDiags(ctx, m.TieredStorageBucket, ExpandDataCustomerManagedResourcesGCPTieredStorageBucket, &diags),
+		AgentServiceAccount:              modelconv.ObjectToMessageWithDiags(ctx, m.AgentServiceAccount, ExpandDataCustomerManagedResourcesGCPAgentServiceAccount, &diags),
+		ConnectorServiceAccount:          modelconv.ObjectToMessageWithDiags(ctx, m.ConnectorServiceAccount, ExpandDataCustomerManagedResourcesGCPConnectorServiceAccount, &diags),
+		ConsoleServiceAccount:            modelconv.ObjectToMessageWithDiags(ctx, m.ConsoleServiceAccount, ExpandDataCustomerManagedResourcesGCPConsoleServiceAccount, &diags),
+		GkeServiceAccount:                modelconv.ObjectToMessageWithDiags(ctx, m.GkeServiceAccount, ExpandDataCustomerManagedResourcesGCPGkeServiceAccount, &diags),
+		PscNatSubnetName:                 m.PscNatSubnetName.ValueString(),
+		RedpandaClusterServiceAccount:    modelconv.ObjectToMessageWithDiags(ctx, m.RedpandaClusterServiceAccount, ExpandDataCustomerManagedResourcesGCPRedpandaClusterServiceAccount, &diags),
+		RedpandaConnectApiServiceAccount: modelconv.ObjectToMessageWithDiags(ctx, m.RedpandaConnectAPIServiceAccount, ExpandDataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccount, &diags),
+		RedpandaConnectServiceAccount:    modelconv.ObjectToMessageWithDiags(ctx, m.RedpandaConnectServiceAccount, ExpandDataCustomerManagedResourcesGCPRedpandaConnectServiceAccount, &diags),
+		RedpandaOperatorServiceAccount:   modelconv.ObjectToMessageWithDiags(ctx, m.RedpandaOperatorServiceAccount, ExpandDataCustomerManagedResourcesGCPRedpandaOperatorServiceAccount, &diags),
+		RpsqlApiServiceAccount:           modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlAPIServiceAccount, ExpandDataCustomerManagedResourcesGCPRpsqlAPIServiceAccount, &diags),
+		RpsqlCloudStorageBucket:          modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlCloudStorageBucket, ExpandDataCustomerManagedResourcesGCPRpsqlCloudStorageBucket, &diags),
+		RpsqlSecretManagerPrefix:         m.RpsqlSecretManagerPrefix.ValueString(),
+		RpsqlServiceAccount:              modelconv.ObjectToMessageWithDiags(ctx, m.RpsqlServiceAccount, ExpandDataCustomerManagedResourcesGCPRpsqlServiceAccount, &diags),
+		Subnet:                           modelconv.ObjectToMessageWithDiags(ctx, m.Subnet, ExpandDataCustomerManagedResourcesGCPSubnet, &diags),
+		TieredStorageBucket:              modelconv.ObjectToMessageWithDiags(ctx, m.TieredStorageBucket, ExpandDataCustomerManagedResourcesGCPTieredStorageBucket, &diags),
 	}
 	return out, diags
 }
@@ -1943,6 +1958,81 @@ func FlattenDataCustomerManagedResourcesGCPRedpandaClusterServiceAccount(_ conte
 
 // ExpandDataCustomerManagedResourcesGCPRedpandaClusterServiceAccount renders a nested model back into the proto type.
 func ExpandDataCustomerManagedResourcesGCPRedpandaClusterServiceAccount(_ context.Context, m *DataCustomerManagedResourcesGCPRedpandaClusterServiceAccountModel) (*controlplanev1.GCPServiceAccount, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.GCPServiceAccount{
+		Email: m.Email.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccount converts a single proto controlplanev1.GCPServiceAccount into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccount(_ context.Context, proto *controlplanev1.GCPServiceAccount, prev *DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountModel) (DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountModel{}
+	m.Email = types.StringValue(proto.GetEmail())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccount renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccount(_ context.Context, m *DataCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountModel) (*controlplanev1.GCPServiceAccount, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.GCPServiceAccount{
+		Email: m.Email.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesGCPRedpandaConnectServiceAccount converts a single proto controlplanev1.GCPServiceAccount into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesGCPRedpandaConnectServiceAccount(_ context.Context, proto *controlplanev1.GCPServiceAccount, prev *DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountModel) (DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountModel{}
+	m.Email = types.StringValue(proto.GetEmail())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesGCPRedpandaConnectServiceAccount renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesGCPRedpandaConnectServiceAccount(_ context.Context, m *DataCustomerManagedResourcesGCPRedpandaConnectServiceAccountModel) (*controlplanev1.GCPServiceAccount, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if m == nil {
+		return nil, diags
+	}
+	out := &controlplanev1.GCPServiceAccount{
+		Email: m.Email.ValueString(),
+	}
+	return out, diags
+}
+
+// FlattenDataCustomerManagedResourcesGCPRedpandaOperatorServiceAccount converts a single proto controlplanev1.GCPServiceAccount into the
+// corresponding nested model. The prev *DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountModel arg carries forward
+// TF-only / sensitive / write-only fields and resolves the proto3
+// null-vs-empty ambiguity for Optional-only scalar leaves (Required leaves
+// flatten directly); pass nil when no prior nested state is available.
+func FlattenDataCustomerManagedResourcesGCPRedpandaOperatorServiceAccount(_ context.Context, proto *controlplanev1.GCPServiceAccount, prev *DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountModel) (DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	_ = prev
+	m := DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountModel{}
+	m.Email = types.StringValue(proto.GetEmail())
+	return m, diags
+}
+
+// ExpandDataCustomerManagedResourcesGCPRedpandaOperatorServiceAccount renders a nested model back into the proto type.
+func ExpandDataCustomerManagedResourcesGCPRedpandaOperatorServiceAccount(_ context.Context, m *DataCustomerManagedResourcesGCPRedpandaOperatorServiceAccountModel) (*controlplanev1.GCPServiceAccount, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if m == nil {
 		return nil, diags

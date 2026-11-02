@@ -441,6 +441,9 @@ attributes:
             - name: redpanda_connect_node_group_instance_profile
               type: SingleNestedAttribute
               optional: true
+              computed: true
+              plan_modifiers:
+                - objectplanmodifier.useStateForUnknownModifier
               attributes:
                 - name: arn
                   type: StringAttribute
@@ -448,6 +451,9 @@ attributes:
             - name: redpanda_connect_security_group
               type: SingleNestedAttribute
               optional: true
+              computed: true
+              plan_modifiers:
+                - objectplanmodifier.useStateForUnknownModifier
               attributes:
                 - name: arn
                   type: StringAttribute
@@ -473,6 +479,8 @@ attributes:
             - name: rpsql_cloud_storage_bucket
               type: SingleNestedAttribute
               optional: true
+              validators:
+                - validators.ClearedWhenDisabled
               attributes:
                 - name: arn
                   type: StringAttribute
@@ -480,6 +488,8 @@ attributes:
             - name: rpsql_node_group_instance_profile
               type: SingleNestedAttribute
               optional: true
+              validators:
+                - validators.ClearedWhenDisabled
               attributes:
                 - name: arn
                   type: StringAttribute
@@ -487,6 +497,8 @@ attributes:
             - name: rpsql_security_group
               type: SingleNestedAttribute
               optional: true
+              validators:
+                - validators.ClearedWhenDisabled
               attributes:
                 - name: arn
                   type: StringAttribute
@@ -761,9 +773,41 @@ attributes:
                   required: true
                   plan_modifiers:
                     - stringplanmodifier.requiresReplaceIfModifier
+            - name: redpanda_connect_api_service_account
+              type: SingleNestedAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - objectplanmodifier.useStateForUnknownModifier
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  required: true
+            - name: redpanda_connect_service_account
+              type: SingleNestedAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - objectplanmodifier.useStateForUnknownModifier
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  required: true
+            - name: redpanda_operator_service_account
+              type: SingleNestedAttribute
+              optional: true
+              computed: true
+              plan_modifiers:
+                - objectplanmodifier.useStateForUnknownModifier
+              attributes:
+                - name: email
+                  type: StringAttribute
+                  required: true
             - name: rpsql_api_service_account
               type: SingleNestedAttribute
               optional: true
+              validators:
+                - validators.ClearedWhenDisabled
               attributes:
                 - name: email
                   type: StringAttribute
@@ -771,6 +815,8 @@ attributes:
             - name: rpsql_cloud_storage_bucket
               type: SingleNestedAttribute
               optional: true
+              validators:
+                - validators.ClearedWhenDisabled
               attributes:
                 - name: name
                   type: StringAttribute
@@ -778,9 +824,13 @@ attributes:
             - name: rpsql_secret_manager_prefix
               type: StringAttribute
               optional: true
+              validators:
+                - validators.ClearedWhenDisabled
             - name: rpsql_service_account
               type: SingleNestedAttribute
               optional: true
+              validators:
+                - validators.ClearedWhenDisabled
               attributes:
                 - name: email
                   type: StringAttribute
@@ -1330,7 +1380,7 @@ attributes:
           optional: true
           computed: true
           validators:
-            - validators.ClearedWhenDisabledInt32Validator
+            - validators.ClearedWhenDisabled
           plan_modifiers:
             - cluster.pinInt32StateUnlessSiblingRises
         - name: url
@@ -1348,7 +1398,7 @@ attributes:
           optional: true
           computed: true
           validators:
-            - validators.ClearedWhenDisabledListValidator
+            - validators.ClearedWhenDisabled
             - listvalidator.sizeAtMostValidator
           plan_modifiers:
             - cluster.pinStateUnlessSiblingRises
