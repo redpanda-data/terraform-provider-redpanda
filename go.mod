@@ -29,7 +29,7 @@ require (
 	github.com/redpanda-data/redpanda/src/go/rpk v0.0.0-20250324141452-c979dc730ef3
 	github.com/stretchr/testify v1.11.1
 	github.com/twmb/franz-go/pkg/sr v1.7.0
-	go.uber.org/mock v0.5.0
+	go.uber.org/mock v0.6.0
 	golang.org/x/oauth2 v0.37.0
 	golang.org/x/sync v0.20.0
 	golang.org/x/time v0.11.0
