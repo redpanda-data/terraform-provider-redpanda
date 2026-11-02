@@ -630,15 +630,20 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 // the changed control-plane-updatable CMR leaf from the update payload
 // (CustomerManagedResourcesUpdate, rpsql_* fields) onto the stored read-shape
 // record. Every leaf is keyed by its public proto field name (cloudv2 maps the
-// rpsql_* keys onto its internal oxla_* spec paths on its side).
-func applyCMRLeafUpdate(cl *controlplanev1.Cluster, upd *controlplanev1.CustomerManagedResourcesUpdate, path string) {
-	if upd == nil {
-		return
-	}
+// rpsql_* keys onto its internal oxla_* spec paths on its side). A nil payload
+// still applies: the control plane prunes the masked path before merging, so
+// a masked leaf on a message the cluster holds is cleared to its zero value,
+// while a message the cluster does not hold stays absent and a cluster
+// without customer-managed resources gains none. It reports whether path is
+// a leaf the fake knows, which lets a test tie these cases to the provider's
+// mask table.
+func applyCMRLeafUpdate(cl *controlplanev1.Cluster, upd *controlplanev1.CustomerManagedResourcesUpdate, path string) bool {
 	cmr := cl.GetCustomerManagedResources()
 	if cmr == nil {
 		cmr = &controlplanev1.CustomerManagedResources{}
-		cl.SetCustomerManagedResources(cmr)
+		if upd.GetGcp() != nil || upd.GetAws() != nil {
+			cl.SetCustomerManagedResources(cmr)
+		}
 	}
 	switch path {
 	case "customer_managed_resources.gcp.psc_nat_subnet_name":
@@ -646,15 +651,21 @@ func applyCMRLeafUpdate(cl *controlplanev1.Cluster, upd *controlplanev1.Customer
 	// A leaf path prunes only the email, so the account message survives with
 	// an empty email; the account path prunes the whole message.
 	case "customer_managed_resources.gcp.redpanda_connect_api_service_account.email":
-		cmrReadGCP(cmr).SetRedpandaConnectApiServiceAccount(&controlplanev1.GCPServiceAccount{Email: upd.GetGcp().GetRedpandaConnectApiServiceAccount().GetEmail()})
+		if cmr.GetGcp().GetRedpandaConnectApiServiceAccount() != nil || upd.GetGcp().GetRedpandaConnectApiServiceAccount() != nil {
+			cmrReadGCP(cmr).SetRedpandaConnectApiServiceAccount(&controlplanev1.GCPServiceAccount{Email: upd.GetGcp().GetRedpandaConnectApiServiceAccount().GetEmail()})
+		}
 	case "customer_managed_resources.gcp.redpanda_connect_api_service_account":
 		cmrReadGCP(cmr).SetRedpandaConnectApiServiceAccount(upd.GetGcp().GetRedpandaConnectApiServiceAccount())
 	case "customer_managed_resources.gcp.redpanda_connect_service_account.email":
-		cmrReadGCP(cmr).SetRedpandaConnectServiceAccount(&controlplanev1.GCPServiceAccount{Email: upd.GetGcp().GetRedpandaConnectServiceAccount().GetEmail()})
+		if cmr.GetGcp().GetRedpandaConnectServiceAccount() != nil || upd.GetGcp().GetRedpandaConnectServiceAccount() != nil {
+			cmrReadGCP(cmr).SetRedpandaConnectServiceAccount(&controlplanev1.GCPServiceAccount{Email: upd.GetGcp().GetRedpandaConnectServiceAccount().GetEmail()})
+		}
 	case "customer_managed_resources.gcp.redpanda_connect_service_account":
 		cmrReadGCP(cmr).SetRedpandaConnectServiceAccount(upd.GetGcp().GetRedpandaConnectServiceAccount())
 	case "customer_managed_resources.gcp.redpanda_operator_service_account.email":
-		cmrReadGCP(cmr).SetRedpandaOperatorServiceAccount(&controlplanev1.GCPServiceAccount{Email: upd.GetGcp().GetRedpandaOperatorServiceAccount().GetEmail()})
+		if cmr.GetGcp().GetRedpandaOperatorServiceAccount() != nil || upd.GetGcp().GetRedpandaOperatorServiceAccount() != nil {
+			cmrReadGCP(cmr).SetRedpandaOperatorServiceAccount(&controlplanev1.GCPServiceAccount{Email: upd.GetGcp().GetRedpandaOperatorServiceAccount().GetEmail()})
+		}
 	case "customer_managed_resources.gcp.redpanda_operator_service_account":
 		cmrReadGCP(cmr).SetRedpandaOperatorServiceAccount(upd.GetGcp().GetRedpandaOperatorServiceAccount())
 	case "customer_managed_resources.gcp.rpsql_api_service_account.email":
@@ -666,19 +677,41 @@ func applyCMRLeafUpdate(cl *controlplanev1.Cluster, upd *controlplanev1.Customer
 	case "customer_managed_resources.gcp.rpsql_secret_manager_prefix":
 		cmrReadGCP(cmr).SetRpsqlSecretManagerPrefix(upd.GetGcp().GetRpsqlSecretManagerPrefix())
 	case "customer_managed_resources.aws.redpanda_connect_node_group_instance_profile.arn":
-		cmrReadAWS(cmr).SetRedpandaConnectNodeGroupInstanceProfile(&controlplanev1.AWSInstanceProfile{Arn: upd.GetAws().GetRedpandaConnectNodeGroupInstanceProfile().GetArn()})
+		if cmr.GetAws().GetRedpandaConnectNodeGroupInstanceProfile() != nil || upd.GetAws().GetRedpandaConnectNodeGroupInstanceProfile() != nil {
+			cmrReadAWS(cmr).SetRedpandaConnectNodeGroupInstanceProfile(&controlplanev1.AWSInstanceProfile{Arn: upd.GetAws().GetRedpandaConnectNodeGroupInstanceProfile().GetArn()})
+		}
 	case "customer_managed_resources.aws.redpanda_connect_security_group.arn":
-		cmrReadAWS(cmr).SetRedpandaConnectSecurityGroup(&controlplanev1.AWSSecurityGroup{Arn: upd.GetAws().GetRedpandaConnectSecurityGroup().GetArn()})
+		if cmr.GetAws().GetRedpandaConnectSecurityGroup() != nil || upd.GetAws().GetRedpandaConnectSecurityGroup() != nil {
+			cmrReadAWS(cmr).SetRedpandaConnectSecurityGroup(&controlplanev1.AWSSecurityGroup{Arn: upd.GetAws().GetRedpandaConnectSecurityGroup().GetArn()})
+		}
 	case "customer_managed_resources.aws.rpsql_node_group_instance_profile.arn":
 		cmrReadAWS(cmr).SetRpsqlNodeGroupInstanceProfile(&controlplanev1.AWSInstanceProfile{Arn: upd.GetAws().GetRpsqlNodeGroupInstanceProfile().GetArn()})
 	case "customer_managed_resources.aws.rpsql_security_group.arn":
 		cmrReadAWS(cmr).SetRpsqlSecurityGroup(&controlplanev1.AWSSecurityGroup{Arn: upd.GetAws().GetRpsqlSecurityGroup().GetArn()})
 	case "customer_managed_resources.aws.rpsql_cloud_storage_bucket.arn":
 		cmrReadAWS(cmr).SetRpsqlCloudStorageBucket(&controlplanev1.CustomerManagedAWSCloudStorageBucket{Arn: upd.GetAws().GetRpsqlCloudStorageBucket().GetArn()})
+	case "customer_managed_resources.gcp.rpsql_api_service_account":
+		cmrReadGCP(cmr).SetRpsqlApiServiceAccount(upd.GetGcp().GetRpsqlApiServiceAccount())
+	case "customer_managed_resources.gcp.rpsql_service_account":
+		cmrReadGCP(cmr).SetRpsqlServiceAccount(upd.GetGcp().GetRpsqlServiceAccount())
+	case "customer_managed_resources.gcp.rpsql_cloud_storage_bucket":
+		cmrReadGCP(cmr).SetRpsqlCloudStorageBucket(upd.GetGcp().GetRpsqlCloudStorageBucket())
+	case "customer_managed_resources.aws.redpanda_connect_node_group_instance_profile":
+		cmrReadAWS(cmr).SetRedpandaConnectNodeGroupInstanceProfile(upd.GetAws().GetRedpandaConnectNodeGroupInstanceProfile())
+	case "customer_managed_resources.aws.redpanda_connect_security_group":
+		cmrReadAWS(cmr).SetRedpandaConnectSecurityGroup(upd.GetAws().GetRedpandaConnectSecurityGroup())
+	case "customer_managed_resources.aws.rpsql_node_group_instance_profile":
+		cmrReadAWS(cmr).SetRpsqlNodeGroupInstanceProfile(upd.GetAws().GetRpsqlNodeGroupInstanceProfile())
+	case "customer_managed_resources.aws.rpsql_security_group":
+		cmrReadAWS(cmr).SetRpsqlSecurityGroup(upd.GetAws().GetRpsqlSecurityGroup())
+	case "customer_managed_resources.aws.rpsql_cloud_storage_bucket":
+		cmrReadAWS(cmr).SetRpsqlCloudStorageBucket(upd.GetAws().GetRpsqlCloudStorageBucket())
 	default:
 		// Unknown CMR leaf path: no-op, mirroring the control plane dropping an
 		// unmapped mask path.
+		return false
 	}
+	return true
 }
 
 // cmrReadGCP returns the read-shape GCP sub-record, creating it if absent.
@@ -795,7 +828,7 @@ func rpsqlCMRImmutability(cl *controlplanev1.Cluster, upd *controlplanev1.Cluste
 	oldCMR := cl.GetCustomerManagedResources()
 	newCMR := upd.GetCustomerManagedResources()
 	for _, leaf := range rpsqlImmutableLeaves {
-		if !slices.Contains(paths, leaf.path) {
+		if !maskCovers(paths, leaf.path) {
 			continue
 		}
 		if oldV := leaf.old(oldCMR); oldV != "" && oldV != leaf.updated(newCMR) {
@@ -804,6 +837,21 @@ func rpsqlCMRImmutability(cl *controlplanev1.Cluster, upd *controlplanev1.Cluste
 		}
 	}
 	return nil
+}
+
+// maskCovers reports whether the mask names leaf or one of its ancestors. An
+// out-of-band client such as the UI or API may mask a CMR message path, which
+// covers every leaf under it; the provider sends leaf paths only. The control
+// plane judges the merged value either way.
+func maskCovers(paths []string, leaf string) bool {
+	return slices.ContainsFunc(paths, func(p string) bool { return pathWithin(leaf, p) })
+}
+
+// pathWithin reports whether the dotted field path is ancestor or lies under
+// it, matching whole segments so a field never covers a sibling that only
+// shares its name as a prefix.
+func pathWithin(path, ancestor string) bool {
+	return path == ancestor || strings.HasPrefix(path, ancestor+".")
 }
 
 // rpsqlCMRRequiredOnEnable mirrors cloudv2 validateRPSqlCMRFields (mapper.go):
@@ -835,7 +883,7 @@ func rpsqlCMRRequiredOnEnable(cl *controlplanev1.Cluster, upd *controlplanev1.Cl
 			continue
 		}
 		effective := leaf.old(oldCMR)
-		if slices.Contains(paths, leaf.path) {
+		if maskCovers(paths, leaf.path) {
 			effective = leaf.updated(newCMR)
 		}
 		if effective == "" {

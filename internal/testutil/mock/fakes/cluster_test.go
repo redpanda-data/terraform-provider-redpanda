@@ -20,9 +20,11 @@ import (
 	"testing"
 
 	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
+	"github.com/redpanda-data/terraform-provider-redpanda/internal/clustermask"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
@@ -992,5 +994,162 @@ func TestClusterFake_CommonTagsInjected(t *testing.T) {
 	}
 	if got.GetCluster().GetCloudProviderTags()[gcpPartnerTagKey] != partnerValue {
 		t.Errorf("gcp byoc update: control plane re-stamps its label after the user's replace the map, got %v", got.GetCluster().GetCloudProviderTags())
+	}
+}
+
+// TestClusterFake_CMRMessagePathWithoutPayload mirrors cloudv2 fieldmask.Update
+// (pkg/fieldmask/update.go: prune the masked paths, then merge the payload): a
+// mask naming a CMR message path clears that message even when the update
+// carries no CustomerManagedResources payload, whichever client sends it.
+func TestClusterFake_CMRMessagePathWithoutPayload(t *testing.T) {
+	ctx := context.Background()
+	const id = "c-cmr-clear"
+	f := NewClusterFake(NewOperationFake())
+	f.Seed(&controlplanev1.Cluster{
+		Id:            id,
+		Type:          controlplanev1.Cluster_TYPE_BYOC,
+		CloudProvider: controlplanev1.CloudProvider_CLOUD_PROVIDER_GCP,
+		CustomerManagedResources: &controlplanev1.CustomerManagedResources{CloudProvider: &controlplanev1.CustomerManagedResources_Gcp{
+			Gcp: &controlplanev1.CustomerManagedResources_GCP{
+				PscNatSubnetName:               "nat",
+				RedpandaConnectServiceAccount:  &controlplanev1.GCPServiceAccount{Email: "rpcn@tfrp-proj.iam.gserviceaccount.com"},
+				RedpandaOperatorServiceAccount: &controlplanev1.GCPServiceAccount{Email: "rp-op@tfrp-proj.iam.gserviceaccount.com"},
+			},
+		}},
+	})
+	_, err := f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+		Cluster:    &controlplanev1.ClusterUpdate{Id: id},
+		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"customer_managed_resources.gcp.redpanda_connect_service_account"}},
+	})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	got, err := f.GetCluster(ctx, &controlplanev1.GetClusterRequest{Id: id})
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	gcp := got.GetCluster().GetCustomerManagedResources().GetGcp()
+	if gcp.GetRedpandaConnectServiceAccount() != nil {
+		t.Fatalf("masked account survived a payload-less clear: %v", gcp.GetRedpandaConnectServiceAccount())
+	}
+	if gcp.GetRedpandaOperatorServiceAccount().GetEmail() == "" || gcp.GetPscNatSubnetName() != "nat" {
+		t.Fatalf("unmasked leaves changed: %v", gcp)
+	}
+}
+
+// TestClusterFake_CMRLeafPathsAllHandled ties the fake to the provider's mask
+// table: every CMR mask path the provider can send must reach a case in
+// applyCMRLeafUpdate that writes the field the path names, because the
+// default branch silently drops the update and a test would then read back
+// the old value as if the provider were wrong, and a case routed to another
+// field would pass a test that only checks the path is handled. The fake's
+// message-path cases are for the out-of-band updates tests send, as the UI
+// and API do; the provider sends leaf paths only.
+func TestClusterFake_CMRLeafPathsAllHandled(t *testing.T) {
+	full := fullCMRUpdates()
+	for _, p := range clustermask.CMRUpdatableLeafPaths() {
+		cl := &controlplanev1.Cluster{CustomerManagedResources: &controlplanev1.CustomerManagedResources{}}
+		if !applyCMRLeafUpdate(cl, full[cmrArm(p)], p) {
+			t.Errorf("mask path %q falls through to the fake's no-op default", p)
+			continue
+		}
+		want, _ := cmrValueAt(t, full[cmrArm(p)].ProtoReflect(), p)
+		if want == "" {
+			t.Fatalf("fixture sets no value at %q", p)
+		}
+		got, ok := cmrValueAt(t, cl.GetCustomerManagedResources().ProtoReflect(), p)
+		if !ok || got != want {
+			t.Errorf("mask path %q did not copy the update's value: present=%v got=%q want=%q", p, ok, got, want)
+		}
+	}
+}
+
+// cmrArm returns the cloud arm a mask path lies under.
+func cmrArm(path string) string { return strings.Split(path, ".")[1] }
+
+// fullCMRUpdates sets every leaf the mask table knows, one update per arm
+// since the arms are a oneof, so a path that writes the wrong field is caught
+// by reading the right one back empty.
+func fullCMRUpdates() map[string]*controlplanev1.CustomerManagedResourcesUpdate {
+	sa := func(n string) *controlplanev1.GCPServiceAccount {
+		return &controlplanev1.GCPServiceAccount{Email: n + "@tfrp-proj.iam.gserviceaccount.com"}
+	}
+	profile := func(n string) *controlplanev1.AWSInstanceProfile {
+		return &controlplanev1.AWSInstanceProfile{Arn: "arn:aws:iam::123456789012:instance-profile/" + n}
+	}
+	sg := func(n string) *controlplanev1.AWSSecurityGroup {
+		return &controlplanev1.AWSSecurityGroup{Arn: "arn:aws:ec2:us-east-1:123456789012:security-group/" + n}
+	}
+	gcp := &controlplanev1.CustomerManagedResourcesUpdate{}
+	gcp.SetGcp(&controlplanev1.CustomerManagedResourcesUpdate_GCP{
+		PscNatSubnetName:                 "nat",
+		RedpandaConnectServiceAccount:    sa("rpcn"),
+		RedpandaConnectApiServiceAccount: sa("rpcn-api"),
+		RedpandaOperatorServiceAccount:   sa("rp-op"),
+		RpsqlApiServiceAccount:           sa("rpsql-api"),
+		RpsqlServiceAccount:              sa("rpsql"),
+		RpsqlCloudStorageBucket:          &controlplanev1.CustomerManagedGoogleCloudStorageBucket{Name: "tfrp-rpsql"},
+		RpsqlSecretManagerPrefix:         "tfrp-rpsql-",
+	})
+	aws := &controlplanev1.CustomerManagedResourcesUpdate{}
+	aws.SetAws(&controlplanev1.CustomerManagedResourcesUpdate_AWS{
+		RedpandaConnectNodeGroupInstanceProfile: profile("rpcn"),
+		RedpandaConnectSecurityGroup:            sg("rpcn"),
+		RpsqlNodeGroupInstanceProfile:           profile("rpsql"),
+		RpsqlSecurityGroup:                      sg("rpsql"),
+		RpsqlCloudStorageBucket:                 &controlplanev1.CustomerManagedAWSCloudStorageBucket{Arn: "arn:aws:s3:::tfrp-rpsql"},
+	})
+	return map[string]*controlplanev1.CustomerManagedResourcesUpdate{"gcp": gcp, "aws": aws}
+}
+
+// cmrValueAt walks a customer-managed resources message, read or update
+// shape, by the mask path's field names and returns the string at a leaf
+// path, or "" with ok=true at a message path that is present; ok is false
+// when any message on the way is absent.
+func cmrValueAt(t *testing.T, m protoreflect.Message, path string) (string, bool) {
+	t.Helper()
+	segs := strings.Split(path, ".")[1:]
+	for i, seg := range segs {
+		fd := m.Descriptor().Fields().ByName(protoreflect.Name(seg))
+		if fd == nil {
+			t.Fatalf("path %q: no field %q on %s", path, seg, m.Descriptor().FullName())
+		}
+		if fd.Kind() == protoreflect.StringKind {
+			if i != len(segs)-1 {
+				t.Fatalf("path %q: %q is a string, not a message", path, seg)
+			}
+			return m.Get(fd).String(), true
+		}
+		if !m.Has(fd) {
+			return "", false
+		}
+		m = m.Get(fd).Message()
+	}
+	return "", true
+}
+
+// TestClusterFake_CMRLeafClearOnAbsentMessage mirrors cloudv2 fieldmask.Update
+// on a leaf path whose message the cluster does not hold: pruning a path under
+// an absent message changes nothing, so the message stays absent and a cluster
+// without customer-managed resources gains none.
+func TestClusterFake_CMRLeafClearOnAbsentMessage(t *testing.T) {
+	held := &controlplanev1.Cluster{CustomerManagedResources: &controlplanev1.CustomerManagedResources{CloudProvider: &controlplanev1.CustomerManagedResources_Gcp{
+		Gcp: &controlplanev1.CustomerManagedResources_GCP{RedpandaConnectApiServiceAccount: &controlplanev1.GCPServiceAccount{Email: "rpcn-api@tfrp-proj.iam.gserviceaccount.com"}},
+	}}}
+	empty := &controlplanev1.CustomerManagedResourcesUpdate{}
+	empty.SetGcp(&controlplanev1.CustomerManagedResourcesUpdate_GCP{})
+	applyCMRLeafUpdate(held, empty, "customer_managed_resources.gcp.redpanda_connect_service_account.email")
+	if got := held.GetCustomerManagedResources().GetGcp().GetRedpandaConnectServiceAccount(); got != nil {
+		t.Errorf("leaf clear created an absent message: %v", got)
+	}
+	applyCMRLeafUpdate(held, empty, "customer_managed_resources.gcp.redpanda_connect_api_service_account.email")
+	if got := held.GetCustomerManagedResources().GetGcp().GetRedpandaConnectApiServiceAccount(); got == nil || got.GetEmail() != "" {
+		t.Errorf("leaf clear on a held message must leave it present and empty: %v", got)
+	}
+
+	none := &controlplanev1.Cluster{}
+	applyCMRLeafUpdate(none, &controlplanev1.CustomerManagedResourcesUpdate{}, "customer_managed_resources.gcp.redpanda_connect_service_account.email")
+	if none.GetCustomerManagedResources() != nil {
+		t.Errorf("a cluster without customer-managed resources gained a record: %v", none.GetCustomerManagedResources())
 	}
 }
