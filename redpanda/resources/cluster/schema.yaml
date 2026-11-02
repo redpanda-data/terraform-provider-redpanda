@@ -405,12 +405,32 @@ customer_managed_resources:
 
         psc_v2_nat_subnet_name:
           todo: true
+        # Optional unlike the required siblings: the control plane turns
+        # Redpanda Connect on only when both Connect accounts are set, and
+        # cluster-properties secrets need the operator account. Computed as
+        # well: the control plane accepts clearing an account and then turns
+        # Connect off, so an account the server holds must survive a config
+        # that omits it instead of being cleared. The pairing is checked in
+        # the resource's ModifyPlan on planned values, because an account the
+        # config leaves out still carries its state value.
         redpanda_connect_api_service_account:
-          todo: true
+          computed: true
+          optional: true
+          fields:
+            email:
+              required: true
         redpanda_connect_service_account:
-          todo: true
+          computed: true
+          optional: true
+          fields:
+            email:
+              required: true
         redpanda_operator_service_account:
-          todo: true
+          computed: true
+          optional: true
+          fields:
+            email:
+              required: true
     # RequiresReplace on the arm as well as on every leaf: the framework skips
     # nested modifiers when the planned parent is null, so the arm-level marker
     # is what covers removing an optional block, and the control plane has no

@@ -93,6 +93,21 @@ func TestExpandCustomerManagedResourceLeaves(t *testing.T) {
 			},
 		},
 		{
+			name: "gcp redpanda_connect and operator service accounts added",
+			in:   []string{"customer_managed_resources"},
+			plan: gcpCMR(func(g *controlplanev1.CustomerManagedResourcesUpdate_GCP) {
+				g.RedpandaConnectApiServiceAccount = &controlplanev1.GCPServiceAccount{Email: "rpcn-api@x.iam"}
+				g.RedpandaConnectServiceAccount = &controlplanev1.GCPServiceAccount{Email: "rpcn@x.iam"}
+				g.RedpandaOperatorServiceAccount = &controlplanev1.GCPServiceAccount{Email: "op@x.iam"}
+			}),
+			state: gcpCMR(nil),
+			want: []string{
+				"customer_managed_resources.gcp.redpanda_connect_api_service_account.email",
+				"customer_managed_resources.gcp.redpanda_connect_service_account.email",
+				"customer_managed_resources.gcp.redpanda_operator_service_account.email",
+			},
+		},
+		{
 			name: "aws rpsql leaves key by public rpsql_* name",
 			in:   []string{"customer_managed_resources"},
 			plan: awsCMR(func(a *controlplanev1.CustomerManagedResourcesUpdate_AWS) {
