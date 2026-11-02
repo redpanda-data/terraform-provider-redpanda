@@ -187,3 +187,38 @@ func TestExpandCustomerManagedResourceLeaves(t *testing.T) {
 		})
 	}
 }
+
+// TestClearEmptyConnectMessages pins that a Connect or operator message whose
+// leaf is empty, the shape a leaf-only clear leaves on the control plane and
+// the plan carries back, is dropped from the update payload: the control
+// plane validates the whole message and refuses an empty required leaf.
+func TestClearEmptyConnectMessages(t *testing.T) {
+	aws := awsCMR(func(a *controlplanev1.CustomerManagedResourcesUpdate_AWS) {
+		a.RedpandaConnectSecurityGroup = &controlplanev1.AWSSecurityGroup{Arn: ""}
+		a.RpsqlSecurityGroup = &controlplanev1.AWSSecurityGroup{Arn: ""}
+	})
+	ClearEmptyConnectMessages(aws)
+	if aws.GetAws().GetRedpandaConnectSecurityGroup() != nil {
+		t.Errorf("empty connect security group survived: %v", aws.GetAws().GetRedpandaConnectSecurityGroup())
+	}
+	if aws.GetAws().GetRedpandaConnectNodeGroupInstanceProfile().GetArn() != "arn:rc-ng-a" {
+		t.Errorf("populated connect profile changed: %v", aws.GetAws().GetRedpandaConnectNodeGroupInstanceProfile())
+	}
+	if aws.GetAws().GetRpsqlSecurityGroup() == nil {
+		t.Error("rpsql security group is not a Connect message and must stay")
+	}
+
+	gcp := gcpCMR(func(g *controlplanev1.CustomerManagedResourcesUpdate_GCP) {
+		g.RedpandaConnectServiceAccount = &controlplanev1.GCPServiceAccount{Email: ""}
+		g.RedpandaConnectApiServiceAccount = &controlplanev1.GCPServiceAccount{Email: "api@tfrp-proj.iam.gserviceaccount.com"}
+		g.RedpandaOperatorServiceAccount = &controlplanev1.GCPServiceAccount{Email: ""}
+	})
+	ClearEmptyConnectMessages(gcp)
+	if gcp.GetGcp().GetRedpandaConnectServiceAccount() != nil || gcp.GetGcp().GetRedpandaOperatorServiceAccount() != nil {
+		t.Errorf("empty accounts survived: %v", gcp.GetGcp())
+	}
+	if gcp.GetGcp().GetRedpandaConnectApiServiceAccount().GetEmail() == "" {
+		t.Errorf("populated account changed: %v", gcp.GetGcp())
+	}
+	ClearEmptyConnectMessages(nil)
+}
