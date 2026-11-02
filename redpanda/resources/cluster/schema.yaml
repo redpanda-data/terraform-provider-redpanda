@@ -259,14 +259,20 @@ customer_managed_resources:
             arn:
               plan_modifiers: [RequiresReplace]
               required: true
+        # Computed as well as optional: the control plane accepts clearing a
+        # Connect block and then turns Redpanda Connect off, so a block the
+        # server holds must survive a config that omits it (set out of band,
+        # or dropped from an earlier config) instead of being cleared. The
+        # control plane enables Connect only when both are set; the resource's
+        # ModifyPlan checks the pair on planned values.
         redpanda_connect_node_group_instance_profile:
-          computed: false
+          computed: true
           optional: true
           fields:
             arn:
               required: true
         redpanda_connect_security_group:
-          computed: false
+          computed: true
           optional: true
           fields:
             arn:
