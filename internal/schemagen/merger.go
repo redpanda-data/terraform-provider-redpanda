@@ -40,6 +40,9 @@ func Merge(proto *ProtoMessage, cfg *Config, schemaType string, apiIndex *apides
 	applyTimestampDeny(&attrs)
 
 	applyScopedDescriptions(attrs, cfg.APISchema, "")
+	if schemaType != SchemaTypeDatasource {
+		applyResourceScopedDescriptions(attrs, cfg.APISchema, "")
+	}
 
 	if apiIndex != nil && cfg.APISchema != "" {
 		stats = applyAPIDescriptions(attrs, cfg.APISchema, cfg.APIWriteSchemas, "", apiIndex)
@@ -127,11 +130,21 @@ func walkAttrs(attrs []SchemaAttr, parentPath string, visit func(a *SchemaAttr, 
 // table. It runs before the apidesc pass, which only fills empty
 // descriptions, so scoped text wins by construction.
 func applyScopedDescriptions(attrs []SchemaAttr, scope, parentPath string) {
+	applyDescriptionTable(attrs, scope, parentPath, scopedDescriptions)
+}
+
+// applyResourceScopedDescriptions overlays the resource-only text, which
+// talks about configuring the attribute and has no place on a data source.
+func applyResourceScopedDescriptions(attrs []SchemaAttr, scope, parentPath string) {
+	applyDescriptionTable(attrs, scope, parentPath, resourceScopedDescriptions)
+}
+
+func applyDescriptionTable(attrs []SchemaAttr, scope, parentPath string, table map[string]string) {
 	if scope == "" {
 		return
 	}
 	walkAttrs(attrs, parentPath, func(a *SchemaAttr, parentPath string) {
-		if desc, ok := scopedDescriptions[scope+"."+joinPath(parentPath, a.Name)]; ok {
+		if desc, ok := table[scope+"."+joinPath(parentPath, a.Name)]; ok {
 			a.Description = desc
 		}
 	})

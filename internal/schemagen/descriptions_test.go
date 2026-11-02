@@ -15,6 +15,7 @@
 package schemagen
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/apidesc"
@@ -73,6 +74,44 @@ func TestMerge_ScopedDescriptionBeatsAPIDesc(t *testing.T) {
 				t.Errorf("plain: apidesc must apply; got %q", a.Description)
 			}
 		default:
+		}
+	}
+}
+
+func withResourceScopedDescription(t *testing.T, key, text string) {
+	t.Helper()
+	prev, had := resourceScopedDescriptions[key]
+	resourceScopedDescriptions[key] = text
+	t.Cleanup(func() {
+		if had {
+			resourceScopedDescriptions[key] = prev
+		} else {
+			delete(resourceScopedDescriptions, key)
+		}
+	})
+}
+
+// TestMerge_ResourceScopedDescriptionSkipsDatasource: text about configuring
+// an attribute belongs to the resource; the data source, where the attribute
+// is read-only, keeps the shared text.
+func TestMerge_ResourceScopedDescriptionSkipsDatasource(t *testing.T) {
+	withScopedDescription(t, "Foo.bounded", "Shared text.")
+	withResourceScopedDescription(t, "Foo.bounded", "Shared text. Set it together with its partner.")
+	proto := &ProtoMessage{
+		Name:   "Foo",
+		Fields: []ProtoField{{Name: "bounded", Kind: KindString, Cardinality: "singular"}},
+	}
+	cfg := &Config{APISchema: "Foo", API: &APIConfig{}}
+	for schemaType, want := range map[string]string{
+		"resource":           "Shared text. Set it together with its partner.",
+		SchemaTypeDatasource: "Shared text.",
+	} {
+		attrs, _, _, errs := Merge(proto, cfg, schemaType, descTestIndex())
+		if len(errs) != 0 {
+			t.Fatalf("%s: unexpected errors: %v", schemaType, errs)
+		}
+		if got := attrs[0].Description; got != want {
+			t.Errorf("%s: description = %q, want %q", schemaType, got, want)
 		}
 	}
 }
@@ -207,6 +246,22 @@ func TestMerge_ScopedDescriptionOnExtraField(t *testing.T) {
 	for _, a := range attrs {
 		if a.Name == "tags" && a.Description != "Tags with provider-side filtering." {
 			t.Errorf("tags: want scoped text; got %q", a.Description)
+		}
+	}
+}
+
+// TestResourceScopedDescriptionsExtendShared pins that every resource-only
+// entry overlays a shared entry and starts with its text, so the data source
+// and the resource never describe an attribute differently in substance.
+func TestResourceScopedDescriptionsExtendShared(t *testing.T) {
+	for key, text := range resourceScopedDescriptions {
+		shared, ok := scopedDescriptions[key]
+		if !ok {
+			t.Errorf("%s: resource-only text without a shared entry", key)
+			continue
+		}
+		if !strings.HasPrefix(text, shared) {
+			t.Errorf("%s: resource text does not start with the shared text %q", key, shared)
 		}
 	}
 }
