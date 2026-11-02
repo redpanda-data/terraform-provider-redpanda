@@ -2782,7 +2782,8 @@ func TestIntegration_Cluster_CMR_AWS_ConnectPairRequired(t *testing.T) {
 // The control plane clears the leaves in both cases, so they could never read
 // back.
 func TestIntegration_Cluster_CMR_RpsqlLeavesNeedEnabledRpsql(t *testing.T) {
-	cannotSet := regexp.MustCompile(`cannot\s+be\s+set\s+while`)
+	createdOff := regexp.MustCompile(`is\s+created\s+with\s+Redpanda\s+SQL\s+off`)
+	keepsOff := regexp.MustCompile(`keeps\s+its\s+current\s+setting`)
 	t.Run("gcp create", func(t *testing.T) {
 		_, factories := clusterSetup(t)
 		resource.UnitTest(t, resource.TestCase{
@@ -2790,7 +2791,7 @@ func TestIntegration_Cluster_CMR_RpsqlLeavesNeedEnabledRpsql(t *testing.T) {
 			Steps: []resource.TestStep{{
 				Config:      gcpBYOVPCConfig(gcpBYOVPCOpts{name: "tfrp-mock-cl-rpsql-c", rpsql: true, omitRpsqlBlock: true}),
 				PlanOnly:    true,
-				ExpectError: cannotSet,
+				ExpectError: createdOff,
 			}},
 		})
 	})
@@ -2801,7 +2802,7 @@ func TestIntegration_Cluster_CMR_RpsqlLeavesNeedEnabledRpsql(t *testing.T) {
 			Steps: []resource.TestStep{{
 				Config:      awsBYOVPCConfig(awsBYOVPCOpts{name: "tfrp-mock-cl-rpsql-c", rpsql: true, omitRpsqlBlock: true}),
 				PlanOnly:    true,
-				ExpectError: cannotSet,
+				ExpectError: createdOff,
 			}},
 		})
 	})
@@ -2815,7 +2816,7 @@ func TestIntegration_Cluster_CMR_RpsqlLeavesNeedEnabledRpsql(t *testing.T) {
 				{
 					Config:      gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, rpsql: true, omitRpsqlBlock: true}),
 					PlanOnly:    true,
-					ExpectError: cannotSet,
+					ExpectError: keepsOff,
 				},
 			},
 		})

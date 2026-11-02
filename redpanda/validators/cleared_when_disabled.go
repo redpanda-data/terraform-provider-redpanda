@@ -26,8 +26,10 @@ import (
 )
 
 var (
-	_ validator.List  = ClearedWhenDisabledListValidator{}
-	_ validator.Int32 = ClearedWhenDisabledInt32Validator{}
+	_ validator.List   = ClearedWhenDisabledListValidator{}
+	_ validator.Int32  = ClearedWhenDisabledInt32Validator{}
+	_ validator.Object = ClearedWhenDisabledObjectValidator{}
+	_ validator.String = ClearedWhenDisabledStringValidator{}
 )
 
 // ClearedWhenDisabledListValidator rejects a configured list while the sibling
@@ -85,19 +87,86 @@ func (v ClearedWhenDisabledInt32Validator) ValidateInt32(ctx context.Context, re
 	}
 }
 
+// ClearedWhenDisabledObjectValidator is the object variant of
+// ClearedWhenDisabledListValidator.
+type ClearedWhenDisabledObjectValidator struct {
+	Enabled path.Path
+}
+
+// Description provides a description of the validator.
+func (v ClearedWhenDisabledObjectValidator) Description(ctx context.Context) string {
+	return v.MarkdownDescription(ctx)
+}
+
+// MarkdownDescription provides a description of the validator in markdown format.
+func (v ClearedWhenDisabledObjectValidator) MarkdownDescription(_ context.Context) string {
+	return fmt.Sprintf("Cannot be set while %q is false: the control plane clears it on disable", v.Enabled)
+}
+
+// ValidateObject rejects a non-null value while the enabled sibling is off.
+func (v ClearedWhenDisabledObjectValidator) ValidateObject(ctx context.Context, req validator.ObjectRequest, resp *validator.ObjectResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if enabledOff(ctx, req.Config, v.Enabled, &resp.Diagnostics) {
+		resp.Diagnostics.Append(clearedWhenDisabledDiag(req.Path, v.Enabled))
+	}
+}
+
+// ClearedWhenDisabledStringValidator is the string variant of
+// ClearedWhenDisabledListValidator. An explicit "" stays legal: it matches the
+// value the control plane resets the field to on disable.
+type ClearedWhenDisabledStringValidator struct {
+	Enabled path.Path
+}
+
+// Description provides a description of the validator.
+func (v ClearedWhenDisabledStringValidator) Description(ctx context.Context) string {
+	return v.MarkdownDescription(ctx)
+}
+
+// MarkdownDescription provides a description of the validator in markdown format.
+func (v ClearedWhenDisabledStringValidator) MarkdownDescription(_ context.Context) string {
+	return fmt.Sprintf("Cannot be set to a non-empty value while %q is false: the control plane clears it on disable", v.Enabled)
+}
+
+// ValidateString rejects a non-empty value while the enabled sibling is off.
+func (v ClearedWhenDisabledStringValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() || req.ConfigValue.ValueString() == "" {
+		return
+	}
+	if enabledOff(ctx, req.Config, v.Enabled, &resp.Diagnostics) {
+		resp.Diagnostics.Append(clearedWhenDisabledDiag(req.Path, v.Enabled))
+	}
+}
+
 // enabledOff reports whether the enabled flag at p resolves to off in config.
-// A null flag counts as off (the schema defaults it to false); an unknown flag
-// defers to apply-time server validation.
+// A null flag inside a configured block counts as off (the schema defaults it
+// to false). An unknown flag defers: Terraform re-validates the config at apply
+// once it is known, and this validator runs again then. A null enclosing block
+// also defers, because an Optional+Computed block omitted from config plans as
+// its prior state on update and as the server default on create, neither of
+// which config shows; a plan-time check on the planned flag covers that case.
 func enabledOff(ctx context.Context, cfg tfsdk.Config, p path.Path, diags *diag.Diagnostics) bool {
+	if parent := p.ParentPath(); !parent.Equal(path.Empty()) {
+		var block types.Object
+		d := cfg.GetAttribute(ctx, parent, &block)
+		diags.Append(d...)
+		if d.HasError() || block.IsNull() || block.IsUnknown() {
+			return false
+		}
+	}
 	var enabled types.Bool
 	d := cfg.GetAttribute(ctx, p, &enabled)
 	diags.Append(d...)
 	if d.HasError() || enabled.IsUnknown() {
 		return false
 	}
-	return enabled.IsNull() || !enabled.ValueBool()
+	return !enabled.ValueBool()
 }
 
+// clearedWhenDisabledDiag is the error for a value set while the enabled flag
+// it depends on is off.
 func clearedWhenDisabledDiag(attr, enabled path.Path) diag.Diagnostic {
 	return diag.NewAttributeErrorDiagnostic(
 		attr,

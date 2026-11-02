@@ -127,3 +127,35 @@ func ExpandCustomerManagedResourceLeaves(fm *fieldmaskpb.FieldMask, plan, state 
 	}
 	fm.Paths = out
 }
+
+// ClearEmptyConnectMessages drops, in place, every Redpanda Connect and
+// operator message whose leaf is empty. A leaf-only clear on the control
+// plane (an out-of-band clear, or a provider release that masked only the
+// leaf) leaves an empty message behind, which reads back as a block with an
+// empty value and is carried into the next plan. The control plane validates
+// the whole update message, mask or not, and refuses an empty required leaf,
+// so the message must not be sent. A carried value equals its state value,
+// so the mask never names it and the control plane keeps whatever it holds;
+// an empty value written in config never gets here, the proto validator
+// rejects it at plan.
+func ClearEmptyConnectMessages(upd *controlplanev1.CustomerManagedResourcesUpdate) {
+	if gcp := upd.GetGcp(); gcp != nil {
+		if gcp.GetRedpandaConnectServiceAccount().GetEmail() == "" {
+			gcp.RedpandaConnectServiceAccount = nil
+		}
+		if gcp.GetRedpandaConnectApiServiceAccount().GetEmail() == "" {
+			gcp.RedpandaConnectApiServiceAccount = nil
+		}
+		if gcp.GetRedpandaOperatorServiceAccount().GetEmail() == "" {
+			gcp.RedpandaOperatorServiceAccount = nil
+		}
+	}
+	if aws := upd.GetAws(); aws != nil {
+		if aws.GetRedpandaConnectNodeGroupInstanceProfile().GetArn() == "" {
+			aws.RedpandaConnectNodeGroupInstanceProfile = nil
+		}
+		if aws.GetRedpandaConnectSecurityGroup().GetArn() == "" {
+			aws.RedpandaConnectSecurityGroup = nil
+		}
+	}
+}

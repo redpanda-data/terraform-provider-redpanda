@@ -55,10 +55,20 @@ func ByocAgentManagedByRedpanda(ctx context.Context, client cloud.CpClientSet, t
 	if !ByocAgentCanBeRedpandaManaged(t, cp) {
 		return false, nil
 	}
-	var managed bool
-	err := Retry(ctx, byocAgentNetworkReadTimeout, func() *RetryError {
+	nw, err := NetworkForIDRetrying(ctx, client, networkID, byocAgentNetworkReadTimeout)
+	if err != nil {
+		return false, err
+	}
+	return nw.GetCloudProviderAccessId() != "", nil
+}
+
+// NetworkForIDRetrying reads the network, retrying a transient failure for up
+// to budget; any other failure is returned as is.
+func NetworkForIDRetrying(ctx context.Context, client cloud.CpClientSet, networkID string, budget time.Duration) (*controlplanev1.Network, error) {
+	var nw *controlplanev1.Network
+	err := Retry(ctx, budget, func() *RetryError {
 		var err error
-		managed, err = NetworkUsesCloudProviderAccess(ctx, client, networkID)
+		nw, err = client.NetworkForID(ctx, networkID)
 		switch {
 		case err == nil:
 			return nil
@@ -68,5 +78,5 @@ func ByocAgentManagedByRedpanda(ctx context.Context, client cloud.CpClientSet, t
 			return NonRetryableError(err)
 		}
 	})
-	return managed, err
+	return nw, err
 }
