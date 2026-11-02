@@ -23,6 +23,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/config"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/acc"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/acc/sweep"
 )
@@ -70,6 +71,7 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 	}))
 
 	cfg := resolveRunnerOpts(opts)
+	var clusterID string
 	var steps []resource.TestStep
 	if !cfg.skipUpgradeEntry {
 		steps = acc.UpgradeEntrySteps(t, testFile, origTestCaseVars)
@@ -101,10 +103,57 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 				resource.TestCheckResourceAttr(acc.ResourceGroupName, "name", name),
 				resource.TestCheckResourceAttr(acc.NetworkResourceName, "name", name),
 				resource.TestCheckResourceAttr(acc.ClusterResourceName, "name", rename),
+				resource.TestCheckResourceAttrWith(acc.ClusterResourceName, "id", func(v string) error {
+					clusterID = v
+					return nil
+				}),
 			),
 			ProtoV6ProviderFactories: acc.ProtoV6Factories,
 		},
 	}...)
+	renameVars := updateTestCaseVars
+	noChange := resource.ConfigPlanChecks{
+		PreApply: []plancheck.PlanCheck{
+			plancheck.ExpectResourceAction(acc.ClusterResourceName, plancheck.ResourceActionNoop),
+		},
+	}
+	if cfg.outOfBandAdd != nil {
+		steps = append(steps, resource.TestStep{
+			PreConfig: func() {
+				if err := cfg.outOfBandAdd.apply(ctx, c, clusterID); err != nil {
+					t.Fatalf("out-of-band update of cluster %s: %v", clusterID, err)
+				}
+			},
+			ConfigDirectory:          config.StaticDirectory(testFile),
+			ConfigVariables:          renameVars,
+			ConfigPlanChecks:         noChange,
+			Check:                    resource.ComposeAggregateTestCheckFunc(cfg.outOfBandAdd.checks...),
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		})
+	}
+	if cfg.inPlaceAdd != nil {
+		// A fresh map: the rename step above still holds the old one.
+		updateTestCaseVars = maps.Clone(updateTestCaseVars)
+		maps.Copy(updateTestCaseVars, cfg.inPlaceAdd.vars)
+		steps = append(steps, resource.TestStep{
+			ConfigDirectory: config.StaticDirectory(testFile),
+			ConfigVariables: updateTestCaseVars,
+			ConfigPlanChecks: resource.ConfigPlanChecks{
+				PreApply: []plancheck.PlanCheck{
+					plancheck.ExpectResourceAction(acc.ClusterResourceName, plancheck.ResourceActionUpdate),
+				},
+			},
+			Check:                    resource.ComposeAggregateTestCheckFunc(cfg.inPlaceAdd.checks...),
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		})
+		steps = append(steps, resource.TestStep{
+			ConfigDirectory:          config.StaticDirectory(testFile),
+			ConfigVariables:          renameVars,
+			ConfigPlanChecks:         noChange,
+			Check:                    resource.ComposeAggregateTestCheckFunc(cfg.inPlaceAdd.checks...),
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		})
+	}
 	if cfg.byocAgentApply {
 		steps = append(steps, byocAgentApplyStep(t, testFile, updateTestCaseVars))
 	}

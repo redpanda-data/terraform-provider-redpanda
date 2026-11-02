@@ -71,6 +71,15 @@ resource "redpanda_cluster" "test" {
       tiered_storage_bucket = {
         name = var.tiered_storage_bucket_name
       }
+      redpanda_connect_api_service_account = var.redpanda_connect_api_service_account_email == null ? null : {
+        email = var.redpanda_connect_api_service_account_email
+      }
+      redpanda_connect_service_account = var.redpanda_connect_service_account_email == null ? null : {
+        email = var.redpanda_connect_service_account_email
+      }
+      redpanda_operator_service_account = var.redpanda_operator_service_account_email == null ? null : {
+        email = var.redpanda_operator_service_account_email
+      }
     }
   }
 }
@@ -251,6 +260,26 @@ variable "gke_service_account_email" {
 variable "tiered_storage_bucket_name" {
   description = "Tiered storage bucket name"
   type        = string
+}
+
+# Null by default so the provider-upgrade entry, which applies with a released
+# provider that predates these attributes, sees the same configuration.
+variable "redpanda_connect_api_service_account_email" {
+  description = "Redpanda Connect API service account email"
+  type        = string
+  default     = null
+}
+
+variable "redpanda_connect_service_account_email" {
+  description = "Redpanda Connect service account email"
+  type        = string
+  default     = null
+}
+
+variable "redpanda_operator_service_account_email" {
+  description = "Redpanda Operator service account email"
+  type        = string
+  default     = null
 }
 
 variable "cluster_tags" {
