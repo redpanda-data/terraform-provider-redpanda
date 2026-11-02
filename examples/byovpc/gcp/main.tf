@@ -8,7 +8,11 @@ provider "redpanda" {}
 
 # Use the Redpanda GCP BYOVPC module
 module "redpanda_gcp" {
-  source                             = "redpanda-data/redpanda-byovpc/gcp"
+  source = "redpanda-data/redpanda-byovpc/gcp"
+  # Releases before 1.0.4 bind the operator's workload identity to a fixed
+  # Kubernetes service account name, but the cluster uses the supplied
+  # operator account's name.
+  version                            = ">= 1.0.4, < 2.0.0"
   service_project_id                 = var.project_id
   region                             = var.region
   unique_identifier                  = var.environment
@@ -91,9 +95,21 @@ resource "redpanda_cluster" "test" {
       tiered_storage_bucket = {
         name = module.redpanda_gcp.tiered_storage_bucket_name
       }
+      # Redpanda Connect runs only when both Connect accounts are set, and
+      # secrets in cluster properties need the operator account.
+      redpanda_connect_api_service_account = {
+        email = module.redpanda_gcp.redpanda_connect_api_service_account_email
+      }
+      redpanda_connect_service_account = {
+        email = module.redpanda_gcp.redpanda_connect_service_account_email
+      }
+      redpanda_operator_service_account = {
+        email = module.redpanda_gcp.redpanda_operator_service_account_email
+      }
 
-      # Redpanda SQL. The byovpc module does not create these yet, so supply
-      # them yourself when enabling rpsql; null leaves rpsql unconfigured.
+      # Redpanda SQL. The byovpc module creates these when its
+      # enable_redpanda_sql input is true (redpanda_sql_* outputs); this example
+      # takes them as variables. null leaves rpsql unconfigured.
       rpsql_api_service_account = var.rpsql_enabled ? {
         email = var.rpsql_api_service_account_email
       } : null

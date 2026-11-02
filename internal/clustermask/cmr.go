@@ -42,6 +42,15 @@ var cmrUpdatableLeaves = []cmrLeaf{
 	{"customer_managed_resources.gcp.psc_nat_subnet_name", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetGcp().GetPscNatSubnetName()
 	}},
+	{"customer_managed_resources.gcp.redpanda_connect_api_service_account.email", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+		return c.GetGcp().GetRedpandaConnectApiServiceAccount().GetEmail()
+	}},
+	{"customer_managed_resources.gcp.redpanda_connect_service_account.email", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+		return c.GetGcp().GetRedpandaConnectServiceAccount().GetEmail()
+	}},
+	{"customer_managed_resources.gcp.redpanda_operator_service_account.email", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+		return c.GetGcp().GetRedpandaOperatorServiceAccount().GetEmail()
+	}},
 	{"customer_managed_resources.gcp.rpsql_api_service_account.email", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetGcp().GetRpsqlApiServiceAccount().GetEmail()
 	}},
