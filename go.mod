@@ -30,7 +30,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/twmb/franz-go/pkg/sr v1.4.1-0.20250711145744-a849b8be17b7
 	go.uber.org/mock v0.5.0
-	golang.org/x/oauth2 v0.36.0
+	golang.org/x/oauth2 v0.37.0
 	golang.org/x/sync v0.23.0
 	golang.org/x/time v0.11.0
 	google.golang.org/genproto v0.0.0-20250313205543-e70fdf4c4cb4
