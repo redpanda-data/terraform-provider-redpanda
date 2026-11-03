@@ -305,7 +305,7 @@ customer_managed_resources:
         # enabled, so optional unlike the required siblings.
         rpsql_node_group_instance_profile:
           validator:
-            - "ClearedWhenDisabledObject{enabled: rpsql.enabled}"
+            - "ClearedWhenDisabled{enabled: rpsql.enabled}"
           computed: false
           optional: true
           fields:
@@ -313,7 +313,7 @@ customer_managed_resources:
               required: true
         rpsql_cloud_storage_bucket:
           validator:
-            - "ClearedWhenDisabledObject{enabled: rpsql.enabled}"
+            - "ClearedWhenDisabled{enabled: rpsql.enabled}"
           computed: false
           optional: true
           fields:
@@ -321,7 +321,7 @@ customer_managed_resources:
               required: true
         rpsql_security_group:
           validator:
-            - "ClearedWhenDisabledObject{enabled: rpsql.enabled}"
+            - "ClearedWhenDisabled{enabled: rpsql.enabled}"
           computed: false
           optional: true
           fields:
@@ -368,7 +368,7 @@ customer_managed_resources:
         # enabled, so optional unlike the required siblings.
         rpsql_api_service_account:
           validator:
-            - "ClearedWhenDisabledObject{enabled: rpsql.enabled}"
+            - "ClearedWhenDisabled{enabled: rpsql.enabled}"
           computed: false
           optional: true
           fields:
@@ -376,7 +376,7 @@ customer_managed_resources:
               required: true
         rpsql_cloud_storage_bucket:
           validator:
-            - "ClearedWhenDisabledObject{enabled: rpsql.enabled}"
+            - "ClearedWhenDisabled{enabled: rpsql.enabled}"
           computed: false
           optional: true
           fields:
@@ -384,12 +384,12 @@ customer_managed_resources:
               required: true
         rpsql_secret_manager_prefix:
           validator:
-            - "ClearedWhenDisabledString{enabled: rpsql.enabled}"
+            - "ClearedWhenDisabled{enabled: rpsql.enabled}"
           computed: false
           optional: true
         rpsql_service_account:
           validator:
-            - "ClearedWhenDisabledObject{enabled: rpsql.enabled}"
+            - "ClearedWhenDisabled{enabled: rpsql.enabled}"
           computed: false
           optional: true
           fields:
@@ -824,7 +824,7 @@ rpsql:
       # Non-zero replicas cannot ride a disabled spec: the control plane
       # resets replicas to 0 on disable and plan==config would contradict it.
       validator:
-        - "ClearedWhenDisabledInt32{enabled: rpsql.enabled}"
+        - "ClearedWhenDisabled{enabled: rpsql.enabled}"
     url:
       computed_only: true
       # Server derives on enable. Same sibling-rise pin as zones: stays unknown
@@ -847,7 +847,7 @@ rpsql:
       # (plan==config vs the server's clear), hence the validator.
       plan_modifiers: [PinStateUnlessRpsqlEnables]
       validator:
-        - "ClearedWhenDisabledList{enabled: rpsql.enabled}"
+        - "ClearedWhenDisabled{enabled: rpsql.enabled}"
 
 maintenance_window_config:
   optional: true

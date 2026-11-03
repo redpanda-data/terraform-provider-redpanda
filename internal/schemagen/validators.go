@@ -247,37 +247,12 @@ var validatorRegistry = map[string]ValidatorDef{
 		Imports:  []string{"github.com/hashicorp/terraform-plugin-framework-validators/boolvalidator"},
 		AttrType: "Bool",
 	},
-	"ClearedWhenDisabledList": {
+	"ClearedWhenDisabled": {
 		Parameterized: true,
 		GenFunc: func(_ string, params map[string]string) (string, []string) {
-			return fmt.Sprintf("validators.ClearedWhenDisabledListValidator{Enabled: %s}", pathExprFromDotted(params["enabled"])),
+			return fmt.Sprintf("validators.ClearedWhenDisabled{Enabled: %s}", pathExprFromDotted(params["enabled"])),
 				[]string{validatorsImport, "github.com/hashicorp/terraform-plugin-framework/path"}
 		},
-		AttrType: "List",
-	},
-	"ClearedWhenDisabledInt32": {
-		Parameterized: true,
-		GenFunc: func(_ string, params map[string]string) (string, []string) {
-			return fmt.Sprintf("validators.ClearedWhenDisabledInt32Validator{Enabled: %s}", pathExprFromDotted(params["enabled"])),
-				[]string{validatorsImport, "github.com/hashicorp/terraform-plugin-framework/path"}
-		},
-		AttrType: "Int32",
-	},
-	"ClearedWhenDisabledObject": {
-		Parameterized: true,
-		GenFunc: func(_ string, params map[string]string) (string, []string) {
-			return fmt.Sprintf("validators.ClearedWhenDisabledObjectValidator{Enabled: %s}", pathExprFromDotted(params["enabled"])),
-				[]string{validatorsImport, "github.com/hashicorp/terraform-plugin-framework/path"}
-		},
-		AttrType: "Object",
-	},
-	"ClearedWhenDisabledString": {
-		Parameterized: true,
-		GenFunc: func(_ string, params map[string]string) (string, []string) {
-			return fmt.Sprintf("validators.ClearedWhenDisabledStringValidator{Enabled: %s}", pathExprFromDotted(params["enabled"])),
-				[]string{validatorsImport, "github.com/hashicorp/terraform-plugin-framework/path"}
-		},
-		AttrType: "String",
 	},
 }
 
