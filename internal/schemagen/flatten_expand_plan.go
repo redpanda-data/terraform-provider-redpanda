@@ -59,14 +59,17 @@ func wrapperSuffix(pf *ProtoField) string {
 
 // renderScalarHeuristicFlatten emits the three-arm FlattenStmt used when a TF
 // attribute is Optional-only but the proto field carries no presence: prefer
-// the proto value when non-zero, fall back to prev (preserving user
-// null-vs-zero intent), then null. Used for every scalar AttrType.
+// the proto value when non-zero, otherwise keep prev only when prev is null
+// or the same zero (the user's null-vs-zero intent), otherwise null. A
+// non-zero prev against a zero proto value is a server-side clear, and
+// keeping prev there would hide the drift. Used for every scalar AttrType.
 func renderScalarHeuristicFlatten(conv *FieldConversion, sh scalarShape) string {
 	return fmt.Sprintf(
-		"if v := proto.Get%s(); v != %s {\n\t\tm.%s = types.%sValue(v)\n\t} else if prev != nil && !prev.%s.IsUnknown() {\n\t\tm.%s = prev.%s\n\t} else {\n\t\tm.%s = types.%sNull()\n\t}",
+		"if v := proto.Get%s(); v != %s {\n\t\tm.%s = types.%sValue(v)\n\t} else if prev != nil && !prev.%s.IsUnknown() && prev.%s%s == %s {\n\t\tm.%s = prev.%s\n\t} else {\n\t\tm.%s = types.%sNull()\n\t}",
 		conv.ProtoGoName, sh.zeroSentinel,
 		conv.GoName, sh.tfTypeWord,
-		conv.GoName, conv.GoName, conv.GoName,
+		conv.GoName, conv.GoName, sh.expandValueFn, sh.zeroSentinel,
+		conv.GoName, conv.GoName,
 		conv.GoName, sh.tfTypeWord,
 	)
 }
