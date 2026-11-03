@@ -218,6 +218,12 @@ type FieldConfig struct {
 
 	FlattenFromPrev bool `yaml:"flatten_from_prev,omitempty"`
 
+	// EmptyIsNull folds an all-empty echo of a single-nested block of
+	// presence-less strings to null on read. Optional blocks fold without
+	// it; it exists for a data source whose block mirrors an Optional
+	// resource block, since the data source schema marks nothing Optional.
+	EmptyIsNull bool `yaml:"empty_is_null,omitempty"`
+
 	// EchoUnwrap marks a repeated-message field whose READ element wraps the
 	// WRITE element in a single message field (the "spec echo" pattern, e.g.
 	// ConnectionStatus{config ConnectionSpec, endpoint}). The generator hoists
