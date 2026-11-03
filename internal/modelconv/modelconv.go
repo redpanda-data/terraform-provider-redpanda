@@ -204,6 +204,18 @@ func ObjectToMessage[Model any, Proto any](
 	return out, diags
 }
 
+// NilIfZero returns nil when isZero reports every leaf of the message at
+// its zero value, so the caller flattens the message to null. It serves an
+// optional block of presence-less string identifiers, which cannot say
+// "present but empty": a leaf-mask clear leaves the control plane echoing
+// the block with empty leaves, and that echo means the block is gone.
+func NilIfZero[Proto any](proto *Proto, isZero func(*Proto) bool) *Proto {
+	if proto == nil || isZero(proto) {
+		return nil
+	}
+	return proto
+}
+
 // ObjectFromMessageWithDiagsAndPrev converts a single proto message into
 // types.Object, appending diagnostics. The flatten function receives the prior
 // per-resource Model state so Flatten can preserve user-supplied
