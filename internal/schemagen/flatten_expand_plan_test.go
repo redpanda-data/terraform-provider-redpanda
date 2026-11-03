@@ -1146,3 +1146,207 @@ func TestUsesEnumsPkg_StmtPaths(t *testing.T) {
 		})
 	}
 }
+
+// TestSingleNestedZeroFold pins which single-nested attributes fold an
+// all-empty echo to null, and which empty_is_null placements fail generation.
+func TestSingleNestedZeroFold(t *testing.T) {
+	scalarLeaves := []ProtoField{
+		{Name: "arn", Kind: KindString, Cardinality: "singular"},
+		{Name: "name", Kind: KindString, Cardinality: "singular"},
+	}
+	cases := []struct {
+		name     string
+		attr     SchemaAttr
+		leaves   []ProtoField
+		oneof    string
+		fc       *FieldConfig
+		leafOpt  bool
+		attrType string
+		fold     bool
+		wantErr  string
+	}{
+		{
+			name:   "optional, presence-less scalars",
+			attr:   SchemaAttr{Optional: true},
+			leaves: scalarLeaves,
+			fold:   true,
+		},
+		{
+			name:   "optional+computed, presence-less scalars",
+			attr:   SchemaAttr{Optional: true, Computed: true},
+			leaves: scalarLeaves,
+			fold:   true,
+		},
+		{
+			name:   "computed-only (server-owned, data source shape)",
+			attr:   SchemaAttr{Computed: true},
+			leaves: scalarLeaves,
+			fold:   false,
+		},
+		{
+			name:    "no required schema leaf, so an empty block is configurable",
+			attr:    SchemaAttr{Optional: true},
+			leaves:  scalarLeaves,
+			leafOpt: true,
+			fold:    false,
+		},
+		{
+			name:   "flatten_from_prev restores prev over the echo",
+			attr:   SchemaAttr{Optional: true},
+			leaves: scalarLeaves,
+			fc:     &FieldConfig{FlattenFromPrev: true},
+			fold:   false,
+		},
+		{
+			name:   "required",
+			attr:   SchemaAttr{Required: true},
+			leaves: scalarLeaves,
+			fold:   false,
+		},
+		{
+			name:   "oneof arm",
+			attr:   SchemaAttr{Optional: true, IsOneofArm: true},
+			leaves: scalarLeaves,
+			fold:   false,
+		},
+		{
+			name:   "proto oneof member under computed_default",
+			attr:   SchemaAttr{Optional: true},
+			leaves: scalarLeaves,
+			oneof:  "cloud_provider",
+			fold:   false,
+		},
+		{
+			name:   "leaf with presence",
+			attr:   SchemaAttr{Optional: true},
+			leaves: []ProtoField{{Name: "arn", Kind: KindString, Cardinality: "singular", IsOptional: true}},
+			fold:   false,
+		},
+		{
+			name:   "bool leaf",
+			attr:   SchemaAttr{Optional: true},
+			leaves: []ProtoField{{Name: "enabled", Kind: KindBool, Cardinality: "singular"}},
+			fold:   false,
+		},
+		{
+			name:   "numeric leaf",
+			attr:   SchemaAttr{Optional: true},
+			leaves: []ProtoField{{Name: "arn", Kind: KindString, Cardinality: "singular"}, {Name: "weight", Kind: KindInt64, Cardinality: "singular"}},
+			fold:   false,
+		},
+		{
+			name:   "oneof member",
+			attr:   SchemaAttr{Optional: true},
+			leaves: []ProtoField{{Name: "aws", Kind: KindString, Cardinality: "singular", OneofName: "cloud"}},
+			fold:   false,
+		},
+		{
+			name:   "repeated leaf",
+			attr:   SchemaAttr{Optional: true},
+			leaves: []ProtoField{{Name: "arns", Kind: KindString, Cardinality: KindRepeated}},
+			fold:   false,
+		},
+		{
+			name:   "enum leaf",
+			attr:   SchemaAttr{Optional: true},
+			leaves: []ProtoField{{Name: "mode", Kind: protoKindEnum, Cardinality: "singular", EnumName: "Mode"}},
+			fold:   false,
+		},
+		{
+			name:    "computed-only with empty_is_null (data source shape, no required leaf)",
+			attr:    SchemaAttr{Computed: true},
+			leaves:  scalarLeaves,
+			leafOpt: true,
+			fc:      &FieldConfig{EmptyIsNull: true},
+			fold:    true,
+		},
+		{
+			name:    "empty_is_null on a bool-bearing block",
+			attr:    SchemaAttr{Computed: true},
+			leaves:  []ProtoField{{Name: "enabled", Kind: KindBool, Cardinality: "singular"}},
+			fc:      &FieldConfig{EmptyIsNull: true},
+			wantErr: "empty_is_null",
+		},
+		{
+			name:    "empty_is_null on a required block",
+			attr:    SchemaAttr{Required: true},
+			leaves:  scalarLeaves,
+			fc:      &FieldConfig{EmptyIsNull: true},
+			wantErr: "empty_is_null",
+		},
+		{
+			name:    "empty_is_null on a oneof member",
+			attr:    SchemaAttr{Computed: true},
+			leaves:  scalarLeaves,
+			oneof:   "cloud_provider",
+			fc:      &FieldConfig{EmptyIsNull: true},
+			wantErr: "empty_is_null",
+		},
+		{
+			name:     "empty_is_null on a list-nested attribute",
+			attr:     SchemaAttr{Computed: true},
+			leaves:   scalarLeaves,
+			attrType: AttrTypeListNested,
+			fc:       &FieldConfig{EmptyIsNull: true},
+			wantErr:  "empty_is_null",
+		},
+		{
+			name:    "empty_is_null beside flatten_via",
+			attr:    SchemaAttr{Computed: true},
+			leaves:  scalarLeaves,
+			fc:      &FieldConfig{EmptyIsNull: true, FlattenVia: "customFlatten"},
+			wantErr: "empty_is_null",
+		},
+		{
+			name: "nested message of presence-less scalars",
+			attr: SchemaAttr{Optional: true},
+			leaves: []ProtoField{{Name: "inner", Kind: KindMessage, Cardinality: "singular", Nested: &ProtoMessage{
+				Name:   "Outer_Inner",
+				Fields: []ProtoField{{Name: "name", Kind: KindString, Cardinality: "singular"}},
+			}}},
+			fold: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a := tc.attr
+			a.Name = "security_group"
+			a.AttrType = AttrTypeSingleNested
+			if tc.attrType != "" {
+				a.AttrType = tc.attrType
+			}
+			a.NestedAttrs = []SchemaAttr{{Name: "arn", AttrType: AttrTypeString, Required: !tc.leafOpt, Optional: tc.leafOpt}}
+			pf := &ProtoField{Name: "security_group", Kind: KindMessage, Cardinality: "singular", OneofName: tc.oneof, Nested: &ProtoMessage{Name: "SecurityGroup", Fields: tc.leaves}}
+			if tc.attrType == AttrTypeListNested {
+				pf.Cardinality = KindRepeated
+			}
+			conv, err := planField(&a, tc.fc, map[string]*ProtoField{"security_group": pf}, "controlplanev1", "", true)
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("planField error = %v, want one mentioning %q", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("planField: %v", err)
+			}
+			const fold = "modelconv.NilIfZero(proto.GetSecurityGroup(), func(p *controlplanev1.SecurityGroup) bool {"
+			got := strings.Contains(conv.FlattenExpr, fold)
+			if got != tc.fold {
+				t.Fatalf("fold=%v, want %v\n--- FlattenExpr ---\n%s", got, tc.fold, conv.FlattenExpr)
+			}
+			if !tc.fold {
+				return
+			}
+			for _, leaf := range tc.leaves {
+				want := "p.Get" + toProtoGoName(leaf.Name) + "() == \"\""
+				if leaf.Kind == KindMessage {
+					want = "p.GetInner().GetName() == \"\""
+				}
+				if !strings.Contains(conv.FlattenExpr, want) {
+					t.Errorf("predicate missing %q\n--- FlattenExpr ---\n%s", want, conv.FlattenExpr)
+				}
+			}
+		})
+	}
+}
