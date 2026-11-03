@@ -802,10 +802,11 @@ func TestWrapperSuffix(t *testing.T) {
 }
 
 // TestRenderScalarHeuristicFlatten covers the three-arm FlattenStmt emitted
-// for TF-Optional + proto-no-presence scalar leaves, the path that resolves
-// Bugs 004 / 009 / 023 (null-vs-zero drift). Cases drawn from
-// scalar_mix_conv golden: description (String), enabled (Bool), max_count
-// (Int32), weight (Int64), price (Float64).
+// for TF-Optional + proto-no-presence scalar leaves. A zero proto value keeps
+// prev only when prev is null or the same zero, so a server-side clear of a
+// configured value reads back as null instead of the stale prev. Cases drawn
+// from scalar_mix_conv golden: description (String), enabled (Bool),
+// max_count (Int32), weight (Int64), price (Float64).
 func TestRenderScalarHeuristicFlatten(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -820,7 +821,7 @@ func TestRenderScalarHeuristicFlatten(t *testing.T) {
 			contains: []string{
 				`if v := proto.GetDescription(); v != "" {`,
 				`m.Description = types.StringValue(v)`,
-				`} else if prev != nil && !prev.Description.IsUnknown() {`,
+				`} else if prev != nil && !prev.Description.IsUnknown() && prev.Description.ValueString() == "" {`,
 				`m.Description = prev.Description`,
 				`m.Description = types.StringNull()`,
 			},
@@ -832,6 +833,7 @@ func TestRenderScalarHeuristicFlatten(t *testing.T) {
 			contains: []string{
 				`if v := proto.GetEnabled(); v != false {`,
 				`m.Enabled = types.BoolValue(v)`,
+				`} else if prev != nil && !prev.Enabled.IsUnknown() && prev.Enabled.ValueBool() == false {`,
 				`m.Enabled = prev.Enabled`,
 				`m.Enabled = types.BoolNull()`,
 			},
@@ -843,6 +845,7 @@ func TestRenderScalarHeuristicFlatten(t *testing.T) {
 			contains: []string{
 				`if v := proto.GetMaxCount(); v != 0 {`,
 				`m.MaxCount = types.Int32Value(v)`,
+				`} else if prev != nil && !prev.MaxCount.IsUnknown() && prev.MaxCount.ValueInt32() == 0 {`,
 				`m.MaxCount = types.Int32Null()`,
 			},
 		},
@@ -853,6 +856,7 @@ func TestRenderScalarHeuristicFlatten(t *testing.T) {
 			contains: []string{
 				`if v := proto.GetWeight(); v != 0 {`,
 				`m.Weight = types.Int64Value(v)`,
+				`} else if prev != nil && !prev.Weight.IsUnknown() && prev.Weight.ValueInt64() == 0 {`,
 				`m.Weight = types.Int64Null()`,
 			},
 		},
@@ -863,6 +867,7 @@ func TestRenderScalarHeuristicFlatten(t *testing.T) {
 			contains: []string{
 				`if v := proto.GetPrice(); v != 0.0 {`,
 				`m.Price = types.Float64Value(v)`,
+				`} else if prev != nil && !prev.Price.IsUnknown() && prev.Price.ValueFloat64() == 0.0 {`,
 				`m.Price = types.Float64Null()`,
 			},
 		},
