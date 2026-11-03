@@ -43,6 +43,7 @@ api:                                                       # RPC overrides; mini
 - `flatten_via: <funcName>` / `expand_via: <FuncName>` — hand-written conversion. Function lives in `redpanda/models/<name>/conv.go`. Used when proto↔TF shape doesn't match (e.g. `tagsFromProto` for map flattening).
 - `flatten_skip: true` — field is Create-only in proto (server never echoes it on Get). Generator omits from Flatten; resource code must inject it manually after Create and carry forward in Read/Update. Example: `serviceaccount.client_secret`.
 - `flatten_from_prev: true` — restore prior user value over API-canonicalized echo (e.g. `pipeline.resources` where API canonicalizes memory_shares/cpu_shares). Generator emits prev-fallback in Flatten.
+- `empty_is_null: true` — a single-nested block of presence-less strings reads null when the control plane echoes every leaf empty. Optional resource blocks fold on their own; the directive is for the data source counterpart of such a block, since a data source schema marks nothing optional. Generation fails on a block the rule could not fold anyway (required, a oneof member, or any bool, numeric, enum, repeated or presence-bearing leaf).
 - `force_type: BoolAttribute` — coerce attribute type. Used for presence-only oneof variants (e.g. `maintenance_window_config.anytime`).
 - `todo: true` — proto field exists but TF surface deferred. `task generate:todo` auto-adds these for new proto fields. To surface the field, **remove** `todo: true` and add the correct lifecycle.
 
