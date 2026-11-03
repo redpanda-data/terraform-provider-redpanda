@@ -9,7 +9,7 @@ YAML-driven proto-to-schema generator. `redpanda/resources/<r>/schema.yaml` plus
 Reach for them in this order, and stop at the first that fits:
 
 1. Shape: `required`, `optional`, `computed`, `computed_only`, `sensitive`, `write_only`, `default`, `minimal_default`, `validator`, `plan_modifiers`.
-2. Presence and drift: `has_presence`, `flatten_from_prev`, `echo_unwrap`.
+2. Presence and drift: `has_presence`, `flatten_from_prev`, `empty_is_null`, `echo_unwrap`.
 3. Naming and lifecycle: `rename`, `deprecated` + `deprecation_message`, `exclude`, `todo`, `synthetic`, `extra`, `force_type`, `element_type`.
 4. Conversion escape hatches: `flatten_via`, `expand_via`, `from_proto`, `expand_proto_name`, `flatten_skip`, `expand_skip`, `proto_only`, `updatable_out_of_band`.
 5. Hooks on the `api` block (`pre_validate_hook`, `post_expand_hook`) only when no per-field directive can express it.
