@@ -5209,3 +5209,35 @@ func TestIntegration_Cluster_ConnectionsManaged_LegacyReturnRejected(t *testing.
 		},
 	})
 }
+
+// Pins that a server-side clear of a presence-less scalar reaches state: the
+// control plane empties rpsql_secret_manager_prefix when Redpanda SQL is
+// disabled, so the refreshed state must drop the configured value instead of
+// carrying it forward and hiding the drift.
+func TestIntegration_ClusterGCPBYOVPC_RpsqlDisabledOutOfBandClearsPrefix(t *testing.T) {
+	srv, factories := clusterSetup(t)
+	const name = "tfrp-mock-cl-rpsql-oob"
+	cfg := gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, rpsql: true})
+	prefixPath := tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("rpsql_secret_manager_prefix")
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr, cfg, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(clusterAddr, prefixPath, knownvalue.StringExact("tfrp-rpsql-")),
+			}),
+			{
+				PreConfig: func() {
+					if !srv.Cluster.DisableRpsqlOutOfBand(name) {
+						t.Fatalf("cluster %s not stored in the fake", name)
+					}
+				},
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(clusterAddr, "rpsql.enabled", "false"),
+					resource.TestCheckNoResourceAttr(clusterAddr, "customer_managed_resources.gcp.rpsql_secret_manager_prefix"),
+				),
+			},
+		},
+	})
+}

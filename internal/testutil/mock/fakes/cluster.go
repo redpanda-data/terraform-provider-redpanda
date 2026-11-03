@@ -1150,6 +1150,24 @@ func (f *ClusterFake) SetStateOutOfBand(name string, state controlplanev1.Cluste
 	return false
 }
 
+// DisableRpsqlOutOfBand models an operator turning Redpanda SQL off outside
+// Terraform: the control plane clears every rpsql CMR leaf with it.
+func (f *ClusterFake) DisableRpsqlOutOfBand(name string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, cl := range f.clusters {
+		if cl.GetName() != name {
+			continue
+		}
+		off := &controlplanev1.RPSql{}
+		off.SetEnabled(false)
+		cl.SetRpsql(rpsqlReadStatus(off, cl.GetCloudProvider(), cl.GetZones()))
+		clearRpsqlCMROnDisable(cl)
+		return true
+	}
+	return false
+}
+
 // SetTagOutOfBand writes one cloud_provider_tags entry on the stored cluster
 // with the given name, as an UpdateCluster from another client would. Returns
 // false when no cluster has that name.
