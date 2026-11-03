@@ -82,7 +82,7 @@ func zonesNull() tftypes.Value {
 	return tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil)
 }
 
-func TestClearedWhenDisabledListValidator(t *testing.T) {
+func TestClearedWhenDisabled_List(t *testing.T) {
 	enabledPath := path.Root("rpsql").AtName("enabled")
 
 	testCases := []struct {
@@ -118,7 +118,7 @@ func TestClearedWhenDisabledListValidator(t *testing.T) {
 			}
 			var resp validator.ListResponse
 
-			validators.ClearedWhenDisabledListValidator{Enabled: enabledPath}.ValidateList(context.Background(), req, &resp)
+			validators.ClearedWhenDisabled{Enabled: enabledPath}.ValidateList(context.Background(), req, &resp)
 
 			if tc.expectError {
 				assert.True(t, resp.Diagnostics.HasError(), "expected validation error but got none")
@@ -129,7 +129,7 @@ func TestClearedWhenDisabledListValidator(t *testing.T) {
 	}
 }
 
-func TestClearedWhenDisabledInt32Validator(t *testing.T) {
+func TestClearedWhenDisabled_Int32(t *testing.T) {
 	enabledPath := path.Root("rpsql").AtName("enabled")
 
 	testCases := []struct {
@@ -161,7 +161,7 @@ func TestClearedWhenDisabledInt32Validator(t *testing.T) {
 			}
 			var resp validator.Int32Response
 
-			validators.ClearedWhenDisabledInt32Validator{Enabled: enabledPath}.ValidateInt32(context.Background(), req, &resp)
+			validators.ClearedWhenDisabled{Enabled: enabledPath}.ValidateInt32(context.Background(), req, &resp)
 
 			if tc.expectError {
 				assert.True(t, resp.Diagnostics.HasError(), "expected validation error but got none")
@@ -183,7 +183,7 @@ func mustList(t *testing.T, elems ...string) types.List {
 	return l
 }
 
-func TestClearedWhenDisabledObjectValidator(t *testing.T) {
+func TestClearedWhenDisabled_Object(t *testing.T) {
 	enabledPath := path.Root("rpsql").AtName("enabled")
 	saType := map[string]attr.Type{"email": types.StringType}
 	sa := types.ObjectValueMust(saType, map[string]attr.Value{"email": types.StringValue("rpsql@tfrp-proj.iam.gserviceaccount.com")})
@@ -212,7 +212,7 @@ func TestClearedWhenDisabledObjectValidator(t *testing.T) {
 			}
 			var resp validator.ObjectResponse
 
-			validators.ClearedWhenDisabledObjectValidator{Enabled: enabledPath}.ValidateObject(context.Background(), req, &resp)
+			validators.ClearedWhenDisabled{Enabled: enabledPath}.ValidateObject(context.Background(), req, &resp)
 
 			if tc.expectError {
 				assert.True(t, resp.Diagnostics.HasError(), "expected validation error but got none")
@@ -238,19 +238,19 @@ func TestClearedWhenDisabled_NullEnabledParentDefers(t *testing.T) {
 	sa := types.ObjectValueMust(saType, map[string]attr.Value{"email": types.StringValue("rpsql@tfrp-proj.iam.gserviceaccount.com")})
 
 	var objResp validator.ObjectResponse
-	validators.ClearedWhenDisabledObjectValidator{Enabled: enabledPath}.ValidateObject(context.Background(), validator.ObjectRequest{
+	validators.ClearedWhenDisabled{Enabled: enabledPath}.ValidateObject(context.Background(), validator.ObjectRequest{
 		Path: path.Root("rpsql_service_account"), PathExpression: path.MatchRoot("rpsql_service_account"), ConfigValue: sa, Config: cfg,
 	}, &objResp)
 	assert.False(t, objResp.Diagnostics.HasError(), "object: %v", objResp.Diagnostics.Errors())
 
 	var strResp validator.StringResponse
-	validators.ClearedWhenDisabledStringValidator{Enabled: enabledPath}.ValidateString(context.Background(), validator.StringRequest{
+	validators.ClearedWhenDisabled{Enabled: enabledPath}.ValidateString(context.Background(), validator.StringRequest{
 		Path: path.Root("rpsql_secret_manager_prefix"), PathExpression: path.MatchRoot("rpsql_secret_manager_prefix"), ConfigValue: types.StringValue("tfrp-rpsql-"), Config: cfg,
 	}, &strResp)
 	assert.False(t, strResp.Diagnostics.HasError(), "string: %v", strResp.Diagnostics.Errors())
 }
 
-func TestClearedWhenDisabledStringValidator(t *testing.T) {
+func TestClearedWhenDisabled_String(t *testing.T) {
 	enabledPath := path.Root("rpsql").AtName("enabled")
 
 	testCases := []struct {
@@ -278,7 +278,7 @@ func TestClearedWhenDisabledStringValidator(t *testing.T) {
 			}
 			var resp validator.StringResponse
 
-			validators.ClearedWhenDisabledStringValidator{Enabled: enabledPath}.ValidateString(context.Background(), req, &resp)
+			validators.ClearedWhenDisabled{Enabled: enabledPath}.ValidateString(context.Background(), req, &resp)
 
 			if tc.expectError {
 				assert.True(t, resp.Diagnostics.HasError(), "expected validation error but got none")
@@ -288,3 +288,11 @@ func TestClearedWhenDisabledStringValidator(t *testing.T) {
 		})
 	}
 }
+
+// One type serves every attribute kind the cluster schema attaches it to.
+var (
+	_ validator.List   = validators.ClearedWhenDisabled{}
+	_ validator.Int32  = validators.ClearedWhenDisabled{}
+	_ validator.Object = validators.ClearedWhenDisabled{}
+	_ validator.String = validators.ClearedWhenDisabled{}
+)

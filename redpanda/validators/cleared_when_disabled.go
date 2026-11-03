@@ -26,117 +26,67 @@ import (
 )
 
 var (
-	_ validator.List   = ClearedWhenDisabledListValidator{}
-	_ validator.Int32  = ClearedWhenDisabledInt32Validator{}
-	_ validator.Object = ClearedWhenDisabledObjectValidator{}
-	_ validator.String = ClearedWhenDisabledStringValidator{}
+	_ validator.List   = ClearedWhenDisabled{}
+	_ validator.Int32  = ClearedWhenDisabled{}
+	_ validator.Object = ClearedWhenDisabled{}
+	_ validator.String = ClearedWhenDisabled{}
 )
 
-// ClearedWhenDisabledListValidator rejects a configured list while the sibling
-// enabled flag is false (or omitted with a false default): the control plane
-// clears the field on disable, and Terraform requires plan==config for a known
-// Optional value, so no plan modifier can reconcile the pair.
-type ClearedWhenDisabledListValidator struct {
+// ClearedWhenDisabled rejects a configured value while the sibling enabled
+// flag is false (or omitted with a false default): the control plane clears
+// the field on disable, and Terraform requires plan==config for a known
+// Optional value, so no plan modifier can reconcile the pair. An explicit 0 or
+// "" stays legal on a scalar: it matches the value the control plane resets
+// the field to.
+type ClearedWhenDisabled struct {
 	Enabled path.Path
 }
 
 // Description provides a description of the validator.
-func (v ClearedWhenDisabledListValidator) Description(ctx context.Context) string {
+func (v ClearedWhenDisabled) Description(ctx context.Context) string {
 	return v.MarkdownDescription(ctx)
 }
 
 // MarkdownDescription provides a description of the validator in markdown format.
-func (v ClearedWhenDisabledListValidator) MarkdownDescription(_ context.Context) string {
+func (v ClearedWhenDisabled) MarkdownDescription(_ context.Context) string {
 	return fmt.Sprintf("Cannot be set while %q is false: the control plane clears it on disable", v.Enabled)
 }
 
-// ValidateList rejects a non-null value while the enabled sibling is off.
-func (v ClearedWhenDisabledListValidator) ValidateList(ctx context.Context, req validator.ListRequest, resp *validator.ListResponse) {
+// ValidateList rejects a non-null list while the enabled sibling is off.
+func (v ClearedWhenDisabled) ValidateList(ctx context.Context, req validator.ListRequest, resp *validator.ListResponse) {
 	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
 		return
 	}
-	if enabledOff(ctx, req.Config, v.Enabled, &resp.Diagnostics) {
-		resp.Diagnostics.Append(clearedWhenDisabledDiag(req.Path, v.Enabled))
-	}
-}
-
-// ClearedWhenDisabledInt32Validator is the int32 variant of
-// ClearedWhenDisabledListValidator. An explicit 0 stays legal: it matches the
-// value the control plane resets the field to on disable.
-type ClearedWhenDisabledInt32Validator struct {
-	Enabled path.Path
-}
-
-// Description provides a description of the validator.
-func (v ClearedWhenDisabledInt32Validator) Description(ctx context.Context) string {
-	return v.MarkdownDescription(ctx)
-}
-
-// MarkdownDescription provides a description of the validator in markdown format.
-func (v ClearedWhenDisabledInt32Validator) MarkdownDescription(_ context.Context) string {
-	return fmt.Sprintf("Cannot be set to a non-zero value while %q is false: the control plane resets it on disable", v.Enabled)
+	v.check(ctx, req.Config, req.Path, &resp.Diagnostics)
 }
 
 // ValidateInt32 rejects a non-zero value while the enabled sibling is off.
-func (v ClearedWhenDisabledInt32Validator) ValidateInt32(ctx context.Context, req validator.Int32Request, resp *validator.Int32Response) {
+func (v ClearedWhenDisabled) ValidateInt32(ctx context.Context, req validator.Int32Request, resp *validator.Int32Response) {
 	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() || req.ConfigValue.ValueInt32() == 0 {
 		return
 	}
-	if enabledOff(ctx, req.Config, v.Enabled, &resp.Diagnostics) {
-		resp.Diagnostics.Append(clearedWhenDisabledDiag(req.Path, v.Enabled))
-	}
+	v.check(ctx, req.Config, req.Path, &resp.Diagnostics)
 }
 
-// ClearedWhenDisabledObjectValidator is the object variant of
-// ClearedWhenDisabledListValidator.
-type ClearedWhenDisabledObjectValidator struct {
-	Enabled path.Path
-}
-
-// Description provides a description of the validator.
-func (v ClearedWhenDisabledObjectValidator) Description(ctx context.Context) string {
-	return v.MarkdownDescription(ctx)
-}
-
-// MarkdownDescription provides a description of the validator in markdown format.
-func (v ClearedWhenDisabledObjectValidator) MarkdownDescription(_ context.Context) string {
-	return fmt.Sprintf("Cannot be set while %q is false: the control plane clears it on disable", v.Enabled)
-}
-
-// ValidateObject rejects a non-null value while the enabled sibling is off.
-func (v ClearedWhenDisabledObjectValidator) ValidateObject(ctx context.Context, req validator.ObjectRequest, resp *validator.ObjectResponse) {
+// ValidateObject rejects a non-null object while the enabled sibling is off.
+func (v ClearedWhenDisabled) ValidateObject(ctx context.Context, req validator.ObjectRequest, resp *validator.ObjectResponse) {
 	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
 		return
 	}
-	if enabledOff(ctx, req.Config, v.Enabled, &resp.Diagnostics) {
-		resp.Diagnostics.Append(clearedWhenDisabledDiag(req.Path, v.Enabled))
-	}
-}
-
-// ClearedWhenDisabledStringValidator is the string variant of
-// ClearedWhenDisabledListValidator. An explicit "" stays legal: it matches the
-// value the control plane resets the field to on disable.
-type ClearedWhenDisabledStringValidator struct {
-	Enabled path.Path
-}
-
-// Description provides a description of the validator.
-func (v ClearedWhenDisabledStringValidator) Description(ctx context.Context) string {
-	return v.MarkdownDescription(ctx)
-}
-
-// MarkdownDescription provides a description of the validator in markdown format.
-func (v ClearedWhenDisabledStringValidator) MarkdownDescription(_ context.Context) string {
-	return fmt.Sprintf("Cannot be set to a non-empty value while %q is false: the control plane clears it on disable", v.Enabled)
+	v.check(ctx, req.Config, req.Path, &resp.Diagnostics)
 }
 
 // ValidateString rejects a non-empty value while the enabled sibling is off.
-func (v ClearedWhenDisabledStringValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+func (v ClearedWhenDisabled) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
 	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() || req.ConfigValue.ValueString() == "" {
 		return
 	}
-	if enabledOff(ctx, req.Config, v.Enabled, &resp.Diagnostics) {
-		resp.Diagnostics.Append(clearedWhenDisabledDiag(req.Path, v.Enabled))
+	v.check(ctx, req.Config, req.Path, &resp.Diagnostics)
+}
+
+func (v ClearedWhenDisabled) check(ctx context.Context, cfg tfsdk.Config, attr path.Path, diags *diag.Diagnostics) {
+	if enabledOff(ctx, cfg, v.Enabled, diags) {
+		diags.Append(clearedWhenDisabledDiag(attr, v.Enabled))
 	}
 }
 
