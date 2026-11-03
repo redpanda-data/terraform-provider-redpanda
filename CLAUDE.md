@@ -17,7 +17,7 @@ Invoke the matching skill **before** starting work in its area. Do not attempt t
 
 User-level skills some maintainers carry (`monitor-logs`, `branch-loc-count`) are not committed; if present they trigger on `/monitor-logs` and `/branch-loc-count`.
 
-`.claude/skills/README.md` lists the `_shared/` reference docs and `live-acctest-orchestration.md`. `.claude/review-policy.md` defines the signal bar for code review.
+`.claude/skills/README.md` lists the `_shared/` reference docs and `live-acctest-orchestration.md`. `.claude/review-policy.md` defines the review angles, verdicts, and ranking.
 
 ## Essential Commands
 
