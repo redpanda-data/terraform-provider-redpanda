@@ -9,10 +9,12 @@ provider "redpanda" {}
 # Use the Redpanda GCP BYOVPC module
 module "redpanda_gcp" {
   source = "redpanda-data/redpanda-byovpc/gcp"
-  # Releases before 1.0.4 bind the operator's workload identity to a fixed
+  # Releases before 1.0.5 bind the operator's workload identity to a fixed
   # Kubernetes service account name, but the cluster uses the supplied
-  # operator account's name.
-  version                            = ">= 1.0.4, < 2.0.0"
+  # operator account's name, and grant Redpanda SQL write access to topic
+  # data it only reads.
+  version                            = ">= 1.0.5, < 2.0.0"
+  enable_redpanda_sql                = var.rpsql_enabled
   service_project_id                 = var.project_id
   region                             = var.region
   unique_identifier                  = var.environment
@@ -107,20 +109,18 @@ resource "redpanda_cluster" "test" {
         email = module.redpanda_gcp.redpanda_operator_service_account_email
       }
 
-      # Redpanda SQL. The byovpc module creates these when its
-      # enable_redpanda_sql input is true (redpanda_sql_* outputs); this example
-      # takes them as variables. null leaves rpsql unconfigured.
+      # Redpanda SQL. The module creates these when enable_redpanda_sql is
+      # true and returns "" otherwise; null leaves rpsql unconfigured.
       rpsql_api_service_account = var.rpsql_enabled ? {
-        email = var.rpsql_api_service_account_email
+        email = module.redpanda_gcp.redpanda_sql_api_service_account_email
       } : null
       rpsql_service_account = var.rpsql_enabled ? {
-        email = var.rpsql_service_account_email
+        email = module.redpanda_gcp.redpanda_sql_service_account_email
       } : null
       rpsql_cloud_storage_bucket = var.rpsql_enabled ? {
-        name = var.rpsql_cloud_storage_bucket_name
+        name = module.redpanda_gcp.redpanda_sql_storage_bucket_name
       } : null
-      # A bare prefix matching ^[A-Za-z0-9_-]+$, not a full resource path.
-      rpsql_secret_manager_prefix = var.rpsql_enabled ? var.rpsql_secret_manager_prefix : null
+      rpsql_secret_manager_prefix = var.rpsql_enabled ? module.redpanda_gcp.redpanda_sql_secret_manager_prefix : null
     }
   }
 
