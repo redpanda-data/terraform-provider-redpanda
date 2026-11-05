@@ -60,16 +60,20 @@ func TestAcc_Cluster_BYOVPC_GCP(t *testing.T) {
 		{"redpanda_operator_service_account", operatorEmail},
 	}
 	addVars := map[string]config.Variable{}
-	var addChecks []resource.TestCheckFunc
+	var addChecks, removedChecks []resource.TestCheckFunc
 	for _, sa := range connectSAs {
 		addVars[sa.attr+"_email"] = config.StringVariable(sa.email)
 		addChecks = append(addChecks, resource.TestCheckResourceAttr(acc.ClusterResourceName,
 			"customer_managed_resources.gcp."+sa.attr+".email", sa.email))
+		removedChecks = append(removedChecks, resource.TestCheckNoResourceAttr(acc.ClusterResourceName,
+			"customer_managed_resources.gcp."+sa.attr+".email"))
 	}
 
 	// The operator account arrives through the API first, as a UI would set
-	// it; the silent config must adopt it rather than clear it. The Connect
-	// pair then lands through the in-place add on top of it.
+	// it; the silent config plans its removal and applies it, as for any
+	// value the configuration leaves out. The accounts then land through the
+	// in-place add, and leaving them out again clears them, which is how a
+	// configuration turns Redpanda Connect off.
 	setOperatorOutOfBand := func(ctx context.Context, cp *cloud.ControlPlaneClientSet, clusterID string) error {
 		op, err := cp.Cluster.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
 			Cluster: &controlplanev1.ClusterUpdate{
@@ -89,7 +93,7 @@ func TestAcc_Cluster_BYOVPC_GCP(t *testing.T) {
 	}
 
 	testRunnerCluster(ctx, name, rename, acc.RedpandaVersion, acc.GcpByoVpcClusterDir, customVars, t,
-		withOutOfBandAdd(setOperatorOutOfBand, resource.TestCheckResourceAttr(acc.ClusterResourceName,
-			"customer_managed_resources.gcp.redpanda_operator_service_account.email", operatorEmail)),
-		withInPlaceAddKeptOnOmit(addVars, addChecks...), withByocAgentApply())
+		withOutOfBandDrift(setOperatorOutOfBand, resource.TestCheckNoResourceAttr(acc.ClusterResourceName,
+			"customer_managed_resources.gcp.redpanda_operator_service_account.email")),
+		withInPlaceAddThenRemove(addVars, addChecks, removedChecks...), withByocAgentApply())
 }
