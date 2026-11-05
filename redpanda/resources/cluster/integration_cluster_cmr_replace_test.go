@@ -41,10 +41,11 @@ var awsConnectPath = tfjsonpath.New("customer_managed_resources").AtMapKey("aws"
 
 // TestIntegration_Cluster_CMR_EmptyConnectBlockCarriesNothing pins that an AWS
 // Connect block the control plane holds with an empty value, the shape a
-// leaf-only clear leaves behind, neither counts as a setting the config omits
-// nor as a sent half of the pair. The other half, kept in config alone, is
-// refused at plan like any lone block on a create, and the cluster stands;
-// left out, the replace plans and the cluster comes up without either.
+// leaf-only clear leaves behind, counts neither as a held half the config
+// drops nor as a sent half of the pair: a config that leaves it out clears
+// the empty block in place without a word. The other half, kept in config
+// alone, is refused at plan like any lone block on a create, and the cluster
+// stands; left out, the replace plans and the cluster comes up without either.
 func TestIntegration_Cluster_CMR_EmptyConnectBlockCarriesNothing(t *testing.T) {
 	leafClear := func(t *testing.T, srv *mock.Server, id *string, leaves ...string) func() {
 		return updateCMROutOfBand(t, srv, id, &controlplanev1.CustomerManagedResourcesUpdate{
@@ -55,7 +56,6 @@ func TestIntegration_Cluster_CMR_EmptyConnectBlockCarriesNothing(t *testing.T) {
 		sgLeaf      = "customer_managed_resources.aws.redpanda_connect_security_group.arn"
 		profileLeaf = "customer_managed_resources.aws.redpanda_connect_node_group_instance_profile.arn"
 	)
-	emptySG := statecheck.ExpectKnownValue(clusterAddr, awsConnectPath.AtMapKey("redpanda_connect_security_group").AtMapKey("arn"), knownvalue.StringExact(""))
 	noSG := statecheck.ExpectKnownValue(clusterAddr, awsConnectPath.AtMapKey("redpanda_connect_security_group"), knownvalue.Null())
 	noProfile := statecheck.ExpectKnownValue(clusterAddr, awsConnectPath.AtMapKey("redpanda_connect_node_group_instance_profile"), knownvalue.Null())
 
@@ -65,7 +65,7 @@ func TestIntegration_Cluster_CMR_EmptyConnectBlockCarriesNothing(t *testing.T) {
 		var id string
 		create := integration.CreateStep(clusterAddr, awsBYOVPCConfig(awsBYOVPCOpts{name: name}), nil)
 		create.Check = captureClusterID(&id)
-		cleared := integration.NoopReapplyStep(clusterAddr, awsBYOVPCConfig(awsBYOVPCOpts{name: name, omitConnectSG: true}), []statecheck.StateCheck{emptySG})
+		cleared := integration.UpdateLeafStep(clusterAddr, awsBYOVPCConfig(awsBYOVPCOpts{name: name, omitConnectSG: true}), []statecheck.StateCheck{noSG})
 		cleared.PreConfig = leafClear(t, srv, &id, sgLeaf)
 		resource.UnitTest(t, resource.TestCase{
 			ProtoV6ProviderFactories: factories,
@@ -75,7 +75,7 @@ func TestIntegration_Cluster_CMR_EmptyConnectBlockCarriesNothing(t *testing.T) {
 					Config:      awsBYOVPCConfig(awsBYOVPCOpts{name: name, omitConnectSG: true, clusterSGARN: replaceClusterSG}),
 					ExpectError: regexp.MustCompile(`leave\s+the\s+lone\s+one\s+out`),
 				},
-				integration.NoopReapplyStep(clusterAddr, awsBYOVPCConfig(awsBYOVPCOpts{name: name, omitConnectSG: true}), []statecheck.StateCheck{emptySG}),
+				integration.NoopReapplyStep(clusterAddr, awsBYOVPCConfig(awsBYOVPCOpts{name: name, omitConnectSG: true}), []statecheck.StateCheck{noSG}),
 				integration.RequiresReplaceStep(clusterAddr, awsBYOVPCConfig(awsBYOVPCOpts{name: name, omitConnectSG: true, omitConnectProfile: true, clusterSGARN: replaceClusterSG}),
 					[]statecheck.StateCheck{noSG, noProfile}),
 			},
@@ -89,7 +89,7 @@ func TestIntegration_Cluster_CMR_EmptyConnectBlockCarriesNothing(t *testing.T) {
 		omitBoth := awsBYOVPCOpts{name: name, omitConnectSG: true, omitConnectProfile: true}
 		create := integration.CreateStep(clusterAddr, awsBYOVPCConfig(awsBYOVPCOpts{name: name}), nil)
 		create.Check = captureClusterID(&id)
-		cleared := integration.NoopReapplyStep(clusterAddr, awsBYOVPCConfig(omitBoth), []statecheck.StateCheck{emptySG})
+		cleared := integration.UpdateLeafStep(clusterAddr, awsBYOVPCConfig(omitBoth), []statecheck.StateCheck{noSG, noProfile})
 		cleared.PreConfig = leafClear(t, srv, &id, sgLeaf, profileLeaf)
 		replaced := omitBoth
 		replaced.clusterSGARN = replaceClusterSG
@@ -217,28 +217,29 @@ func TestIntegration_Cluster_CMR_NetworkMoveMismatchRefused(t *testing.T) {
 	})
 }
 
-// TestIntegration_Cluster_CMR_EmptyConnectBlockUpdatesOtherLeaf pins that a
-// Connect block the control plane holds with an empty value does not ride the
-// next customer-managed resources update: the control plane validates the
-// whole update message and refuses an empty required leaf, even outside the
-// mask.
-func TestIntegration_Cluster_CMR_EmptyConnectBlockUpdatesOtherLeaf(t *testing.T) {
+// TestIntegration_Cluster_CMR_EmptyConnectBlockClearedWithOtherLeaf pins that
+// a Connect block the control plane holds with an empty value is cleared by
+// the next apply whose config leaves it out, in the same update as any other
+// leaf change: the mask names the message, so the control plane removes it
+// rather than refusing the empty required leaf.
+func TestIntegration_Cluster_CMR_EmptyConnectBlockClearedWithOtherLeaf(t *testing.T) {
 	t.Run("aws, both blocks emptied, rpsql enabled", func(t *testing.T) {
 		srv, factories := clusterSetup(t)
 		const name = "tfrp-mock-cl-empty-upd"
 		var id string
-		omitBoth := awsBYOVPCOpts{name: name, omitConnectSG: true, omitConnectProfile: true}
 		create := integration.CreateStep(clusterAddr, awsBYOVPCConfig(awsBYOVPCOpts{name: name}), nil)
 		create.Check = captureClusterID(&id)
-		cleared := integration.NoopReapplyStep(clusterAddr, awsBYOVPCConfig(omitBoth), nil)
-		cleared.PreConfig = updateCMROutOfBand(t, srv, &id, &controlplanev1.CustomerManagedResourcesUpdate{
+		enabled := integration.UpdateLeafStep(clusterAddr, awsBYOVPCConfig(awsBYOVPCOpts{name: name, omitConnectSG: true, omitConnectProfile: true, rpsql: true}), []statecheck.StateCheck{
+			statecheck.ExpectKnownValue(clusterAddr, awsConnectPath.AtMapKey("redpanda_connect_security_group"), knownvalue.Null()),
+			statecheck.ExpectKnownValue(clusterAddr, awsConnectPath.AtMapKey("redpanda_connect_node_group_instance_profile"), knownvalue.Null()),
+			statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("rpsql").AtMapKey("enabled"), knownvalue.Bool(true)),
+		})
+		enabled.PreConfig = updateCMROutOfBand(t, srv, &id, &controlplanev1.CustomerManagedResourcesUpdate{
 			CloudProvider: &controlplanev1.CustomerManagedResourcesUpdate_Aws{Aws: &controlplanev1.CustomerManagedResourcesUpdate_AWS{}},
 		}, "customer_managed_resources.aws.redpanda_connect_security_group.arn", "customer_managed_resources.aws.redpanda_connect_node_group_instance_profile.arn")
-		enabled := omitBoth
-		enabled.rpsql = true
 		resource.UnitTest(t, resource.TestCase{
 			ProtoV6ProviderFactories: factories,
-			Steps:                    []resource.TestStep{create, cleared, integration.UpdateLeafStep(clusterAddr, awsBYOVPCConfig(enabled), nil)},
+			Steps:                    []resource.TestStep{create, enabled},
 		})
 	})
 
@@ -248,21 +249,21 @@ func TestIntegration_Cluster_CMR_EmptyConnectBlockUpdatesOtherLeaf(t *testing.T)
 			name       = "tfrp-mock-cl-empty-upd-gcp"
 			connectAPI = "rpcn-api@tfrp-proj.iam.gserviceaccount.com"
 		)
+		gcpPath := tfjsonpath.New("customer_managed_resources").AtMapKey("gcp")
 		var id string
 		create := integration.CreateStep(clusterAddr, gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, connectSAEmail: "rpcn@tfrp-proj.iam.gserviceaccount.com", connectAPISAEmail: connectAPI}), nil)
 		create.Check = captureClusterID(&id)
-		cleared := integration.NoopReapplyStep(clusterAddr, gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, connectAPISAEmail: connectAPI}), []statecheck.StateCheck{
-			statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("redpanda_connect_service_account").AtMapKey("email"), knownvalue.StringExact("")),
+		nat := integration.UpdateLeafStep(clusterAddr, gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, connectAPISAEmail: connectAPI, pscNat: "tfrp-nat"}), []statecheck.StateCheck{
+			statecheck.ExpectKnownValue(clusterAddr, gcpPath.AtMapKey("redpanda_connect_service_account"), knownvalue.Null()),
+			statecheck.ExpectKnownValue(clusterAddr, gcpPath.AtMapKey("redpanda_connect_api_service_account").AtMapKey("email"), knownvalue.StringExact(connectAPI)),
+			statecheck.ExpectKnownValue(clusterAddr, gcpPath.AtMapKey("psc_nat_subnet_name"), knownvalue.StringExact("tfrp-nat")),
 		})
-		cleared.PreConfig = updateCMROutOfBand(t, srv, &id, &controlplanev1.CustomerManagedResourcesUpdate{
+		nat.PreConfig = updateCMROutOfBand(t, srv, &id, &controlplanev1.CustomerManagedResourcesUpdate{
 			CloudProvider: &controlplanev1.CustomerManagedResourcesUpdate_Gcp{Gcp: &controlplanev1.CustomerManagedResourcesUpdate_GCP{}},
 		}, "customer_managed_resources.gcp.redpanda_connect_service_account.email")
 		resource.UnitTest(t, resource.TestCase{
 			ProtoV6ProviderFactories: factories,
-			Steps: []resource.TestStep{
-				create, cleared,
-				integration.UpdateLeafStep(clusterAddr, gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, connectAPISAEmail: connectAPI, pscNat: "tfrp-nat"}), nil),
-			},
+			Steps:                    []resource.TestStep{create, nat},
 		})
 	})
 }

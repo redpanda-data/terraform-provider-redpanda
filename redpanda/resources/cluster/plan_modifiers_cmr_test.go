@@ -34,7 +34,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // cmrTypes holds the tftypes shapes the guard tests build values from.
@@ -210,16 +209,6 @@ func TestStateOnlySettings(t *testing.T) {
 	ctx := context.Background()
 	s := ResourceClusterSchema(ctx)
 	ct := newCMRTypes(t)
-	const (
-		connect        = "rpcn@tfrp-proj.iam.gserviceaccount.com"
-		connectAPI     = "rpcn-api@tfrp-proj.iam.gserviceaccount.com"
-		operator       = "rp-op@tfrp-proj.iam.gserviceaccount.com"
-		connectSAPath  = "customer_managed_resources.gcp.redpanda_connect_service_account"
-		connectAPIPath = "customer_managed_resources.gcp.redpanda_connect_api_service_account"
-		operatorSAPath = "customer_managed_resources.gcp.redpanda_operator_service_account"
-	)
-	pair := ct.withGCP(map[string]tftypes.Value{"redpanda_connect_service_account": ct.email(connect), "redpanda_connect_api_service_account": ct.email(connectAPI)})
-	half := ct.withGCP(map[string]tftypes.Value{"redpanda_connect_service_account": ct.email(connect)})
 	emptyArm := ct.withGCP(nil)
 	cmrState := merge(emptyArm, ct.rpsqlOn())
 
@@ -228,20 +217,11 @@ func TestStateOnlySettings(t *testing.T) {
 		state, config map[string]tftypes.Value
 		want          []stateOnlySetting
 	}{
-		{"pair only in state", pair, emptyArm, []stateOnlySetting{{Path: connectSAPath}, {Path: connectAPIPath}}},
-		{"one of the pair declared", pair, half, []stateOnlySetting{{Path: connectAPIPath}}},
-		{"pair declared", pair, pair, nil},
-		{"lone account never turned Connect on", half, emptyArm, nil},
-		{"lone account beside an empty partner", ct.withGCP(map[string]tftypes.Value{"redpanda_connect_service_account": ct.email(connect), "redpanda_connect_api_service_account": ct.email("")}), emptyArm, nil},
-		{"empty account carries nothing", ct.withGCP(map[string]tftypes.Value{"redpanda_operator_service_account": ct.email("")}), emptyArm, nil},
-		{"operator account only in state", ct.withGCP(map[string]tftypes.Value{"redpanda_operator_service_account": ct.email(operator)}), emptyArm, []stateOnlySetting{{Path: operatorSAPath}}},
-		{"customer_managed_resources not known yet", pair, map[string]tftypes.Value{"customer_managed_resources": unknown(ct.cmr)}, nil},
-		{"gcp arm not known yet", pair, map[string]tftypes.Value{"customer_managed_resources": nullsExcept(ct.cmr, map[string]tftypes.Value{"gcp": unknown(ct.gcp)})}, nil},
-		{"customer_managed_resources dropped", pair, nil, nil},
 		{"rpsql enabled only in state beside customer-managed resources", cmrState, emptyArm, []stateOnlySetting{{Path: "rpsql"}}},
 		{"rpsql enabled only in state without customer-managed resources", ct.rpsqlOn(), nil, []stateOnlySetting{{Path: "rpsql", Warn: true}}},
 		{"rpsql not known yet", ct.rpsqlOn(), map[string]tftypes.Value{"rpsql": unknown(ct.rpsql)}, nil},
 		{"rpsql declared", ct.rpsqlOn(), ct.rpsqlOn(), nil},
+		{"rpsql off in state", merge(emptyArm, map[string]tftypes.Value{"rpsql": nullsExcept(ct.rpsql, map[string]tftypes.Value{"enabled": tftypes.NewValue(tftypes.Bool, false)})}), emptyArm, nil},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -275,8 +255,6 @@ func TestGuardReplaceWithStateOnlySettings(t *testing.T) {
 		wantWarn string
 	}{
 		{name: "nothing recorded"},
-		{name: "connect account held", held: []stateOnlySetting{{Path: "customer_managed_resources.gcp.redpanda_connect_service_account"}}, wantErr: "Redpanda Connect off"},
-		{name: "operator account held", held: []stateOnlySetting{{Path: "customer_managed_resources.gcp.redpanda_operator_service_account"}}, wantErr: "no operator identity"},
 		{name: "rpsql held", held: []stateOnlySetting{{Path: "rpsql"}}, wantErr: "Redpanda SQL off"},
 		{name: "rpsql the control plane may put back", held: []stateOnlySetting{{Path: "rpsql", Warn: true}}, wantWarn: "Redpanda SQL off"},
 	}
@@ -296,10 +274,12 @@ func TestGuardReplaceWithStateOnlySettings(t *testing.T) {
 
 // TestGuardConnectPairing pins the pairing rule on both passes of a plan. On
 // the update pass the planned values decide: a half the config adds or changes
-// without its partner is an error, a lone half the config keeps unchanged is a
-// warning, a half whose config is not known yet is left for the apply-time
-// plan, and a pair the config never names is the server's. On a create, plain
-// or the create pass of a replace, a lone half in config is an error.
+// without its partner is an error, so is leaving one half out while the
+// cluster holds it, a lone half the config keeps unchanged is a warning, a
+// half whose config is not known yet is left for the apply-time plan, and a
+// pair the config leaves out is cleared with a warning that Connect goes off.
+// On a create, plain or the create pass of a replace, a lone half in config is
+// an error.
 func TestGuardConnectPairing(t *testing.T) {
 	ctx := context.Background()
 	s := ResourceClusterSchema(ctx)
@@ -332,8 +312,14 @@ func TestGuardConnectPairing(t *testing.T) {
 		{name: "half changed", state: sg(ct.arn(sgARN)), cfg: sg(ct.arn(newSGARN)), plan: sg(ct.arn(newSGARN)), wantErr: "needs both blocks"},
 		{name: "lone half kept unchanged", state: sg(ct.arn(sgARN)), cfg: sg(ct.arn(sgARN)), plan: sg(ct.arn(sgARN)), wantWarn: "needs both blocks"},
 		{name: "lone half kept, value not known yet", state: sg(ct.arn(sgARN)), cfg: sg(unknownARN), plan: sg(unknownARN)},
-		{name: "lone half the server set, config silent", state: sg(ct.arn(sgARN)), cfg: none, plan: sg(ct.arn(sgARN))},
-		{name: "partner emptied on the server, half kept", state: sgAndEmptyProfile, cfg: sg(ct.arn(sgARN)), plan: sgAndEmptyProfile, wantWarn: "needs both blocks"},
+		{name: "lone half the server set, config silent", state: sg(ct.arn(sgARN)), cfg: none, plan: none},
+		{name: "partner emptied on the server, half kept", state: sgAndEmptyProfile, cfg: sg(ct.arn(sgARN)), plan: sg(ct.arn(sgARN)), wantWarn: "needs both blocks"},
+		{name: "half removed while the other stays", state: both, cfg: sg(ct.arn(sgARN)), plan: sg(ct.arn(sgARN)), wantErr: "Remove both blocks"},
+		{name: "half removed and the other changed", state: both, cfg: sg(ct.arn(newSGARN)), plan: sg(ct.arn(newSGARN)), wantErr: "Remove both blocks"},
+		{name: "half removed, the other not known yet", state: both, cfg: sg(unknownARN), plan: sg(unknownARN), wantErr: "Remove both blocks"},
+		{name: "pair removed", state: both, cfg: none, plan: none, wantWarn: "turns Redpanda Connect off"},
+		{name: "pair removed, one half empty on the server", state: sgAndEmptyProfile, cfg: none, plan: none},
+		{name: "pair not held, config silent", state: none, cfg: none, plan: none},
 		{name: "plain create with a lone half", cfg: sg(ct.arn(sgARN)), plan: sg(ct.arn(sgARN)), create: true, wantErr: "Set both blocks"},
 		{name: "create with a lone half not known yet", cfg: sg(unknownARN), plan: sg(unknownARN), create: true, wantErr: "needs both blocks"},
 		{name: "create with the pair", cfg: both, plan: both, create: true},
@@ -376,18 +362,17 @@ func assertDiag(t *testing.T, diags diag.Diagnostics, sev diag.Severity, want st
 	}
 }
 
-// TestCarriedBlocksMatchSchema ties the carried-block table to the schema:
-// every Optional+Computed nested object under customer_managed_resources is
-// one the config may omit while state holds it, so it must be carried, and a
-// Connect half's partner must be carried too. A new such block without an
-// entry is cleared on omission.
-func TestCarriedBlocksMatchSchema(t *testing.T) {
+// TestConnectBlocksMatchSchema ties the Connect pairs and the operator
+// account to the schema: each is a plain Optional nested object, so leaving
+// it out of the configuration clears it, and no nested object under
+// customer_managed_resources is Optional+Computed, the shape that keeps a
+// value the configuration leaves out and so cannot be cleared at all.
+func TestConnectBlocksMatchSchema(t *testing.T) {
 	ctx := context.Background()
 	cmr, ok := ResourceClusterSchema(ctx).Attributes["customer_managed_resources"].(rschema.SingleNestedAttribute)
 	if !ok {
 		t.Fatal("customer_managed_resources is not a single nested attribute")
 	}
-	fromSchema := map[string]bool{}
 	for armName, arm := range cmr.Attributes {
 		nested, ok := arm.(rschema.SingleNestedAttribute)
 		if !ok {
@@ -395,50 +380,89 @@ func TestCarriedBlocksMatchSchema(t *testing.T) {
 		}
 		for leafName, leaf := range nested.Attributes {
 			if obj, ok := leaf.(rschema.SingleNestedAttribute); ok && obj.IsOptional() && obj.IsComputed() {
-				fromSchema[cmrPath.AtName(armName).AtName(leafName).String()] = true
+				t.Errorf("%s is Optional+Computed, so a configuration can never clear it", cmrPath.AtName(armName).AtName(leafName))
 			}
 		}
 	}
-	fromTable := map[string]bool{}
-	for _, b := range carriedBlocks() {
-		fromTable[b.path.String()] = true
-		if b.hasPartner() && !fromSchema[b.partner.String()] {
-			t.Errorf("partner %s of %s is not an Optional+Computed block in the schema", b.partner, b.path)
+	for _, p := range connectBlocks() {
+		steps := p.Steps()
+		arm, ok := cmr.Attributes[steps[1].String()].(rschema.SingleNestedAttribute)
+		if !ok {
+			t.Fatalf("%s: arm is not a single nested attribute", p)
 		}
-	}
-	if !maps.Equal(fromSchema, fromTable) {
-		t.Fatalf("carriedBlocks = %v, schema Optional+Computed blocks = %v", fromTable, fromSchema)
+		obj, ok := arm.Attributes[steps[2].String()].(rschema.SingleNestedAttribute)
+		if !ok {
+			t.Fatalf("%s: not a single nested attribute in the schema", p)
+		}
+		if !obj.IsOptional() || obj.IsComputed() || obj.IsRequired() {
+			t.Errorf("%s: want plain Optional, got optional=%v computed=%v required=%v", p, obj.IsOptional(), obj.IsComputed(), obj.IsRequired())
+		}
 	}
 }
 
-// TestClearEmptyConnectMessagesCoversCarriedBlocks ties the update payload
-// strip to the carried-block table: every block the config may omit while
-// state holds it can be carried empty, so the strip must drop each one.
-func TestClearEmptyConnectMessagesCoversCarriedBlocks(t *testing.T) {
-	for _, b := range carriedBlocks() {
-		steps := b.path.Steps()
-		arm, leaf := steps[1].String(), steps[2].String()
-		upd := &controlplanev1.CustomerManagedResourcesUpdate{}
-		var armMsg protoreflect.Message
-		switch arm {
-		case "gcp":
-			upd.SetGcp(&controlplanev1.CustomerManagedResourcesUpdate_GCP{})
-			armMsg = upd.GetGcp().ProtoReflect()
-		case "aws":
-			upd.SetAws(&controlplanev1.CustomerManagedResourcesUpdate_AWS{})
-			armMsg = upd.GetAws().ProtoReflect()
-		default:
-			t.Fatalf("%s: unknown arm %q", b.path, arm)
+// TestConnectBlocksCoverMaskTable ties the Connect pairs and the operator
+// account to the mask table: every message the table clears whole must be
+// one the plan guards judge, or a block added to the table would clear
+// without the pairing check.
+func TestConnectBlocksCoverMaskTable(t *testing.T) {
+	want := map[string]bool{}
+	for _, p := range clustermask.CMRUpdatableLeafPaths() {
+		seg := strings.Split(p, ".")
+		if strings.HasPrefix(seg[2], "redpanda_connect_") || strings.HasPrefix(seg[2], "redpanda_operator_") {
+			want[seg[1]+"."+seg[2]] = true
 		}
-		fd := armMsg.Descriptor().Fields().ByName(protoreflect.Name(leaf))
-		if fd == nil {
-			t.Fatalf("%s: no update field %q", b.path, leaf)
-		}
-		armMsg.Set(fd, protoreflect.ValueOfMessage(armMsg.NewField(fd).Message()))
-		clustermask.ClearEmptyConnectMessages(upd)
-		if armMsg.Has(fd) {
-			t.Errorf("%s: an empty message survives the update payload strip", b.path)
-		}
+	}
+	got := map[string]bool{}
+	for _, p := range connectBlocks() {
+		steps := p.Steps()
+		got[steps[1].String()+"."+steps[2].String()] = true
+	}
+	if !maps.Equal(got, want) {
+		t.Fatalf("connectBlocks = %v, mask table Connect entries = %v", got, want)
+	}
+}
+
+// TestGuardOperatorAccountRemoved pins that a configuration which leaves the
+// operator account out while the cluster holds it plans the clear with a
+// warning, and that nothing else draws one.
+func TestGuardOperatorAccountRemoved(t *testing.T) {
+	ctx := context.Background()
+	s := ResourceClusterSchema(ctx)
+	ct := newCMRTypes(t)
+	const operator = "rp-op@tfrp-proj.iam.gserviceaccount.com"
+	held := ct.withGCP(map[string]tftypes.Value{"redpanda_operator_service_account": ct.email(operator)})
+	empty := ct.withGCP(map[string]tftypes.Value{"redpanda_operator_service_account": ct.email("")})
+	none := ct.withGCP(nil)
+	value := func(m map[string]tftypes.Value) tftypes.Value { return nullsExcept(ct.obj, m) }
+
+	cases := []struct {
+		name             string
+		state, cfg, plan map[string]tftypes.Value
+		create           bool
+		wantWarn         string
+	}{
+		{name: "declared", state: held, cfg: held, plan: held},
+		{name: "removed", state: held, cfg: none, plan: none, wantWarn: "operator"},
+		{name: "never held", state: none, cfg: none, plan: none},
+		{name: "empty on the server", state: empty, cfg: none, plan: none},
+		{name: "config not known yet", state: held, cfg: map[string]tftypes.Value{"customer_managed_resources": unknown(ct.cmr)}, plan: map[string]tftypes.Value{"customer_managed_resources": unknown(ct.cmr)}},
+		{name: "create", cfg: none, plan: none, create: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := resource.ModifyPlanRequest{
+				Config: tfsdk.Config{Schema: s, Raw: value(tc.cfg)},
+				Plan:   tfsdk.Plan{Schema: s, Raw: value(tc.plan)},
+				State:  tfsdk.State{Schema: s, Raw: tftypes.NewValue(ct.obj, nil)},
+			}
+			if !tc.create {
+				req.State.Raw = value(tc.state)
+			}
+			var resp resource.ModifyPlanResponse
+			guardOperatorAccountRemoved(ctx, req, &resp)
+			assertDiag(t, resp.Diagnostics, diag.SeverityError, "")
+			assertDiag(t, resp.Diagnostics, diag.SeverityWarning, tc.wantWarn)
+		})
 	}
 }
 
