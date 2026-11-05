@@ -1037,14 +1037,10 @@ func TestClusterFake_CMRMessagePathWithoutPayload(t *testing.T) {
 	}
 }
 
-// TestClusterFake_CMRLeafPathsAllHandled ties the fake to the provider's mask
-// table: every CMR mask path the provider can send must reach a case in
-// applyCMRLeafUpdate that writes the field the path names, because the
-// default branch silently drops the update and a test would then read back
-// the old value as if the provider were wrong, and a case routed to another
-// field would pass a test that only checks the path is handled. The fake's
-// message-path cases are for the out-of-band updates tests send, as the UI
-// and API do; the provider sends leaf paths only.
+// TestClusterFake_CMRLeafPathsAllHandled pins that every leaf path in the
+// provider's mask table reaches the applyCMRLeafUpdate case that writes that
+// field, since the default branch drops an update silently. The message
+// keys the provider sends to clear a block are pinned by the integration tier.
 func TestClusterFake_CMRLeafPathsAllHandled(t *testing.T) {
 	full := fullCMRUpdates()
 	for _, p := range clustermask.CMRUpdatableLeafPaths() {
