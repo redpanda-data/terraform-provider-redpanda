@@ -285,7 +285,6 @@ func (c *Cluster) Update(ctx context.Context, req resource.UpdateRequest, resp *
 		return
 	}
 	clustermask.ExpandCustomerManagedResourceLeaves(mask, diffedPayload.GetCustomerManagedResources(), statePayload.GetCustomerManagedResources())
-	clustermask.ClearEmptyConnectMessages(diffedPayload.GetCustomerManagedResources())
 	// The public-API mapper accepts rpsql and kafka_connect only at leaf
 	// granularity, not the top-level path the diff emits, so expand those before
 	// the request (see internal/clustermask).
@@ -562,7 +561,7 @@ func (c *Cluster) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest
 	guardTransition := func(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 		guardCustomerManagedResourcesTransition(ctx, req, resp, c.networkHasCMR)
 	}
-	if !runPlanGuards(ctx, req, resp, recordStateOnlySettings, guardRpsqlCMRWhileDisabled, guardConnectPairing, guardTransition) {
+	if !runPlanGuards(ctx, req, resp, recordStateOnlySettings, guardRpsqlCMRWhileDisabled, guardConnectPairing, guardOperatorAccountRemoved, guardTransition) {
 		return
 	}
 	// Reject the dual->legacy attempt before any plan surgery, and keep the

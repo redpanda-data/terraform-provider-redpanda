@@ -2596,8 +2596,8 @@ func TestIntegration_Cluster_CMR_GCP(t *testing.T) {
 // Connect, Connect API and Operator service accounts as in-place updatable: a
 // cluster created without them can add and change them without a replace, which
 // is what an existing Terraform-created BYOVPC cluster needs to turn on Redpanda
-// Connect. Omitting them again keeps them: clearing an account turns Connect
-// off, so it never happens by leaving a line out.
+// Connect. Leaving them out again clears them, which is how a configuration
+// turns Connect off.
 func TestIntegration_Cluster_CMR_GCP_ConnectServiceAccounts(t *testing.T) {
 	_, factories := clusterSetup(t)
 
@@ -2656,12 +2656,12 @@ data "redpanda_cluster" "test" {
 					statecheck.ExpectKnownValue(clusterAddr, operatorPath.AtMapKey("email"), knownvalue.StringExact(operator)),
 					idSame.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
-			integration.NoopReapplyStep(clusterAddr,
+			integration.UpdateLeafStep(clusterAddr,
 				gcpBYOVPCConfig(gcpBYOVPCOpts{name: name}),
 				[]statecheck.StateCheck{
-					statecheck.ExpectKnownValue(clusterAddr, connectPath.AtMapKey("email"), knownvalue.StringExact(connectB)),
-					statecheck.ExpectKnownValue(clusterAddr, connectAPIPath.AtMapKey("email"), knownvalue.StringExact(connectAPI)),
-					statecheck.ExpectKnownValue(clusterAddr, operatorPath.AtMapKey("email"), knownvalue.StringExact(operator)),
+					statecheck.ExpectKnownValue(clusterAddr, connectPath, knownvalue.Null()),
+					statecheck.ExpectKnownValue(clusterAddr, connectAPIPath, knownvalue.Null()),
+					statecheck.ExpectKnownValue(clusterAddr, operatorPath, knownvalue.Null()),
 					idSame.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
 		},
@@ -2704,12 +2704,12 @@ func TestIntegration_Cluster_CMR_GCP_ConnectServiceAccountsPaired(t *testing.T) 
 	})
 }
 
-// TestIntegration_Cluster_CMR_GCP_ConnectAccountOmittedAloneKept pins the
-// pairing as judged on what the plan sends, not on config alone: leaving one
-// Connect account out of the config keeps it from state, so the pair stays
-// whole, and rotating one account while the other is only in state is an
-// in-place update.
-func TestIntegration_Cluster_CMR_GCP_ConnectAccountOmittedAloneKept(t *testing.T) {
+// TestIntegration_Cluster_CMR_GCP_ConnectAccountRemovedAloneRefused pins that
+// leaving one Connect account out of a config while the cluster holds it is
+// refused at plan: applying would clear it and strand the other with Connect
+// off. Rotating one account while keeping the other is an in-place update,
+// and leaving both out clears both.
+func TestIntegration_Cluster_CMR_GCP_ConnectAccountRemovedAloneRefused(t *testing.T) {
 	_, factories := clusterSetup(t)
 
 	const (
@@ -2727,17 +2727,22 @@ func TestIntegration_Cluster_CMR_GCP_ConnectAccountOmittedAloneKept(t *testing.T
 		Steps: []resource.TestStep{
 			integration.CreateStep(clusterAddr,
 				gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, connectSAEmail: connectA, connectAPISAEmail: connectAPI}), nil),
-			integration.NoopReapplyStep(clusterAddr,
-				gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, connectSAEmail: connectA}),
-				[]statecheck.StateCheck{
-					statecheck.ExpectKnownValue(clusterAddr, connectEmail, knownvalue.StringExact(connectA)),
-					statecheck.ExpectKnownValue(clusterAddr, apiEmail, knownvalue.StringExact(connectAPI)),
-				}),
+			{
+				Config:      gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, connectSAEmail: connectA}),
+				PlanOnly:    true,
+				ExpectError: regexp.MustCompile(`Remove\s+both\s+accounts`),
+			},
 			integration.UpdateLeafStep(clusterAddr,
-				gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, connectSAEmail: connectB}),
+				gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, connectSAEmail: connectB, connectAPISAEmail: connectAPI}),
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, connectEmail, knownvalue.StringExact(connectB)),
 					statecheck.ExpectKnownValue(clusterAddr, apiEmail, knownvalue.StringExact(connectAPI)),
+				}),
+			integration.UpdateLeafStep(clusterAddr,
+				gcpBYOVPCConfig(gcpBYOVPCOpts{name: name}),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, gcpPath.AtMapKey("redpanda_connect_service_account"), knownvalue.Null()),
+					statecheck.ExpectKnownValue(clusterAddr, gcpPath.AtMapKey("redpanda_connect_api_service_account"), knownvalue.Null()),
 				}),
 		},
 	})
@@ -2853,8 +2858,8 @@ resource "terraform_data" "sql" {
 // lone Connect block the cluster already holds does not fail every plan: a
 // lone half the control plane holds never turned Connect on, so the config
 // may keep it unchanged with a warning, and only adding or changing a half is
-// an error. A pair neither half of which the config names is the server's,
-// not this configuration's, and the guard leaves it alone.
+// an error. A lone half the config never names is cleared like any other
+// value the configuration leaves out.
 func TestIntegration_Cluster_CMR_ConnectPairUnchangedLoneBlockPlans(t *testing.T) {
 	t.Run("aws block named in config", func(t *testing.T) {
 		srv, factories := clusterSetup(t)
@@ -2880,13 +2885,15 @@ func TestIntegration_Cluster_CMR_ConnectPairUnchangedLoneBlockPlans(t *testing.T
 		var id string
 		create := integration.CreateStep(clusterAddr, cfg, nil)
 		create.Check = captureClusterID(&id)
-		adopt := integration.NoopReapplyStep(clusterAddr, cfg, nil)
-		adopt.PreConfig = updateCMROutOfBand(t, srv, &id, &controlplanev1.CustomerManagedResourcesUpdate{
+		cleared := integration.UpdateLeafStep(clusterAddr, cfg, []statecheck.StateCheck{
+			statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("redpanda_connect_service_account"), knownvalue.Null()),
+		})
+		cleared.PreConfig = updateCMROutOfBand(t, srv, &id, &controlplanev1.CustomerManagedResourcesUpdate{
 			CloudProvider: &controlplanev1.CustomerManagedResourcesUpdate_Gcp{Gcp: &controlplanev1.CustomerManagedResourcesUpdate_GCP{
 				RedpandaConnectServiceAccount: &controlplanev1.GCPServiceAccount{Email: "rpcn@tfrp-proj.iam.gserviceaccount.com"},
 			}},
 		}, "customer_managed_resources.gcp.redpanda_connect_service_account")
-		resource.UnitTest(t, resource.TestCase{ProtoV6ProviderFactories: factories, Steps: []resource.TestStep{create, adopt}})
+		resource.UnitTest(t, resource.TestCase{ProtoV6ProviderFactories: factories, Steps: []resource.TestStep{create, cleared}})
 	})
 }
 
@@ -2933,74 +2940,22 @@ func TestIntegration_Cluster_CMR_MoveToOtherCMRNetworkNeedsBlock(t *testing.T) {
 	})
 }
 
-// TestIntegration_Cluster_CMR_ReplaceWithStateOnlyConnectAccounts pins that a
-// replace is refused while Connect blocks live only in state. A replace plans
-// the new cluster from config alone, so those blocks would be left off the
-// create and the replacement would come up with Redpanda Connect off. Declared
-// in config, they carry over.
-func TestIntegration_Cluster_CMR_ReplaceWithStateOnlyConnectAccounts(t *testing.T) {
+// TestIntegration_Cluster_CMR_ReplaceWithStateOnlyRpsql pins that a replace is
+// refused while an enabled rpsql block lives only in state: the block is
+// Optional+Computed, so a config without it keeps Redpanda SQL on in place,
+// but a replace plans the new cluster from config alone and would come up
+// with it off. Connect accounts never live only in state: a config without
+// them clears them in place, and a config with them carries them over.
+func TestIntegration_Cluster_CMR_ReplaceWithStateOnlyRpsql(t *testing.T) {
 	const (
 		connect    = "rpcn@tfrp-proj.iam.gserviceaccount.com"
 		connectAPI = "rpcn-api@tfrp-proj.iam.gserviceaccount.com"
 		operator   = "rp-op@tfrp-proj.iam.gserviceaccount.com"
 	)
-	stateOnly := regexp.MustCompile("not in the configuration")
 	gcpPath := tfjsonpath.New("customer_managed_resources").AtMapKey("gcp")
 	withSAs := func(name, subnet string) gcpBYOVPCOpts {
 		return gcpBYOVPCOpts{name: name, subnetName: subnet, connectSAEmail: connect, connectAPISAEmail: connectAPI, operatorSAEmail: operator}
 	}
-
-	t.Run("adopted from the server", func(t *testing.T) {
-		srv, factories := clusterSetup(t)
-		const name = "tfrp-mock-cl-rpcn-rp-a"
-		var id string
-		create := integration.CreateStep(clusterAddr, gcpBYOVPCConfig(gcpBYOVPCOpts{name: name}), nil)
-		create.Check = captureClusterID(&id)
-		adopt := integration.NoopReapplyStep(clusterAddr, gcpBYOVPCConfig(gcpBYOVPCOpts{name: name}), nil)
-		adopt.PreConfig = updateCMROutOfBand(t, srv, &id, &controlplanev1.CustomerManagedResourcesUpdate{
-			CloudProvider: &controlplanev1.CustomerManagedResourcesUpdate_Gcp{Gcp: &controlplanev1.CustomerManagedResourcesUpdate_GCP{
-				RedpandaConnectServiceAccount:    &controlplanev1.GCPServiceAccount{Email: connect},
-				RedpandaConnectApiServiceAccount: &controlplanev1.GCPServiceAccount{Email: connectAPI},
-			}},
-		},
-			"customer_managed_resources.gcp.redpanda_connect_service_account", "customer_managed_resources.gcp.redpanda_connect_api_service_account")
-		resource.UnitTest(t, resource.TestCase{
-			ProtoV6ProviderFactories: factories,
-			Steps: []resource.TestStep{
-				create, adopt,
-				{Config: gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, subnetName: "tfrp-subnet-b"}), ExpectError: stateOnly},
-			},
-		})
-	})
-
-	t.Run("dropped from config", func(t *testing.T) {
-		_, factories := clusterSetup(t)
-		const name = "tfrp-mock-cl-rpcn-rp-d"
-		resource.UnitTest(t, resource.TestCase{
-			ProtoV6ProviderFactories: factories,
-			Steps: []resource.TestStep{
-				integration.CreateStep(clusterAddr, gcpBYOVPCConfig(withSAs(name, "")), nil),
-				integration.NoopReapplyStep(clusterAddr, gcpBYOVPCConfig(gcpBYOVPCOpts{name: name}), nil),
-				{Config: gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, subnetName: "tfrp-subnet-b"}), ExpectError: stateOnly},
-			},
-		})
-	})
-
-	t.Run("operator account dropped from config", func(t *testing.T) {
-		_, factories := clusterSetup(t)
-		const name = "tfrp-mock-cl-rpcn-rp-o"
-		resource.UnitTest(t, resource.TestCase{
-			ProtoV6ProviderFactories: factories,
-			Steps: []resource.TestStep{
-				integration.CreateStep(clusterAddr, gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, operatorSAEmail: operator}), nil),
-				integration.NoopReapplyStep(clusterAddr, gcpBYOVPCConfig(gcpBYOVPCOpts{name: name}), nil),
-				{
-					Config:      gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, subnetName: "tfrp-subnet-b"}),
-					ExpectError: regexp.MustCompile(`redpanda_operator_service_account\s+is\s+set\s+on\s+the\s+cluster`),
-				},
-			},
-		})
-	})
 
 	t.Run("rpsql block dropped from config", func(t *testing.T) {
 		_, factories := clusterSetup(t)
@@ -3018,7 +2973,7 @@ func TestIntegration_Cluster_CMR_ReplaceWithStateOnlyConnectAccounts(t *testing.
 		})
 	})
 
-	t.Run("declared again after an update that omitted them", func(t *testing.T) {
+	t.Run("connect accounts declared again after an update that omitted them", func(t *testing.T) {
 		_, factories := clusterSetup(t)
 		const name = "tfrp-mock-cl-rpcn-rp-s"
 		tagged := func(o gcpBYOVPCOpts) gcpBYOVPCOpts { o.tags = `tags = { env = "dev" }`; return o }
@@ -3026,13 +2981,17 @@ func TestIntegration_Cluster_CMR_ReplaceWithStateOnlyConnectAccounts(t *testing.
 			ProtoV6ProviderFactories: factories,
 			Steps: []resource.TestStep{
 				integration.CreateStep(clusterAddr, gcpBYOVPCConfig(withSAs(name, "")), nil),
-				integration.UpdateLeafStep(clusterAddr, gcpBYOVPCConfig(tagged(gcpBYOVPCOpts{name: name})), nil),
-				integration.RequiresReplaceStep(clusterAddr, gcpBYOVPCConfig(tagged(withSAs(name, "tfrp-subnet-b"))), nil),
+				integration.UpdateLeafStep(clusterAddr, gcpBYOVPCConfig(tagged(gcpBYOVPCOpts{name: name})), []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, gcpPath.AtMapKey("redpanda_connect_service_account"), knownvalue.Null()),
+				}),
+				integration.RequiresReplaceStep(clusterAddr, gcpBYOVPCConfig(tagged(withSAs(name, "tfrp-subnet-b"))), []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, gcpPath.AtMapKey("redpanda_connect_service_account").AtMapKey("email"), knownvalue.StringExact(connect)),
+				}),
 			},
 		})
 	})
 
-	t.Run("declared in config", func(t *testing.T) {
+	t.Run("connect accounts declared in config", func(t *testing.T) {
 		_, factories := clusterSetup(t)
 		const name = "tfrp-mock-cl-rpcn-rp-k"
 		resource.UnitTest(t, resource.TestCase{
@@ -3183,17 +3142,20 @@ func TestIntegration_Cluster_CMR_BlockRemovalRejected(t *testing.T) {
 	})
 }
 
-// TestIntegration_Cluster_CMR_AWS_ConnectSecurityGroupOmitted pins that
-// leaving the Redpanda Connect security group out of a config that once set it
-// keeps it: the plan is empty and state still holds the ARN.
-func TestIntegration_Cluster_CMR_AWS_ConnectSecurityGroupOmitted(t *testing.T) {
+// TestIntegration_Cluster_CMR_AWS_ConnectPairRemovedTurnsConnectOff pins the
+// only way a configuration turns Redpanda Connect off: leaving both Connect
+// blocks out clears them on the cluster in place, and leaving out one alone
+// is refused at plan. Declaring both again turns Connect back on in place.
+func TestIntegration_Cluster_CMR_AWS_ConnectPairRemovedTurnsConnectOff(t *testing.T) {
 	_, factories := clusterSetup(t)
 
 	const (
 		name      = "tfrp-mock-cl-rpcn-sg"
 		connectSG = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-rp-connect-kept"
 	)
-	connectPath := tfjsonpath.New("customer_managed_resources").AtMapKey("aws").AtMapKey("redpanda_connect_security_group")
+	awsPath := tfjsonpath.New("customer_managed_resources").AtMapKey("aws")
+	connectPath := awsPath.AtMapKey("redpanda_connect_security_group")
+	profilePath := awsPath.AtMapKey("redpanda_connect_node_group_instance_profile")
 	idSame := statecheck.CompareValue(compare.ValuesSame())
 
 	resource.UnitTest(t, resource.TestCase{
@@ -3205,8 +3167,20 @@ func TestIntegration_Cluster_CMR_AWS_ConnectSecurityGroupOmitted(t *testing.T) {
 					statecheck.ExpectKnownValue(clusterAddr, connectPath.AtMapKey("arn"), knownvalue.StringExact(connectSG)),
 					idSame.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
-			integration.NoopReapplyStep(clusterAddr,
-				awsBYOVPCConfig(awsBYOVPCOpts{name: name, omitConnectSG: true}),
+			{
+				Config:      awsBYOVPCConfig(awsBYOVPCOpts{name: name, omitConnectSG: true}),
+				PlanOnly:    true,
+				ExpectError: regexp.MustCompile(`Remove\s+both\s+blocks`),
+			},
+			integration.UpdateLeafStep(clusterAddr,
+				awsBYOVPCConfig(awsBYOVPCOpts{name: name, omitConnectSG: true, omitConnectProfile: true}),
+				[]statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, connectPath, knownvalue.Null()),
+					statecheck.ExpectKnownValue(clusterAddr, profilePath, knownvalue.Null()),
+					idSame.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+				}),
+			integration.UpdateLeafStep(clusterAddr,
+				awsBYOVPCConfig(awsBYOVPCOpts{name: name, connectSGARN: connectSG}),
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, connectPath.AtMapKey("arn"), knownvalue.StringExact(connectSG)),
 					idSame.AddStateValue(clusterAddr, tfjsonpath.New("id")),
@@ -3215,11 +3189,11 @@ func TestIntegration_Cluster_CMR_AWS_ConnectSecurityGroupOmitted(t *testing.T) {
 	})
 }
 
-// TestIntegration_Cluster_CMR_ConnectAccountsAdoptedFromServer pins that a
-// Connect account set outside Terraform reads into state and plans empty
-// against a config that never mentions it. The alternative, a plan that nulls
-// the account, is accepted by the control plane and turns Redpanda Connect off.
-func TestIntegration_Cluster_CMR_ConnectAccountsAdoptedFromServer(t *testing.T) {
+// TestIntegration_Cluster_CMR_ConnectAccountsSetOutOfBandAreDrift pins that a
+// Connect account set outside Terraform reads into state and that a config
+// which never mentions it plans and applies its removal, as it does for any
+// other value the configuration leaves out.
+func TestIntegration_Cluster_CMR_ConnectAccountsSetOutOfBandAreDrift(t *testing.T) {
 	t.Run("gcp", func(t *testing.T) {
 		srv, factories := clusterSetup(t)
 
@@ -3234,22 +3208,33 @@ func TestIntegration_Cluster_CMR_ConnectAccountsAdoptedFromServer(t *testing.T) 
 
 		create := integration.CreateStep(clusterAddr, cfg, nil)
 		create.Check = captureClusterID(&id)
-		adopt := integration.NoopReapplyStep(clusterAddr, cfg, []statecheck.StateCheck{
-			statecheck.ExpectKnownValue(clusterAddr, gcpPath.AtMapKey("redpanda_connect_service_account").AtMapKey("email"), knownvalue.StringExact(connect)),
-			statecheck.ExpectKnownValue(clusterAddr, gcpPath.AtMapKey("redpanda_connect_api_service_account").AtMapKey("email"), knownvalue.StringExact(connectAPI)),
-			statecheck.ExpectKnownValue(clusterAddr, gcpPath.AtMapKey("redpanda_operator_service_account").AtMapKey("email"), knownvalue.StringExact(operator)),
-		})
-		adopt.PreConfig = updateCMROutOfBand(t, srv, &id, &controlplanev1.CustomerManagedResourcesUpdate{
-			CloudProvider: &controlplanev1.CustomerManagedResourcesUpdate_Gcp{Gcp: &controlplanev1.CustomerManagedResourcesUpdate_GCP{
-				RedpandaConnectServiceAccount:    &controlplanev1.GCPServiceAccount{Email: connect},
-				RedpandaConnectApiServiceAccount: &controlplanev1.GCPServiceAccount{Email: connectAPI},
-				RedpandaOperatorServiceAccount:   &controlplanev1.GCPServiceAccount{Email: operator},
-			}},
-		},
-			"customer_managed_resources.gcp.redpanda_connect_service_account", "customer_managed_resources.gcp.redpanda_connect_api_service_account", "customer_managed_resources.gcp.redpanda_operator_service_account")
+		drift := resource.TestStep{
+			PreConfig: updateCMROutOfBand(t, srv, &id, &controlplanev1.CustomerManagedResourcesUpdate{
+				CloudProvider: &controlplanev1.CustomerManagedResourcesUpdate_Gcp{Gcp: &controlplanev1.CustomerManagedResourcesUpdate_GCP{
+					RedpandaConnectServiceAccount:    &controlplanev1.GCPServiceAccount{Email: connect},
+					RedpandaConnectApiServiceAccount: &controlplanev1.GCPServiceAccount{Email: connectAPI},
+					RedpandaOperatorServiceAccount:   &controlplanev1.GCPServiceAccount{Email: operator},
+				}},
+			},
+				"customer_managed_resources.gcp.redpanda_connect_service_account", "customer_managed_resources.gcp.redpanda_connect_api_service_account", "customer_managed_resources.gcp.redpanda_operator_service_account"),
+			RefreshState: true,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(clusterAddr, "customer_managed_resources.gcp.redpanda_connect_service_account.email", connect),
+				resource.TestCheckResourceAttr(clusterAddr, "customer_managed_resources.gcp.redpanda_connect_api_service_account.email", connectAPI),
+				resource.TestCheckResourceAttr(clusterAddr, "customer_managed_resources.gcp.redpanda_operator_service_account.email", operator),
+			),
+			ExpectNonEmptyPlan: true,
+		}
 		resource.UnitTest(t, resource.TestCase{
 			ProtoV6ProviderFactories: factories,
-			Steps:                    []resource.TestStep{create, adopt},
+			Steps: []resource.TestStep{
+				create, drift,
+				integration.UpdateLeafStep(clusterAddr, cfg, []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, gcpPath.AtMapKey("redpanda_connect_service_account"), knownvalue.Null()),
+					statecheck.ExpectKnownValue(clusterAddr, gcpPath.AtMapKey("redpanda_connect_api_service_account"), knownvalue.Null()),
+					statecheck.ExpectKnownValue(clusterAddr, gcpPath.AtMapKey("redpanda_operator_service_account"), knownvalue.Null()),
+				}),
+			},
 		})
 	})
 
@@ -3269,20 +3254,30 @@ func TestIntegration_Cluster_CMR_ConnectAccountsAdoptedFromServer(t *testing.T) 
 			statecheck.ExpectKnownValue(clusterAddr, connectPath, knownvalue.Null()),
 		})
 		create.Check = captureClusterID(&id)
-		adopt := integration.NoopReapplyStep(clusterAddr, cfg, []statecheck.StateCheck{
-			statecheck.ExpectKnownValue(clusterAddr, connectPath.AtMapKey("arn"), knownvalue.StringExact(connectSG)),
-			statecheck.ExpectKnownValue(clusterAddr, profilePath.AtMapKey("arn"), knownvalue.StringExact(connectProfile)),
-		})
-		adopt.PreConfig = updateCMROutOfBand(t, srv, &id, &controlplanev1.CustomerManagedResourcesUpdate{
-			CloudProvider: &controlplanev1.CustomerManagedResourcesUpdate_Aws{Aws: &controlplanev1.CustomerManagedResourcesUpdate_AWS{
-				RedpandaConnectSecurityGroup:            &controlplanev1.AWSSecurityGroup{Arn: connectSG},
-				RedpandaConnectNodeGroupInstanceProfile: &controlplanev1.AWSInstanceProfile{Arn: connectProfile},
-			}},
-		},
-			"customer_managed_resources.aws.redpanda_connect_security_group", "customer_managed_resources.aws.redpanda_connect_node_group_instance_profile")
+		drift := resource.TestStep{
+			PreConfig: updateCMROutOfBand(t, srv, &id, &controlplanev1.CustomerManagedResourcesUpdate{
+				CloudProvider: &controlplanev1.CustomerManagedResourcesUpdate_Aws{Aws: &controlplanev1.CustomerManagedResourcesUpdate_AWS{
+					RedpandaConnectSecurityGroup:            &controlplanev1.AWSSecurityGroup{Arn: connectSG},
+					RedpandaConnectNodeGroupInstanceProfile: &controlplanev1.AWSInstanceProfile{Arn: connectProfile},
+				}},
+			},
+				"customer_managed_resources.aws.redpanda_connect_security_group", "customer_managed_resources.aws.redpanda_connect_node_group_instance_profile"),
+			RefreshState: true,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr(clusterAddr, "customer_managed_resources.aws.redpanda_connect_security_group.arn", connectSG),
+				resource.TestCheckResourceAttr(clusterAddr, "customer_managed_resources.aws.redpanda_connect_node_group_instance_profile.arn", connectProfile),
+			),
+			ExpectNonEmptyPlan: true,
+		}
 		resource.UnitTest(t, resource.TestCase{
 			ProtoV6ProviderFactories: factories,
-			Steps:                    []resource.TestStep{create, adopt},
+			Steps: []resource.TestStep{
+				create, drift,
+				integration.UpdateLeafStep(clusterAddr, cfg, []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, connectPath, knownvalue.Null()),
+					statecheck.ExpectKnownValue(clusterAddr, profilePath, knownvalue.Null()),
+				}),
+			},
 		})
 	})
 }

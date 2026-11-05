@@ -44,32 +44,19 @@ var connectPairs = []struct{ arm, a, b, noun string }{
 	{"aws", "redpanda_connect_node_group_instance_profile", "redpanda_connect_security_group", "blocks"},
 }
 
-// carriedBlock is an Optional+Computed block whose state value survives a
-// config that omits it, so state can hold one the config never names.
-type carriedBlock struct {
-	path path.Path
-	// partner is the other half of a Connect pair; the operator account has
-	// none.
-	partner path.Path
-	// loss names what a replacement planned without the block comes up
-	// without.
-	loss string
-}
-
-func (b carriedBlock) hasPartner() bool { return len(b.partner.Steps()) > 0 }
-
-func carriedBlocks() []carriedBlock {
-	var out []carriedBlock
+// connectBlocks lists the Connect pairs and the operator account: the plain
+// Optional blocks under customer_managed_resources, which a configuration
+// clears by leaving out.
+func connectBlocks() []path.Path {
+	var out []path.Path
 	for _, pair := range connectPairs {
-		a, b := cmrPath.AtName(pair.arm).AtName(pair.a), cmrPath.AtName(pair.arm).AtName(pair.b)
-		out = append(out,
-			carriedBlock{path: a, partner: b, loss: "Redpanda Connect off"},
-			carriedBlock{path: b, partner: a, loss: "Redpanda Connect off"})
+		out = append(out, cmrPath.AtName(pair.arm).AtName(pair.a), cmrPath.AtName(pair.arm).AtName(pair.b))
 	}
-	return append(out, carriedBlock{path: operatorAccount, loss: "no operator identity for secrets in cluster properties"})
+	return append(out, operatorAccount)
 }
 
-// stateOnlySetting is a setting the state holds and the config leaves out.
+// stateOnlySetting is a setting the state holds and the config leaves out,
+// which only an Optional+Computed attribute can be.
 type stateOnlySetting struct {
 	Path string `json:"path"`
 	// Warn marks a setting the control plane may put back on the
@@ -238,27 +225,41 @@ func rpsqlPlannedOff(rpsql types.Object, create bool) bool {
 	return !enabled.ValueBool()
 }
 
-// guardConnectPairing judges a Connect pair on the plan, where a block the
-// config leaves out carries its state value, so rotating one account while
-// the other lives only in state is fine. On an update a lone block the config
-// keeps unchanged is a warning, not an error: it is a state the control plane
-// accepted, and a lone half never turned Connect on. A create, plain or the
-// create pass of a replace, has no state to compare with and errors on any
-// lone block in config; the apply-time plan of a replace's create would do
-// the same after the destroy, so the plan-time one may not be more lenient.
-// A pair neither half of which is in config is the server's, not this
-// configuration's.
+// guardConnectPairing judges a Connect pair on the plan. On an update, a
+// half the config leaves out is cleared: leaving out both turns Connect off,
+// which the plan says in a warning; leaving out one while the cluster holds
+// it would clear it and strand the other, so that is an error. A lone block
+// the config keeps unchanged is a warning, not an error: it is a state the
+// control plane accepted, and a lone half never turned Connect on. A create,
+// plain or the create pass of a replace, has no state to compare with and
+// errors on any lone block in config; the apply-time plan of a replace's
+// create would do the same after the destroy, so the plan-time one may not be
+// more lenient.
 func guardConnectPairing(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	create := req.State.Raw.IsNull()
 	for _, pair := range connectPairs {
-		a := plannedBlock(ctx, req, cmrPath.AtName(pair.arm).AtName(pair.a), resp)
-		b := plannedBlock(ctx, req, cmrPath.AtName(pair.arm).AtName(pair.b), resp)
-		if resp.Diagnostics.HasError() || !a.known || !b.known || a.sent == b.sent || (!a.configured && !b.configured) {
+		aPath, bPath := cmrPath.AtName(pair.arm).AtName(pair.a), cmrPath.AtName(pair.arm).AtName(pair.b)
+		a := plannedBlock(ctx, req, aPath, resp)
+		b := plannedBlock(ctx, req, bPath, resp)
+		if resp.Diagnostics.HasError() {
 			continue
 		}
-		missing := cmrPath.AtName(pair.arm).AtName(pair.a)
+		if a.sent == b.sent {
+			if !create && a.known && b.known && !a.sent && a.held && b.held {
+				resp.Diagnostics.AddAttributeWarning(aPath, "Redpanda Connect turns off",
+					fmt.Sprintf("The configuration leaves out %s and %s, which the cluster holds. Applying clears both and turns "+
+						"Redpanda Connect off. Declare both to keep Connect on.", pair.a, pair.b))
+			}
+			continue
+		}
+		missing, kept := aPath, pair.b
+		missingBlock, keptBlock, missingName := a, b, pair.a
 		if a.sent {
-			missing = cmrPath.AtName(pair.arm).AtName(pair.b)
+			missing, kept = bPath, pair.a
+			missingBlock, keptBlock, missingName = b, a, pair.b
+		}
+		if !missingBlock.known {
+			continue
 		}
 		detail := fmt.Sprintf("%s and %s must be set together: the control plane turns Redpanda Connect on only when "+
 			"both are present, so one alone applies cleanly and leaves Connect off.", pair.a, pair.b)
@@ -268,6 +269,12 @@ func guardConnectPairing(ctx context.Context, req resource.ModifyPlanRequest, re
 				" Set both "+pair.noun+", or leave the lone one out of the configuration, which creates the cluster "+
 				"with Connect off. If this plan replaces a cluster that has both, declare both, or the replacement "+
 				"comes up with Connect off.")
+		case missingBlock.held:
+			resp.Diagnostics.AddAttributeError(missing, "Redpanda Connect needs both "+pair.noun, detail+
+				fmt.Sprintf(" The configuration leaves out %s, which the cluster holds, so applying would clear it and "+
+					"leave %s behind. Remove both %s to turn Redpanda Connect off, or keep both.", missingName, kept, pair.noun))
+		case !keptBlock.known:
+			continue
 		case !a.changed && !b.changed:
 			resp.Diagnostics.AddAttributeWarning(missing, "Redpanda Connect needs both "+pair.noun, detail)
 		default:
@@ -276,21 +283,37 @@ func guardConnectPairing(ctx context.Context, req resource.ModifyPlanRequest, re
 	}
 }
 
+// guardOperatorAccountRemoved warns on an update whose configuration leaves
+// the operator account out while the cluster holds it: applying clears it,
+// and the cluster loses the identity secrets in cluster properties need.
+func guardOperatorAccountRemoved(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.State.Raw.IsNull() {
+		return
+	}
+	b := plannedBlock(ctx, req, operatorAccount, resp)
+	if resp.Diagnostics.HasError() || !b.known || b.sent || !b.held {
+		return
+	}
+	resp.Diagnostics.AddAttributeWarning(operatorAccount, "Redpanda operator account removed",
+		"The configuration leaves out redpanda_operator_service_account, which the cluster holds. Applying clears it, "+
+			"and secrets in cluster properties lose the operator identity. Declare it to keep it.")
+}
+
 // plannedConnectBlock is what the plan does with one Connect block.
 type plannedConnectBlock struct {
-	sent       bool // the plan carries a known, non-empty value
+	sent       bool // the plan carries a non-empty value
 	configured bool // the config names it
 	changed    bool // the config names it with a value the state does not hold
-	known      bool // decidable now; false while its config is not known yet
+	held       bool // the state carries a non-empty value, which a plan without one clears
+	known      bool // changed is decidable now; false while its config is not known yet
 }
 
 // plannedBlock reports what the plan does with the block at p. A block the
-// config leaves null is sent when the plan carries a value for it, which on
-// update is its state value and on create is unknown, so absent. An empty
-// value, the shape a leaf-only clear leaves on the control plane, is absent
-// too. On the update pass a configured block with a leaf not known yet is
-// left undecided until the apply-time plan; on a create it is sent whatever
-// its value.
+// config leaves null plans null, so it is not sent. An empty value, the
+// shape a leaf-only clear leaves on the control plane, is neither sent nor
+// held. On the update pass a configured block with a leaf not known yet is
+// sent, but whether it changes is left to the apply-time plan; a block whose
+// config is not known at all is undecided throughout.
 func plannedBlock(ctx context.Context, req resource.ModifyPlanRequest, p path.Path, resp *resource.ModifyPlanResponse) plannedConnectBlock {
 	var cfg, plan, state types.Object
 	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, p, &cfg)...)
@@ -299,17 +322,31 @@ func plannedBlock(ctx context.Context, req resource.ModifyPlanRequest, p path.Pa
 	if update {
 		resp.Diagnostics.Append(req.State.GetAttribute(ctx, p, &state)...)
 	}
+	held := update && !state.IsNull() && !state.IsUnknown() && !emptyBlock(state)
 	switch {
-	case cfg.IsUnknown():
+	case cfg.IsUnknown() || configUnknownAbove(ctx, req, p, resp):
 		return plannedConnectBlock{}
 	case !cfg.IsNull():
 		if update && !fullyKnown(ctx, cfg) {
-			return plannedConnectBlock{}
+			return plannedConnectBlock{sent: true, configured: true, held: held}
 		}
-		return plannedConnectBlock{sent: true, configured: true, changed: !cfg.Equal(state), known: true}
+		return plannedConnectBlock{sent: true, configured: true, changed: !cfg.Equal(state), held: held, known: true}
 	default:
-		return plannedConnectBlock{sent: !plan.IsNull() && !plan.IsUnknown() && !emptyBlock(plan), known: true}
+		return plannedConnectBlock{sent: !plan.IsNull() && !plan.IsUnknown() && !emptyBlock(plan), held: held, known: true}
 	}
+}
+
+// configUnknownAbove reports whether an ancestor of p is not known yet in
+// config, in which case the block under it reads as null rather than unknown.
+func configUnknownAbove(ctx context.Context, req resource.ModifyPlanRequest, p path.Path, resp *resource.ModifyPlanResponse) bool {
+	for parent := p.ParentPath(); len(parent.Steps()) > 0; parent = parent.ParentPath() {
+		var o types.Object
+		resp.Diagnostics.Append(req.Config.GetAttribute(ctx, parent, &o)...)
+		if resp.Diagnostics.HasError() || o.IsUnknown() {
+			return true
+		}
+	}
+	return false
 }
 
 func fullyKnown(ctx context.Context, o types.Object) bool {
@@ -336,49 +373,26 @@ func emptyBlock(o types.Object) bool {
 	return true
 }
 
-// stateOnlySettings lists the carried blocks and an enabled rpsql block that
-// state holds and the config leaves out. A block counts only when its arm is
-// known and present in config: an arm read through an unknown or dropped
-// customer_managed_resources reads as null, and neither config not known yet
-// nor a dropped block leaves a block out. A Connect block whose partner is
-// absent or empty never turned Connect on. An enabled rpsql block on a
-// cluster without customer-managed resources may be the control plane's own
-// doing, as on an Agentic Data Plane cluster, where it enables Redpanda SQL
-// again on the replacement and rejects a declared block; that one is a
+// stateOnlySettings lists an enabled rpsql block that state holds and the
+// config leaves out. The block is Optional+Computed, so a config without it
+// keeps it on an update and loses it on a replace. An enabled rpsql block on
+// a cluster without customer-managed resources may be the control plane's
+// own doing, as on an Agentic Data Plane cluster, where it enables Redpanda
+// SQL again on the replacement and rejects a declared block; that one is a
 // warning.
 func stateOnlySettings(ctx context.Context, state tfsdk.State, cfg tfsdk.Config) ([]stateOnlySetting, diag.Diagnostics) {
 	var diags diag.Diagnostics
-	var held []stateOnlySetting
-	for _, b := range carriedBlocks() {
-		var cfgArm, st, c, partner types.Object
-		diags.Append(cfg.GetAttribute(ctx, b.path.ParentPath(), &cfgArm)...)
-		diags.Append(state.GetAttribute(ctx, b.path, &st)...)
-		diags.Append(cfg.GetAttribute(ctx, b.path, &c)...)
-		if b.hasPartner() {
-			diags.Append(state.GetAttribute(ctx, b.partner, &partner)...)
-		}
-		if diags.HasError() {
-			return nil, diags
-		}
-		if cfgArm.IsNull() || cfgArm.IsUnknown() || st.IsNull() || st.IsUnknown() || !c.IsNull() || emptyBlock(st) {
-			continue
-		}
-		if b.hasPartner() && (partner.IsNull() || partner.IsUnknown() || emptyBlock(partner)) {
-			continue
-		}
-		held = append(held, stateOnlySetting{Path: b.path.String()})
-	}
 	var stRpsql, cfgRpsql, stCMR types.Object
 	diags.Append(state.GetAttribute(ctx, rpsqlPath, &stRpsql)...)
 	diags.Append(cfg.GetAttribute(ctx, rpsqlPath, &cfgRpsql)...)
 	diags.Append(state.GetAttribute(ctx, cmrPath, &stCMR)...)
 	if diags.HasError() || !cfgRpsql.IsNull() || stRpsql.IsNull() || stRpsql.IsUnknown() {
-		return held, diags
+		return nil, diags
 	}
 	if enabled, ok := stRpsql.Attributes()["enabled"].(types.Bool); ok && enabled.ValueBool() {
-		held = append(held, stateOnlySetting{Path: rpsqlPath.String(), Warn: stCMR.IsNull()})
+		return []stateOnlySetting{{Path: rpsqlPath.String(), Warn: stCMR.IsNull()}}, diags
 	}
-	return held, diags
+	return nil, diags
 }
 
 // recordStateOnlySettings runs on every plan with a prior state and records,
@@ -394,7 +408,9 @@ func recordStateOnlySettings(ctx context.Context, req resource.ModifyPlanRequest
 
 // guardReplaceWithStateOnlySettings runs on the create pass of a plan. A plain
 // create has no prior private state and passes. A tainted cluster is planned
-// without its private state, so its replace is not covered.
+// without its private state, so its replace is not covered: the replacement
+// of a cluster whose enabled rpsql block the config leaves out comes up with
+// Redpanda SQL off, without a word.
 func guardReplaceWithStateOnlySettings(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	refuseReplaceWithStateOnlySettings(ctx, req.Private, resp)
 }
@@ -433,11 +449,6 @@ func refuseReplaceWithStateOnlySettings(ctx context.Context, priv privateReader,
 func lostOnReplace(p string) string {
 	if p == rpsqlPath.String() {
 		return "Redpanda SQL off"
-	}
-	for _, b := range carriedBlocks() {
-		if b.path.String() == p {
-			return b.loss
-		}
 	}
 	return "the setting off"
 }
