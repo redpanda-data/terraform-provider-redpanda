@@ -90,13 +90,18 @@ func TestGuardCustomerManagedResourcesTransition(t *testing.T) {
 	ctx := context.Background()
 	s := ResourceClusterSchema(ctx)
 	ct := newCMRTypes(t)
-	cluster := func(network tftypes.Value, cmr bool) tftypes.Value {
-		attrs := map[string]tftypes.Value{"network_id": network}
+	typed := func(clusterType string, network tftypes.Value, cmr bool) tftypes.Value {
+		attrs := map[string]tftypes.Value{
+			"network_id":   network,
+			"cluster_type": tftypes.NewValue(tftypes.String, clusterType),
+		}
 		if cmr {
 			attrs["customer_managed_resources"] = nullsExcept(ct.cmr, map[string]tftypes.Value{"gcp": nullsExcept(ct.gcp, nil)})
 		}
 		return nullsExcept(ct.obj, attrs)
 	}
+	cluster := func(network tftypes.Value, cmr bool) tftypes.Value { return typed("byoc", network, cmr) }
+	dedicated := func(network tftypes.Value) tftypes.Value { return typed("dedicated", network, false) }
 	netA := tftypes.NewValue(tftypes.String, "net-a")
 	netB := tftypes.NewValue(tftypes.String, "net-b")
 	netUnknown := tftypes.NewValue(tftypes.String, tftypes.UnknownValue)
@@ -119,6 +124,7 @@ func TestGuardCustomerManagedResourcesTransition(t *testing.T) {
 		{name: "moving to a network without them keeps the block", state: cluster(netA, true), plan: cluster(netB, true), wantErr: "has no customer-managed resources", wantLookups: 1},
 		{name: "moving a cluster without them onto a network with them", state: cluster(netA, false), plan: cluster(netB, false), targetHasCMR: true, wantErr: "has customer-managed resources", wantLookups: 1},
 		{name: "moving a cluster without them to a network without them", state: cluster(netA, false), plan: cluster(netB, false), wantLookups: 1},
+		{name: "a dedicated cluster moves without a network read", state: dedicated(netA), plan: dedicated(netB)},
 		{name: "adding the block on the same network", state: cluster(netA, false), plan: cluster(netA, true), wantErr: "has no customer-managed resources", wantLookups: 1},
 		{name: "moving to a network not yet known", state: cluster(netA, true), plan: cluster(netUnknown, false), targetHasCMR: true},
 		{name: "network cannot be read", state: cluster(netA, true), plan: cluster(netB, false), lookupErr: lookupFails, wantErr: "could not be read", wantLookups: 1},

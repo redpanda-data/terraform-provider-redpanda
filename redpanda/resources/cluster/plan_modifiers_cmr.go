@@ -20,12 +20,14 @@ import (
 	"fmt"
 	"strings"
 
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/clustermask"
+	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils/enums"
 )
 
 var (
@@ -110,20 +112,24 @@ func writeStateOnlySettings(ctx context.Context, priv privateWriter, held []stat
 // the current one, replaces the cluster, and the control plane checks the new
 // cluster against its network only when it creates it, after the destroy; so
 // the network is read here, and a network that cannot be read fails the plan.
-// A network not known until apply cannot be checked.
+// A network not known until apply cannot be checked. Only a BYOC cluster can
+// be on a network with customer-managed resources, so a cluster of another
+// type that declares none moves without the read.
 func guardCustomerManagedResourcesTransition(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse, networkHasCMR func(context.Context, string) (bool, error)) {
 	var stateCMR, planCMR types.Object
-	var stateNet, planNet types.String
+	var stateNet, planNet, planType types.String
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, cmrPath, &stateCMR)...)
 	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, cmrPath, &planCMR)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("network_id"), &stateNet)...)
 	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("network_id"), &planNet)...)
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("cluster_type"), &planType)...)
 	if resp.Diagnostics.HasError() || planCMR.IsUnknown() || planNet.IsUnknown() {
 		return
 	}
 	planned, held, moved := !planCMR.IsNull(), !stateCMR.IsNull(), !planNet.Equal(stateNet)
+	byoc := planType.IsNull() || planType.IsUnknown() || planType.ValueString() == enums.ClusterTypeToString(controlplanev1.Cluster_TYPE_BYOC)
 	switch {
-	case !moved && planned == held:
+	case !moved && planned == held, !planned && !held && !byoc:
 		return
 	case !moved && held:
 		resp.Diagnostics.AddAttributeError(cmrPath,
