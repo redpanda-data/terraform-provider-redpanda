@@ -85,6 +85,7 @@ func Merge(proto *ProtoMessage, cfg *Config, schemaType string, apiIndex *apides
 		deriveRepeatedRuleValidators(attrs, proto, "")
 	}
 	if !mc.isDatasource {
+		deriveFoldLeafValidators(attrs, proto, cfg.Fields, "")
 		appendReplacementDescriptions(attrs)
 	}
 
