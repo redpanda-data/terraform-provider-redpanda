@@ -36,18 +36,20 @@ type runnerCfg struct {
 	// READY cluster through the redpanda_byoc_agent_apply action.
 	byocAgentApply bool
 	// inPlaceAdd, when set, adds a step after rename that layers these
-	// variables onto the rename step's as an in-place cluster update, then
-	// one that leaves them out again and requires the cluster to keep them.
+	// variables onto the rename step's as an in-place cluster update and,
+	// after the agent apply, one that leaves them out again and requires
+	// the cluster to drop them.
 	inPlaceAdd *inPlaceAddStep
 	// outOfBandAdd, when set, adds a step after rename that changes the
 	// cluster through the control plane, the way the UI or API does, then
-	// re-plans the unchanged config and requires no change.
+	// applies the unchanged config and requires the change undone.
 	outOfBandAdd *outOfBandAddStep
 }
 
 type inPlaceAddStep struct {
-	vars   map[string]config.Variable
-	checks []resource.TestCheckFunc
+	vars          map[string]config.Variable
+	checks        []resource.TestCheckFunc
+	removedChecks []resource.TestCheckFunc
 }
 
 type outOfBandAddStep struct {
@@ -64,20 +66,23 @@ func withoutUpgradeEntry() runnerOpt { return func(c *runnerCfg) { c.skipUpgrade
 // have no agent and the action refuses them at plan time.
 func withByocAgentApply() runnerOpt { return func(c *runnerCfg) { c.byocAgentApply = true } }
 
-// withOutOfBandAdd is for Optional+Computed attributes a cluster can gain
-// outside Terraform: the value must read into state and the silent config must
-// plan empty, or an upgrade would clear it.
-func withOutOfBandAdd(apply func(ctx context.Context, cp *cloud.ControlPlaneClientSet, clusterID string) error, checks ...resource.TestCheckFunc) runnerOpt {
+// withOutOfBandDrift is for plain Optional attributes a cluster can gain
+// outside Terraform: the value is drift, so the silent config plans an update
+// that removes it, and the checks run on the state after that apply.
+func withOutOfBandDrift(apply func(ctx context.Context, cp *cloud.ControlPlaneClientSet, clusterID string) error, checks ...resource.TestCheckFunc) runnerOpt {
 	return func(c *runnerCfg) { c.outOfBandAdd = &outOfBandAddStep{apply: apply, checks: checks} }
 }
 
-// withInPlaceAddKeptOnOmit is for Optional+Computed attributes the released
+// withInPlaceAddThenRemove is for plain Optional attributes the released
 // provider cannot express: the upgrade entry and the create step run without
 // them, so the cluster takes them as an update, which is also how an existing
-// cluster adopts them. A further step leaves them out of the config again and
-// requires them kept, not cleared.
-func withInPlaceAddKeptOnOmit(vars map[string]config.Variable, checks ...resource.TestCheckFunc) runnerOpt {
-	return func(c *runnerCfg) { c.inPlaceAdd = &inPlaceAddStep{vars: vars, checks: checks} }
+// cluster gains them. After the agent apply a further step leaves them out
+// of the config again and requires them cleared, which is how a
+// configuration turns the feature they carry off.
+func withInPlaceAddThenRemove(vars map[string]config.Variable, checks []resource.TestCheckFunc, removedChecks ...resource.TestCheckFunc) runnerOpt {
+	return func(c *runnerCfg) {
+		c.inPlaceAdd = &inPlaceAddStep{vars: vars, checks: checks, removedChecks: removedChecks}
+	}
 }
 
 func withNetworkPublicSubnets(arns []string) runnerOpt {

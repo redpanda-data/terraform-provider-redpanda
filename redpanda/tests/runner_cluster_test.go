@@ -112,9 +112,9 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 		},
 	}...)
 	renameVars := updateTestCaseVars
-	noChange := resource.ConfigPlanChecks{
+	inPlaceUpdate := resource.ConfigPlanChecks{
 		PreApply: []plancheck.PlanCheck{
-			plancheck.ExpectResourceAction(acc.ClusterResourceName, plancheck.ResourceActionNoop),
+			plancheck.ExpectResourceAction(acc.ClusterResourceName, plancheck.ResourceActionUpdate),
 		},
 	}
 	if cfg.outOfBandAdd != nil {
@@ -126,7 +126,7 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 			},
 			ConfigDirectory:          config.StaticDirectory(testFile),
 			ConfigVariables:          renameVars,
-			ConfigPlanChecks:         noChange,
+			ConfigPlanChecks:         inPlaceUpdate,
 			Check:                    resource.ComposeAggregateTestCheckFunc(cfg.outOfBandAdd.checks...),
 			ProtoV6ProviderFactories: acc.ProtoV6Factories,
 		})
@@ -136,26 +136,24 @@ func testRunnerCluster(ctx context.Context, name, rename, version, testFile stri
 		updateTestCaseVars = maps.Clone(updateTestCaseVars)
 		maps.Copy(updateTestCaseVars, cfg.inPlaceAdd.vars)
 		steps = append(steps, resource.TestStep{
-			ConfigDirectory: config.StaticDirectory(testFile),
-			ConfigVariables: updateTestCaseVars,
-			ConfigPlanChecks: resource.ConfigPlanChecks{
-				PreApply: []plancheck.PlanCheck{
-					plancheck.ExpectResourceAction(acc.ClusterResourceName, plancheck.ResourceActionUpdate),
-				},
-			},
-			Check:                    resource.ComposeAggregateTestCheckFunc(cfg.inPlaceAdd.checks...),
-			ProtoV6ProviderFactories: acc.ProtoV6Factories,
-		})
-		steps = append(steps, resource.TestStep{
 			ConfigDirectory:          config.StaticDirectory(testFile),
-			ConfigVariables:          renameVars,
-			ConfigPlanChecks:         noChange,
+			ConfigVariables:          updateTestCaseVars,
+			ConfigPlanChecks:         inPlaceUpdate,
 			Check:                    resource.ComposeAggregateTestCheckFunc(cfg.inPlaceAdd.checks...),
 			ProtoV6ProviderFactories: acc.ProtoV6Factories,
 		})
 	}
 	if cfg.byocAgentApply {
 		steps = append(steps, byocAgentApplyStep(t, testFile, updateTestCaseVars))
+	}
+	if cfg.inPlaceAdd != nil {
+		steps = append(steps, resource.TestStep{
+			ConfigDirectory:          config.StaticDirectory(testFile),
+			ConfigVariables:          renameVars,
+			ConfigPlanChecks:         inPlaceUpdate,
+			Check:                    resource.ComposeAggregateTestCheckFunc(cfg.inPlaceAdd.removedChecks...),
+			ProtoV6ProviderFactories: acc.ProtoV6Factories,
+		})
 	}
 
 	resource.ParallelTest(t, resource.TestCase{
