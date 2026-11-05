@@ -448,3 +448,47 @@ func TestSchemaYAMLValidatorsResolveAgainstRepo(t *testing.T) {
 		t.Fatal("resolveValidator accepted an unknown name; the sweep cannot detect anything")
 	}
 }
+
+// TestDeriveFoldLeafValidators pins that the required string leaf of a block
+// whose all-empty echo folds to null refuses "", so a configured empty leaf
+// fails at plan instead of as an inconsistent result after apply. A block
+// that does not fold keeps its leaf as is.
+func TestDeriveFoldLeafValidators(t *testing.T) {
+	leaf := func(required bool) []SchemaAttr {
+		return []SchemaAttr{{Name: "arn", ProtoName: "arn", AttrType: AttrTypeString, Required: required, Optional: !required}}
+	}
+	block := func(name string, optional bool, leaves []SchemaAttr) SchemaAttr {
+		return SchemaAttr{Name: name, ProtoName: name, AttrType: AttrTypeSingleNested, Optional: optional, Computed: !optional, NestedAttrs: leaves}
+	}
+	msg := func(name string, fields ...ProtoField) *ProtoField {
+		return &ProtoField{Name: name, Kind: KindMessage, Cardinality: "singular", Nested: &ProtoMessage{Name: name, Fields: fields}}
+	}
+	arn := ProtoField{Name: "arn", Kind: KindString, Cardinality: "singular"}
+	attrs := []SchemaAttr{
+		block("folds", true, leaf(true)),
+		block("open_leaf", true, leaf(false)),
+		block("server_owned", false, leaf(true)),
+		{Name: "wrapper", ProtoName: "wrapper", AttrType: AttrTypeSingleNested, Optional: true, NestedAttrs: []SchemaAttr{block("nested_folds", true, leaf(true))}},
+	}
+	proto := &ProtoMessage{Name: "Root", Fields: []ProtoField{
+		*msg("folds", arn), *msg("open_leaf", arn), *msg("server_owned", arn),
+		{Name: "wrapper", Kind: KindMessage, Cardinality: "singular", Nested: &ProtoMessage{Name: "Wrapper", Fields: []ProtoField{*msg("nested_folds", arn)}}},
+	}}
+	deriveFoldLeafValidators(attrs, proto, nil, "")
+
+	const want = "stringvalidator.LengthAtLeast(1)"
+	if got := attrs[0].NestedAttrs[0].Validators; !strings.Contains(got, want) {
+		t.Errorf("folding block leaf validators = %q, want %q", got, want)
+	}
+	if got := attrs[3].NestedAttrs[0].NestedAttrs[0].Validators; !strings.Contains(got, want) {
+		t.Errorf("nested folding block leaf validators = %q, want %q", got, want)
+	}
+	for _, i := range []int{1, 2} {
+		if got := attrs[i].NestedAttrs[0].Validators; got != "" {
+			t.Errorf("%s leaf validators = %q, want none", attrs[i].Name, got)
+		}
+	}
+	if got := attrs[0].Validators; got != "" {
+		t.Errorf("block itself gained validators: %q", got)
+	}
+}
