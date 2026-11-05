@@ -9,10 +9,8 @@ provider "redpanda" {}
 # Use the Redpanda GCP BYOVPC module
 module "redpanda_gcp" {
   source = "redpanda-data/redpanda-byovpc/gcp"
-  # Releases before 1.0.5 bind the operator's workload identity to a fixed
-  # Kubernetes service account name, but the cluster uses the supplied
-  # operator account's name, and grant Redpanda SQL write access to topic
-  # data it only reads.
+  # Releases before 1.0.5 grant Redpanda SQL write access to topic data it
+  # only reads.
   version                            = ">= 1.0.5, < 2.0.0"
   enable_redpanda_sql                = var.rpsql_enabled
   service_project_id                 = var.project_id
