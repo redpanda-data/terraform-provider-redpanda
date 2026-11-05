@@ -445,6 +445,8 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+                  validators:
+                    - stringvalidator.lengthAtLeastValidator
             - name: redpanda_connect_security_group
               type: SingleNestedAttribute
               optional: true
@@ -452,6 +454,8 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+                  validators:
+                    - stringvalidator.lengthAtLeastValidator
             - name: redpanda_node_group_instance_profile
               type: SingleNestedAttribute
               required: true
@@ -479,6 +483,8 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+                  validators:
+                    - stringvalidator.lengthAtLeastValidator
             - name: rpsql_node_group_instance_profile
               type: SingleNestedAttribute
               optional: true
@@ -488,6 +494,8 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+                  validators:
+                    - stringvalidator.lengthAtLeastValidator
             - name: rpsql_security_group
               type: SingleNestedAttribute
               optional: true
@@ -497,6 +505,8 @@ attributes:
                 - name: arn
                   type: StringAttribute
                   required: true
+                  validators:
+                    - stringvalidator.lengthAtLeastValidator
             - name: utility_node_group_instance_profile
               type: SingleNestedAttribute
               required: true
@@ -609,6 +619,8 @@ attributes:
                     - name: name
                       type: StringAttribute
                       required: true
+                      validators:
+                        - stringvalidator.lengthAtLeastValidator
                       plan_modifiers:
                         - stringplanmodifier.requiresReplaceIfModifier
                 - name: storage_account_name
@@ -774,6 +786,8 @@ attributes:
                 - name: email
                   type: StringAttribute
                   required: true
+                  validators:
+                    - stringvalidator.lengthAtLeastValidator
             - name: redpanda_connect_service_account
               type: SingleNestedAttribute
               optional: true
@@ -781,6 +795,8 @@ attributes:
                 - name: email
                   type: StringAttribute
                   required: true
+                  validators:
+                    - stringvalidator.lengthAtLeastValidator
             - name: redpanda_operator_service_account
               type: SingleNestedAttribute
               optional: true
@@ -788,6 +804,8 @@ attributes:
                 - name: email
                   type: StringAttribute
                   required: true
+                  validators:
+                    - stringvalidator.lengthAtLeastValidator
             - name: rpsql_api_service_account
               type: SingleNestedAttribute
               optional: true
@@ -797,6 +815,8 @@ attributes:
                 - name: email
                   type: StringAttribute
                   required: true
+                  validators:
+                    - stringvalidator.lengthAtLeastValidator
             - name: rpsql_cloud_storage_bucket
               type: SingleNestedAttribute
               optional: true
@@ -806,6 +826,8 @@ attributes:
                 - name: name
                   type: StringAttribute
                   required: true
+                  validators:
+                    - stringvalidator.lengthAtLeastValidator
             - name: rpsql_secret_manager_prefix
               type: StringAttribute
               optional: true
@@ -820,6 +842,8 @@ attributes:
                 - name: email
                   type: StringAttribute
                   required: true
+                  validators:
+                    - stringvalidator.lengthAtLeastValidator
             - name: subnet
               type: SingleNestedAttribute
               required: true

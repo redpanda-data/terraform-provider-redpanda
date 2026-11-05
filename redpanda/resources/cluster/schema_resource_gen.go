@@ -245,6 +245,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 									"arn": schema.StringAttribute{
 										Description: "AWS instance profile ARN.",
 										Required:    true,
+										Validators:  []validator.String{stringvalidator.LengthAtLeast(1)},
 									},
 								},
 							},
@@ -255,6 +256,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 									"arn": schema.StringAttribute{
 										Description: "AWS security group ARN.",
 										Required:    true,
+										Validators:  []validator.String{stringvalidator.LengthAtLeast(1)},
 									},
 								},
 							},
@@ -266,6 +268,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 									"arn": schema.StringAttribute{
 										Description: "AWS storage bucket identifier.",
 										Required:    true,
+										Validators:  []validator.String{stringvalidator.LengthAtLeast(1)},
 									},
 								},
 							},
@@ -277,6 +280,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 									"arn": schema.StringAttribute{
 										Description: "AWS instance profile ARN.",
 										Required:    true,
+										Validators:  []validator.String{stringvalidator.LengthAtLeast(1)},
 									},
 								},
 							},
@@ -288,6 +292,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 									"arn": schema.StringAttribute{
 										Description: "AWS security group ARN.",
 										Required:    true,
+										Validators:  []validator.String{stringvalidator.LengthAtLeast(1)},
 									},
 								},
 							},
@@ -419,6 +424,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 												Description:   "Naming convention: Between 1 and 90 characters long. Alphanumerics, underscores, parentheses, hyphens, periods. Can't end with period. https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.ResourceGroup.Name/. Length must be between 1 and 90. Must match pattern `^[-\\w\\._\\(\\)]+$`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 												Required:      true,
 												PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+												Validators:    []validator.String{stringvalidator.LengthAtLeast(1)},
 											},
 										},
 									},
@@ -661,6 +667,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 									"email": schema.StringAttribute{
 										Description: "GCP service account email. Must be a valid email address.",
 										Required:    true,
+										Validators:  []validator.String{stringvalidator.LengthAtLeast(1)},
 									},
 								},
 							},
@@ -671,6 +678,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 									"email": schema.StringAttribute{
 										Description: "GCP service account email. Must be a valid email address.",
 										Required:    true,
+										Validators:  []validator.String{stringvalidator.LengthAtLeast(1)},
 									},
 								},
 							},
@@ -681,6 +689,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 									"email": schema.StringAttribute{
 										Description: "GCP service account email. Must be a valid email address.",
 										Required:    true,
+										Validators:  []validator.String{stringvalidator.LengthAtLeast(1)},
 									},
 								},
 							},
@@ -692,6 +701,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 									"email": schema.StringAttribute{
 										Description: "GCP service account email. Must be a valid email address.",
 										Required:    true,
+										Validators:  []validator.String{stringvalidator.LengthAtLeast(1)},
 									},
 								},
 							},
@@ -703,6 +713,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 									"name": schema.StringAttribute{
 										Description: "Name of GCP storage bucket. See the official [GCP documentation](https://cloud.google.com/storage/docs/buckets#naming) for naming restrictions. Length must be between 3 and 63. Must match pattern `^[a-z]([-_a-z0-9]*[a-z0-9])?$`.",
 										Required:    true,
+										Validators:  []validator.String{stringvalidator.LengthAtLeast(1)},
 									},
 								},
 							},
@@ -719,6 +730,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 									"email": schema.StringAttribute{
 										Description: "GCP service account email. Must be a valid email address.",
 										Required:    true,
+										Validators:  []validator.String{stringvalidator.LengthAtLeast(1)},
 									},
 								},
 							},
