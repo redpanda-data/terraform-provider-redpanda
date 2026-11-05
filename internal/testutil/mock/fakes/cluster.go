@@ -839,10 +839,10 @@ func rpsqlCMRImmutability(cl *controlplanev1.Cluster, upd *controlplanev1.Cluste
 	return nil
 }
 
-// maskCovers reports whether the mask names leaf or one of its ancestors. An
-// out-of-band client such as the UI or API may mask a CMR message path, which
-// covers every leaf under it; the provider sends leaf paths only. The control
-// plane judges the merged value either way.
+// maskCovers reports whether the mask names leaf or one of its ancestors. A
+// CMR message path, which the provider sends to clear a block and the UI and
+// API send out of band, covers every leaf under it. The control plane judges
+// the merged value either way.
 func maskCovers(paths []string, leaf string) bool {
 	return slices.ContainsFunc(paths, func(p string) bool { return pathWithin(leaf, p) })
 }
