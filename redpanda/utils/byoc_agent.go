@@ -44,7 +44,11 @@ func NetworkUsesCloudProviderAccess(ctx context.Context, client cloud.CpClientSe
 	if err != nil {
 		return false, err
 	}
-	return nw.GetCloudProviderAccessId() != "", nil
+	return networkUsesCloudProviderAccess(nw), nil
+}
+
+func networkUsesCloudProviderAccess(nw *controlplanev1.Network) bool {
+	return nw.GetCloudProviderAccessId() != ""
 }
 
 // ByocAgentManagedByRedpanda reports whether the control plane runs the agent
@@ -59,7 +63,7 @@ func ByocAgentManagedByRedpanda(ctx context.Context, client cloud.CpClientSet, t
 	if err != nil {
 		return false, err
 	}
-	return nw.GetCloudProviderAccessId() != "", nil
+	return networkUsesCloudProviderAccess(nw), nil
 }
 
 // NetworkForIDRetrying reads the network, retrying a transient failure for up
