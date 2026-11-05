@@ -67,11 +67,13 @@ func ResourcePipelineSchema(ctx context.Context) schema.Schema {
 					"client_id": schema.StringAttribute{
 						Description: "Client ID",
 						Required:    true,
+						Validators:  []validator.String{stringvalidator.LengthAtLeast(1)},
 					},
 					"client_secret": schema.StringAttribute{
 						Description: "Client Secret. Must match pattern `^\\$\\{secrets\\.[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)?\\}$`.",
 						Required:    true,
 						WriteOnly:   true,
+						Validators:  []validator.String{stringvalidator.LengthAtLeast(1)},
 					},
 					"secret_version": schema.Int64Attribute{
 						Description:   "Version number for client_secret. Increment to trigger a secret update.",

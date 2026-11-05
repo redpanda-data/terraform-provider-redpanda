@@ -53,10 +53,14 @@ attributes:
         - name: client_id
           type: StringAttribute
           required: true
+          validators:
+            - stringvalidator.lengthAtLeastValidator
         - name: client_secret
           type: StringAttribute
           required: true
           write_only: true
+          validators:
+            - stringvalidator.lengthAtLeastValidator
         - name: secret_version
           type: Int64Attribute
           optional: true

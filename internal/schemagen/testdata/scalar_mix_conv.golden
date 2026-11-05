@@ -45,35 +45,35 @@ func Flatten(_ context.Context, proto ThingResponse, prev *ResourceModel) (*Reso
 	m.ID = types.StringValue(proto.GetId())
 	if v := proto.GetEnabled(); v != false {
 		m.Enabled = types.BoolValue(v)
-	} else if prev != nil && !prev.Enabled.IsUnknown() {
+	} else if prev != nil && !prev.Enabled.IsUnknown() && prev.Enabled.ValueBool() == false {
 		m.Enabled = prev.Enabled
 	} else {
 		m.Enabled = types.BoolNull()
 	}
 	if v := proto.GetMaxCount(); v != 0 {
 		m.MaxCount = types.Int32Value(v)
-	} else if prev != nil && !prev.MaxCount.IsUnknown() {
+	} else if prev != nil && !prev.MaxCount.IsUnknown() && prev.MaxCount.ValueInt32() == 0 {
 		m.MaxCount = prev.MaxCount
 	} else {
 		m.MaxCount = types.Int32Null()
 	}
 	if v := proto.GetWeight(); v != 0 {
 		m.Weight = types.Int64Value(v)
-	} else if prev != nil && !prev.Weight.IsUnknown() {
+	} else if prev != nil && !prev.Weight.IsUnknown() && prev.Weight.ValueInt64() == 0 {
 		m.Weight = prev.Weight
 	} else {
 		m.Weight = types.Int64Null()
 	}
 	if v := proto.GetPrice(); v != 0.0 {
 		m.Price = types.Float64Value(v)
-	} else if prev != nil && !prev.Price.IsUnknown() {
+	} else if prev != nil && !prev.Price.IsUnknown() && prev.Price.ValueFloat64() == 0.0 {
 		m.Price = prev.Price
 	} else {
 		m.Price = types.Float64Null()
 	}
 	if v := proto.GetDescription(); v != "" {
 		m.Description = types.StringValue(v)
-	} else if prev != nil && !prev.Description.IsUnknown() {
+	} else if prev != nil && !prev.Description.IsUnknown() && prev.Description.ValueString() == "" {
 		m.Description = prev.Description
 	} else {
 		m.Description = types.StringNull()

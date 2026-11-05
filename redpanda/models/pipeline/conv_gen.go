@@ -50,12 +50,14 @@ func Flatten(ctx context.Context, proto PipelineResponse, prev *ResourceModel) (
 	m.DisplayName = types.StringValue(proto.GetDisplayName())
 	if v := proto.GetDescription(); v != "" {
 		m.Description = types.StringValue(v)
-	} else if prev != nil && !prev.Description.IsUnknown() {
+	} else if prev != nil && !prev.Description.IsUnknown() && prev.Description.ValueString() == "" {
 		m.Description = prev.Description
 	} else {
 		m.Description = types.StringNull()
 	}
-	m.ServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetServiceAccount(), func() *ServiceAccountModel { v, _ := prev.AsServiceAccount(ctx); return v }(), ServiceAccountAttrTypes(), FlattenServiceAccount, &diags)
+	m.ServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, modelconv.NilIfZero(proto.GetServiceAccount(), func(p *dataplanev1.Pipeline_ServiceAccount) bool {
+		return p.GetClientId() == "" && p.GetClientSecret() == ""
+	}), func() *ServiceAccountModel { v, _ := prev.AsServiceAccount(ctx); return v }(), ServiceAccountAttrTypes(), FlattenServiceAccount, &diags)
 	m.Tags = modelconv.MapFromStringsWithDiags(ctx, proto.GetTags(), &diags)
 	m.Resources = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetResources(), func() *ResourcesModel { v, _ := prev.AsResources(ctx); return v }(), ResourcesAttrTypes(), FlattenResources, &diags)
 	m.State = FlattenDesiredState(proto)
@@ -201,14 +203,14 @@ func FlattenResources(_ context.Context, proto *dataplanev1.Pipeline_Resources, 
 	m := ResourcesModel{}
 	if v := proto.GetCpuShares(); v != "" {
 		m.CpuShares = types.StringValue(v)
-	} else if prev != nil && !prev.CpuShares.IsUnknown() {
+	} else if prev != nil && !prev.CpuShares.IsUnknown() && prev.CpuShares.ValueString() == "" {
 		m.CpuShares = prev.CpuShares
 	} else {
 		m.CpuShares = types.StringNull()
 	}
 	if v := proto.GetMemoryShares(); v != "" {
 		m.MemoryShares = types.StringValue(v)
-	} else if prev != nil && !prev.MemoryShares.IsUnknown() {
+	} else if prev != nil && !prev.MemoryShares.IsUnknown() && prev.MemoryShares.ValueString() == "" {
 		m.MemoryShares = prev.MemoryShares
 	} else {
 		m.MemoryShares = types.StringNull()
