@@ -1142,6 +1142,19 @@ func TestClusterFake_CMRLeafClearOnAbsentMessage(t *testing.T) {
 	if got := held.GetCustomerManagedResources().GetGcp().GetRedpandaConnectApiServiceAccount(); got == nil || got.GetEmail() != "" {
 		t.Errorf("leaf clear on a held message must leave it present and empty: %v", got)
 	}
+	applyCMRLeafUpdate(held, empty, "customer_managed_resources.gcp.rpsql_service_account.email")
+	if got := held.GetCustomerManagedResources().GetGcp().GetRpsqlServiceAccount(); got != nil {
+		t.Errorf("rpsql leaf clear created an absent message: %v", got)
+	}
+	heldAWS := &controlplanev1.Cluster{CustomerManagedResources: &controlplanev1.CustomerManagedResources{CloudProvider: &controlplanev1.CustomerManagedResources_Aws{
+		Aws: &controlplanev1.CustomerManagedResources_AWS{},
+	}}}
+	emptyAWS := &controlplanev1.CustomerManagedResourcesUpdate{}
+	emptyAWS.SetAws(&controlplanev1.CustomerManagedResourcesUpdate_AWS{})
+	applyCMRLeafUpdate(heldAWS, emptyAWS, "customer_managed_resources.aws.rpsql_security_group.arn")
+	if got := heldAWS.GetCustomerManagedResources().GetAws().GetRpsqlSecurityGroup(); got != nil {
+		t.Errorf("rpsql leaf clear created an absent message: %v", got)
+	}
 
 	none := &controlplanev1.Cluster{}
 	applyCMRLeafUpdate(none, &controlplanev1.CustomerManagedResourcesUpdate{}, "customer_managed_resources.gcp.redpanda_connect_service_account.email")

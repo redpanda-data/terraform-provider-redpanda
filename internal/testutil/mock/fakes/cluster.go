@@ -669,11 +669,17 @@ func applyCMRLeafUpdate(cl *controlplanev1.Cluster, upd *controlplanev1.Customer
 	case "customer_managed_resources.gcp.redpanda_operator_service_account":
 		cmrReadGCP(cmr).SetRedpandaOperatorServiceAccount(upd.GetGcp().GetRedpandaOperatorServiceAccount())
 	case "customer_managed_resources.gcp.rpsql_api_service_account.email":
-		cmrReadGCP(cmr).SetRpsqlApiServiceAccount(&controlplanev1.GCPServiceAccount{Email: upd.GetGcp().GetRpsqlApiServiceAccount().GetEmail()})
+		if cmr.GetGcp().GetRpsqlApiServiceAccount() != nil || upd.GetGcp().GetRpsqlApiServiceAccount() != nil {
+			cmrReadGCP(cmr).SetRpsqlApiServiceAccount(&controlplanev1.GCPServiceAccount{Email: upd.GetGcp().GetRpsqlApiServiceAccount().GetEmail()})
+		}
 	case "customer_managed_resources.gcp.rpsql_service_account.email":
-		cmrReadGCP(cmr).SetRpsqlServiceAccount(&controlplanev1.GCPServiceAccount{Email: upd.GetGcp().GetRpsqlServiceAccount().GetEmail()})
+		if cmr.GetGcp().GetRpsqlServiceAccount() != nil || upd.GetGcp().GetRpsqlServiceAccount() != nil {
+			cmrReadGCP(cmr).SetRpsqlServiceAccount(&controlplanev1.GCPServiceAccount{Email: upd.GetGcp().GetRpsqlServiceAccount().GetEmail()})
+		}
 	case "customer_managed_resources.gcp.rpsql_cloud_storage_bucket.name":
-		cmrReadGCP(cmr).SetRpsqlCloudStorageBucket(&controlplanev1.CustomerManagedGoogleCloudStorageBucket{Name: upd.GetGcp().GetRpsqlCloudStorageBucket().GetName()})
+		if cmr.GetGcp().GetRpsqlCloudStorageBucket() != nil || upd.GetGcp().GetRpsqlCloudStorageBucket() != nil {
+			cmrReadGCP(cmr).SetRpsqlCloudStorageBucket(&controlplanev1.CustomerManagedGoogleCloudStorageBucket{Name: upd.GetGcp().GetRpsqlCloudStorageBucket().GetName()})
+		}
 	case "customer_managed_resources.gcp.rpsql_secret_manager_prefix":
 		cmrReadGCP(cmr).SetRpsqlSecretManagerPrefix(upd.GetGcp().GetRpsqlSecretManagerPrefix())
 	case "customer_managed_resources.aws.redpanda_connect_node_group_instance_profile.arn":
@@ -685,11 +691,17 @@ func applyCMRLeafUpdate(cl *controlplanev1.Cluster, upd *controlplanev1.Customer
 			cmrReadAWS(cmr).SetRedpandaConnectSecurityGroup(&controlplanev1.AWSSecurityGroup{Arn: upd.GetAws().GetRedpandaConnectSecurityGroup().GetArn()})
 		}
 	case "customer_managed_resources.aws.rpsql_node_group_instance_profile.arn":
-		cmrReadAWS(cmr).SetRpsqlNodeGroupInstanceProfile(&controlplanev1.AWSInstanceProfile{Arn: upd.GetAws().GetRpsqlNodeGroupInstanceProfile().GetArn()})
+		if cmr.GetAws().GetRpsqlNodeGroupInstanceProfile() != nil || upd.GetAws().GetRpsqlNodeGroupInstanceProfile() != nil {
+			cmrReadAWS(cmr).SetRpsqlNodeGroupInstanceProfile(&controlplanev1.AWSInstanceProfile{Arn: upd.GetAws().GetRpsqlNodeGroupInstanceProfile().GetArn()})
+		}
 	case "customer_managed_resources.aws.rpsql_security_group.arn":
-		cmrReadAWS(cmr).SetRpsqlSecurityGroup(&controlplanev1.AWSSecurityGroup{Arn: upd.GetAws().GetRpsqlSecurityGroup().GetArn()})
+		if cmr.GetAws().GetRpsqlSecurityGroup() != nil || upd.GetAws().GetRpsqlSecurityGroup() != nil {
+			cmrReadAWS(cmr).SetRpsqlSecurityGroup(&controlplanev1.AWSSecurityGroup{Arn: upd.GetAws().GetRpsqlSecurityGroup().GetArn()})
+		}
 	case "customer_managed_resources.aws.rpsql_cloud_storage_bucket.arn":
-		cmrReadAWS(cmr).SetRpsqlCloudStorageBucket(&controlplanev1.CustomerManagedAWSCloudStorageBucket{Arn: upd.GetAws().GetRpsqlCloudStorageBucket().GetArn()})
+		if cmr.GetAws().GetRpsqlCloudStorageBucket() != nil || upd.GetAws().GetRpsqlCloudStorageBucket() != nil {
+			cmrReadAWS(cmr).SetRpsqlCloudStorageBucket(&controlplanev1.CustomerManagedAWSCloudStorageBucket{Arn: upd.GetAws().GetRpsqlCloudStorageBucket().GetArn()})
+		}
 	case "customer_managed_resources.gcp.rpsql_api_service_account":
 		cmrReadGCP(cmr).SetRpsqlApiServiceAccount(upd.GetGcp().GetRpsqlApiServiceAccount())
 	case "customer_managed_resources.gcp.rpsql_service_account":
