@@ -441,9 +441,6 @@ attributes:
             - name: redpanda_connect_node_group_instance_profile
               type: SingleNestedAttribute
               optional: true
-              computed: true
-              plan_modifiers:
-                - objectplanmodifier.useStateForUnknownModifier
               attributes:
                 - name: arn
                   type: StringAttribute
@@ -451,9 +448,6 @@ attributes:
             - name: redpanda_connect_security_group
               type: SingleNestedAttribute
               optional: true
-              computed: true
-              plan_modifiers:
-                - objectplanmodifier.useStateForUnknownModifier
               attributes:
                 - name: arn
                   type: StringAttribute
@@ -776,9 +770,6 @@ attributes:
             - name: redpanda_connect_api_service_account
               type: SingleNestedAttribute
               optional: true
-              computed: true
-              plan_modifiers:
-                - objectplanmodifier.useStateForUnknownModifier
               attributes:
                 - name: email
                   type: StringAttribute
@@ -786,9 +777,6 @@ attributes:
             - name: redpanda_connect_service_account
               type: SingleNestedAttribute
               optional: true
-              computed: true
-              plan_modifiers:
-                - objectplanmodifier.useStateForUnknownModifier
               attributes:
                 - name: email
                   type: StringAttribute
@@ -796,9 +784,6 @@ attributes:
             - name: redpanda_operator_service_account
               type: SingleNestedAttribute
               optional: true
-              computed: true
-              plan_modifiers:
-                - objectplanmodifier.useStateForUnknownModifier
               attributes:
                 - name: email
                   type: StringAttribute
