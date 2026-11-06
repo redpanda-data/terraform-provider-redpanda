@@ -18,6 +18,7 @@ package cluster
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -491,7 +492,30 @@ func (*Cluster) ImportState(ctx context.Context, req resource.ImportStateRequest
 	resp.Diagnostics.Append(utils.ImportStateBoolFromSchemaDefault(ctx, ResourceClusterSchema(ctx), &resp.State, "allow_deletion")...)
 }
 
-// ModifyPlan marks endpoint and private-link.status objects Unknown when
+// networkHasCMR reports whether the network has customer-managed resources.
+// A transient failure is retried for networkReadBudget; any failure left after
+// that is returned, so the plan guard that needs the answer fails closed.
+func (c *Cluster) networkHasCMR(ctx context.Context, id string) (bool, error) {
+	if c.CpCl == nil {
+		return false, errors.New("provider is not configured")
+	}
+	nw, err := utils.NetworkForIDRetrying(ctx, c.CpCl, id, networkReadBudget)
+	if err != nil {
+		return false, err
+	}
+	return nw.GetCustomerManagedResources() != nil, nil
+}
+
+// networkReadBudget bounds the retries of a network read made at plan time,
+// which must not stall on an outage the apply path rides out.
+const networkReadBudget = 30 * time.Second
+
+// ModifyPlan runs the customer-managed resources guards on both branches: on
+// an update plan the rules the control plane checks too late or not at all
+// (plan_modifiers_cmr.go), and on a create plan, plain or the create pass of
+// a replace, the ones that need no prior state.
+//
+// It marks endpoint and private-link.status objects Unknown when
 // private-link config changes, so populated→null transitions don't trip
 // "inconsistent result after apply" (terraform-plugin-framework#1211).
 // Pairs with the parent objectplanmodifier.UseNonNullStateForUnknown
@@ -505,6 +529,10 @@ func (*Cluster) ImportState(ctx context.Context, req resource.ImportStateRequest
 // still plan against an existing BYOC cluster.
 func (c *Cluster) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	if create, destroy := req.State.Raw.IsNull(), req.Plan.Raw.IsNull(); create || destroy {
+		if create && !destroy && !runPlanGuards(ctx, req, resp,
+			guardReplaceWithStateOnlySettings, guardRpsqlCMRWhileDisabled, guardConnectPairing) {
+			return
+		}
 		getAttr := req.Plan.GetAttribute
 		if destroy {
 			getAttr = req.State.GetAttribute
@@ -528,6 +556,12 @@ func (c *Cluster) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest
 			}
 		}
 		resp.Diagnostics.Append(c.byocPreflight(ctx, clusterType, cloudProvider)...)
+		return
+	}
+	guardTransition := func(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+		guardCustomerManagedResourcesTransition(ctx, req, resp, c.networkHasCMR)
+	}
+	if !runPlanGuards(ctx, req, resp, recordStateOnlySettings, guardRpsqlCMRWhileDisabled, guardConnectPairing, guardOperatorAccountRemoved, guardTransition) {
 		return
 	}
 	// Reject the dual->legacy attempt before any plan surgery, and keep the

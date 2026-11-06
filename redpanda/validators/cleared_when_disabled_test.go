@@ -18,6 +18,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -81,7 +82,7 @@ func zonesNull() tftypes.Value {
 	return tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil)
 }
 
-func TestClearedWhenDisabledListValidator(t *testing.T) {
+func TestClearedWhenDisabled_List(t *testing.T) {
 	enabledPath := path.Root("rpsql").AtName("enabled")
 
 	testCases := []struct {
@@ -117,7 +118,7 @@ func TestClearedWhenDisabledListValidator(t *testing.T) {
 			}
 			var resp validator.ListResponse
 
-			validators.ClearedWhenDisabledListValidator{Enabled: enabledPath}.ValidateList(context.Background(), req, &resp)
+			validators.ClearedWhenDisabled{Enabled: enabledPath}.ValidateList(context.Background(), req, &resp)
 
 			if tc.expectError {
 				assert.True(t, resp.Diagnostics.HasError(), "expected validation error but got none")
@@ -128,7 +129,7 @@ func TestClearedWhenDisabledListValidator(t *testing.T) {
 	}
 }
 
-func TestClearedWhenDisabledInt32Validator(t *testing.T) {
+func TestClearedWhenDisabled_Int32(t *testing.T) {
 	enabledPath := path.Root("rpsql").AtName("enabled")
 
 	testCases := []struct {
@@ -160,7 +161,7 @@ func TestClearedWhenDisabledInt32Validator(t *testing.T) {
 			}
 			var resp validator.Int32Response
 
-			validators.ClearedWhenDisabledInt32Validator{Enabled: enabledPath}.ValidateInt32(context.Background(), req, &resp)
+			validators.ClearedWhenDisabled{Enabled: enabledPath}.ValidateInt32(context.Background(), req, &resp)
 
 			if tc.expectError {
 				assert.True(t, resp.Diagnostics.HasError(), "expected validation error but got none")
@@ -181,3 +182,117 @@ func mustList(t *testing.T, elems ...string) types.List {
 	assert.False(t, d.HasError())
 	return l
 }
+
+func TestClearedWhenDisabled_Object(t *testing.T) {
+	enabledPath := path.Root("rpsql").AtName("enabled")
+	saType := map[string]attr.Type{"email": types.StringType}
+	sa := types.ObjectValueMust(saType, map[string]attr.Value{"email": types.StringValue("rpsql@tfrp-proj.iam.gserviceaccount.com")})
+
+	testCases := []struct {
+		name        string
+		value       types.Object
+		enabled     tftypes.Value
+		expectError bool
+	}{
+		{name: "null account with disabled - ok", value: types.ObjectNull(saType), enabled: boolVal(false)},
+		{name: "unknown account with disabled - ok", value: types.ObjectUnknown(saType), enabled: boolVal(false)},
+		{name: "account with enabled - ok", value: sa, enabled: boolVal(true)},
+		{name: "account with unknown enabled - defer", value: sa, enabled: boolUnknown()},
+		{name: "account with disabled - error", value: sa, enabled: boolVal(false), expectError: true},
+		{name: "account with omitted enabled - error", value: sa, enabled: boolNull(), expectError: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := validator.ObjectRequest{
+				Path:           path.Root("rpsql_service_account"),
+				PathExpression: path.MatchRoot("rpsql_service_account"),
+				ConfigValue:    tc.value,
+				Config:         rpsqlConfig(tc.enabled, numNull(), zonesNull()),
+			}
+			var resp validator.ObjectResponse
+
+			validators.ClearedWhenDisabled{Enabled: enabledPath}.ValidateObject(context.Background(), req, &resp)
+
+			if tc.expectError {
+				assert.True(t, resp.Diagnostics.HasError(), "expected validation error but got none")
+			} else {
+				assert.False(t, resp.Diagnostics.HasError(), "unexpected validation error: %v", resp.Diagnostics.Errors())
+			}
+		})
+	}
+}
+
+// A null rpsql block is not "disabled": the block is Optional+Computed and
+// keeps its prior state, so the validator cannot know the flag's value from
+// config alone and must defer.
+func TestClearedWhenDisabled_NullEnabledParentDefers(t *testing.T) {
+	enabledPath := path.Root("rpsql").AtName("enabled")
+	cfg := tfsdk.Config{
+		Schema: rpsqlSchema,
+		Raw: tftypes.NewValue(tftypes.Object{
+			AttributeTypes: map[string]tftypes.Type{"rpsql": rpsqlTfType},
+		}, map[string]tftypes.Value{"rpsql": tftypes.NewValue(rpsqlTfType, nil)}),
+	}
+	saType := map[string]attr.Type{"email": types.StringType}
+	sa := types.ObjectValueMust(saType, map[string]attr.Value{"email": types.StringValue("rpsql@tfrp-proj.iam.gserviceaccount.com")})
+
+	var objResp validator.ObjectResponse
+	validators.ClearedWhenDisabled{Enabled: enabledPath}.ValidateObject(context.Background(), validator.ObjectRequest{
+		Path: path.Root("rpsql_service_account"), PathExpression: path.MatchRoot("rpsql_service_account"), ConfigValue: sa, Config: cfg,
+	}, &objResp)
+	assert.False(t, objResp.Diagnostics.HasError(), "object: %v", objResp.Diagnostics.Errors())
+
+	var strResp validator.StringResponse
+	validators.ClearedWhenDisabled{Enabled: enabledPath}.ValidateString(context.Background(), validator.StringRequest{
+		Path: path.Root("rpsql_secret_manager_prefix"), PathExpression: path.MatchRoot("rpsql_secret_manager_prefix"), ConfigValue: types.StringValue("tfrp-rpsql-"), Config: cfg,
+	}, &strResp)
+	assert.False(t, strResp.Diagnostics.HasError(), "string: %v", strResp.Diagnostics.Errors())
+}
+
+func TestClearedWhenDisabled_String(t *testing.T) {
+	enabledPath := path.Root("rpsql").AtName("enabled")
+
+	testCases := []struct {
+		name        string
+		value       types.String
+		enabled     tftypes.Value
+		expectError bool
+	}{
+		{name: "null prefix with disabled - ok", value: types.StringNull(), enabled: boolVal(false)},
+		{name: "unknown prefix with disabled - ok", value: types.StringUnknown(), enabled: boolVal(false)},
+		{name: "empty prefix with disabled - ok, matches server reset", value: types.StringValue(""), enabled: boolVal(false)},
+		{name: "prefix with enabled - ok", value: types.StringValue("tfrp-rpsql-"), enabled: boolVal(true)},
+		{name: "prefix with unknown enabled - defer", value: types.StringValue("tfrp-rpsql-"), enabled: boolUnknown()},
+		{name: "prefix with disabled - error", value: types.StringValue("tfrp-rpsql-"), enabled: boolVal(false), expectError: true},
+		{name: "prefix with omitted enabled - error", value: types.StringValue("tfrp-rpsql-"), enabled: boolNull(), expectError: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := validator.StringRequest{
+				Path:           path.Root("rpsql_secret_manager_prefix"),
+				PathExpression: path.MatchRoot("rpsql_secret_manager_prefix"),
+				ConfigValue:    tc.value,
+				Config:         rpsqlConfig(tc.enabled, numNull(), zonesNull()),
+			}
+			var resp validator.StringResponse
+
+			validators.ClearedWhenDisabled{Enabled: enabledPath}.ValidateString(context.Background(), req, &resp)
+
+			if tc.expectError {
+				assert.True(t, resp.Diagnostics.HasError(), "expected validation error but got none")
+			} else {
+				assert.False(t, resp.Diagnostics.HasError(), "unexpected validation error: %v", resp.Diagnostics.Errors())
+			}
+		})
+	}
+}
+
+// One type serves every attribute kind the cluster schema attaches it to.
+var (
+	_ validator.List   = validators.ClearedWhenDisabled{}
+	_ validator.Int32  = validators.ClearedWhenDisabled{}
+	_ validator.Object = validators.ClearedWhenDisabled{}
+	_ validator.String = validators.ClearedWhenDisabled{}
+)

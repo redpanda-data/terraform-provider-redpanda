@@ -27,10 +27,16 @@ const cmrTopLevelPath = "customer_managed_resources"
 
 // cmrLeaf pairs an updatable customer_managed_resources leaf's mask key (the
 // cloudv2 pathMap key the control plane matches on) with the extractor that
-// reads its scalar value from a CustomerManagedResourcesUpdate.
+// reads its scalar value from a CustomerManagedResourcesUpdate. A leaf whose
+// message the configuration may drop also names the message key and reports
+// whether a payload holds the message: the control plane removes a message
+// only under its own key, while the leaf key empties the leaf and leaves the
+// message behind.
 type cmrLeaf struct {
 	path string
 	get  func(*controlplanev1.CustomerManagedResourcesUpdate) string
+	msg  string
+	held func(*controlplanev1.CustomerManagedResourcesUpdate) bool
 }
 
 // cmrUpdatableLeaves mirrors the control-plane-updatable CMR entries in
@@ -39,34 +45,78 @@ type cmrLeaf struct {
 // field name; cloudv2 maps the rpsql_* keys onto its internal oxla_* spec paths
 // on its side (see mapper.go). Keep in sync with cloudv2 when bumping the pin.
 var cmrUpdatableLeaves = []cmrLeaf{
-	{"customer_managed_resources.gcp.psc_nat_subnet_name", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+	{path: "customer_managed_resources.gcp.psc_nat_subnet_name", get: func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetGcp().GetPscNatSubnetName()
 	}},
-	{"customer_managed_resources.gcp.rpsql_api_service_account.email", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+	{
+		path: "customer_managed_resources.gcp.redpanda_connect_api_service_account.email",
+		get: func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+			return c.GetGcp().GetRedpandaConnectApiServiceAccount().GetEmail()
+		},
+		msg: "customer_managed_resources.gcp.redpanda_connect_api_service_account",
+		held: func(c *controlplanev1.CustomerManagedResourcesUpdate) bool {
+			return c.GetGcp().GetRedpandaConnectApiServiceAccount() != nil
+		},
+	},
+	{
+		path: "customer_managed_resources.gcp.redpanda_connect_service_account.email",
+		get: func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+			return c.GetGcp().GetRedpandaConnectServiceAccount().GetEmail()
+		},
+		msg: "customer_managed_resources.gcp.redpanda_connect_service_account",
+		held: func(c *controlplanev1.CustomerManagedResourcesUpdate) bool {
+			return c.GetGcp().GetRedpandaConnectServiceAccount() != nil
+		},
+	},
+	{
+		path: "customer_managed_resources.gcp.redpanda_operator_service_account.email",
+		get: func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+			return c.GetGcp().GetRedpandaOperatorServiceAccount().GetEmail()
+		},
+		msg: "customer_managed_resources.gcp.redpanda_operator_service_account",
+		held: func(c *controlplanev1.CustomerManagedResourcesUpdate) bool {
+			return c.GetGcp().GetRedpandaOperatorServiceAccount() != nil
+		},
+	},
+	{path: "customer_managed_resources.gcp.rpsql_api_service_account.email", get: func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetGcp().GetRpsqlApiServiceAccount().GetEmail()
 	}},
-	{"customer_managed_resources.gcp.rpsql_service_account.email", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+	{path: "customer_managed_resources.gcp.rpsql_service_account.email", get: func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetGcp().GetRpsqlServiceAccount().GetEmail()
 	}},
-	{"customer_managed_resources.gcp.rpsql_cloud_storage_bucket.name", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+	{path: "customer_managed_resources.gcp.rpsql_cloud_storage_bucket.name", get: func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetGcp().GetRpsqlCloudStorageBucket().GetName()
 	}},
-	{"customer_managed_resources.gcp.rpsql_secret_manager_prefix", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+	{path: "customer_managed_resources.gcp.rpsql_secret_manager_prefix", get: func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetGcp().GetRpsqlSecretManagerPrefix()
 	}},
-	{"customer_managed_resources.aws.redpanda_connect_node_group_instance_profile.arn", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
-		return c.GetAws().GetRedpandaConnectNodeGroupInstanceProfile().GetArn()
-	}},
-	{"customer_managed_resources.aws.redpanda_connect_security_group.arn", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
-		return c.GetAws().GetRedpandaConnectSecurityGroup().GetArn()
-	}},
-	{"customer_managed_resources.aws.rpsql_node_group_instance_profile.arn", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+	{
+		path: "customer_managed_resources.aws.redpanda_connect_node_group_instance_profile.arn",
+		get: func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+			return c.GetAws().GetRedpandaConnectNodeGroupInstanceProfile().GetArn()
+		},
+		msg: "customer_managed_resources.aws.redpanda_connect_node_group_instance_profile",
+		held: func(c *controlplanev1.CustomerManagedResourcesUpdate) bool {
+			return c.GetAws().GetRedpandaConnectNodeGroupInstanceProfile() != nil
+		},
+	},
+	{
+		path: "customer_managed_resources.aws.redpanda_connect_security_group.arn",
+		get: func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+			return c.GetAws().GetRedpandaConnectSecurityGroup().GetArn()
+		},
+		msg: "customer_managed_resources.aws.redpanda_connect_security_group",
+		held: func(c *controlplanev1.CustomerManagedResourcesUpdate) bool {
+			return c.GetAws().GetRedpandaConnectSecurityGroup() != nil
+		},
+	},
+	{path: "customer_managed_resources.aws.rpsql_node_group_instance_profile.arn", get: func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetAws().GetRpsqlNodeGroupInstanceProfile().GetArn()
 	}},
-	{"customer_managed_resources.aws.rpsql_security_group.arn", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+	{path: "customer_managed_resources.aws.rpsql_security_group.arn", get: func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetAws().GetRpsqlSecurityGroup().GetArn()
 	}},
-	{"customer_managed_resources.aws.rpsql_cloud_storage_bucket.arn", func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
+	{path: "customer_managed_resources.aws.rpsql_cloud_storage_bucket.arn", get: func(c *controlplanev1.CustomerManagedResourcesUpdate) string {
 		return c.GetAws().GetRpsqlCloudStorageBucket().GetArn()
 	}},
 }
@@ -84,10 +134,11 @@ func CMRUpdatableLeafPaths() []string {
 
 // ExpandCustomerManagedResourceLeaves rewrites, in place, a bare
 // customer_managed_resources mask path into the specific leaf paths (cloudv2
-// pathMap keys) whose value differs between plan and state. It is a no-op when
-// the mask carries no CMR path. Immutable CMR leaves never reach here because
-// they force RequiresReplace, so only the control-plane-updatable leaves are
-// considered. See cmrUpdatableLeaves.
+// pathMap keys) whose value differs between plan and state, or the message
+// key of a message the plan drops while state holds it, empty or not. It is a
+// no-op when the mask carries no CMR path. Immutable CMR leaves never reach
+// here because they force RequiresReplace, so only the control-plane-updatable
+// leaves are considered. See cmrUpdatableLeaves.
 func ExpandCustomerManagedResourceLeaves(fm *fieldmaskpb.FieldMask, plan, state *controlplanev1.CustomerManagedResourcesUpdate) {
 	if fm == nil {
 		return
@@ -104,7 +155,10 @@ func ExpandCustomerManagedResourceLeaves(fm *fieldmaskpb.FieldMask, plan, state 
 	}
 	var changed []string
 	for _, leaf := range cmrUpdatableLeaves {
-		if leaf.get(plan) != leaf.get(state) {
+		switch {
+		case leaf.msg != "" && leaf.held(state) && !leaf.held(plan):
+			changed = append(changed, leaf.msg)
+		case leaf.get(plan) != leaf.get(state):
 			changed = append(changed, leaf.path)
 		}
 	}

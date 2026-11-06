@@ -307,6 +307,9 @@ tasks:
         GCP_CONNECTOR_SERVICE_ACCOUNT_EMAIL="$(echo "$INPUTS" | jq -r '.connector_service_account_email')" \
         GCP_REDPANDA_CLUSTER_SERVICE_ACCOUNT_EMAIL="$(echo "$INPUTS" | jq -r '.redpanda_cluster_service_account_email')" \
         GCP_GKE_SERVICE_ACCOUNT_EMAIL="$(echo "$INPUTS" | jq -r '.gke_service_account_email')" \
+        GCP_REDPANDA_CONNECT_API_SERVICE_ACCOUNT_EMAIL="$(echo "$INPUTS" | jq -r '.redpanda_connect_api_service_account_email')" \
+        GCP_REDPANDA_CONNECT_SERVICE_ACCOUNT_EMAIL="$(echo "$INPUTS" | jq -r '.redpanda_connect_service_account_email')" \
+        GCP_REDPANDA_OPERATOR_SERVICE_ACCOUNT_EMAIL="$(echo "$INPUTS" | jq -r '.redpanda_operator_service_account_email')" \
         {{.PATH_PREFIX}} go test \
           -count=1 -tags=live_test,byovpc_gcp -v -timeout={{.TIMEOUT}} \
           ./redpanda/tests/

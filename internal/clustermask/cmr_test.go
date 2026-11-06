@@ -93,6 +93,21 @@ func TestExpandCustomerManagedResourceLeaves(t *testing.T) {
 			},
 		},
 		{
+			name: "gcp redpanda_connect and operator service accounts added",
+			in:   []string{"customer_managed_resources"},
+			plan: gcpCMR(func(g *controlplanev1.CustomerManagedResourcesUpdate_GCP) {
+				g.RedpandaConnectApiServiceAccount = &controlplanev1.GCPServiceAccount{Email: "rpcn-api@x.iam"}
+				g.RedpandaConnectServiceAccount = &controlplanev1.GCPServiceAccount{Email: "rpcn@x.iam"}
+				g.RedpandaOperatorServiceAccount = &controlplanev1.GCPServiceAccount{Email: "op@x.iam"}
+			}),
+			state: gcpCMR(nil),
+			want: []string{
+				"customer_managed_resources.gcp.redpanda_connect_api_service_account.email",
+				"customer_managed_resources.gcp.redpanda_connect_service_account.email",
+				"customer_managed_resources.gcp.redpanda_operator_service_account.email",
+			},
+		},
+		{
 			name: "aws rpsql leaves key by public rpsql_* name",
 			in:   []string{"customer_managed_resources"},
 			plan: awsCMR(func(a *controlplanev1.CustomerManagedResourcesUpdate_AWS) {
@@ -108,6 +123,36 @@ func TestExpandCustomerManagedResourceLeaves(t *testing.T) {
 			},
 		},
 		{
+			name: "aws rpsql object leaves removed mask their leaves",
+			in:   []string{"customer_managed_resources"},
+			plan: awsCMR(func(a *controlplanev1.CustomerManagedResourcesUpdate_AWS) {
+				a.RpsqlNodeGroupInstanceProfile = nil
+				a.RpsqlSecurityGroup = nil
+				a.RpsqlCloudStorageBucket = nil
+			}),
+			state: awsCMR(nil),
+			want: []string{
+				"customer_managed_resources.aws.rpsql_node_group_instance_profile.arn",
+				"customer_managed_resources.aws.rpsql_security_group.arn",
+				"customer_managed_resources.aws.rpsql_cloud_storage_bucket.arn",
+			},
+		},
+		{
+			name: "gcp rpsql object leaves removed mask their leaves",
+			in:   []string{"customer_managed_resources"},
+			plan: gcpCMR(func(g *controlplanev1.CustomerManagedResourcesUpdate_GCP) {
+				g.RpsqlApiServiceAccount = nil
+				g.RpsqlServiceAccount = nil
+				g.RpsqlCloudStorageBucket = nil
+			}),
+			state: gcpCMR(nil),
+			want: []string{
+				"customer_managed_resources.gcp.rpsql_api_service_account.email",
+				"customer_managed_resources.gcp.rpsql_service_account.email",
+				"customer_managed_resources.gcp.rpsql_cloud_storage_bucket.name",
+			},
+		},
+		{
 			name: "aws redpanda_connect change",
 			in:   []string{"customer_managed_resources"},
 			plan: awsCMR(func(a *controlplanev1.CustomerManagedResourcesUpdate_AWS) {
@@ -115,6 +160,54 @@ func TestExpandCustomerManagedResourceLeaves(t *testing.T) {
 			}),
 			state: awsCMR(nil),
 			want:  []string{"customer_managed_resources.aws.redpanda_connect_security_group.arn"},
+		},
+		{
+			name: "aws connect block added masks its leaf",
+			in:   []string{"customer_managed_resources"},
+			plan: awsCMR(nil),
+			state: awsCMR(func(a *controlplanev1.CustomerManagedResourcesUpdate_AWS) {
+				a.RedpandaConnectSecurityGroup = nil
+			}),
+			want: []string{"customer_managed_resources.aws.redpanda_connect_security_group.arn"},
+		},
+		{
+			name: "aws connect pair removed masks the messages",
+			in:   []string{"customer_managed_resources"},
+			plan: awsCMR(func(a *controlplanev1.CustomerManagedResourcesUpdate_AWS) {
+				a.RedpandaConnectNodeGroupInstanceProfile = nil
+				a.RedpandaConnectSecurityGroup = nil
+			}),
+			state: awsCMR(nil),
+			want: []string{
+				"customer_managed_resources.aws.redpanda_connect_node_group_instance_profile",
+				"customer_managed_resources.aws.redpanda_connect_security_group",
+			},
+		},
+		{
+			name: "aws connect block emptied on the server then removed masks the message",
+			in:   []string{"customer_managed_resources"},
+			plan: awsCMR(func(a *controlplanev1.CustomerManagedResourcesUpdate_AWS) {
+				a.RedpandaConnectSecurityGroup = nil
+			}),
+			state: awsCMR(func(a *controlplanev1.CustomerManagedResourcesUpdate_AWS) {
+				a.RedpandaConnectSecurityGroup = &controlplanev1.AWSSecurityGroup{Arn: ""}
+			}),
+			want: []string{"customer_managed_resources.aws.redpanda_connect_security_group"},
+		},
+		{
+			name: "gcp connect and operator accounts removed mask the messages",
+			in:   []string{"customer_managed_resources"},
+			plan: gcpCMR(nil),
+			state: gcpCMR(func(g *controlplanev1.CustomerManagedResourcesUpdate_GCP) {
+				g.RedpandaConnectApiServiceAccount = &controlplanev1.GCPServiceAccount{Email: "rpcn-api@x.iam"}
+				g.RedpandaConnectServiceAccount = &controlplanev1.GCPServiceAccount{Email: "rpcn@x.iam"}
+				g.RedpandaOperatorServiceAccount = &controlplanev1.GCPServiceAccount{Email: "op@x.iam"}
+			}),
+			want: []string{
+				"customer_managed_resources.gcp.redpanda_connect_api_service_account",
+				"customer_managed_resources.gcp.redpanda_connect_service_account",
+				"customer_managed_resources.gcp.redpanda_operator_service_account",
+			},
 		},
 		{
 			name:  "other mask paths preserved, CMR path replaced in place",

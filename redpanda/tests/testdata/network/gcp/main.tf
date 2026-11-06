@@ -20,12 +20,10 @@ variable "unique_identifier" {
   }
 }
 module "redpanda_gcp" {
-  // Git-ref pin, mirroring the AWS stack: the latest registry release (1.0.3)
-  // predates the module's rpsql support (enable_redpanda_sql, #16/#17), the
-  // BigLake IAM grants (#18) and the operator workload-identity fix (#19). An
-  // unpinned source would also silently adopt new releases in CI.
-  // Re-pin once a registry release containing those ships.
-  source                             = "git::https://github.com/redpanda-data/terraform-gcp-redpanda-byovpc.git?ref=6b660cb4bb0668a1f6979a5c7cb35aca4d9943bb"
+  # Exact pin, mirroring the AWS stack: an open range would silently adopt
+  # new releases in CI.
+  source                             = "redpanda-data/redpanda-byovpc/gcp"
+  version                            = "1.0.5"
   service_project_id                 = var.project_id
   region                             = var.region
   unique_identifier                  = var.unique_identifier
@@ -59,19 +57,22 @@ variable "environment" {
 # JSON file the task reads with jq.
 locals {
   gcp_outputs = {
-    network_name                           = module.redpanda_gcp.network_name
-    network_project_id                     = module.redpanda_gcp.network_project_id
-    subnet_name                            = module.redpanda_gcp.subnet_name
-    secondary_ipv4_range_pods_name         = module.redpanda_gcp.secondary_ipv4_range_pods_name
-    secondary_ipv4_range_services_name     = module.redpanda_gcp.secondary_ipv4_range_services_name
-    k8s_master_ipv4_range                  = module.redpanda_gcp.k8s_master_ipv4_range
-    management_bucket_name                 = module.redpanda_gcp.management_bucket_name
-    tiered_storage_bucket_name             = module.redpanda_gcp.tiered_storage_bucket_name
-    agent_service_account_email            = module.redpanda_gcp.agent_service_account_email
-    console_service_account_email          = module.redpanda_gcp.console_service_account_email
-    connector_service_account_email        = module.redpanda_gcp.connector_service_account_email
-    redpanda_cluster_service_account_email = module.redpanda_gcp.redpanda_cluster_service_account_email
-    gke_service_account_email              = module.redpanda_gcp.gke_service_account_email
+    network_name                               = module.redpanda_gcp.network_name
+    network_project_id                         = module.redpanda_gcp.network_project_id
+    subnet_name                                = module.redpanda_gcp.subnet_name
+    secondary_ipv4_range_pods_name             = module.redpanda_gcp.secondary_ipv4_range_pods_name
+    secondary_ipv4_range_services_name         = module.redpanda_gcp.secondary_ipv4_range_services_name
+    k8s_master_ipv4_range                      = module.redpanda_gcp.k8s_master_ipv4_range
+    management_bucket_name                     = module.redpanda_gcp.management_bucket_name
+    tiered_storage_bucket_name                 = module.redpanda_gcp.tiered_storage_bucket_name
+    agent_service_account_email                = module.redpanda_gcp.agent_service_account_email
+    console_service_account_email              = module.redpanda_gcp.console_service_account_email
+    connector_service_account_email            = module.redpanda_gcp.connector_service_account_email
+    redpanda_cluster_service_account_email     = module.redpanda_gcp.redpanda_cluster_service_account_email
+    gke_service_account_email                  = module.redpanda_gcp.gke_service_account_email
+    redpanda_connect_api_service_account_email = module.redpanda_gcp.redpanda_connect_api_service_account_email
+    redpanda_connect_service_account_email     = module.redpanda_gcp.redpanda_connect_service_account_email
+    redpanda_operator_service_account_email    = module.redpanda_gcp.redpanda_operator_service_account_email
   }
 }
 
