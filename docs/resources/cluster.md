@@ -1107,6 +1107,8 @@ Some attributes cannot be updated in place. Each such attribute says so in its d
 
 The `allow_deletion` attribute gates this. With `allow_deletion = false` (the default), an apply that requires replacement fails with `cluster deletion not allowed` and the cluster is preserved. With `allow_deletion = true`, Terraform destroys and recreates the cluster, so review the plan for `forces replacement` before applying.
 
+The replacement is created from the configuration alone. A plan refuses a replacement while an enabled `rpsql` block is set on the cluster but left out of the configuration, since the new cluster would come up with Redpanda SQL off. A cluster marked with `terraform taint` is the exception: Terraform plans it as a plain create, with no prior state for the provider to check, so declare every setting the cluster holds before tainting it.
+
 ## Example Usage
 
 ```terraform
