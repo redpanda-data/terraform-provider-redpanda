@@ -843,21 +843,21 @@ func FlattenSchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSe
 	m := SchemaRegistrySyncOptionsShadowSchemaRegistryAPITLSSettingsTLSFileSettingsModel{}
 	if v := proto.GetCaPath(); v != "" {
 		m.CaPath = types.StringValue(v)
-	} else if prev != nil && !prev.CaPath.IsUnknown() {
+	} else if prev != nil && !prev.CaPath.IsUnknown() && prev.CaPath.ValueString() == "" {
 		m.CaPath = prev.CaPath
 	} else {
 		m.CaPath = types.StringNull()
 	}
 	if v := proto.GetCertPath(); v != "" {
 		m.CertPath = types.StringValue(v)
-	} else if prev != nil && !prev.CertPath.IsUnknown() {
+	} else if prev != nil && !prev.CertPath.IsUnknown() && prev.CertPath.ValueString() == "" {
 		m.CertPath = prev.CertPath
 	} else {
 		m.CertPath = types.StringNull()
 	}
 	if v := proto.GetKeyPath(); v != "" {
 		m.KeyPath = types.StringValue(v)
-	} else if prev != nil && !prev.KeyPath.IsUnknown() {
+	} else if prev != nil && !prev.KeyPath.IsUnknown() && prev.KeyPath.ValueString() == "" {
 		m.KeyPath = prev.KeyPath
 	} else {
 		m.KeyPath = types.StringNull()

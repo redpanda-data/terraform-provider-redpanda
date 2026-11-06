@@ -86,6 +86,8 @@ gcp_private_service_connect:
       todo: true
     schema_registry_auth_mode:
       todo: true
+# empty_is_null mirrors the resource schema, where these blocks are optional
+# and an all-empty echo reads as null.
 customer_managed_resources:
   fields:
     gcp:
@@ -94,23 +96,45 @@ customer_managed_resources:
         psc_v2_nat_subnet_name:
           todo: true
         redpanda_connect_api_service_account:
+          empty_is_null: true
           fields:
             email: {}
         redpanda_connect_service_account:
+          empty_is_null: true
           fields:
             email: {}
         redpanda_operator_service_account:
+          empty_is_null: true
           fields:
             email: {}
+        rpsql_api_service_account:
+          empty_is_null: true
+        rpsql_cloud_storage_bucket:
+          empty_is_null: true
+        rpsql_service_account:
+          empty_is_null: true
     aws:
       fields:
+        redpanda_connect_node_group_instance_profile:
+          empty_is_null: true
+        redpanda_connect_security_group:
+          empty_is_null: true
         rpsql_node_group_instance_profile:
+          empty_is_null: true
           fields:
             arn: {}
         rpsql_cloud_storage_bucket:
+          empty_is_null: true
           fields:
             arn: {}
-        rpsql_security_group: {}
+        rpsql_security_group:
+          empty_is_null: true
+    azure:
+      fields:
+        tiered_cloud_storage:
+          fields:
+            resource_group:
+              empty_is_null: true
 cluster_configuration:
   fields:
     custom_properties:

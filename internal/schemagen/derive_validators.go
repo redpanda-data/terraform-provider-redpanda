@@ -72,3 +72,49 @@ func deriveRepeatedRuleValidators(attrs []SchemaAttr, proto *ProtoMessage, paren
 		}
 	}
 }
+
+// deriveFoldLeafValidators refuses "" on the required string leaves of a
+// single-nested block whose all-empty echo folds to null. The fold reads an
+// empty leaf as the block being gone, so a configured "" would plan a block
+// and read back null, an inconsistent result after apply; the control plane
+// rejects the value too, but only at apply. Yaml-resolved validators compose
+// via append.
+func deriveFoldLeafValidators(attrs []SchemaAttr, proto *ProtoMessage, fcs map[string]FieldConfig, parentPath string) {
+	if proto == nil {
+		return
+	}
+	for i := range attrs {
+		a := &attrs[i]
+		f := proto.FindField(lookupProtoName(a))
+		if f == nil {
+			continue
+		}
+		var fc *FieldConfig
+		var nestedFcs map[string]FieldConfig
+		if c, ok := fcs[a.Name]; ok {
+			fc = &c
+			nestedFcs = c.Fields
+		}
+		if len(a.NestedAttrs) > 0 && f.Nested != nil {
+			deriveFoldLeafValidators(a.NestedAttrs, f.Nested, nestedFcs, joinPath(parentPath, a.ProtoName))
+		}
+		if a.AttrType != AttrTypeSingleNested {
+			continue
+		}
+		if (fc == nil || !fc.EmptyIsNull) && !zeroFoldEligible(a, fc, f) {
+			continue
+		}
+		for j := range a.NestedAttrs {
+			leaf := &a.NestedAttrs[j]
+			if !leaf.Required || leaf.AttrType != AttrTypeString || strings.Contains(leaf.Validators, "LengthAtLeast") {
+				continue
+			}
+			const expr = "stringvalidator.LengthAtLeast(1)"
+			if leaf.Validators == "" {
+				leaf.Validators = wrapValidatorSlice("String", []string{expr})
+			} else {
+				leaf.Validators = fmt.Sprintf("append(%s, %s)", leaf.Validators, expr)
+			}
+		}
+	}
+}

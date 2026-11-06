@@ -41,11 +41,11 @@ var awsConnectPath = tfjsonpath.New("customer_managed_resources").AtMapKey("aws"
 
 // TestIntegration_Cluster_CMR_EmptyConnectBlockCarriesNothing pins that an AWS
 // Connect block the control plane holds with an empty value, the shape a
-// leaf-only clear leaves behind, counts neither as a held half the config
-// drops nor as a sent half of the pair: a config that leaves it out clears
-// the empty block in place without a word. The other half, kept in config
-// alone, is refused at plan like any lone block on a create, and the cluster
-// stands; left out, the replace plans and the cluster comes up without either.
+// leaf-only clear leaves behind, reads back null and neither counts as a
+// setting the config omits nor as a sent half of the pair. The other half,
+// kept in config alone, is refused at plan like any lone block on a create,
+// and the cluster stands; left out, the replace plans and the cluster comes
+// up without either.
 func TestIntegration_Cluster_CMR_EmptyConnectBlockCarriesNothing(t *testing.T) {
 	leafClear := func(t *testing.T, srv *mock.Server, id *string, leaves ...string) func() {
 		return updateCMROutOfBand(t, srv, id, &controlplanev1.CustomerManagedResourcesUpdate{
@@ -65,7 +65,7 @@ func TestIntegration_Cluster_CMR_EmptyConnectBlockCarriesNothing(t *testing.T) {
 		var id string
 		create := integration.CreateStep(clusterAddr, awsBYOVPCConfig(awsBYOVPCOpts{name: name}), nil)
 		create.Check = captureClusterID(&id)
-		cleared := integration.UpdateLeafStep(clusterAddr, awsBYOVPCConfig(awsBYOVPCOpts{name: name, omitConnectSG: true}), []statecheck.StateCheck{noSG})
+		cleared := integration.NoopReapplyStep(clusterAddr, awsBYOVPCConfig(awsBYOVPCOpts{name: name, omitConnectSG: true}), []statecheck.StateCheck{noSG})
 		cleared.PreConfig = leafClear(t, srv, &id, sgLeaf)
 		resource.UnitTest(t, resource.TestCase{
 			ProtoV6ProviderFactories: factories,
@@ -89,7 +89,7 @@ func TestIntegration_Cluster_CMR_EmptyConnectBlockCarriesNothing(t *testing.T) {
 		omitBoth := awsBYOVPCOpts{name: name, omitConnectSG: true, omitConnectProfile: true}
 		create := integration.CreateStep(clusterAddr, awsBYOVPCConfig(awsBYOVPCOpts{name: name}), nil)
 		create.Check = captureClusterID(&id)
-		cleared := integration.UpdateLeafStep(clusterAddr, awsBYOVPCConfig(omitBoth), []statecheck.StateCheck{noSG, noProfile})
+		cleared := integration.NoopReapplyStep(clusterAddr, awsBYOVPCConfig(omitBoth), []statecheck.StateCheck{noSG, noProfile})
 		cleared.PreConfig = leafClear(t, srv, &id, sgLeaf, profileLeaf)
 		replaced := omitBoth
 		replaced.clusterSGARN = replaceClusterSG

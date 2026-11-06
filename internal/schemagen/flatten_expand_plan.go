@@ -59,16 +59,111 @@ func wrapperSuffix(pf *ProtoField) string {
 
 // renderScalarHeuristicFlatten emits the three-arm FlattenStmt used when a TF
 // attribute is Optional-only but the proto field carries no presence: prefer
-// the proto value when non-zero, fall back to prev (preserving user
-// null-vs-zero intent), then null. Used for every scalar AttrType.
+// the proto value when non-zero, otherwise keep prev only when prev is null
+// or the same zero (the user's null-vs-zero intent), otherwise null. A
+// non-zero prev against a zero proto value is a server-side clear, and
+// keeping prev there would hide the drift. Used for every scalar AttrType.
 func renderScalarHeuristicFlatten(conv *FieldConversion, sh scalarShape) string {
 	return fmt.Sprintf(
-		"if v := proto.Get%s(); v != %s {\n\t\tm.%s = types.%sValue(v)\n\t} else if prev != nil && !prev.%s.IsUnknown() {\n\t\tm.%s = prev.%s\n\t} else {\n\t\tm.%s = types.%sNull()\n\t}",
+		"if v := proto.Get%s(); v != %s {\n\t\tm.%s = types.%sValue(v)\n\t} else if prev != nil && !prev.%s.IsUnknown() && prev.%s%s == %s {\n\t\tm.%s = prev.%s\n\t} else {\n\t\tm.%s = types.%sNull()\n\t}",
 		conv.ProtoGoName, sh.zeroSentinel,
 		conv.GoName, sh.tfTypeWord,
-		conv.GoName, conv.GoName, conv.GoName,
+		conv.GoName, conv.GoName, sh.expandValueFn, sh.zeroSentinel,
+		conv.GoName, conv.GoName,
 		conv.GoName, sh.tfTypeWord,
 	)
+}
+
+// zeroFoldEligible reports whether an all-empty echo of the nested message
+// means the block is absent: the configuration may omit the block, and
+// zeroFoldBlocker finds nothing that gives an empty echo another meaning.
+func zeroFoldEligible(a *SchemaAttr, fc *FieldConfig, pf *ProtoField) bool {
+	return a.Optional && zeroFoldBlocker(a, fc, pf) == ""
+}
+
+// zeroFoldBlocker names the first reason an all-empty echo of the message
+// cannot mean "gone", or "" when only the attribute's lifecycle decides. A
+// required attribute cannot be absent. A oneof arm's empty message is the
+// arm's selection. Without a required schema leaf the user can write an
+// empty block that the echo must round-trip; a computed-only block has no
+// configuration, so the directive may fold it. flatten_from_prev restores
+// the prior value over the echo, so a fold there is dead. A bool or number
+// at zero is a state, and a leaf with presence, a repeated or map leaf or an
+// enum carries its own absence signal, so only presence-less strings qualify.
+func zeroFoldBlocker(a *SchemaAttr, fc *FieldConfig, pf *ProtoField) string {
+	switch {
+	case a.Required:
+		return "the attribute is required"
+	case a.IsOneofArm || pf.OneofName != "":
+		return "the field is a oneof member"
+	case pf.Nested == nil:
+		return "the field is not a message"
+	case a.Optional && !hasRequiredLeaf(a):
+		return "no schema leaf is required, so an empty block is configurable"
+	case fc != nil && fc.FlattenFromPrev:
+		return "flatten_from_prev restores the prior value over the echo"
+	case !allLeavesPresencelessStrings(pf.Nested):
+		return "a leaf is not a presence-less string"
+	}
+	return ""
+}
+
+func hasRequiredLeaf(a *SchemaAttr) bool {
+	for i := range a.NestedAttrs {
+		if a.NestedAttrs[i].Required {
+			return true
+		}
+	}
+	return false
+}
+
+func allLeavesPresencelessStrings(m *ProtoMessage) bool {
+	if m == nil || len(m.Fields) == 0 {
+		return false
+	}
+	for i := range m.Fields {
+		f := &m.Fields[i]
+		if f.IsOptional || f.IsScalarWrapper || f.OneofName != "" || f.Cardinality == KindRepeated || f.Cardinality == KindMap {
+			return false
+		}
+		if f.Kind == KindMessage {
+			if !allLeavesPresencelessStrings(f.Nested) {
+				return false
+			}
+			continue
+		}
+		if f.Kind != KindString {
+			return false
+		}
+	}
+	return true
+}
+
+// zeroPredicate renders the && chain over every leaf of m reached from the
+// Go expression recv, descending through nested messages via nil-safe
+// getters.
+func zeroPredicate(recv string, m *ProtoMessage) string {
+	var terms []string
+	for i := range m.Fields {
+		f := &m.Fields[i]
+		get := recv + ".Get" + toProtoGoName(f.Name) + "()"
+		if f.Kind == KindMessage {
+			terms = append(terms, zeroPredicate(get, f.Nested))
+			continue
+		}
+		terms = append(terms, get+` == ""`)
+	}
+	return strings.Join(terms, " && ")
+}
+
+// nestedProtoGoType is the qualified Go type of a message-typed field,
+// honouring an external package alias.
+func nestedProtoGoType(pf *ProtoField, protoAlias string) string {
+	alias := protoAlias
+	if pf.Nested.ExternalPkgAlias != "" {
+		alias = pf.Nested.ExternalPkgAlias
+	}
+	return alias + "." + protoMessageGoName(pf.Nested)
 }
 
 // scalarListBindings returns the emission strings needed to call the generic
@@ -683,6 +778,14 @@ func planField(a *SchemaAttr, fc *FieldConfig, protoByName map[string]*ProtoFiel
 		if fc.FlattenSkip && fc.FlattenVia != "" {
 			return nil, fmt.Errorf("attribute %q: flatten_skip and flatten_via are mutually exclusive", a.Name)
 		}
+		if fc.EmptyIsNull {
+			if a.AttrType != AttrTypeSingleNested {
+				return nil, fmt.Errorf("attribute %q: empty_is_null applies to a single-nested block, not %s", a.Name, a.AttrType)
+			}
+			if fc.FlattenVia != "" || fc.FlattenSkip {
+				return nil, fmt.Errorf("attribute %q: empty_is_null has no effect beside flatten_via or flatten_skip", a.Name)
+			}
+		}
 		if fc.FlattenFromPrev {
 			if fc.FlattenSkip {
 				return nil, fmt.Errorf("attribute %q: flatten_from_prev and flatten_skip are mutually exclusive (flatten_skip already preserves from prev)", a.Name)
@@ -1005,9 +1108,20 @@ func planField(a *SchemaAttr, fc *FieldConfig, protoByName map[string]*ProtoFiel
 					nestedModelType, decodeFn,
 				)
 			}
+			protoArg := "proto.Get" + conv.ProtoGoName + "()"
+			emptyIsNull := fc != nil && fc.EmptyIsNull
+			if why := zeroFoldBlocker(a, fc, pf); emptyIsNull && why != "" {
+				return nil, fmt.Errorf("attribute %q: empty_is_null needs a block whose empty echo can mean absent, but %s", a.Name, why)
+			}
+			if emptyIsNull || zeroFoldEligible(a, fc, pf) {
+				protoArg = fmt.Sprintf(
+					"modelconv.NilIfZero(%s, func(p *%s) bool { return %s })",
+					protoArg, nestedProtoGoType(pf, protoAlias), zeroPredicate("p", pf.Nested),
+				)
+			}
 			conv.FlattenExpr = fmt.Sprintf(
-				"modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.Get%s(), %s, %s(), %s, &diags)",
-				conv.ProtoGoName, prevExpr, attrTypesFn, flattenFn,
+				"modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, %s, %s, %s(), %s, &diags)",
+				protoArg, prevExpr, attrTypesFn, flattenFn,
 			)
 		}
 		if conv.ExpandExpr == "" {
@@ -1549,11 +1663,7 @@ func protoFieldReturnType(pf *ProtoField, protoAlias string) (string, error) {
 		if pf.Nested == nil {
 			return "", fmt.Errorf("schemagen: %s field %q has no nested message info", pf.Kind, pf.Name)
 		}
-		alias := protoAlias
-		if pf.Nested.ExternalPkgAlias != "" {
-			alias = pf.Nested.ExternalPkgAlias
-		}
-		return "*" + alias + "." + protoMessageGoName(pf.Nested), nil
+		return "*" + nestedProtoGoType(pf, protoAlias), nil
 	case protoKindEnum:
 		return "", nil
 	default:

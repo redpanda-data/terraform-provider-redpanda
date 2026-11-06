@@ -39,6 +39,7 @@ import (
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 // TestIntegration_Cluster exercises redpanda_cluster (dedicated AWS variant) against
@@ -5206,6 +5207,119 @@ func TestIntegration_Cluster_ConnectionsManaged_LegacyReturnRejected(t *testing.
 				ExpectError: regexp.MustCompile(`Cluster Managed Through Connections`),
 			},
 			integration.NoopReapplyStep(clusterAddr, awsByocNoConnTypeConfig(name, dualAllServices(dualSaslConns)...), nil),
+		},
+	})
+}
+
+// Pins that a server-side clear of a presence-less scalar reaches state: the
+// control plane empties rpsql_secret_manager_prefix when Redpanda SQL is
+// disabled, so the refreshed state must drop the configured value instead of
+// carrying it forward and hiding the drift.
+func TestIntegration_ClusterGCPBYOVPC_RpsqlDisabledOutOfBandClearsPrefix(t *testing.T) {
+	srv, factories := clusterSetup(t)
+	const name = "tfrp-mock-cl-rpsql-oob"
+	cfg := gcpBYOVPCConfig(gcpBYOVPCOpts{name: name, rpsql: true})
+	prefixPath := tfjsonpath.New("customer_managed_resources").AtMapKey("gcp").AtMapKey("rpsql_secret_manager_prefix")
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr, cfg, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(clusterAddr, prefixPath, knownvalue.StringExact("tfrp-rpsql-")),
+			}),
+			{
+				PreConfig: func() {
+					if !srv.Cluster.DisableRpsqlOutOfBand(name) {
+						t.Fatalf("cluster %s not stored in the fake", name)
+					}
+				},
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(clusterAddr, "rpsql.enabled", "false"),
+					resource.TestCheckNoResourceAttr(clusterAddr, "customer_managed_resources.gcp.rpsql_secret_manager_prefix"),
+				),
+			},
+		},
+	})
+}
+
+// clusterIDByName returns the fake's id for a stored cluster, for update
+// requests a test sends as another client would.
+func clusterIDByName(t *testing.T, srv *mock.Server, name string) string {
+	t.Helper()
+	resp, err := srv.Cluster.ListClusters(context.Background(), &controlplanev1.ListClustersRequest{})
+	if err != nil {
+		t.Fatalf("ListClusters: %v", err)
+	}
+	for _, c := range resp.GetClusters() {
+		if c.GetName() == name {
+			return c.GetId()
+		}
+	}
+	t.Fatalf("cluster %s not stored in the fake", name)
+	return ""
+}
+
+// Pins that a Connect block the control plane echoes with an empty leaf, the
+// shape a leaf-mask clear from another client leaves behind, reads back as
+// null on the resource and on the data source.
+func TestIntegration_ClusterAWSBYOVPC_ConnectSecurityGroupClearedOutOfBandReadsNull(t *testing.T) {
+	srv, factories := clusterSetup(t)
+	const name = "tfrp-mock-cl-connect-oob"
+	const dsAddr = "data.redpanda_cluster.test"
+	cfg := awsBYOVPCConfig(awsBYOVPCOpts{name: name})
+	omitted := awsBYOVPCConfig(awsBYOVPCOpts{name: name, omitConnectSG: true}) + `
+data "redpanda_cluster" "test" {
+  id = redpanda_cluster.test.id
+}
+`
+	sgPath := tfjsonpath.New("customer_managed_resources").AtMapKey("aws").AtMapKey("redpanda_connect_security_group")
+	const sgARN = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-rp-connect"
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr, cfg, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(clusterAddr, sgPath.AtMapKey("arn"), knownvalue.StringExact(sgARN)),
+			}),
+			{
+				PreConfig: func() {
+					upd := &controlplanev1.ClusterUpdate{}
+					upd.SetId(clusterIDByName(t, srv, name))
+					cmr := &controlplanev1.CustomerManagedResourcesUpdate{}
+					cmr.SetAws(&controlplanev1.CustomerManagedResourcesUpdate_AWS{})
+					upd.SetCustomerManagedResources(cmr)
+					req := &controlplanev1.UpdateClusterRequest{}
+					req.SetCluster(upd)
+					req.SetUpdateMask(&fieldmaskpb.FieldMask{Paths: []string{"customer_managed_resources.aws.redpanda_connect_security_group.arn"}})
+					if _, err := srv.Cluster.UpdateCluster(context.Background(), req); err != nil {
+						t.Fatalf("out-of-band clear: %v", err)
+					}
+				},
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				Check:              resource.TestCheckNoResourceAttr(clusterAddr, "customer_managed_resources.aws.redpanda_connect_security_group.arn"),
+			},
+			{
+				Config: omitted,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(dsAddr, sgPath, knownvalue.Null()),
+				},
+			},
+			{
+				Config: cfg,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(clusterAddr, plancheck.ResourceActionUpdate),
+					},
+					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, sgPath.AtMapKey("arn"), knownvalue.StringExact(sgARN)),
+				},
+			},
 		},
 	})
 }

@@ -395,23 +395,23 @@ func FlattenCustomerManagedResourcesAWS(ctx context.Context, proto *controlplane
 		v, _ := DecodeCustomerManagedResourcesAWSUtilitySecurityGroup(ctx, prev)
 		return v
 	}(), CustomerManagedResourcesAWSUtilitySecurityGroupAttrTypes(), FlattenCustomerManagedResourcesAWSUtilitySecurityGroup, &diags)
-	m.RedpandaConnectNodeGroupInstanceProfile = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaConnectNodeGroupInstanceProfile(), func() *CustomerManagedResourcesAWSRedpandaConnectNodeGroupInstanceProfileModel {
+	m.RedpandaConnectNodeGroupInstanceProfile = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, modelconv.NilIfZero(proto.GetRedpandaConnectNodeGroupInstanceProfile(), func(p *controlplanev1.AWSInstanceProfile) bool { return p.GetArn() == "" }), func() *CustomerManagedResourcesAWSRedpandaConnectNodeGroupInstanceProfileModel {
 		v, _ := DecodeCustomerManagedResourcesAWSRedpandaConnectNodeGroupInstanceProfile(ctx, prev)
 		return v
 	}(), CustomerManagedResourcesAWSRedpandaConnectNodeGroupInstanceProfileAttrTypes(), FlattenCustomerManagedResourcesAWSRedpandaConnectNodeGroupInstanceProfile, &diags)
-	m.RedpandaConnectSecurityGroup = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaConnectSecurityGroup(), func() *CustomerManagedResourcesAWSRedpandaConnectSecurityGroupModel {
+	m.RedpandaConnectSecurityGroup = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, modelconv.NilIfZero(proto.GetRedpandaConnectSecurityGroup(), func(p *controlplanev1.AWSSecurityGroup) bool { return p.GetArn() == "" }), func() *CustomerManagedResourcesAWSRedpandaConnectSecurityGroupModel {
 		v, _ := DecodeCustomerManagedResourcesAWSRedpandaConnectSecurityGroup(ctx, prev)
 		return v
 	}(), CustomerManagedResourcesAWSRedpandaConnectSecurityGroupAttrTypes(), FlattenCustomerManagedResourcesAWSRedpandaConnectSecurityGroup, &diags)
-	m.RpsqlCloudStorageBucket = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpsqlCloudStorageBucket(), func() *CustomerManagedResourcesAWSRpsqlCloudStorageBucketModel {
+	m.RpsqlCloudStorageBucket = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, modelconv.NilIfZero(proto.GetRpsqlCloudStorageBucket(), func(p *controlplanev1.CustomerManagedAWSCloudStorageBucket) bool { return p.GetArn() == "" }), func() *CustomerManagedResourcesAWSRpsqlCloudStorageBucketModel {
 		v, _ := DecodeCustomerManagedResourcesAWSRpsqlCloudStorageBucket(ctx, prev)
 		return v
 	}(), CustomerManagedResourcesAWSRpsqlCloudStorageBucketAttrTypes(), FlattenCustomerManagedResourcesAWSRpsqlCloudStorageBucket, &diags)
-	m.RpsqlNodeGroupInstanceProfile = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpsqlNodeGroupInstanceProfile(), func() *CustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileModel {
+	m.RpsqlNodeGroupInstanceProfile = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, modelconv.NilIfZero(proto.GetRpsqlNodeGroupInstanceProfile(), func(p *controlplanev1.AWSInstanceProfile) bool { return p.GetArn() == "" }), func() *CustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileModel {
 		v, _ := DecodeCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfile(ctx, prev)
 		return v
 	}(), CustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfileAttrTypes(), FlattenCustomerManagedResourcesAWSRpsqlNodeGroupInstanceProfile, &diags)
-	m.RpsqlSecurityGroup = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpsqlSecurityGroup(), func() *CustomerManagedResourcesAWSRpsqlSecurityGroupModel {
+	m.RpsqlSecurityGroup = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, modelconv.NilIfZero(proto.GetRpsqlSecurityGroup(), func(p *controlplanev1.AWSSecurityGroup) bool { return p.GetArn() == "" }), func() *CustomerManagedResourcesAWSRpsqlSecurityGroupModel {
 		v, _ := DecodeCustomerManagedResourcesAWSRpsqlSecurityGroup(ctx, prev)
 		return v
 	}(), CustomerManagedResourcesAWSRpsqlSecurityGroupAttrTypes(), FlattenCustomerManagedResourcesAWSRpsqlSecurityGroup, &diags)
@@ -1235,7 +1235,7 @@ func FlattenCustomerManagedResourcesAzureTieredCloudStorage(ctx context.Context,
 	m := CustomerManagedResourcesAzureTieredCloudStorageModel{}
 	m.StorageAccountName = types.StringValue(proto.GetStorageAccountName())
 	m.StorageContainerName = types.StringValue(proto.GetStorageContainerName())
-	m.ResourceGroup = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetResourceGroup(), func() *CustomerManagedResourcesAzureTieredCloudStorageResourceGroupModel {
+	m.ResourceGroup = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, modelconv.NilIfZero(proto.GetResourceGroup(), func(p *controlplanev1.CustomerManagedAzureResourceGroupSpec) bool { return p.GetName() == "" }), func() *CustomerManagedResourcesAzureTieredCloudStorageResourceGroupModel {
 		v, _ := DecodeCustomerManagedResourcesAzureTieredCloudStorageResourceGroup(ctx, prev)
 		return v
 	}(), CustomerManagedResourcesAzureTieredCloudStorageResourceGroupAttrTypes(), FlattenCustomerManagedResourcesAzureTieredCloudStorageResourceGroup, &diags)
@@ -1643,39 +1643,39 @@ func FlattenCustomerManagedResourcesGCP(ctx context.Context, proto *controlplane
 	}(), CustomerManagedResourcesGCPTieredStorageBucketAttrTypes(), FlattenCustomerManagedResourcesGCPTieredStorageBucket, &diags)
 	if v := proto.GetPscNatSubnetName(); v != "" {
 		m.PscNatSubnetName = types.StringValue(v)
-	} else if prev != nil && !prev.PscNatSubnetName.IsUnknown() {
+	} else if prev != nil && !prev.PscNatSubnetName.IsUnknown() && prev.PscNatSubnetName.ValueString() == "" {
 		m.PscNatSubnetName = prev.PscNatSubnetName
 	} else {
 		m.PscNatSubnetName = types.StringNull()
 	}
-	m.RedpandaConnectAPIServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaConnectApiServiceAccount(), func() *CustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountModel {
+	m.RedpandaConnectAPIServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, modelconv.NilIfZero(proto.GetRedpandaConnectApiServiceAccount(), func(p *controlplanev1.GCPServiceAccount) bool { return p.GetEmail() == "" }), func() *CustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountModel {
 		v, _ := DecodeCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccount(ctx, prev)
 		return v
 	}(), CustomerManagedResourcesGCPRedpandaConnectAPIServiceAccountAttrTypes(), FlattenCustomerManagedResourcesGCPRedpandaConnectAPIServiceAccount, &diags)
-	m.RedpandaConnectServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaConnectServiceAccount(), func() *CustomerManagedResourcesGCPRedpandaConnectServiceAccountModel {
+	m.RedpandaConnectServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, modelconv.NilIfZero(proto.GetRedpandaConnectServiceAccount(), func(p *controlplanev1.GCPServiceAccount) bool { return p.GetEmail() == "" }), func() *CustomerManagedResourcesGCPRedpandaConnectServiceAccountModel {
 		v, _ := DecodeCustomerManagedResourcesGCPRedpandaConnectServiceAccount(ctx, prev)
 		return v
 	}(), CustomerManagedResourcesGCPRedpandaConnectServiceAccountAttrTypes(), FlattenCustomerManagedResourcesGCPRedpandaConnectServiceAccount, &diags)
-	m.RedpandaOperatorServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRedpandaOperatorServiceAccount(), func() *CustomerManagedResourcesGCPRedpandaOperatorServiceAccountModel {
+	m.RedpandaOperatorServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, modelconv.NilIfZero(proto.GetRedpandaOperatorServiceAccount(), func(p *controlplanev1.GCPServiceAccount) bool { return p.GetEmail() == "" }), func() *CustomerManagedResourcesGCPRedpandaOperatorServiceAccountModel {
 		v, _ := DecodeCustomerManagedResourcesGCPRedpandaOperatorServiceAccount(ctx, prev)
 		return v
 	}(), CustomerManagedResourcesGCPRedpandaOperatorServiceAccountAttrTypes(), FlattenCustomerManagedResourcesGCPRedpandaOperatorServiceAccount, &diags)
-	m.RpsqlAPIServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpsqlApiServiceAccount(), func() *CustomerManagedResourcesGCPRpsqlAPIServiceAccountModel {
+	m.RpsqlAPIServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, modelconv.NilIfZero(proto.GetRpsqlApiServiceAccount(), func(p *controlplanev1.GCPServiceAccount) bool { return p.GetEmail() == "" }), func() *CustomerManagedResourcesGCPRpsqlAPIServiceAccountModel {
 		v, _ := DecodeCustomerManagedResourcesGCPRpsqlAPIServiceAccount(ctx, prev)
 		return v
 	}(), CustomerManagedResourcesGCPRpsqlAPIServiceAccountAttrTypes(), FlattenCustomerManagedResourcesGCPRpsqlAPIServiceAccount, &diags)
-	m.RpsqlCloudStorageBucket = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpsqlCloudStorageBucket(), func() *CustomerManagedResourcesGCPRpsqlCloudStorageBucketModel {
+	m.RpsqlCloudStorageBucket = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, modelconv.NilIfZero(proto.GetRpsqlCloudStorageBucket(), func(p *controlplanev1.CustomerManagedGoogleCloudStorageBucket) bool { return p.GetName() == "" }), func() *CustomerManagedResourcesGCPRpsqlCloudStorageBucketModel {
 		v, _ := DecodeCustomerManagedResourcesGCPRpsqlCloudStorageBucket(ctx, prev)
 		return v
 	}(), CustomerManagedResourcesGCPRpsqlCloudStorageBucketAttrTypes(), FlattenCustomerManagedResourcesGCPRpsqlCloudStorageBucket, &diags)
 	if v := proto.GetRpsqlSecretManagerPrefix(); v != "" {
 		m.RpsqlSecretManagerPrefix = types.StringValue(v)
-	} else if prev != nil && !prev.RpsqlSecretManagerPrefix.IsUnknown() {
+	} else if prev != nil && !prev.RpsqlSecretManagerPrefix.IsUnknown() && prev.RpsqlSecretManagerPrefix.ValueString() == "" {
 		m.RpsqlSecretManagerPrefix = prev.RpsqlSecretManagerPrefix
 	} else {
 		m.RpsqlSecretManagerPrefix = types.StringNull()
 	}
-	m.RpsqlServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, proto.GetRpsqlServiceAccount(), func() *CustomerManagedResourcesGCPRpsqlServiceAccountModel {
+	m.RpsqlServiceAccount = modelconv.ObjectFromMessageWithDiagsAndPrev(ctx, modelconv.NilIfZero(proto.GetRpsqlServiceAccount(), func(p *controlplanev1.GCPServiceAccount) bool { return p.GetEmail() == "" }), func() *CustomerManagedResourcesGCPRpsqlServiceAccountModel {
 		v, _ := DecodeCustomerManagedResourcesGCPRpsqlServiceAccount(ctx, prev)
 		return v
 	}(), CustomerManagedResourcesGCPRpsqlServiceAccountAttrTypes(), FlattenCustomerManagedResourcesGCPRpsqlServiceAccount, &diags)
