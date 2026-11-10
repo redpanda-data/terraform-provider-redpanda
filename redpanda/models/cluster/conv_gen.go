@@ -209,6 +209,7 @@ func ExpandCreate(ctx context.Context, m *ResourceModel) (*controlplanev1.Create
 		CustomerManagedResources:        modelconv.ObjectToMessageWithDiags(ctx, m.CustomerManagedResources, ExpandCustomerManagedResources, &diags),
 		GcpEnableGlobalAccessApiGateway: m.GCPEnableGlobalAccessAPIGateway.ValueBool(),
 		ReadReplicaClusterIds:           modelconv.ListToSliceWithDiags[string](ctx, m.ReadReplicaClusterIds, &diags),
+		RedpandaVersion:                 utils.PointerOrNil(m.RedpandaVersion, types.String.ValueString),
 		ApiGatewayAccess:                enums.StringToNetworkAccessMode(m.APIGatewayAccess.ValueString()),
 		AwsPrivateLink:                  modelconv.ObjectToMessageWithDiags(ctx, m.AWSPrivateLink, ExpandCreateAWSPrivateLink, &diags),
 		AzurePrivateLink:                modelconv.ObjectToMessageWithDiags(ctx, m.AzurePrivateLink, ExpandCreateAzurePrivateLink, &diags),
