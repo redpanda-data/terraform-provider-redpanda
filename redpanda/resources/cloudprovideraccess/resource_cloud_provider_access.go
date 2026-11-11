@@ -102,7 +102,8 @@ func (r *CloudProviderAccess) Read(ctx context.Context, req resource.ReadRequest
 
 	cpa, err := r.CpCl.CloudProviderAccessForID(ctx, state.ID.ValueString())
 	if err != nil {
-		if utils.IsNotFound(err) {
+		if gone, goneDiags := utils.ControlPlaneGone("cloud provider access", state.ID.ValueString(), err); gone {
+			resp.Diagnostics.Append(goneDiags...)
 			resp.State.RemoveResource(ctx)
 			return
 		}
@@ -143,7 +144,11 @@ func (r *CloudProviderAccess) Delete(ctx context.Context, req resource.DeleteReq
 	}
 
 	if _, err := r.CpCl.CloudProviderAccess.DeleteCloudProviderAccess(ctx, pbReq); err != nil {
-		if utils.IsNotFound(err) {
+		if gone, goneDiags := utils.ControlPlaneGoneOnDelete("cloud provider access", state.ID.ValueString(), err, func() error {
+			_, lookupErr := r.CpCl.CloudProviderAccessForID(ctx, state.ID.ValueString())
+			return lookupErr
+		}); gone {
+			resp.Diagnostics.Append(goneDiags...)
 			return
 		}
 		detail := utils.DeserializeGrpcError(err)

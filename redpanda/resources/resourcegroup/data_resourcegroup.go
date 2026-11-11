@@ -44,7 +44,7 @@ func (n *DataSourceResourceGroup) Read(ctx context.Context, req datasource.ReadR
 
 	rg, err := n.CpCl.ResourceGroupForIDOrName(ctx, model.ID.ValueString(), model.Name.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("failed to read resource group", utils.DeserializeGrpcError(err))
+		resp.Diagnostics.AddError("failed to read resource group", utils.ControlPlaneReadError(model.ID.ValueString(), err))
 		return
 	}
 

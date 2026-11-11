@@ -62,7 +62,7 @@ func (d *DataSourceCluster) Read(ctx context.Context, req datasource.ReadRequest
 			resp.Diagnostics.AddError(fmt.Sprintf("unable to find cluster %s", model.ID), utils.DeserializeGrpcError(err))
 			return
 		}
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), utils.DeserializeGrpcError(err))
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), utils.ControlPlaneReadError(model.ID.ValueString(), err))
 		return
 	}
 

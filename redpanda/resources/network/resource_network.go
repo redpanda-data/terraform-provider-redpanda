@@ -104,7 +104,8 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 	nw, err := n.CpCl.NetworkForID(ctx, model.ID.ValueString())
 	if err != nil {
-		if utils.IsNotFound(err) {
+		if gone, goneDiags := utils.ControlPlaneGone("network", model.ID.ValueString(), err); gone {
+			response.Diagnostics.Append(goneDiags...)
 			response.State.RemoveResource(ctx)
 			return
 		}
@@ -198,6 +199,13 @@ func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, re
 
 	netResp, err := n.CpCl.Network.DeleteNetwork(ctx, delReq)
 	if err != nil {
+		if gone, goneDiags := utils.ControlPlaneGoneOnDelete("network", model.ID.ValueString(), err, func() error {
+			_, lookupErr := n.CpCl.NetworkForID(ctx, model.ID.ValueString())
+			return lookupErr
+		}); gone {
+			response.Diagnostics.Append(goneDiags...)
+			return
+		}
 		response.Diagnostics.AddError("failed to delete network", utils.DeserializeGrpcError(err))
 		return
 	}

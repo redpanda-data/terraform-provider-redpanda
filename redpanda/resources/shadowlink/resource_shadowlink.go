@@ -311,7 +311,8 @@ func (s *ShadowLink) Read(ctx context.Context, req resource.ReadRequest, resp *r
 
 	sl, err := s.CpCl.ShadowLinkForID(ctx, model.ID.ValueString())
 	if err != nil {
-		if utils.IsNotFound(err) {
+		if gone, goneDiags := utils.ControlPlaneGone("shadow link", model.ID.ValueString(), err); gone {
+			resp.Diagnostics.Append(goneDiags...)
 			resp.State.RemoveResource(ctx)
 			return
 		}
@@ -419,7 +420,11 @@ func (s *ShadowLink) Delete(ctx context.Context, req resource.DeleteRequest, res
 		Id: model.ID.ValueString(),
 	})
 	if err != nil {
-		if utils.IsNotFound(err) {
+		if gone, goneDiags := utils.ControlPlaneGoneOnDelete("shadow link", model.ID.ValueString(), err, func() error {
+			_, lookupErr := s.CpCl.ShadowLinkForID(ctx, model.ID.ValueString())
+			return lookupErr
+		}); gone {
+			resp.Diagnostics.Append(goneDiags...)
 			return
 		}
 		resp.Diagnostics.AddError("failed to delete shadow link", utils.DeserializeGrpcError(err))

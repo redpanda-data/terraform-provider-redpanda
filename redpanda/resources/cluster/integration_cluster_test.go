@@ -4392,3 +4392,55 @@ func TestIntegration_Cluster_ConnectionsManaged_LegacyReturnRejected(t *testing.
 		},
 	})
 }
+
+// TestIntegration_Cluster_DeletedOutOfBand_PermissionDenied removes the cluster
+// behind Terraform's back on a server that answers like production, where a
+// deleted cluster comes back as PermissionDenied naming the cluster rather than
+// NotFound. A plan must offer to re-create it and a destroy must go through.
+func TestIntegration_Cluster_DeletedOutOfBand_PermissionDenied(t *testing.T) {
+	for _, destroy := range []bool{false, true} {
+		t.Run(fmt.Sprintf("destroy=%t", destroy), func(t *testing.T) {
+			srv, factories := clusterSetup(t)
+
+			name := fmt.Sprintf("tfrp-mock-cl-gone-denied-%t", destroy)
+			cfg := awsDedicatedConfig(name)
+			var clusterID string
+
+			second := resource.TestStep{
+				PreConfig: func() {
+					srv.DenyMissing()
+					if _, err := srv.Cluster.DeleteCluster(context.Background(), &controlplanev1.DeleteClusterRequest{Id: clusterID}); err != nil {
+						t.Fatalf("PreConfig: delete cluster out of band: %v", err)
+					}
+				},
+				Config: cfg,
+			}
+			if destroy {
+				second.Destroy = true
+			} else {
+				second.ConfigPlanChecks = resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(clusterAddr, plancheck.ResourceActionCreate),
+					},
+				}
+			}
+
+			resource.UnitTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: factories,
+				Steps: []resource.TestStep{
+					func() resource.TestStep {
+						s := integration.CreateStep(clusterAddr, cfg, []statecheck.StateCheck{
+							statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+						})
+						s.Check = func(st *terraform.State) error {
+							clusterID = st.RootModule().Resources[clusterAddr].Primary.ID
+							return nil
+						}
+						return s
+					}(),
+					second,
+				},
+			})
+		})
+	}
+}

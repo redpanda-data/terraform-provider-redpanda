@@ -112,7 +112,8 @@ func (s *ServerlessPrivateLink) Read(ctx context.Context, req resource.ReadReque
 
 	privateLink, err := s.CpCl.ServerlessPrivateLinkForID(ctx, model.ID.ValueString())
 	if err != nil {
-		if utils.IsNotFound(err) {
+		if gone, goneDiags := utils.ControlPlaneGone("serverless private link", model.ID.ValueString(), err); gone {
+			resp.Diagnostics.Append(goneDiags...)
 			resp.State.RemoveResource(ctx)
 			return
 		}
@@ -217,7 +218,11 @@ func (s *ServerlessPrivateLink) Delete(ctx context.Context, req resource.DeleteR
 
 	plResp, err := s.CpCl.ServerlessPrivateLink.DeleteServerlessPrivateLink(ctx, delReq)
 	if err != nil {
-		if utils.IsNotFound(err) {
+		if gone, goneDiags := utils.ControlPlaneGoneOnDelete("serverless private link", model.ID.ValueString(), err, func() error {
+			_, lookupErr := s.CpCl.ServerlessPrivateLinkForID(ctx, model.ID.ValueString())
+			return lookupErr
+		}); gone {
+			resp.Diagnostics.Append(goneDiags...)
 			return
 		}
 		resp.Diagnostics.AddError("failed to delete serverless private link", utils.DeserializeGrpcError(err))

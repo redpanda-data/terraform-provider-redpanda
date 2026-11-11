@@ -51,7 +51,7 @@ func (d *DataSourceServerlessCluster) Read(ctx context.Context, req datasource.R
 			resp.Diagnostics.AddError(fmt.Sprintf("unable to find serverless cluster %s", model.ID), utils.DeserializeGrpcError(err))
 			return
 		}
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to read serverless cluster %s", model.ID), utils.DeserializeGrpcError(err))
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to read serverless cluster %s", model.ID), utils.ControlPlaneReadError(model.ID.ValueString(), err))
 		return
 	}
 	state, flatDiags := serverlessclustermodel.FlattenData(ctx, cluster, &model)

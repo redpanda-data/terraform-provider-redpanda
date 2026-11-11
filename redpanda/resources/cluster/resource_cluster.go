@@ -201,7 +201,8 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 
 	cl, err := c.CpCl.ClusterForID(ctx, model.ID.ValueString())
 	if err != nil {
-		if utils.IsNotFound(err) {
+		if gone, goneDiags := utils.ControlPlaneGone("cluster", model.ID.ValueString(), err); gone {
+			resp.Diagnostics.Append(goneDiags...)
 			resp.State.RemoveResource(ctx)
 			return
 		}
@@ -370,7 +371,8 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 	tflog.Info(ctx, "deleting cluster", map[string]any{"cluster_id": clusterID})
 	cl, err := c.CpCl.ClusterForID(ctx, clusterID)
 	if err != nil {
-		if utils.IsNotFound(err) {
+		if gone, goneDiags := utils.ControlPlaneGone("cluster", clusterID, err); gone {
+			resp.Diagnostics.Append(goneDiags...)
 			return
 		}
 		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), utils.DeserializeGrpcError(err))

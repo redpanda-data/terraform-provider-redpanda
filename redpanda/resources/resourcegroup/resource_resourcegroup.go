@@ -84,7 +84,8 @@ func (n *ResourceGroup) Read(ctx context.Context, req resource.ReadRequest, resp
 
 	rg, err := n.CpCl.ResourceGroupForID(ctx, model.ID.ValueString())
 	if err != nil {
-		if utils.IsNotFound(err) {
+		if gone, goneDiags := utils.ControlPlaneGone("resource group", model.ID.ValueString(), err); gone {
+			resp.Diagnostics.Append(goneDiags...)
 			resp.State.RemoveResource(ctx)
 			return
 		}
@@ -142,7 +143,11 @@ func (n *ResourceGroup) Delete(ctx context.Context, req resource.DeleteRequest, 
 	}
 
 	if _, err := n.CpCl.ResourceGroup.DeleteResourceGroup(ctx, pbReq); err != nil {
-		if utils.IsNotFound(err) {
+		if gone, goneDiags := utils.ControlPlaneGoneOnDelete("resource group", model.ID.ValueString(), err, func() error {
+			_, lookupErr := n.CpCl.ResourceGroupForID(ctx, model.ID.ValueString())
+			return lookupErr
+		}); gone {
+			resp.Diagnostics.Append(goneDiags...)
 			resp.State.RemoveResource(ctx)
 			return
 		}
