@@ -314,3 +314,42 @@ func TestIntegration_ResourceGroup_ErrorPath_DeleteFailed(t *testing.T) {
 		},
 	})
 }
+
+// TestIntegration_ResourceGroup_DeletedOutOfBand_PermissionDenied is GetNotFound
+// against a server that answers like production: a deleted group comes back as
+// PermissionDenied naming the group. Read must drop it from state all the same.
+func TestIntegration_ResourceGroup_DeletedOutOfBand_PermissionDenied(t *testing.T) {
+	srv, factories := integration.Setup(t)
+
+	const name = "tfrp-mock-rg-gone-denied"
+	cfg := mockResourceGroupConfig(name)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(resourceGroupAddr, cfg, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(resourceGroupAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+			}),
+			{
+				PreConfig: func() {
+					srv.DenyMissing()
+					listResp, err := srv.ResourceGroup.ListResourceGroups(context.Background(),
+						&controlplanev1.ListResourceGroupsRequest{Filter: &controlplanev1.ListResourceGroupsRequest_Filter{NameContains: name}})
+					if err != nil || len(listResp.GetResourceGroups()) != 1 {
+						t.Fatalf("PreConfig: want 1 group named %q, got %v (err %v)", name, listResp.GetResourceGroups(), err)
+					}
+					if _, err := srv.ResourceGroup.DeleteResourceGroup(context.Background(),
+						&controlplanev1.DeleteResourceGroupRequest{Id: listResp.GetResourceGroups()[0].GetId()}); err != nil {
+						t.Fatalf("PreConfig: delete group: %v", err)
+					}
+				},
+				Config: cfg,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(resourceGroupAddr, plancheck.ResourceActionCreate),
+					},
+				},
+			},
+		},
+	})
+}

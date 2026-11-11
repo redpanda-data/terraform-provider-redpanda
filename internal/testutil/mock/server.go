@@ -50,6 +50,7 @@ type Server struct {
 	mu               sync.Mutex
 	pendingOverrides map[string]error
 	callCounts       map[string]int
+	denyMissing      bool
 	requiredBearer   string
 
 	// ResourceGroup is the stateful fake for the ResourceGroupService RPCs.
@@ -189,6 +190,7 @@ func New(t testing.TB) *Server {
 		s.countingInterceptor(),
 		s.authInterceptor(),
 		s.overrideInterceptor(),
+		s.denyMissingInterceptor(),
 		validatingInterceptor(v),
 	))
 	controlplanev1grpc.RegisterResourceGroupServiceServer(s.grpc, s.ResourceGroup)
