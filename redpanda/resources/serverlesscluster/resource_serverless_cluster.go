@@ -104,7 +104,8 @@ func (c *ServerlessCluster) Read(ctx context.Context, req resource.ReadRequest, 
 
 	cluster, err := c.CpCl.ServerlessClusterForID(ctx, model.ID.ValueString())
 	if err != nil {
-		if utils.IsNotFound(err) {
+		if gone, goneDiags := utils.ControlPlaneGone("serverless cluster", model.ID.ValueString(), err); gone {
+			resp.Diagnostics.Append(goneDiags...)
 			resp.State.RemoveResource(ctx)
 			return
 		}
@@ -203,6 +204,13 @@ func (c *ServerlessCluster) Delete(ctx context.Context, req resource.DeleteReque
 
 	clResp, err := c.CpCl.ServerlessCluster.DeleteServerlessCluster(ctx, delReq)
 	if err != nil {
+		if gone, goneDiags := utils.ControlPlaneGoneOnDelete("serverless cluster", model.ID.ValueString(), err, func() error {
+			_, lookupErr := c.CpCl.ServerlessClusterForID(ctx, model.ID.ValueString())
+			return lookupErr
+		}); gone {
+			resp.Diagnostics.Append(goneDiags...)
+			return
+		}
 		resp.Diagnostics.AddError("failed to delete serverless cluster", utils.DeserializeGrpcError(err))
 		return
 	}

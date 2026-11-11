@@ -93,7 +93,8 @@ func (s *ServiceAccount) Read(ctx context.Context, req resource.ReadRequest, res
 
 	sa, err := s.CpCl.ServiceAccountForID(ctx, state.ID.ValueString())
 	if err != nil {
-		if utils.IsNotFound(err) {
+		if gone, goneDiags := utils.ControlPlaneGone("service account", state.ID.ValueString(), err); gone {
+			resp.Diagnostics.Append(goneDiags...)
 			resp.State.RemoveResource(ctx)
 			return
 		}
@@ -179,7 +180,11 @@ func (s *ServiceAccount) Delete(ctx context.Context, req resource.DeleteRequest,
 	}
 
 	if _, err := s.CpCl.ServiceAccount.DeleteServiceAccount(ctx, pbReq); err != nil {
-		if utils.IsNotFound(err) {
+		if gone, goneDiags := utils.ControlPlaneGoneOnDelete("service account", state.ID.ValueString(), err, func() error {
+			_, lookupErr := s.CpCl.ServiceAccountForID(ctx, state.ID.ValueString())
+			return lookupErr
+		}); gone {
+			resp.Diagnostics.Append(goneDiags...)
 			resp.State.RemoveResource(ctx)
 			return
 		}
