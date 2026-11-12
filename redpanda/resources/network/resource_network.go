@@ -104,12 +104,11 @@ func (n *Network) Read(ctx context.Context, request resource.ReadRequest, respon
 	response.Diagnostics.Append(request.State.Get(ctx, &model)...)
 	nw, err := n.CpCl.NetworkForID(ctx, model.ID.ValueString())
 	if err != nil {
-		if gone, goneDiags := utils.ControlPlaneGone("network", model.ID.ValueString(), err); gone {
-			response.Diagnostics.Append(goneDiags...)
+		if utils.ControlPlaneNotFound(err) {
 			response.State.RemoveResource(ctx)
 			return
 		}
-		response.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.ID.ValueString()), utils.DeserializeGrpcError(err))
+		response.Diagnostics.Append(utils.ControlPlaneResourceError(fmt.Sprintf("failed to read network %s", model.ID.ValueString()), "network", model.ID.ValueString(), err))
 		return
 	}
 	if nw.GetState() == controlplanev1.Network_STATE_DELETING {
@@ -199,14 +198,7 @@ func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, re
 
 	netResp, err := n.CpCl.Network.DeleteNetwork(ctx, delReq)
 	if err != nil {
-		if gone, goneDiags := utils.ControlPlaneGoneOnDelete("network", model.ID.ValueString(), err, func() error {
-			_, lookupErr := n.CpCl.NetworkForID(ctx, model.ID.ValueString())
-			return lookupErr
-		}); gone {
-			response.Diagnostics.Append(goneDiags...)
-			return
-		}
-		response.Diagnostics.AddError("failed to delete network", utils.DeserializeGrpcError(err))
+		response.Diagnostics.Append(utils.ControlPlaneResourceError("failed to delete network", "network", model.ID.ValueString(), err))
 		return
 	}
 	if err := utils.AreWeDoneYet(ctx, netResp.Operation, deleteTimeout, n.CpCl.Operation); err != nil {

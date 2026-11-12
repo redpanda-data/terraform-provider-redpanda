@@ -84,12 +84,11 @@ func (n *ResourceGroup) Read(ctx context.Context, req resource.ReadRequest, resp
 
 	rg, err := n.CpCl.ResourceGroupForID(ctx, model.ID.ValueString())
 	if err != nil {
-		if gone, goneDiags := utils.ControlPlaneGone("resource group", model.ID.ValueString(), err); gone {
-			resp.Diagnostics.Append(goneDiags...)
+		if utils.ControlPlaneNotFound(err) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("failed to read resource group", utils.DeserializeGrpcError(err))
+		resp.Diagnostics.Append(utils.ControlPlaneResourceError("failed to read resource group", "resource group", model.ID.ValueString(), err))
 		return
 	}
 
@@ -143,15 +142,11 @@ func (n *ResourceGroup) Delete(ctx context.Context, req resource.DeleteRequest, 
 	}
 
 	if _, err := n.CpCl.ResourceGroup.DeleteResourceGroup(ctx, pbReq); err != nil {
-		if gone, goneDiags := utils.ControlPlaneGoneOnDelete("resource group", model.ID.ValueString(), err, func() error {
-			_, lookupErr := n.CpCl.ResourceGroupForID(ctx, model.ID.ValueString())
-			return lookupErr
-		}); gone {
-			resp.Diagnostics.Append(goneDiags...)
+		if utils.ControlPlaneNotFound(err) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("failed to delete resource group", utils.DeserializeGrpcError(err))
+		resp.Diagnostics.Append(utils.ControlPlaneResourceError("failed to delete resource group", "resource group", model.ID.ValueString(), err))
 		return
 	}
 	tflog.Info(ctx, "resource group deleted", map[string]any{"id": model.ID.ValueString()})
