@@ -48,7 +48,7 @@ func (d *DataSourceCloudProviderAccess) Read(ctx context.Context, req datasource
 	}
 	cpa, err := d.CpCl.CloudProviderAccessForID(ctx, model.ID.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cloud provider access %s", model.ID.ValueString()), utils.DeserializeGrpcError(err))
+		resp.Diagnostics.Append(utils.ControlPlaneDataSourceError(fmt.Sprintf("failed to read cloud provider access %s", model.ID.ValueString()), "cloud provider access", model.ID.ValueString(), err))
 		return
 	}
 	state, diags := cpamodel.FlattenData(ctx, cpa, &model)

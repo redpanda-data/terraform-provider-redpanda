@@ -4392,3 +4392,111 @@ func TestIntegration_Cluster_ConnectionsManaged_LegacyReturnRejected(t *testing.
 		},
 	})
 }
+
+// captureClusterID is a CreateStep whose Check records the cluster's ID.
+func captureClusterID(cfg string, id *string) resource.TestStep {
+	step := integration.CreateStep(clusterAddr, cfg, []statecheck.StateCheck{
+		statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+	})
+	step.Check = func(st *terraform.State) error {
+		*id = st.RootModule().Resources[clusterAddr].Primary.ID
+		return nil
+	}
+	return step
+}
+
+var (
+	deniedCluster = regexp.MustCompile(`denied\s+access\s+to\s+cluster`)
+	stateRmAdvice = regexp.MustCompile(`terraform\s+state\s+rm`)
+)
+
+// TestIntegration_Cluster_DeletedOutOfBand_PermissionDenied removes the cluster
+// behind Terraform's back on a server that answers like production, where a
+// deleted cluster comes back as PermissionDenied naming the cluster, the same
+// answer credentials without access get. Refresh must fail, on plan and on
+// destroy alike, and keep the cluster in state; a dropped cluster would let the
+// second step pass. Delete itself is not reached here.
+func TestIntegration_Cluster_DeletedOutOfBand_PermissionDenied(t *testing.T) {
+	srv, factories := clusterSetup(t)
+
+	cfg := awsDedicatedConfig("tfrp-mock-cl-gone-denied")
+	var clusterID string
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			captureClusterID(cfg, &clusterID),
+			{
+				PreConfig: func() {
+					srv.SetDenyMissing(true)
+					if _, err := srv.Cluster.DeleteCluster(context.Background(), &controlplanev1.DeleteClusterRequest{Id: clusterID}); err != nil {
+						t.Fatalf("PreConfig: delete cluster out of band: %v", err)
+					}
+				},
+				Config:      cfg,
+				ExpectError: deniedCluster,
+			},
+			{
+				Config:      cfg,
+				Destroy:     true,
+				ExpectError: stateRmAdvice,
+			},
+			{
+				// NotFound still drops the cluster, which also lets the
+				// TestCase's terminal destroy go through.
+				PreConfig: func() { srv.SetDenyMissing(false) },
+				Config:    cfg,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(clusterAddr, plancheck.ResourceActionCreate),
+					},
+				},
+			},
+		},
+	})
+}
+
+// TestIntegration_Cluster_DeleteDenied denies the delete of a cluster that
+// still reads fine. The destroy must fail with the denial explained, not pass.
+func TestIntegration_Cluster_DeleteDenied(t *testing.T) {
+	srv, factories := clusterSetup(t)
+
+	cfg := awsDedicatedConfig("tfrp-mock-cl-delete-denied")
+	var clusterID string
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			captureClusterID(cfg, &clusterID),
+			{
+				PreConfig: func() {
+					srv.OverrideOnce(controlplanev1grpc.ClusterService_DeleteCluster_FullMethodName, mock.DeniedOn(clusterID))
+				},
+				Config:      cfg,
+				Destroy:     true,
+				ExpectError: stateRmAdvice,
+			},
+		},
+	})
+}
+
+// TestIntegration_Cluster_DestroyWhereMissingIsDenied runs an ordinary destroy
+// against a server that answers like production. The cluster the provider just
+// deleted starts answering PermissionDenied, and the delete wait must take that
+// as done.
+func TestIntegration_Cluster_DestroyWhereMissingIsDenied(t *testing.T) {
+	srv, factories := clusterSetup(t)
+	srv.SetDenyMissing(true)
+
+	cfg := awsDedicatedConfig("tfrp-mock-cl-destroy-denied")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(clusterAddr, cfg, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+			}),
+			{Config: cfg, Destroy: true},
+		},
+	})
+}

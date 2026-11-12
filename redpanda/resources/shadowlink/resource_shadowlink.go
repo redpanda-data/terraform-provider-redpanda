@@ -311,11 +311,11 @@ func (s *ShadowLink) Read(ctx context.Context, req resource.ReadRequest, resp *r
 
 	sl, err := s.CpCl.ShadowLinkForID(ctx, model.ID.ValueString())
 	if err != nil {
-		if utils.IsNotFound(err) {
+		if utils.ControlPlaneNotFound(err) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to read shadow link %s", model.ID.ValueString()), utils.DeserializeGrpcError(err))
+		resp.Diagnostics.Append(utils.ControlPlaneResourceError(fmt.Sprintf("failed to read shadow link %s", model.ID.ValueString()), "shadow link", model.ID.ValueString(), err))
 		return
 	}
 	if sl.GetState() == controlplanev1.ShadowLink_STATE_DELETING {
@@ -419,10 +419,10 @@ func (s *ShadowLink) Delete(ctx context.Context, req resource.DeleteRequest, res
 		Id: model.ID.ValueString(),
 	})
 	if err != nil {
-		if utils.IsNotFound(err) {
+		if utils.ControlPlaneNotFound(err) {
 			return
 		}
-		resp.Diagnostics.AddError("failed to delete shadow link", utils.DeserializeGrpcError(err))
+		resp.Diagnostics.Append(utils.ControlPlaneResourceError("failed to delete shadow link", "shadow link", model.ID.ValueString(), err))
 		return
 	}
 	if err := utils.AreWeDoneYet(ctx, delResp.GetOperation(), deleteTimeout, s.CpCl.Operation); err != nil {

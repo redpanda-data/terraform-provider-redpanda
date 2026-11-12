@@ -104,11 +104,11 @@ func (c *ServerlessCluster) Read(ctx context.Context, req resource.ReadRequest, 
 
 	cluster, err := c.CpCl.ServerlessClusterForID(ctx, model.ID.ValueString())
 	if err != nil {
-		if utils.IsNotFound(err) {
+		if utils.ControlPlaneNotFound(err) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to read serverless cluster %s", model.ID), utils.DeserializeGrpcError(err))
+		resp.Diagnostics.Append(utils.ControlPlaneResourceError(fmt.Sprintf("failed to read serverless cluster %s", model.ID), "serverless cluster", model.ID.ValueString(), err))
 		return
 	}
 	if cluster.GetState() == controlplanev1.ServerlessCluster_STATE_DELETING {
@@ -203,7 +203,7 @@ func (c *ServerlessCluster) Delete(ctx context.Context, req resource.DeleteReque
 
 	clResp, err := c.CpCl.ServerlessCluster.DeleteServerlessCluster(ctx, delReq)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to delete serverless cluster", utils.DeserializeGrpcError(err))
+		resp.Diagnostics.Append(utils.ControlPlaneResourceError("failed to delete serverless cluster", "serverless cluster", model.ID.ValueString(), err))
 		return
 	}
 	deleteTimeout, tdiags := model.Timeouts.Delete(ctx, 30*time.Minute)

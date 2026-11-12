@@ -102,11 +102,11 @@ func (r *CloudProviderAccess) Read(ctx context.Context, req resource.ReadRequest
 
 	cpa, err := r.CpCl.CloudProviderAccessForID(ctx, state.ID.ValueString())
 	if err != nil {
-		if utils.IsNotFound(err) {
+		if utils.ControlPlaneNotFound(err) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cloud provider access %s", state.ID.ValueString()), utils.DeserializeGrpcError(err))
+		resp.Diagnostics.Append(utils.ControlPlaneResourceError(fmt.Sprintf("failed to read cloud provider access %s", state.ID.ValueString()), "cloud provider access", state.ID.ValueString(), err))
 		return
 	}
 	persist, diags := cpamodel.Flatten(ctx, cpa, &state)
@@ -143,17 +143,19 @@ func (r *CloudProviderAccess) Delete(ctx context.Context, req resource.DeleteReq
 	}
 
 	if _, err := r.CpCl.CloudProviderAccess.DeleteCloudProviderAccess(ctx, pbReq); err != nil {
-		if utils.IsNotFound(err) {
+		if utils.ControlPlaneNotFound(err) {
+			return
+		}
+		summary := fmt.Sprintf("failed to delete cloud provider access %s", state.ID.ValueString())
+		if !isReferencedByNetwork(err) {
+			resp.Diagnostics.Append(utils.ControlPlaneResourceError(summary, "cloud provider access", state.ID.ValueString(), err))
 			return
 		}
 		detail := utils.DeserializeGrpcError(err)
-		if isReferencedByNetwork(err) {
-			if detail = strings.TrimRight(detail, " :."); detail != "" {
-				detail += ". "
-			}
-			detail += rotationHint
+		if detail = strings.TrimRight(detail, " :."); detail != "" {
+			detail += ". "
 		}
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to delete cloud provider access %s", state.ID.ValueString()), detail)
+		resp.Diagnostics.AddError(summary, detail+rotationHint)
 		return
 	}
 	tflog.Info(ctx, "cloud provider access deleted", map[string]any{"id": state.ID.ValueString()})

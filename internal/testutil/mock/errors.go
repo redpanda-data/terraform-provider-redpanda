@@ -17,7 +17,10 @@ package mock
 import (
 	"context"
 
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // OverrideOnce arranges that the next call to the given gRPC full method name
@@ -68,5 +71,47 @@ func (s *Server) overrideInterceptor() grpc.UnaryServerInterceptor {
 		}
 		s.mu.Unlock()
 		return handler(ctx, req)
+	}
+}
+
+// SetDenyMissing switches how the server answers for a resource that no longer
+// exists. On, it answers the way the real control plane does: production checks
+// the caller's permission on the resource before it looks the resource up, and
+// a deleted resource has no permissions left, so the answer is PermissionDenied
+// naming the resource, never NotFound. It is off by default because most tests
+// predate it.
+func (s *Server) SetDenyMissing(on bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.denyMissing = on
+}
+
+// DeniedOn is the control plane's PermissionDenied for the resource id, for use
+// with OverrideOnce where the resource exists and the caller may not act on it.
+func DeniedOn(id string) error {
+	st, err := status.New(codes.PermissionDenied, "Missing required permission read").WithDetails(&errdetails.ErrorInfo{
+		Reason:   "REASON_PERMISSION_DENIED",
+		Domain:   "redpanda.com/controlplane",
+		Metadata: map[string]string{"resource_id": id},
+	})
+	if err != nil {
+		return err
+	}
+	return st.Err()
+}
+
+// denyMissingInterceptor rewrites NotFound on a request addressed by ID into
+// the control plane's PermissionDenied while SetDenyMissing is on.
+func (s *Server) denyMissingInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		resp, err := handler(ctx, req)
+		s.mu.Lock()
+		on := s.denyMissing
+		s.mu.Unlock()
+		byID, ok := req.(interface{ GetId() string })
+		if !on || !ok || byID.GetId() == "" || status.Code(err) != codes.NotFound {
+			return resp, err
+		}
+		return nil, DeniedOn(byID.GetId())
 	}
 }
