@@ -174,24 +174,29 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		return
 	}
 
-	if cl != nil {
-		state, flatDiags := clustermodel.Flatten(ctx, cl, &plan)
-		resp.Diagnostics.Append(flatDiags...)
-		if resp.Diagnostics.HasError() {
-			resp.Diagnostics.Append(resp.State.Set(ctx, clustermodel.GenerateMinimalResourceModel(types.StringValue(clusterID), plan.Timeouts))...)
-			resp.Diagnostics.AddError("failed to generate model for state during cluster.Create", "")
-			return
-		}
-		state.Tags = clustermodel.RetainConfiguredTags(state.Tags, stampConfiguredTags(ctx, req.Config, resp.Private, resp.Private, &resp.Diagnostics))
-		tflog.Info(ctx, "cluster created", map[string]any{"cluster_id": clusterID})
-		// ModifyPlan is skipped on create, so the connections-managed marker
-		// is stamped here.
-		if configManagesConnections(ctx, req.Config, &resp.Diagnostics) {
-			resp.Diagnostics.Append(resp.Private.SetKey(ctx, connectionsManagedKey, []byte(`true`))...)
-		}
-		stampMTLSConfigured(ctx, req.Config, resp.Private, &resp.Diagnostics)
-		resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
+	if cl == nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("cluster %s no longer exists", clusterID),
+			"Redpanda Cloud reported the cluster as not found while the provider was waiting for it to be created, so it was deleted before the create finished. Nothing was saved to Terraform state.",
+		)
+		return
 	}
+	state, flatDiags := clustermodel.Flatten(ctx, cl, &plan)
+	resp.Diagnostics.Append(flatDiags...)
+	if resp.Diagnostics.HasError() {
+		resp.Diagnostics.Append(resp.State.Set(ctx, clustermodel.GenerateMinimalResourceModel(types.StringValue(clusterID), plan.Timeouts))...)
+		resp.Diagnostics.AddError("failed to generate model for state during cluster.Create", "")
+		return
+	}
+	state.Tags = clustermodel.RetainConfiguredTags(state.Tags, stampConfiguredTags(ctx, req.Config, resp.Private, resp.Private, &resp.Diagnostics))
+	tflog.Info(ctx, "cluster created", map[string]any{"cluster_id": clusterID})
+	// ModifyPlan is skipped on create, so the connections-managed marker
+	// is stamped here.
+	if configManagesConnections(ctx, req.Config, &resp.Diagnostics) {
+		resp.Diagnostics.Append(resp.Private.SetKey(ctx, connectionsManagedKey, []byte(`true`))...)
+	}
+	stampMTLSConfigured(ctx, req.Config, resp.Private, &resp.Diagnostics)
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
 // Read reads Cluster resource's values and updates the state.

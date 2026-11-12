@@ -4500,3 +4500,42 @@ func TestIntegration_Cluster_DestroyWhereMissingIsDenied(t *testing.T) {
 		},
 	})
 }
+
+// TestIntegration_Cluster_ErrorPath_GoneDuringCreate: a cluster that stops
+// existing while Create waits for it must fail the create with an error that
+// says so, and a second apply must be able to create it again.
+func TestIntegration_Cluster_ErrorPath_GoneDuringCreate(t *testing.T) {
+	srv, factories := clusterSetup(t)
+
+	cfg := awsDedicatedConfig("tfrp-mock-cl-gone-in-create")
+	var goneID string
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				PreConfig: func() {
+					srv.Cluster.CreateMutator = func(cl *controlplanev1.Cluster) { goneID = cl.GetId() }
+					srv.OverrideOnce(
+						controlplanev1grpc.ClusterService_GetCluster_FullMethodName,
+						status.Error(codes.NotFound, "cluster not found"),
+					)
+				},
+				Config:      cfg,
+				ExpectError: regexp.MustCompile(`no longer exists`),
+			},
+			{
+				PreConfig: func() {
+					srv.Cluster.CreateMutator = nil
+					if _, err := srv.Cluster.DeleteCluster(context.Background(), &controlplanev1.DeleteClusterRequest{Id: goneID}); err != nil {
+						t.Fatalf("PreConfig: remove the cluster the first step reported gone: %v", err)
+					}
+				},
+				Config: cfg,
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+				},
+			},
+		},
+	})
+}
