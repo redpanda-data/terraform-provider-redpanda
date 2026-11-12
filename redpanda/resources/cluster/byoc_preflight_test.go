@@ -32,16 +32,20 @@ import (
 	"google.golang.org/grpc"
 )
 
-// fakeClusterService answers GetCluster with one cluster and records whether
+// fakeClusterService answers GetCluster with one cluster, or getErr, and records whether
 // DeleteCluster was reached. The embedded nil interface panics on any other
 // call, which withoutControlPlane turns into a test failure.
 type fakeClusterService struct {
 	controlplanev1grpc.ClusterServiceClient
 	cluster *controlplanev1.Cluster
+	getErr  error
 	deleted bool
 }
 
 func (f *fakeClusterService) GetCluster(context.Context, *controlplanev1.GetClusterRequest, ...grpc.CallOption) (*controlplanev1.GetClusterResponse, error) {
+	if f.getErr != nil {
+		return nil, f.getErr
+	}
 	return &controlplanev1.GetClusterResponse{Cluster: f.cluster}, nil
 }
 
