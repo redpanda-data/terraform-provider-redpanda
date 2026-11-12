@@ -203,6 +203,9 @@ func (c *ServerlessCluster) Delete(ctx context.Context, req resource.DeleteReque
 
 	clResp, err := c.CpCl.ServerlessCluster.DeleteServerlessCluster(ctx, delReq)
 	if err != nil {
+		if utils.ControlPlaneNotFound(err) {
+			return
+		}
 		resp.Diagnostics.Append(utils.ControlPlaneResourceError("failed to delete serverless cluster", "serverless cluster", model.ID.ValueString(), err))
 		return
 	}
