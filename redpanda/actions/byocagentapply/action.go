@@ -187,11 +187,11 @@ func (a *Action) preflight(ctx context.Context, clusterID string) (*controlplane
 	var diags diag.Diagnostics
 	cl, err := a.cpCl.ClusterForID(ctx, clusterID)
 	if err != nil {
-		if utils.IsNotFound(err) {
+		if utils.ControlPlaneNotFound(err) {
 			diags.AddAttributeError(path.Root("cluster_id"), "Cluster not found", fmt.Sprintf("cluster %q does not exist", clusterID))
 			return nil, diags
 		}
-		diags.AddError(fmt.Sprintf("failed to read cluster %s", clusterID), utils.DeserializeGrpcError(err))
+		diags.Append(utils.ControlPlaneDataSourceError(fmt.Sprintf("failed to read cluster %s", clusterID), "cluster", clusterID, err))
 		return nil, diags
 	}
 	if cl.GetType() != controlplanev1.Cluster_TYPE_BYOC {

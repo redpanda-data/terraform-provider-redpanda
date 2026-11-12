@@ -30,6 +30,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/provider"
 	"github.com/redpanda-data/terraform-provider-redpanda/internal/testutil/integration"
@@ -315,40 +316,93 @@ func TestIntegration_ResourceGroup_ErrorPath_DeleteFailed(t *testing.T) {
 	})
 }
 
+// captureID is a CreateStep whose Check records the created resource's ID.
+func captureID(cfg string, id *string) resource.TestStep {
+	step := integration.CreateStep(resourceGroupAddr, cfg, []statecheck.StateCheck{
+		statecheck.ExpectKnownValue(resourceGroupAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+	})
+	step.Check = func(st *terraform.State) error {
+		*id = st.RootModule().Resources[resourceGroupAddr].Primary.ID
+		return nil
+	}
+	return step
+}
+
+var (
+	deniedResourceGroup = regexp.MustCompile(`denied\s+access\s+to\s+resource\s+group`)
+	stateRmAdvice       = regexp.MustCompile(`terraform\s+state\s+rm`)
+)
+
 // TestIntegration_ResourceGroup_DeletedOutOfBand_PermissionDenied is GetNotFound
 // against a server that answers like production: a deleted group comes back as
-// PermissionDenied naming the group. Read must drop it from state all the same.
+// PermissionDenied naming the group, the same answer credentials without access
+// get. Read must fail and keep the group in state; the second failing plan is
+// what shows it was kept, since a dropped group would plan a create instead.
 func TestIntegration_ResourceGroup_DeletedOutOfBand_PermissionDenied(t *testing.T) {
 	srv, factories := integration.Setup(t)
 
 	const name = "tfrp-mock-rg-gone-denied"
 	cfg := mockResourceGroupConfig(name)
+	var id string
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: factories,
 		Steps: []resource.TestStep{
-			integration.CreateStep(resourceGroupAddr, cfg, []statecheck.StateCheck{
-				statecheck.ExpectKnownValue(resourceGroupAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
-			}),
+			captureID(cfg, &id),
 			{
 				PreConfig: func() {
-					srv.DenyMissing()
-					listResp, err := srv.ResourceGroup.ListResourceGroups(context.Background(),
-						&controlplanev1.ListResourceGroupsRequest{Filter: &controlplanev1.ListResourceGroupsRequest_Filter{NameContains: name}})
-					if err != nil || len(listResp.GetResourceGroups()) != 1 {
-						t.Fatalf("PreConfig: want 1 group named %q, got %v (err %v)", name, listResp.GetResourceGroups(), err)
-					}
+					srv.SetDenyMissing(true)
 					if _, err := srv.ResourceGroup.DeleteResourceGroup(context.Background(),
-						&controlplanev1.DeleteResourceGroupRequest{Id: listResp.GetResourceGroups()[0].GetId()}); err != nil {
+						&controlplanev1.DeleteResourceGroupRequest{Id: id}); err != nil {
 						t.Fatalf("PreConfig: delete group: %v", err)
 					}
 				},
-				Config: cfg,
+				Config:      cfg,
+				ExpectError: deniedResourceGroup,
+			},
+			{
+				Config:      cfg,
+				ExpectError: stateRmAdvice,
+			},
+			{
+				Config:      cfg,
+				Destroy:     true,
+				ExpectError: deniedResourceGroup,
+			},
+			{
+				// NotFound still drops the group, which also lets the
+				// TestCase's terminal destroy go through.
+				PreConfig: func() { srv.SetDenyMissing(false) },
+				Config:    cfg,
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectResourceAction(resourceGroupAddr, plancheck.ResourceActionCreate),
 					},
 				},
+			},
+		},
+	})
+}
+
+// TestIntegration_ResourceGroup_DeleteDenied denies the delete of a group that
+// still reads fine. The destroy must fail with the denial explained, not pass.
+func TestIntegration_ResourceGroup_DeleteDenied(t *testing.T) {
+	srv, factories := integration.Setup(t)
+
+	cfg := mockResourceGroupConfig("tfrp-mock-rg-delete-denied")
+	var id string
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			captureID(cfg, &id),
+			{
+				PreConfig: func() {
+					srv.OverrideOnce(controlplanev1grpc.ResourceGroupService_DeleteResourceGroup_FullMethodName, mock.DeniedOn(id))
+				},
+				Config:      cfg,
+				Destroy:     true,
+				ExpectError: stateRmAdvice,
 			},
 		},
 	})
