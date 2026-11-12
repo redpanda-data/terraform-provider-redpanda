@@ -783,3 +783,30 @@ func TestIntegration_ServerlessCluster_ErrorPath_DeleteFailed(t *testing.T) {
 		},
 	})
 }
+
+// TestIntegration_ServerlessCluster_ErrorPath_DeleteNotFound: a cluster that is
+// already gone when the delete arrives is a finished delete, not a failed one.
+func TestIntegration_ServerlessCluster_ErrorPath_DeleteNotFound(t *testing.T) {
+	srv, factories := integration.Setup(t)
+
+	cfg := scBaseConfig("tfrp-mock-sc-del-notfound", "pro-us-east-1", "")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(scAddr, cfg, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(scAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+			}),
+			{
+				PreConfig: func() {
+					srv.OverrideOnce(
+						controlplanev1grpc.ServerlessClusterService_DeleteServerlessCluster_FullMethodName,
+						status.Error(codes.NotFound, "serverless cluster not found"),
+					)
+				},
+				Config:  cfg,
+				Destroy: true,
+			},
+		},
+	})
+}
