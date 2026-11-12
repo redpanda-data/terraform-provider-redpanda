@@ -93,12 +93,11 @@ func (s *ServiceAccount) Read(ctx context.Context, req resource.ReadRequest, res
 
 	sa, err := s.CpCl.ServiceAccountForID(ctx, state.ID.ValueString())
 	if err != nil {
-		if gone, goneDiags := utils.ControlPlaneGone("service account", state.ID.ValueString(), err); gone {
-			resp.Diagnostics.Append(goneDiags...)
+		if utils.ControlPlaneNotFound(err) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("failed to read service account", utils.DeserializeGrpcError(err))
+		resp.Diagnostics.Append(utils.ControlPlaneResourceError("failed to read service account", "service account", state.ID.ValueString(), err))
 		return
 	}
 
@@ -180,15 +179,11 @@ func (s *ServiceAccount) Delete(ctx context.Context, req resource.DeleteRequest,
 	}
 
 	if _, err := s.CpCl.ServiceAccount.DeleteServiceAccount(ctx, pbReq); err != nil {
-		if gone, goneDiags := utils.ControlPlaneGoneOnDelete("service account", state.ID.ValueString(), err, func() error {
-			_, lookupErr := s.CpCl.ServiceAccountForID(ctx, state.ID.ValueString())
-			return lookupErr
-		}); gone {
-			resp.Diagnostics.Append(goneDiags...)
+		if utils.ControlPlaneNotFound(err) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("failed to delete service account", utils.DeserializeGrpcError(err))
+		resp.Diagnostics.Append(utils.ControlPlaneResourceError("failed to delete service account", "service account", state.ID.ValueString(), err))
 		return
 	}
 }

@@ -47,11 +47,11 @@ func (d *DataSourceServerlessCluster) Read(ctx context.Context, req datasource.R
 
 	cluster, err := d.CpCl.ServerlessClusterForID(ctx, model.ID.ValueString())
 	if err != nil {
-		if utils.IsNotFound(err) {
+		if utils.ControlPlaneNotFound(err) {
 			resp.Diagnostics.AddError(fmt.Sprintf("unable to find serverless cluster %s", model.ID), utils.DeserializeGrpcError(err))
 			return
 		}
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to read serverless cluster %s", model.ID), utils.ControlPlaneReadError(model.ID.ValueString(), err))
+		resp.Diagnostics.Append(utils.ControlPlaneDataSourceError(fmt.Sprintf("failed to read serverless cluster %s", model.ID), "serverless cluster", model.ID.ValueString(), err))
 		return
 	}
 	state, flatDiags := serverlessclustermodel.FlattenData(ctx, cluster, &model)

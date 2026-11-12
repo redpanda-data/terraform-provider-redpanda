@@ -44,7 +44,7 @@ func (n *DataSourceNetwork) Read(ctx context.Context, req datasource.ReadRequest
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 	nw, err := n.CpCl.NetworkForID(ctx, model.ID.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to read network %s", model.ID.ValueString()), utils.ControlPlaneReadError(model.ID.ValueString(), err))
+		resp.Diagnostics.Append(utils.ControlPlaneDataSourceError(fmt.Sprintf("failed to read network %s", model.ID.ValueString()), "network", model.ID.ValueString(), err))
 		return
 	}
 	state, flatDiags := networkmodel.FlattenData(ctx, nw, &model)

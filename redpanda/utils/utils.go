@@ -560,11 +560,26 @@ func NormalizeClusterAPIURL(raw string) string {
 }
 
 // RetryGetCluster retries f against the latest cluster snapshot until f
-// succeeds, ctx expires, or maxTransientRetries Unavailable errors have been
-// observed. Uses a count cap on transient errors rather than the stuck-cap
-// timing AreWeDoneYet uses, because cluster lifecycle calls are interactive
-// and should fail fast on persistent server faults.
+// succeeds, the cluster answers NotFound, ctx expires, or maxTransientRetries
+// Unavailable errors have been observed. Uses a count cap on transient errors
+// rather than the stuck-cap timing AreWeDoneYet uses, because cluster lifecycle
+// calls are interactive and should fail fast on persistent server faults.
 func RetryGetCluster(ctx context.Context, timeout time.Duration, clusterID string, client cloud.CpClientSet, f func(*controlplanev1.Cluster) *RetryError) (*controlplanev1.Cluster, error) {
+	return retryGetCluster(ctx, timeout, clusterID, client, f, ControlPlaneNotFound)
+}
+
+// RetryGetClusterUntilDeleted is RetryGetCluster for the wait that follows the
+// provider's own delete of a cluster it has just read. There, and only there, a
+// PermissionDenied naming the cluster is taken as gone: it is what the control
+// plane answers once the delete completes, and the read moments earlier rules
+// out credentials that never had access.
+func RetryGetClusterUntilDeleted(ctx context.Context, timeout time.Duration, clusterID string, client cloud.CpClientSet, f func(*controlplanev1.Cluster) *RetryError) (*controlplanev1.Cluster, error) {
+	return retryGetCluster(ctx, timeout, clusterID, client, f, func(err error) bool {
+		return ControlPlaneNotFound(err) || DeniedOnResource(clusterID, err)
+	})
+}
+
+func retryGetCluster(ctx context.Context, timeout time.Duration, clusterID string, client cloud.CpClientSet, f func(*controlplanev1.Cluster) *RetryError, gone func(error) bool) (*controlplanev1.Cluster, error) {
 	var cluster *controlplanev1.Cluster
 	const maxTransientRetries = 10
 	transientRetryCount := 0
@@ -578,13 +593,8 @@ func RetryGetCluster(ctx context.Context, timeout time.Duration, clusterID strin
 		var err error
 		cluster, err = client.ClusterForID(ctx, clusterID)
 		if err != nil {
-			if IsNotFound(err) {
-				tflog.Debug(ctx, fmt.Sprintf("cluster %q not found", clusterID))
-				cluster = nil
-				return nil
-			}
-			if IsPermissionDenied(err) {
-				tflog.Warn(ctx, fmt.Sprintf("cluster %q returned PermissionDenied — cluster may have been deleted", clusterID))
+			if gone(err) {
+				tflog.Debug(ctx, fmt.Sprintf("cluster %q is gone: %v", clusterID, err))
 				cluster = nil
 				return nil
 			}

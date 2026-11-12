@@ -170,7 +170,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	})
 	if err != nil {
 		resp.Diagnostics.Append(resp.State.Set(ctx, clustermodel.GenerateMinimalResourceModel(types.StringValue(clusterID), plan.Timeouts))...)
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to create cluster with ID %q", clusterID), utils.DeserializeGrpcError(err))
+		resp.Diagnostics.Append(utils.ControlPlaneResourceError(fmt.Sprintf("failed to create cluster with ID %q", clusterID), "cluster", clusterID, err))
 		return
 	}
 
@@ -201,12 +201,11 @@ func (c *Cluster) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 
 	cl, err := c.CpCl.ClusterForID(ctx, model.ID.ValueString())
 	if err != nil {
-		if gone, goneDiags := utils.ControlPlaneGone("cluster", model.ID.ValueString(), err); gone {
-			resp.Diagnostics.Append(goneDiags...)
+		if utils.ControlPlaneNotFound(err) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), utils.DeserializeGrpcError(err))
+		resp.Diagnostics.Append(utils.ControlPlaneResourceError(fmt.Sprintf("failed to read cluster %s", model.ID), "cluster", model.ID.ValueString(), err))
 		return
 	}
 
@@ -371,11 +370,10 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 	tflog.Info(ctx, "deleting cluster", map[string]any{"cluster_id": clusterID})
 	cl, err := c.CpCl.ClusterForID(ctx, clusterID)
 	if err != nil {
-		if gone, goneDiags := utils.ControlPlaneGone("cluster", clusterID, err); gone {
-			resp.Diagnostics.Append(goneDiags...)
+		if utils.ControlPlaneNotFound(err) {
 			return
 		}
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to read cluster %s", model.ID), utils.DeserializeGrpcError(err))
+		resp.Diagnostics.Append(utils.ControlPlaneResourceError(fmt.Sprintf("failed to read cluster %s", model.ID), "cluster", clusterID, err))
 		return
 	}
 	// The control plane's type and cloud provider are present even in the
@@ -404,7 +402,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 	if cl.GetState() != controlplanev1.Cluster_STATE_DELETING && cl.GetState() != controlplanev1.Cluster_STATE_DELETING_AGENT {
 		delReq, _ := clustermodel.ExpandDelete(ctx, &model)
 		if _, err := c.CpCl.Cluster.DeleteCluster(ctx, delReq); err != nil {
-			resp.Diagnostics.AddError("failed to delete cluster", utils.DeserializeGrpcError(err))
+			resp.Diagnostics.Append(utils.ControlPlaneResourceError("failed to delete cluster", "cluster", clusterID, err))
 			return
 		}
 	}
@@ -416,7 +414,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 	}
 
 	ranByoc := false
-	_, err = utils.RetryGetCluster(ctx, deleteTimeout, clusterID, c.CpCl, func(cl *controlplanev1.Cluster) *utils.RetryError {
+	_, err = utils.RetryGetClusterUntilDeleted(ctx, deleteTimeout, clusterID, c.CpCl, func(cl *controlplanev1.Cluster) *utils.RetryError {
 		if cl.GetState() == controlplanev1.Cluster_STATE_DELETING {
 			return utils.RetryableError(fmt.Errorf("expected cluster to be deleted but was in state %v", cl.GetState()))
 		}
@@ -525,7 +523,7 @@ func (c *Cluster) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest
 			cl, err := c.CpCl.ClusterForID(ctx, id.ValueString())
 			if err == nil {
 				clusterType, cloudProvider = clusterEnvelope(cl)
-			} else if !utils.IsNotFound(err) {
+			} else if !utils.ControlPlaneNotFound(err) {
 				tflog.Warn(ctx, "byoc preflight skipped at plan: cluster lookup failed", map[string]any{"cluster_id": id.ValueString(), "error": err.Error()})
 			}
 		}

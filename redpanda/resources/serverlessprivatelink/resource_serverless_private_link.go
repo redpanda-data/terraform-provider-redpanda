@@ -112,12 +112,11 @@ func (s *ServerlessPrivateLink) Read(ctx context.Context, req resource.ReadReque
 
 	privateLink, err := s.CpCl.ServerlessPrivateLinkForID(ctx, model.ID.ValueString())
 	if err != nil {
-		if gone, goneDiags := utils.ControlPlaneGone("serverless private link", model.ID.ValueString(), err); gone {
-			resp.Diagnostics.Append(goneDiags...)
+		if utils.ControlPlaneNotFound(err) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError(fmt.Sprintf("failed to read serverless private link %s", model.ID), utils.DeserializeGrpcError(err))
+		resp.Diagnostics.Append(utils.ControlPlaneResourceError(fmt.Sprintf("failed to read serverless private link %s", model.ID), "serverless private link", model.ID.ValueString(), err))
 		return
 	}
 
@@ -218,14 +217,10 @@ func (s *ServerlessPrivateLink) Delete(ctx context.Context, req resource.DeleteR
 
 	plResp, err := s.CpCl.ServerlessPrivateLink.DeleteServerlessPrivateLink(ctx, delReq)
 	if err != nil {
-		if gone, goneDiags := utils.ControlPlaneGoneOnDelete("serverless private link", model.ID.ValueString(), err, func() error {
-			_, lookupErr := s.CpCl.ServerlessPrivateLinkForID(ctx, model.ID.ValueString())
-			return lookupErr
-		}); gone {
-			resp.Diagnostics.Append(goneDiags...)
+		if utils.ControlPlaneNotFound(err) {
 			return
 		}
-		resp.Diagnostics.AddError("failed to delete serverless private link", utils.DeserializeGrpcError(err))
+		resp.Diagnostics.Append(utils.ControlPlaneResourceError("failed to delete serverless private link", "serverless private link", model.ID.ValueString(), err))
 		return
 	}
 
