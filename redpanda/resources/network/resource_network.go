@@ -198,6 +198,9 @@ func (n *Network) Delete(ctx context.Context, request resource.DeleteRequest, re
 
 	netResp, err := n.CpCl.Network.DeleteNetwork(ctx, delReq)
 	if err != nil {
+		if utils.ControlPlaneNotFound(err) {
+			return
+		}
 		response.Diagnostics.Append(utils.ControlPlaneResourceError("failed to delete network", "network", model.ID.ValueString(), err))
 		return
 	}

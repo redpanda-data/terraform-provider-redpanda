@@ -1560,3 +1560,30 @@ resource "redpanda_network" "test" {
 		})
 	}
 }
+
+// TestIntegration_Network_ErrorPath_DeleteNotFound: a network that is already
+// gone when the delete arrives is a finished delete, not a failed one.
+func TestIntegration_Network_ErrorPath_DeleteNotFound(t *testing.T) {
+	srv, factories := integration.Setup(t)
+
+	cfg := inPlaceConfig("tfrp-mock-net-del-notfound", "aws", "dedicated", "us-east-1", "10.0.0.0/20")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			integration.CreateStep(networkAddr, cfg, []statecheck.StateCheck{
+				statecheck.ExpectKnownValue(networkAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+			}),
+			{
+				PreConfig: func() {
+					srv.OverrideOnce(
+						controlplanev1grpc.NetworkService_DeleteNetwork_FullMethodName,
+						status.Error(codes.NotFound, "network not found"),
+					)
+				},
+				Config:  cfg,
+				Destroy: true,
+			},
+		},
+	})
+}
