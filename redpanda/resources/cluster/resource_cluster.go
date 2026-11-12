@@ -170,7 +170,7 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	})
 	if err != nil {
 		resp.Diagnostics.Append(resp.State.Set(ctx, clustermodel.GenerateMinimalResourceModel(types.StringValue(clusterID), plan.Timeouts))...)
-		resp.Diagnostics.Append(utils.ControlPlaneResourceError(fmt.Sprintf("failed to create cluster with ID %q", clusterID), "cluster", clusterID, err))
+		resp.Diagnostics.AddError(fmt.Sprintf("failed to create cluster with ID %q", clusterID), utils.DeserializeGrpcError(err))
 		return
 	}
 

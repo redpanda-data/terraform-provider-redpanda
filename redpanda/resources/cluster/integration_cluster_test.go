@@ -4413,8 +4413,9 @@ var (
 // TestIntegration_Cluster_DeletedOutOfBand_PermissionDenied removes the cluster
 // behind Terraform's back on a server that answers like production, where a
 // deleted cluster comes back as PermissionDenied naming the cluster, the same
-// answer credentials without access get. Plan and destroy must both fail and
-// keep the cluster in state; a dropped cluster would let the second step pass.
+// answer credentials without access get. Refresh must fail, on plan and on
+// destroy alike, and keep the cluster in state; a dropped cluster would let the
+// second step pass. Delete itself is not reached here.
 func TestIntegration_Cluster_DeletedOutOfBand_PermissionDenied(t *testing.T) {
 	srv, factories := clusterSetup(t)
 
