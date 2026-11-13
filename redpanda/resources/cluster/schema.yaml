@@ -897,6 +897,7 @@ redpanda_version:
   plan_modifiers: [RequiresReplace]
   optional: true
   type: string
+  expand_proto_name: redpanda_version
 
 region:
   required: true

@@ -2415,13 +2415,13 @@ func TestIntegration_Cluster_RequiresReplace_RedpandaVersion(t *testing.T) {
 		ProtoV6ProviderFactories: factories,
 		Steps: []resource.TestStep{
 			integration.CreateStep(clusterAddr,
-				awsDedicatedConfig(name, `redpanda_version = "24.3.1"`),
+				awsDedicatedConfig(name, `redpanda_version = "24.3"`),
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idChanged.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 				}),
 			integration.RequiresReplaceStep(clusterAddr,
-				awsDedicatedConfig(name, `redpanda_version = "24.3.2"`),
+				awsDedicatedConfig(name, `redpanda_version = "25.1"`),
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					idChanged.AddStateValue(clusterAddr, tfjsonpath.New("id")),
