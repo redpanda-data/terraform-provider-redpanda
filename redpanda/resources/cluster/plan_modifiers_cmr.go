@@ -108,7 +108,8 @@ func writeStateOnlySettings(ctx context.Context, priv privateWriter, held []stat
 // an update it accepts: it clears the in-place-updatable leaves and keeps the
 // create-only rest, so the apply cannot converge and Connect goes off on the
 // way; nested RequiresReplace markers do not fire under a null parent, so
-// this is the only gate. A move to another network, or the block appearing on
+// this is the only gate. The arm carries the resources, so a block kept with
+// its arm dropped is the same removal. A move to another network, or the block appearing on
 // the current one, replaces the cluster, and the control plane checks the new
 // cluster against its network only when it creates it, after the destroy; so
 // the network is read here, and a network that cannot be read fails the plan.
@@ -126,10 +127,10 @@ func guardCustomerManagedResourcesTransition(ctx context.Context, req resource.M
 	if resp.Diagnostics.HasError() || planCMR.IsUnknown() || planNet.IsUnknown() {
 		return
 	}
-	planned, held, moved := !planCMR.IsNull(), !stateCMR.IsNull(), !planNet.Equal(stateNet)
+	planned, held, moved := cmrArmSet(planCMR), cmrArmSet(stateCMR), !planNet.Equal(stateNet)
 	byoc := planType.IsNull() || planType.IsUnknown() || planType.ValueString() == enums.ClusterTypeToString(controlplanev1.Cluster_TYPE_BYOC)
 	switch {
-	case !moved && planned == held, !planned && !held && !byoc:
+	case !moved && planned == held && planCMR.IsNull() == stateCMR.IsNull(), planCMR.IsNull() && stateCMR.IsNull() && !byoc:
 		return
 	case !moved && held:
 		resp.Diagnostics.AddAttributeError(cmrPath,
@@ -155,13 +156,25 @@ func guardCustomerManagedResourcesTransition(ctx context.Context, req resource.M
 			"Customer-managed resources required by the network",
 			fmt.Sprintf("network %s has customer-managed resources, so a cluster on it needs customer_managed_resources "+
 				"too. The control plane would refuse the new cluster only after the current one is destroyed.", network))
-	case !has && planned:
+	case !has && !planCMR.IsNull():
 		resp.Diagnostics.AddAttributeError(cmrPath,
 			"Customer-managed resources refused by the network",
 			fmt.Sprintf("network %s has no customer-managed resources, so a cluster on it cannot have "+
 				"customer_managed_resources. The control plane would refuse the new cluster only after the current "+
 				"one is destroyed.", network))
 	}
+}
+
+// cmrArmSet reports whether the customer_managed_resources block carries a
+// cloud provider arm. An arm not known yet counts, which leaves the decision
+// to the apply-time plan.
+func cmrArmSet(cmr types.Object) bool {
+	for _, arm := range cmr.Attributes() {
+		if !arm.IsNull() {
+			return true
+		}
+	}
+	return false
 }
 
 // rpsqlCMRLeaves are the rpsql_* entries of the update mask table, keyed by
@@ -307,11 +320,10 @@ func guardOperatorAccountRemoved(ctx context.Context, req resource.ModifyPlanReq
 
 // plannedConnectBlock is what the plan does with one Connect block.
 type plannedConnectBlock struct {
-	sent       bool // the plan carries a non-empty value
-	configured bool // the config names it
-	changed    bool // the config names it with a value the state does not hold
-	held       bool // the state carries a non-empty value, which a plan without one clears
-	known      bool // changed is decidable now; false while its config is not known yet
+	sent    bool // the plan carries a non-empty value
+	changed bool // the config names it with a value the state does not hold
+	held    bool // the state carries a non-empty value, which a plan without one clears
+	known   bool // changed is decidable now; false while its config is not known yet
 }
 
 // plannedBlock reports what the plan does with the block at p. A block the
@@ -334,9 +346,9 @@ func plannedBlock(ctx context.Context, req resource.ModifyPlanRequest, p path.Pa
 		return plannedConnectBlock{}
 	case !cfg.IsNull():
 		if update && !fullyKnown(ctx, cfg) {
-			return plannedConnectBlock{sent: true, configured: true, held: held}
+			return plannedConnectBlock{sent: true, held: held}
 		}
-		return plannedConnectBlock{sent: true, configured: true, changed: !cfg.Equal(state), held: held, known: true}
+		return plannedConnectBlock{sent: true, changed: !cfg.Equal(state), held: held, known: true}
 	default:
 		return plannedConnectBlock{sent: !plan.IsNull() && !plan.IsUnknown() && !emptyBlock(plan), held: held, known: true}
 	}
@@ -381,22 +393,24 @@ func emptyBlock(o types.Object) bool {
 
 // stateOnlySettings lists an enabled rpsql block that state holds and the
 // config leaves out. The block is Optional+Computed, so a config without it
-// keeps it on an update and loses it on a replace. An enabled rpsql block on
-// a cluster without customer-managed resources may be the control plane's
+// keeps it on an update and loses it on a replace. On a cluster without
+// customer-managed resources the enabled block may be the control plane's
 // own doing, as on an Agentic Data Plane cluster, where it enables Redpanda
 // SQL again on the replacement and rejects a declared block; that one is a
-// warning.
+// warning, and only while neither the cluster nor its replacement has
+// customer-managed resources.
 func stateOnlySettings(ctx context.Context, state tfsdk.State, cfg tfsdk.Config) ([]stateOnlySetting, diag.Diagnostics) {
 	var diags diag.Diagnostics
-	var stRpsql, cfgRpsql, stCMR types.Object
+	var stRpsql, cfgRpsql, stCMR, cfgCMR types.Object
 	diags.Append(state.GetAttribute(ctx, rpsqlPath, &stRpsql)...)
 	diags.Append(cfg.GetAttribute(ctx, rpsqlPath, &cfgRpsql)...)
 	diags.Append(state.GetAttribute(ctx, cmrPath, &stCMR)...)
+	diags.Append(cfg.GetAttribute(ctx, cmrPath, &cfgCMR)...)
 	if diags.HasError() || !cfgRpsql.IsNull() || stRpsql.IsNull() || stRpsql.IsUnknown() {
 		return nil, diags
 	}
 	if enabled, ok := stRpsql.Attributes()["enabled"].(types.Bool); ok && enabled.ValueBool() {
-		return []stateOnlySetting{{Path: rpsqlPath.String(), Warn: stCMR.IsNull()}}, diags
+		return []stateOnlySetting{{Path: rpsqlPath.String(), Warn: stCMR.IsNull() && cfgCMR.IsNull()}}, diags
 	}
 	return nil, diags
 }
@@ -436,27 +450,18 @@ func refuseReplaceWithStateOnlySettings(ctx context.Context, priv privateReader,
 			resp.Diagnostics.AddWarning(
 				"Cluster settings not in the configuration",
 				fmt.Sprintf("%s is set on the cluster but not in the configuration. Replacing the cluster creates "+
-					"the new one from the configuration alone, so it comes up with %s unless the control plane turns "+
-					"it on itself, as it does on an Agentic Data Plane cluster. Declare it in the configuration to "+
-					"keep it on any other cluster; on an Agentic Data Plane cluster leave it out, as the control "+
-					"plane rejects it there.", s.Path, lostOnReplace(s.Path)))
+					"the new one from the configuration alone, so it comes up with Redpanda SQL off unless the "+
+					"control plane turns it on itself, as it does on an Agentic Data Plane cluster. Declare it in "+
+					"the configuration to keep it on any other cluster; on an Agentic Data Plane cluster leave it "+
+					"out, as the control plane rejects it there.", s.Path))
 			continue
 		}
 		resp.Diagnostics.AddError(
 			"Cluster settings not in the configuration",
 			fmt.Sprintf("%s is set on the cluster but not in the configuration. Replacing the cluster creates "+
-				"the new one from the configuration alone, so it would come up with %s. Declare it in the "+
-				"configuration before replacing the cluster.", s.Path, lostOnReplace(s.Path)))
+				"the new one from the configuration alone, so it would come up with Redpanda SQL off. Declare "+
+				"it in the configuration before replacing the cluster.", s.Path))
 	}
-}
-
-// lostOnReplace names what a replacement planned without the setting at p
-// comes up without.
-func lostOnReplace(p string) string {
-	if p == rpsqlPath.String() {
-		return "Redpanda SQL off"
-	}
-	return "the setting off"
 }
 
 // planGuard is one ModifyPlan check; runPlanGuards stops at the first that
