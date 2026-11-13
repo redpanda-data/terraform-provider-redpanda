@@ -106,6 +106,13 @@ func TestGuardCustomerManagedResourcesTransition(t *testing.T) {
 	netB := tftypes.NewValue(tftypes.String, "net-b")
 	netUnknown := tftypes.NewValue(tftypes.String, tftypes.UnknownValue)
 	lookupFails := errors.New("permission denied")
+	withBlock := func(network tftypes.Value, arms map[string]tftypes.Value) tftypes.Value {
+		return nullsExcept(ct.obj, map[string]tftypes.Value{
+			"network_id":                 network,
+			"cluster_type":               tftypes.NewValue(tftypes.String, "byoc"),
+			"customer_managed_resources": nullsExcept(ct.cmr, arms),
+		})
+	}
 
 	cases := []struct {
 		name         string
@@ -128,6 +135,25 @@ func TestGuardCustomerManagedResourcesTransition(t *testing.T) {
 		{name: "adding the block on the same network", state: cluster(netA, false), plan: cluster(netA, true), wantErr: "has no customer-managed resources", wantLookups: 1},
 		{name: "moving to a network not yet known", state: cluster(netA, true), plan: cluster(netUnknown, false), targetHasCMR: true},
 		{name: "network cannot be read", state: cluster(netA, true), plan: cluster(netB, false), lookupErr: lookupFails, wantErr: "could not be read", wantLookups: 1},
+		{name: "adding a block without an arm on the same network", state: cluster(netA, false), plan: withBlock(netA, nil), wantErr: "has no customer-managed resources", wantLookups: 1},
+		{name: "moving to a network with them keeps the block without an arm", state: cluster(netA, true), plan: withBlock(netB, nil), targetHasCMR: true, wantErr: "has customer-managed resources", wantLookups: 1},
+		{name: "arm not known yet", state: cluster(netA, true), plan: withBlock(netA, map[string]tftypes.Value{"gcp": unknown(ct.gcp)})},
+	}
+	for _, arm := range []string{"aws", "azure", "gcp"} {
+		armType := mustTFType[tftypes.Object](t, ct.cmr.AttributeTypes[arm])
+		cases = append(cases, struct {
+			name         string
+			state, plan  tftypes.Value
+			targetHasCMR bool
+			lookupErr    error
+			wantErr      string
+			wantLookups  int
+		}{
+			name:    "byovpc drops the " + arm + " arm and keeps the block",
+			state:   withBlock(netA, map[string]tftypes.Value{arm: nullsExcept(armType, nil)}),
+			plan:    withBlock(netA, nil),
+			wantErr: "cannot be removed",
+		})
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -225,6 +251,8 @@ func TestStateOnlySettings(t *testing.T) {
 	}{
 		{"rpsql enabled only in state beside customer-managed resources", cmrState, emptyArm, []stateOnlySetting{{Path: "rpsql"}}},
 		{"rpsql enabled only in state without customer-managed resources", ct.rpsqlOn(), nil, []stateOnlySetting{{Path: "rpsql", Warn: true}}},
+		{"rpsql enabled only in state, config gains customer-managed resources", ct.rpsqlOn(), emptyArm, []stateOnlySetting{{Path: "rpsql"}}},
+		{"rpsql enabled only in state, config drops customer-managed resources", cmrState, nil, []stateOnlySetting{{Path: "rpsql"}}},
 		{"rpsql not known yet", ct.rpsqlOn(), map[string]tftypes.Value{"rpsql": unknown(ct.rpsql)}, nil},
 		{"rpsql declared", ct.rpsqlOn(), ct.rpsqlOn(), nil},
 		{"rpsql off in state", merge(emptyArm, map[string]tftypes.Value{"rpsql": nullsExcept(ct.rpsql, map[string]tftypes.Value{"enabled": tftypes.NewValue(tftypes.Bool, false)})}), emptyArm, nil},
