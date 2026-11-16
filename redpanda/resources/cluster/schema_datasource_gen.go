@@ -1231,7 +1231,7 @@ func DatasourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"redpanda_version": schema.StringAttribute{
-				Description: "Redpanda Version",
+				Description: "Redpanda version requested when the cluster is created; when none is requested, Redpanda Cloud picks the latest version available to the organization. `major.minor`, e.g. `26.2`, selects the latest certified install pack of that version. A full install pack version, `major.minor.<14-digit timestamp>`, e.g. `26.2.20261110174043`, pins that exact install pack, and Redpanda Cloud accepts it only from organizations enabled to select install packs directly. The value is sent on create only; `current_redpanda_version` reports the version the cluster runs.",
 				Computed:    true,
 			},
 
