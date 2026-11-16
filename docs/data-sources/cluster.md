@@ -45,7 +45,7 @@ Cluster data source
 - `read_replica_cluster_ids` (List of String) IDs of clusters which may create read-only topics from this cluster.
 - `redpanda_connect` (Attributes) Cluster's Redpanda Connect properties. (see [below for nested schema](#nestedatt--redpanda_connect))
 - `redpanda_console` (Attributes) Cluster's Redpanda Console properties. (see [below for nested schema](#nestedatt--redpanda_console))
-- `redpanda_version` (String) Redpanda Version
+- `redpanda_version` (String) Redpanda version requested when the cluster is created; when none is requested, Redpanda Cloud picks the latest version available to the organization. `major.minor`, e.g. `26.2`, selects the latest certified install pack of that version. A full install pack version, `major.minor.<14-digit timestamp>`, e.g. `26.2.20261110174043`, pins that exact install pack, and Redpanda Cloud accepts it only from organizations enabled to select install packs directly. The value is sent on create only; `current_redpanda_version` reports the version the cluster runs.
 - `region` (String) Region represents the name of the region where the cluster will be provisioned.
 - `resource_group_id` (String) Resource group ID of the cluster.
 - `rpsql` (Attributes) Rpsql configuration (see [below for nested schema](#nestedatt--rpsql))

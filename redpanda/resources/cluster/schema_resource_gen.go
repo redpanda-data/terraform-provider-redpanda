@@ -752,7 +752,7 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"redpanda_version": schema.StringAttribute{
-				Description:   "Cluster's Redpanda version. Only `major.minor` semver is supported, e.g. `24.1`. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+				Description:   "Redpanda version requested when the cluster is created; when none is requested, Redpanda Cloud picks the latest version available to the organization. `major.minor`, e.g. `26.2`, selects the latest certified install pack of that version. A full install pack version, `major.minor.<14-digit timestamp>`, e.g. `26.2.20261110174043`, pins that exact install pack, and Redpanda Cloud accepts it only from organizations enabled to select install packs directly. The value is sent on create only; `current_redpanda_version` reports the version the cluster runs. If the value of this attribute changes, Terraform will destroy and recreate the resource.",
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
