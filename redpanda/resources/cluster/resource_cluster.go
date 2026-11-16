@@ -176,9 +176,14 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 	}
 
 	if cl == nil {
+		// CreateCluster succeeded, so the ID stays in state: a NotFound from
+		// a stale read must not lose a live cluster, nor the agent
+		// infrastructure a byoc apply provisioned for it.
+		resp.Diagnostics.Append(resp.State.Set(ctx, clustermodel.GenerateMinimalResourceModel(types.StringValue(clusterID), plan.Timeouts))...)
 		resp.Diagnostics.AddError(
-			fmt.Sprintf("cluster %s no longer exists", clusterID),
-			"Redpanda Cloud reported the cluster as not found while the provider was waiting for it to be created, so it was deleted before the create finished. Nothing was saved to Terraform state.",
+			fmt.Sprintf("cluster %s was not found while waiting for it to be created", clusterID),
+			fmt.Sprintf("Redpanda Cloud reported cluster %s as not found while the provider was waiting for it to be created. "+
+				"The cluster is kept in Terraform state and marked tainted: the next apply drops it from state if it is still not found, and replaces it otherwise.", clusterID),
 		)
 		return
 	}
