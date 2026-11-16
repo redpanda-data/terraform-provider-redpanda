@@ -68,6 +68,24 @@ func ControlPlaneDataSourceError(summary, kind, id string, err error) diag.Diagn
 		kind, id))
 }
 
+// ControlPlaneDeleteDeniedError is the diagnostic for err, returned by a delete
+// the caller issued right after reading the resource. The read rules out the
+// resource being gone, so a denial naming it is a missing delete permission
+// and removing it from state would orphan a live resource.
+func ControlPlaneDeleteDeniedError(summary, kind, id string, err error) diag.Diagnostic {
+	original := DeserializeGrpcError(err)
+	if !DeniedOnResource(id, err) {
+		return diag.NewErrorDiagnostic(summary, original)
+	}
+	return diag.NewErrorDiagnostic(
+		fmt.Sprintf("Redpanda Cloud denied deleting %s %s", kind, id),
+		fmt.Sprintf("The provider read %s %s just before asking Redpanda Cloud to delete it, so it still exists and the client credentials the provider is configured with lack permission to delete it. "+
+			"Nothing was deleted and Terraform state is unchanged.\n\n"+
+			"Grant those credentials a role that can delete the %s, then run the destroy again.\n\nOriginal error: %s",
+			kind, id, kind, original),
+	)
+}
+
 func controlPlaneError(summary, kind, id string, err error, advice string) diag.Diagnostic {
 	original := DeserializeGrpcError(err)
 	if !DeniedOnResource(id, err) {

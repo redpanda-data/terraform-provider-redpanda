@@ -5336,6 +5336,7 @@ func createCapturingID(cfg string, id *string) resource.TestStep {
 var (
 	deniedCluster = regexp.MustCompile(`denied\s+access\s+to\s+cluster`)
 	stateRmAdvice = regexp.MustCompile(`terraform\s+state\s+rm`)
+	deleteDenied  = regexp.MustCompile(`denied\s+deleting\s+cluster[\s\S]*still\s+exists[\s\S]*permission\s+to\s+delete`)
 )
 
 // TestIntegration_Cluster_DeletedOutOfBand_PermissionDenied removes the cluster
@@ -5402,7 +5403,7 @@ func TestIntegration_Cluster_DeleteDenied(t *testing.T) {
 				},
 				Config:      cfg,
 				Destroy:     true,
-				ExpectError: stateRmAdvice,
+				ExpectError: deleteDenied,
 			},
 		},
 	})

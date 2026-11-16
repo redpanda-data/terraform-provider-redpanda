@@ -403,7 +403,7 @@ func (c *Cluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 	if cl.GetState() != controlplanev1.Cluster_STATE_DELETING && cl.GetState() != controlplanev1.Cluster_STATE_DELETING_AGENT {
 		delReq, _ := clustermodel.ExpandDelete(ctx, &model)
 		if _, err := c.CpCl.Cluster.DeleteCluster(ctx, delReq); err != nil {
-			resp.Diagnostics.Append(utils.ControlPlaneResourceError("failed to delete cluster", "cluster", clusterID, err))
+			resp.Diagnostics.Append(utils.ControlPlaneDeleteDeniedError("failed to delete cluster", "cluster", clusterID, err))
 			return
 		}
 	}
