@@ -105,6 +105,30 @@ func TestControlPlaneResourceError(t *testing.T) {
 	}
 }
 
+func TestControlPlaneDeleteDeniedError(t *testing.T) {
+	const id = "dbplrourdb3c73bqnl4g"
+	const summary = "failed to delete cluster"
+
+	denied := ControlPlaneDeleteDeniedError(summary, "cluster", id, deniedFor(t, id))
+	assert.Equal(t, diag.SeverityError, denied.Severity())
+	assert.Equal(t, "Redpanda Cloud denied deleting cluster "+id, denied.Summary())
+	assert.Contains(t, denied.Detail(), "still exists")
+	assert.Contains(t, denied.Detail(), "permission to delete")
+	assert.Contains(t, denied.Detail(), "Missing required permission read")
+	assert.NotContains(t, denied.Detail(), "terraform state rm")
+	assert.NotContains(t, denied.Detail(), "no longer exists")
+
+	for _, err := range []error{
+		deniedFor(t, "a845616f-0484-4506-9638-45fe28f34865"),
+		grpcstatus.Error(grpccodes.PermissionDenied, "forbidden"),
+		grpcstatus.Error(grpccodes.Internal, "boom"),
+	} {
+		other := ControlPlaneDeleteDeniedError(summary, "cluster", id, err)
+		assert.Equal(t, summary, other.Summary())
+		assert.Equal(t, DeserializeGrpcError(err), other.Detail())
+	}
+}
+
 func TestControlPlaneDataSourceError(t *testing.T) {
 	const id = "dbplrourdb3c73bqnl4g"
 	const summary = "failed to read cluster " + id
