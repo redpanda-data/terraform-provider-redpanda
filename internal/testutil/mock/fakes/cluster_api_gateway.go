@@ -28,16 +28,12 @@ const (
 	gatewayPublic      = controlplanev1.NetworkAccessMode_NETWORK_ACCESS_MODE_PUBLIC
 )
 
-// createAPIGatewayAccess mirrors the create path of cloudv2's
-// handleAPIGatewayAccess, the console defaulter and validateConsole: an
-// unspecified mode means "not set" and resolves to private when the cluster
-// has a private Kafka listener, public otherwise, so a cluster created here
-// never reads back unspecified.
-func (f *ClusterFake) createAPIGatewayAccess(in *controlplanev1.ClusterCreate) (controlplanev1.NetworkAccessMode, error) {
+// createAPIGatewayAccess mirrors the console defaulter and validateConsole
+// on create: an unspecified mode means "not set" and resolves to private
+// when the cluster has a private Kafka listener, public otherwise, so a
+// cluster created here never reads back unspecified.
+func createAPIGatewayAccess(in *controlplanev1.ClusterCreate) (controlplanev1.NetworkAccessMode, error) {
 	mode := in.GetApiGatewayAccess()
-	if err := f.apiGatewayAccessSettable(mode); err != nil {
-		return mode, err
-	}
 	privateAccess := in.GetConnectionType() == connTypePrivate
 	if conns := in.GetKafkaApi().GetConnections(); len(conns) > 0 {
 		_, privateAccess = connectionPresence(conns)
@@ -60,9 +56,6 @@ func (f *ClusterFake) createAPIGatewayAccess(in *controlplanev1.ClusterCreate) (
 // validates, so a private gateway requested there is dropped, not rejected.
 func (f *ClusterFake) updateAPIGatewayAccess(cl *controlplanev1.Cluster, upd *controlplanev1.ClusterUpdate, paths []string) (controlplanev1.NetworkAccessMode, error) {
 	mode := cl.GetApiGatewayAccess()
-	if err := f.apiGatewayAccessSettable(upd.GetApiGatewayAccess()); err != nil {
-		return mode, err
-	}
 	masked := slices.Contains(paths, "api_gateway_access")
 	if masked && upd.GetApiGatewayAccess() != gatewayUnspecified {
 		mode = upd.GetApiGatewayAccess()
@@ -85,7 +78,7 @@ func (f *ClusterFake) updateAPIGatewayAccess(cl *controlplanev1.Cluster, upd *co
 // handleAPIGatewayAccess, which looks at the request value alone: the mask
 // plays no part, and an unspecified mode always passes.
 func (f *ClusterFake) apiGatewayAccessSettable(requested controlplanev1.NetworkAccessMode) error {
-	if requested != gatewayUnspecified && f.SetAPIGatewayAccessDisabled {
+	if requested != gatewayUnspecified && !f.SetAPIGatewayAccessEnabled {
 		return status.Error(codes.PermissionDenied, "Setting API gateway access is not enabled for this organization")
 	}
 	return nil

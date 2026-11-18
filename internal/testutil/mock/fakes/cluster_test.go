@@ -592,6 +592,7 @@ func TestClusterFake_APIGatewayAccessMirrorsControlPlane(t *testing.T) {
 		privateOnPublic = "API gateway access must not be private for clusters with public network"
 		notEnabled      = "Setting API gateway access is not enabled for this organization"
 		egressNetwork   = "Network has an egress spec, which requires a private cluster"
+		egressNetworkID = "nw-egress"
 	)
 	ctx := context.Background()
 	sasl := controlplanev1.AuthMode_AUTH_MODE_SASL
@@ -600,6 +601,7 @@ func TestClusterFake_APIGatewayAccessMirrorsControlPlane(t *testing.T) {
 			Name:             "gw",
 			CloudProvider:    controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS,
 			Type:             controlplanev1.Cluster_TYPE_DEDICATED,
+			NetworkId:        egressNetworkID,
 			ConnectionType:   ct,
 			ApiGatewayAccess: mode,
 		}
@@ -610,17 +612,26 @@ func TestClusterFake_APIGatewayAccessMirrorsControlPlane(t *testing.T) {
 			Name:             "gw",
 			CloudProvider:    controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS,
 			Type:             controlplanev1.Cluster_TYPE_BYOC,
+			NetworkId:        egressNetworkID,
 			KafkaApi:         &controlplanev1.KafkaAPISpec{Connections: conns},
 			HttpProxy:        &controlplanev1.HTTPProxySpec{Connections: conns},
 			SchemaRegistry:   &controlplanev1.SchemaRegistrySpec{Connections: conns},
 			ApiGatewayAccess: mode,
 		}
 	}
+	egressNetworkLookup := func(id string) *controlplanev1.Network {
+		if id != egressNetworkID {
+			return nil
+		}
+		return &controlplanev1.Network{Id: id, EgressSpec: &controlplanev1.Network_EgressSpec{
+			CloudProvider: &controlplanev1.Network_EgressSpec_Aws{Aws: &controlplanev1.Network_EgressSpec_AWS{TransitGatewayId: "tgw-0123456789abcdef0"}},
+		}}
+	}
 	type org struct{ dualListenersOff, setGatewayOff bool }
 	newFake := func(o org) *ClusterFake {
 		f := NewClusterFake(NewOperationFake())
 		f.PublicPrivateListenersDisabled = o.dualListenersOff
-		f.SetAPIGatewayAccessDisabled = o.setGatewayOff
+		f.SetAPIGatewayAccessEnabled = !o.setGatewayOff
 		return f
 	}
 	assertErr := func(t *testing.T, err error, code codes.Code, msg string) {
@@ -661,6 +672,11 @@ func TestClusterFake_APIGatewayAccessMirrorsControlPlane(t *testing.T) {
 		{name: "public cluster rejects a private gateway", in: legacy(connTypePublic, gatewayPrivate), wantCode: codes.InvalidArgument, wantMsg: privateOnPublic},
 		{name: "public cluster rejects a private gateway without the dual-listener flag", org: org{dualListenersOff: true}, in: legacy(connTypePublic, gatewayPrivate), wantCode: codes.InvalidArgument, wantMsg: privateOnPublic},
 		{name: "organization not enabled rejects a requested mode", org: org{setGatewayOff: true}, in: legacy(connTypePrivate, gatewayPrivate), wantCode: codes.PermissionDenied, wantMsg: notEnabled},
+		{name: "organization not enabled is refused before the customer-managed-resources check", org: org{setGatewayOff: true}, in: func() *controlplanev1.ClusterCreate {
+			in := legacy(connTypePrivate, gatewayPrivate)
+			in.CustomerManagedResources = &controlplanev1.CustomerManagedResources{}
+			return in
+		}(), wantCode: codes.PermissionDenied, wantMsg: notEnabled},
 		{name: "organization not enabled still defaults an unset mode", org: org{setGatewayOff: true}, in: legacy(connTypePrivate, gatewayUnspecified), want: gatewayPrivate},
 	}
 	for _, tc := range creates {
@@ -775,17 +791,13 @@ func TestClusterFake_APIGatewayAccessMirrorsControlPlane(t *testing.T) {
 		}{
 			{
 				name: "organization not enabled", create: dual(gatewayUnspecified), conns: 2,
-				refuse: func(f *ClusterFake) { f.SetAPIGatewayAccessDisabled = true },
+				refuse: func(f *ClusterFake) { f.SetAPIGatewayAccessEnabled = false },
 				code:   codes.PermissionDenied, msg: notEnabled,
 			},
 			{
 				name: "egress network", create: dual(gatewayUnspecified), conns: 2,
 				refuse: func(f *ClusterFake) {
-					f.NetworkLookup = func(string) *controlplanev1.Network {
-						return &controlplanev1.Network{Id: "nw", EgressSpec: &controlplanev1.Network_EgressSpec{
-							CloudProvider: &controlplanev1.Network_EgressSpec_Aws{Aws: &controlplanev1.Network_EgressSpec_AWS{TransitGatewayId: "tgw-0123456789abcdef0"}},
-						}}
-					}
+					f.NetworkLookup = egressNetworkLookup
 				},
 				code: codes.InvalidArgument, msg: egressNetwork,
 			},
@@ -793,8 +805,8 @@ func TestClusterFake_APIGatewayAccessMirrorsControlPlane(t *testing.T) {
 				// The refused update is this cluster's first use of connections,
 				// so the fake must not be left treating it as a dual cluster.
 				name: "legacy cluster stays legacy", create: legacy(connTypePrivate, gatewayUnspecified), conns: 1,
-				refuse: func(f *ClusterFake) { f.SetAPIGatewayAccessDisabled = true },
-				code:   codes.PermissionDenied, msg: notEnabled,
+				refuse: func(f *ClusterFake) { f.NetworkLookup = egressNetworkLookup },
+				code:   codes.InvalidArgument, msg: egressNetwork,
 			},
 		}
 		for _, tc := range refusals {
@@ -834,11 +846,7 @@ func TestClusterFake_APIGatewayAccessMirrorsControlPlane(t *testing.T) {
 
 	t.Run("update/a network with an egress spec rejects a public gateway", func(t *testing.T) {
 		f := newFake(org{})
-		f.NetworkLookup = func(string) *controlplanev1.Network {
-			return &controlplanev1.Network{Id: "nw", EgressSpec: &controlplanev1.Network_EgressSpec{
-				CloudProvider: &controlplanev1.Network_EgressSpec_Aws{Aws: &controlplanev1.Network_EgressSpec_AWS{TransitGatewayId: "tgw-0123456789abcdef0"}},
-			}}
-		}
+		f.NetworkLookup = egressNetworkLookup
 		op, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{Cluster: legacy(connTypePrivate, gatewayUnspecified)})
 		if err != nil {
 			t.Fatalf("CreateCluster: %v", err)

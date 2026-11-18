@@ -101,12 +101,12 @@ type ClusterFake struct {
 	// matches the org the tests model.
 	PublicPrivateListenersDisabled bool
 
-	// SetAPIGatewayAccessDisabled models an org WITHOUT the
-	// enable-set-api-gateway-access feature flag: a request that names an
-	// api_gateway_access mode gets PermissionDenied. The flag is off for an
-	// org by default; the zero value (flag on) keeps the mode settable for
-	// tests that are not about the gate.
-	SetAPIGatewayAccessDisabled bool
+	// SetAPIGatewayAccessEnabled models an org WITH the
+	// enable-set-api-gateway-access feature flag. The flag is off for an org
+	// by default, so the zero value refuses any request that names an
+	// api_gateway_access mode with PermissionDenied, and a test that sets a
+	// mode turns it on.
+	SetAPIGatewayAccessEnabled bool
 }
 
 // NewClusterFake returns an empty fake bound to op.
@@ -221,6 +221,11 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 	if err := f.validateCreateConnections(in); err != nil {
 		return nil, err
 	}
+	// The public API refuses a named mode after its own connections check and
+	// before the control plane validates the rest of the request.
+	if err := f.apiGatewayAccessSettable(in.GetApiGatewayAccess()); err != nil {
+		return nil, err
+	}
 	var nw *controlplanev1.Network
 	if f.NetworkLookup != nil {
 		nw = f.NetworkLookup(in.GetNetworkId())
@@ -228,7 +233,7 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 	if err := validateCreateCustomerManagedResources(in, nw); err != nil {
 		return nil, err
 	}
-	gatewayAccess, err := f.createAPIGatewayAccess(in)
+	gatewayAccess, err := createAPIGatewayAccess(in)
 	if err != nil {
 		return nil, err
 	}
@@ -414,9 +419,10 @@ func (f *ClusterFake) GetCluster(_ context.Context, req *controlplanev1.GetClust
 }
 
 // UpdateCluster applies req.UpdateMask.Paths to a copy of the stored record
-// via proto reflection and stores the copy once every check has passed. Each top-level path emitted by
-// utils.GenerateProtobufDiffAndUpdateMask writes through; unmasked fields
-// keep their prior value. Publishes a completed Operation for AreWeDoneYet.
+// via proto reflection and stores the copy once every check has passed. Each
+// top-level path emitted by utils.GenerateProtobufDiffAndUpdateMask writes
+// through; unmasked fields keep their prior value. Publishes a completed
+// Operation for AreWeDoneYet.
 func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.UpdateClusterRequest) (*controlplanev1.UpdateClusterOperation, error) {
 	upd := req.GetCluster()
 	if upd == nil {
@@ -466,6 +472,12 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 	// connections update owns are skipped below.
 	ownedByConnections, err := f.applyConnectionsUpdate(cl, upd, req.GetUpdateMask().GetPaths())
 	if err != nil {
+		return nil, err
+	}
+	// The public API refuses a named mode after its connections check and
+	// its rpsql required-field check, and before the control plane validates
+	// the gateway against the merged spec.
+	if err := f.apiGatewayAccessSettable(upd.GetApiGatewayAccess()); err != nil {
 		return nil, err
 	}
 	gatewayAccess, err := f.updateAPIGatewayAccess(cl, upd, req.GetUpdateMask().GetPaths())

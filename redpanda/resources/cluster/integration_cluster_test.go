@@ -1413,7 +1413,7 @@ func TestIntegration_Cluster_UpdateLeaf_APIGatewayAccess(t *testing.T) {
 			statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
 			idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
 		})
-	toPublic.PreConfig = func() { srv.Cluster.SetAPIGatewayAccessDisabled = false }
+	toPublic.PreConfig = func() { srv.Cluster.SetAPIGatewayAccessEnabled = true }
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: factories,
@@ -1422,7 +1422,6 @@ func TestIntegration_Cluster_UpdateLeaf_APIGatewayAccess(t *testing.T) {
 			{Config: cfg(`api_gateway_access = "PRIVATE"`), ExpectError: notAccepted},
 			{Config: cfg(`api_gateway_access = "NETWORK_ACCESS_MODE_UNSPECIFIED"`), ExpectError: notAccepted},
 			{
-				PreConfig:   func() { srv.Cluster.SetAPIGatewayAccessDisabled = true },
 				Config:      cfg(`api_gateway_access = "NETWORK_ACCESS_MODE_PRIVATE"`),
 				ExpectError: regexp.MustCompile(`(?s)failed to create cluster.*Setting API gateway access is not enabled for this\s+organization`),
 			},
