@@ -579,6 +579,290 @@ func TestClusterFake_PrivateOnlyGainsPublicRejected(t *testing.T) {
 	}
 }
 
+// TestClusterFake_APIGatewayAccessMirrorsControlPlane pins the fake to the
+// control plane's api_gateway_access contract (cloudv2 handleAPIGatewayAccess,
+// setAPIGatewayAccessFromRedpanda, the console defaulter,
+// DefaultConsoleConnectivity and validateConsole). An unspecified mode is
+// "not set": create defaults it from the cluster's access and update keeps
+// the stored one. A cluster without private access cannot be created with a
+// private gateway, and an update leaves it with a public one or is rejected,
+// depending on the organization's dual-listener flag.
+func TestClusterFake_APIGatewayAccessMirrorsControlPlane(t *testing.T) {
+	const (
+		privateOnPublic = "API gateway access must not be private for clusters with public network"
+		notEnabled      = "Setting API gateway access is not enabled for this organization"
+		egressNetwork   = "Network has an egress spec, which requires a private cluster"
+		egressNetworkID = "nw-egress"
+	)
+	ctx := context.Background()
+	sasl := controlplanev1.AuthMode_AUTH_MODE_SASL
+	legacy := func(ct controlplanev1.Cluster_ConnectionType, mode controlplanev1.NetworkAccessMode) *controlplanev1.ClusterCreate {
+		return &controlplanev1.ClusterCreate{
+			Name:             "gw",
+			CloudProvider:    controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS,
+			Type:             controlplanev1.Cluster_TYPE_DEDICATED,
+			NetworkId:        egressNetworkID,
+			ConnectionType:   ct,
+			ApiGatewayAccess: mode,
+		}
+	}
+	dual := func(mode controlplanev1.NetworkAccessMode) *controlplanev1.ClusterCreate {
+		conns := []*controlplanev1.ConnectionSpec{connSpec(connTypePublic, sasl), connSpec(connTypePrivate, sasl)}
+		return &controlplanev1.ClusterCreate{
+			Name:             "gw",
+			CloudProvider:    controlplanev1.CloudProvider_CLOUD_PROVIDER_AWS,
+			Type:             controlplanev1.Cluster_TYPE_BYOC,
+			NetworkId:        egressNetworkID,
+			KafkaApi:         &controlplanev1.KafkaAPISpec{Connections: conns},
+			HttpProxy:        &controlplanev1.HTTPProxySpec{Connections: conns},
+			SchemaRegistry:   &controlplanev1.SchemaRegistrySpec{Connections: conns},
+			ApiGatewayAccess: mode,
+		}
+	}
+	egressNetworkLookup := func(id string) *controlplanev1.Network {
+		if id != egressNetworkID {
+			return nil
+		}
+		return &controlplanev1.Network{Id: id, EgressSpec: &controlplanev1.Network_EgressSpec{
+			CloudProvider: &controlplanev1.Network_EgressSpec_Aws{Aws: &controlplanev1.Network_EgressSpec_AWS{TransitGatewayId: "tgw-0123456789abcdef0"}},
+		}}
+	}
+	type org struct{ dualListenersOff, setGatewayOff bool }
+	newFake := func(o org) *ClusterFake {
+		f := NewClusterFake(NewOperationFake())
+		f.PublicPrivateListenersDisabled = o.dualListenersOff
+		f.SetAPIGatewayAccessEnabled = !o.setGatewayOff
+		return f
+	}
+	assertErr := func(t *testing.T, err error, code codes.Code, msg string) {
+		t.Helper()
+		if msg == "" {
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			return
+		}
+		if status.Code(err) != code || !strings.Contains(err.Error(), msg) {
+			t.Fatalf("got %v, want %v %q", err, code, msg)
+		}
+	}
+	stored := func(t *testing.T, f *ClusterFake, id string) controlplanev1.NetworkAccessMode {
+		t.Helper()
+		resp, err := f.GetCluster(ctx, &controlplanev1.GetClusterRequest{Id: id})
+		if err != nil {
+			t.Fatalf("GetCluster: %v", err)
+		}
+		return resp.GetCluster().GetApiGatewayAccess()
+	}
+
+	creates := []struct {
+		name     string
+		org      org
+		in       *controlplanev1.ClusterCreate
+		want     controlplanev1.NetworkAccessMode
+		wantCode codes.Code
+		wantMsg  string
+	}{
+		{name: "public cluster defaults to public", in: legacy(connTypePublic, gatewayUnspecified), want: gatewayPublic},
+		{name: "private cluster defaults to private", in: legacy(connTypePrivate, gatewayUnspecified), want: gatewayPrivate},
+		{name: "dual cluster defaults to private", in: dual(gatewayUnspecified), want: gatewayPrivate},
+		{name: "private cluster keeps a requested public gateway", in: legacy(connTypePrivate, gatewayPublic), want: gatewayPublic},
+		{name: "dual cluster keeps a requested public gateway", in: dual(gatewayPublic), want: gatewayPublic},
+		{name: "private cluster keeps a requested private gateway", in: legacy(connTypePrivate, gatewayPrivate), want: gatewayPrivate},
+		{name: "public cluster rejects a private gateway", in: legacy(connTypePublic, gatewayPrivate), wantCode: codes.InvalidArgument, wantMsg: privateOnPublic},
+		{name: "public cluster rejects a private gateway without the dual-listener flag", org: org{dualListenersOff: true}, in: legacy(connTypePublic, gatewayPrivate), wantCode: codes.InvalidArgument, wantMsg: privateOnPublic},
+		{name: "organization not enabled rejects a requested mode", org: org{setGatewayOff: true}, in: legacy(connTypePrivate, gatewayPrivate), wantCode: codes.PermissionDenied, wantMsg: notEnabled},
+		{name: "organization not enabled is refused before the customer-managed-resources check", org: org{setGatewayOff: true}, in: func() *controlplanev1.ClusterCreate {
+			in := legacy(connTypePrivate, gatewayPrivate)
+			in.CustomerManagedResources = &controlplanev1.CustomerManagedResources{}
+			return in
+		}(), wantCode: codes.PermissionDenied, wantMsg: notEnabled},
+		{name: "organization not enabled still defaults an unset mode", org: org{setGatewayOff: true}, in: legacy(connTypePrivate, gatewayUnspecified), want: gatewayPrivate},
+	}
+	for _, tc := range creates {
+		t.Run("create/"+tc.name, func(t *testing.T) {
+			f := newFake(tc.org)
+			op, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{Cluster: tc.in})
+			assertErr(t, err, tc.wantCode, tc.wantMsg)
+			if err != nil {
+				return
+			}
+			if got := stored(t, f, op.GetOperation().GetResourceId()); got != tc.want {
+				t.Fatalf("api_gateway_access = %v, want %v", got, tc.want)
+			}
+		})
+	}
+
+	updates := []struct {
+		name     string
+		org      org
+		create   *controlplanev1.ClusterCreate
+		send     controlplanev1.NetworkAccessMode
+		want     controlplanev1.NetworkAccessMode
+		wantCode codes.Code
+		wantMsg  string
+	}{
+		{name: "unspecified keeps the stored mode", create: legacy(connTypePrivate, gatewayPublic), send: gatewayUnspecified, want: gatewayPublic},
+		{name: "private cluster switches to private", create: legacy(connTypePrivate, gatewayPublic), send: gatewayPrivate, want: gatewayPrivate},
+		{name: "private cluster switches to public", create: legacy(connTypePrivate, gatewayPrivate), send: gatewayPublic, want: gatewayPublic},
+		{name: "public cluster is left public when a private gateway is requested", create: legacy(connTypePublic, gatewayUnspecified), send: gatewayPrivate, want: gatewayPublic},
+		{name: "public cluster rejects a private gateway without the dual-listener flag", org: org{dualListenersOff: true}, create: legacy(connTypePublic, gatewayUnspecified), send: gatewayPrivate, want: gatewayPublic, wantCode: codes.InvalidArgument, wantMsg: privateOnPublic},
+		{name: "organization not enabled rejects a requested mode", org: org{setGatewayOff: true}, create: legacy(connTypePrivate, gatewayUnspecified), send: gatewayPublic, want: gatewayPrivate, wantCode: codes.PermissionDenied, wantMsg: notEnabled},
+		{name: "organization not enabled accepts unspecified", org: org{setGatewayOff: true}, create: legacy(connTypePrivate, gatewayUnspecified), send: gatewayUnspecified, want: gatewayPrivate},
+	}
+	for _, tc := range updates {
+		t.Run("update/"+tc.name, func(t *testing.T) {
+			f := newFake(tc.org)
+			op, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{Cluster: tc.create})
+			if err != nil {
+				t.Fatalf("CreateCluster: %v", err)
+			}
+			id := op.GetOperation().GetResourceId()
+			_, err = f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+				Cluster:    &controlplanev1.ClusterUpdate{Id: id, ApiGatewayAccess: tc.send},
+				UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"api_gateway_access"}},
+			})
+			assertErr(t, err, tc.wantCode, tc.wantMsg)
+			if got := stored(t, f, id); got != tc.want {
+				t.Fatalf("api_gateway_access = %v, want %v", got, tc.want)
+			}
+		})
+	}
+
+	t.Run("update/dual cluster left public-only moves to a public gateway", func(t *testing.T) {
+		f := newFake(org{})
+		op, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{Cluster: dual(gatewayUnspecified)})
+		if err != nil {
+			t.Fatalf("CreateCluster: %v", err)
+		}
+		id := op.GetOperation().GetResourceId()
+		pub := []*controlplanev1.ConnectionSpec{connSpec(connTypePublic, sasl)}
+		_, err = f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+			Cluster: &controlplanev1.ClusterUpdate{
+				Id:             id,
+				KafkaApi:       &controlplanev1.KafkaAPISpec{Connections: pub},
+				HttpProxy:      &controlplanev1.HTTPProxySpec{Connections: pub},
+				SchemaRegistry: &controlplanev1.SchemaRegistrySpec{Connections: pub},
+			},
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"kafka_api.connections", "http_proxy.connections", "schema_registry.connections"}},
+		})
+		if err != nil {
+			t.Fatalf("UpdateCluster: %v", err)
+		}
+		if got := stored(t, f, id); got != gatewayPublic {
+			t.Fatalf("api_gateway_access = %v, want %v", got, gatewayPublic)
+		}
+	})
+
+	t.Run("update/a rejected update leaves the stored mode", func(t *testing.T) {
+		f := newFake(org{})
+		in := legacy(connTypePrivate, gatewayPrivate)
+		in.Zones = []string{"use1-az1"}
+		op, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{Cluster: in})
+		if err != nil {
+			t.Fatalf("CreateCluster: %v", err)
+		}
+		id := op.GetOperation().GetResourceId()
+		_, err = f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+			Cluster: &controlplanev1.ClusterUpdate{
+				Id:               id,
+				ApiGatewayAccess: gatewayPublic,
+				Rpsql:            &controlplanev1.RPSql{Enabled: true, Replicas: 1, Zones: []string{"use1-az9"}},
+			},
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"api_gateway_access", "rpsql.enabled", "rpsql.zones"}},
+		})
+		if status.Code(err) != codes.InvalidArgument {
+			t.Fatalf("got %v, want the rpsql zone rejection", err)
+		}
+		if got := stored(t, f, id); got != gatewayPrivate {
+			t.Fatalf("api_gateway_access = %v after a rejected update, want %v", got, gatewayPrivate)
+		}
+	})
+
+	t.Run("update/a refused gateway change leaves the connections", func(t *testing.T) {
+		prv := []*controlplanev1.ConnectionSpec{connSpec(connTypePrivate, sasl)}
+		refusals := []struct {
+			name   string
+			create *controlplanev1.ClusterCreate
+			refuse func(*ClusterFake)
+			code   codes.Code
+			msg    string
+			conns  int
+		}{
+			{
+				name: "organization not enabled", create: dual(gatewayUnspecified), conns: 2,
+				refuse: func(f *ClusterFake) { f.SetAPIGatewayAccessEnabled = false },
+				code:   codes.PermissionDenied, msg: notEnabled,
+			},
+			{
+				name: "egress network", create: dual(gatewayUnspecified), conns: 2,
+				refuse: func(f *ClusterFake) {
+					f.NetworkLookup = egressNetworkLookup
+				},
+				code: codes.InvalidArgument, msg: egressNetwork,
+			},
+			{
+				// The refused update is this cluster's first use of connections,
+				// so the fake must not be left treating it as a dual cluster.
+				name: "legacy cluster stays legacy", create: legacy(connTypePrivate, gatewayUnspecified), conns: 1,
+				refuse: func(f *ClusterFake) { f.NetworkLookup = egressNetworkLookup },
+				code:   codes.InvalidArgument, msg: egressNetwork,
+			},
+		}
+		for _, tc := range refusals {
+			t.Run(tc.name, func(t *testing.T) {
+				f := newFake(org{})
+				op, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{Cluster: tc.create})
+				if err != nil {
+					t.Fatalf("CreateCluster: %v", err)
+				}
+				id := op.GetOperation().GetResourceId()
+				wasDual := f.dualModel[id]
+				tc.refuse(f)
+				_, err = f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+					Cluster: &controlplanev1.ClusterUpdate{
+						Id:               id,
+						ApiGatewayAccess: gatewayPublic,
+						KafkaApi:         &controlplanev1.KafkaAPISpec{Connections: prv},
+						HttpProxy:        &controlplanev1.HTTPProxySpec{Connections: prv},
+						SchemaRegistry:   &controlplanev1.SchemaRegistrySpec{Connections: prv},
+					},
+					UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"api_gateway_access", "kafka_api.connections", "http_proxy.connections", "schema_registry.connections"}},
+				})
+				assertErr(t, err, tc.code, tc.msg)
+				resp, err := f.GetCluster(ctx, &controlplanev1.GetClusterRequest{Id: id})
+				if err != nil {
+					t.Fatalf("GetCluster: %v", err)
+				}
+				if got := len(resp.GetCluster().GetKafkaApi().GetConnections()); got != tc.conns {
+					t.Fatalf("a refused update left %d kafka connections stored, want the original %d", got, tc.conns)
+				}
+				if f.dualModel[id] != wasDual {
+					t.Fatalf("a refused update changed the cluster's dual-listener model to %v", f.dualModel[id])
+				}
+			})
+		}
+	})
+
+	t.Run("update/a network with an egress spec rejects a public gateway", func(t *testing.T) {
+		f := newFake(org{})
+		f.NetworkLookup = egressNetworkLookup
+		op, err := f.CreateCluster(ctx, &controlplanev1.CreateClusterRequest{Cluster: legacy(connTypePrivate, gatewayUnspecified)})
+		if err != nil {
+			t.Fatalf("CreateCluster: %v", err)
+		}
+		id := op.GetOperation().GetResourceId()
+		_, err = f.UpdateCluster(ctx, &controlplanev1.UpdateClusterRequest{
+			Cluster:    &controlplanev1.ClusterUpdate{Id: id, ApiGatewayAccess: gatewayPublic},
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"api_gateway_access"}},
+		})
+		assertErr(t, err, codes.InvalidArgument, egressNetwork)
+		if got := stored(t, f, id); got != gatewayPrivate {
+			t.Fatalf("api_gateway_access = %v, want %v", got, gatewayPrivate)
+		}
+	})
+}
+
 // TestClusterFake_PrivateLinkStatusMirrorsControlPlane pins the read shape of
 // an enabled private-link block: the control plane always attaches a status
 // with an empty connection list until an endpoint connects, on create and on

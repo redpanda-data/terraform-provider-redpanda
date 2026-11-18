@@ -75,9 +75,12 @@ type ClusterFake struct {
 	redpandaManagedAgent map[string]bool
 	managedPhasesSeen    []controlplanev1.Cluster_State
 
-	// NetworkLookup resolves a cluster's network so create can apply the
-	// control plane's cross-resource customer-managed-resources rules; the
-	// mock server wires it to the network fake. Nil skips those rules.
+	// NetworkLookup resolves a cluster's network for the control plane's
+	// cross-resource rules: customer-managed resources on create, and the
+	// egress-spec gateway rule on update, which calls it while holding the
+	// cluster lock, so the network fake must never call back into this one
+	// under its own lock. The mock server wires it to the network fake. Nil
+	// skips those rules.
 	NetworkLookup func(id string) *controlplanev1.Network
 
 	// CreateMutator, when set, is applied to the freshly built cluster just
@@ -97,6 +100,13 @@ type ClusterFake struct {
 	// checkPublicPrivateListenersFeatureFlagInUse. Zero value (flag on)
 	// matches the org the tests model.
 	PublicPrivateListenersDisabled bool
+
+	// SetAPIGatewayAccessEnabled models an org WITH the
+	// enable-set-api-gateway-access feature flag. The flag is off for an org
+	// by default, so the zero value refuses any request that names an
+	// api_gateway_access mode with PermissionDenied, and a test that sets a
+	// mode turns it on.
+	SetAPIGatewayAccessEnabled bool
 }
 
 // NewClusterFake returns an empty fake bound to op.
@@ -211,11 +221,20 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 	if err := f.validateCreateConnections(in); err != nil {
 		return nil, err
 	}
+	// The public API refuses a named mode after its own connections check and
+	// before the control plane validates the rest of the request.
+	if err := f.apiGatewayAccessSettable(in.GetApiGatewayAccess()); err != nil {
+		return nil, err
+	}
 	var nw *controlplanev1.Network
 	if f.NetworkLookup != nil {
 		nw = f.NetworkLookup(in.GetNetworkId())
 	}
 	if err := validateCreateCustomerManagedResources(in, nw); err != nil {
+		return nil, err
+	}
+	gatewayAccess, err := createAPIGatewayAccess(in)
+	if err != nil {
 		return nil, err
 	}
 	id := xidLike(clusterIDBase + f.seq.Add(1))
@@ -237,7 +256,7 @@ func (f *ClusterFake) CreateCluster(_ context.Context, req *controlplanev1.Creat
 		State:                  initialClusterState(in.GetType()),
 		CreatedAt:              now,
 		UpdatedAt:              now,
-		ApiGatewayAccess:       in.GetApiGatewayAccess(),
+		ApiGatewayAccess:       gatewayAccess,
 		CurrentRedpandaVersion: "24.3.1",
 		DesiredRedpandaVersion: "24.3.1",
 		RedpandaNodeCount:      in.GetRedpandaNodeCount(),
@@ -399,10 +418,11 @@ func (f *ClusterFake) GetCluster(_ context.Context, req *controlplanev1.GetClust
 	return &controlplanev1.GetClusterResponse{Cluster: cl}, nil
 }
 
-// UpdateCluster applies req.UpdateMask.Paths against the stored record via
-// proto reflection. Each top-level path emitted by
-// utils.GenerateProtobufDiffAndUpdateMask writes through; unmasked fields
-// keep their prior value. Publishes a completed Operation for AreWeDoneYet.
+// UpdateCluster applies req.UpdateMask.Paths to a copy of the stored record
+// via proto reflection and stores the copy once every check has passed. Each
+// top-level path emitted by utils.GenerateProtobufDiffAndUpdateMask writes
+// through; unmasked fields keep their prior value. Publishes a completed
+// Operation for AreWeDoneYet.
 func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.UpdateClusterRequest) (*controlplanev1.UpdateClusterOperation, error) {
 	upd := req.GetCluster()
 	if upd == nil {
@@ -411,15 +431,29 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	cl, ok := f.clusters[upd.GetId()]
+	stored, ok := f.clusters[upd.GetId()]
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "cluster %q not found", upd.GetId())
 	}
+	// The control plane validates the merged spec and persists nothing from
+	// an update it rejects, so the update is applied to a copy that replaces
+	// the stored record only once every check has passed.
+	cl := proto.CloneOf(stored)
+	wasDual := f.dualModel[upd.GetId()]
+	accepted := false
+	defer func() {
+		if accepted {
+			return
+		}
+		if wasDual {
+			f.dualModel[upd.GetId()] = true
+		} else {
+			delete(f.dualModel, upd.GetId())
+		}
+	}()
 
 	// Mirror cloudv2 validateRPSqlCMRImmutability: reject a changed already-set
-	// rpsql CMR leaf while Redpanda SQL is (or becomes) enabled. Runs before any
-	// mutation so a rejection leaves the stored record untouched, matching the CP
-	// validating the merged spec before persisting.
+	// rpsql CMR leaf while Redpanda SQL is (or becomes) enabled.
 	if err := rpsqlCMRImmutability(cl, upd, req.GetUpdateMask().GetPaths()); err != nil {
 		return nil, err
 	}
@@ -437,6 +471,16 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 	// connections ahead of the legacy listener paths). Services the
 	// connections update owns are skipped below.
 	ownedByConnections, err := f.applyConnectionsUpdate(cl, upd, req.GetUpdateMask().GetPaths())
+	if err != nil {
+		return nil, err
+	}
+	// The public API refuses a named mode after its connections check and
+	// its rpsql required-field check, and before the control plane validates
+	// the gateway against the merged spec.
+	if err := f.apiGatewayAccessSettable(upd.GetApiGatewayAccess()); err != nil {
+		return nil, err
+	}
+	gatewayAccess, err := f.updateAPIGatewayAccess(cl, upd, req.GetUpdateMask().GetPaths())
 	if err != nil {
 		return nil, err
 	}
@@ -575,6 +619,9 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 				rc.AllowedDestinationCidrPorts = normalizeCidrPorts(upd.GetRedpandaConnect().GetAllowedDestinationCidrPorts())
 				cl.SetRedpandaConnect(rc)
 			}
+		case "api_gateway_access":
+			// Stored after the loop from updateAPIGatewayAccess, which does
+			// not copy an unspecified mode over the stored one.
 		case "gcp_enable_global_access_api_gateway":
 			// Write-shape intent maps onto the differently-named read-shape status.
 			cl.SetGcpGlobalAccessApiGatewayEnabled(upd.GetGcpEnableGlobalAccessApiGateway())
@@ -616,12 +663,15 @@ func (f *ClusterFake) UpdateCluster(_ context.Context, req *controlplanev1.Updat
 	// Mirror cloudv2 clearOxlaCMROnDisable (called on the merged spec before
 	// persisting): a disabled cluster cannot retain rpsql CMR fields.
 	clearRpsqlCMROnDisable(cl)
+	cl.ApiGatewayAccess = gatewayAccess
 	projectListenerMTLS(cl)
 	applyCommonTags(cl)
 	if f.UpdateMutator != nil {
 		f.UpdateMutator(cl)
 	}
 	cl.UpdatedAt = timestamppb.Now()
+	f.clusters[upd.GetId()] = cl
+	accepted = true
 
 	return &controlplanev1.UpdateClusterOperation{Operation: completedOp(f.op, upd.GetId())}, nil
 }

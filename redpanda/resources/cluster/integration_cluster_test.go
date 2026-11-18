@@ -831,6 +831,7 @@ func TestIntegration_Cluster_CreateAndRefresh_AWS_Dedicated(t *testing.T) {
 				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("name"), knownvalue.StringExact(name)),
 				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("cloud_provider"), knownvalue.StringExact("aws")),
 				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("connection_type"), knownvalue.StringExact("public")),
+				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("api_gateway_access"), knownvalue.StringExact("NETWORK_ACCESS_MODE_PUBLIC")),
 				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("region"), knownvalue.StringExact("us-east-1")),
 				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("throughput_tier"), knownvalue.StringExact("tier-1-aws-v3-arm")),
 				statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("cluster_type"), knownvalue.StringExact("dedicated")),
@@ -1380,27 +1381,54 @@ func TestIntegration_Cluster_UpdateLeaf_RedpandaNodeCount(t *testing.T) {
 	})
 }
 
-// TestIntegration_Cluster_UpdateLeaf_APIGatewayAccess toggles the api_gateway_access
-// enum from "public" to "private".
+// TestIntegration_Cluster_UpdateLeaf_APIGatewayAccess pins api_gateway_access
+// on a private cluster: a spelling other than the two the control plane
+// reports fails at plan, an omitted value reads back the private default, and
+// the mode switches in place. An organization that is not enabled to set the
+// mode gets the control plane's refusal as a plain create error, and can
+// still create a cluster that leaves the mode out.
 func TestIntegration_Cluster_UpdateLeaf_APIGatewayAccess(t *testing.T) {
-	_, factories := clusterSetup(t)
+	srv, factories := clusterSetup(t)
 
 	const name = "tfrp-mock-cl-b5"
+	cfg := func(extra ...string) string {
+		return awsDedicatedConfigWith(name, "tier-1-aws-v3-arm", "private", "us-east-1", []string{"use1-az1"}, extra...)
+	}
+	notAccepted := regexp.MustCompile(`(?s)Invalid Attribute Value Match.*api_gateway_access.*NETWORK_ACCESS_MODE_PRIVATE`)
 
 	idPreserved := statecheck.CompareValue(compare.ValuesSame())
+
+	create := integration.CreateStep(clusterAddr,
+		cfg(),
+		[]statecheck.StateCheck{
+			statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("api_gateway_access"), knownvalue.StringExact("NETWORK_ACCESS_MODE_PRIVATE")),
+			statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+			idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+		})
+
+	toPublic := integration.UpdateLeafStep(clusterAddr,
+		cfg(`api_gateway_access = "NETWORK_ACCESS_MODE_PUBLIC"`),
+		[]statecheck.StateCheck{
+			statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("api_gateway_access"), knownvalue.StringExact("NETWORK_ACCESS_MODE_PUBLIC")),
+			statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
+			idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
+		})
+	toPublic.PreConfig = func() { srv.Cluster.SetAPIGatewayAccessEnabled = true }
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: factories,
 		Steps: []resource.TestStep{
-			integration.CreateStep(clusterAddr,
-				awsDedicatedConfig(name, `api_gateway_access = "NETWORK_ACCESS_MODE_PUBLIC"`),
-				[]statecheck.StateCheck{
-					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("api_gateway_access"), knownvalue.StringExact("NETWORK_ACCESS_MODE_PUBLIC")),
-					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),
-					idPreserved.AddStateValue(clusterAddr, tfjsonpath.New("id")),
-				}),
+			{Config: cfg(`api_gateway_access = "private"`), ExpectError: notAccepted},
+			{Config: cfg(`api_gateway_access = "PRIVATE"`), ExpectError: notAccepted},
+			{Config: cfg(`api_gateway_access = "NETWORK_ACCESS_MODE_UNSPECIFIED"`), ExpectError: notAccepted},
+			{
+				Config:      cfg(`api_gateway_access = "NETWORK_ACCESS_MODE_PRIVATE"`),
+				ExpectError: regexp.MustCompile(`(?s)failed to create cluster.*Setting API gateway access is not enabled for this\s+organization`),
+			},
+			create,
+			toPublic,
 			integration.UpdateLeafStep(clusterAddr,
-				awsDedicatedConfig(name, `api_gateway_access = "NETWORK_ACCESS_MODE_PRIVATE"`),
+				cfg(`api_gateway_access = "NETWORK_ACCESS_MODE_PRIVATE"`),
 				[]statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("api_gateway_access"), knownvalue.StringExact("NETWORK_ACCESS_MODE_PRIVATE")),
 					statecheck.ExpectKnownValue(clusterAddr, tfjsonpath.New("id"), knownvalue.NotNull()),

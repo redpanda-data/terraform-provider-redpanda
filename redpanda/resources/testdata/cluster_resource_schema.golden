@@ -9,6 +9,8 @@ attributes:
       type: StringAttribute
       optional: true
       computed: true
+      validators:
+        - stringvalidator.oneOfValidator
       plan_modifiers:
         - stringplanmodifier.useStateForUnknownModifier
     - name: aws_private_link

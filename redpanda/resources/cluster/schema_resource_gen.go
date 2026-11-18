@@ -765,10 +765,11 @@ func ResourceClusterSchema(ctx context.Context) schema.Schema {
 			},
 
 			"api_gateway_access": schema.StringAttribute{
-				Description:   "Network access mode for an endpoint.",
+				Description:   "Whether the cluster's API gateway endpoints (Redpanda Console, the Data Plane API) are exposed publicly or privately: `NETWORK_ACCESS_MODE_PUBLIC` or `NETWORK_ACCESS_MODE_PRIVATE`. A cluster created without it gets a private gateway when it has private access and a public one otherwise; removing it from the configuration later leaves the cluster's mode as it is. A private gateway needs a cluster with private access. Redpanda Cloud accepts a value only from organizations enabled to set API gateway access; a public gateway on a cluster with private access, and any later change of the mode, also need the permission to set API gateway access.",
 				Optional:      true,
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Validators:    []validator.String{stringvalidator.OneOf("NETWORK_ACCESS_MODE_PRIVATE", "NETWORK_ACCESS_MODE_PUBLIC")},
 			},
 
 			"aws_private_link": schema.SingleNestedAttribute{

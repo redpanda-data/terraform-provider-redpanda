@@ -37,6 +37,10 @@ allow_deletion:
 api_gateway_access:
   optional: true
   computed: true
+  # cloudv2's proto declares no rule on api_gateway_access, and the mapper
+  # turns any other spelling into UNSPECIFIED, which the control plane reads
+  # as "not set", so the value would be dropped.
+  validator: "OneOf{values: NETWORK_ACCESS_MODE_PRIVATE|NETWORK_ACCESS_MODE_PUBLIC}"
 
 aws_private_link:
   optional: true

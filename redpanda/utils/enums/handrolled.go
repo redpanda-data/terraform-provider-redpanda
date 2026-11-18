@@ -208,12 +208,11 @@ func NetworkAccessModeToString(e controlplanev1.NetworkAccessMode) string {
 	return e.String()
 }
 
-// StringToNetworkAccessMode is the reverse direction.
+// StringToNetworkAccessMode is the reverse direction. It accepts only the
+// form NetworkAccessModeToString writes: any other spelling of a mode would
+// be sent and then read back spelled differently, which fails the apply.
 func StringToNetworkAccessMode(s string) controlplanev1.NetworkAccessMode {
 	if v, ok := controlplanev1.NetworkAccessMode_value[s]; ok {
-		return controlplanev1.NetworkAccessMode(v)
-	}
-	if v, ok := controlplanev1.NetworkAccessMode_value["NETWORK_ACCESS_MODE_"+s]; ok {
 		return controlplanev1.NetworkAccessMode(v)
 	}
 	return controlplanev1.NetworkAccessMode_NETWORK_ACCESS_MODE_UNSPECIFIED

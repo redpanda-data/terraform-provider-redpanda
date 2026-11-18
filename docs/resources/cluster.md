@@ -27,7 +27,7 @@ Enables the provisioning and management of Redpanda clusters on AWS and GCP. A c
 ### Optional
 
 - `allow_deletion` (Boolean) Whether Terraform may destroy this resource. Defaults to false; set to true to enable destruction. After `terraform import`, defaults to false — set to true in your config before running `terraform destroy`.
-- `api_gateway_access` (String) Network access mode for an endpoint.
+- `api_gateway_access` (String) Whether the cluster's API gateway endpoints (Redpanda Console, the Data Plane API) are exposed publicly or privately: `NETWORK_ACCESS_MODE_PUBLIC` or `NETWORK_ACCESS_MODE_PRIVATE`. A cluster created without it gets a private gateway when it has private access and a public one otherwise; removing it from the configuration later leaves the cluster's mode as it is. A private gateway needs a cluster with private access. Redpanda Cloud accepts a value only from organizations enabled to set API gateway access; a public gateway on a cluster with private access, and any later change of the mode, also need the permission to set API gateway access.
 - `aws_private_link` (Attributes) AWS PrivateLink specification. (see [below for nested schema](#nestedatt--aws_private_link))
 - `azure_private_link` (Attributes) Azure Private Link configuration (see [below for nested schema](#nestedatt--azure_private_link))
 - `cloud_storage` (Attributes) Cloud Storage configuration (see [below for nested schema](#nestedatt--cloud_storage))
