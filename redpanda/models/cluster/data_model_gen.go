@@ -52,7 +52,6 @@ type DataModel struct {
 	ReadReplicaClusterIds            types.List     `tfsdk:"read_replica_cluster_ids"`
 	RedpandaConnect                  types.Object   `tfsdk:"redpanda_connect"`
 	RedpandaConsole                  types.Object   `tfsdk:"redpanda_console"`
-	RedpandaVersion                  types.String   `tfsdk:"redpanda_version"`
 	Region                           types.String   `tfsdk:"region"`
 	ResourceGroupID                  types.String   `tfsdk:"resource_group_id"`
 	Rpsql                            types.Object   `tfsdk:"rpsql"`
