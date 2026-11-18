@@ -17,6 +17,7 @@ package enums_test
 import (
 	"testing"
 
+	controlplanev1 "buf.build/gen/go/redpandadata/cloud/protocolbuffers/go/redpanda/api/controlplane/v1"
 	corev2 "buf.build/gen/go/redpandadata/core/protocolbuffers/go/redpanda/core/admin/v2"
 	"github.com/redpanda-data/terraform-provider-redpanda/redpanda/utils/enums"
 	"github.com/stretchr/testify/assert"
@@ -54,4 +55,19 @@ func TestShadowLinkFilterEnumSpellings(t *testing.T) {
 		assert.Equal(t, corev2.FilterType_FILTER_TYPE_UNSPECIFIED, enums.StringToFilterType("FILTER_TYPE_INCLUDE"))
 		assert.Equal(t, corev2.PatternType_PATTERN_TYPE_UNSPECIFIED, enums.StringToPatternType("PATTERN_TYPE_LITERAL"))
 	})
+}
+
+// TestAPIGatewayAccessSpellings pins the contract between the OneOf validator
+// on redpanda_cluster.api_gateway_access and the mapper: each accepted
+// spelling round-trips unchanged, and every other spelling is "not set", so
+// the validator is the only thing standing between it and a dropped value.
+func TestAPIGatewayAccessSpellings(t *testing.T) {
+	for _, s := range []string{"NETWORK_ACCESS_MODE_PRIVATE", "NETWORK_ACCESS_MODE_PUBLIC"} {
+		e := enums.StringToNetworkAccessMode(s)
+		assert.NotEqual(t, controlplanev1.NetworkAccessMode_NETWORK_ACCESS_MODE_UNSPECIFIED, e, "spelling %q maps to UNSPECIFIED", s)
+		assert.Equal(t, s, enums.NetworkAccessModeToString(e), "spelling %q does not round-trip", s)
+	}
+	for _, s := range []string{"private", "PRIVATE", "Public", "network_access_mode_private", ""} {
+		assert.Equal(t, controlplanev1.NetworkAccessMode_NETWORK_ACCESS_MODE_UNSPECIFIED, enums.StringToNetworkAccessMode(s), "spelling %q", s)
+	}
 }
