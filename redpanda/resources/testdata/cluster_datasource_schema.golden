@@ -851,9 +851,6 @@ attributes:
         - name: url
           type: StringAttribute
           computed: true
-    - name: redpanda_version
-      type: StringAttribute
-      computed: true
     - name: region
       type: StringAttribute
       computed: true

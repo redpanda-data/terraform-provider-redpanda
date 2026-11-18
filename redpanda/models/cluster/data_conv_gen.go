@@ -139,11 +139,6 @@ func FlattenData(ctx context.Context, proto DataClusterResponse, prev *DataModel
 	} else {
 		m.AllowDeletion = types.BoolNull()
 	}
-	if prev != nil && !prev.RedpandaVersion.IsUnknown() {
-		m.RedpandaVersion = prev.RedpandaVersion
-	} else {
-		m.RedpandaVersion = types.StringNull()
-	}
 	if prev != nil {
 		m.Timeouts = prev.Timeouts
 	}
