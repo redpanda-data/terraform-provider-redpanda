@@ -179,11 +179,21 @@ func (c *Cluster) Create(ctx context.Context, req resource.CreateRequest, resp *
 		// CreateCluster succeeded, so the ID stays in state: a NotFound from
 		// a stale read must not lose a live cluster, nor the agent
 		// infrastructure a byoc apply provisioned for it.
-		resp.Diagnostics.Append(resp.State.Set(ctx, clustermodel.GenerateMinimalResourceModel(types.StringValue(clusterID), plan.Timeouts))...)
+		// The minimal model allows deletion, and Delete goes by state, so
+		// without the planned value the replace of this tainted cluster
+		// would delete one configured with allow_deletion = false.
+		notFound := clustermodel.GenerateMinimalResourceModel(types.StringValue(clusterID), plan.Timeouts)
+		notFound.AllowDeletion = plan.AllowDeletion
+		resp.Diagnostics.Append(resp.State.Set(ctx, notFound)...)
 		resp.Diagnostics.AddError(
 			fmt.Sprintf("cluster %s was not found while waiting for it to be created", clusterID),
 			fmt.Sprintf("Redpanda Cloud reported cluster %s as not found while the provider was waiting for it to be created. "+
-				"The cluster is kept in Terraform state and marked tainted: the next apply drops it from state if it is still not found, and replaces it otherwise.", clusterID),
+				"The create request had succeeded, so the cluster is kept in Terraform state, marked tainted.\n\n"+
+				"The next plan reads the cluster again. If it exists, the plan replaces it, which deletes it first. "+
+				"Where allow_deletion is false that delete is refused, and changing allow_deletion has no effect while the cluster is tainted. "+
+				"To keep the cluster, run `terraform untaint <resource address>`; `terraform state list` shows the address.\n\n"+
+				"If the cluster is gone, the plan either drops it from state and creates it again, or fails with a PermissionDenied error that says how to remove it from state, "+
+				"depending on how Redpanda Cloud answers for a missing cluster.", clusterID),
 		)
 		return
 	}

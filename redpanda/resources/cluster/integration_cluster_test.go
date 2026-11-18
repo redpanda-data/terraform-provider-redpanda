@@ -5432,69 +5432,113 @@ func TestIntegration_Cluster_DestroyWhereMissingIsDenied(t *testing.T) {
 
 // TestIntegration_Cluster_ErrorPath_GoneDuringCreate: a NotFound while Create
 // waits for the cluster it just created must fail the create and leave the
-// cluster in state, tainted. The second apply then replaces a cluster the
-// server still has, as after a stale read, and creates afresh when the
-// cluster is really gone.
+// cluster in state, tainted, with the configured allow_deletion. Each case is
+// what the next apply does with that state.
 func TestIntegration_Cluster_ErrorPath_GoneDuringCreate(t *testing.T) {
+	const name = "tfrp-mock-cl-gone-in-create"
+	deletable := awsDedicatedConfig(name)
+	protected := strings.Replace(deletable, "allow_deletion    = true", "allow_deletion    = false", 1)
+	if protected == deletable {
+		t.Fatal("awsDedicatedConfig no longer sets allow_deletion = true")
+	}
+
+	type env struct {
+		srv     *mock.Server
+		firstID *string
+	}
+	deleteOutOfBand := func(t *testing.T, e env) {
+		t.Helper()
+		if _, err := e.srv.Cluster.DeleteCluster(context.Background(), &controlplanev1.DeleteClusterRequest{Id: *e.firstID}); err != nil {
+			t.Fatalf("delete cluster out of band: %v", err)
+		}
+	}
+	firstClusterCode := func(e env) codes.Code {
+		_, err := e.srv.Cluster.GetCluster(context.Background(), &controlplanev1.GetClusterRequest{Id: *e.firstID})
+		return status.Code(err)
+	}
+	// recreated is the apply that ends every case: a fresh cluster in state
+	// and the first one gone from the server.
+	recreated := func(e env, action plancheck.ResourceActionType, preConfig func()) resource.TestStep {
+		return resource.TestStep{
+			PreConfig: preConfig,
+			Config:    deletable,
+			ConfigPlanChecks: resource.ConfigPlanChecks{
+				PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction(clusterAddr, action)},
+			},
+			Check: func(st *terraform.State) error {
+				if id := st.RootModule().Resources[clusterAddr].Primary.ID; id == *e.firstID {
+					return fmt.Errorf("cluster %s was not replaced", id)
+				}
+				if code := firstClusterCode(e); code != codes.NotFound {
+					return fmt.Errorf("cluster %s from the failed create is still on the server: %v", *e.firstID, code)
+				}
+				return nil
+			},
+		}
+	}
+
 	for _, tc := range []struct {
-		name       string
-		reallyGone bool
-		wantAction plancheck.ResourceActionType
+		name   string
+		config string
+		next   func(t *testing.T, e env) []resource.TestStep
 	}{
-		{"stale read", false, plancheck.ResourceActionDestroyBeforeCreate},
-		{"really gone", true, plancheck.ResourceActionCreate},
+		{"stale read replaces the cluster", deletable, func(_ *testing.T, e env) []resource.TestStep {
+			return []resource.TestStep{recreated(e, plancheck.ResourceActionDestroyBeforeCreate, nil)}
+		}},
+		{"stale read keeps a cluster that must not be deleted", protected, func(t *testing.T, e env) []resource.TestStep {
+			return []resource.TestStep{
+				{
+					Config:      protected,
+					ExpectError: regexp.MustCompile(`cluster deletion not allowed`),
+				},
+				recreated(e, plancheck.ResourceActionCreate, func() {
+					if code := firstClusterCode(e); code != codes.OK {
+						t.Fatalf("cluster %s with allow_deletion = false did not survive the refused replace: %v", *e.firstID, code)
+					}
+					deleteOutOfBand(t, e)
+				}),
+			}
+		}},
+		{"really gone, answered NotFound, is created again", deletable, func(t *testing.T, e env) []resource.TestStep {
+			return []resource.TestStep{recreated(e, plancheck.ResourceActionCreate, func() { deleteOutOfBand(t, e) })}
+		}},
+		{"really gone, answered PermissionDenied, fails the plan", deletable, func(t *testing.T, e env) []resource.TestStep {
+			return []resource.TestStep{
+				{
+					PreConfig: func() {
+						e.srv.SetDenyMissing(true)
+						deleteOutOfBand(t, e)
+					},
+					Config:      deletable,
+					ExpectError: stateRmAdvice,
+				},
+				recreated(e, plancheck.ResourceActionCreate, func() { e.srv.SetDenyMissing(false) }),
+			}
+		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			srv, factories := clusterSetup(t)
-
-			cfg := awsDedicatedConfig("tfrp-mock-cl-gone-in-create")
 			var firstID string
+			e := env{srv: srv, firstID: &firstID}
 
+			steps := []resource.TestStep{{
+				PreConfig: func() {
+					srv.Cluster.CreateMutator = func(cl *controlplanev1.Cluster) {
+						if firstID == "" {
+							firstID = cl.GetId()
+						}
+					}
+					srv.OverrideOnce(
+						controlplanev1grpc.ClusterService_GetCluster_FullMethodName,
+						status.Error(codes.NotFound, "cluster not found"),
+					)
+				},
+				Config:      tc.config,
+				ExpectError: regexp.MustCompile(`reported\s+cluster\s+\S+\s+as\s+not\s+found[\s\S]*terraform\s+untaint`),
+			}}
 			resource.UnitTest(t, resource.TestCase{
 				ProtoV6ProviderFactories: factories,
-				Steps: []resource.TestStep{
-					{
-						PreConfig: func() {
-							srv.Cluster.CreateMutator = func(cl *controlplanev1.Cluster) {
-								if firstID == "" {
-									firstID = cl.GetId()
-								}
-							}
-							srv.OverrideOnce(
-								controlplanev1grpc.ClusterService_GetCluster_FullMethodName,
-								status.Error(codes.NotFound, "cluster not found"),
-							)
-						},
-						Config:      cfg,
-						ExpectError: regexp.MustCompile(`reported\s+cluster\s+\S+\s+as\s+not\s+found`),
-					},
-					{
-						PreConfig: func() {
-							if !tc.reallyGone {
-								return
-							}
-							if _, err := srv.Cluster.DeleteCluster(context.Background(), &controlplanev1.DeleteClusterRequest{Id: firstID}); err != nil {
-								t.Fatalf("PreConfig: delete cluster out of band: %v", err)
-							}
-						},
-						Config: cfg,
-						ConfigPlanChecks: resource.ConfigPlanChecks{
-							PreApply: []plancheck.PlanCheck{
-								plancheck.ExpectResourceAction(clusterAddr, tc.wantAction),
-							},
-						},
-						Check: func(st *terraform.State) error {
-							if id := st.RootModule().Resources[clusterAddr].Primary.ID; id == firstID {
-								return fmt.Errorf("cluster %s was not replaced", id)
-							}
-							_, err := srv.Cluster.GetCluster(context.Background(), &controlplanev1.GetClusterRequest{Id: firstID})
-							if status.Code(err) != codes.NotFound {
-								return fmt.Errorf("cluster %s from the failed create is still on the server: err=%v", firstID, err)
-							}
-							return nil
-						},
-					},
-				},
+				Steps:                    append(steps, tc.next(t, e)...),
 			})
 		})
 	}
