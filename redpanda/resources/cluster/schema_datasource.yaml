@@ -183,11 +183,6 @@ allow_deletion:
   type: bool
   computed_only: true
 
-redpanda_version:
-  extra: true
-  type: string
-  computed_only: true
-
 dataplane_api: {}
 
 cluster_api_url:
