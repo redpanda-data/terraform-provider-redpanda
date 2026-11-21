@@ -778,7 +778,7 @@ func TestForwardLogs(t *testing.T) {
 	var sunk []string
 	var logs bytes.Buffer
 	kept := &lastLogs{}
-	forwardLogs(tflogtest.RootLogger(context.Background(), &logs), strings.NewReader(input), kept, func(line string) { sunk = append(sunk, line) })
+	forwardLogs(tflogtest.RootLogger(context.Background(), &logs), strings.NewReader(input), func(l string) string { return l }, kept, func(line string) { sunk = append(sunk, line) })
 
 	if got := logLevels(t, &logs, "azure Authentication:"); !slices.Equal(got, []string{"debug", "debug"}) {
 		t.Errorf("Authentication events logged at %q, want both at debug", got)
@@ -953,7 +953,7 @@ func TestByocClient_AzureRelativeTokenPathReachesTheSubprocess(t *testing.T) {
 	// its azurerm do: by the path they hold, from its own working directory.
 	script := fmt.Sprintf(`cat "$ARM_OIDC_TOKEN_FILE_PATH" > %q && cat "$AZURE_FEDERATED_TOKEN_FILE" > %q`,
 		filepath.Join(out, "arm"), filepath.Join(out, "azure"))
-	if err := runSubprocess(ctx, env, nil, "/bin/sh", "-c", script); err != nil {
+	if err := runSubprocess(ctx, env, nil, nil, "/bin/sh", "-c", script); err != nil {
 		t.Fatalf("the plugin could not read the token file: %v", err)
 	}
 	for _, name := range []string{"arm", "azure"} {
@@ -1247,3 +1247,21 @@ func TestFetchAzureOIDCRequestToken_RedactsTheErrorExcerpt(t *testing.T) {
 	}
 }
 
+// TestRunSubprocess_RetryableAfterARedactedLine pins that a plugin failure
+// asking for a retry stays retryable whatever redaction does to the lines
+// before it.
+func TestRunSubprocess_RetryableAfterARedactedLine(t *testing.T) {
+	script := `echo 'could not parse key, expected -----BEGIN PRIVATE KEY-----' >&2
+echo 'Error: failed_precondition: agent token is not yet provisioned; please retry later' >&2
+exit 1`
+	err := runSubprocess(context.Background(), nil, nil, nil, "/bin/sh", "-c", script)
+	if err == nil {
+		t.Fatal("runSubprocess succeeded; the script exits 1")
+	}
+	if !strings.Contains(err.Error(), "please retry later") {
+		t.Errorf("err = %v, want the failure line", err)
+	}
+	if !IsRetryableByocError(err) {
+		t.Errorf("IsRetryableByocError(%v) = false, want true", err)
+	}
+}
