@@ -184,7 +184,17 @@ func (cl *ByocClient) RunByoc(ctx context.Context, clusterID, verb string, sink 
 	}
 	defer execCleanup()
 
-	return runSubprocess(ctx, byocEnv, sink, byocPath, byocArgs...)
+	return runSubprocess(ctx, byocEnv, sink, cl.heldCredentials(), byocPath, byocArgs...)
+}
+
+// heldCredentials returns the credentials the provider configures for the
+// plugin. The Google key always reaches the plugin as a file; the rest also
+// travel in args or env and are listed so that a renamed flag or variable
+// cannot drop them from redaction. A federated token the provider fetches is
+// not listed: it is refreshed during the run, so only the JWT pattern covers
+// it.
+func (cl *ByocClient) heldCredentials() []string {
+	return []string{cl.googleCredentials, cl.azureClientSecret, cl.awsSecretAccessKey, cl.awsSessionToken}
 }
 
 func (cl *ByocClient) generateAwsArgsAndEnv() (args, env []string, err error) {
@@ -493,9 +503,9 @@ func fetchAzureOIDCRequestToken(ctx context.Context, endpoint, requestToken stri
 		return "", err
 	}
 	if resp.StatusCode != http.StatusOK {
-		excerpt := strings.TrimSpace(string(body))
-		if len(excerpt) > 200 {
-			excerpt = excerpt[:200] + "..."
+		excerpt := newRedactor(requestToken).String(strings.TrimSpace(string(body)))
+		if r := []rune(excerpt); len(r) > 200 {
+			excerpt = string(r[:200]) + "..."
 		}
 		return "", fmt.Errorf("token request endpoint returned %d: %s", resp.StatusCode, excerpt)
 	}
@@ -941,7 +951,12 @@ func localByocPlugin(ctx context.Context, path string) (byocPath string, cleanup
 	return path, func() {}, nil
 }
 
-func runSubprocess(ctx context.Context, env []string, sink func(string), executable string, args ...string) error {
+// runSubprocess runs executable and forwards its output to tflog, to sink,
+// and to the error it returns on failure, redacted first: see
+// newSubprocessRedactor for the values it replaces exactly and redactor for
+// the patterns.
+func runSubprocess(ctx context.Context, env []string, sink func(string), held []string, executable string, args ...string) error {
+	scrub := newSubprocessRedactor(args, env, held...)
 	tempDir, err := os.MkdirTemp("", "terraform-provider-redpanda-byoc")
 	if err != nil {
 		return err
@@ -981,8 +996,8 @@ func runSubprocess(ctx context.Context, env []string, sink func(string), executa
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go func() { defer wg.Done(); forwardLogs(ctx, stdout, lastLogs, sink) }()
-	go func() { defer wg.Done(); forwardLogs(ctx, stderr, lastLogs, sink) }()
+	go func() { defer wg.Done(); forwardLogs(ctx, stdout, scrub.Lines(), lastLogs, sink) }()
+	go func() { defer wg.Done(); forwardLogs(ctx, stderr, scrub.Lines(), lastLogs, sink) }()
 
 	// Per exec.Cmd.StdoutPipe's contract, all reads from the pipes must
 	// complete before Wait because Wait closes them on process exit.
@@ -992,7 +1007,7 @@ func runSubprocess(ctx context.Context, env []string, sink func(string), executa
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		return fmt.Errorf("%w:\n%v", err, strings.Join(lastLogs.GetLines(), "\n"))
+		return &pluginError{err: err, msg: fmt.Sprintf("%v:\n%v", err, strings.Join(lastLogs.GetLines(), "\n")), retry: lastLogs.retryable()}
 	}
 
 	return nil
@@ -1027,12 +1042,15 @@ func parseZapLog(line string) *zapLine {
 	}
 }
 
+// lastLogs keeps the plugin's last lines, redacted for the error, and as
+// printed, only to decide whether the failure asks for a retry.
 type lastLogs struct {
 	Lines []string
+	raw   []string
 	mutex sync.Mutex
 }
 
-func (l *lastLogs) Append(line string) {
+func (l *lastLogs) Append(line, raw string) {
 	// 30 lines is enough to get any error that happens before rpk decides
 	// to print the usage help
 	// TODO: capture stderr lines like "Error: " or "failed " and then surface them when
@@ -1041,11 +1059,29 @@ func (l *lastLogs) Append(line string) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 	if len(l.Lines) == maxLines {
-		l.Lines = append(l.Lines[1:maxLines], line)
-	} else {
-		l.Lines = append(l.Lines, line)
+		l.Lines, l.raw = l.Lines[1:], l.raw[1:]
 	}
+	l.Lines, l.raw = append(l.Lines, line), append(l.raw, raw)
 }
+
+func (l *lastLogs) retryable() bool {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	return IsRetryableByocError(errors.New(strings.Join(l.raw, "\n")))
+}
+
+// pluginError is a failed plugin run. Its text is the redacted output; the
+// retry decision is taken from the output as printed, so redaction cannot
+// turn a failure that asks for a retry into a final one.
+type pluginError struct {
+	err   error
+	msg   string
+	retry bool
+}
+
+func (e *pluginError) Error() string { return e.msg }
+
+func (e *pluginError) Unwrap() error { return e.err }
 
 func (l *lastLogs) GetLines() []string {
 	l.mutex.Lock()
@@ -1055,18 +1091,52 @@ func (l *lastLogs) GetLines() []string {
 	return lines
 }
 
-func forwardLogs(ctx context.Context, reader io.Reader, lastLogs *lastLogs, sink func(string)) {
-	r := bufio.NewScanner(reader)
+// maxPluginLine bounds a plugin output line kept in memory and redacted. A
+// longer line, such as a whole plan in one log entry, is read to its end and
+// replaced by a marker, so the plugin never blocks writing to a pipe no one
+// reads and the lines after it still reach the error.
+const maxPluginLine = 64 << 10
+
+// readLine returns the next line from r without its line ending.
+func readLine(r *bufio.Reader) (string, error) {
+	var buf []byte
+	dropped := 0
+	for {
+		frag, more, err := r.ReadLine()
+		if err != nil {
+			if len(buf) == 0 && dropped == 0 {
+				return "", err
+			}
+			break
+		}
+		if dropped == 0 && len(buf)+len(frag) <= maxPluginLine {
+			buf = append(buf, frag...)
+		} else {
+			dropped += len(frag)
+		}
+		if !more {
+			break
+		}
+	}
+	if dropped > 0 {
+		return fmt.Sprintf("[plugin output line of %d bytes omitted]", len(buf)+dropped), nil
+	}
+	return string(buf), nil
+}
+
+func forwardLogs(ctx context.Context, reader io.Reader, redact func(string) string, lastLogs *lastLogs, sink func(string)) {
+	r := bufio.NewReader(reader)
 	// With AZURE_SDK_GO_LOGGING set, the Azure SDK writes one event as a
 	// prefixed line followed by indented detail lines and ends it with an
 	// empty line; sdkEvent carries the event across the detail lines.
 	sdkEvent := ""
 	for {
-		if !r.Scan() {
+		raw, err := readLine(r)
+		if err != nil {
 			return
 		}
-		line := r.Text()
-		line = removeColor(line)
+		raw = removeColor(raw)
+		line := redact(raw)
 		event, msg, ok := parseAzureSDKLog(line)
 		switch {
 		case line == "":
@@ -1081,14 +1151,14 @@ func forwardLogs(ctx context.Context, reader io.Reader, lastLogs *lastLogs, sink
 		}
 		if sdkEvent != "" {
 			if event == "Authentication" {
-				lastLogs.Append(line)
+				lastLogs.Append(line, raw)
 				tflog.Debug(ctx, fmt.Sprintf("rpk: azure %s: %s", event, msg))
 			} else {
 				tflog.Trace(ctx, fmt.Sprintf("rpk: azure %s: %s", event, msg))
 			}
 			continue
 		}
-		lastLogs.Append(line)
+		lastLogs.Append(line, raw)
 		if sink != nil {
 			if msg, ok := progressLine(line); ok {
 				sink(msg)

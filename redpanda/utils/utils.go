@@ -203,6 +203,11 @@ func IsRetryableByocError(err error) bool {
 		return false
 	}
 
+	var pe *pluginError
+	if errors.As(err, &pe) {
+		return pe.retry
+	}
+
 	errStr := strings.ToLower(err.Error())
 
 	// Check for explicit retry instructions
