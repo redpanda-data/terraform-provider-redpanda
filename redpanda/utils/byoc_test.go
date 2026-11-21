@@ -1234,6 +1234,26 @@ func TestByocClient_RunByocRedactsPluginOutput(t *testing.T) {
 	}
 }
 
+// TestRunSubprocess_KeepsReadingPastAnOversizedLine pins that a plugin line
+// longer than the line buffer neither stalls the plugin on a full pipe nor
+// drops the lines after it from the returned error.
+func TestRunSubprocess_KeepsReadingPastAnOversizedLine(t *testing.T) {
+	for _, n := range []int{70 << 10, 2 << 20} {
+		t.Run(fmt.Sprintf("%d bytes", n), func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			script := fmt.Sprintf(`a=$(printf %%0%dd 0); echo "$a"; echo "Error: final plugin line"; exit 1`, n)
+			err := runSubprocess(ctx, nil, nil, nil, "/bin/sh", "-c", script)
+			if err == nil || !strings.Contains(err.Error(), "Error: final plugin line") {
+				t.Fatalf("err = %.200v, want the plugin's failure line", err)
+			}
+			if !strings.Contains(err.Error(), "bytes omitted]") || len(err.Error()) > 64<<10 {
+				t.Errorf("err is %d bytes, want the oversized line replaced by its marker", len(err.Error()))
+			}
+		})
+	}
+}
+
 func TestFetchAzureOIDCRequestToken_RedactsTheErrorExcerpt(t *testing.T) {
 	const requestToken = "request-token-value-0123456789"
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
