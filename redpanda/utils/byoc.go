@@ -1091,17 +1091,51 @@ func (l *lastLogs) GetLines() []string {
 	return lines
 }
 
+// maxPluginLine bounds a plugin output line kept in memory and redacted. A
+// longer line, such as a whole plan in one log entry, is read to its end and
+// replaced by a marker, so the plugin never blocks writing to a pipe no one
+// reads and the lines after it still reach the error.
+const maxPluginLine = 64 << 10
+
+// readLine returns the next line from r without its line ending.
+func readLine(r *bufio.Reader) (string, error) {
+	var buf []byte
+	dropped := 0
+	for {
+		frag, more, err := r.ReadLine()
+		if err != nil {
+			if len(buf) == 0 && dropped == 0 {
+				return "", err
+			}
+			break
+		}
+		if dropped == 0 && len(buf)+len(frag) <= maxPluginLine {
+			buf = append(buf, frag...)
+		} else {
+			dropped += len(frag)
+		}
+		if !more {
+			break
+		}
+	}
+	if dropped > 0 {
+		return fmt.Sprintf("[plugin output line of %d bytes omitted]", len(buf)+dropped), nil
+	}
+	return string(buf), nil
+}
+
 func forwardLogs(ctx context.Context, reader io.Reader, redact func(string) string, lastLogs *lastLogs, sink func(string)) {
-	r := bufio.NewScanner(reader)
+	r := bufio.NewReader(reader)
 	// With AZURE_SDK_GO_LOGGING set, the Azure SDK writes one event as a
 	// prefixed line followed by indented detail lines and ends it with an
 	// empty line; sdkEvent carries the event across the detail lines.
 	sdkEvent := ""
 	for {
-		if !r.Scan() {
+		raw, err := readLine(r)
+		if err != nil {
 			return
 		}
-		raw := removeColor(r.Text())
+		raw = removeColor(raw)
 		line := redact(raw)
 		event, msg, ok := parseAzureSDKLog(line)
 		switch {
