@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -1070,3 +1071,179 @@ func envOrUnset(env []string, key string) string {
 	}
 	return "<unset>"
 }
+
+// standInPluginEnv makes the test binary act as the byoc plugin; RunByoc
+// passes the test's environment to the plugin it runs.
+const standInPluginEnv = "REDPANDA_TEST_BYOC_STAND_IN_PLUGIN"
+
+// pluginSecretsFixture is what a failing plugin run can print: the bearer
+// token the provider passed it, the service-account key the provider wrote
+// for it, an opaque agent token inside Terraform plan output, a federated
+// assertion, and a PEM key the provider never held.
+type pluginSecretsFixture struct {
+	bearer, agentToken, agentJWT, saKeyMaterial, saKeyID, pemKeyMaterial, saJSON string
+	ordinary                                                                     []string
+}
+
+func newPluginSecretsFixture() pluginSecretsFixture {
+	f := pluginSecretsFixture{
+		bearer:         "cloud-api-token-7c1d0f2a9b8e",
+		agentToken:     "c3ludGhldGljLWFnZW50LXRva2VuLWJ5dGVzLTAwMDE=",
+		agentJWT:       testJWTClaims(map[string]any{"sub": "agent-0001", "exp": 4102444800}),
+		saKeyMaterial:  "MIIBVQIBADANBgkqhkiG9w0BAQEFAASCAT8wggE7AgEAAkEAsakeymaterial",
+		saKeyID:        "0123456789abcdef0123456789abcdef01234567",
+		pemKeyMaterial: "MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQpemkeymaterial",
+		ordinary: []string{
+			"azurerm_storage_blob.agent: Creation complete after 2s [id=https://rpagent0001.blob.core.windows.net/agent/redpanda-agent.toml]",
+			"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-tfrp/providers/Microsoft.Storage/storageAccounts/rpagent0001",
+			"image digest sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+			"manifest eyJraW5kIjoibm90LWEtand0In0= checksum dGhpcyBpcyBub3QgYSB0b2tlbg==",
+			`token_lifetime = "3600seconds"`,
+			"failed to parse -----BEGIN PRIVATE KEY----- header",
+			"Terminating",
+		},
+	}
+	// Indented, as a key file downloaded from Google Cloud is.
+	sa, _ := json.MarshalIndent(map[string]string{
+		"type":           "service_account",
+		"project_id":     "tfrp-test",
+		"private_key_id": f.saKeyID,
+		"private_key":    "-----BEGIN PRIVATE KEY-----\n" + f.saKeyMaterial + "\n-----END PRIVATE KEY-----\n",
+		"client_email":   "tfrp@tfrp-test.iam.gserviceaccount.com",
+	}, "", "  ")
+	f.saJSON = string(sa)
+	return f
+}
+
+// runStandInPlugin is the plugin the test binary becomes: it reads the bearer
+// token from its arguments and the key from the file the provider names,
+// prints them among ordinary output, and fails so the provider builds an
+// error from what it printed.
+func runStandInPlugin(args []string) int {
+	f := newPluginSecretsFixture()
+	tok, _ := flagValue(args, "--cloud-api-token")
+	key, err := os.ReadFile(filepath.Clean(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	fmt.Printf("2026-11-20T10:00:00.000Z\tINFO\tbyoc\tapply.go:1\tcalling the control plane with Authorization: Bearer %s\n", tok)
+	fmt.Printf("2026-11-20T10:00:00.000Z\tDEBUG\tbyoc\tapply.go:2\tcloud api token %s\n", tok)
+	fmt.Printf("2026-11-20T10:00:00.000Z\tDEBUG\tbyoc\tazure.go:3\tfederated assertion %s\n", f.agentJWT)
+	// The plugin logs every line Terraform prints through zap on stderr.
+	for _, l := range []string{
+		`  + resource "azurerm_storage_blob" "redpanda_agent" {`,
+		`      + source_content = <<-EOT`,
+		`            token = "` + f.agentToken + `"`,
+		`        EOT`,
+		"-----BEGIN RSA PRIVATE KEY-----",
+		f.pemKeyMaterial,
+		"-----END RSA PRIVATE KEY-----",
+	} {
+		fmt.Fprintf(os.Stderr, "2026-11-20T10:00:01.000Z\tDEBUG\tbyoc\ttfexec/terraform.go:201\t%s\n", l)
+	}
+	fmt.Println(string(key))
+	for _, l := range f.ordinary {
+		fmt.Println(l)
+	}
+	fmt.Fprintln(os.Stderr, "Error: apply failed")
+	return 1
+}
+
+func (f pluginSecretsFixture) secrets() map[string]string {
+	return map[string]string{
+		"bearer token":            f.bearer,
+		"agent token":             f.agentToken,
+		"federated assertion":     f.agentJWT,
+		"service-account key":     f.saKeyMaterial,
+		"service-account JSON":    f.saJSON,
+		"service-account key ID":  f.saKeyID,
+		"PEM key the plugin held": f.pemKeyMaterial,
+	}
+}
+
+// TestByocClient_RunByocRedactsPluginOutput drives RunByoc against a stand-in
+// plugin and pins that no credential the plugin prints reaches the returned
+// error, the progress sink, or tflog at any level, while ordinary output does.
+func TestByocClient_RunByocRedactsPluginOutput(t *testing.T) {
+	f := newPluginSecretsFixture()
+	self, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("REDPANDA_BYOC_PLUGIN_PATH", self)
+	t.Setenv(standInPluginEnv, "1")
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/clusters/cluster-id" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"id": "cluster-id", "spec": map[string]string{"provider": "GCP", "installPackVersion": "v0"}})
+	}))
+	t.Cleanup(api.Close)
+
+	cl := NewByocClient(ByocClientConfig{
+		TokenSource:       oauth2.StaticTokenSource(&oauth2.Token{AccessToken: f.bearer}),
+		InternalAPIURL:    api.URL,
+		GcpProject:        "tfrp-test",
+		GoogleCredentials: f.saJSON,
+	})
+	var logs bytes.Buffer
+	var sunkMu sync.Mutex
+	var sunk []string
+	// The plugin's stdout and stderr are forwarded concurrently.
+	err = cl.RunByoc(tflogtest.RootLogger(context.Background(), &logs), "cluster-id", "apply", func(l string) {
+		sunkMu.Lock()
+		defer sunkMu.Unlock()
+		sunk = append(sunk, l)
+	})
+	if err == nil {
+		t.Fatal("RunByoc succeeded; the stand-in plugin exits 1")
+	}
+	exits := map[string]string{
+		"returned error": err.Error(),
+		"progress sink":  strings.Join(sunk, "\n"),
+		"tflog":          logs.String(),
+	}
+	for exit, text := range exits {
+		for name, secret := range f.secrets() {
+			// tflog writes JSON, so a secret with quotes or newlines appears
+			// escaped there.
+			escaped := strings.NewReplacer(`"`, `\"`, "\n", `\n`).Replace(secret)
+			if strings.Contains(text, secret) || strings.Contains(text, escaped) {
+				t.Errorf("%s carries the %s", exit, name)
+			}
+		}
+	}
+	for _, exit := range []string{"returned error", "tflog"} {
+		for _, l := range f.ordinary {
+			want := l
+			if exit == "tflog" {
+				want = strings.ReplaceAll(l, `"`, `\"`)
+			}
+			if strings.Contains(l, "BEGIN PRIVATE KEY") {
+				want = "failed to parse [REDACTED] header"
+			}
+			if !strings.Contains(exits[exit], want) {
+				t.Errorf("%s lost ordinary output %q", exit, l)
+			}
+		}
+	}
+	if !strings.Contains(err.Error(), "Error: apply failed") {
+		t.Errorf("returned error lost the plugin's failure line: %v", err)
+	}
+}
+
+func TestFetchAzureOIDCRequestToken_RedactsTheErrorExcerpt(t *testing.T) {
+	const requestToken = "request-token-value-0123456789"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token := strings.TrimPrefix(r.Header.Get("Authorization"), "bearer ")
+		http.Error(w, `{"message":"rejected request token `+token+`"}`, http.StatusUnauthorized)
+	}))
+	t.Cleanup(srv.Close)
+	_, err := fetchAzureOIDCRequestToken(context.Background(), srv.URL, requestToken)
+	if err == nil || strings.Contains(err.Error(), requestToken) {
+		t.Fatalf("err = %v, want an error without the request token", err)
+	}
+}
+

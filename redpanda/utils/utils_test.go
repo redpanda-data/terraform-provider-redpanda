@@ -48,6 +48,10 @@ import (
 // the production timing (1s floor, 60s ceiling) that would push them past
 // any reasonable unit-test budget.
 func TestMain(m *testing.M) {
+	// RunByoc tests run this binary as their stand-in plugin.
+	if os.Getenv(standInPluginEnv) != "" {
+		os.Exit(runStandInPlugin(os.Args[1:]))
+	}
 	retryInitialWait.Store(int64(time.Microsecond))
 	retryMaxWait.Store(int64(10 * time.Microsecond))
 	m.Run()
